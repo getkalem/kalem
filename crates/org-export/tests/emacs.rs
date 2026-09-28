@@ -40,6 +40,13 @@ fn normalize(s: &str) -> String {
     out
 }
 
+/// The subtree a case exports: the headline with a `KALEM_TEST_SUBTREE`
+/// property, as `tests/emacs/export.el` finds it.
+fn subtree_of(text: &str) -> Option<usize> {
+    let i = text.find(":KALEM_TEST_SUBTREE:")?;
+    text[..i].rfind("\n*").map(|h| h + 1)
+}
+
 fn run(backend: &dyn org_export::Backend, ext: &str, known: &[&str]) {
     let mut failed = Vec::new();
     let mut total = 0;
@@ -64,6 +71,7 @@ fn run(backend: &dyn org_export::Backend, ext: &str, known: &[&str]) {
                 body_only: true,
                 input_file: Some(case.clone()),
                 now: Some("2026-09-28T10:00:00[Europe/Istanbul]".parse().unwrap()),
+                subtree: subtree_of(&text),
             },
         )
         .unwrap_or_else(|e| format!("ERROR: {e}\n"));

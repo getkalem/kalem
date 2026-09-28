@@ -81,6 +81,7 @@ fn run(backend: &dyn org_export::Backend, ext: &str, known: usize) {
                 body_only: true,
                 input_file: Some(source.clone()),
                 now: Some("2026-09-28T10:00:00[Europe/Istanbul]".parse().unwrap()),
+                subtree: None,
             },
         )
         .unwrap_or_else(|e| format!("ERROR: {e}\n"));

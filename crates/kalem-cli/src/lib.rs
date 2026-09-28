@@ -85,6 +85,10 @@ enum Command {
         /// Only the document's body, without the page around it.
         #[arg(long)]
         body_only: bool,
+        /// Only the subtree of this headline (its title, or `#` and its
+        /// `CUSTOM_ID`), with its `EXPORT_` properties, as `C-c C-e C-s`.
+        #[arg(long, value_name = "HEADLINE")]
+        subtree: Option<String>,
     },
     /// Table formulas: `kalem table recalc FILE...`.
     Table {
@@ -196,12 +200,13 @@ where
             to,
             output,
             body_only,
+            subtree,
         } => {
             let to = match to {
                 ExportTo::Html => commands::Target::Html,
                 ExportTo::Md => commands::Target::Markdown,
             };
-            commands::export(&files, to, output.as_deref(), body_only)
+            commands::export(&files, to, output.as_deref(), body_only, subtree.as_deref())
         }
         Command::Table {
             action:

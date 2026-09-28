@@ -31,13 +31,33 @@ impl Target {
     }
 }
 
+/// The byte offset of the first headline titled `name` (or, for `#ID`,
+/// whose `CUSTOM_ID` is `ID`).
+fn find_headline(text: &str, name: &str) -> Option<usize> {
+    use org_syntax::ast::{AstNode, Headline};
+    let parse = org_syntax::parse(text);
+    let root = parse.syntax();
+    root.descendants()
+        .filter_map(Headline::cast)
+        .find(|h| match name.strip_prefix('#') {
+            Some(id) => h
+                .properties()
+                .iter()
+                .any(|(k, v)| k.eq_ignore_ascii_case("CUSTOM_ID") && v.trim() == id),
+            None => h.raw_value().trim() == name.trim(),
+        })
+        .map(|h| usize::from(h.syntax().text_range().start()))
+}
+
 /// Exports `files`; `output` (only with one file) names the result, `-`
-/// for standard output.
+/// for standard output; `subtree` names the headline whose subtree only
+/// is exported.
 pub(crate) fn export(
     files: &[PathBuf],
     to: Target,
     output: Option<&Path>,
     body_only: bool,
+    subtree: Option<&str>,
 ) -> Result<ExitCode> {
     if output.is_some() && files.len() > 1 {
         return Err("--output takes one input file".into());
@@ -46,10 +66,22 @@ pub(crate) fn export(
     for file in files {
         let text = read(file)?;
         let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+        let at = match subtree {
+            Some(name) => match find_headline(text, name) {
+                Some(at) => Some(at),
+                None => {
+                    eprintln!("{}: no headline {name:?}", file.display());
+                    failed = true;
+                    continue;
+                }
+            },
+            None => None,
+        };
         let settings = org_export::Settings {
             body_only,
             input_file: Some(std::path::absolute(file).unwrap_or_else(|_| file.clone())),
             now: None,
+            subtree: at,
         };
         let out = match org_export::export(text, to.backend(), &settings) {
             Ok(out) => out,
@@ -69,7 +101,7 @@ pub(crate) fn export(
             _ => {
                 let target = match output {
                     Some(p) => p.to_path_buf(),
-                    None => org_export::output_file_name(text, file, to.extension()),
+                    None => org_export::output_file_name_for(text, file, to.extension(), at),
                 };
                 if let Some(dir) = target.parent().filter(|d| !d.as_os_str().is_empty()) {
                     std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;

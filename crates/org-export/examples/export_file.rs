@@ -19,6 +19,7 @@ fn main() {
             body_only: true,
             input_file: Some(file.into()),
             now: None,
+            subtree: None,
         },
     );
     eprintln!("{:.2}s", t.elapsed().as_secs_f64());
