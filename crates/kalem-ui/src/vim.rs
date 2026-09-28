@@ -50,6 +50,7 @@ pub fn key(k: &Keystroke) -> Key {
 struct GuiHost<'a, 'b> {
     cx: &'a mut Context<'b, Editor>,
     lines: usize,
+    rich: bool,
 }
 
 impl Host for GuiHost<'_, '_> {
@@ -64,6 +65,10 @@ impl Host for GuiHost<'_, '_> {
 
     fn page_lines(&self) -> usize {
         self.lines
+    }
+
+    fn rich_view(&self) -> bool {
+        self.rich
     }
 }
 
@@ -103,7 +108,8 @@ impl Editor {
             .floor()
             .max(4.) as usize;
         let out = {
-            let mut host = GuiHost { cx, lines };
+            let rich = !self.source;
+            let mut host = GuiHost { cx, lines, rich };
             v.key(&mut self.doc, k, &mut host)
         };
         self.vim = Some(v);

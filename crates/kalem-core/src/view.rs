@@ -214,6 +214,20 @@ impl LineView {
         Some(self.source_offset(d + g.len()))
     }
 
+    /// `src`, or where the shown text after it starts when hidden text
+    /// follows (a run boundary): the character a block cursor there is on.
+    pub fn run_start_at(&self, src: usize) -> usize {
+        let d = self.display_offset(src);
+        let mut at = 0;
+        for r in &self.runs {
+            if at == d && !r.text.is_empty() {
+                return r.src.start.max(src);
+            }
+            at += r.text.len();
+        }
+        src
+    }
+
     /// The source offset one grapheme left of `src` in the display, or
     /// `None` at the start of the line.
     pub fn prev_position(&self, src: usize) -> Option<usize> {
@@ -343,6 +357,29 @@ struct LineBuilder<'a> {
     hide_blank: bool,
     /// Kalem's formatted spans of the line's element.
     spans: Vec<(Range<usize>, crate::rich::CharFormat)>,
+}
+
+/// One step right (or left) of `pos` over the text the rich view shows,
+/// hidden markers skipped as the arrow keys skip them; `None` without a
+/// current parse (not an Org document) or at the line's end (start).
+pub fn visible_step(doc: &crate::DocumentState, pos: usize, right: bool) -> Option<usize> {
+    let (parse, fresh) = doc.parse()?;
+    if !fresh {
+        return None;
+    }
+    let text = doc.text();
+    let line = text.line_of(pos);
+    let mut range = text.line_range(line);
+    if text.as_str()[range.clone()].ends_with('\r') {
+        range.end -= 1;
+    }
+    let v = line_view(&parse.syntax(), parse.context(), range, Some(pos));
+    let next = if right {
+        v.next_position(pos).map(|p| v.run_start_at(p))
+    } else {
+        v.prev_position(pos)
+    }?;
+    (next != pos).then_some(next)
 }
 
 /// Builds the view of the source line `line` (without its line feed) with

@@ -212,6 +212,7 @@ struct TuiHost<'a> {
     clip: &'a mut String,
     output: &'a mut Vec<String>,
     lines: usize,
+    rich: bool,
 }
 
 impl kalem_core::vim::Host for TuiHost<'_> {
@@ -226,6 +227,10 @@ impl kalem_core::vim::Host for TuiHost<'_> {
 
     fn page_lines(&self) -> usize {
         self.lines
+    }
+
+    fn rich_view(&self) -> bool {
+        self.rich
     }
 }
 
@@ -2239,6 +2244,7 @@ impl App {
                 clip: &mut self.clipboard.text,
                 output: &mut self.output,
                 lines: usize::from(self.editor.area.height.max(4)),
+                rich: !self.editor.source,
             };
             v.key(&mut self.doc, key, &mut host)
         };
