@@ -100,30 +100,11 @@ pub fn parse_color(s: &str) -> Option<Color> {
     Color::parse(named.1)
 }
 
-/// Text colors offered, by name.
-pub const COLORS: &[(&str, &str)] = &[
-    ("black", "#000000"),
-    ("gray", "#7f7f7f"),
-    ("red", "#c00000"),
-    ("orange", "#e36c09"),
-    ("gold", "#bf8f00"),
-    ("green", "#00883a"),
-    ("teal", "#1f8a8a"),
-    ("blue", "#1f5fbf"),
-    ("purple", "#7030a0"),
-    ("brown", "#843c0c"),
-];
+/// Text colors offered, by name (shared with the exporters).
+pub use org_export::kalem::COLORS;
 
 /// Highlight colors offered, by name.
-pub const HIGHLIGHTS: &[(&str, &str)] = &[
-    ("yellow", "#fff2a8"),
-    ("lime", "#d8f5b0"),
-    ("cyan", "#c5eef5"),
-    ("pink", "#fcd3e6"),
-    ("lavender", "#e2d8f5"),
-    ("peach", "#fde0c5"),
-    ("silver", "#e3e3e3"),
-];
+pub use org_export::kalem::HIGHLIGHTS;
 
 /// Font sizes offered, as a word processor offers them.
 pub const SIZES: &[u16] = &[8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];

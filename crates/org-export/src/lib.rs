@@ -9,6 +9,7 @@ pub mod export;
 pub mod gfm;
 pub mod html;
 pub mod include;
+pub mod kalem;
 pub mod macros;
 pub mod md;
 pub mod options;
@@ -368,6 +369,40 @@ mod tests {
         )
         .unwrap();
         assert!(none.contains("\\(x\\)"), "{none}");
+    }
+
+    #[test]
+    fn kalem_formatting_in_html() {
+        let text = "#+KALEM: font=\"Georgia\" size=12 spacing=1.5\n\nSome @@kalem:color=red size=14@@red @@kalem:bg=yellow@@marked@@kalem:end@@ text@@kalem:end@@ and on.\n\n#+ATTR_KALEM: :align right\nRight @@kalem:font=\"Mono\"@@open\n\n| @@kalem:color=blue@@cell | b |\n\n* A @@kalem:color=green@@green title\n";
+        let settings = Settings {
+            body_only: true,
+            ..Settings::default()
+        };
+        let out = export(text, &Html, &settings).unwrap();
+        let red = "<span class=\"kalem-format\" style=\"font-size: 14pt; color: #c00000\">";
+        let marked = "<span class=\"kalem-format\" style=\"background-color: #fff2a8\">";
+        assert!(
+            out.contains(&format!(
+                "Some {red}red {marked}marked</span> text</span> and on."
+            )),
+            "{out}"
+        );
+        assert!(out.contains("<p style=\"text-align: right\">"), "{out}");
+        assert!(out.contains("open</span>\n</p>"), "{out}");
+        assert!(out.contains("Right <span"), "{out}");
+        assert!(out.contains("cell</span></td>"), "{out}");
+        assert!(out.contains("green title</span>"), "{out}");
+        assert!(!out.contains('\u{E000}'));
+        let page = export(text, &Html, &Settings::default()).unwrap();
+        assert!(
+            page.contains(
+                "#content { font-family: \"Georgia\"; font-size: 12pt; line-height: 1.5; }"
+            ),
+            "{page}"
+        );
+        // Markdown leaves them out, as Emacs does.
+        let md = export(text, &Markdown, &settings).unwrap();
+        assert!(md.contains("Some red marked text and on."), "{md}");
     }
 
     #[test]
