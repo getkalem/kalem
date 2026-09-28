@@ -281,6 +281,9 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [x] T2.2a.6 Document defaults: the font, size and line spacing of a whole document (`#+KALEM: font="Georgia" size=12 spacing=1.5`; Document Font, Document Font Size, Line Spacing, and the toolbar's spacing menu)
 - [ ] T2.2a.7 Exports honor the formatting: HTML styles, LaTeX sizes and colors, ODT and docx through pandoc (with 2.3)
 - [ ] T2.2a.8 Justified lines in the editor view; space before and after paragraphs; the font menu searches fonts; recently used colors
+- [ ] T2.2a.9 Two file kinds (decided by the owner, 2026-09-28; §3.7): `.klm` joins `DocumentMode::detect` as Org with Kalem's additions (`fileKind == klm` in when-clauses, the kind in the status bar); `.org` is strict: the formatting commands of 2.2a are off there and, when invoked, offer to make the document a Kalem document (rename to `.klm`, links to it in the project updated) or to opt in with `#+KALEM: markup=yes`; the workspace setting `org.allow_kalem_markup`; `Kalem.app` and the Linux and Windows packaging register `.klm` (T1.8.2, 2.8); the manual's "Writing in Org" explains the two kinds
+- [ ] T2.2a.10 Save as Org (`.klm` to `.org` without the additions, listing what was dropped) and Make Kalem Document (`.org` to `.klm`); `kalem export FILE.klm --to org`; `kalem check` warns about Kalem markup in a `.org` file, an error with `--deny-warnings`; `kalem fmt` never adds or removes the markup
+- [ ] T2.2a.11 Tests: a `.klm` renamed to `.org` parses, round-trips and exports as Org in Emacs (the differential of T0.4 over a `.klm` corpus); a `.org` saved by Kalem never contains `@@kalem:`, `#+ATTR_KALEM:` or `#+KALEM:` unless it opted in (a property test over the formatting commands); new syntax in `.klm` only through an RFC, checked by a test that every construct Kalem writes is one Emacs's org-element parses
 
 ### 2.3 org-export (§10)
 
@@ -625,6 +628,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 | D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | Open: owner decision (review, 2026-09-28) |
 | D22 | PDF without TeX: the renderer for "Export as PDF" from HTML (system print to PDF, a bundled HTML renderer, or typst) | T2.3.13 | Open (review, 2026-09-28) |
 | D23 | UI framework revisited: stay on gpui through a registry snapshot or vendoring (T2.8.6), or leave gpui (T2.8.7) | T2.8.6a, T2.8.7, 2.9 | Open: owner decision (review, 2026-09-28) |
+| D24 | File kinds: `.org` is strict Org, `.klm` a Kalem document (Org plus Kalem's additions through Org's extension points; new syntax only by RFC) | T2.2a.9 | **Decided (owner, 2026-09-28)** |
 
 ---
 
