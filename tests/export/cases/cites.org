@@ -1,0 +1,26 @@
+#+TITLE: Citations
+#+bibliography: bib/refs.bib
+#+bibliography: "bib/more.json"
+
+* Styles
+Plain [cite:@knuth84], text [cite/t:@doe-2020], author [cite/a:@knuth84],
+noauthor [cite/na:see @doe-2020 p. 3], nocite [cite/n:@knuth84], missing [cite:@nope],
+two [cite:before; @knuth84; @doe-2020; after], caps [cite/t/c:@doe-2020], bare [cite//b:@knuth84].
+Author caps [cite/a/c:@lower], bare caps [cite/t/bc:@lower], noauthor bare [cite/na/b:@zed].
+Numeric [cite/nb:@knuth84;@doe-2020;@lower;@zed] and [cite/numeric:see @zed p. 2].
+Same author and year: [cite:@knuth84b] and [cite/t:@knuth84b], then [cite:@knuth84] again.
+From JSON [cite:@json-1] and [cite/t:@json-2].
+Unknown style [cite/foo:@zed].  Twice missing [cite:@nope].
+
+A note[cite/ft:@knuth84]. Another one,[cite/note:@zed] and one "quoted."[cite/ft:@lower]
+And "quoted"[cite/ft:@doe-2020]. The end[cite/ft:@json-1]
+Spaced [cite/ft:@json-2] , here.
+
+A footnote with a citation[fn:1].
+
+[fn:1] It cites [cite:@knuth84b], as usual.
+
+* Bibliography
+#+print_bibliography:
+
+Text after.

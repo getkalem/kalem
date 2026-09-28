@@ -1,0 +1,18 @@
+A footnote with a citation[1], and a note inside a quote "said,"[2] and
+after "one";[3] then "two".[4]
+
+
+
+Footnotes
+_________
+
+[1] It cites Zed Z (2011) as a note already, and (van der Berg, Anna,
+1999).
+
+- In a list: hereDonald E. Knuth (1984).
+
+[2] Donald E. Knuth (1984)
+
+[3] Zed Z (2011)
+
+[4] van der Berg, Anna (1999)

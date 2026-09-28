@@ -1,0 +1,5 @@
+x (Br{\"u}ck {and} \alpha{} Name, 2000), Br{\"u}ck {and} \alpha{} Name
+(2000).
+
+[1] Br{\"u}ck {and} \alpha{} Name, /T \TeX alpha x/, P {x} \beta{},
+2000.

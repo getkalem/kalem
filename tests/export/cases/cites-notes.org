@@ -1,0 +1,8 @@
+#+bibliography: bib/refs.bib
+
+A footnote with a citation[fn:1], and a note inside a quote "said,"[cite/ft:@knuth84]
+and after "one" [cite/ft:@zed]; then "two" [cite/note:@lower].
+
+[fn:1] It cites [cite/ft:@zed] as a note already, and [cite:@lower].
+
+- In a list: here[cite/ft:@knuth84].

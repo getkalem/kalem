@@ -1,0 +1,64 @@
+
+# Table des matières
+
+1.  [Styles](#org3028fdc)
+2.  [Bibliography](#org0af2b60)
+
+
+
+<a id="org3028fdc"></a>
+
+# Styles
+
+Plain (Donald E. Knuth, 1984), text Jane Doe and Smith, John (2020), author Donald E. Knuth,
+noauthor (see 2020 p. 3), nocite, missing (??, ????),
+two (before Donald E. Knuth, 1984,  Jane Doe and Smith, John, 2020 after), caps Jane Doe And Smith, John (2020), bare Donald E. Knuth, 1984.
+Author caps Van Der Berg, Anna, bare caps Van Der Berg, Anna 1999, noauthor bare 2011.
+Numeric (2, 4, 7, 8) and (see 8 p. 2).
+Same author and year: (Donald E. Knuth, 1984a) and Donald E. Knuth (1984a), then (Donald E. Knuth, 1984) again.
+From JSON (Adams Ada and Brown Bob, 2005) and Evans Eve (2010).
+Unknown style (Zed Z, 2011).  Twice missing (??, ).
+
+A note<sup><a id="fnr.1" class="footref" href="#fn.1" role="doc-backlink">1</a></sup>. Another one<sup><a id="fnr.2" class="footref" href="#fn.2" role="doc-backlink">2</a></sup>, and one "quoted<sup><a id="fnr.3" class="footref" href="#fn.3" role="doc-backlink">3</a></sup>."
+And "quoted<sup><a id="fnr.4" class="footref" href="#fn.4" role="doc-backlink">4</a></sup>." The end<sup><a id="fnr.5" class="footref" href="#fn.5" role="doc-backlink">5</a></sup>
+Spaced<sup><a id="fnr.6" class="footref" href="#fn.6" role="doc-backlink">6</a></sup> , here.
+
+A footnote with a citation<sup><a id="fnr.7" class="footref" href="#fn.7" role="doc-backlink">7</a></sup>.
+
+
+<a id="org0af2b60"></a>
+
+# Bibliography
+
+Adams Ada, Brown Bob. From JSON, 2005.
+
+Donald E. Knuth. The {\\TeX}book, Example Press, 1984.
+
+Donald E. Knuth. The \\METAFONT book \\& more, Addison&#x2013;Wesley, 1984.
+
+Jane Doe, Smith. Multi line title, Journal of Tests (Series), 2020.
+
+Evans Eve. Edited, JP, 2010.
+
+van der Berg. Sorting $x^2$ and \\alpha{} more, Some University, 1999.
+
+Zed Z. A <report> & "more", Inst, 2011.
+
+Text after.
+
+
+# Notes de bas de page
+
+<sup><a id="fn.1" href="#fnr.1">1</a></sup> Donald E. Knuth (1984)
+
+<sup><a id="fn.2" href="#fnr.2">2</a></sup> Zed Z (2011)
+
+<sup><a id="fn.3" href="#fnr.3">3</a></sup> van der Berg, Anna (1999)
+
+<sup><a id="fn.4" href="#fnr.4">4</a></sup> Jane Doe and Smith, John (2020)
+
+<sup><a id="fn.5" href="#fnr.5">5</a></sup> Adams Ada and Brown Bob (2005)
+
+<sup><a id="fn.6" href="#fnr.6">6</a></sup> Evans Eve (2010)
+
+<sup><a id="fn.7" href="#fnr.7">7</a></sup> It cites (Donald E. Knuth, 1984a), as usual.

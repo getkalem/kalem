@@ -1,0 +1,57 @@
+1 Styles
+========
+
+  Plain (2), text Jane Doe and Smith, John (2020), author Donald
+  E. Knuth, noauthor (see 2020 p. 3), nocite, missing (5), two (before2,
+  4 after), caps Jane Doe And Smith, John (2020), bare (2).  Author caps
+  Van Der Berg, Anna, bare caps Van Der Berg, Anna 1999, noauthor bare
+  2011.  Numeric (2, 4, 7, 8) and (see 8 p. 2).  Same author and year:
+  (3) and Donald E. Knuth (1984a), then (2) again.  From JSON (1) and
+  Evans Eve (2010).  Unknown style (Zed Z, 2011).  Twice missing (5).
+
+  A note.[1] Another one,[2] and one "quoted."[3] And "quoted."[4] The
+  end[5] Spaced ,[6] here.
+
+  A footnote with a citation[7].
+
+
+2 Bibliography
+==============
+
+  [1] Adams Ada and Brown Bob, /From JSON/, 2005.
+
+  [2] Donald E. Knuth, /The \TeXbook/, Example Press, 1984.
+
+  [3] Donald E. Knuth, /The \METAFONT book \& more/, Addison--Wesley,
+  1984.
+
+  [4] Jane Doe and Smith, John, /Multi line title/, Journal of Tests
+  (Series), 2020.
+
+  [6] Evans Eve, /Edited/, JP, 2010.
+
+  [7] van der Berg, Anna, /Sorting $x^2$ and alpha more/, Some University,
+  1999.
+
+  [8] Zed Z, /A <report> & "more"/, Inst, 2011.
+
+  Text after.
+
+
+
+Footnotes
+_________
+
+[1] Donald E. Knuth (1984)
+
+[2] Zed Z (2011)
+
+[3] van der Berg, Anna (1999)
+
+[4] Jane Doe and Smith, John (2020)
+
+[5] Adams Ada and Brown Bob (2005)
+
+[6] Evans Eve (2010)
+
+[7] It cites (3), as usual.

@@ -305,7 +305,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 
 - [x] T2.4.1 org-cite syntax parsing (style, variant, prefix and suffix, multiple keys) (the parser had them, identical to Emacs on the corpus; now `ast::Citation::style_and_variant`, `prefix`, `suffix` and `keys`, `CitationReference::prefix` and `suffix`, and `org_model::cite`: the document's citations, the keys cited in order, `#+BIBLIOGRAPHY` files and `#+CITE_EXPORT`)
 - [x] T2.4.2 Read BibTeX with `hayagriva`; `#+bibliography` (the new `org-cite` crate: BibTeX and BibLaTeX read as `bibtex-parse-entry` reads them, `@string` and month abbreviations expanded, `#` concatenation, blanks squeezed as `oc-basic` does, and CSL-JSON as `oc-basic` reads it; checked against Emacs on a sample; `kalem check` warns about unreadable `#+BIBLIOGRAPHY` files and keys none of them has. hayagriva is kept for CSL rendering, T2.4.3, since Org's own reading keeps the raw field text)
-- [ ] T2.4.3 CSL rendering (HTML, plain text); `#+cite_export`
+- [~] T2.4.3 CSL rendering (HTML, plain text); `#+cite_export` (done: `#+CITE_EXPORT` and citation export through Org's `basic` processor in every back-end, `org_export::cite`, identical to Emacs on nine cases; open: CSL styles)
 - [ ] T2.4.4 Delegation to biblatex and natbib in LaTeX
 - [ ] T2.4.5 UI: citation insert dialog (key search), hover preview
 

@@ -114,6 +114,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - PDF export through LaTeX (`kalem export --to pdf`, Export as PDF): `latexmk`, the TeX engine or `tectonic`, compiled in the background in the editors, with LaTeX's errors at the lines of the Org file.
 - Word, OpenDocument, EPUB and RTF through pandoc, and `kalem import` (Import as Org) from Word, OpenDocument, Markdown, HTML, EPUB and RTF, with a clean-up pass.
 - Citations: the `org-cite` crate reads BibTeX, BibLaTeX and CSL-JSON bibliographies as Org does, and `kalem check` warns about unreadable bibliographies and unknown citation keys.
+- Citation export: citations and `#+PRINT_BIBLIOGRAPHY:` in HTML, Markdown, LaTeX and plain text as Org's `basic` processor writes them (every style and variant, notes with punctuation moved per language, author-year and numeric bibliographies), identical to Emacs on the test cases.
+- LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed
 

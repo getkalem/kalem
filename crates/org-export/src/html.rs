@@ -874,6 +874,9 @@ impl Html {
         let attrs = attribute_string(&attributes);
         let extra = match parent_kind {
             Some(FOOTNOTE_DEFINITION) => " class=\"footpara\"",
+            // A paragraph export made (a bibliography entry) has no parent,
+            // unlike one parsed on its own (`org-data`).
+            None if ex.tree.syntax(id).is_none() => "",
             None => " class=\"footpara\"",
             _ => "",
         };
