@@ -58,7 +58,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
-      - run: cargo test --workspace
+      - run: cargo test --workspace --no-fail-fast
 
   msrv:
     name: minimum supported Rust version
@@ -97,8 +97,9 @@ jobs:
         with:
           workspaces: fuzz
       - run: cargo install cargo-fuzz --locked
-      - run: cargo fuzz run parse -- -max_total_time=120
-      - run: cargo fuzz run reparse -- -max_total_time=120
+      # rust-toolchain.toml asks for stable; the fuzzer needs nightly.
+      - run: cargo +nightly fuzz run parse -- -max_total_time=120
+      - run: cargo +nightly fuzz run reparse -- -max_total_time=120
 
   emacs:
     name: differential test against Emacs
