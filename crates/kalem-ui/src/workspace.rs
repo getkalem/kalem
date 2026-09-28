@@ -1730,6 +1730,8 @@ pub fn menus() -> Vec<Menu> {
                 ),
                 MenuItem::separator(),
                 item("org.todo.cycle"),
+                named(tr("menu-schedule"), "org.schedule"),
+                named(tr("menu-deadline"), "org.deadline"),
                 item("list.toggleCheckbox"),
             ],
         },

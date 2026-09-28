@@ -1302,6 +1302,220 @@ pub(crate) fn add_planning_info(
     remove: &[Planning],
     settings: &TodoSettings,
 ) {
+    let with_time = what.is_some_and(|(k, _)| k == Planning::Closed) && settings.log_done_with_time;
+    add_planning(buf, h, what, with_time, remove, settings);
+}
+
+/// The repeater and warning of a timestamp (`+1w`, `.+2d -3d`), as
+/// `org--deadline-or-schedule` finds them.
+fn repeater_of(ts: &str) -> Option<String> {
+    let b = ts.as_bytes();
+    let unit = |c: u8| matches!(c, b'h' | b'd' | b'w' | b'm' | b'y');
+    for i in 0..b.len() {
+        if !matches!(b[i], b'.' | b'+' | b'-') {
+            continue;
+        }
+        let mut j = i;
+        while j < b.len() && matches!(b[j], b'.' | b'+' | b'-') {
+            j += 1;
+        }
+        let d = j;
+        while j < b.len() && b[j].is_ascii_digit() {
+            j += 1;
+        }
+        if j == d || j >= b.len() || !unit(b[j]) {
+            continue;
+        }
+        let mut end = j + 1;
+        // A second part: `/3d` or ` -2d`.
+        if end < b.len() && matches!(b[end], b'/' | b' ') {
+            let mut k = end + 1;
+            if k < b.len() && matches!(b[k], b'+' | b'-') {
+                k += 1;
+            }
+            let ds = k;
+            while k < b.len() && b[k].is_ascii_digit() {
+                k += 1;
+            }
+            if k > ds && k < b.len() && unit(b[k]) {
+                end = k + 1;
+            }
+        }
+        return Some(ts[i..end].to_string());
+    }
+    None
+}
+
+/// What to do with a `SCHEDULED:` or `DEADLINE:` timestamp.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlanningChange {
+    /// Set it to a date (with its time of day when the flag says so) and
+    /// a repeater (`+1w`); without one, the old timestamp's repeater
+    /// stays.
+    Set(DateTime, bool, Option<String>),
+    /// Remove it (`C-u C-c C-s`).
+    Remove,
+}
+
+/// `org-schedule` and `org-deadline`: sets or removes the entry's
+/// `SCHEDULED:` (`kind` [`Planning::Scheduled`]) or `DEADLINE:`
+/// timestamp; `CLOSED:` goes when one is set. Gives the message Org
+/// shows.
+pub fn schedule(
+    doc: &Document,
+    point: usize,
+    kind: Planning,
+    change: &PlanningChange,
+    settings: &TodoSettings,
+) -> Result<(Transaction, String), EditError> {
+    let text = text_of(doc);
+    let ctx = doc.parse().context();
+    let deadline = kind == Planning::Deadline;
+    let not_there = || {
+        if deadline {
+            "Entry had no deadline to remove"
+        } else {
+            "Entry was not scheduled"
+        }
+    };
+    let Some(h) = org_back_to_heading(&text, point, ctx) else {
+        // Before the first heading there is nothing to remove.
+        if *change == PlanningChange::Remove {
+            return Ok((
+                Buf::new(&text, point).transaction("Planning"),
+                not_there().into(),
+            ));
+        }
+        return Err(EditError::new("Before first headline at position"));
+    };
+    let line2 = next_line(&text, h);
+    let old = (line2 > h && line2 < text.len() && is_planning_line(&text, line2))
+        .then(|| {
+            let eol = line_end(&text, line2);
+            find_planning_ts(&text, line2, eol, Some(kind)).map(|(s, e)| {
+                let ts = &text[s..e];
+                ts[ts.find('<').unwrap_or(0)..].to_string()
+            })
+        })
+        .flatten();
+    let mut buf = Buf::new(&text, point);
+    match change {
+        PlanningChange::Remove => {
+            if old.is_none() {
+                return Ok((buf.transaction("Planning"), not_there().into()));
+            }
+            remove_timestamp_with_keyword(&mut buf, h, kind.word());
+            let msg = if deadline {
+                "Entry no longer has a deadline."
+            } else {
+                "Entry is no longer scheduled."
+            };
+            Ok((buf.transaction("Planning"), msg.into()))
+        }
+        PlanningChange::Set(date, with_time, repeater) => {
+            let repeater = repeater
+                .clone()
+                .or_else(|| old.as_deref().and_then(repeater_of));
+            add_planning(
+                &mut buf,
+                h,
+                Some((kind, *date)),
+                *with_time,
+                &[Planning::Closed],
+                settings,
+            );
+            let mut ts = format!("<{}>", time::format(*date, *with_time));
+            if let Some(r) = repeater {
+                let needle = format!("{} {ts}", kind.word());
+                let limit = next_line(&buf.text, next_line(&buf.text, h));
+                if let Some(i) = buf.text[h..limit].find(&needle) {
+                    let at = h + i + needle.len() - 1;
+                    buf.insert_before_point(at, &format!(" {r}"));
+                    ts = format!("{} {r}>", &ts[..ts.len() - 1]);
+                }
+            }
+            let msg = if deadline {
+                format!("Deadline on {ts}")
+            } else {
+                format!("Scheduled to {ts}")
+            };
+            Ok((buf.transaction("Planning"), msg))
+        }
+    }
+}
+
+/// `org-remove-timestamp-with-keyword`: every `KEYWORD <…>` of the entry
+/// at `h` taken out, with its line when nothing else is left on it.
+fn remove_timestamp_with_keyword(buf: &mut Buf, h: usize, keyword: &str) {
+    let end = {
+        let hs = headings(&buf.text, None);
+        hs.iter()
+            .map(|(s, _)| *s)
+            .find(|s| *s > h)
+            .unwrap_or(buf.text.len())
+    };
+    // The matches, from the last.
+    let mut from = end;
+    loop {
+        let found = buf.text[h..from]
+            .rmatch_indices(keyword)
+            .find_map(|(i, _)| {
+                let at = h + i;
+                if buf.text[..at]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| c.is_alphanumeric() || c == '_')
+                {
+                    return None;
+                }
+                let b = buf.text.as_bytes();
+                let mut j = at + keyword.len();
+                let spaces = j;
+                while j < from && b[j] == b' ' {
+                    j += 1;
+                }
+                if j == spaces || j >= from || b[j] != b'<' {
+                    return None;
+                }
+                let close = buf.text[j + 1..from].find(['>', '\n'])?;
+                if b[j + 1 + close] != b'>' || close == 0 {
+                    return None;
+                }
+                let mut e = j + 1 + close + 1;
+                while e < from && matches!(b[e], b' ' | b'\t') {
+                    e += 1;
+                }
+                Some((at, e))
+            });
+        let Some((s, e)) = found else { break };
+        buf.delete(s, e);
+        let lb = bol_of(&buf.text, s);
+        let before = &buf.text[lb..s];
+        if before.chars().any(|c| !c.is_whitespace()) && buf.text[..s].ends_with(' ') {
+            buf.delete(s - 1, s);
+        } else {
+            let le = line_end(&buf.text, s);
+            if buf.text[lb..le].trim_matches([' ', '\t']).is_empty() {
+                let stop = (le + 1).min(buf.text.len());
+                buf.delete(lb, stop);
+            }
+        }
+        from = s.min(buf.text.len());
+        if from <= h {
+            break;
+        }
+    }
+}
+
+/// [`add_planning_info`] with the timestamp's time of day or not.
+fn add_planning(
+    buf: &mut Buf,
+    h: usize,
+    what: Option<(Planning, DateTime)>,
+    with_time: bool,
+    remove: &[Planning],
+    settings: &TodoSettings,
+) {
     let line2 = next_line(&buf.text, h);
     let planning = line2 < buf.text.len()
         && line2 > h
@@ -1349,9 +1563,9 @@ pub(crate) fn add_planning_info(
     }
     if let Some((kind, t)) = what {
         let ts = if kind == Planning::Closed {
-            format!("[{}]", time::format(t, settings.log_done_with_time))
+            format!("[{}]", time::format(t, with_time))
         } else {
-            format!("<{}>", time::format(t, false))
+            format!("<{}>", time::format(t, with_time))
         };
         let mut s = format!("{} {ts}", kind.word());
         if p != line_end(&buf.text, p) {

@@ -120,6 +120,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Insert Citation: a picker over the document's bibliography (searched by key, author and title) that writes `[cite:@key]` or extends the citation at the cursor; the entry cited under the cursor in the status bar of both editors, and under the mouse in a tooltip of the graphical editor.
 - Pictures in the graphical editor: image links draw their picture (PNG, JPEG, GIF, WebP, BMP, TIFF, SVG) fitted to the text, at the width `#+ATTR_ORG: :width` asks for (pixels or a share); `attachment:` links find `org-attach` folders in both editors; pictures pasted or dropped are copied into `NAME_assets/` and linked.
 - Footnotes: New Footnote (Ctrl+Alt+F), going between references and definitions, renumbering, sorting, normalizing and deleting, ported from `org-footnote.el` and identical to Emacs on 1,268 cases; `org.footnote_section`; the footnote's text shown for the reference at the cursor (and under the mouse in the graphical editor).
+- Schedule (Ctrl+Alt+S), Set Deadline, Remove Schedule and Remove Deadline in both editors, with the date picker, times of day and repeaters, identical to Emacs's `org-schedule` and `org-deadline` on 434 cases.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

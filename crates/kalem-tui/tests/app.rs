@@ -1884,3 +1884,39 @@ fn footnotes() {
         status(&mut t)
     );
 }
+
+#[test]
+fn scheduling() {
+    let mut t = with_config("* TODO Task\nBody\n", Config::default(), (120, 12));
+    t.at(3);
+    t.app.run_command(
+        "org.schedule",
+        serde_json::json!({"date": "2026-10-05 +1w"}),
+    );
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n"
+    );
+    assert!(
+        status(&mut t).contains("Scheduled to <2026-10-05 Mon +1w>"),
+        "{}",
+        status(&mut t)
+    );
+    // A new date keeps the repeater.
+    t.app.run_command(
+        "org.schedule",
+        serde_json::json!({"date": "2026-10-12 09:30"}),
+    );
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "* TODO Task\nSCHEDULED: <2026-10-12 Mon 09:30 +1w>\nBody\n"
+    );
+    t.app
+        .run_command("org.deadline", serde_json::json!({"date": "2026-12-24"}));
+    t.app
+        .run_command("org.schedule.remove", serde_json::Value::Null);
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "* TODO Task\nDEADLINE: <2026-12-24 Thu>\nBody\n"
+    );
+}

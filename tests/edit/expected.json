@@ -88612,5 +88612,2609 @@
     "text": "word text word[fn:note] word[fn:1] more\ntext[fn:1: named] é é[fn:note]\ntext word[fn:x-y]\n\né word[fn:2] é end. text\n\nmore[fn:x-y]\né[fn:1] end. word text[fn:2]\nword[fn:2]\n",
     "point": 4,
     "error": null
+  },
+  {
+    "name": "plan 0 False@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@0 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@0 (org-deadline '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@12 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon>\nBody\n",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@12 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30>\nBody\n",
+    "point": 46,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@12 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu>\nBody\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@12 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00>\nBody\n",
+    "point": 45,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@12 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@12 (org-deadline '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@17 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon>\nBody\n",
+    "point": 45,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@17 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30>\nBody\n",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@17 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@17 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu>\nBody\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@17 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00>\nBody\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@17 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 0 False@17 (org-deadline '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon 14:30>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\n  DEADLINE: <2026-12-24 Thu>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\n  DEADLINE: <2026-12-24 Thu 09:00>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@0 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@0 (org-deadline '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@12 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon>\nBody\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@12 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon 14:30>\nBody\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 46,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@12 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\n  DEADLINE: <2026-12-24 Thu>\nBody\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@12 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\n  DEADLINE: <2026-12-24 Thu 09:00>\nBody\n",
+    "point": 47,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@12 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@12 (org-deadline '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@17 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon>\nBody\n",
+    "point": 47,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@17 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon 14:30>\nBody\n",
+    "point": 53,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@17 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\n  SCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@17 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\n  DEADLINE: <2026-12-24 Thu>\nBody\n",
+    "point": 46,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@17 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\n  DEADLINE: <2026-12-24 Thu 09:00>\nBody\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@17 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 0 True@17 (org-deadline '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30 +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@0 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@0 (org-deadline '(4))",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@12 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@12 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30 +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@12 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@12 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@12 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@12 (org-deadline '(4))",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@44 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@44 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30 +1w>\nBody\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@44 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@44 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 71,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@44 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@44 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@44 (org-deadline '(4))",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@49 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@49 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30 +1w>\nBody\n",
+    "point": 55,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@49 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@49 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 76,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@49 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 82,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@49 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 1 False@49 (org-deadline '(4))",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30 +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@0 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@0 (org-deadline '(4))",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@12 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@12 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30 +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@12 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@12 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@12 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@12 (org-deadline '(4))",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@44 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@44 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30 +1w>\nBody\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@44 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@44 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 71,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@44 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@44 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@44 (org-deadline '(4))",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@49 (org-schedule nil \"2026-10-05\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@49 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon 14:30 +1w>\nBody\n",
+    "point": 55,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@49 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-05 Mon +1w>\nBody\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@49 (org-deadline nil \"2026-12-24\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 76,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@49 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* TODO Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 82,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@49 (org-schedule '(4))",
+    "text": "* TODO Task\nBody\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 1 True@49 (org-deadline '(4))",
+    "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@0 (org-schedule '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00]\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@0 (org-deadline '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@12 (org-schedule nil \"2026-10-05\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@12 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@12 (org-deadline nil \"2026-12-24\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@12 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@12 (org-schedule '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00]\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@12 (org-deadline '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@71 (org-schedule nil \"2026-10-05\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon>\n",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@71 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 46,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@71 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@71 (org-deadline nil \"2026-12-24\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 67,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@71 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 73,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@71 (org-schedule '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00]\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "plan 2 False@71 (org-deadline '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 71,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@0 (org-schedule '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00]\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@0 (org-deadline '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@12 (org-schedule nil \"2026-10-05\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@12 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@12 (org-deadline nil \"2026-12-24\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@12 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@12 (org-schedule '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00]\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@12 (org-deadline '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@71 (org-schedule nil \"2026-10-05\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon>\n",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@71 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 46,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@71 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* DONE Task\nSCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@71 (org-deadline nil \"2026-12-24\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 67,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@71 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* DONE Task\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 73,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@71 (org-schedule '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00]\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "plan 2 True@71 (org-deadline '(4))",
+    "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+    "point": 71,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@0 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@0 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@13 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@13 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@13 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@13 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@13 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@13 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@13 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@82 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 82,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@82 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@82 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 78,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@82 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 82,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@82 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@82 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 46,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@82 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@97 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 97,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@97 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 103,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@97 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 93,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@97 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 97,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@97 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 103,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@97 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 61,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@97 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@106 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 106,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@106 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 112,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@106 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 102,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@106 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 106,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@106 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 112,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@106 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 70,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@106 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 75,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@114 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 114,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@114 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 120,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@114 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 110,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@114 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 114,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@114 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 120,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@114 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 78,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@114 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 83,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@119 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nSCHEDULED: <2026-10-05 Mon>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@119 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nSCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@119 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nSCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@119 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nDEADLINE: <2026-12-24 Thu>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@119 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nDEADLINE: <2026-12-24 Thu 09:00>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@119 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@119 (org-deadline '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@126 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nSCHEDULED: <2026-10-05 Mon>\n",
+    "point": 154,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@126 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nSCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 160,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@126 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nSCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 158,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@126 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nDEADLINE: <2026-12-24 Thu>\n",
+    "point": 153,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@126 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\nDEADLINE: <2026-12-24 Thu 09:00>\n",
+    "point": 159,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@126 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 126,
+    "error": null
+  },
+  {
+    "name": "plan 3 False@126 (org-deadline '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 126,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@0 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@0 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@13 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@13 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@13 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@13 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@13 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@13 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@13 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@82 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 82,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@82 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@82 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 78,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@82 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 82,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@82 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@82 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 46,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@82 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@97 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 97,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@97 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 103,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@97 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 93,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@97 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 97,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@97 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 103,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@97 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 61,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@97 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@106 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 106,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@106 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 112,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@106 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 102,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@106 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 106,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@106 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 112,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@106 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 70,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@106 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 75,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@114 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 114,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@114 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon 14:30 .+2d/3d> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 120,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@114 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-05 Mon +1w> DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 110,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@114 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 114,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@114 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-12-24 Thu 09:00 -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 120,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@114 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 78,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@114 (org-deadline '(4))",
+    "text": "* Task :tag:\n  SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 83,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@119 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  SCHEDULED: <2026-10-05 Mon>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@119 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  SCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@119 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  SCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@119 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  DEADLINE: <2026-12-24 Thu>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@119 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  DEADLINE: <2026-12-24 Thu 09:00>\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@119 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@119 (org-deadline '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@126 (org-schedule nil \"2026-10-05\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  SCHEDULED: <2026-10-05 Mon>\n",
+    "point": 156,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@126 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  SCHEDULED: <2026-10-05 Mon 14:30>\n",
+    "point": 162,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@126 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  SCHEDULED: <2026-10-05 Mon +1w>\n",
+    "point": 160,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@126 (org-deadline nil \"2026-12-24\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  DEADLINE: <2026-12-24 Thu>\n",
+    "point": 155,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@126 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n  DEADLINE: <2026-12-24 Thu 09:00>\n",
+    "point": 161,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@126 (org-schedule '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 126,
+    "error": null
+  },
+  {
+    "name": "plan 3 True@126 (org-deadline '(4))",
+    "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "point": 126,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@0 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 False@0 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 False@0 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@0 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@7 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\nSCHEDULED: <2026-10-05 Mon>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@7 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\nSCHEDULED: <2026-10-05 Mon 14:30>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@7 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\nSCHEDULED: <2026-10-05 Mon +1w>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@7 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\nDEADLINE: <2026-12-24 Thu>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@7 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\nDEADLINE: <2026-12-24 Thu 09:00>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@7 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@7 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@11 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@11 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon 14:30>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@11 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon +1w>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@11 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@11 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@11 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nText\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@11 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@16 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@16 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon 14:30>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@16 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon +1w>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@16 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@16 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@16 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nText\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@16 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@44 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@44 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon 14:30>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@44 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon +1w>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@44 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 71,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@44 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@44 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nText\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@44 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@77 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@77 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon 14:30>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 83,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@77 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon +1w>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 81,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@77 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@77 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 110,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@77 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nText\n",
+    "point": 21,
+    "error": null
+  },
+  {
+    "name": "plan 4 False@77 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@0 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 True@0 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "plan 4 True@0 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@0 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@7 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n  SCHEDULED: <2026-10-05 Mon>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@7 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n  SCHEDULED: <2026-10-05 Mon 14:30>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@7 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n  SCHEDULED: <2026-10-05 Mon +1w>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@7 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n  DEADLINE: <2026-12-24 Thu>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@7 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n  DEADLINE: <2026-12-24 Thu 09:00>\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@7 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@7 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 7,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@11 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@11 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon 14:30>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@11 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon +1w>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@11 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@11 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@11 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nText\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@11 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@16 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@16 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon 14:30>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@16 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon +1w>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@16 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@16 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@16 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nText\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@16 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@44 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@44 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon 14:30>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@44 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon +1w>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@44 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 71,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@44 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@44 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nText\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@44 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@77 (org-schedule nil \"2026-10-05\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@77 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon 14:30>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 83,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@77 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-05 Mon +1w>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 81,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@77 (org-deadline nil \"2026-12-24\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@77 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "Before\n* A\n** B\nDEADLINE: <2026-12-24 Thu 09:00> SCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 110,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@77 (org-schedule '(4))",
+    "text": "Before\n* A\n** B\nText\n",
+    "point": 21,
+    "error": null
+  },
+  {
+    "name": "plan 4 True@77 (org-deadline '(4))",
+    "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "plan 5 False@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon 14:30>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon +1w>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 False@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu 09:00>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 False@0 (org-schedule '(4))",
+    "text": "* A",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 False@0 (org-deadline '(4))",
+    "text": "* A",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 True@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon 14:30>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon +1w>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 True@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu 09:00>",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 True@0 (org-schedule '(4))",
+    "text": "* A",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 5 True@0 (org-deadline '(4))",
+    "text": "* A",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@0 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@0 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@4 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@4 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@4 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 36,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@4 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 31,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@4 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@4 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@4 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@17 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 45,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@17 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@17 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@17 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@17 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@17 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@17 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@23 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@23 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 57,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@23 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 55,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@23 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@23 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 56,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@23 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 23,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@23 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 23,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@29 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 57,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@29 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 63,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@29 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 61,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@29 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 56,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@29 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 62,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@29 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@29 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@56 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 84,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@56 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 90,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@56 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\nSCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@56 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 83,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@56 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\nDEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 89,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@56 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 56,
+    "error": null
+  },
+  {
+    "name": "plan 6 False@56 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 56,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@0 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@0 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@0 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@0 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@4 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@4 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@4 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@4 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 33,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@4 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@4 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@4 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@17 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 47,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@17 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 53,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@17 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@17 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 46,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@17 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@17 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@17 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@23 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 53,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@23 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 59,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@23 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 57,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@23 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@23 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 58,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@23 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 23,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@23 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 23,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@29 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 59,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@29 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 65,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@29 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 63,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@29 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 58,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@29 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@29 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@29 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@56 (org-schedule nil \"2026-10-05\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 86,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@56 (org-schedule nil \"2026-10-05 14:30\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon 14:30>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 92,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@56 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+    "text": "* A\n  SCHEDULED: <2026-10-05 Mon +1w>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 90,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@56 (org-deadline nil \"2026-12-24\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 85,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@56 (org-deadline nil \"2026-12-24 09:00\")",
+    "text": "* A\n  DEADLINE: <2026-12-24 Thu 09:00>\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 91,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@56 (org-schedule '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 56,
+    "error": null
+  },
+  {
+    "name": "plan 6 True@56 (org-deadline '(4))",
+    "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+    "point": 56,
+    "error": null
   }
 ]

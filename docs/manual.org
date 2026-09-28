@@ -232,6 +232,15 @@ Ctrl+Enter cycles a heading through its TODO states (=TODO=, =DONE=, or
 the states of the document's =#+TODO= line); Shift+Left and Shift+Right
 step through them, Shift+Up and Shift+Down change the priority.
 
+/Schedule/ (Ctrl+Alt+S) and /Set Deadline/ ask for a date (a calendar in
+the graphical editor; =today=, =+3d=, =friday=, =2026-10-05 14:30= and
+the like typed) and write =SCHEDULED:= or =DEADLINE:= on the heading's
+planning line, as Emacs's =org-schedule= and =org-deadline= do: a time
+of day when you give one, a repeater or warning typed after the date
+(=2026-10-05 +1w=, =friday .+2d -3d=), the old timestamp's repeater kept
+otherwise, and =CLOSED:= taken away. /Remove Schedule/ and /Remove
+Deadline/ take them off again.
+
 With =org.enforce_todo_dependencies= on, a task cannot be marked done
 while a task below it is still open, and under a heading with the
 =ORDERED= property (Toggle Ordered Subtasks) each task waits for the ones
