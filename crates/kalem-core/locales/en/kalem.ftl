@@ -498,6 +498,7 @@ fm-bad-mode = Permissions are three or four octal digits, such as 644
 category-export = Export
 cmd-export-html = Export as HTML
 cmd-export-markdown = Export as Markdown
+cmd-export-gfm = Export as GitHub Markdown
 cmd-export-htmlSubtree = Export Subtree as HTML
 cmd-export-markdownSubtree = Export Subtree as Markdown
 msg-exported = Exported to { $path }

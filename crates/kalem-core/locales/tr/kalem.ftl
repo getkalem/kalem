@@ -460,6 +460,7 @@ fm-bad-mode = İzinler 644 gibi üç ya da dört sekizlik rakamdır
 category-export = Dışa Aktar
 cmd-export-html = HTML Olarak Dışa Aktar
 cmd-export-markdown = Markdown Olarak Dışa Aktar
+cmd-export-gfm = GitHub Markdown Olarak Dışa Aktar
 cmd-export-htmlSubtree = Alt Ağacı HTML Olarak Dışa Aktar
 cmd-export-markdownSubtree = Alt Ağacı Markdown Olarak Dışa Aktar
 msg-exported = { $path } dosyasına aktarıldı

@@ -281,13 +281,13 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [x] T2.3.2 Common behavior: `#+OPTIONS`, `:noexport:`, `EXCLUDE_TAGS`, `SELECT_TAGS`, macros, `#+INCLUDE`, `#+SETUPFILE`, subtree export (all done; `#+SETUPFILE` and subtree export checked against Emacs 29.3 with Org 9.6.15, whose output differs from 9.7's only by a blank line before headlines, since Emacs 30 was not reachable from the session; `tests/emacs/export.el` exports the subtree with a `KALEM_TEST_SUBTREE` property; `kalem export --subtree`, Export Subtree as HTML and as Markdown)
 - [x] T2.3.3 HTML backend (ox-html classes, CSS theme, formulas as SVG or MathJax) (the body matches Emacs byte for byte on every test case and on all 287 Worg files Emacs exports; the whole page follows `org-html-template`: doctypes and HTML5 (`html5-fancy` elements), meta tags, `#+HTML_HEAD`, home and up links, preamble and postamble, MathJax set-up, `HTML_CONTAINER` and `HTML_CONTENT_CLASS`, checked against Emacs in `tests/export/full`; Kalem's own style sheet (light and dark, print) replaces Org's; `tex:svg` draws formulas with the editor's engine as inline SVG images)
 - [ ] T2.3.4 LaTeX backend (ox-latex behavior, `#+LATEX_CLASS`, `ATTR_LATEX`, `%% org:LINE` comments)
-- [~] T2.3.5 Markdown backend (GFM) (ox-md matches Emacs on every test case and on all 287 Worg files Emacs exports; GFM tables are still to do)
+- [x] T2.3.5 Markdown backend (GFM) (ox-md matches Emacs on every test case and on all 287 Worg files Emacs exports; `gfm`, derived from it as the `ox-gfm` package does: pipe tables with alignment, fenced code blocks, `~~strike-through~~`; `kalem export --to gfm`, Export as GitHub Markdown)
 - [ ] T2.3.6 Plain text backend
 - [ ] T2.3.7 PDF generation: detect `latexmk` / `xelatex`; optional tectonic download (D5); error mapping
 - [ ] T2.3.8 Pandoc bridge: DOCX, ODT, EPUB, RTF output; DOCX, ODT, MD, HTML import; "Org cleanup" pass; pandoc detection and guidance
 - [~] T2.3.9 Export dialog and settings (GUI and TUI); `#+EXPORT_FILE_NAME` (Export as HTML and Export as Markdown in the palette of both editors and the File menu, written beside the file or where `#+EXPORT_FILE_NAME` says; the dialog and its settings are still to do)
 - [~] T2.3.10 Snapshot tests; comparison corpus against ox.el output (`tests/export/cases` and the Worg corpus against Emacs 30.1 with Org 9.7.11; the counts only go up)
-- [~] T2.3.11 `kalem export` subcommand (`kalem export FILE... --to html|md`, `-o`, `--body-only`; the other back-ends follow them)
+- [~] T2.3.11 `kalem export` subcommand (`kalem export FILE... --to html|md|gfm`, `-o`, `--body-only`, `--subtree`; the other back-ends follow them)
 - [ ] T2.3.12 Publish `org-export` to crates.io (§4.7)
 
 ### 2.4 org-cite (§9.4)
