@@ -96,6 +96,8 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("format.documentFont", object(&[("family", "string", true)])),
         ("format.documentSize", object(&[("size", "string", true)])),
         ("format.lineSpacing", object(&[("spacing", "string", true)])),
+        ("format.spaceBefore", object(&[("points", "string", true)])),
+        ("format.spaceAfter", object(&[("points", "string", true)])),
         ("project.add", object(&[("path", "string", false)])),
         ("project.rename", object(&[("name", "string", true)])),
         ("table.import", object(&[("file", "string", true)])),
@@ -266,6 +268,63 @@ fn align_cmd(ctx: &mut EditorContext<'_>, align: crate::rich::Align) -> CommandR
         crate::rich::set_align(&root, &text, s..e, align).ok_or_else(|| org_edit::EditError {
             message: crate::l10n::tr("msg-not-a-paragraph"),
             point: None,
+        })
+    })
+}
+
+/// Puts color `c` first in the recent colors of setting `key` (six at
+/// most), for the color menus.
+fn remember_color(ctx: &mut EditorContext<'_>, key: &str, c: Option<crate::theme::Color>) {
+    let Some(c) = c else { return };
+    let (r, g, b) = c.rgb();
+    let hex = format!("#{r:02x}{g:02x}{b:02x}");
+    let mut list: Vec<String> = ctx
+        .config
+        .strings(key)
+        .into_iter()
+        .filter(|s| !s.eq_ignore_ascii_case(&hex))
+        .map(str::to_string)
+        .collect();
+    list.insert(0, hex);
+    list.truncate(6);
+    if list != ctx.config.strings(key) {
+        ctx.requests.push(Request::SetSetting {
+            key: key.to_string(),
+            value: list.into(),
+            quiet: true,
+        });
+    }
+}
+
+/// Sets the space before (or after) the paragraphs of the selection to
+/// `points` (`12`, `6.5`; `0` or `none` takes it away).
+fn spacing_cmd(ctx: &mut EditorContext<'_>, points: &str, after: bool) -> CommandResult {
+    let v = points.trim();
+    let size = match crate::rich::parse_size(v) {
+        Some(s) => Some(s),
+        None if v.is_empty() || v == "0" || v.eq_ignore_ascii_case("none") => None,
+        None => {
+            return Err(CommandError::new(crate::tr!(
+                "msg-not-a-spacing",
+                spacing = v
+            )));
+        }
+    };
+    let change = Some(size);
+    ctx.org(|d, p, m| {
+        let root = d.parse().syntax();
+        let text = root.text().to_string();
+        let (s, e) = m.map_or((p, p), |m| (m.min(p), m.max(p)));
+        let (before, after) = if after {
+            (None, change)
+        } else {
+            (change, None)
+        };
+        crate::rich::set_spacing(&root, &text, s..e, before, after).ok_or_else(|| {
+            org_edit::EditError {
+                message: crate::l10n::tr("msg-not-a-paragraph"),
+                point: None,
+            }
         })
     })
 }
@@ -453,6 +512,7 @@ fn export_setting(
     ctx.requests.push(Request::SetSetting {
         key: key.to_string(),
         value,
+        quiet: false,
     });
     request(ctx, Request::ExportDialog)
 }
@@ -762,6 +822,7 @@ fn plain_commands() -> Vec<Command> {
                     Request::SetSetting {
                         key: "ui.folder_tree".into(),
                         value: v.into(),
+                        quiet: false,
                     },
                 )
             },
@@ -1443,7 +1504,9 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             |ctx, args| {
                 let c = rich_color(args, "color")?;
-                rich_format(ctx, crate::rich::Change::Color(c))
+                rich_format(ctx, crate::rich::Change::Color(c))?;
+                remember_color(ctx, "format.recent_colors", c);
+                Ok(())
             },
         ),
         cmd(
@@ -1454,7 +1517,9 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             |ctx, args| {
                 let c = rich_color(args, "color")?;
-                rich_format(ctx, crate::rich::Change::Highlight(c))
+                rich_format(ctx, crate::rich::Change::Highlight(c))?;
+                remember_color(ctx, "format.recent_highlights", c);
+                Ok(())
             },
         ),
         cmd(
@@ -1555,6 +1620,28 @@ fn plain_commands() -> Vec<Command> {
                 };
                 let spacing = spacing.filter(|s| *s != 10);
                 doc_defaults(ctx, |d| d.spacing = spacing)
+            },
+        ),
+        cmd(
+            "format.spaceBefore",
+            "Space Before Paragraph",
+            "Format",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                let v = arg_str(args, "points")?.to_string();
+                spacing_cmd(ctx, &v, false)
+            },
+        ),
+        cmd(
+            "format.spaceAfter",
+            "Space After Paragraph",
+            "Format",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                let v = arg_str(args, "points")?.to_string();
+                spacing_cmd(ctx, &v, true)
             },
         ),
         cmd(
@@ -2138,6 +2225,46 @@ mod tests {
     }
 
     #[test]
+    fn colors_used_are_remembered() {
+        use crate::command::Request;
+        let mut d = doc("Some words here.\n", 0);
+        d.selection = org_edit::Selection { anchor: 0, head: 4 };
+        let reg = CommandRegistry::with_builtins();
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::from_layers(&[(
+            crate::settings::Layer::User,
+            None,
+            "[format]\nrecent_colors = [\"#1f5fbf\", \"#c00000\"]\n",
+        )]);
+        let clock = jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0);
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock,
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("format.color", &mut ctx, &json!({"color": "red"}))
+            .unwrap();
+        assert_eq!(
+            ctx.requests,
+            vec![Request::SetSetting {
+                key: "format.recent_colors".into(),
+                value: json!(["#c00000", "#1f5fbf"]),
+                quiet: true,
+            }]
+        );
+        // The prompt starts with the color used last.
+        let mut d2 = doc("x\n", 0);
+        assert_eq!(
+            crate::command::argument_default_with("format.color", "color", &mut d2, &config),
+            "#1f5fbf"
+        );
+    }
+
+    #[test]
     fn export_settings_and_dialog() {
         use crate::command::Request;
         let dir = std::env::temp_dir().join(format!("kalem-export-set-{}", std::process::id()));
@@ -2196,7 +2323,8 @@ mod tests {
             vec![
                 Request::SetSetting {
                     key: "export.body_only".into(),
-                    value: json!(false)
+                    value: json!(false),
+                    quiet: false,
                 },
                 Request::ExportDialog
             ]

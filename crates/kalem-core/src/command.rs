@@ -133,6 +133,8 @@ pub enum Request {
         key: String,
         /// Its new value.
         value: serde_json::Value,
+        /// Without a message (remembered choices such as recent colors).
+        quiet: bool,
     },
 }
 
@@ -350,7 +352,30 @@ pub fn missing_argument(cmd: &Command, args: &Value) -> Option<(String, String)>
 }
 
 /// What the prompt for argument `name` of command `id` starts with: the
-/// current formula for Edit Formula.
+/// color used last for Text Color and Highlight, else as
+/// [`argument_default`].
+pub fn argument_default_with(
+    id: &str,
+    name: &str,
+    doc: &mut crate::document::DocumentState,
+    config: &crate::settings::Config,
+) -> String {
+    // The color used last.
+    let recent = match (id, name) {
+        ("format.color", "color") => config.strings("format.recent_colors").first().copied(),
+        ("format.highlight", "color") => {
+            config.strings("format.recent_highlights").first().copied()
+        }
+        _ => None,
+    };
+    match recent {
+        Some(c) => c.to_string(),
+        None => argument_default(id, name, doc),
+    }
+}
+
+/// What the prompt for argument `name` of command `id` starts with: the
+/// current formula for Edit Formula, the document's folder for Open.
 pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::DocumentState) -> String {
     if let Some(d) = crate::dired::argument_default(id, name, doc) {
         return d;

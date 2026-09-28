@@ -152,6 +152,18 @@ pub const SPECS: &[Spec] = &[
         description: "The sidebar on the left shows the current project's folders and files below the open files",
     },
     Spec {
+        key: "format.recent_colors",
+        kind: Kind::List(None),
+        default: "[]",
+        description: "Text colors used lately, newest first (the color menus offer them)",
+    },
+    Spec {
+        key: "format.recent_highlights",
+        kind: Kind::List(None),
+        default: "[]",
+        description: "Highlight colors used lately, newest first",
+    },
+    Spec {
         key: "org.table_auto_recalc",
         kind: Kind::Bool,
         default: "false",

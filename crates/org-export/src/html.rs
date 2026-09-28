@@ -785,15 +785,32 @@ impl Html {
         let parent = ex.tree.parent(id);
         let parent_kind = parent.and_then(|p| ex.tree.kind(p));
         let mut attributes = read_attribute(ex, id, "ATTR_HTML");
-        // Kalem's alignment: `#+ATTR_KALEM: :align right`.
-        if let Some(align) = read_attribute(ex, id, "ATTR_KALEM")
-            .into_iter()
-            .find(|(k, _)| k == ":align")
-            .and_then(|(_, v)| v)
-            .map(|v| v.trim().to_ascii_lowercase())
-            .filter(|v| ["left", "right", "center", "justify"].contains(&v.as_str()))
+        // Kalem's alignment and spacing: `#+ATTR_KALEM: :align right
+        // :before 12 :after 6`.
+        let kalem = read_attribute(ex, id, "ATTR_KALEM");
+        let get = |key: &str| {
+            kalem
+                .iter()
+                .find(|(k, _)| k == key)
+                .and_then(|(_, v)| v.clone())
+                .map(|v| v.trim().to_ascii_lowercase())
+        };
+        let mut styles = Vec::new();
+        if let Some(align) =
+            get(":align").filter(|v| ["left", "right", "center", "justify"].contains(&v.as_str()))
         {
-            let style = format!("text-align: {align}");
+            styles.push(format!("text-align: {align}"));
+        }
+        for (key, prop) in [(":before", "margin-top"), (":after", "margin-bottom")] {
+            if let Some(v) = get(key)
+                .map(|v| v.trim_end_matches("pt").to_string())
+                .filter(|v| v.parse::<f64>().is_ok_and(|x| (0.0..=1000.0).contains(&x)))
+            {
+                styles.push(format!("{prop}: {v}pt"));
+            }
+        }
+        if !styles.is_empty() {
+            let style = styles.join("; ");
             match attributes.iter_mut().find(|(k, _)| k == ":style") {
                 Some((_, Some(v))) => *v = format!("{}; {style}", v.trim_end_matches(';')),
                 Some((_, v)) => *v = Some(style),

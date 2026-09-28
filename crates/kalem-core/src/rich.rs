@@ -526,6 +526,153 @@ fn attr(value: &str, key: &str) -> Option<String> {
     None
 }
 
+/// The attributes of an `#+ATTR_KALEM:` value in order, each with its
+/// value: `:align right :before 12`.
+fn attr_list(value: &str) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for w in value.split_whitespace() {
+        if w.starts_with(':') {
+            out.push((w.to_string(), String::new()));
+        } else if let Some(last) = out.last_mut() {
+            if !last.1.is_empty() {
+                last.1.push(' ');
+            }
+            last.1.push_str(w);
+        }
+    }
+    out
+}
+
+/// `value` with attribute `key` set to `new` (or taken out), the others
+/// kept as they are.
+fn with_attr(value: &str, key: &str, new: Option<&str>) -> String {
+    let mut list = attr_list(value);
+    match (
+        list.iter().position(|(k, _)| k.eq_ignore_ascii_case(key)),
+        new,
+    ) {
+        (Some(i), Some(v)) => list[i].1 = v.to_string(),
+        (Some(i), None) => {
+            list.remove(i);
+        }
+        (None, Some(v)) => list.push((key.to_string(), v.to_string())),
+        (None, None) => {}
+    }
+    list.iter()
+        .map(|(k, v)| {
+            if v.is_empty() {
+                k.clone()
+            } else {
+                format!("{k} {v}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The space before and after the paragraph `el`, in tenths of a point:
+/// `#+ATTR_KALEM: :before 12 :after 6`.
+pub fn spacing(el: &SyntaxNode) -> (Option<u16>, Option<u16>) {
+    let values: Vec<String> = ast::affiliated_keywords(el)
+        .filter(|k| k.key().eq_ignore_ascii_case("ATTR_KALEM"))
+        .map(|k| k.value())
+        .collect();
+    let get = |key: &str| {
+        values
+            .iter()
+            .filter_map(|v| attr(v, key))
+            .filter_map(|v| parse_size(&v))
+            .next_back()
+    };
+    (get(":before"), get(":after"))
+}
+
+/// The room to leave above and below line `line` (a range without its
+/// line feed), in tenths of a point: the paragraph's space before on its
+/// first line and its space after on its last.
+pub fn line_spacing(root: &SyntaxNode, line: Range<usize>) -> (u16, u16) {
+    let Some(el) = element_at(root, line.start).filter(|e| e.kind() == PARAGRAPH) else {
+        return (0, 0);
+    };
+    let (before, after) = spacing(&el);
+    if before.is_none() && after.is_none() {
+        return (0, 0);
+    }
+    let first = usize::from(ast::post_affiliated(&el));
+    let last = content_end(&el);
+    (
+        if line.start <= first && first <= line.end {
+            before.unwrap_or(0)
+        } else {
+            0
+        },
+        if line.start < last && last <= line.end + 1 {
+            after.unwrap_or(0)
+        } else {
+            0
+        },
+    )
+}
+
+/// Sets the space before (`before`) and after (`after`) the paragraphs
+/// in `range`: `Some(None)` takes it away, `None` leaves it; sizes in
+/// tenths of a point.
+pub fn set_spacing(
+    root: &SyntaxNode,
+    text: &str,
+    range: Range<usize>,
+    before: Option<Option<u16>>,
+    after: Option<Option<u16>>,
+) -> Option<Transaction> {
+    let mut tx = Transaction::new("Paragraph Spacing");
+    let mut seen: Vec<SyntaxNode> = Vec::new();
+    let mut pos = range.start;
+    let line_end = |p: usize| text[p..].find('\n').map_or(text.len(), |i| p + i + 1);
+    loop {
+        if let Some(el) = element_at(root, pos).filter(|e| e.kind() == PARAGRAPH)
+            && !seen.contains(&el)
+        {
+            let indent: String = text[start(&el)..]
+                .chars()
+                .take_while(|c| *c == ' ' || *c == '\t')
+                .collect();
+            let last = ast::affiliated_keywords(&el)
+                .filter(|k| k.key().eq_ignore_ascii_case("ATTR_KALEM"))
+                .last();
+            let mut value = last.as_ref().map(|k| k.value()).unwrap_or_default();
+            for (key, v) in [(":before", before), (":after", after)] {
+                if let Some(v) = v {
+                    value = with_attr(&value, key, v.map(size_text).as_deref());
+                }
+            }
+            let line = if value.trim().is_empty() {
+                String::new()
+            } else {
+                format!("{indent}#+ATTR_KALEM: {}\n", value.trim())
+            };
+            match last {
+                Some(k) => {
+                    let n = ast::AstNode::syntax(&k);
+                    tx.replace(start(n)..end(n), line).ok()?;
+                }
+                None if !line.is_empty() => {
+                    tx.insert(usize::from(ast::post_affiliated(&el)), line)
+                        .ok()?;
+                }
+                None => {}
+            }
+            seen.push(el.clone());
+            pos = end(&el);
+        } else {
+            pos = line_end(pos);
+        }
+        if pos >= range.end.max(range.start + 1) || pos >= text.len() {
+            break;
+        }
+    }
+    (!seen.is_empty()).then_some(tx)
+}
+
 /// The alignment of the paragraph `el`: `#+ATTR_KALEM: :align …`, or
 /// centered in a `#+begin_center` block.
 pub fn align(el: &SyntaxNode) -> Align {
@@ -936,9 +1083,15 @@ pub fn set_align(
             let line = |a: Align| format!("{indent}#+ATTR_KALEM: :align {}\n", a.name());
             match (attrs.last(), attr) {
                 (Some(k), w) => {
+                    // The other attributes (`:before`, `:after`) stay.
                     let n = ast::AstNode::syntax(k);
-                    tx.replace(start(n)..end(n), w.map(line).unwrap_or_default())
-                        .ok()?;
+                    let value = with_attr(&k.value(), ":align", w.map(Align::name));
+                    let new = if value.trim().is_empty() {
+                        String::new()
+                    } else {
+                        format!("{indent}#+ATTR_KALEM: {}\n", value.trim())
+                    };
+                    tx.replace(start(n)..end(n), new).ok()?;
                 }
                 (None, Some(a)) => {
                     let at = usize::from(ast::post_affiliated(&el));
@@ -1243,6 +1396,56 @@ mod tests {
         let p = parse(&t2);
         let t3 = set_defaults(&p.syntax(), &t2, |d| *d = DocDefaults::default()).apply(&t2);
         assert_eq!(t3, "#+TITLE: T\nbody\n");
+    }
+
+    #[test]
+    fn paragraph_spacing() {
+        let text = "Intro.\n\nFirst line\nsecond line.\n";
+        let p = parse(text);
+        let at = text.find("First").unwrap();
+        let t = set_spacing(&p.syntax(), text, at..at, Some(Some(120)), Some(Some(60)))
+            .unwrap()
+            .apply(text);
+        assert_eq!(
+            t,
+            "Intro.\n\n#+ATTR_KALEM: :before 12 :after 6\nFirst line\nsecond line.\n"
+        );
+        // Alignment keeps the spacing, and the spacing the alignment.
+        let p = parse(&t);
+        let at = t.find("First").unwrap();
+        let t = set_align(&p.syntax(), &t, at..at, Align::Right)
+            .unwrap()
+            .apply(&t);
+        assert!(
+            t.contains("#+ATTR_KALEM: :before 12 :after 6 :align right\n"),
+            "{t}"
+        );
+        let p = parse(&t);
+        let at = t.find("First").unwrap();
+        let t = set_spacing(&p.syntax(), &t, at..at, Some(None), None)
+            .unwrap()
+            .apply(&t);
+        assert!(t.contains("#+ATTR_KALEM: :after 6 :align right\n"), "{t}");
+        // Space above the first line, below the last.
+        let p = parse(&t);
+        let root = p.syntax();
+        let line = |s: &str| {
+            let a = t.find(s).unwrap();
+            a..a + t[a..].find('\n').unwrap()
+        };
+        assert_eq!(line_spacing(&root, line("First")), (0, 0));
+        assert_eq!(line_spacing(&root, line("second")), (0, 60));
+        let p = parse("#+ATTR_KALEM: :before 6\nOne\nTwo\n");
+        let root = p.syntax();
+        assert_eq!(line_spacing(&root, 24..27), (60, 0));
+        assert_eq!(line_spacing(&root, 28..31), (0, 0));
+        // Taking both away takes the line away.
+        let text = "#+ATTR_KALEM: :before 6\nOne\n";
+        let p = parse(text);
+        let t = set_spacing(&p.syntax(), text, 25..25, Some(None), Some(None))
+            .unwrap()
+            .apply(text);
+        assert_eq!(t, "One\n");
     }
 
     #[test]

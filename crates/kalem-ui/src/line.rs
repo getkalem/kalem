@@ -1095,7 +1095,7 @@ impl gpui::Element for LineElement {
                     };
                 }
                 let line_height = prepared.font_size * 1.45 * prepared.spacing;
-                let layout = InlineLayout::new(
+                let mut layout = InlineLayout::new(
                     &prepared.pieces,
                     prepared.font_size,
                     line_height,
@@ -1103,6 +1103,11 @@ impl gpui::Element for LineElement {
                     prepared.hang_at,
                     window,
                 );
+                // Kalem's justified paragraphs (the source view has no
+                // alignment).
+                if prepared.view.align == kalem_core::rich::Align::Justify {
+                    layout.justify();
+                }
                 let sz = Size {
                     width: available
                         .filter(|_| prepared.nowrap)

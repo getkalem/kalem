@@ -140,6 +140,9 @@ pub struct InlineLayout {
     descent: Pixels,
     line_height: Pixels,
     unwrapped_width: Pixels,
+    /// Justified rows (by index): the display offsets of their stretched
+    /// spaces, sorted, and the room each space gains.
+    justified: Vec<(Vec<usize>, Pixels)>,
 }
 
 fn is_cjk(c: char) -> bool {
@@ -391,7 +394,67 @@ impl InlineLayout {
             descent,
             line_height,
             unwrapped_width,
+            justified: Vec::new(),
         }
+    }
+
+    /// Justifies the wrapped rows: every row but the last one stretches
+    /// its spaces (not the ones at its ends) to reach the wrap width.
+    pub fn justify(&mut self) {
+        if self.rows.len() < 2 {
+            return;
+        }
+        let atoms = atoms(&self.placed);
+        let mut justified = vec![(Vec::new(), px(0.)); self.rows.len()];
+        for (k, r) in self.rows.iter().enumerate().take(self.rows.len() - 1) {
+            let row: Vec<&Atom> = atoms
+                .iter()
+                .filter(|a| a.start >= r.start && a.end <= r.end)
+                .collect();
+            // The words' ends: spaces at either end do not stretch.
+            let Some(first) = row.iter().position(|a| !a.space) else {
+                continue;
+            };
+            let Some(last) = row.iter().rposition(|a| !a.space) else {
+                continue;
+            };
+            let spaces: Vec<usize> = row[first..=last]
+                .iter()
+                .filter(|a| a.space)
+                .map(|a| a.start)
+                .collect();
+            if spaces.is_empty() {
+                continue;
+            }
+            let used = row[last].x1 - r.x0;
+            let room = self.width - used;
+            if room <= px(0.) {
+                continue;
+            }
+            justified[k] = (spaces.clone(), room / spaces.len() as f32);
+        }
+        self.justified = justified;
+    }
+
+    /// The room justification adds before display offset `i` in row `k`.
+    fn stretch(&self, k: usize, i: usize) -> Pixels {
+        match self.justified.get(k) {
+            Some((spaces, extra)) if !spaces.is_empty() => {
+                *extra * spaces.partition_point(|s| *s < i) as f32
+            }
+            _ => px(0.),
+        }
+    }
+
+    fn row_index(&self, i: usize) -> usize {
+        self.rows
+            .partition_point(|r| r.start <= i)
+            .saturating_sub(1)
+    }
+
+    /// The x of display offset `i` in row `k`, from the row's left edge.
+    fn row_x(&self, k: usize, i: usize) -> Pixels {
+        self.x_of(i) - self.rows[k].x0 + self.stretch(k, i)
     }
 
     /// Unwrapped x of display offset `i`.
@@ -412,34 +475,42 @@ impl InlineLayout {
         }
     }
 
-    fn row_of(&self, i: usize) -> &Row {
-        let r = self
-            .rows
-            .partition_point(|r| r.start <= i)
-            .saturating_sub(1);
-        &self.rows[r]
-    }
-
     /// The caret box for display offset `i`, relative to the line origin.
     pub fn caret(&self, i: usize) -> Bounds<Pixels> {
-        let r = self.row_of(i);
+        let k = self.row_index(i);
+        let r = &self.rows[k];
         let pad = (self.line_height - self.ascent - self.descent) / 2.;
         let top = r.y + r.baseline - self.ascent - pad;
-        Bounds::new(
-            point(self.x_of(i) - r.x0, top),
-            size(px(2.), self.line_height),
-        )
+        Bounds::new(point(self.row_x(k, i), top), size(px(2.), self.line_height))
     }
 
     /// The display offset closest to `p`, relative to the line origin.
     pub fn index_for_position(&self, p: Point<Pixels>) -> usize {
-        let r = self
+        let k = self
             .rows
             .iter()
-            .find(|r| p.y < r.y + r.height)
-            .or(self.rows.last())
-            .copied();
-        let Some(r) = r else { return 0 };
+            .position(|r| p.y < r.y + r.height)
+            .unwrap_or(self.rows.len().saturating_sub(1));
+        let Some(r) = self.rows.get(k).copied() else {
+            return 0;
+        };
+        // A justified row: the nearest character boundary.
+        if self.justified.get(k).is_some_and(|j| !j.0.is_empty()) {
+            let x = p.x.max(px(0.));
+            let mut best = (r.start, Pixels::MAX);
+            for a in atoms(&self.placed)
+                .iter()
+                .filter(|a| a.start >= r.start && a.start <= r.end)
+            {
+                for i in [a.start, a.end.min(r.end)] {
+                    let d = (self.row_x(k, i) - x).abs();
+                    if d < best.1 {
+                        best = (i, d);
+                    }
+                }
+            }
+            return best.0;
+        }
         let x = r.x0 + p.x.max(px(0.));
         let mut best = r.start;
         for pl in &self.placed {
@@ -484,13 +555,13 @@ impl InlineLayout {
     /// origin, one per row (for selections and marks).
     pub fn range_rects(&self, a: usize, b: usize) -> Vec<Bounds<Pixels>> {
         let mut out = Vec::new();
-        for r in &self.rows {
+        for (k, r) in self.rows.iter().enumerate() {
             let (s, e) = (a.max(r.start), b.min(r.end));
             if s >= e && !(a == b && a == r.start) {
                 continue;
             }
-            let xa = self.x_of(s) - r.x0;
-            let xb = self.x_of(e) - r.x0;
+            let xa = self.row_x(k, s);
+            let xb = self.row_x(k, e);
             out.push(Bounds::new(point(xa, r.y), size(xb - xa, r.height)));
         }
         out
@@ -504,10 +575,17 @@ impl InlineLayout {
                 ascent,
                 spacer: false,
             } => {
-                let r = self.row_of(p.start);
+                let k = self.row_index(p.start);
+                let r = &self.rows[k];
                 Some((
                     p.start,
-                    Bounds::new(point(p.x - r.x0, r.y + r.baseline - ascent), size),
+                    Bounds::new(
+                        point(
+                            p.x - r.x0 + self.stretch(k, p.start),
+                            r.y + r.baseline - ascent,
+                        ),
+                        size,
+                    ),
                 ))
             }
             _ => None,
@@ -516,7 +594,7 @@ impl InlineLayout {
 
     /// Paints the text at `origin`.
     pub fn paint(&self, origin: Point<Pixels>, window: &mut Window, _cx: &mut App) {
-        for row in &self.rows {
+        for (k, row) in self.rows.iter().enumerate() {
             let base_y = origin.y + row.y + row.baseline;
             for pl in &self.placed {
                 if pl.end <= row.start || pl.start >= row.end {
@@ -544,8 +622,8 @@ impl InlineLayout {
                     let re = rs + run.len;
                     let (a, b) = (rs.max(row.start), re.min(row.end));
                     if a < b {
-                        let xa = origin.x + self.x_of(a) - row.x0;
-                        let xb = origin.x + self.x_of(b) - row.x0;
+                        let xa = origin.x + self.row_x(k, a);
+                        let xb = origin.x + self.row_x(k, b);
                         if let Some(bg) = run.background_color {
                             let top = point(xa, base_y - ascent - px(1.));
                             let bottom = point(xb, base_y + descent + px(1.));
@@ -585,7 +663,10 @@ impl InlineLayout {
                             run_end += runs[run_ix].len;
                         }
                         let color = runs.get(run_ix).map_or(gpui::black(), |r| r.color);
-                        let o = point(origin.x + pl.x + g.position.x - row.x0, base_y);
+                        let o = point(
+                            origin.x + pl.x + g.position.x - row.x0 + self.stretch(k, i),
+                            base_y,
+                        );
                         let _ = if g.is_emoji {
                             window.paint_emoji(o, sr.font_id, g.id, line.font_size)
                         } else {

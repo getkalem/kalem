@@ -1309,6 +1309,58 @@ fn doom_leader_keys(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn font_search_and_recent_colors(cx: &mut TestAppContext) {
+    let text = "one two three\n";
+    let (ws, cx) = {
+        let dir = std::env::temp_dir().join(format!("kalem-ui-fonts-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("f.org");
+        std::fs::write(&path, text).unwrap();
+        let _ = std::fs::remove_file(dir.join("settings.toml"));
+        let mut shared = kalem_ui::shared(Config::default());
+        shared.html_clipboard = || None;
+        shared.settings_path = Some(dir.join("settings.toml"));
+        shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
+            dir.join("projects.toml"),
+        )));
+        let shared = Rc::new(shared);
+        cx.add_window_view(|window, cx| {
+            let e = kalem_ui::editor::open(Some(&path), shared, Theme::light(), cx).unwrap();
+            window.focus(&gpui::Focusable::focus_handle(e.read(cx), cx), cx);
+            Workspace::new(e, window, cx)
+        })
+    };
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    at(&e, 4, cx);
+    cx.simulate_keystrokes("shift-right shift-right shift-right");
+    // Typing in the font menu searches the fonts (the test platform has
+    // none to list); Backspace takes a letter back, Escape closes it.
+    let b = cx.debug_bounds("tool-font").expect("the font menu");
+    cx.simulate_click(b.center(), gpui::Modifiers::none());
+    cx.simulate_input("geo");
+    cx.simulate_keystrokes("backspace");
+    let filter = ws.read_with(cx, |ws, _| ws.font_filter.clone());
+    assert_eq!(filter, "ge");
+    assert_eq!(text_of(&e, cx), text, "typing went to the menu");
+    assert!(cx.debug_bounds("font-search").is_some());
+    cx.simulate_keystrokes("escape");
+    let open = ws.read_with(cx, |ws, _| ws.menu.is_some());
+    assert!(!open);
+    // A color used shows among the recent ones next time.
+    let b = cx.debug_bounds("tool-color").expect("the color button");
+    cx.simulate_click(b.center(), gpui::Modifiers::none());
+    let s = cx.debug_bounds("swatch-7").expect("blue");
+    cx.simulate_click(s.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    let b = cx.debug_bounds("tool-color").expect("the color button");
+    cx.simulate_click(b.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("recent-swatch-0").is_some());
+    assert!(cx.debug_bounds("recent-swatch-1").is_none());
+}
+
+#[gpui::test]
 fn word_formatting(cx: &mut TestAppContext) {
     let text = "one two three\n";
     let (ws, cx) = {

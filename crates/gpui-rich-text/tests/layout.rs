@@ -137,3 +137,40 @@ fn scripts_are_raised_and_lowered(cx: &mut TestAppContext) {
     let sup = l.caret(2).origin.x - l.caret(1).origin.x;
     assert!(sup < body, "{sup:?} {body:?}");
 }
+
+#[gpui::test]
+fn justified_rows(cx: &mut TestAppContext) {
+    let s = "aa bb cc dd ee ff gg hh";
+    let plain = layout(cx, vec![text(s)], None, None);
+    let wrap = plain.caret(12).origin.x;
+    let mut l = layout(cx, vec![text(s)], Some(wrap), None);
+    assert!(l.rows.len() > 1);
+    let first = l.rows[0];
+    let last_char_end = |l: &InlineLayout| {
+        let r = l.rows[0];
+        let end = s[..r.end].trim_end().len();
+        l.caret(end).origin.x
+    };
+    let before = last_char_end(&l);
+    l.justify();
+    // The first row now reaches the wrap width; its first word stays put.
+    let after = last_char_end(&l);
+    assert!(after > before, "{after:?} {before:?}");
+    assert!((after - wrap).abs() < px(0.5), "{after:?} {wrap:?}");
+    assert_eq!(l.caret(0).origin.x, plain.caret(0).origin.x);
+    // Carets and hit testing agree on the stretched row.
+    for i in first.start..=s[..first.end].trim_end().len() {
+        let c = l.caret(i);
+        assert_eq!(
+            l.index_for_position(c.origin + gpui::point(px(0.3), px(2.))),
+            i
+        );
+    }
+    // The last row is not stretched.
+    let k = l.rows.len() - 1;
+    let r = l.rows[k];
+    let start_x = l.caret(r.start).origin.x;
+    let end_x = l.caret(r.end).origin.x;
+    assert!(end_x - start_x < wrap, "{start_x:?} {end_x:?}");
+    let _ = size(px(1.), px(1.));
+}
