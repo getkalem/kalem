@@ -626,10 +626,12 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 | D18 | Entity table provenance | Phase 0 exit | Open: owner decision |
 | D19 | Markdown parser | T2.7c.1 | Open |
 | D20 | File operations for the file manager | T2.7e.1 | Decided 2026-09-28 |
-| D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | Open: owner decision (review, 2026-09-28) |
+| D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | Open: owner decision, narrowed by D24 (review, 2026-09-28) |
 | D22 | PDF without TeX: the renderer for "Export as PDF" from HTML (system print to PDF, a bundled HTML renderer, or typst) | T2.3.13 | Open (review, 2026-09-28) |
 | D23 | UI framework revisited: stay on gpui through a registry snapshot or vendoring (T2.8.6), or leave gpui (T2.8.7) | T2.8.6a, T2.8.7, 2.9 | Open: owner decision (review, 2026-09-28) |
 | D24 | File kinds: `.org` is strict Org, `.klm` a Kalem document (Org plus Kalem's additions through Org's extension points; new syntax only by RFC) | T2.2a.9 | **Decided (owner, 2026-09-28)** |
+| D25 | Highlighters, renderers and completers from plugins on the contracts built-ins use (§11.11, §11.12) | T2.7c.10, T2.7a.8, T3.1.9g, T3.1.9c | **Decided (owner, 2026-09-28)** |
+| D26 | The terminal is never second class (§4.1, principle 7) | TS.13 | **Decided (owner, 2026-09-28)** |
 
 ---
 
