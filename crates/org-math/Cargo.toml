@@ -16,7 +16,7 @@ ratex-parser = "0.1.14"
 ratex-layout = "0.1.14"
 ratex-types = "0.1.14"
 ratex-svg = { version = "0.1.14", features = ["standalone", "embed-fonts"] }
-resvg = { version = "0.45", default-features = false }
+resvg = { version = "0.46", default-features = false }
 
 [lints]
 workspace = true
