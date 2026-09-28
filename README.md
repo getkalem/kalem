@@ -16,7 +16,7 @@ In short: **Typora for Org.**
 - **Org built in.** Headlines, TODOs, tags, scheduling, tables and formulas (`#+TBLFM`), footnotes, links, source blocks, citations, export.
 - **Books and papers.** LaTeX math preview, export to LaTeX, PDF, HTML, Markdown, and through pandoc to DOCX, ODT and EPUB.
 - **Desktop and terminal.** A graphical editor, a terminal editor with the same behavior, and a scriptable command line.
-- **Extensible.** JavaScript and TypeScript plugins can add commands, link types, block renderers, views, exporters and document checks, while documents stay valid Org.
+- **Extensible.** Plugins written in Rust and run as sandboxed WebAssembly components add modes, completers, commands, link types, block renderers, views, exporters and document checks, while documents stay valid Org.
 
 What Kalem is not: a Microsoft Office clone, a page layout tool, or a replacement for Emacs. See [non-goals](design_document.md#14-non-goals).
 
@@ -29,7 +29,7 @@ kalem check notes.org                 # syntax diagnostics
 kalem fmt notes.org                   # align tables, normalize spacing
 kalem export book.org --to pdf        # export
 kalem agenda --week ~/org             # print the agenda
-kalem run script.js notes.org         # batch scripting, like emacs --batch
+kalem run wordcount report notes.org  # a plugin's command in batch, like emacs --batch
 ```
 
 ## Repository layout
