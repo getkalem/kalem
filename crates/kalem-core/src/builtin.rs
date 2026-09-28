@@ -308,6 +308,29 @@ pub(crate) fn commands() -> Vec<Command> {
     all
 }
 
+/// After leaving a field: the table's formulas again, when the document
+/// (`#+KALEM: recalc=auto`) or `org.table_auto_recalc` asks for it and
+/// the table has any. Errors stay quiet; F9 reports them.
+fn auto_recalc(ctx: &mut EditorContext<'_>) {
+    let setting = ctx.config.bool("org.table_auto_recalc");
+    let Ok(doc) = ctx.doc() else { return };
+    let Some((parse, _)) = doc.parse() else {
+        return;
+    };
+    let auto = match crate::rich::kalem_option(&parse.keywords(), "recalc").as_deref() {
+        Some("auto") => true,
+        Some("manual") => false,
+        _ => setting,
+    };
+    if !auto {
+        return;
+    }
+    let _ = ctx.org(|d, p, _| {
+        let r = org_edit::recalc::recalculate(d, p, false)?;
+        Ok(r.transaction)
+    });
+}
+
 /// Exports the active document with `backend` beside its file
 /// (`#+EXPORT_FILE_NAME` names another), with unsaved changes too; with
 /// `subtree`, only the subtree at the cursor (its `EXPORT_FILE_NAME`
@@ -1905,7 +1928,11 @@ fn plain_commands() -> Vec<Command> {
             "Table",
             &["tab"],
             Some(TABLE),
-            |ctx, _| ctx.org(|d, p, _| t::next_field(d, p)),
+            |ctx, _| {
+                ctx.org(|d, p, _| t::next_field(d, p))?;
+                auto_recalc(ctx);
+                Ok(())
+            },
         ),
         cmd(
             "table.previousField",
@@ -1913,7 +1940,11 @@ fn plain_commands() -> Vec<Command> {
             "Table",
             &["shift+tab"],
             Some(TABLE),
-            |ctx, _| ctx.org(|d, p, _| t::previous_field(d, p)),
+            |ctx, _| {
+                ctx.org(|d, p, _| t::previous_field(d, p))?;
+                auto_recalc(ctx);
+                Ok(())
+            },
         ),
         cmd(
             "table.nextRow",
@@ -1921,7 +1952,11 @@ fn plain_commands() -> Vec<Command> {
             "Table",
             &["enter"],
             Some(TABLE),
-            |ctx, _| ctx.org(|d, p, _| t::next_row(d, p)),
+            |ctx, _| {
+                ctx.org(|d, p, _| t::next_row(d, p))?;
+                auto_recalc(ctx);
+                Ok(())
+            },
         ),
         // Narrowing.
         cmd(
@@ -2054,6 +2089,52 @@ mod tests {
         assert!(md.contains("New * Saved") || md.contains("New"), "{md}");
         reg.execute("export.html", &mut ctx, &json!({})).unwrap();
         assert!(dir.join("n.html").is_file());
+    }
+
+    #[test]
+    fn tables_recalculate_when_a_field_is_left() {
+        let run = |text: &str, at: usize, config: &str, keys: &[&str]| -> String {
+            let mut d = doc(text, at);
+            let reg = CommandRegistry::with_builtins();
+            let mut clip = Clipboard::default();
+            let config = crate::settings::Config::from_layers(&[(
+                crate::settings::Layer::User,
+                None,
+                config,
+            )]);
+            let clock = jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0);
+            let mut ctx = EditorContext {
+                document: Some(&mut d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock,
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            for k in keys {
+                reg.execute(k, &mut ctx, &json!({})).unwrap();
+            }
+            d.text().as_str().to_string()
+        };
+        let t = "| 2 | 3 | |\n#+TBLFM: $3=$1*$2\n";
+        // Off by default: F9 computes.
+        assert!(!run(t, 2, "", &["table.nextField"]).contains('6'));
+        let on = "[org]\ntable_auto_recalc = true\n";
+        let out = run(t, 2, on, &["table.nextField"]);
+        assert!(out.starts_with("| 2 | 3 | 6 |"), "{out}");
+        let out = run(t, 6, on, &["table.previousField"]);
+        assert!(out.starts_with("| 2 | 3 | 6 |"), "{out}");
+        // The document's keyword wins over the setting, both ways.
+        let kw = format!("#+KALEM: recalc=auto\n{t}");
+        let out = run(&kw, kw.find('2').unwrap(), "", &["table.nextField"]);
+        assert!(out.contains("| 2 | 3 | 6 |"), "{out}");
+        let kw = format!("#+KALEM: recalc=manual\n{t}");
+        let out = run(&kw, kw.find('2').unwrap(), on, &["table.nextField"]);
+        assert!(!out.contains('6'), "{out}");
+        // A table without formulas is left alone.
+        let plain = "| a | b |\n";
+        assert!(run(plain, 2, on, &["table.nextField"]).starts_with("| a | b |"));
     }
 
     #[test]

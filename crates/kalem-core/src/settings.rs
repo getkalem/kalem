@@ -152,6 +152,12 @@ pub const SPECS: &[Spec] = &[
         description: "The sidebar on the left shows the current project's folders and files below the open files",
     },
     Spec {
+        key: "org.table_auto_recalc",
+        kind: Kind::Bool,
+        default: "false",
+        description: "Recalculate a table's formulas when Tab, Shift+Tab or Enter leaves a field, as F9 does; a document's `#+KALEM: recalc=auto` or `recalc=manual` wins",
+    },
+    Spec {
         key: "export.body_only",
         kind: Kind::Bool,
         default: "false",
