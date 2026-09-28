@@ -380,7 +380,8 @@ text objects (=iw=, =i"=, =i(=, =ip= and their =a= forms; in Org
 documents also =ih= the headline's title, =iR= the subtree below its
 headline, =ii= a list item's text, =ic= a table cell and =ie= the inside
 of emphasis, and their =a= forms with the whole headline, subtree, item,
-cell or emphasis), =x D C p P J r ~ u= Ctrl+R and =.= to repeat. =v= and =V= select characters and lines.
+cell or emphasis), =x D C p P J r ~ u= Ctrl+R and =.= to repeat. =v= and =V= select characters and lines, Ctrl+V a block of columns
+(=I= and =A= then type on each of its lines).
 =/= and =?= search, =n N * #= repeat. Registers: ="a= to ="z=, and ="+=
 for the system clipboard. The command line knows =:w=, =:q=, =:q!=,
 =:wq=, =:x=, =:NUMBER=, =:noh=, =:e FILE=, =:bn=, =:bp=, =:bd= and =:ls=;

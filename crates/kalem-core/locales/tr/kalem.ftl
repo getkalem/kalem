@@ -316,6 +316,7 @@ vim-normal = NORMAL
 vim-insert = -- EKLE --
 vim-visual = -- GÖRSEL --
 vim-visual-line = -- GÖRSEL SATIR --
+vim-visual-block = -- GÖRSEL BLOK --
 vim-replace = -- DEĞİŞTİR --
 vim-not-found = Dizgi bulunamadı: { $pattern }
 vim-not-a-command = Bir düzenleyici komutu değil: { $command }

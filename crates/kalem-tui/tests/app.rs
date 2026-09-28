@@ -278,6 +278,35 @@ fn vim_profile() {
 }
 
 #[test]
+fn vim_block_selection() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("abcd\nefgh\n", config, (40, 5));
+    t.at(1);
+    t.key(KeyCode::Char('v'), KeyModifiers::CONTROL);
+    t.typ("jl");
+    assert!(
+        status(&mut t).starts_with("VISUAL BLOCK"),
+        "{}",
+        status(&mut t)
+    );
+    // Columns 1 and 2 of both lines are painted as selected, not more.
+    let buf = t.draw();
+    let reversed = |x: u16, y: u16| buf[(x, y)].modifier.contains(Modifier::REVERSED);
+    let (x0, y0) = (0..buf.area.width)
+        .flat_map(|x| (0..buf.area.height).map(move |y| (x, y)))
+        .find(|&(x, y)| buf[(x, y)].symbol() == "b")
+        .expect("b drawn");
+    assert!(reversed(x0, y0) && reversed(x0 + 1, y0), "b and c");
+    assert!(reversed(x0, y0 + 1) && reversed(x0 + 1, y0 + 1), "f and g");
+    assert!(
+        !reversed(x0 - 1, y0) && !reversed(x0 + 2, y0 + 1),
+        "a and h"
+    );
+    t.typ("d");
+    assert_eq!(t.text(), "ad\neh\n");
+}
+
+#[test]
 fn long_lines_wrap_and_scroll() {
     let body = "word ".repeat(40);
     let text = format!("- {body}\n{}", "line\n".repeat(30));
