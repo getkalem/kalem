@@ -169,7 +169,7 @@ What users expect from Word, Excel and PowerPoint, the Org equivalent and its st
 
 ### 2.3 File model
 
-- **A document is a single .org file.** UTF-8. Line endings are taken from the file (LF or CRLF) and preserved. A BOM is preserved.
+- **A document is a single `.org` or `.klm` file (3.7).** UTF-8. Line endings are taken from the file (LF or CRLF) and preserved. A BOM is preserved.
 - **Attachments are side files.** Org does not embed binary data. Images and attachments are linked with relative paths. A pasted or dropped image is written to `<document-name>_assets/` and a relative link is inserted; the folder name is configurable. Compatibility with org-attach's `data/` layout is provided (`:ATTACH_DIR:` and `attachment:` links are resolved).
 - **A workspace folder is optional.** It is needed for the agenda, multi-file search and `id:` link resolution.
 - **Saving is atomic.** Write to a temporary file, then rename. Optional `.bak`.
@@ -185,6 +185,7 @@ macOS 12+, Linux (X11 and Wayland), Windows 10+. Single binary, no installation 
 - In-buffer settings (`#+TODO`, `#+TAGS`, `#+STARTUP`, `#+PROPERTY`) are honored. Kalem never writes its own settings into a document unless the user explicitly asks.
 - Newly generated syntax follows the document's existing style: indentation, blank-line rules, upper or lower case `#+` keywords, the TODO keyword sequence.
 - Table alignment is identical to Emacs's `org-table-align`; otherwise every save would produce table diffs.
+- A `.org` file never receives Kalem's own markup (3.7). The Word-like additions live in `.klm` files, Org plus those additions, or in a `.org` file that opted in.
 - No file locking.
 
 ### 2.6 Other files: a general purpose text editor
@@ -193,7 +194,7 @@ Kalem opens any text file. Four document modes decide how:
 
 | Mode | Files | View |
 |---|---|---|
-| Org | `.org`, `.org_archive` | The WYSIWYG editor (the rest of this document) |
+| Org | `.org`, `.org_archive`; `.klm`, a Kalem document (Org plus Kalem's additions, 3.7) | The WYSIWYG editor (the rest of this document); in `.org` the formatting of 3.7 is off |
 | Markdown | `.md`, `.markdown`, `.mdown`, `.mkd` | A WYSIWYG view like the Org one: hidden markers revealed at the cursor, rendered headings, lists, task lists, tables, images and math (2.6.1) |
 | CSV | `.csv`, `.tsv`, `.tab` | An editable grid, like a light spreadsheet (2.6.2) |
 | Plain text | Everything else | The plain text editor, which is the same editor as Org's source view |
@@ -444,6 +445,8 @@ Pathological inputs that make Emacs quadratic (for example thousands of nested b
 ### 3.7 Kalem's own features beyond Org
 
 The owner set the rule on 2026-09-28: everything that works in Emacs works in Kalem, and Kalem adds features that Org mode does not have. Every standard Org file opens in Kalem with its Emacs meaning; a file that uses Kalem's additions may not look the same in Emacs.
+
+**Two file kinds (decided by the owner, 2026-09-28).** A `.org` file is strict Org: Kalem never writes its additions into it, so an Emacs co-author never sees a Kalem-only line and the extension keeps its meaning. A `.klm` file is a Kalem document, Kalem's own format: Org plus the additions of this section. `.klm` is a superset of Org, not a new syntax. Everything Kalem writes into it uses Org's extension points (export snippets, attribute lines, keywords, special blocks), so a `.klm` file renamed to `.org` is valid Org that Emacs opens and pandoc converts; `(add-to-list 'auto-mode-alist '("\\.klm\\'" . org-mode))` opens it in Emacs without renaming. A feature that cannot be expressed through Org's extension points is not added to `.klm` by default; it needs an RFC of its own. In practice: the formatting commands of this section are on in `.klm` and off in `.org`, where using one asks whether to make the document a Kalem document (rename to `.klm`) or to opt in with `#+KALEM: markup=yes`; the workspace setting `org.allow_kalem_markup` opts in a whole folder; "Save as Org" writes a copy without the additions and says what was dropped; `kalem check` warns about Kalem markup in a `.org` file, an error with `--deny-warnings`. Both kinds share the parser, the model, the commands, the exporters and the tests.
 
 Kalem writes its additions in syntax that Emacs already parses, so that such a file still opens, edits and exports in Emacs, only without the addition. Checked with Emacs 30.1 and Org 9.7.11: the HTML and ASCII exports of a file with every addition below leave them out and keep the text.
 
