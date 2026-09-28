@@ -543,3 +543,19 @@ cmd-file-makeKalemDocument = Make Kalem Document (.klm)
 cmd-format-allowMarkup = Allow Kalem's Formatting in This File
 kind-org = Org
 kind-klm = Kalem
+kind-dropped-spans = { $count ->
+    [one] { $count } formatted span
+   *[other] { $count } formatted spans
+}
+kind-dropped-paragraphs = { $count ->
+    [one] { $count } paragraph attribute
+   *[other] { $count } paragraph attributes
+}
+kind-dropped-document = { $count ->
+    [one] { $count } document option line
+   *[other] { $count } document option lines
+}
+kind-dropped-nothing = no Kalem formatting
+kind-saved-org = Saved as { $name } without { $dropped }
+cmd-file-saveAsOrg = Save as Org
+kind-markup-in-org = Kalem formatting in an Org file; make it a Kalem document (.klm), or add #+KALEM: markup=yes

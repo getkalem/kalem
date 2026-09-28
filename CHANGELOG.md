@@ -88,6 +88,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `org-export`: Org's export engine (`ox.el`) ported to Rust, with the HTML and Markdown back-ends: options, tags, macros, `#+INCLUDE`, numbering, footnotes, links (with Org's `doi:`, `info:` and other link types), tables, timestamps, smart quotes, translations by `#+LANGUAGE` and Babel's export changes (`:exports`, results, Noweb references; code is not run). The output is Emacs's, byte for byte, on every test case and on all 287 Worg files Emacs exports.
 - Export as HTML and Export as Markdown in both editors, and `kalem export FILE... --to html|md` (`-o`, `--body-only`), writing where `#+EXPORT_FILE_NAME` says or beside the file.
 - Two file kinds: `.org` stays strict Org, `.klm` is a Kalem document with Kalem's formatting. Formatting a `.org` file offers Make Kalem Document (links in the project follow) or `#+KALEM: markup=yes`; `org.allow_kalem_markup` allows a whole folder; the status bar names the kind.
+- Save as Org writes a `.klm` document as strict Org beside it and lists what it dropped; `kalem export --to org` does the same; `kalem check` warns about Kalem markup in a `.org` file.
 - Justified paragraphs in both editors; space before and after paragraphs (`#+ATTR_KALEM: :before :after`); typing in the font menu searches fonts; recently used colors in the color menus and prompts. `docs/terminal-parity.org` records what the terminal cannot show.
 - HTML export keeps Kalem's formatting: fonts, sizes, colors and highlights of spans, paragraph alignment and the document's font, size and line spacing.
 - A selection in a table shows the count, sum, average, minimum and maximum of its fields in the status bar of both editors.
@@ -120,6 +121,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- `kalem fmt` aligns tables that have `#+NAME:` or other affiliated keywords.
 - A crash when Vim keys that edit (such as `o`) were used in the file manager, which left the cursor past the end of the listing.
 - A hang when the file watcher's thread reported a change while a file was being added to it.
 - The file manager is listed by its own name in the list of open files, not under its project with the project's name again.

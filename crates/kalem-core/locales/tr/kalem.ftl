@@ -505,3 +505,10 @@ cmd-file-makeKalemDocument = Kalem Belgesi Yap (.klm)
 cmd-format-allowMarkup = Bu Dosyada Kalem Biçimlendirmesine İzin Ver
 kind-org = Org
 kind-klm = Kalem
+kind-dropped-spans = { $count } biçimli aralık
+kind-dropped-paragraphs = { $count } paragraf özniteliği
+kind-dropped-document = { $count } belge seçeneği satırı
+kind-dropped-nothing = Kalem biçimlendirmesi yok
+kind-saved-org = { $name } olarak kaydedildi; çıkarılanlar: { $dropped }
+cmd-file-saveAsOrg = Org Olarak Kaydet
+kind-markup-in-org = Org dosyasında Kalem biçimlendirmesi; onu bir Kalem belgesi (.klm) yapın ya da #+KALEM: markup=yes ekleyin
