@@ -364,6 +364,19 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7d.7 Tests: dialect round trips, RFC 4180 edge cases (quotes, embedded newlines), large files
 - [ ] T2.7d.8 Interoperability tests with files saved by Excel and LibreOffice Calc: UTF-8 BOM, CRLF, `;` as the delimiter and `,` as the decimal separator (Turkish and most European locales), quoted numbers, dates; each opens, edits and saves without changing the untouched records (review, 2026-09-28)
 
+### 2.7g More document modes (§2.6; review, 2026-09-28)
+
+A mode is built in only when all four hold: the format is text and edited losslessly; it reuses an engine Kalem has (the rich view with hidden markers, the table grid, the outline, org-math, syntect, the exporter); its audience overlaps the Org and Markdown users; and it is too deep for a plugin. Every other format is a plugin (T3.3.6), so that the "Swiss army knife" does not become ten half-finished modes (§19, scope creep; §1.4, not an IDE). Each mode below ships in both frontends, with mode detection (extension, mode line, shebang), snapshot tests and a section in the manual's "Other files".
+
+- [ ] T2.7g.1 AsciiDoc and reStructuredText on the Markdown engine, after 2.7c: a parser with source offsets per format (a decision like D19 each: the AsciiDoc and reST parsing crates, or own parsers on the Markdown view model), headings, emphasis, lists, tables in the shared grid, admonitions and includes shown, front matter and directives folded; the audience is technical documentation (Antora, Sphinx)
+- [ ] T2.7g.2 LaTeX and Typst source: highlighting (syntect for LaTeX; a Typst syntax added to `kalem-highlight`), inline preview of `$…$`, `\[…\]` and math environments through org-math while the cursor is outside, an outline from `\section` and `=` headings, `\include` and `#include` followed as links; compile to PDF through the external tool (`latexmk`, `tectonic`, `typst`) with errors mapped to lines, and the `typst` crate as an optional feature for a live PDF preview later (T4.3.2); persona P3
+- [ ] T2.7g.3 BibTeX grid: `.bib` files as a grid (key, type, author, title, year, the other fields on demand) with sorting and field editing, read and written through hayagriva (T2.4.2) with the entries' text kept where untouched; keys completed into `[cite:@…]` from the document's `#+bibliography`
+- [ ] T2.7g.4 Diff and patch view: the diff grammar of syntect, the files of the patch in the outline sidebar, hunks folded, a side-by-side toggle, and a jump from a hunk line to the file at that line inside the current project (T2.7f)
+- [ ] T2.7g.5 Log view: ANSI escape colors rendered, a follow mode through the file watcher (`tail -f`), a filter line with include and exclude regular expressions, timestamp detection for jumping to a time, all without laying out the whole file (T2.7a.3)
+- [ ] T2.7g.6 Structured data (JSON, YAML, TOML, XML): an outline from the structure, folding by node, Format Document (`serde_json`, `toml`, `serde_yaml`), Sort Keys, syntax errors as diagnostics in the status bar, and `kalem fmt` accepting these files with `--check`
+- [ ] T2.7g.7 Plain-text accounting (ledger, hledger, beancount): highlighting, amounts aligned on save and by `kalem fmt` as `org-table-align` aligns tables, account and payee completion from the file, the balance of the transaction at the cursor in the status bar, reports through the external tool with the command shown first; the plain-text accounting community overlaps the Org one
+- [ ] T2.7g.8 Mode detection and tests for the modes above: extensions and mode lines in `DocumentMode::detect`, when-clauses for the commands of each mode (`editorMode == bibtex`), snapshot tests in both frontends, manual sections
+
 ### 2.7e File manager, like Emacs's Dired (§2.7, D20)
 
 - [x] T2.7e.1 Decide D20 (file operation libraries: `trash`, std::fs, progress and cancellation); create the `kalem-fs` crate (`trash` with `NSFileManager` on macOS, own copy and move on std::fs; docs/decisions/D20-file-operations.md)
@@ -492,6 +505,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.3.3 `kalem plugin install <url>` and `kalem plugin list`
 - [ ] T3.3.4 Plugin API documentation (mdBook chapter); a "QuickJS is not a browser" page
 - [ ] T3.3.5 Security policy (`SECURITY.md`)
+- [ ] T3.3.6 Modes as plugins, through the plugin-defined languages and modes of §11.10 (review, 2026-09-28): the formats that fail one of the four rules of 2.7g come as example or community plugins: gettext `.po` and Fluent `.ftl` as a source and translation grid (dogfooded on `crates/kalem-core/locales`); todo.txt and TaskPaper on the Org task model with checkboxes; SVG source with a live preview (the SVG block renderer of T3.1.9b); Mermaid, DOT, PlantUML and D2 previews through the external tools; Fountain, gemtext and Djot on the rich view; `.srt` and `.vtt` subtitles as a grid with a time column; `.ics` and `.vcf` fed into the agenda (T3.5); `.eml` and mbox as a read-only view; `.ipynb` imported to Org with source blocks through the importer extension point (T3.1.9e); a read-only hex view for binary files as the one exception to §2.6, if the owner wants it
 
 ### 3.4 org-babel (§12)
 
@@ -617,3 +631,4 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [-] Elixir/BEAM as the main engine with Rust NIFs; Elixir as the plugin language. Rationale in §4.6. The live runtime need is covered by T3.2.
 - [-] Embedded Python as the plugin language. Python is supported through Babel (T3.4.3) and out-of-process plugins (T4.1.3).
 - [~] Tauri + ProseMirror as the primary UI: only if T0.6.8 says no-go. (T0.6.8 said go.)
+- [-] A built-in mode for every text format. Modes beyond Org, Markdown, CSV, plain text and 2.7g come as plugins (T3.3.6); the four rules of 2.7g decide (review, 2026-09-28).
