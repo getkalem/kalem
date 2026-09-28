@@ -127,6 +127,8 @@ pub enum Request {
     CopyText(String),
     /// Show the export dialog: formats and export settings.
     ExportDialog,
+    /// Offer a choice of commands, as the palette shows them.
+    Choose(Vec<crate::palette::PaletteItem>),
     /// Save `key` in the user's settings and apply the settings.
     SetSetting {
         /// The setting.

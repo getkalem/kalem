@@ -407,6 +407,55 @@ pub fn kalem_option(keywords: &[(String, String)], key: &str) -> Option<String> 
         .next_back()
 }
 
+/// Sets `key=value` in the document's first `#+KALEM:` line (a new one
+/// after the keywords at the top if there is none), the other keys kept.
+pub fn set_kalem_option(root: &SyntaxNode, text: &str, key: &str, value: &str) -> Transaction {
+    let line = root
+        .descendants()
+        .filter(|n| n.kind() == KEYWORD)
+        .find(|n| {
+            ast::AstNode::cast(n.clone())
+                .is_some_and(|k: ast::Keyword| k.key().eq_ignore_ascii_case("KALEM"))
+        });
+    let old = line
+        .as_ref()
+        .and_then(|n| ast::AstNode::cast(n.clone()))
+        .map(|k: ast::Keyword| k.value())
+        .unwrap_or_default();
+    let mut words: Vec<String> = words(&old)
+        .into_iter()
+        .filter(|w| {
+            !w.split_once('=')
+                .is_some_and(|(k, _)| k.eq_ignore_ascii_case(key))
+        })
+        .map(str::to_string)
+        .collect();
+    words.push(format!("{key}={value}"));
+    let new = format!("#+KALEM: {}", words.join(" "));
+    let mut tx = Transaction::new("Document Option");
+    match line {
+        Some(n) => {
+            let s = start(&n);
+            let e = s + text[s..].find('\n').unwrap_or(text.len() - s);
+            let _ = tx.replace(s..e, new);
+        }
+        None => {
+            let mut at = 0;
+            for l in text.split_inclusive('\n') {
+                if l.trim_start().starts_with("#+")
+                    && !l.trim_start().to_ascii_lowercase().starts_with("#+begin")
+                {
+                    at += l.len();
+                } else {
+                    break;
+                }
+            }
+            let _ = tx.insert(at, format!("{new}\n"));
+        }
+    }
+    tx
+}
+
 /// Changes the document's `#+KALEM:` defaults with `change` (the first
 /// such line, else a new one after the keywords at the top).
 pub fn set_defaults(

@@ -164,6 +164,12 @@ pub const SPECS: &[Spec] = &[
         description: "Highlight colors used lately, newest first",
     },
     Spec {
+        key: "org.allow_kalem_markup",
+        kind: Kind::Bool,
+        default: "false",
+        description: "Kalem's formatting may be written into .org files too (a workspace's own setting, for a folder shared with no Emacs user); without it .org stays strict Org and .klm files hold Kalem documents",
+    },
+    Spec {
         key: "org.table_auto_recalc",
         kind: Kind::Bool,
         default: "false",
