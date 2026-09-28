@@ -296,6 +296,34 @@ fn align_cmd(ctx: &mut EditorContext<'_>, align: crate::rich::Align) -> CommandR
     })
 }
 
+/// Writes the Kalem document as strict Org beside it (`notes.klm` to
+/// `notes.org`, with unsaved changes), without Kalem's additions, and says
+/// what was left out. The document itself stays as it is.
+fn save_as_org(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
+    let doc = ctx.doc()?;
+    let Some(path) = doc.meta.path.clone() else {
+        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+    };
+    let target = path.with_extension("org");
+    if target.exists() {
+        return Err(CommandError::new(crate::tr!(
+            "kind-exists",
+            path = target.display().to_string()
+        )));
+    }
+    let (text, counts) = crate::kinds::strip_markup(doc.text().as_str());
+    std::fs::write(&target, text).map_err(|e| CommandError::new(e.to_string()))?;
+    ctx.messages.push(crate::tr!(
+        "kind-saved-org",
+        name = target
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        dropped = crate::kinds::dropped_summary(counts)
+    ));
+    Ok(())
+}
+
 /// Saves the `.org` document as a `.klm` Kalem document beside it (the
 /// `.org` file goes), and turns the links to it in its project (or its
 /// folder) to the new name.
@@ -1704,6 +1732,14 @@ fn plain_commands() -> Vec<Command> {
                     Ok(crate::rich::set_kalem_option(&root, &text, "markup", "yes"))
                 })
             },
+        ),
+        cmd(
+            "file.saveAsOrg",
+            "Save as Org",
+            "File",
+            &[],
+            Some("fileKind == klm"),
+            save_as_org,
         ),
         cmd(
             "file.makeKalemDocument",

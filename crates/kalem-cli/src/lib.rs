@@ -160,6 +160,8 @@ enum ExportTo {
     Md,
     /// GitHub Flavored Markdown: pipe tables, fenced code, `~~strike~~`.
     Gfm,
+    /// Strict Org: a Kalem document without Kalem's additions.
+    Org,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -208,6 +210,7 @@ where
                 ExportTo::Html => commands::Target::Html,
                 ExportTo::Md => commands::Target::Markdown,
                 ExportTo::Gfm => commands::Target::Gfm,
+                ExportTo::Org => commands::Target::Org,
             };
             commands::export(&files, to, output.as_deref(), body_only, subtree.as_deref())
         }

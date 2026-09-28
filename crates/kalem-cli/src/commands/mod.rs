@@ -50,7 +50,25 @@ pub(crate) fn check(
         let text = read(f)?;
         let parse = org_syntax::parse_file(&text, f);
         let roundtrip = parse.syntax().to_string() == text;
-        let diags = parse.diagnostics();
+        let mut diags = parse.diagnostics();
+        // Kalem's additions in a strict `.org` file (design §3.7).
+        let org = f.extension().is_some_and(|e| e.eq_ignore_ascii_case("org"));
+        let opted_in = kalem_core::rich::kalem_option(&parse.keywords(), "markup")
+            .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        if org && !opted_in {
+            for (r, _) in kalem_core::kinds::markup(&parse.syntax()) {
+                diags.push(org_syntax::Diagnostic {
+                    range: org_syntax::TextRange::new(
+                        org_syntax::TextSize::from(r.start as u32),
+                        org_syntax::TextSize::from(r.end as u32),
+                    ),
+                    severity: org_syntax::Severity::Warning,
+                    code: "kalem-markup-in-org",
+                    message: kalem_core::l10n::tr("kind-markup-in-org"),
+                });
+            }
+            diags.sort_by_key(|d| d.range.start());
+        }
         if !roundtrip {
             failed = true;
         }

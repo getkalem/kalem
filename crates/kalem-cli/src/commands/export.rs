@@ -1,4 +1,4 @@
-//! `kalem export FILE... --to html|md|gfm`: Org's export, without Emacs.
+//! `kalem export FILE... --to html|md|gfm|org`: Org's export, without Emacs.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -15,6 +15,8 @@ pub(crate) enum Target {
     Markdown,
     /// GitHub Flavored Markdown.
     Gfm,
+    /// Strict Org, Kalem's additions taken out.
+    Org,
 }
 
 impl Target {
@@ -23,6 +25,8 @@ impl Target {
             Target::Html => &org_export::Html,
             Target::Markdown => &org_export::Markdown,
             Target::Gfm => &org_export::Gfm,
+            // Not an Org exporter: `export` writes the stripped text.
+            Target::Org => &org_export::Markdown,
         }
     }
 
@@ -30,6 +34,7 @@ impl Target {
         match self {
             Target::Html => ".html",
             Target::Markdown | Target::Gfm => ".md",
+            Target::Org => ".org",
         }
     }
 }
@@ -88,7 +93,18 @@ pub(crate) fn export(
             math: Some(kalem_core::math::export_renderer()),
             options: None,
         };
-        let out = match org_export::export(text, to.backend(), &settings) {
+        let out = if to == Target::Org {
+            let (out, counts) = kalem_core::kinds::strip_markup(text);
+            eprintln!(
+                "{}: {}",
+                file.display(),
+                kalem_core::kinds::dropped_summary(counts)
+            );
+            Ok(out)
+        } else {
+            org_export::export(text, to.backend(), &settings)
+        };
+        let out = match out {
             Ok(out) => out,
             Err(e) => {
                 eprintln!("{}: {e}", file.display());

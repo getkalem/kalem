@@ -23,8 +23,9 @@ use crate::transaction::Transaction;
 fn align_tables(root: &SyntaxNode, text: &str) -> Transaction {
     let mut tx = Transaction::new("Format");
     for n in root.descendants().filter(|n| n.kind() == SyntaxKind::TABLE) {
-        // The rows, without blank lines after the table.
-        let r = range(&n);
+        // The rows, after `#+NAME:` and the like and without blank lines
+        // after the table.
+        let r = usize::from(org_syntax::ast::post_affiliated(&n))..range(&n).end;
         if !text[r.clone()].trim_start().starts_with('|') {
             continue;
         }
@@ -220,6 +221,11 @@ mod tests {
         let t = "* A\n\ntext\n\n* B\n\n* C\nx\n* D\n";
         assert_eq!(fmt(t), "* A\n\ntext\n\n* B\n\n* C\nx\n\n* D\n");
         assert_eq!(fmt(""), "");
+        // Tables with affiliated keywords are aligned too.
+        assert_eq!(
+            fmt("#+NAME: t\n#+ATTR_KALEM: :x 1\n| a | bb |\n| ccc |\n"),
+            "#+NAME: t\n#+ATTR_KALEM: :x 1\n| a   | bb |\n| ccc |    |\n"
+        );
         // Lines ending with CRLF: formatted as with line feeds.
         let t = "* A\r\n\r\ntext\r\n\r\n* B :x:\r\n\r\n* C\r\n|a|\r\n* D\r\n";
         let lf = fmt(&t.replace("\r\n", "\n"));

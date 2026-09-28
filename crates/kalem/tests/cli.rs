@@ -78,6 +78,47 @@ fn bad_arguments_exit_with_2() {
 }
 
 #[test]
+fn kalem_markup_and_file_kinds() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-kinds-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let body = "#+KALEM: size=12\nSome @@kalem:color=red@@red@@kalem:end@@ text.\n\n#+ATTR_KALEM: :align right\n| a | bb |\n| ccc |\n";
+    // In a .klm file the additions are fine; in a .org file they warn.
+    let klm = dir.join("doc.klm");
+    std::fs::write(&klm, body).unwrap();
+    let (code, out, _) = kalem(&["check", "--deny-warnings", klm.to_str().unwrap()]);
+    assert_eq!((code, out.as_str()), (0, ""));
+    let org = dir.join("doc.org");
+    std::fs::write(&org, body).unwrap();
+    let (code, out, _) = kalem(&["check", "--deny-warnings", org.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert_eq!(out.matches("kalem-markup-in-org").count(), 4, "{out}");
+    let (code, _, _) = kalem(&["check", org.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    // Opted in: no warnings.
+    std::fs::write(&org, format!("#+KALEM: markup=yes\n{body}")).unwrap();
+    let (code, out, _) = kalem(&["check", "--deny-warnings", org.to_str().unwrap()]);
+    assert_eq!((code, out.as_str()), (0, ""), "{out}");
+    // `kalem export --to org` writes strict Org and says what went.
+    let (code, out, err) = kalem(&["export", klm.to_str().unwrap(), "--to", "org", "-o", "-"]);
+    assert_eq!(code, 0);
+    assert_eq!(out, "Some red text.\n\n| a | bb |\n| ccc |\n");
+    assert!(
+        err.contains("2 formatted spans, 1 paragraph attribute, 1 document option line"),
+        "{err}"
+    );
+    // `kalem fmt` aligns the table and leaves the additions alone.
+    let (code, _, _) = kalem(&["fmt", klm.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    let after = std::fs::read_to_string(&klm).unwrap();
+    assert_eq!(
+        after,
+        body.replace("| a | bb |\n| ccc |\n", "| a   | bb |\n| ccc |    |\n")
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn fmt_aligns_and_checks() {
     let dir = std::env::temp_dir().join(format!("kalem-cli-fmt-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
