@@ -524,6 +524,8 @@ cmd-export-markdown = Export as Markdown
 cmd-export-gfm = Export as GitHub Markdown
 cmd-export-latex = Export as LaTeX
 cmd-export-latexSubtree = Export Subtree as LaTeX
+cmd-export-pdf = Export as PDF (LaTeX)
+cmd-export-pdfSubtree = Export Subtree as PDF (LaTeX)
 cmd-export-text = Export as Plain Text
 cmd-export-dialog = Export…
 cmd-export-toggleBodyOnly = Toggle Export of the Body Only
@@ -567,3 +569,17 @@ kind-dropped-nothing = no Kalem formatting
 kind-saved-org = Saved as { $name } without { $dropped }
 cmd-file-saveAsOrg = Save as Org
 kind-markup-in-org = Kalem formatting in an Org file; make it a Kalem document (.klm), or add #+KALEM: markup=yes
+msg-compiling-pdf = Compiling the PDF…
+msg-no-latex = No LaTeX found: install TeX Live, MacTeX, MiKTeX or tectonic
+msg-pdf-failed = The PDF could not be made: { $error }
+msg-pdf-error = { $place }: { $error }{ $count ->
+    [0] {""}
+    [one] {" "}(and 1 more error)
+   *[other] {" "}(and { $count } more errors)
+}
+msg-pdf-done = Exported { $path }{ $count ->
+    [0] {""}
+    [one] {" "}(1 LaTeX warning)
+   *[other] {" "}({ $count } LaTeX warnings)
+}
+msg-job-failed = A background task stopped unexpectedly

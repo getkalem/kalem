@@ -486,6 +486,8 @@ cmd-export-markdown = Markdown Olarak Dışa Aktar
 cmd-export-gfm = GitHub Markdown Olarak Dışa Aktar
 cmd-export-latex = LaTeX Olarak Dışa Aktar
 cmd-export-latexSubtree = Alt Ağacı LaTeX Olarak Dışa Aktar
+cmd-export-pdf = PDF Olarak Dışa Aktar (LaTeX)
+cmd-export-pdfSubtree = Alt Ağacı PDF Olarak Dışa Aktar (LaTeX)
 cmd-export-text = Düz Metin Olarak Dışa Aktar
 cmd-export-dialog = Dışa Aktar…
 cmd-export-toggleBodyOnly = Yalnız Gövdeyi Dışa Aktarmayı Aç/Kapat
@@ -520,3 +522,15 @@ kind-dropped-nothing = Kalem biçimlendirmesi yok
 kind-saved-org = { $name } olarak kaydedildi; çıkarılanlar: { $dropped }
 cmd-file-saveAsOrg = Org Olarak Kaydet
 kind-markup-in-org = Org dosyasında Kalem biçimlendirmesi; onu bir Kalem belgesi (.klm) yapın ya da #+KALEM: markup=yes ekleyin
+msg-compiling-pdf = PDF derleniyor…
+msg-no-latex = LaTeX bulunamadı: TeX Live, MacTeX, MiKTeX veya tectonic kurun
+msg-pdf-failed = PDF oluşturulamadı: { $error }
+msg-pdf-error = { $place }: { $error }{ $count ->
+    [0] {""}
+   *[other] {" "}(ve { $count } hata daha)
+}
+msg-pdf-done = Dışa aktarıldı: { $path }{ $count ->
+    [0] {""}
+   *[other] {" "}({ $count } LaTeX uyarısı)
+}
+msg-job-failed = Bir arka plan işi beklenmedik biçimde durdu

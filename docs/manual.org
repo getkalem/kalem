@@ -322,6 +322,13 @@ tables, figures, lists and blocks work as in Org's manual. A Kalem
 document's fonts, sizes, colors, highlights, alignment and spacing go into
 it too (fonts only for XeLaTeX and LuaLaTeX, =#+LATEX_COMPILER=).
 
+/Export as PDF (LaTeX)/ writes the LaTeX file and compiles it in the
+background with =latexmk=, else the TeX engine (=pdflatex=, or the one
+=#+LATEX_COMPILER= names) or =tectonic=, whichever is installed; TeX Live,
+MacTeX or MiKTeX provide them. When LaTeX stops on an error, the status
+line gives it at the line of the Org file it comes from. With
+=export.open_after= on, the PDF opens when it is ready.
+
 Plain text is filled to 72 columns as Emacs fills it, with underlined
 titles, boxed code and tables drawn in ASCII; =export.text_charset =
 "utf-8"= uses UTF-8 lines, bullets and quotes instead.
@@ -334,6 +341,7 @@ kalem export notes.org --to md -o -     # Markdown to standard output
 kalem export *.org --body-only          # only the body of each page
 kalem export paper.org --to latex       # paper.tex
 kalem export notes.org --to txt         # plain text, 72 columns (utf8 for UTF-8)
+kalem export paper.org --to pdf         # paper.pdf; errors as paper.org:LINE: …
 kalem export paper.org --to latex --source-lines   # %% org:LINE comments
 #+end_src
 

@@ -172,6 +172,8 @@ enum ExportTo {
     Txt,
     /// Plain text with UTF-8 lines, bullets and quotes.
     Utf8,
+    /// PDF through LaTeX (`latexmk`, the TeX engine or `tectonic`).
+    Pdf,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -226,6 +228,7 @@ where
                 ExportTo::Latex => commands::Target::Latex,
                 ExportTo::Txt => commands::Target::Text,
                 ExportTo::Utf8 => commands::Target::Utf8,
+                ExportTo::Pdf => commands::Target::Pdf,
             };
             commands::export(&files, to, output.as_deref(), body_only, subtree.as_deref())
         }

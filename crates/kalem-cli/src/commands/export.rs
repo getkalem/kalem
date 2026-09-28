@@ -25,6 +25,8 @@ pub(crate) enum Target {
     Text,
     /// Plain text with UTF-8 characters.
     Utf8,
+    /// PDF: LaTeX with `%% org:LINE` comments, compiled.
+    Pdf,
 }
 
 /// The LaTeX back-end.
@@ -43,7 +45,7 @@ impl Target {
             Target::Markdown => &org_export::Markdown,
             Target::Gfm => &org_export::Gfm,
             Target::Latex => &LATEX,
-            Target::LatexLines => &LATEX_LINES,
+            Target::LatexLines | Target::Pdf => &LATEX_LINES,
             Target::Text => &org_export::Text { utf8: false },
             Target::Utf8 => &org_export::Text { utf8: true },
             // Not an Org exporter: `export` writes the stripped text.
@@ -56,7 +58,7 @@ impl Target {
             Target::Html => ".html",
             Target::Markdown | Target::Gfm => ".md",
             Target::Org => ".org",
-            Target::Latex | Target::LatexLines => ".tex",
+            Target::Latex | Target::LatexLines | Target::Pdf => ".tex",
             Target::Text | Target::Utf8 => ".txt",
         }
     }
@@ -151,6 +153,12 @@ pub(crate) fn export(
                     std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
                 }
                 std::fs::write(&target, out).map_err(|e| format!("{}: {e}", target.display()))?;
+                if to == Target::Pdf {
+                    if !compile_pdf(file, text, &target) {
+                        failed = true;
+                    }
+                    continue;
+                }
                 println!("{}", target.display());
             }
         }
@@ -160,4 +168,45 @@ pub(crate) fn export(
     } else {
         ExitCode::SUCCESS
     })
+}
+
+/// Compiles the LaTeX file `tex` exported from `file` to PDF, printing
+/// LaTeX's problems at their Org lines; whether it worked.
+fn compile_pdf(file: &Path, text: &str, tex: &Path) -> bool {
+    use kalem_core::pdf;
+    let engine = pdf::Engine::from_keyword(
+        org_syntax::parse(text)
+            .keywords()
+            .iter()
+            .rev()
+            .find(|(k, _)| k.eq_ignore_ascii_case("LATEX_COMPILER"))
+            .map(|(_, v)| v.as_str()),
+    );
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    let Some(tool) = pdf::detect(engine, &search) else {
+        eprintln!(
+            "{}: {}",
+            file.display(),
+            kalem_core::l10n::tr("msg-no-latex")
+        );
+        return false;
+    };
+    match pdf::compile(&tool, engine, tex) {
+        Ok(c) => {
+            if !c.problems.is_empty() {
+                eprintln!("{}", pdf::report(file, &c.problems));
+            }
+            match c.pdf {
+                Some(p) if !c.problems.iter().any(|p| p.error) => {
+                    println!("{}", p.display());
+                    true
+                }
+                _ => false,
+            }
+        }
+        Err(e) => {
+            eprintln!("{}: {e}", file.display());
+            false
+        }
+    }
 }
