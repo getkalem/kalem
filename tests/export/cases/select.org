@@ -1,0 +1,10 @@
+#+SELECT_TAGS: keep
+#+EXCLUDE_TAGS: drop
+
+Intro text, gone with a select tag.
+
+* Not kept
+* Kept :keep:
+** Child of kept
+** Dropped child :drop:
+* Also not kept

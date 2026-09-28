@@ -1,0 +1,81 @@
+// The Word-like profile (design §7.3). The default keys of the built-in
+// commands come first; these add the bindings that pass arguments or name
+// a key for terminals.
+[
+  { "keys": "ctrl+1", "command": "org.headline.setLevel", "args": { "level": 1 } },
+  { "keys": "ctrl+2", "command": "org.headline.setLevel", "args": { "level": 2 } },
+  { "keys": "ctrl+3", "command": "org.headline.setLevel", "args": { "level": 3 } },
+  { "keys": "ctrl+4", "command": "org.headline.setLevel", "args": { "level": 4 } },
+  { "keys": "ctrl+5", "command": "org.headline.setLevel", "args": { "level": 5 } },
+  { "keys": "ctrl+6", "command": "org.headline.setLevel", "args": { "level": 6 } },
+  { "keys": "ctrl+0", "command": "org.headline.setLevel", "args": { "level": 0 }, "when": "onHeadline" },
+  // Tab folds on a heading (and indents in lists, moves in tables).
+  { "keys": "tab", "command": "view.fold" },
+  { "keys": "shift+tab", "command": "view.foldAll", "when": "onHeadline" },
+  // A line break within a paragraph; terminals send Shift+Enter as Enter.
+  { "keys": "shift+enter", "command": "edit.newline", "terminalKeys": "ctrl+j" },
+  // Enter in text files keeps the indentation.
+  { "keys": "enter", "command": "edit.newline", "when": "editorMode != org" },
+  // Terminals send Ctrl+Enter as Enter.
+  { "keys": "ctrl+enter", "command": "org.todo.cycle", "terminalKeys": "ctrl+t" },
+  { "keys": "ctrl+,", "command": "app.settings", "terminalKeys": "alt+," },
+  // Terminals send Ctrl+Shift+P as Ctrl+P, and macOS terminals send Alt+P
+  // as a character: Ctrl+G there (and F1).
+  { "keys": "ctrl+shift+p", "command": "view.palette", "terminalKeys": "ctrl+g" },
+  { "keys": "ctrl+shift+z", "command": "edit.redo", "terminalKeys": "ctrl+y" },
+  // The next and previous document. Terminals cannot send Ctrl+Tab;
+  // Ctrl+PageDown and Ctrl+PageUp work there. On macOS, where Command
+  // takes Control's place, `cmd+tab` is the Control key's Ctrl+Tab and
+  // Command+Shift+] and [ switch as in Safari.
+  { "keys": "ctrl+tab", "command": "file.next", "terminalKeys": "ctrl+pagedown" },
+  { "keys": "ctrl+shift+tab", "command": "file.previous", "terminalKeys": "ctrl+pageup" },
+  { "keys": "cmd+tab", "command": "file.next", "terminalKeys": "ctrl+pagedown" },
+  { "keys": "cmd+shift+tab", "command": "file.previous", "terminalKeys": "ctrl+pageup" },
+  { "keys": "ctrl+shift+]", "command": "file.next", "terminalKeys": "ctrl+pagedown" },
+  { "keys": "ctrl+shift+[", "command": "file.previous", "terminalKeys": "ctrl+pageup" },
+  // Word's keys for sizes and justifying. Ctrl+[ is Escape and Ctrl+J a
+  // line feed in terminals: Alt+= and Alt+- there, and no Ctrl+J.
+  { "keys": "ctrl+]", "command": "format.grow", "terminalKeys": "alt+=" },
+  { "keys": "ctrl+[", "command": "format.shrink", "terminalKeys": "alt+-" },
+  { "keys": "ctrl+shift+.", "command": "format.grow", "terminalKeys": "alt+=" },
+  { "keys": "ctrl+shift+,", "command": "format.shrink", "terminalKeys": "alt+-" },
+  { "keys": "ctrl+j", "command": "format.justify", "when": "!terminal" },
+  // The file manager: Dired's keys (design §2.7). They apply in a folder
+  // listing only, which is read-only, so single letters are free. `c`
+  // creates a file (a folder when the name ends with a slash), as in
+  // Neotree and Treemacs; F2 renames and Delete moves to the trash, as in
+  // graphical file managers.
+  { "keys": "enter", "command": "dired.open" },
+  { "keys": "^", "command": "dired.up" },
+  { "keys": "-", "command": "dired.up" },
+  { "keys": "backspace", "command": "dired.up" },
+  { "keys": "n", "command": "dired.next" },
+  { "keys": "p", "command": "dired.previous" },
+  { "keys": "g", "command": "dired.refresh" },
+  { "keys": "shift+p", "command": "dired.projects" },
+  { "keys": "(", "command": "dired.toggleDetails" },
+  { "keys": ".", "command": "dired.toggleHidden" },
+  { "keys": "s", "command": "dired.sort" },
+  { "keys": "shift+f", "command": "dired.filter" },
+  { "keys": "m", "command": "dired.mark" },
+  { "keys": "u", "command": "dired.unmark" },
+  { "keys": "shift+u", "command": "dired.unmarkAll" },
+  { "keys": "t", "command": "dired.toggleMarks" },
+  { "keys": "d", "command": "dired.flag" },
+  { "keys": "x", "command": "dired.executeFlagged" },
+  { "keys": "% m", "command": "dired.markRegexp" },
+  { "keys": "* /", "command": "dired.markDirectories" },
+  { "keys": "* .", "command": "dired.markExtension" },
+  { "keys": "shift+c", "command": "dired.copy" },
+  { "keys": "shift+r", "command": "dired.move" },
+  { "keys": "shift+d", "command": "dired.delete" },
+  { "keys": "+", "command": "dired.mkdir" },
+  { "keys": "c", "command": "dired.newFile" },
+  { "keys": "f2", "command": "dired.move" },
+  { "keys": "delete", "command": "dired.delete" },
+  { "keys": "shift+s", "command": "dired.symlink" },
+  { "keys": "shift+m", "command": "dired.chmod" },
+  { "keys": "shift+t", "command": "dired.touch" },
+  { "keys": "w", "command": "dired.copyName" },
+  { "keys": "q", "command": "dired.close" }
+]

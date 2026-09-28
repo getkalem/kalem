@@ -1,0 +1,6 @@
+---
+source: crates/kalem/tests/cli.rs
+expression: out
+---
+tests/fixtures/sample.org:3:12: warning[invalid-timestamp]: <2026-02-30 Mon> is not a valid date or time
+tests/fixtures/sample.org:4:1: warning[unterminated-block]: #+begin_src has no matching #+end_src; it is read as text

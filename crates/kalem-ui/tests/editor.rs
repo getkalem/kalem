@@ -1,0 +1,1538 @@
+//! The graphical editor in gpui's headless test platform: keys, typing
+//! through the input handler, commands, folding.
+
+use std::rc::Rc;
+
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use gpui::{Entity, TestAppContext, VisualTestContext};
+use kalem_core::settings::Config;
+use kalem_ui::editor::Editor;
+use kalem_ui::theme::Theme;
+use kalem_ui::workspace::Workspace;
+
+/// The primary modifier of the Word-like profile on this platform.
+fn primary() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "cmd"
+    } else {
+        "ctrl"
+    }
+}
+
+fn open<'a>(text: &str, cx: &'a mut TestAppContext) -> (Entity<Editor>, &'a mut VisualTestContext) {
+    open_with(text, || None, cx)
+}
+
+/// Opens `text` with `html` as the system clipboard's HTML.
+fn open_with<'a>(
+    text: &str,
+    html: fn() -> Option<String>,
+    cx: &'a mut TestAppContext,
+) -> (Entity<Editor>, &'a mut VisualTestContext) {
+    static N: AtomicUsize = AtomicUsize::new(0);
+    let n = N.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("kalem-ui-{}-{n}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("t.org");
+    std::fs::write(&path, text).unwrap();
+    let mut shared = kalem_ui::shared(Config::default());
+    shared.html_clipboard = html;
+    shared.settings_path = Some(dir.join("settings.toml"));
+    shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
+        dir.join("projects.toml"),
+    )));
+    let shared = Rc::new(shared);
+    let mut editor = None;
+    let (_ws, vcx) = cx.add_window_view(|window, cx| {
+        let e = kalem_ui::editor::open(Some(&path), shared, Theme::light(), cx).unwrap();
+        let focus = gpui::Focusable::focus_handle(e.read(cx), cx);
+        window.focus(&focus, cx);
+        editor = Some(e.clone());
+        Workspace::new(e, window, cx)
+    });
+    vcx.run_until_parked();
+    (editor.unwrap(), vcx)
+}
+
+fn text(e: &Entity<Editor>, cx: &mut VisualTestContext) -> String {
+    e.read_with(cx, |e, _| e.doc.text().as_str().to_string())
+}
+
+fn at(e: &Entity<Editor>, pos: usize, cx: &mut VisualTestContext) {
+    e.update(cx, |e, cx| {
+        e.doc.move_cursor(pos, false);
+        e.after_change(cx);
+    });
+    cx.run_until_parked();
+}
+
+#[gpui::test]
+fn typing_and_commands(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\nword\n", cx);
+    at(&e, 8, cx);
+    cx.simulate_input("s!");
+    assert_eq!(text(&e, cx), "* A\nwords!\n");
+    // Undo, then bold a selection.
+    cx.simulate_keystrokes(&format!("{}-z", primary()));
+    assert_eq!(text(&e, cx), "* A\nword\n");
+    cx.simulate_keystrokes("shift-left shift-left shift-left shift-left");
+    cx.simulate_keystrokes(&format!("{}-b", primary()));
+    assert_eq!(text(&e, cx), "* A\n*word*\n");
+}
+
+#[gpui::test]
+fn enter_in_lists(cx: &mut TestAppContext) {
+    let (e, cx) = open("- one\n", cx);
+    at(&e, 5, cx);
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("two");
+    assert_eq!(text(&e, cx), "- one\n- two\n");
+}
+
+#[gpui::test]
+fn folding_with_tab(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\nbody\n* B\n", cx);
+    at(&e, 1, cx);
+    assert_eq!(e.read_with(cx, |e, _| e.visible.clone()), vec![0, 1, 2, 3]);
+    cx.simulate_keystrokes("tab");
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.visible.clone()), vec![0, 2, 3]);
+    cx.simulate_keystrokes("tab");
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.visible.clone()), vec![0, 1, 2, 3]);
+}
+
+#[gpui::test]
+fn tables_keep_columns(cx: &mut TestAppContext) {
+    let (e, cx) = open("| ab   | c |\n", cx);
+    at(&e, 4, cx);
+    cx.simulate_input("x");
+    assert_eq!(text(&e, cx), "| abx  | c |\n");
+    cx.simulate_keystrokes("tab");
+    cx.simulate_input("Z");
+    assert_eq!(text(&e, cx), "| abx | Z |\n");
+}
+
+#[gpui::test]
+fn lines_are_painted(cx: &mut TestAppContext) {
+    let (e, cx) = open("* TODO Head\nSome *bold* text\n- [ ] task\n", cx);
+    at(&e, 0, cx);
+    let painted = e.read_with(cx, |e, _| e.painted.borrow().len());
+    assert_eq!(painted, 4);
+    // The checkbox is a widget that toggles on click.
+    let b = e.read_with(cx, |e, _| {
+        e.painted
+            .borrow()
+            .get(&2)
+            .and_then(|p| p.widgets.first().map(|w| w.0))
+            .expect("a checkbox")
+    });
+    cx.simulate_click(b.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert_eq!(text(&e, cx), "* TODO Head\nSome *bold* text\n- [X] task\n");
+}
+
+#[gpui::test]
+fn accessible_text(cx: &mut TestAppContext) {
+    let (e, cx) = open("* Head\nSome *bold* text\n- [X] task\n", cx);
+    at(&e, 12, cx);
+    let t = e.read_with(cx, |e, _| e.a11y_text());
+    let lines: Vec<&str> = t.lines.iter().map(|(_, s)| s.as_str()).collect();
+    // Hidden markup is not read; the cursor's line shows its markup.
+    assert_eq!(lines, ["Head", "Some *bold* text", "• ☑ task", ""]);
+    assert_eq!(t.selection, Some(((1, 5), (1, 5))));
+}
+
+#[gpui::test]
+fn tags_at_the_right_edge(cx: &mut TestAppContext) {
+    let text = "* Head :work:\nbody\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.len(), cx);
+    let (x, width) = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow().get(&0).cloned().expect("painted");
+        let tag = text.find(":work:").unwrap();
+        (
+            p.layout.caret(p.view.display_offset(tag)).origin.x,
+            p.bounds.size.width,
+        )
+    });
+    assert!(x > width / 2., "tags at {x:?} of {width:?}");
+}
+
+#[gpui::test]
+fn scripts_are_smaller(cx: &mut TestAppContext) {
+    let text = "E = mc^{2} and H_{2}O\nend\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.len(), cx);
+    // The superscript is narrower than the same text at full size.
+    let (w2, wm) = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow().get(&0).cloned().expect("painted");
+        let d = |s: usize| p.layout.caret(p.view.display_offset(s)).origin.x;
+        let two = text.find('2').unwrap();
+        let m = text.find('m').unwrap();
+        (d(two + 1) - d(two), d(m + 1) - d(m))
+    });
+    assert!(w2 < wm, "{w2:?} {wm:?}");
+}
+
+#[gpui::test]
+fn wrapped_items_hang(cx: &mut TestAppContext) {
+    let item = format!("- [ ] {}\n", "word ".repeat(80));
+    let (e, cx) = open(&format!("{item}end\n"), cx);
+    at(&e, item.len() + 1, cx);
+    // Wrapped rows start where the item's text does, not at the bullet.
+    let (text_x, second_row_x) = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow().get(&0).cloned().expect("painted");
+        assert!(p.layout.rows.len() > 1);
+        let first = p.layout.caret(p.view.display_offset(6)).origin.x;
+        let row2 = p.layout.rows[1].start;
+        (first, p.layout.caret(row2).origin.x)
+    });
+    assert_eq!(text_x, second_row_x);
+}
+
+#[gpui::test]
+fn tables_as_grids(cx: &mut TestAppContext) {
+    let text = "| Name | Qty |\n|---+---|\n| *apple* | 3 |\n| b | 10 |\nafter\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.len(), cx);
+    let x = |e: &Editor, line: usize, src: usize| {
+        let p = e.painted.borrow().get(&line).cloned().expect("painted");
+        p.layout.caret(p.view.display_offset(src)).origin.x
+    };
+    let (name, apple, b, three_end, ten_end) = e.read_with(cx, |e, _| {
+        (
+            x(e, 0, text.find("Name").unwrap()),
+            x(e, 2, text.find("*apple*").unwrap() + 1),
+            x(e, 3, text.find("| b").unwrap() + 2),
+            x(e, 2, text.find("3 |").unwrap() + 1),
+            x(e, 3, text.find("10").unwrap() + 2),
+        )
+    });
+    // Text columns start together, number columns end together.
+    let near = |a: gpui::Pixels, b: gpui::Pixels| (f32::from(a) - f32::from(b)).abs() < 0.01;
+    assert!(near(name, b) && near(apple, b), "{name:?} {apple:?} {b:?}");
+    assert!(near(three_end, ten_end), "{three_end:?} {ten_end:?}");
+    // A click on a cell lands in its source.
+    let (pos, bounds) = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow().get(&3).cloned().unwrap();
+        let caret = p
+            .layout
+            .caret(p.view.display_offset(text.find("10").unwrap()));
+        (
+            text.find("10").unwrap(),
+            gpui::Bounds::new(p.bounds.origin + caret.origin, caret.size),
+        )
+    });
+    cx.simulate_click(bounds.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    let head = e.read_with(cx, |e, _| e.doc.selection.head);
+    assert!(head == pos || head == pos + 1, "{head} {pos}");
+}
+
+#[gpui::test]
+fn code_blocks_copy(cx: &mut TestAppContext) {
+    let text =
+        "#+begin_src rust\nfn main() {}\n#+end_src\n-----\n#+begin_quote\nq\n#+end_quote\nend\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.len(), cx);
+    let (shown, button) = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow().get(&0).cloned().expect("painted");
+        (p.view.display(), p.buttons.first().map(|b| b.0))
+    });
+    assert!(
+        shown.starts_with("rust") && !shown.contains("#+begin"),
+        "{shown:?}"
+    );
+    cx.simulate_click(
+        button.expect("a copy button").center(),
+        gpui::Modifiers::default(),
+    );
+    cx.run_until_parked();
+    let copied = cx.read_from_clipboard().and_then(|c| c.text());
+    assert_eq!(copied.as_deref(), Some("fn main() {}\n"));
+    // Inside the block, its first line is the source again.
+    at(&e, 20, cx);
+    let shown = e.read_with(cx, |e, _| {
+        e.painted.borrow().get(&0).map(|p| p.view.display())
+    });
+    assert_eq!(shown.as_deref(), Some("#+begin_src rust"));
+}
+
+#[gpui::test]
+fn following_links(cx: &mut TestAppContext) {
+    let text = "* Target\ntext [[*Target][go]] here\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.len(), cx);
+    let b = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow().get(&1).cloned().expect("painted");
+        let go = text.find("go]").unwrap();
+        let caret = p.layout.caret(p.view.display_offset(go));
+        gpui::Bounds::new(p.bounds.origin + caret.origin, caret.size)
+    });
+    let mut m = gpui::Modifiers::default();
+    if cfg!(target_os = "macos") {
+        m.platform = true;
+    } else {
+        m.control = true;
+    }
+    cx.simulate_click(b.center() + gpui::point(gpui::px(3.), gpui::px(0.)), m);
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), 0);
+}
+
+#[gpui::test]
+fn ime_composition(cx: &mut TestAppContext) {
+    use gpui::EntityInputHandler;
+    let (e, cx) = open("日本\n", cx);
+    at(&e, 6, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.replace_and_mark_text_in_range(None, "k", None, window, cx);
+        e.replace_and_mark_text_in_range(None, "か", None, window, cx);
+    });
+    assert_eq!(text(&e, cx), "日本か\n");
+    assert_eq!(e.read_with(cx, |e, _| e.marked.clone()), Some(6..9));
+    // UTF-16 ranges for the input method.
+    let marked = e.update_in(cx, |e, window, cx| e.marked_text_range(window, cx));
+    assert_eq!(marked, Some(2..3));
+    e.update_in(cx, |e, window, cx| {
+        e.replace_text_in_range(None, "語", window, cx)
+    });
+    assert_eq!(text(&e, cx), "日本語\n");
+    assert_eq!(
+        e.read_with(cx, |e, _| (e.marked.clone(), e.doc.selection.head)),
+        (None, 9)
+    );
+}
+
+#[gpui::test]
+fn clicks_select(cx: &mut TestAppContext) {
+    let text = "alpha beta gamma\nnext\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.len(), cx);
+    let point_at = |e: &Entity<Editor>, cx: &mut VisualTestContext, pos: usize| {
+        e.read_with(cx, |e, _| {
+            let p = e.painted.borrow().get(&0).cloned().expect("painted");
+            let c = p.layout.caret(p.view.display_offset(pos));
+            p.bounds.origin + c.origin + gpui::point(gpui::px(2.), c.size.height / 2.)
+        })
+    };
+    let beta = point_at(&e, cx, 7);
+    cx.simulate_event(gpui::MouseDownEvent {
+        button: gpui::MouseButton::Left,
+        position: beta,
+        modifiers: gpui::Modifiers::default(),
+        click_count: 2,
+        first_mouse: false,
+    });
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.selected_text().map(str::to_string)),
+        Some("beta".into())
+    );
+    cx.simulate_event(gpui::MouseDownEvent {
+        button: gpui::MouseButton::Left,
+        position: beta,
+        modifiers: gpui::Modifiers::default(),
+        click_count: 3,
+        first_mouse: false,
+    });
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.selected_text().map(str::to_string)),
+        Some("alpha beta gamma\n".into())
+    );
+    // Shift with arrows extends from the cursor.
+    at(&e, 0, cx);
+    cx.simulate_keystrokes("shift-right shift-right");
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.selected_text().map(str::to_string)),
+        Some("al".into())
+    );
+}
+
+#[gpui::test]
+fn completion_menus(cx: &mut TestAppContext) {
+    let (e, cx) = open("* Intro\n\n", cx);
+    at(&e, 8, cx);
+    cx.simulate_input("#+ti");
+    assert!(e.read_with(cx, |e, _| e.completion.is_some()));
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("Doc");
+    assert_eq!(text(&e, cx), "* Intro\n#+title: Doc\n");
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("see [[In");
+    cx.simulate_keystrokes("down up tab");
+    assert_eq!(text(&e, cx), "* Intro\n#+title: Doc\nsee [[*Intro]]\n");
+}
+
+#[gpui::test]
+fn tab_by_context(cx: &mut TestAppContext) {
+    let (e, cx) = open("- a\n- b\n", cx);
+    at(&e, 6, cx);
+    // In a list, Tab indents the item; Shift+Tab outdents it.
+    cx.simulate_keystrokes("tab");
+    assert_eq!(text(&e, cx), "- a\n  - b\n");
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(text(&e, cx), "- a\n- b\n");
+    // Enter on an empty item leaves the list.
+    at(&e, 7, cx);
+    cx.simulate_keystrokes("enter enter");
+    cx.simulate_input("after");
+    assert_eq!(text(&e, cx), "- a\n- b\nafter\n");
+}
+
+#[gpui::test]
+fn pasting(cx: &mut TestAppContext) {
+    let (e, cx) = open("text\n", cx);
+    at(&e, 4, cx);
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string("a\tb\n1\t2\n".into()));
+    cx.simulate_keystrokes(&format!("{}-v", primary()));
+    assert_eq!(text(&e, cx), "text\n| a | b |\n| 1 | 2 |\n");
+    // Undone in one step, and pasted again as plain text.
+    cx.simulate_keystrokes(&format!("{}-z", primary()));
+    assert_eq!(text(&e, cx), "text\n");
+    cx.simulate_keystrokes(&format!("{}-shift-v", primary()));
+    assert_eq!(text(&e, cx), "texta\tb\n1\t2\n\n");
+}
+
+#[gpui::test]
+fn pasting_html(cx: &mut TestAppContext) {
+    let (e, cx) = open_with(
+        "x\n",
+        || Some("<p>Some <b>bold</b> <a href=\"https://kalem.dev\">text</a></p>".into()),
+        cx,
+    );
+    at(&e, 1, cx);
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string("Some bold text".into()));
+    cx.simulate_keystrokes(&format!("{}-v", primary()));
+    assert_eq!(text(&e, cx), "xSome *bold* [[https://kalem.dev][text]]\n");
+}
+
+#[gpui::test]
+fn source_view(cx: &mut TestAppContext) {
+    let (e, cx) = open("* Head\nSome *bold* \\alpha\n", cx);
+    at(&e, 7, cx);
+    let rich = e.read_with(cx, |e, _| e.line_view(1).display());
+    assert_eq!(rich, "Some bold α");
+    cx.simulate_keystrokes(&format!("{}-/", primary()));
+    let (head, body, bold) = e.read_with(cx, |e, _| {
+        let v = e.line_view(1);
+        let bold = v
+            .runs
+            .iter()
+            .any(|r| r.style.bold && r.text.contains("bold"));
+        (e.line_view(0), v.display(), bold)
+    });
+    assert_eq!(
+        (head.display().as_str(), body.as_str()),
+        ("* Head", "Some *bold* \\alpha")
+    );
+    assert!(head.heading == 1 && head.mono && bold);
+    // Painted at one size, and edits go to the same document and history.
+    let sizes = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow();
+        (
+            p.get(&0).map(|p| p.bounds.size.height),
+            p.get(&1).map(|p| p.bounds.size.height),
+        )
+    });
+    assert!(sizes.0.is_some() && sizes.0 == sizes.1, "{sizes:?}");
+    cx.simulate_input("x");
+    cx.simulate_keystrokes(&format!("{}-/", primary()));
+    cx.simulate_keystrokes(&format!("{}-z", primary()));
+    assert_eq!(text(&e, cx), "* Head\nSome *bold* \\alpha\n");
+}
+
+#[gpui::test]
+fn split_view(cx: &mut TestAppContext) {
+    let (e, cx) = open("* Head\nSome *bold* text\n", cx);
+    at(&e, 0, cx);
+    cx.simulate_keystrokes(&format!("{}-\\", primary()));
+    cx.run_until_parked();
+    let shown = |e: &Entity<Editor>, cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let mine = e.painted.borrow().get(&1).map(|p| p.view.display());
+            let other = e
+                .other
+                .as_ref()
+                .and_then(|o| o.painted.borrow().get(&1).map(|p| p.view.display()));
+            (e.source, mine, other)
+        })
+    };
+    // The rich view stays active, the source shows beside it.
+    assert_eq!(
+        shown(&e, cx),
+        (
+            false,
+            Some("Some bold text".into()),
+            Some("Some *bold* text".into())
+        )
+    );
+    // Both follow edits.
+    at(&e, 7, cx);
+    cx.simulate_input("New ");
+    cx.run_until_parked();
+    let (_, mine, other) = shown(&e, cx);
+    assert_eq!(other.as_deref(), Some("New Some *bold* text"));
+    assert!(mine.is_some_and(|m| m.starts_with("New Some")));
+    // A click in the source pane makes it the active one.
+    let target = e.read_with(cx, |e, _| {
+        let o = e.other.as_ref().expect("a split");
+        let p = o.painted.borrow().get(&0).cloned().expect("painted");
+        p.bounds.origin + gpui::point(gpui::px(1.), p.bounds.size.height / 2.)
+    });
+    cx.simulate_click(target, gpui::Modifiers::default());
+    cx.run_until_parked();
+    let (source, head) = e.read_with(cx, |e, _| (e.source, e.doc.selection.head));
+    assert!(source);
+    assert_eq!(head, 0);
+    // Closing keeps the active view.
+    cx.simulate_keystrokes(&format!("{}-\\", primary()));
+    let (source, split) = e.read_with(cx, |e, _| (e.source, e.other.is_some()));
+    assert!(source && !split);
+}
+
+#[gpui::test]
+fn outline_sidebar(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\na\n** A1\n* B\n* C\n", cx);
+    cx.simulate_keystrokes(&format!("{}-shift-o", primary()));
+    cx.run_until_parked();
+    let none = gpui::Modifiers::default();
+    // A click jumps to the heading.
+    let c = cx.debug_bounds("outline-3").expect("the row of C");
+    cx.simulate_click(c.center(), none);
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), 16);
+    // Folding A in the tree hides A1.
+    let fold = cx.debug_bounds("outline-fold-0").expect("A's arrow");
+    cx.simulate_click(fold.center(), none);
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("outline-1").is_none());
+    assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), 16);
+    // Dragging C onto the upper half of A moves it first.
+    let from = cx.debug_bounds("outline-3").expect("C").center();
+    let a = cx.debug_bounds("outline-0").expect("A");
+    let to = gpui::point(a.center().x, a.origin.y + gpui::px(2.));
+    let left = gpui::MouseButton::Left;
+    cx.simulate_mouse_down(from, left, none);
+    cx.simulate_mouse_move(gpui::point(from.x, from.y - gpui::px(6.)), left, none);
+    cx.simulate_mouse_move(to, left, none);
+    cx.simulate_mouse_up(to, left, none);
+    cx.run_until_parked();
+    assert_eq!(text(&e, cx), "* C\n* A\na\n** A1\n* B\n");
+    // On the lower half of a folded heading: after its subtree, as a
+    // sibling.
+    let from = cx.debug_bounds("outline-0").expect("C").center();
+    let a = cx.debug_bounds("outline-1").expect("A");
+    let to = gpui::point(a.center().x, a.origin.y + a.size.height - gpui::px(2.));
+    cx.simulate_mouse_down(from, left, none);
+    cx.simulate_mouse_move(gpui::point(from.x, from.y + gpui::px(6.)), left, none);
+    cx.simulate_mouse_move(to, left, none);
+    cx.simulate_mouse_up(to, left, none);
+    cx.run_until_parked();
+    assert_eq!(text(&e, cx), "* A\na\n** A1\n* C\n* B\n");
+    assert!(cx.debug_bounds("outline-1").is_none());
+    // A folded heading moves folded.
+    let from = cx.debug_bounds("outline-0").expect("A").center();
+    let b = cx.debug_bounds("outline-3").expect("B");
+    let to = gpui::point(b.center().x, b.origin.y + b.size.height - gpui::px(2.));
+    cx.simulate_mouse_down(from, left, none);
+    cx.simulate_mouse_move(gpui::point(from.x, from.y + gpui::px(6.)), left, none);
+    cx.simulate_mouse_move(to, left, none);
+    cx.simulate_mouse_up(to, left, none);
+    cx.run_until_parked();
+    assert_eq!(text(&e, cx), "* C\n* B\n* A\na\n** A1\n");
+    assert!(cx.debug_bounds("outline-2").is_some() && cx.debug_bounds("outline-3").is_none());
+}
+
+#[gpui::test]
+fn command_palette(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n", cx);
+    at(&e, 2, cx);
+    cx.simulate_keystrokes(&format!("{}-shift-p", primary()));
+    cx.simulate_input("heading level");
+    let first = e.read_with(cx, |e, _| {
+        e.palette
+            .as_ref()
+            .and_then(|p| p.matches().first().map(|i| i.id.clone()))
+    });
+    assert_eq!(first.as_deref(), Some("org.headline.setLevel"));
+    assert!(cx.debug_bounds("palette-0").is_some());
+    // The command needs a level: the palette asks for it.
+    cx.simulate_keystrokes("enter");
+    let label = e.read_with(cx, |e, _| {
+        e.palette
+            .as_ref()
+            .and_then(|p| p.arg.as_ref().map(|a| a.label.clone()))
+    });
+    assert_eq!(label.as_deref(), Some("Heading Level: level"));
+    cx.simulate_input("3");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(text(&e, cx), "*** A\n");
+    // Escape closes it; typing goes to the document again.
+    cx.simulate_keystrokes(&format!("{}-shift-p", primary()));
+    cx.simulate_keystrokes("escape");
+    cx.simulate_input("x");
+    assert_eq!(text(&e, cx), "*** xA\n");
+}
+
+#[gpui::test]
+fn find_and_replace(cx: &mut TestAppContext) {
+    let (e, cx) = open("one two one\nthree one\n", cx);
+    at(&e, 0, cx);
+    cx.simulate_keystrokes(&format!("{}-f", primary()));
+    cx.simulate_input("one");
+    let state = |e: &Entity<Editor>, cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            (
+                e.doc.selection.anchor,
+                e.highlights.len(),
+                e.find.as_ref().map(|f| f.focused),
+            )
+        })
+    };
+    assert_eq!(state(&e, cx), (0, 3, Some(true)));
+    assert!(cx.debug_bounds("find").is_some());
+    cx.simulate_keystrokes("enter");
+    assert_eq!(state(&e, cx).0, 8);
+    cx.simulate_keystrokes("shift-enter");
+    assert_eq!(state(&e, cx).0, 0);
+    cx.simulate_keystrokes("escape");
+    assert_eq!(state(&e, cx), (0, 0, None));
+    // Find and replace: one match, then all.
+    cx.simulate_keystrokes(&format!("{}-h", primary()));
+    cx.simulate_keystrokes("tab");
+    cx.simulate_input("1");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(text(&e, cx), "1 two one\nthree one\n");
+    cx.simulate_keystrokes("alt-enter");
+    assert_eq!(text(&e, cx), "1 two 1\nthree 1\n");
+    // A regular expression with a group.
+    cx.simulate_keystrokes("tab backspace backspace backspace alt-r");
+    cx.simulate_input(r"(\w+) (\d)");
+    assert_eq!(state(&e, cx).1, 2);
+    cx.simulate_keystrokes("tab backspace");
+    cx.simulate_input("$2-$1");
+    cx.simulate_keystrokes("alt-enter");
+    assert_eq!(text(&e, cx), "1 1-two\n1-three\n");
+    // Undone in one step.
+    cx.simulate_keystrokes("escape");
+    cx.simulate_keystrokes(&format!("{}-z", primary()));
+    assert_eq!(text(&e, cx), "1 two 1\nthree 1\n");
+}
+
+#[gpui::test]
+fn word_counts(cx: &mut TestAppContext) {
+    let (e, cx) = open("* One *two*\nthree four\n** Five\nsix\n", cx);
+    at(&e, 30, cx);
+    let counts = e.read_with(cx, |e, _| e.words.borrow_mut().get(&e.doc));
+    assert_eq!(counts, Some((6, Some(2))));
+    cx.simulate_input(" seven");
+    // While typing goes on, the counts wait; after a pause they catch up.
+    std::thread::sleep(std::time::Duration::from_millis(350));
+    assert!(e.read_with(cx, |e, _| e.words.borrow().due(&e.doc)));
+    let counts = e.read_with(cx, |e, _| e.words.borrow_mut().get(&e.doc));
+    assert_eq!(counts, Some((7, Some(3))));
+}
+
+#[gpui::test]
+fn date_picker(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\nx <2026-10-02 Fri 10:00> y\n", cx);
+    // On a timestamp: the picker starts at its date and time.
+    at(&e, 8, cx);
+    cx.simulate_keystrokes("alt-shift-d");
+    let chosen = e.read_with(cx, |e, _| e.date_picker.as_ref().map(|p| p.argument()));
+    assert_eq!(chosen.as_deref(), Some("2026-10-02 10:00"));
+    assert!(cx.debug_bounds("date-picker").is_some());
+    cx.simulate_keystrokes("right down enter");
+    assert_eq!(text(&e, cx), "* A\nx <2026-10-10 Sat 10:00> y\n");
+    // A typed date.
+    at(&e, 3, cx);
+    cx.simulate_keystrokes("alt-shift-d");
+    cx.simulate_input("2026-12-24");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(
+        text(&e, cx),
+        "* A<2026-12-24 Thu>\nx <2026-10-10 Sat 10:00> y\n"
+    );
+    // A clicked day, in the month of the typed date.
+    at(&e, 0, cx);
+    cx.simulate_keystrokes("alt-shift-d");
+    cx.simulate_input("2026-12-01");
+    let day = cx.debug_bounds("date-2026-12-25").expect("the 25th");
+    cx.simulate_click(day.center(), gpui::Modifiers::default());
+    assert!(text(&e, cx).starts_with("<2026-12-25 Fri>* A"));
+    assert!(e.read_with(cx, |e, _| e.date_picker.is_none()));
+}
+
+#[gpui::test]
+fn tag_completion(cx: &mut TestAppContext) {
+    let (e, cx) = open("#+TAGS: work home\n* A\n", cx);
+    at(&e, 21, cx);
+    cx.simulate_input(" :h");
+    let labels = e.read_with(cx, |e, _| {
+        e.completion
+            .as_ref()
+            .map(|(c, _)| c.items.iter().map(|i| i.label.clone()).collect::<Vec<_>>())
+    });
+    assert_eq!(labels, Some(vec!["home".to_string()]));
+    cx.simulate_keystrokes("enter");
+    let t = text(&e, cx);
+    let line = t.lines().nth(1).unwrap();
+    assert!(
+        line.starts_with("* A ") && line.ends_with(" :home:"),
+        "{line:?}"
+    );
+}
+
+#[gpui::test]
+fn settings_panel(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n", cx);
+    cx.simulate_keystrokes(&format!("{}-,", primary()));
+    assert!(cx.debug_bounds("settings").is_some());
+    let none = gpui::Modifiers::default();
+    for id in [
+        "settings-theme-dark",
+        "settings-size-up",
+        "settings-keys-vim",
+    ] {
+        let b = cx.debug_bounds(id).expect(id);
+        cx.simulate_click(b.center(), none);
+        cx.run_until_parked();
+    }
+    let (dark, size, profile, path) = e.read_with(cx, |e, _| {
+        (
+            e.theme.dark,
+            e.theme.size,
+            e.shared.config.str("editor.keymap_profile").to_string(),
+            e.shared.settings_path.clone().unwrap(),
+        )
+    });
+    assert!(dark);
+    assert_eq!((size, profile.as_str()), (17., "vim"));
+    let saved = std::fs::read_to_string(path).unwrap();
+    assert!(
+        saved.contains("theme = \"dark\"") && saved.contains("font_size = 17"),
+        "{saved}"
+    );
+    // Vim keys work now.
+    cx.simulate_keystrokes("escape");
+    cx.simulate_keystrokes("A");
+    cx.simulate_input("!");
+    cx.simulate_keystrokes("escape");
+    assert_eq!(text(&e, cx), "* A!\n");
+    assert!(e.read_with(cx, |e, _| e.settings.is_none()));
+}
+
+#[gpui::test]
+fn saving_and_outside_changes(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n", cx);
+    let path = e.read_with(cx, |e, _| e.doc.meta.path.clone().unwrap());
+    at(&e, 3, cx);
+    cx.simulate_input("B");
+    cx.simulate_keystrokes(&format!("{}-s", primary()));
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "* AB\n");
+    assert!(!e.read_with(cx, |e, _| e.doc.is_modified()));
+    // Another program changes the file: it is reloaded.
+    std::fs::write(&path, "* Changed elsewhere\n").unwrap();
+    e.update(cx, |e, cx| e.check_disk(cx));
+    assert_eq!(text(&e, cx), "* Changed elsewhere\n");
+    // With unsaved changes: a warning; Revert to Saved takes the file.
+    cx.simulate_input("x");
+    std::fs::write(&path, "* A third, longer version\n").unwrap();
+    e.update(cx, |e, cx| e.check_disk(cx));
+    let status = e.read_with(cx, |e, _| e.status.clone());
+    assert!(status.is_some_and(|(m, error)| error && m.contains("changed on disk")));
+    assert!(text(&e, cx).contains('x'));
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("app.revert"));
+    assert_eq!(text(&e, cx), "* A third, longer version\n");
+    assert!(!e.read_with(cx, |e, _| e.doc.is_modified()));
+}
+
+#[gpui::test]
+fn toolbar_menus_and_history(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\nword\n", cx);
+    at(&e, 2, cx);
+    // The toolbar's TODO button, and a menu's command.
+    let todo = cx.debug_bounds("tool-7").expect("the TODO button");
+    cx.simulate_click(todo.center(), gpui::Modifiers::default());
+    assert_eq!(text(&e, cx), "* TODO A\nword\n");
+    cx.dispatch_action(kalem_ui::editor::RunCommand::with(
+        "org.headline.setLevel",
+        serde_json::json!({ "level": 2 }),
+    ));
+    assert_eq!(text(&e, cx), "** TODO A\nword\n");
+    // Select all, copy, cut; undo and redo.
+    let p = primary();
+    cx.simulate_keystrokes(&format!("{p}-a {p}-c"));
+    let copied = cx.read_from_clipboard().and_then(|c| c.text());
+    assert_eq!(copied.as_deref(), Some("** TODO A\nword\n"));
+    cx.simulate_keystrokes(&format!("{p}-x"));
+    assert_eq!(text(&e, cx), "");
+    cx.simulate_keystrokes(&format!("{p}-z"));
+    assert_eq!(text(&e, cx), "** TODO A\nword\n");
+    cx.simulate_keystrokes(&format!("{p}-shift-z"));
+    assert_eq!(text(&e, cx), "");
+    cx.simulate_keystrokes(&format!("{p}-z {p}-z"));
+    assert_eq!(text(&e, cx), "* TODO A\nword\n");
+}
+
+#[gpui::test]
+fn focus_narrowing_and_line_width(cx: &mut TestAppContext) {
+    let (e, cx) = open("intro\n* A\na\n* B\nb\n", cx);
+    at(&e, 10, cx);
+    let visible =
+        |e: &Entity<Editor>, cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.visible.clone());
+    let all = visible(&e, cx);
+    // Focus mode: the section holding the cursor.
+    cx.simulate_keystrokes("f8");
+    assert_eq!(visible(&e, cx), [1, 2]);
+    at(&e, 14, cx);
+    assert_eq!(visible(&e, cx), [3, 4, 5]);
+    cx.simulate_keystrokes("f8");
+    assert_eq!(visible(&e, cx), all);
+    // Narrowing shows the narrowed part only.
+    at(&e, 10, cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.narrowToSubtree"));
+    assert_eq!(visible(&e, cx), [1, 2]);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.widen"));
+    assert_eq!(visible(&e, cx), all);
+    // The text column is about 80 characters wide.
+    cx.run_until_parked();
+    let width = e.read_with(cx, |e, _| {
+        e.painted.borrow().get(&0).map(|p| p.bounds.size.width)
+    });
+    assert!(width.is_some_and(|w| w <= gpui::px(641.)), "{width:?}");
+}
+
+/// An editor with the Vim profile.
+fn open_vim<'a>(
+    text: &str,
+    cx: &'a mut TestAppContext,
+) -> (Entity<Editor>, &'a mut VisualTestContext) {
+    let (e, cx) = open(text, cx);
+    e.update(cx, |e, _| {
+        let mut shared = kalem_ui::shared(Config::from_layers(&[(
+            kalem_core::settings::Layer::User,
+            None,
+            "editor.keymap_profile = \"vim\"\n",
+        )]));
+        shared.html_clipboard = || None;
+        shared.settings_path = e.shared.settings_path.clone();
+        shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(
+            e.shared.projects.borrow().list.file.clone(),
+        ));
+        e.shared = Rc::new(shared);
+        e.refresh_vim();
+    });
+    (e, cx)
+}
+
+#[gpui::test]
+fn vim_keys(cx: &mut TestAppContext) {
+    let (e, cx) = open_vim("one two\nthree\n", cx);
+    at(&e, 0, cx);
+    // Normal mode: keys are commands, typed text goes nowhere.
+    cx.simulate_keystrokes("w d w");
+    cx.simulate_input("zz");
+    assert_eq!(text(&e, cx), "one \nthree\n");
+    cx.simulate_keystrokes("u j d d");
+    assert_eq!(text(&e, cx), "one two\n");
+    // Insert mode takes text and the Word-like keys; Escape leaves it.
+    cx.simulate_keystrokes("k i");
+    cx.simulate_input("new ");
+    cx.simulate_keystrokes("escape");
+    assert_eq!(text(&e, cx), "new one two\n");
+    let mode = e.read_with(cx, |e, _| e.vim.as_ref().map(|v| v.mode));
+    assert_eq!(mode, Some(kalem_core::vim::Mode::Normal));
+    // Visual mode selects; `:w` saves through the command registry.
+    cx.simulate_keystrokes("0 v e");
+    let sel = e.read_with(cx, |e, _| e.doc.selected_text().map(str::to_string));
+    assert_eq!(sel.as_deref(), Some("new"));
+    cx.simulate_keystrokes("escape : w enter");
+    let (path, modified) = e.read_with(cx, |e, _| {
+        (e.doc.meta.path.clone().unwrap(), e.doc.is_modified())
+    });
+    assert!(!modified);
+    assert_eq!(std::fs::read_to_string(path).unwrap(), "new one two\n");
+}
+
+#[gpui::test]
+fn plain_text_view(cx: &mut TestAppContext) {
+    let dir = std::env::temp_dir().join(format!("kalem-ui-plain-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("main.rs");
+    let long = "x".repeat(400);
+    let text = format!("fn main() {{\n    let a = 1;\n}}\n{long}\n");
+    std::fs::write(&path, &text).unwrap();
+    let mut shared = kalem_ui::shared(Config::default());
+    shared.html_clipboard = || None;
+    shared.settings_path = Some(dir.join("settings.toml"));
+    shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
+        dir.join("projects.toml"),
+    )));
+    let shared = Rc::new(shared);
+    let mut editor = None;
+    let (_ws, cx) = cx.add_window_view(|window, cx| {
+        let e = kalem_ui::editor::open(Some(&path), shared, Theme::light(), cx).unwrap();
+        window.focus(&gpui::Focusable::focus_handle(e.read(cx), cx), cx);
+        editor = Some(e.clone());
+        Workspace::new(e, window, cx)
+    });
+    cx.run_until_parked();
+    let e = editor.unwrap();
+    // Monospace lines with numbers, highlighting and a four-space step.
+    let (numbers, mono, colored, step) = e.read_with(cx, |e, _| {
+        let p = e.plain.borrow();
+        let (_, h, step) = p.as_ref().expect("plain text state");
+        (
+            e.line_numbers(),
+            e.line_view(0).mono,
+            h.as_ref().is_some_and(|h| !h.line(0).is_empty()),
+            *step,
+        )
+    });
+    assert!(numbers && mono && colored);
+    assert_eq!(step, 4);
+    // The long line wraps; Alt+Z makes it one row that scrolls sideways.
+    let height = |e: &Entity<Editor>, cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            e.painted.borrow().get(&3).map(|p| p.bounds.size.height)
+        })
+    };
+    let wrapped = height(&e, cx).expect("painted");
+    cx.simulate_keystrokes("alt-z");
+    cx.run_until_parked();
+    let one = height(&e, cx).expect("painted");
+    assert!(one < wrapped, "{one:?} {wrapped:?}");
+    at(&e, text.len() - 2, cx);
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.hscroll) > gpui::px(0.));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Phase 1 exit criterion: the Org manual opens, is edited and saves
+/// without a diff.
+#[gpui::test]
+fn org_manual_round_trip(cx: &mut TestAppContext) {
+    let src = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/corpus/org-mode/org-manual.org"
+    );
+    let text = std::fs::read_to_string(src).unwrap();
+    let (e, cx) = open(&text, cx);
+    let path = e.read_with(cx, |e, _| e.doc.meta.path.clone().unwrap());
+    let middle = text[..text.len() / 2].rfind("\n\n").unwrap() + 1;
+    at(&e, middle, cx);
+    cx.simulate_input("Kalem");
+    cx.run_until_parked();
+    for _ in 0..5 {
+        cx.simulate_keystrokes("backspace");
+    }
+    cx.simulate_keystrokes(&format!("{}-s", primary()));
+    let saved = std::fs::read_to_string(path).unwrap();
+    let first = saved
+        .bytes()
+        .zip(text.bytes())
+        .position(|(a, b)| a != b)
+        .unwrap_or(saved.len().min(text.len()));
+    assert!(
+        saved == text,
+        "differs at {first}: {:?} / {:?}",
+        &saved[first.saturating_sub(40)..(first + 40).min(saved.len())],
+        &text[first.saturating_sub(40)..(first + 40).min(text.len())]
+    );
+}
+
+#[gpui::test]
+fn table_formulas(cx: &mut TestAppContext) {
+    let text = "| a | b | c |\n|---+---+---|\n| 2 | 3 |   |\n| 4 | 5 |   |\n#+TBLFM: $3=$1*$2\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.find("| 2").unwrap() + 2, cx);
+    cx.simulate_keystrokes("f9");
+    assert_eq!(
+        crate::text(&e, cx),
+        "| a | b |  c |\n|---+---+----|\n| 2 | 3 |  6 |\n| 4 | 5 | 20 |\n#+TBLFM: $3=$1*$2\n"
+    );
+    let now = crate::text(&e, cx);
+    at(&e, now.find(" 6 |").unwrap() + 1, cx);
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    let (status, refs) = e.read_with(cx, |e, _| (e.formula_status.clone(), e.formula_refs.len()));
+    assert_eq!(status.as_deref(), Some("$3 = $1*$2"));
+    assert_eq!(refs, 2);
+    cx.simulate_keystrokes("f2");
+    for _ in 0.."*$2".len() {
+        cx.simulate_keystrokes("backspace");
+    }
+    cx.simulate_input("+$2");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(
+        crate::text(&e, cx),
+        "| a | b | c |\n|---+---+---|\n| 2 | 3 | 5 |\n| 4 | 5 | 9 |\n#+TBLFM: $3=$1+$2\n"
+    );
+}
+
+#[gpui::test]
+fn math_environments(cx: &mut TestAppContext) {
+    let text = "* A\n\\begin{align}\na &= b \\\\\nc &= d\n\\end{align}\nafter\n";
+    let (e, cx) = open(text, cx);
+    at(&e, 0, cx);
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    // Away from the cursor the environment is one formula on its first line.
+    let visible = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(visible, vec![0, 1, 5, 6]);
+    at(&e, text.find("c &=").unwrap(), cx);
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    let visible = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(visible, vec![0, 1, 2, 3, 4, 5, 6]);
+    // With the preview off every line shows.
+    at(&e, 0, cx);
+    cx.update(|window, cx| {
+        e.update(cx, |e, cx| {
+            e.run_command("view.toggleMath", serde_json::Value::Null, window, cx)
+        })
+    });
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    let visible = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(visible, vec![0, 1, 2, 3, 4, 5, 6]);
+    // A formula RaTeX cannot lay out is an error, not an image.
+    let bad = e.read_with(cx, |e, cx| {
+        let _ = cx;
+        matches!(
+            e.shared
+                .math
+                .get("$\\frac{a$", "", gpui::px(16.), 1., gpui::black()),
+            kalem_ui::math::Formula::Error(_)
+        )
+    });
+    assert!(bad);
+}
+
+/// A window on `file` in a temporary folder holding a project `proj`
+/// (with `a.org`, `sub/b.org`) and a file outside it, `loose.org`.
+fn open_project(
+    vim: bool,
+    cx: &mut TestAppContext,
+) -> (
+    Entity<Workspace>,
+    std::path::PathBuf,
+    &mut VisualTestContext,
+) {
+    static N: AtomicUsize = AtomicUsize::new(0);
+    let n = N.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("kalem-ui-proj-{}-{n}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("proj/sub")).unwrap();
+    let dir = kalem_core::projects::normal(&dir);
+    std::fs::write(dir.join("proj/a.org"), "* A\nalpha\n").unwrap();
+    std::fs::write(dir.join("proj/sub/b.org"), "* B\nbeta\nthe needle here\n").unwrap();
+    std::fs::write(dir.join("loose.org"), "* Loose\n").unwrap();
+    let config = if vim {
+        "editor.keymap_profile = \"vim\"\n"
+    } else {
+        ""
+    };
+    let mut shared = kalem_ui::shared(Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        config,
+    )]));
+    shared.html_clipboard = || None;
+    shared.settings_path = Some(dir.join("settings.toml"));
+    shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
+        dir.join("projects.toml"),
+    )));
+    shared.projects.borrow_mut().add(&dir.join("proj")).unwrap();
+    let shared = Rc::new(shared);
+    let path = dir.join("proj/a.org");
+    let (ws, vcx) = cx.add_window_view(|window, cx| {
+        let e = kalem_ui::editor::open(Some(&path), shared, Theme::light(), cx).unwrap();
+        window.focus(&gpui::Focusable::focus_handle(e.read(cx), cx), cx);
+        Workspace::new(e, window, cx)
+    });
+    vcx.run_until_parked();
+    (ws, dir, vcx)
+}
+
+fn active_title(ws: &Entity<Workspace>, cx: &mut VisualTestContext) -> String {
+    ws.read_with(cx, |ws, cx| ws.editor.read(cx).title())
+}
+
+/// Waits for the active editor's picker to have every file.
+fn settle_picker(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
+    for _ in 0..500 {
+        let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+        let busy = e.update(cx, |e, cx| {
+            e.tick_palette(cx);
+            e.palette.as_ref().is_some_and(|p| {
+                p.pick.as_ref().is_some_and(|k| k.partial)
+                    || p.search.as_ref().is_some_and(|s| s.busy())
+            })
+        });
+        if !busy {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    cx.run_until_parked();
+}
+
+#[gpui::test]
+fn open_documents_and_projects(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    let p = primary();
+    // Files open in the same window, listed by project.
+    ws.update_in(cx, |ws, window, cx| {
+        ws.open(&dir.join("proj/sub/b.org"), None, window, cx);
+        ws.open(&dir.join("loose.org"), None, window, cx);
+        ws.open(&dir.join("proj/a.org"), None, window, cx);
+    });
+    cx.run_until_parked();
+    let (count, entries) = ws.read_with(cx, |ws, cx| {
+        let files = ws.open_files(cx);
+        (
+            ws.editors.len(),
+            kalem_core::projects::entries(&files, &ws.shared.projects.borrow().list),
+        )
+    });
+    assert_eq!(count, 3);
+    assert_eq!(active_title(&ws, cx), "a.org");
+    assert!(
+        matches!(&entries[0], kalem_core::projects::Entry::Project { name, .. } if name == "proj")
+    );
+    assert_eq!(entries.len(), 4);
+    // The list shows on the left; a click shows a document.
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    let b = cx
+        .debug_bounds("open-file-2")
+        .expect("the loose file in the list");
+    cx.simulate_click(b.center(), gpui::Modifiers::none());
+    assert_eq!(active_title(&ws, cx), "loose.org");
+    // Next and previous follow the list: the project's files, then the rest.
+    cx.simulate_keystrokes(&format!("{p}-pagedown"));
+    assert_eq!(active_title(&ws, cx), "a.org");
+    cx.simulate_keystrokes(&format!("{p}-pagedown"));
+    assert_eq!(active_title(&ws, cx), "b.org");
+    cx.simulate_keystrokes(&format!("{p}-pageup {p}-pageup"));
+    assert_eq!(active_title(&ws, cx), "loose.org");
+    // Find File in Project: in a project file, its files; typed text
+    // narrows them.
+    cx.simulate_keystrokes(&format!("{p}-pageup"));
+    assert_eq!(active_title(&ws, cx), "b.org");
+    cx.simulate_keystrokes(&format!("{p}-p"));
+    settle_picker(&ws, cx);
+    cx.simulate_input("a.o");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(active_title(&ws, cx), "a.org");
+    // Switch Document.
+    cx.simulate_keystrokes(&format!("{p}-alt-o"));
+    cx.simulate_input("loose");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(active_title(&ws, cx), "loose.org");
+    // Outside a project, Find File in Project offers the projects first.
+    cx.simulate_keystrokes(&format!("{p}-p"));
+    let kind = ws.read_with(cx, |ws, cx| {
+        ws.editor
+            .read(cx)
+            .palette
+            .as_ref()
+            .and_then(|p| p.pick.as_ref())
+            .map(|k| k.kind)
+    });
+    assert_eq!(kind, Some(kalem_core::command::PickKind::Projects));
+    cx.simulate_keystrokes("enter");
+    settle_picker(&ws, cx);
+    let kind = ws.read_with(cx, |ws, cx| {
+        ws.editor
+            .read(cx)
+            .palette
+            .as_ref()
+            .and_then(|p| p.pick.as_ref())
+            .map(|k| k.kind)
+    });
+    assert_eq!(kind, Some(kalem_core::command::PickKind::ProjectFiles));
+    cx.simulate_keystrokes("escape");
+    // Search in Project: the match opens at its line.
+    cx.simulate_keystrokes(&format!("{p}-pagedown"));
+    assert_eq!(active_title(&ws, cx), "a.org");
+    cx.simulate_keystrokes(&format!("{p}-shift-f"));
+    cx.simulate_input("needle");
+    settle_picker(&ws, cx);
+    let hits = ws.read_with(cx, |ws, cx| {
+        ws.editor
+            .read(cx)
+            .palette
+            .as_ref()
+            .and_then(|p| p.search.as_ref())
+            .map_or(0, |s| s.hits.len())
+    });
+    assert_eq!(hits, 1);
+    cx.simulate_keystrokes("enter");
+    assert_eq!(active_title(&ws, cx), "b.org");
+    let (line, _) = ws.read_with(cx, |ws, cx| {
+        let e = ws.editor.read(cx);
+        e.doc.text().line_col(e.doc.selection.head)
+    });
+    assert_eq!(line, 2);
+    // Recent files remember what was opened.
+    let recent = ws.read_with(cx, |ws, _| ws.shared.projects.borrow().list.recent.len());
+    assert_eq!(recent, 3);
+    // Closing shows a neighbor; closing the last closes the window.
+    cx.simulate_keystrokes(&format!("{p}-w"));
+    let count = ws.read_with(cx, |ws, _| ws.editors.len());
+    assert_eq!(count, 2);
+    // The status bar names the project.
+    ws.update_in(cx, |ws, window, cx| {
+        ws.open(&dir.join("proj/a.org"), None, window, cx)
+    });
+    let modified = ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.is_modified());
+    assert!(!modified);
+}
+
+#[gpui::test]
+fn doom_leader_keys(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(true, cx);
+    ws.update_in(cx, |ws, window, cx| {
+        ws.open(&dir.join("loose.org"), None, window, cx);
+    });
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "loose.org");
+    // SPC b p: the previous buffer; the status shows what follows SPC.
+    cx.simulate_keystrokes("space");
+    let hint = ws.read_with(cx, |ws, cx| {
+        let e = ws.editor.read(cx);
+        let seq = kalem_core::keys::KeySequence(e.pending.clone());
+        e.shared
+            .keymap
+            .which_key(&e.shared.registry, &seq, &e.context())
+    });
+    assert!(
+        hint.contains(&("p".to_string(), "+Project".to_string()))
+            && hint.contains(&("f".to_string(), "+File".to_string())),
+        "{hint:?}"
+    );
+    cx.simulate_keystrokes("b p");
+    assert_eq!(active_title(&ws, cx), "a.org");
+    // `:bn` and `gt` go on; `:e` opens a file.
+    cx.simulate_keystrokes(": b n enter");
+    assert_eq!(active_title(&ws, cx), "loose.org");
+    cx.simulate_keystrokes("g t");
+    assert_eq!(active_title(&ws, cx), "a.org");
+    // SPC p f: the project's files; SPC , the open documents.
+    cx.simulate_keystrokes("space p f");
+    settle_picker(&ws, cx);
+    cx.simulate_input("b.org");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(active_title(&ws, cx), "b.org");
+    cx.simulate_keystrokes("space ,");
+    cx.simulate_input("loose");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(active_title(&ws, cx), "loose.org");
+    // Space still moves nothing in the text: the document is unchanged.
+    let text = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).doc.text().as_str().to_string()
+    });
+    assert_eq!(text, "* Loose\n");
+}
+
+#[gpui::test]
+fn word_formatting(cx: &mut TestAppContext) {
+    let text = "one two three\n";
+    let (ws, cx) = {
+        let dir = std::env::temp_dir().join(format!("kalem-ui-fmt-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("f.org");
+        std::fs::write(&path, text).unwrap();
+        let mut shared = kalem_ui::shared(Config::default());
+        shared.html_clipboard = || None;
+        shared.settings_path = Some(dir.join("settings.toml"));
+        shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
+            dir.join("projects.toml"),
+        )));
+        let shared = Rc::new(shared);
+        cx.add_window_view(|window, cx| {
+            let e = kalem_ui::editor::open(Some(&path), shared, Theme::light(), cx).unwrap();
+            window.focus(&gpui::Focusable::focus_handle(e.read(cx), cx), cx);
+            Workspace::new(e, window, cx)
+        })
+    };
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let p = primary();
+    // "two" selected, 14 points from the toolbar's menu.
+    at(&e, 4, cx);
+    cx.simulate_keystrokes("shift-right shift-right shift-right");
+    let b = cx.debug_bounds("tool-size").expect("the size menu");
+    cx.simulate_click(b.center(), gpui::Modifiers::none());
+    let s = cx.debug_bounds("size-14").expect("the sizes");
+    cx.simulate_click(s.center(), gpui::Modifiers::none());
+    assert_eq!(
+        text_of(&e, cx),
+        "one @@kalem:size=14@@two@@kalem:end@@ three\n"
+    );
+    // The markers do not show; the selection is still the word.
+    let shown = e.update(cx, |e, _| e.line_view(0).display());
+    assert_eq!(shown, "one two three");
+    let sel = e.read_with(cx, |e, _| e.doc.selected_text().map(str::to_string));
+    assert_eq!(sel.as_deref(), Some("two"));
+    // A color from the swatches, then a size step up with Ctrl+].
+    let b = cx.debug_bounds("tool-color").expect("the color button");
+    cx.simulate_click(b.center(), gpui::Modifiers::none());
+    let s = cx.debug_bounds("swatch-2").expect("red");
+    cx.simulate_click(s.center(), gpui::Modifiers::none());
+    // 14 up is 16, the document's size, so the size goes.
+    cx.simulate_keystrokes(&format!("{p}-]"));
+    assert_eq!(
+        text_of(&e, cx),
+        "one @@kalem:color=#c00000@@two@@kalem:end@@ three\n"
+    );
+    cx.simulate_keystrokes(&format!("{p}-]"));
+    assert_eq!(
+        text_of(&e, cx),
+        "one @@kalem:size=18 color=#c00000@@two@@kalem:end@@ three\n"
+    );
+    let f = e.read_with(cx, |e, _| e.format_at_cursor());
+    assert_eq!(f.size, Some(180));
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    // Deleting the last letter keeps the span's end; deleting all of it
+    // takes the span.
+    let end = text_of(&e, cx).find("@@kalem:end").unwrap();
+    at(&e, end, cx);
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(
+        text_of(&e, cx),
+        "one @@kalem:size=18 color=#c00000@@tw@@kalem:end@@ three\n"
+    );
+    cx.simulate_keystrokes("backspace backspace");
+    assert_eq!(text_of(&e, cx), "one  three\n");
+    cx.simulate_keystrokes(&format!("{p}-z {p}-z {p}-z"));
+    // Right alignment: an attribute line, hidden in the rich view.
+    at(&e, 0, cx);
+    cx.simulate_keystrokes(&format!("{p}-r"));
+    let t = text_of(&e, cx);
+    assert!(t.starts_with("#+ATTR_KALEM: :align right\none "), "{t}");
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    let visible = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(visible[0], 1);
+    cx.simulate_keystrokes(&format!("{p}-l"));
+    assert!(text_of(&e, cx).starts_with("one "));
+    // Clearing takes the formatting away.
+    cx.simulate_keystrokes(&format!("{p}-a {p}-space"));
+    assert_eq!(text_of(&e, cx), "one two three\n");
+    // The document's line spacing and font: a `#+KALEM:` line.
+    at(&e, 0, cx);
+    let b = cx.debug_bounds("tool-spacing").expect("the spacing menu");
+    cx.simulate_click(b.center(), gpui::Modifiers::none());
+    let s = cx.debug_bounds("spacing-15").expect("1.5");
+    cx.simulate_click(s.center(), gpui::Modifiers::none());
+    cx.update(|window, cx| {
+        e.update(cx, |e, cx| {
+            e.run_command(
+                "format.documentFont",
+                serde_json::json!({ "family": "Georgia" }),
+                window,
+                cx,
+            )
+        })
+    });
+    assert_eq!(
+        text_of(&e, cx),
+        "#+KALEM: font=\"Georgia\" spacing=1.5\none two three\n"
+    );
+    let (spacing, font) = e.read_with(cx, |e, _| (e.doc_defaults().spacing, e.doc_theme().font));
+    assert_eq!((spacing, font.as_str()), (Some(15), "Georgia"));
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+}
+
+fn text_of(e: &Entity<Editor>, cx: &mut VisualTestContext) -> String {
+    e.read_with(cx, |e, _| e.doc.text().as_str().to_string())
+}
+
+/// The active document's line at the cursor.
+fn cursor_line(ws: &Entity<Workspace>, cx: &mut VisualTestContext) -> String {
+    ws.read_with(cx, |ws, cx| {
+        let e = ws.editor.read(cx);
+        let t = e.doc.text();
+        t.as_str()[t.line_range(t.line_of(e.doc.selection.head))].to_string()
+    })
+}
+
+/// Lets the file operations finish.
+fn settle_jobs(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
+    for _ in 0..500 {
+        let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+        e.update(cx, |e, cx| e.tick(cx));
+        cx.run_until_parked();
+        if ws.read_with(cx, |ws, _| ws.shared.jobs.borrow().is_empty()) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    cx.run_until_parked();
+}
+
+#[gpui::test]
+fn file_manager_and_projects_view(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    let p = primary();
+    // Ctrl+Alt+D: the document's folder, the cursor on its file.
+    cx.simulate_keystrokes(&format!("{p}-alt-d"));
+    assert_eq!(active_title(&ws, cx), "proj/");
+    assert!(
+        cursor_line(&ws, cx).ends_with(" a.org"),
+        "{}",
+        cursor_line(&ws, cx)
+    );
+    // `p` goes up a line, Enter lists the folder, Backspace goes back.
+    cx.simulate_keystrokes("p enter");
+    assert_eq!(active_title(&ws, cx), "sub/");
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(active_title(&ws, cx), "proj/");
+    assert!(cursor_line(&ws, cx).ends_with(" sub/"));
+    // Typing changes nothing.
+    let before = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).doc.text().as_str().to_string()
+    });
+    cx.simulate_input("zz");
+    let after = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).doc.text().as_str().to_string()
+    });
+    assert_eq!(before, after);
+    // `P`: the projects, as if in one folder; a project opens as a folder,
+    // and going up from it shows the projects again.
+    cx.simulate_keystrokes("shift-p");
+    assert!(
+        cursor_line(&ws, cx).starts_with("  proj"),
+        "{}",
+        cursor_line(&ws, cx)
+    );
+    cx.simulate_keystrokes("enter");
+    assert_eq!(active_title(&ws, cx), "proj/");
+    cx.simulate_keystrokes("backspace");
+    assert!(cursor_line(&ws, cx).starts_with("  proj"));
+    cx.simulate_keystrokes("enter");
+    // Only one file manager: the menu's File Manager comes back to it.
+    let count = ws.read_with(cx, |ws, _| ws.editors.len());
+    assert_eq!(count, 2);
+    // Copy a.org into sub twice: the second time a dialog asks.
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let at = e.read_with(cx, |e, _| e.doc.text().as_str().find(" a.org").unwrap() + 1);
+    at_pos(&e, at, cx);
+    let target = dir.join("proj/sub").display().to_string();
+    for round in 0..2 {
+        e.update_in(cx, |e, window, cx| {
+            e.run_command(
+                "dired.copy",
+                serde_json::json!({ "target": target }),
+                window,
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        if round == 1 {
+            assert!(cx.has_pending_prompt());
+            cx.simulate_prompt_answer("Keep Both");
+            cx.run_until_parked();
+        }
+        settle_jobs(&ws, cx);
+    }
+    assert!(dir.join("proj/sub/a.org").is_file() && dir.join("proj/sub/a (2).org").is_file());
+    // `c` makes a file, or a folder when the name ends with a slash; F2
+    // renames; Delete asks, then moves to the trash (not run here).
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "dired.newFile",
+            serde_json::json!({ "name": "made/" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "dired.move",
+            serde_json::json!({ "target": "renamed" }),
+            window,
+            cx,
+        );
+    });
+    settle_jobs(&ws, cx);
+    assert!(
+        dir.join("proj/renamed").is_dir(),
+        "{:?}",
+        std::fs::read_dir(dir.join("proj"))
+            .unwrap()
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        cursor_line(&ws, cx).ends_with("renamed/")
+            || ws.read_with(cx, |ws, cx| ws
+                .editor
+                .read(cx)
+                .doc
+                .text()
+                .as_str()
+                .contains("renamed/"))
+    );
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "dired.deletePermanently",
+            serde_json::Value::Null,
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    assert!(cx.has_pending_prompt());
+    cx.simulate_prompt_answer("No");
+    cx.run_until_parked();
+    assert!(dir.join("proj/renamed").is_dir());
+}
+
+fn at_pos(e: &Entity<Editor>, pos: usize, cx: &mut VisualTestContext) {
+    e.update(cx, |e, cx| {
+        e.doc.move_cursor(pos, false);
+        e.after_change(cx);
+    });
+    cx.run_until_parked();
+}
+
+#[gpui::test]
+fn enter_below_a_table(cx: &mut TestAppContext) {
+    let (e, cx) = open("| a | b |\n", cx);
+    at(&e, 10, cx);
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("x");
+    assert_eq!(text(&e, cx), "| a | b |\n\nx");
+}
+
+#[gpui::test]
+fn file_manager_from_the_toolbar_and_the_list(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(false, cx);
+    fn click(name: &'static str, cx: &mut VisualTestContext) {
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        let b = cx.debug_bounds(name).unwrap_or_else(|| panic!("{name}"));
+        cx.simulate_click(b.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+    }
+    // The toolbar's File Manager, and again to come back.
+    click("tool-files", cx);
+    assert_eq!(active_title(&ws, cx), "proj/");
+    click("tool-files", cx);
+    assert_eq!(active_title(&ws, cx), "a.org");
+    // The list of open files: the projects.
+    click("files-projects", cx);
+    let path = ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.meta.path.clone());
+    assert_eq!(path, None);
+    // The key, back to the document.
+    cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
+    assert_eq!(active_title(&ws, cx), "a.org");
+}

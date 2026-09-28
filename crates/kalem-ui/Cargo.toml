@@ -1,0 +1,43 @@
+[package]
+name = "kalem-ui"
+description = "The graphical frontend of the Kalem editor, on gpui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+kalem-core.workspace = true
+kalem-highlight.workspace = true
+gpui-rich-text.workspace = true
+org-math.workspace = true
+image = { version = "0.25", default-features = false }
+org-syntax.workspace = true
+org-edit.workspace = true
+org-model.workspace = true
+# A pinned revision of Zed's main branch: gpui with AccessKit (T1.5.2b).
+gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", features = ["font-kit", "runtime_shaders", "wayland", "x11"] }
+serde_json = "1"
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system"] }
+tracing = "0.1"
+unicode-segmentation = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
+
+[dev-dependencies]
+gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2", features = ["test-support"] }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", features = ["test-support"] }
+
+# A benchmark with its own `main`: the system's text system is created on
+# the main thread. It runs only with `--ignored`.
+[[test]]
+name = "latency"
+harness = false
+
+[lints]
+workspace = true

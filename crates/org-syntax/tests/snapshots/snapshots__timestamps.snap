@@ -1,0 +1,30 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"<2026-01-01 Thu>\\n\", \"[2026-01-01 Thu 10:00-11:00]\\n\",\n\"<2026-01-01 Thu>--<2026-01-03 Sat> <%%(diary-float t 4 2)>\\n\"])"
+---
+=== "<2026-01-01 Thu>\n"
+DOCUMENT@0..17
+  SECTION@0..17
+    PARAGRAPH@0..17
+      TIMESTAMP@0..16
+        TEXT@0..16 "<2026-01-01 Thu>"
+      NEWLINE@16..17 "\n"
+
+=== "[2026-01-01 Thu 10:00-11:00]\n"
+DOCUMENT@0..29
+  SECTION@0..29
+    PARAGRAPH@0..29
+      TIMESTAMP@0..28
+        TEXT@0..28 "[2026-01-01 Thu 10:00 ..."
+      NEWLINE@28..29 "\n"
+
+=== "<2026-01-01 Thu>--<2026-01-03 Sat> <%%(diary-float t 4 2)>\n"
+DOCUMENT@0..59
+  SECTION@0..59
+    PARAGRAPH@0..59
+      TIMESTAMP@0..35
+        TEXT@0..34 "<2026-01-01 Thu>--<20 ..."
+        WHITESPACE@34..35 " "
+      TIMESTAMP@35..58
+        TEXT@35..58 "<%%(diary-float t 4 2)>"
+      NEWLINE@58..59 "\n"

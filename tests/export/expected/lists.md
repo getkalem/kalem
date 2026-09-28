@@ -1,0 +1,27 @@
+
+# Table of Contents
+
+
+
+-   one
+-   two
+    -   nested
+    -   [X] done item
+    -   [ ] open item
+-   three
+
+-   first
+-   second
+    1.  sub a
+    2.  sub b
+-   seventh
+
+-   **term:** its description
+-   **another term:** more
+
+-   plus bullet
+    with a second line
+    
+    and a second paragraph
+-   last
+

@@ -1,0 +1,103 @@
+# Kalem math corpus (T0.7): one formula per line, "category<TAB>mode<TAB>latex".
+# mode: i = inline ($...$), d = display (\[...\]). Covers amsmath-level math
+# as found in lecture notes, papers and books.
+basic	i	x^2 + y^2 = z^2
+basic	i	a_i + b_{ij}
+basic	i	e^{i\pi} + 1 = 0
+basic	i	\alpha\beta\gamma\delta\epsilon\varepsilon\theta\vartheta\lambda\mu\pi\sigma\phi\varphi\omega
+basic	i	\Gamma \Delta \Theta \Lambda \Xi \Pi \Sigma \Phi \Psi \Omega
+basic	i	x_1, x_2, \ldots, x_n
+basic	i	a \cdot b \times c \div d \pm e \mp f
+basic	i	f(x) = 3x^3 - 2x + 1
+basic	i	10^{-3} \approx 0.001
+frac	i	\frac{1}{2}
+frac	d	\frac{a+b}{c+d}
+frac	d	x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+frac	d	\frac{1}{1 + \frac{1}{1 + \frac{1}{x}}}
+frac	i	\tfrac{3}{4} \text{ and } \dfrac{3}{4}
+frac	d	\sqrt[3]{x^3 + y^3}
+frac	d	\sqrt{1 + \sqrt{1 + \sqrt{1 + x}}}
+frac	i	\binom{n}{k} = \frac{n!}{k!(n-k)!}
+bigop	d	\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+bigop	d	\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}
+bigop	d	\prod_{p \text{ prime}} \frac{1}{1 - p^{-s}}
+bigop	d	\lim_{x \to 0} \frac{\sin x}{x} = 1
+bigop	d	\oint_C \mathbf{F} \cdot d\mathbf{r}
+bigop	d	\iint_D f(x,y)\,dA
+bigop	d	\bigcup_{i=1}^{\infty} A_i \cap \bigcap_{j} B_j
+bigop	i	\sum_{k=0}^{\infty} \frac{x^k}{k!}
+bigop	d	\int_a^b f(x)\,\mathrm{d}x = F(b) - F(a)
+bigop	d	\sum_{\substack{0 \le i \le m \\ 0 < j < n}} P(i,j)
+delim	d	\left( \frac{a}{b} \right)^2
+delim	d	\left[ \int_0^1 f \right]
+delim	d	\left\{ x \in \mathbb{R} \mid x > 0 \right\}
+delim	d	\left\langle \psi \middle| \phi \right\rangle
+delim	i	\lvert x \rvert + \lVert v \rVert
+delim	d	\bigl( \Bigl( \biggl( \Biggl( x \Biggr) \biggr) \Bigr) \bigr)
+delim	d	\left. \frac{df}{dx} \right|_{x=0}
+delim	i	\lfloor x \rfloor + \lceil y \rceil
+accent	i	\hat{x} + \bar{y} + \vec{v} + \tilde{z} + \dot{a} + \ddot{b}
+accent	i	\widehat{ABC} + \widetilde{xyz} + \overline{AB}
+accent	i	\mathbb{R}, \mathbb{N}, \mathbb{Z}, \mathbb{Q}, \mathbb{C}
+accent	i	\mathcal{L}, \mathcal{O}(n \log n)
+accent	i	\mathfrak{g}, \mathfrak{sl}_2
+accent	i	\mathrm{d}x, \mathbf{v}, \mathit{text}, \mathsf{A}, \mathtt{code}
+accent	i	\boldsymbol{\alpha} + \boldsymbol{x}
+accent	i	\operatorname{rank}(A) + \operatorname{tr}(B)
+accent	i	\sin\theta + \cos\theta + \tan\theta + \log x + \ln x + \exp(x)
+accent	i	\det A, \gcd(a,b), \max_i x_i, \min_{x} f(x)
+accent	i	\underline{u} + \overline{o}
+accent	i	\mathscr{F}
+matrix	d	\begin{matrix} a & b \\ c & d \end{matrix}
+matrix	d	\begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}
+matrix	d	\begin{bmatrix} a_{11} & a_{12} & \cdots & a_{1n} \\ \vdots & \vdots & \ddots & \vdots \\ a_{m1} & a_{m2} & \cdots & a_{mn} \end{bmatrix}
+matrix	d	\det\begin{vmatrix} a & b \\ c & d \end{vmatrix} = ad - bc
+matrix	d	\begin{Bmatrix} x \\ y \end{Bmatrix}
+matrix	i	\left(\begin{smallmatrix} a & b \\ c & d \end{smallmatrix}\right)
+matrix	d	\begin{array}{c|c} 1 & 2 \\ \hline 3 & 4 \end{array}
+matrix	d	A = \begin{pmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{pmatrix}
+env	d	f(x) = \begin{cases} x^2 & \text{if } x \ge 0 \\ -x & \text{otherwise} \end{cases}
+env	d	\begin{aligned} a &= b + c \\ &= d \end{aligned}
+env	d	\begin{align*} 2x - 5y &= 8 \\ 3x + 9y &= -12 \end{align*}
+env	d	\begin{gather*} a = b \\ c = d \end{gather*}
+env	d	\begin{equation} E = mc^2 \end{equation}
+env	d	\begin{split} (a+b)^2 &= a^2 + 2ab + b^2 \end{split}
+env	d	\begin{align} x &= y \tag{1} \\ z &= w \end{align}
+env	d	\begin{multline} a + b + c + d + e \\ + f + g + h \end{multline}
+env	d	\begin{alignat}{2} x &= y & \quad z &= w \end{alignat}
+env	d	\begin{equation*} \nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0} \end{equation*}
+text	i	\text{area} = \pi r^2
+text	i	a \quad b \qquad c \, d \; e \: f \! g
+text	i	x \in A \text{ for all } x
+text	i	\mbox{if } n > 0
+text	i	\textrm{roman} + \textbf{bold} + \textit{italic}
+text	d	P(A \mid B) = \frac{P(B \mid A) P(A)}{P(B)}
+rel	i	a \le b \ge c \ne d \approx e \equiv f \sim g \simeq h \cong i \propto j
+rel	i	A \subset B \subseteq C \supset D \in E \notin F \ni G
+rel	i	\forall x \exists y \neg P \land Q \lor R \implies S \iff T
+rel	i	f: A \to B, \; x \mapsto x^2
+rel	i	\Rightarrow \Leftarrow \Leftrightarrow \rightarrow \leftarrow \uparrow \downarrow \hookrightarrow
+rel	i	A \xrightarrow{f} B \xleftarrow[g]{} C
+rel	i	\overset{!}{=} \quad \underset{x}{\arg\min}\, f(x) \quad \stackrel{\text{def}}{=}
+rel	i	a \ll b \gg c \prec d \succ e \perp f \parallel g
+rel	i	\emptyset \varnothing \infty \partial \nabla \hbar \ell \Re \Im \aleph
+rel	i	\cdots \ldots \vdots \ddots \dots
+brace	d	\underbrace{a + \cdots + a}_{n \text{ times}}
+brace	d	\overbrace{1 + 2 + \cdots + n}^{\frac{n(n+1)}{2}}
+brace	i	\overrightarrow{AB} + \overleftarrow{CD}
+brace	d	\boxed{E = mc^2}
+brace	i	\cancel{x} + \bcancel{y}
+brace	i	\color{red}{x} + \textcolor{blue}{y}
+misc	i	a \equiv b \pmod{n}
+misc	i	a \bmod b
+misc	i	\dbinom{n}{k}
+misc	i	\frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2} = 0
+misc	d	\mathbf{F} = m\mathbf{a} = m \frac{d^2 \mathbf{r}}{dt^2}
+misc	d	i\hbar \frac{\partial}{\partial t} \Psi = \hat{H} \Psi
+misc	d	R_{\mu\nu} - \frac{1}{2} R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}
+misc	d	\hat{f}(\xi) = \int_{-\infty}^{\infty} f(x)\, e^{-2\pi i x \xi}\, dx
+misc	i	\mathbb{E}[X] = \sum_x x\, p(x)
+misc	d	\operatorname*{arg\,max}_{\theta} \mathcal{L}(\theta)
+misc	i	{}^{14}_{6}\mathrm{C}
+misc	i	\ce{H2O + CO2 -> H2CO3}
+misc	i	x^{y^{z^{w}}}

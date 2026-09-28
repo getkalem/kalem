@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux libraries for the graphical editor (gpui)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
+      - run: cargo clippy --workspace --all-targets
+
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux libraries for the graphical editor (gpui)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
+      - run: cargo test --workspace
+
+  msrv:
+    name: minimum supported Rust version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux libraries for the graphical editor (gpui)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
+      - run: cargo check --workspace
+
+  terminal-only:
+    name: terminal-only build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # No windowing or GPU libraries: the build must not need them.
+      - run: cargo build -p kalem-editor --no-default-features --features tui
+      - name: No gpui in the dependency tree
+        run: "! cargo tree -p kalem-editor --no-default-features --features tui | grep -q gpui"
+
+  fuzz:
+    name: fuzz (short run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - run: cargo install cargo-fuzz --locked
+      - run: cargo fuzz run parse -- -max_total_time=120
+      - run: cargo fuzz run incremental -- -max_total_time=120
+
+  emacs:
+    name: differential test against Emacs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: purcell/setup-emacs@master
+        with:
+          version: "30.1"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p kalem-editor --no-default-features --features tui
+      - name: Core corpus
+        run: |
+          find tests/corpus -name '*.org' -print0 | xargs -0 ./target/release/kalem diff-emacs --summary
+      - name: Core corpus, document model
+        run: |
+          find tests/corpus -name '*.org' -print0 | xargs -0 ./target/release/kalem diff-emacs --model --summary
+      - name: Extended corpus (Worg and Org)
+        run: |
+          tests/corpus/fetch-extended.sh
+          find .cache/worg .cache/org-mode -name '*.org' -print0 | xargs -0 ./target/release/kalem diff-emacs --summary
+      - name: Extended corpus, document model
+        run: |
+          find .cache/worg .cache/org-mode -name '*.org' -print0 | xargs -0 ./target/release/kalem diff-emacs --model --summary
+      - name: Differential fuzzing
+        run: python3 tools/fuzz-diff.py 5000 $GITHUB_RUN_NUMBER

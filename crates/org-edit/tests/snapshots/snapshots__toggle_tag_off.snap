@@ -1,0 +1,10 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: "format!(\"{marked}\\n----\\n{out}\")"
+---
+* Heading‸ :a:
+Text.
+
+----
+* Heading‸
+Text.

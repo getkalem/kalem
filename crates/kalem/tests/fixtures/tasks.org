@@ -1,0 +1,7 @@
+#+TODO: TODO NEXT | DONE
+* Work                                                               :work:
+** NEXT Write the report
+** TODO Read the papers
+* Home
+** NEXT Fix the door                                                 :home:
+** DONE Buy milk

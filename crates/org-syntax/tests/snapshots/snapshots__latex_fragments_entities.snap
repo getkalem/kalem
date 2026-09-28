@@ -1,0 +1,53 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"$x^2$ and $$y$$\\n\", \"\\\\(a\\\\) and \\\\[b\\\\] and \\\\frac{1}{2}\\n\",\n\"\\\\alpha \\\\beta{} \\\\_  spaces\\n\"])"
+---
+=== "$x^2$ and $$y$$\n"
+DOCUMENT@0..16
+  SECTION@0..16
+    PARAGRAPH@0..16
+      LATEX_FRAGMENT@0..6
+        CODE_TEXT@0..5 "$x^2$"
+        WHITESPACE@5..6 " "
+      TEXT@6..9 "and"
+      WHITESPACE@9..10 " "
+      LATEX_FRAGMENT@10..15
+        CODE_TEXT@10..15 "$$y$$"
+      NEWLINE@15..16 "\n"
+
+=== "\\(a\\) and \\[b\\] and \\frac{1}{2}\n"
+DOCUMENT@0..32
+  SECTION@0..32
+    PARAGRAPH@0..32
+      LATEX_FRAGMENT@0..6
+        CODE_TEXT@0..5 "\\(a\\)"
+        WHITESPACE@5..6 " "
+      TEXT@6..9 "and"
+      WHITESPACE@9..10 " "
+      LATEX_FRAGMENT@10..16
+        CODE_TEXT@10..15 "\\[b\\]"
+        WHITESPACE@15..16 " "
+      TEXT@16..19 "and"
+      WHITESPACE@19..20 " "
+      LATEX_FRAGMENT@20..31
+        CODE_TEXT@20..31 "\\frac{1}{2}"
+      NEWLINE@31..32 "\n"
+
+=== "\\alpha \\beta{} \\_  spaces\n"
+DOCUMENT@0..26
+  SECTION@0..26
+    PARAGRAPH@0..26
+      ENTITY@0..7
+        MARKER@0..1 "\\"
+        KEY@1..6 "alpha"
+        WHITESPACE@6..7 " "
+      ENTITY@7..15
+        MARKER@7..8 "\\"
+        KEY@8..12 "beta"
+        MARKER@12..14 "{}"
+        WHITESPACE@14..15 " "
+      ENTITY@15..19
+        MARKER@15..16 "\\"
+        KEY@16..19 "_  "
+      TEXT@19..25 "spaces"
+      NEWLINE@25..26 "\n"

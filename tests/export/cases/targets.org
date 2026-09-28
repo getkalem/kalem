@@ -1,0 +1,8 @@
+* Heading One
+:PROPERTIES:
+:CUSTOM_ID: one
+:END:
+A <<target>> here and a link to [[target]] and to [[#one][the first heading]].
+
+* Heading Two
+See [[Heading One]] and <<<radio word>>> then radio word again.

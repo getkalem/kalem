@@ -1,0 +1,31 @@
+[package]
+name = "math-render-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Spike: which engine renders Kalem's inline LaTeX math? (tasks T0.7, decision D4)"
+
+[workspace]
+
+[features]
+default = ["typst", "ratex"]
+typst = ["dep:typst", "dep:typst-layout", "dep:typst-svg", "dep:typst-assets", "dep:mitex"]
+ratex = ["dep:ratex-parser", "dep:ratex-layout", "dep:ratex-types", "dep:ratex-svg", "dep:ratex-font"]
+
+[dependencies]
+typst = { version = "0.15", optional = true }
+typst-svg = { version = "0.15", optional = true }
+typst-layout = { version = "0.15", optional = true }
+typst-assets = { version = "0.15", features = ["fonts"], optional = true }
+mitex = { git = "https://github.com/mitex-rs/mitex", tag = "0.2.7", optional = true }
+ratex-parser = { version = "0.1.14", optional = true }
+ratex-layout = { version = "0.1.14", optional = true }
+ratex-types = { version = "0.1.14", optional = true }
+ratex-svg = { version = "0.1.14", features = ["standalone", "embed-fonts"], optional = true }
+ratex-font = { version = "0.1.14", optional = true }
+resvg = { version = "0.45", default-features = false }
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true

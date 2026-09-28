@@ -1,0 +1,8 @@
+#+TITLE: 中文 and 日本語
+
+* 見出し :タグ:
+中文src_sh{echo 1}と日本語call_f(x=1)。
+<<<漢字>>> は漢字です。この漢字もリンク。
+*太字* と /斜体/ と =等幅=。
+中https://example.com/中 and 日本語[[https://example.org][リンク]]。
+- 項目 :: 説明

@@ -1,0 +1,22 @@
+[package]
+name = "kalem-fs"
+description = "File manager operations for text editors, like Emacs's Dired: directory listings, marks, copy, move, trash and delete in the background with progress, cancellation and conflict choices"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["dired", "file-manager", "trash", "editor"]
+categories = ["filesystem", "text-editors"]
+
+[dependencies]
+trash = "5"
+filetime = "0.2"
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo"] }
+tracing = "0.1"
+
+[dev-dependencies]
+
+[lints]
+workspace = true

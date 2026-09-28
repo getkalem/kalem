@@ -1,0 +1,19 @@
+﻿#+TITLE: BOM and CRLF
+#+TODO: TODO NEXT | DONE
+
+* NEXT Windows file :win:
+SCHEDULED: <2026-01-01 Thu>
+:PROPERTIES:
+:ID: x
+:END:
+
+- item one
+- item two
+
+#+begin_src sh
+echo hi
+#+end_src
+
+| a | b |
+|---+---|
+| 1 | 2 |

@@ -1,0 +1,37 @@
+[package]
+name = "kalem-tui"
+description = "The terminal frontend of the Kalem editor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+kalem-core.workspace = true
+kalem-highlight.workspace = true
+tui-rich-text.workspace = true
+org-syntax.workspace = true
+org-math.workspace = true
+org-edit.workspace = true
+org-model.workspace = true
+ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
+crossterm = "0.29"
+ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+unicode-width = "0.2"
+unicode-segmentation = "1"
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system"] }
+serde_json = "1"
+tracing = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["event", "stdio", "std"] }
+
+[dev-dependencies]
+insta = "1"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[lints]
+workspace = true

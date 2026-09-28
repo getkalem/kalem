@@ -1,0 +1,36 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"#+CALL: f(x=1)\\n\", \"#+call: f[:results raw](y=2)[:exports both]\\n\",\n\"#+CALL: nothing\\n\"])"
+---
+=== "#+CALL: f(x=1)\n"
+DOCUMENT@0..15
+  SECTION@0..15
+    BABEL_CALL@0..15
+      MARKER@0..2 "#+"
+      KEY@2..6 "CALL"
+      MARKER@6..7 ":"
+      WHITESPACE@7..8 " "
+      TEXT@8..14 "f(x=1)"
+      NEWLINE@14..15 "\n"
+
+=== "#+call: f[:results raw](y=2)[:exports both]\n"
+DOCUMENT@0..44
+  SECTION@0..44
+    BABEL_CALL@0..44
+      MARKER@0..2 "#+"
+      KEY@2..6 "call"
+      MARKER@6..7 ":"
+      WHITESPACE@7..8 " "
+      TEXT@8..43 "f[:results raw](y=2)[ ..."
+      NEWLINE@43..44 "\n"
+
+=== "#+CALL: nothing\n"
+DOCUMENT@0..16
+  SECTION@0..16
+    BABEL_CALL@0..16
+      MARKER@0..2 "#+"
+      KEY@2..6 "CALL"
+      MARKER@6..7 ":"
+      WHITESPACE@7..8 " "
+      TEXT@8..15 "nothing"
+      NEWLINE@15..16 "\n"

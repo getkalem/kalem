@@ -1,0 +1,35 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"line one \\\\\\\\\\nline two\\n\", \"trailing \\\\\\\\  \\nnext\\n\",\n\"not \\\\\\\\ a break\\n\"])"
+---
+=== "line one \\\\\nline two\n"
+DOCUMENT@0..21
+  SECTION@0..21
+    PARAGRAPH@0..21
+      TEXT@0..8 "line one"
+      WHITESPACE@8..9 " "
+      LINE_BREAK@9..12
+        MARKER@9..11 "\\\\"
+        NEWLINE@11..12 "\n"
+      TEXT@12..20 "line two"
+      NEWLINE@20..21 "\n"
+
+=== "trailing \\\\  \nnext\n"
+DOCUMENT@0..19
+  SECTION@0..19
+    PARAGRAPH@0..19
+      TEXT@0..8 "trailing"
+      WHITESPACE@8..9 " "
+      LINE_BREAK@9..14
+        MARKER@9..11 "\\\\"
+        WHITESPACE@11..13 "  "
+        NEWLINE@13..14 "\n"
+      TEXT@14..18 "next"
+      NEWLINE@18..19 "\n"
+
+=== "not \\\\ a break\n"
+DOCUMENT@0..15
+  SECTION@0..15
+    PARAGRAPH@0..15
+      TEXT@0..14 "not \\\\ a break"
+      NEWLINE@14..15 "\n"

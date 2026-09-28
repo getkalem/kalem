@@ -1,0 +1,70 @@
+// The Vim profile's own bindings, on top of the Word-like ones: Doom
+// Emacs's leader keys (design §7.3). `leader` is the key of the setting
+// `editor.vim.leader`, Space unless changed. They apply in normal and
+// visual mode (`vimCommand`); a user keymap can add, change or remove them
+// like any binding.
+[
+  { "keys": "leader :", "command": "view.palette", "when": "vimCommand" },
+  { "keys": "leader space", "command": "project.findFile", "when": "vimCommand" },
+  { "keys": "leader .", "command": "file.open", "when": "vimCommand" },
+  { "keys": "leader ,", "command": "file.switch", "when": "vimCommand" },
+  { "keys": "leader /", "command": "project.search", "when": "vimCommand" },
+  // Buffers: the open documents.
+  { "keys": "leader b b", "command": "file.switch", "when": "vimCommand" },
+  { "keys": "leader b k", "command": "file.close", "when": "vimCommand" },
+  { "keys": "leader b d", "command": "file.close", "when": "vimCommand" },
+  { "keys": "leader b n", "command": "file.next", "when": "vimCommand" },
+  { "keys": "leader b ]", "command": "file.next", "when": "vimCommand" },
+  { "keys": "leader b p", "command": "file.previous", "when": "vimCommand" },
+  { "keys": "leader b [", "command": "file.previous", "when": "vimCommand" },
+  { "keys": "leader b s", "command": "app.save", "when": "vimCommand" },
+  { "keys": "leader b r", "command": "app.revert", "when": "vimCommand" },
+  { "keys": "leader b shift+n", "command": "file.new", "when": "vimCommand" },
+  // Files.
+  { "keys": "leader f f", "command": "file.open", "when": "vimCommand" },
+  { "keys": "leader f r", "command": "file.recent", "when": "vimCommand" },
+  { "keys": "leader f s", "command": "app.save", "when": "vimCommand" },
+  { "keys": "leader f shift+s", "command": "app.saveAs", "when": "vimCommand" },
+  // Projects (Projectile).
+  { "keys": "leader p p", "command": "project.switch", "when": "vimCommand" },
+  { "keys": "leader p f", "command": "project.findFile", "when": "vimCommand" },
+  { "keys": "leader p a", "command": "project.add", "when": "vimCommand" },
+  { "keys": "leader p d", "command": "project.remove", "when": "vimCommand" },
+  { "keys": "leader p r", "command": "project.recentFiles", "when": "vimCommand" },
+  { "keys": "leader p b", "command": "project.switchDocument", "when": "vimCommand" },
+  { "keys": "leader p k", "command": "project.closeDocuments", "when": "vimCommand" },
+  { "keys": "leader p s", "command": "project.saveDocuments", "when": "vimCommand" },
+  { "keys": "leader p i", "command": "project.refresh", "when": "vimCommand" },
+  // Search.
+  { "keys": "leader s p", "command": "project.search", "when": "vimCommand" },
+  { "keys": "leader s s", "command": "find.open", "when": "vimCommand" },
+  // Open, toggle, windows, quit.
+  { "keys": "leader o p", "command": "view.openFiles", "when": "vimCommand" },
+  { "keys": "leader o o", "command": "view.outline", "when": "vimCommand" },
+  { "keys": "leader t w", "command": "view.toggleWrap", "when": "vimCommand" },
+  { "keys": "leader t z", "command": "view.focus", "when": "vimCommand" },
+  { "keys": "leader t m", "command": "view.toggleMath", "when": "vimCommand" },
+  { "keys": "leader w v", "command": "view.split", "when": "vimCommand" },
+  { "keys": "leader q q", "command": "app.quit", "when": "vimCommand" },
+  // The file manager: `-` (vim-vinegar, Doom) and Doom's `SPC o -` open it
+  // at the document's folder and come back, `SPC p D` opens the project's
+  // folder, `SPC o P` shows the projects. Keys bound here with
+  // `vimCommand` come before Vim's own (`-` is no motion any more; remove
+  // the binding in keymap.json to have it back). In a listing, Dired's keys (from
+  // the Word-like keymap) come before Vim's, except those Vim needs for
+  // moving and searching: `n`, `p`, `w` and Backspace. `g r` reads the
+  // folder again, `g g` goes to the first entry and `Y` copies names, as
+  // in evil-collection.
+  { "keys": "leader o -", "command": "dired.jump", "when": "vimCommand" },
+  { "keys": "-", "command": "dired.jump", "when": "vimCommand && editorMode != directory" },
+  { "keys": "leader o shift+p", "command": "dired.projects", "when": "vimCommand" },
+  { "keys": "leader p shift+d", "command": "dired.projectRoot", "when": "vimCommand" },
+  { "keys": "g", "command": "-dired.refresh" },
+  { "keys": "n", "command": "-dired.next" },
+  { "keys": "p", "command": "-dired.previous" },
+  { "keys": "w", "command": "-dired.copyName" },
+  { "keys": "backspace", "command": "-dired.up" },
+  { "keys": "g r", "command": "dired.refresh" },
+  { "keys": "g g", "command": "dired.first" },
+  { "keys": "shift+y", "command": "dired.copyName" }
+]

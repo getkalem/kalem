@@ -1,0 +1,22 @@
+[package]
+name = "org-model"
+description = "The document model of Org mode files: outline, TODO states, tags, properties, timestamps and queries, computed as Emacs computes them"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["org-mode", "emacs", "outline", "agenda"]
+categories = ["text-processing"]
+readme = "README.md"
+
+[dependencies]
+org-syntax.workspace = true
+rowan = "0.17"
+regex-automata = "0.4"
+regex-syntax = { version = "0.8", default-features = false }
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo"] }
+
+[lints]
+workspace = true

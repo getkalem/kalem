@@ -1,0 +1,12 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: "format!(\"{marked}\\n----\\n{out}\")"
+---
+⁁* A
+* B :x:
+* C‸
+
+----
+* A                                                                     :new:
+‸* B                                                                   :x:new:
+* C

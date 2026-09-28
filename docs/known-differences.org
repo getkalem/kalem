@@ -1,0 +1,152 @@
+#+TITLE: Known differences from Emacs Org
+
+Kalem's parser follows ~org-element.el~ (Org 9.7) and is checked against it
+with ~kalem diff-emacs~ on the test corpus and on randomly mutated files. This
+page lists the places where Kalem deliberately behaves differently. Each
+difference only occurs with malformed input.
+
+* Elements never extend past their container
+
+Emacs can let an element end after the element that contains it:
+
+- A ~#+CALL:~ line with an unbalanced =[= or =(= makes Emacs search the rest
+  of the buffer for the closing bracket, and the call can swallow the
+  following lines, even past the end of its section or block.
+- ~#+TBLFM:~ lines directly after the end of a container (for example a
+  table at the very end of a drawer) are attached to the table.
+
+A lossless syntax tree cannot have a child that is larger than its parent,
+so Kalem ends such elements at the end of their container. ~kalem
+diff-emacs~ counts these nodes as "known differences" instead of failures.
+
+* Nesting depth
+
+Emacs's parser stops with a ~max-lisp-eval-depth~ error after a few hundred
+levels of nesting (about 300 nested lists or 600 nested emphasis markers in
+Emacs 30). Kalem parses up to ~MAX_DEPTH~ (4096) levels of elements and
+objects. Anything nested deeper stays in the tree as plain text, so the file
+still opens and round-trips.
+
+* Overlapping planning timestamps
+
+When a planning line repeats a keyword and the timestamps overlap, as in
+=SCHEDULED: <2026-01-01 Thu SCHEDULED: <2026-01-02 Fri>>=, Emacs may keep
+two overlapping timestamp objects in different properties. Kalem keeps the
+timestamp Emacs uses for each keyword, and drops a timestamp that would
+overlap one it kept.
+
+* Link types depend on loaded libraries
+
+In Emacs, the set of link types (and so which text is a plain link) depends
+on the libraries loaded in the session. Kalem uses a fixed list: the types
+registered by ~emacs -Q~ with Org, plus =attachment= from org-attach (see
+~DEFAULT_LINK_TYPES~). Applications can change it through ~ParseContext~.
+
+* Line endings
+
+Files with DOS line endings (=\r\n=) are parsed as Emacs parses them after
+decoding: the carriage returns are not part of any value. Property values
+such as source block code use =\n= line endings. The syntax tree still
+contains every byte of the file.
+
+* Sorting
+
+- Alphabetical sorting (=org-sort-entries= and =org-table-sort-lines=
+  with =a=) compares code points, as Emacs does with ~org-sort-function~
+  set to ~org-sort-function-fallback~. Emacs's default,
+  ~string-collate-lessp~, follows the collation of the operating system's
+  locale, so its order can differ between machines; on macOS it also
+  ignores the request to fold case. Without =WITH-CASE=, Kalem folds case
+  as Emacs does on GNU/Linux. The differential tests compare code points
+  the same way.
+- Dates are compared as local civil times. Emacs compares seconds since
+  the epoch, which only differs for times in the repeated hour when
+  daylight saving time ends.
+
+* Repeating tasks far in the past
+
+When a task with a =++= repeater is marked done, Emacs shifts its date one
+interval at a time and asks whether to go on after ten intervals. Kalem
+shifts it as far as needed without asking.
+
+* Failing commands leave the text unchanged
+
+When a command fails, Kalem's transaction is discarded as a whole. Emacs
+may already have changed the buffer: ~org-sort-entries~ adds a final
+newline to the file before it reports "Nothing to sort", and ~org-todo~ on
+a commented headline removes =COMMENT= before it rejects an unknown state.
+
+* Tabs in table fields
+
+A field can keep a tab when text is made into a table with commas or
+spaces as separators. Emacs aligns such a field with tab stops, so its
+width depends on the column it starts at; Kalem counts a tab as one
+column. Converting tab-separated text, the usual case, turns the tabs
+into separators and is not affected.
+
+* Deleting grapheme clusters
+
+Backspace and Delete remove a whole grapheme cluster: an =é= written as
+=e= and a combining accent, a flag, or an emoji with a skin tone. Emacs
+removes one character, leaving the rest of the cluster. The rules for
+tables and tags are the same as Emacs's, applied to the cluster.
+
+* Emacs bugs Kalem does not reproduce
+
+The differential tests list these cases with the reason
+(=tests/edit/cases.json=, field =known=):
+
+- ~org-list-insert-item~ ignores the width of a new checkbox when it
+  shifts the sub-items of the item it splits (=M-S-RET= inside an item
+  with sub-items), and then indents the wrong lines. Kalem indents the
+  sub-items under the new item.
+- ~org-cycle-list-bullet~ can leave a =*= bullet at column 0, which makes
+  the item a headline, and then fails with a type error. Kalem writes the
+  same text without the error.
+- ~org-timestamp~ next to a timestamp, on a line with a date range after
+  point, replaces the next timestamp and gives it the repeater of another
+  one: its range regular expression spans several timestamps, and the
+  replacement uses stale match data. Kalem inserts a timestamp at point.
+- ~org-table-create~ in the middle of a line breaks the line and inserts
+  the table after it, but then puts the rule under the first row at the
+  original position, which is before the table, and aligns from the line
+  above the table. Kalem creates the table at the start of the new line,
+  indented like the broken line, with the rule after its first row.
+
+* Table formulas
+
+Kalem computes =#+TBLFM= formulas without Emacs: it reproduces Org's
+substitution of references and the part of Calc that table formulas use.
+On a corpus of 928 tables recalculated by Emacs every field agrees, except
+where noted here.
+
+- Emacs Lisp formulas (='(...)=) are not evaluated. The fields they set
+  keep their values, and Kalem names the formulas.
+- Calc's full algebra is not reproduced. Numbers, vectors, dates,
+  durations, infinities and =nan= follow Calc; formulas over text fields
+  stay symbolic with Calc's basic simplifications (=x + 2=, =2 a=,
+  =n / (42 a)=), but deeper algebra (the variance of a column with text,
+  expanded) may be written differently.
+- Complex numbers (=sqrt(-4)=), factorials of fractions (the gamma
+  function), sines of very large arguments, and radix, HMS and error forms
+  (=16#FF=, =2@ 30' 0"=, =3 +/- 0.1=) are left as formulas.
+- A formula Emacs cannot evaluate because Calc overflows its stack (a
+  number divided by a vector) shows =#ERROR= instead of stopping the
+  recalculation.
+- Errors that stop a recalculation (an unknown field, a reference outside
+  the table) have Kalem's own wording.
+
+* Emacs quirks Kalem reproduces
+
+Some Emacs behaviors look like bugs but change what documents mean, so
+Kalem follows them for compatibility:
+
+- In match strings, =PROP<>"<2026-11-01>"= compares times for
+  /equality/: ~org-time<>~ is written =(\= a b)=, which Emacs reads as
+  =(= a b)=.
+- In match strings, ="<yesterday>"= is compared as a string, not a time:
+  the pattern that recognizes time operands omits it.
+- The =PRIORITY= special property is the first =[#X]= cookie anywhere in the
+  headline line, even inside a link in the title.
+- ~org-entry-get~ and ~org-entry-properties~ disagree on duplicate drawer
+  keys: the first returns the last value, the second the first.

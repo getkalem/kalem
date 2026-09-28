@@ -1,0 +1,62 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"| a | b |\\n|---+---|\\n| 1 | 2 |\\n\", \"| x |\\n#+TBLFM: $1=2\\n\",\n\"+---+\\n| x |\\n+---+\\n\"])"
+---
+=== "| a | b |\n|---+---|\n| 1 | 2 |\n"
+DOCUMENT@0..30
+  SECTION@0..30
+    TABLE@0..30
+      TABLE_ROW@0..10
+        MARKER@0..1 "|"
+        TABLE_CELL@1..5
+          WHITESPACE@1..2 " "
+          TEXT@2..3 "a"
+          WHITESPACE@3..4 " "
+          MARKER@4..5 "|"
+        TABLE_CELL@5..9
+          WHITESPACE@5..6 " "
+          TEXT@6..7 "b"
+          WHITESPACE@7..8 " "
+          MARKER@8..9 "|"
+        NEWLINE@9..10 "\n"
+      TABLE_ROW@10..20
+        TEXT@10..19 "|---+---|"
+        NEWLINE@19..20 "\n"
+      TABLE_ROW@20..30
+        MARKER@20..21 "|"
+        TABLE_CELL@21..25
+          WHITESPACE@21..22 " "
+          TEXT@22..23 "1"
+          WHITESPACE@23..24 " "
+          MARKER@24..25 "|"
+        TABLE_CELL@25..29
+          WHITESPACE@25..26 " "
+          TEXT@26..27 "2"
+          WHITESPACE@27..28 " "
+          MARKER@28..29 "|"
+        NEWLINE@29..30 "\n"
+
+=== "| x |\n#+TBLFM: $1=2\n"
+DOCUMENT@0..20
+  SECTION@0..20
+    TABLE@0..20
+      TABLE_ROW@0..6
+        MARKER@0..1 "|"
+        TABLE_CELL@1..5
+          WHITESPACE@1..2 " "
+          TEXT@2..3 "x"
+          WHITESPACE@3..4 " "
+          MARKER@4..5 "|"
+        NEWLINE@5..6 "\n"
+      MARKER@6..8 "#+"
+      KEY@8..13 "TBLFM"
+      MARKER@13..14 ":"
+      WHITESPACE@14..15 " "
+      TEXT@15..19 "$1=2"
+      NEWLINE@19..20 "\n"
+
+=== "+---+\n| x |\n+---+\n"
+DOCUMENT@0..18
+  SECTION@0..18
+    TABLE@0..18
+      CODE_TEXT@0..18 "+---+\n| x |\n+---+\n"

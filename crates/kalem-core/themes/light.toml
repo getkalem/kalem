@@ -1,0 +1,47 @@
+# Kalem's light theme. Copy it to themes/light.toml in the settings
+# directory to change it; colors left out keep these values.
+# Colors are #rrggbb or #rrggbbaa.
+
+name = "Light"
+dark = false
+
+[colors]
+# The page.
+background = "#ffffff"
+# Text.
+foreground = "#1e2024"
+# Dimmed text: markup, drawers, keywords, tags.
+muted = "#8c8c8c"
+# Links.
+link = "#1760cf"
+# The caret.
+caret = "#255ff4"
+# The selection.
+selection = "#2578f440"
+# Search matches.
+mark = "#ffde338c"
+# Backgrounds of code.
+code_bg = "#f4f4f6"
+# TODO keywords that are not done.
+todo = "#df2020"
+# Done keywords.
+done = "#1d981b"
+# Timestamps.
+timestamp = "#8739ac"
+# Priorities.
+priority = "#f27b0d"
+# Toolbars, status bars and panels.
+bar = "#f4f4f6"
+# Lines between areas.
+border = "#dbdbdb"
+# Headlines, by level.
+levels = ["#244f8f", "#217783", "#26733c", "#8f7124", "#8f3d87", "#993333"]
+
+# Source code.
+[syntax]
+keyword = "#b52eb8"
+string = "#238321"
+comment = "#8c8c8c"
+number = "#cf6f17"
+function = "#2263c3"
+type = "#98751b"

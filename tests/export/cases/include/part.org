@@ -1,0 +1,6 @@
+* Included heading
+Some text with a note.[fn:1]
+** Deeper
+A link to [[file:pic.png]].
+
+[fn:1] The note.

@@ -1,0 +1,55 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"[[https://orgmode.org][Org]]\\n\",\n\"https://example.com/path and <mailto:me@example.com>\\n\",\n\"[[file:a.org::*Head]] [[#custom]] [[(ref)]] [[fuzzy]]\\n\"])"
+---
+=== "[[https://orgmode.org][Org]]\n"
+DOCUMENT@0..29
+  SECTION@0..29
+    PARAGRAPH@0..29
+      LINK@0..28
+        MARKER@0..2 "[["
+        CODE_TEXT@2..21 "https://orgmode.org"
+        MARKER@21..23 "]["
+        TEXT@23..26 "Org"
+        MARKER@26..28 "]]"
+      NEWLINE@28..29 "\n"
+
+=== "https://example.com/path and <mailto:me@example.com>\n"
+DOCUMENT@0..53
+  SECTION@0..53
+    PARAGRAPH@0..53
+      LINK@0..25
+        CODE_TEXT@0..24 "https://example.com/path"
+        WHITESPACE@24..25 " "
+      TEXT@25..28 "and"
+      WHITESPACE@28..29 " "
+      LINK@29..52
+        MARKER@29..30 "<"
+        CODE_TEXT@30..51 "mailto:me@example.com"
+        MARKER@51..52 ">"
+      NEWLINE@52..53 "\n"
+
+=== "[[file:a.org::*Head]] [[#custom]] [[(ref)]] [[fuzzy]]\n"
+DOCUMENT@0..54
+  SECTION@0..54
+    PARAGRAPH@0..54
+      LINK@0..22
+        MARKER@0..2 "[["
+        CODE_TEXT@2..19 "file:a.org::*Head"
+        MARKER@19..21 "]]"
+        WHITESPACE@21..22 " "
+      LINK@22..34
+        MARKER@22..24 "[["
+        CODE_TEXT@24..31 "#custom"
+        MARKER@31..33 "]]"
+        WHITESPACE@33..34 " "
+      LINK@34..44
+        MARKER@34..36 "[["
+        CODE_TEXT@36..41 "(ref)"
+        MARKER@41..43 "]]"
+        WHITESPACE@43..44 " "
+      LINK@44..53
+        MARKER@44..46 "[["
+        CODE_TEXT@46..51 "fuzzy"
+        MARKER@51..53 "]]"
+      NEWLINE@53..54 "\n"

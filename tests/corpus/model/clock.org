@@ -1,0 +1,25 @@
+#+TITLE: Clocks
+* Project
+:LOGBOOK:
+CLOCK: [2026-09-01 Tue 09:00]--[2026-09-01 Tue 10:30] =>  1:30
+CLOCK: [2026-09-02 Wed 23:30]--[2026-09-03 Thu 00:15] =>  0:45
+:END:
+** Task A
+CLOCK: [2026-09-04 Fri 10:00]--[2026-09-04 Fri 10:20] =>  0:20
+*** Deep
+CLOCK: [2026-09-05 Sat 08:00]--[2026-09-05 Sat 09:00] =>  1:00
+** Task B
+   CLOCK: [2026-09-06 Sun 12:00]--[2026-09-06 Sun 12:59] =>  0:59
+** Task C running
+CLOCK: [2026-09-07 Mon 12:00]
+* No clocks
+** Child
+* Odd
+CLOCK: => 2:15
+clock: [2026-09-08 Tue 10:00]--[2026-09-08 Tue 11:00] =>  1:00
+#+begin_src text
+CLOCK: [2026-09-09 Wed 10:00]--[2026-09-09 Wed 11:00] =>  1:00
+#+end_src
+* Across the DST change
+CLOCK: [2026-10-24 Sat 23:00]--[2026-10-25 Sun 05:00] =>  6:00
+CLOCK: [2026-03-28 Sat 23:00]--[2026-03-29 Sun 05:00] =>  6:00

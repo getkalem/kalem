@@ -1,0 +1,12 @@
+[package]
+name = "orgize-eval"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Evaluation of the orgize crate for Kalem (task T0.2, decision D2)"
+
+[workspace]
+
+[dependencies]
+orgize = "=0.10.0-alpha.10"
+serde_json = "1"

@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 0470fdf0816ed317115ce656f9589bf8652ecc12a764fe4dd33c0c6654147f1f # shrinks to doc = ":LOGBOOK:\n:END:\n\n#+NAME: n\n#+end_src\n*** \n- *bold*[fn:1][fn:: inline]\nhttps://y.org*bold*/it/\n[fn:1] def\n* \n:LOGBOOK:\nSCHEDULED: <2026-01-01 Thu>\n:LOGBOOK:\n\n    1. [X] *bold*$x^2${{{m(a)}}}\n#+TBLFM: $1=2\n:ID: x\n#+begin_src sh\n:LOGBOOK:\n:LOGBOOK:", at = Index(2774510287509160203), len = 0, insert = "*** TODO  :tag:"

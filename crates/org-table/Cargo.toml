@@ -1,0 +1,20 @@
+[package]
+name = "org-table"
+description = "Org mode tables: #+TBLFM formulas evaluated as Emacs Org and Calc evaluate them"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["org-mode", "emacs", "spreadsheet", "calc"]
+categories = ["text-processing", "mathematics"]
+readme = "README.md"
+
+[dependencies]
+num-bigint = "0.4"
+num-integer = "0.1"
+num-traits = "0.2"
+
+[lints]
+workspace = true

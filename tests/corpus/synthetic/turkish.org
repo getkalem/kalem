@@ -1,0 +1,17 @@
+#+TITLE: Türkçe belge
+#+TODO: YAPILACAK DEVAM | BİTTİ İPTAL
+
+* YAPILACAK Işık ve ılık şeyler :iş:ödev:
+Çalışma *kalın* /eğik/ _altı çizili_ +üstü çizili+ ve =sabit= ~kod~.
+#+tıtle: noktasız ı büyük harfe çevrilmez
+#+NAME: tablo
+| Şehir   | Nüfus |
+|---------+-------|
+| İstanbul |    15 |
+| Ağrı    |     1 |
+
+** BİTTİ Ğ harfi [#A]
+CLOSED: [2026-09-27 Paz 10:00]
+Dipnot[fn:ş1] ve bağlantı [[#özel]] ve \alpha.
+
+[fn:ş1] Türkçe dipnot.

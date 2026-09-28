@@ -1,0 +1,159 @@
+//! Kalem's graphical frontend (design §7.1 to §7.5), on gpui: the same
+//! commands, keymaps, settings and view model as the terminal frontend,
+//! drawn with Kalem's own inline layout.
+
+pub mod clipboard;
+pub mod datepicker;
+pub mod editor;
+pub mod keys;
+pub mod line;
+pub mod math;
+pub mod outline;
+pub mod panels;
+pub mod preferences;
+pub mod theme;
+pub mod vim;
+pub mod workspace;
+
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::rc::Rc;
+
+use kalem_core::CommandRegistry;
+use kalem_core::keymap::{self, Keymap};
+use kalem_core::settings::{self, Config};
+
+/// The shared state: settings, commands and keys.
+pub fn shared(config: Config) -> editor::Shared {
+    let registry = CommandRegistry::with_builtins();
+    let user = settings::config_dir().map(|d| d.join("keymap.json"));
+    let (entries, mut issues) = match user.as_deref().map(std::fs::read_to_string) {
+        Some(Ok(text)) => {
+            keymap::parse_keymap_with(&text, keymap::Origin::User, &config.vim_leader())
+        }
+        _ => (Vec::new(), Vec::new()),
+    };
+    let profile = config.keymap_profile();
+    let (keymap, more) = Keymap::build_with(&registry, profile, &entries, &config.vim_leader());
+    issues.extend(more);
+    editor::Shared {
+        // Both profiles have the Word-like keys, with Command on macOS.
+        swap_primary: cfg!(target_os = "macos"),
+        html_clipboard: clipboard::html,
+        settings_path: settings::config_dir().map(|d| d.join("settings.toml")),
+        math: math::Formulas::default(),
+        projects: RefCell::new(kalem_core::projects::ProjectState::load(
+            kalem_core::projects::list_file(),
+        )),
+        jobs: Rc::default(),
+        config,
+        registry,
+        keymap,
+        issues,
+    }
+}
+
+/// Opens the graphical editor with `path` (or an empty document).
+pub fn run(path: Option<PathBuf>) {
+    let user = settings::config_dir().map(|d| d.join("settings.toml"));
+    let dir = path
+        .as_ref()
+        .and_then(|p| std::path::absolute(p).ok())
+        .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+    let workspace = dir.as_deref().and_then(settings::find_workspace_settings);
+    let config = Config::load(user.as_deref(), workspace.as_deref());
+    if let Some(p) = &path {
+        editor::prefetch(p, config.parse_base());
+    }
+    let _ = kalem_core::logging::init(&kalem_core::logging::LogOptions::standard(&config, false));
+    kalem_core::l10n::set_language(config.str("ui.language"));
+    let shared = Rc::new(shared(config));
+    // Files the system opens with Kalem (Finder, `open -a Kalem`) arrive as
+    // URLs, outside the application's context: queued, opened by a task.
+    let opened: Rc<RefCell<Vec<PathBuf>>> = Rc::default();
+    let app = gpui_platform::application();
+    let queue = opened.clone();
+    app.on_open_urls(move |urls| {
+        queue
+            .borrow_mut()
+            .extend(urls.iter().filter_map(|u| file_url_path(u)));
+    });
+    app.run(move |cx| {
+        cx.bind_keys(workspace::menu_bindings(&shared));
+        cx.set_menus(workspace::menus());
+        let s = shared.clone();
+        cx.on_action(move |_: &workspace::OpenFile, cx| workspace::open_file(s.clone(), cx));
+        // Started from an app bundle without a file (a Finder launch), a
+        // moment for the system's files; otherwise a window at once.
+        let bundle = std::env::current_exe()
+            .is_ok_and(|p| p.to_string_lossy().contains(".app/Contents/MacOS/"));
+        let started_with_file = path.is_some() || !bundle;
+        if started_with_file {
+            workspace::open_window(path, shared.clone(), cx);
+        }
+        cx.activate(true);
+        cx.spawn(async move |cx| {
+            let mut first = !started_with_file;
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(if first {
+                        300
+                    } else {
+                        150
+                    }))
+                    .await;
+                let paths: Vec<PathBuf> = opened.borrow_mut().drain(..).collect();
+                let open_empty = first && paths.is_empty();
+                first = false;
+                let shared = shared.clone();
+                cx.update(|cx| {
+                    for p in paths {
+                        workspace::open_path(p, shared.clone(), cx);
+                    }
+                    if open_empty {
+                        workspace::open_window(None, shared, cx);
+                    }
+                });
+            }
+        })
+        .detach();
+    });
+}
+
+/// The path of a `file://` URL, with `%XX` escapes decoded.
+fn file_url_path(url: &str) -> Option<PathBuf> {
+    let rest = url.strip_prefix("file://")?;
+    let rest = rest.strip_prefix("localhost").unwrap_or(rest);
+    let bytes = rest.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%'
+            && let Some(h) = rest.get(i + 1..i + 3)
+            && let Ok(b) = u8::from_str_radix(h, 16)
+        {
+            out.push(b);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok().map(PathBuf::from)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn file_urls() {
+        assert_eq!(
+            super::file_url_path("file:///Users/a/My%20Notes.org"),
+            Some("/Users/a/My Notes.org".into())
+        );
+        assert_eq!(
+            super::file_url_path("file:///tmp/%C3%A7.org"),
+            Some("/tmp/ç.org".into())
+        );
+        assert_eq!(super::file_url_path("https://x.org"), None);
+    }
+}

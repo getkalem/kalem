@@ -1,0 +1,43 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"Before headline\\n* H\\nInside\\n\", \"\\n\\nLeading blank lines\\n\",\n\"* H\\n\\nAfter blank\\n\"])"
+---
+=== "Before headline\n* H\nInside\n"
+DOCUMENT@0..27
+  SECTION@0..16
+    PARAGRAPH@0..16
+      TEXT@0..15 "Before headline"
+      NEWLINE@15..16 "\n"
+  HEADLINE@16..27
+    STARS@16..17 "*"
+    WHITESPACE@17..18 " "
+    HEADLINE_TITLE@18..19
+      TEXT@18..19 "H"
+    NEWLINE@19..20 "\n"
+    SECTION@20..27
+      PARAGRAPH@20..27
+        TEXT@20..26 "Inside"
+        NEWLINE@26..27 "\n"
+
+=== "\n\nLeading blank lines\n"
+DOCUMENT@0..22
+  BLANK_LINE@0..1 "\n"
+  BLANK_LINE@1..2 "\n"
+  SECTION@2..22
+    PARAGRAPH@2..22
+      TEXT@2..21 "Leading blank lines"
+      NEWLINE@21..22 "\n"
+
+=== "* H\n\nAfter blank\n"
+DOCUMENT@0..17
+  HEADLINE@0..17
+    STARS@0..1 "*"
+    WHITESPACE@1..2 " "
+    HEADLINE_TITLE@2..3
+      TEXT@2..3 "H"
+    NEWLINE@3..4 "\n"
+    BLANK_LINE@4..5 "\n"
+    SECTION@5..17
+      PARAGRAPH@5..17
+        TEXT@5..16 "After blank"
+        NEWLINE@16..17 "\n"

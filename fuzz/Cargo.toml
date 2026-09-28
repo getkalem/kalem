@@ -1,0 +1,30 @@
+[package]
+name = "org-syntax-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+org-syntax = { path = "../crates/org-syntax" }
+
+# Not part of the main workspace: it needs a nightly toolchain.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "incremental"
+path = "fuzz_targets/incremental.rs"
+test = false
+doc = false
+bench = false

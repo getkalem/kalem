@@ -1,0 +1,55 @@
+#+TITLE: Model test
+#+FILETAGS: :project:alpha:
+#+TODO: TODO(t) NEXT(n) WAIT(w@/!) | DONE(d!) CANCELLED(c@)
+#+TYP_TODO: Alice Bob | Finished
+#+SEQ_TODO: IDEA | USED
+#+PROPERTY: Effort_ALL 0 0:10 0:30 1:00
+#+PROPERTY: header-args :results silent
+#+PROPERTY: VAR foo
+#+PROPERTY: VAR+ bar
+#+CATEGORY: modelcat
+#+PRIORITIES: A E C
+#+KALEM_MATCH: +work
+#+KALEM_MATCH: work-boss
+#+KALEM_MATCH: +project
+#+KALEM_MATCH: TODO="NEXT"
+#+KALEM_MATCH: LEVEL>1
+#+KALEM_MATCH: work|home
+#+KALEM_MATCH: +work/NEXT
+#+KALEM_MATCH: /!
+#+KALEM_MATCH: /DONE|CANCELLED
+#+KALEM_MATCH: PRIORITY="A"
+#+KALEM_MATCH: CATEGORY="other"
+#+KALEM_MATCH: {^wo}
+#+KALEM_MATCH: VAR="foo bar"
+#+KALEM_MATCH: Effort<>""
+#+KALEM_MATCH: SCHEDULED<"<2026-10-02>"
+#+KALEM_MATCH: -home&LEVEL<3
+
+* TODO [#A] Top task :work:
+:PROPERTIES:
+:Effort: 0:30
+:ID: 1111
+:END:
+** NEXT Child :boss:
+SCHEDULED: <2026-10-01 Thu> DEADLINE: <2026-10-05 Mon -2d>
+*** WAIT Grandchild :home:
+:PROPERTIES:
+:CATEGORY: other
+:VAR+: baz
+:END:
+* DONE Finished thing :home:@errand:
+CLOSED: [2026-09-20 Sun 10:00]
+* Alice Assigned
+* IDEA [#E] Something
+:PROPERTIES:
+:COLUMNS: %25ITEM %TAGS
+:ARCHIVE: %s_done::
+:VAR: local
+:VAR+: more
+:Var: ignored duplicate
+:END:
+** COMMENT Commented child :work:
+** Archived child :ARCHIVE:
+text with <2026-10-10 Sat> and [2026-10-11 Sun]
+*** Deep under archive

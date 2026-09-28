@@ -1,0 +1,48 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"#+begin_src rust -n :results output\\nfn main() {}\\n#+end_src\\n\",\n\"#+BEGIN_SRC\\n,* escaped\\n#+END_SRC\\n\", \"#+begin_src sh\\n#+end_src\\n\"])"
+---
+=== "#+begin_src rust -n :results output\nfn main() {}\n#+end_src\n"
+DOCUMENT@0..59
+  SECTION@0..59
+    SRC_BLOCK@0..59
+      BLOCK_BEGIN@0..36
+        MARKER@0..2 "#+"
+        KEY@2..11 "begin_src"
+        WHITESPACE@11..12 " "
+        TEXT@12..35 "rust -n :results output"
+        NEWLINE@35..36 "\n"
+      CODE_TEXT@36..49 "fn main() {}\n"
+      BLOCK_END@49..59
+        MARKER@49..51 "#+"
+        KEY@51..58 "end_src"
+        NEWLINE@58..59 "\n"
+
+=== "#+BEGIN_SRC\n,* escaped\n#+END_SRC\n"
+DOCUMENT@0..33
+  SECTION@0..33
+    SRC_BLOCK@0..33
+      BLOCK_BEGIN@0..12
+        MARKER@0..2 "#+"
+        KEY@2..11 "BEGIN_SRC"
+        NEWLINE@11..12 "\n"
+      CODE_TEXT@12..23 ",* escaped\n"
+      BLOCK_END@23..33
+        MARKER@23..25 "#+"
+        KEY@25..32 "END_SRC"
+        NEWLINE@32..33 "\n"
+
+=== "#+begin_src sh\n#+end_src\n"
+DOCUMENT@0..25
+  SECTION@0..25
+    SRC_BLOCK@0..25
+      BLOCK_BEGIN@0..15
+        MARKER@0..2 "#+"
+        KEY@2..11 "begin_src"
+        WHITESPACE@11..12 " "
+        TEXT@12..14 "sh"
+        NEWLINE@14..15 "\n"
+      BLOCK_END@15..25
+        MARKER@15..17 "#+"
+        KEY@17..24 "end_src"
+        NEWLINE@24..25 "\n"

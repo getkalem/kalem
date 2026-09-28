@@ -1,0 +1,243 @@
+//! Word counts for the status bars (T1.5.17): the words a reader sees in
+//! the rich view.
+//!
+//! The title, headline titles, paragraphs, lists, tables, quotes and
+//! verse count, as do inline code and links (their description, or their
+//! target when they have none). Markup, TODO keywords, tags, bullets, other
+//! keywords, drawers,
+//! planning and clock lines, comments, source and example blocks, LaTeX,
+//! timestamps and footnote labels do not. A word is a run of characters
+//! without blanks that has a letter or digit in it; hidden markers join
+//! what they separate (`un*bold*ed` is one word).
+
+use std::ops::Range;
+
+use org_syntax::{NodeOrToken, SyntaxKind, SyntaxNode};
+
+/// Elements and objects whose text is not counted.
+fn skipped(k: SyntaxKind) -> bool {
+    use SyntaxKind::*;
+    matches!(
+        k,
+        PLANNING
+            | PROPERTY_DRAWER
+            | DRAWER
+            | CLOCK
+            | COMMENT
+            | COMMENT_BLOCK
+            | SRC_BLOCK
+            | EXAMPLE_BLOCK
+            | EXPORT_BLOCK
+            | FIXED_WIDTH
+            | LATEX_ENVIRONMENT
+            | KEYWORD
+            | AFFILIATED_KEYWORD
+            | BABEL_CALL
+            | DIARY_SEXP
+            | TIMESTAMP
+            | STATISTICS_COOKIE
+            | FOOTNOTE_REFERENCE
+            | TARGET
+            | LATEX_FRAGMENT
+            | EXPORT_SNIPPET
+            | INLINE_BABEL_CALL
+            | INLINE_SRC_BLOCK
+            | MACRO
+            | CITATION
+            | BLOCK_BEGIN
+            | BLOCK_END
+    )
+}
+
+/// `#+TITLE` and `#+SUBTITLE`, which the rich view shows as the title.
+fn is_title(n: &SyntaxNode) -> bool {
+    n.kind() == SyntaxKind::KEYWORD
+        && n.children_with_tokens().any(|c| {
+            c.as_token().is_some_and(|t| {
+                t.kind() == SyntaxKind::KEY
+                    && matches!(t.text().to_ascii_uppercase().as_str(), "TITLE" | "SUBTITLE")
+            })
+        })
+}
+
+fn visible(node: &SyntaxNode, range: &Range<usize>, out: &mut String) {
+    let r = node.text_range();
+    if usize::from(r.end()) <= range.start || usize::from(r.start()) >= range.end {
+        return;
+    }
+    // A link shows its description, or its target without one.
+    let described = node.kind() == SyntaxKind::LINK
+        && node.children_with_tokens().any(|c| {
+            c.as_token().is_some_and(|t| t.kind() == SyntaxKind::TEXT) || c.as_node().is_some()
+        });
+    for c in node.children_with_tokens() {
+        match c {
+            NodeOrToken::Node(n) => {
+                if skipped(n.kind()) && !is_title(&n) {
+                    out.push(' ');
+                } else {
+                    visible(&n, range, out);
+                }
+            }
+            NodeOrToken::Token(t) => {
+                let tr = t.text_range();
+                let (s, e) = (usize::from(tr.start()), usize::from(tr.end()));
+                if e <= range.start || s >= range.end {
+                    continue;
+                }
+                match t.kind() {
+                    SyntaxKind::TEXT => {
+                        let (a, b) = (range.start.max(s) - s, range.end.min(e) - s);
+                        out.push_str(&t.text()[a..b]);
+                    }
+                    SyntaxKind::CODE_TEXT if !described => out.push_str(t.text()),
+                    // An entity reads as one character.
+                    SyntaxKind::KEY if node.kind() == SyntaxKind::ENTITY => out.push('x'),
+                    SyntaxKind::MARKER => {}
+                    _ => out.push(' '),
+                }
+            }
+        }
+    }
+}
+
+/// The words in `range` of the document `root`.
+pub fn words(root: &SyntaxNode, range: Range<usize>) -> usize {
+    let mut text = String::new();
+    visible(root, &range, &mut text);
+    text.split_whitespace()
+        .filter(|w| w.chars().any(char::is_alphanumeric))
+        .count()
+}
+
+/// The subtree holding `pos`: its innermost headline's range.
+pub fn subtree_at(root: &SyntaxNode, pos: usize) -> Option<Range<usize>> {
+    let mut found = None;
+    let mut node = root.clone();
+    loop {
+        let next = node.children().find(|c| {
+            let r = c.text_range();
+            usize::from(r.start()) <= pos && pos < usize::from(r.end())
+        });
+        let Some(n) = next else { break };
+        if n.kind() == SyntaxKind::HEADLINE {
+            let r = n.text_range();
+            found = Some(usize::from(r.start())..usize::from(r.end()));
+        }
+        node = n;
+    }
+    found
+}
+
+/// Word counts kept for a text version, so status bars count only after
+/// edits, and while typing goes on only now and then: counting a large
+/// document takes milliseconds a keystroke does not have.
+#[derive(Debug, Clone, Default)]
+pub struct WordCounts {
+    version: Option<u64>,
+    document: usize,
+    section: Option<(Range<usize>, usize)>,
+    counted: Option<std::time::Instant>,
+}
+
+/// How long typing goes on before the counts catch up.
+const PAUSE: std::time::Duration = std::time::Duration::from_millis(300);
+
+impl WordCounts {
+    /// Whether the counts are behind the text and due: the frontend
+    /// should draw the status bar again.
+    pub fn due(&self, doc: &crate::DocumentState) -> bool {
+        self.version != Some(doc.version()) && self.counted.is_none_or(|t| t.elapsed() >= PAUSE)
+    }
+
+    /// The words of `doc` and of the section holding its cursor, counted
+    /// again when the text changed (at most every 300 ms while typing).
+    /// Until a parse catches up with edits, the last counts; `None` before
+    /// the first parse.
+    pub fn get(&mut self, doc: &crate::DocumentState) -> Option<(usize, Option<usize>)> {
+        if let Some((parse, true)) = doc.parse() {
+            let root = parse.syntax();
+            let changed = self.version != Some(doc.version())
+                && (self.version.is_none() || self.counted.is_none_or(|t| t.elapsed() >= PAUSE));
+            if changed {
+                self.counted = Some(std::time::Instant::now());
+                self.document = words(&root, 0..root.text_range().end().into());
+                self.version = Some(doc.version());
+            }
+            let range = subtree_at(&root, doc.selection.head);
+            let same = self.section.as_ref().map(|s| &s.0) == range.as_ref();
+            if changed || (!same && self.version == Some(doc.version())) {
+                self.section = range.map(|r| (r.clone(), words(&root, r)));
+            }
+        }
+        self.version?;
+        Some((self.document, self.section.as_ref().map(|s| s.1)))
+    }
+}
+
+/// `1234567` as `1,234,567` (digit groups of the interface language).
+pub fn thousands(n: usize) -> String {
+    crate::l10n::number(n)
+}
+
+/// The status bar text for word counts.
+pub fn describe(document: usize, section: Option<usize>) -> String {
+    let words = crate::tr!(
+        "status-words",
+        count = document,
+        shown = thousands(document)
+    );
+    match section {
+        Some(s) => crate::tr!(
+            "status-words-section",
+            words = words,
+            section = thousands(s)
+        ),
+        None => words,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn large_documents() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/corpus/org-mode");
+        let Some(big) = std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "org"))
+            .max_by_key(|p| std::fs::metadata(p).map_or(0, |m| m.len()))
+        else {
+            return;
+        };
+        let t = std::fs::read_to_string(&big).unwrap();
+        let p = org_syntax::parse(&t);
+        let start = std::time::Instant::now();
+        let n = words(&p.syntax(), 0..t.len());
+        let took = start.elapsed();
+        // About 5 ms in a release build.
+        assert!(took < std::time::Duration::from_secs(2), "{took:?}");
+        assert!(n > 0);
+    }
+
+    #[test]
+    fn counting() {
+        let t = "#+AUTHOR: Not counted\n* TODO Head [[https://x.org][the link]] :tag:\nSCHEDULED: <2026-01-01 Thu>\n:PROPERTIES:\n:ID: x\n:END:\nSome *bold* text [[file:a.org]] and \\alpha. un*bold*ed <2026-01-01 Thu> ~co de~ [fn:1] --\n- [ ] item one\n| a b | c |\n#+begin_src sh\nnot counted\n#+end_src\n#+begin_quote\nquoted words\n#+end_quote\n** Sub\none two\n";
+        let p = org_syntax::parse(t);
+        let root = p.syntax();
+        // Head, the, link; Some, bold, text, file:a.org, and, x., unbolded,
+        // co, de; item, one; a, b, c; quoted, words; Sub; one, two.
+        assert_eq!(words(&root, 0..t.len()), 22);
+        let sub = t.find("** Sub").unwrap();
+        assert_eq!(subtree_at(&root, sub + 8), Some(sub..t.len()));
+        assert_eq!(words(&root, sub..t.len()), 3);
+        assert_eq!(subtree_at(&root, 3), None);
+        assert_eq!(subtree_at(&root, 25), Some(22..t.len()));
+        assert_eq!(describe(1234567, Some(3)), "1,234,567 words, 3 in section");
+        assert_eq!(describe(1, None), "1 word");
+    }
+}

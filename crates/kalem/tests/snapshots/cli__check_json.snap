@@ -1,0 +1,30 @@
+---
+source: crates/kalem/tests/cli.rs
+expression: v
+---
+[
+  {
+    "diagnostics": [
+      {
+        "code": "invalid-timestamp",
+        "column": 12,
+        "end": 62,
+        "line": 3,
+        "message": "<2026-02-30 Mon> is not a valid date or time",
+        "severity": "warning",
+        "start": 46
+      },
+      {
+        "code": "unterminated-block",
+        "column": 1,
+        "end": 77,
+        "line": 4,
+        "message": "#+begin_src has no matching #+end_src; it is read as text",
+        "severity": "warning",
+        "start": 63
+      }
+    ],
+    "file": "tests/fixtures/sample.org",
+    "roundtrip": true
+  }
+]

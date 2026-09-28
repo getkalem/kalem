@@ -1,0 +1,60 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"* H\\nSCHEDULED: <2026-01-01 Thu>\\n\",\n\"* H\\nDEADLINE: <2026-01-02 Fri -2d> CLOSED: [2026-01-01 Thu 10:00]\\n\",\n\"* H\\n  SCHEDULED: <2026-01-01 Thu +1w>\\nText\\n\"])"
+---
+=== "* H\nSCHEDULED: <2026-01-01 Thu>\n"
+DOCUMENT@0..32
+  HEADLINE@0..32
+    STARS@0..1 "*"
+    WHITESPACE@1..2 " "
+    HEADLINE_TITLE@2..3
+      TEXT@2..3 "H"
+    NEWLINE@3..4 "\n"
+    SECTION@4..32
+      PLANNING@4..32
+        KEY@4..14 "SCHEDULED:"
+        WHITESPACE@14..15 " "
+        TIMESTAMP@15..31
+          TEXT@15..31 "<2026-01-01 Thu>"
+        NEWLINE@31..32 "\n"
+
+=== "* H\nDEADLINE: <2026-01-02 Fri -2d> CLOSED: [2026-01-01 Thu 10:00]\n"
+DOCUMENT@0..66
+  HEADLINE@0..66
+    STARS@0..1 "*"
+    WHITESPACE@1..2 " "
+    HEADLINE_TITLE@2..3
+      TEXT@2..3 "H"
+    NEWLINE@3..4 "\n"
+    SECTION@4..66
+      PLANNING@4..66
+        KEY@4..13 "DEADLINE:"
+        WHITESPACE@13..14 " "
+        TIMESTAMP@14..35
+          TEXT@14..34 "<2026-01-02 Fri -2d>"
+          WHITESPACE@34..35 " "
+        KEY@35..42 "CLOSED:"
+        WHITESPACE@42..43 " "
+        TIMESTAMP@43..65
+          TEXT@43..65 "[2026-01-01 Thu 10:00]"
+        NEWLINE@65..66 "\n"
+
+=== "* H\n  SCHEDULED: <2026-01-01 Thu +1w>\nText\n"
+DOCUMENT@0..43
+  HEADLINE@0..43
+    STARS@0..1 "*"
+    WHITESPACE@1..2 " "
+    HEADLINE_TITLE@2..3
+      TEXT@2..3 "H"
+    NEWLINE@3..4 "\n"
+    SECTION@4..43
+      PLANNING@4..38
+        WHITESPACE@4..6 "  "
+        KEY@6..16 "SCHEDULED:"
+        WHITESPACE@16..17 " "
+        TIMESTAMP@17..37
+          TEXT@17..37 "<2026-01-01 Thu +1w>"
+        NEWLINE@37..38 "\n"
+      PARAGRAPH@38..43
+        TEXT@38..42 "Text"
+        NEWLINE@42..43 "\n"

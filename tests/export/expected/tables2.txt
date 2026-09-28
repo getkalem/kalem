@@ -1,0 +1,15 @@
+| a  b |
++------+
+| 1  2 |
+
+ n  n^2 
+--------
+ 1    1 
+ 2    4 
+Table 1: Numbers
+
+See table 1.
+
+ empty  cells 
+--------------
+        x     

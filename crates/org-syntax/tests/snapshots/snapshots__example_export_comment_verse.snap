@@ -1,0 +1,66 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"#+begin_example -n\\nexample\\n#+end_example\\n\",\n\"#+begin_export html\\n<b>x</b>\\n#+end_export\\n\",\n\"#+begin_comment\\nhidden\\n#+end_comment\\n#+begin_verse\\n  Verse *line*\\n#+end_verse\\n\"])"
+---
+=== "#+begin_example -n\nexample\n#+end_example\n"
+DOCUMENT@0..41
+  SECTION@0..41
+    EXAMPLE_BLOCK@0..41
+      BLOCK_BEGIN@0..19
+        MARKER@0..2 "#+"
+        KEY@2..15 "begin_example"
+        WHITESPACE@15..16 " "
+        TEXT@16..18 "-n"
+        NEWLINE@18..19 "\n"
+      CODE_TEXT@19..27 "example\n"
+      BLOCK_END@27..41
+        MARKER@27..29 "#+"
+        KEY@29..40 "end_example"
+        NEWLINE@40..41 "\n"
+
+=== "#+begin_export html\n<b>x</b>\n#+end_export\n"
+DOCUMENT@0..42
+  SECTION@0..42
+    EXPORT_BLOCK@0..42
+      BLOCK_BEGIN@0..20
+        MARKER@0..2 "#+"
+        KEY@2..14 "begin_export"
+        WHITESPACE@14..15 " "
+        TEXT@15..19 "html"
+        NEWLINE@19..20 "\n"
+      CODE_TEXT@20..29 "<b>x</b>\n"
+      BLOCK_END@29..42
+        MARKER@29..31 "#+"
+        KEY@31..41 "end_export"
+        NEWLINE@41..42 "\n"
+
+=== "#+begin_comment\nhidden\n#+end_comment\n#+begin_verse\n  Verse *line*\n#+end_verse\n"
+DOCUMENT@0..78
+  SECTION@0..78
+    COMMENT_BLOCK@0..37
+      BLOCK_BEGIN@0..16
+        MARKER@0..2 "#+"
+        KEY@2..15 "begin_comment"
+        NEWLINE@15..16 "\n"
+      CODE_TEXT@16..23 "hidden\n"
+      BLOCK_END@23..37
+        MARKER@23..25 "#+"
+        KEY@25..36 "end_comment"
+        NEWLINE@36..37 "\n"
+    VERSE_BLOCK@37..78
+      BLOCK_BEGIN@37..51
+        MARKER@37..39 "#+"
+        KEY@39..50 "begin_verse"
+        NEWLINE@50..51 "\n"
+      WHITESPACE@51..53 "  "
+      TEXT@53..58 "Verse"
+      WHITESPACE@58..59 " "
+      BOLD@59..65
+        MARKER@59..60 "*"
+        TEXT@60..64 "line"
+        MARKER@64..65 "*"
+      NEWLINE@65..66 "\n"
+      BLOCK_END@66..78
+        MARKER@66..68 "#+"
+        KEY@68..77 "end_verse"
+        NEWLINE@77..78 "\n"

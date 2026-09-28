@@ -1,0 +1,10 @@
+[[file:img/pic.png]]
+
+#+CAPTION: A figure
+#+NAME: fig1
+[[./img/other.jpg]]
+
+#+ATTR_HTML: :width 100 :alt An image
+[[https://example.com/a.svg]]
+
+Text with an inline [[file:x.gif]] image and [[file:doc.org][another org file]] and [[file:doc.org::*Heading][a heading there]].

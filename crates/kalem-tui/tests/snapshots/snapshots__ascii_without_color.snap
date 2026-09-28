@@ -1,0 +1,33 @@
+---
+source: crates/kalem-tui/tests/snapshots.rs
+expression: "screen(caps, 44, 30, DOC.len())"
+---
+ Snapshot                                   |.BBBBBBBB
+ Ada                                        |.DDD
+ #+OPTIONS: toc:nil ...                     |.DDDDDDDDDDDDDDDDDDDDDD
+ # TODO Heading one :tag:                   |.BBRRRRBBBBBBBBBBBBBBBBBB
+   :PROPERTIES: ...                         |...DDDDDDDDDDDDDDDD
+   Some bold, italic, code and a link, α    |........BBBB..DDDDDD...........UUUUUU
+   and x².                                  |
+   - [ ] a task                             |
+   - [X] done                               |
+     1. nested                              |
+   | Name  | Qty |                          |...D.......D.....D
+   |-------+-----|                          |...DDDDDDDDDDDDDDD
+   | apple |   3 |                          |...D.......D.....D
+   = Second level                           |.BBBBBBBBBBBBBBBB
+     +- rust ------------------------------ |.....DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+     fn main() { println!("hi"); }          |.....BB
+     +------------------------------------- |.....DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+     A formula E=mc² and a long line that   |
+     wraps around the edge of the narrow    |
+     screen.                                |
+                                            |
+                                            |
+                                            |
+                                            |
+                                            |
+                                            |
+                                            |
+                                            |
+                                            |

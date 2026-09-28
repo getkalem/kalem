@@ -1,0 +1,71 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/kalem-editor/kalem"
+homepage = "https://github.com/kalem-editor/kalem"
+authors = ["The Kalem Contributors"]
+
+[workspace.dependencies]
+org-syntax = { path = "crates/org-syntax", version = "0.0.1" }
+org-model = { path = "crates/org-model", version = "0.0.1" }
+org-edit = { path = "crates/org-edit", version = "0.0.1" }
+org-table = { path = "crates/org-table", version = "0.0.1" }
+org-math = { path = "crates/org-math", version = "0.0.1" }
+org-export = { path = "crates/org-export", version = "0.0.1" }
+kalem-cli = { path = "crates/kalem-cli", version = "0.0.1" }
+kalem-core = { path = "crates/kalem-core", version = "0.0.1" }
+kalem-project = { path = "crates/kalem-project", version = "0.0.1" }
+kalem-fs = { path = "crates/kalem-fs", version = "0.0.1" }
+kalem-tui = { path = "crates/kalem-tui", version = "0.0.1" }
+kalem-ui = { path = "crates/kalem-ui", version = "0.0.1" }
+kalem-highlight = { path = "crates/kalem-highlight", version = "0.0.1" }
+tui-rich-text = { path = "crates/tui-rich-text", version = "0.0.1" }
+gpui-rich-text = { path = "crates/gpui-rich-text", version = "0.0.1" }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[profile.bench]
+debug = true
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = "none"
+
+# Release automation (§17): `dist generate` writes the release workflow from
+# this; see docs/releasing.md.
+[workspace.metadata.dist]
+cargo-dist-version = "0.28.0"
+ci = "github"
+installers = ["shell", "powershell", "homebrew"]
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+]
+install-path = "CARGO_HOME"

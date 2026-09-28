@@ -1,0 +1,23 @@
+[package]
+name = "kalem-project"
+description = "Projects for text editors, a simple Projectile: a list of folders, their files with ignore rules, and text search"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["projectile", "project", "editor", "search"]
+categories = ["filesystem", "text-editors"]
+
+[dependencies]
+ignore = "0.4"
+grep-searcher = "0.1"
+grep-regex = "0.1"
+grep-matcher = "0.1"
+notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
+toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
+tracing = "0.1"
+
+[lints]
+workspace = true
