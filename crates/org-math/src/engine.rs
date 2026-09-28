@@ -14,8 +14,37 @@ pub struct Ratex;
 /// cut.
 const PAD: f64 = 0.05;
 
-impl MathEngine for Ratex {
-    fn render(&self, r: &Request) -> Result<Image, MathError> {
+impl Ratex {
+    /// The formula as an SVG document of glyph outlines, at `r.size`
+    /// pixels to the em (`r.scale` is not applied).
+    pub fn svg(&self, r: &Request) -> Result<crate::Svg, MathError> {
+        let (svg, _, depth, em) = self.svg_text(r, f64::from(r.size))?;
+        // The view box is in pixels at `em` to the em (the width and height
+        // attributes say points).
+        let view_box = svg
+            .split("viewBox=\"")
+            .nth(1)
+            .and_then(|v| v.split('"').next())
+            .map(|v| {
+                v.split_whitespace()
+                    .filter_map(|n| n.parse::<f64>().ok())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|v| v.len() == 4)
+            .ok_or_else(|| MathError {
+                message: "SVG without a view box".into(),
+            })?;
+        Ok(crate::Svg {
+            svg,
+            width: view_box[2] / em,
+            height: view_box[3] / em,
+            depth: depth + PAD,
+        })
+    }
+
+    /// The SVG, the height and depth in ems (without padding), and the em
+    /// in pixels.
+    fn svg_text(&self, r: &Request, em: f64) -> Result<(String, f64, f64, f64), MathError> {
         let nodes = ratex_parser::parse(&r.latex).map_err(|e| MathError {
             message: format!("{e}"),
         })?;
@@ -36,7 +65,6 @@ impl MathEngine for Ratex {
         };
         let layout = ratex_layout::layout(&nodes, &opts);
         let list = ratex_layout::to_display_list(&layout);
-        let em = f64::from(r.size) * f64::from(r.scale);
         let svg = ratex_svg::render_to_svg(
             &list,
             &ratex_svg::SvgOptions {
@@ -46,6 +74,14 @@ impl MathEngine for Ratex {
                 ..Default::default()
             },
         );
+        Ok((svg, list.height, list.depth, em))
+    }
+}
+
+impl MathEngine for Ratex {
+    fn render(&self, r: &Request) -> Result<Image, MathError> {
+        let em = f64::from(r.size) * f64::from(r.scale);
+        let (svg, height, _, _) = self.svg_text(r, em)?;
         let tree =
             resvg::usvg::Tree::from_str(&svg, &resvg::usvg::Options::default()).map_err(|e| {
                 MathError {
@@ -79,7 +115,7 @@ impl MathEngine for Ratex {
             width: w,
             height: h,
             rgba,
-            baseline: ((PAD + list.height) * em) as f32,
+            baseline: ((PAD + height) * em) as f32,
             scale: r.scale,
         })
     }

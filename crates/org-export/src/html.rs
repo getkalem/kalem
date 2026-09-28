@@ -292,12 +292,13 @@ impl Html {
             let text = self.toc_headline(ex, h);
             entries.push((text, level));
         }
+        let outer = if html5_fancy(ex) { "nav" } else { "div" };
         let mut out = format!(
-            "<div id=\"table-of-contents\" role=\"doc-toc\">\n<h2>{}</h2>\n<div id=\"text-table-of-contents\" role=\"doc-toc\">",
+            "<{outer} id=\"table-of-contents\" role=\"doc-toc\">\n<h2>{}</h2>\n<div id=\"text-table-of-contents\" role=\"doc-toc\">",
             ex.translate("Table of Contents", "html")
         );
         out.push_str(&toc_text(&entries));
-        out.push_str("</div>\n</div>\n");
+        out.push_str(&format!("</div>\n</{outer}>\n"));
         Some(out)
     }
 
@@ -466,7 +467,12 @@ impl Html {
         image_path(&info.link_type, &info.path)
     }
 
-    fn format_image(&self, source: &str, attrs: &[(String, Option<String>)]) -> String {
+    fn format_image(
+        &self,
+        ex: &Exporter<'_>,
+        source: &str,
+        attrs: &[(String, Option<String>)],
+    ) -> String {
         let mut a: Vec<(String, Option<String>)> = vec![(":src".into(), Some(source.to_string()))];
         let alt = source.rsplit('/').next().unwrap_or(source).to_string();
         a.push((":alt".into(), Some(alt)));
@@ -479,7 +485,7 @@ impl Html {
                 None => a.push((k.clone(), v.clone())),
             }
         }
-        format!("<img {} />", attribute_string(&a))
+        format!("<img {}{}", attribute_string(&a), close(ex))
     }
 
     fn link(&self, ex: &mut Exporter<'_>, id: Id, desc: Option<String>) -> Option<String> {
@@ -544,7 +550,7 @@ impl Html {
             }
         };
         if desc.is_none() && image_path(ty, &raw) && ex.tree.children(id).is_empty() {
-            return Some(self.format_image(&path, &attrs_plist));
+            return Some(self.format_image(ex, &path, &attrs_plist));
         }
         match ty {
             "radio" => {
@@ -664,14 +670,20 @@ impl Html {
         if let Some(r) = self.reference(ex, id, true) {
             attrs.push((":id".into(), Some(r)));
         }
-        for (k, v) in [
-            (":border", "2"),
-            (":cellspacing", "0"),
-            (":cellpadding", "6"),
-            (":rules", "groups"),
-            (":frame", "hsides"),
-        ] {
-            attrs.push((k.into(), Some(v.into())));
+        // `org-html-table-attributes`, which HTML5 leaves out.
+        let presentational: &[(&str, &str)] = if html5(ex) {
+            &[]
+        } else {
+            &[
+                (":border", "2"),
+                (":cellspacing", "0"),
+                (":cellpadding", "6"),
+                (":rules", "groups"),
+                (":frame", "hsides"),
+            ]
+        };
+        for (k, v) in presentational {
+            attrs.push((k.to_string(), Some(v.to_string())));
         }
         for (k, v) in read_attribute(ex, id, "ATTR_HTML") {
             match attrs.iter_mut().find(|(x, _)| *x == k) {
@@ -705,8 +717,9 @@ impl Html {
                 let starts = colgroup_starts(ex, c);
                 let ends = colgroup_ends(ex, c);
                 cols.push(format!(
-                    "{}\n<col  class=\"org-{align}\" />{}",
+                    "{}\n<col  class=\"org-{align}\"{}{}",
                     if starts { "\n<colgroup>" } else { "" },
+                    close(ex),
                     if ends { "\n</colgroup>" } else { "" }
                 ));
             }
@@ -796,12 +809,23 @@ impl Html {
                     .replacen("%d", &n.to_string(), 1);
                 format!("<span class=\"figure-number\">{label} </span>{raw}")
             };
+            let caption = !caption_html.trim().is_empty();
+            if html5_fancy(ex) {
+                return format!(
+                    "\n<figure id=\"{label}\">\n{contents}{}\n</figure>",
+                    if caption {
+                        format!("\n<figcaption>{caption_html}</figcaption>")
+                    } else {
+                        String::new()
+                    }
+                );
+            }
             return format!(
                 "\n<div id=\"{label}\" class=\"figure\">\n<p>{contents}</p>{}\n</div>",
-                if caption_html.trim().is_empty() {
-                    String::new()
-                } else {
+                if caption {
                     format!("\n<p>{caption_html}</p>")
+                } else {
+                    String::new()
                 }
             );
         }
@@ -852,6 +876,7 @@ impl Html {
                 None,
                 None,
                 Some(&headline),
+                &br(ex),
             ));
             out.push('\n');
             if ex.last_sibling_p(id) {
@@ -863,7 +888,13 @@ impl Html {
         let headline_class = ex.node_property(id, "HTML_HEADLINE_CLASS", false);
         let container = ex
             .node_property(id, "HTML_CONTAINER", false)
-            .unwrap_or_else(|| "div".into());
+            .unwrap_or_else(|| {
+                if ex.relative_level(id) == 1 {
+                    option_string(ex, "html-container").unwrap_or_else(|| "div".into())
+                } else {
+                    "div".into()
+                }
+            });
         let first = ex.tree.children(id).first().copied();
         let body = match first {
             Some(f) if ex.tree.kind(f) == Some(SECTION) => contents,
@@ -945,6 +976,7 @@ impl Html {
             checkbox,
             term.as_deref(),
             None,
+            &br(ex),
         )
     }
 }
@@ -980,6 +1012,7 @@ fn format_list_item(
     checkbox: Option<ast::Checkbox>,
     term_counter: Option<&str>,
     headline: Option<&str>,
+    br: &str,
 ) -> String {
     let (class, cb) = match checkbox {
         Some(ast::Checkbox::On) => (" class=\"on\"", "<code>[X]</code> "),
@@ -987,7 +1020,6 @@ fn format_list_item(
         Some(ast::Checkbox::Partial) => (" class=\"trans\"", "<code>[-]</code> "),
         None => ("", ""),
     };
-    let br = "<br />";
     let nonempty = !contents.trim().is_empty();
     let extra = if nonempty && headline.is_some() {
         "\n"
@@ -1896,6 +1928,41 @@ impl Backend for Html {
                 Behavior::First,
                 Value::Nil,
             ),
+            (
+                "html-container",
+                Some("HTML_CONTAINER"),
+                None,
+                Behavior::First,
+                Value::Str("div".into()),
+            ),
+            (
+                "html-content-class",
+                Some("HTML_CONTENT_CLASS"),
+                None,
+                Behavior::First,
+                Value::Str("content".into()),
+            ),
+            (
+                "html-link-home",
+                Some("HTML_LINK_HOME"),
+                None,
+                Behavior::First,
+                Value::Str(String::new()),
+            ),
+            (
+                "html-link-up",
+                Some("HTML_LINK_UP"),
+                None,
+                Behavior::First,
+                Value::Str(String::new()),
+            ),
+            (
+                "html-mathjax",
+                Some("HTML_MATHJAX"),
+                None,
+                Behavior::Space,
+                Value::Str(String::new()),
+            ),
         ]
     }
 
@@ -1908,7 +1975,7 @@ impl Backend for Html {
             out = special_strings(&out);
         }
         if ex.flag("preserve-breaks") {
-            out = preserve_breaks(&out, "<br />\n");
+            out = preserve_breaks(&out, &format!("{}\n", br(ex)));
         }
         out
     }
@@ -2029,7 +2096,7 @@ impl Backend for Html {
                 )
             }
             HEADLINE => return self.headline(ex, id, contents),
-            HORIZONTAL_RULE => "<hr />".to_string(),
+            HORIZONTAL_RULE => format!("<hr{}", close(ex)),
             INLINE_SRC_BLOCK => {
                 let b: ast::InlineSrcBlock =
                     ex.syntax(id).and_then(|s| ast::AstNode::cast(s.clone()))?;
@@ -2053,8 +2120,9 @@ impl Backend for Html {
                     None
                 };
                 format!(
-                    "<div class=\"inlinetask\">\n<b>{}</b><br />\n{}</div>",
+                    "<div class=\"inlinetask\">\n<b>{}</b>{}\n{}</div>",
                     Self::format_headline(todo, priority, &text, tags),
+                    br(ex),
                     c()
                 )
             }
@@ -2083,6 +2151,15 @@ impl Backend for Html {
                     .map(|l: ast::LatexEnvironment| l.value())
                     .unwrap_or_default();
                 let v = remove_indentation(&v);
+                if let Some(img) = svg_formula(ex, &v) {
+                    let id_attr = self
+                        .reference(ex, id, true)
+                        .map(|l| format!(" id=\"{l}\""))
+                        .unwrap_or_default();
+                    return Some(format!(
+                        "<div{id_attr} class=\"equation-container\">\n<span class=\"equation\">\n{img}\n</span>\n</div>"
+                    ));
+                }
                 // MathJax: the environment as it is, a label after its
                 // first line.
                 match self.reference(ex, id, true) {
@@ -2099,6 +2176,9 @@ impl Backend for Html {
                     .and_then(|s| ast::AstNode::cast(s.clone()))
                     .map(|l: ast::LatexFragment| l.value())
                     .unwrap_or_default();
+                if let Some(img) = svg_formula(ex, &v) {
+                    return Some(img);
+                }
                 // MathJax: `$…$` as `\(…\)`, `$$…$$` as `\[…\]`.
                 if let Some(inner) = v.strip_prefix("$$").and_then(|x| x.strip_suffix("$$")) {
                     format!("\\[{inner}\\]")
@@ -2108,7 +2188,7 @@ impl Backend for Html {
                     v
                 }
             }
-            LINE_BREAK => "<br />\n".to_string(),
+            LINE_BREAK => format!("{}\n", br(ex)),
             LINK => return self.link(ex, id, contents),
             NODE_PROPERTY => {
                 let p: ast::NodeProperty =
@@ -2210,16 +2290,27 @@ impl Backend for Html {
                 {
                     set_attr(&mut attrs, ":id", r);
                 }
+                // HTML5 elements are written as themselves.
+                let fancy = html5_fancy(ex) && HTML5_ELEMENTS.contains(&ty.as_str());
+                if fancy {
+                    attrs = read_attribute(ex, id, "ATTR_HTML");
+                    if let Some(r) = self.reference(ex, id, false)
+                        && !has_attr(&attrs, ":id")
+                    {
+                        set_attr(&mut attrs, ":id", r);
+                    }
+                }
                 let a = attribute_string(&attrs);
-                format!(
-                    "<div{}>\n{}\n</div>",
-                    if a.is_empty() {
-                        String::new()
-                    } else {
-                        format!(" {a}")
-                    },
-                    c()
-                )
+                let a = if a.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {a}")
+                };
+                if fancy {
+                    format!("<{ty}{a}>\n{}</{ty}>", c())
+                } else {
+                    format!("<div{a}>\n{}\n</div>", c())
+                }
             }
             SRC_BLOCK => {
                 let b: ast::SrcBlock = ex.syntax(id).and_then(|s| ast::AstNode::cast(s.clone()))?;
@@ -2270,6 +2361,7 @@ impl Backend for Html {
             }
             VERSE_BLOCK => {
                 let c = c();
+                let br = br(ex);
                 // Line feeds become `<br />`, leading blanks
                 // non-breaking spaces.
                 let mut out = String::new();
@@ -2279,7 +2371,7 @@ impl Backend for Html {
                         None => (l, false),
                     };
                     let body = if nl {
-                        let b = body.strip_suffix("<br />").unwrap_or(body);
+                        let b = body.strip_suffix(br.as_str()).unwrap_or(body);
                         b.trim_end_matches([' ', '\t'])
                     } else {
                         body
@@ -2288,7 +2380,8 @@ impl Backend for Html {
                     out.push_str(&"&#xa0;".repeat(lead));
                     out.push_str(&body[lead..]);
                     if nl {
-                        out.push_str("<br />\n");
+                        out.push_str(&br);
+                        out.push('\n');
                     }
                 }
                 format!("<p class=\"verse\">\n{out}</p>")
@@ -2327,24 +2420,500 @@ impl Backend for Html {
     }
 
     fn template(&self, ex: &mut Exporter<'_>, body: String) -> String {
-        let title = ex.info.parsed.get("title").cloned().unwrap_or_default();
-        let t = ex.data_list(&title);
-        let lang = ex.string("language").unwrap_or("en").to_string();
+        let lang = option_string(ex, "language").unwrap_or_else(|| "en".into());
+        let doctype = doctype(ex);
         let mut out = String::new();
-        out.push_str("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
-        out.push_str("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"\n\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n");
-        out.push_str(&format!(
-            "<html xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"{lang}\" xml:lang=\"{lang}\">\n<head>\n<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n<title>{}</title>\n<meta name=\"generator\" content=\"Kalem\" />\n</head>\n<body>\n<div id=\"content\" class=\"content\">\n",
-            strip_tags(&t)
-        ));
-        if ex.flag("with-title") && !t.is_empty() {
-            out.push_str(&format!("<h1 class=\"title\">{t}</h1>\n"));
+        if !html5(ex) && xhtml(ex) {
+            out.push_str("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+        }
+        out.push_str(&doctype_declaration(&doctype));
+        out.push('\n');
+        if xhtml(ex) {
+            out.push_str(&format!(
+                "<html xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"{lang}\" xml:lang=\"{lang}\">\n"
+            ));
+        } else if html5(ex) {
+            out.push_str(&format!("<html lang=\"{lang}\">\n"));
+        } else {
+            out.push_str("<html>\n");
+        }
+        out.push_str("<head>\n");
+        out.push_str(&meta_info(ex));
+        out.push_str(&head(ex));
+        out.push_str(&mathjax(ex));
+        out.push_str("</head>\n<body>\n");
+        let up = option_string(ex, "html-link-up").unwrap_or_default();
+        let home = option_string(ex, "html-link-home").unwrap_or_default();
+        let (up, home) = (up.trim(), home.trim());
+        if !(up.is_empty() && home.is_empty()) {
+            // `(or link-up link-home)`: an empty string is not nil.
+            let (u, h) = (up, home);
+            out.push_str(&format!(
+                "<div id=\"org-div-home-and-up\">\n <a accesskey=\"h\" href=\"{u}\"> UP </a>\n |\n <a accesskey=\"H\" href=\"{h}\"> HOME </a>\n</div>"
+            ));
+        }
+        out.push_str(&amble(ex, false));
+        let class = option_string(ex, "html-content-class").unwrap_or_else(|| "content".into());
+        out.push_str(&format!("<div id=\"content\" class=\"{class}\">\n"));
+        if ex.flag("with-title") {
+            let title = ex.info.parsed.get("title").cloned();
+            if let Some(title) = title {
+                let t = ex.data_list(&title);
+                let subtitle = ex.info.parsed.get("subtitle").cloned();
+                let fancy = html5_fancy(ex);
+                let sub = match subtitle {
+                    Some(s) => {
+                        let s = ex.data_list(&s);
+                        if fancy {
+                            format!("<p class=\"subtitle\" role=\"doc-subtitle\">{s}</p>\n")
+                        } else {
+                            format!("\n{}\n<span class=\"subtitle\">{s}</span>\n", br(ex))
+                        }
+                    }
+                    None => String::new(),
+                };
+                if fancy {
+                    out.push_str(&format!(
+                        "<header>\n<h1 class=\"title\">{t}</h1>\n{sub}</header>"
+                    ));
+                } else {
+                    out.push_str(&format!("<h1 class=\"title\">{t}{sub}</h1>\n"));
+                }
+            }
         }
         out.push_str(&body);
-        out.push_str("</div>\n</body>\n</html>\n");
-        let _ = normalize_string("");
+        out.push_str("</div>\n");
+        out.push_str(&amble(ex, true));
+        out.push_str("</body>\n</html>");
         out
     }
+}
+
+/// Kalem's style sheet, written in the head unless `html-style:nil`.
+const STYLE: &str = include_str!("html.css");
+
+/// The value of option `prop` as a string, if it has one.
+fn option_string(ex: &Exporter<'_>, prop: &str) -> Option<String> {
+    match ex.opt(prop) {
+        Value::Str(s) | Value::Sym(s) => Some(s),
+        Value::Int(n) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+/// `org-html--build-meta-entry`.
+fn meta_entry(label: &str, identity: &str, content: Option<&str>) -> String {
+    match content {
+        Some(c) => format!(
+            "<meta {label}=\"{identity}\" content=\"{}\" />\n",
+            encode(c).replace('"', "&quot;")
+        ),
+        None => format!("<meta {label}=\"{identity}\" />\n"),
+    }
+}
+
+/// The export time formatted as the HTML metadata time stamps are.
+fn metadata_time(ex: &Exporter<'_>) -> String {
+    let now = ex.info.now.clone().unwrap_or_else(jiff::Zoned::now);
+    crate::macros::format_time("%Y-%m-%d %a %H:%M", &now)
+}
+
+/// `org-html--build-meta-info`: the time stamp, character set, viewport,
+/// title and meta tags. The generator is Kalem.
+fn meta_info(ex: &Exporter<'_>) -> String {
+    let mut out = String::new();
+    if ex.flag("time-stamp-file") {
+        out.push_str(&format!("<!-- {} -->\n", metadata_time(ex)));
+    }
+    if html5(ex) {
+        out.push_str(&meta_entry("charset", "utf-8", None));
+    } else {
+        out.push_str(&meta_entry(
+            "http-equiv",
+            "Content-Type",
+            Some("text/html;charset=utf-8"),
+        ));
+    }
+    out.push_str(&meta_entry(
+        "name",
+        "viewport",
+        Some("width=device-width, initial-scale=1"),
+    ));
+    let title = ex.info.strings.get("title").cloned().unwrap_or_default();
+    let title = encode(title.trim());
+    let title = if title.trim().is_empty() {
+        "&lrm;".to_string()
+    } else {
+        title
+    };
+    out.push_str(&format!("<title>{title}</title>\n"));
+    if ex.flag("with-author")
+        && let Some(a) = ex
+            .info
+            .strings
+            .get("author")
+            .filter(|a| !a.trim().is_empty())
+    {
+        out.push_str(&meta_entry("name", "author", Some(a.trim())));
+    }
+    for (prop, name) in [("description", "description"), ("keywords", "keywords")] {
+        if let Some(v) = option_string(ex, prop).filter(|v| !v.trim().is_empty()) {
+            out.push_str(&meta_entry("name", name, Some(&v)));
+        }
+    }
+    out.push_str(&meta_entry("name", "generator", Some("Kalem")));
+    out
+}
+
+/// `org-html--build-head`: the style sheet, `#+HTML_HEAD` and
+/// `#+HTML_HEAD_EXTRA`.
+fn head(ex: &Exporter<'_>) -> String {
+    let mut out = String::new();
+    if ex.flag("html-head-include-default-style") {
+        out.push_str(&normalize_string(STYLE));
+    }
+    for prop in ["html-head", "html-head-extra"] {
+        if let Some(v) = option_string(ex, prop) {
+            out.push_str(&normalize_string(&v));
+        }
+    }
+    normalize_string(&out)
+}
+
+/// MathJax, when the document has LaTeX and `tex:` asks for it: the
+/// options of `#+HTML_MATHJAX` (`scale:`, `align:`, `indent:`, `tags:`,
+/// `tagside:`, `tagindent:`, `multlinewidth:`, `font:`, `overflow:`,
+/// `path:`) over the defaults.
+fn mathjax(ex: &mut Exporter<'_>) -> String {
+    let with = ex.opt("with-latex");
+    if !(with == Value::T || with.sym() == Some("mathjax")) {
+        return String::new();
+    }
+    let root = ex.tree.root;
+    let has_math = ex
+        .tree
+        .descendants(root)
+        .into_iter()
+        .any(|n| matches!(ex.tree.kind(n), Some(LATEX_FRAGMENT | LATEX_ENVIRONMENT)));
+    if !has_math {
+        return String::new();
+    }
+    let in_buffer = option_string(ex, "html-mathjax").unwrap_or_default();
+    let get = |key: &str, default: &str| -> String {
+        let pat = format!("{key}:");
+        in_buffer
+            .split_whitespace()
+            .find_map(|w| w.strip_prefix(pat.as_str()))
+            .map(str::to_string)
+            .unwrap_or_else(|| default.to_string())
+    };
+    let scale = get("scale", "1.0");
+    let scale = match scale.parse::<f64>() {
+        Ok(v) if v >= 10.0 => format!("{}", v / 100.0),
+        Ok(_) => scale,
+        Err(_) => "1.0".into(),
+    };
+    let font = match get("font", "mathjax-modern").as_str() {
+        "TeX" => "mathjax-tex".to_string(),
+        "STIX-Web" => "mathjax-stix2".to_string(),
+        "Asana-Math" => "mathjax-asana".to_string(),
+        "Neo-Euler" => "mathjax-euler".to_string(),
+        "Gyre-Pagella" => "mathjax-pagella".to_string(),
+        "Gyre-Termes" => "mathjax-termes".to_string(),
+        "Latin-Modern" => "mathjax-modern".to_string(),
+        f => f.to_string(),
+    };
+    let tags = match in_buffer.contains("autonumber:") {
+        true => get("autonumber", "ams").to_lowercase(),
+        false => get("tags", "ams"),
+    };
+    let overflow = match in_buffer.contains("linebreaks:") {
+        true if get("linebreaks", "false") == "true" => "linebreak".to_string(),
+        true => "overflow".to_string(),
+        false => get("overflow", "overflow"),
+    };
+    format!(
+        "<script>\n  window.MathJax = {{\n    tex: {{\n      ams: {{ multlineWidth: '{}' }},\n      tags: '{tags}',\n      tagSide: '{}',\n      tagIndent: '{}'\n    }},\n    chtml: {{ scale: {scale}, displayAlign: '{align}', displayIndent: '{indent}' }},\n    svg: {{ scale: {scale}, displayAlign: '{align}', displayIndent: '{indent}' }},\n    output: {{ font: '{font}', displayOverflow: '{overflow}' }}\n  }};\n</script>\n<script id=\"MathJax-script\" async src=\"{}\"></script>\n",
+        get("multlinewidth", "85%"),
+        get("tagside", "right"),
+        get("tagindent", ".8em"),
+        get(
+            "path",
+            "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+        ),
+        align = get("align", "center"),
+        indent = get("indent", "0em"),
+    )
+}
+
+/// `org-export-get-date` with the metadata format: a date that is one
+/// timestamp, formatted; else the date exported.
+fn date(ex: &mut Exporter<'_>) -> String {
+    let Some(ids) = ex.info.parsed.get("date").cloned() else {
+        return String::new();
+    };
+    let lone: Vec<Id> = ids
+        .iter()
+        .copied()
+        .filter(|&i| !(ex.tree.is_text(i) && ex.tree.nodes[i].text.trim().is_empty()))
+        .collect();
+    if let [only] = lone.as_slice()
+        && ex.tree.kind(*only) == Some(TIMESTAMP)
+        && let Some(ts) = ex
+            .syntax(*only)
+            .and_then(|s| <ast::Timestamp as ast::AstNode>::cast(s.clone()))
+        && let Some(start) = ts.start()
+    {
+        let (h, m) = start.time.unwrap_or((0, 0));
+        let dt = jiff::civil::DateTime::new(
+            start.year as i16,
+            start.month as i8,
+            start.day as i8,
+            h as i8,
+            m as i8,
+            0,
+            0,
+        );
+        if let Ok(dt) = dt {
+            let tz = ex
+                .info
+                .now
+                .as_ref()
+                .map(|n| n.time_zone().clone())
+                .unwrap_or_else(jiff::tz::TimeZone::system);
+            if let Ok(z) = dt.to_zoned(tz) {
+                return crate::macros::format_time("%Y-%m-%d %a %H:%M", &z);
+            }
+        }
+    }
+    ex.data_list(&ids)
+}
+
+/// `org-html--build-pre/postamble`: the preamble (empty unless
+/// `html-preamble` is a format string) or the postamble (`auto`: date,
+/// author, email, creation time, creator and validation link).
+fn amble(ex: &mut Exporter<'_>, post: bool) -> String {
+    let setting = ex.opt(if post {
+        "html-postamble"
+    } else {
+        "html-preamble"
+    });
+    let spec = |ex: &mut Exporter<'_>, c: char| -> String {
+        match c {
+            't' => {
+                let ids = ex.info.parsed.get("title").cloned().unwrap_or_default();
+                ex.data_list(&ids)
+            }
+            's' => {
+                let ids = ex.info.parsed.get("subtitle").cloned().unwrap_or_default();
+                ex.data_list(&ids)
+            }
+            'd' => date(ex),
+            'T' | 'C' => metadata_time(ex),
+            'a' => {
+                let ids = ex.info.parsed.get("author").cloned().unwrap_or_default();
+                ex.data_list(&ids)
+            }
+            'e' => option_string(ex, "email")
+                .unwrap_or_default()
+                .split(',')
+                .map(str::trim)
+                .map(|e| format!("<a href=\"mailto:{e}\">{e}</a>"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            'c' => option_string(ex, "creator").unwrap_or_default(),
+            'v' => VALIDATION.to_string(),
+            '%' => "%".into(),
+            other => format!("%{other}"),
+        }
+    };
+    let format_spec = |ex: &mut Exporter<'_>, f: &str| -> String {
+        let mut out = String::new();
+        let mut chars = f.chars();
+        while let Some(c) = chars.next() {
+            if c == '%'
+                && let Some(n) = chars.next()
+            {
+                out.push_str(&spec(ex, n));
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    };
+    let contents = match setting {
+        Value::Nil => return String::new(),
+        Value::Str(f) => format_spec(ex, &f),
+        Value::Sym(s) if s == "auto" && post => {
+            let mut out = String::new();
+            let d = spec(ex, 'd');
+            if ex.flag("with-date") && !d.trim().is_empty() {
+                let l = ex.translate("Date", "html");
+                out.push_str(&format!("<p class=\"date\">{l}: {d}</p>\n"));
+            }
+            let a = spec(ex, 'a');
+            if ex.flag("with-author") && !a.trim().is_empty() {
+                let l = ex.translate("Author", "html");
+                out.push_str(&format!("<p class=\"author\">{l}: {a}</p>\n"));
+            }
+            let e = spec(ex, 'e');
+            if ex.flag("with-email")
+                && option_string(ex, "email").is_some_and(|e| !e.trim().is_empty())
+            {
+                let l = ex.translate("Email", "html");
+                out.push_str(&format!("<p class=\"email\">{l}: {e}</p>\n"));
+            }
+            if ex.flag("time-stamp-file") {
+                let l = ex.translate("Created", "html");
+                out.push_str(&format!(
+                    "<p class=\"date\">{l}: {}</p>\n",
+                    metadata_time(ex)
+                ));
+            }
+            let c = spec(ex, 'c');
+            if ex.flag("with-creator") && !c.trim().is_empty() {
+                out.push_str(&format!("<p class=\"creator\">{c}</p>\n"));
+            }
+            out.push_str(&format!("<p class=\"validation\">{VALIDATION}</p>\n"));
+            out
+        }
+        // `t`: the format for the language (the preamble's is empty).
+        _ if post => format_spec(
+            ex,
+            "<p class=\"author\">Author: %a (%e)</p>\n<p class=\"date\">Date: %d</p>\n<p class=\"creator\">%c</p>\n<p class=\"validation\">%v</p>",
+        ),
+        _ => String::new(),
+    };
+    if contents.trim().is_empty() {
+        return String::new();
+    }
+    let id = if post { "postamble" } else { "preamble" };
+    format!(
+        "<div id=\"{id}\" class=\"status\">\n{}</div>\n",
+        normalize_string(&contents)
+    )
+}
+
+/// Formula `latex` drawn as an SVG image, when `tex:` asks for images
+/// (`svg`, or Emacs's `dvisvgm`, `dvipng`, `imagemagick`) and the export
+/// has a renderer: an `<img>` with the SVG inline, sized in ems and
+/// lowered to the baseline.
+fn svg_formula(ex: &Exporter<'_>, latex: &str) -> Option<String> {
+    let mode = ex.opt("with-latex");
+    if !matches!(
+        mode.sym(),
+        Some("svg" | "dvisvgm" | "dvipng" | "imagemagick")
+    ) {
+        return None;
+    }
+    let renderer = ex.info.math.clone()?;
+    let headers: Vec<String> = ex
+        .info
+        .keywords
+        .iter()
+        .filter(|(k, _)| {
+            k.eq_ignore_ascii_case("LATEX_HEADER") || k.eq_ignore_ascii_case("LATEX_HEADER_EXTRA")
+        })
+        .map(|(_, v)| v.clone())
+        .collect();
+    let f = renderer.0.render(latex, &headers)?;
+    let mut uri = String::from("data:image/svg+xml,");
+    for b in f.svg.bytes() {
+        if b.is_ascii_alphanumeric() || b" -_.~:/=;,'()!*".contains(&b) {
+            uri.push(b as char);
+        } else {
+            uri.push_str(&format!("%{b:02X}"));
+        }
+    }
+    let alt = encode(latex.trim()).replace('"', "&quot;");
+    Some(format!(
+        "<img src=\"{uri}\" alt=\"{alt}\" class=\"org-latex org-latex-{}\" style=\"width: {:.3}em; height: {:.3}em; vertical-align: -{:.3}em\"{}",
+        if f.display { "display" } else { "inline" },
+        f.width,
+        f.height,
+        f.depth,
+        close(ex)
+    ))
+}
+
+/// `org-html-validation-link`.
+const VALIDATION: &str = "<a href=\"https://validator.w3.org/check?uri=referer\">Validate</a>";
+
+/// The HTML5 elements a special block is written as, with `html5-fancy`.
+const HTML5_ELEMENTS: &[&str] = &[
+    "article",
+    "aside",
+    "audio",
+    "canvas",
+    "details",
+    "figcaption",
+    "figure",
+    "footer",
+    "header",
+    "menu",
+    "meter",
+    "nav",
+    "output",
+    "progress",
+    "section",
+    "summary",
+    "video",
+];
+
+/// The `HTML_DOCTYPE`: a name of [`doctype_declaration`] or a literal
+/// declaration.
+fn doctype(ex: &Exporter<'_>) -> String {
+    match ex.opt("html-doctype") {
+        Value::Str(s) | Value::Sym(s) => s,
+        _ => "xhtml-strict".into(),
+    }
+}
+
+/// The declaration of doctype `name` (`org-html-doctype-alist`).
+fn doctype_declaration(name: &str) -> String {
+    let (id, dtd) = match name {
+        "html4-strict" => ("HTML 4.01", "html4/strict.dtd"),
+        "html4-transitional" => ("HTML 4.01 Transitional", "html4/loose.dtd"),
+        "html4-frameset" => ("HTML 4.01 Frameset", "html4/frameset.dtd"),
+        "xhtml-strict" => ("XHTML 1.0 Strict", "xhtml1/DTD/xhtml1-strict.dtd"),
+        "xhtml-transitional" => (
+            "XHTML 1.0 Transitional",
+            "xhtml1/DTD/xhtml1-transitional.dtd",
+        ),
+        "xhtml-frameset" => ("XHTML 1.0 Frameset", "xhtml1/DTD/xhtml1-frameset.dtd"),
+        "xhtml-11" => ("XHTML 1.1", "xhtml11/DTD/xhtml11.dtd"),
+        "html5" | "xhtml5" => return "<!DOCTYPE html>".into(),
+        other => return other.to_string(),
+    };
+    format!("<!DOCTYPE html PUBLIC \"-//W3C//DTD {id}//EN\"\n\"http://www.w3.org/TR/{dtd}\">")
+}
+
+/// `org-html-xhtml-p`.
+fn xhtml(ex: &Exporter<'_>) -> bool {
+    doctype(ex).to_lowercase().contains("xhtml")
+}
+
+/// `org-html-html5-p`.
+fn html5(ex: &Exporter<'_>) -> bool {
+    matches!(
+        doctype(ex).to_lowercase().as_str(),
+        "html5" | "xhtml5" | "<!doctype html>"
+    )
+}
+
+/// `org-html--html5-fancy-p`.
+fn html5_fancy(ex: &Exporter<'_>) -> bool {
+    ex.flag("html5-fancy") && html5(ex)
+}
+
+/// The end of an empty element: ` />` in XHTML, `>` otherwise.
+fn close(ex: &Exporter<'_>) -> &'static str {
+    if xhtml(ex) { " />" } else { ">" }
+}
+
+/// A line break element.
+fn br(ex: &Exporter<'_>) -> String {
+    format!("<br{}", close(ex))
 }
 
 /// `\(\\\\\)?[ \t]*\n` replaced by `with`: each line feed, with the
@@ -2360,20 +2929,6 @@ pub fn preserve_breaks(s: &str, with: &str) -> String {
         rest = &rest[i + 1..];
     }
     out.push_str(rest);
-    out
-}
-
-fn strip_tags(s: &str) -> String {
-    let mut out = String::new();
-    let mut inside = false;
-    for c in s.chars() {
-        match c {
-            '<' => inside = true,
-            '>' => inside = false,
-            _ if !inside => out.push(c),
-            _ => {}
-        }
-    }
     out
 }
 

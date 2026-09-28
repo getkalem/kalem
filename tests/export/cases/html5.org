@@ -1,0 +1,44 @@
+#+TITLE: An HTML5 page
+#+SUBTITLE: With /fancy/ elements
+#+AUTHOR: Ayşe Yılmaz
+#+EMAIL: ayse@example.org
+#+DATE: <2026-09-01 Tue>
+#+DESCRIPTION: A page "for" testing
+#+KEYWORDS: org html5
+#+HTML_DOCTYPE: html5
+#+HTML_HEAD: <link rel="stylesheet" href="extra.css" />
+#+HTML_HEAD_EXTRA: <meta name="x" content="y" />
+#+HTML_LINK_UP: index.html
+#+HTML_CONTAINER: section
+#+HTML_CONTENT_CLASS: main-content
+#+OPTIONS: html5-fancy:t email:t toc:1
+
+A line\\
+broken, and a rule:
+
+-----
+
+#+begin_aside
+An aside.
+#+end_aside
+
+#+begin_note
+A note.
+#+end_note
+
+#+CAPTION: A figure
+[[file:image.png]]
+
+| a | b |
+|---+---|
+| 1 | 2 |
+
+* First
+- [X] done item
+- [ ] open item
+** Deeper
+#+begin_verse
+  Line one
+Line two
+#+end_verse
+* Second

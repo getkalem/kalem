@@ -1016,7 +1016,7 @@ Fragments: `$x$`, `$$...$$`, `\(...\)`, `\[...\]`, `\begin{env}...\end{env}` (eq
 
 | Backend | Reference | Phase |
 |---|---|---|
-| HTML | ox-html classes, single file, CSS theme, MathJax or embedded SVG | 2 |
+| HTML | ox-html classes, single file, CSS theme, MathJax or embedded SVG (`tex:svg`, drawn by the D4 engine; Emacs's `dvisvgm`, `dvipng` and `imagemagick` map to it, since they need LaTeX) | 2 |
 | LaTeX | ox-latex | 2 |
 | Markdown | ox-md, GFM tables | 2 |
 | Plain text | ox-ascii | 2 |

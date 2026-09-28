@@ -88,6 +88,10 @@ pub struct Info {
     pub filetags: Vec<String>,
     /// Every keyword of the document, in order.
     pub keywords: Vec<(String, String)>,
+    /// The time of the export, for time stamps in templates.
+    pub now: Option<jiff::Zoned>,
+    /// Draws formulas as images.
+    pub math: Option<crate::MathRenderer>,
     /// `:headline-offset`.
     pub headline_offset: i64,
     /// `:headline-numbering`.
@@ -653,6 +657,10 @@ impl<'b> Exporter<'b> {
         match behavior {
             Behavior::Parse => {
                 let text = values.join("\n");
+                // The Org text too, for `org-element-interpret-data`.
+                self.info
+                    .strings
+                    .insert(prop.clone(), text.replace('\n', " "));
                 let ids = self.parse_secondary(&text);
                 self.info.parsed.insert(prop.clone(), ids);
                 self.info.values.insert(prop.clone(), Value::T);

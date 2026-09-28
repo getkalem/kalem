@@ -3649,6 +3649,7 @@ dependencies = [
  "notify",
  "org-edit",
  "org-export",
+ "org-math",
  "org-model",
  "org-syntax",
  "org-table",
