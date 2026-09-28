@@ -1,4 +1,4 @@
-//! `kalem export FILE... --to html|md|gfm|org`: Org's export, without Emacs.
+//! `kalem export FILE... --to html|md|gfm|latex|org`: Org's export, without Emacs.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -17,7 +17,20 @@ pub(crate) enum Target {
     Gfm,
     /// Strict Org, Kalem's additions taken out.
     Org,
+    /// LaTeX (`ox-latex`).
+    Latex,
+    /// LaTeX with `%% org:LINE` comments.
+    LatexLines,
 }
+
+/// The LaTeX back-end.
+const LATEX: org_export::Latex = org_export::Latex {
+    source_lines: false,
+};
+
+/// The LaTeX back-end, with the lines of the Org file marked so that
+/// LaTeX's errors can be traced back.
+const LATEX_LINES: org_export::Latex = org_export::Latex { source_lines: true };
 
 impl Target {
     fn backend(self) -> &'static dyn org_export::Backend {
@@ -25,6 +38,8 @@ impl Target {
             Target::Html => &org_export::Html,
             Target::Markdown => &org_export::Markdown,
             Target::Gfm => &org_export::Gfm,
+            Target::Latex => &LATEX,
+            Target::LatexLines => &LATEX_LINES,
             // Not an Org exporter: `export` writes the stripped text.
             Target::Org => &org_export::Markdown,
         }
@@ -35,6 +50,7 @@ impl Target {
             Target::Html => ".html",
             Target::Markdown | Target::Gfm => ".md",
             Target::Org => ".org",
+            Target::Latex | Target::LatexLines => ".tex",
         }
     }
 }

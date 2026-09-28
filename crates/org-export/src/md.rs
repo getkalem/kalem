@@ -100,6 +100,54 @@ impl Markdown {
         if toc.truthy() && html::collect_headlines(ex, toc.int()).contains(&id) {
             return true;
         }
+        // A `#+TOC: headlines` keyword in the section of the document or
+        // of an ancestor lists it.
+        let lineage: Vec<Id> = ex.tree.ancestors(id).collect();
+        for a in lineage {
+            let Some(&section) = ex.tree.children(a).first() else {
+                continue;
+            };
+            if ex.tree.kind(section) != Some(SECTION) {
+                continue;
+            }
+            for k in ex.tree.descendants(section) {
+                let Some(kw) = ex
+                    .syntax(k)
+                    .and_then(|s| <ast::Keyword as ast::AstNode>::cast(s.clone()))
+                else {
+                    continue;
+                };
+                if kw.key() != "TOC" {
+                    continue;
+                }
+                let value = kw.value().to_lowercase();
+                let words: Vec<&str> = value
+                    .split(|c: char| !c.is_alphanumeric())
+                    .filter(|w| !w.is_empty())
+                    .collect();
+                if !words.contains(&"headlines") {
+                    continue;
+                }
+                let n = words.iter().find_map(|w| w.parse::<i64>().ok());
+                let local = words.contains(&"local");
+                let listed = html::collect_headlines(
+                    ex,
+                    n.map(|n| {
+                        if local && ex.tree.kind(a) == Some(HEADLINE) {
+                            n + ex.relative_level(a)
+                        } else {
+                            n
+                        }
+                    }),
+                );
+                let in_scope = !local
+                    || ex.tree.kind(a) != Some(HEADLINE)
+                    || ex.tree.ancestors(id).any(|x| x == a);
+                if in_scope && listed.contains(&id) {
+                    return true;
+                }
+            }
+        }
         // A link points to it.
         let links: Vec<Id> = ex
             .tree
@@ -144,11 +192,7 @@ impl Markdown {
                 let pad = 4usize.saturating_sub(prefix.len()).max(1);
                 format!("{prefix}{}", " ".repeat(pad))
             };
-            let ids = ex
-                .tree
-                .secondary(h, Secondary::Title)
-                .map(<[Id]>::to_vec)
-                .unwrap_or_default();
+            let ids = ex.alt_title(h);
             let text = ex.with_backend(&MdToc, |ex| ex.data_list(&ids));
             let r = ex
                 .node_property(h, "CUSTOM_ID", false)

@@ -707,6 +707,19 @@ impl<'b> Exporter<'b> {
         }
     }
 
+    /// `org-export-get-alt-title`: the headline's `ALT_TITLE` property,
+    /// parsed, or its title.
+    pub fn alt_title(&mut self, id: Id) -> Vec<Id> {
+        match self.node_property(id, "ALT_TITLE", false) {
+            Some(a) => self.parse_secondary(&a),
+            None => self
+                .tree
+                .secondary(id, crate::tree::Secondary::Title)
+                .map(<[Id]>::to_vec)
+                .unwrap_or_default(),
+        }
+    }
+
     /// Org text parsed as objects (a keyword's value), added to the tree
     /// outside the document; line feeds become spaces.
     pub fn parse_secondary(&mut self, text: &str) -> Vec<Id> {

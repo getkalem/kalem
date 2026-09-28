@@ -108,6 +108,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A file manager like Emacs's Dired, in both editors (Ctrl+Alt+D, `SPC o -`): a folder is a read-only listing with permissions, sizes and times; Dired's keys to open, go up, mark, flag, copy, rename, move, make files and folders, link, change permissions and move to the trash (Delete for Good asks); copies and moves run in the background with progress, cancellation and a choice for each file already at the destination. A projects view lists every project as if in one folder: opening one lists its folder, going up from there shows the projects again. The `kalem-fs` crate does the file work (D20: the `trash` crate, own copy and move).
 - Release preparation: the terminal-only build (`--no-default-features --features tui`), cargo-dist configuration, `Kalem.app` for macOS (files open from Finder), the user manual (`docs/manual.org`) and `docs/releasing.md`.
 - TODO dependencies as in Emacs: `org.enforce_todo_dependencies` (open subtasks and the `ORDERED` property), `org.enforce_todo_checkbox_dependencies`, `NOBLOCKING`, and tags changed with the state (`org.todo_state_tags_triggers`); Toggle Ordered Subtasks and Delete Property.
+- LaTeX export as Emacs's `ox-latex` writes it (`kalem export --to latex`, Export as LaTeX), with Kalem's formatting, and `%% org:LINE` comments with `--source-lines`.
+- `tools/fetch-org.sh`: Org 9.7 for the differential tests on a machine whose Emacs has an older Org.
 
 ### Changed
 
@@ -122,6 +124,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Entities Org names twice (`\deg`, `\sup`) export as Org's first one (°, ⊃); tables of contents use a headline's `ALT_TITLE`; Markdown anchors headlines listed by `#+TOC: headlines`.
 - Formatting next to emphasis no longer breaks it in Emacs: spans go inside `*bold*` and `/italic/` and take in the spaces around `=code=`, and formatting that would still change what Org reads as emphasis is refused.
 - Save as Org keeps paragraphs apart when it takes out a `#+KALEM:` or `#+ATTR_KALEM:` line between them.
 - `kalem fmt` aligns tables that have `#+NAME:` or other affiliated keywords.

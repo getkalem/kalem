@@ -1,0 +1,85 @@
+#+OPTIONS: ':t \n:t tags:not-in-toc p:t c:t d:t ^:{} H:4
+#+STARTUP: nologdone
+
+* [Bracket] heading with a note[fn:1] :tagged:
+CLOSED: [2026-09-27 Sun 10:00] SCHEDULED: <2026-09-28 Mon>
+:LOGBOOK:
+CLOCK: [2026-09-28 Mon 09:00]--[2026-09-28 Mon 10:30] =>  1:30
+:END:
+"Smart" 'quotes' and don't.
+Line one
+Line two
+a_b and a^{b}.
+
+** Numbered
+:PROPERTIES:
+:UNNUMBERED: t
+:END:
+*** Deeper
+**** Deepest
+***** Beyond H
+
+* Figures
+#+ATTR_LATEX: :float nil
+#+CAPTION: Not floating
+[[file:a.png]]
+
+#+ATTR_LATEX: :float sideways
+#+CAPTION: Sideways
+[[file:b.jpg]]
+
+#+ATTR_LATEX: :width 3cm :center nil
+[[file:c.eps]]
+
+#+NAME: named-pic
+[[file:d.png]]
+
+See [[named-pic]].
+
+#+ATTR_LATEX: :float multicolumn :font \footnotesize
+#+CAPTION: Wide
+| a | b |
+
+#+ATTR_LATEX: :caption \caption{Custom}
+| c | d |
+
+#+ATTR_LATEX: :float t :placement [t]
+| e | f |
+
+#+ATTR_LATEX: :font \small
+| g | h |
+
+* Blocks
+#+NAME: centered
+#+begin_center
+Middle.
+#+end_center
+
+#+NAME: eq:two
+\begin{align*}
+a &= b
+\end{align*}
+
+#+CAPTION: A float src
+#+ATTR_LATEX: :float multicolumn
+#+begin_src sh
+ls
+#+end_src
+
+#+begin_src sh
+#+end_src
+
+#+begin_mybox
+No caption.
+#+end_mybox
+
+<<<radio>>> target, and radio used here.
+
+- [X] checked :: described
+- plain :: term
+
+* Links
+[[https://example.com/a_b?x=1&y=2][desc]] and [[mailto:a@b.c]] and [[file:/abs/path.org]] and <https://x.y/%20z>.
+[[#nowhere][broken]]
+
+[fn:1] A note in a title.

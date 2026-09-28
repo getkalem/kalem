@@ -10,6 +10,7 @@ pub mod gfm;
 pub mod html;
 pub mod include;
 pub mod kalem;
+pub mod latex;
 pub mod macros;
 pub mod md;
 pub mod options;
@@ -20,6 +21,7 @@ pub mod tree;
 pub use export::{Backend, Exporter};
 pub use gfm::Gfm;
 pub use html::Html;
+pub use latex::Latex;
 pub use md::Markdown;
 
 /// How to export.

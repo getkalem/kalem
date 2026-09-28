@@ -1,0 +1,132 @@
+% Created 2026-09-28 Mon 19:04
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\date{\today}
+\title{}
+\hypersetup{
+ pdfauthor={},
+ pdftitle={},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.7.11)}, 
+ pdflang={English}}
+\begin{document}
+
+\tableofcontents
+
+\section[{(}Bracket) heading with a note\footnote{A note in a title.\\}]{{[}Bracket] heading with a note\footnote{A note in a title.\\}\hfill{}\textsc{tagged}}
+\label{sec:orgb3336ea}
+\noindent\textbf{CLOSED:} \textit{[2026-09-27 Sun 10:00] } \textbf{SCHEDULED:} \textit{<2026-09-28 Mon>}\\
+\noindent\textbf{CLOCK:} \textit{[2026-09-28 Mon 09:00]--[2026-09-28 Mon 10:30]  (1:30)}\\
+``Smart'' 'quotes' and don't.\\
+Line one\\
+Line two\\
+a\_b and a\textsuperscript{b}.\\
+\subsection*{Numbered}
+\label{sec:org799290e}
+\subsubsection*{Deeper}
+\label{sec:org0af2b60}
+\paragraph*{Deepest}
+\label{sec:org3028fdc}
+\begin{itemize}
+\item Beyond H
+\label{sec:org0e4d337}
+\end{itemize}
+\section{Figures}
+\label{sec:orgc302278}
+\begin{center}
+\includegraphics[width=.9\linewidth]{a.png}
+\captionof{figure}{Not floating}
+\end{center}
+
+\begin{sidewaysfigure}
+\centering
+\includegraphics[width=.9\linewidth]{b.jpg}
+\caption{Sideways}
+\end{sidewaysfigure}
+
+\includegraphics[width=3cm]{c.eps}\\
+
+\begin{center}
+\includegraphics[width=.9\linewidth]{d.png}
+\label{orge894a79}
+\end{center}
+
+See \ref{orge894a79}.\\
+
+\begin{table*}[htbp]
+\caption{Wide}
+\centering
+\footnotesize
+\begin{tabular}{ll}
+a & b\\
+\end{tabular}
+\end{table*}
+
+\begin{table}[htbp]
+\caption{Custom}
+\centering
+\begin{tabular}{ll}
+c & d\\
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\begin{tabular}{ll}
+e & f\\
+\end{tabular}
+\end{table}
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+g & h\\
+\end{tabular}
+\end{center}
+\section{Blocks}
+\label{sec:org6c7538d}
+\phantomsection
+\label{org0711760}
+\begin{center}
+Middle.\\
+\end{center}
+
+\begin{align*}
+\label{eq:org9dc24ab}
+a &= b
+\end{align*}
+
+\begin{figure*}[htbp]
+\begin{verbatim}
+ls
+\end{verbatim}
+\caption{A float src}
+\end{figure*}
+
+\begin{mybox}
+No caption.\\
+\end{mybox}
+
+\label{org5f46c53}radio target, and \hyperref[org5f46c53]{radio} used here.\\
+
+\begin{description}
+\item[{$\boxtimes$ checked}] described\\
+\item[{plain}] term\\
+\end{description}
+\section{Links}
+\label{sec:orgb5ff499}
+\href{https://example.com/a\_b?x=1\&y=2}{desc} and \url{mailto:a@b.c} and \url{file:///abs/path.org} and \url{https://x.y/\%20z}.\\
+{[}BROKEN LINK: nowhere]\\
+\end{document}

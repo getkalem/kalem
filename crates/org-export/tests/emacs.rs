@@ -154,6 +154,7 @@ fn html_page() {
     let mut cases: Vec<PathBuf> = std::fs::read_dir(root().join("full"))
         .expect("the pages")
         .map(|e| e.expect("an entry").path())
+        .filter(|p| p.extension().is_some_and(|e| e == "html"))
         .collect();
     cases.sort();
     for page in &cases {
@@ -203,4 +204,72 @@ fn html() {
 #[test]
 fn markdown() {
     run(&org_export::Markdown, "md", &[]);
+}
+
+#[test]
+fn latex() {
+    // Emacs refuses to download the remote image of `images` and stops.
+    run(&org_export::Latex::default(), "tex", &["images"]);
+}
+
+/// A whole LaTeX document as Kalem and Emacs both write it: the creation
+/// time and the creator are their own.
+fn normalize_latex(s: &str) -> String {
+    normalize(s)
+        .lines()
+        .filter(|l| !l.starts_with("% Created ") && !l.starts_with(" pdfcreator="))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Whole LaTeX documents against `tests/export/full` (`KALEM_EXPORT_FULL=1
+/// KALEM_EXPORT_BACKENDS=latex`).
+#[test]
+fn latex_document() {
+    // Emacs stops on the remote image.
+    let known = ["images"];
+    let mut failed = Vec::new();
+    let mut cases: Vec<PathBuf> = std::fs::read_dir(root().join("full"))
+        .expect("the documents")
+        .map(|e| e.expect("an entry").path())
+        .filter(|p| p.extension().is_some_and(|e| e == "tex"))
+        .collect();
+    cases.sort();
+    for page in &cases {
+        let name = page.file_stem().unwrap().to_string_lossy().to_string();
+        if known.contains(&name.as_str()) {
+            continue;
+        }
+        let case = root().join("cases").join(format!("{name}.org"));
+        let text = std::fs::read_to_string(&case).unwrap();
+        let got = org_export::export(
+            &text,
+            &org_export::Latex::default(),
+            &org_export::Settings {
+                body_only: false,
+                input_file: Some(case.clone()),
+                now: Some("2026-09-28T10:00:00[Europe/Istanbul]".parse().unwrap()),
+                subtree: subtree_of(&text),
+                math: None,
+                options: None,
+            },
+        )
+        .unwrap_or_else(|e| format!("ERROR: {e}\n"));
+        let want = std::fs::read_to_string(page).unwrap();
+        if normalize_latex(&got) != normalize_latex(&want) {
+            if std::env::var_os("KALEM_EXPORT_DIFF").is_some() {
+                let d = std::env::temp_dir().join(format!("kalem-doc-{name}.tex"));
+                std::fs::write(&d, normalize_latex(&got)).unwrap();
+                let w = std::env::temp_dir().join(format!("kalem-doc-{name}.want.tex"));
+                std::fs::write(&w, normalize_latex(&want)).unwrap();
+                eprintln!("{name}: got {} want {}", d.display(), w.display());
+            }
+            failed.push(name);
+        }
+    }
+    assert!(
+        failed.is_empty(),
+        "{} documents differ: {failed:?}",
+        failed.len()
+    );
 }

@@ -306,13 +306,9 @@ impl Html {
         let number = ex.headline_number(h);
         let todo = self.todo(ex, h);
         let priority = self.priority(ex, h);
-        // The title, without footnote references and links' targets
-        // (`org-export-toc-entry-backend`).
-        let ids = ex
-            .tree
-            .secondary(h, Secondary::Title)
-            .map(<[Id]>::to_vec)
-            .unwrap_or_default();
+        // The title (or alternative title), without footnote references
+        // and links' targets (`org-export-toc-entry-backend`).
+        let ids = ex.alt_title(h);
         let text = crate::kalem::finish(&ex.with_backend(&TocEntry, |ex| ex.data_list(&ids)));
         let tags = if ex.opt("with-tags") == Value::T {
             Self::tags_html(&ex.tags(h, &[], false))
@@ -1193,7 +1189,7 @@ fn colgroup_ends(ex: &Exporter<'_>, cell: Id) -> bool {
 /// row, a left border where the cell starts a group or the previous
 /// one ends one, a right border where it ends one or the next starts
 /// one.
-fn cell_borders(ex: &Exporter<'_>, cell: Id) -> (bool, bool) {
+pub(crate) fn cell_borders(ex: &Exporter<'_>, cell: Id) -> (bool, bool) {
     let row = ex.tree.parent(cell).expect("a row");
     let table = ex.tree.parent(row).expect("a table");
     let column = ex

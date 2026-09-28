@@ -89,6 +89,10 @@ enum Command {
         /// `CUSTOM_ID`), with its `EXPORT_` properties, as `C-c C-e C-s`.
         #[arg(long, value_name = "HEADLINE")]
         subtree: Option<String>,
+        /// LaTeX: a `%% org:LINE` comment before each element, giving the
+        /// line of the Org file it comes from.
+        #[arg(long)]
+        source_lines: bool,
     },
     /// Table formulas: `kalem table recalc FILE...`.
     Table {
@@ -162,6 +166,8 @@ enum ExportTo {
     Gfm,
     /// Strict Org: a Kalem document without Kalem's additions.
     Org,
+    /// LaTeX, as Emacs's `ox-latex` writes it.
+    Latex,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -205,12 +211,15 @@ where
             output,
             body_only,
             subtree,
+            source_lines,
         } => {
             let to = match to {
                 ExportTo::Html => commands::Target::Html,
                 ExportTo::Md => commands::Target::Markdown,
                 ExportTo::Gfm => commands::Target::Gfm,
                 ExportTo::Org => commands::Target::Org,
+                ExportTo::Latex if source_lines => commands::Target::LatexLines,
+                ExportTo::Latex => commands::Target::Latex,
             };
             commands::export(&files, to, output.as_deref(), body_only, subtree.as_deref())
         }

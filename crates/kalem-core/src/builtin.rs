@@ -532,6 +532,11 @@ fn export_doc(
     Ok(())
 }
 
+/// The LaTeX back-end, as `ox-latex` writes.
+const LATEX: org_export::Latex = org_export::Latex {
+    source_lines: false,
+};
+
 /// A `file:` URL for `path`.
 fn file_url(path: &std::path::Path) -> String {
     let p = path.to_string_lossy().replace('\\', "/");
@@ -559,8 +564,10 @@ pub fn export_dialog_items(config: &crate::settings::Config) -> Vec<crate::palet
         "export.html",
         "export.markdown",
         "export.gfm",
+        "export.latex",
         "export.htmlSubtree",
         "export.markdownSubtree",
+        "export.latexSubtree",
     ]
     .into_iter()
     .map(|id| item(id, tr(&crate::l10n::command_key(id)), format.clone()))
@@ -707,6 +714,22 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some("editorMode == org"),
             |ctx, _| export_doc(ctx, &org_export::Gfm, ".md", false),
+        ),
+        cmd(
+            "export.latex",
+            "Export as LaTeX",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_doc(ctx, &LATEX, ".tex", false),
+        ),
+        cmd(
+            "export.latexSubtree",
+            "Export Subtree as LaTeX",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_doc(ctx, &LATEX, ".tex", true),
         ),
         cmd(
             "export.markdownSubtree",

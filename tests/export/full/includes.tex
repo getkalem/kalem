@@ -1,0 +1,75 @@
+% Created 2026-09-28 Mon 18:40
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\date{\today}
+\title{Includes}
+\hypersetup{
+ pdfauthor={},
+ pdftitle={Includes},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.7.11)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Top}
+\label{sec:org6cc3f58}
+\subsection{Included heading}
+\label{sec:org3187713}
+Some text with a note.\footnote{The note.\label{orgf625274}}
+\subsubsection{Deeper}
+\label{sec:orgc7843a4}
+A link to \begin{center}
+\includegraphics[width=.9\linewidth]{include/pic.png}
+\end{center}.
+\section{Code}
+\label{sec:org8ed545c}
+\begin{verbatim}
+(defun f ()
+  "Doc."
+  1)
+* not a heading
+\end{verbatim}
+\section{Lines}
+\label{sec:org44d2ff9}
+\begin{verbatim}
+two
+three
+\end{verbatim}
+\section{Quote}
+\label{sec:org928a28d}
+\begin{quote}
+one
+\end{quote}
+\section{Part of a file}
+\label{sec:org45ebb3a}
+A link to \begin{center}
+\includegraphics[width=.9\linewidth]{include/pic.png}
+\end{center}.
+\section{Levels}
+\label{sec:org948d328}
+\subsubsection{Included heading}
+\label{sec:org883f764}
+Some text with a note.\textsuperscript{\ref{orgf625274}}
+\begin{enumerate}
+\item Deeper
+\label{sec:orgac63fac}
+A link to \begin{center}
+\includegraphics[width=.9\linewidth]{include/pic.png}
+\end{center}.
+\end{enumerate}
+\end{document}

@@ -1,6 +1,6 @@
 //! The extended corpus: every Worg file exported by Emacs
 //! (`.cache/export-expected/worg`, made by
-//! `KALEM_EXPORT_BACKENDS="html md" emacs -Q --batch -l tests/emacs/export.el
+//! `KALEM_EXPORT_BACKENDS="html md latex" emacs -Q --batch -l tests/emacs/export.el
 //! .cache/worg .cache/export-expected/worg recursive`) and by Kalem. The
 //! test reports how many agree and fails if fewer agree than before
 //! (the numbers below only go up; every file agrees now). Without the corpus it does nothing.
@@ -120,4 +120,12 @@ fn worg_html() {
 #[test]
 fn worg_md() {
     run(&org_export::Markdown, "md", 287);
+}
+
+#[test]
+fn worg_latex() {
+    // Not measured on Worg yet: on the Org manual, ORG-NEWS and the
+    // other files of `tests/corpus`, all agree but the attachment example,
+    // whose links Emacs makes absolute.
+    run(&org_export::Latex::default(), "tex", 0);
 }
