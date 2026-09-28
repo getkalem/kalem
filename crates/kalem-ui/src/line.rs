@@ -1158,6 +1158,11 @@ impl gpui::Element for LineElement {
             .filter(|v| v.block_cursor())
             .map(|v| v.caret(&editor.doc))
             .map(|c| (c, editor.doc.grapheme_after(c)));
+        let block_sel = editor
+            .vim
+            .as_ref()
+            .and_then(|v| v.block_ranges(&editor.doc))
+            .unwrap_or_default();
         let marked = editor.marked.clone();
         let view = p.view.clone();
         let (ls, le) = (view.range.start, view.range.end);
@@ -1289,6 +1294,19 @@ impl gpui::Element for LineElement {
                 );
                 for r in layout.range_rects(a, b) {
                     window.paint_quad(fill(Bounds::new(origin + r.origin, r.size), theme.mark));
+                }
+            }
+            // Vim's block selection, a range per line.
+            for m in block_sel.iter().filter(|m| m.end >= ls && m.start <= le) {
+                let (a, b) = (
+                    view.display_offset(m.start.max(ls)),
+                    view.display_offset(m.end.min(le)),
+                );
+                for r in layout.range_rects(a, b) {
+                    window.paint_quad(fill(
+                        Bounds::new(origin + r.origin, r.size),
+                        theme.selection,
+                    ));
                 }
             }
             // The selection, under the text.

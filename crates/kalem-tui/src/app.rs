@@ -2803,6 +2803,11 @@ impl App {
             text_area.x += w;
             text_area.width -= w;
         }
+        self.editor.block = self
+            .vim
+            .as_ref()
+            .and_then(|v| v.block_ranges(&self.doc))
+            .unwrap_or_default();
         let cursor = self
             .editor
             .draw(&self.doc, &self.caps, f.buffer_mut(), text_area);

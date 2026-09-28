@@ -324,6 +324,7 @@ vim-normal = NORMAL
 vim-insert = -- INSERT --
 vim-visual = -- VISUAL --
 vim-visual-line = -- VISUAL LINE --
+vim-visual-block = -- VISUAL BLOCK --
 vim-replace = -- REPLACE --
 vim-not-found = Pattern not found: { $pattern }
 vim-not-a-command = Not an editor command: { $command }

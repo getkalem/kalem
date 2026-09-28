@@ -65,6 +65,8 @@ pub enum Mode {
     Visual,
     /// Lines are selected.
     VisualLine,
+    /// A block of columns is selected (Ctrl+V).
+    VisualBlock,
     /// Typing overwrites.
     Replace,
 }
@@ -77,6 +79,7 @@ impl Mode {
             Mode::Insert => "vim-insert",
             Mode::Visual => "vim-visual",
             Mode::VisualLine => "vim-visual-line",
+            Mode::VisualBlock => "vim-visual-block",
             Mode::Replace => "vim-replace",
         }
     }
@@ -185,6 +188,14 @@ enum Target {
     Chars(Range<usize>),
     /// Whole lines, first and last.
     Lines(usize, usize),
+    /// A block: lines `first..=last`, columns `left..right` (in
+    /// characters).
+    Block {
+        first: usize,
+        last: usize,
+        left: usize,
+        right: usize,
+    },
 }
 
 /// The state of the Vim layer for one document.
@@ -209,6 +220,10 @@ pub struct Vim {
     last_change: Option<Change>,
     recording: Option<Change>,
     insert_at: Option<usize>,
+    /// Text typed at the start of a block (`I`, `c`) or after it (`A`) is
+    /// repeated on these lines at this column when insert mode ends; `A`
+    /// pads short lines with spaces.
+    block_insert: Option<(Range<usize>, usize, bool)>,
     replaying: bool,
     /// The leader key: in normal and visual mode it is left to the keymap,
     /// which binds sequences starting with it (Doom Emacs's `SPC p p`).
@@ -803,6 +818,7 @@ impl Vim {
             last_change: None,
             recording: None,
             insert_at: None,
+            block_insert: None,
             replaying: false,
             leader: Some(Key::Char(' ')),
         }
@@ -836,6 +852,7 @@ impl Vim {
             Mode::Insert => "insert",
             Mode::Visual => "visual",
             Mode::VisualLine => "visualLine",
+            Mode::VisualBlock => "visualBlock",
             Mode::Replace => "replace",
         }
     }
@@ -843,7 +860,10 @@ impl Vim {
     /// Keys are commands, with no command half typed: normal or visual
     /// mode, where the leader and keymap sequences apply.
     pub fn idle_command(&self) -> bool {
-        matches!(self.mode, Mode::Normal | Mode::Visual | Mode::VisualLine) && self.idle()
+        matches!(
+            self.mode,
+            Mode::Normal | Mode::Visual | Mode::VisualLine | Mode::VisualBlock
+        ) && self.idle()
     }
 
     /// Whether typed text goes into the document (insert mode).
@@ -928,13 +948,13 @@ impl Vim {
                 }
             }
             Mode::Replace => self.replace_key(doc, key),
-            Mode::Normal | Mode::Visual | Mode::VisualLine
+            Mode::Normal | Mode::Visual | Mode::VisualLine | Mode::VisualBlock
                 if self.idle() && self.leader == Some(key) =>
             {
                 // The leader starts a keymap sequence.
                 out.handled = false;
             }
-            Mode::Normal | Mode::Visual | Mode::VisualLine => {
+            Mode::Normal | Mode::Visual | Mode::VisualLine | Mode::VisualBlock => {
                 // Visual mode ends when the selection changed elsewhere (a
                 // click).
                 if self.visual() && doc.selection != self.visual_selection(doc) {
@@ -967,7 +987,32 @@ impl Vim {
     }
 
     fn visual(&self) -> bool {
-        matches!(self.mode, Mode::Visual | Mode::VisualLine)
+        matches!(
+            self.mode,
+            Mode::Visual | Mode::VisualLine | Mode::VisualBlock
+        )
+    }
+
+    /// The block's lines and columns (left inclusive, right exclusive).
+    fn block(&self, doc: &DocumentState) -> (usize, usize, usize, usize) {
+        let (a, c) = (self.anchor, self.cursor);
+        let (la, lc) = (line_of(doc, a), line_of(doc, c));
+        let (ca, cc) = (column(doc, a), column(doc, c));
+        (la.min(lc), la.max(lc), ca.min(cc), ca.max(cc) + 1)
+    }
+
+    /// The parts of each line the block selection covers, for the
+    /// frontends to paint as selected; `None` outside block selection.
+    pub fn block_ranges(&self, doc: &DocumentState) -> Option<Vec<Range<usize>>> {
+        if self.mode != Mode::VisualBlock {
+            return None;
+        }
+        let (first, last, left, right) = self.block(doc);
+        Some(
+            (first..=last.min(last_line(doc)))
+                .map(|l| at_column(doc, l, left)..at_column(doc, l, right))
+                .collect(),
+        )
     }
 
     /// In normal mode the cursor is on a character, not after the last.
@@ -986,6 +1031,10 @@ impl Vim {
 
     fn visual_selection(&self, doc: &DocumentState) -> Selection {
         let (a, c) = (self.anchor, self.cursor);
+        // The block is painted from `block_ranges`; the cursor is a caret.
+        if self.mode == Mode::VisualBlock {
+            return Selection::caret(c);
+        }
         if self.mode == Mode::VisualLine {
             let (l1, l2) = (line_of(doc, a.min(c)), line_of(doc, a.max(c)));
             let (s, e) = (line_start(doc, l1), line_end(doc, l2));
@@ -1012,7 +1061,15 @@ impl Vim {
     fn visual_target(&self, doc: &DocumentState) -> Target {
         let sel = self.visual_selection(doc);
         let (s, e) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
-        if self.mode == Mode::VisualLine {
+        if self.mode == Mode::VisualBlock {
+            let (first, last, left, right) = self.block(doc);
+            Target::Block {
+                first,
+                last,
+                left,
+                right,
+            }
+        } else if self.mode == Mode::VisualLine {
             Target::Lines(line_of(doc, s), line_of(doc, e))
         } else {
             Target::Chars(s..e)
@@ -1248,6 +1305,28 @@ impl Vim {
     fn leave_insert(&mut self, doc: &mut DocumentState) {
         self.mode = Mode::Normal;
         let head = doc.selection.head.min(doc.text().len());
+        if let (Some((lines, col, pad)), Some(at)) = (self.block_insert.take(), self.insert_at)
+            && head > at
+            && !doc.text().as_str()[at..head].contains('\n')
+        {
+            // The typed text again on the block's other lines.
+            let typed = doc.text().as_str()[at..head].to_string();
+            let mut tx = Transaction::new("Vim");
+            for l in lines.filter(|l| *l <= last_line(doc)) {
+                let e = line_end(doc, l);
+                let width = doc.text().as_str()[line_start(doc, l)..e].chars().count();
+                if width < col {
+                    if pad {
+                        let fill = " ".repeat(col - width);
+                        let _ = tx.insert(e, format!("{fill}{typed}"));
+                    }
+                    continue;
+                }
+                let _ = tx.insert(at_column(doc, l, col), typed.clone());
+            }
+            let tx = tx.select(Selection::caret(head));
+            doc.apply(&tx, ChangeKind::Command, Instant::now());
+        }
         if let (Some(mut c), Some(at)) = (self.recording.take(), self.insert_at) {
             if head >= at {
                 c.inserted = Some(doc.text().as_str()[at..head].to_string());
@@ -1317,6 +1396,51 @@ impl Vim {
                         let r = line_start(doc, l1)..line_end(doc, l2);
                         self.change_case(doc, op, r);
                         doc.selection = Selection::caret(first_non_blank(doc, l1));
+                    }
+                }
+            }
+            Target::Block {
+                first,
+                last,
+                left,
+                right,
+            } => {
+                let last = last.min(last_line(doc));
+                let ranges: Vec<Range<usize>> = (first..=last)
+                    .map(|l| at_column(doc, l, left)..at_column(doc, l, right))
+                    .collect();
+                let top = ranges[0].start;
+                let text: Vec<&str> = ranges
+                    .iter()
+                    .map(|r| &doc.text().as_str()[r.clone()])
+                    .collect();
+                let text = text.join("\n");
+                match op {
+                    Op::Yank => {
+                        self.store(text, false, host);
+                        doc.selection = Selection::caret(top);
+                    }
+                    Op::Delete | Op::Change => {
+                        self.store(text, false, host);
+                        let mut tx = Transaction::new("Vim");
+                        for r in &ranges {
+                            let _ = tx.delete(r.clone());
+                        }
+                        let tx = tx.select(Selection::caret(top));
+                        doc.apply(&tx, ChangeKind::Command, Instant::now());
+                        if op == Op::Change {
+                            self.enter_insert(doc, top);
+                            self.block_insert = Some((first + 1..last + 1, left, false));
+                        }
+                    }
+                    Op::Indent | Op::Outdent => {
+                        self.shift_lines(doc, first, last, op == Op::Indent, out)
+                    }
+                    Op::Lower | Op::Upper | Op::Toggle => {
+                        for r in ranges.into_iter().rev() {
+                            self.change_case(doc, op, r);
+                        }
+                        doc.selection = Selection::caret(top);
                     }
                 }
             }
@@ -1605,6 +1729,8 @@ impl Vim {
                             self.anchor = line_start(doc, a);
                             self.cursor = line_start(doc, b);
                         }
+                        // Text objects give characters or lines.
+                        Target::Block { .. } => {}
                     }
                     return;
                 }
@@ -1654,8 +1780,12 @@ impl Vim {
                         }
                     }
                 }
-                // Block selection comes later: characters meanwhile.
-                Key::Ctrl('v') => self.start_visual(Mode::Visual),
+                Key::Ctrl('v') if self.mode == Mode::VisualBlock => {
+                    self.mode = Mode::Normal;
+                    doc.selection = Selection::caret(self.cursor);
+                }
+                Key::Ctrl('v') if self.visual() => self.mode = Mode::VisualBlock,
+                Key::Ctrl('v') => self.start_visual(Mode::VisualBlock),
                 // Not a Vim key: the keymap may have it.
                 _ => out.handled = false,
             }
@@ -1851,6 +1981,7 @@ impl Vim {
         let target = self.visual_target(doc);
         let lines = match &target {
             Target::Lines(a, b) => Target::Lines(*a, *b),
+            Target::Block { first, last, .. } => Target::Lines(*first, *last),
             Target::Chars(r) => Target::Lines(
                 line_of(doc, r.start),
                 line_of(doc, r.end.saturating_sub(1).max(r.start)),
@@ -1859,7 +1990,53 @@ impl Vim {
         let start = match &target {
             Target::Chars(r) => r.start,
             Target::Lines(a, _) => line_start(doc, *a),
+            Target::Block { first, left, .. } => at_column(doc, *first, *left),
         };
+        // In a block, `I` and `A` type on every line; `c` and `s` change it.
+        if let Target::Block {
+            first,
+            last,
+            left,
+            right,
+        } = target
+        {
+            match c {
+                'I' | 'A' => {
+                    self.mode = Mode::Normal;
+                    let (col, pad) = if c == 'I' {
+                        (left, false)
+                    } else {
+                        (right, true)
+                    };
+                    let width = |l: usize| {
+                        doc.text().as_str()[line_start(doc, l)..line_end(doc, l)]
+                            .chars()
+                            .count()
+                    };
+                    self.begin_change();
+                    let mut at = at_column(doc, first, col);
+                    if pad && width(first) < col {
+                        let e = line_end(doc, first);
+                        let fill = " ".repeat(col - width(first));
+                        edit(doc, e..e, &fill, e + fill.len());
+                        at = e + fill.len();
+                    }
+                    self.enter_insert(doc, at);
+                    self.block_insert = Some((first + 1..last + 1, col, pad));
+                    return;
+                }
+                'c' | 's' => {
+                    self.mode = Mode::Normal;
+                    self.begin_change();
+                    return self.apply_op(doc, Op::Change, target, host, out);
+                }
+                'o' => {
+                    std::mem::swap(&mut self.anchor, &mut self.cursor);
+                    return;
+                }
+                _ => {}
+            }
+        }
         let was_lines = self.mode == Mode::VisualLine;
         let finish = |v: &mut Vim| {
             v.mode = Mode::Normal;
@@ -1925,6 +2102,9 @@ impl Vim {
                 let range = match target {
                     Target::Chars(r) => r,
                     Target::Lines(a, b) => line_start(doc, a)..line_end(doc, b),
+                    Target::Block { first, last, .. } => {
+                        line_start(doc, first)..line_end(doc, last)
+                    }
                 };
                 if let Some(r) = reg {
                     let t = if was_lines || !r.linewise {
@@ -2638,6 +2818,47 @@ mod tests {
         );
         let s = run_in("* A\n- x\n- y\n", 10, ">>", org).0;
         assert!(s.contains("- x\n  |- y"), "{s}");
+    }
+
+    #[test]
+    fn visual_block() {
+        let t = "abcd\nefgh\nijkl\n";
+        // Columns 1 and 2 of three lines.
+        assert_eq!(run(t, 1, "<C-v>jjld"), "a|d\neh\nil\n");
+        assert_eq!(run(t, 1, "<C-v>jlx"), "a|d\neh\nijkl\n");
+        assert_eq!(run(t, 1, "<C-v>jjlU"), "a|BCd\neFGh\niJKl\n");
+        // Yanked as lines of the block.
+        let (_, v, _) = run_in(t, 1, "<C-v>jly", DocumentMode::Text { language: None });
+        assert_eq!(
+            v.registers.get(&'"').map(|r| r.text.as_str()),
+            Some("bc\nfg")
+        );
+        // I and A type on every line; A pads short lines.
+        assert_eq!(run(t, 1, "<C-v>jjI-<Esc>"), "a|-bcd\ne-fgh\ni-jkl\n");
+        assert_eq!(run("ab\nc\nde\n", 0, "<C-v>jjlA!<Esc>"), "ab|!\nc !\nde!\n");
+        // c changes the block and types on every line.
+        assert_eq!(run(t, 1, "<C-v>jlcX<Esc>"), "a|Xd\neXh\nijkl\n");
+        // o swaps the corners; Ctrl+V again ends it.
+        let (s, v, _) = run_in(t, 1, "<C-v>jlo", DocumentMode::Text { language: None });
+        assert_eq!(v.mode, Mode::VisualBlock);
+        assert_eq!(s, "a|bcd\nefgh\nijkl\n");
+        let (_, v, _) = run_in(t, 1, "<C-v><C-v>", DocumentMode::Text { language: None });
+        assert_eq!(v.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn block_ranges_for_painting() {
+        let mut d = doc("abcd\nefgh\n", DocumentMode::Text { language: None });
+        d.selection = Selection::caret(1);
+        let mut v = Vim::new();
+        let mut host = TestHost::default();
+        for k in [Key::Ctrl('v'), Key::Char('j'), Key::Char('l')] {
+            v.key(&mut d, k, &mut host);
+        }
+        assert_eq!(v.block_ranges(&d), Some(vec![1..3, 6..8]));
+        assert_eq!(d.selection, Selection::caret(7));
+        v.key(&mut d, Key::Esc, &mut host);
+        assert_eq!(v.block_ranges(&d), None);
     }
 
     #[test]

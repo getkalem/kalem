@@ -35,6 +35,8 @@ pub struct EditorView {
     /// The fields the table formula at the cursor refers to (sorted),
     /// marked when there are no search matches.
     pub references: Vec<Range<usize>>,
+    /// Vim's block selection, a range per line, painted as selected.
+    pub block: Vec<Range<usize>>,
     drawn: Option<Drawn<WidgetAt>>,
     blocks: Option<(u64, Arc<Vec<Block>>)>,
     /// Tables drawn as grids, by their start, for the text version.
@@ -1289,14 +1291,20 @@ impl EditorView {
                 self.hscroll = cx + 1 - w + w / 4;
             }
         }
+        let (marks, mark_style) = if !self.block.is_empty() {
+            (
+                &self.block,
+                ratatui::style::Style::default().add_modifier(Modifier::REVERSED),
+            )
+        } else if self.highlights.is_empty() {
+            (&self.references, mark_style)
+        } else {
+            (&self.highlights, mark_style)
+        };
         let options = Options {
             cursor: sel.head,
             selection: sel.anchor.min(sel.head)..sel.anchor.max(sel.head),
-            marks: if self.highlights.is_empty() {
-                &self.references
-            } else {
-                &self.highlights
-            },
+            marks,
             mark_style,
             margin: 1,
             hscroll: self.hscroll,

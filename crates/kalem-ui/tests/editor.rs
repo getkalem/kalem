@@ -883,6 +883,24 @@ fn vim_keys(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn vim_block_selection(cx: &mut TestAppContext) {
+    let (e, cx) = open_vim("abcd\nefgh\n", cx);
+    at(&e, 1, cx);
+    // Ctrl+V reaches Vim (it is not Paste there).
+    cx.simulate_keystrokes("ctrl-v j l");
+    let (mode, block) = e.read_with(cx, |e, _| {
+        let v = e.vim.as_ref().unwrap();
+        (v.mode, v.block_ranges(&e.doc))
+    });
+    assert_eq!(mode, kalem_core::vim::Mode::VisualBlock);
+    assert_eq!(block, Some(vec![1..3, 6..8]));
+    cx.simulate_keystrokes("shift-i");
+    cx.simulate_input("-");
+    cx.simulate_keystrokes("escape");
+    assert_eq!(text(&e, cx), "a-bcd\ne-fgh\n");
+}
+
+#[gpui::test]
 fn plain_text_view(cx: &mut TestAppContext) {
     let dir = std::env::temp_dir().join(format!("kalem-ui-plain-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
