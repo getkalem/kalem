@@ -127,10 +127,19 @@ pub fn markup(root: &org_syntax::SyntaxNode) -> Vec<(std::ops::Range<usize>, Mar
 /// `text` as strict Org: Kalem's additions taken out (a snippet goes, a
 /// line of its own goes with its line feed), and how many of each kind
 /// went (spans, paragraph attributes, document options). Org's own center
-/// blocks stay.
+/// blocks stay. A line that ended a paragraph right above it becomes a
+/// blank line, so that the paragraph stays apart from what follows.
 pub fn strip_markup(text: &str) -> (String, [usize; 3]) {
     let parse = org_syntax::parse(text);
-    let found = markup(&parse.syntax());
+    let root = parse.syntax();
+    let found = markup(&root);
+    // Where paragraphs end without blank lines.
+    let ends: std::collections::HashSet<usize> = root
+        .descendants()
+        .filter(|n| n.kind() == org_syntax::SyntaxKind::PARAGRAPH)
+        .filter(|n| org_syntax::ast::post_blank(n) == 0)
+        .map(|n| usize::from(n.text_range().end()))
+        .collect();
     let mut counts = [0usize; 3];
     let mut out = String::with_capacity(text.len());
     let mut at = 0;
@@ -140,6 +149,9 @@ pub fn strip_markup(text: &str) -> (String, [usize; 3]) {
         }
         counts[kind as usize] += 1;
         out.push_str(&text[at..r.start]);
+        if kind != Markup::Span && ends.contains(&r.start) && r.end < text.len() {
+            out.push('\n');
+        }
         at = r.end;
     }
     out.push_str(&text[at..]);
@@ -254,6 +266,12 @@ mod tests {
             "2 formatted spans, 1 paragraph attribute, 1 document option line"
         );
         assert_eq!(strip_markup("* A\n").0, "* A\n");
+        // Paragraphs a line kept apart stay apart.
+        assert_eq!(
+            strip_markup("a\n#+KALEM: size=2\nb\n#+ATTR_KALEM: :align right\nc\n#+KALEM: size=3\n")
+                .0,
+            "a\n\nb\n\nc\n"
+        );
     }
 
     #[test]

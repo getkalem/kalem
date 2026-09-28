@@ -936,6 +936,162 @@ fn parts(el: &SyntaxNode, content: &Range<usize>) -> Vec<(Range<usize>, CharForm
     out
 }
 
+/// The kinds of emphasis Org reads in `text`, in order.
+fn emphasis(text: &str) -> Vec<SyntaxKind> {
+    org_syntax::parse(text)
+        .syntax()
+        .descendants()
+        .map(|n| n.kind())
+        .filter(|k| {
+            matches!(
+                k,
+                BOLD | ITALIC | UNDERLINE | STRIKE_THROUGH | CODE | VERBATIM
+            )
+        })
+        .collect()
+}
+
+/// `pieces` changed so that Org reads the emphasis around them as the
+/// editor shows it. A snippet right before a marker that opens (`*bold*`,
+/// `/it/`, `=code=` and the like) or right after one that closes takes the
+/// place of the character Org wants there, and the emphasis would be read
+/// as plain text. Around bold, italic, underline and strike-through the
+/// change moves inside (the opening marker takes the format of what comes
+/// before it, the closing one of what comes after), where Org reads
+/// snippets; code and verbatim, whose text Org does not read, take the
+/// characters around them into their format instead, and stay plain at
+/// the start or end of the paragraph, where there is no such character.
+/// No span goes into an emphasis without going out of it too (HTML nests):
+/// one that would stops before the character in front of the marker.
+fn around_emphasis(
+    el: &SyntaxNode,
+    text: &str,
+    pieces: Vec<(Range<usize>, CharFormat)>,
+) -> Vec<(Range<usize>, CharFormat)> {
+    // (opening marker, closing marker, whether its text is read).
+    let mut objects = Vec::new();
+    for n in el.descendants() {
+        let read = matches!(n.kind(), BOLD | ITALIC | UNDERLINE | STRIKE_THROUGH);
+        if read || matches!(n.kind(), CODE | VERBATIM) {
+            let s = start(&n);
+            let e = end(&n) - ast::post_blank(&n);
+            if e >= s + 2 {
+                objects.push((s, e - 1, read));
+            }
+        }
+    }
+    if objects.is_empty() {
+        return pieces;
+    }
+    let before = |p: usize| {
+        text[..p]
+            .chars()
+            .next_back()
+            .map_or(p, |c| p - c.len_utf8())
+    };
+    let after = |p: usize| text[p..].chars().next().map_or(p, |c| p + c.len_utf8());
+    // Each marker and each character around one a piece of its own.
+    let mut cuts: Vec<usize> = Vec::new();
+    for &(o, c, _) in &objects {
+        cuts.extend([before(o), o, o + 1, c, c + 1, after(c + 1)]);
+    }
+    cuts.sort_unstable();
+    cuts.dedup();
+    let mut out: Vec<(Range<usize>, CharFormat)> = Vec::new();
+    for (r, f) in pieces {
+        let mut s = r.start;
+        for c in cuts
+            .iter()
+            .copied()
+            .filter(|&c| c > r.start && c < r.end)
+            .chain([r.end])
+        {
+            out.push((s..c, f));
+            s = c;
+        }
+    }
+    type Pieces = [(Range<usize>, CharFormat)];
+    let at = |out: &Pieces, p: usize| out.iter().position(|(r, _)| r.start == p);
+    let ending = |out: &Pieces, p: usize| out.iter().position(|(r, _)| r.end == p);
+    let plain = |out: &mut Pieces, r: Range<usize>| {
+        for piece in out
+            .iter_mut()
+            .filter(|(x, _)| x.start >= r.start && x.end <= r.end)
+        {
+            piece.1 = CharFormat::default();
+        }
+    };
+    // Code and verbatim: the characters around them go with them.
+    for &(o, c, read) in &objects {
+        if read {
+            continue;
+        }
+        let Some(i) = at(&out, o) else { continue };
+        let f = out[i].1;
+        match (ending(&out, o), at(&out, c + 1)) {
+            (Some(p), Some(n)) => {
+                out[p].1 = f;
+                out[n].1 = f;
+            }
+            _ => plain(&mut out, o..c + 1),
+        }
+    }
+    for _ in 0..4 * objects.len() + 4 {
+        let mut changed = false;
+        for &(o, c, read) in &objects {
+            let (Some(i), Some(j)) = (at(&out, o), at(&out, c)) else {
+                continue;
+            };
+            if read {
+                let f = ending(&out, o).map_or_else(CharFormat::default, |k| out[k].1);
+                let g = at(&out, c + 1).map_or_else(CharFormat::default, |k| out[k].1);
+                changed |= out[i].1 != f || out[j].1 != g;
+                out[i].1 = f;
+                out[j].1 = g;
+            } else {
+                // Still with the characters around it, or plain with them.
+                let f = out[i].1;
+                let fmt = |k: Option<usize>| k.map_or_else(CharFormat::default, |k| out[k].1);
+                if fmt(ending(&out, o)) != f || fmt(at(&out, c + 1)) != f {
+                    plain(&mut out, before(o)..after(c + 1));
+                    changed = true;
+                }
+            }
+        }
+        // Formatted runs that go into an emphasis without going out.
+        let mut i = 0;
+        while i < out.len() {
+            let f = out[i].1;
+            let mut j = i;
+            while j < out.len() && out[j].1 == f {
+                j += 1;
+            }
+            let (a, b) = (out[i].0.start, out[j - 1].0.end);
+            i = j;
+            if f.is_empty() {
+                continue;
+            }
+            for &(o, c, read) in &objects {
+                let (s, e) = (o, c + 1);
+                let crosses = a < e && b > s && !(a <= s && b >= e) && !(a > s && b <= c);
+                if !read || !crosses {
+                    continue;
+                }
+                if a <= s {
+                    plain(&mut out, before(o).max(a)..o + 1);
+                } else {
+                    plain(&mut out, c..after(e).min(b));
+                }
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    out
+}
+
 /// Formats `range` of the document's text with `change`: the formatted
 /// spans of each paragraph (or heading) it touches are written again, in
 /// their simplest form. Returns the transaction and the range covering the
@@ -1001,6 +1157,7 @@ pub fn apply(
                 changed.push((piece.clone(), if inside { change.apply(f) } else { f }));
             }
         }
+        let changed = around_emphasis(el, text, changed);
         // Written again: runs of the same format, markers around the
         // formatted ones; the new places of the selection's ends.
         let mut out = String::new();
@@ -1029,6 +1186,11 @@ pub fn apply(
         let old = &text[content.clone()];
         if out == old {
             continue;
+        }
+        // A snippet beside a stray `/` or `*` can still make Org read
+        // emphasis that was not there: then the text is not formatted.
+        if emphasis(old) != emphasis(&out) {
+            return None;
         }
         // The selection's start goes where its part now starts (after an
         // opening snippet), its end where its part ends (before an end).
@@ -1319,6 +1481,37 @@ mod tests {
         assert_eq!(&text[spans(&el)[0].0.clone()], "b\nc");
     }
 
+    proptest::proptest! {
+        /// Formatting never changes what Org reads as emphasis, and the
+        /// text without Kalem's snippets stays the same.
+        #[test]
+        fn formatting_keeps_emphasis(
+            text in "([a-c ]|\\*[ab]+\\*|/[ab ]*a/|=a b=|~c~|\\(|\\)|-){1,12}\n",
+            ops in proptest::collection::vec((0usize..40, 0usize..40, 0usize..5), 1..5),
+        ) {
+            let kinds = emphasis;
+            let want = kinds(&text);
+            let mut t = text.clone();
+            for (a, b, c) in ops {
+                let len = t.len();
+                let (a, b) = ((a % len).min(b % len), (a % len).max(b % len));
+                let change = match c {
+                    0 => Change::Color(parse_color("red")),
+                    1 => Change::Highlight(parse_color("yellow")),
+                    2 => Change::Size(Some(140)),
+                    3 => Change::Font(Some("Georgia".into())),
+                    _ => Change::Clear,
+                };
+                let p = parse(&t);
+                if let Some((tx, _)) = apply(&p.syntax(), &t, a..b, &change) {
+                    t = tx.apply(&t);
+                }
+                proptest::prop_assert_eq!(kinds(&t), want.clone(), "{}", t);
+                proptest::prop_assert_eq!(crate::kinds::strip_markup(&t).0, text.clone());
+            }
+        }
+    }
+
     #[test]
     fn applying() {
         // A word, then part of it, then the whole paragraph.
@@ -1353,7 +1546,10 @@ mod tests {
         assert_eq!(t, "abc\n");
         // Code and links are not split.
         let (t, _) = run("see =verbatim= x\n", 6..9, Change::Size(Some(200)));
-        assert_eq!(t, "see @@kalem:size=20@@=verbatim=@@kalem:end@@ x\n");
+        assert_eq!(t, "see@@kalem:size=20@@ =verbatim= @@kalem:end@@x\n");
+        // At the start of a paragraph there is no room for the snippet.
+        let (t, _) = run("=verbatim= x\n", 2..5, Change::Size(Some(200)));
+        assert_eq!(t, "=verbatim= x\n");
         // Across paragraphs: each has its own span.
         let (t, _) = run(
             "one\n\ntwo\n",
@@ -1374,6 +1570,36 @@ mod tests {
             t,
             "* TODO @@kalem:font=\"Georgia\"@@Title@@kalem:end@@ :tag:\n"
         );
+        // Snippets stay off emphasis markers, which Org would then not
+        // read as emphasis.
+        let fmt = |t: &str, r: Range<usize>| {
+            run(t, r, Change::Color(Some(parse_color("red").unwrap()))).0
+        };
+        let red = "@@kalem:color=#c00000@@";
+        let end = "@@kalem:end@@";
+        assert_eq!(fmt("*bold*\n", 0..6), format!("*{red}bold{end}*\n"));
+        assert_eq!(
+            fmt("a *b* =c= d\n", 0..11),
+            format!("{red}a *b* =c= d{end}\n")
+        );
+        assert_eq!(fmt("(*bold*) x\n", 1..7), format!("(*{red}bold{end}*) x\n"));
+        // Spans nest with emphasis.
+        assert_eq!(
+            fmt("a *b* /c/\n", 2..9),
+            format!("a *{red}b{end}* /{red}c{end}/\n")
+        );
+        assert_eq!(
+            fmt("x *bold* y\n", 0..5),
+            format!("{red}x{end} *{red}bo{end}ld* y\n")
+        );
+        assert_eq!(
+            fmt("*a* *b*\n", 1..6),
+            format!("*{red}a{end}* *{red}b{end}*\n")
+        );
+        for t in [fmt("*bold*\n", 0..6), fmt("a *b* /c/\n", 2..9)] {
+            let p = parse(&t);
+            assert!(p.syntax().descendants().any(|n| n.kind() == BOLD), "{t}");
+        }
         // Not in tables.
         let p = parse("| a |\n");
         assert!(apply(&p.syntax(), "| a |\n", 2..3, &Change::Clear).is_none());

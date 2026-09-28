@@ -121,6 +121,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Formatting next to emphasis no longer breaks it in Emacs: spans go inside `*bold*` and `/italic/` and take in the spaces around `=code=`, and formatting that would still change what Org reads as emphasis is refused.
+- Save as Org keeps paragraphs apart when it takes out a `#+KALEM:` or `#+ATTR_KALEM:` line between them.
 - `kalem fmt` aligns tables that have `#+NAME:` or other affiliated keywords.
 - A crash when Vim keys that edit (such as `o`) were used in the file manager, which left the cursor past the end of the listing.
 - A hang when the file watcher's thread reported a change while a file was being added to it.
