@@ -91216,5 +91216,983 @@
     "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
     "point": 56,
     "error": null
+  },
+  {
+    "name": "drawer 0@0",
+    "text": ":NOTES:\n\n:END:\n* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 8,
+    "error": null
+  },
+  {
+    "name": "drawer 0@2",
+    "text": "* \n:NOTES:\n\n:END:\nA\nSome text.\nMore text.\n\nLast.\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "drawer 0@4",
+    "text": "* A\n:NOTES:\n\n:END:\nSome text.\nMore text.\n\nLast.\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "drawer 0@6",
+    "text": "* A\nSo\n:NOTES:\n\n:END:\nme text.\nMore text.\n\nLast.\n",
+    "point": 15,
+    "error": null
+  },
+  {
+    "name": "drawer 0@15",
+    "text": "* A\nSome text.\n:NOTES:\n\n:END:\nMore text.\n\nLast.\n",
+    "point": 23,
+    "error": null
+  },
+  {
+    "name": "drawer 0@17",
+    "text": "* A\nSome text.\nMo\n:NOTES:\n\n:END:\nre text.\n\nLast.\n",
+    "point": 26,
+    "error": null
+  },
+  {
+    "name": "drawer 0@26",
+    "text": "* A\nSome text.\nMore text.\n:NOTES:\n\n:END:\n\nLast.\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "drawer 0@27",
+    "text": "* A\nSome text.\nMore text.\n\n:NOTES:\n\n:END:\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0@28",
+    "text": "* A\nSome text.\nMore text.\n\nL\n:NOTES:\n\n:END:\nast.\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "drawer 0@29",
+    "text": "* A\nSome text.\nMore text.\n\nLa\n:NOTES:\n\n:END:\nst.\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "drawer 0@33",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n:NOTES:\n\n:END:\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "drawer 0 0-2",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-4",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-6",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-15",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-17",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-26",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-27",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-28",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-29",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 0-33",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-4",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-6",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-15",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-17",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-26",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-27",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-28",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-29",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 2-33",
+    "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 0 4-6",
+    "text": "* A\n:LOGBOOK:\nSo\n:END:\nme text.\nMore text.\n\nLast.\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "drawer 0 4-15",
+    "text": "* A\n:LOGBOOK:\nSome text.\n:END:\nMore text.\n\nLast.\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "drawer 0 4-17",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMo\n:END:\nre text.\n\nLast.\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "drawer 0 4-26",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n:END:\n\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0 4-27",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n:END:\n\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0 4-28",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n\nL\n:END:\nast.\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "drawer 0 4-29",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n\nLa\n:END:\nst.\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "drawer 0 4-33",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n\nLast.\n:END:\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "drawer 0 6-15",
+    "text": "* A\n:LOGBOOK:\nSome text.\n:END:\nMore text.\n\nLast.\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "drawer 0 6-17",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMo\n:END:\nre text.\n\nLast.\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "drawer 0 6-26",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n:END:\n\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0 6-27",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n:END:\n\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0 6-28",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n\nL\n:END:\nast.\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "drawer 0 6-29",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n\nLa\n:END:\nst.\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "drawer 0 6-33",
+    "text": "* A\n:LOGBOOK:\nSome text.\nMore text.\n\nLast.\n:END:\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "drawer 0 15-17",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMo\n:END:\nre text.\n\nLast.\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "drawer 0 15-26",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n:END:\n\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0 15-27",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n:END:\n\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0 15-28",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n\nL\n:END:\nast.\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "drawer 0 15-29",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n\nLa\n:END:\nst.\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "drawer 0 15-33",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n\nLast.\n:END:\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "drawer 0 17-26",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n:END:\n\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0 17-27",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n:END:\n\nLast.\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "drawer 0 17-28",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n\nL\n:END:\nast.\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "drawer 0 17-29",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n\nLa\n:END:\nst.\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "drawer 0 17-33",
+    "text": "* A\nSome text.\n:LOGBOOK:\nMore text.\n\nLast.\n:END:\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "drawer 0 26-27",
+    "text": "* A\nSome text.\nMore text.\n:END:\n\n:LOGBOOK:\nLast.\n",
+    "point": 25,
+    "error": null
+  },
+  {
+    "name": "drawer 0 26-28",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nL\n:END:\nast.\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "drawer 0 26-29",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nLa\n:END:\nst.\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "drawer 0 26-33",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nLast.\n:END:\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "drawer 0 27-28",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nL\n:END:\nast.\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "drawer 0 27-29",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nLa\n:END:\nst.\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "drawer 0 27-33",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nLast.\n:END:\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "drawer 0 28-29",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nLa\n:END:\nst.\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "drawer 0 28-33",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nLast.\n:END:\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "drawer 0 29-33",
+    "text": "* A\nSome text.\nMore text.\n\n:LOGBOOK:\nLast.\n:END:\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "drawer 1@0",
+    "text": ":NOTES:\n\n:END:\nPlain line",
+    "point": 8,
+    "error": null
+  },
+  {
+    "name": "drawer 1@2",
+    "text": "Pl\n:NOTES:\n\n:END:\nain line",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "drawer 1 0-2",
+    "text": ":LOGBOOK:\nPl\n:END:\nain line",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "drawer 2@0",
+    "text": ":NOTES:\n\n:END:\n* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 8,
+    "error": null
+  },
+  {
+    "name": "drawer 2@2",
+    "text": "* \n:NOTES:\n\n:END:\nA\n\n  Indented.\n\n* B\nx\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "drawer 2@4",
+    "text": "* A\n:NOTES:\n\n:END:\n\n  Indented.\n\n* B\nx\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "drawer 2@5",
+    "text": "* A\n\n:NOTES:\n\n:END:\n  Indented.\n\n* B\nx\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "drawer 2@6",
+    "text": "* A\n\n \n:NOTES:\n\n:END:\n Indented.\n\n* B\nx\n",
+    "point": 15,
+    "error": null
+  },
+  {
+    "name": "drawer 2@7",
+    "text": "* A\n\n  \n:NOTES:\n\n:END:\nIndented.\n\n* B\nx\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "drawer 2@17",
+    "text": "* A\n\n  Indented.\n:NOTES:\n\n:END:\n\n* B\nx\n",
+    "point": 25,
+    "error": null
+  },
+  {
+    "name": "drawer 2@18",
+    "text": "* A\n\n  Indented.\n\n:NOTES:\n\n:END:\n* B\nx\n",
+    "point": 26,
+    "error": null
+  },
+  {
+    "name": "drawer 2@19",
+    "text": "* A\n\n  Indented.\n\n*\n:NOTES:\n\n:END:\n B\nx\n",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "drawer 2@20",
+    "text": "* A\n\n  Indented.\n\n* \n:NOTES:\n\n:END:\nB\nx\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "drawer 2@22",
+    "text": "* A\n\n  Indented.\n\n* B\n:NOTES:\n\n:END:\nx\n",
+    "point": 30,
+    "error": null
+  },
+  {
+    "name": "drawer 2@24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n:NOTES:\n\n:END:\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "drawer 2 0-2",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-4",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-5",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-6",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-7",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-17",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-18",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-19",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 0-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-4",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-5",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-6",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-7",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-17",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-18",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-19",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 2-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 0,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 4-5",
+    "text": "* A\n:END:\n\n:LOGBOOK:\n  Indented.\n\n* B\nx\n",
+    "point": 3,
+    "error": null
+  },
+  {
+    "name": "drawer 2 4-6",
+    "text": "* A\n\n:LOGBOOK:\n:END:\n  Indented.\n\n* B\nx\n",
+    "point": 14,
+    "error": null
+  },
+  {
+    "name": "drawer 2 4-7",
+    "text": "* A\n\n:LOGBOOK:\n:END:\n  Indented.\n\n* B\nx\n",
+    "point": 14,
+    "error": null
+  },
+  {
+    "name": "drawer 2 4-17",
+    "text": "* A\n\n:LOGBOOK:\n  Indented.\n:END:\n\n* B\nx\n",
+    "point": 26,
+    "error": null
+  },
+  {
+    "name": "drawer 2 4-18",
+    "text": "* A\n\n:LOGBOOK:\n  Indented.\n:END:\n\n* B\nx\n",
+    "point": 26,
+    "error": null
+  },
+  {
+    "name": "drawer 2 4-19",
+    "text": "* A\n\n:LOGBOOK:\n  Indented.\n\n*\n:END:\n B\nx\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "drawer 2 4-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 4,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 4-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 4,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 4-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 4,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 5-6",
+    "text": "* A\n\n:LOGBOOK:\n:END:\n  Indented.\n\n* B\nx\n",
+    "point": 14,
+    "error": null
+  },
+  {
+    "name": "drawer 2 5-7",
+    "text": "* A\n\n:LOGBOOK:\n:END:\n  Indented.\n\n* B\nx\n",
+    "point": 14,
+    "error": null
+  },
+  {
+    "name": "drawer 2 5-17",
+    "text": "* A\n\n:LOGBOOK:\n  Indented.\n:END:\n\n* B\nx\n",
+    "point": 26,
+    "error": null
+  },
+  {
+    "name": "drawer 2 5-18",
+    "text": "* A\n\n:LOGBOOK:\n  Indented.\n:END:\n\n* B\nx\n",
+    "point": 26,
+    "error": null
+  },
+  {
+    "name": "drawer 2 5-19",
+    "text": "* A\n\n:LOGBOOK:\n  Indented.\n\n*\n:END:\n B\nx\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "drawer 2 5-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 5-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 5-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 6-7",
+    "text": "* A\n\n:LOGBOOK:\n:END:\nIndented.\n\n* B\nx\n",
+    "point": 14,
+    "error": null
+  },
+  {
+    "name": "drawer 2 6-17",
+    "text": "* A\n\n:LOGBOOK:\nIndented.\n:END:\n\n* B\nx\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "drawer 2 6-18",
+    "text": "* A\n\n:LOGBOOK:\nIndented.\n:END:\n\n* B\nx\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "drawer 2 6-19",
+    "text": "* A\n\n:LOGBOOK:\nIndented.\n\n*\n:END:\n B\nx\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "drawer 2 6-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 6-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 6-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 7-17",
+    "text": "* A\n\n:LOGBOOK:\nIndented.\n:END:\n\n* B\nx\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "drawer 2 7-18",
+    "text": "* A\n\n:LOGBOOK:\nIndented.\n:END:\n\n* B\nx\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "drawer 2 7-19",
+    "text": "* A\n\n:LOGBOOK:\nIndented.\n\n*\n:END:\n B\nx\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "drawer 2 7-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 7-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 7-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 5,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 17-18",
+    "text": "* A\n\n  Indented.\n  :END:\n\n:LOGBOOK:\n* B\nx\n",
+    "point": 18,
+    "error": null
+  },
+  {
+    "name": "drawer 2 17-19",
+    "text": "* A\n\n  Indented.\n\n:LOGBOOK:\n*\n:END:\n B\nx\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "drawer 2 17-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 17,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 17-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 17,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 17-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 17,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 18-19",
+    "text": "* A\n\n  Indented.\n\n  :LOGBOOK:\n*\n:END:\n B\nx\n",
+    "point": 31,
+    "error": null
+  },
+  {
+    "name": "drawer 2 18-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 18,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 18-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 18,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 18-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 18,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 19-20",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 18,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 19-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 18,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 19-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 18,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 20-22",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 18,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 20-24",
+    "text": "* A\n\n  Indented.\n\n* B\nx\n",
+    "point": 18,
+    "error": "Drawers cannot contain headlines"
+  },
+  {
+    "name": "drawer 2 22-24",
+    "text": "* A\n\n  Indented.\n\n* B\n:LOGBOOK:\nx\n:END:\n",
+    "point": 33,
+    "error": null
+  },
+  {
+    "name": "drawer 3@0",
+    "text": ":NOTES:\n\n:END:\né text\nand more é\n",
+    "point": 8,
+    "error": null
+  },
+  {
+    "name": "drawer 3@2",
+    "text": "é\n:NOTES:\n\n:END:\n text\nand more é\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "drawer 3@8",
+    "text": "é text\n:NOTES:\n\n:END:\nand more é\n",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "drawer 3@10",
+    "text": "é text\nan\n:NOTES:\n\n:END:\nd more é\n",
+    "point": 19,
+    "error": null
+  },
+  {
+    "name": "drawer 3@20",
+    "text": "é text\nand more é\n:NOTES:\n\n:END:\n",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "drawer 3 0-2",
+    "text": ":LOGBOOK:\né\n:END:\n text\nand more é\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "drawer 3 0-8",
+    "text": ":LOGBOOK:\né text\n:END:\nand more é\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "drawer 3 0-10",
+    "text": ":LOGBOOK:\né text\nan\n:END:\nd more é\n",
+    "point": 20,
+    "error": null
+  },
+  {
+    "name": "drawer 3 0-20",
+    "text": ":LOGBOOK:\né text\nand more é\n:END:\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "drawer 3 2-8",
+    "text": ":LOGBOOK:\né text\n:END:\nand more é\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "drawer 3 2-10",
+    "text": ":LOGBOOK:\né text\nan\n:END:\nd more é\n",
+    "point": 20,
+    "error": null
+  },
+  {
+    "name": "drawer 3 2-20",
+    "text": ":LOGBOOK:\né text\nand more é\n:END:\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "drawer 3 8-10",
+    "text": "é text\n:LOGBOOK:\nan\n:END:\nd more é\n",
+    "point": 20,
+    "error": null
+  },
+  {
+    "name": "drawer 3 8-20",
+    "text": "é text\n:LOGBOOK:\nand more é\n:END:\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "drawer 3 10-20",
+    "text": "é text\n:LOGBOOK:\nand more é\n:END:\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "drawer bad name",
+    "text": "x\n",
+    "point": 1,
+    "error": "Invalid drawer name"
   }
 ]

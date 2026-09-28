@@ -319,6 +319,8 @@ fn prepare_decoration(
     let framed = matches!(
         block.kind,
         BlockKind::Code { .. }
+            | BlockKind::Export { .. }
+            | BlockKind::CommentBlock
             | BlockKind::Verbatim
             | BlockKind::Quote
             | BlockKind::Center
@@ -333,22 +335,14 @@ fn prepare_decoration(
     if !framed || inside || !(begin || end) || ls >= block.content_end {
         return None;
     }
-    let code = matches!(block.kind, BlockKind::Code { .. } | BlockKind::Verbatim);
+    let code = block.kind.is_code();
     let background = code.then_some(theme.code_bg);
     if end {
         let mut p = empty(range, false, base * 0.45);
         p.background = background;
         return Some(p);
     }
-    let label = match &block.kind {
-        BlockKind::Code { language } => language.clone().unwrap_or_else(|| "code".into()),
-        _ => src.trim()[7..]
-            .trim_start_matches(['_', ':'])
-            .split_whitespace()
-            .next()
-            .unwrap_or("")
-            .to_ascii_lowercase(),
-    };
+    let label = block.kind.label(src);
     let fs = base * 0.8;
     let mut run = text_run(
         &kalem_core::view::Style::default(),
@@ -884,10 +878,10 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         runs = color_code(runs, &text, &view, h.line(line), &theme);
     }
     // Source code in a block: syntax colors.
-    let code_line = matches!(
-        block.as_ref().map(|b| &b.kind),
-        Some(BlockKind::Code { .. })
-    ) && view.role == LineRole::Content
+    let code_line = block
+        .as_ref()
+        .is_some_and(|b| b.kind.highlight_language().is_some())
+        && view.role == LineRole::Content
         && mono;
     if code_line
         && let Some(b) = &block
@@ -923,7 +917,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         pieces.push(Piece::Text { text, runs });
     }
     let background = match block.as_ref().map(|b| &b.kind) {
-        Some(BlockKind::Code { .. } | BlockKind::Verbatim) if !editor.source => Some(theme.code_bg),
+        Some(k) if k.is_code() && !editor.source => Some(theme.code_bg),
         _ => None,
     };
     let hang_at = hang_at(&view);

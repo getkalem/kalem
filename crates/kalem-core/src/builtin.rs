@@ -90,6 +90,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("file.open", object(&[("path", "string", false)])),
         ("org.property.delete", object(&[("key", "string", true)])),
         ("org.cite.insert", object(&[("key", "string", false)])),
+        ("org.insert.drawer", object(&[("name", "string", true)])),
         ("org.schedule", {
             // `format: date`: frontends offer a date picker.
             let mut s = object(&[("date", "string", true)]);
@@ -1748,6 +1749,17 @@ fn plain_commands() -> Vec<Command> {
                     arg_str(args, "value")?.to_string(),
                 );
                 ctx.org(|d, p, _| org_edit::property::set_property(d, p, &k, &v, false))
+            },
+        ),
+        cmd(
+            "org.insert.drawer",
+            "Insert Drawer",
+            "Insert",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                let name = arg_str(args, "name")?.trim().to_string();
+                ctx.org(|d, p, m| org_edit::insert::insert_drawer(&text_of(d), p, m, &name))
             },
         ),
         cmd(

@@ -91,6 +91,7 @@ fn run(
             let doc = org_model::Document::new(org_syntax::parse(text));
             schedule(&doc, point, kind, &change, &settings).map(|(t, _)| t)
         }
+        "drawer" => org_edit::insert::insert_drawer(text, point, mark, args[0].as_str().unwrap()),
         "toggle-ordered" => {
             let doc = org_model::Document::new(org_syntax::parse(text));
             org_edit::property::toggle_ordered(&doc, point).map(|(t, _)| t)

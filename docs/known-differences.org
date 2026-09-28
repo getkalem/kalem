@@ -147,6 +147,14 @@ where noted here.
 - Errors that stop a recalculation (an unknown field, a reference outside
   the table) have Kalem's own wording.
 
+* Drawers around indented regions
+
+=org-insert-drawer= around a region indents the region with
+=indent-for-tab-command= while the region is still active. When the
+region starts or ends inside a line's indentation, =org-indent-region=
+re-indents its lines by Org's indentation rules; Kalem wraps the lines
+as they are. Nine region cases in =tests/edit= show it.
+
 * Emacs quirks Kalem reproduces
 
 Some Emacs behaviors look like bugs but change what documents mean, so
