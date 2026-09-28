@@ -187348,5 +187348,6887 @@
   "form": "(org-footnote-delete)",
   "cmd": "fn-delete",
   "args": []
+ },
+ {
+  "name": "plan 0 False@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@0 (org-schedule '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@0 (org-deadline '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@12 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@12 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@12 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@12 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@12 (org-schedule '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@12 (org-deadline '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@17 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@17 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@17 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@17 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@17 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@17 (org-schedule '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 False@17 (org-deadline '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@0 (org-schedule '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@0 (org-deadline '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@12 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@12 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@12 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@12 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@12 (org-schedule '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@12 (org-deadline '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@17 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@17 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@17 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@17 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@17 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@17 (org-schedule '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 0 True@17 (org-deadline '(4))",
+  "text": "* TODO Task\nBody\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@0 (org-schedule '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@0 (org-deadline '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@12 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@12 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@12 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@12 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@12 (org-schedule '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@12 (org-deadline '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@44 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@44 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@44 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@44 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@44 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@44 (org-schedule '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@44 (org-deadline '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@49 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@49 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@49 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@49 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@49 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@49 (org-schedule '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 False@49 (org-deadline '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@0 (org-schedule '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@0 (org-deadline '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@12 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@12 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@12 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@12 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@12 (org-schedule '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@12 (org-deadline '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@44 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@44 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@44 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@44 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@44 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@44 (org-schedule '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@44 (org-deadline '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@49 (org-schedule nil \"2026-10-05\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@49 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@49 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@49 (org-deadline nil \"2026-12-24\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@49 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@49 (org-schedule '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 1 True@49 (org-deadline '(4))",
+  "text": "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+  "point": 49,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@0 (org-schedule '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@0 (org-deadline '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@12 (org-schedule nil \"2026-10-05\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@12 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@12 (org-deadline nil \"2026-12-24\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@12 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@12 (org-schedule '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@12 (org-deadline '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@71 (org-schedule nil \"2026-10-05\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@71 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@71 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@71 (org-deadline nil \"2026-12-24\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@71 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@71 (org-schedule '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 False@71 (org-deadline '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@0 (org-schedule '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@0 (org-deadline '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@12 (org-schedule nil \"2026-10-05\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@12 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@12 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@12 (org-deadline nil \"2026-12-24\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@12 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@12 (org-schedule '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@12 (org-deadline '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@71 (org-schedule nil \"2026-10-05\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@71 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@71 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@71 (org-deadline nil \"2026-12-24\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@71 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@71 (org-schedule '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 2 True@71 (org-deadline '(4))",
+  "text": "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+  "point": 71,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@0 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@0 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@13 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@13 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@13 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@13 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@13 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@13 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@13 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@82 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@82 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@82 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@82 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@82 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@82 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@82 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@97 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@97 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@97 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@97 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@97 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@97 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@97 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@106 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@106 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@106 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@106 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@106 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@106 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@106 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@114 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@114 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@114 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@114 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@114 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@114 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@114 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@119 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@119 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@119 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@119 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@119 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@119 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@119 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@126 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@126 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@126 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@126 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@126 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@126 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 False@126 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@0 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@0 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@13 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@13 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@13 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@13 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@13 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@13 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@13 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@82 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@82 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@82 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@82 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@82 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@82 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@82 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 82,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@97 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@97 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@97 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@97 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@97 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@97 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@97 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 97,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@106 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@106 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@106 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@106 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@106 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@106 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@106 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 106,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@114 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@114 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@114 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@114 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@114 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@114 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@114 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 114,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@119 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@119 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@119 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@119 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@119 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@119 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@119 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 119,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@126 (org-schedule nil \"2026-10-05\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@126 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@126 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@126 (org-deadline nil \"2026-12-24\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@126 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@126 (org-schedule '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 3 True@126 (org-deadline '(4))",
+  "text": "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+  "point": 126,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@0 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@0 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@0 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@0 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@7 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@7 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@7 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@7 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@7 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@7 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@7 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@11 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@11 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@11 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@11 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@11 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@11 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@11 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@16 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@16 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@16 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@16 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@16 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@16 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@16 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@44 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@44 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@44 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@44 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@44 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@44 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@44 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@77 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@77 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@77 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@77 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@77 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@77 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 False@77 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@0 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@0 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@0 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@0 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@7 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@7 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@7 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@7 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@7 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@7 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@7 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 7,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@11 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@11 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@11 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@11 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@11 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@11 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@11 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@16 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@16 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@16 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@16 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@16 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@16 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@16 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 16,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@44 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@44 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@44 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@44 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@44 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@44 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@44 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@77 (org-schedule nil \"2026-10-05\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@77 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@77 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@77 (org-deadline nil \"2026-12-24\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@77 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@77 (org-schedule '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 4 True@77 (org-deadline '(4))",
+  "text": "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+  "point": 77,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 5 False@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 5 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 5 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 5 False@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 5 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 5 False@0 (org-schedule '(4))",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 5 False@0 (org-deadline '(4))",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 5 True@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 5 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 5 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 5 True@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 5 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 5 True@0 (org-schedule '(4))",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 5 True@0 (org-deadline '(4))",
+  "text": "* A",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@0 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@0 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@4 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@4 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@4 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@4 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@4 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@4 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@4 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@17 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@17 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@17 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@17 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@17 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@17 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@17 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@23 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@23 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@23 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@23 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@23 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@23 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@23 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@29 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@29 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@29 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@29 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@29 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@29 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@29 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@56 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@56 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-schedule nil \"2026-10-05 14:30\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@56 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@56 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@56 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-deadline nil \"2026-12-24 09:00\")",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@56 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-schedule '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 False@56 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-deadline '(4))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": false
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@0 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@0 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@0 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@0 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@0 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@0 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@0 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@4 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@4 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@4 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@4 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@4 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@4 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@4 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@17 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@17 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@17 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@17 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@17 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@17 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@17 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@23 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@23 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@23 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@23 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@23 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@23 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@23 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 23,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@29 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@29 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@29 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@29 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@29 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@29 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@29 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@56 (org-schedule nil \"2026-10-05\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@56 (org-schedule nil \"2026-10-05 14:30\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"2026-10-05 14:30\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05 14:30",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@56 (org-schedule nil \"<2026-10-05 Mon +1w>\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule nil \"<2026-10-05 Mon +1w>\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "date": "2026-10-05",
+    "time": false,
+    "repeater": "+1w",
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@56 (org-deadline nil \"2026-12-24\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24",
+    "time": false,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@56 (org-deadline nil \"2026-12-24 09:00\")",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline nil \"2026-12-24 09:00\"))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "date": "2026-12-24 09:00",
+    "time": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@56 (org-schedule '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-schedule '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "scheduled",
+    "remove": true,
+    "adapt": true
+   }
+  ]
+ },
+ {
+  "name": "plan 6 True@56 (org-deadline '(4))",
+  "text": "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((org-adapt-indentation t)) (org-deadline '(4)))",
+  "cmd": "schedule",
+  "args": [
+   {
+    "kind": "deadline",
+    "remove": true,
+    "adapt": true
+   }
+  ]
  }
 ]

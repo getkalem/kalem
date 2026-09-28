@@ -90,6 +90,17 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("file.open", object(&[("path", "string", false)])),
         ("org.property.delete", object(&[("key", "string", true)])),
         ("org.cite.insert", object(&[("key", "string", false)])),
+        ("org.schedule", {
+            // `format: date`: frontends offer a date picker.
+            let mut s = object(&[("date", "string", true)]);
+            s["properties"]["date"]["format"] = Value::from("date");
+            s
+        }),
+        ("org.deadline", {
+            let mut s = object(&[("date", "string", true)]);
+            s["properties"]["date"]["format"] = Value::from("date");
+            s
+        }),
         ("file.import", object(&[("file", "string", true)])),
         ("format.font", object(&[("family", "string", true)])),
         ("format.size", object(&[("size", "string", true)])),
@@ -202,6 +213,57 @@ fn todo(ctx: &mut EditorContext<'_>, arg: org_edit::todo::TodoArg) -> CommandRes
         };
         todo(d, p, &opts).map(|o| o.transaction)
     })
+}
+
+/// A date typed for a planning line, and a repeater or warning at its end
+/// (`2026-10-05 +1w`, `friday .+2d`).
+fn planning_input(input: &str) -> (&str, Option<String>) {
+    let t = input.trim();
+    let is_part = |w: &str| {
+        let body = w.trim_start_matches(['.', '+', '-', '/']);
+        w.len() > body.len()
+            && body.len() > 1
+            && body[..body.len() - 1].bytes().all(|b| b.is_ascii_digit())
+            && matches!(
+                body.as_bytes()[body.len() - 1],
+                b'h' | b'd' | b'w' | b'm' | b'y'
+            )
+    };
+    let words: Vec<&str> = t.split_whitespace().collect();
+    let n = words.iter().rev().take_while(|w| is_part(w)).count().min(2);
+    if n == 0 || n == words.len() {
+        return (t, None);
+    }
+    let at = t.rfind(words[words.len() - n]).unwrap_or(t.len());
+    (t[..at].trim_end(), Some(words[words.len() - n..].join(" ")))
+}
+
+/// `org-schedule` and `org-deadline`.
+fn planning(
+    ctx: &mut EditorContext<'_>,
+    kind: org_edit::todo::Planning,
+    args: &Value,
+    remove: bool,
+) -> CommandResult {
+    use org_edit::todo::{PlanningChange, schedule};
+    let change = if remove {
+        PlanningChange::Remove
+    } else {
+        let input = arg_str(args, "date")?.to_string();
+        let (date, repeater) = planning_input(&input);
+        let (dt, with_time) = crate::dates::parse(date, ctx.clock)
+            .ok_or_else(|| CommandError::new(crate::tr!("msg-not-a-date", input = &input)))?;
+        PlanningChange::Set(dt, with_time, repeater)
+    };
+    let base = ctx.config.todo_settings();
+    let mut message = String::new();
+    ctx.org(|d, p, _| {
+        let (t, m) = schedule(d, p, kind, &change, &base.for_document(d))?;
+        message = m;
+        Ok(t)
+    })?;
+    ctx.messages.push(message);
+    Ok(())
 }
 
 fn priority(ctx: &mut EditorContext<'_>, a: org_edit::todo::PriorityAction) -> CommandResult {
@@ -1689,6 +1751,38 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "org.schedule",
+            "Schedule",
+            "Tasks",
+            &["ctrl+alt+s"],
+            Some(ORG),
+            |ctx, args| planning(ctx, org_edit::todo::Planning::Scheduled, args, false),
+        ),
+        cmd(
+            "org.deadline",
+            "Set Deadline",
+            "Tasks",
+            &[],
+            Some(ORG),
+            |ctx, args| planning(ctx, org_edit::todo::Planning::Deadline, args, false),
+        ),
+        cmd(
+            "org.schedule.remove",
+            "Remove Schedule",
+            "Tasks",
+            &[],
+            Some(ORG),
+            |ctx, args| planning(ctx, org_edit::todo::Planning::Scheduled, args, true),
+        ),
+        cmd(
+            "org.deadline.remove",
+            "Remove Deadline",
+            "Tasks",
+            &[],
+            Some(ORG),
+            |ctx, args| planning(ctx, org_edit::todo::Planning::Deadline, args, true),
+        ),
+        cmd(
             "org.footnote.new",
             "New Footnote",
             "Footnotes",
@@ -2635,6 +2729,21 @@ fn narrow(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn planning_inputs() {
+        assert_eq!(planning_input("2026-10-05"), ("2026-10-05", None));
+        assert_eq!(
+            planning_input("2026-10-05 10:00 +1w"),
+            ("2026-10-05 10:00", Some("+1w".into()))
+        );
+        assert_eq!(
+            planning_input("friday .+2d -3d"),
+            ("friday", Some(".+2d -3d".into()))
+        );
+        assert_eq!(planning_input("+3d"), ("+3d", None));
+    }
     use std::sync::Arc;
     use std::time::Instant;
 

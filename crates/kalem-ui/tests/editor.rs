@@ -1801,3 +1801,27 @@ fn footnotes(cx: &mut TestAppContext) {
     let status = e.read_with(cx, |e, _| e.formula_status.clone());
     assert_eq!(status.as_deref(), Some("Footnote 1: The note."));
 }
+
+#[gpui::test]
+fn scheduling(cx: &mut TestAppContext) {
+    let (e, cx) = open("* TODO Task\nBody\n", cx);
+    at(&e, 3, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "org.schedule",
+            serde_json::json!({"date": "2026-10-05"}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    assert_eq!(
+        text_of(&e, cx),
+        "* TODO Task\nSCHEDULED: <2026-10-05 Mon>\nBody\n"
+    );
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.schedule.remove", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    assert_eq!(text_of(&e, cx), "* TODO Task\nBody\n");
+}

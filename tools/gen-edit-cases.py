@@ -1383,9 +1383,43 @@ def random_footnote_cases(n=90, seed=13):
             c["known"] = KNOWN_FOOTNOTE_BUGS[c["name"]]
     return out
 
+
+PLANNING_DOCS = [
+    "* TODO Task\nBody\n",
+    "* TODO Task\nSCHEDULED: <2026-10-01 Thu +1w>\nBody\n",
+    "* DONE Task\nCLOSED: [2026-09-20 Sun 10:00] SCHEDULED: <2026-09-19 Sat>\n",
+    "* Task :tag:\n  DEADLINE: <2026-10-10 Sat -2d> SCHEDULED: <2026-10-01 Thu .+2d/3d>\n  :PROPERTIES:\n  :ID: 1\n  :END:\nText\n* Next\n",
+    "Before\n* A\n** B\nSCHEDULED: <2026-10-01 Thu>\nText SCHEDULED: <2026-10-02 Fri>\n",
+    "* A",
+    "* A\n:PROPERTIES:\n:X: 1\n:END:\nDEADLINE: <2026-11-01 Sun>\n",
+]
+
+PLANNING_FORMS = [
+    ("(org-schedule nil \"2026-10-05\")", {"kind": "scheduled", "date": "2026-10-05", "time": False}),
+    ("(org-schedule nil \"2026-10-05 14:30\")", {"kind": "scheduled", "date": "2026-10-05 14:30", "time": True}),
+    ("(org-schedule nil \"<2026-10-05 Mon +1w>\")", {"kind": "scheduled", "date": "2026-10-05", "time": False, "repeater": "+1w"}),
+    ("(org-deadline nil \"2026-12-24\")", {"kind": "deadline", "date": "2026-12-24", "time": False}),
+    ("(org-deadline nil \"2026-12-24 09:00\")", {"kind": "deadline", "date": "2026-12-24 09:00", "time": True}),
+    ("(org-schedule '(4))", {"kind": "scheduled", "remove": True}),
+    ("(org-deadline '(4))", {"kind": "deadline", "remove": True}),
+]
+
+
+def planning_cases():
+    """`org-schedule' and `org-deadline': setting and removing."""
+    out = []
+    for d, doc in enumerate(PLANNING_DOCS):
+        for binding in ("", "(org-adapt-indentation t)"):
+            for start, line in byte_offsets_of_lines(doc):
+                for form, args in PLANNING_FORMS:
+                    full = f"(let ({binding}) {form})" if binding else form
+                    a = dict(args, adapt=bool(binding))
+                    out.append({"name": f"plan {d} {bool(binding)}@{start} {form}", "text": doc, "point": start, "mark": None, "form": full, "cmd": "schedule", "args": [a]})
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")

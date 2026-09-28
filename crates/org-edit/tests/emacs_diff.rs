@@ -64,6 +64,33 @@ fn run(
                 _ => action(text, point, &settings),
             }
         }
+        "schedule" => {
+            use org_edit::todo::{Planning, PlanningChange, TodoSettings, schedule};
+            let a = &args[0];
+            let kind = if a["kind"] == "deadline" {
+                Planning::Deadline
+            } else {
+                Planning::Scheduled
+            };
+            let change = if a["remove"].as_bool() == Some(true) {
+                PlanningChange::Remove
+            } else {
+                let d = a["date"].as_str().unwrap();
+                let (date, time) = d.split_once(' ').unwrap_or((d, "00:00"));
+                let dt: jiff::civil::DateTime = format!("{date}T{time}").parse().unwrap();
+                PlanningChange::Set(
+                    dt,
+                    a["time"].as_bool().unwrap_or(false),
+                    a["repeater"].as_str().map(str::to_string),
+                )
+            };
+            let settings = TodoSettings {
+                adapt_indentation: a["adapt"].as_bool().unwrap_or(false),
+                ..TodoSettings::default()
+            };
+            let doc = org_model::Document::new(org_syntax::parse(text));
+            schedule(&doc, point, kind, &change, &settings).map(|(t, _)| t)
+        }
         "toggle-ordered" => {
             let doc = org_model::Document::new(org_syntax::parse(text));
             org_edit::property::toggle_ordered(&doc, point).map(|(t, _)| t)
