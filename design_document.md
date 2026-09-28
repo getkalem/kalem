@@ -494,7 +494,7 @@ crates/
   org-agenda/     Workspace index, agenda queries
   kalem-cli/      Command-line subcommands and batch mode: parse, check, fmt, export, diff-emacs, run
   kalem-core/     Editor state, command registry, keymap, settings, event bus
-  kalem-script/   QuickJS host, API bindings, d.ts generation, plugin loader
+  kalem-script/   WASM host, WIT API and generated bindings, the JS runtime component, plugin loader
   kalem-highlight/ Syntax highlighting shared by Org source blocks and plain text mode (D16)
   kalem-ui/       Graphical frontend (gpui): editor view, outline, panels
   kalem-tui/      Terminal frontend (ratatui + crossterm)
@@ -520,7 +520,7 @@ Dependency rules:
 User input (keyboard, mouse, IME)
         │
         ▼
-kalem-ui / kalem-tui ── command call ──▶ kalem-core: Command Registry ◀── kalem-script (QuickJS)
+kalem-ui / kalem-tui ── command call ──▶ kalem-core: Command Registry ◀── kalem-script (WASM)
         ▲                                          │
         │ render                                   ▼
         │                              org-edit: Transaction { edits: [(Range, String)] }
@@ -541,7 +541,7 @@ kalem-ui / kalem-tui ── command call ──▶ kalem-core: Command Registry 
 |---|---|
 | UI | gpui event loop, rendering, command execution (short-lived) |
 | Parser | Synchronous and incremental, runs on the UI thread. Budget per keystroke is 2 ms; if exceeded, work moves to the background and the old tree is rendered. Large files are parsed in the background on first open. |
-| Script | QuickJS runs on the UI thread with a 100 ms synchronous budget enforced by an interrupt handler. Heavy work goes to worker plugins with their own QuickJS runtime, communicating by messages. |
+| Script | Plugin calls from the UI thread have a 100 ms synchronous budget enforced by fuel metering; parsers, renderers and completers run as instances on other threads. Heavy work goes to worker plugins with their own QuickJS runtime, communicating by messages. |
 | Worker pool | Export, math rendering, indexing, spell checking, image loading |
 | Subprocesses | Babel, pandoc, tectonic/latexmk |
 
@@ -559,7 +559,7 @@ kalem-ui / kalem-tui ── command call ──▶ kalem-core: Command Registry 
 | CSV | csv | CSV mode (2.6.2): records with byte positions |
 | TUI | ratatui, crossterm, ratatui-image | Terminal frontend; images through kitty, iTerm2 or sixel protocols; D14 decided (7.6) |
 | CLI | clap | Subcommands and batch mode |
-| JS | rquickjs | Based on quickjs-ng |
+| Plugins | wasmtime or wasmi (D28, chosen by the spike T3.1.0) | WASM component runtime; a JS engine compiled to WASM runs `init.js` |
 | Regex | regex | |
 | Serialization | serde, toml, serde_json | |
 | Math | RaTeX (ratex-parser, ratex-layout, ratex-svg) | KaTeX-compatible LaTeX math in pure Rust; D4 decided (9.2) |
@@ -1068,19 +1068,21 @@ A document that uses a plugin still opens in Emacs and in Kalem without the plug
 
 Kalem's own optional features are built on the same extension points wherever possible and shipped as **bundled plugins** (for example the kanban view and the word count panel). This keeps the API honest: if a built-in feature needs something, plugins get it too.
 
+**Small core (decided by the owner, 2026-09-28; D29).** The core is five things: Org (parser, model, editing, tables, the export engine), the Markdown and CSV modes, the text engine with the view model, the two frontends, and the infrastructure that runs before any plugin (commands, keymaps, settings, files, projects, search, the plugin loader). Everything else is a plugin on the public contracts (11.10 to 11.12): every other mode (2.7g of the work breakdown), every other completer, every export back-end beyond HTML, the views, the diagram renderers, the language server bridge. The ones everyone expects ship inside the binary as bundled plugins: embedded WASM components (D28), loaded on first use, so the user sees no difference and the API is proven complete. Markdown and CSV are written against the mode contract too and could move out; they stay in for speed, and because they are the second and third format people bring.
+
 ### 11.1 Layers
 
 | Layer | Technology | Purpose | Phase |
 |---|---|---|---|
 | Command registry and events | Rust, `kalem-core` | Foundation for everything | 1 |
-| User script | `init.js`, QuickJS | Shortcuts, small commands, automation | 3 |
-| Plugin package | JS/TS + manifest, QuickJS | Distributable features, including new block types, link types, views, exporters (11.10) | 3 |
-| Bundled plugins | Same as plugin packages, shipped with Kalem | Optional built-in features built on the public API | 3 |
-| Second scripting language | Lua (mlua), same API | For those who prefer it (D10) | 4 |
-| Heavy and polyglot plugins | WASM (extism) | Compute-intensive work | 4 |
-| Out-of-process | JSON-RPC over stdio | Python and other integrations | 4 |
+| User script | `init.js`, run by the built-in JavaScript runtime component (a JS engine compiled to WASM) | Shortcuts, small commands, automation; no toolchain | 3 |
+| Plugin package | A WASM component (D28) with a manifest: Rust as the reference language, TypeScript through the JS runtime component, any language with a WIT binding | Distributable features: modes, completers, block types, link types, views, exporters (11.10 to 11.12) | 3 |
+| Bundled plugins | The same components, embedded in the binary, loaded on first use | Every feature outside the small core (11.0, D29) | 3 |
+| Second scripting language | Lua, as another runtime component on the same WIT API (D10) | For those who prefer it | 4 |
+| Threads | One component instance per thread; several instances of one plugin for parallel work; messages through the host | Parsers, renderers and completers off the UI thread | 3 |
+| Out-of-process | JSON-RPC over stdio; on Linux inside the process sandbox of section 12 when it is available | Language servers, external tools, Python and other integrations | 3 (the language server bridge), 4 |
 
-Scripting languages sit behind a `ScriptHost` trait; the API definition is generated from a single source (D6). Adding Lua is therefore only a binding layer.
+The API is defined once, in WIT (D6); the bindings for Rust, TypeScript and Lua, and the `kalem.d.ts` that editors read, are generated from it. A guest language is a runtime component on that API, never a second API. QuickJS as a native embedding was the earlier plan; D28 replaced it, because a WASM component gives near-native speed for parsers and completers, a capability sandbox with fuel and memory limits, one instance per thread, and one typed definition that a compiler checks, which matters more now that much plugin code is written with AI assistance.
 
 ### 11.2 Command registry
 
@@ -1252,10 +1254,10 @@ Manifest `plugin.json`:
 
 ### 11.6 Security and resource limits
 
-- **Sandbox:** QuickJS's `std` and `os` modules are not loaded. Only the `kalem` and `editor` objects are visible.
+- **Sandbox:** every plugin is a WebAssembly component (D28). It sees only the imports the WIT API grants, no file system, network or clock unless a permission below adds them; its memory is its own linear memory; it never touches the document text, only ranges and edits (11.11).
 - **Permissions** are declared in the manifest, shown to the user on first run and approved. Scopes: `fs:read:workspace`, `fs:write:workspace`, `fs:read:all`, `net:fetch:<domain>`, `subprocess` (separate, explicit warning).
-- **Time limit:** interrupt handler; a synchronous call exceeding 100 ms is cancelled with a warning. Long work uses async APIs and worker plugins.
-- **Memory limit:** per runtime, 64 MB by default.
+- **Time limit:** fuel metering; a synchronous call exceeding its budget (100 ms by default) is cancelled with a warning, and a parse that misses it drops the file to plain text (11.11). Long work uses async APIs and further instances on other threads.
+- **Memory limit:** per instance, 64 MB by default, enforced by the engine.
 - A plugin error never crashes the application; it is shown in the plugin console; a plugin that fails repeatedly is disabled.
 - Code inside documents (Babel) has a separate trust model from plugins (section 12).
 
@@ -1397,6 +1399,7 @@ Rules:
 - **Header arguments:** `:results` (output, value; raw, table, list, verbatim, file, drawer; replace, append, prepend, silent), `:exports` (code, results, both, none), `:var`, `:dir`, `:cache`, `:tangle`, `:file`; `:session` and `:noweb` in phase 4.
 - **Executors:** shell (sh, bash, zsh), python, javascript (node or the in-app QuickJS), R, gnuplot, sqlite, org, simple calc-like arithmetic. Plugins add languages with `kalem.babel.registerLanguage`.
 - **Trust model:** consent on the first "run" request in a document; a "trust this document" decision is bound to the document path and content hash; no code runs automatically on open, not even through `#+STARTUP`.
+- **Process sandbox (asked by the owner, 2026-09-28):** on Linux, when it is installed, source blocks run inside zygo (namespaces, cgroup v2, seccomp and Landlock; a warm interpreter forked per run; network off by default; memory, time and process limits on), `babel.sandbox = "auto" | "zygo" | "none"`; on macOS through the Linux VM zygo manages, if the user has it; elsewhere a plain subprocess with the limits the platform allows. The sandbox is never a hard dependency and consent is asked either way; the status bar says which wall a block ran behind. The same sandbox holds out-of-process plugins on Linux (11.1).
 - **Result insertion:** `#+RESULTS:` placement per Org rules, matching through `#+NAME`, replacement of old results.
 - **Tangling:** writes to files, with a confirmation list for each write.
 - Progress indicator and cancellation for running blocks.
@@ -1625,7 +1628,7 @@ Durations are rough estimates for a single developer. The next phase does not st
 | D3 | UI framework | gpui; Tauri + ProseMirror; iced/floem | gpui, validated by the spike | **Decided:** gpui, with Kalem's own inline layout (7.1, `docs/decisions/D3-ui-framework.md`) |
 | D4 | Math engine | mitex + typst; ReX; RaTeX; KaTeX | After the corpus comparison | **Decided:** RaTeX (9.2, `docs/decisions/D4-math-engine.md`) |
 | D5 | tectonic | Bundle; separate download; system TeX only | Separate download | Open |
-| D6 | API definition source | Rust macros; separate IDL; hand-written d.ts | Single definition in Rust, d.ts and Lua annotations generated | Open |
+| D6 | API definition source | Rust macros; separate IDL; hand-written d.ts | Single definition in Rust, d.ts and Lua annotations generated | **Decided (D28, 2026-09-28):** WIT is the single definition; Rust, TypeScript and Lua bindings and `kalem.d.ts` are generated from it |
 | D7 | Project name | – | – | **Decided:** Kalem; crate `kalem-editor`, binary `kalem`, GitHub `kalem-editor` (section 0) |
 | D8 | Agenda index storage | In memory; SQLite; custom file | In memory, disk cache later | Open |
 | D9 | Configuration formats | TOML + JS; JS only; JSON | TOML + init.js + keymap.json | **Decided:** `settings.toml`, `keymap.json` (comments allowed), `init.js` (14, `docs/decisions/D9-configuration-formats.md`) |
@@ -1647,6 +1650,8 @@ Durations are rough estimates for a single developer. The next phase does not st
 | D25 | Plugin-provided highlighters, renderers and completers | Separate plugin APIs; the contracts built-in modes and completers use | One contract each, shared by built-ins and plugins, with a declarative and a programmatic level, a conformance suite and reference plugins (11.11, 11.12) | **Decided (owner, 2026-09-28)** |
 | D26 | Terminal parity | The terminal as a reduced frontend; the terminal never second class | Principle 7 of 4.1: a feature is done when it works in both frontends, gaps listed in `docs/terminal-parity.org` | **Decided (owner, 2026-09-28)** |
 | D27 | Command scope | Keys for mode, language and file kind; one axis | One axis, the type of the text at the cursor, nesting by the innermost type, `klm` a subtype of `org`; structure stays in `when` (11.2) | **Decided (owner, 2026-09-28)** |
+| D28 | Plugin ABI | QuickJS embedded natively, WASM later; the WebAssembly component model as the ABI with JS as a runtime component | WASM components with a WIT-defined API: Rust as the reference guest, TypeScript through a JS runtime component, Lua later the same way; out-of-process JSON-RPC for language servers and external tools; the engine (wasmtime or wasmi) by the spike T3.1.0 against the lightness target | **Decided (owner, 2026-09-28)**, engine open |
+| D29 | Small core | Everything built in; a small core with bundled plugins | Five things in the core: Org, Markdown and CSV, the text engine and view model, the two frontends, the infrastructure that runs before plugins; everything else a plugin, the expected ones bundled as embedded WASM components (11.0) | **Decided (owner, 2026-09-28)** |
 
 ---
 

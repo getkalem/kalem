@@ -469,9 +469,10 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 
 ### 3.1 kalem-script (§11)
 
-- [ ] T3.1.1 `rquickjs` integration; quickjs-ng version; `std` and `os` modules disabled
-- [ ] T3.1.2 `ScriptHost` trait; QuickJS implementation
-- [ ] T3.1.3 API definition source (D6): single definition in Rust; `kalem.d.ts` generation; extension point for Lua annotations
+- [ ] T3.1.0 WASM runtime spike (D28): wasmtime (Cranelift, and the Pulley interpreter) against wasmi: binary size, cold instantiation, a Markdown parser component on the 10 MB corpus per keystroke, fuel and memory limits, the precompiled module cache, one instance per thread, component model and WIT tooling (wit-bindgen, jco); `docs/decisions/D28-plugin-abi.md`; go or no-go against the lightness target of §15, the full binary under 40 MB
+- [ ] T3.1.1 WASM host in `kalem-script`: the engine of T3.1.0, the component model, the WIT API as the single definition (D6), capability imports only, fuel and memory limits per instance, a precompiled cache in the state directory, lazy instantiation on activation events
+- [ ] T3.1.2 Guest runtimes: the built-in JavaScript runtime component (a JS engine compiled to WASM, measured: QuickJS or StarlingMonkey) that runs `init.js` and script plugins without a toolchain; Lua later as another runtime component (D10)
+- [ ] T3.1.3 API definition source (D6, decided with D28): WIT as the single definition; generated Rust and TypeScript bindings, `kalem.d.ts`, Lua annotations; a consistency test that every extension point of §11.10 to §11.12 is in the WIT
 - [ ] T3.1.4 `kalem` namespace: `command`, `run`, `keymap`, `on` (`scope` required on `kalem.command`, §11.2)
 - [ ] T3.1.5 `kalem.ui`: notify, prompt, confirm, quickPick, statusBar, panel (JSON widget tree rendered by both frontends, D11)
 - [ ] T3.1.6 `kalem.settings`, `kalem.fs` (with permission), `kalem.net` (with permission)
@@ -486,11 +487,11 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.1.9f Extension points: agenda views, capture templates, themes, plugin CLI subcommands
 - [ ] T3.1.9g Extension points: document modes and highlighters (§11.11): `kalem.modes.register` over the contract of T2.7c.10; `kalem.modes.registerHighlighter` loading Sublime syntax definitions from the plugin folder; declarative modes from a syntax definition and a scope-to-kind mapping; the tree crossing the QuickJS boundary as JSON; the budget with the plain text fallback and disabling after repeated failures; `kalem check`, `fmt` and `export` calling the hooks; the conformance suite (byte-exact round trip, incremental equals full parse, snapshots in both frontends, budget) (asked by the owner, 2026-09-28)
 - [ ] T3.1.10 Permission model: manifest declaration, first-run consent, scopes, `plugins.toml` record
-- [ ] T3.1.11 Time limit (interrupt handler, 100 ms) and memory limit (64 MB)
+- [ ] T3.1.11 Time limit (fuel metering, 100 ms synchronous) and memory limit (64 MB per instance); the plain text fallback of §11.11 when a parse misses its budget
 - [ ] T3.1.12 Plugin loader: manifest, activation events, `activate` and `deactivate`, Disposable collection, ES module resolution (plugin folder only)
 - [ ] T3.1.13 Error isolation: plugin console, disabling after repeated failures
 - [ ] T3.1.14 Load `init.js` and `keymap.json`
-- [ ] T3.1.15 Worker plugins (separate runtime, messaging)
+- [ ] T3.1.15 Threads: one component instance per thread, several instances of one plugin for parallel parsers, renderers and completers, messages through the host
 - [ ] T3.1.16 Batch mode `kalem run SCRIPT.js`: headless API, graceful UI degradation
 - [ ] T3.1.17 API contract tests; d.ts consistency test; limit tests
 
@@ -506,7 +507,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 
 - [ ] T3.3.1 Plugin template repository (TypeScript, esbuild, d.ts)
 - [ ] T3.3.2 Example plugins: word count, Pomodoro, a custom export filter, a table function, a custom link type (`jira:`), a mermaid block renderer; the two reference completers of §11.12: a word list (declarative) and the LSP bridge (an out-of-process plugin over JSON-RPC that registers a completer, hover and diagnostics for its languages, installed by the user)
-- [ ] T3.3.2a Bundled plugins built only on the public API: kanban board view, word count panel (§11.0)
+- [ ] T3.3.2a Bundled plugins built only on the public contracts and embedded in the binary as WASM components loaded on first use (§11.0, D29): the kanban board view, the word count panel, and from then on every mode of 2.7g, every completer beyond the built-ins, every export back-end beyond HTML; a test that no bundled plugin uses anything outside the WIT API
 - [ ] T3.3.3 `kalem plugin install <url>` and `kalem plugin list`
 - [ ] T3.3.4 Plugin API documentation (mdBook chapter); a "QuickJS is not a browser" page; the page "Writing a mode" (§11.11)
 - [ ] T3.3.5 Security policy (`SECURITY.md`)
@@ -517,7 +518,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.4.1 Header argument parsing (`:results`, `:exports`, `:var`, `:dir`, `:cache`, `:tangle`, `:file`)
 - [ ] T3.4.2 Executor interface; subprocess management; cancellation; progress
 - [ ] T3.4.3 Languages: shell, python, javascript (node and in-app QuickJS), R, gnuplot, sqlite, org
-- [ ] T3.4.4 Trust model: document consent, trust bound to path and hash, never automatic execution
+- [ ] T3.4.4 Trust model: document consent, trust bound to path and hash, never automatic execution; on Linux the process sandbox of §12 (zygo when installed: a warm fork per run, namespaces, cgroup v2, seccomp, Landlock, network off), `babel.sandbox = "auto" | "zygo" | "none"`, detection with a hint on how to install it, never a hard dependency; the status bar says which wall a block ran behind (asked by the owner, 2026-09-28)
 - [ ] T3.4.5 `#+RESULTS:` insertion rules; `#+NAME` matching; replace/append/prepend
 - [ ] T3.4.6 `#+CALL:` and inline src
 - [ ] T3.4.7 Tangling: confirmation list, file writes; `kalem tangle`
@@ -557,9 +558,9 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 
 ### 4.1 Scripting and plugin layers
 
-- [ ] T4.1.1 Lua as a second scripting language (D10): `mlua`, `ScriptHost` implementation, same API, generated Lua annotations
-- [ ] T4.1.2 WASM plugins (`extism`): heavy, polyglot work
-- [ ] T4.1.3 Out-of-process protocol: JSON-RPC over stdio; example Python plugin
+- [ ] T4.1.1 Lua as a second scripting language (D10): a Lua runtime component on the WIT API, generated Lua annotations, the same conformance tests
+- [-] T4.1.2 WASM plugins through `extism` for heavy work: superseded by D28, WASM is the plugin ABI from phase 3 (T3.1.0, T3.1.1)
+- [ ] T4.1.3 Out-of-process protocol: JSON-RPC over stdio; example Python plugin; on Linux inside the process sandbox of §12 when it is available
 - [ ] T4.1.4 Plugin index (JSON) and in-app browser; API version compatibility
 
 ### 4.2 Org coverage
@@ -612,7 +613,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 | D3 | UI framework | T0.6.8 | **Decided:** gpui |
 | D4 | Math engine | T0.7.4 | **Decided:** RaTeX |
 | D5 | tectonic distribution | T2.3.7 | Open |
-| D6 | API definition source | T3.1.3 | Open |
+| D6 | API definition source | T3.1.3 | **Decided (D28):** WIT |
 | D7 | Project name | T0.1.1 | **Decided:** Kalem / `kalem-editor` |
 | D8 | Agenda index storage | T3.5.2 | Open |
 | D9 | Configuration formats | T1.3.6 | **Decided:** TOML settings, JSON keymap, `init.js` |
@@ -634,6 +635,8 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 | D25 | Highlighters, renderers and completers from plugins on the contracts built-ins use (§11.11, §11.12) | T2.7c.10, T2.7a.8, T3.1.9g, T3.1.9c | **Decided (owner, 2026-09-28)** |
 | D26 | The terminal is never second class (§4.1, principle 7) | TS.13 | **Decided (owner, 2026-09-28)** |
 | D27 | Command scope: one axis, the type of the text at the cursor (§11.2) | T2.7a.9 | **Decided (owner, 2026-09-28)** |
+| D28 | Plugin ABI: WASM components with a WIT API; JS and Lua as runtime components; the engine by the spike | T3.1.0, T3.1.1 | **Decided (owner, 2026-09-28)**, engine open |
+| D29 | Small core: Org, Markdown and CSV, the text engine, the two frontends, the infrastructure before plugins; the rest bundled or community plugins | T3.3.2a | **Decided (owner, 2026-09-28)** |
 
 ---
 
@@ -643,3 +646,4 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [-] Embedded Python as the plugin language. Python is supported through Babel (T3.4.3) and out-of-process plugins (T4.1.3).
 - [~] Tauri + ProseMirror as the primary UI: only if T0.6.8 says no-go. (T0.6.8 said go.)
 - [-] A built-in mode for every text format. A mode exists only where the view differs from the source; formats whose view is their source are language packs (T2.7a.7), and modes beyond Org, Markdown, CSV, plain text and 2.7g come as plugins (T3.3.6). The rules of 2.7g decide (review, 2026-09-28).
+- [-] QuickJS embedded natively as the plugin runtime (`rquickjs`): superseded by D28. A JS engine still runs, as a WASM runtime component on the same API (owner, 2026-09-28).
