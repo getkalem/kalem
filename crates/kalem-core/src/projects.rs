@@ -33,6 +33,7 @@ pub struct ProjectState {
     /// The list.
     pub list: Projects,
     indexes: HashMap<PathBuf, FileIndex>,
+    trees: HashMap<PathBuf, FolderTree>,
 }
 
 impl ProjectState {
@@ -41,6 +42,7 @@ impl ProjectState {
         ProjectState {
             list: Projects::load(file),
             indexes: HashMap::new(),
+            trees: HashMap::new(),
         }
     }
 
@@ -68,6 +70,36 @@ impl ProjectState {
             .entry(root.to_path_buf())
             .or_insert_with(|| FileIndex::new(root, &ignore))
             .files()
+    }
+
+    /// The lines of the folder tree of the project at `root`: its folders
+    /// and files as its file index lists them (ignored files left out),
+    /// open folders' contents below them.
+    pub fn tree_rows(&mut self, root: &Path) -> Vec<TreeRow> {
+        let (files, _) = self.files(root);
+        let tree = self
+            .trees
+            .entry(root.to_path_buf())
+            .or_insert_with(|| FolderTree::new(root));
+        tree.update(&files);
+        tree.rows()
+    }
+
+    /// Opens or closes folder `path` in the tree of the project at `root`.
+    pub fn toggle_tree(&mut self, root: &Path, path: &Path) {
+        self.trees
+            .entry(root.to_path_buf())
+            .or_insert_with(|| FolderTree::new(root))
+            .toggle(path);
+    }
+
+    /// Opens the folders of the tree of the project at `root` down to
+    /// `path`.
+    pub fn reveal_in_tree(&mut self, root: &Path, path: &Path) {
+        self.trees
+            .entry(root.to_path_buf())
+            .or_insert_with(|| FolderTree::new(root))
+            .reveal(path);
     }
 
     /// Walks the project at `root` again.
@@ -160,6 +192,136 @@ pub struct OpenFile {
     pub title: String,
     /// It has unsaved changes.
     pub modified: bool,
+}
+
+/// A line of a project's folder tree.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreeRow {
+    /// The file or folder.
+    pub path: PathBuf,
+    /// Its name.
+    pub name: String,
+    /// How deep it is: 0 for the project's own entries.
+    pub depth: usize,
+    /// A folder.
+    pub dir: bool,
+    /// An open folder.
+    pub open: bool,
+}
+
+/// A project's folders and files as a tree whose folders open and close,
+/// built from the project's file index.
+#[derive(Debug, Clone, Default)]
+pub struct FolderTree {
+    root: PathBuf,
+    /// Open folders, relative to the root.
+    open: std::collections::BTreeSet<PathBuf>,
+    /// Each folder's folders and files, sorted, by relative path.
+    children: HashMap<PathBuf, (Vec<String>, Vec<String>)>,
+    /// The file list the children come from.
+    source: Option<Arc<Vec<PathBuf>>>,
+}
+
+impl FolderTree {
+    /// The tree of the project at `root`, all folders closed.
+    pub fn new(root: &Path) -> FolderTree {
+        FolderTree {
+            root: root.to_path_buf(),
+            ..FolderTree::default()
+        }
+    }
+
+    /// Takes the project's files (relative paths) when they changed.
+    pub fn update(&mut self, files: &Arc<Vec<PathBuf>>) {
+        if self.source.as_ref().is_some_and(|s| Arc::ptr_eq(s, files)) {
+            return;
+        }
+        let mut children: HashMap<PathBuf, (Vec<String>, Vec<String>)> = HashMap::new();
+        for f in files.iter() {
+            let rel = f.strip_prefix(&self.root).unwrap_or(f);
+            let mut parent = PathBuf::new();
+            let parts: Vec<String> = rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                .collect();
+            for (i, name) in parts.iter().enumerate() {
+                let entry = children.entry(parent.clone()).or_default();
+                let list = if i + 1 == parts.len() {
+                    &mut entry.1
+                } else {
+                    &mut entry.0
+                };
+                if !list.contains(name) {
+                    list.push(name.clone());
+                }
+                parent.push(name);
+            }
+        }
+        for (dirs, files) in children.values_mut() {
+            dirs.sort_by(|a, b| kalem_fs::natural(a, b));
+            files.sort_by(|a, b| kalem_fs::natural(a, b));
+        }
+        self.children = children;
+        self.source = Some(files.clone());
+    }
+
+    /// The visible lines: folders first, then files, open folders'
+    /// contents under them.
+    pub fn rows(&self) -> Vec<TreeRow> {
+        let mut out = Vec::new();
+        self.push_rows(Path::new(""), 0, &mut out);
+        out
+    }
+
+    fn push_rows(&self, rel: &Path, depth: usize, out: &mut Vec<TreeRow>) {
+        let Some((dirs, files)) = self.children.get(rel) else {
+            return;
+        };
+        for d in dirs {
+            let r = rel.join(d);
+            let open = self.open.contains(&r);
+            out.push(TreeRow {
+                path: self.root.join(&r),
+                name: d.clone(),
+                depth,
+                dir: true,
+                open,
+            });
+            if open {
+                self.push_rows(&r, depth + 1, out);
+            }
+        }
+        for f in files {
+            out.push(TreeRow {
+                path: self.root.join(rel).join(f),
+                name: f.clone(),
+                depth,
+                dir: false,
+                open: false,
+            });
+        }
+    }
+
+    /// Opens folder `path` if it is closed, closes it if it is open.
+    pub fn toggle(&mut self, path: &Path) {
+        let rel = path.strip_prefix(&self.root).unwrap_or(path).to_path_buf();
+        if !self.open.remove(&rel) {
+            self.open.insert(rel);
+        }
+    }
+
+    /// Opens the folders down to `path`.
+    pub fn reveal(&mut self, path: &Path) {
+        let Ok(rel) = path.strip_prefix(&self.root) else {
+            return;
+        };
+        let mut p = PathBuf::new();
+        let parts: Vec<_> = rel.components().collect();
+        for c in parts.iter().take(parts.len().saturating_sub(1)) {
+            p.push(c);
+            self.open.insert(p.clone());
+        }
+    }
 }
 
 /// A line of the list of open files.
@@ -614,6 +776,63 @@ pub fn matches<'a>(picker: &'a Picker, input: &str) -> Vec<&'a PaletteItem> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn folder_tree() {
+        let root = Path::new("/p");
+        let files: Arc<Vec<PathBuf>> = Arc::new(
+            [
+                "b.org",
+                "a10.txt",
+                "a2.txt",
+                "src/main.rs",
+                "src/util/x.rs",
+                "doc/manual.org",
+            ]
+            .iter()
+            .map(PathBuf::from)
+            .collect(),
+        );
+        let mut t = FolderTree::new(root);
+        t.update(&files);
+        let names = |t: &FolderTree| {
+            t.rows()
+                .iter()
+                .map(|r| {
+                    format!(
+                        "{}{}{}",
+                        "  ".repeat(r.depth),
+                        r.name,
+                        if r.dir { "/" } else { "" }
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names(&t), ["doc/", "src/", "a2.txt", "a10.txt", "b.org"]);
+        t.toggle(&root.join("src"));
+        assert_eq!(
+            names(&t),
+            [
+                "doc/",
+                "src/",
+                "  util/",
+                "  main.rs",
+                "a2.txt",
+                "a10.txt",
+                "b.org"
+            ]
+        );
+        assert!(t.rows()[1].open && t.rows()[2].path == root.join("src/util"));
+        t.toggle(&root.join("src"));
+        assert_eq!(names(&t).len(), 5);
+        t.reveal(&root.join("src/util/x.rs"));
+        assert!(
+            names(&t).contains(&"    x.rs".to_string()),
+            "{:?}",
+            names(&t)
+        );
+    }
+
     use super::*;
 
     #[test]

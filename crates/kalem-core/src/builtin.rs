@@ -727,6 +727,31 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| request(ctx, Request::OpenFiles),
         ),
         cmd(
+            "view.toggleFolderTree",
+            "Toggle Folder Tree",
+            "View",
+            &[],
+            None,
+            |ctx, _| {
+                let v = !ctx.config.bool("ui.folder_tree");
+                request(
+                    ctx,
+                    Request::SetSetting {
+                        key: "ui.folder_tree".into(),
+                        value: v.into(),
+                    },
+                )
+            },
+        ),
+        cmd(
+            "view.revealInTree",
+            "Reveal in Folder Tree",
+            "View",
+            &[],
+            Some("inProject"),
+            |ctx, _| request(ctx, Request::Project(ProjectRequest::RevealInTree)),
+        ),
+        cmd(
             "project.switch",
             "Switch Project",
             "Project",

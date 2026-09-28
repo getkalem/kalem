@@ -253,10 +253,23 @@ pub fn selected_style(caps: &Caps, base: Style) -> Style {
 /// commands it offers are.
 pub type FileSpots = (Vec<(Rect, usize)>, Vec<(Rect, &'static str)>);
 
+/// The folder tree the list of open files shows: its lines, the active
+/// document's file, and where each line is drawn (its row and index).
+#[derive(Debug)]
+pub struct FolderView<'a> {
+    /// The lines.
+    pub rows: &'a [kalem_core::projects::TreeRow],
+    /// The active document's file.
+    pub current: Option<&'a std::path::Path>,
+    /// Filled with where each drawn line is.
+    pub spots: std::cell::RefCell<Vec<(Rect, usize)>>,
+}
+
 /// The list of open files: in a column on the left (`top` false) or on
 /// one line at the top, with the file manager and the projects. Returns
 /// where each document is (its row, or its columns at the top, and its
 /// index) and where the two commands are.
+#[allow(clippy::too_many_arguments)]
 pub fn draw_files(
     buf: &mut Buffer,
     area: Rect,
@@ -264,6 +277,7 @@ pub fn draw_files(
     files: &[OpenFile],
     active: usize,
     top: bool,
+    tree: &FolderView<'_>,
     caps: &Caps,
 ) -> FileSpots {
     let bg = panel_style(caps);
@@ -375,6 +389,60 @@ pub fn draw_files(
             }
         }
         y += 1;
+    }
+    // The project's folder tree, below the files, above the actions.
+    let bottom = area.bottom().saturating_sub(ACTIONS.len() as u16 + 1);
+    if !tree.rows.is_empty() && y + 2 < bottom {
+        y += 1;
+        buf.set_stringn(
+            area.x + 1,
+            y,
+            kalem_core::l10n::tr("folder-tree"),
+            w as usize,
+            bg.add_modifier(Modifier::DIM),
+        );
+        y += 1;
+        let room = (bottom - y) as usize;
+        let current = tree
+            .rows
+            .iter()
+            .position(|r| Some(r.path.as_path()) == tree.current);
+        // The current file stays in view.
+        let first = current.map_or(0, |c| (c + 1).saturating_sub(room));
+        let (closed, open) = if caps.ascii {
+            (">", "v")
+        } else {
+            ("▸", "▾")
+        };
+        for (i, r) in tree.rows.iter().enumerate().skip(first).take(room) {
+            let indent = 1 + 2 * r.depth as u16;
+            let style = if Some(i) == current {
+                selected_style(caps, bg)
+            } else if r.dir {
+                accent_style(caps, bg)
+            } else {
+                bg
+            };
+            for x in area.x..area.x + w {
+                buf[(x, y)].set_style(style);
+            }
+            let glyph = match (r.dir, r.open) {
+                (true, true) => open,
+                (true, false) => closed,
+                _ => " ",
+            };
+            buf.set_stringn(
+                area.x + indent.min(w),
+                y,
+                format!("{glyph} {}", r.name),
+                w.saturating_sub(indent) as usize,
+                style,
+            );
+            tree.spots
+                .borrow_mut()
+                .push((Rect::new(area.x, y, w, 1), i));
+            y += 1;
+        }
     }
     // The file manager and the projects, at the bottom.
     let mut actions = Vec::new();

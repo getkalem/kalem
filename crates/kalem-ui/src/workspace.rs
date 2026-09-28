@@ -643,6 +643,77 @@ impl Workspace {
         });
     }
 
+    /// The folder tree of the active document's project, added to the
+    /// sidebar `list`: a click opens or closes a folder, or opens a file.
+    fn folder_tree(
+        &self,
+        mut list: gpui::Stateful<gpui::Div>,
+        theme: &Theme,
+        cx: &mut Context<'_, Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let current = self.editor.read(cx).doc.meta.path.clone();
+        let root = {
+            let projects = self.shared.projects.borrow();
+            projects
+                .containing(current.as_deref())
+                .map(|p| p.root.clone())
+        };
+        let Some(root) = root else { return list };
+        let rows = self.shared.projects.borrow_mut().tree_rows(&root);
+        if rows.is_empty() {
+            return list;
+        }
+        list = list.child(
+            div()
+                .px(px(10.))
+                .pt(px(12.))
+                .pb(px(4.))
+                .text_color(theme.muted)
+                .child(kalem_core::l10n::tr("folder-tree")),
+        );
+        for (i, r) in rows.into_iter().enumerate() {
+            let glyph = match (r.dir, r.open) {
+                (true, true) => "▾ ",
+                (true, false) => "▸ ",
+                _ => "  ",
+            };
+            let path = r.path.clone();
+            let tree_root = root.clone();
+            let mut row = div()
+                .id(("tree", i))
+                .debug_selector(move || format!("tree-{i}"))
+                .pl(px(10. + 14. * r.depth as f32))
+                .pr(px(6.))
+                .mx(px(4.))
+                .py(px(1.))
+                .rounded(px(4.))
+                .cursor_pointer()
+                .overflow_hidden()
+                .whitespace_nowrap()
+                .hover(|s| s.bg(gpui::hsla(0., 0., 0.5, 0.12)))
+                .child(format!("{glyph}{}", r.name))
+                .on_click(cx.listener(move |ws, _, window, cx| {
+                    if r.dir {
+                        ws.shared
+                            .projects
+                            .borrow_mut()
+                            .toggle_tree(&tree_root, &path);
+                        cx.notify();
+                    } else {
+                        ws.open(&path, None, window, cx);
+                    }
+                }));
+            if r.dir {
+                row = row.text_color(theme.link);
+            }
+            if current.as_deref() == Some(r.path.as_path()) {
+                row = row.bg(theme.selection);
+            }
+            list = list.child(row);
+        }
+        list
+    }
+
     /// The list of open files: projects with their files, then the files
     /// outside every project.
     fn files_view(&self, theme: &Theme, top: bool, cx: &mut Context<'_, Self>) -> gpui::AnyElement {
@@ -763,6 +834,10 @@ impl Workspace {
                     list = list.child(row);
                 }
             }
+        }
+        // The current project's folders and files.
+        if !top && self.shared.config.bool("ui.folder_tree") {
+            list = self.folder_tree(list, theme, cx);
         }
         // The file manager and the projects, at the end of the list.
         if !top {
