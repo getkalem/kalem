@@ -1722,3 +1722,65 @@ fn citations(cx: &mut TestAppContext) {
         Some("@knuth84: Donald E. Knuth (1984). The \\TeXbook.")
     );
 }
+
+#[gpui::test]
+fn pictures(cx: &mut TestAppContext) {
+    let text =
+        "Before.\n[[file:pic.png]]\n#+ATTR_ORG: :width 50%\n[[file:pic.png]]\n[[file:none.png]]\n";
+    let (e, cx) = open(text, cx);
+    let dir = e.read_with(cx, |e, _| {
+        e.doc
+            .meta
+            .path
+            .clone()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    });
+    image::RgbaImage::from_pixel(80, 40, image::Rgba([200, 0, 0, 255]))
+        .save(dir.join("pic.png"))
+        .unwrap();
+    at(&e, 0, cx);
+    e.update(cx, |e, cx| {
+        e.painted.borrow_mut().clear();
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let widget = |line: usize, e: &Entity<Editor>, cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let p = e.painted.borrow();
+            let p = p.get(&line)?;
+            p.widgets.first().map(|w| (w.0.size, p.bounds.size.width))
+        })
+    };
+    // The picture at its size.
+    let (sz, _) = widget(1, &e, cx).expect("a picture on line 2");
+    assert_eq!((sz.width, sz.height), (gpui::px(80.), gpui::px(40.)));
+    // Half the text width, its shape kept.
+    let (sz, line) = widget(3, &e, cx).expect("a picture on line 4");
+    assert!(
+        (sz.width - line * 0.5).abs() < gpui::px(1.),
+        "{sz:?} of {line:?}"
+    );
+    assert!((sz.height - sz.width * 0.5).abs() < gpui::px(1.));
+    // A missing file stays a name.
+    let (sz, _) = widget(4, &e, cx).expect("a name on line 5");
+    assert!(sz.height < gpui::px(40.));
+    // A dropped picture from elsewhere is copied beside the document and
+    // linked where it falls.
+    let other = std::env::temp_dir().join(format!("kalem-ui-drop-{}", std::process::id()));
+    std::fs::create_dir_all(&other).unwrap();
+    let dropped = other.join("dropped.png");
+    std::fs::copy(dir.join("pic.png"), &dropped).unwrap();
+    at(&e, 7, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.drop_paths(std::slice::from_ref(&dropped), window, cx)
+    });
+    assert!(
+        text_of(&e, cx).contains("[[file:t_assets/dropped.png]]"),
+        "{}",
+        text_of(&e, cx)
+    );
+    assert!(dir.join("t_assets/dropped.png").is_file());
+}

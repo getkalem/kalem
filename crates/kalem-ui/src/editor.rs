@@ -78,6 +78,8 @@ pub struct Shared {
     pub settings_path: Option<std::path::PathBuf>,
     /// Rendered formulas.
     pub math: crate::math::Formulas,
+    /// Pictures of image links.
+    pub pictures: crate::pictures::Pictures,
     /// The project list and the files of the projects in use.
     pub projects: RefCell<kalem_core::projects::ProjectState>,
     /// File operations running in the background (the file manager).
@@ -872,8 +874,40 @@ impl Editor {
                 }
             }
             Request::Paste { plain } => {
-                let text = cx
-                    .read_from_clipboard()
+                let item = cx.read_from_clipboard();
+                // A picture without text (a screenshot), or copied picture
+                // files: kept beside the document and linked.
+                if !plain && let Some(item) = &item {
+                    let has_text = item
+                        .entries()
+                        .iter()
+                        .any(|e| matches!(e, gpui::ClipboardEntry::String(_)));
+                    for e in item.entries() {
+                        let done = match e {
+                            gpui::ClipboardEntry::Image(img) if !has_text => {
+                                Some(self.doc.paste_picture(
+                                    &img.bytes,
+                                    img.format.extension(),
+                                    Instant::now(),
+                                ))
+                            }
+                            gpui::ClipboardEntry::ExternalPaths(p)
+                                if p.paths().iter().all(|f| kalem_core::images::is_image(f)) =>
+                            {
+                                Some(self.doc.drop_pictures(p.paths(), Instant::now()))
+                            }
+                            _ => None,
+                        };
+                        if let Some(r) = done {
+                            if let Err(e) = r {
+                                self.message(e, true);
+                            }
+                            self.after_change(cx);
+                            return;
+                        }
+                    }
+                }
+                let text = item
                     .and_then(|i| i.text())
                     .unwrap_or_else(|| self.clipboard.text.clone());
                 let html = if plain {
@@ -2026,6 +2060,50 @@ impl Editor {
         }
     }
 
+    /// Files dropped on the editor: pictures are linked where they fall
+    /// (copied beside the document when they are elsewhere), other files
+    /// open.
+    pub fn drop_paths(
+        &mut self,
+        paths: &[std::path::PathBuf],
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        let pictures = self.doc.meta.mode == kalem_core::mode::DocumentMode::Org
+            && !paths.is_empty()
+            && paths.iter().all(|f| kalem_core::images::is_image(f));
+        if !pictures {
+            for p in paths {
+                cx.emit(DocEvent::Open {
+                    path: p.clone(),
+                    at: None,
+                });
+            }
+            return;
+        }
+        if let Some(Hit { pos, .. }) = self.hit(window.mouse_position()) {
+            self.doc.move_cursor(pos, false);
+        }
+        if let Err(e) = self.doc.drop_pictures(paths, Instant::now()) {
+            self.message(e, true);
+        }
+        self.after_change(cx);
+    }
+
+    /// The picture an image link's `path` names, relative to the
+    /// document's folder.
+    pub fn picture(&self, path: &str) -> Option<crate::pictures::Picture> {
+        let base = self
+            .doc
+            .meta
+            .path
+            .as_deref()
+            .and_then(std::path::Path::parent);
+        self.shared
+            .pictures
+            .get(&kalem_core::images::resolve(path, base))
+    }
+
     /// Dragging extends the selection.
     pub fn mouse_move(
         &mut self,
@@ -2667,7 +2745,7 @@ fn a11y_line(view: &LineView) -> (String, Vec<(usize, usize, bool)>) {
                 view::CheckState::Unchecked => '☐',
             }),
             Some(Widget::Math { source, .. }) => text.push_str(&kalem_core::math::unicode(source)),
-            Some(Widget::Image { path }) => text.push_str(&format!("image {path}")),
+            Some(Widget::Image { path, .. }) => text.push_str(&format!("image {path}")),
             None => text.push_str(&r.text),
         }
         d += r.text.len();
@@ -2930,6 +3008,11 @@ impl gpui::Render for Editor {
                 this.last_command = Some(a.id.to_string());
             }))
             .on_mouse_move(cx.listener(Self::mouse_move))
+            .on_drop(
+                cx.listener(|this, paths: &gpui::ExternalPaths, window, cx| {
+                    this.drop_paths(paths.paths(), window, cx);
+                }),
+            )
             .size_full()
             .relative()
             .flex()

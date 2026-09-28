@@ -225,6 +225,7 @@ msg-no-match-for = No match for { $target }
 msg-no-link = No link here
 msg-no-property = No { $key } property here
 msg-no-bibliography = No bibliography: add #+BIBLIOGRAPHY: with a .bib or .json file
+msg-picture-needs-file = Save the document first: pictures go into a folder beside it
 msg-ordered-on = Subtasks must be completed in sequence
 msg-ordered-off = Subtasks can be completed in any order
 msg-opened = Opened { $target }

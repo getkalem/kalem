@@ -1828,3 +1828,30 @@ fn citations_without_a_bibliography() {
         status(&mut t)
     );
 }
+
+#[test]
+fn dropped_pictures() {
+    // A terminal pastes the path of a file dropped on it: a picture is
+    // copied beside the document and linked.
+    let mut t = open("Text.\n");
+    let other = std::env::temp_dir().join(format!("kalem-tui-drop-{}", std::process::id()));
+    std::fs::create_dir_all(&other).unwrap();
+    let pic = other.join("my pic.png");
+    std::fs::write(&pic, b"not really a png").unwrap();
+    t.at(5);
+    t.app.event(Event::Paste(format!("'{}'", pic.display())));
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "Text.[[file:t_assets/my pic.png]]\n"
+    );
+    assert!(
+        t.dir
+            .as_ref()
+            .unwrap()
+            .join("t_assets/my pic.png")
+            .is_file()
+    );
+    // Other text pastes as it is.
+    t.app.event(Event::Paste("/no/such/file.png".into()));
+    assert!(t.app.doc.text().as_str().contains("/no/such/file.png"));
+}

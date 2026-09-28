@@ -89,9 +89,92 @@ pub enum Widget {
     },
     /// An image link without a description.
     Image {
-        /// The file, as written in the link.
+        /// The file, as written in the link; an `attachment:` link's file
+        /// in its heading's attachment folder.
         path: String,
+        /// The width `#+ATTR_ORG: :width` asks for.
+        width: Option<ImageWidth>,
     },
+}
+
+/// The width of an image, from `#+ATTR_ORG: :width` (`300`, `300px`,
+/// `50%` or `0.5`), as `org-display-inline-images` reads it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageWidth {
+    /// Pixels.
+    Pixels(u32),
+    /// A share of the text width, in percent.
+    Percent(u32),
+}
+
+impl ImageWidth {
+    /// Reads a `:width` value.
+    pub fn parse(v: &str) -> Option<ImageWidth> {
+        let v = v.trim();
+        if let Some(p) = v.strip_suffix('%') {
+            let p: f64 = p.trim().parse().ok()?;
+            return (p > 0.0).then(|| ImageWidth::Percent(p.round().min(1000.0) as u32));
+        }
+        let n = v.strip_suffix("px").unwrap_or(v).trim();
+        if let Ok(px) = n.parse::<u32>() {
+            return (px > 0).then_some(ImageWidth::Pixels(px));
+        }
+        let f: f64 = n.parse().ok()?;
+        (f > 0.0 && f <= 10.0).then(|| ImageWidth::Percent((f * 100.0).round() as u32))
+    }
+
+    /// The width in pixels for a text `available` pixels wide.
+    pub fn resolve(self, available: f32) -> f32 {
+        match self {
+            ImageWidth::Pixels(p) => p as f32,
+            ImageWidth::Percent(p) => available * p as f32 / 100.0,
+        }
+    }
+}
+
+/// The `:width` of the `#+ATTR_ORG:` lines of the element holding `n`.
+fn attr_org_width(n: &SyntaxNode) -> Option<ImageWidth> {
+    let element = n.ancestors().find(|a| a.kind().is_element())?;
+    ast::affiliated_keywords(&element)
+        .filter(|k| k.key().eq_ignore_ascii_case("ATTR_ORG"))
+        .find_map(|k| {
+            let v = k.value();
+            let mut words = v.split_whitespace();
+            while let Some(w) = words.next() {
+                if w.eq_ignore_ascii_case(":width") {
+                    return words.next().and_then(ImageWidth::parse);
+                }
+            }
+            None
+        })
+}
+
+/// Where `org-attach` keeps the attachments of the heading holding `n`:
+/// its `DIR` property, else `data/` and its `ID` split after two
+/// characters (`org-attach-id-uuid-folder-format`), relative to the
+/// document's folder.
+pub fn attachment_dir(n: &SyntaxNode) -> Option<String> {
+    for h in n
+        .ancestors()
+        .filter_map(<ast::Headline as ast::AstNode>::cast)
+    {
+        let props = h.properties();
+        let get = |k: &str| {
+            props
+                .iter()
+                .find(|(key, _)| key.eq_ignore_ascii_case(k))
+                .map(|(_, v)| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+        };
+        if let Some(d) = get("DIR").or_else(|| get("ATTACH_DIR")) {
+            return Some(d);
+        }
+        if let Some(id) = get("ID") {
+            let split = id.char_indices().nth(2).map_or(id.len(), |(i, _)| i);
+            return Some(format!("data/{}/{}", &id[..split], &id[split..]));
+        }
+    }
+    None
 }
 
 /// The display text of a widget (the object replacement character).
@@ -341,8 +424,20 @@ fn widget_of(n: &SyntaxNode, ctx: &ParseContext) -> Option<Widget> {
                 return None;
             }
             let info = link.info(ctx);
-            (matches!(info.link_type.as_str(), "file" | "attachment") && is_image(&info.path))
-                .then_some(Widget::Image { path: info.path })
+            if !(matches!(info.link_type.as_str(), "file" | "attachment") && is_image(&info.path)) {
+                return None;
+            }
+            let path = match info.link_type.as_str() {
+                "attachment" => match attachment_dir(n) {
+                    Some(d) => format!("{}/{}", d.trim_end_matches('/'), info.path),
+                    None => info.path,
+                },
+                _ => info.path,
+            };
+            Some(Widget::Image {
+                path,
+                width: attr_org_width(n),
+            })
         }
         _ => None,
     }
@@ -1487,6 +1582,42 @@ impl Folds {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn image_widths_and_attachments() {
+        assert_eq!(ImageWidth::parse("300"), Some(ImageWidth::Pixels(300)));
+        assert_eq!(ImageWidth::parse("300px"), Some(ImageWidth::Pixels(300)));
+        assert_eq!(ImageWidth::parse("50%"), Some(ImageWidth::Percent(50)));
+        assert_eq!(ImageWidth::parse("0.25"), Some(ImageWidth::Percent(25)));
+        assert_eq!(ImageWidth::parse("wide"), None);
+        assert_eq!(ImageWidth::Percent(50).resolve(800.), 400.);
+        let t = "* A\n:PROPERTIES:\n:ID: abcdef-12\n:END:\n#+ATTR_ORG: :width 50%\n[[attachment:pic.png]]\n* B\n:PROPERTIES:\n:DIR: ~/pics/\n:END:\n#+attr_org: :align center :width 120px\n[[attachment:b.jpg]] and [[file:c.png]]\n";
+        let p = org_syntax::parse(t);
+        let widgets = |line: usize| -> Vec<Widget> {
+            let v = line_view(&p.syntax(), p.context(), lines(t)[line].clone(), None);
+            v.runs.iter().filter_map(|r| r.widget.clone()).collect()
+        };
+        assert_eq!(
+            widgets(5),
+            [Widget::Image {
+                path: "data/ab/cdef-12/pic.png".into(),
+                width: Some(ImageWidth::Percent(50)),
+            }]
+        );
+        assert_eq!(
+            widgets(11),
+            [
+                Widget::Image {
+                    path: "~/pics/b.jpg".into(),
+                    width: Some(ImageWidth::Pixels(120)),
+                },
+                Widget::Image {
+                    path: "c.png".into(),
+                    width: Some(ImageWidth::Pixels(120)),
+                }
+            ]
+        );
+    }
     use super::*;
 
     fn lines(text: &str) -> Vec<Range<usize>> {
@@ -1542,7 +1673,8 @@ mod tests {
             widgets,
             [
                 &Widget::Image {
-                    path: "a.png".into()
+                    path: "a.png".into(),
+                    width: None,
                 },
                 &Widget::Math {
                     source: "$E=mc^2$".into(),

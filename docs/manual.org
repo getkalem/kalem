@@ -191,6 +191,24 @@ Ctrl+K inserts a link. Typing =[[= offers the document's headings and
 targets. Ctrl-click (Cmd-click on macOS) opens a link: web links in the
 browser, file links in Kalem or their application, internal links jump.
 
+** Pictures
+
+A link to a picture without a description, such as =[[file:cat.png]]=,
+shows the picture in its place (PNG, JPEG, GIF, WebP, BMP, TIFF and
+SVG), no wider than the text; with the cursor on it you see the link.
+=#+ATTR_ORG: :width 300= (pixels) or =:width 50%= above the paragraph sets
+its width. =[[attachment:plan.png]]= finds the file in its heading's
+attachment folder as =org-attach= keeps it: the =DIR= property, else
+=data/= and the heading's =ID=.
+
+A picture pasted from the clipboard (a screenshot), or picture files
+pasted or dropped on a saved document, are copied into a folder beside
+it, =NAME_assets= for =NAME.org=, and linked where the cursor or the
+mouse is; pictures already in the document's folder are linked where
+they are. The terminal editor draws pictures that are alone on their
+line where the terminal draws images, and a file dropped on the terminal
+is linked the same way.
+
 ** Tasks, dates and tags
 
 Ctrl+Enter cycles a heading through its TODO states (=TODO=, =DONE=, or

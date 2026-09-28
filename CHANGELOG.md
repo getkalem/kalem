@@ -118,6 +118,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - CSL citation styles (`#+CITE_EXPORT: csl apa`), rendered with hayagriva: the styles Kalem ships or a `.csl` file, locators from reference suffixes, note styles as footnotes, and bibliographies in HTML, LaTeX and text as Org's `csl` processor writes them.
 - `#+CITE_EXPORT: biblatex` and `natbib`: citation commands, `\printbibliography` with its options, `\bibliography`, and the package and resources in the preamble, identical to Emacs; PDF export runs `biber` or `bibtex` when it compiles without `latexmk`.
 - Insert Citation: a picker over the document's bibliography (searched by key, author and title) that writes `[cite:@key]` or extends the citation at the cursor; the entry cited under the cursor in the status bar of both editors, and under the mouse in a tooltip of the graphical editor.
+- Pictures in the graphical editor: image links draw their picture (PNG, JPEG, GIF, WebP, BMP, TIFF, SVG) fitted to the text, at the width `#+ATTR_ORG: :width` asks for (pixels or a share); `attachment:` links find `org-attach` folders in both editors; pictures pasted or dropped are copied into `NAME_assets/` and linked.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed
