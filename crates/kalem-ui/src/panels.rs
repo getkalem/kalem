@@ -273,7 +273,9 @@ impl Editor {
         ty: String,
         cx: &mut Context<'_, Self>,
     ) {
-        let input = kalem_core::command::argument_default(command, &name, &mut self.doc);
+        let config = self.shared.config.clone();
+        let input =
+            kalem_core::command::argument_default_with(command, &name, &mut self.doc, &config);
         let mut p = Palette::new(input);
         p.arg = Some(ArgPrompt {
             command: command.to_string(),

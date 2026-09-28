@@ -1149,7 +1149,8 @@ impl App {
             return;
         }
         if let Some((name, ty)) = kalem_core::command::missing_argument(cmd, &args) {
-            let input = kalem_core::command::argument_default(id, &name, &mut self.doc);
+            let input =
+                kalem_core::command::argument_default_with(id, &name, &mut self.doc, &self.config);
             self.prompt = Some(Prompt {
                 label: tr!(
                     "prompt-argument",
@@ -1337,7 +1338,7 @@ impl App {
                 self.palette = Some(Palette::new(items));
                 self.dirty = true;
             }
-            Request::SetSetting { key, value } => self.set_setting(&key, &value),
+            Request::SetSetting { key, value, quiet } => self.set_setting(&key, &value, quiet),
             Request::Copy | Request::Cut => {
                 let Some(text) = self.doc.selected_text().map(str::to_string) else {
                     self.message(tr!("msg-nothing-selected"), false);
@@ -1417,7 +1418,7 @@ impl App {
     }
 
     /// Saves `key` in the user's settings and reads the settings again.
-    fn set_setting(&mut self, key: &str, value: &serde_json::Value) {
+    fn set_setting(&mut self, key: &str, value: &serde_json::Value, quiet: bool) {
         let Some(path) = settings::config_dir().map(|d| d.join("settings.toml")) else {
             self.message(tr!("msg-no-settings-dir"), true);
             return;
@@ -1433,7 +1434,9 @@ impl App {
             .find(|(l, _)| *l == settings::Layer::Workspace)
             .and_then(|(_, p)| p.clone());
         self.config = Config::load(Some(&path), workspace.as_deref());
-        self.message(tr!("msg-setting-saved", key = key), false);
+        if !quiet {
+            self.message(tr!("msg-setting-saved", key = key), false);
+        }
     }
 
     /// Opens a link target with the system's opener.

@@ -388,6 +388,18 @@ mod tests {
             "{out}"
         );
         assert!(out.contains("<p style=\"text-align: right\">"), "{out}");
+        let spaced = export(
+            "#+ATTR_KALEM: :before 12 :after 6 :align justify\nText.\n",
+            &Html,
+            &settings,
+        )
+        .unwrap();
+        assert!(
+            spaced.contains(
+                "<p style=\"text-align: justify; margin-top: 12pt; margin-bottom: 6pt\">"
+            ),
+            "{spaced}"
+        );
         assert!(out.contains("open</span>\n</p>"), "{out}");
         assert!(out.contains("Right <span"), "{out}");
         assert!(out.contains("cell</span></td>"), "{out}");

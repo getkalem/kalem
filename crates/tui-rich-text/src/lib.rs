@@ -104,6 +104,36 @@ pub fn wrap<D: Clone>(glyphs: Vec<Glyph<D>>, hang: u16, width: u16) -> Vec<Vec<G
     rows
 }
 
+/// Justifies wrapped rows to `width` cells: every row but the last one
+/// widens the spaces between its words (not the ones at its ends, nor a
+/// hanging indent), the leftmost ones first when the cells do not share
+/// out evenly.
+pub fn justify<D>(rows: &mut [Vec<Glyph<D>>], width: u16) {
+    let n = rows.len();
+    for row in rows.iter_mut().take(n.saturating_sub(1)) {
+        let is_space = |g: &Glyph<D>| g.text == " " && g.is_source();
+        let Some(first) = row.iter().position(|g| !is_space(g) && g.is_source()) else {
+            continue;
+        };
+        let Some(last) = row.iter().rposition(|g| !is_space(g)) else {
+            continue;
+        };
+        let used: u16 = row[..=last].iter().map(|g| g.width).sum();
+        let spaces: Vec<usize> = (first..last).filter(|&i| is_space(&row[i])).collect();
+        if spaces.is_empty() || used >= width {
+            continue;
+        }
+        let room = width - used;
+        let each = room / spaces.len() as u16;
+        let more = (room % spaces.len() as u16) as usize;
+        for (k, &i) in spaces.iter().enumerate() {
+            let w = 1 + each + u16::from(k < more);
+            row[i].width = w;
+            row[i].text = " ".repeat(w as usize);
+        }
+    }
+}
+
 /// The row a cursor at `cursor` is on, and its column.
 pub fn cursor_in<D>(rows: &[Vec<Glyph<D>>], cursor: usize) -> (usize, u16) {
     for (ri, row) in rows.iter().enumerate() {
@@ -545,6 +575,36 @@ pub fn draw<L: Lines>(
 mod tests {
     use super::*;
     use ratatui::buffer::Buffer;
+
+    #[test]
+    fn justified_rows() {
+        let text = "aa bb cc dd ee ff";
+        let glyphs: Vec<Glyph> = text
+            .char_indices()
+            .map(|(i, c)| Glyph {
+                text: c.to_string(),
+                width: 1,
+                style: Style::default(),
+                src: i,
+                src_end: i + 1,
+                link: None,
+                data: None,
+            })
+            .collect();
+        let mut rows = wrap(glyphs, 0, 10);
+        justify(&mut rows, 10);
+        let shown: Vec<String> = rows
+            .iter()
+            .map(|r| r.iter().map(|g| g.text.as_str()).collect())
+            .collect();
+        // `aa bb cc` fills 10 cells as `aa  bb  cc`; the last row stays.
+        assert_eq!(shown[0].trim_end(), "aa  bb  cc");
+        assert_eq!(shown.last().unwrap(), "dd ee ff");
+        let widths: u16 = rows[0].iter().map(|g| g.width).sum();
+        assert!(widths >= 10);
+        // The cursor still finds its source offsets.
+        assert_eq!(cursor_in(&rows, 3), (0, 4));
+    }
 
     /// Plain lines of a string, one glyph per character.
     struct Plain(String);

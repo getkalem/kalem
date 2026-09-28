@@ -743,6 +743,7 @@ impl<'a> Layout<'a> {
             }
             return tui_rich_text::wrap(lg.glyphs, lg.hang, self.width.get());
         }
+        let mut justify = false;
         let lg = match self.parse {
             Some(p) if !self.source => {
                 let root = p.syntax();
@@ -766,6 +767,7 @@ impl<'a> Layout<'a> {
                 if v.mono && v.role == view::LineRole::Content {
                     self.color_code(&range, &mut lg.glyphs);
                 }
+                justify = v.align == kalem_core::rich::Align::Justify;
                 // Kalem's alignment: a line that fits moves right or to the
                 // middle.
                 let used: u16 = lg.glyphs.iter().map(|g| g.width).sum();
@@ -832,7 +834,11 @@ impl<'a> Layout<'a> {
                 lg
             }
         };
-        tui_rich_text::wrap(lg.glyphs, lg.hang, self.width.get())
+        let mut rows = tui_rich_text::wrap(lg.glyphs, lg.hang, self.width.get());
+        if justify {
+            tui_rich_text::justify(&mut rows, self.width.get());
+        }
+        rows
     }
 
     /// Whether the headline starting at `start` has anything under its

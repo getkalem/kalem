@@ -72,6 +72,9 @@ pub struct Workspace {
     /// The menu a click outside just closed (its button's click must not
     /// open it again).
     menu_closed: Option<(ToolMenu, std::time::Instant)>,
+    /// What is typed while the font menu is open: fonts whose names
+    /// contain it are listed.
+    pub font_filter: String,
     subscriptions: Vec<Subscription>,
     /// The last document shown that is not a file manager, to go back to.
     last_text: Option<Entity<Editor>>,
@@ -105,6 +108,7 @@ impl Workspace {
             files_shown: files_at != FilesAt::Hidden,
             menu: None,
             menu_closed: None,
+            font_filter: String::new(),
             subscriptions: Vec::new(),
             last_text: None,
         };
@@ -1046,7 +1050,63 @@ impl Workspace {
         } else {
             Some(menu)
         };
+        self.font_filter.clear();
         cx.notify();
+    }
+
+    /// Typing while the font menu is open searches the fonts: letters
+    /// narrow the list, Backspace widens it, Enter takes the first font,
+    /// Escape closes the menu.
+    fn font_menu_key(
+        &mut self,
+        ev: &gpui::KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        if self.menu != Some(ToolMenu::Font) {
+            return;
+        }
+        let k = &ev.keystroke;
+        if k.modifiers.control || k.modifiers.platform || k.modifiers.alt {
+            return;
+        }
+        match k.key.as_str() {
+            "escape" => {
+                self.menu = None;
+                self.font_filter.clear();
+            }
+            "backspace" => {
+                self.font_filter.pop();
+            }
+            "enter" => {
+                if let Some(family) = self.font_names(window).into_iter().next() {
+                    self.font_filter.clear();
+                    self.run_active("format.font", json!({ "family": family }), window, cx);
+                }
+            }
+            _ => match &k.key_char {
+                Some(c) if !c.chars().any(char::is_control) => self.font_filter.push_str(c),
+                _ => return,
+            },
+        }
+        cx.stop_propagation();
+        cx.notify();
+    }
+
+    /// The system's fonts whose names contain the typed filter (case
+    /// ignored), sorted.
+    fn font_names(&self, window: &mut Window) -> Vec<String> {
+        let filter = self.font_filter.to_lowercase();
+        let mut names: Vec<String> = window
+            .text_system()
+            .all_font_names()
+            .into_iter()
+            .filter(|n| !n.starts_with('.'))
+            .filter(|n| n.to_lowercase().contains(&filter))
+            .collect();
+        names.sort();
+        names.dedup();
+        names
     }
 
     /// Runs `id` with `args` in the active editor, then gives it the focus.
@@ -1220,23 +1280,38 @@ impl Workspace {
             .text_size(px(theme.size * 0.85));
         let panel = match menu {
             ToolMenu::Font => {
-                let mut names: Vec<String> = window
-                    .text_system()
-                    .all_font_names()
-                    .into_iter()
-                    .filter(|n| !n.starts_with('.'))
-                    .collect();
-                names.sort();
-                names.dedup();
-                let mut list = panel.w(px(240.)).max_h(px(360.)).overflow_y_scroll().child(
-                    item(
-                        "font-default".into(),
-                        kalem_core::l10n::tr("toolbar-automatic"),
+                let names = self.font_names(window);
+                let search = if self.font_filter.is_empty() {
+                    kalem_core::l10n::tr("toolbar-font-search")
+                } else {
+                    format!("{}▏", self.font_filter)
+                };
+                let mut list = panel
+                    .w(px(240.))
+                    .max_h(px(360.))
+                    .overflow_y_scroll()
+                    .child(
+                        div()
+                            .debug_selector(|| "font-search".to_string())
+                            .px(px(8.))
+                            .py(px(3.))
+                            .text_color(theme.muted)
+                            .child(search),
                     )
-                    .on_click(cx.listener(|ws, _, window, cx| {
-                        ws.run_active("format.font", json!({ "family": "default" }), window, cx);
-                    })),
-                );
+                    .child(
+                        item(
+                            "font-default".into(),
+                            kalem_core::l10n::tr("toolbar-automatic"),
+                        )
+                        .on_click(cx.listener(|ws, _, window, cx| {
+                            ws.run_active(
+                                "format.font",
+                                json!({ "family": "default" }),
+                                window,
+                                cx,
+                            );
+                        })),
+                    );
                 for (n, name) in names.into_iter().enumerate() {
                     let family = name.clone();
                     list = list.child(
@@ -1277,7 +1352,7 @@ impl Workspace {
                 list
             }
             ToolMenu::Spacing => {
-                let mut list = panel.w(px(80.)).left(px(470.));
+                let mut list = panel.w(px(150.)).left(px(470.));
                 for &sp in kalem_core::rich::SPACINGS {
                     let label = kalem_core::rich::size_text(sp);
                     let v = label.clone();
@@ -1291,6 +1366,25 @@ impl Workspace {
                                     window,
                                     cx,
                                 );
+                            })),
+                    );
+                }
+                // The paragraph's space before and after it.
+                for (id, key, points) in [
+                    ("format.spaceBefore", "toolbar-space-before", "0"),
+                    ("format.spaceBefore", "toolbar-space-before", "6"),
+                    ("format.spaceBefore", "toolbar-space-before", "12"),
+                    ("format.spaceAfter", "toolbar-space-after", "0"),
+                    ("format.spaceAfter", "toolbar-space-after", "6"),
+                    ("format.spaceAfter", "toolbar-space-after", "12"),
+                ] {
+                    let label = kalem_core::tr!(key, points = points);
+                    let name = format!("{id}-{points}");
+                    list = list.child(
+                        item(SharedString::from(name.clone()).into(), label)
+                            .debug_selector(move || name.clone())
+                            .on_click(cx.listener(move |ws, _, window, cx| {
+                                ws.run_active(id, json!({ "points": points }), window, cx);
                             })),
                     );
                 }
@@ -1337,7 +1431,47 @@ impl Workspace {
                             })),
                     );
                 }
-                panel
+                // The colors used lately, above the named ones.
+                let key = if menu == ToolMenu::Color {
+                    "format.recent_colors"
+                } else {
+                    "format.recent_highlights"
+                };
+                let recent: Vec<String> = self
+                    .shared
+                    .config
+                    .strings(key)
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect();
+                let mut recent_row = div()
+                    .flex()
+                    .flex_row()
+                    .flex_wrap()
+                    .gap(px(4.))
+                    .w(px(150.))
+                    .px(px(8.))
+                    .py(px(4.));
+                for (n, hex) in recent.iter().enumerate() {
+                    let c = kalem_core::theme::Color::parse(hex)
+                        .map_or(theme.foreground, crate::theme::color);
+                    let value = hex.clone();
+                    recent_row = recent_row.child(
+                        div()
+                            .id(("recent-swatch", n))
+                            .debug_selector(move || format!("recent-swatch-{n}"))
+                            .size(px(22.))
+                            .rounded(px(4.))
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(c)
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |ws, _, window, cx| {
+                                ws.run_active(id, json!({ "color": value }), window, cx);
+                            })),
+                    );
+                }
+                let mut panel = panel
                     .left(px(if menu == ToolMenu::Color { 250. } else { 280. }))
                     .child(
                         item("swatch-none".into(), kalem_core::l10n::tr(none)).on_click(
@@ -1345,8 +1479,19 @@ impl Workspace {
                                 ws.run_active(id, json!({ "color": "none" }), window, cx);
                             }),
                         ),
-                    )
-                    .child(grid)
+                    );
+                if !recent.is_empty() {
+                    panel = panel
+                        .child(
+                            div()
+                                .px(px(8.))
+                                .pt(px(4.))
+                                .text_color(theme.muted)
+                                .child(kalem_core::l10n::tr("toolbar-recent")),
+                        )
+                        .child(recent_row);
+                }
+                panel.child(grid)
             }
         };
         Some(panel.into_any_element())
@@ -1447,6 +1592,7 @@ impl Render for Workspace {
             .text_color(theme.foreground)
             .font_family(SharedString::from(theme.font.clone()))
             .on_action(cx.listener(|ws, _: &AddProjectFolder, _, cx| ws.add_project_folder(cx)))
+            .capture_key_down(cx.listener(Self::font_menu_key))
             .relative()
             .child(self.toolbar(&theme, cx))
             .child(

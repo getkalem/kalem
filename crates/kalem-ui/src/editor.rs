@@ -1004,7 +1004,12 @@ impl Editor {
                 }
             }
             Request::CopyText(t) => cx.write_to_clipboard(gpui::ClipboardItem::new_string(t)),
-            Request::SetSetting { key, value } => self.set_setting(&key, value, cx),
+            Request::SetSetting { key, value, quiet } => {
+                self.set_setting(&key, value, cx);
+                if quiet {
+                    self.status = None;
+                }
+            }
             // After a setting it changes is applied (`set_setting` defers).
             Request::ExportDialog => {
                 let this = cx.entity();
@@ -2828,14 +2833,36 @@ impl gpui::Render for Editor {
             };
             row.child(
                 text.child(
-                    list(state, move |ix, _window, _cx| {
+                    list(state, move |ix, _window, cx| {
                         let line = visible.get(ix).copied().unwrap_or(0);
-                        crate::line::LineElement {
+                        // Kalem's paragraph spacing, around the line.
+                        let (before, after) = {
+                            let e = entity.read(cx);
+                            match e.doc.parse() {
+                                Some((p, true)) if !e.source => {
+                                    let mut r = e.doc.text().line_range(line);
+                                    if e.doc.text().as_str()[r.clone()].ends_with('\r') {
+                                        r.end -= 1;
+                                    }
+                                    kalem_core::rich::line_spacing(&p.syntax(), r)
+                                }
+                                _ => (0, 0),
+                            }
+                        };
+                        let element = crate::line::LineElement {
                             editor: entity.clone(),
                             line,
                             other,
+                        };
+                        if before == 0 && after == 0 {
+                            element.into_any_element()
+                        } else {
+                            div()
+                                .pt(px(f32::from(before) / 10.))
+                                .pb(px(f32::from(after) / 10.))
+                                .child(element)
+                                .into_any_element()
                         }
-                        .into_any_element()
                     })
                     .size_full(),
                 ),
