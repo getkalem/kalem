@@ -28,6 +28,7 @@ pub mod pandoc;
 pub mod paste;
 pub mod pdf;
 pub mod projects;
+pub mod properties;
 pub mod rich;
 pub mod settings;
 pub mod stats;

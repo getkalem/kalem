@@ -1825,3 +1825,35 @@ fn scheduling(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(text_of(&e, cx), "* TODO Task\nBody\n");
 }
+
+#[gpui::test]
+fn editing_properties(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n:PROPERTIES:\n:ID: 42\n:END:\n", cx);
+    at(&e, 2, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.property.edit", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    let titles = e.read_with(cx, |e, _| {
+        e.palette
+            .as_ref()
+            .map(|p| {
+                p.matches()
+                    .iter()
+                    .map(|i| i.title.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    });
+    assert!(titles.iter().any(|t| t == "ID: 42"), "{titles:?}");
+    // Choosing it asks for the value, starting with the old one.
+    cx.simulate_input("ID: 42");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let input = e.read_with(cx, |e, _| e.palette.as_ref().map(|p| p.input.clone()));
+    assert_eq!(input.as_deref(), Some("42"));
+    cx.simulate_keystrokes("backspace backspace");
+    cx.simulate_input("7");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(text_of(&e, cx), "* A\n:PROPERTIES:\n:ID:       7\n:END:\n");
+}
