@@ -1,0 +1,27 @@
+#+TITLE: A report
+#+LATEX_CLASS: report
+#+LATEX_CLASS_OPTIONS: [a4paper,12pt]
+#+LATEX_HEADER: \usepackage[AUTO]{babel}
+#+LANGUAGE: de
+#+AUTHOR: Autor
+#+EMAIL: a@b.c
+#+OPTIONS: email:t toc:2 num:2 prop:t
+#+SUBTITLE: Ein Untertitel
+
+* Kapitel
+:PROPERTIES:
+:ALT_TITLE: Kurz
+:CUSTOM_ID: chap
+:END:
+Text[fn:: Fußnote] in [[#chap]].
+
+** Abschnitt :tag:
+*** Tief
+**** Tiefer
+Deep.
+
+* Zweites
+:PROPERTIES:
+:UNNUMBERED: t
+:END:
+Ende.

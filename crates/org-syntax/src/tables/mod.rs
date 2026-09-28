@@ -248,15 +248,22 @@ pub(crate) fn entity(
     &'static str,
     &'static str,
 )> {
-    ENTITIES
-        .binary_search_by(|e| e.0.cmp(name))
-        .ok()
-        .map(|i| &ENTITIES[i])
+    // The first of the names given twice (`deg`, `sup`), as `assoc`
+    // finds it in `org-entities`.
+    let i = ENTITIES.partition_point(|e| e.0 < name);
+    ENTITIES.get(i).filter(|e| e.0 == name)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn entities_given_twice() {
+        assert_eq!(entity("deg").map(|e| e.1), Some("\\textdegree{}"));
+        assert_eq!(entity("sup").map(|e| e.1), Some("\\supset"));
+        assert!(entity("nope").is_none());
+    }
 
     #[test]
     fn ascii_classes() {

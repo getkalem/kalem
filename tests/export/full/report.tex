@@ -1,0 +1,56 @@
+% Created 2026-09-28 Mon 19:02
+% Intended LaTeX compiler: pdflatex
+\documentclass[a4paper,12pt]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\usepackage[ngerman]{babel}
+\setcounter{secnumdepth}{2}
+\author{Autor\thanks{a@b.c}}
+\date{\today}
+\title{A report\\\medskip
+\large Ein Untertitel}
+\hypersetup{
+ pdfauthor={Autor},
+ pdftitle={A report},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.7.11)}, 
+ pdflang={German}}
+\begin{document}
+
+\maketitle
+\setcounter{tocdepth}{2}
+\tableofcontents
+
+\part[Kurz]{Kapitel}
+\label{sec:org1c59b52}
+\begin{verbatim}
+ALT_TITLE: Kurz
+CUSTOM_ID: chap
+\end{verbatim}
+Text\footnote{Fußnote} in \ref{sec:org1c59b52}.
+\chapter{Abschnitt\hfill{}\textsc{tag}}
+\label{sec:org1f85fd9}
+\section*{Tief}
+\label{sec:org47118c0}
+\begin{itemize}
+\item Tiefer
+\label{sec:orgaf3ed89}
+Deep.
+\end{itemize}
+\part*{Zweites}
+\label{sec:org0e4d337}
+\begin{verbatim}
+UNNUMBERED: t
+\end{verbatim}
+Ende.
+\end{document}

@@ -1,0 +1,215 @@
+% Created 2026-09-28 Mon 19:02
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\date{\today}
+\title{\LaTeX{} \(x^2\) features}
+\hypersetup{
+ pdfauthor={},
+ pdftitle={\LaTeX{} \(x^2\) features},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.7.11)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{{\bfseries\sffamily TODO} \framebox{\#A} A task heading\hfill{}\textsc{work:home}}
+\label{sec:org0af2b60}
+Text [1/2] with a \label{org47118c0} and a link to \ref{org47118c0} and to \ref{sec:org1f85fd9}.
+Stats [50\%] cookie.
+\subsection{Second level}
+\label{sec:org1f85fd9}
+\begin{enumerate}
+\item Third level is low
+\label{sec:org0e4d337}
+Low text.
+\item Another low one
+\label{sec:org3028fdc}
+More.
+\end{enumerate}
+\section{Lists and items}
+\label{sec:org799290e}
+\begin{enumerate}
+\item First
+\setcounter{enumi}{4}
+\item Fifth
+\begin{itemize}
+\item[{$\boxtimes$}] done
+\item[{$\square$}] open
+\item[{$\boxminus$}] partial
+\end{itemize}
+\item{term} description
+\item{$\square$ box} with a tag
+\item {[}not a checkbox] item starting with a bracket
+\end{enumerate}
+
+\begin{compactitem}[label=--]
+\item custom environment
+\end{compactitem}
+\section{Tables}
+\label{sec:orgc302278}
+\begin{table}[H]
+\caption[Short]{\label{tab:orgb3336ea}A table caption}
+\centering
+\begin{tabular}{|l|r|}
+Name & Value\\
+\hline
+a & 1\\
+b & 20\\
+\end{tabular}
+\end{table}
+
+\begin{tabular}{rr}
+\toprule
+x & y\\
+\midrule
+1 & 2\\
+\bottomrule
+\end{tabular}
+
+\[
+\begin{pmatrix}
+ 1 & 0 \\
+ 0 & 1 \\
+\end{pmatrix}
+\]
+
+\begin{tabbing}
+\hspace{0.49\textwidth} \= \hspace{0.49\textwidth} \= \kill
+p \> q\\
+r \> s\\
+\end{tabbing}
+
+\begin{longtable}{lr}
+Head & Other\\
+\hline
+\endfirsthead
+\multicolumn{2}{l}{Continued from previous page} \\
+\hline
+
+Head & Other \\
+
+\hline
+\endhead
+\hline\multicolumn{2}{r}{Continued on next page} \\
+\endfoot
+\endlastfoot
+\hline
+body & 1\\
+\end{longtable}
+
+\begin{verbatim}
+| raw | table |
+\end{verbatim}
+\section{Math and blocks}
+\label{sec:org6cc3f58}
+Inline \(a+b\) and \(c d\) and \(\alpha \beta\) and $$e$$ and \[f\].
+
+\begin{equation}
+\label{eq:org49b216f}
+x = 1
+\end{equation}
+
+\begin{figure}
+\includegraphics{x}
+\caption{Figure environment}
+\end{figure}
+
+\begin{verbatim}
+1  print("hi")  #      (p)
+\end{verbatim}
+\captionof{figure}{\label{lst:orgb5ff499}Code caption}
+
+See line p.
+
+\begin{lstlisting}
+example text
+\end{lstlisting}
+
+\begin{theorem}[Author]
+A theorem.
+\caption{Theorem caption}
+\end{theorem}
+
+\begin{quotation}[x]
+Quoted.
+\end{quotation}
+
+\settowidth{\versewidth}{Some long line}
+\begin{verse}[\versewidth]
+\poemlines{5}
+First line\\
+\hspace*{2\fontdimen2\font}indented\\!
+
+Second stanza\\
+\end{verse}
+\poemlines{0}
+
+\noindent\rule{5cm}{1pt}
+
+\begin{wrapfigure}{r}{4cm}
+\centering
+\includegraphics[width=3cm]{pic.png}
+\caption{Wrapped}
+\end{wrapfigure}
+
+\begin{center}
+\includegraphics[scale=0.5,page=3]{diagram.pdf}
+\end{center}
+
+\begin{center}
+\resizebox{.9\linewidth}{!}{\input{graph.tikz}}
+\end{center}
+\section{Footnotes in odd places}
+\label{sec:org44d2ff9}
+\begin{center}
+\begin{tabular}{ll}
+cell with note\footnotemark & b\\
+\end{tabular}
+\end{center}\footnotetext[1]{\label{orgc8230e0}In a table.}
+
+\begin{description}
+\item[{item tag\footnotemark}] \footnotetext[2]{\label{org8ed545c}In a tag.}text
+\end{description}
+
+\begin{verse}
+verse note\footnotemark\\
+\end{verse}\footnotetext[3]{\label{org89a03a2}In a verse.}
+\section{Specials}
+\label{sec:org948d328}
+\LaTeX{} and \TeX{}, 50\% \& \$5 \#1 \textasciitilde{}tilde\^{} under\textsubscript{score} \{braces\} back/ and \-shy.
+Quotes "double" and 'single'.
+{[}bracket at start
+\index{index entry}
+\newpage
+\listoftables
+Timestamp \textit{<2026-09-28 Mon> } and \textit{{[}2026-09-28 Mon]--[2026-09-29 Tue]}.
+
+\begin{center}
+\fbox{
+\begin{minipage}[c]{.6\linewidth}
+\textbf{\textsf{\textsc{TODO}}} An inline task\hfill{}\textsc{:tag:}
+
+\rule[.8em]{\linewidth}{2pt}
+
+Inside the task.
+\end{minipage}
+}
+\end{center}
+
+:X: 1
+\end{document}

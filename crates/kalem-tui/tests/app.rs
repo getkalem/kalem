@@ -626,9 +626,14 @@ fn export_dialog() {
     for item in [
         "Export as HTML",
         "Export as GitHub Markdown",
-        "Body only: off",
-        "Formulas: MathJax",
+        "Export as LaTeX",
     ] {
+        assert!(shown.contains(item), "{item} in {shown}");
+    }
+    // The settings, further down the list.
+    t.typ("o");
+    let shown = screen(&mut t).join("\n");
+    for item in ["Body only: off", "Formulas: MathJax"] {
         assert!(shown.contains(item), "{item} in {shown}");
     }
     t.key(KeyCode::Esc, KeyModifiers::NONE);

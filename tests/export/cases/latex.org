@@ -1,0 +1,149 @@
+#+TITLE: LaTeX $x^2$ features
+#+LATEX_HEADER: \usepackage{booktabs}
+#+OPTIONS: H:2 todo:t pri:t tags:t
+
+* TODO [#A] A task heading :work:home:
+SCHEDULED: <2026-10-01 Thu> DEADLINE: <2026-10-05 Mon>
+CLOCK: [2026-09-28 Mon 09:00]--[2026-09-28 Mon 10:30] =>  1:30
+Text [1/2] with a <<target here>> and a link to [[target here]] and to [[Second level]].
+Stats [50%] cookie.
+
+** Second level
+*** Third level is low
+Low text.
+*** Another low one
+More.
+
+* Lists and items
+1. First
+2. [@5] Fifth
+   - [X] done
+   - [ ] open
+   - [-] partial
+- term :: description
+- [ ] box :: with a tag
+- [not a checkbox] item starting with a bracket
+
+#+ATTR_LATEX: :environment compactitem :options [label=--]
+- custom environment
+
+* Tables
+#+CAPTION[Short]: A table caption
+#+NAME: tab:one
+#+ATTR_LATEX: :align |l|r| :placement [H]
+| Name | Value |
+|------+-------|
+| a    |     1 |
+| b    |    20 |
+
+#+ATTR_LATEX: :booktabs t :center nil
+| x | y |
+|---+---|
+| 1 | 2 |
+|---+---|
+
+#+ATTR_LATEX: :mode math :environment pmatrix
+| 1 | 0 |
+| 0 | 1 |
+
+#+ATTR_LATEX: :mode tabbing
+| p | q |
+| r | s |
+
+#+ATTR_LATEX: :environment longtable :align lr
+| Head | Other |
+|------+-------|
+| body | 1     |
+
+#+ATTR_LATEX: :mode verbatim
+| raw | table |
+
+* Math and blocks
+Inline $a+b$ and \(c\)\(d\) and \alpha\beta and $$e$$ and \[f\].
+
+#+NAME: eq:one
+\begin{equation}
+x = 1
+\end{equation}
+
+#+CAPTION: Figure environment
+\begin{figure}
+\includegraphics{x}
+\end{figure}
+
+#+CAPTION: Code caption
+#+NAME: code1
+#+begin_src python -n
+print("hi")  # (ref:p)
+#+end_src
+
+See line [[(p)]].
+
+#+ATTR_LATEX: :environment lstlisting
+#+begin_example
+example text
+#+end_example
+
+#+ATTR_LATEX: :options [Author]
+#+CAPTION: Theorem caption
+#+begin_theorem
+A theorem.
+#+end_theorem
+
+#+ATTR_LATEX: :environment quotation :options [x]
+#+begin_quote
+Quoted.
+#+end_quote
+
+#+ATTR_LATEX: :lines 5 :center t :versewidth Some long line
+#+begin_verse
+First line
+  indented
+
+Second stanza
+#+end_verse
+
+#+ATTR_LATEX: :width 5cm :thickness 1pt
+-----
+
+#+ATTR_LATEX: :width 3cm :float wrap :placement {r}{4cm}
+#+CAPTION: Wrapped
+[[file:pic.png]]
+
+#+ATTR_LATEX: :scale 0.5
+[[file:diagram.pdf::3]]
+
+[[file:graph.tikz]]
+
+* Footnotes in odd places
+| cell with note[fn:1] | b |
+
+- item tag[fn:2] :: text
+
+#+begin_verse
+verse note[fn:3]
+#+end_verse
+
+[fn:1] In a table.
+[fn:2] In a tag.
+[fn:3] In a verse.
+
+* Misc :noexport:
+Hidden.
+
+* Specials
+LaTeX and TeX, 50% & $5 #1 ~tilde^ under_score {braces} back\slash and \-shy.
+Quotes "double" and 'single'.
+[bracket at start
+#+INDEX: index entry
+#+LATEX: \newpage
+#+TOC: tables
+Timestamp <2026-09-28 Mon> and [2026-09-28 Mon]--[2026-09-29 Tue].
+
+*************** TODO An inline task :tag:
+Inside the task.
+*************** END
+
+:PROPERTIES:
+:X: 1
+:END:
