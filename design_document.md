@@ -842,7 +842,7 @@ Vim mode is an input layer in `kalem-core`, not a separate editor. It turns key 
 | Repeat | `.` for the last change | 1 |
 | Command line | `:w :q :q! :wq :x`, `:N`, `:noh` | 1 |
 | Block selection, `=` | Visual block mode, reindenting | 2 |
-| Org text objects | Headline (`ih ah`), subtree, list item, table cell and emphasis objects | 2 |
+| Org text objects | Headline (`ih ah`), subtree (`iR aR`), list item (`ii ai`), table cell (`ic ac`) and emphasis (`ie ae`) | 2 |
 | Macros | `q` recording and `@` replay | 3 |
 | Marks and jumps | `m`, `'`, `` ` ``, jump list | 3 |
 | Documents | `:e FILE`, `:e!`, `:bn :bp :bd :ls :enew`, `gt gT`, Doom's leader keys (7.3) | 2 |
