@@ -676,6 +676,108 @@ fn object(doc: &DocumentState, pos: usize, c: char, inner: bool) -> Option<Targe
             }
             Some(Target::Lines(first, end))
         }
+        'h' | 'R' | 'i' | 'c' | 'e' => org_object(doc, pos, c, inner),
+        _ => None,
+    }
+}
+
+/// Org's text objects, from the current parse: `h` the headline (inner:
+/// its title), `R` the subtree (inner: below its headline), `i` the list
+/// item (inner: its text after the bullet and checkbox), `c` the table
+/// cell (inner: its text; outer: with its blanks and the `|` after it),
+/// `e` the emphasis or code around the cursor (inner: inside the
+/// markers; outer: with the markers and the blanks after them).
+fn org_object(doc: &DocumentState, pos: usize, c: char, inner: bool) -> Option<Target> {
+    use org_syntax::SyntaxKind::*;
+    let (parse, fresh) = doc.parse()?;
+    if !fresh {
+        return None;
+    }
+    let root = parse.syntax();
+    let len = doc.text().len();
+    let at = org_syntax::TextSize::from(pos.min(len) as u32);
+    let token = root
+        .token_at_offset(at)
+        .right_biased()
+        .or_else(|| root.token_at_offset(at).left_biased())?;
+    let find = |kinds: &[org_syntax::SyntaxKind]| {
+        token.parent_ancestors().find(|n| kinds.contains(&n.kind()))
+    };
+    let range = |n: &org_syntax::SyntaxNode| {
+        let r = n.text_range();
+        usize::from(r.start())..usize::from(r.end())
+    };
+    // The lines of `r`, blank lines at its end left out.
+    let lines = |r: std::ops::Range<usize>| -> Option<Target> {
+        let first = line_of(doc, r.start);
+        let mut last = line_of(doc, r.end.saturating_sub(1).max(r.start));
+        while last > first && blank_line(doc, last) {
+            last -= 1;
+        }
+        Some(Target::Lines(first, last))
+    };
+    match c {
+        'h' | 'R' => {
+            let h = find(&[HEADLINE])?;
+            let r = range(&h);
+            let head_line = line_of(doc, r.start);
+            match (c, inner) {
+                ('h', false) => Some(Target::Lines(head_line, head_line)),
+                ('h', true) => {
+                    let t = h.children().find(|n| n.kind() == HEADLINE_TITLE)?;
+                    let tr = range(&t);
+                    let text = &doc.text().as_str()[tr.clone()];
+                    let end = tr.start + text.trim_end().len();
+                    Some(Target::Chars(tr.start..end))
+                }
+                ('R', false) => lines(r),
+                _ => {
+                    let body = line_end(doc, head_line) + 1;
+                    if body >= r.end {
+                        return None;
+                    }
+                    lines(body..r.end)
+                }
+            }
+        }
+        'i' => {
+            let item = find(&[ITEM])?;
+            let r = range(&item);
+            if !inner {
+                return lines(r);
+            }
+            // After the bullet, the counter set and the checkbox.
+            let mut start = r.start;
+            for el in item.children_with_tokens() {
+                match el.kind() {
+                    BULLET | CHECKBOX | COUNTER | WHITESPACE => {
+                        start = usize::from(el.text_range().end())
+                    }
+                    _ => break,
+                }
+            }
+            let text = &doc.text().as_str()[start..r.end];
+            Some(Target::Chars(start..start + text.trim_end().len()))
+        }
+        'c' => {
+            let cell = find(&[TABLE_CELL])?;
+            let r = range(&cell);
+            let text = &doc.text().as_str()[r.clone()];
+            if inner {
+                let body = text.trim_end_matches('|');
+                let lead = body.len() - body.trim_start().len();
+                let a = r.start + lead;
+                return Some(Target::Chars(a..(a + body.trim().len()).max(a)));
+            }
+            Some(Target::Chars(r))
+        }
+        'e' => {
+            let e = find(&[BOLD, ITALIC, UNDERLINE, STRIKE_THROUGH, CODE, VERBATIM])?;
+            let r = range(&e);
+            let end = r.end - org_syntax::ast::post_blank(&e);
+            // Outer: with the blanks after it, as `aw`.
+            Some(Target::Chars(if inner { r.start + 1..end - 1 } else { r }))
+        }
         _ => None,
     }
 }
@@ -1486,6 +1588,9 @@ impl Vim {
                 let Key::Char(c) = key else {
                     return self.reset();
                 };
+                if "hRice".contains(c) {
+                    doc.wait_for_parse();
+                }
                 let Some(t) = object(doc, self.cursor, c, inner) else {
                     return self.reset();
                 };
@@ -2533,5 +2638,34 @@ mod tests {
         );
         let s = run_in("* A\n- x\n- y\n", 10, ">>", org).0;
         assert!(s.contains("- x\n  |- y"), "{s}");
+    }
+
+    #[test]
+    fn org_text_objects() {
+        let org = || DocumentMode::Org;
+        let r = |t: &str, at: usize, k: &str| run_in(t, at, k, org()).0;
+        let t = "* TODO Title here :tag:\nbody\n** Child\nmore\n* Next\n";
+        // Headline: its title, or its line.
+        assert_eq!(
+            r(t, 9, "cihNew<Esc>"),
+            "* TODO Ne|w :tag:\nbody\n** Child\nmore\n* Next\n"
+        );
+        assert_eq!(r(t, 26, "dah"), "|body\n** Child\nmore\n* Next\n");
+        // Subtree: below the headline, or all of it.
+        assert_eq!(r(t, 2, "diR"), "* TODO Title here :tag:\n|* Next\n");
+        assert_eq!(r(t, 2, "daR"), "|* Next\n");
+        // List items.
+        let l = "- [ ] first item\n- second\n  more\n";
+        assert_eq!(r(l, 8, "ciigo<Esc>"), "- [ ] g|o\n- second\n  more\n");
+        assert_eq!(r(l, 20, "dai"), "|- [ ] first item\n");
+        // Table cells.
+        let c = "| a  | bee |\n|----+-----|\n";
+        assert_eq!(r(c, 8, "cicx<Esc>"), "| a  | |x |\n|----+-----|\n");
+        // Emphasis.
+        let e = "Some *bold words* here.\n";
+        assert_eq!(r(e, 8, "die"), "Some *|* here.\n");
+        assert_eq!(r(e, 8, "dae"), "Some |here.\n");
+        // Nothing to act on: nothing happens.
+        assert_eq!(r("plain\n", 1, "die"), "p|lain\n");
     }
 }

@@ -376,8 +376,11 @@ The other keys are in the sections above, and in the command palette.
 With =editor.keymap_profile = "vim"=, the editor has Vim's modes. Normal
 mode moves and edits: =h j k l=, =w b e=, =0 ^ $=, =gg G=, =f t ; ,=, =%=,
 ={ }=, counts, the operators =d c y > <= and =gu gU g~= with motions and
-text objects (=iw=, =i"=, =i(=, =ip= and their =a= forms), =x D C p P J r
-~ u= Ctrl+R and =.= to repeat. =v= and =V= select characters and lines.
+text objects (=iw=, =i"=, =i(=, =ip= and their =a= forms; in Org
+documents also =ih= the headline's title, =iR= the subtree below its
+headline, =ii= a list item's text, =ic= a table cell and =ie= the inside
+of emphasis, and their =a= forms with the whole headline, subtree, item,
+cell or emphasis), =x D C p P J r ~ u= Ctrl+R and =.= to repeat. =v= and =V= select characters and lines.
 =/= and =?= search, =n N * #= repeat. Registers: ="a= to ="z=, and ="+=
 for the system clipboard. The command line knows =:w=, =:q=, =:q!=,
 =:wq=, =:x=, =:NUMBER=, =:noh=, =:e FILE=, =:bn=, =:bp=, =:bd= and =:ls=;
