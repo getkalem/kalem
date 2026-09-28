@@ -353,6 +353,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7c.7 "Convert to Org" and "Convert from Org" (exporter or pandoc); `kalem export FILE.md --to org`
 - [ ] T2.7c.8 Both frontends; snapshot tests; byte-exact round trip of untouched text
 - [ ] T2.7c.9 What Obsidian and Logseq users expect in Markdown files: wiki links `[[Page]]` resolved and completed within the project (T2.7f), front matter edited as a form, "copy as HTML" and "copy as rich text" (T2.6.1) (review, 2026-09-28)
+- [ ] T2.7c.10 Markdown and CSV modes written against the document mode contract of §11.11, defined in `kalem-core` in phase 2 (`DocumentModeSpec`: detect, parse to ranges with the fixed kind vocabulary, grid, edit hooks, the language pack hooks, export); the script binding (T3.1.9g) wraps the same contract, so a plugin mode can do everything Markdown mode does (asked by the owner, 2026-09-28)
 
 ### 2.7d CSV mode (§2.6.2)
 
@@ -478,6 +479,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.1.9d Extension points: document views (editor area and panel) and dynamic blocks
 - [ ] T3.1.9e Extension points: diagnostics (shown in both frontends, run by `kalem check`), importers, paste handlers
 - [ ] T3.1.9f Extension points: agenda views, capture templates, themes, plugin CLI subcommands
+- [ ] T3.1.9g Extension points: document modes and highlighters (§11.11): `kalem.modes.register` over the contract of T2.7c.10; `kalem.modes.registerHighlighter` loading Sublime syntax definitions from the plugin folder; declarative modes from a syntax definition and a scope-to-kind mapping; the tree crossing the QuickJS boundary as JSON; the budget with the plain text fallback and disabling after repeated failures; `kalem check`, `fmt` and `export` calling the hooks; the conformance suite (byte-exact round trip, incremental equals full parse, snapshots in both frontends, budget) (asked by the owner, 2026-09-28)
 - [ ] T3.1.10 Permission model: manifest declaration, first-run consent, scopes, `plugins.toml` record
 - [ ] T3.1.11 Time limit (interrupt handler, 100 ms) and memory limit (64 MB)
 - [ ] T3.1.12 Plugin loader: manifest, activation events, `activate` and `deactivate`, Disposable collection, ES module resolution (plugin folder only)
@@ -501,9 +503,9 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.3.2 Example plugins: word count, Pomodoro, a custom export filter, a table function, a custom link type (`jira:`), a mermaid block renderer
 - [ ] T3.3.2a Bundled plugins built only on the public API: kanban board view, word count panel (§11.0)
 - [ ] T3.3.3 `kalem plugin install <url>` and `kalem plugin list`
-- [ ] T3.3.4 Plugin API documentation (mdBook chapter); a "QuickJS is not a browser" page
+- [ ] T3.3.4 Plugin API documentation (mdBook chapter); a "QuickJS is not a browser" page; the page "Writing a mode" (§11.11)
 - [ ] T3.3.5 Security policy (`SECURITY.md`)
-- [ ] T3.3.6 Modes as plugins, through the plugin-defined languages and modes of §11.10 (review, 2026-09-28): the formats that fail one of the four rules of 2.7g come as example or community plugins: todo.txt and TaskPaper on the Org task model with checkboxes; SVG source with a live preview (the SVG block renderer of T3.1.9b); Mermaid, DOT, PlantUML and D2 previews through the external tools; Fountain, gemtext and Djot on the rich view; `.srt` and `.vtt` subtitles as a grid with a time column; `.ics` and `.vcf` fed into the agenda (T3.5); `.eml` and mbox as a read-only view; `.ipynb` imported to Org with source blocks through the importer extension point (T3.1.9e); a read-only hex view for binary files as the one exception to §2.6, if the owner wants it
+- [ ] T3.3.6 Modes as plugins, through the document mode contract of §11.11 (T3.1.9g) (review, 2026-09-28): the formats that fail one of the four rules of 2.7g come as example or community plugins: todo.txt and TaskPaper on the Org task model with checkboxes; SVG source with a live preview (the SVG block renderer of T3.1.9b); Mermaid, DOT, PlantUML and D2 previews through the external tools; Fountain, gemtext and Djot on the rich view; `.srt` and `.vtt` subtitles as a grid with a time column; `.ics` and `.vcf` fed into the agenda (T3.5); `.eml` and mbox as a read-only view; `.ipynb` imported to Org with source blocks through the importer extension point (T3.1.9e); a read-only hex view for binary files as the one exception to §2.6, if the owner wants it; the first two, gemtext (declarative) and Djot (programmatic), are the reference plugins of §11.11, built from the template of T3.3.1
 
 ### 3.4 org-babel (§12)
 
