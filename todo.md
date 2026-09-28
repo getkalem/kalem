@@ -278,7 +278,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 ### 2.3 org-export (§10)
 
 - [x] T2.3.1 `ExportTree` and transcoder framework; filter points (`crates/org-export`: a port of `ox.el` on the `org-syntax` tree: `org-export-data` with memo, pruning, numbering, footnotes, fuzzy and ID links, smart quotes, table info)
-- [~] T2.3.2 Common behavior: `#+OPTIONS`, `:noexport:`, `EXCLUDE_TAGS`, `SELECT_TAGS`, macros, `#+INCLUDE`, `#+SETUPFILE`, subtree export (options, tags, macros, `#+INCLUDE` (blocks, lines, `::` parts, levels, footnotes, links), the language dictionary and Babel's export changes (`ob-exp.el` without evaluation: `:exports`, results, Noweb) are done; `#+SETUPFILE` in export and subtree export are still to do)
+- [x] T2.3.2 Common behavior: `#+OPTIONS`, `:noexport:`, `EXCLUDE_TAGS`, `SELECT_TAGS`, macros, `#+INCLUDE`, `#+SETUPFILE`, subtree export (all done; `#+SETUPFILE` and subtree export checked against Emacs 29.3 with Org 9.6.15, whose output differs from 9.7's only by a blank line before headlines, since Emacs 30 was not reachable from the session; `tests/emacs/export.el` exports the subtree with a `KALEM_TEST_SUBTREE` property; `kalem export --subtree`, Export Subtree as HTML and as Markdown)
 - [~] T2.3.3 HTML backend (ox-html classes, CSS theme, formulas as SVG or MathJax) (the body matches Emacs byte for byte on every test case and on all 287 Worg files Emacs exports; the full-page template and the CSS theme are still to do)
 - [ ] T2.3.4 LaTeX backend (ox-latex behavior, `#+LATEX_CLASS`, `ATTR_LATEX`, `%% org:LINE` comments)
 - [~] T2.3.5 Markdown backend (GFM) (ox-md matches Emacs on every test case and on all 287 Worg files Emacs exports; GFM tables are still to do)

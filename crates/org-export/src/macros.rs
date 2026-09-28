@@ -43,14 +43,18 @@ fn keyword_value(keywords: &[(String, String)], name: &str, collect: bool) -> Op
     }
 }
 
-fn templates(keywords: &[(String, String)], file: Option<&Path>) -> HashMap<String, Template> {
+fn templates(
+    definitions: &[(String, String)],
+    keywords: &[(String, String)],
+    file: Option<&Path>,
+) -> HashMap<String, Template> {
     let mut t: HashMap<String, Template> = HashMap::new();
     let set = |name: &str, v: Template, t: &mut HashMap<String, Template>| {
         t.entry(name.to_lowercase()).or_insert(v);
     };
     // `#+MACRO:` definitions come first: a later definition does not
     // replace an earlier one.
-    for (k, v) in keywords {
+    for (k, v) in definitions {
         if !k.eq_ignore_ascii_case("MACRO") {
             continue;
         }
@@ -270,11 +274,26 @@ pub fn expand(
     file: Option<&Path>,
     now: &jiff::Zoned,
 ) -> Result<String, String> {
+    expand_tracking(text, parsed, file, now, &mut [])
+}
+
+/// [`expand`], moving the byte offsets `marks` with the text around them.
+pub fn expand_tracking(
+    text: &str,
+    parsed: &[&str],
+    file: Option<&Path>,
+    now: &jiff::Zoned,
+    marks: &mut [usize],
+) -> Result<String, String> {
     if !text.contains("{{{") {
         return Ok(text.to_string());
     }
+    let parse = crate::parse_document(text, file);
+    // `#+MACRO:` definitions come from setup files too; the values of
+    // `{{{title}}}` and `{{{keyword}}}` from the document only
+    // (`org-macro--find-keyword-value`).
     let keywords = org_syntax::parse(text).keywords();
-    let templates = templates(&keywords, file);
+    let templates = templates(&parse.keywords(), &keywords, file);
     let mut counters: HashMap<String, i64> = HashMap::new();
     let mut record: HashSet<(usize, String, Vec<String>)> = HashSet::new();
     let mut text = text.to_string();
@@ -336,6 +355,13 @@ pub fn expand(
                 let sig = (m.start, m.key.clone(), m.args.clone());
                 if !record.insert(sig) {
                     return Err(format!("Circular macro expansion: {}", m.key));
+                }
+                for o in marks.iter_mut() {
+                    if *o >= m.end {
+                        *o = *o - (m.end - m.start) + v.len();
+                    } else if *o > m.start {
+                        *o = m.start + v.len();
+                    }
                 }
                 text.replace_range(m.start..m.end, &v);
                 pos = m.start;

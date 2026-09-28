@@ -309,11 +309,14 @@ pub(crate) fn commands() -> Vec<Command> {
 }
 
 /// Exports the active document with `backend` beside its file
-/// (`#+EXPORT_FILE_NAME` names another), with unsaved changes too.
+/// (`#+EXPORT_FILE_NAME` names another), with unsaved changes too; with
+/// `subtree`, only the subtree at the cursor (its `EXPORT_FILE_NAME`
+/// property names the file).
 fn export_doc(
     ctx: &mut EditorContext<'_>,
     backend: &dyn org_export::Backend,
     extension: &str,
+    subtree: bool,
 ) -> CommandResult {
     let doc = ctx
         .document
@@ -324,13 +327,15 @@ fn export_doc(
     };
     let path = std::path::absolute(&path).unwrap_or(path);
     let text = doc.text().as_str().to_string();
+    let subtree = subtree.then_some(doc.selection.head);
     let settings = org_export::Settings {
         body_only: false,
         input_file: Some(path.clone()),
         now: None,
+        subtree,
     };
     let out = org_export::export(&text, backend, &settings).map_err(CommandError::new)?;
-    let target = org_export::output_file_name(&text, &path, extension);
+    let target = org_export::output_file_name_for(&text, &path, extension, subtree);
     std::fs::write(&target, out).map_err(|e| CommandError::new(e.to_string()))?;
     ctx.messages.push(crate::tr!(
         "msg-exported",
@@ -361,7 +366,15 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &org_export::Html, ".html"),
+            |ctx, _| export_doc(ctx, &org_export::Html, ".html", false),
+        ),
+        cmd(
+            "export.htmlSubtree",
+            "Export Subtree as HTML",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_doc(ctx, &org_export::Html, ".html", true),
         ),
         cmd(
             "export.markdown",
@@ -369,7 +382,15 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &org_export::Markdown, ".md"),
+            |ctx, _| export_doc(ctx, &org_export::Markdown, ".md", false),
+        ),
+        cmd(
+            "export.markdownSubtree",
+            "Export Subtree as Markdown",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_doc(ctx, &org_export::Markdown, ".md", true),
         ),
         cmd(
             "app.saveAs",

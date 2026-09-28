@@ -1432,6 +1432,8 @@ pub fn menus() -> Vec<Menu> {
                 MenuItem::separator(),
                 item("export.html"),
                 item("export.markdown"),
+                item("export.htmlSubtree"),
+                item("export.markdownSubtree"),
                 MenuItem::separator(),
                 item("app.save"),
                 named(tr("menu-save-as"), "app.saveAs"),

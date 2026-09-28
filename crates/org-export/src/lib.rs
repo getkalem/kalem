@@ -28,6 +28,10 @@ pub struct Settings {
     pub input_file: Option<std::path::PathBuf>,
     /// The time `{{{time}}}` and dates use; now if not given.
     pub now: Option<jiff::Zoned>,
+    /// Export only the subtree containing this byte offset of the text
+    /// (`C-c C-e C-s`): its headline's contents, with its `EXPORT_`
+    /// properties over the document's options.
+    pub subtree: Option<usize>,
 }
 
 /// Exports Org `text` with `backend`.
@@ -51,15 +55,54 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
         } else {
             text
         };
-    let text = include::expand(text, settings.input_file.as_deref())?;
-    let text = macros::expand(&text, &parsed, settings.input_file.as_deref(), &now)?;
-    let text = babel::process(&text);
-    let parse = org_syntax::parse(&text);
+    let file = settings.input_file.as_deref();
+    let region = match settings.subtree {
+        Some(at) => Some(subtree_region(text, at)?),
+        None => None,
+    };
+    // Includes are expanded in the part exported; macros everywhere, as
+    // `org-macro-replace-all` widens.
+    let (text, mut marks) = match &region {
+        Some(r) => {
+            let inner = include::expand(&text[r.start..r.end], file)?;
+            let end = r.start + inner.len();
+            (
+                format!("{}{inner}{}", &text[..r.start], &text[r.end..]),
+                [r.start, end],
+            )
+        }
+        None => {
+            let t = include::expand(text, file)?;
+            let n = t.len();
+            (t, [0, n])
+        }
+    };
+    let text = macros::expand_tracking(&text, &parsed, file, &now, &mut marks)?;
+    let whole = parse_document(&text, file);
+    let (parse, keywords) = match &region {
+        Some(_) => {
+            let body = babel::process(&text[marks[0]..marks[1]]);
+            (
+                org_syntax::parse_with(&body, whole.context()),
+                whole.keywords(),
+            )
+        }
+        None => {
+            let text = babel::process(&text);
+            let parse = parse_document(&text, file);
+            let keywords = parse.keywords();
+            (parse, keywords)
+        }
+    };
     let root = parse.syntax();
     let mut ex = Exporter::new(&root, parse.context().clone(), backend);
     ex.info.body_only = settings.body_only;
     ex.info.input_file = settings.input_file.clone();
-    ex.read_environment(&parse.keywords());
+    ex.read_environment(&keywords);
+    if region.is_some() {
+        let (properties, title) = headline_at(&whole, marks[0]);
+        ex.read_subtree_options(&properties, &title);
+    }
     ex.prune();
     backend.filter_parse_tree(&mut ex);
     ex.collect_tree_properties();
@@ -74,6 +117,78 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     Ok(backend.filter_final_output(&mut ex, out))
 }
 
+/// The part of `text` exporting the subtree at byte `at` exports, as
+/// `org-export-as` narrows to it: from the end of the headline's meta
+/// data (its line, planning and property drawer), keeping the line feed
+/// before, to the end of the subtree, without the line feed before the
+/// next headline.
+fn subtree_region(text: &str, at: usize) -> Result<std::ops::Range<usize>, String> {
+    use org_syntax::ast::{AstNode, Headline};
+    let parse = org_syntax::parse(text);
+    let root = parse.syntax();
+    let at = at.min(text.len());
+    let headline = root
+        .descendants()
+        .filter(|n| n.kind() == org_syntax::SyntaxKind::HEADLINE)
+        .filter(|n| {
+            let r = n.text_range();
+            usize::from(r.start()) <= at && at < usize::from(r.end()).max(1)
+                || usize::from(r.end()) == text.len() && at == text.len()
+        })
+        .last()
+        .and_then(Headline::cast)
+        .ok_or_else(|| "Before first headline at position".to_string())?;
+    let range = headline.syntax().text_range();
+    let (start, mut end) = (usize::from(range.start()), usize::from(range.end()));
+    if end < text.len() && text[..end].ends_with('\n') {
+        end -= 1;
+    }
+    let line_end = text[start..]
+        .find('\n')
+        .map_or(text.len(), |i| start + i + 1);
+    let mut meta = line_end;
+    if let Some(p) = headline.planning() {
+        meta = meta.max(usize::from(p.syntax().text_range().end()));
+    }
+    if let Some(d) = headline.property_drawer() {
+        meta = meta.max(usize::from(d.syntax().text_range().end()));
+    }
+    let meta = meta.min(end.max(line_end.min(text.len())));
+    let begin = if text[..meta].ends_with('\n') {
+        meta - 1
+    } else {
+        meta
+    };
+    Ok(begin..end.max(begin))
+}
+
+/// The properties and title (without keyword, priority or tags) of the
+/// headline whose meta data ends at byte `at` of the parsed text.
+fn headline_at(parse: &org_syntax::Parse, at: usize) -> (Vec<(String, String)>, String) {
+    use org_syntax::ast::{AstNode, Headline};
+    let headline = parse
+        .syntax()
+        .descendants()
+        .filter(|n| n.kind() == org_syntax::SyntaxKind::HEADLINE)
+        .filter(|n| usize::from(n.text_range().start()) <= at)
+        .filter(|n| at <= usize::from(n.text_range().end()))
+        .last()
+        .and_then(Headline::cast);
+    match headline {
+        Some(h) => (h.properties(), h.raw_value()),
+        None => (Vec::new(), String::new()),
+    }
+}
+
+/// Parses `text`, the contents of `file`, reading its `#+SETUPFILE`
+/// files relative to it (without a file, setup files are not read).
+pub(crate) fn parse_document(text: &str, file: Option<&std::path::Path>) -> org_syntax::Parse {
+    match file {
+        Some(f) => org_syntax::parse_file(text, f),
+        None => org_syntax::parse(text),
+    }
+}
+
 /// `org-export-output-file-name`: where exporting `input` (with `text`)
 /// writes, for a back-end whose files end with `extension` (`.html`):
 /// `#+EXPORT_FILE_NAME`, else the input's name, beside the input, with
@@ -83,14 +198,36 @@ pub fn output_file_name(
     input: &std::path::Path,
     extension: &str,
 ) -> std::path::PathBuf {
+    output_file_name_for(text, input, extension, None)
+}
+
+/// [`output_file_name`] for exporting the subtree at byte `subtree`, whose
+/// `EXPORT_FILE_NAME` property comes first.
+pub fn output_file_name_for(
+    text: &str,
+    input: &std::path::Path,
+    extension: &str,
+    subtree: Option<usize>,
+) -> std::path::PathBuf {
     let dir = input.parent().unwrap_or(std::path::Path::new("."));
     let parse = org_syntax::parse(text);
-    let keyword = parse
-        .syntax()
-        .descendants()
-        .filter_map(<org_syntax::ast::Keyword as org_syntax::ast::AstNode>::cast)
-        .find(|k| k.key() == "EXPORT_FILE_NAME" && !k.value().trim().is_empty())
-        .map(|k| k.value().trim().to_string());
+    let property = subtree
+        .and_then(|at| subtree_region(text, at).ok())
+        .and_then(|r| {
+            headline_at(&parse, r.start)
+                .0
+                .into_iter()
+                .find(|(k, v)| k.eq_ignore_ascii_case("EXPORT_FILE_NAME") && !v.trim().is_empty())
+                .map(|(_, v)| v.trim().to_string())
+        });
+    let keyword = property.or_else(|| {
+        parse
+            .syntax()
+            .descendants()
+            .filter_map(<org_syntax::ast::Keyword as org_syntax::ast::AstNode>::cast)
+            .find(|k| k.key() == "EXPORT_FILE_NAME" && !k.value().trim().is_empty())
+            .map(|k| k.value().trim().to_string())
+    });
     let name = keyword.unwrap_or_else(|| {
         let n = input
             .file_name()
@@ -119,6 +256,33 @@ mod tests {
     use std::path::Path;
 
     #[test]
+    fn subtree() {
+        let text = "#+TITLE: Doc\n#+MACRO: m M\nBefore.\n* One\nNo.\n* Two :t:\n:PROPERTIES:\n:EXPORT_TITLE: Sub {{{m}}}\n:EXPORT_OPTIONS: num:nil\n:END:\nIn two {{{m}}}.\n** Child\nText.\n* Three\nNo.\n";
+        let settings = Settings {
+            subtree: Some(text.find("* Two").unwrap() + 3),
+            ..Settings::default()
+        };
+        let out = export(text, &Markdown, &settings).unwrap();
+        assert!(out.contains("In two M."), "{out}");
+        assert!(out.contains("# Child"), "{out}");
+        assert!(!out.contains("No."), "{out}");
+        assert!(!out.contains("Before"), "{out}");
+        let page = export(text, &Html, &settings).unwrap();
+        assert!(page.contains("<title>Sub M</title>"), "{page}");
+        assert!(
+            export(
+                text,
+                &Markdown,
+                &Settings {
+                    subtree: Some(3),
+                    ..Settings::default()
+                }
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn output_names() {
         let p = Path::new("/d/notes.org");
         assert_eq!(
@@ -128,6 +292,15 @@ mod tests {
         assert_eq!(
             output_file_name("#+EXPORT_FILE_NAME: out/x\n", p, ".md"),
             Path::new("/d/out/x.md")
+        );
+        let t = "#+EXPORT_FILE_NAME: all\n* A\n:PROPERTIES:\n:EXPORT_FILE_NAME: part\n:END:\n* B\n";
+        assert_eq!(
+            output_file_name_for(t, p, ".html", Some(t.find("* A").unwrap())),
+            Path::new("/d/part.html")
+        );
+        assert_eq!(
+            output_file_name_for(t, p, ".html", Some(t.find("* B").unwrap())),
+            Path::new("/d/all.html")
         );
         assert_eq!(
             output_file_name("", Path::new("/d/page.html"), ".html"),
