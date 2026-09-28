@@ -518,7 +518,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.4.1 Header argument parsing (`:results`, `:exports`, `:var`, `:dir`, `:cache`, `:tangle`, `:file`)
 - [ ] T3.4.2 Executor interface; subprocess management; cancellation; progress
 - [ ] T3.4.3 Languages: shell, python, javascript (node and in-app QuickJS), R, gnuplot, sqlite, org
-- [ ] T3.4.4 Trust model: document consent, trust bound to path and hash, never automatic execution; on Linux the process sandbox of §12 (zygo when installed: a warm fork per run, namespaces, cgroup v2, seccomp, Landlock, network off), `babel.sandbox = "auto" | "zygo" | "none"`, detection with a hint on how to install it, never a hard dependency; the status bar says which wall a block ran behind (asked by the owner, 2026-09-28)
+- [ ] T3.4.4 Trust model: document consent, trust bound to path and hash, never automatic execution
 - [ ] T3.4.5 `#+RESULTS:` insertion rules; `#+NAME` matching; replace/append/prepend
 - [ ] T3.4.6 `#+CALL:` and inline src
 - [ ] T3.4.7 Tangling: confirmation list, file writes; `kalem tangle`
@@ -560,7 +560,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 
 - [ ] T4.1.1 Lua as a second scripting language (D10): a Lua runtime component on the WIT API, generated Lua annotations, the same conformance tests
 - [-] T4.1.2 WASM plugins through `extism` for heavy work: superseded by D28, WASM is the plugin ABI from phase 3 (T3.1.0, T3.1.1)
-- [ ] T4.1.3 Out-of-process protocol: JSON-RPC over stdio; example Python plugin; on Linux inside the process sandbox of §12 when it is available
+- [ ] T4.1.3 Out-of-process protocol: JSON-RPC over stdio; example Python plugin
 - [ ] T4.1.4 Plugin index (JSON) and in-app browser; API version compatibility
 
 ### 4.2 Org coverage
