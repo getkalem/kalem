@@ -95,6 +95,24 @@ pub trait Host {
     fn page_lines(&self) -> usize {
         20
     }
+    /// The document shows as rich text (not its source): `h` and `l` move
+    /// over what is shown, skipping hidden markers.
+    fn rich_view(&self) -> bool {
+        false
+    }
+}
+
+/// One character left or right of `pos`: over the shown text in the rich
+/// view, else over the source.
+fn step(doc: &DocumentState, pos: usize, right: bool, rich: bool) -> usize {
+    if rich && let Some(p) = crate::view::visible_step(doc, pos, right) {
+        return p;
+    }
+    if right {
+        doc.grapheme_after(pos)
+    } else {
+        doc.grapheme_before(pos)
+    }
 }
 
 /// What a key did, for the frontend to finish.
@@ -909,6 +927,15 @@ impl Vim {
 
     /// Handles `key`.
     pub fn key(&mut self, doc: &mut DocumentState, key: Key, host: &mut dyn Host) -> Outcome {
+        // Horizontal motions in the rich view read the current parse.
+        if host.rich_view()
+            && matches!(
+                key,
+                Key::Char('h' | 'l' | ' ') | Key::Left | Key::Right | Key::Backspace
+            )
+        {
+            doc.wait_for_parse();
+        }
         let out = self.key_inner(doc, key, host);
         // The cursor stays in the text, even where an edit was refused (a
         // folder listing is read-only), and such a document takes no text.
@@ -1122,26 +1149,30 @@ impl Vim {
         let m = match key {
             Key::Char('h') | Key::Left | Key::Backspace => {
                 let s = line_start(doc, line);
+                let rich = host.rich_view() && self.op.is_none();
                 let mut p = pos;
                 for _ in 0..n {
                     if p > s {
-                        p = doc.grapheme_before(p);
+                        p = step(doc, p, false, rich).max(s);
                     }
                 }
                 charwise(p)
             }
             Key::Char('l' | ' ') | Key::Right => {
                 let e = line_end(doc, line);
+                // An operator acts on the characters themselves (`dl` is
+                // the one under the cursor, not the hidden text after it).
+                let rich = host.rich_view() && self.op.is_none();
                 let mut p = pos;
                 for _ in 0..n {
                     if p < e {
-                        p = doc.grapheme_after(p);
+                        p = step(doc, p, true, rich).min(e);
                     }
                 }
                 // The cursor stays on the last character; an operator gets
                 // to the end of the line.
                 if self.op.is_none() && p >= e && e > line_start(doc, line) {
-                    p = doc.grapheme_before(e);
+                    p = step(doc, e, false, rich);
                 }
                 charwise(p)
             }
@@ -2506,11 +2537,16 @@ mod tests {
     #[derive(Default)]
     struct TestHost {
         clip: Option<String>,
+        rich: bool,
     }
 
     impl Host for TestHost {
         fn clipboard(&mut self) -> Option<String> {
             self.clip.clone()
+        }
+
+        fn rich_view(&self) -> bool {
+            self.rich
         }
 
         fn set_clipboard(&mut self, text: &str) {
@@ -2583,6 +2619,7 @@ mod tests {
         let mut v = Vim::new();
         let mut host = TestHost {
             clip: Some("pasted\nlines\n".into()),
+            ..TestHost::default()
         };
         for keys in [
             "Go<Esc>",
@@ -2859,6 +2896,47 @@ mod tests {
         assert_eq!(d.selection, Selection::caret(7));
         v.key(&mut d, Key::Esc, &mut host);
         assert_eq!(v.block_ranges(&d), None);
+    }
+
+    #[test]
+    fn motions_skip_hidden_markers_in_the_rich_view() {
+        // Kalem's formatting snippets never show in the rich view.
+        let text = "a @@kalem:size=14@@bc@@kalem:end@@ d\n";
+        let press = |rich: bool, at: usize, keys: &str| {
+            let mut d = doc(text, DocumentMode::Org);
+            d.selection = Selection::caret(at);
+            let mut v = Vim::new();
+            let mut host = TestHost {
+                rich,
+                ..TestHost::default()
+            };
+            for c in keys.chars() {
+                v.key(&mut d, Key::Char(c), &mut host);
+            }
+            d.selection.head
+        };
+        let b = text.find("bc").unwrap();
+        let space = text.find(" d").unwrap();
+        // In the rich view `l` goes from the blank to `b`, then over the
+        // closing snippet to the blank before `d`; in the source it walks
+        // the snippets.
+        assert_eq!(press(true, 1, "l"), b);
+        assert_eq!(press(true, b, "ll"), space);
+        assert_eq!(press(false, 1, "l"), 2);
+        // `h` back the same way.
+        assert_eq!(press(true, space, "hh"), b);
+        // `dl` on `c` deletes `c` only.
+        let mut d = doc(text, DocumentMode::Org);
+        d.selection = Selection::caret(b + 1);
+        let mut v = Vim::new();
+        let mut host = TestHost {
+            rich: true,
+            ..TestHost::default()
+        };
+        for c in "dl".chars() {
+            v.key(&mut d, Key::Char(c), &mut host);
+        }
+        assert_eq!(d.text().as_str(), "a @@kalem:size=14@@b@@kalem:end@@ d\n");
     }
 
     #[test]
