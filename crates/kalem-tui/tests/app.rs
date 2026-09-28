@@ -1855,3 +1855,32 @@ fn dropped_pictures() {
     t.app.event(Event::Paste("/no/such/file.png".into()));
     assert!(t.app.doc.text().as_str().contains("/no/such/file.png"));
 }
+
+#[test]
+fn footnotes() {
+    let mut t = with_config("* Notes\nSome text here.\n", Config::default(), (120, 12));
+    // A new footnote: its definition in the footnote section, the cursor
+    // in it.
+    t.at(17);
+    t.key(
+        KeyCode::Char('f'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "* Notes\nSome text[fn:1] here.\n\n* Footnotes\n\n[fn:1] \n"
+    );
+    assert_eq!(t.app.doc.selection.head, 50);
+    t.typ("The note.");
+    // From the definition's label back to the reference, its text in the
+    // status line.
+    t.at(46);
+    t.app
+        .run_command("org.footnote.action", serde_json::Value::Null);
+    assert_eq!(t.app.doc.selection.head, 17);
+    assert!(
+        status(&mut t).contains("Footnote 1: The note."),
+        "{}",
+        status(&mut t)
+    );
+}

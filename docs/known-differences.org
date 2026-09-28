@@ -113,6 +113,17 @@ The differential tests list these cases with the reason
   above the table. Kalem creates the table at the start of the new line,
   indented like the broken line, with the rule after its first row.
 
+
+Footnotes (=org-footnote.el=, 14 of the random cases in =tests/edit=):
+- =org-footnote-sort=, =org-footnote-normalize= and
+  =org-footnote-renumber-fn:N= recurse without end when a definition
+  refers to its own label (/Lisp nesting exceeds max-lisp-eval-depth/);
+  Kalem stops the recursion and goes on.
+- =org-footnote-normalize= finds an anonymous footnote nested in a
+  definition as the last anonymous footnote of the document, which is
+  another one when there are several, and then extracts text past the
+  end of the buffer (/Args out of range/); Kalem takes the nested
+  footnote itself.
 * Table formulas
 
 Kalem computes =#+TBLFM= formulas without Emacs: it reproduces Org's

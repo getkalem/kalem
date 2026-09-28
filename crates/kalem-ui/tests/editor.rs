@@ -1784,3 +1784,20 @@ fn pictures(cx: &mut TestAppContext) {
     );
     assert!(dir.join("t_assets/dropped.png").is_file());
 }
+
+#[gpui::test]
+fn footnotes(cx: &mut TestAppContext) {
+    let (e, cx) = open("Some text here.\n", cx);
+    at(&e, 9, cx);
+    cx.simulate_keystrokes("ctrl-alt-f");
+    cx.run_until_parked();
+    assert_eq!(
+        text_of(&e, cx),
+        "Some text[fn:1] here.\n\n* Footnotes\n\n[fn:1] \n"
+    );
+    cx.simulate_input("The note.");
+    // The text of the footnote at the cursor, in the status bar.
+    at(&e, 11, cx);
+    let status = e.read_with(cx, |e, _| e.formula_status.clone());
+    assert_eq!(status.as_deref(), Some("Footnote 1: The note."));
+}

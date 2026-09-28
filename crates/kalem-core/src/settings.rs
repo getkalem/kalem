@@ -188,6 +188,12 @@ pub const SPECS: &[Spec] = &[
         description: "Open an exported file with the system's application",
     },
     Spec {
+        key: "org.footnote_section",
+        kind: Kind::Str,
+        default: r#""Footnotes""#,
+        description: "The heading footnote definitions go under (org-footnote-section); empty: at the end of each section",
+    },
+    Spec {
         key: "export.text_charset",
         kind: Kind::Enum(&["ascii", "utf-8"]),
         default: r#""ascii""#,

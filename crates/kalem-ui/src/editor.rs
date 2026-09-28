@@ -2113,13 +2113,14 @@ impl Editor {
     ) {
         if !self.dragging || ev.pressed_button != Some(MouseButton::Left) {
             self.dragging = false;
-            // The entry a citation under the mouse cites.
+            // The entry a citation under the mouse cites, or a footnote's
+            // text.
             let hover = self
                 .hit(ev.position)
                 .and_then(|h| {
                     let path = self.doc.meta.path.clone();
                     let model = self.doc.model()?;
-                    kalem_core::cite::preview(&model, path.as_deref(), h.pos)
+                    kalem_core::cite::note_at(&model, path.as_deref(), h.pos)
                 })
                 .map(|t| (ev.position, t));
             if hover.as_ref().map(|h| &h.1) != self.cite_hover.as_ref().map(|h| &h.1) {

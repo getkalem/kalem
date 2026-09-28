@@ -1259,9 +1259,133 @@ def todo_dependency_cases():
         out.append({"name": f"ordered {text!r}", "text": text, "point": 2, "mark": None, "form": "(org-toggle-ordered-property)", "cmd": "toggle-ordered", "args": []})
     return out
 
+
+FOOTNOTE_DOCS = [
+    "#+TITLE: Notes\n\n* Intro\nText one[fn:1] and two[fn:note] and inline[fn:: anon def] and named[fn:inl: inline def].\nMore text[fn:3].\n\n[fn:1] First.\n\n* Second\nRefers again[fn:1] and new[fn:2].\n\n[fn:note] Named.\n[fn:3] Third, defined late.\n\n* Footnotes\n\n[fn:2] Two in section.\n",
+    "Para[fn:3] then[fn:1].\nAnother[fn:2].\n\n[fn:1] One.\n[fn:2] Two.\n[fn:3] Three.\n[fn:9] Unreferenced.\n",
+    "* A\nx[fn:a].\n\n[fn:a] See also[fn:b].\n\n[fn:b] Nested.\n* B\ny[fn:c] and missing[fn:zz].\n\n[fn:c] C def.\n",
+    "Just text here.\n",
+    "* H\nText",
+    "* Head :tag:\nBody text.\n** Sub\n| a | b |\n|---+---|\n| 1 | 2 |\n- item one\n- item two\n#+begin_src sh\necho hi\n#+end_src\n: fixed\nEnd.\n",
+    "Intro[fn:1].\n\n* Footnotes\n:PROPERTIES:\n:ID: x\n:END:\nSome text.\n\n[fn:1] Existing.\n* After\nMore[fn:7].\n",
+]
+
+FOOTNOTE_SECTIONS = [
+    ("", "section"),
+    ("(org-footnote-section nil)", "local"),
+]
+
+
+def footnote_cases():
+    """`org-footnote.el': new, renumber, sort, normalize, delete and
+    moving between references and definitions."""
+    out = []
+    for d, doc in enumerate(FOOTNOTE_DOCS):
+        data = doc.encode()
+        for binding, key in FOOTNOTE_SECTIONS:
+            wrap = lambda form: f"(let ({binding}) {form})" if binding else form
+            for form, cmd in (("(org-footnote-renumber-fn:N)", "fn-renumber"),
+                              ("(org-footnote-sort)", "fn-sort"),
+                              ("(org-footnote-normalize)", "fn-normalize")):
+                if cmd == "fn-renumber" and binding:
+                    continue
+                out.append({"name": f"fn {d} {key} {cmd}", "text": doc, "point": 0, "mark": None, "form": wrap(form), "cmd": cmd, "args": [key]})
+            # New footnotes: the start, middle and end of every line.
+            for start, line in byte_offsets_of_lines(doc):
+                for off in sorted({0, len(line) // 2, max(len(line) - 1, 0), len(line)}):
+                    p = start + off
+                    if p > len(data):
+                        continue
+                    while p < len(data) and (data[p] & 0xC0) == 0x80:
+                        p += 1
+                    out.append({"name": f"fn {d} {key} new@{p}", "text": doc, "point": p, "mark": None, "form": wrap("(org-footnote-new)"), "cmd": "fn-new", "args": [key]})
+        # Delete and move, at every footnote.
+        i = 0
+        while True:
+            i = data.find(b"[fn:", i)
+            if i < 0:
+                break
+            for p in (i, i + 3):
+                out.append({"name": f"fn {d} delete@{p}", "text": doc, "point": p, "mark": None, "form": "(org-footnote-delete)", "cmd": "fn-delete", "args": []})
+                if b"[fn:zz]" != data[i:i + 7]:
+                    out.append({"name": f"fn {d} action@{p}", "text": doc, "point": p, "mark": None, "form": "(org-footnote-action)", "cmd": "fn-action", "args": []})
+            i += 1
+    return out
+
+
+# Cases where Emacs fails (docs/known-differences.org, Footnotes).
+KNOWN_FOOTNOTE_BUGS = {
+    "fnr 14 local fn-normalize": "org-footnote-normalize takes the last anonymous footnote of the document for one nested in a definition, and extracts text past the end (Args out of range)",
+    "fnr 14 section fn-normalize": "org-footnote-normalize takes the last anonymous footnote of the document for one nested in a definition, and extracts text past the end (Args out of range)",
+    "fnr 51 local fn-normalize": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 51 local fn-sort": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 51 renumber": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 51 section fn-normalize": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 51 section fn-sort": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 52 local fn-normalize": "org-footnote-normalize takes the last anonymous footnote of the document for one nested in a definition, and extracts text past the end (Args out of range)",
+    "fnr 52 section fn-normalize": "org-footnote-normalize takes the last anonymous footnote of the document for one nested in a definition, and extracts text past the end (Args out of range)",
+    "fnr 69 local fn-normalize": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 69 local fn-sort": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 69 renumber": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 69 section fn-normalize": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)",
+    "fnr 69 section fn-sort": "org-footnote--collect-references recurses without end on a definition that refers to itself (Lisp nesting exceeds max-lisp-eval-depth)"
+}
+
+
+def random_footnote_cases(n=90, seed=13):
+    """Random documents of headings, paragraphs, references and
+    definitions, for the footnote commands."""
+    import random
+    rnd = random.Random(seed)
+    labels = ["1", "2", "3", "7", "a", "note", "x-y"]
+    def para():
+        words = []
+        for _ in range(rnd.randint(1, 6)):
+            r = rnd.random()
+            w = rnd.choice(["word", "text", "more", "é", "end."])
+            if r < 0.25:
+                w += f"[fn:{rnd.choice(labels)}]"
+            elif r < 0.3:
+                w += "[fn:: inline " + rnd.choice(["one", "two"]) + "]"
+            elif r < 0.33:
+                w += f"[fn:{rnd.choice(labels)}: named]"
+            words.append(w)
+        return " ".join(words)
+    out = []
+    for i in range(n):
+        lines = []
+        for _ in range(rnd.randint(1, 9)):
+            r = rnd.random()
+            if r < 0.2:
+                lines.append("*" * rnd.randint(1, 3) + " " + rnd.choice(["H", "Head", "Footnotes", "Notes"]))
+            elif r < 0.45:
+                lines.append(f"[fn:{rnd.choice(labels)}] Def {para()}")
+            elif r < 0.6:
+                lines.append("")
+            else:
+                lines.append(para())
+        text = "\n".join(lines) + rnd.choice(["\n", "", "\n\n"])
+        data = text.encode()
+        for binding, key in FOOTNOTE_SECTIONS:
+            wrap = lambda form: f"(let ({binding}) {form})" if binding else form
+            for form, cmd in (("(org-footnote-sort)", "fn-sort"), ("(org-footnote-normalize)", "fn-normalize")):
+                out.append({"name": f"fnr {i} {key} {cmd}", "text": text, "point": 0, "mark": None, "form": wrap(form), "cmd": cmd, "args": [key]})
+            p = rnd.randint(0, len(data))
+            while p < len(data) and (data[p] & 0xC0) == 0x80:
+                p += 1
+            out.append({"name": f"fnr {i} {key} new@{p}", "text": text, "point": p, "mark": None, "form": wrap("(org-footnote-new)"), "cmd": "fn-new", "args": [key]})
+        out.append({"name": f"fnr {i} renumber", "text": text, "point": 0, "mark": None, "form": "(org-footnote-renumber-fn:N)", "cmd": "fn-renumber", "args": ["section"]})
+        j = data.find(b"[fn:")
+        if j >= 0:
+            out.append({"name": f"fnr {i} delete@{j+2}", "text": text, "point": j + 2, "mark": None, "form": "(org-footnote-delete)", "cmd": "fn-delete", "args": []})
+    for c in out:
+        if c["name"] in KNOWN_FOOTNOTE_BUGS:
+            c["known"] = KNOWN_FOOTNOTE_BUGS[c["name"]]
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases() + todo_dependency_cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")

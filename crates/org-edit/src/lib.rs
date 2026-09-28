@@ -7,6 +7,7 @@
 
 mod buffer;
 pub mod emphasis;
+pub mod footnote;
 pub mod format;
 pub mod headline;
 mod history;

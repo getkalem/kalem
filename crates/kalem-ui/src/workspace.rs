@@ -1739,6 +1739,7 @@ pub fn menus() -> Vec<Menu> {
             items: vec![
                 named(tr("menu-link"), "org.insert.link"),
                 named(tr("menu-citation"), "org.cite.insert"),
+                named(tr("menu-footnote"), "org.footnote.new"),
                 with(
                     tr("menu-table"),
                     "table.create",
