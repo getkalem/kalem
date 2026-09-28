@@ -42,7 +42,8 @@ fn mode_line(first_line: &str) -> Option<String> {
 
 fn by_name(name: &str) -> Option<DocumentMode> {
     Some(match name {
-        "org" | "org_archive" => DocumentMode::Org,
+        // `.klm`: a Kalem document, Org with Kalem's additions (§3.7).
+        "org" | "org_archive" | "klm" => DocumentMode::Org,
         "md" | "markdown" | "mdown" | "mkd" | "gfm" => DocumentMode::Markdown,
         "csv" | "tsv" | "tab" => DocumentMode::Csv,
         _ => return None,

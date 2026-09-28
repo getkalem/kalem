@@ -1122,6 +1122,9 @@ impl DocumentState {
         let mut c = Context::default();
         let mode = self.meta.mode.name();
         c.set("editorMode", Value::Str(mode.into()));
+        if let Some(kind) = crate::kinds::file_kind(self) {
+            c.set("fileKind", Value::Str(kind.into()));
+        }
         if let DocumentMode::Text { language: Some(l) } = &self.meta.mode {
             c.set("editorLanguage", Value::Str(l.clone()));
         }

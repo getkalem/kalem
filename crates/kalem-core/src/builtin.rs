@@ -200,7 +200,28 @@ fn priority(ctx: &mut EditorContext<'_>, a: org_edit::todo::PriorityAction) -> C
 
 /// Kalem's character formatting on the selection (or the word at the
 /// cursor), as a word processor formats (`crate::rich`).
+/// In a strict `.org` file (§3.7), Kalem's formatting is not written:
+/// the frontend offers to make the document a Kalem document or to allow
+/// the formatting in this file. Whether that happened.
+fn strict_org(ctx: &mut EditorContext<'_>) -> bool {
+    let config = ctx.config;
+    let Some(doc) = ctx.document.as_deref() else {
+        return false;
+    };
+    if crate::kinds::file_kind(doc) != Some("org") || crate::kinds::markup_allowed(doc, config) {
+        return false;
+    }
+    ctx.messages.push(crate::l10n::tr("kind-offer"));
+    ctx.requests
+        .push(Request::Choose(crate::kinds::offer_items()));
+    true
+}
+
 fn rich_format(ctx: &mut EditorContext<'_>, change: crate::rich::Change) -> CommandResult {
+    // Clearing takes Kalem's formatting away, which strict Org allows.
+    if change != crate::rich::Change::Clear && strict_org(ctx) {
+        return Ok(());
+    }
     ctx.org(|d, p, m| {
         let root = d.parse().syntax();
         let text = root.text().to_string();
@@ -261,6 +282,9 @@ fn rich_color(args: &Value, key: &str) -> Result<Option<crate::theme::Color>, Co
 }
 
 fn align_cmd(ctx: &mut EditorContext<'_>, align: crate::rich::Align) -> CommandResult {
+    if strict_org(ctx) {
+        return Ok(());
+    }
     ctx.org(|d, p, m| {
         let root = d.parse().syntax();
         let text = root.text().to_string();
@@ -270,6 +294,45 @@ fn align_cmd(ctx: &mut EditorContext<'_>, align: crate::rich::Align) -> CommandR
             point: None,
         })
     })
+}
+
+/// Saves the `.org` document as a `.klm` Kalem document beside it (the
+/// `.org` file goes), and turns the links to it in its project (or its
+/// folder) to the new name.
+fn make_kalem_document(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
+    let options = ctx.config.save_options();
+    let doc = ctx.doc()?;
+    let Some(old) = doc.meta.path.clone() else {
+        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+    };
+    let old = std::path::absolute(&old).unwrap_or(old);
+    let new = old.with_extension("klm");
+    if new.exists() {
+        return Err(CommandError::new(crate::tr!(
+            "kind-exists",
+            path = new.display().to_string()
+        )));
+    }
+    doc.save_as(&new, options)
+        .map_err(|e| CommandError::new(e.to_string()))?;
+    if old.exists() {
+        std::fs::remove_file(&old).map_err(|e| CommandError::new(e.to_string()))?;
+    }
+    let root = kalem_project::list::detect_root(&new)
+        .or_else(|| new.parent().map(std::path::Path::to_path_buf))
+        .unwrap_or_default();
+    let changed = crate::kinds::update_links(&root, &old, &new);
+    ctx.messages.push(crate::tr!(
+        "kind-made",
+        name = new
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        count = changed.len()
+    ));
+    // The frontends watch the new file.
+    ctx.requests.push(Request::Save);
+    Ok(())
 }
 
 /// Puts color `c` first in the recent colors of setting `key` (six at
@@ -311,6 +374,9 @@ fn spacing_cmd(ctx: &mut EditorContext<'_>, points: &str, after: bool) -> Comman
         }
     };
     let change = Some(size);
+    if strict_org(ctx) {
+        return Ok(());
+    }
     ctx.org(|d, p, m| {
         let root = d.parse().syntax();
         let text = root.text().to_string();
@@ -334,6 +400,9 @@ fn doc_defaults(
     ctx: &mut EditorContext<'_>,
     change: impl FnOnce(&mut crate::rich::DocDefaults),
 ) -> CommandResult {
+    if strict_org(ctx) {
+        return Ok(());
+    }
     ctx.org(|d, _, _| {
         let root = d.parse().syntax();
         let text = root.text().to_string();
@@ -1621,6 +1690,28 @@ fn plain_commands() -> Vec<Command> {
                 let spacing = spacing.filter(|s| *s != 10);
                 doc_defaults(ctx, |d| d.spacing = spacing)
             },
+        ),
+        cmd(
+            "format.allowMarkup",
+            "Allow Kalem's Formatting in This File",
+            "Format",
+            &[],
+            Some("fileKind == org"),
+            |ctx, _| {
+                ctx.org(|d, _, _| {
+                    let root = d.parse().syntax();
+                    let text = root.text().to_string();
+                    Ok(crate::rich::set_kalem_option(&root, &text, "markup", "yes"))
+                })
+            },
+        ),
+        cmd(
+            "file.makeKalemDocument",
+            "Make Kalem Document (.klm)",
+            "File",
+            &[],
+            Some("fileKind == org"),
+            make_kalem_document,
         ),
         cmd(
             "format.spaceBefore",

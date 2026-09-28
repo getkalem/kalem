@@ -136,6 +136,15 @@ impl Editor {
         cx.notify();
     }
 
+    /// Opens a list of commands to choose from.
+    pub fn open_choice(&mut self, items: Vec<PaletteItem>, cx: &mut Context<'_, Self>) {
+        self.completion = None;
+        let mut p = Palette::new(String::new());
+        p.items = items;
+        self.palette = Some(p);
+        cx.notify();
+    }
+
     /// Opens the export dialog: the formats and the export settings.
     pub fn open_export_dialog(&mut self, cx: &mut Context<'_, Self>) {
         self.completion = None;

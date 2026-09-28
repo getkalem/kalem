@@ -1314,7 +1314,7 @@ fn font_search_and_recent_colors(cx: &mut TestAppContext) {
     let (ws, cx) = {
         let dir = std::env::temp_dir().join(format!("kalem-ui-fonts-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("f.org");
+        let path = dir.join("f.klm");
         std::fs::write(&path, text).unwrap();
         let _ = std::fs::remove_file(dir.join("settings.toml"));
         let mut shared = kalem_ui::shared(Config::default());
@@ -1366,7 +1366,7 @@ fn word_formatting(cx: &mut TestAppContext) {
     let (ws, cx) = {
         let dir = std::env::temp_dir().join(format!("kalem-ui-fmt-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("f.org");
+        let path = dir.join("f.klm");
         std::fs::write(&path, text).unwrap();
         let mut shared = kalem_ui::shared(Config::default());
         shared.html_clipboard = || None;

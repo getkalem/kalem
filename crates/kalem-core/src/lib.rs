@@ -15,6 +15,7 @@ pub mod formulas;
 pub mod input;
 pub mod keymap;
 pub mod keys;
+pub mod kinds;
 pub mod l10n;
 pub mod logging;
 pub mod math;

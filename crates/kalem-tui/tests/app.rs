@@ -44,6 +44,11 @@ impl Drop for T {
 }
 
 fn with_config(text: &str, config: Config, size: (u16, u16)) -> T {
+    with_file(text, "t.org", config, size)
+}
+
+/// A terminal editor on `text` saved as `name` in a new folder.
+fn with_file(text: &str, name: &str, config: Config, size: (u16, u16)) -> T {
     let dir = std::env::temp_dir().join(format!(
         "kalem-tui-{}-{:?}",
         std::process::id(),
@@ -51,7 +56,7 @@ fn with_config(text: &str, config: Config, size: (u16, u16)) -> T {
     ));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("t.org");
+    let path = dir.join(name);
     std::fs::write(&path, text).unwrap();
     let app = App::with_keymap(Some(&path), config, Caps::full(), &[], Vec::new()).unwrap();
     let term = Terminal::new(TestBackend::new(size.0, size.1)).unwrap();
@@ -1347,9 +1352,44 @@ fn doom_keys_in_the_terminal() {
 }
 
 #[test]
+fn strict_org_offers_a_kalem_document() {
+    let mut t = open("one two\n");
+    t.at(0);
+    t.app
+        .run_command("format.alignRight", serde_json::Value::Null);
+    // Nothing written; the choice is offered.
+    assert_eq!(t.text(), "one two\n");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("Make Kalem Document"), "{shown}");
+    assert!(shown.contains("Allow Kalem's Formatting"), "{shown}");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    // Allowing it in this file: a `#+KALEM:` line, then formatting works.
+    t.app
+        .run_command("format.allowMarkup", serde_json::Value::Null);
+    assert_eq!(t.text(), "#+KALEM: markup=yes\none two\n");
+    t.at(t.text().find("one").unwrap());
+    t.app
+        .run_command("format.alignRight", serde_json::Value::Null);
+    assert!(
+        t.text().contains("#+ATTR_KALEM: :align right\none two"),
+        "{}",
+        t.text()
+    );
+    // Making a Kalem document renames the file.
+    let mut t = open("one\n");
+    let old = t.app.doc.meta.path.clone().unwrap();
+    t.app
+        .run_command("file.makeKalemDocument", serde_json::Value::Null);
+    let new = t.app.doc.meta.path.clone().unwrap();
+    assert_eq!(new.extension().unwrap(), "klm");
+    assert!(new.exists() && !old.exists());
+    assert!(status(&mut t).contains("Kalem"), "{}", status(&mut t));
+}
+
+#[test]
 fn word_formatting_in_the_terminal() {
     let text = "one @@kalem:color=#c00000 bg=#fff2a8@@two@@kalem:end@@ three\n\n#+ATTR_KALEM: :align right\nend\n";
-    let mut t = open(text);
+    let mut t = with_file(text, "t.klm", Config::default(), (60, 10));
     t.at(0);
     let buf = t.draw();
     let row: String = (0..buf.area.width)

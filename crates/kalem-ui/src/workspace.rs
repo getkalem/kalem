@@ -1549,7 +1549,14 @@ impl Workspace {
         let table = kalem_core::formulas::selection_stats(&e.doc)
             .map(|t| format!("   {t}"))
             .unwrap_or_default();
-        let left = format!("{mode}{project}{name}   {state}   {position}{words}{formula}{table}");
+        // The file kind: strict Org, or a Kalem document (§3.7).
+        let kind = match kalem_core::kinds::file_kind(&e.doc) {
+            Some("klm") => format!("{}   ", kalem_core::l10n::tr("kind-klm")),
+            Some(_) => format!("{}   ", kalem_core::l10n::tr("kind-org")),
+            None => String::new(),
+        };
+        let left =
+            format!("{mode}{project}{name}   {kind}{state}   {position}{words}{formula}{table}");
         let (msg, error) = match self.shared.jobs.borrow().first() {
             // A file operation running: its progress.
             Some(j) => (j.status(), false),

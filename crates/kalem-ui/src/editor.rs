@@ -1011,6 +1011,7 @@ impl Editor {
                 }
             }
             // After a setting it changes is applied (`set_setting` defers).
+            Request::Choose(items) => self.open_choice(items, cx),
             Request::ExportDialog => {
                 let this = cx.entity();
                 cx.defer(move |cx| this.update(cx, |e, cx| e.open_export_dialog(cx)));
