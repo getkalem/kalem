@@ -113,6 +113,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Plain text export as Emacs's `ox-ascii` writes it, paragraphs filled as `fill-region` fills them (`kalem export --to txt`, `--to utf8`, Export as Plain Text).
 - PDF export through LaTeX (`kalem export --to pdf`, Export as PDF): `latexmk`, the TeX engine or `tectonic`, compiled in the background in the editors, with LaTeX's errors at the lines of the Org file.
 - Word, OpenDocument, EPUB and RTF through pandoc, and `kalem import` (Import as Org) from Word, OpenDocument, Markdown, HTML, EPUB and RTF, with a clean-up pass.
+- Citations: the `org-cite` crate reads BibTeX, BibLaTeX and CSL-JSON bibliographies as Org does, and `kalem check` warns about unreadable bibliographies and unknown citation keys.
 
 ### Changed
 
