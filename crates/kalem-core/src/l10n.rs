@@ -247,6 +247,13 @@ mod tests {
             assert!(en.contains(&k), "{k}");
             assert_eq!(tr_in("en", &k, &[]), c.title, "{k}");
         }
+        // No message is defined twice (Fluent keeps the first).
+        for lang in ["en", "tr"] {
+            let k = keys(lang);
+            let mut seen = std::collections::HashSet::new();
+            let twice: Vec<&String> = k.iter().filter(|x| !seen.insert(*x)).collect();
+            assert!(twice.is_empty(), "{lang}: {twice:?}");
+        }
         // Both files parse without errors.
         for (lang, _) in LANGUAGES {
             assert!(

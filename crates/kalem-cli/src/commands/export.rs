@@ -27,6 +27,8 @@ pub(crate) enum Target {
     Utf8,
     /// PDF: LaTeX with `%% org:LINE` comments, compiled.
     Pdf,
+    /// A format pandoc writes.
+    Pandoc(kalem_core::pandoc::Format),
 }
 
 /// The LaTeX back-end.
@@ -46,6 +48,8 @@ impl Target {
             Target::Gfm => &org_export::Gfm,
             Target::Latex => &LATEX,
             Target::LatexLines | Target::Pdf => &LATEX_LINES,
+            // Not an exporter of Kalem's: pandoc reads the Org text.
+            Target::Pandoc(_) => &org_export::Markdown,
             Target::Text => &org_export::Text { utf8: false },
             Target::Utf8 => &org_export::Text { utf8: true },
             // Not an Org exporter: `export` writes the stripped text.
@@ -60,6 +64,7 @@ impl Target {
             Target::Org => ".org",
             Target::Latex | Target::LatexLines | Target::Pdf => ".tex",
             Target::Text | Target::Utf8 => ".txt",
+            Target::Pandoc(f) => f.extension(),
         }
     }
 }
@@ -118,6 +123,12 @@ pub(crate) fn export(
             math: Some(kalem_core::math::export_renderer()),
             options: None,
         };
+        if let Target::Pandoc(format) = to {
+            if !export_pandoc(file, text, format, output, at) {
+                failed = true;
+            }
+            continue;
+        }
         let out = if to == Target::Org {
             let (out, counts) = kalem_core::kinds::strip_markup(text);
             eprintln!(
@@ -209,4 +220,89 @@ fn compile_pdf(file: &Path, text: &str, tex: &Path) -> bool {
             false
         }
     }
+}
+
+/// Writes `file` as `format` through pandoc; whether it worked.
+fn export_pandoc(
+    file: &Path,
+    text: &str,
+    format: kalem_core::pandoc::Format,
+    output: Option<&Path>,
+    subtree: Option<usize>,
+) -> bool {
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    let Some(pandoc) = kalem_core::pandoc::find(&search) else {
+        eprintln!(
+            "{}: {}",
+            file.display(),
+            kalem_core::l10n::tr("msg-no-pandoc")
+        );
+        return false;
+    };
+    if subtree.is_some() {
+        eprintln!("{}: --subtree is not supported with pandoc", file.display());
+        return false;
+    }
+    let file = std::path::absolute(file).unwrap_or_else(|_| file.to_path_buf());
+    let target = match output {
+        Some(p) => std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf()),
+        None => org_export::output_file_name_for(text, &file, format.extension(), None),
+    };
+    match kalem_core::pandoc::export(&pandoc, text, &file, format, &target) {
+        Ok(()) => {
+            println!("{}", target.display());
+            true
+        }
+        Err(e) => {
+            eprintln!("{}: {e}", file.display());
+            false
+        }
+    }
+}
+
+/// `kalem import`: Word, OpenDocument, Markdown, HTML, EPUB or RTF files
+/// to Org through pandoc.
+pub(crate) fn import(files: &[PathBuf], output: Option<&Path>, force: bool) -> Result<ExitCode> {
+    if output.is_some() && files.len() > 1 {
+        return Err("--output takes one input file".into());
+    }
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    let Some(pandoc) = kalem_core::pandoc::find(&search) else {
+        return Err(kalem_core::l10n::tr("msg-no-pandoc"));
+    };
+    let mut failed = false;
+    for file in files {
+        let target = output.map_or_else(|| file.with_extension("org"), Path::to_path_buf);
+        let to_stdout = target == Path::new("-");
+        if !to_stdout && target.exists() && !force {
+            eprintln!("{}: exists (use --force to replace it)", target.display());
+            failed = true;
+            continue;
+        }
+        let stem = file
+            .file_stem()
+            .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+        let media = PathBuf::from(format!("{stem}_assets"));
+        match kalem_core::pandoc::import(&pandoc, file, Some(&media)) {
+            Ok(org) if to_stdout => {
+                std::io::stdout()
+                    .lock()
+                    .write_all(org.as_bytes())
+                    .map_err(|e| e.to_string())?;
+            }
+            Ok(org) => {
+                std::fs::write(&target, org).map_err(|e| format!("{}: {e}", target.display()))?;
+                println!("{}", target.display());
+            }
+            Err(e) => {
+                eprintln!("{}: {e}", file.display());
+                failed = true;
+            }
+        }
+    }
+    Ok(if failed {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    })
 }

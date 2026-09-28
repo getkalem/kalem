@@ -680,7 +680,7 @@ impl App {
                     Ok(d) => d,
                     Err(e) => {
                         let msg = tr!(
-                            "msg-cannot-open",
+                            "msg-cannot-open-file",
                             path = target.display().to_string(),
                             error = e.to_string()
                         );

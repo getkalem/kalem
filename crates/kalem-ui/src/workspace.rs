@@ -249,7 +249,7 @@ impl Workspace {
                     }
                     Err(err) => {
                         let msg = tr!(
-                            "msg-cannot-open",
+                            "msg-cannot-open-file",
                             path = target.display().to_string(),
                             error = err
                         );

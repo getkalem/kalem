@@ -14,6 +14,7 @@ const SUBCOMMANDS: &[&str] = &[
     "check",
     "fmt",
     "export",
+    "import",
     "query",
     "table",
     "dump",

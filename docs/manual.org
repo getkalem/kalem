@@ -329,6 +329,14 @@ MacTeX or MiKTeX provide them. When LaTeX stops on an error, the status
 line gives it at the line of the Org file it comes from. With
 =export.open_after= on, the PDF opens when it is ready.
 
+With pandoc installed (https://pandoc.org), /Export as Word/,
+/OpenDocument/, /EPUB/ and /RTF/ write those formats, and /Import as Org/
+(File menu) turns a Word, OpenDocument, Markdown, HTML, EPUB or RTF file
+into an Org file beside it, its pictures in a =NAME_assets= folder. The
+import is cleaned up: the anchors and =CUSTOM_ID= properties pandoc adds
+and nothing links to go, and tables are aligned. Kalem's own formatting
+(fonts, colors) does not reach Word or OpenDocument yet.
+
 Plain text is filled to 72 columns as Emacs fills it, with underlined
 titles, boxed code and tables drawn in ASCII; =export.text_charset =
 "utf-8"= uses UTF-8 lines, bullets and quotes instead.
@@ -342,6 +350,8 @@ kalem export *.org --body-only          # only the body of each page
 kalem export paper.org --to latex       # paper.tex
 kalem export notes.org --to txt         # plain text, 72 columns (utf8 for UTF-8)
 kalem export paper.org --to pdf         # paper.pdf; errors as paper.org:LINE: …
+kalem export report.org --to docx       # also odt, epub, rtf (pandoc)
+kalem import report.docx                # report.org, cleaned up (pandoc)
 kalem export paper.org --to latex --source-lines   # %% org:LINE comments
 #+end_src
 

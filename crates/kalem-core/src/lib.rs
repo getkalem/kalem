@@ -22,6 +22,7 @@ pub mod logging;
 pub mod math;
 pub mod mode;
 pub mod palette;
+pub mod pandoc;
 pub mod paste;
 pub mod pdf;
 pub mod projects;

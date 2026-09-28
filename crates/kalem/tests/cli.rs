@@ -239,3 +239,40 @@ fn pdf_export() {
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stderr).contains("No LaTeX found"));
 }
+
+/// Word and HTML through pandoc, when it is installed.
+#[test]
+fn pandoc_bridge() {
+    let found = std::process::Command::new("pandoc")
+        .arg("--version")
+        .output()
+        .is_ok_and(|o| o.status.success());
+    if !found {
+        return;
+    }
+    let dir = std::env::temp_dir().join(format!("kalem-cli-pandoc-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let org = dir.join("doc.org");
+    std::fs::write(&org, "#+TITLE: Doc\n\n* Part\nText with /emphasis/.\n").unwrap();
+    let (code, out, err) = kalem(&["export", "--to", "docx", org.to_str().unwrap()]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.trim().ends_with("doc.docx"));
+    let (code, back, err) = kalem(&["import", dir.join("doc.docx").to_str().unwrap(), "-o", "-"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(back.contains("* Part\nText with /emphasis/."), "{back}");
+    // HTML beside: `page.org`, cleaned up.
+    let html = dir.join("page.html");
+    std::fs::write(
+        &html,
+        "<h1 id=\"a\">A</h1><p>x <a href=\"https://k.l\">https://k.l</a></p>",
+    )
+    .unwrap();
+    let (code, _, err) = kalem(&["import", html.to_str().unwrap()]);
+    assert_eq!(code, 0, "{err}");
+    let page = std::fs::read_to_string(dir.join("page.org")).unwrap();
+    assert!(page.contains("* A\nx [[https://k.l]]"), "{page}");
+    // Not over an existing file.
+    let (code, _, err) = kalem(&["import", html.to_str().unwrap()]);
+    assert_eq!(code, 1, "{err}");
+}

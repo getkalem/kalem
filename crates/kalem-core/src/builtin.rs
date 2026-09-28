@@ -89,6 +89,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("file.open", object(&[("path", "string", false)])),
         ("org.property.delete", object(&[("key", "string", true)])),
+        ("file.import", object(&[("file", "string", true)])),
         ("format.font", object(&[("family", "string", true)])),
         ("format.size", object(&[("size", "string", true)])),
         ("format.color", object(&[("color", "string", true)])),
@@ -637,6 +638,82 @@ fn pdf_result(
     }
 }
 
+/// Writes the active document as `format` through pandoc, in the
+/// background, beside its file (or where `#+EXPORT_FILE_NAME` says).
+fn export_pandoc(ctx: &mut EditorContext<'_>, format: crate::pandoc::Format) -> CommandResult {
+    let doc = ctx
+        .document
+        .as_deref()
+        .ok_or_else(|| CommandError::new("No document"))?;
+    let Some(path) = doc.meta.path.clone() else {
+        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+    };
+    let path = std::path::absolute(&path).unwrap_or(path);
+    let text = doc.text().as_str().to_string();
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    let pandoc = crate::pandoc::find(&search)
+        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-pandoc")))?;
+    let target = org_export::output_file_name_for(&text, &path, format.extension(), None);
+    let open_after = ctx.config.bool("export.open_after");
+    let status = crate::l10n::tr("msg-converting");
+    ctx.messages.push(status.clone());
+    crate::jobs::spawn(status, move || {
+        match crate::pandoc::export(&pandoc, &text, &path, format, &target) {
+            Ok(()) => crate::jobs::Finished {
+                message: crate::tr!("msg-exported", path = target.display().to_string()),
+                error: false,
+                open: open_after.then(|| crate::input::LinkAction::Url(file_url(&target))),
+            },
+            Err(e) => crate::jobs::Finished {
+                message: crate::tr!("msg-pandoc-failed", error = e),
+                error: true,
+                open: None,
+            },
+        }
+    });
+    Ok(())
+}
+
+/// Converts a Word, OpenDocument, Markdown, HTML, EPUB or RTF file to Org
+/// through pandoc, beside it, and opens the result.
+fn import_file(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    let file = std::path::PathBuf::from(arg_str(args, "file")?.trim());
+    let file = match (&ctx.document, file.is_relative()) {
+        (Some(d), true) => d
+            .meta
+            .path
+            .as_ref()
+            .and_then(|p| p.parent())
+            .map_or(file.clone(), |dir| dir.join(&file)),
+        _ => file,
+    };
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    let pandoc = crate::pandoc::find(&search)
+        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-pandoc")))?;
+    let target = file.with_extension("org");
+    if target.exists() {
+        return Err(CommandError::new(crate::tr!(
+            "msg-import-exists",
+            path = target.display().to_string()
+        )));
+    }
+    let stem = file
+        .file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    let media = std::path::PathBuf::from(format!("{stem}_assets"));
+    let org = crate::pandoc::import(&pandoc, &file, Some(&media))
+        .map_err(|e| CommandError::new(crate::tr!("msg-pandoc-failed", error = e)))?;
+    std::fs::write(&target, org).map_err(|e| CommandError::new(e.to_string()))?;
+    ctx.messages.push(crate::tr!(
+        "msg-imported",
+        path = target.display().to_string()
+    ));
+    ctx.requests.push(Request::Open {
+        path: Some(target.display().to_string()),
+    });
+    Ok(())
+}
+
 /// The LaTeX back-end with `%% org:LINE` comments, for compiling.
 const LATEX_LINES: org_export::Latex = org_export::Latex { source_lines: true };
 
@@ -673,6 +750,10 @@ pub fn export_dialog_items(config: &crate::settings::Config) -> Vec<crate::palet
         "export.gfm",
         "export.latex",
         "export.pdf",
+        "export.docx",
+        "export.odt",
+        "export.epub",
+        "export.rtf",
         "export.text",
         "export.htmlSubtree",
         "export.markdownSubtree",
@@ -859,6 +940,46 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some("editorMode == org"),
             |ctx, _| export_pdf(ctx, true),
+        ),
+        cmd(
+            "export.docx",
+            "Export as Word (pandoc)",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_pandoc(ctx, crate::pandoc::Format::Docx),
+        ),
+        cmd(
+            "export.odt",
+            "Export as OpenDocument (pandoc)",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_pandoc(ctx, crate::pandoc::Format::Odt),
+        ),
+        cmd(
+            "export.epub",
+            "Export as EPUB (pandoc)",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_pandoc(ctx, crate::pandoc::Format::Epub),
+        ),
+        cmd(
+            "export.rtf",
+            "Export as RTF (pandoc)",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_pandoc(ctx, crate::pandoc::Format::Rtf),
+        ),
+        cmd(
+            "file.import",
+            "Import as Org (pandoc)…",
+            "File",
+            &[],
+            None,
+            import_file,
         ),
         cmd(
             "export.latexSubtree",

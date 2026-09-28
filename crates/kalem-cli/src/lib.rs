@@ -94,6 +94,20 @@ enum Command {
         #[arg(long)]
         source_lines: bool,
     },
+    /// Convert Word, OpenDocument, Markdown, HTML, EPUB or RTF files to
+    /// Org through pandoc, cleaned up: `kalem import report.docx` writes
+    /// `report.org` beside it, its pictures in `report_assets`.
+    Import {
+        /// Files to convert.
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+        /// Where to write (one input file only); `-` for standard output.
+        #[arg(long, short)]
+        output: Option<PathBuf>,
+        /// Replace an Org file that exists.
+        #[arg(long)]
+        force: bool,
+    },
     /// Table formulas: `kalem table recalc FILE...`.
     Table {
         #[command(subcommand)]
@@ -174,6 +188,14 @@ enum ExportTo {
     Utf8,
     /// PDF through LaTeX (`latexmk`, the TeX engine or `tectonic`).
     Pdf,
+    /// Word, through pandoc.
+    Docx,
+    /// OpenDocument text, through pandoc.
+    Odt,
+    /// EPUB, through pandoc.
+    Epub,
+    /// Rich Text Format, through pandoc.
+    Rtf,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -229,9 +251,18 @@ where
                 ExportTo::Txt => commands::Target::Text,
                 ExportTo::Utf8 => commands::Target::Utf8,
                 ExportTo::Pdf => commands::Target::Pdf,
+                ExportTo::Docx => commands::Target::Pandoc(kalem_core::pandoc::Format::Docx),
+                ExportTo::Odt => commands::Target::Pandoc(kalem_core::pandoc::Format::Odt),
+                ExportTo::Epub => commands::Target::Pandoc(kalem_core::pandoc::Format::Epub),
+                ExportTo::Rtf => commands::Target::Pandoc(kalem_core::pandoc::Format::Rtf),
             };
             commands::export(&files, to, output.as_deref(), body_only, subtree.as_deref())
         }
+        Command::Import {
+            files,
+            output,
+            force,
+        } => commands::import(&files, output.as_deref(), force),
         Command::Table {
             action:
                 TableAction::Recalc {
