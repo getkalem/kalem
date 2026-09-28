@@ -541,7 +541,7 @@ kalem-ui / kalem-tui ── command call ──▶ kalem-core: Command Registry 
 |---|---|
 | UI | gpui event loop, rendering, command execution (short-lived) |
 | Parser | Synchronous and incremental, runs on the UI thread. Budget per keystroke is 2 ms; if exceeded, work moves to the background and the old tree is rendered. Large files are parsed in the background on first open. |
-| Script | Plugin calls from the UI thread have a 100 ms synchronous budget enforced by fuel metering; parsers, renderers and completers run as instances on other threads. Heavy work goes to worker plugins with their own QuickJS runtime, communicating by messages. |
+| Script | Plugin calls from the UI thread have a 100 ms synchronous budget enforced by fuel metering; parsers, renderers and completers run as instances on other threads. Heavy work goes to worker plugins with their own the plugin host runtime, communicating by messages. |
 | Worker pool | Export, math rendering, indexing, spell checking, image loading |
 | Subprocesses | Babel, pandoc, tectonic/latexmk |
 
@@ -1362,7 +1362,7 @@ Kalem ships highlighters (D16, Sublime syntax definitions in `kalem-highlight`) 
 
 Rules:
 
-- **Ranges, never text.** `parse` returns ranges into the text and never regenerates it, so a mode cannot break the round-trip guarantee (3.3). The tree is plain data and crosses the QuickJS boundary as JSON.
+- **Ranges, never text.** `parse` returns ranges into the text and never regenerates it, so a mode cannot break the round-trip guarantee (3.3). The tree is plain data and crosses the component boundary as flat arrays of kinds and ranges, never as objects, so a parse per keystroke stays cheap.
 - **Incremental.** `parse` receives the edit and the previous tree and reparses from the enclosing top-level block, as Markdown mode does (2.6.1); a mode without incremental parsing is reparsed whole and must fit the budget.
 - **Budget.** The time and memory limits of 11.6 apply to each parse. A mode that exceeds them or throws drops the file to plain text with the plugin's highlighter, tells the user, and is disabled after repeated failures. Heavy parsers go into worker plugins or, from phase 4, WASM.
 - **Two levels.** Declarative: a syntax definition plus a mapping from its scopes to view kinds, no code; enough for gemtext, todo.txt or Fountain. Programmatic: a parser in JavaScript or TypeScript, later Lua through the same generated annotations (D6, D10); needed for AsciiDoc or Djot.
