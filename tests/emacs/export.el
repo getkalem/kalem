@@ -14,6 +14,8 @@
 ;; and NAME.tex.  The clock is fixed at 2026-09-28 Mon 10:00, the author
 ;; is "Kalem Tester" <tester@example.org>, and source blocks are not
 ;; colored (no htmlize), so that the results are the same everywhere.
+;; A case whose headline has a `KALEM_TEST_SUBTREE' property exports
+;; only that subtree, as `C-c C-e C-s' does.
 
 ;;; Code:
 
@@ -60,7 +62,17 @@
                    (cl-letf (((symbol-function 'current-time)
                               (lambda (&rest _) kalem-export-now)))
                      (condition-case err
-                         (org-export-as (car b) nil nil t)
+                         ;; A case with a `KALEM_TEST_SUBTREE' property
+                         ;; exports that subtree only.
+                         (let ((subtreep
+                                (save-excursion
+                                  (goto-char (point-min))
+                                  (when (re-search-forward
+                                         "^[ \t]*:KALEM_TEST_SUBTREE:" nil t)
+                                    (org-back-to-heading t)
+                                    (point)))))
+                           (when subtreep (goto-char subtreep))
+                           (org-export-as (car b) (and subtreep t) nil t))
                        (error (format "ERROR: %s\n" (error-message-string err))))))))
         (with-temp-file (expand-file-name (concat name "." (cdr b)) out-dir)
           (set-buffer-file-coding-system 'utf-8-unix)

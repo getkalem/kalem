@@ -1,0 +1,13 @@
+#+SETUPFILE: include/setup.org
+#+OPTIONS: num:t
+
+{{{greet(world)}}} and {{{nested}}} and {{{title}}} by {{{author}}}.
+
+A link: [[wp:Org-mode]]. a_b and a_{b}.
+
+* START First task
+* FINISHED Done task
+* Hidden :secret:
+Not exported.
+* MIDDLE Last
+{{{property(kind)}}}
