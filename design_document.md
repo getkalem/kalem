@@ -1080,7 +1080,7 @@ Kalem's own optional features are built on the same extension points wherever po
 | Bundled plugins | The same components, embedded in the binary, loaded on first use | Every feature outside the small core (11.0, D29) | 3 |
 | Second scripting language | Lua, as another runtime component on the same WIT API (D10) | For those who prefer it | 4 |
 | Threads | One component instance per thread; several instances of one plugin for parallel work; messages through the host | Parsers, renderers and completers off the UI thread | 3 |
-| Out-of-process | JSON-RPC over stdio; on Linux inside the process sandbox of section 12 when it is available | Language servers, external tools, Python and other integrations | 3 (the language server bridge), 4 |
+| Out-of-process | JSON-RPC over stdio | Language servers, external tools, Python and other integrations | 3 (the language server bridge), 4 |
 
 The API is defined once, in WIT (D6); the bindings for Rust, TypeScript and Lua, and the `kalem.d.ts` that editors read, are generated from it. A guest language is a runtime component on that API, never a second API. QuickJS as a native embedding was the earlier plan; D28 replaced it, because a WASM component gives near-native speed for parsers and completers, a capability sandbox with fuel and memory limits, one instance per thread, and one typed definition that a compiler checks, which matters more now that much plugin code is written with AI assistance.
 
@@ -1399,7 +1399,6 @@ Rules:
 - **Header arguments:** `:results` (output, value; raw, table, list, verbatim, file, drawer; replace, append, prepend, silent), `:exports` (code, results, both, none), `:var`, `:dir`, `:cache`, `:tangle`, `:file`; `:session` and `:noweb` in phase 4.
 - **Executors:** shell (sh, bash, zsh), python, javascript (node or the in-app QuickJS), R, gnuplot, sqlite, org, simple calc-like arithmetic. Plugins add languages with `kalem.babel.registerLanguage`.
 - **Trust model:** consent on the first "run" request in a document; a "trust this document" decision is bound to the document path and content hash; no code runs automatically on open, not even through `#+STARTUP`.
-- **Process sandbox (asked by the owner, 2026-09-28):** on Linux, when it is installed, source blocks run inside zygo (namespaces, cgroup v2, seccomp and Landlock; a warm interpreter forked per run; network off by default; memory, time and process limits on), `babel.sandbox = "auto" | "zygo" | "none"`; on macOS through the Linux VM zygo manages, if the user has it; elsewhere a plain subprocess with the limits the platform allows. The sandbox is never a hard dependency and consent is asked either way; the status bar says which wall a block ran behind. The same sandbox holds out-of-process plugins on Linux (11.1).
 - **Result insertion:** `#+RESULTS:` placement per Org rules, matching through `#+NAME`, replacement of old results.
 - **Tangling:** writes to files, with a confirmation list for each write.
 - Progress indicator and cancellation for running blocks.
