@@ -3004,7 +3004,14 @@ impl App {
                 .unwrap_or_default(),
         };
         let formula = formula_status.map(|f| format!("  {f}")).unwrap_or_default();
-        let rest = format!("   {mode}{view}  {}:{}{words}{formula}", l + 1, c + 1);
+        let table = kalem_core::formulas::selection_stats(&self.doc)
+            .map(|t| format!("  {t}"))
+            .unwrap_or_default();
+        let rest = format!(
+            "   {mode}{view}  {}:{}{words}{formula}{table}",
+            l + 1,
+            c + 1
+        );
         buf.set_stringn(x, y, &rest, room(x), dim);
         x += rest.width() as u16;
         // On the right: the message, or where the commands are.

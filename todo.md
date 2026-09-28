@@ -259,7 +259,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [~] T2.1.11 Publish `org-table` to crates.io (§4.7): the crate is ready (no workspace dependencies, metadata, README); publishing is the maintainers' step
 - [ ] T2.1.12 Spreadsheet notation for formulas (§8, needs a design decision by the owner, D21): `A1`-style cell references and the common Excel function names (`SUM`, `AVERAGE`, `MIN`, `MAX`, `IF`, `ROUND`, `COUNT`) accepted in the formula bar and translated to Org's `#+TBLFM` form, so the file stays Org and Emacs computes the same result; the bar shows either notation (`org.table_formula_dialect`) (review, 2026-09-28: an Excel user cannot write a formula in Calc notation)
 - [x] T2.1.13 Automatic recalculation after a field is edited, off by default (`org.table_auto_recalc`, or a document keyword), with the same results as F9 (review, 2026-09-28: the spreadsheet expectation) (done: Tab, Shift+Tab and Enter out of a field recalculate as F9 does when `org.table_auto_recalc` is on or the document says `#+KALEM: recalc=auto`; `recalc=manual` wins over the setting; `#+KALEM:` keeps keys that are not formatting when the document font changes)
-- [ ] T2.1.14 Column and range statistics in the status bar for the selection in an Org table: count, sum, average, min, max, as §2.6.2 plans them for CSV (review, 2026-09-28)
+- [x] T2.1.14 Column and range statistics in the status bar for the selection in an Org table: count, sum, average, min, max, as §2.6.2 plans them for CSV (review, 2026-09-28) (done: a selection in a table gives, in both status bars, the count of filled fields in the rectangle from the anchor's field to the cursor's, and the sum, average, smallest and largest of its numbers)
 
 ### 2.2 org-math (§9.2)
 
