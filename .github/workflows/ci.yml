@@ -98,7 +98,7 @@ jobs:
           workspaces: fuzz
       - run: cargo install cargo-fuzz --locked
       - run: cargo fuzz run parse -- -max_total_time=120
-      - run: cargo fuzz run incremental -- -max_total_time=120
+      - run: cargo fuzz run reparse -- -max_total_time=120
 
   emacs:
     name: differential test against Emacs

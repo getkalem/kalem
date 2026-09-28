@@ -23,8 +23,8 @@ doc = false
 bench = false
 
 [[bin]]
-name = "incremental"
-path = "fuzz_targets/incremental.rs"
+name = "reparse"
+path = "fuzz_targets/reparse.rs"
 test = false
 doc = false
 bench = false
