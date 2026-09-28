@@ -98,7 +98,7 @@ A lightweight, fast, single-binary, open source desktop editor that lets people 
 - **Emulating Emacs.** Elisp, the Emacs key language, every agenda setting.
 - **Real-time collaboration and cloud sync.** Git and file sync are considered sufficient.
 - **Mobile platforms.**
-- **A full IDE.** Language servers, debuggers and build integration are not built in. Plain text mode stays an editor; LSP support may come later as an out-of-process plugin (11.1).
+- **A full IDE.** Language servers, debuggers and build integration are not built in. Plain text mode stays an editor; LSP support may come later as an out-of-process plugin (11.1) that registers a completer (11.12).
 - **100% of Org in the first release.** Scope is split into phases.
 
 ### 1.5 Target users
@@ -156,6 +156,7 @@ What users expect from Word, Excel and PowerPoint, the Org equivalent and its st
 | Comments | `# ...` or `:COMMENT:` | Dimmed display | 2 |
 | Track changes | none | Not a goal; git recommended | – |
 | Spell check | none (Emacs flyspell) | spellbook + Hunspell dictionaries | 3 |
+| Predictive text, AutoComplete | none (Emacs dabbrev, company) | Completers (11.12): the words of the document, the dictionary of the document's language, later a model | 2, 3 |
 | Word count | none | Status bar, per subtree | 1 |
 | Printing | Export → PDF | Produce PDF and use system print | 2 |
 | Templates, styles | `#+SETUPFILE`, export classes | Template picker | 3 |
@@ -1149,7 +1150,7 @@ declare namespace kalem {
   namespace links { function register(type: string, spec: LinkTypeSpec): Disposable; }            // resolve, open, hover, complete, render, export
   namespace blocks { function register(name: string, spec: BlockSpec): Disposable; }             // special blocks and src languages: render, edit, export
   namespace decorations { function create(spec: DecorationSpec): DecorationSet; }                // highlights, badges, gutter marks, virtual text
-  namespace completion { function register(trigger: CompletionTrigger, provider: CompletionProvider): Disposable; }
+  namespace completers { function register(spec: CompleterSpec): Disposable; }                  // triggers, context, items; document words, dictionaries, language servers (11.12)
   namespace hover { function register(provider: HoverProvider): Disposable; }
   namespace inputRules { function register(rule: InputRule): Disposable; }                       // e.g. "->" becomes "→"
   namespace views { function register(id: string, spec: ViewSpec): Disposable; }                 // alternative document views: kanban, timeline, mind map
@@ -1277,7 +1278,7 @@ What a plugin can add, and how each extension point appears in the two frontends
 | Link types | `[[type:...]]` behavior | Click, hover card, custom inline rendering | Click, hover line | Export output |
 | Block renderers | Special blocks, src languages | Widget tree or SVG image in place of the block | Widget tree, or image through the graphics protocol, or text | Export output |
 | Decorations | Highlights, badges, gutter marks, virtual text | Yes | Yes (colors, glyphs) | – |
-| Completion and hover | Suggestions after `[[`, `#+`, `:`, `@`, and custom triggers | Popup | Popup | – |
+| Completers and hover | Completions for a language or a mode: after trigger characters, after a word prefix, or on request (11.12); hover providers | Menu | Menu | `kalem complete FILE:LINE:COL` |
 | Input rules | Text replacements and autoformat | Yes | Yes | – |
 | Highlighters and document modes | Syntax definitions, comment tokens and indentation rules; document modes with a renderer over the contract of 11.11 | Plain text with the plugin's colors; rendered modes in the editor area | The same | `kalem check`, `kalem fmt`, `kalem export` through the mode's hooks |
 | Views | Alternative views of a document (kanban board over headlines, timeline, mind map) | Editor area or panel | Full-screen or panel | – |
@@ -1349,6 +1350,28 @@ Rules:
 - **Batch.** `kalem check`, `kalem fmt` and `kalem export` call the mode's hooks, so a plugin mode works from the command line and in CI.
 
 **The standard way** is more than the API: a template repository with a mode skeleton and tests, a conformance suite every mode runs (byte-exact round trip, incremental equals full parse, snapshots in both frontends, the budget), the page "Writing a mode" in the plugin documentation, and two reference plugins, one declarative and one programmatic (work breakdown: T2.7c.10, T3.1.9g, T3.3.1, T3.3.4, T3.3.6).
+
+### 11.12 Completers
+
+The third thing a plugin adds for a file type, next to a highlighter and a renderer (11.11), is a **completer** (asked by the owner, 2026-09-28). One contract serves very different sources: the words of the document and of a dictionary in prose, a language server in code, later a model. `kalem.completers.register(spec)`:
+
+| Part | What the completer gives | What the core does |
+|---|---|---|
+| `when` | A when-clause: the mode, the language of the file or of the source block at the cursor (`language == python`), the document's language (`docLanguage == tr`), inside or outside prose | Runs only the completers that apply where the cursor is |
+| `triggers` | Trigger characters (`[[`, `#+`, `@`), a word prefix of N letters, or on request only (Ctrl+Space, Tab) | Opens the menu, keeps it updated as the user types, closes it on Escape or a key that matches nothing |
+| `complete(ctx)` | Items, asynchronously and cancellable, from `ctx`: the prefix, the text before the cursor in the line and in the paragraph, the syntax node at the cursor from the mode's tree (in a link, in a table cell, in a source block of a language), the document's language and path | Merges the items of every completer that applies, ranks them (exact prefix first, then recently accepted, then the completer's priority), removes duplicates, shows one menu in both frontends |
+| Items | A label, what to insert (text, or edits with ranges, with the cursor's place), a kind (word, keyword, link, tag, symbol, snippet), a detail line, an optional `resolve` for documentation fetched lazily | Applies the insertion as one undo step; shows the detail and the resolved documentation |
+| `hover` (optional) | Text for the thing under the cursor | The hover card of both frontends |
+
+Rules:
+
+- **Never blocking.** A completer that misses its budget (11.6) shows nothing for that keystroke and the menu keeps the items of the others; results arrive as they come, as Search in Project does (2.8).
+- **Built-ins on the same contract.** The Org completions of today (`#+` keywords and blocks, `[[` link targets, `[fn:` labels, tags; `kalem_core::input`) become completers, and so do the two every text file gets: the **words of the document** (dabbrev-style, from the first letters, no configuration) and the **dictionary** of the document's language, from the Hunspell word lists the spell checker loads (2.2), with a frequency list where one exists so that common words come first. The language comes from `#+LANGUAGE`, the setting, or detection.
+- **Code.** In a source block or a file of a programming language, a completer may talk to a language server. The LSP bridge is an out-of-process plugin (JSON-RPC over stdio, 11.1) that registers a completer, a hover provider and a diagnostics checker for the languages it serves. Kalem stays an editor, not an IDE (1.4): the bridge is installed by the user, never bundled.
+- **Models.** A completer may call a model through `kalem.net`, off by default, enabled per workspace through the permission model (11.6) with a visible indicator; document text leaves the machine only after that consent. Phase 4.
+- **Batch.** `kalem complete FILE:LINE:COL` prints the items, for tests and scripts; a completer plugin's conformance suite checks its items on fixture files, its cancellation and its budget.
+
+**The standard way**, as for modes (11.11): the contract in `kalem-core` first, the Org completers and the document-words completer on it in phase 2, the dictionary completer with spell checking in phase 3, then the script binding, a template, the page "Writing a completer", and two reference plugins, a word list (declarative) and the LSP bridge (programmatic) (work breakdown: T2.7a.8, T3.1.9c, T3.3.2, T3.6.1, T4.3.6b).
 
 ---
 

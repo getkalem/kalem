@@ -340,6 +340,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7a.5 Bracket matching, auto-indent, comment toggling per language
 - [ ] T2.7a.6 Everyday text commands missing from plain text mode: go to line, duplicate line, move lines up and down, join lines, sort selected lines, trim trailing whitespace on save (`editor.trim_trailing_whitespace`), select word and expand selection (review, 2026-09-28: Sublime Text and VS Code users expect them; none is in the command registry)
 - [ ] T2.7a.7 Language packs (review, 2026-09-28): formats whose view is their source get no mode, only four hooks per language on top of highlighting, the same hooks plugins get (T3.1.9c, T3.1.9e): an outline provider, a formatter (`Format Document`, `kalem fmt --check`), completion, and diagnostics. First packs: diff and patch (files in the outline, hunks folded, a jump from a hunk line to the file at that line in the project, T2.7f); JSON, YAML, TOML and XML (outline from the structure, folding by node, `serde_json`, `toml` and `serde_yaml` formatting, Sort Keys, syntax errors in the status bar); ledger, hledger and beancount (amounts aligned on save and by `kalem fmt` as `org-table-align` aligns tables, account and payee completion, the balance of the transaction at the cursor in the status bar, reports through the external tool with the command shown first); gettext `.po` and Fluent `.ftl` (highlighting, Next Untranslated, the translated share in the status bar; dogfooded on `crates/kalem-core/locales`)
+- [ ] T2.7a.8 Completers in `kalem-core` (§11.12; asked by the owner, 2026-09-28): the contract (a when-clause; triggers by character, word prefix or request; asynchronous, cancellable `complete` with the prefix, the line, the paragraph, the syntax node and the language as context; items with edits, kinds and lazy documentation; merging and ranking of several completers, results as they come); the Org completions of `kalem_core::input` moved onto it; the document-words completer for every text file; one menu in both frontends; `kalem complete FILE:LINE:COL`
 
 ### 2.7c Markdown mode (§2.6.1, D19)
 
@@ -475,7 +476,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.1.9 Event bindings; veto and timeout (500 ms)
 - [ ] T3.1.9a Extension points (§11.10): link types (resolve, open, hover, complete, render, export)
 - [ ] T3.1.9b Extension points: block renderers for special blocks and src languages (widget tree and SVG, both frontends, export)
-- [ ] T3.1.9c Extension points: decorations, completion and hover providers, input rules
+- [ ] T3.1.9c Extension points: decorations, completers and hover providers (§11.12, over the contract of T2.7a.8; the template and the page "Writing a completer"), input rules
 - [ ] T3.1.9d Extension points: document views (editor area and panel) and dynamic blocks
 - [ ] T3.1.9e Extension points: diagnostics (shown in both frontends, run by `kalem check`), importers, paste handlers
 - [ ] T3.1.9f Extension points: agenda views, capture templates, themes, plugin CLI subcommands
@@ -500,7 +501,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 ### 3.3 Plugin ecosystem (§11.5, §11.8)
 
 - [ ] T3.3.1 Plugin template repository (TypeScript, esbuild, d.ts)
-- [ ] T3.3.2 Example plugins: word count, Pomodoro, a custom export filter, a table function, a custom link type (`jira:`), a mermaid block renderer
+- [ ] T3.3.2 Example plugins: word count, Pomodoro, a custom export filter, a table function, a custom link type (`jira:`), a mermaid block renderer; the two reference completers of §11.12: a word list (declarative) and the LSP bridge (an out-of-process plugin over JSON-RPC that registers a completer, hover and diagnostics for its languages, installed by the user)
 - [ ] T3.3.2a Bundled plugins built only on the public API: kanban board view, word count panel (§11.0)
 - [ ] T3.3.3 `kalem plugin install <url>` and `kalem plugin list`
 - [ ] T3.3.4 Plugin API documentation (mdBook chapter); a "QuickJS is not a browser" page; the page "Writing a mode" (§11.11)
@@ -534,7 +535,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 
 ### 3.6 Other (§2.2, §10.1)
 
-- [ ] T3.6.1 Spell checking: `spellbook`, Hunspell dictionary loading, Turkish and English, inline marking
+- [ ] T3.6.1 Spell checking: `spellbook`, Hunspell dictionary loading, Turkish and English, inline marking; the dictionary completer of §11.12 on the same word lists, with frequency lists where they exist, by `#+LANGUAGE`, the setting or detection
 - [ ] T3.6.2 reveal.js backend
 - [ ] T3.6.3 Beamer backend
 - [ ] T3.6.4 Template picker (`#+SETUPFILE` library)
@@ -575,6 +576,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T4.3.5 Performance tuning: every target in §15; memory profiling
 - [ ] T4.3.6 Typewriter mode; additional themes
 - [ ] T4.3.6a Remote directories in the file manager (SFTP, like TRAMP), as a plugin or a built-in (§2.7)
+- [ ] T4.3.6b Model-backed completer (§11.12): off by default, enabled per workspace through the permission model with a visible indicator, document text leaving the machine only after that consent; a `kalem.net` completer plugin as the reference
 - [ ] T4.3.7 Release 1.0
 
 ---
