@@ -82,7 +82,7 @@ A lightweight, fast, single-binary, open source desktop editor that lets people 
 | G3 | **Light and fast.** Single binary. Cold start under 300 ms, a 10 MB file under 1 s, keystroke latency under 16 ms. |
 | G4 | **Org core built in.** The element table in section 3.2, following the phase plan. |
 | G5 | **LaTeX.** Inline math preview and LaTeX/PDF export, good enough for writing books and papers. |
-| G6 | **Extensible.** Plugins add real features (block types, link types, views, exporters, checks) through Org's own extension points, so documents stay valid Org. Command registry, events, JavaScript plugins; later Lua and WASM. |
+| G6 | **Extensible.** Plugins add real features (block types, link types, views, exporters, checks) through Org's own extension points, so documents stay valid Org. Command registry, events, and plugins written in Rust that run as sandboxed WebAssembly components (D28). |
 | G7 | **Coexists with Emacs.** The same file can be edited alternately in both applications without diff noise. |
 | G8 | **Reusable.** The parser and exporters are published as independent crates. |
 | G9 | **Usable from the terminal, never second class.** A terminal frontend with the same editing semantics and the same features wherever a terminal can carry them (4.1, principle 7), plus a scriptable command line and batch mode. |
@@ -109,7 +109,7 @@ A lightweight, fast, single-binary, open source desktop editor that lets people 
 | P2 | Plain-text knowledge worker | Leaving Obsidian or Notion; wants tasks, notes and documents in one place, with files on their own disk. |
 | P3 | Academic, book author | LaTeX output, citations, formulas, long documents, chapter files. |
 | P4 | Former Emacs user | Has years of .org files but has left Emacs. |
-| P5 | Plugin developer | Knows JS/TS, has written Obsidian or VS Code extensions, expects a similar API. |
+| P5 | Plugin developer | Has written Obsidian or VS Code extensions; writes Rust, or writes it with AI assistance; expects a typed API, a template and a conformance suite. |
 | P6 | Terminal user | Works over SSH or in tmux; wants a friendlier Org editor than Emacs in the terminal, and scriptable export and formatting. |
 | P7 | Everyday editor user | Wants one light editor for everything: notes in Org, plus a quick edit of a config file, a CSV or a script, without opening a second application. Some of them want Vim keys. |
 
@@ -587,7 +587,7 @@ External, optional tools: pandoc, tectonic or latexmk, python and other Babel in
 - **Elixir plugins cannot be sandboxed.** Every module can reach `File` and `System`; the permission model in section 11.6 cannot be built. The target plugin author audience (P5) does not know Elixir.
 - **Two languages, two build systems.** mix and cargo; contributors need Erlang/OTP, Elixir, Rust and Zig.
 
-What the idea gets right: Emacs's real strength is a live, inspectable, hot-reloadable runtime, and BEAM is the closest modern equivalent. Kalem meets this need through the QuickJS layer (see 11.9): an in-app JS console, hot reloading of `init.js` and plugins, and a debug REPL that attaches to the running application over a socket. Elixir would be the right tool if a multi-user server product (collaboration, web) is ever considered.
+What the idea gets right: Emacs's real strength is a live, inspectable, hot-reloadable runtime, and BEAM is the closest modern equivalent. Kalem meets part of this need through inspection and reload (11.9): an inspection panel, hot reloading of plugin components, and a debug socket for the test driver; it ships no scripting engine (D28). Elixir would be the right tool if a multi-user server product (collaboration, web) is ever considered.
 
 **Embedded Python as the plugin language.** Rejected because of size, the lack of a sandbox, the GIL and distribution burden (section 11). Python is supported through Babel source blocks and out-of-process plugins.
 
@@ -924,7 +924,7 @@ kalem export book.org --to pdf
 | `kalem query FILE 'TODO="NEXT"+work'` | Headlines matching an Org match expression, as text or JSON |
 | `kalem parse FILE` | Dump the syntax tree (debugging) |
 | `kalem diff-emacs FILE` | Compare the parse with Emacs org-element (development) |
-| `kalem run SCRIPT.js [FILE...]` | Batch mode: run a JS script against documents with the full `kalem` and `editor` API, without a UI; the equivalent of `emacs --batch` |
+| `kalem run PLUGIN COMMAND [FILE...]` | Batch mode: run a plugin's command against documents with the full `kalem` and `editor` API, without a UI; the equivalent of `emacs --batch` |
 | `kalem repl` | Connect to a running Kalem through the debug socket (11.9) |
 
 Output formats are stable (`--format json` everywhere) so Kalem composes with shell pipelines. Plugins can add subcommands (11.10).
@@ -991,7 +991,7 @@ Fragments: `$x$`, `$$...$$`, `\(...\)`, `\[...\]`, `\begin{env}...\end{env}` (eq
 | A. mitex (LaTeX → Typst math) + the typst library for layout + typst-svg | Production-quality layout, actively maintained, pure Rust | mitex's LaTeX coverage; Typst font and world setup; a few MB of fonts |
 | B. RaTeX (KaTeX-compatible layout in pure Rust, display list output) | Reads LaTeX directly, small, fast start-up | Young project with one main author |
 | (B, earlier) ReX and its forks | Small, TeX algorithms | No maintained release; the `rex` crate on crates.io is unrelated; replaced by RaTeX |
-| C. KaTeX inside QuickJS → HTML/MathML | Very broad coverage | No native rendering; eliminated |
+| C. KaTeX through an embedded script engine → HTML/MathML | Very broad coverage | No native rendering; eliminated |
 
 **Outcome (D4): RaTeX.** On a 100-formula corpus it rendered 98 formulas with no visible errors; typst + MiTeX rendered 88, three of them wrongly, and several failures came from MiTeX lagging typst's symbol renames. RaTeX adds 4.6 MB to the binary against about 35 MB for typst, and its start-up is 1 ms against 11 to 17 ms. Details: `docs/decisions/D4-math-engine.md`. Typst stays a candidate for whole-document export (9.3), which is a separate decision.
 
@@ -1078,12 +1078,11 @@ Kalem's own optional features are built on the same extension points wherever po
 | User configuration | `settings.toml`, `keymap.json`, `projects.toml`: data, not code (D9) | Keys, settings, projects | 1 |
 | Plugin package | A WASM component (D28) written in Rust against the contracts the core itself uses, with a manifest; any language with a WIT binding is accepted, but Kalem ships no runtime for it | Distributable features: modes, completers, block types, link types, views, exporters (11.10 to 11.12) | 3 |
 | Bundled plugins | The same components, embedded in the binary, loaded on first use | Every feature outside the small core (11.0, D29) | 3 |
-| Scripting guests | A JS or Lua engine compiled to WASM as a runtime component on the same API, only if users ask for a script layer (D10) | A console and small automations without a toolchain | Later, on demand |
 | Threads | One component instance per thread; several instances of one plugin for parallel work; messages through the host | Parsers, renderers and completers off the UI thread | 3 |
 | Out-of-process | JSON-RPC over stdio | Language servers, external tools, Python and other integrations | 3 (the language server bridge), 4 |
 | Compiled distribution | Community plugins compiled into a user's own Kalem binary (`kalem build --with`): native speed, full threads, no sandbox, by choice | Power users and servers | 4 |
 
-The API is defined once, in WIT (D6); the Rust bindings, and bindings for any other guest, are generated from it. **Rust is the plugin language** (owner, 2026-09-28): the contract a plugin implements is the trait the core's own modes and completers implement, so a plugin author reads the same types as a core contributor, the compiler checks the code, and the same crate builds as a bundled plugin inside the binary or as a sandboxed component. Kalem ships no scripting engine. What that costs, accepted knowingly: no REPL and no instant reload (11.9 shrinks to inspection and reload), a toolchain for plugin authors (hidden by `kalem plugin new` and `kalem plugin build`), a smaller long tail of tiny plugins, and JS-only libraries such as Mermaid reachable only through a JS-to-WASM build of that plugin. What it buys: native-class speed for parsers and completers, threads by instances, a capability sandbox with fuel and memory limits, one artifact for every platform, and one typed definition that a compiler checks, which matters more as plugin code is written with AI assistance.
+The API is defined once, in WIT (D6); the Rust bindings are generated from it and published as the `kalem-plugin` crate. **Rust is the plugin language** (owner, 2026-09-28): the contract a plugin implements is the trait the core's own modes and completers implement, so a plugin author reads the same types as a core contributor, the compiler checks the code, and the same crate builds as a bundled plugin inside the binary or as a sandboxed component. Kalem ships no scripting engine and no second language. What that costs, accepted knowingly: no REPL and no instant reload (11.9 shrinks to inspection and reload), a toolchain for plugin authors (hidden by `kalem plugin new` and `kalem plugin build`), a smaller long tail of tiny plugins, and libraries that exist only in other languages (Mermaid, for example) reachable only through a port or a build of that library to WASM inside the plugin. What it buys: native-class speed for parsers and completers, threads by instances, a capability sandbox with fuel and memory limits, one artifact for every platform, and one typed definition that a compiler checks, which matters more as plugin code is written with AI assistance.
 
 ### 11.2 Command registry
 
@@ -1140,87 +1139,87 @@ Vetoable events have a timeout (500 ms); if it is exceeded the event proceeds an
 
 ### 11.4 API surface
 
-The API is defined in WIT (D6) and the Rust bindings are generated from it. The sketch below shows the same surface as TypeScript declarations (`kalem.d.ts`, generated too), because they read more easily than WIT; Kalem ships no JavaScript engine (D28), and a plugin is written in Rust against the generated bindings.
+The API is defined in WIT (D6); the Rust bindings are generated from it and published as the `kalem-plugin` crate, which a plugin implements and calls. Sketch, in the shape of those bindings:
 
-```ts
-declare namespace kalem {
-  const version: string;
-  function command(id: string, spec: { title: string; run: (...args: unknown[]) => unknown | Promise<unknown>; scope: "all" | string[] | { all?: true; types?: string[]; except?: string[] }; when?: string; keys?: string[] }): Disposable;
-  function run(id: string, ...args: unknown[]): Promise<unknown>;
-  function keymap(keys: string, commandId: string, opts?: { when?: string }): Disposable;
-  function on<E extends keyof Events>(event: E, handler: (e: Events[E]) => void | Promise<void>): Disposable;
+```rust
+pub mod kalem {
+    pub const VERSION: &str;
+    pub fn command(id: &str, spec: CommandSpec) -> Disposable;        // title, run, scope (11.2), when, keys
+    pub fn run(id: &str, args: &[Value]) -> Result<Value>;
+    pub fn keymap(keys: &str, command_id: &str, when: Option<&str>) -> Disposable;
+    pub fn on<E: Event>(handler: impl Fn(E) + 'static) -> Disposable;
 
-  namespace ui {
-    function notify(message: string, level?: "info" | "warn" | "error"): void;
-    function prompt(title: string, opts?: { default?: string; placeholder?: string }): Promise<string | null>;
-    function confirm(message: string): Promise<boolean>;
-    function quickPick<T>(items: { label: string; detail?: string; value: T }[], opts?: { placeholder?: string }): Promise<T | null>;
-    namespace statusBar { function set(id: string, text: string, opts?: { tooltip?: string; command?: string }): Disposable; }
-    namespace panel { function register(id: string, spec: PanelSpec): Disposable; } // JSON widget tree, rendered by both frontends (D11)
-  }
-  namespace settings { function get<T>(key: string): T; function set(key: string, value: unknown): void; function onChange(key: string, cb: () => void): Disposable; }
-  namespace fs  { function read(path: string): Promise<string>; function write(path: string, text: string): Promise<void>; function list(dir: string): Promise<string[]>; } // permission required
-  namespace net { function fetch(url: string, init?: RequestInit): Promise<Response>; } // permission required
-  namespace babel { function registerLanguage(name: string, runner: BabelRunner): Disposable; }
-  namespace exporter { function registerBackend(name: string, backend: ExportBackend): Disposable; function addFilter(stage: string, fn: ExportFilter): Disposable; }
-  namespace tables { function registerFunction(name: string, fn: (...args: number[]) => number): Disposable; }
+    pub mod ui {
+        pub fn notify(message: &str, level: Level);
+        pub fn prompt(title: &str, opts: PromptOptions) -> Future<Option<String>>;
+        pub fn confirm(message: &str) -> Future<bool>;
+        pub fn quick_pick<T>(items: &[PickItem<T>], opts: PickOptions) -> Future<Option<T>>;
+        pub mod status_bar { pub fn set(id: &str, text: &str, opts: StatusOptions) -> Disposable; }
+        pub mod panel { pub fn register(id: &str, spec: PanelSpec) -> Disposable; }   // widget tree, rendered by both frontends (D11)
+    }
+    pub mod settings { pub fn get<T>(key: &str) -> T; pub fn set(key: &str, value: Value); pub fn on_change(key: &str, f: impl Fn()) -> Disposable; }
+    pub mod fs  { pub fn read(path: &Path) -> Future<String>; pub fn write(path: &Path, text: &str) -> Future<()>; pub fn list(dir: &Path) -> Future<Vec<PathBuf>>; } // permission required
+    pub mod net { pub fn fetch(request: Request) -> Future<Response>; }                          // permission required
+    pub mod babel { pub fn register_language(name: &str, runner: impl BabelRunner) -> Disposable; }
+    pub mod exporter { pub fn register_backend(name: &str, backend: impl ExportBackend) -> Disposable; pub fn add_filter(stage: Stage, f: impl ExportFilter) -> Disposable; }
+    pub mod tables { pub fn register_function(name: &str, f: impl Fn(&[Number]) -> Number) -> Disposable; }
 
-  // Extension points for new features (11.10)
-  namespace links { function register(type: string, spec: LinkTypeSpec): Disposable; }            // resolve, open, hover, complete, render, export
-  namespace blocks { function register(name: string, spec: BlockSpec): Disposable; }             // special blocks and src languages: render, edit, export
-  namespace decorations { function create(spec: DecorationSpec): DecorationSet; }                // highlights, badges, gutter marks, virtual text
-  namespace completers { function register(spec: CompleterSpec): Disposable; }                  // triggers, context, items; document words, dictionaries, language servers (11.12)
-  namespace hover { function register(provider: HoverProvider): Disposable; }
-  namespace inputRules { function register(rule: InputRule): Disposable; }                       // e.g. "->" becomes "→"
-  namespace views { function register(id: string, spec: ViewSpec): Disposable; }                 // alternative document views: kanban, timeline, mind map
-  namespace diagnostics { function register(id: string, checker: DocumentChecker): Disposable; } // also run by `kalem check`
-  namespace importer { function register(extensions: string[], convert: (bytes: Uint8Array) => Promise<string>): Disposable; }
-  namespace paste { function register(mime: string, handler: PasteHandler): Disposable; }
-  namespace dynamicBlocks { function register(name: string, generate: DynamicBlockGenerator): Disposable; }
-  namespace agenda { function registerView(id: string, spec: AgendaViewSpec): Disposable; }
-  namespace capture { function registerTemplate(id: string, spec: CaptureTemplate): Disposable; }
-  namespace cli { function register(subcommand: string, spec: CliCommandSpec): Disposable; }     // `kalem <subcommand>` in batch mode
-  namespace themes { function register(id: string, theme: ThemeSpec): Disposable; }
-  namespace modes { function register(id: string, spec: DocumentModeSpec): Disposable; function registerHighlighter(syntax: SyntaxSource): Disposable; } // document modes with a renderer, and highlighters (11.11)
+    // Extension points for new features (11.10)
+    pub mod links { pub fn register(kind: &str, spec: impl LinkType) -> Disposable; }           // resolve, open, hover, complete, render, export
+    pub mod blocks { pub fn register(name: &str, spec: impl Block) -> Disposable; }             // special blocks and src languages: render, edit, export
+    pub mod decorations { pub fn create(spec: DecorationSpec) -> DecorationSet; }              // highlights, badges, gutter marks, virtual text
+    pub mod completers { pub fn register(spec: impl Completer) -> Disposable; }                 // triggers, context, items (11.12)
+    pub mod hover { pub fn register(provider: impl Hover) -> Disposable; }
+    pub mod input_rules { pub fn register(rule: InputRule) -> Disposable; }                     // for example "->" becomes "→"
+    pub mod views { pub fn register(id: &str, spec: impl View) -> Disposable; }                 // alternative document views: kanban, timeline, mind map
+    pub mod diagnostics { pub fn register(id: &str, checker: impl DocumentChecker) -> Disposable; } // also run by `kalem check`
+    pub mod importer { pub fn register(extensions: &[&str], convert: impl Fn(&[u8]) -> Future<String>) -> Disposable; }
+    pub mod paste { pub fn register(mime: &str, handler: impl PasteHandler) -> Disposable; }
+    pub mod dynamic_blocks { pub fn register(name: &str, generate: impl DynamicBlock) -> Disposable; }
+    pub mod agenda { pub fn register_view(id: &str, spec: impl AgendaView) -> Disposable; }
+    pub mod capture { pub fn register_template(id: &str, spec: CaptureTemplate) -> Disposable; }
+    pub mod cli { pub fn register(subcommand: &str, spec: impl CliCommand) -> Disposable; }     // `kalem <subcommand>` in batch mode
+    pub mod themes { pub fn register(id: &str, theme: ThemeSpec) -> Disposable; }
+    pub mod modes { pub fn register(id: &str, spec: impl DocumentMode) -> Disposable; pub fn register_highlighter(syntax: SyntaxSource) -> Disposable; } // renderers and highlighters (11.11)
 }
 
-declare namespace editor {
-  const document: Document;
-  const selection: Selection;
-  function insert(text: string, at?: number): void;
-  function replace(range: Range, text: string): void;
-  function transact(label: string, fn: () => void): void;
+pub mod editor {
+    pub fn document() -> Document;
+    pub fn selection() -> Selection;
+    pub fn insert(text: &str, at: Option<usize>);
+    pub fn replace(range: Range, text: &str);
+    pub fn transact(label: &str, f: impl FnOnce());
 }
 
-interface Document {
-  readonly path: string | null;
-  text(range?: Range): string;
-  headlines(): Headline[];
-  headlineAt(offset: number): Headline | null;
-  headlineById(id: string): Headline | null;   // ID or CUSTOM_ID property
-  todoKeywords(): string[];
-  nodeAt(offset: number): Node;
-  find(query: { tag?: string; todo?: string; property?: [string, string] }): Headline[];
-  keywords(): Record<string, string[]>;
-  save(): Promise<void>;
+pub trait Document {
+    fn path(&self) -> Option<&Path>;
+    fn text(&self, range: Option<Range>) -> String;
+    fn headlines(&self) -> Vec<Headline>;
+    fn headline_at(&self, offset: usize) -> Option<Headline>;
+    fn headline_by_id(&self, id: &str) -> Option<Headline>;   // ID or CUSTOM_ID property
+    fn todo_keywords(&self) -> Vec<String>;
+    fn node_at(&self, offset: usize) -> Node;
+    fn find(&self, query: Query) -> Vec<Headline>;             // tag, todo, property
+    fn keywords(&self) -> BTreeMap<String, Vec<String>>;
+    fn save(&self) -> Future<()>;
 }
 
-interface Headline {
-  readonly id: string;  // ID property, created on demand
-  readonly level: number; title: string; todo: string | null; priority: string | null;
-  tags: string[]; readonly properties: Record<string, string>;
-  scheduled: Timestamp | null; deadline: Timestamp | null;
-  readonly range: Range; readonly parent: Headline | null;
-  children(): Headline[]; body(): string;
-  setTodo(state: string | null): void; setTitle(title: string): void; setTags(tags: string[]): void;
-  setProperty(key: string, value: string | null): void;
-  promote(): void; demote(): void; moveUp(): void; moveDown(): void;
+pub trait Headline {
+    fn id(&self) -> String;                                    // ID property, created on demand
+    fn level(&self) -> u8; fn title(&self) -> String; fn todo(&self) -> Option<String>; fn priority(&self) -> Option<char>;
+    fn tags(&self) -> Vec<String>; fn properties(&self) -> BTreeMap<String, String>;
+    fn scheduled(&self) -> Option<Timestamp>; fn deadline(&self) -> Option<Timestamp>;
+    fn range(&self) -> Range; fn parent(&self) -> Option<Headline>;
+    fn children(&self) -> Vec<Headline>; fn body(&self) -> String;
+    fn set_todo(&self, state: Option<&str>); fn set_title(&self, title: &str); fn set_tags(&self, tags: &[&str]);
+    fn set_property(&self, key: &str, value: Option<&str>);
+    fn promote(&self); fn demote(&self); fn move_up(&self); fn move_down(&self);
 }
 
-interface Table {
-  readonly rows: number; readonly cols: number;
-  cell(row: number, col: number): string; setCell(row: number, col: number, value: string): void;
-  formulas(): string[]; recalc(): void;
+pub trait Table {
+    fn rows(&self) -> usize; fn cols(&self) -> usize;
+    fn cell(&self, row: usize, col: usize) -> String; fn set_cell(&self, row: usize, col: usize, value: &str);
+    fn formulas(&self) -> Vec<String>; fn recalc(&self);
 }
 ```
 
@@ -1312,32 +1311,33 @@ What a plugin can add, and how each extension point appears in the two frontends
 | CLI subcommands | Batch tools | – | – | `kalem <subcommand>` |
 | Themes | Colors, glyph sets | Yes | Yes | – |
 
-**Example: a kanban board plugin.** It registers a view that reads TODO headlines under a headline tagged `:board:`, shows them as columns by TODO state, and turns drag and drop into `setTodo` calls. The document stays ordinary Org; in Emacs it is a normal outline.
+**Example: a kanban board plugin.** It registers a view that reads TODO headlines under a headline tagged `:board:`, shows them as columns by TODO state, and turns drag and drop into `set_todo` calls. The document stays ordinary Org; in Emacs it is a normal outline.
 
-```ts
-export function activate(ctx: kalem.PluginContext) {
-  ctx.subscriptions.push(
-    kalem.views.register("kanban", {
-      title: "Board",
-      when: "documentHasTag:board",
-      render: (doc) => ({
-        type: "columns",
-        children: doc.todoKeywords().map((state) => ({
-          type: "column",
-          title: state,
-          children: doc.find({ tag: "board" }).flatMap((h) => h.children())
-            .filter((h) => h.todo === state)
-            .map((h) => ({ type: "card", title: h.title, onDrop: { command: "kanban.move", args: [h.id] } })),
+```rust
+use kalem_plugin::{editor, kalem, CommandSpec, PluginContext, Query, Scope, ViewSpec, Widget};
+
+pub fn activate(ctx: &mut PluginContext) {
+    ctx.subscriptions.push(kalem::views::register("kanban", ViewSpec {
+        title: "Board",
+        when: "documentHasTag:board",
+        render: |doc| Widget::columns(doc.todo_keywords().iter().map(|state| {
+            let cards = doc.find(Query::tag("board")).iter().flat_map(|h| h.children())
+                .filter(|h| h.todo().as_deref() == Some(state))
+                .map(|h| Widget::card(&h.title()).on_drop("kanban.move", [h.id()]));
+            Widget::column(state, cards)
         })),
-      }),
-    }),
-    kalem.command("kanban.move", {
-      title: "Move card",
-      run: (id: string, state: string) => editor.document.headlineById(id)?.setTodo(state),
-    }),
-  );
+    }));
+    ctx.subscriptions.push(kalem::command("kanban.move", CommandSpec {
+        title: "Move card",
+        scope: Scope::types(["org"]),
+        run: |(id, state): (String, String)| {
+            if let Some(h) = editor::document().headline_by_id(&id) { h.set_todo(Some(&state)); }
+        },
+        ..CommandSpec::default()
+    }));
 }
 ```
+
 
 **Example: a diagram block.** It registers a renderer for `#+BEGIN_SRC mermaid` that returns an SVG. The GUI draws the SVG; the terminal draws it through a graphics protocol or falls back to the source; the HTML exporter embeds the SVG.
 
@@ -1365,7 +1365,7 @@ Rules:
 - **Ranges, never text.** `parse` returns ranges into the text and never regenerates it, so a mode cannot break the round-trip guarantee (3.3). The tree is plain data and crosses the component boundary as flat arrays of kinds and ranges, never as objects, so a parse per keystroke stays cheap.
 - **Incremental.** `parse` receives the edit and the previous tree and reparses from the enclosing top-level block, as Markdown mode does (2.6.1); a mode without incremental parsing is reparsed whole and must fit the budget.
 - **Budget.** The time and memory limits of 11.6 apply to each parse. A mode that exceeds them or throws drops the file to plain text with the plugin's highlighter, tells the user, and is disabled after repeated failures. Heavy parsers go into worker plugins or, from phase 4, WASM.
-- **Two levels.** Declarative: a syntax definition plus a mapping from its scopes to view kinds, no code; enough for gemtext, todo.txt or Fountain. Programmatic: a parser in JavaScript or TypeScript, later Lua through the same generated annotations (D6, D10); needed for AsciiDoc or Djot.
+- **Two levels.** Declarative: a syntax definition plus a mapping from its scopes to view kinds, no code; enough for gemtext, todo.txt or Fountain. Programmatic: a parser in Rust against the generated bindings; needed for AsciiDoc or Djot.
 - **Batch.** `kalem check`, `kalem fmt` and `kalem export` call the mode's hooks, so a plugin mode works from the command line and in CI.
 
 **The standard way** is more than the API: a template repository with a mode skeleton and tests, a conformance suite every mode runs (byte-exact round trip, incremental equals full parse, snapshots in both frontends, the budget), the page "Writing a mode" in the plugin documentation, and two reference plugins, one declarative and one programmatic (work breakdown: T2.7c.10, T3.1.9g, T3.3.1, T3.3.4, T3.3.6).
@@ -1612,7 +1612,7 @@ Durations are rough estimates for a single developer. The next phase does not st
 
 ### Phase 4: Maturity
 
-- Lua as a second scripting language (D10), WASM plugins, out-of-process protocol.
+- Out-of-process protocol; the compiled distribution (11.1).
 - Babel `:session` and `:noweb`; column view; org-habit.
 - Presentation mode; embedded PDF preview; automatic updates.
 - Accessibility improvements; performance tuning; 1.0.
@@ -1628,11 +1628,11 @@ Durations are rough estimates for a single developer. The next phase does not st
 | D3 | UI framework | gpui; Tauri + ProseMirror; iced/floem | gpui, validated by the spike | **Decided:** gpui, with Kalem's own inline layout (7.1, `docs/decisions/D3-ui-framework.md`) |
 | D4 | Math engine | mitex + typst; ReX; RaTeX; KaTeX | After the corpus comparison | **Decided:** RaTeX (9.2, `docs/decisions/D4-math-engine.md`) |
 | D5 | tectonic | Bundle; separate download; system TeX only | Separate download | Open |
-| D6 | API definition source | Rust macros; separate IDL; hand-written d.ts | Single definition in Rust, d.ts and Lua annotations generated | **Decided (D28, 2026-09-28):** WIT is the single definition; Rust, TypeScript and Lua bindings and `kalem.d.ts` are generated from it |
+| D6 | API definition source | Rust macros; a separate IDL; hand-written declarations | A single definition, bindings generated | **Decided (D28, 2026-09-28):** WIT is the single definition; the Rust bindings are generated from it and published as `kalem-plugin` |
 | D7 | Project name | – | – | **Decided:** Kalem; crate `kalem-editor`, binary `kalem`, GitHub `kalem-editor` (section 0) |
 | D8 | Agenda index storage | In memory; SQLite; custom file | In memory, disk cache later | Open |
-| D9 | Configuration formats | TOML + JS; JS only; JSON | TOML + init.js + keymap.json | **Decided:** `settings.toml`, `keymap.json` (comments allowed); `init.js` dropped with D28 (2026-09-28), automation is a plugin (14, `docs/decisions/D9-configuration-formats.md`) |
-| D10 | When to support Lua | Phase 3; phase 4; never | Phase 4, on demand | Open |
+| D9 | Configuration formats | TOML and a script file; a script file only; JSON | TOML, a script file and keymap.json | **Decided:** `settings.toml`, `keymap.json` (comments allowed); no script file (D28, 2026-09-28), automation is a plugin (14, `docs/decisions/D9-configuration-formats.md`) |
+| D10 | A second scripting language | Phase 3; phase 4; never | Never, for now | **Closed (owner, 2026-09-28):** no scripting language ships; reopening needs an RFC |
 | D11 | Webviews in plugin panels | Never; optional | Never; JSON widget tree | Open |
 | D12 | Multiple documents | One window one document; tabs; multiple windows | Tabs, phase 2 | **Decided (owner, 2026-09-28):** one window holds many documents, listed on the left or as tabs at the top, grouped by project (2.8) |
 | D13 | Time library | jiff; chrono | jiff | **Decided:** jiff; date arithmetic follows Emacs's `encode-time` normalization on top of it (`org-model::time`) |
@@ -1650,7 +1650,7 @@ Durations are rough estimates for a single developer. The next phase does not st
 | D25 | Plugin-provided highlighters, renderers and completers | Separate plugin APIs; the contracts built-in modes and completers use | One contract each, shared by built-ins and plugins, with a declarative and a programmatic level, a conformance suite and reference plugins (11.11, 11.12) | **Decided (owner, 2026-09-28)** |
 | D26 | Terminal parity | The terminal as a reduced frontend; the terminal never second class | Principle 7 of 4.1: a feature is done when it works in both frontends, gaps listed in `docs/terminal-parity.org` | **Decided (owner, 2026-09-28)** |
 | D27 | Command scope | Keys for mode, language and file kind; one axis | One axis, the type of the text at the cursor, nesting by the innermost type, `klm` a subtype of `org`; structure stays in `when` (11.2) | **Decided (owner, 2026-09-28)** |
-| D28 | Plugin ABI and language | QuickJS embedded natively with WASM later; WASM components with JS as a runtime component; WASM components with Rust as the only shipped language | WASM components on a WIT-defined API; Rust is the plugin language, on the same traits the core uses, so one crate builds as a bundled plugin inside the binary or as a sandboxed component; no scripting engine ships (a JS or Lua runtime component later only if users ask, D10); power users may compile community plugins into their own Kalem; out-of-process JSON-RPC for language servers and external tools; the engine (wasmtime or wasmi) by the spike T3.1.0 | **Decided (owner, 2026-09-28)**, engine open |
+| D28 | Plugin ABI and language | A scripting engine embedded natively with WASM later; WASM components with a scripting runtime; WASM components with Rust as the only language | WASM components on a WIT-defined API; Rust is the plugin language, on the same traits the core uses, so one crate builds as a bundled plugin inside the binary or as a sandboxed component; no scripting engine ships (D10); power users may compile community plugins into their own Kalem; out-of-process JSON-RPC for language servers and external tools; the engine (wasmtime or wasmi) by the spike T3.1.0 | **Decided (owner, 2026-09-28)**, engine open |
 | D29 | Small core | Everything built in; a small core with bundled plugins | Five things in the core: Org, Markdown and CSV, the text engine and view model, the two frontends, the infrastructure that runs before plugins; everything else a plugin, the expected ones bundled as embedded WASM components (11.0) | **Decided (owner, 2026-09-28)**; new modes and file types live in `getkalem/plugins` (11.8) |
 
 ---
@@ -1688,8 +1688,6 @@ Durations are rough estimates for a single developer. The next phase does not st
 - orgize: https://github.com/PoiScript/orgize
 - rowan: https://github.com/rust-analyzer/rowan
 - gpui: https://github.com/zed-industries/zed/tree/main/crates/gpui
-- rquickjs: https://github.com/DelSkayn/rquickjs
-- quickjs-ng: https://github.com/quickjs-ng/quickjs
 - typst: https://github.com/typst/typst
 - mitex: https://github.com/mitex-rs/mitex
 - hayagriva: https://github.com/typst/hayagriva
@@ -1700,5 +1698,3 @@ Durations are rough estimates for a single developer. The next phase does not st
 - Typora (product model): https://typora.io/
 - ratatui: https://ratatui.rs/
 - ratatui-image: https://github.com/benjajaja/ratatui-image
-- Neovim Lua API (plugin model reference): https://neovim.io/doc/user/lua.html
-- Figma plugin sandbox (QuickJS usage): https://www.figma.com/plugin-docs/how-plugins-run/
