@@ -112,6 +112,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `tools/fetch-org.sh`: Org 9.7 for the differential tests on a machine whose Emacs has an older Org.
 - Plain text export as Emacs's `ox-ascii` writes it, paragraphs filled as `fill-region` fills them (`kalem export --to txt`, `--to utf8`, Export as Plain Text).
 - PDF export through LaTeX (`kalem export --to pdf`, Export as PDF): `latexmk`, the TeX engine or `tectonic`, compiled in the background in the editors, with LaTeX's errors at the lines of the Org file.
+- Word, OpenDocument, EPUB and RTF through pandoc, and `kalem import` (Import as Org) from Word, OpenDocument, Markdown, HTML, EPUB and RTF, with a clean-up pass.
 
 ### Changed
 
@@ -126,6 +127,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The message for a file that cannot be opened had two definitions with different arguments; a test now keeps message names unique.
 - Entities Org names twice (`\deg`, `\sup`) export as Org's first one (°, ⊃); tables of contents use a headline's `ALT_TITLE`; Markdown anchors headlines listed by `#+TOC: headlines`; `#+TOC: tables` and `#+TOC: listings` list captioned tables and code in HTML.
 - Formatting next to emphasis no longer breaks it in Emacs: spans go inside `*bold*` and `/italic/` and take in the spaces around `=code=`, and formatting that would still change what Org reads as emphasis is refused.
 - Save as Org keeps paragraphs apart when it takes out a `#+KALEM:` or `#+ATTR_KALEM:` line between them.

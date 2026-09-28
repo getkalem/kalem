@@ -12,7 +12,7 @@ use std::process::ExitCode;
 
 pub(crate) use diff_emacs::{DiffOptions, diff_emacs};
 pub(crate) use diff_model::diff_model;
-pub(crate) use export::{Target, export};
+pub(crate) use export::{Target, export, import};
 pub(crate) use fmt::{fmt, query};
 pub(crate) use table::recalc;
 

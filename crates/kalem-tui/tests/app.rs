@@ -618,25 +618,28 @@ fn command_palette() {
 #[test]
 fn export_dialog() {
     let mut t = open("* A\n");
-    t.key(
-        KeyCode::Char('e'),
-        KeyModifiers::CONTROL | KeyModifiers::ALT,
-    );
-    let shown = screen(&mut t).join("\n");
-    for item in [
-        "Export as HTML",
-        "Export as GitHub Markdown",
-        "Export as LaTeX",
+    let shown = |t: &mut T, filter: &str| {
+        t.key(
+            KeyCode::Char('e'),
+            KeyModifiers::CONTROL | KeyModifiers::ALT,
+        );
+        t.typ(filter);
+        let s = screen(t).join("\n");
+        t.key(KeyCode::Esc, KeyModifiers::NONE);
+        s
+    };
+    // The formats and the settings, each found by typing.
+    for (filter, item) in [
+        ("html", "Export as HTML"),
+        ("github", "Export as GitHub Markdown"),
+        ("latex", "Export as LaTeX"),
+        ("word", "Export as Word (pandoc)"),
+        ("body", "Body only: off"),
+        ("formulas", "Formulas: MathJax"),
     ] {
-        assert!(shown.contains(item), "{item} in {shown}");
+        let s = shown(&mut t, filter);
+        assert!(s.contains(item), "{item} in {s}");
     }
-    // The settings, further down the list.
-    t.typ("o");
-    let shown = screen(&mut t).join("\n");
-    for item in ["Body only: off", "Formulas: MathJax"] {
-        assert!(shown.contains(item), "{item} in {shown}");
-    }
-    t.key(KeyCode::Esc, KeyModifiers::NONE);
     assert!(!screen(&mut t).join("\n").contains("Body only"));
 }
 
