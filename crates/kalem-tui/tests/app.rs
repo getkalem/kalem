@@ -1770,3 +1770,61 @@ fn the_file_manager_is_listed_once() {
         "{panel:#?}"
     );
 }
+
+#[test]
+fn citations() {
+    let text = "#+bibliography: refs.bib\n\nAs [cite:@knuth84] said.\n";
+    let mut t = with_config(text, Config::default(), (160, 10));
+    std::fs::write(
+        t.dir.as_ref().unwrap().join("refs.bib"),
+        "@book{knuth84, author = {Donald E. Knuth}, title = {The {\\TeX}book}, year = 1984}\n\
+         @article{doe20, author = {Jane Doe}, title = {A study}, journal = {Journal}, year = 2020}\n",
+    )
+    .unwrap();
+    // The entry cited under the cursor, in the status line.
+    let knuth = text.find("knuth84").unwrap();
+    t.at(knuth);
+    assert!(
+        status(&mut t).contains("@knuth84: Donald E. Knuth (1984). The \\TeXbook."),
+        "{}",
+        status(&mut t)
+    );
+    // The picker: typing finds an entry, Enter cites it after the
+    // citation…
+    t.at(text.find(" said").unwrap());
+    t.app
+        .run_command("org.cite.insert", serde_json::Value::Null);
+    t.typ("doe");
+    assert!(
+        screen(&mut t)
+            .join("\n")
+            .contains("@doe20  Jane Doe (2020). A study. Journal.")
+    );
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "#+bibliography: refs.bib\n\nAs [cite:@knuth84][cite:@doe20] said.\n"
+    );
+    // …or in it.
+    t.at(knuth);
+    t.app
+        .run_command("org.cite.insert", serde_json::Value::Null);
+    t.typ("doe");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "#+bibliography: refs.bib\n\nAs [cite:@knuth84; @doe20][cite:@doe20] said.\n"
+    );
+}
+
+#[test]
+fn citations_without_a_bibliography() {
+    let mut t = open("No bibliography.\n");
+    t.app
+        .run_command("org.cite.insert", serde_json::Value::Null);
+    assert!(
+        status(&mut t).contains("No bibliography"),
+        "{}",
+        status(&mut t)
+    );
+}

@@ -159,6 +159,8 @@ pub struct App {
     words: kalem_core::stats::WordCounts,
     /// The table formula at the cursor.
     formula: kalem_core::formulas::FormulaCache,
+    /// The entry cited under the cursor.
+    cite_preview: kalem_core::cite::Preview,
     /// The Vim layer, with the Vim keymap profile.
     pub vim: Option<kalem_core::vim::Vim>,
     /// The cursor shape last set: a block (Vim outside insert mode) or not.
@@ -412,6 +414,7 @@ impl App {
             last_regex: false,
             words: Default::default(),
             formula: Default::default(),
+            cite_preview: Default::default(),
             vim: None,
             cursor_block: None,
             outline: None,
@@ -1817,8 +1820,11 @@ impl App {
                     return;
                 }
                 if let Some(id) = id {
-                    self.run_command(&id, Value::Null);
-                    self.last_command = Some(id);
+                    // A picker's item carries its command's arguments.
+                    let (command, args) = kalem_core::palette::split_invocation(&id);
+                    let command = command.to_string();
+                    self.run_command(&command, args);
+                    self.last_command = Some(command);
                 }
             }
             KeyCode::Down if n > 0 => p.selected = (p.selected + 1) % n,
@@ -2733,6 +2739,8 @@ impl App {
         self.editor.references = info
             .map(kalem_core::formulas::references)
             .unwrap_or_default();
+        // Else the entry cited under the cursor.
+        let formula_status = formula_status.or_else(|| self.cite_preview.get(&mut self.doc));
         let mut text_area = Rect {
             height: area.height.saturating_sub(1),
             ..area

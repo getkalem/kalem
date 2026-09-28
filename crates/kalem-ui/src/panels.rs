@@ -321,8 +321,11 @@ impl Editor {
             cx.notify();
             return;
         }
-        self.run_command(&id, Value::Null, window, cx);
-        self.last_command = Some(id);
+        // A picker's item carries its command's arguments.
+        let (command, args) = kalem_core::palette::split_invocation(&id);
+        let command = command.to_string();
+        self.run_command(&command, args, window, cx);
+        self.last_command = Some(command);
         cx.notify();
     }
 

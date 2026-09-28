@@ -11,6 +11,7 @@ authors.workspace = true
 [dependencies]
 org-syntax.workspace = true
 org-model.workspace = true
+org-cite.workspace = true
 org-edit.workspace = true
 org-table.workspace = true
 kalem-project.workspace = true

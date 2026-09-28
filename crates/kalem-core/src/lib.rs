@@ -4,6 +4,7 @@
 //! Frontends read documents and change them only through this crate.
 
 mod builtin;
+pub mod cite;
 pub mod command;
 pub mod dates;
 pub mod dired;

@@ -261,6 +261,10 @@ pub struct Editor {
     pub formula_status: Option<String>,
     /// The fields the formula at the cursor refers to, highlighted.
     pub formula_refs: Vec<Range<usize>>,
+    /// The entry cited under the cursor, for the status bar.
+    pub cite_preview: kalem_core::cite::Preview,
+    /// The entry cited under the mouse, and where the mouse is.
+    pub cite_hover: Option<(Point<Pixels>, String)>,
     /// Formulas drawn rendered (else as their source).
     pub math: bool,
     /// The document's `\newcommand`s for formulas, for a text version.
@@ -363,6 +367,8 @@ impl Editor {
             formula: Default::default(),
             formula_status: None,
             formula_refs: Vec::new(),
+            cite_preview: Default::default(),
+            cite_hover: None,
             math: true,
             math_macros: RefCell::new((u64::MAX, Rc::from(""))),
             focus_mode: false,
@@ -2029,6 +2035,19 @@ impl Editor {
     ) {
         if !self.dragging || ev.pressed_button != Some(MouseButton::Left) {
             self.dragging = false;
+            // The entry a citation under the mouse cites.
+            let hover = self
+                .hit(ev.position)
+                .and_then(|h| {
+                    let path = self.doc.meta.path.clone();
+                    let model = self.doc.model()?;
+                    kalem_core::cite::preview(&model, path.as_deref(), h.pos)
+                })
+                .map(|t| (ev.position, t));
+            if hover.as_ref().map(|h| &h.1) != self.cite_hover.as_ref().map(|h| &h.1) {
+                self.cite_hover = hover;
+                cx.notify();
+            }
             return;
         }
         if let Some(Hit { pos, .. }) = self.hit(ev.position)
@@ -2793,6 +2812,10 @@ impl gpui::Render for Editor {
         self.formula_refs = info
             .map(kalem_core::formulas::references)
             .unwrap_or_default();
+        // Else the entry cited under the cursor.
+        if self.formula_status.is_none() {
+            self.formula_status = self.cite_preview.get(&mut self.doc);
+        }
         self.painted.borrow_mut().clear();
         if let Some(o) = &self.other {
             o.painted.borrow_mut().clear();
@@ -2934,6 +2957,25 @@ impl gpui::Render for Editor {
                                 if chosen { row.bg(theme.selection) } else { row }
                             })),
                     ),
+                )
+            }))
+            .children(self.cite_hover.clone().map(|(at, text)| {
+                let theme = self.theme.clone();
+                gpui::deferred(
+                    gpui::anchored()
+                        .position(at + gpui::point(px(12.), px(18.)))
+                        .child(
+                            div()
+                                .max_w(px(520.))
+                                .px(px(10.))
+                                .py(px(6.))
+                                .rounded(px(6.))
+                                .border_1()
+                                .border_color(theme.border)
+                                .bg(theme.bar)
+                                .text_size(px(theme.size * 0.85))
+                                .child(text),
+                        ),
                 )
             }))
             .children(outline)

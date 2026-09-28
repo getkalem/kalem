@@ -1654,3 +1654,71 @@ fn file_manager_from_the_toolbar_and_the_list(cx: &mut TestAppContext) {
     cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
     assert_eq!(active_title(&ws, cx), "a.org");
 }
+
+#[gpui::test]
+fn citations(cx: &mut TestAppContext) {
+    let text = "#+bibliography: refs.bib\n\nAs [cite:@knuth84] said.\n";
+    let (e, cx) = open(text, cx);
+    let dir = e.read_with(cx, |e, _| {
+        e.doc
+            .meta
+            .path
+            .clone()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    });
+    std::fs::write(
+        dir.join("refs.bib"),
+        "@book{knuth84, author = {Donald E. Knuth}, title = {The {\\TeX}book}, year = 1984}\n\
+         @article{doe20, author = {Jane Doe}, title = {A study}, journal = {Journal}, year = 2020}\n",
+    )
+    .unwrap();
+    // The entry cited under the cursor, in the status bar.
+    let knuth = text.find("knuth84").unwrap();
+    at(&e, knuth, cx);
+    cx.run_until_parked();
+    let status = e.read_with(cx, |e, _| e.formula_status.clone());
+    assert_eq!(
+        status.as_deref(),
+        Some("@knuth84: Donald E. Knuth (1984). The \\TeXbook.")
+    );
+    // The picker: typing finds an entry, Enter cites it.
+    at(&e, text.find(" said").unwrap(), cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.cite.insert", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    cx.simulate_input("doe");
+    let first = e.read_with(cx, |e, _| {
+        e.palette
+            .as_ref()
+            .and_then(|p| p.matches().first().map(|i| i.title.clone()))
+    });
+    assert_eq!(
+        first.as_deref(),
+        Some("@doe20  Jane Doe (2020). A study. Journal.")
+    );
+    cx.simulate_keystrokes("enter");
+    assert_eq!(
+        text_of(&e, cx),
+        "#+bibliography: refs.bib\n\nAs [cite:@knuth84][cite:@doe20] said.\n"
+    );
+    // The mouse over a citation shows the entry it cites.
+    cx.run_until_parked();
+    let line = e.read_with(cx, |e, _| e.painted.borrow().get(&2).map(|p| p.bounds));
+    let line = line.expect("line 2 painted");
+    let mut shown = None;
+    let mut x = line.origin.x + gpui::px(1.);
+    while x < line.origin.x + line.size.width && shown.is_none() {
+        let at = gpui::point(x, line.origin.y + line.size.height / 2.);
+        cx.simulate_mouse_move(at, None, gpui::Modifiers::default());
+        shown = e.read_with(cx, |e, _| e.cite_hover.as_ref().map(|h| h.1.clone()));
+        x += gpui::px(3.);
+    }
+    assert_eq!(
+        shown.as_deref(),
+        Some("@knuth84: Donald E. Knuth (1984). The \\TeXbook.")
+    );
+}

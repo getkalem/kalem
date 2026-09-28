@@ -3769,6 +3769,7 @@ dependencies = [
  "kalem-fs",
  "kalem-project",
  "notify",
+ "org-cite",
  "org-edit",
  "org-export",
  "org-math",
