@@ -1430,6 +1430,7 @@ pub fn menus() -> Vec<Menu> {
                 MenuItem::separator(),
                 named(tr("menu-file-manager"), "dired.jump"),
                 MenuItem::separator(),
+                item("export.dialog"),
                 item("export.html"),
                 item("export.markdown"),
                 item("export.gfm"),

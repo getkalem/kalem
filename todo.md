@@ -292,7 +292,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.3.6 Plain text backend
 - [ ] T2.3.7 PDF generation: detect `latexmk` / `xelatex`; optional tectonic download (D5); error mapping
 - [ ] T2.3.8 Pandoc bridge: DOCX, ODT, EPUB, RTF output; DOCX, ODT, MD, HTML import; "Org cleanup" pass; pandoc detection and guidance
-- [~] T2.3.9 Export dialog and settings (GUI and TUI); `#+EXPORT_FILE_NAME` (Export as HTML and Export as Markdown in the palette of both editors and the File menu, written beside the file or where `#+EXPORT_FILE_NAME` says; the dialog and its settings are still to do)
+- [x] T2.3.9 Export dialog and settings (GUI and TUI); `#+EXPORT_FILE_NAME` (Export… (Ctrl+Alt+E, File menu) lists the formats, the subtree exports and the export settings with their values in both editors; `export.body_only`, `export.open_after` and `export.math` (MathJax or SVG) in `settings.toml`, changed from the dialog; files go where `#+EXPORT_FILE_NAME` or the subtree's `EXPORT_FILE_NAME` says, else beside the document)
 - [~] T2.3.10 Snapshot tests; comparison corpus against ox.el output (`tests/export/cases` and the Worg corpus against Emacs 30.1 with Org 9.7.11; the counts only go up)
 - [~] T2.3.11 `kalem export` subcommand (`kalem export FILE... --to html|md|gfm`, `-o`, `--body-only`, `--subtree`; the other back-ends follow them)
 - [ ] T2.3.12 Publish `org-export` to crates.io (§4.7)

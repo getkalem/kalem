@@ -83,6 +83,7 @@ fn run(backend: &dyn org_export::Backend, ext: &str, known: usize) {
                 now: Some("2026-09-28T10:00:00[Europe/Istanbul]".parse().unwrap()),
                 subtree: None,
                 math: None,
+                options: None,
             },
         )
         .unwrap_or_else(|e| format!("ERROR: {e}\n"));

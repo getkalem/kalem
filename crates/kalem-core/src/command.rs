@@ -125,6 +125,15 @@ pub enum Request {
     CancelFileOps,
     /// Put this text on the system clipboard.
     CopyText(String),
+    /// Show the export dialog: formats and export settings.
+    ExportDialog,
+    /// Save `key` in the user's settings and apply the settings.
+    SetSetting {
+        /// The setting.
+        key: String,
+        /// Its new value.
+        value: serde_json::Value,
+    },
 }
 
 /// What [`Request::FileManager`] shows. The window's file manager is used

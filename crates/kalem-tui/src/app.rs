@@ -1301,6 +1301,12 @@ impl App {
                 self.clipboard.text = t.clone();
                 self.write_terminal(&osc52(&t));
             }
+            Request::ExportDialog => {
+                let items = kalem_core::export_dialog_items(&self.config);
+                self.palette = Some(Palette::new(items));
+                self.dirty = true;
+            }
+            Request::SetSetting { key, value } => self.set_setting(&key, &value),
             Request::Copy | Request::Cut => {
                 let Some(text) = self.doc.selected_text().map(str::to_string) else {
                     self.message(tr!("msg-nothing-selected"), false);
@@ -1377,6 +1383,26 @@ impl App {
                 self.message(tr!(m), false);
             }
         }
+    }
+
+    /// Saves `key` in the user's settings and reads the settings again.
+    fn set_setting(&mut self, key: &str, value: &serde_json::Value) {
+        let Some(path) = settings::config_dir().map(|d| d.join("settings.toml")) else {
+            self.message(tr!("msg-no-settings-dir"), true);
+            return;
+        };
+        if let Err(e) = settings::save_setting(&path, key, value) {
+            self.message(e, true);
+            return;
+        }
+        let workspace = self
+            .config
+            .sources()
+            .iter()
+            .find(|(l, _)| *l == settings::Layer::Workspace)
+            .and_then(|(_, p)| p.clone());
+        self.config = Config::load(Some(&path), workspace.as_deref());
+        self.message(tr!("msg-setting-saved", key = key), false);
     }
 
     /// Opens a link target with the system's opener.

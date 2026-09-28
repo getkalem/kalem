@@ -570,6 +570,26 @@ fn command_palette() {
 }
 
 #[test]
+fn export_dialog() {
+    let mut t = open("* A\n");
+    t.key(
+        KeyCode::Char('e'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    let shown = screen(&mut t).join("\n");
+    for item in [
+        "Export as HTML",
+        "Export as GitHub Markdown",
+        "Body only: off",
+        "Formulas: MathJax",
+    ] {
+        assert!(shown.contains(item), "{item} in {shown}");
+    }
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(!screen(&mut t).join("\n").contains("Body only"));
+}
+
+#[test]
 fn find_and_replace() {
     let text = "one two one\nthree one\n";
     let mut t = open(text);

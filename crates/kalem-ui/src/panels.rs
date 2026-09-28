@@ -136,6 +136,15 @@ impl Editor {
         cx.notify();
     }
 
+    /// Opens the export dialog: the formats and the export settings.
+    pub fn open_export_dialog(&mut self, cx: &mut Context<'_, Self>) {
+        self.completion = None;
+        let mut p = Palette::new(String::new());
+        p.items = kalem_core::export_dialog_items(&self.shared.config);
+        self.palette = Some(p);
+        cx.notify();
+    }
+
     /// Opens a list to choose from.
     pub fn open_picker(&mut self, picker: Picker, cx: &mut Context<'_, Self>) {
         self.completion = None;

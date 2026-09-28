@@ -92,6 +92,8 @@ pub struct Info {
     pub now: Option<jiff::Zoned>,
     /// Draws formulas as images.
     pub math: Option<crate::MathRenderer>,
+    /// `#+OPTIONS:` items that apply unless the document sets them.
+    pub ext_options: Option<String>,
     /// `:headline-offset`.
     pub headline_offset: i64,
     /// `:headline-numbering`.
@@ -555,6 +557,25 @@ impl<'b> Exporter<'b> {
         }
         for (p, _, _, _, d) in &backend_opts {
             self.info.values.insert(p.to_string(), d.clone());
+        }
+        // The caller's `#+OPTIONS:` items, below the document's own
+        // (`ext-plist`).
+        if let Some(line) = self.info.ext_options.clone() {
+            for (item, value) in options::parse_options(&line) {
+                let prop = backend_opts
+                    .iter()
+                    .find(|o| o.2 == Some(item.as_str()))
+                    .map(|o| o.0)
+                    .or_else(|| {
+                        options::OPTIONS
+                            .iter()
+                            .find(|o| o.option == Some(item.as_str()))
+                            .map(|o| o.property)
+                    });
+                if let Some(prop) = prop {
+                    self.info.values.insert(prop.to_string(), value);
+                }
+            }
         }
         // Keywords, back-end ones first.
         let mut specs: Vec<(String, Option<&str>, Option<&str>, Behavior)> = backend_opts

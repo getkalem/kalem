@@ -86,6 +86,7 @@ pub(crate) fn export(
             now: None,
             subtree: at,
             math: Some(kalem_core::math::export_renderer()),
+            options: None,
         };
         let out = match org_export::export(text, to.backend(), &settings) {
             Ok(out) => out,

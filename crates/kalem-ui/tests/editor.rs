@@ -579,6 +579,29 @@ fn command_palette(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn export_dialog(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n", cx);
+    cx.simulate_keystrokes("ctrl-alt-e");
+    cx.run_until_parked();
+    let ids = e.read_with(cx, |e, _| {
+        e.palette
+            .as_ref()
+            .map(|p| p.matches().iter().map(|i| i.id.clone()).collect::<Vec<_>>())
+            .unwrap_or_default()
+    });
+    for id in [
+        "export.html",
+        "export.gfm",
+        "export.toggleBodyOnly",
+        "export.toggleMath",
+    ] {
+        assert!(ids.iter().any(|i| i == id), "{id} in {ids:?}");
+    }
+    assert!(cx.debug_bounds("palette-0").is_some());
+    cx.simulate_keystrokes("escape");
+}
+
+#[gpui::test]
 fn find_and_replace(cx: &mut TestAppContext) {
     let (e, cx) = open("one two one\nthree one\n", cx);
     at(&e, 0, cx);
