@@ -110,6 +110,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - TODO dependencies as in Emacs: `org.enforce_todo_dependencies` (open subtasks and the `ORDERED` property), `org.enforce_todo_checkbox_dependencies`, `NOBLOCKING`, and tags changed with the state (`org.todo_state_tags_triggers`); Toggle Ordered Subtasks and Delete Property.
 - LaTeX export as Emacs's `ox-latex` writes it (`kalem export --to latex`, Export as LaTeX), with Kalem's formatting, and `%% org:LINE` comments with `--source-lines`.
 - `tools/fetch-org.sh`: Org 9.7 for the differential tests on a machine whose Emacs has an older Org.
+- Plain text export as Emacs's `ox-ascii` writes it, paragraphs filled as `fill-region` fills them (`kalem export --to txt`, `--to utf8`, Export as Plain Text).
 
 ### Changed
 

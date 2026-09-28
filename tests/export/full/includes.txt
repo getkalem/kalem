@@ -1,0 +1,86 @@
+                               __________
+
+                                INCLUDES
+                               __________
+
+
+Table of Contents
+_________________
+
+1. Top
+.. 1. Included heading
+..... 1. Deeper
+2. Code
+3. Lines
+4. Quote
+5. Part of a file
+6. Levels
+..... 1. Included heading
+
+
+1 Top
+=====
+
+1.1 Included heading
+~~~~~~~~~~~~~~~~~~~~
+
+  Some text with a note.[1]
+
+
+1.1.1 Deeper
+------------
+
+  A link to <file:include/pic.png>.
+
+
+2 Code
+======
+
+  ,----
+  | (defun f ()
+  |   "Doc."
+  |   1)
+  | * not a heading
+  `----
+
+
+3 Lines
+=======
+
+  ,----
+  | two
+  | three
+  `----
+
+
+4 Quote
+=======
+
+        one
+
+
+5 Part of a file
+================
+
+  A link to <file:include/pic.png>.
+
+
+6 Levels
+========
+
+6.0.1 Included heading
+----------------------
+
+  Some text with a note.[1]
+
+
+* 6.0.1.1 Deeper
+
+  A link to <file:include/pic.png>.
+
+
+
+Footnotes
+_________
+
+[1] The note.

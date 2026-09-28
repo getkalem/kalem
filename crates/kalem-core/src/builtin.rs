@@ -537,6 +537,10 @@ const LATEX: org_export::Latex = org_export::Latex {
     source_lines: false,
 };
 
+/// The plain text back-end, as `ox-ascii` writes, in ASCII and in UTF-8.
+const TEXT: org_export::Text = org_export::Text { utf8: false };
+const TEXT_UTF8: org_export::Text = org_export::Text { utf8: true };
+
 /// A `file:` URL for `path`.
 fn file_url(path: &std::path::Path) -> String {
     let p = path.to_string_lossy().replace('\\', "/");
@@ -565,6 +569,7 @@ pub fn export_dialog_items(config: &crate::settings::Config) -> Vec<crate::palet
         "export.markdown",
         "export.gfm",
         "export.latex",
+        "export.text",
         "export.htmlSubtree",
         "export.markdownSubtree",
         "export.latexSubtree",
@@ -722,6 +727,18 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some("editorMode == org"),
             |ctx, _| export_doc(ctx, &LATEX, ".tex", false),
+        ),
+        cmd(
+            "export.text",
+            "Export as Plain Text",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| {
+                let utf8 = ctx.config.str("export.text_charset") == "utf-8";
+                let backend: &dyn org_export::Backend = if utf8 { &TEXT_UTF8 } else { &TEXT };
+                export_doc(ctx, backend, ".txt", false)
+            },
         ),
         cmd(
             "export.latexSubtree",

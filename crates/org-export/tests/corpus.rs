@@ -129,3 +129,9 @@ fn worg_latex() {
     // whose links Emacs makes absolute.
     run(&org_export::Latex::default(), "tex", 0);
 }
+
+#[test]
+fn worg_text() {
+    // Not measured on Worg yet.
+    run(&org_export::Text::default(), "txt", 0);
+}

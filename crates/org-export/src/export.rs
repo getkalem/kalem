@@ -55,6 +55,13 @@ pub trait Backend {
         out
     }
 
+    /// Changes an element's or object's output, blank lines after it
+    /// included (`:filter-headline` and the like).
+    fn filter_output(&self, ex: &mut Exporter<'_>, id: Id, out: String) -> String {
+        let _ = (ex, id);
+        out
+    }
+
     /// Back-end options: property, keyword, `#+OPTIONS:` item, behavior
     /// and default.
     fn options(&self) -> Vec<BackendOption> {
@@ -296,6 +303,8 @@ struct TableInfo {
     groups: HashMap<Id, usize>,
     has_header: bool,
     align: Vec<&'static str>,
+    /// Width cookies (`<10>`, `<l5>`) of each column.
+    widths: Vec<Option<usize>>,
 }
 
 impl std::fmt::Debug for Exporter<'_> {
@@ -1281,11 +1290,12 @@ impl<'b> Exporter<'b> {
                 Kind::Node(DOCUMENT) | Kind::Text | Kind::Raw => r,
                 _ => {
                     let blank = self.tree.nodes[id].post_blank;
-                    if self.tree.is_object(id) {
+                    let out = if self.tree.is_object(id) {
                         r + &" ".repeat(blank)
                     } else {
                         normalize_string(&r) + &"\n".repeat(blank)
-                    }
+                    };
+                    backend.filter_output(self, id, out)
                 }
             },
         };
@@ -1329,6 +1339,11 @@ impl<'b> Exporter<'b> {
             });
         ast::contents_range(ps).is_some_and(|r| r.start() == cs.text_range().start())
             && cs.text_range().start() < first_line_end
+    }
+
+    /// Forgets the transcoded output of `id`, after the tree changed.
+    pub fn forget(&mut self, id: Id) {
+        self.memo.remove(&id);
     }
 
     /// Transcodes a secondary string or any list of nodes.
@@ -2095,6 +2110,25 @@ impl<'b> Exporter<'b> {
             });
             align.push(a);
         }
+        // Width cookies, the last one of the column.
+        let mut widths = vec![None; width];
+        for (i, t) in texts.iter().enumerate() {
+            if !special[i] {
+                continue;
+            }
+            for (col, c) in t.iter().enumerate() {
+                let digits = c
+                    .strip_prefix('<')
+                    .and_then(|x| x.strip_suffix('>'))
+                    .map(|x| x.trim_start_matches(['l', 'r', 'c']))
+                    .filter(|d| !d.is_empty() && d.chars().all(|ch| ch.is_ascii_digit()));
+                if let Some(d) = digits
+                    && let Ok(w) = d.parse::<usize>()
+                {
+                    widths[col] = Some(w);
+                }
+            }
+        }
         let info = std::rc::Rc::new(TableInfo {
             special_column,
             special_rows: rows
@@ -2106,6 +2140,7 @@ impl<'b> Exporter<'b> {
             groups,
             has_header,
             align,
+            widths,
         });
         self.tables.borrow_mut().insert(table, info.clone());
         info
@@ -2174,6 +2209,15 @@ impl<'b> Exporter<'b> {
             .get(col)
             .copied()
             .unwrap_or("left")
+    }
+
+    /// `org-export-table-cell-width`: the width cookie of the cell's
+    /// column, if it has one.
+    pub fn cell_cookie_width(&self, cell: Id) -> Option<usize> {
+        let row = self.tree.parent(cell)?;
+        let table = self.tree.parent(row)?;
+        let col = self.tree.children(row).iter().position(|c| *c == cell)?;
+        self.table_info(table).widths.get(col).copied().flatten()
     }
 
     /// The column of a cell, among exported cells.

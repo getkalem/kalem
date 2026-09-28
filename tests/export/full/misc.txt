@@ -1,0 +1,35 @@
+                             ______________
+
+                              MISC *TITLE*
+
+                                Someone
+                             ______________
+
+
+Table of Contents
+_________________
+
+1. Heading with `code' and [link]                                  :a:b:
+.. 1. TODO Low priority
+..... 1. Target inside
+
+
+Entities: pi (c) EUR and 1/2 plus Alpha.  Emphasis nested: *bold
+/italic/ bold* and `~verbatim~'.  Special: ... "quotes" 'single' -- and
+---.  A stat cookie [2/5] and [40%].
+
+        Two leading
+      Normal line
+      Last
+
+
+1 Heading with `code' and [link]                                   :a:b:
+================================
+
+[link] <https://x.org>
+
+1.1 TODO Low priority
+~~~~~~~~~~~~~~~~~~~~~
+
+1.1.1 Target inside
+-------------------

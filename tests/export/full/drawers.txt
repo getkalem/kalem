@@ -1,0 +1,21 @@
+Table of Contents
+_________________
+
+1. TODO Task [1/2]
+
+
+1 TODO Task [1/2]
+=================
+
+  DEADLINE: <2026-10-01 Thu 10:00> SCHEDULED: <2026-09-28 Mon> 
+  EFFORT: 1:00
+  CLOCK: [2026-09-28 Mon 09:00]--[2026-09-28 Mon 10:00]  =>  1:00
+  - [X] one
+  - [ ] two
+
+  An isolated timestamp:
+
+  <2026-09-28 Mon>
+
+  Inline <2026-09-28 Mon>--<2026-09-29 Tue> range and [2026-09-27 Sun]
+  inactive.

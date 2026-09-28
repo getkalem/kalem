@@ -6,6 +6,7 @@
 pub mod babel;
 mod dictionary;
 pub mod export;
+pub mod fill;
 pub mod gfm;
 pub mod html;
 pub mod include;
@@ -15,6 +16,7 @@ pub mod macros;
 pub mod md;
 pub mod options;
 pub mod quotes;
+pub mod text;
 pub mod timestamps;
 pub mod tree;
 
@@ -23,6 +25,7 @@ pub use gfm::Gfm;
 pub use html::Html;
 pub use latex::Latex;
 pub use md::Markdown;
+pub use text::Text;
 
 /// How to export.
 #[derive(Debug, Clone, Default)]

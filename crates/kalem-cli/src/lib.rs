@@ -168,6 +168,10 @@ enum ExportTo {
     Org,
     /// LaTeX, as Emacs's `ox-latex` writes it.
     Latex,
+    /// Plain text, as Emacs's `ox-ascii` writes it.
+    Txt,
+    /// Plain text with UTF-8 lines, bullets and quotes.
+    Utf8,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -220,6 +224,8 @@ where
                 ExportTo::Org => commands::Target::Org,
                 ExportTo::Latex if source_lines => commands::Target::LatexLines,
                 ExportTo::Latex => commands::Target::Latex,
+                ExportTo::Txt => commands::Target::Text,
+                ExportTo::Utf8 => commands::Target::Utf8,
             };
             commands::export(&files, to, output.as_deref(), body_only, subtree.as_deref())
         }

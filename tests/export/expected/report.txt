@@ -1,0 +1,31 @@
+1 Kapitel
+=========
+
+  ALT_TITLE: Kurz
+  CUSTOM_ID: chap
+  Text[1] in 1.
+
+
+1.1 Abschnitt                                                      :tag:
+~~~~~~~~~~~~~
+
+Tief
+----
+
+* Tiefer
+
+  Deep.
+
+
+Zweites
+=======
+
+  UNNUMBERED: t
+  Ende.
+
+
+
+Fußnoten
+________
+
+[1] Fußnote

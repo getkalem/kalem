@@ -222,17 +222,19 @@ fn normalize_latex(s: &str) -> String {
         .join("\n")
 }
 
-/// Whole LaTeX documents against `tests/export/full` (`KALEM_EXPORT_FULL=1
-/// KALEM_EXPORT_BACKENDS=latex`).
-#[test]
-fn latex_document() {
-    // Emacs stops on the remote image.
-    let known = ["images"];
+/// Whole documents of `ext` in `tests/export/full` (`KALEM_EXPORT_FULL=1
+/// KALEM_EXPORT_BACKENDS=latex` or `ascii`) against Kalem's.
+fn documents(
+    backend: &dyn org_export::Backend,
+    ext: &str,
+    known: &[&str],
+    norm: fn(&str) -> String,
+) {
     let mut failed = Vec::new();
     let mut cases: Vec<PathBuf> = std::fs::read_dir(root().join("full"))
         .expect("the documents")
         .map(|e| e.expect("an entry").path())
-        .filter(|p| p.extension().is_some_and(|e| e == "tex"))
+        .filter(|p| p.extension().is_some_and(|e| e == ext))
         .collect();
     cases.sort();
     for page in &cases {
@@ -244,7 +246,7 @@ fn latex_document() {
         let text = std::fs::read_to_string(&case).unwrap();
         let got = org_export::export(
             &text,
-            &org_export::Latex::default(),
+            backend,
             &org_export::Settings {
                 body_only: false,
                 input_file: Some(case.clone()),
@@ -256,12 +258,12 @@ fn latex_document() {
         )
         .unwrap_or_else(|e| format!("ERROR: {e}\n"));
         let want = std::fs::read_to_string(page).unwrap();
-        if normalize_latex(&got) != normalize_latex(&want) {
+        if norm(&got) != norm(&want) {
             if std::env::var_os("KALEM_EXPORT_DIFF").is_some() {
-                let d = std::env::temp_dir().join(format!("kalem-doc-{name}.tex"));
-                std::fs::write(&d, normalize_latex(&got)).unwrap();
-                let w = std::env::temp_dir().join(format!("kalem-doc-{name}.want.tex"));
-                std::fs::write(&w, normalize_latex(&want)).unwrap();
+                let d = std::env::temp_dir().join(format!("kalem-doc-{name}.{ext}"));
+                std::fs::write(&d, norm(&got)).unwrap();
+                let w = std::env::temp_dir().join(format!("kalem-doc-{name}.want.{ext}"));
+                std::fs::write(&w, norm(&want)).unwrap();
                 eprintln!("{name}: got {} want {}", d.display(), w.display());
             }
             failed.push(name);
@@ -269,7 +271,28 @@ fn latex_document() {
     }
     assert!(
         failed.is_empty(),
-        "{} documents differ: {failed:?}",
+        "{} {ext} documents differ: {failed:?}",
         failed.len()
     );
+}
+
+#[test]
+fn latex_document() {
+    // Emacs stops on the remote image.
+    documents(
+        &org_export::Latex::default(),
+        "tex",
+        &["images"],
+        normalize_latex,
+    );
+}
+
+#[test]
+fn text_document() {
+    documents(&org_export::Text::default(), "txt", &["images"], normalize);
+}
+
+#[test]
+fn text() {
+    run(&org_export::Text::default(), "txt", &[]);
 }

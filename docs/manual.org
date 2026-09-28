@@ -308,7 +308,8 @@ or binary files. The list of projects and recent files is kept in
 
 * Exporting
 
-/Export as HTML/, /Export as Markdown/ and /Export as LaTeX/ (Export…,
+/Export as HTML/, /Export as Markdown/, /Export as LaTeX/ and /Export as
+Plain Text/ (Export…,
 Ctrl+Alt+E, the File menu, or the palette) write the document beside its file, or where =#+EXPORT_FILE_NAME= says,
 with unsaved changes too. The result is what Emacs's Org exporter writes:
 =#+OPTIONS=, =#+INCLUDE=, macros, footnotes, tables, links and source
@@ -321,6 +322,10 @@ tables, figures, lists and blocks work as in Org's manual. A Kalem
 document's fonts, sizes, colors, highlights, alignment and spacing go into
 it too (fonts only for XeLaTeX and LuaLaTeX, =#+LATEX_COMPILER=).
 
+Plain text is filled to 72 columns as Emacs fills it, with underlined
+titles, boxed code and tables drawn in ASCII; =export.text_charset =
+"utf-8"= uses UTF-8 lines, bullets and quotes instead.
+
 From the command line:
 
 #+begin_src sh
@@ -328,6 +333,7 @@ kalem export notes.org                  # notes.html
 kalem export notes.org --to md -o -     # Markdown to standard output
 kalem export *.org --body-only          # only the body of each page
 kalem export paper.org --to latex       # paper.tex
+kalem export notes.org --to txt         # plain text, 72 columns (utf8 for UTF-8)
 kalem export paper.org --to latex --source-lines   # %% org:LINE comments
 #+end_src
 

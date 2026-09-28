@@ -1,0 +1,144 @@
+1 TODO (#A) A task heading                                   :work:home:
+==========================
+
+  Text [1/2] with a and a link to 1 and to 1.1.  Stats [50%] cookie.
+
+
+1.1 Second level
+~~~~~~~~~~~~~~~~
+
+* 1.1.1 Third level is low
+
+  Low text.
+
+
+* 1.1.2 Another low one
+
+  More.
+
+
+2 Lists and items
+=================
+
+  1. First
+  5. Fifth
+     - [X] done
+     - [ ] open
+     - [-] partial
+  - description
+  - [ ] with a tag
+  - [not a checkbox] item starting with a bracket
+
+  - custom environment
+
+
+3 Tables
+========
+
+   Name  Value 
+  -------------
+   a         1 
+   b        20 
+  Table 1: A table caption
+
+   x  y 
+  ------
+   1  2 
+  ------
+
+   1  0 
+   0  1 
+
+   p  q 
+   r  s 
+
+   Head  Other 
+  -------------
+   body      1 
+
+   raw  table 
+
+
+4 Math and blocks
+=================
+
+  Inline $a+b$ and \(c\)\(d\) and alphabeta and $$e$$ and \[f\].
+
+  \begin{equation}
+  x = 1
+  \end{equation}
+
+  \begin{figure}
+  \includegraphics{x}
+  \end{figure}
+
+  ,----
+  | 1  print("hi")  #      (p)
+  `----
+  Listing 1: Code caption
+
+  See line p.
+
+  ,----
+  | example text
+  `----
+
+  A theorem.
+
+        Quoted.
+
+        First line
+          indented
+
+        Second stanza
+
+  ----------------------------------------------------------------------
+
+  <file:pic.png>
+
+  <file:diagram.pdf::3>
+
+  <file:graph.tikz>
+
+
+5 Footnotes in odd places
+=========================
+
+   cell with note[1]  b 
+
+  item tag[2]
+        text
+
+        verse note[3]
+
+
+6 Specials
+==========
+
+  LaTeX and TeX, 50% & $5 #1 ~tilde^ under_score {braces} back/ and shy.
+  Quotes "double" and 'single'.  [bracket at start
+  List of Tables
+  ______________
+
+  Table 1: Short
+  Timestamp <2026-09-28 Mon> and [2026-09-28 Mon]--[2026-09-29 Tue].
+
+                                          ______________________________
+                              
+                                          TODO An inline task      :tag:
+                                          ------------------------------
+                                          Inside the task.
+                                          ______________________________
+
+  :X: 1
+
+
+
+Footnotes
+_________
+
+[1] In a table.
+
+[2] In a tag.
+
+[3] In a verse.

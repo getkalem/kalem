@@ -1,0 +1,89 @@
+1 [Bracket] heading with a note[1]                              :tagged:
+==================================
+
+  CLOSED: [2026-09-27 Sun 10:00]  SCHEDULED: <2026-09-28 Mon>
+  CLOCK: [2026-09-28 Mon 09:00]--[2026-09-28 Mon 10:30]  =>  1:30
+  "Smart" 'quotes' and don't.
+  Line one
+  Line two
+  a_b and a^{b}.
+
+
+Numbered
+~~~~~~~~
+
+Deeper
+------
+
+Deepest
+
+* Beyond H
+
+
+2 Figures
+=========
+
+  <file:a.png>
+
+  <file:b.jpg>
+
+  <file:c.eps>
+
+  <file:d.png>
+
+  See ???.
+
+   a  b 
+  Table 1: Wide
+
+   c  d 
+
+   e  f 
+
+   g  h 
+
+
+3 Blocks
+========
+
+  			       Middle.
+
+  \begin{align*}
+  a &= b
+  \end{align*}
+
+  ,----
+  | ls
+  `----
+  Listing 1: A float src
+
+  ,----
+
+  `----
+
+  No caption.
+
+  radio target, and radio used here.
+
+  [X] checked[X] 
+        described
+  plain
+        term
+
+
+4 Links
+=======
+
+  [desc] and <mailto:a@b.c> and <file:/abs/path.org> and
+  <https://x.y/%20z>.
+  [BROKEN LINK: nowhere]
+
+
+[desc] <https://example.com/a_b?x=1&y=2>
+
+
+
+Footnotes
+_________
+
+[1] A note in a title.
