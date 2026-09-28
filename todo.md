@@ -342,7 +342,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [x] T2.7a.4 Workspace sidebar, fuzzy open file, find in files (project scope: T2.7f) (all done: the list of open files, Find File in Project, Search in Project, and the current project's folder tree below the open files in both editors, from the project's file index (ignored files left out), folders opened and closed with a click, Reveal in Folder Tree, `ui.folder_tree`)
 - [ ] T2.7a.5 Bracket matching, auto-indent, comment toggling per language
 - [ ] T2.7a.6 Everyday text commands missing from plain text mode: go to line, duplicate line, move lines up and down, join lines, sort selected lines, trim trailing whitespace on save (`editor.trim_trailing_whitespace`), select word and expand selection (review, 2026-09-28: Sublime Text and VS Code users expect them; none is in the command registry)
-- [ ] T2.7a.7 Language packs (review, 2026-09-28): formats whose view is their source get no mode, only four hooks per language on top of highlighting, the same hooks plugins get (T3.1.9c, T3.1.9e): an outline provider, a formatter (`Format Document`, `kalem fmt --check`), completion, and diagnostics. First packs: diff and patch (files in the outline, hunks folded, a jump from a hunk line to the file at that line in the project, T2.7f); JSON, YAML, TOML and XML (outline from the structure, folding by node, `serde_json`, `toml` and `serde_yaml` formatting, Sort Keys, syntax errors in the status bar); ledger, hledger and beancount (amounts aligned on save and by `kalem fmt` as `org-table-align` aligns tables, account and payee completion, the balance of the transaction at the cursor in the status bar, reports through the external tool with the command shown first); gettext `.po` and Fluent `.ftl` (highlighting, Next Untranslated, the translated share in the status bar; dogfooded on `crates/kalem-core/locales`)
+- [ ] T2.7a.7 Language packs (review, 2026-09-28): formats whose view is their source get no mode, only four hooks per language on top of highlighting, the same hooks plugins get (T3.1.9c, T3.1.9e): an outline provider, a formatter (`Format Document`, `kalem fmt --check`), completion, and diagnostics. First packs: diff and patch (files in the outline, hunks folded, a jump from a hunk line to the file at that line in the project, T2.7f); JSON, YAML, TOML and XML (outline from the structure, folding by node, `serde_json`, `toml` and `serde_yaml` formatting, Sort Keys, syntax errors in the status bar); ledger, hledger and beancount (amounts aligned on save and by `kalem fmt` as `org-table-align` aligns tables, account and payee completion, the balance of the transaction at the cursor in the status bar, reports through the external tool with the command shown first); gettext `.po` and Fluent `.ftl` (highlighting, Next Untranslated, the translated share in the status bar; dogfooded on `crates/kalem-core/locales`); developed in `getkalem/plugins` as plugins once the hooks exist (D29)
 - [ ] T2.7a.8 Completers in `kalem-core` (§11.12; asked by the owner, 2026-09-28): the contract (a when-clause; triggers by character, word prefix or request; asynchronous, cancellable `complete` with the prefix, the line, the paragraph, the syntax node and the language as context; items with edits, kinds and lazy documentation; merging and ranking of several completers, results as they come); the Org completions of `kalem_core::input` moved onto it; the document-words completer for every text file; one menu in both frontends; `kalem complete FILE:LINE:COL`
 - [ ] T2.7a.9 Command scope (§11.2; decided by the owner, 2026-09-28): `scope` on every command, `all` or a list of text types with `except`, compiled to the when-clause key `textType`, the innermost type at the cursor (the file's type, or the language of a source block, code fence, formula, export block or front matter; `klm` a subtype of `org`); registration refuses a command without a scope; every built-in command migrated, the formatting commands of 2.2a scoped to `klm`; the palette, menus, keymaps and `kalem run` evaluate it; `kalem commands --type TYPE`; the report of bindings that never apply lists unknown types; the manual lists commands by type; a test that no command lacks a scope
 
@@ -373,7 +373,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 
 ### 2.7g More document modes (§2.6; review, 2026-09-28)
 
-A mode is built in only when all four hold: what the reader sees differs from the source text (markers hidden, objects drawn, a grid, a tree), otherwise the file is plain text with a language pack (T2.7a.7) and no mode; the format is text and edited losslessly; it reuses an engine Kalem has (the rich view with hidden markers, the table grid, the outline, org-math, syntect, the exporter); and it is too deep for a plugin. Every other format is a plugin (T3.3.6), so that the "Swiss army knife" does not become ten half-finished modes (§19, scope creep; §1.4, not an IDE). Each mode below ships in both frontends, with mode detection (extension, mode line, shebang), snapshot tests and a section in the manual's "Other files".
+A mode is built in only when all four hold: what the reader sees differs from the source text (markers hidden, objects drawn, a grid, a tree), otherwise the file is plain text with a language pack (T2.7a.7) and no mode; the format is text and edited losslessly; it reuses an engine Kalem has (the rich view with hidden markers, the table grid, the outline, org-math, syntect, the exporter); and it is too deep for a plugin. Every other format is a plugin (T3.3.6), so that the "Swiss army knife" does not become ten half-finished modes (§19, scope creep; §1.4, not an IDE). Each mode below ships in both frontends, with mode detection (extension, mode line, shebang), snapshot tests and a section in the manual's "Other files". Every mode beyond Org, `.klm`, Markdown and CSV is developed in `getkalem/plugins` as a WASM plugin (D29, §11.8, T3.3.7), not in the core repository, which keeps the contract and its tests.
 
 - [ ] T2.7g.1 AsciiDoc and reStructuredText on the Markdown engine, after 2.7c: a parser with source offsets per format (a decision like D19 each: the AsciiDoc and reST parsing crates, or own parsers on the Markdown view model), headings, emphasis, lists, tables in the shared grid, admonitions and includes shown, front matter and directives folded; the audience is technical documentation (Antora, Sphinx)
 - [ ] T2.7g.2 LaTeX and Typst source: highlighting (syntect for LaTeX; a Typst syntax added to `kalem-highlight`), inline preview of `$…$`, `\[…\]` and math environments through org-math while the cursor is outside, an outline from `\section` and `=` headings, `\include` and `#include` followed as links; compile to PDF through the external tool (`latexmk`, `tectonic`, `typst`) with errors mapped to lines, and the `typst` crate as an optional feature for a live PDF preview later (T4.3.2); persona P3
@@ -471,7 +471,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 
 - [ ] T3.1.0 WASM runtime spike (D28): wasmtime (Cranelift, and the Pulley interpreter) against wasmi: binary size, cold instantiation, a Markdown parser component on the 10 MB corpus per keystroke, fuel and memory limits, the precompiled module cache, one instance per thread, component model and WIT tooling (wit-bindgen, jco); `docs/decisions/D28-plugin-abi.md`; go or no-go against the lightness target of §15, the full binary under 40 MB
 - [ ] T3.1.1 WASM host in `kalem-script`: the engine of T3.1.0, the component model, the WIT API as the single definition (D6), capability imports only, fuel and memory limits per instance, a precompiled cache in the state directory, lazy instantiation on activation events
-- [ ] T3.1.2 Guest runtimes: the built-in JavaScript runtime component (a JS engine compiled to WASM, measured: QuickJS or StarlingMonkey) that runs `init.js` and script plugins without a toolchain; Lua later as another runtime component (D10)
+- [ ] T3.1.2 Guest runtimes: none shipped (D28). `kalem plugin new` and `kalem plugin build` wrap the Rust toolchain and the WASM target; a JS or Lua runtime component on the WIT API only if users ask for a script layer (D10)
 - [ ] T3.1.3 API definition source (D6, decided with D28): WIT as the single definition; generated Rust and TypeScript bindings, `kalem.d.ts`, Lua annotations; a consistency test that every extension point of §11.10 to §11.12 is in the WIT
 - [ ] T3.1.4 `kalem` namespace: `command`, `run`, `keymap`, `on` (`scope` required on `kalem.command`, §11.2)
 - [ ] T3.1.5 `kalem.ui`: notify, prompt, confirm, quickPick, statusBar, panel (JSON widget tree rendered by both frontends, D11)
@@ -490,34 +490,35 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.1.11 Time limit (fuel metering, 100 ms synchronous) and memory limit (64 MB per instance); the plain text fallback of §11.11 when a parse misses its budget
 - [ ] T3.1.12 Plugin loader: manifest, activation events, `activate` and `deactivate`, Disposable collection, ES module resolution (plugin folder only)
 - [ ] T3.1.13 Error isolation: plugin console, disabling after repeated failures
-- [ ] T3.1.14 Load `init.js` and `keymap.json`
+- [ ] T3.1.14 Load `keymap.json`; there is no `init.js` (D28)
 - [ ] T3.1.15 Threads: one component instance per thread, several instances of one plugin for parallel parsers, renderers and completers, messages through the host
 - [ ] T3.1.16 Batch mode `kalem run SCRIPT.js`: headless API, graceful UI degradation
 - [ ] T3.1.17 API contract tests; d.ts consistency test; limit tests
 
 ### 3.2 Live runtime (§11.9)
 
-- [ ] T3.2.1 JS console panel: REPL, completion, history (both frontends)
-- [ ] T3.2.2 Hot reloading: `init.js` and plugin files
-- [ ] T3.2.3 `kalem --debug-socket` and `kalem repl`; localhost only, off by default
+- [ ] T3.2.1 Inspection panel in both frontends: loaded plugins with permissions, budgets and recent errors, the command registry, recent timings; `kalem.inspect.*` (no REPL, D28)
+- [ ] T3.2.2 Hot reloading: a plugin's component reloaded without a restart, the plugin folder watched during development, old Disposables cleaned up
+- [ ] T3.2.3 `kalem --debug-socket`: the inspection commands and the end-to-end test driver over a local socket; no `kalem repl` (D28); localhost only, off by default
 - [ ] T3.2.4 `kalem.inspect.*`: tree, commands, timings
 - [ ] T3.2.5 End-to-end test driver over the socket
 
 ### 3.3 Plugin ecosystem (§11.5, §11.8)
 
-- [ ] T3.3.1 Plugin template repository (TypeScript, esbuild, d.ts)
+- [ ] T3.3.1 Plugin template in `getkalem/plugins` (`template/`: a Rust crate against the generated WIT bindings, manifest, conformance tests, CI); `kalem plugin new` copies it
 - [ ] T3.3.2 Example plugins: word count, Pomodoro, a custom export filter, a table function, a custom link type (`jira:`), a mermaid block renderer; the two reference completers of §11.12: a word list (declarative) and the LSP bridge (an out-of-process plugin over JSON-RPC that registers a completer, hover and diagnostics for its languages, installed by the user)
-- [ ] T3.3.2a Bundled plugins built only on the public contracts and embedded in the binary as WASM components loaded on first use (§11.0, D29): the kanban board view, the word count panel, and from then on every mode of 2.7g, every completer beyond the built-ins, every export back-end beyond HTML; a test that no bundled plugin uses anything outside the WIT API
-- [ ] T3.3.3 `kalem plugin install <url>` and `kalem plugin list`
-- [ ] T3.3.4 Plugin API documentation (mdBook chapter); a "QuickJS is not a browser" page; the page "Writing a mode" (§11.11)
+- [ ] T3.3.2a Bundled plugins built only on the public contracts (§11.0, D29): the kanban board view and the word count panel in the core repository, embedded as WASM components loaded on first use; the modes of 2.7g, the language packs and the further completers developed in `getkalem/plugins` and, if the owner wants them out of the box, embedded by the release workflow as a pinned set (tag and hash, §11.8); a test that no bundled plugin uses anything outside the WIT API
+- [ ] T3.3.3 `kalem plugin install NAME|URL|FILE` (the index, a release asset, a local `.wasm`; hash and signature checked, permissions shown), `kalem plugin build GIT_URL` from source, `kalem plugin verify` (rebuild and compare), `kalem plugin list`, `kalem plugin remove`
+- [ ] T3.3.4 Plugin API documentation (mdBook chapter); a "A plugin is a component, not a program" page; the page "Writing a mode" (§11.11)
 - [ ] T3.3.5 Security policy (`SECURITY.md`)
 - [ ] T3.3.6 Modes as plugins, through the document mode contract of §11.11 (T3.1.9g) (review, 2026-09-28): the formats that fail one of the four rules of 2.7g come as example or community plugins: todo.txt and TaskPaper on the Org task model with checkboxes; SVG source with a live preview (the SVG block renderer of T3.1.9b); Mermaid, DOT, PlantUML and D2 previews through the external tools; Fountain, gemtext and Djot on the rich view; `.srt` and `.vtt` subtitles as a grid with a time column; `.ics` and `.vcf` fed into the agenda (T3.5); `.eml` and mbox as a read-only view; `.ipynb` imported to Org with source blocks through the importer extension point (T3.1.9e); a read-only hex view for binary files as the one exception to §2.6, if the owner wants it; the first two, gemtext (declarative) and Djot (programmatic), are the reference plugins of §11.11, built from the template of T3.3.1
+- [ ] T3.3.7 The `getkalem/plugins` repository (owner, 2026-09-28; §11.8): a Cargo workspace with a crate per plugin, `template/`, CODEOWNERS per plugin, the project's license; CI that builds every plugin against the current WIT on each pull request and runs the conformance suite, and on a tag builds each `.wasm` from the tagged source, hashes and signs it (sigstore through GitHub OIDC or minisign), publishes it as a release asset and a ghcr.io package, and regenerates `index.json`; compiled components are never committed; Kalem reads the index as a static file
 
 ### 3.4 org-babel (§12)
 
 - [ ] T3.4.1 Header argument parsing (`:results`, `:exports`, `:var`, `:dir`, `:cache`, `:tangle`, `:file`)
 - [ ] T3.4.2 Executor interface; subprocess management; cancellation; progress
-- [ ] T3.4.3 Languages: shell, python, javascript (node and in-app QuickJS), R, gnuplot, sqlite, org
+- [ ] T3.4.3 Languages: shell, python, javascript (node), R, gnuplot, sqlite, org
 - [ ] T3.4.4 Trust model: document consent, trust bound to path and hash, never automatic execution
 - [ ] T3.4.5 `#+RESULTS:` insertion rules; `#+NAME` matching; replace/append/prepend
 - [ ] T3.4.6 `#+CALL:` and inline src
@@ -594,7 +595,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] TS.4 Grow the corpus and keep the license register
 - [ ] TS.5 Keep the known differences document current; report Org Syntax ambiguities upstream
 - [ ] TS.6 User manual and plugin API docs (mdBook, Org sources, exported with Kalem)
-- [ ] TS.7 Dependency updates; track gpui, ratatui and rquickjs versions
+- [ ] TS.7 Dependency updates; track gpui, ratatui and the WASM engine versions
 - [ ] TS.8 Community: good first issues, PR reviews, release notes
 - [ ] TS.9 Ecosystem components (§4.7): review spin-out readiness at every release; prefer upstream contributions
 - [ ] TS.10 Hardening: `unwrap` and `expect` outside tests reviewed crate by crate, `clippy::unwrap_used` and `clippy::expect_used` warned in the library crates with `#[expect]` where a panic is the right answer; fuzz targets for `org-edit` commands and `org-table` formulas beside the parser's two (review, 2026-09-28: about 900 `unwrap` and `expect` calls under `crates/`, tests included)
@@ -616,7 +617,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 | D6 | API definition source | T3.1.3 | **Decided (D28):** WIT |
 | D7 | Project name | T0.1.1 | **Decided:** Kalem / `kalem-editor` |
 | D8 | Agenda index storage | T3.5.2 | Open |
-| D9 | Configuration formats | T1.3.6 | **Decided:** TOML settings, JSON keymap, `init.js` |
+| D9 | Configuration formats | T1.3.6 | **Decided:** TOML settings, JSON keymap; `init.js` dropped with D28 |
 | D10 | When to support Lua | T4.1.1 | Open |
 | D11 | Webviews in plugin panels | T3.1.5 | Open |
 | D12 | Multiple documents | T2.5.9 | **Decided:** one window, many documents, listed by project on the left or as tabs at the top |
@@ -635,8 +636,8 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 | D25 | Highlighters, renderers and completers from plugins on the contracts built-ins use (§11.11, §11.12) | T2.7c.10, T2.7a.8, T3.1.9g, T3.1.9c | **Decided (owner, 2026-09-28)** |
 | D26 | The terminal is never second class (§4.1, principle 7) | TS.13 | **Decided (owner, 2026-09-28)** |
 | D27 | Command scope: one axis, the type of the text at the cursor (§11.2) | T2.7a.9 | **Decided (owner, 2026-09-28)** |
-| D28 | Plugin ABI: WASM components with a WIT API; JS and Lua as runtime components; the engine by the spike | T3.1.0, T3.1.1 | **Decided (owner, 2026-09-28)**, engine open |
-| D29 | Small core: Org, Markdown and CSV, the text engine, the two frontends, the infrastructure before plugins; the rest bundled or community plugins | T3.3.2a | **Decided (owner, 2026-09-28)** |
+| D28 | Plugin ABI and language: WASM components on a WIT API, Rust the only shipped language, no scripting engine; JS or Lua later only on demand; the engine by the spike | T3.1.0, T3.1.1, T3.1.2 | **Decided (owner, 2026-09-28)**, engine open |
+| D29 | Small core: Org, Markdown and CSV, the text engine, the two frontends, the infrastructure before plugins; the rest bundled or community plugins | T3.3.2a | **Decided (owner, 2026-09-28)**; new modes and file types in `getkalem/plugins` (T3.3.7) |
 
 ---
 
@@ -646,4 +647,4 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [-] Embedded Python as the plugin language. Python is supported through Babel (T3.4.3) and out-of-process plugins (T4.1.3).
 - [~] Tauri + ProseMirror as the primary UI: only if T0.6.8 says no-go. (T0.6.8 said go.)
 - [-] A built-in mode for every text format. A mode exists only where the view differs from the source; formats whose view is their source are language packs (T2.7a.7), and modes beyond Org, Markdown, CSV, plain text and 2.7g come as plugins (T3.3.6). The rules of 2.7g decide (review, 2026-09-28).
-- [-] QuickJS embedded natively as the plugin runtime (`rquickjs`): superseded by D28. A JS engine still runs, as a WASM runtime component on the same API (owner, 2026-09-28).
+- [-] QuickJS embedded natively as the plugin runtime (`rquickjs`): superseded by D28. No scripting engine ships (owner, 2026-09-28); a JS or Lua runtime component on the same API may come if users ask for a script layer (D10).
