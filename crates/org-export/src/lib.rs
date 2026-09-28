@@ -32,6 +32,42 @@ pub struct Settings {
     /// (`C-c C-e C-s`): its headline's contents, with its `EXPORT_`
     /// properties over the document's options.
     pub subtree: Option<usize>,
+    /// Draws formulas for `tex:svg` (and the image processing types
+    /// `dvisvgm`, `dvipng` and `imagemagick`, which need LaTeX in Emacs).
+    pub math: Option<MathRenderer>,
+}
+
+/// Draws LaTeX formulas as SVG images.
+pub trait MathSvg: Send + Sync {
+    /// `formula`, a LaTeX fragment with its delimiters or an environment,
+    /// with the definitions of the `#+LATEX_HEADER` lines `headers`; `None`
+    /// if it cannot be drawn.
+    fn render(&self, formula: &str, headers: &[String]) -> Option<SvgFormula>;
+}
+
+/// A formula drawn by a [`MathSvg`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct SvgFormula {
+    /// The SVG document.
+    pub svg: String,
+    /// Width, in ems.
+    pub width: f64,
+    /// Height, in ems.
+    pub height: f64,
+    /// How far it reaches below the baseline, in ems.
+    pub depth: f64,
+    /// Whether it is displayed rather than inline.
+    pub display: bool,
+}
+
+/// A shared [`MathSvg`].
+#[derive(Clone)]
+pub struct MathRenderer(pub std::sync::Arc<dyn MathSvg>);
+
+impl std::fmt::Debug for MathRenderer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("MathRenderer")
+    }
 }
 
 /// Exports Org `text` with `backend`.
@@ -97,6 +133,8 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     let root = parse.syntax();
     let mut ex = Exporter::new(&root, parse.context().clone(), backend);
     ex.info.body_only = settings.body_only;
+    ex.info.now = Some(now.clone());
+    ex.info.math = settings.math.clone();
     ex.info.input_file = settings.input_file.clone();
     ex.read_environment(&keywords);
     if region.is_some() {
@@ -280,6 +318,50 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    struct Fake;
+
+    impl MathSvg for Fake {
+        fn render(&self, formula: &str, headers: &[String]) -> Option<SvgFormula> {
+            (!formula.contains("bad")).then(|| SvgFormula {
+                svg: format!("<svg>{}</svg>", headers.len()),
+                width: 2.0,
+                height: 1.0,
+                depth: 0.25,
+                display: formula.starts_with("\\begin"),
+            })
+        }
+    }
+
+    #[test]
+    fn svg_math() {
+        let settings = Settings {
+            body_only: true,
+            math: Some(MathRenderer(std::sync::Arc::new(Fake))),
+            ..Settings::default()
+        };
+        let text = "#+OPTIONS: tex:svg\n#+LATEX_HEADER: \\def\\R{x}\nA $x$ and $bad$.\n\n\\begin{equation}\ny\n\\end{equation}\n";
+        let out = export(text, &Html, &settings).unwrap();
+        assert!(
+            out.contains("<img src=\"data:image/svg+xml,%3Csvg%3E1%3C/svg%3E\" alt=\"$x$\" class=\"org-latex org-latex-inline\" style=\"width: 2.000em; height: 1.000em; vertical-align: -0.250em\" />"),
+            "{out}"
+        );
+        assert!(out.contains("\\(bad\\)"), "{out}");
+        assert!(out.contains("class=\"equation-container\""), "{out}");
+        // MathJax otherwise, and no image without a renderer.
+        let plain = export(&text.replace("tex:svg", "tex:t"), &Html, &settings).unwrap();
+        assert!(plain.contains("\\(x\\)"), "{plain}");
+        let none = export(
+            text,
+            &Html,
+            &Settings {
+                body_only: true,
+                ..Settings::default()
+            },
+        )
+        .unwrap();
+        assert!(none.contains("\\(x\\)"), "{none}");
     }
 
     #[test]

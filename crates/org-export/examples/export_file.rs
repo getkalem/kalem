@@ -20,6 +20,7 @@ fn main() {
             input_file: Some(file.into()),
             now: None,
             subtree: None,
+            math: None,
         },
     );
     eprintln!("{:.2}s", t.elapsed().as_secs_f64());

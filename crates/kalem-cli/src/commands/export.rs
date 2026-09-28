@@ -82,6 +82,7 @@ pub(crate) fn export(
             input_file: Some(std::path::absolute(file).unwrap_or_else(|_| file.clone())),
             now: None,
             subtree: at,
+            math: Some(kalem_core::math::export_renderer()),
         };
         let out = match org_export::export(text, to.backend(), &settings) {
             Ok(out) => out,

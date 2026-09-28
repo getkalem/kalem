@@ -14,7 +14,8 @@
 ;; and NAME.tex.  The clock is fixed at 2026-09-28 Mon 10:00, the author
 ;; is "Kalem Tester" <tester@example.org>, and source blocks are not
 ;; colored (no htmlize), so that the results are the same everywhere.
-;; A case whose headline has a `KALEM_TEST_SUBTREE' property exports
+;; With KALEM_EXPORT_FULL set, whole documents are exported instead of
+;; bodies.  A case whose headline has a `KALEM_TEST_SUBTREE' property exports
 ;; only that subtree, as `C-c C-e C-s' does.
 
 ;;; Code:
@@ -72,7 +73,8 @@
                                     (org-back-to-heading t)
                                     (point)))))
                            (when subtreep (goto-char subtreep))
-                           (org-export-as (car b) (and subtreep t) nil t))
+                           (org-export-as (car b) (and subtreep t) nil
+                                          (not (getenv "KALEM_EXPORT_FULL"))))
                        (error (format "ERROR: %s\n" (error-message-string err))))))))
         (with-temp-file (expand-file-name (concat name "." (cdr b)) out-dir)
           (set-buffer-file-coding-system 'utf-8-unix)
@@ -81,6 +83,11 @@
 ;; With a third argument `recursive', every Org file under CASES-DIR, named
 ;; after its path with `/' as `__'; the back-ends can be limited with
 ;; KALEM_EXPORT_BACKENDS (such as "html md").
+;; Whole documents name no author unless the document does: Kalem does
+;; not know the user's name.
+(when (getenv "KALEM_EXPORT_FULL")
+  (setq user-full-name ""))
+
 (let ((cases (expand-file-name (car command-line-args-left)))
       (out (expand-file-name (cadr command-line-args-left)))
       (recursive (equal (nth 2 command-line-args-left) "recursive"))

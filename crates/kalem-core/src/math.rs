@@ -338,3 +338,34 @@ mod tests {
         assert_eq!(unicode("$e^{i\\pi}$"), "e^(iπ)");
     }
 }
+
+/// Formulas drawn as SVG for exports (`tex:svg`), by the editor's math
+/// engine.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SvgMath;
+
+impl org_export::MathSvg for SvgMath {
+    fn render(&self, formula: &str, headers: &[String]) -> Option<org_export::SvgFormula> {
+        let (latex, display) = org_math::source::body(formula);
+        let request = org_math::Request {
+            latex: org_math::source::prepare(latex, &org_math::source::macros(headers)),
+            display,
+            size: 16.,
+            scale: 1.,
+            color: [0, 0, 0, 255],
+        };
+        let svg = org_math::Ratex.svg(&request).ok()?;
+        Some(org_export::SvgFormula {
+            svg: svg.svg,
+            width: svg.width,
+            height: svg.height,
+            depth: svg.depth,
+            display,
+        })
+    }
+}
+
+/// The renderer exports use.
+pub fn export_renderer() -> org_export::MathRenderer {
+    org_export::MathRenderer(std::sync::Arc::new(SvgMath))
+}

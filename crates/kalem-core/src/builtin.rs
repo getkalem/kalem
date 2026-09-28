@@ -333,6 +333,7 @@ fn export_doc(
         input_file: Some(path.clone()),
         now: None,
         subtree,
+        math: Some(crate::math::export_renderer()),
     };
     let out = org_export::export(&text, backend, &settings).map_err(CommandError::new)?;
     let target = org_export::output_file_name_for(&text, &path, extension, subtree);

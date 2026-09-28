@@ -50,6 +50,19 @@ impl std::fmt::Debug for Image {
     }
 }
 
+/// A formula as an SVG document ([`Ratex::svg`]), with its size in ems.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Svg {
+    /// The SVG document.
+    pub svg: String,
+    /// Width, in ems.
+    pub width: f64,
+    /// Height of the whole image, in ems.
+    pub height: f64,
+    /// How far the image reaches below the baseline, in ems.
+    pub depth: f64,
+}
+
 /// A formula the engine cannot render: the editor shows its source in a
 /// red frame instead (§9.2).
 #[derive(Debug, Clone, PartialEq, Eq)]
