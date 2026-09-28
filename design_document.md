@@ -221,7 +221,7 @@ Every mode can switch to its source text ("Open as text"), and the choice is rem
 | Large files: 100 MB logs open quickly (rope, lazy highlighting, no whole-file layout); very long lines do not freeze the view | 2 |
 | Workspace sidebar, fuzzy "open file" and "find in files" (per project: 2.8) | 2 |
 | Bracket matching, auto-indent, comment toggling per language | 2 |
-| Plugin-defined languages and modes (11.10) | 3 |
+| Plugin-defined highlighters and document modes with a renderer (11.11) | 3 |
 
 #### 2.6.1 Markdown mode
 
@@ -241,7 +241,7 @@ Every mode can switch to its source text ("Open as text"), and the choice is rem
 
 **Binary files** are detected (NUL bytes, invalid UTF-8 in the first block) and are not opened for editing; the user is told what the file is.
 
-**Architecture.** A document has a mode. `kalem-core` defines a `DocumentMode` interface: Org mode provides the view model, commands and structural editing; Markdown mode provides its own view model on the shared inline editing model; CSV mode provides a grid model; plain text mode provides the text view model and language-specific commands (comment toggling, indentation). Commands declare the modes they apply to through when-clauses (`editorMode == org`, `editorMode == csv`). Both frontends render every mode. The CLI accepts Markdown for conversion (`kalem export README.md --to org`) and CSV for conversion to an Org table; `kalem check` checks Org files only and refuses others with a clear message.
+**Architecture.** A document has a mode. `kalem-core` defines a `DocumentMode` interface, the same contract plugins use (11.11): Org mode provides the view model, commands and structural editing; Markdown mode provides its own view model on the shared inline editing model; CSV mode provides a grid model; plain text mode provides the text view model and language-specific commands (comment toggling, indentation). Commands declare the modes they apply to through when-clauses (`editorMode == org`, `editorMode == csv`). Both frontends render every mode. The CLI accepts Markdown for conversion (`kalem export README.md --to org`) and CSV for conversion to an Org table; `kalem check` checks Org files only and refuses others with a clear message.
 
 ### 2.7 File manager (Dired)
 
@@ -1161,6 +1161,7 @@ declare namespace kalem {
   namespace capture { function registerTemplate(id: string, spec: CaptureTemplate): Disposable; }
   namespace cli { function register(subcommand: string, spec: CliCommandSpec): Disposable; }     // `kalem <subcommand>` in batch mode
   namespace themes { function register(id: string, theme: ThemeSpec): Disposable; }
+  namespace modes { function register(id: string, spec: DocumentModeSpec): Disposable; function registerHighlighter(syntax: SyntaxSource): Disposable; } // document modes with a renderer, and highlighters (11.11)
 }
 
 declare namespace editor {
@@ -1278,7 +1279,7 @@ What a plugin can add, and how each extension point appears in the two frontends
 | Decorations | Highlights, badges, gutter marks, virtual text | Yes | Yes (colors, glyphs) | – |
 | Completion and hover | Suggestions after `[[`, `#+`, `:`, `@`, and custom triggers | Popup | Popup | – |
 | Input rules | Text replacements and autoformat | Yes | Yes | – |
-| Languages and modes | Syntax definitions, comment tokens, indentation rules, new document modes | Plain text mode | Plain text mode | – |
+| Highlighters and document modes | Syntax definitions, comment tokens and indentation rules; document modes with a renderer over the contract of 11.11 | Plain text with the plugin's colors; rendered modes in the editor area | The same | `kalem check`, `kalem fmt`, `kalem export` through the mode's hooks |
 | Views | Alternative views of a document (kanban board over headlines, timeline, mind map) | Editor area or panel | Full-screen or panel | – |
 | Panels | JSON widget tree (D11) | Side or bottom panel | Side or bottom panel | – |
 | Diagnostics | Document checks with ranges and fixes | Squiggles, problems panel | Underline, problems list | `kalem check` |
@@ -1321,6 +1322,33 @@ export function activate(ctx: kalem.PluginContext) {
 **Example: a diagram block.** It registers a renderer for `#+BEGIN_SRC mermaid` that returns an SVG. The GUI draws the SVG; the terminal draws it through a graphics protocol or falls back to the source; the HTML exporter embeds the SVG.
 
 **Limits.** Plugins cannot change the parser grammar, cannot draw arbitrary pixels outside the widget tree and SVG, and cannot block the UI thread beyond the time budget (11.6). Heavy features (layout engines, large computations) go into worker plugins or, from phase 4, WASM plugins.
+
+### 11.11 Document modes and highlighters from plugins
+
+Kalem ships highlighters (D16, Sublime syntax definitions in `kalem-highlight`) and renderers for a fixed set of formats (2.6; group 2.7g of the work breakdown). A user must be able to add both for any other text format with a plugin, in the scripting language, through one standard way (asked by the owner, 2026-09-28). The rule: **the contract built-in modes use is the contract plugins use.** Markdown (2.6.1) and CSV (2.6.2) are written against it, so a plugin can do everything a built-in mode does, and the contract is proven before the script binding exists.
+
+**Highlighters.** `kalem.modes.registerHighlighter` loads a Sublime syntax definition from the plugin folder into `kalem-highlight`, with comment tokens and indentation rules; the file opens in plain text mode with the plugin's colors, in both frontends. No code is needed.
+
+**Modes with a renderer.** `kalem.modes.register(id, spec)` adds a document mode (2.6). The spec:
+
+| Part | What the plugin gives | What the core does |
+|---|---|---|
+| `detect` | Extensions, mode lines, a sniff function over the first bytes | Mode selection as in 2.6, the user's choice first |
+| `parse(text, edit?, previous?)` | A tree of nodes, each with a kind from a fixed vocabulary and a byte range: block kinds (heading with level, paragraph, list item with checkbox, quote, code with language, table row and cell, math block, rule) and inline kinds (emphasis, code, link with target, image, math, footnote reference, hidden marker) | Builds the view model of 7.2 from the ranges: markers hidden away from the cursor, widgets for checkboxes, formulas and images, folding and the outline. Both frontends render it; the plugin draws nothing |
+| `grid(text)` | Rows and cells with ranges, for table-like formats | The grid of CSV mode (2.6.2): cell editing, sorting in the view, TSV on the clipboard |
+| `edit` | Enter, Tab, input rules and toggles (emphasis, heading level, list), each returning text edits with ranges | Applies them through the transaction stack, one undo step each |
+| `outline`, `format`, `complete`, `diagnostics` | The language pack hooks | Outline sidebar, Format Document and `kalem fmt`, completion menus, `kalem check` |
+| `export` | Optional `toOrg` or `toHtml` | Without them, HTML from the tree; the exporters and pandoc follow |
+
+Rules:
+
+- **Ranges, never text.** `parse` returns ranges into the text and never regenerates it, so a mode cannot break the round-trip guarantee (3.3). The tree is plain data and crosses the QuickJS boundary as JSON.
+- **Incremental.** `parse` receives the edit and the previous tree and reparses from the enclosing top-level block, as Markdown mode does (2.6.1); a mode without incremental parsing is reparsed whole and must fit the budget.
+- **Budget.** The time and memory limits of 11.6 apply to each parse. A mode that exceeds them or throws drops the file to plain text with the plugin's highlighter, tells the user, and is disabled after repeated failures. Heavy parsers go into worker plugins or, from phase 4, WASM.
+- **Two levels.** Declarative: a syntax definition plus a mapping from its scopes to view kinds, no code; enough for gemtext, todo.txt or Fountain. Programmatic: a parser in JavaScript or TypeScript, later Lua through the same generated annotations (D6, D10); needed for AsciiDoc or Djot.
+- **Batch.** `kalem check`, `kalem fmt` and `kalem export` call the mode's hooks, so a plugin mode works from the command line and in CI.
+
+**The standard way** is more than the API: a template repository with a mode skeleton and tests, a conformance suite every mode runs (byte-exact round trip, incremental equals full parse, snapshots in both frontends, the budget), the page "Writing a mode" in the plugin documentation, and two reference plugins, one declarative and one programmatic (work breakdown: T2.7c.10, T3.1.9g, T3.3.1, T3.3.4, T3.3.6).
 
 ---
 
