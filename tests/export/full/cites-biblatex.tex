@@ -1,0 +1,40 @@
+% Created 2026-09-28 Mon 20:37
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\date{\today}
+\title{Biblatex}
+\hypersetup{
+ pdfauthor={},
+ pdftitle={Biblatex},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.7.11)}, 
+ pdflang={English}}
+\usepackage[bibstyle=authoryear,citestyle=numeric]{biblatex}
+\addbibresource{bib/refs.bib}
+\addbibresource{bib/more.json}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+Default \autocite{knuth84}, text \textcite{doe-2020}, author \Citeauthor{knuth84},
+noauthor \cite*[see][p. 3]{doe-2020}, locators \Notecite{zed}, nocite \nocite{lower}.
+Multi \autocites(before)(after)[][p. 1]{knuth84}[][]{doe-2020}, \textcite{knuth84,zed},
+\Textcites[chap. 2]{knuth84}[see][]{zed}, unknown \autocite{zed}, bare \cite{zed}.
+
+\printbibliography[heading=subbibliography,title=Printed works,keyword=book,keyword=paper]
+
+\printbibliography
+\end{document}

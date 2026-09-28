@@ -1,0 +1,37 @@
+% Created 2026-09-28 Mon 20:37
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\date{\today}
+\title{Natbib}
+\hypersetup{
+ pdfauthor={},
+ pdftitle={Natbib},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.7.11)}, 
+ pdflang={English}}
+\usepackage{natbib}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+Default \citep{knuth84}, text \citet{doe-2020}, author \Citeauthor{knuth84},
+noauthor \citeyearpar[see][p. 3]{doe-2020}, bare \citeyear{zed}, nocite \nocite{lower}.
+Many \citep[before][after]{knuth84,doe-2020} and \Citealt*{knuth84,zed}.
+Prefix only \citep[see][]{zed}, "quoted" \citep{knuth84}, caps \Citep{zed}.
+
+\bibliographystyle{plainnat}
+\bibliography{bib/refs}
+\end{document}

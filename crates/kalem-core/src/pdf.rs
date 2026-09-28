@@ -236,18 +236,30 @@ const LOG_FILES: &[&str] = &[
     "xdv",
 ];
 
-/// Compiles `tex` with `tool`: the engine runs twice (for references)
-/// when it runs alone. The log files go when there was no error.
+/// Compiles `tex` with `tool`. When the engine runs alone, it runs twice
+/// (for references), and when the document has a `natbib` or `biblatex`
+/// bibliography, `bibtex` or `biber` runs after the first time and the
+/// engine twice more, as `latexmk` would. The log files go when there was
+/// no error.
 pub fn compile(tool: &Tool, engine: Engine, tex: &Path) -> Result<Compiled, String> {
-    let runs = if matches!(tool, Tool::Engine(_)) {
-        2
-    } else {
-        1
-    };
-    for _ in 0..runs {
+    let run = || {
         command(tool, engine, tex)
             .status()
-            .map_err(|e| e.to_string())?;
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    };
+    run()?;
+    if let Tool::Engine(program) = tool {
+        let again = match bibliography_tool(program, tex) {
+            Some(mut bib) => {
+                bib.status().map_err(|e| e.to_string())?;
+                2
+            }
+            None => 1,
+        };
+        for _ in 0..again {
+            run()?;
+        }
     }
     let log_path = tex.with_extension("log");
     let log = std::fs::read(&log_path)
@@ -266,6 +278,36 @@ pub fn compile(tool: &Tool, engine: Engine, tex: &Path) -> Result<Compiled, Stri
         }
     }
     Ok(Compiled { pdf, problems })
+}
+
+/// `biber` when the first run left a `.bcf` file (`biblatex`), `bibtex`
+/// when the `.aux` file names a bibliography (`natbib`, `\\bibliography`);
+/// looked for beside the engine, then in `PATH`.
+fn bibliography_tool(engine: &Path, tex: &Path) -> Option<Command> {
+    let name = if tex.with_extension("bcf").is_file() {
+        "biber"
+    } else if std::fs::read(tex.with_extension("aux"))
+        .is_ok_and(|a| String::from_utf8_lossy(&a).contains("\\bibdata{"))
+    {
+        "bibtex"
+    } else {
+        return None;
+    };
+    let mut search: Vec<PathBuf> = engine.parent().map(Path::to_path_buf).into_iter().collect();
+    search.extend(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    ));
+    let joined = std::env::join_paths(search).ok()?;
+    let program = find(name, &joined)?;
+    let mut cmd = Command::new(program);
+    cmd.arg(tex.file_stem()?);
+    if let Some(dir) = tex.parent().filter(|d| !d.as_os_str().is_empty()) {
+        cmd.current_dir(dir);
+    }
+    cmd.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    Some(cmd)
 }
 
 /// The problems as a compiler prints them: `notes.org:12: error: …`.
@@ -351,5 +393,37 @@ LaTeX Warning: There were undefined references.\n";
         );
         // An error keeps the log.
         assert!(dir.join("doc.log").is_file());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bibliographies_run_bibtex_or_biber() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("kalem-pdf-bib-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let bin = dir.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        // An engine that counts its runs and leaves an `.aux` naming a
+        // bibliography, and a `bibtex` that writes the `.bbl`.
+        let engine = bin.join("pdflatex");
+        std::fs::write(
+            &engine,
+            "#!/bin/sh\nfor a; do f=$a; done\nb=${f%.tex}\nprintf x >> $b.runs\nprintf '\\\\bibdata{refs}\\n' > $b.aux\nprintf '%%PDF-1.4\\n' > $b.pdf\n: > $b.log\n",
+        )
+        .unwrap();
+        let bibtex = bin.join("bibtex");
+        std::fs::write(&bibtex, "#!/bin/sh\n: > $1.bbl\n").unwrap();
+        for p in [&engine, &bibtex] {
+            std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let tex = dir.join("paper.tex");
+        std::fs::write(&tex, "\\begin{document}\n").unwrap();
+        let out = compile(&Tool::Engine(engine), Engine::PdfLatex, &tex).unwrap();
+        assert_eq!(out.pdf, Some(dir.join("paper.pdf")));
+        assert!(dir.join("paper.bbl").is_file());
+        assert_eq!(
+            std::fs::read_to_string(dir.join("paper.runs")).unwrap(),
+            "xxx"
+        );
     }
 }

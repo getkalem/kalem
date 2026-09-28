@@ -690,8 +690,8 @@ pub fn split_locator(suffix: &str) -> Option<(String, String, String, String)> {
 mod tests {
     use super::*;
 
-    fn lib() -> Library {
-        let dir = std::env::temp_dir().join(format!("org-cite-csl-{}", std::process::id()));
+    fn lib(name: &str) -> Library {
+        let dir = std::env::temp_dir().join(format!("org-cite-csl-{}-{name}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let bib = dir.join("refs.bib");
         std::fs::write(
@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn author_date() {
-        let lib = lib();
+        let lib = lib("author-date");
         let p = Processor::new(None, None, Some("en")).unwrap();
         assert!(!p.note_style());
         let r = p.render(
@@ -766,7 +766,7 @@ mod tests {
 
     #[test]
     fn numeric_and_notes() {
-        let lib = lib();
+        let lib = lib("numeric");
         let ieee = Processor::new(Some("ieee"), None, None).unwrap();
         let r = ieee.render(
             &lib,

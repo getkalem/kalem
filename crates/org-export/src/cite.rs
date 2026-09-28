@@ -355,12 +355,41 @@ enum AuthorYear {
 
 /// Replaces the citations and bibliography keywords of the tree
 /// (`org-cite-process-citations`, `org-cite-process-bibliography`).
-/// With the `csl` processor in LaTeX, what goes into the preamble comes
-/// back (`org-cite-csl-finalizer`).
+/// What the processor does to the whole output (its export finalizer).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Finalizer {
+    /// `csl`: its definitions go into the LaTeX preamble.
+    Preamble(String),
+    /// `natbib`: the package is loaded.
+    Natbib,
+    /// `biblatex`: the package is loaded with the style, and the files
+    /// added as resources.
+    Biblatex {
+        style: Option<String>,
+        files: Vec<String>,
+    },
+}
+
+/// Applies the processor's finalizer to the output.
+pub(crate) fn finalize(out: String, f: &Finalizer) -> String {
+    let Some(at) = out.find("\\begin{document}") else {
+        return out;
+    };
+    match f {
+        Finalizer::Preamble(p) => format!("{}{p}{}", &out[..at], &out[at..]),
+        Finalizer::Natbib => crate::cite_latex::natbib_use_package(out, at),
+        Finalizer::Biblatex { style, files } => {
+            crate::cite_latex::biblatex_prepare_preamble(out, at, style.as_deref(), files)
+        }
+    }
+}
+
+/// Replaces the citations and bibliography keywords of the tree; what
+/// the processor then does to the whole output comes back.
 pub(crate) fn process(
     ex: &mut Exporter<'_>,
     keywords: &[(String, String)],
-) -> Result<Option<String>, String> {
+) -> Result<Option<Finalizer>, String> {
     let processor = match keywords
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("CITE_EXPORT"))
@@ -381,6 +410,7 @@ pub(crate) fn process(
         .and_then(Path::parent)
         .map(Path::to_path_buf);
     let mut files: Vec<PathBuf> = Vec::new();
+    let mut names: Vec<String> = Vec::new();
     for (_, v) in keywords
         .iter()
         .filter(|(k, _)| k.eq_ignore_ascii_case("BIBLIOGRAPHY"))
@@ -399,10 +429,15 @@ pub(crate) fn process(
         };
         if !files.contains(&p) {
             files.push(p);
+            names.push(v.to_string());
         }
     }
-    if processor.name == "csl" {
-        return crate::csl::process(ex, &processor, &files, dir.as_deref());
+    match processor.name.as_str() {
+        "csl" => return crate::csl::process(ex, &processor, &files, dir.as_deref()),
+        "natbib" | "biblatex" => {
+            return Ok(Some(crate::cite_latex::process(ex, &processor, names)));
+        }
+        _ => {}
     }
     let (bib, _errors) = Bibliography::load(&files);
     let backend = ex.backend();
@@ -631,12 +666,20 @@ fn process_citation(ex: &mut Exporter<'_>, basic: &mut Basic, processor: &Proces
             AuthorYear::Default { bare, caps },
         )),
     };
+    let out = pieces.map(|pieces| {
+        let ids = build(ex, pieces, false);
+        ex.data_list(&ids)
+    });
+    replace_citation(ex, id, out);
+}
+
+/// Puts the processor's output for citation `id` in its place
+/// (`org-cite-process-citations`); nothing takes the citation out.
+pub(crate) fn replace_citation(ex: &mut Exporter<'_>, id: Id, out: Option<String>) {
     let blanks = ex.tree.nodes[id].post_blank;
-    match pieces {
+    match out {
         None => set_previous_post_blank(ex, id, blanks),
-        Some(pieces) => {
-            let ids = build(ex, pieces, false);
-            let out = ex.data_list(&ids);
+        Some(out) => {
             if let Some(p) = ex.previous_element(id)
                 && ex.tree.is_text(p)
                 && ex.tree.nodes[p].text.ends_with('"')
@@ -650,6 +693,18 @@ fn process_citation(ex: &mut Exporter<'_>, basic: &mut Basic, processor: &Proces
         }
     }
     ex.tree.extract(id);
+}
+
+/// Puts the processor's output for bibliography keyword `k` in its
+/// place (`org-cite-process-bibliography`).
+pub(crate) fn replace_bibliography(ex: &mut Exporter<'_>, k: Id, out: &str) {
+    let blanks = ex.tree.nodes[k].post_blank;
+    let out = format!(
+        "{}{}",
+        crate::export::normalize_string(out),
+        "\n".repeat(blanks)
+    );
+    set_raw(ex, k, out);
 }
 
 /// `org-cite-basic--format-author-year`.
