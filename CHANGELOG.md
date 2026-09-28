@@ -115,6 +115,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Word, OpenDocument, EPUB and RTF through pandoc, and `kalem import` (Import as Org) from Word, OpenDocument, Markdown, HTML, EPUB and RTF, with a clean-up pass.
 - Citations: the `org-cite` crate reads BibTeX, BibLaTeX and CSL-JSON bibliographies as Org does, and `kalem check` warns about unreadable bibliographies and unknown citation keys.
 - Citation export: citations and `#+PRINT_BIBLIOGRAPHY:` in HTML, Markdown, LaTeX and plain text as Org's `basic` processor writes them (every style and variant, notes with punctuation moved per language, author-year and numeric bibliographies), identical to Emacs on the test cases.
+- CSL citation styles (`#+CITE_EXPORT: csl apa`), rendered with hayagriva: the styles Kalem ships or a `.csl` file, locators from reference suffixes, note styles as footnotes, and bibliographies in HTML, LaTeX and text as Org's `csl` processor writes them.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

@@ -99,7 +99,7 @@ fn s(t: &str) -> Piece {
 }
 
 /// Emacs's `capitalize`: each word's first letter up, the others down.
-fn capitalize(t: &str) -> String {
+pub(crate) fn capitalize(t: &str) -> String {
     let mut out = String::with_capacity(t.len());
     let mut in_word = false;
     for c in t.chars() {
@@ -355,14 +355,19 @@ enum AuthorYear {
 
 /// Replaces the citations and bibliography keywords of the tree
 /// (`org-cite-process-citations`, `org-cite-process-bibliography`).
-pub(crate) fn process(ex: &mut Exporter<'_>, keywords: &[(String, String)]) {
+/// With the `csl` processor in LaTeX, what goes into the preamble comes
+/// back (`org-cite-csl-finalizer`).
+pub(crate) fn process(
+    ex: &mut Exporter<'_>,
+    keywords: &[(String, String)],
+) -> Result<Option<String>, String> {
     let processor = match keywords
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("CITE_EXPORT"))
     {
         Some((_, v)) => match Processor::read(v) {
             Some(p) => p,
-            None => return,
+            None => return Ok(None),
         },
         None => Processor {
             name: "basic".into(),
@@ -396,6 +401,9 @@ pub(crate) fn process(ex: &mut Exporter<'_>, keywords: &[(String, String)]) {
             files.push(p);
         }
     }
+    if processor.name == "csl" {
+        return crate::csl::process(ex, &processor, &files, dir.as_deref());
+    }
     let (bib, _errors) = Bibliography::load(&files);
     let backend = ex.backend();
     let latex = backend.name() == "latex" || backend.parents().contains(&"latex");
@@ -417,11 +425,23 @@ pub(crate) fn process(ex: &mut Exporter<'_>, keywords: &[(String, String)]) {
     for c in citations {
         process_citation(ex, &mut basic, &processor, c);
     }
-    // The bibliography.
-    let root = ex.tree.root;
-    let bibliographies: Vec<Id> = ex
-        .tree
-        .descendants(root)
+    for k in bibliography_keywords(ex) {
+        let out = bibliography(ex, &mut basic, &processor);
+        let blanks = ex.tree.nodes[k].post_blank;
+        let out = format!(
+            "{}{}",
+            crate::export::normalize_string(&out),
+            "\n".repeat(blanks)
+        );
+        set_raw(ex, k, out);
+    }
+    Ok(None)
+}
+
+/// The `#+PRINT_BIBLIOGRAPHY:` keywords of the tree.
+pub(crate) fn bibliography_keywords(ex: &Exporter<'_>) -> Vec<Id> {
+    ex.tree
+        .descendants(ex.tree.root)
         .into_iter()
         .filter(|&k| {
             !ex.info.ignore.contains(&k)
@@ -432,30 +452,25 @@ pub(crate) fn process(ex: &mut Exporter<'_>, keywords: &[(String, String)]) {
                     .and_then(|s| ast::Keyword::cast(s.clone()))
                     .is_some_and(|kw| kw.key().eq_ignore_ascii_case("PRINT_BIBLIOGRAPHY"))
         })
-        .collect();
-    for k in bibliographies {
-        let out = bibliography(ex, &mut basic, &processor);
-        let blanks = ex.tree.nodes[k].post_blank;
-        let out = format!(
-            "{}{}",
-            crate::export::normalize_string(&out),
-            "\n".repeat(blanks)
-        );
-        let n = &mut ex.tree.nodes[k];
-        n.kind = Kind::Raw;
-        n.text = out;
-        n.children.clear();
-        n.post_blank = 0;
-    }
+        .collect()
 }
 
-fn citation(ex: &Exporter<'_>, id: Id) -> Option<ast::Citation> {
+/// Turns node `k` into raw output `out`.
+pub(crate) fn set_raw(ex: &mut Exporter<'_>, k: Id, out: String) {
+    let n = &mut ex.tree.nodes[k];
+    n.kind = Kind::Raw;
+    n.text = out;
+    n.children.clear();
+    n.post_blank = 0;
+}
+
+pub(crate) fn citation(ex: &Exporter<'_>, id: Id) -> Option<ast::Citation> {
     ex.tree.syntax(id).cloned().and_then(ast::Citation::cast)
 }
 
 /// `org-cite-list-citations`: the citations in reading order, those in
 /// footnote definitions where the definitions are referred to.
-fn list_citations(ex: &Exporter<'_>) -> Vec<Id> {
+pub(crate) fn list_citations(ex: &Exporter<'_>) -> Vec<Id> {
     fn search(ex: &Exporter<'_>, data: &[Id], out: &mut Vec<Id>, depth: usize) {
         for &d in data {
             let mut stack = vec![d];
@@ -531,14 +546,17 @@ fn set_post_blank(ex: &mut Exporter<'_>, id: Id, blanks: usize) {
 }
 
 /// `org-cite--set-previous-post-blank`.
-fn set_previous_post_blank(ex: &mut Exporter<'_>, id: Id, blanks: usize) {
+pub(crate) fn set_previous_post_blank(ex: &mut Exporter<'_>, id: Id, blanks: usize) {
     if let Some(p) = ex.previous_element(id) {
         set_post_blank(ex, p, blanks);
     }
 }
 
 /// `org-cite-citation-style`: the style and the variant.
-fn citation_style(c: &ast::Citation, processor: &Processor) -> (Option<String>, Option<String>) {
+pub(crate) fn citation_style(
+    c: &ast::Citation,
+    processor: &Processor,
+) -> (Option<String>, Option<String>) {
     let separate = |s: Option<&str>| -> (Option<String>, Option<String>) {
         match s {
             None => (None, None),
@@ -783,7 +801,7 @@ fn bibtex_string(ex: &mut Exporter<'_>, t: &str) -> Vec<Id> {
 }
 
 /// `org-cite-inside-footnote-p`.
-fn inside_footnote(ex: &Exporter<'_>, id: Id) -> bool {
+pub(crate) fn inside_footnote(ex: &Exporter<'_>, id: Id) -> bool {
     ex.tree.ancestors(id).any(|a| {
         matches!(
             ex.tree.kind(a),
@@ -794,7 +812,7 @@ fn inside_footnote(ex: &Exporter<'_>, id: Id) -> bool {
 
 /// `org-cite-wrap-citation`: the citation put in an anonymous inline
 /// footnote.
-fn wrap_citation(ex: &mut Exporter<'_>, id: Id) {
+pub(crate) fn wrap_citation(ex: &mut Exporter<'_>, id: Id) -> Id {
     let blanks = ex.tree.nodes[id].post_blank;
     set_previous_post_blank(ex, id, 0);
     let foot = ex.tree.made_node(FOOTNOTE_REFERENCE, Vec::new(), None);
@@ -803,6 +821,7 @@ fn wrap_citation(ex: &mut Exporter<'_>, id: Id) {
     ex.tree.extract(id);
     ex.tree.nodes[foot].children.push(id);
     ex.tree.nodes[id].parent = Some(foot);
+    foot
 }
 
 /// `org-cite--get-note-rule`: where punctuation goes around a note, and
@@ -883,7 +902,7 @@ fn ending(t: &str) -> Ending {
 
 /// `org-cite-adjust-note`: punctuation moved around a citation that
 /// becomes a note.
-fn adjust_note(ex: &mut Exporter<'_>, id: Id) {
+pub(crate) fn adjust_note(ex: &mut Exporter<'_>, id: Id) {
     let rule = note_rule(ex);
     let blank = |c: char| matches!(c, ' ' | '\t' | '\n');
     let mut next = ex.next_element(id).filter(|&n| ex.tree.is_text(n));

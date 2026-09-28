@@ -17,12 +17,12 @@ In short: **Typora for Org.**
 - **Byte-for-byte Org.** The parser agrees with Emacs's `org-element` on the Org manual, Org's own tests and all of Worg; a file saved by Kalem changes only where you edited it.
 - **Tasks.** TODO states, priorities, tags, properties, scheduling with a date picker, state logging, repeaters, TODO dependencies, and match strings (`kalem query`), each command identical to Emacs on thousands of cases.
 - **Tables and formulas.** Automatic alignment, a grid editor, `#+TBLFM` formulas with Calc's functions, durations and dates, a formula bar, recalculation, import and export (CSV, TSV).
-- **Export.** HTML (with Kalem's style sheet, MathJax or SVG formulas), Markdown or GitHub Markdown, LaTeX and PDF, and plain text, matching Emacs's exporter, with citations and bibliographies as Org's `basic` processor writes them; Word, OpenDocument, EPUB and RTF through pandoc; `.klm` Kalem documents with fonts, colors and alignment that stay valid Org.
+- **Export.** HTML (with Kalem's style sheet, MathJax or SVG formulas), Markdown or GitHub Markdown, LaTeX and PDF, and plain text, matching Emacs's exporter, with citations and bibliographies in Org's `basic` styles or any CSL style (APA, IEEE, Chicago…); Word, OpenDocument, EPUB and RTF through pandoc; `.klm` Kalem documents with fonts, colors and alignment that stay valid Org.
 - **Around the files.** Projects, a folder tree, find in files, a Dired-style file manager, plain text with highlighting, themes, English and Turkish.
 
 ### Not yet
 
-- CSL citation styles, biblatex and natbib in LaTeX, a citation picker
+- biblatex and natbib in LaTeX, a citation picker
 - Markdown and CSV as documents (today they open as text)
 - The agenda, capture, clocking reports, Babel (running source blocks)
 - Plugins (planned as WebAssembly components), spell checking

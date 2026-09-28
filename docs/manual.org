@@ -346,6 +346,17 @@ files =#+BIBLIOGRAPHY:= names (BibTeX, BibLaTeX or CSL-JSON).
 author; =#+CITE_EXPORT: basic numeric= (or =plain=) chooses its style, and
 a third word the default citation style.
 
+=#+CITE_EXPORT: csl apa= renders citations and the bibliography in a
+Citation Style Language style instead: the name of one of the styles
+Kalem ships (=apa=, =ieee=, =mla=, =chicago-author-date= (the default),
+=chicago-notes=, =nature=, =vancouver= and about eighty more), or a =.csl=
+file beside the document. Author–date and numeric styles put the
+citation in the text, note styles in a footnote; =[cite:see @key p. 12]=
+passes "p. 12" as the locator. HTML gets a =csl-bib-body= list, LaTeX a
+=cslbibliography= environment with its definitions in the preamble, as
+Org's =csl= processor writes them. =#+LANGUAGE= chooses the style's
+terms.
+
 Plain text is filled to 72 columns as Emacs fills it, with underlined
 titles, boxed code and tables drawn in ASCII; =export.text_charset =
 "utf-8"= uses UTF-8 lines, bullets and quotes instead.
