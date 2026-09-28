@@ -1152,8 +1152,13 @@ impl App {
             return;
         }
         if let Some((name, ty)) = kalem_core::command::missing_argument(cmd, &args) {
-            let input =
-                kalem_core::command::argument_default_with(id, &name, &mut self.doc, &self.config);
+            let input = kalem_core::command::argument_default_with(
+                id,
+                &name,
+                &args,
+                &mut self.doc,
+                &self.config,
+            );
             self.prompt = Some(Prompt {
                 label: tr!(
                     "prompt-argument",

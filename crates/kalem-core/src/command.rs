@@ -353,15 +353,28 @@ pub fn missing_argument(cmd: &Command, args: &Value) -> Option<(String, String)>
     Some((name.to_string(), ty.to_string()))
 }
 
-/// What the prompt for argument `name` of command `id` starts with: the
-/// color used last for Text Color and Highlight, else as
+/// What the prompt for argument `name` of command `id`, given `args`
+/// already, starts with: a property's value when Set Property knows the
+/// key, the color used last for Text Color and Highlight, else as
 /// [`argument_default`].
 pub fn argument_default_with(
     id: &str,
     name: &str,
+    args: &serde_json::Value,
     doc: &mut crate::document::DocumentState,
     config: &crate::settings::Config,
 ) -> String {
+    if (id, name) == ("org.property.set", "value")
+        && let Some(key) = args.get("key").and_then(serde_json::Value::as_str)
+    {
+        let pos = doc.selection.head;
+        if let Some(v) = doc
+            .model()
+            .and_then(|m| crate::properties::value(&m, pos, key))
+        {
+            return v;
+        }
+    }
     // The color used last.
     let recent = match (id, name) {
         ("format.color", "color") => config.strings("format.recent_colors").first().copied(),

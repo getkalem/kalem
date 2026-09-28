@@ -241,6 +241,12 @@ of day when you give one, a repeater or warning typed after the date
 otherwise, and =CLOSED:= taken away. /Remove Schedule/ and /Remove
 Deadline/ take them off again.
 
+/Edit Properties/ (Org menu, or the palette) lists the properties of
+the entry at the cursor as =KEY: value=; choosing one asks for its new
+value, starting with the old one, and the list also offers a new
+property and the removal of each. The drawer is written as Emacs's
+=org-entry-put= writes it, values aligned.
+
 With =org.enforce_todo_dependencies= on, a task cannot be marked done
 while a task below it is still open, and under a heading with the
 =ORDERED= property (Toggle Ordered Subtasks) each task waits for the ones

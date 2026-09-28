@@ -1732,6 +1732,7 @@ pub fn menus() -> Vec<Menu> {
                 item("org.todo.cycle"),
                 named(tr("menu-schedule"), "org.schedule"),
                 named(tr("menu-deadline"), "org.deadline"),
+                named(tr("menu-properties"), "org.property.edit"),
                 item("list.toggleCheckbox"),
             ],
         },

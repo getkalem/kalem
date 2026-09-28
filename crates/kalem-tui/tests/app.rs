@@ -1920,3 +1920,26 @@ fn scheduling() {
         "* TODO Task\nDEADLINE: <2026-12-24 Thu>\nBody\n"
     );
 }
+
+#[test]
+fn editing_properties() {
+    let text = "* A\n:PROPERTIES:\n:ID: 42\n:Effort: 1:00\n:END:\nBody\n";
+    let mut t = with_config(text, Config::default(), (120, 12));
+    t.at(2);
+    t.app
+        .run_command("org.property.edit", serde_json::Value::Null);
+    let s = screen(&mut t).join("\n");
+    assert!(s.contains("ID: 42") && s.contains("Effort: 1:00"), "{s}");
+    // Choosing a property asks for its value, starting with the old one.
+    t.typ("effort");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    for _ in 0.."1:00".len() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("2:30");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "* A\n:PROPERTIES:\n:ID: 42\n:Effort:   2:30\n:END:\nBody\n"
+    );
+}

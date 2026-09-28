@@ -1751,6 +1751,23 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "org.property.edit",
+            "Edit Properties",
+            "Properties",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let pos = doc.selection.head;
+                let model = doc
+                    .model()
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-org")))?;
+                ctx.requests
+                    .push(Request::Choose(crate::properties::items(&model, pos)));
+                Ok(())
+            },
+        ),
+        cmd(
             "org.schedule",
             "Schedule",
             "Tasks",
@@ -3164,7 +3181,13 @@ mod tests {
         // The prompt starts with the color used last.
         let mut d2 = doc("x\n", 0);
         assert_eq!(
-            crate::command::argument_default_with("format.color", "color", &mut d2, &config),
+            crate::command::argument_default_with(
+                "format.color",
+                "color",
+                &json!({}),
+                &mut d2,
+                &config
+            ),
             "#1f5fbf"
         );
     }
