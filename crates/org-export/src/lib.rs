@@ -6,6 +6,7 @@
 pub mod babel;
 mod dictionary;
 pub mod export;
+pub mod gfm;
 pub mod html;
 pub mod include;
 pub mod macros;
@@ -16,6 +17,7 @@ pub mod timestamps;
 pub mod tree;
 
 pub use export::{Backend, Exporter};
+pub use gfm::Gfm;
 pub use html::Html;
 pub use md::Markdown;
 

@@ -386,6 +386,14 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| export_doc(ctx, &org_export::Markdown, ".md", false),
         ),
         cmd(
+            "export.gfm",
+            "Export as GitHub Markdown",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_doc(ctx, &org_export::Gfm, ".md", false),
+        ),
+        cmd(
             "export.markdownSubtree",
             "Export Subtree as Markdown",
             "Export",

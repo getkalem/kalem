@@ -1,4 +1,4 @@
-//! `kalem export FILE... --to html|md`: Org's export, without Emacs.
+//! `kalem export FILE... --to html|md|gfm`: Org's export, without Emacs.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -13,6 +13,8 @@ pub(crate) enum Target {
     Html,
     /// Markdown (`ox-md`).
     Markdown,
+    /// GitHub Flavored Markdown.
+    Gfm,
 }
 
 impl Target {
@@ -20,13 +22,14 @@ impl Target {
         match self {
             Target::Html => &org_export::Html,
             Target::Markdown => &org_export::Markdown,
+            Target::Gfm => &org_export::Gfm,
         }
     }
 
     fn extension(self) -> &'static str {
         match self {
             Target::Html => ".html",
-            Target::Markdown => ".md",
+            Target::Markdown | Target::Gfm => ".md",
         }
     }
 }

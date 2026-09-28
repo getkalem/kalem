@@ -156,8 +156,10 @@ enum Format {
 enum ExportTo {
     /// HTML.
     Html,
-    /// Markdown.
+    /// Markdown, as Emacs's `ox-md` writes it (tables as HTML).
     Md,
+    /// GitHub Flavored Markdown: pipe tables, fenced code, `~~strike~~`.
+    Gfm,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -205,6 +207,7 @@ where
             let to = match to {
                 ExportTo::Html => commands::Target::Html,
                 ExportTo::Md => commands::Target::Markdown,
+                ExportTo::Gfm => commands::Target::Gfm,
             };
             commands::export(&files, to, output.as_deref(), body_only, subtree.as_deref())
         }
