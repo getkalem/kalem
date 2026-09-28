@@ -113,6 +113,7 @@ fn normalize_page(s: &str) -> String {
         }
     };
     cut(&mut s, "<style>", "</style>", "STYLE");
+    cut(&mut s, "<style type=\"text/css\">", "</style>", "STYLE");
     cut(&mut s, "<script>\n  window.MathJax", "</script>", "MATHJAX");
     cut(&mut s, "<script\n  id=\"MathJax-script\"", "</script>", "");
     cut(&mut s, "<script id=\"MathJax-script\"", "</script>", "");

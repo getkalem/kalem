@@ -1,0 +1,72 @@
+                             ______________
+
+                              US CITATIONS
+                             ______________
+
+
+Table of Contents
+_________________
+
+1. Styles
+2. Bibliography
+
+
+1 Styles
+========
+
+  Plain (Donald E. Knuth, 1984), text Jane Doe and Smith, John (2020),
+  author Donald E. Knuth, noauthor (see 2020 p. 3), nocite, missing (??,
+  ????), two (before Donald E. Knuth, 1984, Jane Doe and Smith, John,
+  2020 after), caps Jane Doe And Smith, John (2020), bare Donald
+  E. Knuth, 1984.  Author caps Van Der Berg, Anna, bare caps Van Der
+  Berg, Anna 1999, noauthor bare 2011.  Numeric (2, 4, 7, 8) and (see 8
+  p. 2).  Same author and year: (Donald E. Knuth, 1984a) and Donald
+  E. Knuth (1984a), then (Donald E. Knuth, 1984) again.  From JSON
+  (Adams Ada and Brown Bob, 2005) and Evans Eve (2010).  Unknown style
+  (Zed Z, 2011).  Twice missing (??, ).
+
+  A note.[1] Another one,[2] and one "quoted."[3] And "quoted."[4] The
+  end[5] Spaced ,[6] here.
+
+  A footnote with a citation[7].
+
+
+2 Bibliography
+==============
+
+  Adams Ada and Brown Bob (2005). /From JSON/.
+
+  Donald E. Knuth (1984). /The \TeXbook/, Example Press.
+
+  Donald E. Knuth (1984a). /The \METAFONT book \& more/, Addison--Wesley.
+
+  Jane Doe and Smith, John (2020). /Multi line title/, Journal of Tests
+  (Series).
+
+  Evans Eve (2010). /Edited/, JP.
+
+  van der Berg, Anna (1999). /Sorting $x^2$ and alpha more/, Some
+  University.
+
+  Zed Z (2011). /A <report> & "more"/, Inst.
+
+  Text after.
+
+
+
+Footnotes
+_________
+
+[1] Donald E. Knuth (1984)
+
+[2] Zed Z (2011)
+
+[3] van der Berg, Anna (1999)
+
+[4] Jane Doe and Smith, John (2020)
+
+[5] Adams Ada and Brown Bob (2005)
+
+[6] Evans Eve (2010)
+
+[7] It cites (Donald E. Knuth, 1984a), as usual.

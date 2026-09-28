@@ -1,0 +1,5 @@
+#+bibliography: bib/latex.bib
+
+x [cite:@a1], [cite/t:@a1].
+
+#+print_bibliography:

@@ -1,0 +1,7 @@
+[
+  {"id": "json-1", "type": "article-journal", "title": "From JSON",
+   "author": [{"family": "Adams", "given": "Ada"}, {"family": "Brown", "given": "Bob"}],
+   "container-title": "Json Journal", "issued": {"date-parts": [[2005, 3]]}},
+  {"id": "json-2", "type": "book", "title": "Edited", "editor": [{"family": "Evans", "given": "Eve"}],
+   "publisher": "JP", "issued": {"date-parts": [[2010]]}}
+]

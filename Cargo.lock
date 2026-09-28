@@ -4911,6 +4911,7 @@ name = "org-export"
 version = "0.0.1"
 dependencies = [
  "jiff",
+ "org-cite",
  "org-syntax",
  "unicode-width",
 ]

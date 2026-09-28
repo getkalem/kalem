@@ -337,6 +337,15 @@ import is cleaned up: the anchors and =CUSTOM_ID= properties pandoc adds
 and nothing links to go, and tables are aligned. Kalem's own formatting
 (fonts, colors) does not reach Word or OpenDocument yet.
 
+Citations (=[cite:@key]=, =[cite/t:@key]=, =[cite/a/c:@key]= and the
+other styles and variants of Org's manual) come out as Org's =basic=
+processor writes them: "(Author, Year)", "Author (Year)", numbers, or a
+footnote for the =note= and =ft= styles, with the keys looked up in the
+files =#+BIBLIOGRAPHY:= names (BibTeX, BibLaTeX or CSL-JSON).
+=#+PRINT_BIBLIOGRAPHY:= becomes the list of the works cited, sorted by
+author; =#+CITE_EXPORT: basic numeric= (or =plain=) chooses its style, and
+a third word the default citation style.
+
 Plain text is filled to 72 columns as Emacs fills it, with underlined
 titles, boxed code and tables drawn in ASCII; =export.text_charset =
 "utf-8"= uses UTF-8 lines, bullets and quotes instead.

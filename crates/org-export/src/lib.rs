@@ -4,6 +4,7 @@
 //! `ox-ascii` and `ox-latex` write them (design §10, T2.3).
 
 pub mod babel;
+pub mod cite;
 mod dictionary;
 pub mod export;
 pub mod fill;
@@ -156,6 +157,7 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     ex.prune();
     backend.filter_parse_tree(&mut ex);
     ex.collect_tree_properties();
+    cite::process(&mut ex, &keywords);
     let root_id = ex.tree.root;
     let body = export::normalize_string(&ex.data(root_id));
     let full = backend.inner_template(&mut ex, body);

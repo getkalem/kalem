@@ -60,6 +60,15 @@
                    (setq buffer-file-name file)
                    (org-mode)
                    (random "kalem")
+                   ;; `oc-basic' leaves `:parent' properties on the
+                   ;; strings of its code and of its cached bibliography
+                   ;; after an export, and the next export fails on them
+                   ;; ("No location found to insert node"): each export
+                   ;; gets fresh ones.
+                   (when (featurep 'oc-basic)
+                     (setq org-cite-basic--bibliography-cache nil
+                           org-cite-basic--file-id-cache nil)
+                     (load "oc-basic.el" nil t))
                    (cl-letf (((symbol-function 'current-time)
                               (lambda (&rest _) kalem-export-now)))
                      (condition-case err

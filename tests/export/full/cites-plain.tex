@@ -1,0 +1,69 @@
+% Created 2026-09-28 Mon 20:12
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\date{\today}
+\title{Plain citations}
+\hypersetup{
+ pdfauthor={},
+ pdftitle={Plain citations},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.7.11)}, 
+ pdflang={French}}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Styles}
+\label{sec:org3028fdc}
+Plain (Donald E. Knuth, 1984), text Jane Doe and Smith, John (2020), author Donald E. Knuth,
+noauthor (see 2020 p. 3), nocite, missing (??, ????),
+two (before Donald E. Knuth, 1984,  Jane Doe and Smith, John, 2020 after), caps Jane Doe And Smith, John (2020), bare Donald E. Knuth, 1984.
+Author caps Van Der Berg, Anna, bare caps Van Der Berg, Anna 1999, noauthor bare 2011.
+Numeric (2, 4, 7, 8) and (see 8 p. 2).
+Same author and year: (Donald E. Knuth, 1984a) and Donald E. Knuth (1984a), then (Donald E. Knuth, 1984) again.
+From JSON (Adams Ada and Brown Bob, 2005) and Evans Eve (2010).
+Unknown style (Zed Z, 2011).  Twice missing (??, ).
+
+A note\footnote{Donald E. Knuth (1984)}. Another one\footnote{Zed Z (2011)}, and one "quoted\footnote{van der Berg, Anna (1999)}."
+And "quoted\footnote{Jane Doe and Smith, John (2020)}." The end\footnote{Adams Ada and Brown Bob (2005)}
+Spaced\footnote{Evans Eve (2010)} , here.
+
+A footnote with a citation\footnote{It cites (Donald E. Knuth, 1984a), as usual.}.
+\section{Bibliography}
+\label{sec:org0af2b60}
+\noindent
+Adams Ada, Brown Bob. From JSON, 2005.
+
+\noindent
+Donald E. Knuth. The {\TeX}book, Example Press, 1984.
+
+\noindent
+Donald E. Knuth. The \METAFONT book \& more, Addison--Wesley, 1984.
+
+\noindent
+Jane Doe, Smith. Multi line title, Journal of Tests (Series), 2020.
+
+\noindent
+Evans Eve. Edited, JP, 2010.
+
+\noindent
+van der Berg. Sorting $x^2$ and \alpha{} more, Some University, 1999.
+
+\noindent
+Zed Z. A <report> & "more", Inst, 2011.
+
+Text after.
+\end{document}

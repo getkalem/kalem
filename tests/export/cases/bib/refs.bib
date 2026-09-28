@@ -1,0 +1,48 @@
+@string{pub = "Example Press"}
+@String{j = {Journal of Tests}}
+% a comment line
+@comment{ignored = {x}}
+@preamble{"\newcommand{\x}{y}"}
+
+@book{knuth84,
+  author    = {Donald E. Knuth},
+  title     = {The {\TeX}book},
+  publisher = pub,
+  year      = 1984,
+  month     = jan,
+}
+
+@Article{doe-2020,
+  AUTHOR = "Jane Doe and Smith, John",
+  title = {Multi
+     line   title},
+  journal = j # " (" # "Series" # ")",
+  date = {2020-05-01},
+  note = {With "quotes" and {braces}},
+}
+
+@misc{ key.with:odd-chars ,
+  editor = {Ed Itor},
+  title = "{A} quoted {title}"
+}
+
+@book{knuth84b,
+  author = {Donald E. Knuth},
+  title = {The \METAFONT book \& more},
+  publisher = {Addison--Wesley},
+  year = 1984,
+}
+
+@phdthesis{lower,
+  author = {van der Berg, Anna},
+  title = {Sorting $x^2$ and \alpha{} more},
+  school = {Some University},
+  year = {1999},
+}
+
+@techreport{zed,
+  author = {Zed Z},
+  title = {A <report> & "more"},
+  institution = {Inst},
+  date = {2011},
+}

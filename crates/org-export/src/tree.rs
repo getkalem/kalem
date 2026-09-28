@@ -123,6 +123,36 @@ impl Tree {
         id
     }
 
+    /// A node of kind `k` made by export (a citation's emphasis, the
+    /// footnote wrapping it), holding `children`.
+    pub fn made_node(&mut self, k: SyntaxKind, children: Vec<Id>, parent: Option<Id>) -> Id {
+        let id = self.push(Node {
+            kind: Kind::Node(k),
+            syntax: None,
+            text: String::new(),
+            children: children.clone(),
+            parent,
+            post_blank: 0,
+            secondary: Vec::new(),
+            props: HashMap::new(),
+        });
+        for c in children {
+            self.nodes[c].parent = Some(id);
+        }
+        id
+    }
+
+    /// The objects and plain text of syntax node `n` (a citation's prefix
+    /// or suffix), outside the tree.
+    pub fn objects_of(&mut self, n: &SyntaxNode) -> Vec<Id> {
+        let root = self.root;
+        let ids = self.objects(n, Some(n.text_range()), root);
+        for &i in &ids {
+            self.nodes[i].parent = None;
+        }
+        ids
+    }
+
     /// Adds `n`, from another parse, and what it holds under `parent`
     /// (not among its children: the caller places it).
     pub fn graft(&mut self, n: &SyntaxNode, parent: Id) -> Id {
