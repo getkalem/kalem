@@ -47,6 +47,8 @@
   // graphical file managers.
   { "keys": "enter", "command": "dired.open" },
   { "keys": "^", "command": "dired.up" },
+  { "keys": "i", "command": "dired.insertSubdir" },
+  { "keys": "shift+k", "command": "dired.removeSubdir" },
   { "keys": "-", "command": "dired.up" },
   { "keys": "backspace", "command": "dired.up" },
   { "keys": "n", "command": "dired.next" },
@@ -66,6 +68,7 @@
   { "keys": "% m", "command": "dired.markRegexp" },
   { "keys": "* /", "command": "dired.markDirectories" },
   { "keys": "* .", "command": "dired.markExtension" },
+  { "keys": "* t", "command": "dired.markChangedSince" },
   { "keys": "shift+c", "command": "dired.copy" },
   { "keys": "shift+r", "command": "dired.move" },
   { "keys": "shift+d", "command": "dired.delete" },

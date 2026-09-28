@@ -290,6 +290,7 @@ impl DocumentState {
         }
         s.place = place;
         s.filter.clear();
+        s.subdirs.clear();
         s.load();
         // A new place starts at its first entry.
         self.selection = Selection::caret(0);

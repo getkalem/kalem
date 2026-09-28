@@ -66,8 +66,11 @@ pub enum Row {
     Note,
     /// `..`, the parent folder.
     Parent,
-    /// An entry of the folder, by index.
+    /// An entry of the folder or of a folder listed in it, by index.
     Entry(usize),
+    /// The path of a folder listed inside the listing (`i` in Dired), by
+    /// index in [`DirState::subdirs`].
+    Subdir(usize),
     /// A project, by index.
     Project(usize),
 }
@@ -126,6 +129,14 @@ pub struct DirState {
     pub filter: String,
     /// Why the folder could not be read.
     pub error: Option<String>,
+    /// Folders listed below the folder's own entries, in order, as Dired
+    /// inserts subdirectories.
+    pub subdirs: Vec<PathBuf>,
+    /// The entries of each listed folder: the folder's own first, then
+    /// each of `subdirs`, with why it could not be read.
+    sections: Vec<(PathBuf, Range<usize>, Option<String>)>,
+    /// The folder each line is in (an index in `sections`).
+    row_sections: Vec<usize>,
     rows: Vec<Row>,
     /// The path of each line when it was written (it stays right while
     /// the folder is read again, until the listing is written again).
@@ -150,6 +161,9 @@ impl DirState {
             details,
             filter: String::new(),
             error: None,
+            subdirs: Vec::new(),
+            sections: Vec::new(),
+            row_sections: Vec::new(),
             rows: Vec::new(),
             paths: Vec::new(),
             names: Vec::new(),
@@ -171,28 +185,59 @@ impl DirState {
             self.sort_projects();
             return;
         };
-        match kalem_fs::read_dir(dir, &self.options) {
-            Ok(mut entries) => {
-                if !self.filter.is_empty() {
-                    let f = self.filter.to_lowercase();
-                    entries.retain(|e| e.name.to_lowercase().contains(&f));
+        let dir = dir.clone();
+        // Listed folders that are gone, or no longer inside, go.
+        self.subdirs
+            .retain(|d| d.starts_with(&dir) && *d != dir && d.is_dir());
+        self.entries.clear();
+        self.sections.clear();
+        self.error = None;
+        for (k, d) in std::iter::once(dir.clone())
+            .chain(self.subdirs.clone())
+            .enumerate()
+        {
+            let start = self.entries.len();
+            let error = match kalem_fs::read_dir(&d, &self.options) {
+                Ok(mut entries) => {
+                    if !self.filter.is_empty() {
+                        let f = self.filter.to_lowercase();
+                        entries.retain(|e| e.name.to_lowercase().contains(&f));
+                    }
+                    self.entries.extend(entries);
+                    None
                 }
-                self.entries = entries;
-                self.error = None;
+                Err(e) => Some(e.to_string()),
+            };
+            if k == 0 {
+                self.error = error.clone();
             }
-            Err(e) => {
-                self.entries.clear();
-                self.error = Some(e.to_string());
-            }
+            self.sections.push((d, start..self.entries.len(), error));
         }
         self.parent = dir.parent().and_then(|p| Entry::read(p).ok()).map(|mut e| {
             e.name = "..".into();
             e
         });
-        let dir = dir.clone();
+        let listed: Vec<PathBuf> = self.sections.iter().map(|s| s.0.clone()).collect();
         self.marks.retain(|p, _| {
-            p.parent() == Some(dir.as_path()) && std::fs::symlink_metadata(p).is_ok()
+            p.parent().is_some_and(|d| listed.iter().any(|l| l == d))
+                && std::fs::symlink_metadata(p).is_ok()
         });
+    }
+
+    /// The folder line `line` is in: the folder shown, or a folder listed
+    /// in it (`dired-current-directory`).
+    pub fn dir_at(&self, line: usize) -> Option<&Path> {
+        let k = self.row_sections.get(line).copied().unwrap_or(0);
+        match self.sections.get(k) {
+            Some((d, _, _)) => Some(d),
+            None => self.dir(),
+        }
+    }
+
+    /// The line of listed folder `dir`'s path, if it is listed.
+    pub fn subdir_line(&self, dir: &Path) -> Option<usize> {
+        let k = self.subdirs.iter().position(|d| d == dir)?;
+        self.rows.iter().position(|r| *r == Row::Subdir(k))
     }
 
     /// Sets the projects of the projects view.
@@ -218,12 +263,15 @@ impl DirState {
         self.rows.clear();
         self.names.clear();
         self.styles.clear();
+        self.row_sections.clear();
         let mut lines: Vec<String> = Vec::new();
+        let section = std::cell::Cell::new(0);
         let mut push = |this: &mut DirState, line: String, row: Row, name: Range<usize>, styles| {
             lines.push(line);
             this.rows.push(row);
             this.names.push(name);
             this.styles.push(styles);
+            this.row_sections.push(section.get());
         };
         match self.place.clone() {
             Place::Projects => {
@@ -315,11 +363,40 @@ impl DirState {
                     let (line, name, styles) = self.entry_line(&p, None, size_width);
                     push(self, line, Row::Parent, name, styles);
                 }
-                for i in 0..self.entries.len() {
-                    let e = self.entries[i].clone();
-                    let mark = self.marks.get(&e.path).copied();
-                    let (line, name, styles) = self.entry_line(&e, mark, size_width);
-                    push(self, line, Row::Entry(i), name, styles);
+                for k in 0..self.sections.len() {
+                    let (d, range, error) = self.sections[k].clone();
+                    if k > 0 {
+                        // A blank line, then the folder's path, as Dired
+                        // writes an inserted subdirectory.
+                        push(self, String::new(), Row::Note, 0..0, Vec::new());
+                        section.set(k);
+                        let title = format!("  {}:", tilde(&d));
+                        let len = title.len();
+                        push(
+                            self,
+                            title,
+                            Row::Subdir(k - 1),
+                            2..len - 1,
+                            vec![(2..len, DirStyle::Header)],
+                        );
+                        if let Some(e) = error {
+                            let note = format!("  {e}");
+                            let len = note.len();
+                            push(
+                                self,
+                                note,
+                                Row::Note,
+                                2..len,
+                                vec![(2..len, DirStyle::Broken)],
+                            );
+                        }
+                    }
+                    for i in range {
+                        let e = self.entries[i].clone();
+                        let mark = self.marks.get(&e.path).copied();
+                        let (line, name, styles) = self.entry_line(&e, mark, size_width);
+                        push(self, line, Row::Entry(i), name, styles);
+                    }
                 }
             }
         }
@@ -429,6 +506,7 @@ impl DirState {
             Row::Entry(i) => self.entries.get(i).map(|e| e.path.clone()),
             Row::Parent => self.dir().and_then(Path::parent).map(Path::to_path_buf),
             Row::Project(i) => self.projects.get(i).map(|p| p.root.clone()),
+            Row::Subdir(k) => self.subdirs.get(k).cloned(),
             Row::Header | Row::Note => None,
         }
     }
@@ -521,6 +599,44 @@ pub fn options_from(config: &crate::settings::Config) -> (ListOptions, bool) {
         hidden: config.bool("files.show_hidden"),
     };
     (options, config.bool("files.details"))
+}
+
+/// The moment `text` names for "changed since": an age (`30m`, `2h`,
+/// `3d`, `1w`, before `now`), `today`, `yesterday`, or a date or time
+/// (`2026-09-01`, `2026-09-01 14:30`) at `clock`'s time zone.
+pub fn parse_since(
+    text: &str,
+    clock: jiff::civil::DateTime,
+    now: std::time::SystemTime,
+) -> Option<std::time::SystemTime> {
+    let t = text.trim().to_lowercase();
+    let day = |d: jiff::civil::Date| -> Option<std::time::SystemTime> {
+        let z = d.to_zoned(jiff::tz::TimeZone::system()).ok()?;
+        Some(std::time::SystemTime::from(z.timestamp()))
+    };
+    match t.as_str() {
+        "today" | "bugün" => return day(clock.date()),
+        "yesterday" | "dün" => return day(clock.date().yesterday().ok()?),
+        _ => {}
+    }
+    if let Some(unit) = t.chars().last().filter(|c| c.is_ascii_alphabetic())
+        && let Ok(n) = t[..t.len() - 1].trim().parse::<u64>()
+    {
+        let secs = match unit {
+            's' => 1,
+            'm' => 60,
+            'h' => 3600,
+            'd' => 86_400,
+            'w' => 7 * 86_400,
+            _ => return None,
+        };
+        return now.checked_sub(std::time::Duration::from_secs(n * secs));
+    }
+    if let Ok(dt) = t.parse::<jiff::civil::DateTime>() {
+        let z = dt.to_zoned(jiff::tz::TimeZone::system()).ok()?;
+        return Some(std::time::SystemTime::from(z.timestamp()));
+    }
+    day(t.parse::<jiff::civil::Date>().ok()?)
 }
 
 /// Where `input` points, from the folder `dir`: `~` is the home folder,
@@ -864,11 +980,56 @@ fn arg<'a>(args: &'a Value, key: &str) -> Result<&'a str, CommandError> {
         .ok_or_else(|| CommandError::new(format!("Missing argument `{key}`")))
 }
 
+/// The folder of the cursor's line: the folder shown, or a folder listed
+/// in it.
 fn the_dir(doc: &DocumentState) -> Result<PathBuf, CommandError> {
     state(doc)
-        .dir()
+        .dir_at(cursor_line(doc))
         .map(Path::to_path_buf)
         .ok_or_else(|| CommandError::new(tr("fm-in-projects")))
+}
+
+/// Lists the folder at the cursor below the listing (Dired's `i`), or
+/// goes to it if it is listed already.
+fn insert_subdir(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
+    let doc = listing(ctx)?;
+    let line = cursor_line(doc);
+    let s = state(doc);
+    let dir = match (s.row(line), s.entry(line)) {
+        (Some(Row::Entry(_)), Some(e)) if e.is_dir() => e.path.clone(),
+        _ => return Err(CommandError::new(tr("fm-not-a-folder"))),
+    };
+    if !s.subdirs.contains(&dir) {
+        let s = state_mut(doc);
+        s.subdirs.push(dir.clone());
+        s.load();
+        doc.show_listing(None);
+    }
+    if let Some(l) = state(doc).subdir_line(&dir) {
+        let r = doc.text().line_range(l);
+        let column = state(doc).name_range(l).map_or(0, |n| n.start);
+        doc.selection = org_edit::Selection::caret((r.start + column).min(r.end));
+    }
+    Ok(())
+}
+
+/// Takes the listed folder the cursor is in out of the listing; the
+/// cursor goes to its line in its parent.
+fn remove_subdir(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
+    let doc = listing(ctx)?;
+    let line = cursor_line(doc);
+    let s = state(doc);
+    let dir = s.dir_at(line).map(Path::to_path_buf);
+    let Some(dir) = dir.filter(|d| s.subdirs.contains(d)) else {
+        return Err(CommandError::new(tr("fm-no-subdir")));
+    };
+    let s = state_mut(doc);
+    // Folders listed inside it go with it.
+    s.subdirs.retain(|d| !d.starts_with(&dir));
+    s.load();
+    doc.selection = org_edit::Selection::caret(0);
+    doc.show_listing(Some(&dir));
+    Ok(())
 }
 
 /// Opens the entry at the cursor: a folder or project is listed, a file
@@ -888,6 +1049,10 @@ fn open(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
                     path: Some(e.path.display().to_string()),
                 });
             }
+        }
+        Some(Row::Subdir(k)) => {
+            let d = s.subdirs[k].clone();
+            doc.visit(Place::Dir(d), None);
         }
         Some(Row::Project(i)) => {
             let p = s.projects[i].clone();
@@ -923,6 +1088,13 @@ fn step(ctx: &mut EditorContext<'_>, by: isize) -> CommandResult {
 fn up(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
     let doc = listing(ctx)?;
     let s = state(doc);
+    // In a listed folder: its line in its parent's listing.
+    if let Some(d) = s.dir_at(cursor_line(doc)).map(Path::to_path_buf)
+        && s.subdirs.contains(&d)
+    {
+        doc.show_listing(Some(&d));
+        return Ok(());
+    }
     let Place::Dir(d) = s.place.clone() else {
         return Ok(());
     };
@@ -1060,6 +1232,7 @@ pub(crate) fn schemas() -> Vec<(&'static str, Value)> {
         ("dired.chmod", one("mode")),
         ("dired.markRegexp", one("regexp")),
         ("dired.markExtension", one("extension")),
+        ("dired.markChangedSince", one("since")),
         ("dired.filter", one("text")),
     ]
 }
@@ -1068,7 +1241,7 @@ pub(crate) fn schemas() -> Vec<(&'static str, Value)> {
 /// `id` starts with.
 pub(crate) fn argument_default(id: &str, name: &str, doc: &DocumentState) -> Option<String> {
     let s = doc.dired.as_deref()?;
-    let dir = s.dir()?;
+    let dir = s.dir_at(cursor_line(doc))?;
     let sep = std::path::MAIN_SEPARATOR;
     let targets = s.targets(cursor_line(doc));
     Some(match (id, name) {
@@ -1162,6 +1335,20 @@ pub(crate) fn commands() -> Vec<Command> {
         // Moving around.
         cmd("dired.open", "Open", &[], Some(IN_LISTING), open),
         cmd("dired.up", "Parent Folder", &[], Some(IN_LISTING), up),
+        cmd(
+            "dired.insertSubdir",
+            "List Folder Here",
+            &[],
+            Some(IN_LISTING),
+            insert_subdir,
+        ),
+        cmd(
+            "dired.removeSubdir",
+            "Remove Listed Folder",
+            &[],
+            Some(IN_LISTING),
+            remove_subdir,
+        ),
         cmd(
             "dired.next",
             "Next Line",
@@ -1381,6 +1568,18 @@ pub(crate) fn commands() -> Vec<Command> {
                     .trim_start_matches('.')
                     .to_lowercase();
                 mark_where(ctx, &|e: &Entry| !e.is_dir() && e.extension() == ext)
+            },
+        ),
+        cmd(
+            "dired.markChangedSince",
+            "Mark Changed Since",
+            &[],
+            Some(IN_LISTING),
+            |ctx, args| {
+                let text = arg(args, "since")?;
+                let since = parse_since(text, ctx.clock, std::time::SystemTime::now())
+                    .ok_or_else(|| CommandError::new(crate::tr!("fm-bad-since", text = text)))?;
+                mark_where(ctx, &|e: &Entry| e.modified.is_some_and(|m| m >= since))
             },
         ),
         // Operations.
@@ -1664,6 +1863,145 @@ mod tests {
             line(&doc).ends_with("b.org"),
             "the cursor stays on its entry"
         );
+    }
+
+    #[test]
+    fn changed_since() {
+        use std::time::{Duration, SystemTime};
+        let clock = jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0);
+        let now = SystemTime::now();
+        assert_eq!(
+            parse_since("2h", clock, now),
+            now.checked_sub(Duration::from_secs(7200))
+        );
+        assert_eq!(
+            parse_since(" 1W ", clock, now),
+            now.checked_sub(Duration::from_secs(7 * 86_400))
+        );
+        let day = parse_since("2026-09-28", clock, now).unwrap();
+        assert_eq!(parse_since("today", clock, now), Some(day));
+        assert_eq!(
+            parse_since("yesterday", clock, now),
+            parse_since("2026-09-27", clock, now)
+        );
+        assert!(parse_since("2026-09-28 14:30", clock, now).unwrap() > day);
+        assert!(parse_since("soon", clock, now).is_none());
+        assert!(parse_since("3x", clock, now).is_none());
+        // Marks the entries changed since then.
+        let d = tree("since", &["old.txt", "new.txt"]);
+        let old = std::fs::File::options()
+            .write(true)
+            .open(d.join("old.txt"))
+            .unwrap();
+        old.set_modified(now - Duration::from_secs(10 * 86_400))
+            .unwrap();
+        let mut doc = DocumentState::open(
+            &d,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        run(&mut doc, "dired.markChangedSince", json!({"since": "1d"}))
+            .0
+            .unwrap();
+        assert_eq!(state(&doc).targets(0), vec![d.join("new.txt")]);
+        assert!(
+            run(&mut doc, "dired.markChangedSince", json!({"since": "?"}))
+                .0
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn listed_subdirectories() {
+        let d = tree(
+            "subdirs",
+            &[
+                "top.org",
+                "sub/inner.org",
+                "sub/deeper/x.txt",
+                "other/o.txt",
+            ],
+        );
+        let mut doc = DocumentState::open(
+            &d,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        // Only a folder can be listed.
+        goto(&mut doc, "top.org");
+        assert!(run(&mut doc, "dired.insertSubdir", json!({})).0.is_err());
+        goto(&mut doc, "sub/");
+        run(&mut doc, "dired.insertSubdir", json!({})).0.unwrap();
+        let text = doc.text().as_str().to_string();
+        let sub = format!("  {}:", crate::projects::tilde(&d.join("sub")));
+        assert!(text.contains(&format!("\n\n{sub}\n")), "{text}");
+        assert!(
+            line(&doc).starts_with(&sub),
+            "the cursor on the folder's path"
+        );
+        assert!(
+            text.contains(" inner.org") && text.contains(" deeper/"),
+            "{text}"
+        );
+        // Inside it: its entries are entries, its folder is theirs.
+        goto(&mut doc, "inner.org");
+        let l = cursor_line(&doc);
+        assert_eq!(state(&doc).dir_at(l), Some(d.join("sub").as_path()));
+        let (_, req) = run(&mut doc, "dired.open", json!({}));
+        assert_eq!(
+            req,
+            vec![Request::Open {
+                path: Some(d.join("sub/inner.org").display().to_string())
+            }]
+        );
+        run(&mut doc, "dired.mark", json!({})).0.unwrap();
+        assert_eq!(
+            state(&doc).targets(cursor_line(&doc)),
+            vec![d.join("sub/inner.org")]
+        );
+        // A new file goes into the folder of the cursor's line.
+        goto(&mut doc, "deeper/");
+        run(&mut doc, "dired.newFile", json!({"name": "made.txt"}))
+            .0
+            .unwrap();
+        assert!(d.join("sub/made.txt").is_file());
+        assert!(doc.text().as_str().contains(" made.txt"));
+        // Nested, then listing it again only goes there.
+        goto(&mut doc, "deeper/");
+        run(&mut doc, "dired.insertSubdir", json!({})).0.unwrap();
+        assert_eq!(state(&doc).subdirs.len(), 2);
+        goto(&mut doc, "deeper/");
+        run(&mut doc, "dired.insertSubdir", json!({})).0.unwrap();
+        assert_eq!(state(&doc).subdirs.len(), 2);
+        // Marks and listed folders stay when the listing is read again.
+        doc.refresh_listing();
+        assert_eq!(state(&doc).subdirs.len(), 2);
+        assert!(doc.text().as_str().contains("* "));
+        // Up from a listed folder: its line in the parent's listing.
+        goto(&mut doc, "x.txt");
+        run(&mut doc, "dired.up", json!({})).0.unwrap();
+        assert!(line(&doc).ends_with(" deeper/"), "{}", line(&doc));
+        // Removing `sub` takes the folders listed inside it too.
+        goto(&mut doc, "inner.org");
+        run(&mut doc, "dired.removeSubdir", json!({})).0.unwrap();
+        assert!(state(&doc).subdirs.is_empty());
+        assert!(line(&doc).ends_with(" sub/"));
+        assert!(!doc.text().as_str().contains("inner.org"));
+        assert!(run(&mut doc, "dired.removeSubdir", json!({})).0.is_err());
+        // A folder removed on disk goes from the listing.
+        goto(&mut doc, "other/");
+        run(&mut doc, "dired.insertSubdir", json!({})).0.unwrap();
+        std::fs::remove_dir_all(d.join("other")).unwrap();
+        doc.refresh_listing();
+        assert!(state(&doc).subdirs.is_empty());
+        // Another place starts without listed folders.
+        goto(&mut doc, "sub/");
+        run(&mut doc, "dired.insertSubdir", json!({})).0.unwrap();
+        goto(&mut doc, "sub/");
+        run(&mut doc, "dired.open", json!({})).0.unwrap();
+        assert!(state(&doc).subdirs.is_empty());
     }
 
     #[test]
