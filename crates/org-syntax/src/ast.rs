@@ -1540,9 +1540,33 @@ impl Citation {
         let end = inner.find(':')?;
         Some(inner[..end].to_string())
     }
+    /// The style and the variant (`org-cite-citation-style`): `t` and
+    /// `b` in `[cite/t/b:@key]`; an empty style is none.
+    pub fn style_and_variant(&self) -> (Option<String>, Option<String>) {
+        let Some(style) = self.style() else {
+            return (None, None);
+        };
+        let (s, v) = match style.split_once('/') {
+            Some((s, v)) => (s.to_string(), Some(v.to_string())),
+            None => (style, None),
+        };
+        ((!s.is_empty()).then_some(s), v.filter(|v| !v.is_empty()))
+    }
     /// The references.
     pub fn references(&self) -> impl Iterator<Item = CitationReference> + '_ {
         self.0.children().filter_map(CitationReference::cast)
+    }
+    /// The keys of the references, in order.
+    pub fn keys(&self) -> Vec<String> {
+        self.references().map(|r| r.key()).collect()
+    }
+    /// `:prefix`: the text before the first reference (`[cite:see; @a]`).
+    pub fn prefix(&self) -> Option<SyntaxNode> {
+        self.0.children().find(|c| c.kind() == CITATION_PREFIX)
+    }
+    /// `:suffix`: the text after the last reference.
+    pub fn suffix(&self) -> Option<SyntaxNode> {
+        self.0.children().find(|c| c.kind() == CITATION_SUFFIX)
     }
 }
 
@@ -1552,6 +1576,14 @@ impl CitationReference {
         token(&self.0, KEY)
             .map(|t| t.text().to_string())
             .unwrap_or_default()
+    }
+    /// `:prefix`: the text before `@key` (`see` in `[cite:see @a]`).
+    pub fn prefix(&self) -> Option<SyntaxNode> {
+        self.0.children().find(|c| c.kind() == CITATION_PREFIX)
+    }
+    /// `:suffix`: the text after the key (`p. 3` in `[cite:@a p. 3]`).
+    pub fn suffix(&self) -> Option<SyntaxNode> {
+        self.0.children().find(|c| c.kind() == CITATION_SUFFIX)
     }
 }
 

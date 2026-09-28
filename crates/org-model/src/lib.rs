@@ -17,6 +17,7 @@
 //! ```
 
 mod cache;
+pub mod cite;
 mod clock;
 mod footnotes;
 mod info;
