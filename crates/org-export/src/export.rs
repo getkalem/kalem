@@ -599,31 +599,81 @@ impl<'b> Exporter<'b> {
             let Some(values) = collected.get(*kw) else {
                 continue;
             };
-            match behavior {
-                Behavior::Parse => {
-                    let text = values.join("\n");
-                    let ids = self.parse_secondary(&text);
-                    self.info.parsed.insert(prop.clone(), ids);
-                    self.info.values.insert(prop.clone(), Value::T);
+            self.set_option(prop, *behavior, values);
+        }
+    }
+
+    /// The options of the subtree being exported
+    /// (`org-export--get-subtree-options`), over those of the buffer:
+    /// `EXPORT_OPTIONS`, `EXPORT_TITLE` (else the headline's `title`), and
+    /// `EXPORT_` followed by any other option keyword, from the headline's
+    /// `properties`.
+    pub fn read_subtree_options(&mut self, properties: &[(String, String)], title: &str) {
+        let get = |name: &str| {
+            properties
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(name))
+                .map(|(_, v)| v.clone())
+        };
+        let backend_opts = self.backend.options();
+        let mut specs: Vec<(String, Option<&str>, Option<&str>, Behavior)> = backend_opts
+            .iter()
+            .map(|(p, k, o, b, _)| (p.to_string(), *k, *o, *b))
+            .collect();
+        specs.extend(
+            options::OPTIONS
+                .iter()
+                .map(|s| (s.property.to_string(), s.keyword, s.option, s.behavior)),
+        );
+        if let Some(line) = get("EXPORT_OPTIONS") {
+            for (item, value) in options::parse_options(&line) {
+                if let Some(s) = specs.iter().find(|s| s.2.is_some_and(|o| o == item)) {
+                    self.info.values.insert(s.0.clone(), value);
                 }
-                Behavior::Split => {
-                    let words: Vec<Value> = values
-                        .iter()
-                        .flat_map(|v| v.split_whitespace())
-                        .map(|w| Value::Str(w.to_string()))
-                        .collect();
-                    self.info.values.insert(prop.clone(), Value::List(words));
-                }
-                b => {
-                    let v = match b {
-                        Behavior::First => values[0].clone(),
-                        Behavior::Space => values.join(" "),
-                        Behavior::Newline => values.join("\n"),
-                        _ => values.last().cloned().unwrap_or_default(),
-                    };
-                    self.info.strings.insert(prop.clone(), v.clone());
-                    self.info.values.insert(prop.clone(), Value::Str(v));
-                }
+            }
+        }
+        let mut seen: HashSet<String> = HashSet::new();
+        for (prop, kw, _, behavior) in &specs {
+            let Some(kw) = kw else { continue };
+            if !seen.insert(prop.clone()) {
+                continue;
+            }
+            let value = match get(&format!("EXPORT_{kw}")) {
+                Some(v) => v,
+                None if *kw == "TITLE" => title.to_string(),
+                None => continue,
+            };
+            self.set_option(prop, *behavior, &[value]);
+        }
+    }
+
+    /// Sets option `prop` from keyword `values` as `behavior` says.
+    fn set_option(&mut self, prop: &str, behavior: Behavior, values: &[String]) {
+        let prop = prop.to_string();
+        match behavior {
+            Behavior::Parse => {
+                let text = values.join("\n");
+                let ids = self.parse_secondary(&text);
+                self.info.parsed.insert(prop.clone(), ids);
+                self.info.values.insert(prop.clone(), Value::T);
+            }
+            Behavior::Split => {
+                let words: Vec<Value> = values
+                    .iter()
+                    .flat_map(|v| v.split_whitespace())
+                    .map(|w| Value::Str(w.to_string()))
+                    .collect();
+                self.info.values.insert(prop.clone(), Value::List(words));
+            }
+            b => {
+                let v = match b {
+                    Behavior::First => values[0].clone(),
+                    Behavior::Space => values.join(" "),
+                    Behavior::Newline => values.join("\n"),
+                    _ => values.last().cloned().unwrap_or_default(),
+                };
+                self.info.strings.insert(prop.clone(), v.clone());
+                self.info.values.insert(prop.clone(), Value::Str(v));
             }
         }
     }

@@ -1,0 +1,27 @@
+#+TITLE: The document
+#+OPTIONS: H:3
+#+TODO: TODO NEXT | DONE
+#+MACRO: m macro from the document
+
+Text before the subtree {{{m}}}.
+
+* First
+Not exported.
+* NEXT Chosen subtree :tag:
+SCHEDULED: <2026-09-28 Mon>
+:PROPERTIES:
+:KALEM_TEST_SUBTREE: t
+:EXPORT_OPTIONS: tags:nil
+:EXPORT_TITLE: A title for the subtree
+:END:
+The subtree's own text, {{{m}}}, {{{title}}}.
+** Child one
+Text of child one.
+*** Grandchild
+**** Too deep
+List item text.
+** DONE Child two
+- a
+- b
+* Last
+Not exported either.

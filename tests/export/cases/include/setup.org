@@ -1,0 +1,10 @@
+#+TITLE: Title from the setup file
+#+OPTIONS: toc:nil num:nil ^:{}
+#+TODO: START MIDDLE | FINISHED
+#+MACRO: greet Hello, $1!
+#+LINK: wp https://en.wikipedia.org/wiki/%s
+#+EXCLUDE_TAGS: secret
+#+SETUPFILE: sub/more.org
+#+AUTHOR: Setup Author
+Body text of the setup file is never exported.
+* A heading in the setup file
