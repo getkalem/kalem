@@ -220,6 +220,7 @@ msg-no-match-for = Eşleşme yok: { $target }
 msg-no-link = Burada bağlantı yok
 msg-no-property = Burada { $key } özelliği yok
 msg-no-bibliography = Kaynakça yok: bir .bib ya da .json dosyasıyla #+BIBLIOGRAPHY: ekleyin
+msg-picture-needs-file = Önce belgeyi kaydedin: resimler yanındaki bir klasöre konur
 msg-ordered-on = Alt görevler sırayla tamamlanmalı
 msg-ordered-off = Alt görevler herhangi bir sırayla tamamlanabilir
 msg-opened = Açıldı: { $target }

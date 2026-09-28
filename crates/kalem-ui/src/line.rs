@@ -54,6 +54,9 @@ struct Prepared {
     nowrap: bool,
     /// The line spacing (the document's `#+KALEM: spacing=`).
     spacing: f32,
+    /// Pictures fitted to the text width when laid out: their pieces, and
+    /// the share of the width asked for (`#+ATTR_ORG: :width 50%`).
+    fit: Vec<(usize, Option<u32>)>,
 }
 
 /// A table drawn as a grid in the proportional font.
@@ -246,6 +249,7 @@ fn prepare_grid(
         rule: false,
         nowrap: false,
         spacing: 1.,
+        fit: Vec::new(),
     })
 }
 
@@ -307,6 +311,7 @@ fn prepare_decoration(
         rule,
         nowrap: false,
         spacing: 1.,
+        fit: Vec::new(),
     };
     if block.kind == BlockKind::Rule && !(ls <= c && c <= range.end) {
         return Some(empty(range, true, base));
@@ -406,6 +411,7 @@ fn prepare_decoration(
         rule: false,
         nowrap: false,
         spacing: 1.,
+        fit: Vec::new(),
     })
 }
 
@@ -688,6 +694,7 @@ fn prepare_math_block(
         rule: false,
         nowrap: false,
         spacing: 1.,
+        fit: Vec::new(),
     })
 }
 
@@ -711,6 +718,8 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
     let mono = view.mono;
     let mut pieces = Vec::new();
     let mut widgets = Vec::new();
+    let mut fit = Vec::new();
+    let mut fit_next: Option<Option<u32>> = None;
     let (mut text, mut runs) = (String::new(), Vec::new());
     let mut at = 0;
     for (i, r) in view.runs.iter().enumerate() {
@@ -746,12 +755,29 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                     }
                 }
             }
+            Some(Widget::Image { path, width })
+                if let Some((image, w, h)) = editor.picture(path) =>
+            {
+                // The picture at its size, or the width `#+ATTR_ORG` asks
+                // for; fitted to the text width when laid out.
+                let (w, h) = (w.max(1) as f32, h.max(1) as f32);
+                let tw = match width {
+                    Some(kalem_core::view::ImageWidth::Pixels(p)) => *p as f32,
+                    _ => w,
+                };
+                let th = h * tw / w;
+                fit_next = Some(match width {
+                    Some(kalem_core::view::ImageWidth::Percent(p)) => Some(*p),
+                    _ => None,
+                });
+                Some((Paint::Image(image), size(px(tw), px(th)), px(th)))
+            }
             Some(w @ (Widget::Math { .. } | Widget::Image { .. })) => {
                 // A formula as Unicode when previews are off; an image's
                 // name until images (T1.5.7).
                 let (shown, color) = match w {
                     Widget::Math { source, .. } => (kalem_core::math::unicode(source), theme.link),
-                    Widget::Image { path } => (format!("[image: {path}]"), theme.muted),
+                    Widget::Image { path, .. } => (format!("[image: {path}]"), theme.muted),
                     Widget::Checkbox(_) => unreachable!("handled above"),
                 };
                 let mut run = text_run(&r.style, shown.len(), view.heading, mono, &theme);
@@ -773,6 +799,9 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                     text: std::mem::take(&mut text),
                     runs: std::mem::take(&mut runs),
                 });
+            }
+            if let Some(f) = fit_next.take() {
+                fit.push((pieces.len(), f));
             }
             pieces.push(Piece::Widget {
                 len: r.text.len(),
@@ -969,6 +998,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 .spacing
                 .map_or(1., |s| f32::from(s) / 10.)
         },
+        fit,
     }
 }
 
@@ -1095,8 +1125,25 @@ impl gpui::Element for LineElement {
                     };
                 }
                 let line_height = prepared.font_size * 1.45 * prepared.spacing;
+                // Pictures no wider than the text, or the share of it
+                // they ask for.
+                let fitted = wrap.filter(|_| !prepared.fit.is_empty()).map(|w| {
+                    let mut pieces = prepared.pieces.clone();
+                    for &(i, share) in &prepared.fit {
+                        if let Some(Piece::Widget { size, ascent, .. }) = pieces.get_mut(i) {
+                            let want = share.map_or(size.width, |p| w * (p as f32 / 100.));
+                            let width = want.min(w);
+                            if width != size.width && size.width > px(0.) {
+                                let k = width / size.width;
+                                *size = gpui::size(width, size.height * k);
+                                *ascent = size.height;
+                            }
+                        }
+                    }
+                    pieces
+                });
                 let mut layout = InlineLayout::new(
-                    &prepared.pieces,
+                    fitted.as_deref().unwrap_or(&prepared.pieces),
                     prepared.font_size,
                     line_height,
                     wrap,

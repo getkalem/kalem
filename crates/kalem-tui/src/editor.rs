@@ -76,8 +76,8 @@ type PlainCache = RefCell<Option<(u64, Option<kalem_highlight::Highlighter>, usi
 /// What an image in the terminal shows.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ImageKey {
-    /// An image file.
-    File(std::path::PathBuf),
+    /// An image file, at most so many cells wide.
+    File(std::path::PathBuf, u16),
     /// A formula (a fragment with its delimiters, or an environment),
     /// with the document's macros.
     Math { source: String, macros: String },
@@ -118,12 +118,28 @@ impl std::fmt::Debug for Images {
 }
 
 impl Images {
-    /// The file an image link points to.
-    fn file(&self, path: &str) -> ImageKey {
-        ImageKey::File(match &self.base {
-            Some(b) => b.join(path.trim_start_matches("file:")),
-            None => std::path::PathBuf::from(path),
-        })
+    /// The file an image link points to, shown at most `cols` cells wide.
+    fn file(&self, path: &str, cols: u16) -> ImageKey {
+        ImageKey::File(
+            kalem_core::images::resolve(path, self.base.as_deref()),
+            cols,
+        )
+    }
+
+    /// The cells an image may take in a text `text` cells wide: the width
+    /// `#+ATTR_ORG: :width` asks for, in the terminal's cells.
+    fn cols(&self, width: Option<view::ImageWidth>, text: u16) -> u16 {
+        let cell = self
+            .picker
+            .as_ref()
+            .map_or(8.0, |p| p.font_size().width.max(1) as f32);
+        match width {
+            Some(w) => {
+                let px = w.resolve(text as f32 * cell);
+                ((px / cell).round() as u16).clamp(1, text.max(1))
+            }
+            None => text,
+        }
     }
 
     /// A formula's key, with the document's macros.
@@ -154,7 +170,9 @@ impl Images {
     /// size of the terminal's text, on its background.
     fn load(&self, key: &ImageKey, cell_height: f32) -> Option<image::DynamicImage> {
         match key {
-            ImageKey::File(f) => image::open(f).ok(),
+            ImageKey::File(f, _) => kalem_core::images::decode(f, 2400)
+                .ok()
+                .map(image::DynamicImage::ImageRgba8),
             ImageKey::Math { source, macros } => {
                 use org_math::MathEngine;
                 let (body, display) = org_math::source::body(source);
@@ -465,14 +483,21 @@ impl<'a> Layout<'a> {
         }
         let mut images = self.images.borrow_mut();
         let (key, label) = match found? {
-            view::Widget::Image { path } => (images.file(&path), format!("[image: {path}]")),
+            view::Widget::Image { path, width } => {
+                let cols = images.cols(width, self.width.get());
+                (images.file(&path, cols), format!("[image: {path}]"))
+            }
             view::Widget::Math { source, .. } if !self.raw_math => {
                 let label = kalem_core::math::unicode(&source);
                 (images.math(&source, p, self.doc.version()), label)
             }
             _ => return None,
         };
-        let (rows, cols) = images.size(&key, self.width.get())?;
+        let limit = match &key {
+            ImageKey::File(_, cols) => *cols,
+            ImageKey::Math { .. } => self.width.get(),
+        };
+        let (rows, cols) = images.size(&key, limit)?;
         Some((key, label, rows, cols))
     }
 

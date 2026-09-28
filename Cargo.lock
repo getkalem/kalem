@@ -3765,6 +3765,7 @@ name = "kalem-core"
 version = "0.0.1"
 dependencies = [
  "fluent-bundle",
+ "image",
  "jiff",
  "kalem-fs",
  "kalem-project",
@@ -3778,6 +3779,7 @@ dependencies = [
  "org-table",
  "proptest 1.11.0",
  "regex",
+ "resvg 0.45.1",
  "serde_json",
  "sys-locale",
  "toml_edit 0.25.15+spec-1.1.0",

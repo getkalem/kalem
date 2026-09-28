@@ -13,6 +13,7 @@ pub mod events;
 pub mod files;
 pub mod find;
 pub mod formulas;
+pub mod images;
 pub mod input;
 pub mod jobs;
 pub mod keymap;

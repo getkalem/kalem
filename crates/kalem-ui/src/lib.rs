@@ -10,6 +10,7 @@ pub mod line;
 pub mod math;
 pub mod outline;
 pub mod panels;
+pub mod pictures;
 pub mod preferences;
 pub mod theme;
 pub mod vim;
@@ -42,6 +43,7 @@ pub fn shared(config: Config) -> editor::Shared {
         html_clipboard: clipboard::html,
         settings_path: settings::config_dir().map(|d| d.join("settings.toml")),
         math: math::Formulas::default(),
+        pictures: Default::default(),
         projects: RefCell::new(kalem_core::projects::ProjectState::load(
             kalem_core::projects::list_file(),
         )),

@@ -400,7 +400,7 @@ pub fn glyphs(
                 }
                 (kalem_core::math::unicode(source), false)
             }
-            Some(Widget::Image { path }) => {
+            Some(Widget::Image { path, .. }) => {
                 style = style.add_modifier(Modifier::DIM);
                 (format!("[image: {path}]"), false)
             }

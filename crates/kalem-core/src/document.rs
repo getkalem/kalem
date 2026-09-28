@@ -540,6 +540,16 @@ impl DocumentState {
     /// documents that are not Org. `plain` inserts the text as it is.
     /// Line breaks become the document's.
     pub fn paste(&mut self, text: &str, html: Option<&str>, plain: bool, now: Instant) {
+        // The paths of pictures (a dropped file, as terminals paste it):
+        // copied beside the document and linked.
+        let pictures = (!plain && self.meta.mode == DocumentMode::Org)
+            .then(|| crate::images::pasted_paths(text))
+            .flatten();
+        if let (Some(files), Some(doc)) = (pictures, self.meta.path.clone())
+            && let Ok(links) = crate::images::import_all(&doc, &files)
+        {
+            return self.paste(&links, None, true, now);
+        }
         let text = text.replace("\r\n", "\n");
         let s = self.selection;
         let sel = s.anchor.min(s.head)..s.anchor.max(s.head);
@@ -560,6 +570,41 @@ impl DocumentState {
         tx.replace(ins.range.clone(), new).expect("one edit");
         let tx = tx.select(Selection::caret(ins.range.start + cursor));
         self.apply(&tx, ChangeKind::Command, now);
+    }
+
+    /// Pastes a picture's data (`extension` as `png`): saved beside the
+    /// document (`NAME_assets/`) and linked. A document without a file
+    /// has nowhere to keep it.
+    pub fn paste_picture(
+        &mut self,
+        data: &[u8],
+        extension: &str,
+        now: Instant,
+    ) -> Result<(), String> {
+        if self.meta.mode != DocumentMode::Org {
+            return Err(crate::l10n::tr("msg-not-org"));
+        }
+        let doc = self
+            .meta
+            .path
+            .clone()
+            .ok_or_else(|| crate::l10n::tr("msg-picture-needs-file"))?;
+        let link = crate::images::save(&doc, data, extension)?;
+        self.paste(&link, None, true, now);
+        Ok(())
+    }
+
+    /// Links pictures dropped on the document, copied beside it when they
+    /// are elsewhere.
+    pub fn drop_pictures(&mut self, files: &[PathBuf], now: Instant) -> Result<(), String> {
+        let doc = self
+            .meta
+            .path
+            .clone()
+            .ok_or_else(|| crate::l10n::tr("msg-picture-needs-file"))?;
+        let links = crate::images::import_all(&doc, files)?;
+        self.paste(&links, None, true, now);
+        Ok(())
     }
 
     /// How this document indents: as its lines do, else tabs for

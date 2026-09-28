@@ -25,7 +25,7 @@ use gpui::{
 };
 
 /// Input to the layout: a run of styled text or a widget box.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Piece {
     /// Text with its style runs.
     Text {
