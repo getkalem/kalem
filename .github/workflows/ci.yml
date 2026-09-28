@@ -114,10 +114,10 @@ jobs:
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
       - name: Core corpus
         run: |
-          find tests/corpus -name '*.org' -print0 | xargs -0 ./target/release/kalem diff-emacs --summary
+          find tests/corpus \( -name '*.org' -o -name '*.klm' \) -print0 | xargs -0 ./target/release/kalem diff-emacs --summary
       - name: Core corpus, document model
         run: |
-          find tests/corpus -name '*.org' -print0 | xargs -0 ./target/release/kalem diff-emacs --model --summary
+          find tests/corpus \( -name '*.org' -o -name '*.klm' \) -print0 | xargs -0 ./target/release/kalem diff-emacs --model --summary
       - name: Extended corpus (Worg and Org)
         run: |
           tests/corpus/fetch-extended.sh

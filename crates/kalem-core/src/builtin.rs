@@ -2351,6 +2351,157 @@ mod tests {
         assert!(run(plain, 2, on, &["table.nextField"]).starts_with("| a | b |"));
     }
 
+    /// The formatting commands with arguments that work.
+    const FORMATTING: &[(&str, &str)] = &[
+        ("format.font", r#"{"family": "Georgia"}"#),
+        ("format.size", r#"{"size": "14"}"#),
+        ("format.color", r#"{"color": "red"}"#),
+        ("format.highlight", r#"{"color": "yellow"}"#),
+        ("format.grow", "{}"),
+        ("format.shrink", "{}"),
+        ("format.clear", "{}"),
+        ("format.align", r#"{"align": "right"}"#),
+        ("format.alignLeft", "{}"),
+        ("format.alignCenter", "{}"),
+        ("format.alignRight", "{}"),
+        ("format.justify", "{}"),
+        ("format.documentFont", r#"{"family": "Georgia"}"#),
+        ("format.documentSize", r#"{"size": "12"}"#),
+        ("format.lineSpacing", r#"{"spacing": "1.5"}"#),
+        ("format.spaceBefore", r#"{"points": "12"}"#),
+        ("format.spaceAfter", r#"{"points": "6"}"#),
+    ];
+
+    /// Runs the formatting commands `ops` (a command of [`FORMATTING`]
+    /// and a selection) on `text` saved as `path`; the text after.
+    fn format_ops(text: &str, path: &str, ops: &[(usize, usize, usize)]) -> String {
+        let mut d = doc(text, 0);
+        d.meta.path = Some(std::path::PathBuf::from(path));
+        let reg = CommandRegistry::with_builtins();
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        for &(c, a, h) in ops {
+            let len = d.text().len();
+            let fix = |p: usize| {
+                let t = d.text().as_str();
+                let mut p = p % (len + 1);
+                while !t.is_char_boundary(p) {
+                    p -= 1;
+                }
+                p
+            };
+            let (a, h) = (fix(a), fix(h));
+            d.selection = org_edit::Selection { anchor: a, head: h };
+            let (id, args) = FORMATTING[c % FORMATTING.len()];
+            let mut ctx = EditorContext {
+                document: Some(&mut d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            let _ = reg.execute(id, &mut ctx, &serde_json::from_str(args).unwrap());
+        }
+        d.text().as_str().to_string()
+    }
+
+    const FORMAT_TEXT: &str =
+        "#+TITLE: T\n\nSome words here, and there.\n\n| a | b |\n\n* Head\nMore çok text.\n";
+
+    #[test]
+    fn formatting_writes_markup_only_where_allowed() {
+        // Every command writes Kalem's markup into a Kalem document…
+        for (c, (id, _)) in FORMATTING.iter().enumerate() {
+            // Clearing, and aligning left as paragraphs are, write nothing.
+            if matches!(*id, "format.clear" | "format.alignLeft") {
+                continue;
+            }
+            let out = format_ops(FORMAT_TEXT, "/k/n.klm", &[(c, 12, 17)]);
+            // (Centering writes Org's own center block.)
+            let center = out.contains("#+begin_center");
+            assert!(
+                center || !crate::kinds::markup(&org_syntax::parse(&out).syntax()).is_empty(),
+                "{id}: {out}"
+            );
+        }
+        // …and into a `.org` file that opted in.
+        let opted = format!("#+KALEM: markup=yes\n{FORMAT_TEXT}");
+        let out = format_ops(&opted, "/k/n.org", &[(2, 32, 37)]);
+        assert!(out.contains("@@kalem:"), "{out}");
+    }
+
+    /// Every construct Kalem's formatting commands write, in
+    /// `tests/corpus/klm/written.klm`, which the differential test against
+    /// Emacs parses (`kalem diff-emacs`): each is one that org-element
+    /// reads as Kalem does. `KALEM_WRITE_CORPUS=1` writes the file anew.
+    #[test]
+    fn constructs_kalem_writes() {
+        let text = "* Heading\n\nOne two three four five six seven *bold* /it/ and =code= here.\n\nLeft.\n\nRight.\n\nCentered.\n\nJustified.\n\nSpaced.\n\n| cell | other |\n\n- item words\n";
+        let at = |w: &str| text.find(w).unwrap();
+        let word = |w: &str, c: usize| (c, at(w), at(w) + w.len());
+        let idx = |id: &str| FORMATTING.iter().position(|(c, _)| *c == id).unwrap();
+        let ops = [
+            word("two", idx("format.font")),
+            word("three", idx("format.size")),
+            word("four", idx("format.color")),
+            word("five", idx("format.highlight")),
+            word("six", idx("format.grow")),
+            word("*bold* /it", idx("format.color")),
+            word("=code=", idx("format.highlight")),
+            word("Heading", idx("format.color")),
+            word("words", idx("format.color")),
+            word("Right", idx("format.alignRight")),
+            word("Centered", idx("format.alignCenter")),
+            word("Justified", idx("format.justify")),
+            word("Spaced", idx("format.spaceBefore")),
+            word("Spaced", idx("format.spaceAfter")),
+            (idx("format.documentFont"), 0, 0),
+            (idx("format.documentSize"), 0, 0),
+            (idx("format.lineSpacing"), 0, 0),
+        ];
+        // Each operation on the text as the ones before left it.
+        let mut out = text.to_string();
+        for (c, a, h) in ops {
+            let w = &text[a..h];
+            let (a, h) = if a == h {
+                (0, 0)
+            } else {
+                let i = out.find(w).unwrap();
+                (i, i + w.len())
+            };
+            out = format_ops(&out, "/k/n.klm", &[(c, a, h)]);
+        }
+        let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/corpus/klm/written.klm");
+        if std::env::var_os("KALEM_WRITE_CORPUS").is_some() {
+            std::fs::write(&file, &out).unwrap();
+        }
+        assert_eq!(out, std::fs::read_to_string(&file).unwrap_or_default());
+        let (strict, counts) = crate::kinds::strip_markup(&out);
+        assert!(counts.iter().all(|&n| n > 0), "{counts:?}");
+        assert!(
+            !strict.contains("kalem") && !strict.contains("KALEM"),
+            "{strict}"
+        );
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(64))]
+        /// A `.org` file that did not opt in never gets Kalem's markup,
+        /// whatever formatting is asked for.
+        #[test]
+        fn strict_org_stays_strict(
+            ops in proptest::collection::vec((0usize..64, 0usize..96, 0usize..96), 1..8),
+        ) {
+            let out = format_ops(FORMAT_TEXT, "/k/n.org", &ops);
+            proptest::prop_assert_eq!(out, FORMAT_TEXT);
+            let out = format_ops(FORMAT_TEXT, "/k/n.ORG_ARCHIVE", &ops);
+            proptest::prop_assert_eq!(out, FORMAT_TEXT);
+        }
+    }
+
     #[test]
     fn colors_used_are_remembered() {
         use crate::command::Request;
