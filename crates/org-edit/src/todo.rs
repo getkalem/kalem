@@ -62,6 +62,29 @@ pub struct TodoSettings {
     pub adapt_indentation: bool,
     /// `org-priority-start-cycle-with-default`.
     pub priority_start_cycle_with_default: bool,
+    /// `org-enforce-todo-dependencies`: a task is not marked done while a
+    /// task below it is not done, or while an earlier sibling is not done
+    /// under a parent with the `ORDERED` property.
+    pub enforce_todo_dependencies: bool,
+    /// `org-enforce-todo-checkbox-dependencies`: a task is not marked done
+    /// while a checkbox in its entry is not checked.
+    pub enforce_todo_checkbox_dependencies: bool,
+    /// `org-todo-state-tags-triggers`: tags set (`true`) or removed on
+    /// entering a state.
+    pub todo_state_tags_triggers: Vec<(TagTrigger, Vec<(String, bool)>)>,
+}
+
+/// The states of `org-todo-state-tags-triggers`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TagTrigger {
+    /// No keyword (`""`).
+    NoKeyword,
+    /// This keyword.
+    Keyword(String),
+    /// Any not-done keyword (`todo`).
+    Todo,
+    /// Any done keyword (`done`).
+    Done,
 }
 
 impl Default for TodoSettings {
@@ -76,6 +99,9 @@ impl Default for TodoSettings {
             repeat_to_state: RepeatToState::Head,
             adapt_indentation: false,
             priority_start_cycle_with_default: true,
+            enforce_todo_dependencies: false,
+            enforce_todo_checkbox_dependencies: false,
+            todo_state_tags_triggers: Vec::new(),
         }
     }
 }
@@ -459,6 +485,124 @@ fn toggle_comment(buf: &mut Buf, h: usize, commented: bool, ctx: &ParseContext) 
     }
 }
 
+/// `org-blocker-hook` with `org-block-todo-from-children-or-siblings-or-parent`
+/// and `org-block-todo-from-checkboxes`, as the two settings add them: why
+/// the change of the headline at `h` from `this` to `state` is blocked
+/// (the blocking headline in quotes, or "contained checkboxes"), if it is.
+/// `text` is the document's text.
+fn blocked(
+    doc: &Document,
+    text: &str,
+    h: usize,
+    this: Option<&str>,
+    state: Option<&str>,
+    opts: &TodoOptions<'_>,
+    kw: &Keywords<'_>,
+) -> Option<String> {
+    let settings = opts.settings;
+    if !settings.enforce_todo_dependencies && !settings.enforce_todo_checkbox_dependencies {
+        return None;
+    }
+    let outline = doc.outline();
+    let entry = outline.entry_at(h);
+    if doc
+        .entry_get(entry, "NOBLOCKING", Inherit::No, false)
+        .is_some()
+    {
+        return None;
+    }
+    // Only a change to a done state from a state that is not done.
+    if kw.is_done(this) || !kw.is_done(state) {
+        return None;
+    }
+    let heads = crate::headline::headings(text, None);
+    let i = heads.iter().position(|(s, _)| *s == h)?;
+    let level = heads[i].1;
+    let not_done =
+        |start: usize, stars: usize| kw.is_not_done(keyword_at(text, start + stars, kw).0);
+    let heading = |start: usize, stars: usize| {
+        let eol = line_end(text, start);
+        text[start + stars..eol].trim().to_string()
+    };
+    if settings.enforce_todo_dependencies {
+        // A task below that is not done.
+        for &(start, stars) in heads[i + 1..].iter().take_while(|(_, n)| *n > level) {
+            if not_done(start, stars) {
+                return Some(format!("\"{}\"", heading(start, stars)));
+            }
+        }
+        // An earlier task not done under a parent with ORDERED, or under
+        // an ancestor with ORDERED while the ones between are tasks not
+        // done.
+        let up = |j: usize| heads[..j].iter().rposition(|(_, n)| *n < heads[j].1);
+        let ordered = |p: usize| {
+            doc.entry_get(outline.entry_at(heads[p].0), "ORDERED", Inherit::No, false)
+                .is_some()
+        };
+        let mut j = i;
+        while let Some(p) = up(j) {
+            if ordered(p)
+                && let Some(&(s, n)) = heads[p + 1..j].iter().find(|(s, n)| not_done(*s, *n))
+            {
+                return Some(if j == i {
+                    format!("\"{}\"", text[s..line_end(text, s)].trim_end())
+                } else {
+                    format!("\"{}\"", heading(s, n))
+                });
+            }
+            if !not_done(heads[p].0, heads[p].1) {
+                break;
+            }
+            j = p;
+        }
+    }
+    if settings.enforce_todo_checkbox_dependencies {
+        let end = heads.get(i + 1).map_or(text.len(), |(s, _)| *s);
+        let unchecked = doc.parse().syntax().descendants().any(|n| {
+            let start = usize::from(n.text_range().start());
+            start > h
+                && start < end
+                && <org_syntax::ast::Item as org_syntax::ast::AstNode>::cast(n)
+                    .and_then(|it| it.checkbox())
+                    .is_some_and(|c| c != org_syntax::ast::Checkbox::On)
+        });
+        if unchecked {
+            return Some("contained checkboxes".into());
+        }
+    }
+    None
+}
+
+/// `org-todo-trigger-tag-changes`: the tags `org-todo-state-tags-triggers`
+/// sets and removes on entering `state`.
+fn trigger_tag_changes(
+    buf: &mut Buf,
+    h: usize,
+    state: Option<&str>,
+    settings: &TodoSettings,
+    kw: &Keywords<'_>,
+) {
+    let l = &settings.todo_state_tags_triggers;
+    if l.is_empty() {
+        return;
+    }
+    let find = |t: &TagTrigger| l.iter().find(|(k, _)| k == t).map(|(_, c)| c.as_slice());
+    let mut changes: Vec<&(String, bool)> = Vec::new();
+    match state {
+        None | Some("") => changes.extend(find(&TagTrigger::NoKeyword).unwrap_or(&[])),
+        Some(s) => changes.extend(find(&TagTrigger::Keyword(s.to_string())).unwrap_or(&[])),
+    }
+    if kw.is_not_done(state) {
+        changes.extend(find(&TagTrigger::Todo).unwrap_or(&[]));
+    }
+    if kw.is_done(state) {
+        changes.extend(find(&TagTrigger::Done).unwrap_or(&[]));
+    }
+    for (tag, on) in changes {
+        crate::tags::toggle_at(buf, h, tag, Some(*on), kw.ctx);
+    }
+}
+
 /// A log entry set up by `org-add-log-setup`, written after the command.
 #[derive(Debug, Clone)]
 struct LogSetup {
@@ -604,6 +748,13 @@ fn change_state(
             }
         }
     };
+    if !nested && let Some(reason) = blocked(doc, &buf.text, h, this, state, opts, &kw) {
+        return Err(EditError::new(&format!(
+            "TODO state change from {} to {} blocked (by {reason})",
+            this.unwrap_or("nil"),
+            state.unwrap_or("nil")
+        )));
+    }
     let next = match state {
         Some(s) if !s.is_empty() => format!(" {s} "),
         _ => " ".to_string(),
@@ -669,6 +820,7 @@ fn change_state(
             });
         }
     }
+    trigger_tag_changes(buf, h, state, opts.settings, &kw);
     align_tags(buf, h);
     update_parent_todo_statistics(buf, doc, h, stars);
     let h = buf.marker(hm);

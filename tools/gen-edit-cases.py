@@ -1175,9 +1175,93 @@ def random_sort_cases(n=100, seed=7):
     return out
 
 
+
+DEPS_DOC = """#+TODO: TODO NEXT | DONE CANCELLED
+* TODO Parent
+** DONE a
+** TODO b
+*** TODO b1
+* TODO Ordered
+:PROPERTIES:
+:ORDERED: t
+:END:
+** TODO first
+** NEXT second
+*** DONE s1
+** DONE third
+** fourth
+* TODO Not ordered
+:PROPERTIES:
+:ORDERED: nil
+:END:
+** TODO x
+** TODO y
+* TODO Top
+:PROPERTIES:
+:ORDERED: t
+:END:
+** TODO one
+** TODO two
+*** TODO deep
+**** DONE deeper
+* TODO Free
+:PROPERTIES:
+:NOBLOCKING: t
+:END:
+** TODO child
+* NEXT Boxes :home:
+- [X] done
+- [ ] open
+  - [-] partial
+* TODO Checked :x:
+- [X] all
+#+begin_example
+- [ ] in a block
+#+end_example
+* Plain
+** TODO under plain
+** DONE done under plain
+*** TODO open below done
+"""
+
+BLOCKERS = {
+    "deps": ("(org-enforce-todo-dependencies t) (org-blocker-hook '(org-block-todo-from-children-or-siblings-or-parent))", {"enforce": True}),
+    "boxes": ("(org-enforce-todo-checkbox-dependencies t) (org-blocker-hook '(org-block-todo-from-checkboxes))", {"enforce_checkbox": True}),
+    "both": ("(org-enforce-todo-dependencies t) (org-enforce-todo-checkbox-dependencies t) (org-blocker-hook '(org-block-todo-from-children-or-siblings-or-parent org-block-todo-from-checkboxes))", {"enforce": True, "enforce_checkbox": True}),
+    "triggers": ("(org-todo-state-tags-triggers '((done (\"home\") (\"closed\" . t)) (\"\" (\"x\") (\"none\" . t)) (\"NEXT\" (\"next\" . t)) (todo (\"closed\")) (\"CANCELLED\" (\"cancelled\" . t))))", {"triggers": [["done", [["home", False], ["closed", True]]], ["", [["x", False], ["none", True]]], ["NEXT", [["next", True]]], ["todo", [["closed", False]]], ["CANCELLED", [["cancelled", True]]]]}),
+}
+
+DEPS_FORMS = [
+    ("(org-todo 'done)", {"todo": "done"}),
+    ('(org-todo "CANCELLED")', {"todo": "state:CANCELLED"}),
+    ("(org-todo 'right)", {"todo": "right"}),
+    ("(org-todo 'none)", {"todo": "none"}),
+    ('(org-todo "NEXT")', {"todo": "state:NEXT"}),
+    ("(let ((org-use-fast-todo-selection nil)) (org-todo))", {"todo": "cycle"}),
+]
+
+
+def todo_dependency_cases():
+    """`org-enforce-todo-dependencies', checkbox dependencies and
+    `org-todo-state-tags-triggers'."""
+    out = []
+    for start, line in byte_offsets_of_lines(DEPS_DOC):
+        if not line.startswith(b"*"):
+            continue
+        for key, (binding, extra) in BLOCKERS.items():
+            for form, args in DEPS_FORMS:
+                full = f"(let ({binding}) {form})"
+                out.append({"name": f"deps {key}@{start} {form}", "text": DEPS_DOC, "point": start, "mark": None, "form": full, "cmd": "todo", "args": [dict(args, **extra)], "note": None})
+    # `org-toggle-ordered-property', at the heading and inside the entry.
+    for start, line in byte_offsets_of_lines(DEPS_DOC):
+        out.append({"name": f"deps ordered@{start}", "text": DEPS_DOC, "point": start, "mark": None, "form": "(org-toggle-ordered-property)", "cmd": "toggle-ordered", "args": []})
+    for text in ("* A\n:PROPERTIES:\n:ORDERED: t\n:ordered+: x\n:END:\nBody\n", "* A\nSCHEDULED: <2026-09-28 Mon>\n  :PROPERTIES:\n  :ID: 1\n  :ORDERED:  t\n  :END:\n", "* A\n:PROPERTIES:\n:ORDERED: nil\n:END:", "* A"):
+        out.append({"name": f"ordered {text!r}", "text": text, "point": 2, "mark": None, "form": "(org-toggle-ordered-property)", "cmd": "toggle-ordered", "args": []})
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")

@@ -92,7 +92,13 @@ pub fn set_tags(doc: &Document, point: usize, tags: &[String]) -> Result<Transac
 
 /// Toggle one tag (`org-toggle-tag`) on the heading at `h`; `on` forces
 /// a state. Returns whether the tag is set.
-fn toggle_at(buf: &mut Buf, h: usize, tag: &str, on: Option<bool>, ctx: &ParseContext) -> bool {
+pub(crate) fn toggle_at(
+    buf: &mut Buf,
+    h: usize,
+    tag: &str,
+    on: Option<bool>,
+    ctx: &ParseContext,
+) -> bool {
     let mut current = local_tags(&buf.text, h, ctx);
     let present = current.iter().any(|t| t == tag);
     let add = match on {
