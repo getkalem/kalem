@@ -85,7 +85,7 @@ A lightweight, fast, single-binary, open source desktop editor that lets people 
 | G6 | **Extensible.** Plugins add real features (block types, link types, views, exporters, checks) through Org's own extension points, so documents stay valid Org. Command registry, events, JavaScript plugins; later Lua and WASM. |
 | G7 | **Coexists with Emacs.** The same file can be edited alternately in both applications without diff noise. |
 | G8 | **Reusable.** The parser and exporters are published as independent crates. |
-| G9 | **Usable from the terminal.** A terminal frontend with the same editing semantics, plus a scriptable command line and batch mode. |
+| G9 | **Usable from the terminal, never second class.** A terminal frontend with the same editing semantics and the same features wherever a terminal can carry them (4.1, principle 7), plus a scriptable command line and batch mode. |
 | G10 | **A general purpose text editor too.** Markdown files open in a WYSIWYG view like Org's, CSV files in an editable grid, and every other text file as plain text with syntax highlighting, so Kalem can be the only editor someone needs for notes, tables, configuration files and small code edits. |
 | G11 | **Beyond Emacs's limits.** Every file Emacs opens, Kalem opens with the same meaning; the reverse is not required. Kalem does not inherit Emacs's implementation limits (size, speed, nesting depth, regexp length, blocking work). See 3.6. |
 
@@ -475,6 +475,7 @@ The terminal shows colors and highlights and aligns short lines; it cannot show 
 4. **Deterministic and testable.** Time, filesystem and randomness are injected.
 5. **Lightness is a feature.** Every new dependency is justified by its effect on binary size and startup time.
 6. **Superset of Emacs, not a copy of its limits.** Same meaning for every file Emacs opens; none of Emacs's implementation limits (3.6).
+7. **The terminal is never second class** (asked by the owner, 2026-09-28). Wherever it is possible, the terminal frontend supports a feature as strongly as the graphical one: the same commands, keymaps, settings, panels and plugins, and a terminal form for everything a character grid can carry (text, glyphs, colors, images through the graphics protocols, OSC 8 links, OSC 52 clipboard). A feature lands in both frontends together and is done only when it works in both; what the terminal cannot show (fonts, sizes, pixel layout) gets its nearest honest form and is listed in `docs/terminal-parity.org`, never dropped silently. People over SSH and in tmux (P6) are first-class users.
 
 ### 4.2 Crate map
 
@@ -874,7 +875,7 @@ The modal engine is independent of any UI and of Org. If no suitable crate exist
 
 ### 7.6 Terminal frontend: kalem-tui
 
-`kalem tui file.org` (or `kalem -t file.org`) opens the same editor in the terminal. It uses the same `kalem-core`, the same commands, keymaps, settings and plugins as the graphical frontend. Only the rendering differs.
+`kalem tui file.org` (or `kalem -t file.org`) opens the same editor in the terminal. It uses the same `kalem-core`, the same commands, keymaps, settings and plugins as the graphical frontend. Only the rendering differs. The terminal is never second class (4.1, principle 7): a feature is done when it works in both frontends, and what the grid cannot show is listed in `docs/terminal-parity.org`.
 
 **Rendering in a character grid:**
 
