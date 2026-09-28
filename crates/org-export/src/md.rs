@@ -461,6 +461,10 @@ impl Backend for Markdown {
         Html.options()
     }
 
+    fn filter_final_output(&self, _: &mut Exporter<'_>, out: String) -> String {
+        out.replace(crate::kalem::END_MARK, "")
+    }
+
     fn filter_parse_tree(&self, ex: &mut Exporter<'_>) {
         // The parent's filter, `org-html-image-link-filter`, runs after.
         separate_elements(ex);

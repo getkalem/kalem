@@ -277,7 +277,7 @@ impl Html {
             .secondary(id, Secondary::Title)
             .map(<[Id]>::to_vec)
             .unwrap_or_default();
-        ex.data_list(&ids)
+        crate::kalem::finish(&ex.data_list(&ids))
     }
 
     /// `org-html-toc`.
@@ -313,7 +313,7 @@ impl Html {
             .secondary(h, Secondary::Title)
             .map(<[Id]>::to_vec)
             .unwrap_or_default();
-        let text = ex.with_backend(&TocEntry, |ex| ex.data_list(&ids));
+        let text = crate::kalem::finish(&ex.with_backend(&TocEntry, |ex| ex.data_list(&ids)));
         let tags = if ex.opt("with-tags") == Value::T {
             Self::tags_html(&ex.tags(h, &[], false))
         } else {
@@ -770,7 +770,7 @@ impl Html {
         let table = ex.tree.parent(row).expect("a table");
         let align = format!(" class=\"org-{}\"", ex.cell_alignment(id));
         let contents = match contents {
-            Some(c) if !trim(&c).is_empty() => c,
+            Some(c) if !trim(&c).is_empty() => crate::kalem::finish(&c),
             _ => "&#xa0;".to_string(),
         };
         if ex.table_has_header(table) && ex.row_group(row) == Some(1) {
@@ -781,9 +781,26 @@ impl Html {
     }
 
     fn paragraph(&self, ex: &mut Exporter<'_>, id: Id, contents: String) -> String {
+        let contents = crate::kalem::finish(&contents);
         let parent = ex.tree.parent(id);
         let parent_kind = parent.and_then(|p| ex.tree.kind(p));
-        let attrs = attribute_string(&read_attribute(ex, id, "ATTR_HTML"));
+        let mut attributes = read_attribute(ex, id, "ATTR_HTML");
+        // Kalem's alignment: `#+ATTR_KALEM: :align right`.
+        if let Some(align) = read_attribute(ex, id, "ATTR_KALEM")
+            .into_iter()
+            .find(|(k, _)| k == ":align")
+            .and_then(|(_, v)| v)
+            .map(|v| v.trim().to_ascii_lowercase())
+            .filter(|v| ["left", "right", "center", "justify"].contains(&v.as_str()))
+        {
+            let style = format!("text-align: {align}");
+            match attributes.iter_mut().find(|(k, _)| k == ":style") {
+                Some((_, Some(v))) => *v = format!("{}; {style}", v.trim_end_matches(';')),
+                Some((_, v)) => *v = Some(style),
+                None => attributes.push((":style".into(), Some(style))),
+            }
+        }
+        let attrs = attribute_string(&attributes);
         let extra = match parent_kind {
             Some(FOOTNOTE_DEFINITION) => " class=\"footpara\"",
             None => " class=\"footpara\"",
@@ -2039,6 +2056,13 @@ impl Backend for Html {
                     ex.syntax(id).and_then(|s| ast::AstNode::cast(s.clone()))?;
                 if s.backend() == "html" {
                     s.value()
+                } else if s.backend() == "kalem" {
+                    // Kalem's formatting; a span ends where its container
+                    // does at the latest (`kalem::finish`).
+                    match crate::kalem::Format::parse(&s.value()) {
+                        Some(f) => crate::kalem::open_tag(&f),
+                        None => crate::kalem::END_MARK.to_string(),
+                    }
                 } else {
                     return None;
                 }
@@ -2404,6 +2428,11 @@ impl Backend for Html {
         })
     }
 
+    fn filter_final_output(&self, _: &mut Exporter<'_>, out: String) -> String {
+        // A span end outside every paragraph, title and cell is dropped.
+        out.replace(crate::kalem::END_MARK, "")
+    }
+
     fn inner_template(&self, ex: &mut Exporter<'_>, body: String) -> String {
         let toc = match ex.opt("with-toc") {
             Value::Nil => None,
@@ -2571,6 +2600,11 @@ fn head(ex: &Exporter<'_>) -> String {
     let mut out = String::new();
     if ex.flag("html-head-include-default-style") {
         out.push_str(&normalize_string(STYLE));
+    }
+    // Kalem's document defaults (`#+KALEM: font=… size=… spacing=…`).
+    let defaults = crate::kalem::defaults(&ex.info.keywords).css();
+    if !defaults.is_empty() {
+        out.push_str(&format!("<style>\n#content {{ {defaults}; }}\n</style>\n"));
     }
     for prop in ["html-head", "html-head-extra"] {
         if let Some(v) = option_string(ex, prop) {
