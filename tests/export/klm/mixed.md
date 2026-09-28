@@ -1,7 +1,7 @@
 
 # Table of Contents
 
-1.  [A blue heading](#org3028fdc):tag:
+1.  [A blue heading](#org1f85fd9):tag:
 
 Kalem's formatting in the places Org allows: red **and
 bold marked inside** after, a
@@ -12,7 +12,7 @@ A keyword between two paragraphs.
 A paragraph with three affiliated keywords.
 
 
-<a id="org3028fdc"></a>
+<a id="org1f85fd9"></a>
 
 # A blue heading     :tag:
 
