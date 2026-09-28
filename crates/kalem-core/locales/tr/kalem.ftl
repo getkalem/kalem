@@ -543,3 +543,5 @@ msg-converting = pandoc ile dönüştürülüyor…
 msg-pandoc-failed = pandoc dönüştüremedi: { $error }
 msg-imported = { $path } olarak içe aktarıldı
 msg-import-exists = { $path } zaten var
+cite-bibliography-unreadable = { $file } kaynakçası okunamıyor: { $error }
+cite-unknown-key = Hiçbir kaynakçada @{ $key } anahtarı yok

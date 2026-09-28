@@ -3627,6 +3627,7 @@ dependencies = [
  "clap",
  "jiff",
  "kalem-core",
+ "org-cite",
  "org-edit",
  "org-export",
  "org-model",
@@ -4882,6 +4883,13 @@ checksum = "9aa2b01e1d916879f73a53d01d1d6cee68adbb31d6d9177a8cfce093cced1d50"
 dependencies = [
  "futures-core",
  "pin-project-lite",
+]
+
+[[package]]
+name = "org-cite"
+version = "0.0.1"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]

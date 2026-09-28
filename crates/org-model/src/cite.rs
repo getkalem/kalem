@@ -175,7 +175,10 @@ mod tests {
         assert_eq!(d.cited_keys(), ["a", "b", "c"]);
         assert_eq!(
             d.bibliography(Some(Path::new("/doc"))),
-            [PathBuf::from("/doc/refs.bib"), PathBuf::from("/abs/more refs.bib")]
+            [
+                PathBuf::from("/doc/refs.bib"),
+                PathBuf::from("/abs/more refs.bib")
+            ]
         );
         assert_eq!(
             d.cite_export(),

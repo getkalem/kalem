@@ -1,0 +1,17 @@
+[package]
+name = "org-cite"
+description = "Org mode citations: BibTeX and CSL-JSON bibliographies, and the processors that render citations and bibliographies"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["org-mode", "emacs", "bibtex", "citations"]
+categories = ["text-processing"]
+
+[dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true

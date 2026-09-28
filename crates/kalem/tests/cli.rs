@@ -276,3 +276,33 @@ fn pandoc_bridge() {
     let (code, _, err) = kalem(&["import", html.to_str().unwrap()]);
     assert_eq!(code, 1, "{err}");
 }
+
+/// `kalem check` reads the bibliography and warns about unknown keys.
+#[test]
+fn citation_checks() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-cite-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("refs.bib"),
+        "@book{knuth84, title = {The {\\TeX}book}, year = 1984}\n",
+    )
+    .unwrap();
+    let org = dir.join("doc.org");
+    std::fs::write(
+        &org,
+        "#+bibliography: refs.bib\n#+bibliography: gone.bib\n\nSee [cite:@knuth84; @missing].\n",
+    )
+    .unwrap();
+    let (code, out, _) = kalem(&["check", org.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    assert!(
+        out.contains(":2:1: warning[bibliography-unreadable]"),
+        "{out}"
+    );
+    assert!(
+        out.contains(":4:5: warning[cite-unknown-key]: No bibliography has the key @missing"),
+        "{out}"
+    );
+    assert!(!out.contains("knuth84"), "{out}");
+}

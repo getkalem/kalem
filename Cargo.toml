@@ -19,6 +19,7 @@ org-edit = { path = "crates/org-edit", version = "0.0.1" }
 org-table = { path = "crates/org-table", version = "0.0.1" }
 org-math = { path = "crates/org-math", version = "0.0.1" }
 org-export = { path = "crates/org-export", version = "0.0.1" }
+org-cite = { path = "crates/org-cite", version = "0.0.1" }
 kalem-cli = { path = "crates/kalem-cli", version = "0.0.1" }
 kalem-core = { path = "crates/kalem-core", version = "0.0.1" }
 kalem-project = { path = "crates/kalem-project", version = "0.0.1" }

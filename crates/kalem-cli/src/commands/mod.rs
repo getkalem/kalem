@@ -38,6 +38,69 @@ pub(crate) fn line_col(text: &str, offset: usize) -> (usize, usize) {
     (line, col)
 }
 
+/// Warnings about citations: `#+BIBLIOGRAPHY` files that cannot be read,
+/// and cited keys none of the files has.
+fn citation_diagnostics(text: &str, file: &std::path::Path) -> Vec<org_syntax::Diagnostic> {
+    let doc = org_model::Document::new(org_syntax::parse_file(text, file));
+    let dir = file.parent().filter(|d| !d.as_os_str().is_empty());
+    let files = doc.bibliography(dir);
+    let citations = doc.citations();
+    if files.is_empty() && citations.is_empty() {
+        return Vec::new();
+    }
+    let range = |r: std::ops::Range<usize>| {
+        org_syntax::TextRange::new(
+            org_syntax::TextSize::from(r.start as u32),
+            org_syntax::TextSize::from(r.end as u32),
+        )
+    };
+    let mut out = Vec::new();
+    let (bib, errors) = org_cite::Bibliography::load(&files);
+    // A keyword's range: its line.
+    let keyword_line = |name: &str| {
+        text.lines()
+            .scan(0, |at, l| {
+                let start = *at;
+                *at += l.len() + 1;
+                Some((start, l))
+            })
+            .find(|(_, l)| {
+                l.to_ascii_lowercase().starts_with("#+bibliography:") && l.contains(name)
+            })
+            .map_or(0..0, |(s, l)| s..s + l.len())
+    };
+    for (path, e) in &errors {
+        let name = path
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        out.push(org_syntax::Diagnostic {
+            range: range(keyword_line(&name)),
+            severity: org_syntax::Severity::Warning,
+            code: "bibliography-unreadable",
+            message: kalem_core::tr!(
+                "cite-bibliography-unreadable",
+                file = path.display().to_string(),
+                error = e.clone()
+            ),
+        });
+    }
+    if files.len() > errors.len() {
+        for c in citations {
+            for k in &c.keys {
+                if bib.get(k).is_none() {
+                    out.push(org_syntax::Diagnostic {
+                        range: range(c.range.clone()),
+                        severity: org_syntax::Severity::Warning,
+                        code: "cite-unknown-key",
+                        message: kalem_core::tr!("cite-unknown-key", key = k.clone()),
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
 pub(crate) fn check(
     files: &[std::path::PathBuf],
     json: bool,
@@ -69,6 +132,9 @@ pub(crate) fn check(
             }
             diags.sort_by_key(|d| d.range.start());
         }
+        // Citations: the bibliography files, and keys none of them has.
+        diags.extend(citation_diagnostics(&text, f));
+        diags.sort_by_key(|d| d.range.start());
         if !roundtrip {
             failed = true;
         }
