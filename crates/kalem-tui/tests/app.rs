@@ -1943,3 +1943,21 @@ fn editing_properties() {
         "* A\n:PROPERTIES:\n:ID: 42\n:Effort:   2:30\n:END:\nBody\n"
     );
 }
+
+#[test]
+fn drawers_and_export_blocks() {
+    let text = "Intro.\n#+begin_export html\n<b>x</b>\n#+end_export\n";
+    let mut t = with_config(text, Config::default(), (60, 10));
+    t.at(0);
+    // Away from the cursor, an export block shows its back-end.
+    assert!(screen(&mut t).join("\n").contains("export html"), "{:?}", screen(&mut t));
+    // A drawer at the cursor, the cursor inside it.
+    t.at(6);
+    t.app
+        .run_command("org.insert.drawer", serde_json::json!({"name": "NOTES"}));
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "Intro.\n:NOTES:\n\n:END:\n\n#+begin_export html\n<b>x</b>\n#+end_export\n"
+    );
+    assert_eq!(t.app.doc.selection.head, 15);
+}

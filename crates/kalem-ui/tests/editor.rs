@@ -1857,3 +1857,18 @@ fn editing_properties(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("enter");
     assert_eq!(text_of(&e, cx), "* A\n:PROPERTIES:\n:ID:       7\n:END:\n");
 }
+
+#[gpui::test]
+fn inserting_drawers(cx: &mut TestAppContext) {
+    let (e, cx) = open("One.\nTwo.\n", cx);
+    e.update(cx, |e, cx| {
+        e.doc.move_cursor(0, false);
+        e.doc.move_cursor(9, true);
+        e.after_change(cx);
+    });
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.insert.drawer", serde_json::json!({"name": "LOGBOOK"}), window, cx)
+    });
+    cx.run_until_parked();
+    assert_eq!(text_of(&e, cx), ":LOGBOOK:\nOne.\nTwo.\n:END:\n");
+}

@@ -2155,12 +2155,8 @@ impl Editor {
 
     /// The highlighting of the source block `b`, if its language is known.
     pub fn code_spans(&self, b: &Block) -> Option<(usize, CodeSpans)> {
-        let BlockKind::Code {
-            language: Some(lang),
-        } = &b.kind
-        else {
-            return None;
-        };
+        let lang = b.kind.highlight_language()?.to_string();
+        let lang = &lang;
         let text = self.doc.text();
         let first = text.line_of(b.range.start);
         let last = text.line_of(b.content_end.saturating_sub(1).max(b.range.start));

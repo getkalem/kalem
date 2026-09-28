@@ -295,6 +295,86 @@ pub fn insert_horizontal_rule(doc: &Document, point: usize) -> Transaction {
     buf.transaction("Insert horizontal rule")
 }
 
+/// `org-insert-drawer` with a name: an empty drawer on its own lines at
+/// point, point inside it; with a region (`mark`), the drawer around its
+/// lines, point at the end of the last one. Drawers cannot hold
+/// headlines.
+pub fn insert_drawer(
+    text: &str,
+    point: usize,
+    mark: Option<usize>,
+    name: &str,
+) -> Result<Transaction, EditError> {
+    if name.is_empty()
+        || !name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(EditError::new("Invalid drawer name"));
+    }
+    let bol = |t: &str, p: usize| t[..p].rfind('\n').map_or(0, |i| i + 1);
+    let mut buf = Buf::new(text, point);
+    match mark.filter(|&m| m != point) {
+        None => {
+            let p = buf.point;
+            if !(p == 0 || buf.text.as_bytes()[p - 1] == b'\n') {
+                buf.insert_at_point("\n");
+            }
+            let start = buf.point;
+            buf.insert_at_point(&format!(":{name}:\n\n:END:\n"));
+            buf.point = start + name.len() + 3;
+        }
+        Some(m) => {
+            let (rbeg, rend) = (point.min(m), point.max(m));
+            let rend = buf.add_marker(rend);
+            let start = bol(&buf.text, rbeg);
+            // A headline in the region.
+            let mut l = start;
+            while l < buf.marker(rend) {
+                let line = &buf.text[l..];
+                let stars = line.bytes().take_while(|&b| b == b'*').count();
+                if stars > 0
+                    && line.as_bytes().get(stars) == Some(&b' ')
+                    && l + stars < buf.marker(rend)
+                {
+                    // Org has moved to the region's first line.
+                    return Err(EditError {
+                        message: "Drawers cannot contain headlines".into(),
+                        point: Some(start),
+                    });
+                }
+                l = buf.text[l..]
+                    .find('\n')
+                    .map_or(buf.text.len(), |i| l + i + 1);
+            }
+            // The first non-blank line of the region.
+            let mut p = start;
+            while p < buf.text.len()
+                && matches!(buf.text.as_bytes()[p], b' ' | b'\t' | b'\n' | b'\r')
+            {
+                p += 1;
+            }
+            let p = bol(&buf.text, p);
+            buf.point = p;
+            buf.insert_at_point(&format!(":{name}:\n"));
+            // After the last non-blank character of the region.
+            let mut e = buf.marker(rend);
+            while e > 0 && matches!(buf.text.as_bytes()[e - 1], b' ' | b'\t' | b'\n' | b'\r') {
+                e -= 1;
+            }
+            buf.point = e;
+            buf.insert_at_point("\n:END:");
+            let q = buf.point;
+            if !(q == buf.text.len() || buf.text.as_bytes()[q] == b'\n') {
+                buf.insert_at_point("\n");
+            }
+            let end_at = buf.text[..buf.point].rfind(":END:").unwrap_or(0);
+            buf.point = end_at.saturating_sub(1);
+        }
+    }
+    Ok(buf.transaction("Insert Drawer"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

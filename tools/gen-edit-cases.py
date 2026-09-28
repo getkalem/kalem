@@ -1417,9 +1417,52 @@ def planning_cases():
                     out.append({"name": f"plan {d} {bool(binding)}@{start} {form}", "text": doc, "point": start, "mark": None, "form": full, "cmd": "schedule", "args": [a]})
     return out
 
+
+DRAWER_DOCS = [
+    "* A\nSome text.\nMore text.\n\nLast.\n",
+    "Plain line",
+    "* A\n\n  Indented.\n\n* B\nx\n",
+    "é text\nand more é\n",
+]
+
+
+# Regions Emacs re-indents (docs/known-differences.org, Drawers).
+KNOWN_DRAWER_DIFFERENCES = {
+    "drawer 2 17-18": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
+    "drawer 2 18-19": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
+    "drawer 2 6-17": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
+    "drawer 2 6-18": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
+    "drawer 2 6-19": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
+    "drawer 2 6-7": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
+    "drawer 2 7-17": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
+    "drawer 2 7-18": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
+    "drawer 2 7-19": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+}
+
+
+def drawer_cases():
+    """`org-insert-drawer' with a name, at point and around a region."""
+    out = []
+    for d, doc in enumerate(DRAWER_DOCS):
+        data = doc.encode()
+        offsets = [s for s, _ in byte_offsets_of_lines(doc)]
+        points = sorted({p for s in offsets for p in (s, min(s + 2, len(data)))})
+        points = [p for p in points if p <= len(data) and (p == len(data) or (data[p] & 0xC0) != 0x80)]
+        for p in points:
+            out.append({"name": f"drawer {d}@{p}", "text": doc, "point": p, "mark": None, "form": "(org-insert-drawer nil \"NOTES\")", "cmd": "drawer", "args": ["NOTES"]})
+        for a in points:
+            for b in points:
+                if b > a:
+                    out.append({"name": f"drawer {d} {a}-{b}", "text": doc, "point": b, "mark": a, "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))", "cmd": "drawer", "args": ["LOGBOOK"]})
+    for c in out:
+        if c["name"] in KNOWN_DRAWER_DIFFERENCES:
+            c["known"] = KNOWN_DRAWER_DIFFERENCES[c["name"]]
+    out.append({"name": "drawer bad name", "text": "x\n", "point": 1, "mark": None, "form": "(org-insert-drawer nil \"a b\")", "cmd": "drawer", "args": ["a b"]})
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")

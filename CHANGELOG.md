@@ -122,6 +122,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Footnotes: New Footnote (Ctrl+Alt+F), going between references and definitions, renumbering, sorting, normalizing and deleting, ported from `org-footnote.el` and identical to Emacs on 1,268 cases; `org.footnote_section`; the footnote's text shown for the reference at the cursor (and under the mouse in the graphical editor).
 - Schedule (Ctrl+Alt+S), Set Deadline, Remove Schedule and Remove Deadline in both editors, with the date picker, times of day and repeaters, identical to Emacs's `org-schedule` and `org-deadline` on 434 cases.
 - Edit Properties in both editors: the entry's properties as a key–value list to change, add to and remove from, the old value offered when a value is asked for.
+- Export blocks show their back-end and are colored in its language, comment blocks are dimmed, and Insert Drawer (at the cursor or around the selection, as `org-insert-drawer`, checked on 163 cases) is in both editors.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

@@ -516,12 +516,7 @@ impl<'a> Layout<'a> {
 
     /// The highlighting of the source block `b`, if its language is known.
     fn code(&self, b: &Block) -> Option<Arc<Code>> {
-        let BlockKind::Code {
-            language: Some(lang),
-        } = &b.kind
-        else {
-            return None;
-        };
+        let lang = b.kind.highlight_language()?;
         if let Some(c) = self.code.borrow().1.get(&b.range.start) {
             return c.clone();
         }
@@ -894,6 +889,8 @@ impl<'a> Layout<'a> {
         let framed = matches!(
             b.kind,
             BlockKind::Code { .. }
+                | BlockKind::Export { .. }
+                | BlockKind::CommentBlock
                 | BlockKind::Verbatim
                 | BlockKind::Quote
                 | BlockKind::Center
@@ -907,12 +904,9 @@ impl<'a> Layout<'a> {
         let line = self.text().as_str()[v.range.clone()].trim();
         let begin = line.len() >= 7 && line[..7].eq_ignore_ascii_case("#+begin");
         let label = if begin {
-            let rest = line[7..].trim_start_matches(['_', ':']).trim();
-            let mut words = rest.split_whitespace();
-            let first = words.next().unwrap_or("");
             match &b.kind {
-                BlockKind::Code { language } => language.clone().unwrap_or_default(),
-                _ => first.to_ascii_lowercase(),
+                BlockKind::Code { language: None } => String::new(),
+                k => k.label(line),
             }
         } else {
             String::new()
@@ -1023,7 +1017,7 @@ impl<'a> Layout<'a> {
         let s = self.text().line_start(line);
         let i = self.blocks.partition_point(|b| b.range.end <= s);
         self.blocks.get(i).is_some_and(|b| {
-            matches!(b.kind, BlockKind::Code { .. } | BlockKind::Verbatim) && s < b.content_end
+            (b.kind.is_code() || b.kind == BlockKind::CommentBlock) && s < b.content_end
         })
     }
 }

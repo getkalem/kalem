@@ -191,6 +191,18 @@ Ctrl+K inserts a link. Typing =[[= offers the document's headings and
 targets. Ctrl-click (Cmd-click on macOS) opens a link: web links in the
 browser, file links in Kalem or their application, internal links jump.
 
+** Blocks and drawers
+
+Away from the cursor, a block shows its kind on a thin first line: a
+source block its language, with a copy button; an export block its
+back-end (=export html=), its contents colored in that language; a
+comment block (=#+begin_comment=), which exports leave out, dimmed.
+Quote and verse blocks have a bar in the margin, center blocks are
+centered. Drawers fold to their first line with =…= and open when the
+cursor enters them. /Insert Drawer/ (Insert > Drawer) asks for a name and
+writes an empty drawer at the cursor, or around the selected lines, as
+Emacs's =org-insert-drawer= does.
+
 ** Footnotes
 
 /New Footnote/ (Ctrl+Alt+F, or Insert > Footnote) writes the next free

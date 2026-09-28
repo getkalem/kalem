@@ -730,8 +730,13 @@ impl LineBuilder<'_> {
                 FOOTNOTE_REFERENCE => style.footnote = true,
                 TARGET | RADIO_TARGET => style.target = true,
                 STATISTICS_COOKIE => style.cookie = true,
-                SRC_BLOCK | EXAMPLE_BLOCK | EXPORT_BLOCK | COMMENT_BLOCK | FIXED_WIDTH | TABLE => {
+                SRC_BLOCK | EXAMPLE_BLOCK | EXPORT_BLOCK | FIXED_WIDTH | TABLE => {
                     self.view.mono = true;
+                }
+                // A comment block is not exported: dimmed.
+                COMMENT_BLOCK => {
+                    self.view.mono = true;
+                    style.dim = true;
                 }
                 BLOCK_BEGIN | BLOCK_END => {
                     style.dim = true;
@@ -1084,6 +1089,13 @@ pub enum BlockKind {
     Center,
     /// A verse block.
     Verse,
+    /// An export block (`#+begin_export html`), with its back-end.
+    Export {
+        /// `html`, `latex`…
+        backend: Option<String>,
+    },
+    /// A comment block, left out of exports.
+    CommentBlock,
     /// A special block (`#+begin_note`).
     Special,
     /// A dynamic block.
@@ -1116,6 +1128,52 @@ pub enum BlockKind {
     Other,
 }
 
+impl BlockKind {
+    /// The language a block's lines are highlighted in: a source block's,
+    /// or the back-end of an export block (`html`, `latex`, `md`).
+    pub fn highlight_language(&self) -> Option<&str> {
+        match self {
+            BlockKind::Code { language } => language.as_deref(),
+            BlockKind::Export { backend } => match backend.as_deref()? {
+                "md" | "gfm" => Some("markdown"),
+                "ascii" | "utf-8" => None,
+                b => Some(b),
+            },
+            _ => None,
+        }
+    }
+
+    /// What the first line of a block shows away from the cursor: a
+    /// source block's language, `export html`, or the block's type
+    /// (`example`, `quote`) taken from `first_line`.
+    pub fn label(&self, first_line: &str) -> String {
+        match self {
+            BlockKind::Code { language } => language.clone().unwrap_or_else(|| "code".into()),
+            BlockKind::Export { backend } => match backend {
+                Some(b) => format!("export {b}"),
+                None => "export".into(),
+            },
+            _ => first_line
+                .trim()
+                .get(7..)
+                .unwrap_or("")
+                .trim_start_matches(['_', ':'])
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase(),
+        }
+    }
+
+    /// Code-like: monospace on a background, with a copy button.
+    pub fn is_code(&self) -> bool {
+        matches!(
+            self,
+            BlockKind::Code { .. } | BlockKind::Export { .. } | BlockKind::Verbatim
+        )
+    }
+}
+
 /// A block: whole source lines drawn together.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Block {
@@ -1139,7 +1197,20 @@ fn kind_of(n: &SyntaxNode) -> BlockKind {
         SRC_BLOCK => BlockKind::Code {
             language: ast::AstNode::cast(n.clone()).and_then(|b: ast::SrcBlock| b.language()),
         },
-        EXAMPLE_BLOCK | EXPORT_BLOCK | COMMENT_BLOCK | FIXED_WIDTH => BlockKind::Verbatim,
+        EXPORT_BLOCK => BlockKind::Export {
+            backend: n
+                .children()
+                .find(|c| c.kind() == BLOCK_BEGIN)
+                .and_then(|b| {
+                    b.text()
+                        .to_string()
+                        .split_whitespace()
+                        .nth(1)
+                        .map(str::to_ascii_lowercase)
+                }),
+        },
+        COMMENT_BLOCK => BlockKind::CommentBlock,
+        EXAMPLE_BLOCK | FIXED_WIDTH => BlockKind::Verbatim,
         QUOTE_BLOCK => BlockKind::Quote,
         CENTER_BLOCK => BlockKind::Center,
         VERSE_BLOCK => BlockKind::Verse,
@@ -1582,6 +1653,31 @@ impl Folds {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn export_and_comment_blocks() {
+        let t = "#+begin_export html\n<b>x</b>\n#+end_export\n#+begin_comment\nhidden\n#+end_comment\n#+begin_export md\n*x*\n#+end_export\n";
+        let p = org_syntax::parse(t);
+        let kinds: Vec<BlockKind> = blocks(&p.syntax(), p.context())
+            .into_iter()
+            .map(|b| b.kind)
+            .collect();
+        assert_eq!(
+            kinds[0],
+            BlockKind::Export {
+                backend: Some("html".into())
+            }
+        );
+        assert_eq!(kinds[1], BlockKind::CommentBlock);
+        assert_eq!(kinds[0].highlight_language(), Some("html"));
+        assert_eq!(kinds[2].highlight_language(), Some("markdown"));
+        assert_eq!(kinds[0].label("#+begin_export html"), "export html");
+        assert_eq!(kinds[1].label("#+begin_comment"), "comment");
+        assert!(kinds[0].is_code() && !kinds[1].is_code());
+        // Comment lines are dimmed.
+        let v = line_view(&p.syntax(), p.context(), lines(t)[4].clone(), None);
+        assert!(v.runs.iter().all(|r| r.style.dim), "{v:?}");
+    }
 
     #[test]
     fn image_widths_and_attachments() {

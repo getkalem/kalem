@@ -194230,5 +194230,1807 @@
     "adapt": true
    }
   ]
+ },
+ {
+  "name": "drawer 0@0",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@2",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@4",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@6",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 6,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@15",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 15,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@17",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@26",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 26,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@27",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 27,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0@33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 0 0-2",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 2,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-4",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 4,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-6",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 6,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-15",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 15,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-17",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 17,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-26",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 26,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-27",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 27,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 0-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-4",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 4,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-6",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 6,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-15",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 15,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-17",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 17,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-26",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 26,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-27",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 27,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 2-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 4-6",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 6,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 4-15",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 15,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 4-17",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 17,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 4-26",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 26,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 4-27",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 27,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 4-28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 4-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 4-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 6-15",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 15,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 6-17",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 17,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 6-26",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 26,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 6-27",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 27,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 6-28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 6-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 6-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 15-17",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 17,
+  "mark": 15,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 15-26",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 26,
+  "mark": 15,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 15-27",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 27,
+  "mark": 15,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 15-28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": 15,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 15-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 15,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 15-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 15,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 17-26",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 26,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 17-27",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 27,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 17-28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 17-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 17-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 26-27",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 27,
+  "mark": 26,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 26-28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": 26,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 26-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 26,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 26-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 26,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 27-28",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 28,
+  "mark": 27,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 27-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 27,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 27-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 27,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 28-29",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 29,
+  "mark": 28,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 28-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 28,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 0 29-33",
+  "text": "* A\nSome text.\nMore text.\n\nLast.\n",
+  "point": 33,
+  "mark": 29,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 1@0",
+  "text": "Plain line",
+  "point": 0,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 1@2",
+  "text": "Plain line",
+  "point": 2,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 1 0-2",
+  "text": "Plain line",
+  "point": 2,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2@0",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@2",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@4",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@5",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 5,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@6",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 6,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@7",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 7,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@17",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@18",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 18,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2@24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 2 0-2",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 2,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-4",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 4,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-5",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 5,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-6",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 6,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-7",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 7,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-17",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 17,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-18",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 18,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 0-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-4",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 4,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-5",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 5,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-6",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 6,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-7",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 7,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-17",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 17,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-18",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 18,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 2-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-5",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 5,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-6",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 6,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-7",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 7,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-17",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 17,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-18",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 18,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 4-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 4,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 5-6",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 6,
+  "mark": 5,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 5-7",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 7,
+  "mark": 5,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 5-17",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 17,
+  "mark": 5,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 5-18",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 18,
+  "mark": 5,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 5-19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": 5,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 5-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 5,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 5-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 5,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 5-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 5,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 6-7",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 7,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 6-17",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 17,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 6-18",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 18,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 6-19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 6-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 6-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 6-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 6,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 7-17",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 17,
+  "mark": 7,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 7-18",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 18,
+  "mark": 7,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 7-19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": 7,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 7-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 7,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 7-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 7,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 7-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 7,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 17-18",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 18,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 17-19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 17-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 17-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 17-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 17,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 18-19",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 19,
+  "mark": 18,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ],
+  "known": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce"
+ },
+ {
+  "name": "drawer 2 18-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 18,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 18-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 18,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 18-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 18,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 19-20",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 20,
+  "mark": 19,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 19-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 19,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 19-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 19,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 20-22",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 22,
+  "mark": 20,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 20-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 20,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 2 22-24",
+  "text": "* A\n\n  Indented.\n\n* B\nx\n",
+  "point": 24,
+  "mark": 22,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3@0",
+  "text": "é text\nand more é\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 3@2",
+  "text": "é text\nand more é\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 3@8",
+  "text": "é text\nand more é\n",
+  "point": 8,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 3@10",
+  "text": "é text\nand more é\n",
+  "point": 10,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 3@20",
+  "text": "é text\nand more é\n",
+  "point": 20,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"NOTES\")",
+  "cmd": "drawer",
+  "args": [
+   "NOTES"
+  ]
+ },
+ {
+  "name": "drawer 3 0-2",
+  "text": "é text\nand more é\n",
+  "point": 2,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 0-8",
+  "text": "é text\nand more é\n",
+  "point": 8,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 0-10",
+  "text": "é text\nand more é\n",
+  "point": 10,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 0-20",
+  "text": "é text\nand more é\n",
+  "point": 20,
+  "mark": 0,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 2-8",
+  "text": "é text\nand more é\n",
+  "point": 8,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 2-10",
+  "text": "é text\nand more é\n",
+  "point": 10,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 2-20",
+  "text": "é text\nand more é\n",
+  "point": 20,
+  "mark": 2,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 8-10",
+  "text": "é text\nand more é\n",
+  "point": 10,
+  "mark": 8,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 8-20",
+  "text": "é text\nand more é\n",
+  "point": 20,
+  "mark": 8,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer 3 10-20",
+  "text": "é text\nand more é\n",
+  "point": 20,
+  "mark": 10,
+  "form": "(progn (transient-mark-mode 1) (activate-mark) (org-insert-drawer nil \"LOGBOOK\"))",
+  "cmd": "drawer",
+  "args": [
+   "LOGBOOK"
+  ]
+ },
+ {
+  "name": "drawer bad name",
+  "text": "x\n",
+  "point": 1,
+  "mark": null,
+  "form": "(org-insert-drawer nil \"a b\")",
+  "cmd": "drawer",
+  "args": [
+   "a b"
+  ]
  }
 ]
