@@ -598,6 +598,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] TS.10 Hardening: `unwrap` and `expect` outside tests reviewed crate by crate, `clippy::unwrap_used` and `clippy::expect_used` warned in the library crates with `#[expect]` where a panic is the right answer; fuzz targets for `org-edit` commands and `org-table` formulas beside the parser's two (review, 2026-09-28: about 900 `unwrap` and `expect` calls under `crates/`, tests included)
 - [ ] TS.11 Users before features: no phase starts before the previous phase's user criterion is met (phase 1 asks for ten external users, none so far, while phase 2 is half done); the remaining phase 2 items are ranked by what those users ask for, and Emacs-flavored extras (Dired, Projectile, Doom keys) wait behind them (review, 2026-09-28: the design's own scope creep risk, §19)
 - [ ] TS.12 From the first public release on, commits stay small and are not squashed, so contributors can bisect and read why a change was made (review, 2026-09-28: the history holds two commits today)
+- [ ] TS.13 Terminal parity (§4.1, principle 7; asked by the owner, 2026-09-28): every feature covers both frontends in the same change, or its terminal form and the remaining gap are recorded in `docs/terminal-parity.org` (fonts, sizes, pixel layout and the like); the pull request template asks; the terminal section of the release checklist walks the list; a review at every release of what the graphics protocols, OSC 8 and OSC 52 now make possible
 
 ---
 
