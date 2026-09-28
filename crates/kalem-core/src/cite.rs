@@ -142,7 +142,21 @@ pub fn preview(doc: &Document, file: Option<&Path>, pos: usize) -> Option<String
     })
 }
 
-/// [`preview`] for the cursor of a document, worked out again only when
+/// What the status bar and a tooltip say about the citation or the
+/// footnote reference at `pos`: the entry cited, or the footnote's text.
+pub fn note_at(doc: &Document, file: Option<&Path>, pos: usize) -> Option<String> {
+    preview(doc, file, pos).or_else(|| {
+        let text = doc.parse().syntax().to_string();
+        let (label, body) = org_edit::footnote::preview(&text, pos)?;
+        Some(crate::tr!(
+            "footnote-preview",
+            label = label.unwrap_or_default().as_str(),
+            text = body.as_str()
+        ))
+    })
+}
+
+/// [`note_at`] for the cursor of a document, worked out again only when
 /// the document or the cursor changes.
 #[derive(Debug, Default)]
 pub struct Preview {
@@ -158,7 +172,7 @@ impl Preview {
         if self.at.as_ref() != Some(&at) {
             let path = at.0.clone();
             self.at = Some(at);
-            self.text = doc.model().and_then(|m| preview(&m, path.as_deref(), head));
+            self.text = doc.model().and_then(|m| note_at(&m, path.as_deref(), head));
         }
         self.text.clone()
     }

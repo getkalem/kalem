@@ -191,6 +191,23 @@ Ctrl+K inserts a link. Typing =[[= offers the document's headings and
 targets. Ctrl-click (Cmd-click on macOS) opens a link: web links in the
 browser, file links in Kalem or their application, internal links jump.
 
+** Footnotes
+
+/New Footnote/ (Ctrl+Alt+F, or Insert > Footnote) writes the next free
+number, =[fn:1]=, at the cursor and starts its definition under the
+=Footnotes= heading at the end of the document (made when missing), with
+the cursor there; =org.footnote_section = ""= puts each definition at
+the end of its section instead. /Go to Footnote Definition or Reference/
+goes from a reference to its definition and from a definition's label
+back to its closest reference. /Renumber Footnotes/ numbers them again
+in reading order, /Sort Footnote Definitions/ puts the definitions in
+the order of their references, /Normalize Footnotes/ does both and moves
+inline footnotes out, and /Delete Footnote/ removes a footnote with all
+its references. These are Emacs's =org-footnote= commands and give the
+same text. With the cursor on a reference, the status bar shows the
+footnote's text; in the graphical editor, so does a tooltip under the
+mouse.
+
 ** Pictures
 
 A link to a picture without a description, such as =[[file:cat.png]]=,

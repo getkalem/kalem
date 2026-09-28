@@ -47,6 +47,23 @@ fn run(
             org_edit::sort::sort_entries(&doc, point, mark, &opts, now)
         }
         "todo" => return Some(todo_case(&args[0], text, point)),
+        "fn-new" | "fn-sort" | "fn-normalize" | "fn-renumber" | "fn-delete" | "fn-action" => {
+            use org_edit::footnote::*;
+            let settings = FootnoteSettings {
+                section: match args.first().and_then(Value::as_str) {
+                    Some("local") => None,
+                    _ => Some("Footnotes".into()),
+                },
+            };
+            match cmd {
+                "fn-new" => new(text, point, &settings),
+                "fn-sort" => sort(text, point, &settings),
+                "fn-normalize" => normalize(text, point, &settings),
+                "fn-renumber" => renumber(text, point),
+                "fn-delete" => delete(text, point),
+                _ => action(text, point, &settings),
+            }
+        }
         "toggle-ordered" => {
             let doc = org_model::Document::new(org_syntax::parse(text));
             org_edit::property::toggle_ordered(&doc, point).map(|(t, _)| t)

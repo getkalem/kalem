@@ -141,6 +141,14 @@ fn schemas() -> Vec<(&'static str, Value)> {
     ]
 }
 
+/// The footnote layout of the settings (`org.footnote_section`).
+fn footnote_settings(config: &crate::settings::Config) -> org_edit::footnote::FootnoteSettings {
+    let section = config.str("org.footnote_section").trim().to_string();
+    org_edit::footnote::FootnoteSettings {
+        section: (!section.is_empty()).then_some(section),
+    }
+}
+
 fn arg_str<'a>(args: &'a Value, key: &str) -> Result<&'a str, CommandError> {
     args.get(key)
         .and_then(Value::as_str)
@@ -1679,6 +1687,66 @@ fn plain_commands() -> Vec<Command> {
                 );
                 ctx.org(|d, p, _| org_edit::property::set_property(d, p, &k, &v, false))
             },
+        ),
+        cmd(
+            "org.footnote.new",
+            "New Footnote",
+            "Footnotes",
+            &["ctrl+alt+f"],
+            Some(ORG),
+            |ctx, _| {
+                let s = footnote_settings(ctx.config);
+                ctx.org(|d, p, _| org_edit::footnote::new(&text_of(d), p, &s))
+            },
+        ),
+        cmd(
+            "org.footnote.action",
+            "Go to Footnote Definition or Reference",
+            "Footnotes",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let s = footnote_settings(ctx.config);
+                ctx.org(|d, p, _| org_edit::footnote::action(&text_of(d), p, &s))
+            },
+        ),
+        cmd(
+            "org.footnote.renumber",
+            "Renumber Footnotes",
+            "Footnotes",
+            &[],
+            Some(ORG),
+            |ctx, _| ctx.org(|d, p, _| org_edit::footnote::renumber(&text_of(d), p)),
+        ),
+        cmd(
+            "org.footnote.sort",
+            "Sort Footnote Definitions",
+            "Footnotes",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let s = footnote_settings(ctx.config);
+                ctx.org(|d, p, _| org_edit::footnote::sort(&text_of(d), p, &s))
+            },
+        ),
+        cmd(
+            "org.footnote.normalize",
+            "Normalize Footnotes",
+            "Footnotes",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let s = footnote_settings(ctx.config);
+                ctx.org(|d, p, _| org_edit::footnote::normalize(&text_of(d), p, &s))
+            },
+        ),
+        cmd(
+            "org.footnote.delete",
+            "Delete Footnote",
+            "Footnotes",
+            &[],
+            Some(ORG),
+            |ctx, _| ctx.org(|d, p, _| org_edit::footnote::delete(&text_of(d), p)),
         ),
         cmd(
             "org.property.delete",
