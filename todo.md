@@ -229,6 +229,10 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T1.8.4 Early access: at least ten users from personas P1, P4 and P6; feedback form (needs the owner)
 - [ ] T1.8.5 Announcement to the Org mailing list and related communities (the draft `docs/announcements/org-mailing-list-draft.md` matches 0.1; sending it is the owner's)
 - [ ] T1.8.6 Publish `org-syntax` to crates.io (§4.7) (waits for decision D18 and the owner)
+- [ ] T1.8.7 README status: replace "pre-alpha, phase 0, nothing to use yet" with the real state (phase 1 done, phase 2 half done), a screenshot or GIF of both editors at the top, and a short "works today / not yet" list (review, 2026-09-28: the README contradicts the changelog and is the first thing a visitor reads)
+- [ ] T1.8.8 Make the repository public: issues on, "good first issue" and "help wanted" labels, the contact address of T0.1.9 in place first; the five dependabot pull requests merged or closed (owner)
+- [ ] T1.8.9 Launch beyond the Org list (T1.8.5): Show HN, r/emacs, r/orgmode, r/rust and Turkish developer communities, one post each, only after signed binaries (T2.8.1, T2.8.2) and the GIF of T1.8.7 exist; the framing stays "not a replacement for Emacs, for the people around you" (review, 2026-09-28: one launch brings most of a first year's users; comparable projects sit at 2.6k (organice) and 2.8k (Orgzly) stars, Markdown editors at 13k (Zettlr) to 61k (MarkText))
+- [ ] T1.8.10 One-page site at the domain of D7, exported from `docs/manual.org` with Kalem's own HTML back-end (§18.2 dogfooding): what it is, a GIF, download links, the manual
 
 ### Phase 1 exit criteria
 
@@ -253,6 +257,9 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [x] T2.1.9 Sorting, CSV and TSV import and export (Sort Rows, Import Table, Export Table, a selection made into a table; checked against Emacs)
 - [x] T2.1.10 `kalem table recalc` (`--iterate`, `--check`, the F9 command); `kalem fmt` table alignment complete
 - [~] T2.1.11 Publish `org-table` to crates.io (§4.7): the crate is ready (no workspace dependencies, metadata, README); publishing is the maintainers' step
+- [ ] T2.1.12 Spreadsheet notation for formulas (§8, needs a design decision by the owner, D21): `A1`-style cell references and the common Excel function names (`SUM`, `AVERAGE`, `MIN`, `MAX`, `IF`, `ROUND`, `COUNT`) accepted in the formula bar and translated to Org's `#+TBLFM` form, so the file stays Org and Emacs computes the same result; the bar shows either notation (`org.table_formula_dialect`) (review, 2026-09-28: an Excel user cannot write a formula in Calc notation)
+- [ ] T2.1.13 Automatic recalculation after a field is edited, off by default (`org.table_auto_recalc`, or a document keyword), with the same results as F9 (review, 2026-09-28: the spreadsheet expectation)
+- [ ] T2.1.14 Column and range statistics in the status bar for the selection in an Org table: count, sum, average, min, max, as §2.6.2 plans them for CSV (review, 2026-09-28)
 
 ### 2.2 org-math (§9.2)
 
@@ -289,6 +296,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [~] T2.3.10 Snapshot tests; comparison corpus against ox.el output (`tests/export/cases` and the Worg corpus against Emacs 30.1 with Org 9.7.11; the counts only go up)
 - [~] T2.3.11 `kalem export` subcommand (`kalem export FILE... --to html|md`, `-o`, `--body-only`; the other back-ends follow them)
 - [ ] T2.3.12 Publish `org-export` to crates.io (§4.7)
+- [ ] T2.3.13 PDF without TeX (needs a decision by the owner, D22): "Export as PDF" from the HTML back-end through a bundled or system renderer, so printing (T2.5.11) and "send it as a PDF" work before the LaTeX back-end and pandoc land; the LaTeX path stays the one for books and papers (§9.3) (review, 2026-09-28: today a document cannot leave Kalem as PDF, DOCX or ODT)
 
 ### 2.4 org-cite (§9.4)
 
@@ -300,7 +308,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 
 ### 2.5 Editor features (§2.2, §3.2 phase 2 column)
 
-- [ ] T2.5.1 Images: inline display, `#+ATTR_ORG: :width`, paste and drop → `_assets/`, org-attach compatibility
+- [ ] T2.5.1 Images: inline display, `#+ATTR_ORG: :width`, paste and drop → `_assets/`, org-attach compatibility (review, 2026-09-28: the graphical editor shows `[image: PATH]` in place of the picture; the terminal editor already draws images through the graphics protocol)
 - [ ] T2.5.2 Footnotes: insert, renumber, list at the end of the document, hover
 - [ ] T2.5.3 Planning lines: edit SCHEDULED, DEADLINE, CLOSED; date picker; repeaters
 - [ ] T2.5.4 Property drawer: key-value table editing
@@ -330,9 +338,11 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7a.3 Large files: 100 MB target (§15), lazy highlighting, long-line safety; a rope or piece table for plain text mode, where the parser needs no contiguous text (T1.3.1a)
 - [~] T2.7a.4 Workspace sidebar, fuzzy open file, find in files (project scope: T2.7f) (the list of open files, Find File in Project and Search in Project are done; a folder tree of the workspace is still to do)
 - [ ] T2.7a.5 Bracket matching, auto-indent, comment toggling per language
+- [ ] T2.7a.6 Everyday text commands missing from plain text mode: go to line, duplicate line, move lines up and down, join lines, sort selected lines, trim trailing whitespace on save (`editor.trim_trailing_whitespace`), select word and expand selection (review, 2026-09-28: Sublime Text and VS Code users expect them; none is in the command registry)
 
 ### 2.7c Markdown mode (§2.6.1, D19)
 
+- [ ] T2.7c.0 Order of phase 2 (needs a decision by the owner, D21): Markdown mode before the remaining Emacs-style extras (wdired, Dired search, Org text objects for Vim). The editing engine (hidden markers, tables, formulas, outline, export) is shared and only the parser (D19) is missing; the Markdown audience is many times the Org audience; MarkText (61k stars, unmaintained since 2022), Typora (paid, closed) and Zettlr (Electron) leave room for a fast native open source editor (review, 2026-09-28)
 - [ ] T2.7c.1 Decide D19 (Markdown parser); spike pulldown-cmark's offset iterator on a Markdown corpus (CommonMark spec examples, GitHub READMEs): every block and inline range, round-trip untouched
 - [ ] T2.7c.2 Markdown view model on the shared inline editing model: hidden markers with cursor reveal, headings, emphasis, code, links, images, footnotes
 - [ ] T2.7c.3 Lists and task lists (clickable checkboxes), block quotes, code fences with highlighting (D16), front matter folded
@@ -341,6 +351,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7c.6 Incremental reparse from the enclosing top-level block; performance on 10 MB files
 - [ ] T2.7c.7 "Convert to Org" and "Convert from Org" (exporter or pandoc); `kalem export FILE.md --to org`
 - [ ] T2.7c.8 Both frontends; snapshot tests; byte-exact round trip of untouched text
+- [ ] T2.7c.9 What Obsidian and Logseq users expect in Markdown files: wiki links `[[Page]]` resolved and completed within the project (T2.7f), front matter edited as a form, "copy as HTML" and "copy as rich text" (T2.6.1) (review, 2026-09-28)
 
 ### 2.7d CSV mode (§2.6.2)
 
@@ -351,6 +362,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7d.5 Clipboard as TSV (spreadsheet interoperability); column statistics in the status bar
 - [ ] T2.7d.6 "Open as text"; "Convert to Org table"; 100,000-row files open quickly
 - [ ] T2.7d.7 Tests: dialect round trips, RFC 4180 edge cases (quotes, embedded newlines), large files
+- [ ] T2.7d.8 Interoperability tests with files saved by Excel and LibreOffice Calc: UTF-8 BOM, CRLF, `;` as the delimiter and `,` as the decimal separator (Turkish and most European locales), quoted numbers, dates; each opens, edits and saves without changing the untouched records (review, 2026-09-28)
 
 ### 2.7e File manager, like Emacs's Dired (§2.7, D20)
 
@@ -401,6 +413,8 @@ Moved up to phase 1 (owner, 2026-09-28): the Vim profile replaces the Emacs Org 
 - [ ] T2.8.1 macOS signing and notarization; Homebrew cask and formula (terminal-only)
 - [ ] T2.8.2 Windows MSI and signing
 - [ ] T2.8.3 Linux AppImage and Flatpak
+- [ ] T2.8.5 Package managers beyond cargo-dist's installers: winget and Scoop on Windows, Flathub, an AUR package by the community; all listed in the README's install section (review, 2026-09-28)
+- [ ] T2.8.6 Building without Zed's repository: `kalem-ui` pins gpui to a git revision of Zed, so Cargo fetches the whole Zed repository for every build of the workspace, the terminal-only build and `cargo test -p org-syntax` included. Either a gpui release on crates.io with AccessKit (TS.7), or `kalem-ui` resolved outside the default workspace (its own workspace, or `exclude` with a path dependency from `kalem`) so the core crates build from crates.io alone; until then CONTRIBUTING states the clone size and time (review, 2026-09-28: in a fresh environment the fetch did not finish in ten minutes; the core crates built and passed their tests in under a minute once copied out of the workspace)
 - [ ] T2.8.4 Release 0.2
 
 ### Phase 2 exit criteria
@@ -539,6 +553,9 @@ Moved up to phase 1 (owner, 2026-09-28): the Vim profile replaces the Emacs Org 
 - [ ] TS.7 Dependency updates; track gpui, ratatui and rquickjs versions
 - [ ] TS.8 Community: good first issues, PR reviews, release notes
 - [ ] TS.9 Ecosystem components (§4.7): review spin-out readiness at every release; prefer upstream contributions
+- [ ] TS.10 Hardening: `unwrap` and `expect` outside tests reviewed crate by crate, `clippy::unwrap_used` and `clippy::expect_used` warned in the library crates with `#[expect]` where a panic is the right answer; fuzz targets for `org-edit` commands and `org-table` formulas beside the parser's two (review, 2026-09-28: about 900 `unwrap` and `expect` calls under `crates/`, tests included)
+- [ ] TS.11 Users before features: no phase starts before the previous phase's user criterion is met (phase 1 asks for ten external users, none so far, while phase 2 is half done); the remaining phase 2 items are ranked by what those users ask for, and Emacs-flavored extras (Dired, Projectile, Doom keys) wait behind them (review, 2026-09-28: the design's own scope creep risk, §19)
+- [ ] TS.12 From the first public release on, commits stay small and are not squashed, so contributors can bisect and read why a change was made (review, 2026-09-28: the history holds two commits today)
 
 ---
 
@@ -566,6 +583,8 @@ Moved up to phase 1 (owner, 2026-09-28): the Vim profile replaces the Emacs Org 
 | D18 | Entity table provenance | Phase 0 exit | Open: owner decision |
 | D19 | Markdown parser | T2.7c.1 | Open |
 | D20 | File operations for the file manager | T2.7e.1 | Decided 2026-09-28 |
+| D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | Open: owner decision (review, 2026-09-28) |
+| D22 | PDF without TeX: the renderer for "Export as PDF" from HTML (system print to PDF, a bundled HTML renderer, or typst) | T2.3.13 | Open (review, 2026-09-28) |
 
 ---
 
