@@ -243,7 +243,7 @@ Every mode can switch to its source text ("Open as text"), and the choice is rem
 
 **Binary files** are detected (NUL bytes, invalid UTF-8 in the first block) and are not opened for editing; the user is told what the file is.
 
-**Architecture.** A document has a mode. `kalem-core` defines a `DocumentMode` interface, the same contract plugins use (11.11): Org mode provides the view model, commands and structural editing; Markdown mode provides its own view model on the shared inline editing model; CSV mode provides a grid model; plain text mode provides the text view model and language-specific commands (comment toggling, indentation). Commands declare the modes they apply to through when-clauses (`editorMode == org`, `editorMode == csv`). Both frontends render every mode. The CLI accepts Markdown for conversion (`kalem export README.md --to org`) and CSV for conversion to an Org table; `kalem check` checks Org files only and refuses others with a clear message.
+**Architecture.** A document has a mode. `kalem-core` defines a `DocumentMode` interface, the same contract plugins use (11.11): Org mode provides the view model, commands and structural editing; Markdown mode provides its own view model on the shared inline editing model; CSV mode provides a grid model; plain text mode provides the text view model and language-specific commands (comment toggling, indentation). Commands declare where they apply through their scope (11.2), a list of text types (`org`, `csv`, `python`), and structural context through when-clauses (`inTable`). Both frontends render every mode. The CLI accepts Markdown for conversion (`kalem export README.md --to org`) and CSV for conversion to an Org table; `kalem check` checks Org files only and refuses others with a clear message.
 
 ### 2.7 File manager (Dired)
 
@@ -1090,7 +1090,8 @@ pub struct Command {
     pub title: String,               // for the palette and menus, localized
     pub category: String,
     pub default_keys: Vec<KeyChord>,
-    pub when: Option<WhenClause>,    // "editorFocus && inTable"
+    pub scope: Scope,                // "all", or text types with exceptions (Scope, below)
+    pub when: Option<WhenClause>,    // structural context: "inTable", "hasSelection"
     pub handler: CommandHandler,     // Rust fn or script callback
     pub args_schema: Option<JsonSchema>,
 }
@@ -1104,6 +1105,17 @@ pub enum CommandHandler {
 - Commands run inside a transaction; the command is the unit of undo.
 - Plugin commands appear in the same palette, menus and keymap as built-in commands.
 - ID convention: `area.action`; plugins use `pluginId.action`.
+
+**Scope (decided by the owner, 2026-09-28).** Every command, built in or from a plugin, says where it applies. `scope` is `"all"` or a list of **text types**, with an optional `except` list; `when` stays for structural context (`inTable`, `hasSelection`, `inHeading`) and fine conditions. A text type is the type of the text at the cursor: the file's type (`org`, `klm`, `markdown`, `csv`, or the language of a plain text file such as `python`, `html`, `json`, from the one vocabulary that `DocumentMode::detect` and `kalem-highlight` share and that plugin modes and highlighters extend), or, inside nested content, the innermost type: a source block or code fence (its language), a LaTeX fragment (`latex`), an export block (its back-end's language), front matter (`yaml`, `toml`), to any depth. Subtypes: `klm` is a subtype of `org`, so `["org"]` applies in `.klm` files too and `["klm"]` only there. Nothing else is an axis: a type's mode (rich view, grid, plain text) follows from the type, so a command never names a mode, and the file kind is the type. Rules: registration refuses a command without a scope, and "everywhere" is spelled `"all"`; the scope compiles to the when-clause key `textType` and joins `when`, so the palette, menus, keymaps, `kalem run` and the documentation evaluate one expression; the palette shows only the commands in scope, the manual and the plugin documentation list commands by type, `kalem commands --type csv` prints them, and the report of bindings that never apply lists unknown types. Completers (11.12) use the same key.
+
+```ts
+scope: "all"
+scope: ["csv"]
+scope: ["org"]                    // .org and .klm
+scope: ["klm"]                    // Kalem documents only: the formatting commands of 3.7
+scope: ["python", "javascript"]   // a file, or a source block at the cursor
+scope: { all: true, except: ["csv", "directory"] }
+```
 
 ### 11.3 Events
 
@@ -1130,7 +1142,7 @@ A TypeScript definition (`kalem.d.ts`) is generated and distributed with the plu
 ```ts
 declare namespace kalem {
   const version: string;
-  function command(id: string, spec: { title: string; run: (...args: unknown[]) => unknown | Promise<unknown>; when?: string; keys?: string[] }): Disposable;
+  function command(id: string, spec: { title: string; run: (...args: unknown[]) => unknown | Promise<unknown>; scope: "all" | string[] | { all?: true; types?: string[]; except?: string[] }; when?: string; keys?: string[] }): Disposable;
   function run(id: string, ...args: unknown[]): Promise<unknown>;
   function keymap(keys: string, commandId: string, opts?: { when?: string }): Disposable;
   function on<E extends keyof Events>(event: E, handler: (e: Events[E]) => void | Promise<void>): Disposable;
@@ -1361,7 +1373,7 @@ The third thing a plugin adds for a file type, next to a highlighter and a rende
 
 | Part | What the completer gives | What the core does |
 |---|---|---|
-| `when` | A when-clause: the mode, the language of the file or of the source block at the cursor (`language == python`), the document's language (`docLanguage == tr`), inside or outside prose | Runs only the completers that apply where the cursor is |
+| `when` | A scope as commands have (11.2): the text types it serves (`python` in a file or in a source block, `org`, `all`), and a when-clause for the rest: the document's language (`docLanguage == tr`), inside or outside prose | Runs only the completers that apply where the cursor is |
 | `triggers` | Trigger characters (`[[`, `#+`, `@`), a word prefix of N letters, or on request only (Ctrl+Space, Tab) | Opens the menu, keeps it updated as the user types, closes it on Escape or a key that matches nothing |
 | `complete(ctx)` | Items, asynchronously and cancellable, from `ctx`: the prefix, the text before the cursor in the line and in the paragraph, the syntax node at the cursor from the mode's tree (in a link, in a table cell, in a source block of a language), the document's language and path | Merges the items of every completer that applies, ranks them (exact prefix first, then recently accepted, then the completer's priority), removes duplicates, shows one menu in both frontends |
 | Items | A label, what to insert (text, or edits with ranges, with the cursor's place), a kind (word, keyword, link, tag, symbol, snippet), a detail line, an optional `resolve` for documentation fetched lazily | Applies the insertion as one undo step; shows the detail and the resolved documentation |
@@ -1634,6 +1646,7 @@ Durations are rough estimates for a single developer. The next phase does not st
 | D24 | File kinds | One `.org` that may carry Kalem's additions; `.org` strict and `.klm` a superset | `.org` is strict Org; `.klm` is Org plus Kalem's additions through Org's extension points; new syntax only by RFC (3.7) | **Decided (owner, 2026-09-28)** |
 | D25 | Plugin-provided highlighters, renderers and completers | Separate plugin APIs; the contracts built-in modes and completers use | One contract each, shared by built-ins and plugins, with a declarative and a programmatic level, a conformance suite and reference plugins (11.11, 11.12) | **Decided (owner, 2026-09-28)** |
 | D26 | Terminal parity | The terminal as a reduced frontend; the terminal never second class | Principle 7 of 4.1: a feature is done when it works in both frontends, gaps listed in `docs/terminal-parity.org` | **Decided (owner, 2026-09-28)** |
+| D27 | Command scope | Keys for mode, language and file kind; one axis | One axis, the type of the text at the cursor, nesting by the innermost type, `klm` a subtype of `org`; structure stays in `when` (11.2) | **Decided (owner, 2026-09-28)** |
 
 ---
 
