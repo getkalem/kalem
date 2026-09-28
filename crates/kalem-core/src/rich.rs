@@ -378,6 +378,54 @@ impl DocDefaults {
     }
 }
 
+/// The words of a `#+KALEM:` value: `key=value` pairs, values in
+/// quotes kept whole.
+fn words(value: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut start = None;
+    let mut quoted = false;
+    for (i, c) in value.char_indices() {
+        match c {
+            '"' => quoted = !quoted,
+            c if c.is_whitespace() && !quoted => {
+                if let Some(s) = start.take() {
+                    out.push(&value[s..i]);
+                }
+                continue;
+            }
+            _ => {}
+        }
+        if start.is_none() {
+            start = Some(i);
+        }
+    }
+    if let Some(s) = start {
+        out.push(&value[s..]);
+    }
+    out
+}
+
+/// The keys [`DocDefaults`] reads; other keys of `#+KALEM:` are kept as
+/// they are when it changes.
+const DEFAULT_KEYS: &[&str] = &["font", "size", "color", "bg", "highlight", "spacing"];
+
+/// The value of `key` in the document's `#+KALEM:` keywords (the last one
+/// wins): `recalc=auto` gives `auto` for `recalc`.
+pub fn kalem_option(keywords: &[(String, String)], key: &str) -> Option<String> {
+    keywords
+        .iter()
+        .filter(|(k, _)| k.eq_ignore_ascii_case("KALEM"))
+        .flat_map(|(_, v)| {
+            words(v)
+                .into_iter()
+                .filter_map(|w| w.split_once('='))
+                .filter(|(k, _)| k.eq_ignore_ascii_case(key))
+                .map(|(_, v)| v.trim_matches('"').to_string())
+                .collect::<Vec<_>>()
+        })
+        .next_back()
+}
+
 /// Changes the document's `#+KALEM:` defaults with `change` (the first
 /// such line, else a new one after the keywords at the top).
 pub fn set_defaults(
@@ -393,13 +441,24 @@ pub fn set_defaults(
             ast::AstNode::cast(n.clone())
                 .is_some_and(|k: ast::Keyword| k.key().eq_ignore_ascii_case("KALEM"))
         });
-    let mut d = line
+    let old = line
         .as_ref()
         .and_then(|n| ast::AstNode::cast(n.clone()))
-        .map(|k: ast::Keyword| DocDefaults::parse(&k.value()))
+        .map(|k: ast::Keyword| k.value())
         .unwrap_or_default();
+    let mut d = DocDefaults::parse(&old);
     change(&mut d);
-    let value = d.to_value();
+    let mut value = d.to_value();
+    // Keys that are not formatting (`recalc=auto`) stay.
+    for w in words(&old) {
+        let key = w.split_once('=').map_or(w, |(k, _)| k);
+        if !DEFAULT_KEYS.iter().any(|d| d.eq_ignore_ascii_case(key)) {
+            if !value.is_empty() {
+                value.push(' ');
+            }
+            value.push_str(w);
+        }
+    }
     match line {
         Some(n) => {
             let r = start(&n)
@@ -1203,6 +1262,25 @@ mod tests {
         let p = parse(&t2);
         let t3 = set_defaults(&p.syntax(), &t2, |d| *d = DocDefaults::default()).apply(&t2);
         assert_eq!(t3, "#+TITLE: T\nbody\n");
+    }
+
+    #[test]
+    fn other_kalem_keys_stay() {
+        let text = "#+KALEM: recalc=auto font=\"Times New Roman\"\nbody\n";
+        let p = parse(text);
+        assert_eq!(
+            kalem_option(&p.keywords(), "recalc").as_deref(),
+            Some("auto")
+        );
+        assert_eq!(kalem_option(&p.keywords(), "nothing"), None);
+        let t = set_defaults(&p.syntax(), text, |d| d.size = Some(120)).apply(text);
+        assert_eq!(
+            t,
+            "#+KALEM: font=\"Times New Roman\" size=12 recalc=auto\nbody\n"
+        );
+        let p = parse(&t);
+        let t = set_defaults(&p.syntax(), &t, |d| *d = DocDefaults::default()).apply(&t);
+        assert_eq!(t, "#+KALEM: recalc=auto\nbody\n");
     }
 
     #[test]

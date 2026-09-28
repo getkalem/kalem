@@ -104,7 +104,10 @@ Pasting cells from a spreadsheet makes a table.
 A =#+TBLFM:= line under a table computes fields, as in Emacs: =$4=$2*$3=
 fills the fourth column of every row with the product of the second and
 third, =@>$4=vsum(@2..@-1)= puts a sum in the last row. F9 (=C-c *= in
-the Emacs example keymap) recalculates the table and aligns it.
+the Emacs example keymap) recalculates the table and aligns it. With the
+setting =org.table_auto_recalc = true=, or =#+KALEM: recalc=auto= in the
+document, leaving a field with Tab, Shift+Tab or Enter recalculates too;
+=recalc=manual= keeps a document on F9 whatever the setting says.
 
 Formulas are Emacs Calc formulas and give the results Emacs gives: the
 same references (=$2=, =@3$1=, =@I..@II=, =$-1=, =remote(name, @2$3)=,
