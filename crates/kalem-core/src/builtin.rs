@@ -89,6 +89,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("file.open", object(&[("path", "string", false)])),
         ("org.property.delete", object(&[("key", "string", true)])),
+        ("org.cite.insert", object(&[("key", "string", false)])),
         ("file.import", object(&[("file", "string", true)])),
         ("format.font", object(&[("family", "string", true)])),
         ("format.size", object(&[("size", "string", true)])),
@@ -2162,6 +2163,32 @@ fn plain_commands() -> Vec<Command> {
                     .and_then(Value::as_str)
                     .map(str::to_string);
                 ctx.org(|d, p, m| org_edit::insert::insert_link(d, p, m, &link, desc.as_deref()))
+            },
+        ),
+        cmd(
+            crate::cite::INSERT,
+            "Insert Citation",
+            "Insert",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                if let Some(key) = args.get("key").and_then(Value::as_str) {
+                    let key = key.trim_start_matches('@').to_string();
+                    return ctx.org(|d, p, _| crate::cite::insert(d, p, &key));
+                }
+                let doc = ctx.doc()?;
+                let path = doc.meta.path.clone();
+                let model = doc
+                    .model()
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-org")))?;
+                let bib = crate::cite::bibliography(&model, path.as_deref());
+                if bib.entries().is_empty() {
+                    ctx.messages.push(crate::l10n::tr("msg-no-bibliography"));
+                    return Ok(());
+                }
+                ctx.requests
+                    .push(Request::Choose(crate::cite::picker_items(&bib)));
+                Ok(())
             },
         ),
         cmd(

@@ -89,6 +89,24 @@ pub fn matches<'a>(items: &'a [PaletteItem], input: &str) -> Vec<&'a PaletteItem
     scored.into_iter().map(|(_, it)| it).collect()
 }
 
+/// A palette item's `id` that runs `command` with `args`: the command,
+/// a space and the arguments as JSON ([`split_invocation`] reads it).
+pub fn invocation(command: &str, args: &serde_json::Value) -> String {
+    format!("{command} {args}")
+}
+
+/// The command and arguments of a palette item's `id`: a bare command
+/// has none (`null`).
+pub fn split_invocation(id: &str) -> (&str, serde_json::Value) {
+    match id.split_once(' ') {
+        Some((command, args)) => (
+            command,
+            serde_json::from_str(args).unwrap_or(serde_json::Value::Null),
+        ),
+        None => (id, serde_json::Value::Null),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

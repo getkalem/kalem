@@ -1738,6 +1738,7 @@ pub fn menus() -> Vec<Menu> {
             disabled: false,
             items: vec![
                 named(tr("menu-link"), "org.insert.link"),
+                named(tr("menu-citation"), "org.cite.insert"),
                 with(
                     tr("menu-table"),
                     "table.create",

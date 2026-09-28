@@ -13,3 +13,4 @@ terminal form and the gap left are recorded here.
 | Space before and after paragraphs (=:before=, =:after=) | Drawn in points | Set from the palette; not drawn | Rows are the terminal's only vertical unit; a blank row per paragraph would break vertical motion |
 | Recent colors | A row in the color menus | Text Color and Highlight start with the color used last | None beyond the prompt |
 | Formulas as images | Drawn | Drawn through kitty, iTerm2 or sixel graphics where the terminal has them, else a Unicode approximation | Terminals without graphics |
+| Citation preview | In the status bar for the citation at the cursor, and in a tooltip under the mouse | In the status line for the citation at the cursor | No tooltip under the mouse: terminals report the pointer only while a button is held, unless all-motion tracking is on, which Kalem leaves off |
