@@ -183,6 +183,8 @@ status-modified = Modified
 status-saved = Saved
 status-position = Ln { $line }, Col { $column }
 status-formula-lisp = Emacs Lisp formula, not computed
+status-table-count = Count: { $count }
+status-table-numbers = Sum: { $sum }   Average: { $average }   Min: { $min }   Max: { $max }
 status-formula-error = #ERROR: { $why }
 # $count is the number for plural rules; $shown is the same number with digit groups.
 status-words = { $count ->

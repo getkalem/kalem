@@ -307,6 +307,18 @@ fn vim_block_selection() {
 }
 
 #[test]
+fn table_selection_statistics() {
+    let text = "| a | 2 |\n| b | 4 |\n";
+    let mut t = with_config(text, Config::default(), (100, 6));
+    t.app.doc.selection = org_edit::Selection {
+        anchor: text.find('2').unwrap(),
+        head: text.find('4').unwrap(),
+    };
+    let s = status(&mut t);
+    assert!(s.contains("Count: 2   Sum: 6   Average: 3"), "{s}");
+}
+
+#[test]
 fn long_lines_wrap_and_scroll() {
     let body = "word ".repeat(40);
     let text = format!("- {body}\n{}", "line\n".repeat(30));

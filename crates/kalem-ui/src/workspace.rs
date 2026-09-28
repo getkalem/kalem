@@ -1401,7 +1401,10 @@ impl Workspace {
             .containing(e.doc.meta.path.as_deref())
             .map(|p| format!("{} ▸ ", p.name))
             .unwrap_or_default();
-        let left = format!("{mode}{project}{name}   {state}   {position}{words}{formula}");
+        let table = kalem_core::formulas::selection_stats(&e.doc)
+            .map(|t| format!("   {t}"))
+            .unwrap_or_default();
+        let left = format!("{mode}{project}{name}   {state}   {position}{words}{formula}{table}");
         let (msg, error) = match self.shared.jobs.borrow().first() {
             // A file operation running: its progress.
             Some(j) => (j.status(), false),
