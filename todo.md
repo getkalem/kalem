@@ -344,6 +344,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7a.6 Everyday text commands missing from plain text mode: go to line, duplicate line, move lines up and down, join lines, sort selected lines, trim trailing whitespace on save (`editor.trim_trailing_whitespace`), select word and expand selection (review, 2026-09-28: Sublime Text and VS Code users expect them; none is in the command registry)
 - [ ] T2.7a.7 Language packs (review, 2026-09-28): formats whose view is their source get no mode, only four hooks per language on top of highlighting, the same hooks plugins get (T3.1.9c, T3.1.9e): an outline provider, a formatter (`Format Document`, `kalem fmt --check`), completion, and diagnostics. First packs: diff and patch (files in the outline, hunks folded, a jump from a hunk line to the file at that line in the project, T2.7f); JSON, YAML, TOML and XML (outline from the structure, folding by node, `serde_json`, `toml` and `serde_yaml` formatting, Sort Keys, syntax errors in the status bar); ledger, hledger and beancount (amounts aligned on save and by `kalem fmt` as `org-table-align` aligns tables, account and payee completion, the balance of the transaction at the cursor in the status bar, reports through the external tool with the command shown first); gettext `.po` and Fluent `.ftl` (highlighting, Next Untranslated, the translated share in the status bar; dogfooded on `crates/kalem-core/locales`)
 - [ ] T2.7a.8 Completers in `kalem-core` (§11.12; asked by the owner, 2026-09-28): the contract (a when-clause; triggers by character, word prefix or request; asynchronous, cancellable `complete` with the prefix, the line, the paragraph, the syntax node and the language as context; items with edits, kinds and lazy documentation; merging and ranking of several completers, results as they come); the Org completions of `kalem_core::input` moved onto it; the document-words completer for every text file; one menu in both frontends; `kalem complete FILE:LINE:COL`
+- [ ] T2.7a.9 Command scope (§11.2; decided by the owner, 2026-09-28): `scope` on every command, `all` or a list of text types with `except`, compiled to the when-clause key `textType`, the innermost type at the cursor (the file's type, or the language of a source block, code fence, formula, export block or front matter; `klm` a subtype of `org`); registration refuses a command without a scope; every built-in command migrated, the formatting commands of 2.2a scoped to `klm`; the palette, menus, keymaps and `kalem run` evaluate it; `kalem commands --type TYPE`; the report of bindings that never apply lists unknown types; the manual lists commands by type; a test that no command lacks a scope
 
 ### 2.7c Markdown mode (§2.6.1, D19)
 
@@ -471,7 +472,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T3.1.1 `rquickjs` integration; quickjs-ng version; `std` and `os` modules disabled
 - [ ] T3.1.2 `ScriptHost` trait; QuickJS implementation
 - [ ] T3.1.3 API definition source (D6): single definition in Rust; `kalem.d.ts` generation; extension point for Lua annotations
-- [ ] T3.1.4 `kalem` namespace: `command`, `run`, `keymap`, `on`
+- [ ] T3.1.4 `kalem` namespace: `command`, `run`, `keymap`, `on` (`scope` required on `kalem.command`, §11.2)
 - [ ] T3.1.5 `kalem.ui`: notify, prompt, confirm, quickPick, statusBar, panel (JSON widget tree rendered by both frontends, D11)
 - [ ] T3.1.6 `kalem.settings`, `kalem.fs` (with permission), `kalem.net` (with permission)
 - [ ] T3.1.7 `editor` namespace and the `Document`, `Headline`, `Table`, `Selection` interfaces
@@ -632,6 +633,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 | D24 | File kinds: `.org` is strict Org, `.klm` a Kalem document (Org plus Kalem's additions through Org's extension points; new syntax only by RFC) | T2.2a.9 | **Decided (owner, 2026-09-28)** |
 | D25 | Highlighters, renderers and completers from plugins on the contracts built-ins use (§11.11, §11.12) | T2.7c.10, T2.7a.8, T3.1.9g, T3.1.9c | **Decided (owner, 2026-09-28)** |
 | D26 | The terminal is never second class (§4.1, principle 7) | TS.13 | **Decided (owner, 2026-09-28)** |
+| D27 | Command scope: one axis, the type of the text at the cursor (§11.2) | T2.7a.9 | **Decided (owner, 2026-09-28)** |
 
 ---
 
