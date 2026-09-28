@@ -111,6 +111,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX export as Emacs's `ox-latex` writes it (`kalem export --to latex`, Export as LaTeX), with Kalem's formatting, and `%% org:LINE` comments with `--source-lines`.
 - `tools/fetch-org.sh`: Org 9.7 for the differential tests on a machine whose Emacs has an older Org.
 - Plain text export as Emacs's `ox-ascii` writes it, paragraphs filled as `fill-region` fills them (`kalem export --to txt`, `--to utf8`, Export as Plain Text).
+- PDF export through LaTeX (`kalem export --to pdf`, Export as PDF): `latexmk`, the TeX engine or `tectonic`, compiled in the background in the editors, with LaTeX's errors at the lines of the Org file.
 
 ### Changed
 

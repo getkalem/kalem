@@ -537,6 +537,109 @@ const LATEX: org_export::Latex = org_export::Latex {
     source_lines: false,
 };
 
+/// Exports the active document as LaTeX with `%% org:LINE` comments
+/// beside its file, then compiles it to PDF in the background
+/// (`crate::pdf`); the result, or LaTeX's first error at its Org line,
+/// shows when it ends.
+fn export_pdf(ctx: &mut EditorContext<'_>, subtree: bool) -> CommandResult {
+    let doc = ctx
+        .document
+        .as_deref()
+        .ok_or_else(|| CommandError::new("No document"))?;
+    let Some(path) = doc.meta.path.clone() else {
+        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+    };
+    let path = std::path::absolute(&path).unwrap_or(path);
+    let text = doc.text().as_str().to_string();
+    let engine = crate::pdf::Engine::from_keyword(
+        org_syntax::parse(&text)
+            .keywords()
+            .iter()
+            .rev()
+            .find(|(k, _)| k.eq_ignore_ascii_case("LATEX_COMPILER"))
+            .map(|(_, v)| v.as_str()),
+    );
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    let tool = crate::pdf::detect(engine, &search)
+        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-latex")))?;
+    let subtree = subtree.then_some(doc.selection.head);
+    let settings = org_export::Settings {
+        body_only: false,
+        input_file: Some(path.clone()),
+        now: None,
+        subtree,
+        math: None,
+        options: None,
+    };
+    let out = org_export::export(&text, &LATEX_LINES, &settings).map_err(CommandError::new)?;
+    let tex = org_export::output_file_name_for(&text, &path, ".tex", subtree);
+    std::fs::write(&tex, out).map_err(|e| CommandError::new(e.to_string()))?;
+    let open_after = ctx.config.bool("export.open_after");
+    ctx.messages.push(crate::l10n::tr("msg-compiling-pdf"));
+    crate::jobs::spawn(crate::l10n::tr("msg-compiling-pdf"), move || {
+        pdf_result(&path, crate::pdf::compile(&tool, engine, &tex), open_after)
+    });
+    Ok(())
+}
+
+/// What compiling a PDF gave, for the user.
+fn pdf_result(
+    org: &std::path::Path,
+    compiled: Result<crate::pdf::Compiled, String>,
+    open_after: bool,
+) -> crate::jobs::Finished {
+    let name = org
+        .file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    let c = match compiled {
+        Ok(c) => c,
+        Err(e) => {
+            return crate::jobs::Finished {
+                message: crate::tr!("msg-pdf-failed", error = e),
+                error: true,
+                open: None,
+            };
+        }
+    };
+    let errors: Vec<&crate::pdf::Problem> = c.problems.iter().filter(|p| p.error).collect();
+    let warnings = c.problems.len() - errors.len();
+    if let Some(first) = errors.first() {
+        let place = match first.org_line {
+            Some(n) => format!("{name}:{n}"),
+            None => name,
+        };
+        return crate::jobs::Finished {
+            message: crate::tr!(
+                "msg-pdf-error",
+                place = place,
+                error = first.message.clone(),
+                count = errors.len() - 1
+            ),
+            error: true,
+            open: None,
+        };
+    }
+    match c.pdf {
+        Some(pdf) => crate::jobs::Finished {
+            message: crate::tr!(
+                "msg-pdf-done",
+                path = pdf.display().to_string(),
+                count = warnings
+            ),
+            error: false,
+            open: open_after.then(|| crate::input::LinkAction::Url(file_url(&pdf))),
+        },
+        None => crate::jobs::Finished {
+            message: crate::tr!("msg-pdf-failed", error = "no PDF".to_string()),
+            error: true,
+            open: None,
+        },
+    }
+}
+
+/// The LaTeX back-end with `%% org:LINE` comments, for compiling.
+const LATEX_LINES: org_export::Latex = org_export::Latex { source_lines: true };
+
 /// The plain text back-end, as `ox-ascii` writes, in ASCII and in UTF-8.
 const TEXT: org_export::Text = org_export::Text { utf8: false };
 const TEXT_UTF8: org_export::Text = org_export::Text { utf8: true };
@@ -569,6 +672,7 @@ pub fn export_dialog_items(config: &crate::settings::Config) -> Vec<crate::palet
         "export.markdown",
         "export.gfm",
         "export.latex",
+        "export.pdf",
         "export.text",
         "export.htmlSubtree",
         "export.markdownSubtree",
@@ -739,6 +843,22 @@ fn plain_commands() -> Vec<Command> {
                 let backend: &dyn org_export::Backend = if utf8 { &TEXT_UTF8 } else { &TEXT };
                 export_doc(ctx, backend, ".txt", false)
             },
+        ),
+        cmd(
+            "export.pdf",
+            "Export as PDF (LaTeX)",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_pdf(ctx, false),
+        ),
+        cmd(
+            "export.pdfSubtree",
+            "Export Subtree as PDF (LaTeX)",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| export_pdf(ctx, true),
         ),
         cmd(
             "export.latexSubtree",
@@ -2435,6 +2555,56 @@ mod tests {
         d.selection = org_edit::Selection::caret(0);
         exec(&mut d, "org.todo.toggleOrdered").0.unwrap();
         assert_eq!(d.text().as_str(), "* P\n** TODO one\n** TODO two\n");
+    }
+
+    #[test]
+    fn pdf_messages() {
+        use crate::pdf::{Compiled, Problem};
+        crate::l10n::set_language("en");
+        let org = std::path::Path::new("/d/notes.org");
+        let warn = Problem {
+            tex_line: Some(3),
+            org_line: Some(2),
+            message: "Reference undefined".into(),
+            error: false,
+        };
+        let ok = super::pdf_result(
+            org,
+            Ok(Compiled {
+                pdf: Some("/d/notes.pdf".into()),
+                problems: vec![warn.clone(), warn.clone()],
+            }),
+            true,
+        );
+        assert_eq!(ok.message, "Exported /d/notes.pdf (2 LaTeX warnings)");
+        assert!(!ok.error && ok.open.is_some());
+        let clean = super::pdf_result(
+            org,
+            Ok(Compiled {
+                pdf: Some("/d/notes.pdf".into()),
+                problems: vec![],
+            }),
+            false,
+        );
+        assert_eq!(clean.message, "Exported /d/notes.pdf");
+        let err = Problem {
+            error: true,
+            message: "Undefined control sequence.".into(),
+            ..warn
+        };
+        let bad = super::pdf_result(
+            org,
+            Ok(Compiled {
+                pdf: None,
+                problems: vec![err.clone(), err],
+            }),
+            false,
+        );
+        assert_eq!(
+            bad.message,
+            "notes.org:2: Undefined control sequence. (and 1 more error)"
+        );
+        assert!(bad.error);
     }
 
     #[test]

@@ -2622,6 +2622,14 @@ impl App {
     /// Background work: parses, file changes, debounced events. Returns
     /// whether something changed on screen.
     pub fn tick(&mut self, now: Instant) {
+        // Work commands started in the background (a PDF compiling).
+        for f in kalem_core::jobs::take_finished() {
+            self.message(f.message, f.error);
+            if let Some(a) = f.open {
+                self.open_link(a);
+            }
+            self.dirty = true;
+        }
         // File operations: progress, then the result.
         if !self.jobs.is_empty() {
             let mut done = Vec::new();

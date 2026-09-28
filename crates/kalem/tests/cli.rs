@@ -192,3 +192,50 @@ fn export_writes_html_and_markdown() {
     assert_eq!(code, 1);
     assert!(err.contains("undefined"), "{err}");
 }
+
+/// `kalem export --to pdf` with a stand-in for `pdflatex` that writes a
+/// PDF, and a log with an error at the `.tex` line of the second
+/// paragraph: the error is given at its Org line.
+#[cfg(unix)]
+#[test]
+fn pdf_export() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = std::env::temp_dir().join(format!("kalem-cli-pdf-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let bin = dir.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    // Shell built-ins only: `PATH` has nothing else.
+    let script = "#!/bin/sh\nfor a; do f=$a; done\nb=${f%.tex}\nprintf '%%PDF-1.4\\n' > $b.pdf\nn=0\nwhile read -r line; do n=$((n+1)); case $line in *Second*) m=$n;; esac; done < $f\nprintf './%s.tex:%s: Undefined control sequence.\\n' $b $m > $b.log\n";
+    let engine = bin.join("pdflatex");
+    std::fs::write(&engine, script).unwrap();
+    std::fs::set_permissions(&engine, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let org = dir.join("doc.org");
+    std::fs::write(&org, "#+TITLE: T\n\nFirst.\n\nSecond \\foo.\n").unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_kalem"))
+        .args(["export", "--to", "pdf", org.to_str().unwrap()])
+        .env("PATH", &bin)
+        .output()
+        .unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{err}");
+    assert!(
+        err.contains(&format!(
+            "{}:5: error: Undefined control sequence.",
+            org.display()
+        )),
+        "{err}"
+    );
+    assert!(dir.join("doc.pdf").is_file());
+    let tex = std::fs::read_to_string(dir.join("doc.tex")).unwrap();
+    assert!(tex.contains("%% org:5\nSecond"), "{tex}");
+    // Without LaTeX: guidance.
+    let empty = dir.join("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_kalem"))
+        .args(["export", "--to", "pdf", org.to_str().unwrap()])
+        .env("PATH", &empty)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("No LaTeX found"));
+}

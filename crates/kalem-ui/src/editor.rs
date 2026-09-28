@@ -2096,6 +2096,14 @@ impl Editor {
     /// Background work: a finished background parse restyles the lines.
     pub fn tick(&mut self, cx: &mut Context<'_, Self>) {
         self.tick_palette(cx);
+        // Work commands started in the background (a PDF compiling).
+        for f in kalem_core::jobs::take_finished() {
+            self.message(f.message, f.error);
+            if let Some(a) = f.open {
+                self.open_link(a, cx);
+            }
+            cx.notify();
+        }
         // File operations: progress while they run, then the result.
         if !self.shared.jobs.borrow().is_empty() {
             let mut done = Vec::new();
