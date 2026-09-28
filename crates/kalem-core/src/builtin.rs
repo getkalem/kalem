@@ -329,11 +329,12 @@ fn export_doc(
     let text = doc.text().as_str().to_string();
     let subtree = subtree.then_some(doc.selection.head);
     let settings = org_export::Settings {
-        body_only: false,
+        body_only: ctx.config.bool("export.body_only"),
         input_file: Some(path.clone()),
         now: None,
         subtree,
         math: Some(crate::math::export_renderer()),
+        options: (ctx.config.str("export.math") == "svg").then(|| "tex:svg".to_string()),
     };
     let out = org_export::export(&text, backend, &settings).map_err(CommandError::new)?;
     let target = org_export::output_file_name_for(&text, &path, extension, subtree);
@@ -342,7 +343,95 @@ fn export_doc(
         "msg-exported",
         path = target.display().to_string()
     ));
+    if ctx.config.bool("export.open_after") {
+        ctx.requests
+            .push(Request::OpenLink(crate::input::LinkAction::Url(file_url(
+                &target,
+            ))));
+    }
     Ok(())
+}
+
+/// A `file:` URL for `path`.
+fn file_url(path: &std::path::Path) -> String {
+    let p = path.to_string_lossy().replace('\\', "/");
+    if p.starts_with('/') {
+        format!("file://{p}")
+    } else {
+        format!("file:///{p}")
+    }
+}
+
+/// The export dialog's list: the formats, then the export settings, each
+/// shown with its value; choosing a setting changes it and shows the list
+/// again.
+pub fn export_dialog_items(config: &crate::settings::Config) -> Vec<crate::palette::PaletteItem> {
+    use crate::l10n::tr;
+    let item = |id: &str, title: String, category: String| crate::palette::PaletteItem {
+        id: id.to_string(),
+        title,
+        category,
+        keys: String::new(),
+        also: id.replace('.', " "),
+    };
+    let format = tr("category-export");
+    let mut items: Vec<_> = [
+        "export.html",
+        "export.markdown",
+        "export.gfm",
+        "export.htmlSubtree",
+        "export.markdownSubtree",
+    ]
+    .into_iter()
+    .map(|id| item(id, tr(&crate::l10n::command_key(id)), format.clone()))
+    .collect();
+    let on_off = |b: bool| tr(if b { "export-on" } else { "export-off" });
+    let setting = tr("export-setting");
+    items.push(item(
+        "export.toggleBodyOnly",
+        format!(
+            "{}: {}",
+            tr("export-body-only"),
+            on_off(config.bool("export.body_only"))
+        ),
+        setting.clone(),
+    ));
+    items.push(item(
+        "export.toggleOpenAfter",
+        format!(
+            "{}: {}",
+            tr("export-open-after"),
+            on_off(config.bool("export.open_after"))
+        ),
+        setting.clone(),
+    ));
+    items.push(item(
+        "export.toggleMath",
+        format!(
+            "{}: {}",
+            tr("export-math"),
+            tr(if config.str("export.math") == "svg" {
+                "export-math-svg"
+            } else {
+                "export-math-mathjax"
+            })
+        ),
+        setting,
+    ));
+    items
+}
+
+/// Changes an export setting and shows the export dialog again.
+fn export_setting(
+    ctx: &mut EditorContext<'_>,
+    key: &str,
+    value: serde_json::Value,
+) -> CommandResult {
+    ctx.requests.push(Request::SetSetting {
+        key: key.to_string(),
+        value,
+    });
+    request(ctx, Request::ExportDialog)
 }
 
 fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
@@ -384,6 +473,51 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some("editorMode == org"),
             |ctx, _| export_doc(ctx, &org_export::Markdown, ".md", false),
+        ),
+        cmd(
+            "export.dialog",
+            "Export…",
+            "Export",
+            &["ctrl+alt+e"],
+            Some("editorMode == org"),
+            |ctx, _| request(ctx, Request::ExportDialog),
+        ),
+        cmd(
+            "export.toggleBodyOnly",
+            "Toggle Export of the Body Only",
+            "Export",
+            &[],
+            None,
+            |ctx, _| {
+                let v = !ctx.config.bool("export.body_only");
+                export_setting(ctx, "export.body_only", v.into())
+            },
+        ),
+        cmd(
+            "export.toggleOpenAfter",
+            "Toggle Opening Exported Files",
+            "Export",
+            &[],
+            None,
+            |ctx, _| {
+                let v = !ctx.config.bool("export.open_after");
+                export_setting(ctx, "export.open_after", v.into())
+            },
+        ),
+        cmd(
+            "export.toggleMath",
+            "Toggle Formulas as MathJax or SVG",
+            "Export",
+            &[],
+            None,
+            |ctx, _| {
+                let v = if ctx.config.str("export.math") == "svg" {
+                    "mathjax"
+                } else {
+                    "svg"
+                };
+                export_setting(ctx, "export.math", v.into())
+            },
         ),
         cmd(
             "export.gfm",
@@ -1895,6 +2029,72 @@ mod tests {
         assert!(md.contains("New * Saved") || md.contains("New"), "{md}");
         reg.execute("export.html", &mut ctx, &json!({})).unwrap();
         assert!(dir.join("n.html").is_file());
+    }
+
+    #[test]
+    fn export_settings_and_dialog() {
+        use crate::command::Request;
+        let dir = std::env::temp_dir().join(format!("kalem-export-set-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("m.org");
+        std::fs::write(&path, "* A\nThe $x^2$ formula.\n").unwrap();
+        let mut d = DocumentState::open(
+            &path,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        let reg = CommandRegistry::with_builtins();
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::from_layers(&[(
+            crate::settings::Layer::User,
+            None,
+            "[export]\nbody_only = true\nopen_after = true\nmath = \"svg\"\n",
+        )]);
+        let clock = jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0);
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock,
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("export.html", &mut ctx, &json!({})).unwrap();
+        let html = std::fs::read_to_string(dir.join("m.html")).unwrap();
+        assert!(!html.contains("<html"), "body only: {html}");
+        assert!(html.contains("data:image/svg+xml"), "SVG formulas: {html}");
+        assert!(
+            matches!(&ctx.requests[..], [Request::OpenLink(crate::input::LinkAction::Url(u))] if u.starts_with("file://") && u.ends_with("m.html")),
+            "{:?}",
+            ctx.requests
+        );
+        // The dialog: formats, then the settings with their values.
+        ctx.requests.clear();
+        reg.execute("export.dialog", &mut ctx, &json!({})).unwrap();
+        assert_eq!(ctx.requests, vec![Request::ExportDialog]);
+        let items = crate::export_dialog_items(&config);
+        assert_eq!(items[0].id, "export.html");
+        assert!(
+            items
+                .iter()
+                .any(|i| i.id == "export.toggleMath" && i.title.contains("SVG"))
+        );
+        ctx.requests.clear();
+        reg.execute("export.toggleBodyOnly", &mut ctx, &json!({}))
+            .unwrap();
+        assert_eq!(
+            ctx.requests,
+            vec![
+                Request::SetSetting {
+                    key: "export.body_only".into(),
+                    value: json!(false)
+                },
+                Request::ExportDialog
+            ]
+        );
     }
 
     #[test]

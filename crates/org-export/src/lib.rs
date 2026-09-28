@@ -37,6 +37,9 @@ pub struct Settings {
     /// Draws formulas for `tex:svg` (and the image processing types
     /// `dvisvgm`, `dvipng` and `imagemagick`, which need LaTeX in Emacs).
     pub math: Option<MathRenderer>,
+    /// `#+OPTIONS:` items (`tex:svg toc:nil`) that apply unless the
+    /// document sets them.
+    pub options: Option<String>,
 }
 
 /// Draws LaTeX formulas as SVG images.
@@ -137,6 +140,7 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     ex.info.body_only = settings.body_only;
     ex.info.now = Some(now.clone());
     ex.info.math = settings.math.clone();
+    ex.info.ext_options = settings.options.clone();
     ex.info.input_file = settings.input_file.clone();
     ex.read_environment(&keywords);
     if region.is_some() {

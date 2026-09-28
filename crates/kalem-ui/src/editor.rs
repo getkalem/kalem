@@ -1004,6 +1004,12 @@ impl Editor {
                 }
             }
             Request::CopyText(t) => cx.write_to_clipboard(gpui::ClipboardItem::new_string(t)),
+            Request::SetSetting { key, value } => self.set_setting(&key, value, cx),
+            // After a setting it changes is applied (`set_setting` defers).
+            Request::ExportDialog => {
+                let this = cx.entity();
+                cx.defer(move |cx| this.update(cx, |e, cx| e.open_export_dialog(cx)));
+            }
         }
     }
 

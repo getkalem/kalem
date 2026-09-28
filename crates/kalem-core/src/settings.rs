@@ -146,6 +146,24 @@ pub const SPECS: &[Spec] = &[
         description: "Where the list of open files shows: a sidebar on the left, tabs at the top, or not at all",
     },
     Spec {
+        key: "export.body_only",
+        kind: Kind::Bool,
+        default: "false",
+        description: "Exports write the document's body only, without the page around it",
+    },
+    Spec {
+        key: "export.open_after",
+        kind: Kind::Bool,
+        default: "false",
+        description: "Open an exported file with the system's application",
+    },
+    Spec {
+        key: "export.math",
+        kind: Kind::Enum(&["mathjax", "svg"]),
+        default: r#""mathjax""#,
+        description: "Formulas in HTML exports: MathJax in the browser, or SVG images drawn by Kalem (a document's own `#+OPTIONS: tex:` wins)",
+    },
+    Spec {
         key: "projects.auto_add",
         kind: Kind::Bool,
         default: "true",

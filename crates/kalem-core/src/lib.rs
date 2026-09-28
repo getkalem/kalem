@@ -31,6 +31,7 @@ pub mod view;
 pub mod vim;
 pub mod when;
 
+pub use builtin::export_dialog_items;
 pub use command::{
     Command, CommandError, CommandHandler, CommandRegistry, CommandResult, EditorContext, Request,
 };

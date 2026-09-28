@@ -73,6 +73,7 @@ fn run(backend: &dyn org_export::Backend, ext: &str, known: &[&str]) {
                 now: Some("2026-09-28T10:00:00[Europe/Istanbul]".parse().unwrap()),
                 subtree: subtree_of(&text),
                 math: None,
+                options: None,
             },
         )
         .unwrap_or_else(|e| format!("ERROR: {e}\n"));
@@ -171,6 +172,7 @@ fn html_page() {
                 now: Some("2026-09-28T10:00:00[Europe/Istanbul]".parse().unwrap()),
                 subtree: subtree_of(&text),
                 math: None,
+                options: None,
             },
         )
         .unwrap_or_else(|e| format!("ERROR: {e}\n"));

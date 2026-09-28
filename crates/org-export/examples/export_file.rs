@@ -21,6 +21,7 @@ fn main() {
             now: None,
             subtree: None,
             math: None,
+            options: None,
         },
     );
     eprintln!("{:.2}s", t.elapsed().as_secs_f64());
