@@ -64,6 +64,8 @@
   { "keys": "p", "command": "-dired.previous" },
   { "keys": "w", "command": "-dired.copyName" },
   { "keys": "backspace", "command": "-dired.up" },
+  { "keys": "i", "command": "-dired.insertSubdir" },
+  { "keys": "shift+i", "command": "dired.insertSubdir" },
   { "keys": "g r", "command": "dired.refresh" },
   { "keys": "g g", "command": "dired.first" },
   { "keys": "shift+y", "command": "dired.copyName" }

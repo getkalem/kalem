@@ -268,6 +268,16 @@ pub fn osc52(text: &str) -> String {
     out
 }
 
+/// Whether a change of one of `changed` concerns `doc`: its file, or for
+/// a file manager, its folder or a folder listed in it.
+fn watches(doc: &DocumentState, changed: &[PathBuf]) -> bool {
+    doc.meta.path.as_ref().is_some_and(|p| changed.contains(p))
+        || doc
+            .dired
+            .as_deref()
+            .is_some_and(|s| s.subdirs.iter().any(|d| changed.contains(d)))
+}
+
 fn new_document(path: Option<&Path>, config: &Config) -> Result<DocumentState, OpenError> {
     let settings = Arc::new(org_model::Settings::default());
     let base = config.parse_base();
@@ -778,8 +788,8 @@ impl App {
     fn sync_watches(&mut self) {
         let mut want: Vec<PathBuf> = std::iter::once(&self.doc)
             .chain(self.docs.iter().flatten().map(|b| &b.doc))
-            .filter(|d| d.dired.is_some())
-            .filter_map(|d| d.meta.path.clone())
+            .filter_map(|d| Some((d.meta.path.clone()?, d.dired.as_deref()?)))
+            .flat_map(|(p, s)| std::iter::once(p).chain(s.subdirs.iter().cloned()))
             .collect();
         want.sort();
         want.dedup();
@@ -2602,21 +2612,11 @@ impl App {
         self.bus.dispatch_queued();
         let changed: Vec<PathBuf> = self.changed_files.borrow_mut().drain(..).collect();
         for b in self.docs.iter_mut().flatten() {
-            if b.doc
-                .meta
-                .path
-                .as_ref()
-                .is_some_and(|p| changed.contains(p))
-                && !b.doc.is_modified()
-            {
+            if watches(&b.doc, &changed) && !b.doc.is_modified() {
                 let _ = b.doc.external_change(now);
             }
         }
-        let changed: Vec<PathBuf> = changed
-            .into_iter()
-            .filter(|p| self.doc.meta.path.as_ref() == Some(p))
-            .collect();
-        if !changed.is_empty() && self.prompt.is_none() {
+        if watches(&self.doc, &changed) && self.prompt.is_none() {
             match self.doc.external_change(now) {
                 Ok(kalem_core::document::ExternalChange::Reloaded) => {
                     self.after_change(false);
