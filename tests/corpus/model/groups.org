@@ -1,0 +1,24 @@
+#+TITLE: Group tags
+#+TAGS: [ Work : Lab Conf ] { @office(o) @home(h) }
+#+TAGS: { Proj : {P@.+} } [ All : Work Proj ]
+#+TAGS: Lab
+#+KALEM_MATCH: Work
+#+KALEM_MATCH: +Work-Conf
+#+KALEM_MATCH: -Work
+#+KALEM_MATCH: work
+#+KALEM_MATCH: Proj
+#+KALEM_MATCH: All/TODO
+#+KALEM_MATCH: Work|@home
+#+KALEM_MATCH: {Work}
+#+KALEM_MATCH: Workshop
+#+KALEM_MATCH: Work+LEVEL=2
+
+* TODO Paper :Lab:
+* Talk :Conf:
+** Slides :Work:
+* Project page :P@site:
+* At home :@home:
+* Workshop notes :Workshop:
+* Work log :Work_log:
+* Other :misc:
+* TODO Both :Lab:@office:

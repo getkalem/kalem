@@ -1,0 +1,59 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"#+begin_quote\\nQuoted *text*.\\n#+end_quote\\n\",\n\"#+begin_center\\ncentered\\n#+end_center\\n\",\n\"#+begin_note params\\ninner\\n#+end_note\\n\"])"
+---
+=== "#+begin_quote\nQuoted *text*.\n#+end_quote\n"
+DOCUMENT@0..41
+  SECTION@0..41
+    QUOTE_BLOCK@0..41
+      BLOCK_BEGIN@0..14
+        MARKER@0..2 "#+"
+        KEY@2..13 "begin_quote"
+        NEWLINE@13..14 "\n"
+      PARAGRAPH@14..29
+        TEXT@14..20 "Quoted"
+        WHITESPACE@20..21 " "
+        BOLD@21..27
+          MARKER@21..22 "*"
+          TEXT@22..26 "text"
+          MARKER@26..27 "*"
+        TEXT@27..28 "."
+        NEWLINE@28..29 "\n"
+      BLOCK_END@29..41
+        MARKER@29..31 "#+"
+        KEY@31..40 "end_quote"
+        NEWLINE@40..41 "\n"
+
+=== "#+begin_center\ncentered\n#+end_center\n"
+DOCUMENT@0..37
+  SECTION@0..37
+    CENTER_BLOCK@0..37
+      BLOCK_BEGIN@0..15
+        MARKER@0..2 "#+"
+        KEY@2..14 "begin_center"
+        NEWLINE@14..15 "\n"
+      PARAGRAPH@15..24
+        TEXT@15..23 "centered"
+        NEWLINE@23..24 "\n"
+      BLOCK_END@24..37
+        MARKER@24..26 "#+"
+        KEY@26..36 "end_center"
+        NEWLINE@36..37 "\n"
+
+=== "#+begin_note params\ninner\n#+end_note\n"
+DOCUMENT@0..37
+  SECTION@0..37
+    SPECIAL_BLOCK@0..37
+      BLOCK_BEGIN@0..20
+        MARKER@0..2 "#+"
+        KEY@2..12 "begin_note"
+        WHITESPACE@12..13 " "
+        TEXT@13..19 "params"
+        NEWLINE@19..20 "\n"
+      PARAGRAPH@20..26
+        TEXT@20..25 "inner"
+        NEWLINE@25..26 "\n"
+      BLOCK_END@26..37
+        MARKER@26..28 "#+"
+        KEY@28..36 "end_note"
+        NEWLINE@36..37 "\n"

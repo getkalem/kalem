@@ -1,0 +1,27 @@
+[package]
+name = "org-edit"
+description = "Structural editing of Org mode files: transactions, undo, and the commands of Org mode, producing the text Emacs produces"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["org-mode", "emacs", "editor"]
+categories = ["text-processing", "text-editors"]
+readme = "README.md"
+
+[dependencies]
+org-syntax.workspace = true
+org-model.workspace = true
+org-table.workspace = true
+jiff = { version = "0.2", default-features = false, features = ["std"] }
+unicode-width = "0.2"
+
+[dev-dependencies]
+insta = "1"
+proptest = "1"
+serde_json = "1"
+
+[lints]
+workspace = true

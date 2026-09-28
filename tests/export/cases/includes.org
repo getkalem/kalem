@@ -1,0 +1,19 @@
+#+TITLE: Includes
+
+* Top
+#+INCLUDE: "include/part.org"
+
+* Code
+#+INCLUDE: "include/code.el" src emacs-lisp
+
+* Lines
+#+INCLUDE: "include/lines.txt" example :lines "2-4"
+
+* Quote
+#+INCLUDE: "include/lines.txt" quote :lines "1-2"
+
+* Part of a file
+#+INCLUDE: "include/part.org::*Deeper" :only-contents t
+
+* Levels
+#+INCLUDE: "include/part.org" :minlevel 3

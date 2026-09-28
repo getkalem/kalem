@@ -1,0 +1,63 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"#+BEGIN: clocktable :scope file\\n| x |\\n#+END:\\n\",\n\"#+begin: empty\\n#+end:\\n\", \"#+BEGIN: name\\ntext\\n#+END\\n\"])"
+---
+=== "#+BEGIN: clocktable :scope file\n| x |\n#+END:\n"
+DOCUMENT@0..45
+  SECTION@0..45
+    DYNAMIC_BLOCK@0..45
+      BLOCK_BEGIN@0..32
+        MARKER@0..2 "#+"
+        KEY@2..7 "BEGIN"
+        MARKER@7..8 ":"
+        WHITESPACE@8..9 " "
+        TEXT@9..31 "clocktable :scope file"
+        NEWLINE@31..32 "\n"
+      TABLE@32..38
+        TABLE_ROW@32..38
+          MARKER@32..33 "|"
+          TABLE_CELL@33..37
+            WHITESPACE@33..34 " "
+            TEXT@34..35 "x"
+            WHITESPACE@35..36 " "
+            MARKER@36..37 "|"
+          NEWLINE@37..38 "\n"
+      BLOCK_END@38..45
+        MARKER@38..40 "#+"
+        KEY@40..44 "END:"
+        NEWLINE@44..45 "\n"
+
+=== "#+begin: empty\n#+end:\n"
+DOCUMENT@0..22
+  SECTION@0..22
+    DYNAMIC_BLOCK@0..22
+      BLOCK_BEGIN@0..15
+        MARKER@0..2 "#+"
+        KEY@2..7 "begin"
+        MARKER@7..8 ":"
+        WHITESPACE@8..9 " "
+        TEXT@9..14 "empty"
+        NEWLINE@14..15 "\n"
+      BLOCK_END@15..22
+        MARKER@15..17 "#+"
+        KEY@17..21 "end:"
+        NEWLINE@21..22 "\n"
+
+=== "#+BEGIN: name\ntext\n#+END\n"
+DOCUMENT@0..25
+  SECTION@0..25
+    DYNAMIC_BLOCK@0..25
+      BLOCK_BEGIN@0..14
+        MARKER@0..2 "#+"
+        KEY@2..7 "BEGIN"
+        MARKER@7..8 ":"
+        WHITESPACE@8..9 " "
+        TEXT@9..13 "name"
+        NEWLINE@13..14 "\n"
+      PARAGRAPH@14..19
+        TEXT@14..18 "text"
+        NEWLINE@18..19 "\n"
+      BLOCK_END@19..25
+        MARKER@19..21 "#+"
+        KEY@21..24 "END"
+        NEWLINE@24..25 "\n"

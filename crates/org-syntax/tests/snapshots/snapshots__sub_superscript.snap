@@ -1,0 +1,52 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(& [\"x_1 and x^2\\n\", \"x_{12} and x^{ab}\\n\", \"x_(a) and y^*\\n\"])"
+---
+=== "x_1 and x^2\n"
+DOCUMENT@0..12
+  SECTION@0..12
+    PARAGRAPH@0..12
+      TEXT@0..1 "x"
+      SUBSCRIPT@1..4
+        MARKER@1..2 "_"
+        TEXT@2..3 "1"
+        WHITESPACE@3..4 " "
+      TEXT@4..9 "and x"
+      SUPERSCRIPT@9..11
+        MARKER@9..10 "^"
+        TEXT@10..11 "2"
+      NEWLINE@11..12 "\n"
+
+=== "x_{12} and x^{ab}\n"
+DOCUMENT@0..18
+  SECTION@0..18
+    PARAGRAPH@0..18
+      TEXT@0..1 "x"
+      SUBSCRIPT@1..7
+        MARKER@1..2 "_"
+        MARKER@2..3 "{"
+        TEXT@3..5 "12"
+        MARKER@5..6 "}"
+        WHITESPACE@6..7 " "
+      TEXT@7..12 "and x"
+      SUPERSCRIPT@12..17
+        MARKER@12..13 "^"
+        MARKER@13..14 "{"
+        TEXT@14..16 "ab"
+        MARKER@16..17 "}"
+      NEWLINE@17..18 "\n"
+
+=== "x_(a) and y^*\n"
+DOCUMENT@0..14
+  SECTION@0..14
+    PARAGRAPH@0..14
+      TEXT@0..1 "x"
+      SUBSCRIPT@1..6
+        MARKER@1..2 "_"
+        TEXT@2..5 "(a)"
+        WHITESPACE@5..6 " "
+      TEXT@6..11 "and y"
+      SUPERSCRIPT@11..13
+        MARKER@11..12 "^"
+        TEXT@12..13 "*"
+      NEWLINE@13..14 "\n"

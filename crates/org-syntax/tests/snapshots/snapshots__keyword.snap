@@ -1,0 +1,78 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"#+TITLE: Document\\n\", \"#+author:   Name  \\n\",\n\"#+NAME: tbl\\n| x |\\n#+CAPTION[short]: A *long* caption\\n#+ATTR_HTML: :width 50%\\n[[file:x.png]]\\n\"])"
+---
+=== "#+TITLE: Document\n"
+DOCUMENT@0..18
+  SECTION@0..18
+    KEYWORD@0..18
+      MARKER@0..2 "#+"
+      KEY@2..7 "TITLE"
+      MARKER@7..8 ":"
+      WHITESPACE@8..9 " "
+      TEXT@9..17 "Document"
+      NEWLINE@17..18 "\n"
+
+=== "#+author:   Name  \n"
+DOCUMENT@0..19
+  SECTION@0..19
+    KEYWORD@0..19
+      MARKER@0..2 "#+"
+      KEY@2..8 "author"
+      MARKER@8..9 ":"
+      WHITESPACE@9..12 "   "
+      TEXT@12..16 "Name"
+      WHITESPACE@16..18 "  "
+      NEWLINE@18..19 "\n"
+
+=== "#+NAME: tbl\n| x |\n#+CAPTION[short]: A *long* caption\n#+ATTR_HTML: :width 50%\n[[file:x.png]]\n"
+DOCUMENT@0..92
+  SECTION@0..92
+    TABLE@0..18
+      AFFILIATED_KEYWORD@0..12
+        MARKER@0..2 "#+"
+        KEY@2..6 "NAME"
+        MARKER@6..7 ":"
+        WHITESPACE@7..8 " "
+        TEXT@8..11 "tbl"
+        NEWLINE@11..12 "\n"
+      TABLE_ROW@12..18
+        MARKER@12..13 "|"
+        TABLE_CELL@13..17
+          WHITESPACE@13..14 " "
+          TEXT@14..15 "x"
+          WHITESPACE@15..16 " "
+          MARKER@16..17 "|"
+        NEWLINE@17..18 "\n"
+    PARAGRAPH@18..92
+      AFFILIATED_KEYWORD@18..53
+        MARKER@18..20 "#+"
+        KEY@20..27 "CAPTION"
+        MARKER@27..28 "["
+        KEYWORD_VALUE@28..33
+          TEXT@28..33 "short"
+        MARKER@33..34 "]"
+        MARKER@34..35 ":"
+        WHITESPACE@35..36 " "
+        KEYWORD_VALUE@36..52
+          TEXT@36..37 "A"
+          WHITESPACE@37..38 " "
+          BOLD@38..45
+            MARKER@38..39 "*"
+            TEXT@39..43 "long"
+            MARKER@43..44 "*"
+            WHITESPACE@44..45 " "
+          TEXT@45..52 "caption"
+        NEWLINE@52..53 "\n"
+      AFFILIATED_KEYWORD@53..77
+        MARKER@53..55 "#+"
+        KEY@55..64 "ATTR_HTML"
+        MARKER@64..65 ":"
+        WHITESPACE@65..66 " "
+        TEXT@66..76 ":width 50%"
+        NEWLINE@76..77 "\n"
+      LINK@77..91
+        MARKER@77..79 "[["
+        CODE_TEXT@79..89 "file:x.png"
+        MARKER@89..91 "]]"
+      NEWLINE@91..92 "\n"

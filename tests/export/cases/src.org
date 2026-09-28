@@ -1,0 +1,18 @@
+#+NAME: hello
+#+CAPTION: A listing
+#+begin_src python -n
+def hi():
+    return "<hi>"  # (ref:ret)
+#+end_src
+
+#+begin_src sh
+  echo indented
+    more
+#+end_src
+
+Inline src_python{print(1)} and a link to [[hello]].
+
+#+begin_example -n 10
+ten
+eleven
+#+end_example

@@ -1,0 +1,25 @@
+basic	i	x^2 + y^2 = z^2
+basic	i	\Gamma \Delta \Theta \Lambda \Xi \Pi \Sigma \Phi \Psi \Omega
+basic	i	10^{-3} \approx 0.001
+frac	d	\frac{1}{1 + \frac{1}{1 + \frac{1}{x}}}
+frac	i	\binom{n}{k} = \frac{n!}{k!(n-k)!}
+bigop	d	\lim_{x \to 0} \frac{\sin x}{x} = 1
+bigop	i	\sum_{k=0}^{\infty} \frac{x^k}{k!}
+delim	d	\left[ \int_0^1 f \right]
+delim	d	\bigl( \Bigl( \biggl( \Biggl( x \Biggr) \biggr) \Bigr) \bigr)
+accent	i	\widehat{ABC} + \widetilde{xyz} + \overline{AB}
+accent	i	\mathrm{d}x, \mathbf{v}, \mathit{text}, \mathsf{A}, \mathtt{code}
+accent	i	\det A, \gcd(a,b), \max_i x_i, \min_{x} f(x)
+matrix	d	\begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}
+matrix	i	\left(\begin{smallmatrix} a & b \\ c & d \end{smallmatrix}\right)
+env	d	\begin{aligned} a &= b + c \\ &= d \end{aligned}
+env	d	\begin{split} (a+b)^2 &= a^2 + 2ab + b^2 \end{split}
+env	d	\begin{equation*} \nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0} \end{equation*}
+text	i	\mbox{if } n > 0
+rel	i	A \subset B \subseteq C \supset D \in E \notin F \ni G
+rel	i	A \xrightarrow{f} B \xleftarrow[g]{} C
+rel	i	\cdots \ldots \vdots \ddots \dots
+brace	d	\boxed{E = mc^2}
+misc	i	a \bmod b
+misc	d	i\hbar \frac{\partial}{\partial t} \Psi = \hat{H} \Psi
+misc	d	\operatorname*{arg\,max}_{\theta} \mathcal{L}(\theta)

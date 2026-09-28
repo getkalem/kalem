@@ -1,0 +1,29 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"One line.\\n\", \"Two\\nlines.\\n\\nNext paragraph.\\n\", \"no final newline\"])"
+---
+=== "One line.\n"
+DOCUMENT@0..10
+  SECTION@0..10
+    PARAGRAPH@0..10
+      TEXT@0..9 "One line."
+      NEWLINE@9..10 "\n"
+
+=== "Two\nlines.\n\nNext paragraph.\n"
+DOCUMENT@0..28
+  SECTION@0..28
+    PARAGRAPH@0..12
+      TEXT@0..3 "Two"
+      NEWLINE@3..4 "\n"
+      TEXT@4..10 "lines."
+      NEWLINE@10..11 "\n"
+      BLANK_LINE@11..12 "\n"
+    PARAGRAPH@12..28
+      TEXT@12..27 "Next paragraph."
+      NEWLINE@27..28 "\n"
+
+=== "no final newline"
+DOCUMENT@0..16
+  SECTION@0..16
+    PARAGRAPH@0..16
+      TEXT@0..16 "no final newline"

@@ -1,0 +1,13 @@
+<file:img/pic.png>
+
+<./img/other.jpg>
+
+<https://example.com/a.svg>
+
+Text with an inline <file:x.gif> image and [another org file] and [a
+heading there].
+
+
+[another org file] <file:doc.org>
+
+[a heading there] <file:doc.org::*Heading>

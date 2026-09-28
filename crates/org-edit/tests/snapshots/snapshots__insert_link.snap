@@ -1,0 +1,8 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: "format!(\"{marked}\\n----\\n{out}\")"
+---
+See ‸.
+
+----
+See [[https://orgmode.org][Org]]‸.

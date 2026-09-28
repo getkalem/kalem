@@ -1,0 +1,44 @@
+#+begin_src emacs-lisp
+(defun hello () (message "<hi>"))
+#+end_src
+
+#+begin_example
+An example & more
+  indented
+#+end_example
+
+#+begin_quote
+A quoted paragraph.
+#+end_quote
+
+#+begin_center
+Centered text.
+#+end_center
+
+#+begin_verse
+Line one
+   Line two indented
+#+end_verse
+
+#+begin_export html
+<div class="raw">raw html</div>
+#+end_export
+
+#+begin_export latex
+\LaTeX{} only
+#+end_export
+
+#+begin_note
+A special block.
+#+end_note
+
+: fixed width line
+: another
+
+-----
+
+Text with @@html:<b>snippet</b>@@ and @@latex:\textbf{x}@@.
+
+:DRAWER:
+Drawer content.
+:END:

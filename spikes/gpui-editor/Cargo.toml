@@ -1,0 +1,20 @@
+[package]
+name = "gpui-editor-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Spike: is gpui suitable for Kalem's WYSIWYG Org editor? (tasks T0.6, decision D3)"
+
+[workspace]
+
+[dependencies]
+gpui = { version = "0.2", features = ["runtime_shaders"] }
+org-syntax = { path = "../../crates/org-syntax" }
+ropey = "1"
+resvg = { version = "0.45", default-features = false, features = ["text", "system-fonts", "memmap-fonts"] }
+image = { version = "0.25", default-features = false }
+smallvec = "1"
+ratex-parser = "0.1.14"
+ratex-layout = "0.1.14"
+ratex-types = "0.1.14"
+ratex-svg = { version = "0.1.14", features = ["standalone", "embed-fonts"] }

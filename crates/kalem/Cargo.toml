@@ -1,0 +1,39 @@
+[package]
+name = "kalem-editor"
+description = "Kalem: a lightweight WYSIWYG editor for Org mode files, for the desktop and the terminal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["org-mode", "editor", "wysiwyg", "latex", "tui"]
+categories = ["text-editors", "command-line-utilities"]
+readme = "../../README.md"
+
+[[bin]]
+name = "kalem"
+path = "src/main.rs"
+
+[features]
+default = ["gui", "tui"]
+# The graphical editor (gpui). Without it: the terminal-only build, for
+# servers and minimal systems (`--no-default-features --features tui`).
+gui = ["dep:kalem-ui"]
+# The terminal editor.
+tui = ["dep:kalem-tui"]
+
+[dependencies]
+kalem-cli.workspace = true
+kalem-tui = { workspace = true, optional = true }
+kalem-ui = { workspace = true, optional = true }
+
+[package.metadata.dist]
+dist = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+insta = { version = "1", features = ["json"] }
+serde_json = "1"

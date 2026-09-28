@@ -1,0 +1,18 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: "format!(\"{marked}\\n----\\n{out}\")"
+---
+#+STARTUP: logdone
+#+TODO: TODO WAIT(w@) | DONE
+* Parent [0/1]
+** TODO Task‸
+SCHEDULED: <2026-09-21 Mon +1w>
+
+----
+#+STARTUP: logdone
+#+TODO: TODO WAIT(w@) | DONE
+* Parent [0/1]
+** WAIT Task‸
+SCHEDULED: <2026-09-21 Mon +1w>
+- State "WAIT"       from "TODO"       [2026-09-28 Mon 10:00] \\
+  Waiting for the review

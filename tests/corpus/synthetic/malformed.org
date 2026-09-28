@@ -1,0 +1,28 @@
+Text before a block.
+#+begin_src sh
+never closed
+
+:LOGBOOK:
+never closed either
+
+#+end_quote
+:END:
+
+#+CALL: f(x
+#+CALL: g[:h
+
+#+NAME: orphan
+
+* Duplicate planning
+SCHEDULED: <2026-01-01 Thu SCHEDULED: <2026-01-02 Fri>> DEADLINE: <2026-01-03 Sat>
+
+* Emphasis edge cases
+*not closed and a**b** and * spaced * and =a=b= and ~~.
+[[unclosed link and [fn:unclosed and {{{macro(unclosed
+
+* Tables
+| unterminated row
+|---
+| a | b
++--+
+| x |

@@ -1,0 +1,18 @@
+#+OPTIONS: d:t p:t c:t prop:t <:t stat:t
+
+* TODO Task [1/2]
+SCHEDULED: <2026-09-28 Mon> DEADLINE: <2026-10-01 Thu 10:00>
+:PROPERTIES:
+:EFFORT: 1:00
+:END:
+:LOGBOOK:
+CLOCK: [2026-09-28 Mon 09:00]--[2026-09-28 Mon 10:00] =>  1:00
+:END:
+- [X] one
+- [ ] two
+
+An isolated timestamp:
+
+<2026-09-28 Mon>
+
+Inline <2026-09-28 Mon>--<2026-09-29 Tue> range and [2026-09-27 Sun] inactive.

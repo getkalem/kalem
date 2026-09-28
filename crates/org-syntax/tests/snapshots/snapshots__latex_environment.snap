@@ -1,0 +1,32 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"\\\\begin{equation}\\nx^2\\n\\\\end{equation}\\n\",\n\"\\\\begin{align*}\\na &= b\\n\\\\end{align*}\\n\", \"\\\\begin{x} one line \\\\end{x}\\n\"])"
+---
+=== "\\begin{equation}\nx^2\n\\end{equation}\n"
+DOCUMENT@0..36
+  SECTION@0..36
+    LATEX_ENVIRONMENT@0..36
+      TEXT@0..16 "\\begin{equation}"
+      NEWLINE@16..17 "\n"
+      TEXT@17..20 "x^2"
+      NEWLINE@20..21 "\n"
+      TEXT@21..35 "\\end{equation}"
+      NEWLINE@35..36 "\n"
+
+=== "\\begin{align*}\na &= b\n\\end{align*}\n"
+DOCUMENT@0..35
+  SECTION@0..35
+    LATEX_ENVIRONMENT@0..35
+      TEXT@0..14 "\\begin{align*}"
+      NEWLINE@14..15 "\n"
+      TEXT@15..21 "a &= b"
+      NEWLINE@21..22 "\n"
+      TEXT@22..34 "\\end{align*}"
+      NEWLINE@34..35 "\n"
+
+=== "\\begin{x} one line \\end{x}\n"
+DOCUMENT@0..27
+  SECTION@0..27
+    LATEX_ENVIRONMENT@0..27
+      TEXT@0..26 "\\begin{x} one line \\e ..."
+      NEWLINE@26..27 "\n"

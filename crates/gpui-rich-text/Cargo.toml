@@ -1,0 +1,23 @@
+[package]
+name = "gpui-rich-text"
+description = "Rich text lines for editors on gpui: inline layout of styled text with widget boxes, row breaking with hanging indents, carets, hit testing and selection rectangles"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["gpui", "editor", "rich-text", "layout", "text"]
+categories = ["gui", "text-editors"]
+readme = "README.md"
+# gpui comes from Zed's main branch until a release has the APIs used.
+publish = false
+
+[dependencies]
+gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2" }
+
+[dev-dependencies]
+gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2", features = ["test-support"] }
+
+[lints]
+workspace = true

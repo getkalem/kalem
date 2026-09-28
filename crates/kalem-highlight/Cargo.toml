@@ -1,0 +1,15 @@
+[package]
+name = "kalem-highlight"
+description = "Syntax highlighting for the Kalem editor: source blocks and plain text files"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
+
+[lints]
+workspace = true

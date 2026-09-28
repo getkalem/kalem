@@ -1,0 +1,24 @@
+A first paragraph with *bold*, /italic/, _underlined_, =verbatim=,
+~code~ and +struck+ text, and an entity: \alpha and \rarr.
+
+Special strings -- an en dash --- an em dash ... and \- a shy hyphen.
+Sub and superscripts: H_2O and x^2 and E=mc^{2}.
+
+A line break here\\
+and a new line.
+
+Links: [[https://orgmode.org][Org mode]], https://example.com, and
+[[file:notes.txt]] and [[*Second][a heading]].
+
+A footnote reference[fn:1] and an inline one[fn:: Inline note.].
+
+* First
+Text under the first heading.
+
+** Nested
+Deeper text.
+
+* Second
+The end.
+
+[fn:1] The footnote's text.

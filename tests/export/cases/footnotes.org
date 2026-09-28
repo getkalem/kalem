@@ -1,0 +1,10 @@
+Text with a note[fn:a] and the same note again[fn:a] and another[fn:b].
+Anonymous inline[fn::Inline *bold* note.] and labelled inline[fn:c: Named inline.].
+Two in a row[fn:a][fn:b].
+
+[fn:a] First definition,
+with two lines.
+
+[fn:b] Second definition.
+
+  With a second paragraph.

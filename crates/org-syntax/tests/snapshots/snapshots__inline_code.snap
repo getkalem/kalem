@@ -1,0 +1,45 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"src_python{1+1}\\n\", \"src_sh[:results raw]{echo x}\\n\",\n\"call_f(x=1) and call_g[:h](y)[:e]\\n\"])"
+---
+=== "src_python{1+1}\n"
+DOCUMENT@0..16
+  SECTION@0..16
+    PARAGRAPH@0..16
+      INLINE_SRC_BLOCK@0..15
+        MARKER@0..4 "src_"
+        KEY@4..10 "python"
+        MARKER@10..11 "{"
+        CODE_TEXT@11..14 "1+1"
+        MARKER@14..15 "}"
+      NEWLINE@15..16 "\n"
+
+=== "src_sh[:results raw]{echo x}\n"
+DOCUMENT@0..29
+  SECTION@0..29
+    PARAGRAPH@0..29
+      INLINE_SRC_BLOCK@0..28
+        MARKER@0..4 "src_"
+        KEY@4..6 "sh"
+        TEXT@6..20 "[:results raw]"
+        MARKER@20..21 "{"
+        CODE_TEXT@21..27 "echo x"
+        MARKER@27..28 "}"
+      NEWLINE@28..29 "\n"
+
+=== "call_f(x=1) and call_g[:h](y)[:e]\n"
+DOCUMENT@0..34
+  SECTION@0..34
+    PARAGRAPH@0..34
+      INLINE_BABEL_CALL@0..12
+        MARKER@0..5 "call_"
+        KEY@5..6 "f"
+        TEXT@6..11 "(x=1)"
+        WHITESPACE@11..12 " "
+      TEXT@12..15 "and"
+      WHITESPACE@15..16 " "
+      INLINE_BABEL_CALL@16..33
+        MARKER@16..21 "call_"
+        KEY@21..22 "g"
+        TEXT@22..33 "[:h](y)[:e]"
+      NEWLINE@33..34 "\n"

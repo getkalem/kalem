@@ -1,0 +1,17 @@
+#+TITLE: Misc *title*
+#+AUTHOR: Someone
+
+Entities: \nbsp{} \pi \copy{} \euro and \frac12 plus \Alpha.
+Emphasis nested: *bold /italic/ bold* and =~verbatim~=.
+Special: ... "quotes" 'single' -- and ---.
+A stat cookie [2/5] and [40%].
+
+#+begin_verse
+  Two leading
+Normal line\\
+Last
+#+end_verse
+
+* Heading with =code= and [[https://x.org][link]] :a:b:
+** TODO [#C] Low priority
+*** Target <<here>> inside

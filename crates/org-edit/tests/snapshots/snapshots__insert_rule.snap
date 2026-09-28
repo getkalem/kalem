@@ -1,0 +1,9 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: "format!(\"{marked}\\n----\\n{out}\")"
+---
+Text‸
+
+----
+Text
+-----‸

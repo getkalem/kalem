@@ -1,0 +1,29 @@
+---
+source: crates/kalem-tui/tests/snapshots.rs
+expression: "screen(Caps::full(), 60, 26, DOC.len())"
+---
+ Snapshot                                                   |.BBBBBBBB
+ Ada                                                        |.III
+ #+OPTIONS: toc:nil …                                       |.DDDDDDDDDDDDDDDDDDDD
+ ◉ TODO Heading one :tag:                                   |.HHrrrrHHHHHHHHHHHHHDDDDD
+   :PROPERTIES: …                                           |...DDDDDDDDDDDDDD
+   Some bold, italic, code and a link, α and x².            |........BBBB..IIIIII..kkkk.....UUUUUU.........*
+   • ☐ a task                                               |
+   • ☑ done                                                 |
+     1. nested                                              |
+   │ Name  │ Qty │                                          |...D.......D.....D
+   ├───────┼─────┤                                          |...DDDDDDDDDDDDDDD
+   │ apple │   3 │                                          |...D.......D.....D
+   ○ Second level                                           |.HHHHHHHHHHHHHHHH
+     ╭─ rust ────────────────────────────────────────────── |.....ccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+     fn main() { println!("hi"); }                          |.....kkckkkkccccckkkkkkkkckkkkcccccccccccccccccccccccccccccc
+     ╰───────────────────────────────────────────────────── |.....ccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+     A formula E=mc² and a long line that wraps around the  |...............IIIII
+     edge of the narrow screen.                             |
+                                                            |
+                                                            |
+                                                            |
+                                                            |
+                                                            |
+                                                            |
+                                                            |

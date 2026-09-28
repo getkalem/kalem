@@ -1,0 +1,19 @@
+[package]
+name = "org-export"
+description = "Org mode export: HTML, Markdown, plain text and LaTeX as Emacs's ox back-ends write them"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["org-mode", "export", "html", "markdown", "latex"]
+categories = ["text-processing", "parser-implementations"]
+
+[dependencies]
+org-syntax.workspace = true
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo"] }
+unicode-width = "0.2"
+
+[lints]
+workspace = true

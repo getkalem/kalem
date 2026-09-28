@@ -1,0 +1,48 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"[fn:1] A note.\\n\", \"[fn:label]\\n\\nOn next lines.\\n\",\n\"[fn:a] one\\n[fn:b] two\\n\"])"
+---
+=== "[fn:1] A note.\n"
+DOCUMENT@0..15
+  SECTION@0..15
+    FOOTNOTE_DEFINITION@0..15
+      MARKER@0..4 "[fn:"
+      KEY@4..5 "1"
+      MARKER@5..6 "]"
+      WHITESPACE@6..7 " "
+      PARAGRAPH@7..15
+        TEXT@7..14 "A note."
+        NEWLINE@14..15 "\n"
+
+=== "[fn:label]\n\nOn next lines.\n"
+DOCUMENT@0..27
+  SECTION@0..27
+    FOOTNOTE_DEFINITION@0..27
+      MARKER@0..4 "[fn:"
+      KEY@4..9 "label"
+      MARKER@9..10 "]"
+      NEWLINE@10..11 "\n"
+      BLANK_LINE@11..12 "\n"
+      PARAGRAPH@12..27
+        TEXT@12..26 "On next lines."
+        NEWLINE@26..27 "\n"
+
+=== "[fn:a] one\n[fn:b] two\n"
+DOCUMENT@0..22
+  SECTION@0..22
+    FOOTNOTE_DEFINITION@0..11
+      MARKER@0..4 "[fn:"
+      KEY@4..5 "a"
+      MARKER@5..6 "]"
+      WHITESPACE@6..7 " "
+      PARAGRAPH@7..11
+        TEXT@7..10 "one"
+        NEWLINE@10..11 "\n"
+    FOOTNOTE_DEFINITION@11..22
+      MARKER@11..15 "[fn:"
+      KEY@15..16 "b"
+      MARKER@16..17 "]"
+      WHITESPACE@17..18 " "
+      PARAGRAPH@18..22
+        TEXT@18..21 "two"
+        NEWLINE@21..22 "\n"

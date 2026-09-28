@@ -1,0 +1,125 @@
+Item	Qty	Price	Total
+RULE
+Pens	3	1.20	3.6
+Paper	10	0.05	0.5
+Ink	2	12.99	25.98
+RULE
+Sum	15		30.08
+
+a	b	a/b	a%b	a^b
+RULE
+7	2	3.5	1	49
+1	3	0.33333333	1	1
+9	3	3	0	729
+2	0	2/0	2 % 0	1
+
+x	x*2	x+0.5	-x	abs
+RULE
+1.5	3.	2.	-1.5	1.5
+-2	-4	-1.5	2	2
+1e3	2000.	1000.5	-1000.	1000.
+.25	0.5	0.75	-0.25	0.25
+
+value	%.2f	f1	n3	s3	e3
+RULE
+2	6.00	0.7	0.667	2000	2000
+3.14159	9.42	1.0	1.05	3.14e3	3.14e3
+1234.5678	3703.70	411.5	412.	1.23e6	1.23e6
+
+a	b	sum N	sum	sum E	mean	mean E
+RULE
+1		1	1	nan	1	nan
+x	2	2	x + 2	x + 2	x / 2 + 1	x / 2 + 1
+		0	0	nan	vmean([])	nan
+
+Start	End	Time T	Time U	Hours t
+RULE
+08:30	12:15	03:45:00	03:45	3.75
+13:00	17:45	04:45:00	04:45	4.75
+22:10	23:05	00:55:00	00:55	0.92
+
+Task	Duration
+RULE
+A	1:30:00
+B	0:45:30
+C	2:05:10
+RULE
+All	04:20:40
+
+ERROR Unknown field: total
+
+$	max=50	
+_		thres
+	12	40
+	60	20
+
+Speed	Distance	Time
+RULE
+10	100	10
+299792458	1	#ERROR
+
+	1	2	3	Row sum	Col#
+RULE
+a	1	2	3	6	2
+b	4	5	6	15	3
+c	7	8	9	24	4
+RULE
+Σ	12	15	18	45	5
+
+n	prev	diff	first	last
+RULE
+3	n	3 - n	n	14
+5	3	2	n	14
+9	5	4	n	14
+14	9	5	n	14
+
+a	b	c	d
+RULE
+1	2	3	0
+3	4	7	0
+
+ERROR Args out of range: [nil 0 2 3 4 5 6 8 9 10 11 12], 12
+
+n	sign	parity	clamp	round	floor
+RULE
+-3	-1	1	0	-3	-3
+0	0	0	0	0	0
+7	1	1	7	7	7
+12.6	1	0.6	10	13	12
+
+angle	sin	cos	sqrt	ln
+RULE
+30	0.5	0.86602540	5.4772256	3.4011974
+45	0.70710678	0.70710678	6.7082039	3.8066625
+90	1	0	9.4868330	4.4998097
+
+#	1	10
+#	2	20
+	3	
+*	4	40
+
+1	2	3
+3	4	7
+
+ERROR Invalid field specifier "$7"
+
+a	b
+RULE
+1	#ERROR
+
+a	b
+RULE
+1	#ERROR
+
+a	b
+RULE
+1	3
+
+total
+RULE
+30
+
+sum
+RULE
+30
+

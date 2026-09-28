@@ -1,0 +1,12 @@
+#+CAPTION: A table
+#+NAME: tab1
+| Name  | Qty |
+|-------+-----|
+| apple |   3 |
+| pear  |  10 |
+
+|   <r> | <l>  |
+| right | left |
+
+| a | b |
+| c | d |

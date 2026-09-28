@@ -1,0 +1,48 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"*************** Task\\nBody\\n*************** END\\n\",\n\"*************** TODO One line task\\n\",\n\"*************** Empty\\n*************** END\\n\"])"
+---
+=== "*************** Task\nBody\n*************** END\n"
+DOCUMENT@0..46
+  SECTION@0..46
+    INLINETASK@0..46
+      STARS@0..15 "***************"
+      WHITESPACE@15..16 " "
+      HEADLINE_TITLE@16..20
+        TEXT@16..20 "Task"
+      NEWLINE@20..21 "\n"
+      PARAGRAPH@21..26
+        TEXT@21..25 "Body"
+        NEWLINE@25..26 "\n"
+      BLOCK_END@26..46
+        STARS@26..41 "***************"
+        WHITESPACE@41..42 " "
+        KEY@42..45 "END"
+        NEWLINE@45..46 "\n"
+
+=== "*************** TODO One line task\n"
+DOCUMENT@0..35
+  SECTION@0..35
+    INLINETASK@0..35
+      STARS@0..15 "***************"
+      WHITESPACE@15..16 " "
+      TODO_KEYWORD@16..20 "TODO"
+      WHITESPACE@20..21 " "
+      HEADLINE_TITLE@21..34
+        TEXT@21..34 "One line task"
+      NEWLINE@34..35 "\n"
+
+=== "*************** Empty\n*************** END\n"
+DOCUMENT@0..42
+  SECTION@0..42
+    INLINETASK@0..42
+      STARS@0..15 "***************"
+      WHITESPACE@15..16 " "
+      HEADLINE_TITLE@16..21
+        TEXT@16..21 "Empty"
+      NEWLINE@21..22 "\n"
+      BLOCK_END@22..42
+        STARS@22..37 "***************"
+        WHITESPACE@37..38 " "
+        KEY@38..41 "END"
+        NEWLINE@41..42 "\n"

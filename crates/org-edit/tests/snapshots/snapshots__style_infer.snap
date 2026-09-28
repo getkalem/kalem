@@ -1,0 +1,16 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: s
+---
+Style {
+    indentation: Full,
+    startup_indented: true,
+    blank_before_heading: false,
+    keyword_case: Upper,
+    block_case: Lower,
+    src_content_indentation: 2,
+    tags_column: -77,
+    todo_keyword: "TODO",
+    done_keyword: "DONE",
+    crlf: false,
+}

@@ -1,0 +1,22 @@
+
+# Table of Contents
+
+
+
+Text with a note<sup><a id="fnr.a" class="footref" href="#fn.a" role="doc-backlink">1</a></sup> and the same note again<sup><a id="fnr.a.1" class="footref" href="#fn.a" role="doc-backlink">1</a></sup> and another<sup><a id="fnr.b" class="footref" href="#fn.b" role="doc-backlink">2</a></sup>.
+Anonymous inline<sup><a id="fnr.3" class="footref" href="#fn.3" role="doc-backlink">3</a></sup> and labelled inline<sup><a id="fnr.c" class="footref" href="#fn.c" role="doc-backlink">4</a></sup>.
+Two in a row<sup><a id="fnr.a.1" class="footref" href="#fn.a" role="doc-backlink">1</a></sup><sup>, </sup><sup><a id="fnr.b.2" class="footref" href="#fn.b" role="doc-backlink">2</a></sup>.
+
+
+# Footnotes
+
+<sup><a id="fn.1" href="#fnr.1">1</a></sup> First definition,
+with two lines.
+
+<sup><a id="fn.2" href="#fnr.2">2</a></sup> Second definition.
+
+With a second paragraph.
+
+<sup><a id="fn.3" href="#fnr.3">3</a></sup> Inline **bold** note.
+
+<sup><a id="fn.4" href="#fnr.4">4</a></sup> Named inline.

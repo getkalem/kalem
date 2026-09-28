@@ -1,0 +1,13 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: "format!(\"{marked}\\n----\\n{out}\")"
+---
+| a | bb |
+|-
+| 10 | x‸ |
+#+TBLFM: $2=$1*2
+
+----
+| a | bb |
+|-‸
+#+TBLFM: $2=$1*2

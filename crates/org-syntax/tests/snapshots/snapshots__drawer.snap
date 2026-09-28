@@ -1,0 +1,64 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\":LOGBOOK:\\nCLOCK: [2026-01-01 Thu 10:00]--[2026-01-01 Thu 11:00] =>  1:00\\n:END:\\n\",\n\":NOTE:\\ntext\\n:END:\\n\", \":EMPTY:\\n:END:\\n\\nafter\\n\"])"
+---
+=== ":LOGBOOK:\nCLOCK: [2026-01-01 Thu 10:00]--[2026-01-01 Thu 11:00] =>  1:00\n:END:\n"
+DOCUMENT@0..79
+  SECTION@0..79
+    DRAWER@0..79
+      BLOCK_BEGIN@0..10
+        MARKER@0..1 ":"
+        KEY@1..8 "LOGBOOK"
+        MARKER@8..9 ":"
+        NEWLINE@9..10 "\n"
+      CLOCK@10..73
+        KEY@10..15 "CLOCK"
+        MARKER@15..16 ":"
+        WHITESPACE@16..17 " "
+        TIMESTAMP@17..64
+          TEXT@17..63 "[2026-01-01 Thu 10:00 ..."
+          WHITESPACE@63..64 " "
+        TEXT@64..72 "=>  1:00"
+        NEWLINE@72..73 "\n"
+      BLOCK_END@73..79
+        MARKER@73..74 ":"
+        KEY@74..77 "END"
+        MARKER@77..78 ":"
+        NEWLINE@78..79 "\n"
+
+=== ":NOTE:\ntext\n:END:\n"
+DOCUMENT@0..18
+  SECTION@0..18
+    DRAWER@0..18
+      BLOCK_BEGIN@0..7
+        MARKER@0..1 ":"
+        KEY@1..5 "NOTE"
+        MARKER@5..6 ":"
+        NEWLINE@6..7 "\n"
+      PARAGRAPH@7..12
+        TEXT@7..11 "text"
+        NEWLINE@11..12 "\n"
+      BLOCK_END@12..18
+        MARKER@12..13 ":"
+        KEY@13..16 "END"
+        MARKER@16..17 ":"
+        NEWLINE@17..18 "\n"
+
+=== ":EMPTY:\n:END:\n\nafter\n"
+DOCUMENT@0..21
+  SECTION@0..21
+    DRAWER@0..15
+      BLOCK_BEGIN@0..8
+        MARKER@0..1 ":"
+        KEY@1..6 "EMPTY"
+        MARKER@6..7 ":"
+        NEWLINE@7..8 "\n"
+      BLOCK_END@8..14
+        MARKER@8..9 ":"
+        KEY@9..12 "END"
+        MARKER@12..13 ":"
+        NEWLINE@13..14 "\n"
+      BLANK_LINE@14..15 "\n"
+    PARAGRAPH@15..21
+      TEXT@15..20 "after"
+      NEWLINE@20..21 "\n"

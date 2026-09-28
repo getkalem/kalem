@@ -1,0 +1,30 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"%%(diary-anniversary 1 1 2000) Birthday\\n\", \"%%(org-calendar-holiday)\\n\",\n\"text\\n%%(diary)\\n\"])"
+---
+=== "%%(diary-anniversary 1 1 2000) Birthday\n"
+DOCUMENT@0..40
+  SECTION@0..40
+    DIARY_SEXP@0..40
+      MARKER@0..2 "%%"
+      TEXT@2..39 "(diary-anniversary 1  ..."
+      NEWLINE@39..40 "\n"
+
+=== "%%(org-calendar-holiday)\n"
+DOCUMENT@0..25
+  SECTION@0..25
+    DIARY_SEXP@0..25
+      MARKER@0..2 "%%"
+      TEXT@2..24 "(org-calendar-holiday)"
+      NEWLINE@24..25 "\n"
+
+=== "text\n%%(diary)\n"
+DOCUMENT@0..15
+  SECTION@0..15
+    PARAGRAPH@0..5
+      TEXT@0..4 "text"
+      NEWLINE@4..5 "\n"
+    DIARY_SEXP@5..15
+      MARKER@5..7 "%%"
+      TEXT@7..14 "(diary)"
+      NEWLINE@14..15 "\n"

@@ -1,0 +1,14 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: "format!(\"{marked}\\n----\\n{out}\")"
+---
+- [ ] one
+- [X] two‸
+  - sub
+- three
+
+----
+1. [ ] one
+2. [X] two‸
+   - sub
+3. three

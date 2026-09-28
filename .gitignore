@@ -1,0 +1,49 @@
+# Build output
+/target
+/spikes/*/target
+/fuzz/target
+**/*.rs.bk
+*.pdb
+
+# Downloaded test corpora and Emacs's exports of them: fetched again by
+# tests/corpus/fetch-extended.sh and tools/export-expected.sh
+/.cache
+/tests/corpus/.cache
+
+# Fuzzing
+/fuzz/corpus
+/fuzz/artifacts
+/fuzz/coverage
+
+# Snapshots waiting for review (cargo insta review)
+*.snap.new
+*.pending-snap
+
+# Profiling and benchmark output
+*.profraw
+*.profdata
+perf.data
+perf.data.old
+flamegraph*.svg
+*.trace/
+
+# Python caches of the tools
+__pycache__/
+*.py[cod]
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+\#*\#
+.#*
+*.orig
+*.rej
+
+# Local settings and secrets
+.env
+.env.*
+.claude/settings.local.json

@@ -1,0 +1,1362 @@
+//! The editor view: the document's visible lines, wrapped into rows,
+//! from a top line; the cursor, the selection, scrolling, vertical motion
+//! and mouse hits.
+
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::ops::Range;
+use std::sync::Arc;
+
+use kalem_core::DocumentState;
+use kalem_core::view::{self, Block, BlockKind, Folds, TableRow, TableView};
+use org_syntax::Parse;
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::style::Modifier;
+
+use crate::caps::Caps;
+use tui_rich_text::{Drawn, Lines, Options, Viewport};
+
+use crate::render::{self, Glyph, WidgetAt};
+
+/// The editor view's state, kept across frames.
+#[derive(Debug, Default)]
+pub struct EditorView {
+    /// The first shown line and row, and the column vertical motion keeps.
+    pub viewport: Viewport,
+    /// Folded headlines.
+    pub folds: Folds,
+    /// The source view: plain text, no folding.
+    pub source: bool,
+    /// Scroll to the cursor on the next frame.
+    pub follow: bool,
+    /// Ranges to mark, such as search matches (sorted).
+    pub highlights: Vec<Range<usize>>,
+    /// The fields the table formula at the cursor refers to (sorted),
+    /// marked when there are no search matches.
+    pub references: Vec<Range<usize>>,
+    drawn: Option<Drawn<WidgetAt>>,
+    blocks: Option<(u64, Arc<Vec<Block>>)>,
+    /// Tables drawn as grids, by their start, for the text version.
+    grids: GridCache,
+    /// Highlighted source blocks, by their start, for the text version.
+    code: CodeCache,
+    /// Images.
+    pub images: RefCell<Images>,
+    /// The text area of the last frame.
+    pub area: Rect,
+    /// Focus mode: only the section holding the cursor shows.
+    pub focus: bool,
+    /// The text column's width in characters; 0 for the whole window.
+    pub line_width: u16,
+    /// The text column in the middle of the window (`editor.center_text`),
+    /// else at its left edge.
+    pub center: bool,
+    /// Long lines wrap (`editor.soft_wrap`, Alt+Z).
+    pub wrap: bool,
+    /// Line numbers in plain text files and the source view.
+    pub line_numbers: bool,
+    /// Formulas shown as their source (`view.toggleMath`).
+    pub raw_math: bool,
+    /// Text under a heading indented to its title, as Org's
+    /// `org-indent-mode` (`editor.outline_indent`, `#+STARTUP: indent`).
+    pub outline_indent: bool,
+    /// Columns scrolled out at the left when lines do not wrap.
+    pub hscroll: u16,
+    /// A plain text document's highlighting and indentation step, for its
+    /// text version.
+    plain: PlainCache,
+}
+
+/// See [`EditorView`]'s `plain`.
+type PlainCache = RefCell<Option<(u64, Option<kalem_highlight::Highlighter>, usize)>>;
+
+/// What an image in the terminal shows.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum ImageKey {
+    /// An image file.
+    File(std::path::PathBuf),
+    /// A formula (a fragment with its delimiters, or an environment),
+    /// with the document's macros.
+    Math { source: String, macros: String },
+}
+
+/// Images shown in the terminal, by file or formula, with their size in
+/// cells.
+#[derive(Default)]
+pub struct Images {
+    /// The graphics protocol, if the terminal has one (kitty, iTerm2,
+    /// sixel); without one, images show as `[image: …]`.
+    pub picker: Option<ratatui_image::picker::Picker>,
+    /// The directory relative links start from.
+    pub base: Option<std::path::PathBuf>,
+    /// Compress kitty transmissions (over SSH, to kitty).
+    pub compress: bool,
+    /// The colors formulas are drawn in and on: the text and the
+    /// terminal's background.
+    pub math_colors: ([u8; 3], [u8; 3]),
+    cache: HashMap<ImageKey, Option<ImageEntry>>,
+    /// The macros of `#+LATEX_HEADER` lines, by document version.
+    macros: Option<(u64, String)>,
+}
+
+struct ImageEntry {
+    protocol: ratatui_image::protocol::StatefulProtocol,
+    rows: u16,
+    cols: u16,
+}
+
+impl std::fmt::Debug for Images {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Images")
+            .field("protocol", &self.picker.as_ref().map(|p| p.protocol_type()))
+            .field("cached", &self.cache.len())
+            .finish()
+    }
+}
+
+impl Images {
+    /// The file an image link points to.
+    fn file(&self, path: &str) -> ImageKey {
+        ImageKey::File(match &self.base {
+            Some(b) => b.join(path.trim_start_matches("file:")),
+            None => std::path::PathBuf::from(path),
+        })
+    }
+
+    /// A formula's key, with the document's macros.
+    fn math(&mut self, source: &str, parse: &Parse, version: u64) -> ImageKey {
+        if self.macros.as_ref().is_none_or(|(v, _)| *v != version) {
+            let headers: Vec<String> = parse
+                .keywords()
+                .into_iter()
+                .filter(|(k, _)| {
+                    k.eq_ignore_ascii_case("LATEX_HEADER")
+                        || k.eq_ignore_ascii_case("LATEX_HEADER_EXTRA")
+                })
+                .map(|(_, v)| v)
+                .collect();
+            self.macros = Some((version, org_math::source::macros(&headers)));
+        }
+        ImageKey::Math {
+            source: source.to_string(),
+            macros: self
+                .macros
+                .as_ref()
+                .map(|(_, m)| m.clone())
+                .unwrap_or_default(),
+        }
+    }
+
+    /// The pixels of `key`: the file read, or the formula rendered at the
+    /// size of the terminal's text, on its background.
+    fn load(&self, key: &ImageKey, cell_height: f32) -> Option<image::DynamicImage> {
+        match key {
+            ImageKey::File(f) => image::open(f).ok(),
+            ImageKey::Math { source, macros } => {
+                use org_math::MathEngine;
+                let (body, display) = org_math::source::body(source);
+                let (fg, bg) = self.math_colors;
+                let request = org_math::Request {
+                    latex: org_math::source::prepare(body, macros),
+                    display,
+                    size: cell_height * 0.8,
+                    scale: 1.,
+                    color: [fg[0], fg[1], fg[2], 255],
+                };
+                let img = org_math::Ratex.render(&request).ok()?;
+                // On the background: sixel has no transparency.
+                let mut rgba = img.rgba;
+                for px in rgba.as_chunks_mut::<4>().0 {
+                    let a = u32::from(px[3]);
+                    for i in 0..3 {
+                        px[i] = ((u32::from(px[i]) * a + u32::from(bg[i]) * (255 - a)) / 255) as u8;
+                    }
+                    px[3] = 255;
+                }
+                image::RgbaImage::from_raw(img.width, img.height, rgba)
+                    .map(image::DynamicImage::ImageRgba8)
+            }
+        }
+    }
+
+    /// The size in cells of the image `key`, loading it first, for a text
+    /// `width` cells wide.
+    fn size(&mut self, key: &ImageKey, width: u16) -> Option<(u16, u16)> {
+        let picker = self.picker.as_ref()?;
+        if !self.cache.contains_key(key) {
+            let f = picker.font_size();
+            let entry = self.load(key, f.height.max(1) as f32).map(|img| {
+                let picker = self.picker.as_ref().expect("a picker");
+                let (cw, ch) = (f.width.max(1) as f32, f.height.max(1) as f32);
+                let mut cols = (img.width() as f32 / cw).ceil().max(1.0);
+                let mut rows = (img.height() as f32 / ch).ceil().max(1.0);
+                // Fit the width and 20 rows, keeping the aspect ratio.
+                let k = (width.max(1) as f32 / cols).min(20.0 / rows).min(1.0);
+                cols = (cols * k).max(1.0);
+                rows = (rows * k).max(1.0);
+                let protocol = if self.compress
+                    && picker.protocol_type() == ratatui_image::picker::ProtocolType::Kitty
+                {
+                    use ratatui_image::protocol::{
+                        StatefulProtocol, StatefulProtocolType, kitty::StatefulKitty,
+                    };
+                    let id = self.cache.len() as u32 + 1;
+                    let kitty = StatefulKitty::new(id, false, true);
+                    StatefulProtocol::new(
+                        img,
+                        picker.font_size(),
+                        None,
+                        StatefulProtocolType::Kitty(kitty),
+                    )
+                } else {
+                    picker.new_resize_protocol(img)
+                };
+                ImageEntry {
+                    protocol,
+                    rows: rows as u16,
+                    cols: cols as u16,
+                }
+            });
+            self.cache.insert(key.clone(), entry);
+        }
+        self.cache.get(key)?.as_ref().map(|e| (e.rows, e.cols))
+    }
+
+    /// Draws the image `key` into `rect`.
+    fn render(&mut self, key: &ImageKey, rect: Rect, buf: &mut Buffer) {
+        if let Some(Some(e)) = self.cache.get_mut(key) {
+            use ratatui::widgets::StatefulWidget;
+            ratatui_image::StatefulImage::default().render(rect, buf, &mut e.protocol);
+        }
+    }
+}
+
+/// Grids of tables by their start, for a text version.
+type GridCache = RefCell<(u64, HashMap<usize, Arc<Grid>>)>;
+
+/// Highlighted source blocks by their start, for a text version.
+type CodeCache = RefCell<(u64, HashMap<usize, Option<Arc<Code>>>)>;
+
+/// A highlighted source block.
+#[derive(Debug)]
+pub(crate) struct Code {
+    /// Where its code starts.
+    start: usize,
+    /// The spans of each code line.
+    lines: Vec<Vec<kalem_highlight::Span>>,
+}
+
+/// A table drawn as an aligned grid.
+#[derive(Debug)]
+pub(crate) struct Grid {
+    view: TableView,
+    widths: Vec<u16>,
+    /// Glyphs of each cell, by row.
+    cells: Vec<Vec<Vec<Glyph>>>,
+}
+
+/// The editor view's state that layouts read.
+struct Shared<'a> {
+    folds: &'a Folds,
+    grids: &'a GridCache,
+    code: &'a CodeCache,
+    images: &'a RefCell<Images>,
+    source: bool,
+    focus: bool,
+    plain: &'a PlainCache,
+    raw_math: bool,
+    outline_indent: bool,
+}
+
+/// What is needed to lay out lines.
+pub(crate) struct Layout<'a> {
+    doc: &'a DocumentState,
+    parse: Option<&'a Parse>,
+    folds: &'a Folds,
+    blocks: &'a [Block],
+    /// Visible byte ranges, merged.
+    visible: Vec<Range<usize>>,
+    /// Starts of blocks folded to their first line away from the cursor:
+    /// drawers and runs of setting keywords.
+    folded: HashSet<usize>,
+    caps: &'a Caps,
+    /// The text width; narrower while the rows of an indented line are
+    /// made.
+    width: std::cell::Cell<u16>,
+    cursor: usize,
+    source: bool,
+    /// Text under headings indented to their titles.
+    outline_indent: bool,
+    /// Formulas shown as their source, not approximated.
+    raw_math: bool,
+    grids: &'a GridCache,
+    code: &'a CodeCache,
+    images: &'a RefCell<Images>,
+    plain: &'a PlainCache,
+    /// The cursor's line, shown with a background in plain text and the
+    /// source view.
+    current: Option<usize>,
+}
+
+impl<'a> Layout<'a> {
+    fn new(
+        doc: &'a DocumentState,
+        shared: Shared<'a>,
+        blocks: &'a [Block],
+        caps: &'a Caps,
+        width: u16,
+    ) -> Layout<'a> {
+        let Shared {
+            folds,
+            grids,
+            code,
+            images,
+            source,
+            focus,
+            plain,
+            raw_math,
+            outline_indent,
+        } = shared;
+        let is_plain = doc.meta.mode != kalem_core::DocumentMode::Org;
+        if is_plain && doc.dired.is_none() {
+            let mut p = plain.borrow_mut();
+            if p.as_ref().is_none_or(|(v, ..)| *v != doc.version()) {
+                let text = doc.text().as_str();
+                let lang = match &doc.meta.mode {
+                    kalem_core::DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
+                    kalem_core::DocumentMode::Markdown => Some("md"),
+                    _ => None,
+                };
+                // Very large files go without colors for now (§2.6, phase 2).
+                let language = lang
+                    .and_then(kalem_highlight::Language::find)
+                    .filter(|_| text.len() <= 4 << 20);
+                let old = p.take().and_then(|(_, h, _)| h);
+                let h = language.map(|l| match old {
+                    Some(mut h) if h.language().name() == l.name() => {
+                        h.update(text);
+                        h
+                    }
+                    _ => kalem_highlight::Highlighter::new(l, text),
+                });
+                let step = match kalem_core::text::detect_indent(text) {
+                    Some(kalem_core::text::Indent::Spaces(n)) => n,
+                    _ => 0,
+                };
+                *p = Some((doc.version(), h, step));
+            }
+        }
+        {
+            let mut g = grids.borrow_mut();
+            if g.0 != doc.version() {
+                *g = (doc.version(), HashMap::new());
+            }
+            let mut c = code.borrow_mut();
+            if c.0 != doc.version() {
+                *c = (doc.version(), HashMap::new());
+            }
+        }
+        let parse = doc.parse().filter(|(_, current)| *current).map(|(p, _)| p);
+        let len = doc.text().len();
+        let (mut visible, folded) = if source || parse.is_none() || blocks.is_empty() {
+            (std::iter::once(0..len + 1).collect(), HashSet::new())
+        } else {
+            let v = view::visible(doc.text().as_str(), blocks, folds, doc.selection.head);
+            (v.ranges, v.folded)
+        };
+        // The empty last line after a final line feed.
+        if let Some(r) = visible.last_mut()
+            && r.end == len
+        {
+            r.end = len + 1;
+        }
+        // LaTeX environments drawn as images show on their first line.
+        if let (Some(p), false, false) = (parse, source, raw_math)
+            && images.borrow().picker.is_some()
+        {
+            let text = doc.text();
+            let c = doc.selection.head;
+            for b in blocks.iter().filter(|b| b.kind == BlockKind::Math) {
+                if b.range.start <= c && c <= b.content_end {
+                    continue;
+                }
+                let first = text.line_of(b.range.start);
+                let last = text.line_of(b.content_end.saturating_sub(1).max(b.range.start));
+                if last == first {
+                    continue;
+                }
+                let src = text.as_str()[b.range.start..b.content_end].trim_end();
+                let mut im = images.borrow_mut();
+                let key = im.math(src, p, doc.version());
+                if im.size(&key, width).is_none() {
+                    continue;
+                }
+                let hide = text.line_start(first + 1)..text.line_range(last).end + 1;
+                visible = visible
+                    .iter()
+                    .flat_map(|r| {
+                        [r.start..r.end.min(hide.start), r.start.max(hide.end)..r.end]
+                            .into_iter()
+                            .filter(|x| x.start < x.end)
+                    })
+                    .collect();
+            }
+        }
+        // The narrowed part, or the section in focus.
+        if let Some(lim) = view::limit(doc, focus) {
+            let end = if lim.end >= len { len + 1 } else { lim.end };
+            visible = view::clip(&visible, &(lim.start..end));
+            if visible.is_empty() {
+                visible.push(lim.start..(lim.start + 1).min(len + 1));
+            }
+        }
+        Layout {
+            doc,
+            parse,
+            folds,
+            blocks,
+            visible,
+            folded,
+            caps,
+            width: std::cell::Cell::new(width),
+            cursor: doc.selection.head,
+            outline_indent: outline_indent && !source && parse.is_some(),
+            raw_math,
+            source,
+            grids,
+            code,
+            images,
+            plain,
+            current: (is_plain || source).then(|| doc.text().line_of(doc.selection.head)),
+        }
+    }
+
+    /// The image a line shows away from the cursor, when the terminal can
+    /// draw images: an image link alone on it, a displayed formula alone
+    /// on it, or a LaTeX environment (on its first line). Returns what it
+    /// shows, a label for when it cannot show, and its size.
+    fn image(&self, line: usize) -> Option<(ImageKey, String, u16, u16)> {
+        let p = self.parse.filter(|_| !self.source)?;
+        self.images.borrow().picker.as_ref()?;
+        let range = self.range(line);
+        if let Some(src) = self.math_block(range.start) {
+            let mut images = self.images.borrow_mut();
+            let key = images.math(src, p, self.doc.version());
+            let (rows, cols) = images.size(&key, self.width.get())?;
+            let label = src.lines().next().unwrap_or("").to_string();
+            return Some((key, label, rows, cols));
+        }
+        if range.start <= self.cursor && self.cursor <= range.end {
+            return None;
+        }
+        let v = view::line_view(&p.syntax(), p.context(), range, Some(self.cursor));
+        let mut found = None;
+        for r in &v.runs {
+            match &r.widget {
+                Some(
+                    w @ (view::Widget::Image { .. } | view::Widget::Math { display: true, .. }),
+                ) if found.is_none() => found = Some(w.clone()),
+                None if r.text.trim().is_empty() => {}
+                _ => return None,
+            }
+        }
+        let mut images = self.images.borrow_mut();
+        let (key, label) = match found? {
+            view::Widget::Image { path } => (images.file(&path), format!("[image: {path}]")),
+            view::Widget::Math { source, .. } if !self.raw_math => {
+                let label = kalem_core::math::unicode(&source);
+                (images.math(&source, p, self.doc.version()), label)
+            }
+            _ => return None,
+        };
+        let (rows, cols) = images.size(&key, self.width.get())?;
+        Some((key, label, rows, cols))
+    }
+
+    /// The source of the LaTeX environment starting at `start`, when it
+    /// shows as an image: away from the cursor, with formulas shown.
+    fn math_block(&self, start: usize) -> Option<&'a str> {
+        if self.raw_math {
+            return None;
+        }
+        let b = self.block_at(start)?;
+        (b.kind == BlockKind::Math
+            && b.range.start == start
+            && !(b.range.start <= self.cursor && self.cursor <= b.content_end))
+            .then(|| self.doc.text().as_str()[b.range.start..b.content_end].trim_end())
+    }
+
+    /// The highlighting of the source block `b`, if its language is known.
+    fn code(&self, b: &Block) -> Option<Arc<Code>> {
+        let BlockKind::Code {
+            language: Some(lang),
+        } = &b.kind
+        else {
+            return None;
+        };
+        if let Some(c) = self.code.borrow().1.get(&b.range.start) {
+            return c.clone();
+        }
+        let text = self.text();
+        let first = text.line_of(b.range.start);
+        let last = text.line_of(b.content_end.saturating_sub(1).max(b.range.start));
+        let start = text.line_start(first + 1).min(b.content_end);
+        let end = text.line_start(last).max(start);
+        let c = kalem_highlight::Language::find(lang).map(|l| {
+            Arc::new(Code {
+                start,
+                lines: kalem_highlight::highlight(l, &text.as_str()[start..end]),
+            })
+        });
+        self.code.borrow_mut().1.insert(b.range.start, c.clone());
+        c
+    }
+
+    /// Colors the glyphs of a source block's code line.
+    fn color_code(&self, line: &Range<usize>, glyphs: &mut [Glyph]) {
+        let Some(b) = self.block_at(line.start) else {
+            return;
+        };
+        let Some(code) = self.code(b) else { return };
+        if line.start < code.start {
+            return;
+        }
+        let text = self.text();
+        let i = text.line_of(line.start) - text.line_of(code.start);
+        let Some(spans) = code.lines.get(i) else {
+            return;
+        };
+        for g in glyphs {
+            if g.src_end <= g.src {
+                continue;
+            }
+            let rel = g.src - line.start;
+            if let Some(sp) = spans.iter().find(|s| s.range.contains(&rel)) {
+                g.style = render::code_style(sp.kind, g.style, self.caps);
+            }
+        }
+    }
+
+    /// The table block holding line start `s`, if any.
+    fn table_block(&self, s: usize) -> Option<&'a Block> {
+        let i = self.blocks.partition_point(|b| b.range.end <= s);
+        self.blocks
+            .get(i)
+            .filter(|b| b.kind == BlockKind::Table && s < b.content_end)
+    }
+
+    /// The grid of the table starting at `start`.
+    fn grid(&self, start: usize) -> Option<Arc<Grid>> {
+        if let Some(g) = self.grids.borrow().1.get(&start) {
+            return Some(g.clone());
+        }
+        let p = self.parse?;
+        let root = p.syntax();
+        let view = view::table_view(&root, p.context(), start, None)?;
+        let n = view.align.len();
+        let mut widths = vec![1u16; n];
+        let mut cells = Vec::new();
+        for row in &view.rows {
+            let mut glyph_row = Vec::new();
+            if let TableRow::Data { cells: cs, .. } = row {
+                for (i, c) in cs.iter().enumerate() {
+                    let lv = view::LineView {
+                        range: c.range.clone(),
+                        runs: c.runs.clone(),
+                        ..view::LineView::default()
+                    };
+                    let g = render::glyphs(
+                        &lv,
+                        &root,
+                        p.context(),
+                        true,
+                        false,
+                        self.caps,
+                        self.raw_math,
+                    )
+                    .glyphs;
+                    let w: u16 = g.iter().map(|g| g.width).sum();
+                    widths[i] = widths[i].max(w);
+                    glyph_row.push(g);
+                }
+            }
+            cells.push(glyph_row);
+        }
+        let g = Arc::new(Grid {
+            view,
+            widths,
+            cells,
+        });
+        self.grids.borrow_mut().1.insert(start, g.clone());
+        Some(g)
+    }
+
+    /// A table line away from the cursor: one row of the aligned grid.
+    fn grid_row(&self, grid: &Grid, line: &Range<usize>) -> Option<Vec<Glyph>> {
+        let ri = grid
+            .view
+            .rows
+            .iter()
+            .position(|r| r.line().start == line.start)?;
+        let ascii = self.caps.ascii;
+        let text = self.text().as_str();
+        let deco = |t: &str, at: usize, style: ratatui::style::Style| Glyph {
+            text: t.to_string(),
+            width: unicode_width::UnicodeWidthStr::width(t) as u16,
+            style,
+            src: at,
+            src_end: at,
+            link: None,
+            data: None,
+        };
+        let dim = ratatui::style::Style::default().add_modifier(Modifier::DIM);
+        let mut out = Vec::new();
+        let indent =
+            text[line.clone()].len() - text[line.clone()].trim_start_matches([' ', '\t']).len();
+        for _ in 0..indent {
+            out.push(deco(" ", line.start, ratatui::style::Style::default()));
+        }
+        match &grid.view.rows[ri] {
+            TableRow::Rule { .. } => {
+                let (l, m, r, h) = if ascii {
+                    ("|", "+", "|", "-")
+                } else {
+                    ("├", "┼", "┤", "─")
+                };
+                out.push(deco(l, line.start, dim));
+                for (i, w) in grid.widths.iter().enumerate() {
+                    for _ in 0..w + 2 {
+                        out.push(deco(h, line.start, dim));
+                    }
+                    out.push(deco(
+                        if i + 1 == grid.widths.len() { r } else { m },
+                        line.start,
+                        dim,
+                    ));
+                }
+            }
+            TableRow::Data { cells, .. } => {
+                let bar = if ascii { "|" } else { "│" };
+                out.push(deco(bar, line.start, dim));
+                for (i, w) in grid.widths.iter().enumerate() {
+                    let glyphs = grid.cells[ri].get(i).cloned().unwrap_or_default();
+                    let at = cells.get(i).map_or(line.end, |c| c.range.start);
+                    let end = cells.get(i).map_or(line.end, |c| c.range.end);
+                    let cw: u16 = glyphs.iter().map(|g| g.width).sum();
+                    let pad = w.saturating_sub(cw);
+                    let (left, right) = match grid.view.align.get(i) {
+                        Some('r') => (pad, 0),
+                        Some('c') => (pad / 2, pad - pad / 2),
+                        _ => (0, pad),
+                    };
+                    out.push(deco(" ", at, ratatui::style::Style::default()));
+                    for _ in 0..left {
+                        out.push(deco(" ", at, ratatui::style::Style::default()));
+                    }
+                    out.extend(glyphs);
+                    for _ in 0..right + 1 {
+                        out.push(deco(" ", end, ratatui::style::Style::default()));
+                    }
+                    out.push(deco(bar, end, dim));
+                }
+            }
+        }
+        Some(out)
+    }
+
+    fn text(&self) -> &kalem_core::Text {
+        self.doc.text()
+    }
+
+    /// The line's range without a carriage return before its line feed.
+    fn range(&self, line: usize) -> Range<usize> {
+        let r = self.text().line_range(line);
+        let t = self.text().as_str();
+        if r.end > r.start && t.as_bytes()[r.end - 1] == b'\r' {
+            r.start..r.end - 1
+        } else {
+            r
+        }
+    }
+
+    /// The line's rows.
+    fn line_rows(&self, line: usize) -> Vec<Vec<Glyph>> {
+        let range = self.range(line);
+        if let Some((_, _, rows, _)) = self.image(line) {
+            let blank = Glyph {
+                text: " ".into(),
+                width: 1,
+                style: ratatui::style::Style::default(),
+                src: range.start,
+                src_end: range.start,
+                link: None,
+                data: None,
+            };
+            return vec![vec![blank]; rows as usize];
+        }
+        let on_line = range.start <= self.cursor && self.cursor <= range.end;
+        if let (Some(p), false) = (self.parse, self.source)
+            && let Some(block) = self.table_block(range.start)
+        {
+            let editing = block.range.start <= self.cursor && self.cursor <= block.content_end;
+            if !editing
+                && let Some(row) = self
+                    .grid(block.range.start)
+                    .and_then(|g| self.grid_row(&g, &range))
+            {
+                return vec![row];
+            }
+            // Being edited: the source, all markup shown, with box bars.
+            let root = p.syntax();
+            let v =
+                view::line_view_with(&root, p.context(), range.clone(), Some(self.cursor), true);
+            let mut lg = render::glyphs(
+                &v,
+                &root,
+                p.context(),
+                on_line,
+                false,
+                self.caps,
+                self.raw_math,
+            );
+            if !self.caps.ascii {
+                let rule = self.text().as_str()[range.clone()]
+                    .trim_start()
+                    .starts_with("|-");
+                let last = lg.glyphs.iter().rposition(|g| g.text == "|");
+                let first = lg.glyphs.iter().position(|g| g.text == "|");
+                for (i, g) in lg.glyphs.iter_mut().enumerate() {
+                    let new = match (g.text.as_str(), rule) {
+                        ("|", false) => "│",
+                        ("|", true) if Some(i) == first => "├",
+                        ("|", true) if Some(i) == last => "┤",
+                        ("+", true) => "┼",
+                        ("-", true) => "─",
+                        _ => continue,
+                    };
+                    g.text = new.to_string();
+                    g.style = g.style.add_modifier(Modifier::DIM);
+                }
+            }
+            return tui_rich_text::wrap(lg.glyphs, lg.hang, self.width.get());
+        }
+        let lg = match self.parse {
+            Some(p) if !self.source => {
+                let root = p.syntax();
+                let v = view::line_view(&root, p.context(), range.clone(), Some(self.cursor));
+                if let Some(frame) = self.frame(&v) {
+                    return vec![frame];
+                }
+                let folded = (v.heading > 0
+                    && self.folds.get(range.start).is_some()
+                    && self.hides(range.start))
+                    || self.folded.contains(&range.start);
+                let mut lg = render::glyphs(
+                    &v,
+                    &root,
+                    p.context(),
+                    on_line,
+                    folded,
+                    self.caps,
+                    self.raw_math,
+                );
+                if v.mono && v.role == view::LineRole::Content {
+                    self.color_code(&range, &mut lg.glyphs);
+                }
+                // Kalem's alignment: a line that fits moves right or to the
+                // middle.
+                let used: u16 = lg.glyphs.iter().map(|g| g.width).sum();
+                let pad = match v.align {
+                    kalem_core::rich::Align::Right => self.width.get().saturating_sub(used + 1),
+                    kalem_core::rich::Align::Center => self.width.get().saturating_sub(used) / 2,
+                    _ => 0,
+                };
+                if pad > 0 && used < self.width.get() {
+                    let blank = Glyph {
+                        text: " ".into(),
+                        width: 1,
+                        style: ratatui::style::Style::default(),
+                        src: range.start,
+                        src_end: range.start,
+                        link: None,
+                        data: None,
+                    };
+                    lg.glyphs
+                        .splice(0..0, std::iter::repeat_n(blank, pad as usize));
+                }
+                lg
+            }
+            // The source view: the text as it is, with Org highlighting.
+            Some(p) => {
+                let root = p.syntax();
+                let v =
+                    view::source_line_view(&root, p.context(), self.text().as_str(), range.clone());
+                let mut lg = render::glyphs(
+                    &v,
+                    &root,
+                    p.context(),
+                    true,
+                    false,
+                    self.caps,
+                    self.raw_math,
+                );
+                self.color_code(&range, &mut lg.glyphs);
+                lg
+            }
+            None => {
+                let v = view::LineView {
+                    range: range.clone(),
+                    runs: vec![view::Run {
+                        src: range.clone(),
+                        text: self.text().as_str()[range.clone()].to_string(),
+                        verbatim: true,
+                        style: view::Style::default(),
+                        widget: None,
+                    }],
+                    ..view::LineView::default()
+                };
+                let empty = org_syntax::parse("");
+                let mut lg = render::glyphs(
+                    &v,
+                    &empty.syntax(),
+                    empty.context(),
+                    on_line,
+                    false,
+                    self.caps,
+                    self.raw_math,
+                );
+                self.plain_colors(line, &range, &mut lg.glyphs);
+                lg
+            }
+        };
+        tui_rich_text::wrap(lg.glyphs, lg.hang, self.width.get())
+    }
+
+    /// Whether the headline starting at `start` has anything under its
+    /// heading line to hide.
+    fn hides(&self, start: usize) -> bool {
+        let i = self.blocks.partition_point(|b| b.range.start < start);
+        let Some(BlockKind::Heading { level }) = self.blocks.get(i).map(|b| &b.kind) else {
+            return false;
+        };
+        self.blocks
+            .get(i + 1)
+            .is_some_and(|b| !matches!(b.kind, BlockKind::Heading { level: l } if l <= *level))
+    }
+
+    /// The block holding line start `s`.
+    fn block_at(&self, s: usize) -> Option<&'a Block> {
+        let i = self.blocks.partition_point(|b| b.range.end <= s);
+        self.blocks.get(i).filter(|b| b.range.start <= s)
+    }
+
+    /// A block's first or last line away from the cursor, drawn as a frame
+    /// with the block's type (or a source block's language).
+    fn frame(&self, v: &view::LineView) -> Option<Vec<Glyph>> {
+        if v.role != view::LineRole::Delimiter {
+            return None;
+        }
+        let b = self.block_at(v.range.start)?;
+        let framed = matches!(
+            b.kind,
+            BlockKind::Code { .. }
+                | BlockKind::Verbatim
+                | BlockKind::Quote
+                | BlockKind::Center
+                | BlockKind::Verse
+                | BlockKind::Special
+                | BlockKind::Dynamic
+        );
+        if !framed || (b.range.start <= self.cursor && self.cursor <= b.content_end) {
+            return None;
+        }
+        let line = self.text().as_str()[v.range.clone()].trim();
+        let begin = line.len() >= 7 && line[..7].eq_ignore_ascii_case("#+begin");
+        let label = if begin {
+            let rest = line[7..].trim_start_matches(['_', ':']).trim();
+            let mut words = rest.split_whitespace();
+            let first = words.next().unwrap_or("");
+            match &b.kind {
+                BlockKind::Code { language } => language.clone().unwrap_or_default(),
+                _ => first.to_ascii_lowercase(),
+            }
+        } else {
+            String::new()
+        };
+        let (corner, h) = match (begin, self.caps.ascii) {
+            (true, false) => ("╭─", "─"),
+            (false, false) => ("╰─", "─"),
+            (_, true) => ("+-", "-"),
+        };
+        let head = if label.is_empty() {
+            corner.to_string()
+        } else {
+            format!("{corner} {label} ")
+        };
+        let w = unicode_width::UnicodeWidthStr::width(head.as_str());
+        let fill = (self.width.get() as usize).saturating_sub(w).min(60);
+        let text = format!("{head}{}", h.repeat(fill));
+        let style = ratatui::style::Style::default().add_modifier(Modifier::DIM);
+        Some(
+            unicode_segmentation::UnicodeSegmentation::graphemes(text.as_str(), true)
+                .map(|g| Glyph {
+                    text: g.to_string(),
+                    width: unicode_width::UnicodeWidthStr::width(g) as u16,
+                    style,
+                    src: v.range.start,
+                    src_end: v.range.start,
+                    link: None,
+                    data: None,
+                })
+                .collect(),
+        )
+    }
+
+    /// Syntax colors and indentation guides for a plain text line.
+    fn plain_colors(&self, line: usize, range: &Range<usize>, glyphs: &mut [Glyph]) {
+        // A file manager listing: its own styles.
+        if let Some(d) = self.doc.dired.as_deref() {
+            let styles = d.styles(line);
+            for g in glyphs.iter_mut() {
+                if g.src_end <= g.src {
+                    continue;
+                }
+                let rel = g.src - range.start;
+                for (r, st) in styles {
+                    if r.contains(&rel) {
+                        g.style = render::dir_style(*st, g.style, self.caps);
+                    }
+                }
+            }
+            return;
+        }
+        let p = self.plain.borrow();
+        let Some((_, h, step)) = p.as_ref() else {
+            return;
+        };
+        if let Some(h) = h {
+            let spans = h.line(line);
+            for g in glyphs.iter_mut() {
+                if g.src_end <= g.src {
+                    continue;
+                }
+                let rel = g.src - range.start;
+                if let Some(sp) = spans.iter().find(|s| s.range.contains(&rel)) {
+                    g.style = render::code_style(sp.kind, g.style, self.caps);
+                }
+            }
+        }
+        // A guide at each indentation step of the leading blanks.
+        if *step > 1 && !self.caps.ascii {
+            for (col, g) in glyphs.iter_mut().enumerate() {
+                if g.text != " " {
+                    break;
+                }
+                if col > 0 && col % step == 0 {
+                    g.text = "│".into();
+                    g.style = g.style.add_modifier(Modifier::DIM);
+                }
+            }
+        }
+    }
+
+    /// The columns line `line` moves right under a heading of level `n`
+    /// (as `org-indent-mode`): to the heading's title, after its level
+    /// glyph; 0 for headings and text before the first one.
+    fn outline_indent_of(&self, line: usize) -> u16 {
+        if !self.outline_indent {
+            return 0;
+        }
+        let start = self.text().line_start(line);
+        let i = self.blocks.partition_point(|b| b.range.start <= start);
+        let Some((b, level)) = self.blocks[..i].iter().rev().find_map(|b| match b.kind {
+            BlockKind::Heading { level } => Some((b, level)),
+            _ => None,
+        }) else {
+            return 0;
+        };
+        if b.range.start == start {
+            return 0;
+        }
+        (2 * level.saturating_sub(1).min(4) + 2) as u16
+    }
+
+    /// Whether line `line` is monospace code (for the background).
+    pub(crate) fn is_code(&self, line: usize) -> bool {
+        if self.source || self.parse.is_none() {
+            return false;
+        }
+        let s = self.text().line_start(line);
+        let i = self.blocks.partition_point(|b| b.range.end <= s);
+        self.blocks.get(i).is_some_and(|b| {
+            matches!(b.kind, BlockKind::Code { .. } | BlockKind::Verbatim) && s < b.content_end
+        })
+    }
+}
+
+impl Lines for Layout<'_> {
+    type Data = WidgetAt;
+
+    fn line_of(&self, offset: usize) -> usize {
+        self.text().line_of(offset.min(self.text().len()))
+    }
+
+    fn line_start(&self, line: usize) -> usize {
+        self.text().line_start(line)
+    }
+
+    fn line_end(&self, line: usize) -> usize {
+        self.range(line).end
+    }
+
+    /// Whether line `line` shows.
+    fn is_visible(&self, line: usize) -> bool {
+        let s = self.text().line_start(line);
+        let i = self.visible.partition_point(|r| r.end <= s);
+        self.visible.get(i).is_some_and(|r| r.start <= s)
+    }
+
+    /// The next visible line after `line`.
+    fn next_line(&self, line: usize) -> Option<usize> {
+        let n = self.text().line_count();
+        let next = line + 1;
+        if next >= n {
+            return None;
+        }
+        if self.is_visible(next) {
+            return Some(next);
+        }
+        let s = self.text().line_start(next);
+        let i = self.visible.partition_point(|r| r.end <= s);
+        let r = self.visible.get(i)?;
+        Some(self.text().line_of(r.start.max(s)))
+    }
+
+    /// The visible line before `line`.
+    fn prev_line(&self, line: usize) -> Option<usize> {
+        let prev = line.checked_sub(1)?;
+        if self.is_visible(prev) {
+            return Some(prev);
+        }
+        let s = self.text().line_start(prev);
+        let i = self.visible.partition_point(|r| r.start <= s);
+        let r = self.visible[..i].last()?;
+        Some(self.text().line_of(r.end.saturating_sub(1).max(r.start)))
+    }
+
+    fn rows(&self, line: usize, _width: u16) -> Vec<Vec<Glyph>> {
+        let indent = self.outline_indent_of(line);
+        if indent == 0 {
+            return self.line_rows(line);
+        }
+        // Rows made for the narrower column, then moved right.
+        let full = self.width.get();
+        self.width.set(full.saturating_sub(indent).max(8));
+        let rows = self.line_rows(line);
+        self.width.set(full);
+        let at = self.range(line).start;
+        rows.into_iter()
+            .map(|row| {
+                let mut out: Vec<Glyph> = (0..indent)
+                    .map(|_| Glyph {
+                        text: " ".into(),
+                        width: 1,
+                        style: ratatui::style::Style::default(),
+                        src: at,
+                        src_end: at,
+                        link: None,
+                        data: None,
+                    })
+                    .collect();
+                out.extend(row);
+                out
+            })
+            .collect()
+    }
+
+    fn background_start(&self, line: usize) -> u16 {
+        self.outline_indent_of(line)
+    }
+
+    fn background(&self, line: usize) -> Option<ratatui::style::Color> {
+        if self.caps.no_color {
+            return None;
+        }
+        if self.current == Some(line) {
+            return Some(match &self.caps.colors {
+                Some(t) => render::solid(t.bar, t),
+                None => ratatui::style::Color::Indexed(235),
+            });
+        }
+        self.is_code(line).then(|| render::code_bg(self.caps))
+    }
+}
+
+/// The view state layouts share, borrowing only the fields they need.
+macro_rules! shared {
+    ($v:expr) => {
+        Shared {
+            folds: &$v.folds,
+            grids: &$v.grids,
+            code: &$v.code,
+            images: &$v.images,
+            source: $v.source,
+            focus: $v.focus,
+            plain: &$v.plain,
+            raw_math: $v.raw_math,
+            outline_indent: $v.outline_indent,
+        }
+    };
+}
+
+impl EditorView {
+    /// Starts the view again after the document's mode changed.
+    pub fn reset(&mut self) {
+        self.blocks = None;
+        self.folds = Folds::default();
+        self.highlights.clear();
+        self.follow = true;
+    }
+
+    /// The text column in `area`: `line_width` characters (and the margins)
+    /// at the left edge or in the middle, or all of it.
+    fn column(&self, area: Rect) -> Rect {
+        let w = self.line_width.saturating_add(2);
+        if self.line_width == 0 || area.width <= w {
+            return area;
+        }
+        Rect {
+            x: if self.center {
+                area.x + (area.width - w) / 2
+            } else {
+                area.x
+            },
+            width: w,
+            ..area
+        }
+    }
+
+    /// The blocks of the document's current text.
+    fn blocks(&mut self, doc: &DocumentState) -> Arc<Vec<Block>> {
+        let version = doc.version();
+        if let Some((v, b)) = &self.blocks
+            && *v == version
+        {
+            return b.clone();
+        }
+        let b = match doc.parse() {
+            Some((p, true)) => Arc::new(view::blocks(&p.syntax(), p.context())),
+            _ => Arc::new(Vec::new()),
+        };
+        if !b.is_empty() {
+            self.folds.retain(&b);
+            self.blocks = Some((version, b.clone()));
+        }
+        b
+    }
+
+    /// Unfolds the headlines that hide the cursor.
+    fn reveal(&mut self, doc: &DocumentState, blocks: &[Block]) {
+        let c = doc.selection.head;
+        loop {
+            let hidden: Vec<usize> = {
+                let visible = self.folds.visible(blocks);
+                if visible
+                    .iter()
+                    .any(|b| b.range.contains(&c) || (b.range.end == c && c == doc.text().len()))
+                {
+                    return;
+                }
+                // The folded headlines whose subtree holds the cursor.
+                blocks
+                    .iter()
+                    .filter(|b| matches!(b.kind, BlockKind::Heading { .. }) && b.range.start <= c)
+                    .filter(|b| self.folds.get(b.range.start).is_some())
+                    .map(|b| b.range.start)
+                    .collect()
+            };
+            let Some(h) = hidden.last() else { return };
+            self.folds.set(*h, None);
+        }
+    }
+
+    /// Scrolls by `delta` rows.
+    pub fn scroll(&mut self, doc: &DocumentState, caps: &Caps, delta: isize) {
+        let blocks = self.blocks(doc);
+        let width = self.width();
+        let l = Layout::new(doc, shared!(self), &blocks, caps, width);
+        self.viewport.scroll(&l, delta, width);
+    }
+
+    fn width(&self) -> u16 {
+        if self.wrap {
+            self.area.width.saturating_sub(2).max(1)
+        } else {
+            // No wrapping: one row a line.
+            u16::MAX / 2
+        }
+    }
+
+    /// The cursor position `delta` rows down (or up), at the kept column.
+    pub fn vertical(&mut self, doc: &DocumentState, caps: &Caps, delta: isize) -> usize {
+        let blocks = self.blocks(doc);
+        let width = self.width();
+        let l = Layout::new(doc, shared!(self), &blocks, caps, width);
+        self.viewport.vertical(&l, doc.selection.head, delta, width)
+    }
+
+    /// The source offset under screen cell (`col`, `row`), and the widget
+    /// there, if any.
+    pub fn hit(
+        &mut self,
+        doc: &DocumentState,
+        caps: &Caps,
+        col: u16,
+        row: u16,
+    ) -> Option<(usize, Option<WidgetAt>)> {
+        let blocks = self.blocks(doc);
+        let l = Layout::new(doc, shared!(self), &blocks, caps, self.width());
+        self.drawn.as_ref()?.hit(&l, col, row)
+    }
+
+    /// Draws the document into `area` of `buf`; returns the cursor's cell.
+    pub fn draw(
+        &mut self,
+        doc: &DocumentState,
+        caps: &Caps,
+        buf: &mut Buffer,
+        area: Rect,
+    ) -> Option<(u16, u16)> {
+        let area = self.column(area);
+        // Line numbers in a gutter.
+        let numbers = self.line_numbers
+            && doc.dired.is_none()
+            && (doc.meta.mode != kalem_core::DocumentMode::Org || self.source);
+        let digits = doc.text().line_count().to_string().len() as u16;
+        let gutter = if numbers && area.width > digits + 10 {
+            digits + 1
+        } else {
+            0
+        };
+        let full = area;
+        let area = Rect {
+            x: area.x + gutter,
+            width: area.width - gutter,
+            ..area
+        };
+        self.area = area;
+        // A view that starts outside the narrowed part or the section in
+        // focus starts at its beginning.
+        if let Some(lim) = view::limit(doc, self.focus)
+            && !(lim.start..=lim.end).contains(&self.viewport.top)
+        {
+            self.viewport.top = doc.text().line_start(doc.text().line_of(lim.start));
+            self.viewport.top_row = 0;
+        }
+        let blocks = self.blocks(doc);
+        if self.follow {
+            self.reveal(doc, &blocks);
+        }
+        let width = self.width();
+        let l = Layout::new(doc, shared!(self), &blocks, caps, width);
+        if self.follow {
+            self.viewport
+                .scroll_to(&l, doc.selection.head, width, area.height);
+            self.follow = false;
+        }
+        let sel = doc.selection;
+        let mark_style = match (&caps.colors, caps.no_color) {
+            (_, true) => ratatui::style::Style::default().add_modifier(Modifier::UNDERLINED),
+            (Some(t), false) => ratatui::style::Style::default()
+                .bg(render::solid(t.mark, t))
+                .fg(render::rgb(t.foreground)),
+            (None, false) => ratatui::style::Style::default()
+                .bg(ratatui::style::Color::Yellow)
+                .fg(ratatui::style::Color::Black),
+        };
+        // Without wrapping, the view scrolls sideways to keep the cursor.
+        if self.wrap {
+            self.hscroll = 0;
+        } else {
+            let line = l.line_of(sel.head);
+            let rows = l.rows(line, width);
+            let (_, cx) = tui_rich_text::cursor_in(&rows, sel.head);
+            let w = area.width.saturating_sub(3).max(1);
+            if cx < self.hscroll {
+                self.hscroll = cx.saturating_sub(w / 4);
+            } else if cx >= self.hscroll + w {
+                self.hscroll = cx + 1 - w + w / 4;
+            }
+        }
+        let options = Options {
+            cursor: sel.head,
+            selection: sel.anchor.min(sel.head)..sel.anchor.max(sel.head),
+            marks: if self.highlights.is_empty() {
+                &self.references
+            } else {
+                &self.highlights
+            },
+            mark_style,
+            margin: 1,
+            hscroll: self.hscroll,
+        };
+        let drawn = tui_rich_text::draw(&l, &self.viewport, buf, area, &options);
+        // Images over their rows when they fit on screen whole, else their
+        // names.
+        let x0 = area.x + 1;
+        for dl in &drawn.lines {
+            let Some((key, label, h, w)) = l.image(dl.line) else {
+                continue;
+            };
+            if dl.skipped == 0 && dl.y + h <= area.bottom() {
+                let rect = Rect::new(x0, dl.y, w.min(area.right() - x0), h);
+                self.images.borrow_mut().render(&key, rect, buf);
+            } else if dl.y < area.bottom() {
+                let style = ratatui::style::Style::default().add_modifier(Modifier::DIM);
+                buf.set_stringn(
+                    x0,
+                    dl.y,
+                    &label,
+                    area.right().saturating_sub(x0) as usize,
+                    style,
+                );
+            }
+        }
+        if gutter > 0 {
+            let current = doc.text().line_of(sel.head);
+            for dl in drawn.lines.iter().filter(|d| d.skipped == 0) {
+                let mut style = ratatui::style::Style::default().add_modifier(Modifier::DIM);
+                if dl.line == current {
+                    style = ratatui::style::Style::default().add_modifier(Modifier::BOLD);
+                }
+                let n = format!("{:>w$}", dl.line + 1, w = usize::from(digits));
+                buf.set_stringn(full.x, dl.y, &n, usize::from(digits), style);
+            }
+        }
+        let cursor = drawn.cursor;
+        self.drawn = Some(drawn);
+        cursor
+    }
+
+    /// Moves positions through an edit.
+    pub fn map(&mut self, tx: &org_edit::Transaction) {
+        self.viewport.top = tx.map(self.viewport.top, org_edit::Assoc::Before);
+        self.folds.map(tx);
+    }
+
+    /// The heading block that holds the cursor's line, for folding.
+    pub fn heading_at(&mut self, doc: &DocumentState) -> Option<(Arc<Vec<Block>>, usize)> {
+        let blocks = self.blocks(doc);
+        let c = doc.selection.head;
+        let i = blocks.iter().position(|b| {
+            matches!(b.kind, BlockKind::Heading { .. }) && b.range.start <= c && c <= b.content_end
+        })?;
+        Some((blocks, i))
+    }
+
+    /// The blocks, for folding all.
+    pub fn all_blocks(&mut self, doc: &DocumentState) -> Arc<Vec<Block>> {
+        self.blocks(doc)
+    }
+}

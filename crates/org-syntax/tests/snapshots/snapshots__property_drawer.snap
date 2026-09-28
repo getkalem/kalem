@@ -1,0 +1,92 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"* H\\n:PROPERTIES:\\n:ID: x\\n:END:\\n\",\n\"* H\\nSCHEDULED: <2026-01-01 Thu>\\n:PROPERTIES:\\n:A+: 1\\n:EMPTY:\\n:END:\\n\",\n\":PROPERTIES:\\n:TITLE: top\\n:END:\\n\"])"
+---
+=== "* H\n:PROPERTIES:\n:ID: x\n:END:\n"
+DOCUMENT@0..30
+  HEADLINE@0..30
+    STARS@0..1 "*"
+    WHITESPACE@1..2 " "
+    HEADLINE_TITLE@2..3
+      TEXT@2..3 "H"
+    NEWLINE@3..4 "\n"
+    SECTION@4..30
+      PROPERTY_DRAWER@4..30
+        BLOCK_BEGIN@4..17
+          MARKER@4..5 ":"
+          KEY@5..15 "PROPERTIES"
+          MARKER@15..16 ":"
+          NEWLINE@16..17 "\n"
+        NODE_PROPERTY@17..24
+          MARKER@17..18 ":"
+          KEY@18..20 "ID"
+          MARKER@20..21 ":"
+          WHITESPACE@21..22 " "
+          TEXT@22..23 "x"
+          NEWLINE@23..24 "\n"
+        BLOCK_END@24..30
+          MARKER@24..25 ":"
+          KEY@25..28 "END"
+          MARKER@28..29 ":"
+          NEWLINE@29..30 "\n"
+
+=== "* H\nSCHEDULED: <2026-01-01 Thu>\n:PROPERTIES:\n:A+: 1\n:EMPTY:\n:END:\n"
+DOCUMENT@0..66
+  HEADLINE@0..66
+    STARS@0..1 "*"
+    WHITESPACE@1..2 " "
+    HEADLINE_TITLE@2..3
+      TEXT@2..3 "H"
+    NEWLINE@3..4 "\n"
+    SECTION@4..66
+      PLANNING@4..32
+        KEY@4..14 "SCHEDULED:"
+        WHITESPACE@14..15 " "
+        TIMESTAMP@15..31
+          TEXT@15..31 "<2026-01-01 Thu>"
+        NEWLINE@31..32 "\n"
+      PROPERTY_DRAWER@32..66
+        BLOCK_BEGIN@32..45
+          MARKER@32..33 ":"
+          KEY@33..43 "PROPERTIES"
+          MARKER@43..44 ":"
+          NEWLINE@44..45 "\n"
+        NODE_PROPERTY@45..52
+          MARKER@45..46 ":"
+          KEY@46..48 "A+"
+          MARKER@48..49 ":"
+          WHITESPACE@49..50 " "
+          TEXT@50..51 "1"
+          NEWLINE@51..52 "\n"
+        NODE_PROPERTY@52..60
+          MARKER@52..53 ":"
+          KEY@53..58 "EMPTY"
+          MARKER@58..59 ":"
+          NEWLINE@59..60 "\n"
+        BLOCK_END@60..66
+          MARKER@60..61 ":"
+          KEY@61..64 "END"
+          MARKER@64..65 ":"
+          NEWLINE@65..66 "\n"
+
+=== ":PROPERTIES:\n:TITLE: top\n:END:\n"
+DOCUMENT@0..31
+  SECTION@0..31
+    PROPERTY_DRAWER@0..31
+      BLOCK_BEGIN@0..13
+        MARKER@0..1 ":"
+        KEY@1..11 "PROPERTIES"
+        MARKER@11..12 ":"
+        NEWLINE@12..13 "\n"
+      NODE_PROPERTY@13..25
+        MARKER@13..14 ":"
+        KEY@14..19 "TITLE"
+        MARKER@19..20 ":"
+        WHITESPACE@20..21 " "
+        TEXT@21..24 "top"
+        NEWLINE@24..25 "\n"
+      BLOCK_END@25..31
+        MARKER@25..26 ":"
+        KEY@26..29 "END"
+        MARKER@29..30 ":"
+        NEWLINE@30..31 "\n"

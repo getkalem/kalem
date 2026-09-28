@@ -1,0 +1,18 @@
+#+TITLE: Headlines
+#+TODO: TODO NEXT | DONE
+
+* TODO [#A] A task :work:
+Body of the task.
+* DONE Finished :home:
+CLOSED: [2026-09-20 Sun 10:00]
+* COMMENT A commented tree
+Not exported.
+* A tree not exported :noexport:
+Hidden.
+* Levels
+** Two
+*** Three
+**** Four, a list item
+***** Five
+* Archived :ARCHIVE:
+Archived text.

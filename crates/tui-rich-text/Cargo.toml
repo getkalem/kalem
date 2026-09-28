@@ -1,0 +1,19 @@
+[package]
+name = "tui-rich-text"
+description = "Rich text lines for terminal editors on ratatui: styled graphemes mapped to source offsets, wrapping, scrolling, cursor, selection, links and mouse hits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["ratatui", "tui", "editor", "rich-text", "terminal"]
+categories = ["command-line-interface", "text-editors"]
+readme = "README.md"
+
+[dependencies]
+ratatui = { version = "0.30", default-features = false }
+unicode-width = "0.2"
+
+[lints]
+workspace = true

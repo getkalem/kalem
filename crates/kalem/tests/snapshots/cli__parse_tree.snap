@@ -1,0 +1,24 @@
+---
+source: crates/kalem/tests/cli.rs
+expression: out
+---
+DOCUMENT@0..31
+  HEADLINE@0..31
+    STARS@0..1 "*"
+    WHITESPACE@1..2 " "
+    TODO_KEYWORD@2..6 "DONE"
+    WHITESPACE@6..7 " "
+    HEADLINE_TITLE@7..12
+      TEXT@7..12 "Clean"
+    NEWLINE@12..13 "\n"
+    SECTION@13..31
+      PARAGRAPH@13..31
+        TEXT@13..17 "Some"
+        WHITESPACE@17..18 " "
+        BOLD@18..25
+          MARKER@18..19 "*"
+          TEXT@19..23 "bold"
+          MARKER@23..24 "*"
+          WHITESPACE@24..25 " "
+        TEXT@25..30 "text."
+        NEWLINE@30..31 "\n"

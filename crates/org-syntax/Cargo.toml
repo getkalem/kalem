@@ -1,0 +1,33 @@
+[package]
+name = "org-syntax"
+description = "Lossless, error tolerant, incremental parser for Org mode files"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["org-mode", "parser", "cst", "lossless", "emacs"]
+categories = ["parser-implementations", "text-processing"]
+readme = "README.md"
+# Tests, benchmarks and examples use the repository's corpus.
+exclude = ["tests/", "benches/", "examples/"]
+
+[dependencies]
+rowan = "0.17"
+regex-automata = "0.4"
+memchr = "2"
+stacker = "0.1"
+regex-syntax = { version = "0.8", default-features = false }
+
+[dev-dependencies]
+insta = "1"
+proptest = "1"
+criterion = { version = "0.5", default-features = false }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "parse"
+harness = false

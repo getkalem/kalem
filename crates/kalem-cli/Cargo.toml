@@ -1,0 +1,26 @@
+[package]
+name = "kalem-cli"
+description = "Command-line subcommands and batch mode for the Kalem editor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+org-syntax.workspace = true
+org-model.workspace = true
+org-edit.workspace = true
+org-table.workspace = true
+org-export.workspace = true
+kalem-core.workspace = true
+jiff = "0.2"
+clap = { version = "4", features = ["derive"] }
+serde_json = { version = "1", features = ["unbounded_depth"] }
+stacker = "0.1"
+serde = "1"
+serde_stacker = "0.1"
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+---
+source: crates/org-edit/tests/snapshots.rs
+expression: "format!(\"{marked}\\n----\\n{out}\")"
+---
+⁁* heading-like line
+code
+‸
+----
+#+begin_example
+‸,* heading-like line
+code
+#+end_example

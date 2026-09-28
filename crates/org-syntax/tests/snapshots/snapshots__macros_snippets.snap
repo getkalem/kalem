@@ -1,0 +1,45 @@
+---
+source: crates/org-syntax/tests/snapshots.rs
+expression: "group(&\n[\"{{{title}}}\\n\", \"{{{m(a,b\\\\,c)}}}\\n\", \"@@html:<br>@@ and @@latex:\\\\\\\\@@\\n\"])"
+---
+=== "{{{title}}}\n"
+DOCUMENT@0..12
+  SECTION@0..12
+    PARAGRAPH@0..12
+      MACRO@0..11
+        MARKER@0..3 "{{{"
+        KEY@3..8 "title"
+        MARKER@8..11 "}}}"
+      NEWLINE@11..12 "\n"
+
+=== "{{{m(a,b\\,c)}}}\n"
+DOCUMENT@0..16
+  SECTION@0..16
+    PARAGRAPH@0..16
+      MACRO@0..15
+        MARKER@0..3 "{{{"
+        KEY@3..4 "m"
+        TEXT@4..12 "(a,b\\,c)"
+        MARKER@12..15 "}}}"
+      NEWLINE@15..16 "\n"
+
+=== "@@html:<br>@@ and @@latex:\\\\@@\n"
+DOCUMENT@0..31
+  SECTION@0..31
+    PARAGRAPH@0..31
+      EXPORT_SNIPPET@0..14
+        MARKER@0..2 "@@"
+        KEY@2..6 "html"
+        MARKER@6..7 ":"
+        CODE_TEXT@7..11 "<br>"
+        MARKER@11..13 "@@"
+        WHITESPACE@13..14 " "
+      TEXT@14..17 "and"
+      WHITESPACE@17..18 " "
+      EXPORT_SNIPPET@18..30
+        MARKER@18..20 "@@"
+        KEY@20..25 "latex"
+        MARKER@25..26 ":"
+        CODE_TEXT@26..28 "\\\\"
+        MARKER@28..30 "@@"
+      NEWLINE@30..31 "\n"

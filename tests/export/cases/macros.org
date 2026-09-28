@@ -1,0 +1,7 @@
+#+TITLE: Macro test
+#+MACRO: greet Hello, $1!
+#+MACRO: twice $1 $1
+
+{{{title}}} says {{{greet(World)}}} and {{{twice(x)}}}.
+Counter {{{n}}} {{{n}}} {{{n(other)}}}.
+Keyword: {{{keyword(TITLE)}}}.
