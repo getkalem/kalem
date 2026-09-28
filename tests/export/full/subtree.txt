@@ -1,0 +1,38 @@
+                       _________________________
+
+                        A TITLE FOR THE SUBTREE
+                       _________________________
+
+
+Table of Contents
+_________________
+
+1. Child one
+.. 1. Grandchild
+..... 1. Too deep
+2. DONE Child two
+
+
+The subtree's own text, macro from the document, The document.
+
+
+1 Child one
+===========
+
+  Text of child one.
+
+
+1.1 Grandchild
+~~~~~~~~~~~~~~
+
+1.1.1 Too deep
+--------------
+
+  List item text.
+
+
+2 DONE Child two
+================
+
+  - a
+  - b

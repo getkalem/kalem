@@ -486,6 +486,7 @@ cmd-export-markdown = Markdown Olarak Dışa Aktar
 cmd-export-gfm = GitHub Markdown Olarak Dışa Aktar
 cmd-export-latex = LaTeX Olarak Dışa Aktar
 cmd-export-latexSubtree = Alt Ağacı LaTeX Olarak Dışa Aktar
+cmd-export-text = Düz Metin Olarak Dışa Aktar
 cmd-export-dialog = Dışa Aktar…
 cmd-export-toggleBodyOnly = Yalnız Gövdeyi Dışa Aktarmayı Aç/Kapat
 cmd-export-toggleOpenAfter = Dışa Aktarılan Dosyayı Açmayı Aç/Kapat

@@ -188,6 +188,12 @@ pub const SPECS: &[Spec] = &[
         description: "Open an exported file with the system's application",
     },
     Spec {
+        key: "export.text_charset",
+        kind: Kind::Enum(&["ascii", "utf-8"]),
+        default: r#""ascii""#,
+        description: "Characters of plain text exports: ASCII, or UTF-8 lines, bullets and quotes",
+    },
+    Spec {
         key: "export.math",
         kind: Kind::Enum(&["mathjax", "svg"]),
         default: r#""mathjax""#,

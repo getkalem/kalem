@@ -1,0 +1,52 @@
+                        _______________________
+
+                             AN HTML5 PAGE
+                         With /fancy/ elements
+
+                              Ayşe Yılmaz
+                            ayse@example.org
+                        _______________________
+
+
+                            <2026-09-01 Tue>
+
+
+Table of Contents
+_________________
+
+1. First
+2. Second
+
+
+A line
+broken, and a rule:
+
+------------------------------------------------------------------------
+
+An aside.
+
+A note.
+
+<file:image.png>
+
+ a  b 
+------
+ 1  2 
+
+
+1 First
+=======
+
+  - [X] done item
+  - [ ] open item
+
+
+1.1 Deeper
+~~~~~~~~~~
+
+          Line one
+        Line two
+
+
+2 Second
+========

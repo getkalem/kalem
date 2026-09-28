@@ -524,6 +524,7 @@ cmd-export-markdown = Export as Markdown
 cmd-export-gfm = Export as GitHub Markdown
 cmd-export-latex = Export as LaTeX
 cmd-export-latexSubtree = Export Subtree as LaTeX
+cmd-export-text = Export as Plain Text
 cmd-export-dialog = Export…
 cmd-export-toggleBodyOnly = Toggle Export of the Body Only
 cmd-export-toggleOpenAfter = Toggle Opening Exported Files

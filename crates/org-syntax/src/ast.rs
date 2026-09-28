@@ -1275,6 +1275,14 @@ impl Entity {
     pub fn latex(&self) -> Option<(&'static str, bool)> {
         crate::tables::entity(&self.name()).map(|e| (e.1, e.2))
     }
+    /// The entity's ASCII rendering.
+    pub fn ascii(&self) -> Option<&'static str> {
+        crate::tables::entity(&self.name()).map(|e| e.4)
+    }
+    /// The entity's Latin-1 rendering.
+    pub fn latin1(&self) -> Option<&'static str> {
+        crate::tables::entity(&self.name()).map(|e| e.5)
+    }
     /// The entity's HTML rendering.
     pub fn html(&self) -> Option<&'static str> {
         crate::tables::entity(&self.name()).map(|e| e.3)

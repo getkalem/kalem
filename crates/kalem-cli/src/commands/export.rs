@@ -1,4 +1,4 @@
-//! `kalem export FILE... --to html|md|gfm|latex|org`: Org's export, without Emacs.
+//! `kalem export FILE... --to html|md|gfm|latex|txt|utf8|org`: Org's export, without Emacs.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -21,6 +21,10 @@ pub(crate) enum Target {
     Latex,
     /// LaTeX with `%% org:LINE` comments.
     LatexLines,
+    /// Plain text (`ox-ascii`).
+    Text,
+    /// Plain text with UTF-8 characters.
+    Utf8,
 }
 
 /// The LaTeX back-end.
@@ -40,6 +44,8 @@ impl Target {
             Target::Gfm => &org_export::Gfm,
             Target::Latex => &LATEX,
             Target::LatexLines => &LATEX_LINES,
+            Target::Text => &org_export::Text { utf8: false },
+            Target::Utf8 => &org_export::Text { utf8: true },
             // Not an Org exporter: `export` writes the stripped text.
             Target::Org => &org_export::Markdown,
         }
@@ -51,6 +57,7 @@ impl Target {
             Target::Markdown | Target::Gfm => ".md",
             Target::Org => ".org",
             Target::Latex | Target::LatexLines => ".tex",
+            Target::Text | Target::Utf8 => ".txt",
         }
     }
 }

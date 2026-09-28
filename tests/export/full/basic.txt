@@ -1,0 +1,53 @@
+Table of Contents
+_________________
+
+1. First
+.. 1. Nested
+2. Second
+
+
+A first paragraph with *bold*, /italic/, _underlined_, `verbatim',
+`code' and +struck+ text, and an entity: alpha and ->.
+
+Special strings -- an en dash --- an em dash ... and a shy hyphen.  Sub
+and superscripts: H_2O and x^2 and E=mc^{2}.
+
+A line break here
+and a new line.
+
+Links: [Org mode], <https://example.com>, and <file:notes.txt> and [a
+heading].
+
+A footnote reference[1] and an inline one[2].
+
+
+[Org mode] <https://orgmode.org>
+
+[a heading] See section 2
+
+
+1 First
+=======
+
+  Text under the first heading.
+
+
+1.1 Nested
+~~~~~~~~~~
+
+  Deeper text.
+
+
+2 Second
+========
+
+  The end.
+
+
+
+Footnotes
+_________
+
+[1] The footnote's text.
+
+[2] Inline note.

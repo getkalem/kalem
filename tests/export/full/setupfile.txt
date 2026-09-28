@@ -1,0 +1,23 @@
+                      ___________________________
+
+                       TITLE FROM THE SETUP FILE
+
+                              Setup Author
+                      ___________________________
+
+
+Hello, world! and from a nested setup file and by .
+
+A link: <https://en.wikipedia.org/wiki/Org-mode>. a_b and a_{b}.
+
+
+1 START First task
+==================
+
+
+2 FINISHED Done task
+====================
+
+
+3 MIDDLE Last
+=============
