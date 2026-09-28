@@ -54,7 +54,10 @@ fn listing_sorts_and_hides() {
     o.hidden = false;
     o.sort = SortKey::Size;
     o.dirs_first = false;
-    assert_eq!(names(&o)[0], "sub");
+    // Largest first; a folder's size is the system's (4096 on Unix, 0 on
+    // Windows), so only the files' order is fixed.
+    let files: Vec<String> = names(&o).into_iter().filter(|n| n != "sub").collect();
+    assert_eq!(files, vec!["a2.txt", "b.org", "a10.txt"]);
     o.sort = SortKey::Extension;
     o.dirs_first = true;
     assert_eq!(names(&o), vec!["sub", "b.org", "a2.txt", "a10.txt"]);
