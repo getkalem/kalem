@@ -197,6 +197,17 @@ Ctrl+Enter cycles a heading through its TODO states (=TODO=, =DONE=, or
 the states of the document's =#+TODO= line); Shift+Left and Shift+Right
 step through them, Shift+Up and Shift+Down change the priority.
 
+With =org.enforce_todo_dependencies= on, a task cannot be marked done
+while a task below it is still open, and under a heading with the
+=ORDERED= property (Toggle Ordered Subtasks) each task waits for the ones
+before it; with =org.enforce_todo_checkbox_dependencies=, it also waits
+for its checkboxes. A =NOBLOCKING= property lifts both for one task.
+=org.todo_state_tags_triggers= changes tags with the state: the entry
+="done: -next +closed"= removes =next= and adds =closed= when a task is
+done (=todo= stands for any open state, a keyword for itself, and nothing
+before the colon for no keyword). These are the settings of the same names
+in Emacs, so a file behaves the same in both.
+
 Alt+Shift+D inserts a date: a calendar opens on the date under the cursor
 or today. Arrows move by day and week, Page Up and Page Down by month, and
 you can type a date such as =+3d=, =fri 10:00=, =tomorrow= or
@@ -512,6 +523,9 @@ Windows, or =~/.config=. A project can have its own
 | =projects.auto_add=       | =true=     | Folders under version control become projects    |
 | =org.todo_keywords=       | TODO, DONE | TODO states of files without =#+TODO=; see below |
 | =org.log_done=            | ="none"=   | What marking a task done records                 |
+| =org.enforce_todo_dependencies= | =false= | Open subtasks keep a task from being done  |
+| =org.enforce_todo_checkbox_dependencies= | =false= | So do unchecked boxes             |
+| =org.todo_state_tags_triggers= | =[]=  | Tags changed with the TODO state                 |
 | =files.backup=            | =false=    | Keep the previous version as =NAME.bak=          |
 | =files.details=           | =true=     | Permissions, sizes and times in the file manager |
 | =files.show_hidden=       | =false=    | Dot files in the file manager                    |

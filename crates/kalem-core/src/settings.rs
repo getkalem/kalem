@@ -17,7 +17,7 @@
 
 use std::path::{Path, PathBuf};
 
-use org_edit::todo::{LogKind, TodoSettings};
+use org_edit::todo::{LogKind, TagTrigger, TodoSettings};
 use org_syntax::{ParseContext, TodoSequence, TodoSequenceKind};
 use serde_json::{Map, Value};
 
@@ -246,6 +246,24 @@ pub const SPECS: &[Spec] = &[
         kind: Kind::Bool,
         default: "false",
         description: "Indent planning lines and notes to the headline text",
+    },
+    Spec {
+        key: "org.enforce_todo_dependencies",
+        kind: Kind::Bool,
+        default: "false",
+        description: "A task cannot be marked done while a task below it is open, or an earlier sibling under a parent with ORDERED (org-enforce-todo-dependencies); a NOBLOCKING property turns it off for an entry",
+    },
+    Spec {
+        key: "org.enforce_todo_checkbox_dependencies",
+        kind: Kind::Bool,
+        default: "false",
+        description: "A task cannot be marked done while a checkbox in it is unchecked (org-enforce-todo-checkbox-dependencies)",
+    },
+    Spec {
+        key: "org.todo_state_tags_triggers",
+        kind: Kind::List(None),
+        default: "[]",
+        description: "Tags changed on entering a state (org-todo-state-tags-triggers): \"STATE: +tag -tag\", where STATE is a keyword, todo or done for any open or done state, or empty for no keyword",
     },
     Spec {
         key: "org.assets_dir",
@@ -724,9 +742,37 @@ impl Config {
             },
             log_into_drawer: (!drawer.is_empty()).then(|| drawer.to_string()),
             adapt_indentation: self.bool("org.adapt_indentation"),
+            enforce_todo_dependencies: self.bool("org.enforce_todo_dependencies"),
+            enforce_todo_checkbox_dependencies: self.bool("org.enforce_todo_checkbox_dependencies"),
+            todo_state_tags_triggers: self
+                .strings("org.todo_state_tags_triggers")
+                .into_iter()
+                .filter_map(tag_trigger)
+                .collect(),
             ..TodoSettings::default()
         }
     }
+}
+
+/// An entry of `org.todo_state_tags_triggers`: `STATE: +tag -tag`.
+fn tag_trigger(s: &str) -> Option<(TagTrigger, Vec<(String, bool)>)> {
+    let (state, tags) = s.split_once(':')?;
+    let trigger = match state.trim() {
+        "" => TagTrigger::NoKeyword,
+        "todo" => TagTrigger::Todo,
+        "done" => TagTrigger::Done,
+        k => TagTrigger::Keyword(k.to_string()),
+    };
+    let changes = tags
+        .split_whitespace()
+        .filter_map(|t| match t.as_bytes().first() {
+            Some(b'+') => Some((t[1..].to_string(), true)),
+            Some(b'-') => Some((t[1..].to_string(), false)),
+            _ => None,
+        })
+        .filter(|(t, _)| !t.is_empty())
+        .collect();
+    Some((trigger, changes))
 }
 
 fn to_toml(v: &Value) -> Option<toml_edit::Value> {

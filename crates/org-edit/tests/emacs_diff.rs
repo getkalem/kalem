@@ -47,6 +47,10 @@ fn run(
             org_edit::sort::sort_entries(&doc, point, mark, &opts, now)
         }
         "todo" => return Some(todo_case(&args[0], text, point)),
+        "toggle-ordered" => {
+            let doc = org_model::Document::new(org_syntax::parse(text));
+            org_edit::property::toggle_ordered(&doc, point).map(|(t, _)| t)
+        }
         "narrow" => {
             use org_edit::narrow::*;
             let doc = org_model::Document::new(org_syntax::parse(text));
@@ -297,6 +301,24 @@ fn todo_case(spec: &Value, text: &str, point: usize) -> Result<Transaction, Edit
     let doc = org_model::Document::new(org_syntax::parse(text));
     let mut settings = TodoSettings::default().for_document(&doc);
     settings.adapt_indentation = spec["adapt"].as_bool().unwrap_or(false);
+    settings.enforce_todo_dependencies = spec["enforce"].as_bool().unwrap_or(false);
+    settings.enforce_todo_checkbox_dependencies =
+        spec["enforce_checkbox"].as_bool().unwrap_or(false);
+    for t in spec["triggers"].as_array().into_iter().flatten() {
+        let trigger = match t[0].as_str().unwrap() {
+            "" => TagTrigger::NoKeyword,
+            "todo" => TagTrigger::Todo,
+            "done" => TagTrigger::Done,
+            k => TagTrigger::Keyword(k.to_string()),
+        };
+        let changes = t[1]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| (c[0].as_str().unwrap().to_string(), c[1].as_bool().unwrap()))
+            .collect();
+        settings.todo_state_tags_triggers.push((trigger, changes));
+    }
     if let Some(p) = spec["priority"].as_str() {
         let action = match p {
             "up" => PriorityAction::Up,
@@ -327,7 +349,13 @@ fn todo_case(spec: &Value, text: &str, point: usize) -> Result<Transaction, Edit
         force_note: spec["force_note"].as_bool().unwrap_or(false),
         inhibit_note: spec["inhibit_note"].as_bool().unwrap_or(false),
     };
-    let outcome = todo(&doc, point, &opts)?;
+    let outcome = match todo(&doc, point, &opts) {
+        // Called from Lisp, Emacs fails silently where it blocks a change.
+        Err(e) if e.message.contains("blocked (by") => {
+            return Ok(Transaction::new("blocked").select(org_edit::Selection::caret(point)));
+        }
+        r => r?,
+    };
     let Some(pending) = outcome.note else {
         return Ok(outcome.transaction);
     };

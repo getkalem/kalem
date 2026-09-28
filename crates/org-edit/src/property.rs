@@ -253,6 +253,84 @@ pub(crate) fn entry_put(
     Ok(())
 }
 
+/// `org-entry-delete` (`org-delete-property`): takes `key` (and `KEY+`)
+/// out of the property drawer of the entry at `point`, and the drawer when
+/// nothing is left in it. Returns `None` when there was no such property.
+pub fn delete_property(doc: &Document, point: usize, key: &str) -> Option<crate::Transaction> {
+    let text = doc.parse().syntax().to_string();
+    let ctx: &ParseContext = doc.parse().context();
+    let mut buf = Buf::new(&text, point);
+    let h = org_back_to_heading(&text, point, ctx);
+    let p = drawer_position(&text, h);
+    let end = property_drawer_at(&text, p)?;
+    let begin = next_line(&text, p);
+    let end_bol = text[..end].rfind('\n').map_or(0, |i| i + 1);
+    // `^[ \t]*:KEY\+?:\(?:[ \t]+.*\)?[ \t]*$`, case-insensitively.
+    let is_key = |line: &str| {
+        let l = line.trim_start_matches([' ', '\t']);
+        let Some(rest) = l.strip_prefix(':') else {
+            return false;
+        };
+        let Some(rest) = rest
+            .get(..key.len())
+            .filter(|k| k.eq_ignore_ascii_case(key))
+            .map(|_| &rest[key.len()..])
+        else {
+            return false;
+        };
+        let rest = rest.strip_prefix('+').unwrap_or(rest);
+        rest.strip_prefix(':')
+            .is_some_and(|r| r.is_empty() || r.starts_with([' ', '\t']))
+    };
+    let mut removed = Vec::new();
+    let mut l = begin;
+    while l < end_bol {
+        let n = next_line(&text, l);
+        if is_key(&text[l..line_end(&text, l)]) {
+            removed.push(l..n);
+        }
+        l = n;
+    }
+    if removed.is_empty() {
+        return None;
+    }
+    let left = end_bol - begin - removed.iter().map(|r| r.len()).sum::<usize>();
+    if left == 0 {
+        // The whole drawer, `:PROPERTIES:` to `:END:`.
+        buf.delete(p, next_line(&text, end_bol));
+    } else {
+        for r in removed.into_iter().rev() {
+            buf.delete(r.start, r.end);
+        }
+    }
+    Some(buf.transaction("Delete property"))
+}
+
+/// `org-toggle-ordered-property`: sets `ORDERED` to `t` on the entry at
+/// `point`, or takes it away. Returns the change and whether the entry's
+/// tasks are now ordered.
+pub fn toggle_ordered(
+    doc: &Document,
+    point: usize,
+) -> Result<(crate::Transaction, bool), EditError> {
+    let text = doc.parse().syntax().to_string();
+    if org_back_to_heading(&text, point, doc.parse().context()).is_none() {
+        return Err(EditError::new(&format!(
+            "Before first headline at position {}",
+            point + 1
+        )));
+    }
+    let entry = doc.outline().entry_at(point);
+    if doc
+        .entry_get(entry, "ORDERED", org_model::Inherit::No, false)
+        .is_some()
+        && let Some(t) = delete_property(doc, point, "ORDERED")
+    {
+        return Ok((t, false));
+    }
+    Ok((set_property(doc, point, "ORDERED", "t", false)?, true))
+}
+
 /// `org-set-property` for a drawer property of the entry at `point`.
 pub fn set_property(
     doc: &Document,

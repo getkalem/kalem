@@ -88,6 +88,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[("by", "string", true), ("withCase", "boolean", false)]),
         ),
         ("file.open", object(&[("path", "string", false)])),
+        ("org.property.delete", object(&[("key", "string", true)])),
         ("format.font", object(&[("family", "string", true)])),
         ("format.size", object(&[("size", "string", true)])),
         ("format.color", object(&[("color", "string", true)])),
@@ -1398,6 +1399,45 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "org.property.delete",
+            "Delete Property",
+            "Properties",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                let k = arg_str(args, "key")?.to_string();
+                ctx.org(|d, p, _| {
+                    org_edit::property::delete_property(d, p, &k).ok_or_else(|| {
+                        org_edit::EditError {
+                            message: crate::tr!("msg-no-property", key = k.as_str()),
+                            point: None,
+                        }
+                    })
+                })
+            },
+        ),
+        cmd(
+            "org.todo.toggleOrdered",
+            "Toggle Ordered Subtasks",
+            "TODO",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let ordered = std::cell::Cell::new(false);
+                ctx.org(|d, p, _| {
+                    let (t, o) = org_edit::property::toggle_ordered(d, p)?;
+                    ordered.set(o);
+                    Ok(t)
+                })?;
+                ctx.messages.push(crate::l10n::tr(if ordered.get() {
+                    "msg-ordered-on"
+                } else {
+                    "msg-ordered-off"
+                }));
+                Ok(())
+            },
+        ),
+        cmd(
             "org.tags.set",
             "Set Tags",
             "Tags",
@@ -2303,6 +2343,58 @@ mod tests {
         assert!(md.contains("New * Saved") || md.contains("New"), "{md}");
         reg.execute("export.html", &mut ctx, &json!({})).unwrap();
         assert!(dir.join("n.html").is_file());
+    }
+
+    #[test]
+    fn todo_dependencies_and_tag_triggers() {
+        let reg = CommandRegistry::with_builtins();
+        let config = crate::settings::Config::from_layers(&[(
+            crate::settings::Layer::User,
+            None,
+            "[org]\nenforce_todo_dependencies = true\nenforce_todo_checkbox_dependencies = true\ntodo_state_tags_triggers = [\"done: -next +closed\", \"todo: -closed\"]\n",
+        )]);
+        let exec = |d: &mut DocumentState, id: &str| {
+            let mut clip = Clipboard::default();
+            let mut ctx = EditorContext {
+                document: Some(d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            let r = reg.execute(id, &mut ctx, &json!({}));
+            (r, ctx.messages)
+        };
+        // An open task below blocks, and so does an unchecked box.
+        let mut d = doc("* TODO A :next:\n** TODO b\n* TODO C\n- [ ] box\n", 0);
+        let (r, _) = exec(&mut d, "org.todo.done");
+        assert!(r.unwrap_err().message.contains("blocked (by \"TODO b\")"));
+        d.selection = org_edit::Selection::caret(d.text().as_str().find("* TODO C").unwrap());
+        let (r, _) = exec(&mut d, "org.todo.done");
+        assert!(r.unwrap_err().message.contains("contained checkboxes"));
+        // Done below: the triggers set and remove tags.
+        d.selection = org_edit::Selection::caret(d.text().as_str().find("** TODO b").unwrap());
+        exec(&mut d, "org.todo.done").0.unwrap();
+        d.selection = org_edit::Selection::caret(0);
+        exec(&mut d, "org.todo.done").0.unwrap();
+        let first = d.text().as_str().lines().next().unwrap().to_string();
+        assert!(
+            first.starts_with("* DONE A") && first.ends_with(":closed:"),
+            "{first}"
+        );
+        // ORDERED, toggled: the second task waits for the first.
+        let mut d = doc("* P\n** TODO one\n** TODO two\n", 0);
+        let (r, m) = exec(&mut d, "org.todo.toggleOrdered");
+        r.unwrap();
+        assert_eq!(m.len(), 1);
+        assert!(d.text().as_str().contains(":ORDERED:  t"));
+        d.selection = org_edit::Selection::caret(d.text().as_str().find("** TODO two").unwrap());
+        assert!(exec(&mut d, "org.todo.done").0.is_err());
+        d.selection = org_edit::Selection::caret(0);
+        exec(&mut d, "org.todo.toggleOrdered").0.unwrap();
+        assert_eq!(d.text().as_str(), "* P\n** TODO one\n** TODO two\n");
     }
 
     #[test]

@@ -107,6 +107,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The terminal editor indents text under a heading to the heading's title, as `org-indent-mode` does (`editor.outline_indent`, `#+STARTUP: indent`/`noindent`).
 - A file manager like Emacs's Dired, in both editors (Ctrl+Alt+D, `SPC o -`): a folder is a read-only listing with permissions, sizes and times; Dired's keys to open, go up, mark, flag, copy, rename, move, make files and folders, link, change permissions and move to the trash (Delete for Good asks); copies and moves run in the background with progress, cancellation and a choice for each file already at the destination. A projects view lists every project as if in one folder: opening one lists its folder, going up from there shows the projects again. The `kalem-fs` crate does the file work (D20: the `trash` crate, own copy and move).
 - Release preparation: the terminal-only build (`--no-default-features --features tui`), cargo-dist configuration, `Kalem.app` for macOS (files open from Finder), the user manual (`docs/manual.org`) and `docs/releasing.md`.
+- TODO dependencies as in Emacs: `org.enforce_todo_dependencies` (open subtasks and the `ORDERED` property), `org.enforce_todo_checkbox_dependencies`, `NOBLOCKING`, and tags changed with the state (`org.todo_state_tags_triggers`); Toggle Ordered Subtasks and Delete Property.
 
 ### Changed
 
