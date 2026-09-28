@@ -1124,6 +1124,62 @@ fn screen(t: &mut T) -> Vec<String> {
 }
 
 #[test]
+fn folder_tree_in_the_terminal() {
+    let (mut t, dir) = project_app(Config::default());
+    // The project's files are found in the background.
+    let mut rows = screen(&mut t);
+    for _ in 0..300 {
+        if rows
+            .iter()
+            .any(|r| r.contains("b.org") || r.contains("▸ sub"))
+        {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        rows = screen(&mut t);
+    }
+    let at = |rows: &[String], text: &str| rows.iter().position(|r| r.contains(text));
+    let folders = at(&rows, "Folders").unwrap_or_else(|| panic!("{rows:?}"));
+    assert!(rows[folders + 1].starts_with(" ▸ sub"), "{rows:?}");
+    assert!(rows[folders + 2].starts_with("   a.org"), "{rows:?}");
+    // A click opens the folder, another opens its file.
+    let click = |t: &mut T, row: usize| {
+        t.app.event(Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 3,
+            row: row as u16,
+            modifiers: KeyModifiers::NONE,
+        }));
+    };
+    click(&mut t, folders + 1);
+    let rows = screen(&mut t);
+    assert!(rows[folders + 1].starts_with(" ▾ sub"), "{rows:?}");
+    assert!(rows[folders + 2].starts_with("     b.org"), "{rows:?}");
+    click(&mut t, folders + 2);
+    assert_eq!(title(&t), "b.org");
+    assert_eq!(
+        t.app.doc.meta.path.as_deref(),
+        Some(dir.join("proj/sub/b.org").as_path())
+    );
+    // Closed again, Reveal in Folder Tree opens it down to the file.
+    let rows = screen(&mut t);
+    let sub = at(&rows, "▾ sub").unwrap();
+    click(&mut t, sub);
+    assert!(!screen(&mut t).join("\n").contains("     b.org"));
+    t.app
+        .run_command("view.revealInTree", serde_json::Value::Null);
+    assert!(screen(&mut t).join("\n").contains("     b.org"));
+    // The setting hides it.
+    let (mut t, _) = project_app(Config::from_layers(&[(
+        Layer::User,
+        None,
+        "[ui]\nfolder_tree = false\n",
+    )]));
+    settle(&mut t);
+    assert!(!screen(&mut t).join("\n").contains("Folders"));
+}
+
+#[test]
 fn documents_and_projects_in_the_terminal() {
     let (mut t, dir) = project_app(Config::default());
     // The palette opens with Ctrl+G where Ctrl+Shift+P cannot be typed,

@@ -336,7 +336,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7a.1 Encodings: UTF-16 with BOM, "reopen with encoding" (encoding_rs)
 - [ ] T2.7a.2 Multiple cursors and column selection
 - [ ] T2.7a.3 Large files: 100 MB target (§15), lazy highlighting, long-line safety; a rope or piece table for plain text mode, where the parser needs no contiguous text (T1.3.1a)
-- [~] T2.7a.4 Workspace sidebar, fuzzy open file, find in files (project scope: T2.7f) (the list of open files, Find File in Project and Search in Project are done; a folder tree of the workspace is still to do)
+- [x] T2.7a.4 Workspace sidebar, fuzzy open file, find in files (project scope: T2.7f) (all done: the list of open files, Find File in Project, Search in Project, and the current project's folder tree below the open files in both editors, from the project's file index (ignored files left out), folders opened and closed with a click, Reveal in Folder Tree, `ui.folder_tree`)
 - [ ] T2.7a.5 Bracket matching, auto-indent, comment toggling per language
 - [ ] T2.7a.6 Everyday text commands missing from plain text mode: go to line, duplicate line, move lines up and down, join lines, sort selected lines, trim trailing whitespace on save (`editor.trim_trailing_whitespace`), select word and expand selection (review, 2026-09-28: Sublime Text and VS Code users expect them; none is in the command registry)
 

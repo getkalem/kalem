@@ -204,7 +204,7 @@ pub fn read_dir(dir: &Path, opts: &ListOptions) -> io::Result<Vec<Entry>> {
 
 /// Compares names like people read them: case ignored, runs of digits by
 /// value (`file2` before `file10`), then as written.
-fn natural(a: &str, b: &str) -> Ordering {
+pub fn natural(a: &str, b: &str) -> Ordering {
     let (mut x, mut y) = (a.chars().peekable(), b.chars().peekable());
     loop {
         match (x.peek().copied(), y.peek().copied()) {

@@ -181,6 +181,9 @@ pub struct App {
     /// Places that run a command when clicked (the file manager and the
     /// projects in the list of open files, the hint in the status line).
     action_spots: Vec<(Rect, &'static str)>,
+    /// The folder tree's lines as last drawn, and where each is.
+    tree_rows: Vec<projects::TreeRow>,
+    tree_spots: Vec<(Rect, usize)>,
     /// The last document shown that is not a file manager, to go back to.
     last_text: Option<DocumentId>,
     /// A file operation asking its questions.
@@ -415,6 +418,8 @@ impl App {
             files_shown: true,
             file_spots: Vec::new(),
             action_spots: Vec::new(),
+            tree_rows: Vec::new(),
+            tree_spots: Vec::new(),
             last_text: None,
             task: None,
             jobs: Vec::new(),
@@ -1031,6 +1036,17 @@ impl App {
                 }
                 None => Err(tr!("msg-no-project")),
             },
+            ProjectRequest::RevealInTree => match (&project, self.doc.meta.path.clone()) {
+                (Some(root), Some(path)) => {
+                    self.projects.reveal_in_tree(root, &path);
+                    if self.files_at == FilesAt::Hidden {
+                        self.files_at = FilesAt::Left;
+                    }
+                    self.dirty = true;
+                    Ok(String::new())
+                }
+                _ => Err(tr!("msg-no-project")),
+            },
             ProjectRequest::SaveAll => match &project {
                 Some(root) => {
                     let n = self.save_all(Some(root));
@@ -1601,6 +1617,23 @@ impl App {
                 .find(|(r, _)| r.contains(ratatui::layout::Position::new(m.column, m.row)))
         {
             self.run_command(id, Value::Null);
+            return;
+        }
+        if let MouseEventKind::Down(MouseButton::Left) = m.kind
+            && let Some(&(_, i)) = self
+                .tree_spots
+                .iter()
+                .find(|(r, _)| r.contains(ratatui::layout::Position::new(m.column, m.row)))
+            && let Some(row) = self.tree_rows.get(i).cloned()
+        {
+            if row.dir {
+                if let Some(root) = self.project() {
+                    self.projects.toggle_tree(&root, &row.path);
+                }
+                self.dirty = true;
+            } else {
+                self.open_path(&row.path, None);
+            }
             return;
         }
         if let MouseEventKind::Down(MouseButton::Left) = m.kind
@@ -2692,8 +2725,22 @@ impl App {
             && area.width >= 50;
         self.file_spots.clear();
         self.action_spots.clear();
+        self.tree_spots.clear();
         if show_files {
             let entries = projects::entries(&files, &self.projects.list);
+            self.tree_rows = match self.project() {
+                Some(root)
+                    if self.config.bool("ui.folder_tree") && self.files_at == FilesAt::Left =>
+                {
+                    self.projects.tree_rows(&root)
+                }
+                _ => Vec::new(),
+            };
+            let tree = crate::panels::FolderView {
+                rows: &self.tree_rows,
+                current: self.doc.meta.path.as_deref(),
+                spots: Default::default(),
+            };
             if self.files_at == FilesAt::Top {
                 let line = Rect {
                     height: 1,
@@ -2706,6 +2753,7 @@ impl App {
                     &files,
                     self.active,
                     true,
+                    &tree,
                     &self.caps,
                 );
                 text_area.y += 1;
@@ -2723,8 +2771,10 @@ impl App {
                     &files,
                     self.active,
                     false,
+                    &tree,
                     &self.caps,
                 );
+                self.tree_spots = tree.spots.take();
                 text_area.x += w;
                 text_area.width -= w;
             }

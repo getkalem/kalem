@@ -202,6 +202,8 @@ pub enum ProjectRequest {
     SaveAll,
     /// Close the current project's documents.
     CloseAll,
+    /// Open the folder tree down to the active document.
+    RevealInTree,
 }
 
 /// Why a command failed.

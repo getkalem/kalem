@@ -1107,6 +1107,31 @@ fn settle_picker(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
 }
 
 #[gpui::test]
+fn folder_tree(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    // The project's files are found in the background.
+    for _ in 0..300 {
+        cx.run_until_parked();
+        ws.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        if cx.debug_bounds("tree-1").is_some() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    // `sub/` then `a.org`; a click opens `sub`, another its file.
+    let tree = cx.debug_bounds("tree-0").expect("the folder tree");
+    cx.simulate_click(tree.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    let file = cx.debug_bounds("tree-1").expect("sub's file");
+    cx.simulate_click(file.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "b.org");
+    let path = ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.meta.path.clone());
+    assert_eq!(path.as_deref(), Some(dir.join("proj/sub/b.org").as_path()));
+}
+
+#[gpui::test]
 fn open_documents_and_projects(cx: &mut TestAppContext) {
     let (ws, dir, cx) = open_project(false, cx);
     let p = primary();

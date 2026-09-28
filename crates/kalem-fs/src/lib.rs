@@ -19,7 +19,8 @@ mod ops;
 
 pub use job::{Job, Progress};
 pub use listing::{
-    Entry, Kind, ListOptions, SortKey, format_size, format_time, permissions, read_dir, sort,
+    Entry, Kind, ListOptions, SortKey, format_size, format_time, natural, permissions, read_dir,
+    sort,
 };
 pub use ops::{
     Conflict, OpKind, Operation, Outcome, chmod, conflicts, copy_path, delete_path, mkdir,

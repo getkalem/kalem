@@ -146,6 +146,12 @@ pub const SPECS: &[Spec] = &[
         description: "Where the list of open files shows: a sidebar on the left, tabs at the top, or not at all",
     },
     Spec {
+        key: "ui.folder_tree",
+        kind: Kind::Bool,
+        default: "true",
+        description: "The sidebar on the left shows the current project's folders and files below the open files",
+    },
+    Spec {
         key: "export.body_only",
         kind: Kind::Bool,
         default: "false",

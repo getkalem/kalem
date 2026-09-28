@@ -1411,6 +1411,17 @@ impl Editor {
                 }
                 None => Err(tr!("msg-no-project")),
             },
+            P::RevealInTree => match (&project, self.doc.meta.path.clone()) {
+                (Some(root), Some(path)) => {
+                    self.shared
+                        .projects
+                        .borrow_mut()
+                        .reveal_in_tree(root, &path);
+                    cx.notify();
+                    Ok(String::new())
+                }
+                _ => Err(tr!("msg-no-project")),
+            },
             P::SaveAll => match project {
                 Some(root) => {
                     cx.emit(DocEvent::SaveProject(root));
