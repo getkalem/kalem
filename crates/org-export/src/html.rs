@@ -302,6 +302,64 @@ impl Html {
         Some(out)
     }
 
+    /// `org-html-list-of-tables` and `org-html-list-of-listings`: the
+    /// captioned elements of `kind`.
+    fn list_of(
+        &self,
+        ex: &mut Exporter<'_>,
+        kind: SyntaxKind,
+        id: &str,
+        title: &str,
+        class: &str,
+        number: &str,
+    ) -> Option<String> {
+        let entries: Vec<Id> = ex
+            .tree
+            .descendants(ex.tree.root)
+            .into_iter()
+            .filter(|&e| {
+                ex.tree.kind(e) == Some(kind)
+                    && ex.tree.secondary(e, Secondary::Caption(0)).is_some()
+                    && reachable(ex, e)
+            })
+            .collect();
+        if entries.is_empty() {
+            return None;
+        }
+        let heading = ex.translate(&format!("List of {title}"), "html");
+        let fmt = ex.translate(number, "html");
+        let mut items = Vec::new();
+        for (n, e) in entries.into_iter().enumerate() {
+            let label = self.reference(ex, e, true);
+            // The short caption, else the caption.
+            let mut short: Vec<Id> = Vec::new();
+            let mut i = 0;
+            while let Some(sh) = ex.tree.secondary(e, Secondary::ShortCaption(i)) {
+                short = sh.to_vec();
+                i += 1;
+            }
+            let ids = if short.is_empty() {
+                caption_ids(ex, e)
+            } else {
+                short
+            };
+            let text = ex.data_list(&ids);
+            let text = crate::export::trim(&text).to_string();
+            let num = format!(
+                "<span class=\"{class}-number\">{}</span>",
+                fmt.replace("%d", &(n + 1).to_string())
+            );
+            items.push(match label {
+                Some(l) => format!("<li><a href=\"#{l}\">{num} {text}</a></li>"),
+                None => format!("<li>{num} {text}</li>"),
+            });
+        }
+        Some(format!(
+            "<div id=\"list-of-{id}\">\n<h2>{heading}</h2>\n<div id=\"text-list-of-{id}\">\n<ul>\n{}\n</ul>\n</div>\n</div>",
+            items.join("\n")
+        ))
+    }
+
     fn toc_headline(&self, ex: &mut Exporter<'_>, h: Id) -> String {
         let number = ex.headline_number(h);
         let todo = self.todo(ex, h);
@@ -2175,6 +2233,19 @@ impl Backend for Html {
                     if lower.split_whitespace().any(|w| w == "headlines") {
                         let depth = value.split_whitespace().find_map(|w| w.parse::<i64>().ok());
                         return self.toc(ex, depth);
+                    }
+                    if lower.split_whitespace().any(|w| w == "tables") {
+                        return self.list_of(ex, TABLE, "tables", "Tables", "table", "Table %d:");
+                    }
+                    if lower.split_whitespace().any(|w| w == "listings") {
+                        return self.list_of(
+                            ex,
+                            SRC_BLOCK,
+                            "listings",
+                            "Listings",
+                            "listing",
+                            "Listing %d:",
+                        );
                     }
                     return None;
                 } else {

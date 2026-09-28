@@ -124,7 +124,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- Entities Org names twice (`\deg`, `\sup`) export as Org's first one (°, ⊃); tables of contents use a headline's `ALT_TITLE`; Markdown anchors headlines listed by `#+TOC: headlines`.
+- Entities Org names twice (`\deg`, `\sup`) export as Org's first one (°, ⊃); tables of contents use a headline's `ALT_TITLE`; Markdown anchors headlines listed by `#+TOC: headlines`; `#+TOC: tables` and `#+TOC: listings` list captioned tables and code in HTML.
 - Formatting next to emphasis no longer breaks it in Emacs: spans go inside `*bold*` and `/italic/` and take in the spaces around `=code=`, and formatting that would still change what Org reads as emphasis is refused.
 - Save as Org keeps paragraphs apart when it takes out a `#+KALEM:` or `#+ATTR_KALEM:` line between them.
 - `kalem fmt` aligns tables that have `#+NAME:` or other affiliated keywords.
