@@ -116,6 +116,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Citations: the `org-cite` crate reads BibTeX, BibLaTeX and CSL-JSON bibliographies as Org does, and `kalem check` warns about unreadable bibliographies and unknown citation keys.
 - Citation export: citations and `#+PRINT_BIBLIOGRAPHY:` in HTML, Markdown, LaTeX and plain text as Org's `basic` processor writes them (every style and variant, notes with punctuation moved per language, author-year and numeric bibliographies), identical to Emacs on the test cases.
 - CSL citation styles (`#+CITE_EXPORT: csl apa`), rendered with hayagriva: the styles Kalem ships or a `.csl` file, locators from reference suffixes, note styles as footnotes, and bibliographies in HTML, LaTeX and text as Org's `csl` processor writes them.
+- `#+CITE_EXPORT: biblatex` and `natbib`: citation commands, `\printbibliography` with its options, `\bibliography`, and the package and resources in the preamble, identical to Emacs; PDF export runs `biber` or `bibtex` when it compiles without `latexmk`.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

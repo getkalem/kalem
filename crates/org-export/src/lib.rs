@@ -5,6 +5,7 @@
 
 pub mod babel;
 pub mod cite;
+mod cite_latex;
 mod csl;
 mod dictionary;
 pub mod export;
@@ -158,7 +159,7 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     ex.prune();
     backend.filter_parse_tree(&mut ex);
     ex.collect_tree_properties();
-    let cite_preamble = cite::process(&mut ex, &keywords)?;
+    let cite_finalizer = cite::process(&mut ex, &keywords)?;
     let root_id = ex.tree.root;
     let body = export::normalize_string(&ex.data(root_id));
     let full = backend.inner_template(&mut ex, body);
@@ -167,12 +168,9 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     } else {
         backend.template(&mut ex, full)
     };
-    let out = match cite_preamble {
-        Some(p) if !settings.body_only => match out.find("\\begin{document}") {
-            Some(i) => format!("{}{p}{}", &out[..i], &out[i..]),
-            None => out,
-        },
-        _ => out,
+    let out = match &cite_finalizer {
+        Some(f) => cite::finalize(out, f),
+        None => out,
     };
     Ok(backend.filter_final_output(&mut ex, out))
 }

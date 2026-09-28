@@ -357,6 +357,15 @@ passes "p. 12" as the locator. HTML gets a =csl-bib-body= list, LaTeX a
 Org's =csl= processor writes them. =#+LANGUAGE= chooses the style's
 terms.
 
+For LaTeX, =#+CITE_EXPORT: biblatex= and =#+CITE_EXPORT: natbib= leave
+citations to those packages, as Org does: =[cite/t:@key]= becomes
+=\textcite{key}= or =\citet{key}=, =#+PRINT_BIBLIOGRAPHY:= becomes
+=\printbibliography= (its =:key value= options passed on) or
+=\bibliography=, and the package and the bibliography files go into the
+preamble. The second word is the style (=biblatex authoryear=, =natbib
+plainnat=). /Export as PDF/ then runs =biber= or =bibtex= between LaTeX
+runs, as =latexmk= does.
+
 Plain text is filled to 72 columns as Emacs fills it, with underlined
 titles, boxed code and tables drawn in ASCII; =export.text_charset =
 "utf-8"= uses UTF-8 lines, bullets and quotes instead.

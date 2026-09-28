@@ -1,0 +1,13 @@
+#+TITLE: Biblatex
+#+cite_export: biblatex authoryear/numeric
+#+bibliography: bib/refs.bib
+#+bibliography: bib/more.json
+
+Default [cite:@knuth84], text [cite/t:@doe-2020], author [cite/a/cf:@knuth84],
+noauthor [cite/na/b:see @doe-2020 p. 3], locators [cite/l/bc:@zed], nocite [cite/n:@lower].
+Multi [cite:before; @knuth84 p. 1; @doe-2020; after], [cite/t:@knuth84;@zed],
+[cite/t/c:@knuth84 chap. 2;see @zed], unknown [cite/foo/bar:@zed], bare [cite//b:@zed].
+
+#+print_bibliography: :heading subbibliography :title "Printed works" :keyword book,paper
+
+#+print_bibliography:

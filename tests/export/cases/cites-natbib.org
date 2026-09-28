@@ -1,0 +1,10 @@
+#+TITLE: Natbib
+#+cite_export: natbib plainnat
+#+bibliography: bib/refs.bib
+
+Default [cite:@knuth84], text [cite/t:@doe-2020], author [cite/a/c:@knuth84],
+noauthor [cite/na:see @doe-2020 p. 3], bare [cite/na/b:@zed], nocite [cite/n:@lower].
+Many [cite:before; @knuth84; @doe-2020 p. 2; after] and [cite/t/bcf:@knuth84;@zed].
+Prefix only [cite:see @zed], "quoted"[cite:@knuth84], caps [cite//c:@zed].
+
+#+print_bibliography:

@@ -1,0 +1,5 @@
+#+cite_export: biblatex
+#+latex_header: \usepackage{biblatex}
+#+bibliography: bib/refs.bib
+
+Text [cite:@knuth84].

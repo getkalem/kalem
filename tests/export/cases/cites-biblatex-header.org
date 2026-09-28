@@ -1,0 +1,5 @@
+#+cite_export: biblatex "backend=biber,maxnames=2"
+#+latex_header: \usepackage[backend=bibtex,style=apa]{biblatex}
+#+bibliography: bib/refs.bib
+
+Text [cite:@knuth84].

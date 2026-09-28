@@ -75,7 +75,7 @@ pub(crate) fn process(
     processor: &Processor,
     files: &[PathBuf],
     dir: Option<&Path>,
-) -> Result<Option<String>, String> {
+) -> Result<Option<oc::Finalizer>, String> {
     let language = ex.string("language").map(str::to_string);
     let csl = csl::Processor::new(
         processor.bibliography_style.as_deref(),
@@ -227,8 +227,11 @@ pub(crate) fn process(
         );
         oc::set_raw(ex, k, out);
     }
-    Ok((output == Output::Latex && !keywords.is_empty())
-        .then(|| LATEX_PREAMBLE.replace("[CSL-MAXLABEL-CHARS]", &bib.max_label.to_string())))
+    Ok((output == Output::Latex && !keywords.is_empty()).then(|| {
+        oc::Finalizer::Preamble(
+            LATEX_PREAMBLE.replace("[CSL-MAXLABEL-CHARS]", &bib.max_label.to_string()),
+        )
+    }))
 }
 
 /// The objects of a prefix or suffix.
@@ -573,7 +576,10 @@ mod tests {
     use crate::{Html, Latex, Markdown, Settings, Text, export};
 
     fn dir() -> std::path::PathBuf {
-        let d = std::env::temp_dir().join(format!("org-export-csl-{}", std::process::id()));
+        // Each test its own folder: they run at the same time.
+        static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let d = std::env::temp_dir().join(format!("org-export-csl-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         std::fs::write(
             d.join("refs.bib"),
