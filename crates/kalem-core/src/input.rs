@@ -106,6 +106,8 @@ pub enum LinkAction {
     Jump(usize),
     /// An internal link without a target.
     Missing(String),
+    /// A PDF for the system's print dialog ([`crate::print`]).
+    Print(std::path::PathBuf),
 }
 
 /// The link at `pos` and where it leads (`org-open-at-point`).
