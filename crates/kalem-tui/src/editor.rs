@@ -131,16 +131,24 @@ impl Images {
         )
     }
 
-    /// The cells an image may take in a text `text` cells wide: the width
-    /// `#+ATTR_ORG: :width` asks for, in the terminal's cells.
-    fn cols(&self, width: Option<view::ImageWidth>, text: u16) -> u16 {
+    /// The cells image `path` may take in a text `text` cells wide: the
+    /// width `#+ATTR_ORG: :width` (or LaTeX's `width=`, `height=`, `scale=`)
+    /// asks for, in the terminal's cells.
+    fn cols(&self, width: Option<view::ImageWidth>, text: u16, path: &str) -> u16 {
         let cell = self
             .picker
             .as_ref()
             .map_or(8.0, |p| p.font_size().width.max(1) as f32);
         match width {
             Some(w) => {
-                let px = w.resolve(text as f32 * cell);
+                // A scale or a height needs the picture's own size.
+                let natural = matches!(w, view::ImageWidth::Scale(_) | view::ImageWidth::Height(_))
+                    .then(|| {
+                        let file = kalem_core::images::resolve(path, self.base.as_deref());
+                        image::image_dimensions(file).ok()
+                    })
+                    .flatten();
+                let px = w.resolve(text as f32 * cell, natural);
                 ((px / cell).round() as u16).clamp(1, text.max(1))
             }
             None => text,
@@ -556,7 +564,7 @@ impl<'a> Layout<'a> {
         let mut images = self.images.borrow_mut();
         let (key, label) = match found? {
             view::Widget::Image { path, width } => {
-                let cols = images.cols(width, self.width.get());
+                let cols = images.cols(width, self.width.get(), &path);
                 (images.file(&path, cols), format!("[image: {path}]"))
             }
             view::Widget::Math { source, .. } if !self.raw_math => {
@@ -607,7 +615,7 @@ impl<'a> Layout<'a> {
         let mut images = self.images.borrow_mut();
         let (key, label) = match found? {
             view::Widget::Image { path, width } => {
-                let cols = images.cols(width, self.width.get());
+                let cols = images.cols(width, self.width.get(), &path);
                 (images.file(&path, cols), format!("[image: {path}]"))
             }
             view::Widget::Math { source, .. } if !self.raw_math => {

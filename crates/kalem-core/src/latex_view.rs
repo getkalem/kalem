@@ -1742,8 +1742,9 @@ pub(crate) fn find_picture(
     None
 }
 
-/// The width `width=` asks for: a share of `\textwidth`, `\linewidth` or
-/// `\columnwidth`, or a length in pixels at 96 dpi.
+/// The size `width=`, `height=` or `scale=` asks for, in that order: a
+/// share of `\textwidth`, `\linewidth` or `\columnwidth`, a length in
+/// pixels at 96 dpi, or a share of the picture's own size.
 fn picture_width(cmd: &SyntaxNode) -> Option<crate::view::ImageWidth> {
     use crate::view::ImageWidth;
     let opt = cmd
@@ -1752,10 +1753,19 @@ fn picture_width(cmd: &SyntaxNode) -> Option<crate::view::ImageWidth> {
         .text()
         .to_string();
     let opt = opt.trim_start_matches('[').trim_end_matches(']');
-    let value = opt.split(',').find_map(|p| {
-        let (k, v) = p.split_once('=')?;
-        (k.trim() == "width").then(|| v.trim().to_string())
-    })?;
+    let get = |key: &str| {
+        opt.split(',').find_map(|p| {
+            let (k, v) = p.split_once('=')?;
+            (k.trim() == key).then(|| v.trim().to_string())
+        })
+    };
+    let Some(value) = get("width") else {
+        if let Some(h) = get("height").as_deref().and_then(length_px) {
+            return Some(ImageWidth::Height(h));
+        }
+        let s: f64 = get("scale")?.parse().ok()?;
+        return (s > 0.0).then(|| ImageWidth::Scale((s * 100.0).round().min(1000.0) as u32));
+    };
     for w in ["\\textwidth", "\\linewidth", "\\columnwidth", "\\hsize"] {
         if let Some(f) = value.strip_suffix(w) {
             let f = f.trim();
@@ -1765,6 +1775,11 @@ fn picture_width(cmd: &SyntaxNode) -> Option<crate::view::ImageWidth> {
             ));
         }
     }
+    length_px(&value).map(ImageWidth::Pixels)
+}
+
+/// A length in pixels at 96 dpi (`5cm`, `30mm`, `2in`, `144pt`, `200px`).
+fn length_px(value: &str) -> Option<u32> {
     let unit = |u: &str, px: f64| {
         value
             .strip_suffix(u)
@@ -1776,7 +1791,7 @@ fn picture_width(cmd: &SyntaxNode) -> Option<crate::view::ImageWidth> {
         .or_else(|| unit("in", 96.0))
         .or_else(|| unit("pt", 96.0 / 72.27))
         .or_else(|| unit("px", 1.0))?;
-    (px >= 1.0).then(|| ImageWidth::Pixels(px.round() as u32))
+    (px >= 1.0).then(|| px.round() as u32)
 }
 
 /// The verbatim environment (`verbatim`, `lstlisting`, `minted`,
@@ -2141,6 +2156,27 @@ mod tests {
             &last.runs[0].widget,
             Some(crate::view::Widget::Math { display: true, .. })
         ));
+    }
+
+    #[test]
+    fn picture_sizes() {
+        use crate::view::ImageWidth;
+        let size = |opts: &str| {
+            let p = latex_syntax::parse(&format!("\\includegraphics[{opts}]{{a}}"));
+            let cmd = p
+                .syntax()
+                .descendants()
+                .find(|n| n.kind() == K::COMMAND)
+                .unwrap();
+            picture_width(&cmd)
+        };
+        assert_eq!(size("width=0.5\\linewidth"), Some(ImageWidth::Percent(50)));
+        assert_eq!(size("width=2in"), Some(ImageWidth::Pixels(192)));
+        assert_eq!(size("height=1in"), Some(ImageWidth::Height(96)));
+        assert_eq!(size("scale=0.25"), Some(ImageWidth::Scale(25)));
+        // `width=` wins over the others.
+        assert_eq!(size("scale=2, width=1cm"), Some(ImageWidth::Pixels(38)));
+        assert_eq!(size("angle=90"), None);
     }
 
     #[test]
