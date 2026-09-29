@@ -32,6 +32,8 @@ pub struct LatexState {
     skipped: RefCell<Option<(latex_syntax::GreenNode, Spans)>>,
     /// The labels of the items of each list, by its green node.
     lists: RefCell<std::collections::HashMap<usize, (latex_syntax::GreenNode, Arc<Items>)>>,
+    /// The diagnostics, worked out in the background.
+    pub diagnostics: crate::latex_check::Live,
 }
 
 /// Ranges of the source.
@@ -49,6 +51,7 @@ impl LatexState {
             titles: RefCell::new(None),
             skipped: RefCell::new(None),
             lists: RefCell::new(std::collections::HashMap::new()),
+            diagnostics: crate::latex_check::Live::default(),
         }
     }
 
@@ -597,8 +600,83 @@ impl Builder<'_> {
 }
 
 /// The view of source line `line` (without its line ending) of the LaTeX
-/// document `doc`, with the cursor at `cursor`.
+/// document `doc`, with the cursor at `cursor`; the text under the
+/// document's diagnostics flagged (T2.7h.20).
 pub fn line_view(
+    doc: &crate::DocumentState,
+    line: Range<usize>,
+    cursor: Option<usize>,
+) -> LineView {
+    let mut v = unflagged_line_view(doc, line, cursor);
+    if let Some(diags) = doc.latex_diagnostics() {
+        flag(&mut v, diags);
+    }
+    v
+}
+
+/// Flags the runs of `v` under `diags`: a run of source text split where a
+/// diagnostic starts or ends, a run standing for other text flagged whole.
+fn flag(v: &mut LineView, diags: &[crate::latex_check::Diagnostic]) {
+    let line = v.range.clone();
+    // Diagnostics are in order of their start, and one over many lines
+    // is flagged on its first: those starting on this line, up to its end.
+    let first = diags.partition_point(|d| d.range.start < line.start);
+    let here: Vec<(Range<usize>, bool)> = diags[first..]
+        .iter()
+        .take_while(|d| d.range.start <= line.end)
+        .map(|d| {
+            // At least one character, so a point shows.
+            let end = d.range.end.min(line.end).max(d.range.start + 1);
+            let warning = d.severity == crate::latex_check::Severity::Warning;
+            (d.range.start..end, warning)
+        })
+        .collect();
+    if here.is_empty() {
+        return;
+    }
+    let flag_of = |r: &Range<usize>| -> Option<bool> {
+        let hits = here
+            .iter()
+            .filter(|(d, _)| d.start < r.end.max(r.start + 1) && d.end > r.start);
+        hits.map(|(_, w)| *w).reduce(|a, b| a || b)
+    };
+    let mut out = Vec::with_capacity(v.runs.len());
+    for run in std::mem::take(&mut v.runs) {
+        if !run.verbatim || run.widget.is_some() || run.src.len() != run.text.len() {
+            let mut run = run;
+            if run.style.flagged.is_none() {
+                run.style.flagged = flag_of(&run.src);
+            }
+            out.push(run);
+            continue;
+        }
+        // Cut where diagnostics start and end.
+        let mut cuts: Vec<usize> = here
+            .iter()
+            .flat_map(|(d, _)| [d.start, d.end])
+            .filter(|c| {
+                run.src.start < *c
+                    && *c < run.src.end
+                    && run.text.is_char_boundary(c - run.src.start)
+            })
+            .collect();
+        cuts.sort_unstable();
+        cuts.dedup();
+        let mut start = run.src.start;
+        for c in cuts.into_iter().chain(std::iter::once(run.src.end)) {
+            let src = start..c;
+            let mut piece = run.clone();
+            piece.text = run.text[start - run.src.start..c - run.src.start].to_string();
+            piece.style.flagged = flag_of(&src);
+            piece.src = src;
+            out.push(piece);
+            start = c;
+        }
+    }
+    v.runs = out;
+}
+
+fn unflagged_line_view(
     doc: &crate::DocumentState,
     line: Range<usize>,
     cursor: Option<usize>,
@@ -1332,6 +1410,27 @@ fn chip(
             (shown, all)
         }
     }
+}
+
+/// The message of the diagnostic at `pos` of a LaTeX document, with `⚠`
+/// for a warning and `ⓘ` for style, and a word on Quick Fix when it has
+/// a fix.
+pub fn diagnostic_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
+    let d = crate::latex_check::at(doc.latex_diagnostics()?, pos)?;
+    let mark = if d.severity == crate::latex_check::Severity::Warning {
+        "⚠"
+    } else {
+        "ⓘ"
+    };
+    Some(if d.fix.is_some() {
+        crate::tr!(
+            "latex-diagnostic-fixable",
+            mark = mark,
+            message = d.message.as_str()
+        )
+    } else {
+        format!("{mark} {}", d.message)
+    })
 }
 
 /// What the status bar and a tooltip say about the citation, reference

@@ -1216,9 +1216,36 @@ impl DocumentState {
         }
     }
 
-    /// Installs a finished background parse, if any. Returns whether the
-    /// parse changed.
+    /// Installs a finished background parse and LaTeX diagnostics, and
+    /// starts LaTeX diagnostics after a pause in typing. Returns whether
+    /// what the view shows changed.
     pub fn poll(&mut self) -> bool {
+        let diagnostics = match &mut self.latex {
+            Some(l) => {
+                l.diagnostics
+                    .poll(self.version, self.meta.path.as_deref(), self.text.as_str())
+            }
+            None => false,
+        };
+        self.poll_parse() || diagnostics
+    }
+
+    /// The LaTeX diagnostics of the text as it is, when they are known
+    /// (they are worked out after a pause in typing).
+    pub fn latex_diagnostics(&self) -> Option<&Arc<Vec<crate::latex_check::Diagnostic>>> {
+        self.latex.as_ref()?.diagnostics.current(self.version)
+    }
+
+    /// Works the LaTeX diagnostics out now rather than in the background
+    /// (tests).
+    pub fn update_latex_diagnostics(&mut self) {
+        if let Some(l) = &mut self.latex {
+            l.diagnostics
+                .update_now(self.version, self.meta.path.as_deref(), self.text.as_str());
+        }
+    }
+
+    fn poll_parse(&mut self) -> bool {
         let version = self.version;
         let Some(org) = &mut self.org else {
             return false;

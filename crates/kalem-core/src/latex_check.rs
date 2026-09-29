@@ -8,6 +8,9 @@
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::mpsc::{Receiver, TryRecvError};
+use std::time::{Duration, Instant};
 
 use latex_model::project::{Disk, ProjectCache, find_root};
 use latex_syntax::SyntaxKind as K;
@@ -59,7 +62,41 @@ pub fn text_diagnostics(parse: &latex_syntax::Parse) -> Vec<Diagnostic> {
             fix: None,
         })
         .collect();
-    let root_node = parse.syntax();
+    out.extend(style_diagnostics(&parse.syntax()));
+    out.sort_by_key(|d| (d.range.start, d.range.end));
+    out
+}
+
+/// The fix of the diagnostic at the cursor of `sel`, or else of the first
+/// one on its line that has a fix (Quick Fix): the replacement, with the
+/// cursor after it.
+pub fn quick_fix(
+    text: &str,
+    sel: org_edit::Selection,
+    root: &latex_syntax::SyntaxNode,
+) -> Option<org_edit::Transaction> {
+    let fixable: Vec<Diagnostic> = style_diagnostics(root)
+        .into_iter()
+        .filter(|d| d.fix.is_some())
+        .collect();
+    let pos = sel.head;
+    let line_start = text[..pos].rfind('\n').map_or(0, |i| i + 1);
+    let line_end = text[pos..].find('\n').map_or(text.len(), |i| pos + i);
+    let d = at(&fixable, pos).or_else(|| {
+        fixable
+            .iter()
+            .find(|d| line_start <= d.range.start && d.range.start <= line_end)
+    })?;
+    let (range, insert) = d.fix.clone()?;
+    let head = range.start + insert.len();
+    let mut tx = org_edit::Transaction::new("Quick Fix");
+    tx.replace(range, insert).ok()?;
+    Some(tx.select(org_edit::Selection::caret(head)))
+}
+
+/// Deprecated commands and chktex's rules, with their fixes.
+fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
     // Deprecated commands and chktex's rules, in text.
     for t in root_node
         .descendants_with_tokens()
@@ -157,6 +194,105 @@ pub fn text_diagnostics(parse: &latex_syntax::Parse) -> Vec<Diagnostic> {
     }
     out.sort_by_key(|d| (d.range.start, d.range.end));
     out
+}
+
+/// The diagnostics of a LaTeX document as it is edited (T2.7h.20):
+/// worked out on a thread after a pause in typing, as `kalem check` does
+/// (the project's other files from the disk, this one as edited), and
+/// shown while the text is the one they were worked out for.
+#[derive(Debug, Default)]
+pub struct Live {
+    /// The diagnostics, the version they are for, and a count of the
+    /// times they were installed.
+    shown: Option<(u64, Arc<Vec<Diagnostic>>)>,
+    installed: u64,
+    pending: Option<(u64, Receiver<Vec<Diagnostic>>)>,
+    /// The version last seen changing, and when.
+    changed: Option<(u64, Instant)>,
+}
+
+/// The pause in typing after which diagnostics are worked out again.
+const PAUSE: Duration = Duration::from_millis(400);
+
+impl Live {
+    /// The diagnostics of `version` of the text, when they are known.
+    pub fn current(&self, version: u64) -> Option<&Arc<Vec<Diagnostic>>> {
+        self.shown
+            .as_ref()
+            .filter(|(v, _)| *v == version)
+            .map(|(_, d)| d)
+    }
+
+    /// How many times diagnostics were installed: caches of what they
+    /// show start again when it changes.
+    pub fn generation(&self) -> u64 {
+        self.installed
+    }
+
+    /// Collects diagnostics that finished, and starts working them out for
+    /// `version` of `text` after a pause (at once the first time); `true`
+    /// when new ones are to be shown.
+    pub(crate) fn poll(&mut self, version: u64, path: Option<&Path>, text: &str) -> bool {
+        let mut shown = false;
+        if let Some((v, rx)) = &self.pending {
+            match rx.try_recv() {
+                Ok(d) => {
+                    shown = *v == version;
+                    self.shown = Some((*v, Arc::new(d)));
+                    self.installed += 1;
+                    self.pending = None;
+                }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => self.pending = None,
+            }
+        }
+        let known = self.shown.as_ref().is_some_and(|(v, _)| *v == version);
+        if known || self.pending.is_some() {
+            return shown;
+        }
+        let due = match self.changed {
+            _ if self.shown.is_none() => true,
+            Some((v, at)) if v == version => at.elapsed() >= PAUSE,
+            _ => {
+                self.changed = Some((version, Instant::now()));
+                false
+            }
+        };
+        if due {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let (path, text) = (path.map(Path::to_path_buf), text.to_string());
+            std::thread::spawn(move || {
+                let _ = tx.send(diagnose(path.as_deref(), &text));
+            });
+            self.pending = Some((version, rx));
+        }
+        shown
+    }
+
+    /// Works the diagnostics out now (tests, and batch use).
+    pub fn update_now(&mut self, version: u64, path: Option<&Path>, text: &str) {
+        self.pending = None;
+        self.shown = Some((version, Arc::new(diagnose(path, text))));
+        self.installed += 1;
+    }
+}
+
+/// The diagnostics of `text`: of the file at `path` with its project, or
+/// of the text alone.
+fn diagnose(path: Option<&Path>, text: &str) -> Vec<Diagnostic> {
+    match path {
+        Some(p) => check(p, text),
+        None => text_diagnostics(&latex_syntax::parse(text)),
+    }
+}
+
+/// The diagnostic at `pos` of `diags` (in order): the narrowest holding it,
+/// warnings before style.
+pub fn at(diags: &[Diagnostic], pos: usize) -> Option<&Diagnostic> {
+    diags
+        .iter()
+        .filter(|d| d.range.start <= pos && pos <= d.range.end)
+        .min_by_key(|d| (d.severity != Severity::Warning, d.range.len()))
 }
 
 /// The diagnostics of the LaTeX file `path` with text `text`, in order.
@@ -439,6 +575,24 @@ mod tests {
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn quick_fix_at_the_cursor() {
+        let text = "Some {\\bf x} here...\n";
+        let p = latex_syntax::parse(text);
+        let fix = |pos: usize| {
+            let tx = quick_fix(text, org_edit::Selection::caret(pos), &p.syntax())?;
+            let mut t = text.to_string();
+            for e in tx.edits.iter().rev() {
+                t.replace_range(e.range.clone(), &e.insert);
+            }
+            Some(t)
+        };
+        // On `\bf`, and on the line elsewhere (the first fix on it).
+        assert_eq!(fix(7).as_deref(), Some("Some {\\bfseries x} here...\n"));
+        assert_eq!(fix(0).as_deref(), Some("Some {\\bfseries x} here...\n"));
+        assert_eq!(fix(19).as_deref(), Some("Some {\\bf x} here\\ldots{}\n"));
     }
 
     #[test]

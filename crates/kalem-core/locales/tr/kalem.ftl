@@ -712,10 +712,13 @@ msg-latex-built = Oluşturuldu: { $path }{ $count ->
 }
 msg-not-latex = LaTeX belgesi değil
 msg-latex-not-here = Burada olmaz: imleci bir bölüm komutuna ya da liste öğesine koyun
+msg-no-fix = Burada düzeltme yok: imleci açık bir düzeltmesi olan işaretli bir yapıya koyun
+latex-diagnostic-fixable = { $mark } { $message } (Hızlı Düzeltme düzeltir)
 cmd-latex-enter = Yeni Satır ya da Öğe
 cmd-latex-link-open = Bağlantıyı Aç
 cmd-latex-list-indent = Öğeyi İçeri Al
 cmd-latex-list-outdent = Öğeyi Dışarı Al
+cmd-latex-fix = Hızlı Düzeltme
 cmd-latex-format-bold = Kalın
 cmd-latex-format-italic = Vurgu
 cmd-latex-format-code = Daktilo

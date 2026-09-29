@@ -2267,7 +2267,8 @@ impl Editor {
                     let path = self.doc.meta.path.clone();
                     match self.doc.model() {
                         Some(model) => kalem_core::cite::note_at(&model, path.as_deref(), h.pos),
-                        None => kalem_core::latex_view::note_at(&self.doc, h.pos),
+                        None => kalem_core::latex_view::note_at(&self.doc, h.pos)
+                            .or_else(|| kalem_core::latex_view::diagnostic_at(&self.doc, h.pos)),
                     }
                 })
                 .map(|t| (ev.position, t));

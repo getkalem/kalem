@@ -164,7 +164,8 @@ impl KeyChord {
 
     /// The chord a legacy terminal gets instead of this one: Alt with the
     /// same letter or digit for Control chords that cannot be sent
-    /// (`ctrl+shift+t` becomes `alt+t`, `ctrl+1` `alt+1`), and `ctrl+_` for
+    /// (`ctrl+shift+t` becomes `alt+t`, `ctrl+1` `alt+1`, `ctrl+.` `alt+.`),
+    /// and `ctrl+_` for
     /// `ctrl+/`, which terminals send as `ctrl+_`.
     pub fn terminal_variant(&self) -> Option<KeyChord> {
         if self.terminal_safe() {
@@ -177,7 +178,7 @@ impl KeyChord {
             });
         }
         let k = self.key.as_bytes();
-        let alnum = k.len() == 1 && k[0].is_ascii_alphanumeric();
+        let alnum = k.len() == 1 && (k[0].is_ascii_alphanumeric() || k[0] == b'.');
         (self.mods.ctrl && !self.mods.cmd && alnum).then(|| KeyChord {
             mods: Modifiers {
                 alt: true,
@@ -290,6 +291,7 @@ mod tests {
         };
         assert_eq!(variant("ctrl+shift+t").as_deref(), Some("alt+t"));
         assert_eq!(variant("ctrl+1").as_deref(), Some("alt+1"));
+        assert_eq!(variant("ctrl+.").as_deref(), Some("alt+."));
         assert_eq!(variant("ctrl+b").as_deref(), Some("ctrl+b"));
         assert_eq!(variant("ctrl+enter"), None);
         assert_eq!(variant("C-/").as_deref(), Some("ctrl+_"));

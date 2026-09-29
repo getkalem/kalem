@@ -2890,3 +2890,34 @@ fn empty_latex_document() {
     assert_eq!(t.text(), "");
     screen(&mut t);
 }
+
+#[test]
+fn latex_diagnostics_in_the_terminal() {
+    // `\bf` is deprecated: underlined once the diagnostics arrive, its
+    // message in the status line at the cursor, Ctrl+. fixes it.
+    let mut t = with_file("Some {\\bf x} here.\n", "d.tex", Config::default(), (50, 6));
+    t.at(7);
+    let mut found = false;
+    for _ in 0..300 {
+        t.app.tick(std::time::Instant::now());
+        if t.app.doc.latex_diagnostics().is_some() {
+            found = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(found, "diagnostics worked out");
+    let buf = t.draw();
+    let flagged = (0..buf.area.width).any(|x| {
+        buf[(x, 0)]
+            .modifier
+            .contains(ratatui::style::Modifier::UNDERLINED)
+    });
+    assert!(flagged, "the deprecated command is underlined");
+    let rows = screen(&mut t);
+    assert!(rows.iter().any(|r| r.contains("ⓘ")), "{rows:#?}");
+    // Ctrl+. as terminals can send it.
+    t.key(KeyCode::Char('.'), KeyModifiers::ALT);
+    let rows = screen(&mut t);
+    assert_eq!(t.text(), "Some {\\bfseries x} here.\n", "{rows:#?}");
+}
