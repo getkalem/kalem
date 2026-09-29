@@ -3,6 +3,7 @@
 //!
 //! Frontends read documents and change them only through this crate.
 
+pub mod affiliated;
 mod builtin;
 pub mod cite;
 pub mod command;

@@ -355,7 +355,7 @@ pub fn missing_argument(cmd: &Command, args: &Value) -> Option<(String, String)>
 
 /// What the prompt for argument `name` of command `id`, given `args`
 /// already, starts with: a property's value when Set Property knows the
-/// key, the color used last for Text Color and Highlight, else as
+/// key, the caption or name of the element at the cursor, the color used last for Text Color and Highlight, else as
 /// [`argument_default`].
 pub fn argument_default_with(
     id: &str,
@@ -374,6 +374,19 @@ pub fn argument_default_with(
         {
             return v;
         }
+    }
+    // The caption or name of the element at the cursor.
+    let key = match (id, name) {
+        ("org.caption.set", "caption") => Some("CAPTION"),
+        ("org.name.set", "name") => Some("NAME"),
+        _ => None,
+    };
+    if let Some(key) = key {
+        let pos = doc.selection.head;
+        return doc
+            .model()
+            .and_then(|m| crate::affiliated::value_at(&m, pos, key))
+            .unwrap_or_default();
     }
     // The color used last.
     let recent = match (id, name) {

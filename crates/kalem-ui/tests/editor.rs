@@ -1886,6 +1886,45 @@ fn editing_properties(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn captions_names_and_references(cx: &mut TestAppContext) {
+    let (e, cx) = open("#+CAPTION: Old\n| 1 |\n\nSee \n", cx);
+    at(&e, 16, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.caption.set", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    let input = e.read_with(cx, |e, _| e.palette.as_ref().map(|p| p.input.clone()));
+    assert_eq!(input.as_deref(), Some("Old"));
+    cx.simulate_keystrokes("backspace backspace backspace");
+    cx.simulate_input("Numbers");
+    cx.simulate_keystrokes("enter");
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "org.name.set",
+            serde_json::json!({"name": "tab:n"}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let text = "#+NAME: tab:n\n#+CAPTION: Numbers\n| 1 |\n\nSee \n";
+    assert_eq!(text_of(&e, cx), text);
+    at(&e, text.len() - 1, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.insert.reference", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    cx.simulate_input("tab:n");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert!(
+        text_of(&e, cx).ends_with("See [[tab:n]]\n"),
+        "{}",
+        text_of(&e, cx)
+    );
+}
+
+#[gpui::test]
 fn inserting_drawers(cx: &mut TestAppContext) {
     let (e, cx) = open("One.\nTwo.\n", cx);
     e.update(cx, |e, cx| {
