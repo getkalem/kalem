@@ -115,6 +115,9 @@ pub struct DocumentState {
     /// The file manager's state, in a folder listing
     /// ([`DocumentMode::Directory`]).
     pub dired: Option<Box<crate::dired::DirState>>,
+    /// A CSV document's filter (view state): only the rows with a field
+    /// holding this text show (`crate::csv::filtered`).
+    pub csv_filter: Option<String>,
 }
 
 /// Why saving failed.
@@ -219,6 +222,7 @@ impl DocumentState {
             disk: None,
             changes: Vec::new(),
             dired: None,
+            csv_filter: None,
         }
     }
 

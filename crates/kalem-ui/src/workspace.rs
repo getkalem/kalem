@@ -957,6 +957,7 @@ const TOOLBAR: &[(&str, &str, &str, &str, &str)] = &[
     ("+→", "Insert Column", "csv.insertColumn", "", ""),
     ("−→", "Delete Column", "csv.deleteColumn", "", ""),
     ("⇅", "Sort File by Column", "csv.sortFile", "", ""),
+    ("⌕", "Filter Rows", "csv.filter", "", ""),
     // Code.
     ("//", "Toggle Comment", "edit.toggleComment", "", "org"),
 ];
@@ -1952,6 +1953,8 @@ pub fn menus() -> Vec<Menu> {
                 item("csv.moveColumnLeft"),
                 item("csv.moveColumnRight"),
                 MenuItem::separator(),
+                item("csv.filter"),
+                item("csv.clearFilter"),
                 item("csv.sortFile"),
             ],
         },

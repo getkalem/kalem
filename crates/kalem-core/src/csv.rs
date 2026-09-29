@@ -741,9 +741,129 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
+/// The rows a filter keeps: the header, the record at `cursor`, and the
+/// records with a field containing `needle` (case ignored); the byte
+/// ranges they show, merged, each with its line ending (the last one
+/// reaching `text.len() + 1`, the line after a final line feed), and how
+/// many data rows match out of how many.
+pub fn filter_rows(
+    text: &str,
+    d: &Dialect,
+    needle: &str,
+    cursor: usize,
+) -> (Vec<Range<usize>>, usize, usize) {
+    let needle = needle.to_lowercase();
+    let mut out: Vec<Range<usize>> = Vec::new();
+    let (mut matched, mut total) = (0, 0);
+    let mut start = 0;
+    let mut row = 0;
+    while start < text.len() {
+        let rec = scan(text, start, d);
+        let next = if rec.next < text.len() {
+            rec.next
+        } else {
+            text.len() + 1
+        };
+        let header = row == 0 && d.header;
+        let hit = !header
+            && rec
+                .fields
+                .iter()
+                .any(|f| value(text, f, d).to_lowercase().contains(&needle));
+        if !header {
+            total += 1;
+            matched += usize::from(hit);
+        }
+        let here = rec.range.start <= cursor && cursor < next;
+        if header || hit || here {
+            match out.last_mut() {
+                Some(r) if r.end == rec.range.start => r.end = next,
+                _ => out.push(rec.range.start..next),
+            }
+        }
+        if next <= start {
+            break;
+        }
+        start = next;
+        row += 1;
+    }
+    if out.is_empty() {
+        out.push(0..text.len() + 1);
+    }
+    (out, matched, total)
+}
+
+/// What a filter's memo is for: the text's version, the filter, the
+/// cursor's line.
+type FilterKey = (u64, String, usize);
+
+/// What a CSV document's filter keeps.
+#[derive(Debug)]
+pub struct Filtered {
+    /// The byte ranges shown, merged ([`filter_rows`]).
+    pub ranges: Vec<Range<usize>>,
+    /// The data rows that match.
+    pub matched: usize,
+    /// The data rows.
+    pub total: usize,
+}
+
+thread_local! {
+    static FILTERED: std::cell::RefCell<Option<(FilterKey, std::rc::Rc<Filtered>)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The rows a CSV document's filter keeps ([`filter_rows`] for its text,
+/// filter and cursor), memoized; `None` without a filter.
+pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
+    let needle = doc.csv_filter.as_deref().filter(|f| !f.is_empty())?;
+    if doc.meta.mode != crate::DocumentMode::Csv {
+        return None;
+    }
+    let text = doc.text().as_str();
+    // The record at the cursor stays, so the key is its line.
+    let line = doc.text().line_of(doc.selection.head.min(text.len()));
+    let key = (doc.version(), needle.to_string(), line);
+    FILTERED.with(|m| {
+        if let Some((k, v)) = &*m.borrow()
+            && *k == key
+        {
+            return Some(v.clone());
+        }
+        let layout = layout(doc);
+        let (ranges, matched, total) =
+            filter_rows(text, &layout.dialect, needle, doc.selection.head);
+        let v = std::rc::Rc::new(Filtered {
+            ranges,
+            matched,
+            total,
+        });
+        *m.borrow_mut() = Some((key, v.clone()));
+        Some(v)
+    })
+}
+
 /// The status bar's numbers for the column at the cursor of a CSV
-/// document: count, sum, average, smallest and largest.
+/// document: count, sum, average, smallest and largest; after a filter,
+/// how many rows it keeps.
 pub fn status(doc: &crate::DocumentState) -> Option<String> {
+    let numbers = column_status(doc);
+    let Some(f) = filtered(doc) else {
+        return numbers;
+    };
+    let filter = crate::tr!(
+        "status-csv-filter",
+        filter = doc.csv_filter.clone().unwrap_or_default(),
+        matched = f.matched,
+        total = f.total
+    );
+    Some(match numbers {
+        Some(n) => format!("{filter}   {n}"),
+        None => filter,
+    })
+}
+
+fn column_status(doc: &crate::DocumentState) -> Option<String> {
     let (layout, _, _, col) = cell_at(doc)?;
     let key = (doc.version(), col);
     STATS.with(|s| {

@@ -435,7 +435,11 @@ impl<'a> Layout<'a> {
         }
         let parse = doc.parse().filter(|(_, current)| *current).map(|(p, _)| p);
         let len = doc.text().len();
-        let (mut visible, folded) = if source || parse.is_none() || blocks.is_empty() {
+        let filter = (!source).then(|| kalem_core::csv::filtered(doc)).flatten();
+        let (mut visible, folded) = if let Some(f) = filter {
+            // A CSV filter: the rows it keeps.
+            (f.ranges.clone(), HashSet::new())
+        } else if source || parse.is_none() || blocks.is_empty() {
             (std::iter::once(0..len + 1).collect(), HashSet::new())
         } else {
             let v = view::visible(doc.text().as_str(), blocks, folds, doc.selection.head);
@@ -1527,11 +1531,29 @@ impl EditorView {
         }
         let width = self.width();
         let l = Layout::new(doc, shared!(self), &blocks, caps, width);
+        // A CSV file's header row stays on the first row when its rows
+        // scroll: the rows below get one row less.
+        let header = doc.meta.mode == kalem_core::DocumentMode::Csv
+            && !self.source
+            && area.height > 2
+            && kalem_core::csv::layout(doc).dialect.header;
         if self.follow {
+            let height = if header { area.height - 1 } else { area.height };
             self.viewport
-                .scroll_to(&l, doc.selection.head, width, area.height);
+                .scroll_to(&l, doc.selection.head, width, height);
             self.follow = false;
         }
+        let pinned = header && (self.viewport.top > 0 || self.viewport.top_row > 0);
+        let header_area = Rect { height: 1, ..area };
+        let area = if pinned {
+            Rect {
+                y: area.y + 1,
+                height: area.height - 1,
+                ..area
+            }
+        } else {
+            area
+        };
         let sel = doc.selection;
         let mark_style = match (&caps.colors, caps.no_color) {
             (_, true) => ratatui::style::Style::default().add_modifier(Modifier::UNDERLINED),
@@ -1587,6 +1609,22 @@ impl EditorView {
             hscroll: self.hscroll,
         };
         let drawn = tui_rich_text::draw(&l, &self.viewport, buf, area, &options);
+        if pinned {
+            let top = Viewport {
+                top: 0,
+                top_row: 0,
+                goal_x: None,
+            };
+            let plain = Options {
+                marks: &[],
+                ..options
+            };
+            tui_rich_text::draw(&l, &top, buf, header_area, &plain);
+            buf.set_style(
+                header_area,
+                ratatui::style::Style::default().add_modifier(Modifier::UNDERLINED),
+            );
+        }
         // Images over their rows when they fit on screen whole, else their
         // names.
         let x0 = area.x + 1;
@@ -1617,6 +1655,11 @@ impl EditorView {
                 }
                 let n = format!("{:>w$}", dl.line + 1, w = usize::from(digits));
                 buf.set_stringn(full.x, dl.y, &n, usize::from(digits), style);
+            }
+            if pinned {
+                let style = ratatui::style::Style::default().add_modifier(Modifier::DIM);
+                let n = format!("{:>w$}", 1, w = usize::from(digits));
+                buf.set_stringn(full.x, header_area.y, &n, usize::from(digits), style);
             }
         }
         let cursor = drawn.cursor;

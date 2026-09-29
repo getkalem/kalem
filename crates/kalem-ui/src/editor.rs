@@ -481,6 +481,24 @@ impl Editor {
 
     fn compute_lines(&mut self) -> Vec<usize> {
         let n = self.doc.text().line_count();
+        // A CSV filter: the lines of the rows it keeps.
+        if !self.source
+            && let Some(f) = kalem_core::csv::filtered(&self.doc)
+        {
+            let text = self.doc.text();
+            let len = text.len();
+            let mut out = Vec::new();
+            for r in &f.ranges {
+                let last = if r.end > len {
+                    n - 1
+                } else {
+                    text.line_of(r.end.saturating_sub(1))
+                };
+                out.extend(text.line_of(r.start.min(len))..=last);
+            }
+            out.dedup();
+            return out;
+        }
         let blocks = self.blocks();
         if self.source || blocks.is_empty() {
             self.folded_blocks.clear();
@@ -3082,8 +3100,19 @@ impl gpui::Render for Editor {
         let center = self.shared.config.bool("editor.center_text");
         let column = (chars > 0).then(|| px(chars as f32 * theme.size * 0.5 + 96.));
         let focus = self.focus.clone();
+        // A CSV file's header row stays at the top when its rows scroll.
+        let header = self.doc.meta.mode == DocumentMode::Csv
+            && !self.source
+            && kalem_core::csv::layout(&self.doc).dialect.header;
+        let background = theme.background;
+        let border = theme.border;
         let pane = |state: ListState, visible: Vec<usize>, other: bool| {
             let entity = entity.clone();
+            let header_editor = entity.clone();
+            let top = state.logical_scroll_top();
+            let pinned = header
+                && visible.first() == Some(&0)
+                && (top.item_ix > 0 || top.offset_in_item > px(0.));
             let mut text = div().h_full().w_full().px(px(48.)).py(px(16.)).relative();
             if let Some(w) = column {
                 text = text.max_w(w);
@@ -3149,7 +3178,24 @@ impl gpui::Render for Editor {
                         }
                     })
                     .size_full(),
-                ),
+                )
+                .children(pinned.then(|| {
+                    div()
+                        .debug_selector(|| "csv-header".into())
+                        .absolute()
+                        .top(px(0.))
+                        .left(px(48.))
+                        .right(px(48.))
+                        .pt(px(16.))
+                        .bg(background)
+                        .border_b_1()
+                        .border_color(border)
+                        .child(crate::line::LineElement {
+                            editor: header_editor,
+                            line: 0,
+                            other,
+                        })
+                })),
             )
         };
         let active = pane(self.list.clone(), self.visible.clone(), false)
