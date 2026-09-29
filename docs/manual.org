@@ -857,7 +857,10 @@ dimmed; commands Kalem does not render stay as they are written. The
 source view (Ctrl+/) shows the text itself. Documents of several files
 are numbered as one: the root document comes from a =% !TEX root= line,
 the main file of a subfile, a =NAME.tex.latexmain= file, or the document
-up the folders that includes the file. The outline panel
+up the folders that includes the file; a file of the project shows the
+numbers it has in the whole document, and its references to labels in
+the other files resolve (the other files are read from the disk, again
+when they change). The outline panel
 (Ctrl+Shift+O) lists the document's sections with their numbers.
 
 What =kalem check= reports shows in the text a moment after typing

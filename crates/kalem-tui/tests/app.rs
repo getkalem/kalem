@@ -2948,3 +2948,41 @@ fn csv_filter_and_header_in_the_terminal() {
     t.app.doc.csv_filter = None;
     assert!(screen(&mut t).join("\n").contains("p5"));
 }
+
+#[test]
+fn latex_project_numbers_across_files() {
+    // A chapter file of a book: numbered after the main document's
+    // chapter, and a reference to a label in the main document resolved.
+    let dir = std::env::temp_dir().join(format!("kalem-tui-project-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("main.tex"),
+        "\\documentclass{book}\n\\begin{document}\n\\chapter{One}\\label{one}\n\\include{two}\n\\end{document}\n",
+    )
+    .unwrap();
+    let path = dir.join("two.tex");
+    std::fs::write(&path, "\\chapter{Two}\nAfter chapter \\ref{one}.\n").unwrap();
+    let app = App::with_keymap(
+        Some(&path),
+        Config::default(),
+        Caps::full(),
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
+    let term = Terminal::new(TestBackend::new(50, 6)).unwrap();
+    let mut t = T {
+        app,
+        term,
+        dir: Some(dir),
+    };
+    t.app.doc.wait_for_latex_project();
+    t.app.doc.poll();
+    // The cursor away from both lines.
+    t.at(t.text().len());
+    let rows = screen(&mut t).join("\n");
+    // The number, an em space, the title.
+    assert!(rows.contains("2\u{2003}Two"), "{rows:?}");
+    assert!(rows.contains("After chapter 1."), "{rows}");
+}

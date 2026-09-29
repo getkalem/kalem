@@ -361,6 +361,45 @@ impl Model {
         Cache::default().model(parse).as_ref().clone()
     }
 
+    /// A project's model as seen from its file `this`: that file becomes
+    /// file 0 and the root document takes its index, so that what is in
+    /// `this` has `file == 0` as in the model of one document, and
+    /// everything else (numbers, labels in other files) is kept.
+    pub fn seen_from(&self, this: usize) -> Model {
+        let mut m = self.clone();
+        if this == 0 || this >= m.files.len() {
+            return m;
+        }
+        let swap = |f: &mut usize| {
+            if *f == this {
+                *f = 0;
+            } else if *f == 0 {
+                *f = this;
+            }
+        };
+        if let Some(c) = &mut m.class {
+            swap(&mut c.file);
+        }
+        m.packages.iter_mut().for_each(|x| swap(&mut x.file));
+        m.sections.iter_mut().for_each(|x| swap(&mut x.file));
+        m.labels.iter_mut().for_each(|x| swap(&mut x.file));
+        m.references.iter_mut().for_each(|x| swap(&mut x.file));
+        m.citations.iter_mut().for_each(|x| swap(&mut x.file));
+        for f in &mut m.floats {
+            swap(&mut f.file);
+            f.captions.iter_mut().for_each(|c| swap(&mut c.file));
+        }
+        m.equations.iter_mut().for_each(|x| swap(&mut x.file));
+        m.theorems.iter_mut().for_each(|x| swap(&mut x.file));
+        m.footnotes.iter_mut().for_each(|x| swap(&mut x.file));
+        m.macros.iter_mut().for_each(|x| swap(&mut x.file));
+        m.environments.iter_mut().for_each(|x| swap(&mut x.file));
+        m.bibliography.iter_mut().for_each(|x| swap(&mut x.file));
+        m.includes.iter_mut().for_each(|x| swap(&mut x.file));
+        m.files.swap(0, this);
+        m
+    }
+
     /// The label named `name`.
     pub fn label(&self, name: &str) -> Option<&Label> {
         self.labels.iter().find(|l| l.name == name)

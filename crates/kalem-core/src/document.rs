@@ -204,8 +204,13 @@ impl DocumentState {
             model: None,
             last_level: None,
         });
-        let latex = (meta.mode == DocumentMode::Latex)
-            .then(|| crate::latex_view::LatexState::new(text.as_str()));
+        let latex = (meta.mode == DocumentMode::Latex).then(|| {
+            let mut l = crate::latex_view::LatexState::new(text.as_str());
+            if let Some(p) = &meta.path {
+                l.find_project(p, text.as_str());
+            }
+            l
+        });
         DocumentState {
             text,
             version: 0,
@@ -365,7 +370,11 @@ impl DocumentState {
         if mode != DocumentMode::Latex {
             self.latex = None;
         } else if self.latex.is_none() {
-            self.latex = Some(crate::latex_view::LatexState::new(self.text.as_str()));
+            let mut l = crate::latex_view::LatexState::new(self.text.as_str());
+            if let Some(p) = &self.meta.path {
+                l.find_project(p, self.text.as_str());
+            }
+            self.latex = Some(l);
         }
         self.meta.mode = mode;
     }
@@ -1224,20 +1233,30 @@ impl DocumentState {
     /// starts LaTeX diagnostics after a pause in typing. Returns whether
     /// what the view shows changed.
     pub fn poll(&mut self) -> bool {
-        let diagnostics = match &mut self.latex {
+        let latex = match &mut self.latex {
             Some(l) => {
-                l.diagnostics
-                    .poll(self.version, self.meta.path.as_deref(), self.text.as_str())
+                let project = l.poll_project();
+                let d =
+                    l.diagnostics
+                        .poll(self.version, self.meta.path.as_deref(), self.text.as_str());
+                project || d
             }
             None => false,
         };
-        self.poll_parse() || diagnostics
+        self.poll_parse() || latex
     }
 
     /// The LaTeX diagnostics of the text as it is, when they are known
     /// (they are worked out after a pause in typing).
     pub fn latex_diagnostics(&self) -> Option<&Arc<Vec<crate::latex_check::Diagnostic>>> {
         self.latex.as_ref()?.diagnostics.current(self.version)
+    }
+
+    /// Waits for a LaTeX document's project to be found (tests).
+    pub fn wait_for_latex_project(&mut self) {
+        if let Some(l) = &mut self.latex {
+            l.wait_for_project();
+        }
     }
 
     /// Works the LaTeX diagnostics out now rather than in the background
