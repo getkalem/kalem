@@ -71,6 +71,12 @@ pub enum Request {
     },
     /// Show or hide the outline panel.
     Outline,
+    /// Show or hide the file manager's preview pane (graphical): the file
+    /// at the cursor, or with `thumbnails` the listing's pictures.
+    Preview {
+        /// The pictures of the listing.
+        thumbnails: bool,
+    },
     /// Switch between the rich view and the source view.
     ToggleSource,
     /// Show a second view of the document beside the first (the source

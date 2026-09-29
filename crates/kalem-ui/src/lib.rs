@@ -12,6 +12,7 @@ pub mod outline;
 pub mod panels;
 pub mod pictures;
 pub mod preferences;
+pub mod preview;
 pub mod theme;
 pub mod vim;
 pub mod workspace;

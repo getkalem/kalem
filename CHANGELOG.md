@@ -172,6 +172,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - File manager: `% f` finds files by name under the folder at any depth (a shell pattern or a part of the name) and lists them by their paths; `A` searches the text of the folder's files with the project search's results and jump to the match; in both editors.
 - Stored links: Store Link keeps links to the file manager's marked files or to a document's heading, Insert Stored Link puts them in an Org document as `[[file:…]]` links (relative in the document's folder tree), and Insert Link offers the last one; in both editors.
 - File manager: `W` opens the marked files with their applications, Show in System File Manager selects the file in Finder, Explorer or the desktop's file manager, and `!` runs a shell command on the marked files after asking (`*` and `?` as in Dired); in both editors.
+- File manager (graphical): `v` shows a preview pane beside the listing (pictures, the first lines of text files, folders' names), Ctrl+T the listing's pictures as thumbnails, a click going to the picture's line.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

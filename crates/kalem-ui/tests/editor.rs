@@ -2667,3 +2667,46 @@ fn file_manager_shell_command(cx: &mut TestAppContext) {
     settle_jobs(&ws, cx);
     assert!(dir.join("proj/copy.org").is_file());
 }
+
+#[gpui::test]
+fn file_manager_preview(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    image::RgbaImage::from_pixel(4, 4, image::Rgba([200, 0, 0, 255]))
+        .save(dir.join("proj/pic.png"))
+        .unwrap();
+    let p = primary();
+    cx.simulate_keystrokes(&format!("{p}-alt-d"));
+    // `v`: the file at the cursor beside the listing.
+    cx.simulate_keystrokes("v");
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("preview").is_some());
+    let shown = ws.read_with(cx, |ws, cx| {
+        let e = ws.editor.read(cx);
+        e.preview_cache
+            .borrow()
+            .as_ref()
+            .map(|(p, _, v)| (p.clone(), (**v).clone()))
+    });
+    assert_eq!(
+        shown,
+        Some((
+            dir.join("proj/a.org"),
+            kalem_core::dired::Preview::Text("* A\nalpha".into())
+        ))
+    );
+    // Ctrl+T: the pictures as thumbnails; a click goes to its line.
+    cx.simulate_keystrokes("ctrl-t");
+    cx.run_until_parked();
+    let thumb = cx.debug_bounds("thumbnail-0").expect("a thumbnail");
+    cx.simulate_click(thumb.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert!(
+        cursor_line(&ws, cx).ends_with(" pic.png"),
+        "{}",
+        cursor_line(&ws, cx)
+    );
+    // Again: hidden.
+    cx.simulate_keystrokes("ctrl-t");
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("preview").is_none());
+}

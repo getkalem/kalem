@@ -1052,6 +1052,90 @@ impl Running {
     }
 }
 
+/// What the preview pane shows for a file (T2.7e.11).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Preview {
+    /// A picture: the frontend draws the file.
+    Picture,
+    /// The first lines of a text file.
+    Text(String),
+    /// A folder's names.
+    Folder(Vec<String>),
+    /// Nothing to show, with why.
+    Nothing(String),
+}
+
+/// At most this many lines of a text file are previewed.
+const PREVIEW_LINES: usize = 300;
+
+/// What the preview pane shows for `path`: a picture, the first lines of
+/// text (Org, Markdown, any text), a folder's names, or why not.
+pub fn preview(path: &Path) -> Preview {
+    use std::io::Read;
+    let Ok(meta) = std::fs::metadata(path) else {
+        return Preview::Nothing(tr("fm-preview-none"));
+    };
+    if meta.is_dir() {
+        let mut names: Vec<String> = std::fs::read_dir(path)
+            .map(|r| {
+                r.flatten()
+                    .map(|e| {
+                        let mut n = e.file_name().to_string_lossy().into_owned();
+                        if e.file_type().is_ok_and(|t| t.is_dir()) {
+                            n.push('/');
+                        }
+                        n
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        names.sort_by(|a, b| kalem_fs::natural(a, b));
+        names.truncate(PREVIEW_LINES);
+        return Preview::Folder(names);
+    }
+    if crate::images::is_image(path) {
+        return Preview::Picture;
+    }
+    let mut head = Vec::new();
+    let read = std::fs::File::open(path).and_then(|f| f.take(64 * 1024).read_to_end(&mut head));
+    if read.is_err() {
+        return Preview::Nothing(tr("fm-preview-none"));
+    }
+    if head.contains(&0) {
+        return Preview::Nothing(tr("fm-preview-binary"));
+    }
+    // A character cut at the end of what was read is dropped.
+    let text = match std::str::from_utf8(&head) {
+        Ok(t) => t.to_string(),
+        Err(e) if e.error_len().is_none() => {
+            String::from_utf8_lossy(&head[..e.valid_up_to()]).into_owned()
+        }
+        Err(_) => String::from_utf8_lossy(&head).into_owned(),
+    };
+    let lines: Vec<&str> = text.lines().take(PREVIEW_LINES).collect();
+    Preview::Text(lines.join("\n"))
+}
+
+/// The pictures the thumbnails show: the marked ones, else every picture
+/// listed.
+pub fn thumbnails(s: &DirState) -> Vec<PathBuf> {
+    let pictures = |marked: bool| -> Vec<PathBuf> {
+        s.entries
+            .iter()
+            .filter(|e| !e.is_dir() && crate::images::is_image(&e.path))
+            .filter(|e| !marked || s.marks.get(&e.path) == Some(&Mark::Marked))
+            .map(|e| e.path.clone())
+            .take(500)
+            .collect()
+    };
+    let marked = pictures(true);
+    if marked.is_empty() {
+        pictures(false)
+    } else {
+        marked
+    }
+}
+
 /// A file operation that can be taken back (T2.7e.7).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Undo {
@@ -2194,6 +2278,28 @@ pub(crate) fn commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "dired.togglePreview",
+            "Preview Pane",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                listing(ctx)?;
+                ctx.requests.push(Request::Preview { thumbnails: false });
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.thumbnails",
+            "Picture Thumbnails",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                listing(ctx)?;
+                ctx.requests.push(Request::Preview { thumbnails: true });
+                Ok(())
+            },
+        ),
+        cmd(
             "dired.undo",
             "Undo File Operation",
             &[],
@@ -2729,6 +2835,31 @@ mod tests {
         ));
         let (_, req) = run(&mut doc, "dired.openExternal", json!({}));
         assert_eq!(req.len(), 2);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn previews() {
+        let d = tree("preview", &["a.org", "p.png", "sub/x.txt", "bin"]);
+        std::fs::write(d.join("a.org"), "* A\nline\n").unwrap();
+        std::fs::write(d.join("bin"), [0u8, 1, 2]).unwrap();
+        assert_eq!(preview(&d.join("a.org")), Preview::Text("* A\nline".into()));
+        assert_eq!(preview(&d.join("p.png")), Preview::Picture);
+        assert!(matches!(preview(&d.join("bin")), Preview::Nothing(_)));
+        assert!(matches!(preview(&d.join("gone")), Preview::Nothing(_)));
+        let Preview::Folder(names) = preview(&d) else {
+            panic!()
+        };
+        assert!(names.contains(&"sub/".to_string()));
+        let mut doc = DocumentState::open(
+            &d,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(thumbnails(state(&doc)), [d.join("p.png")]);
+        let (_, req) = run(&mut doc, "dired.thumbnails", json!({}));
+        assert!(matches!(&req[..], [Request::Preview { thumbnails: true }]));
         let _ = std::fs::remove_dir_all(&d);
     }
 

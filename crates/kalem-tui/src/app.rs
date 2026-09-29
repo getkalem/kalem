@@ -1356,6 +1356,7 @@ impl App {
                 }
                 Err(e) => self.message(e, true),
             },
+            Request::Preview { .. } => self.message(tr!("fm-preview-graphical"), false),
             Request::Shell(op) => match kalem_core::dired::Task::shell(&op) {
                 Ok(t) => {
                     self.task = Some(t);
