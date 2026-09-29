@@ -54,7 +54,10 @@ fn switching_to_turkish(cx: &mut TestAppContext) {
     );
     let words = e.read_with(cx, |e, _| e.words.borrow_mut().get(&e.doc));
     let (d, s) = words.expect("counted");
-    assert_eq!(kalem_core::stats::describe(d, s), "3 kelime, bölümde 3");
+    assert_eq!(
+        kalem_core::stats::describe(d, s, Default::default()),
+        "3 kelime, bölümde 3"
+    );
     let menus = kalem_ui::workspace::menus();
     assert_eq!(menus[1].name.as_ref(), "Dosya");
     let saved = std::fs::read_to_string(dir.join("settings.toml")).unwrap();

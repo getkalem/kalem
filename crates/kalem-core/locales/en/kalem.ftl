@@ -118,6 +118,10 @@ cmd-org-emphasis-verbatim = Verbatim
 cmd-org-insert-link = Insert Link
 cmd-org-cite-insert = Insert Citation
 cmd-org-insert-drawer = Insert Drawer
+cmd-edit-gotoLine = Go to Line
+cmd-stats-chapters = Word Count by Chapter
+cmd-stats-setDocumentTarget = Set Document Word Target
+cmd-stats-setSectionTarget = Set Section Word Target
 cmd-edit-copyRichText = Copy as Rich Text
 cmd-edit-copyHtml = Copy as HTML
 cmd-org-archive-toggleTag = Toggle Archive Tag
@@ -220,6 +224,8 @@ status-words = { $count ->
    *[other] { $shown } words
 }
 status-words-section = { $words }, { $section } in section
+status-words-target = { $words } words
+status-words-progress = { $shown } of { $target } ({ $percent }%)
 number-group-separator = ,
 mode-text = Text
 
@@ -245,6 +251,10 @@ msg-no-match-for = No match for { $target }
 msg-no-link = No link here
 msg-no-property = No { $key } property here
 msg-no-bibliography = No bibliography: add #+BIBLIOGRAPHY: with a .bib or .json file
+msg-bad-line = Not a line number
+msg-no-headings = The document has no headings
+msg-bad-word-target = Not a word count: write 80000, 80,000 or 80k
+msg-no-word-target = No word target here
 msg-rich-copy-plain = Copied as plain text: this clipboard takes no HTML here (Copy as HTML copies the markup)
 msg-archived = Subtree archived
 msg-unarchived = Subtree unarchived

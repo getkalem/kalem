@@ -132,6 +132,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `examples/book`: a sample book (a part, included chapters, a figure, a computed table, an equation, citations, footnotes, cross references) exported to HTML, LaTeX, text and Markdown exactly as Emacs exports it, and to PDF and Word without errors (checked when TeX and pandoc are installed).
 - HTML: a link to a named math environment is `\eqref{…}` with MathJax (`#+HTML_EQUATION_REFERENCE_FORMAT`), as in Org.
 - Word, OpenDocument, EPUB and RTF through pandoc: citations rendered with `--citeproc`, math environments kept as displayed formulas, and cross references labelled ("Figure 1", "Table 2", "(3)", a heading's title).
+- Word targets for the document (`#+KALEM: word_target=`) and for sections (`WORD_TARGET`), shown with the counts in both status bars; Word Count by Chapter; Go to Line.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

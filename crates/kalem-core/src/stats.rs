@@ -138,6 +138,114 @@ pub struct WordCounts {
     document: usize,
     section: Option<(Range<usize>, usize)>,
     counted: Option<std::time::Instant>,
+    targets: Targets,
+}
+
+/// Word targets: the document's (`#+KALEM: word_target=80000`) and the
+/// section's (its heading's `WORD_TARGET` property).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Targets {
+    /// The document's target.
+    pub document: Option<usize>,
+    /// The target of the section holding the cursor.
+    pub section: Option<usize>,
+}
+
+/// A word target as written: `80000`, `80,000` or `80k`.
+pub fn parse_target(v: &str) -> Option<usize> {
+    let v = v.trim().replace([',', '_', '.', ' '], "");
+    let (digits, k) = match v.strip_suffix(['k', 'K']) {
+        Some(d) => (d.to_string(), 1000),
+        None => (v, 1),
+    };
+    let n: usize = digits.parse().ok()?;
+    (n > 0).then_some(n * k)
+}
+
+/// The document's word target: `word_target=` in `#+KALEM:`.
+pub fn document_target(root: &SyntaxNode) -> Option<usize> {
+    use org_syntax::ast::AstNode;
+    let keywords: Vec<(String, String)> = root
+        .descendants()
+        .filter_map(org_syntax::ast::Keyword::cast)
+        .map(|k| (k.key(), k.value()))
+        .collect();
+    crate::rich::kalem_option(&keywords, "word_target").and_then(|v| parse_target(&v))
+}
+
+/// The word target of the headline starting at `start`: its own
+/// `WORD_TARGET` property.
+fn heading_target(root: &SyntaxNode, start: usize) -> Option<usize> {
+    use org_syntax::ast::AstNode;
+    let h = root
+        .descendants()
+        .filter(|n| n.kind() == SyntaxKind::HEADLINE)
+        .find(|n| usize::from(n.text_range().start()) == start)?;
+    let h = org_syntax::ast::Headline::cast(h)?;
+    h.properties()
+        .into_iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("WORD_TARGET"))
+        .and_then(|(_, v)| parse_target(&v))
+}
+
+/// A heading's words and target, for the list of chapters.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Chapter {
+    /// Its level.
+    pub level: usize,
+    /// Its title.
+    pub title: String,
+    /// Where it starts.
+    pub start: usize,
+    /// The words of its subtree.
+    pub words: usize,
+    /// Its `WORD_TARGET`.
+    pub target: Option<usize>,
+}
+
+/// The headings of the first two levels (parts and chapters, or chapters
+/// and sections) with their words and targets.
+pub fn chapters(root: &SyntaxNode) -> Vec<Chapter> {
+    use org_syntax::ast::AstNode;
+    let heads: Vec<SyntaxNode> = root
+        .descendants()
+        .filter(|n| n.kind() == SyntaxKind::HEADLINE)
+        .collect();
+    let stars = |n: &SyntaxNode| {
+        n.first_token()
+            .map_or(1, |t| t.text().bytes().take_while(|b| *b == b'*').count())
+    };
+    let levels: Vec<usize> = heads.iter().map(stars).collect();
+    let top = levels.iter().copied().min().unwrap_or(1);
+    heads
+        .into_iter()
+        .filter_map(|n| {
+            let h = org_syntax::ast::Headline::cast(n.clone())?;
+            let level = stars(&n);
+            if level > top + 1 {
+                return None;
+            }
+            let r = n.text_range();
+            let (start, end) = (usize::from(r.start()), usize::from(r.end()));
+            Some(Chapter {
+                level: level - top + 1,
+                title: h.raw_value(),
+                start,
+                words: words(root, start..end),
+                target: heading_target(root, start),
+            })
+        })
+        .collect()
+}
+
+/// `n` words against a target: `1,200 of 5,000 (24%)`.
+pub fn progress(n: usize, target: usize) -> String {
+    crate::tr!(
+        "status-words-progress",
+        shown = thousands(n),
+        target = thousands(target),
+        percent = n * 100 / target.max(1)
+    )
 }
 
 /// How long typing goes on before the counts catch up.
@@ -167,11 +275,20 @@ impl WordCounts {
             let range = subtree_at(&root, doc.selection.head);
             let same = self.section.as_ref().map(|s| &s.0) == range.as_ref();
             if changed || (!same && self.version == Some(doc.version())) {
-                self.section = range.map(|r| (r.clone(), words(&root, r)));
+                self.section = range.clone().map(|r| (r.clone(), words(&root, r)));
+                self.targets = Targets {
+                    document: document_target(&root),
+                    section: range.and_then(|r| heading_target(&root, r.start)),
+                };
             }
         }
         self.version?;
         Some((self.document, self.section.as_ref().map(|s| s.1)))
+    }
+
+    /// The targets for the counts [`WordCounts::get`] gave.
+    pub fn targets(&self) -> Targets {
+        self.targets
     }
 }
 
@@ -180,18 +297,24 @@ pub fn thousands(n: usize) -> String {
     crate::l10n::number(n)
 }
 
-/// The status bar text for word counts.
-pub fn describe(document: usize, section: Option<usize>) -> String {
-    let words = crate::tr!(
-        "status-words",
-        count = document,
-        shown = thousands(document)
-    );
+/// The status bar text for word counts, with their targets.
+pub fn describe(document: usize, section: Option<usize>, targets: Targets) -> String {
+    let words = match targets.document {
+        Some(t) => crate::tr!("status-words-target", words = progress(document, t)),
+        None => crate::tr!(
+            "status-words",
+            count = document,
+            shown = thousands(document)
+        ),
+    };
     match section {
         Some(s) => crate::tr!(
             "status-words-section",
             words = words,
-            section = thousands(s)
+            section = match targets.section {
+                Some(t) => progress(s, t),
+                None => thousands(s),
+            }
         ),
         None => words,
     }
@@ -237,7 +360,40 @@ mod tests {
         assert_eq!(words(&root, sub..t.len()), 3);
         assert_eq!(subtree_at(&root, 3), None);
         assert_eq!(subtree_at(&root, 25), Some(22..t.len()));
-        assert_eq!(describe(1234567, Some(3)), "1,234,567 words, 3 in section");
-        assert_eq!(describe(1, None), "1 word");
+        let none = Targets::default();
+        assert_eq!(
+            describe(1234567, Some(3), none),
+            "1,234,567 words, 3 in section"
+        );
+        assert_eq!(describe(1, None, none), "1 word");
+        let t = Targets {
+            document: Some(80_000),
+            section: Some(4_000),
+        };
+        assert_eq!(
+            describe(1200, Some(1000), t),
+            "1,200 of 80,000 (1%) words, 1,000 of 4,000 (25%) in section"
+        );
+    }
+
+    #[test]
+    fn targets_and_chapters() {
+        assert_eq!(parse_target("80,000"), Some(80_000));
+        assert_eq!(parse_target("5k"), Some(5_000));
+        assert_eq!(parse_target("none"), None);
+        let t = "#+KALEM: spacing=1.5 word_target=10k\n* Part\n** One\n:PROPERTIES:\n:WORD_TARGET: 100\n:END:\nfour words right here\n*** Deep\nthree more words\n** Two\nx y\n";
+        let root = org_syntax::parse(t).syntax();
+        assert_eq!(document_target(&root), Some(10_000));
+        let cs = chapters(&root);
+        assert_eq!(
+            cs.iter()
+                .map(|c| (c.level, c.title.as_str(), c.words, c.target))
+                .collect::<Vec<_>>(),
+            [
+                (1, "Part", 13, None),
+                (2, "One", 9, Some(100)),
+                (2, "Two", 3, None)
+            ]
+        );
     }
 }
