@@ -984,6 +984,38 @@ fn vim_block_selection(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn multiple_cursors(cx: &mut TestAppContext) {
+    let (e, cx) = open("one\ntwo\nthree\n", cx);
+    at(&e, 0, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("cursor.addBelow", serde_json::Value::Null, window, cx);
+        e.run_command("cursor.addBelow", serde_json::Value::Null, window, cx);
+    });
+    cx.simulate_input("- ");
+    assert_eq!(text_of(&e, cx), "- one\n- two\n- three\n");
+    cx.simulate_keystrokes("end");
+    cx.simulate_input(";");
+    assert_eq!(text_of(&e, cx), "- one;\n- two;\n- three;\n");
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(text_of(&e, cx), "- one\n- two\n- three\n");
+    // Copy takes each selection, one a line; paste puts one at each.
+    cx.simulate_keystrokes("shift-home");
+    let copied = e.update(cx, |e, _| e.doc.copy_text());
+    assert_eq!(copied.as_deref(), Some("- one\n- two\n- three"));
+    cx.simulate_keystrokes("escape");
+    assert!(e.read_with(cx, |e, _| e.doc.extra.is_empty()));
+}
+
+#[gpui::test]
+fn next_occurrence(cx: &mut TestAppContext) {
+    let (e, cx) = open("cat dog cat\n", cx);
+    at(&e, 1, cx);
+    cx.simulate_keystrokes("ctrl-d ctrl-d");
+    cx.simulate_input("cow");
+    assert_eq!(text_of(&e, cx), "cow dog cow\n");
+}
+
+#[gpui::test]
 fn legacy_encodings(cx: &mut TestAppContext) {
     let dir = std::env::temp_dir().join(format!("kalem-ui-enc-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

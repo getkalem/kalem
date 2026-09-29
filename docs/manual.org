@@ -345,6 +345,18 @@ The HTML clipboard is there on macOS; elsewhere, and in the terminal, the
 command copies the plain text and says so. /Copy as HTML/ copies the HTML
 markup itself as text, in both editors.
 
+** Multiple cursors
+
+Ctrl+Alt+Down and Ctrl+Alt+Up add a cursor on the next or previous line,
+at the same column; Alt-click adds one where you click (or removes one).
+Ctrl+D selects the word at the cursor, then each next occurrence of the
+selection; /Select All Occurrences/ selects every one at once.
+Ctrl+Alt+Shift+Down and Up make a column selection: the same columns on
+each line. Typing, Backspace, Delete and the arrow keys then act at every
+cursor, as one undo step; Copy takes each selection, one a line, and
+pasting as many lines as there are cursors puts one at each. Escape, or
+a click, leaves one cursor.
+
 * Views
 
 - Source view (Ctrl+/) :: the Org text itself, with colors, line numbers

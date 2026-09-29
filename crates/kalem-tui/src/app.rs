@@ -1366,14 +1366,14 @@ impl App {
             }
             Request::SetSetting { key, value, quiet } => self.set_setting(&key, &value, quiet),
             Request::Copy | Request::Cut => {
-                let Some(text) = self.doc.selected_text().map(str::to_string) else {
+                let Some(text) = self.doc.copy_text() else {
                     self.message(tr!("msg-nothing-selected"), false);
                     return;
                 };
                 self.clipboard.text = text.clone();
                 self.write_terminal(&osc52(&text));
                 if r == Request::Cut {
-                    let _ = self.doc.delete_backward(Instant::now());
+                    self.doc.cut_selections(Instant::now());
                     self.after_change(true);
                 }
             }
@@ -1732,6 +1732,14 @@ impl App {
                         return;
                     }
                 }
+                // Alt-click: a cursor more (or one fewer).
+                if m.modifiers.contains(KeyModifiers::ALT) && !shift && !double {
+                    self.doc.toggle_cursor_at(pos);
+                    self.editor.viewport.goal_x = None;
+                    self.after_change(true);
+                    return;
+                }
+                self.doc.clear_extra();
                 if double {
                     self.select_word(pos);
                 } else {
@@ -2370,19 +2378,15 @@ impl App {
             return;
         }
         let head = self.doc.selection.head;
-        let text = self.doc.text();
-        let line = text.line_of(head);
-        let target = match k.code {
+        match k.code {
             KeyCode::Enter => {
                 self.insert("\n");
-                return;
             }
             KeyCode::Tab | KeyCode::BackTab if !matches!(self.doc.meta.mode, DocumentMode::Org) => {
                 let outdent = k.code == KeyCode::BackTab || shift;
                 self.doc.indent(outdent, now);
                 self.editor.viewport.goal_x = None;
                 self.after_change(true);
-                return;
             }
             KeyCode::Backspace => {
                 if let Some(m) = self.doc.delete_backward(now) {
@@ -2391,7 +2395,6 @@ impl App {
                 self.editor.viewport.goal_x = None;
                 self.after_change(true);
                 self.update_completion();
-                return;
             }
             KeyCode::Delete => {
                 if let Some(m) = self.doc.delete_forward(now) {
@@ -2399,15 +2402,61 @@ impl App {
                 }
                 self.editor.viewport.goal_x = None;
                 self.after_change(true);
-                return;
             }
             KeyCode::Esc => {
                 self.doc.move_cursor(head, false);
+                self.doc.clear_extra();
                 self.status = None;
                 self.after_change(true);
-                return;
             }
-            KeyCode::Left | KeyCode::Right if word => self.word(k.code == KeyCode::Right),
+            code @ (KeyCode::Left
+            | KeyCode::Right
+            | KeyCode::Up
+            | KeyCode::Down
+            | KeyCode::PageUp
+            | KeyCode::PageDown
+            | KeyCode::Home
+            | KeyCode::End) => {
+                let vertical = matches!(
+                    code,
+                    KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
+                );
+                if self.doc.extra.is_empty() {
+                    let Some(t) = self.motion_target(code, shift, word) else {
+                        return;
+                    };
+                    self.doc.move_cursor(t, shift);
+                } else {
+                    // Every cursor moves.
+                    let (all, primary) = self.doc.cursors();
+                    let mut moved = Vec::with_capacity(all.len());
+                    for s in all {
+                        self.doc.selection = s;
+                        self.editor.viewport.goal_x = None;
+                        if let Some(t) = self.motion_target(code, shift, word) {
+                            self.doc.move_cursor(t, shift);
+                        }
+                        moved.push(self.doc.selection);
+                    }
+                    self.doc.set_cursors(moved, primary);
+                }
+                if !vertical {
+                    self.editor.viewport.goal_x = None;
+                }
+                self.after_change(true);
+            }
+            _ => {}
+        }
+    }
+
+    /// Where a motion key takes the cursor, `None` for other keys; `word`
+    /// moves by words (and Home and End to the document's ends).
+    fn motion_target(&mut self, code: KeyCode, shift: bool, word: bool) -> Option<usize> {
+        let head = self.doc.selection.head;
+        let text = self.doc.text();
+        let line = text.line_of(head);
+        Some(match code {
+            KeyCode::Left | KeyCode::Right if word => self.word(code == KeyCode::Right),
             KeyCode::Left => {
                 let sel = self.doc.selection;
                 if sel.anchor != sel.head && !shift {
@@ -2425,29 +2474,20 @@ impl App {
                 }
             }
             KeyCode::Up | KeyCode::Down => {
-                let d = if k.code == KeyCode::Up { -1 } else { 1 };
-                let p = self.editor.vertical(&self.doc, &self.caps, d);
-                self.doc.move_cursor(p, shift);
-                self.after_change(true);
-                return;
+                let d = if code == KeyCode::Up { -1 } else { 1 };
+                self.editor.vertical(&self.doc, &self.caps, d)
             }
             KeyCode::PageUp | KeyCode::PageDown => {
                 let h = self.editor.area.height.saturating_sub(2).max(1) as isize;
-                let d = if k.code == KeyCode::PageUp { -h } else { h };
-                let p = self.editor.vertical(&self.doc, &self.caps, d);
-                self.doc.move_cursor(p, shift);
-                self.after_change(true);
-                return;
+                let d = if code == KeyCode::PageUp { -h } else { h };
+                self.editor.vertical(&self.doc, &self.caps, d)
             }
             KeyCode::Home if word => 0,
             KeyCode::End if word => text.len(),
             KeyCode::Home => text.line_range(line).start,
             KeyCode::End => text.line_range(line).end,
-            _ => return,
-        };
-        self.doc.move_cursor(target, shift);
-        self.editor.viewport.goal_x = None;
-        self.after_change(true);
+            _ => return None,
+        })
     }
 
     /// One grapheme left or right in the display, skipping hidden markup.
@@ -2861,7 +2901,21 @@ impl App {
             .vim
             .as_ref()
             .and_then(|v| v.block_ranges(&self.doc))
-            .unwrap_or_default();
+            .unwrap_or_else(|| {
+                // More cursors: their selections, and a cell for each caret.
+                self.doc
+                    .extra
+                    .iter()
+                    .map(|s| {
+                        let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
+                        if a == b {
+                            a..self.doc.grapheme_after(a)
+                        } else {
+                            a..b
+                        }
+                    })
+                    .collect()
+            });
         let cursor = self
             .editor
             .draw(&self.doc, &self.caps, f.buffer_mut(), text_area);

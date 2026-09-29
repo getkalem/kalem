@@ -867,13 +867,13 @@ impl Editor {
             Request::SaveAs => self.save_as(window, cx),
             Request::Quit => cx.emit(DocEvent::Quit),
             Request::Copy | Request::Cut => {
-                let Some(text) = self.doc.selected_text().map(str::to_string) else {
+                let Some(text) = self.doc.copy_text() else {
                     return;
                 };
                 cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
                 self.clipboard.text = text;
                 if r == Request::Cut {
-                    let _ = self.doc.delete_backward(Instant::now());
+                    self.doc.cut_selections(Instant::now());
                     self.after_change(cx);
                 }
             }
@@ -1607,18 +1607,16 @@ impl Editor {
         let word = m.alt || (m.control && !self.shared.swap_primary);
         let line_motion = m.platform;
         let head = self.doc.selection.head;
-        let text = self.doc.text();
-        let line = text.line_of(head);
-        let target = match k.key.as_str() {
+        match k.key.as_str() {
             "enter" => {
                 self.doc.type_text("\n", false, now);
                 self.after_change(cx);
-                return true;
+                true
             }
             "tab" if !matches!(self.doc.meta.mode, DocumentMode::Org) => {
                 self.doc.indent(k.modifiers.shift, now);
                 self.after_change(cx);
-                return true;
+                true
             }
             "backspace" => {
                 if let Some(m) = self.doc.delete_backward(now) {
@@ -1626,7 +1624,7 @@ impl Editor {
                 }
                 self.goal_x = None;
                 self.after_change(cx);
-                return true;
+                true
             }
             "delete" => {
                 if let Some(m) = self.doc.delete_forward(now) {
@@ -1634,19 +1632,65 @@ impl Editor {
                 }
                 self.goal_x = None;
                 self.after_change(cx);
-                return true;
+                true
             }
             "escape" => {
                 self.doc.move_cursor(head, false);
+                self.doc.clear_extra();
                 self.status = None;
                 self.after_change(cx);
-                return true;
+                true
             }
+            key @ ("left" | "right" | "up" | "down" | "pageup" | "pagedown" | "home" | "end") => {
+                let vertical = matches!(key, "up" | "down" | "pageup" | "pagedown") && !line_motion;
+                if self.doc.extra.is_empty() {
+                    let Some(t) = self.motion_target(key, shift, word, line_motion) else {
+                        return false;
+                    };
+                    self.doc.move_cursor(t, shift);
+                } else {
+                    // Every cursor moves.
+                    let (all, primary) = self.doc.cursors();
+                    let mut moved = Vec::with_capacity(all.len());
+                    for s in all {
+                        self.doc.selection = s;
+                        self.goal_x = None;
+                        if let Some(t) = self.motion_target(key, shift, word, line_motion) {
+                            self.doc.move_cursor(t, shift);
+                        }
+                        moved.push(self.doc.selection);
+                    }
+                    self.doc.set_cursors(moved, primary);
+                }
+                if !vertical {
+                    self.goal_x = None;
+                }
+                self.after_change(cx);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Where a motion key takes the cursor, `None` for other keys:
+    /// `word` moves by words, `line_motion` to the line's (or the
+    /// document's) ends.
+    fn motion_target(
+        &mut self,
+        key: &str,
+        shift: bool,
+        word: bool,
+        line_motion: bool,
+    ) -> Option<usize> {
+        let head = self.doc.selection.head;
+        let text = self.doc.text();
+        let line = text.line_of(head);
+        Some(match key {
             "left" | "right" if line_motion => {
                 let r = text.line_range(line);
-                if k.key == "left" { r.start } else { r.end }
+                if key == "left" { r.start } else { r.end }
             }
-            "left" | "right" if word => self.word(k.key == "right"),
+            "left" | "right" if word => self.word(key == "right"),
             "left" => {
                 let s = self.doc.selection;
                 if s.anchor != s.head && !shift {
@@ -1664,35 +1708,23 @@ impl Editor {
                 }
             }
             "up" | "down" if line_motion => {
-                if k.key == "up" {
+                if key == "up" {
                     0
                 } else {
                     text.len()
                 }
             }
-            "up" | "down" => {
-                let p = self.vertical(if k.key == "up" { -1 } else { 1 });
-                self.doc.move_cursor(p, shift);
-                self.after_change(cx);
-                return true;
-            }
+            "up" | "down" => self.vertical(if key == "up" { -1 } else { 1 }),
             "pageup" | "pagedown" => {
                 let rows = (f32::from(self.list.viewport_bounds().size.height)
                     / (self.theme.size * 1.45)) as isize;
-                let d = rows.max(1) * if k.key == "pageup" { -1 } else { 1 };
-                let p = self.vertical(d);
-                self.doc.move_cursor(p, shift);
-                self.after_change(cx);
-                return true;
+                let d = rows.max(1) * if key == "pageup" { -1 } else { 1 };
+                self.vertical(d)
             }
             "home" => text.line_range(line).start,
             "end" => text.line_range(line).end,
-            _ => return false,
-        };
-        self.doc.move_cursor(target, shift);
-        self.goal_x = None;
-        self.after_change(cx);
-        true
+            _ => return None,
+        })
     }
 
     /// Word motion: the start of the next or previous word.
@@ -2054,6 +2086,14 @@ impl Editor {
                 return;
             }
         }
+        // Alt-click: a cursor more (or one fewer).
+        if ev.modifiers.alt && ev.click_count == 1 && !ev.modifiers.shift {
+            self.doc.toggle_cursor_at(pos);
+            self.goal_x = None;
+            self.after_change(cx);
+            return;
+        }
+        self.doc.clear_extra();
         match ev.click_count {
             2 => self.select_word(pos),
             3 => {

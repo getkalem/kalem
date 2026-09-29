@@ -1968,6 +1968,43 @@ fn editing_properties() {
 }
 
 #[test]
+fn multiple_cursors() {
+    let mut t = with_file("one\ntwo\nthree\n", "t.txt", Config::default(), (60, 10));
+    t.at(0);
+    t.key(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::ALT);
+    t.key(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::ALT);
+    t.typ("- ");
+    assert_eq!(t.app.doc.text().as_str(), "- one\n- two\n- three\n");
+    // Every cursor moves; typing goes on at each.
+    t.key(KeyCode::End, KeyModifiers::NONE);
+    t.typ(";");
+    assert_eq!(t.app.doc.text().as_str(), "- one;\n- two;\n- three;\n");
+    // Escape leaves one.
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(t.app.doc.extra.is_empty());
+    // The next occurrence of the word, then typing over both.
+    t.at(2);
+    t.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
+    t.app
+        .run_command("selection.addNextOccurrence", serde_json::Value::Null);
+    assert_eq!(t.app.doc.extra.len(), 0, "no second \"one\"");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.at(0);
+    t.key(KeyCode::Right, KeyModifiers::SHIFT);
+    t.app
+        .run_command("selection.allOccurrences", serde_json::Value::Null);
+    assert_eq!(t.app.doc.extra.len(), 2);
+    t.typ("*");
+    assert_eq!(t.app.doc.text().as_str(), "* one;\n* two;\n* three;\n");
+    // Copied one a line.
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.at(0);
+    t.app
+        .run_command("selection.columnDown", serde_json::Value::Null);
+    assert_eq!(t.app.doc.extra.len(), 1);
+}
+
+#[test]
 fn legacy_encodings() {
     let dir = std::env::temp_dir().join(format!("kalem-tui-enc-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

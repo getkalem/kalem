@@ -118,6 +118,13 @@ cmd-org-emphasis-verbatim = Verbatim
 cmd-org-insert-link = Insert Link
 cmd-org-cite-insert = Insert Citation
 cmd-org-insert-drawer = Insert Drawer
+cmd-cursor-addBelow = Add Cursor Below
+cmd-cursor-addAbove = Add Cursor Above
+cmd-selection-addNextOccurrence = Add Next Occurrence
+cmd-selection-allOccurrences = Select All Occurrences
+cmd-selection-columnDown = Column Selection Down
+cmd-selection-columnUp = Column Selection Up
+cmd-cursor-clearExtra = Single Cursor
 cmd-file-reopenWithEncoding = Reopen with Encoding
 cmd-file-saveWithEncoding = Save with Encoding
 cmd-edit-gotoLine = Go to Line
@@ -253,6 +260,11 @@ msg-no-match-for = No match for { $target }
 msg-no-link = No link here
 msg-no-property = No { $key } property here
 msg-no-bibliography = No bibliography: add #+BIBLIOGRAPHY: with a .bib or .json file
+msg-no-more-occurrences = No more occurrences
+msg-occurrences-selected = { $count ->
+    [one] { $count } occurrence selected
+   *[other] { $count } occurrences selected
+}
 msg-unknown-encoding = Unknown encoding: { $name }
 msg-reopen-modified = Save or undo the changes first: reopening reads the file again
 msg-reopened = Reopened as { $encoding }

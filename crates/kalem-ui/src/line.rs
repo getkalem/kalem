@@ -1281,6 +1281,8 @@ impl gpui::Element for LineElement {
         let theme = editor.theme.clone();
         let focus = gpui::Focusable::focus_handle(editor, cx);
         let sel = editor.doc.selection;
+        // More cursors (multiple cursors, column selection).
+        let extra = editor.doc.extra.clone();
         // Lines that do not wrap are painted scrolled sideways, and clipped.
         let shift = if p.nowrap { editor.hscroll } else { px(0.) };
         let origin = bounds.origin - point(shift, px(0.));
@@ -1467,6 +1469,21 @@ impl gpui::Element for LineElement {
                     ));
                 }
             }
+            for x in &extra {
+                let (xa, xb) = (x.anchor.min(x.head), x.anchor.max(x.head));
+                if xa < xb && xa <= le && xb >= ls {
+                    let (a, b) = (
+                        view.display_offset(xa.max(ls)),
+                        view.display_offset(xb.min(le)),
+                    );
+                    for r in layout.range_rects(a, b) {
+                        window.paint_quad(fill(
+                            Bounds::new(origin + r.origin, r.size),
+                            theme.selection,
+                        ));
+                    }
+                }
+            }
             layout.paint(origin, window, cx);
             // IME composition: underlined.
             if let Some(m) = &marked
@@ -1634,6 +1651,15 @@ impl gpui::Element for LineElement {
                     color.a *= 0.45;
                 }
                 window.paint_quad(fill(Bounds::new(origin + caret.origin, caret.size), color));
+            }
+        }
+        if focus.is_focused(window) && !self.other {
+            for x in extra.iter().filter(|x| ls <= x.head && x.head <= le) {
+                let caret = layout.caret(view.display_offset(x.head));
+                window.paint_quad(fill(
+                    Bounds::new(origin + caret.origin, caret.size),
+                    theme.caret,
+                ));
             }
         }
         painted.borrow_mut().insert(

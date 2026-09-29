@@ -93,6 +93,10 @@ pub struct DocumentState {
     settings: Arc<Settings>,
     /// The selection.
     pub selection: Selection,
+    /// More cursors and selections (multiple cursors, column selection),
+    /// besides the primary [`DocumentState::selection`]: typing, deleting
+    /// and pasting act at each (see `crate::cursors`).
+    pub extra: Vec<Selection>,
     history: History,
     /// File and mode information.
     pub meta: Metadata,
@@ -199,6 +203,7 @@ impl DocumentState {
             org,
             settings,
             selection: Selection::caret(0),
+            extra: Vec::new(),
             history: History::new(),
             meta,
             narrowing: None,
@@ -535,6 +540,16 @@ impl DocumentState {
             .record(tx, self.text.as_str(), before, after, kind, now);
         self.apply_raw(tx);
         self.selection = after;
+        if !self.extra.is_empty() {
+            let mapped = std::mem::take(&mut self.extra)
+                .into_iter()
+                .map(|s| Selection {
+                    anchor: tx.map(s.anchor, org_edit::Assoc::After),
+                    head: tx.map(s.head, org_edit::Assoc::After),
+                })
+                .collect();
+            self.set_extra(mapped);
+        }
     }
 
     /// The edits applied since the last call (commands, typing, undo,
@@ -607,6 +622,10 @@ impl DocumentState {
             return self.paste(&links, None, true, now);
         }
         let text = text.replace("\r\n", "\n");
+        if !self.extra.is_empty() {
+            self.paste_at_cursors(&text, now);
+            return;
+        }
         let s = self.selection;
         let sel = s.anchor.min(s.head)..s.anchor.max(s.head);
         let ins = if plain || self.meta.mode != DocumentMode::Org {
@@ -743,6 +762,10 @@ impl DocumentState {
 
     /// Replaces the selection with `text`, as typing (undone in groups).
     pub fn insert_text(&mut self, text: &str, now: Instant) {
+        if !self.extra.is_empty() {
+            self.insert_at_cursors(|_| text.to_string(), now);
+            return;
+        }
         let s = self.selection;
         let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
         let mut tx = Transaction::new("Typing");
@@ -816,6 +839,10 @@ impl DocumentState {
     /// blanked first (`org-table-auto-blank-field`). A selection is
     /// replaced.
     pub fn type_text(&mut self, text: &str, blank_field: bool, now: Instant) {
+        if !self.extra.is_empty() {
+            self.insert_text(text, now);
+            return;
+        }
         let s = self.selection;
         if s.anchor != s.head || !self.org_typing_at(s.head) {
             self.insert_text(text, now);
@@ -890,6 +917,10 @@ impl DocumentState {
     /// keeping columns aligned, as `org-delete-backward-char`). Returns a
     /// message when the deletion turned formatting into plain text.
     pub fn delete_backward(&mut self, now: Instant) -> Option<String> {
+        if !self.extra.is_empty() {
+            self.delete_at_cursors(false, now);
+            return None;
+        }
         let before = self.line_objects(self.selection.head);
         self.delete_backward_inner(now);
         self.broken_formatting(&before, self.selection.head)
@@ -923,6 +954,10 @@ impl DocumentState {
     /// keeping columns aligned, as `org-delete-char`). Returns a message
     /// when the deletion turned formatting into plain text.
     pub fn delete_forward(&mut self, now: Instant) -> Option<String> {
+        if !self.extra.is_empty() {
+            self.delete_at_cursors(true, now);
+            return None;
+        }
         let before = self.line_objects(self.selection.head);
         self.delete_forward_inner(now);
         self.broken_formatting(&before, self.selection.head)
@@ -1017,6 +1052,7 @@ impl DocumentState {
             self.apply_raw(t);
         }
         self.selection = replay.selection;
+        self.extra.clear();
         Some(replay.label)
     }
 
@@ -1027,6 +1063,7 @@ impl DocumentState {
             self.apply_raw(t);
         }
         self.selection = replay.selection;
+        self.extra.clear();
         Some(replay.label)
     }
 
