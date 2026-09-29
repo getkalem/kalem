@@ -2,6 +2,7 @@
 
 mod diff_emacs;
 mod diff_model;
+mod diff_pandoc;
 mod export;
 mod fmt;
 mod table;
@@ -12,6 +13,7 @@ use std::process::ExitCode;
 
 pub(crate) use diff_emacs::{DiffOptions, diff_emacs};
 pub(crate) use diff_model::diff_model;
+pub(crate) use diff_pandoc::diff_pandoc;
 pub(crate) use export::{Target, export, import};
 pub(crate) use fmt::{fmt, query};
 pub(crate) use table::recalc;
