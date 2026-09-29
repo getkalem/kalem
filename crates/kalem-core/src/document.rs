@@ -90,6 +90,8 @@ pub struct DocumentState {
     /// The version the file was last saved (or opened) at.
     saved_version: u64,
     org: Option<OrgState>,
+    /// The parse of a LaTeX document.
+    latex: Option<crate::latex_view::LatexState>,
     settings: Arc<Settings>,
     /// The selection.
     pub selection: Selection,
@@ -199,11 +201,14 @@ impl DocumentState {
             model: None,
             last_level: None,
         });
+        let latex = (meta.mode == DocumentMode::Latex)
+            .then(|| crate::latex_view::LatexState::new(text.as_str()));
         DocumentState {
             text,
             version: 0,
             saved_version: 0,
             org,
+            latex,
             settings,
             selection: Selection::caret(0),
             extra: Vec::new(),
@@ -345,7 +350,17 @@ impl DocumentState {
             self.org = None;
             self.narrowing = None;
         }
+        if mode != DocumentMode::Latex {
+            self.latex = None;
+        } else if self.latex.is_none() {
+            self.latex = Some(crate::latex_view::LatexState::new(self.text.as_str()));
+        }
         self.meta.mode = mode;
+    }
+
+    /// The parse and model of a LaTeX document.
+    pub fn latex(&self) -> Option<&crate::latex_view::LatexState> {
+        self.latex.as_ref()
     }
 
     /// Opens a file (§2.3, §2.6), starting its parse from `base`.
@@ -1112,6 +1127,9 @@ impl DocumentState {
         self.version += 1;
         let version = self.version;
         let text = self.text.as_str();
+        if let Some(l) = &mut self.latex {
+            l.edit(text, edit.as_ref());
+        }
         let Some(org) = &mut self.org else { return };
         let current =
             org.pending.is_none() && org.since.is_empty() && org.parse_version + 1 == version;

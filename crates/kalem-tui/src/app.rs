@@ -2514,6 +2514,9 @@ impl App {
         let line = text.line_of(head);
         let range = text.line_range(line);
         let view = match self.doc.parse() {
+            _ if self.doc.latex().is_some() && !self.editor.source => Some(
+                kalem_core::latex_view::line_view(&self.doc, range.clone(), Some(head)),
+            ),
             Some((p, true)) if !self.editor.source => Some(kalem_core::view::line_view(
                 &p.syntax(),
                 p.context(),
@@ -3111,6 +3114,7 @@ impl App {
             },
             DocumentMode::Markdown => "Markdown".into(),
             DocumentMode::Csv => "CSV".into(),
+            DocumentMode::Latex => "LaTeX".into(),
             DocumentMode::Text { language: Some(l) } => l.clone(),
             DocumentMode::Directory => tr!("mode-directory"),
             _ => tr!("mode-text"),

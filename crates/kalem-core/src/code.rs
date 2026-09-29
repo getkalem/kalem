@@ -21,6 +21,7 @@ pub fn language_at(doc: &crate::DocumentState) -> Option<String> {
     match &doc.meta.mode {
         crate::DocumentMode::Text { language } => language.clone(),
         crate::DocumentMode::Markdown => Some("md".into()),
+        crate::DocumentMode::Latex => Some("latex".into()),
         crate::DocumentMode::Org => {
             let (p, _) = doc.parse()?;
             let pos = doc.selection.head;

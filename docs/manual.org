@@ -757,6 +757,22 @@ such as =-*- mode: org -*-= on the first line, the extension, and a
 =#!= line. Markdown files are edited as text for now. Binary files are
 not opened.
 
+** LaTeX files
+
+=.tex= files open rendered, as the document reads, and stay standard
+LaTeX byte for byte: nothing is rewritten. Sectioning commands show as
+headings with the numbers LaTeX gives them, =\emph=, =\textbf=,
+=\texttt= and their kin show their text styled with the command and its
+braces hidden until the cursor reaches them, quotes and dashes (=``=,
+=''=, =--=, =---=), =~=, =\&=, =\%= and =\\= show as the characters they
+typeset, =\maketitle= shows the title, the authors and the date, and
+=center=, =flushleft= and =flushright= align their lines. Comments are
+dimmed; commands Kalem does not render stay as they are written. The
+source view (Ctrl+/) shows the text itself. Documents of several files
+are numbered as one: the root document comes from a =% !TEX root= line,
+the main file of a subfile, a =NAME.tex.latexmain= file, or the document
+up the folders that includes the file.
+
 ** CSV files
 
 CSV and TSV files open as a grid: each field padded to its column's
