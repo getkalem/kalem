@@ -51,7 +51,12 @@ const COMMANDS: &[&str] = &[
     "sqrt",
     "sum",
     "int",
+    "iint",
+    "oint",
     "prod",
+    "coprod",
+    "bigcup",
+    "bigcap",
     "lim",
     "infty",
     "alpha",
@@ -165,6 +170,9 @@ const ENVIRONMENTS: &[&str] = &[
     "matrix",
     "pmatrix",
     "bmatrix",
+    "Bmatrix",
+    "vmatrix",
+    "Vmatrix",
     "figure",
     "figure*",
     "table",
@@ -313,10 +321,24 @@ impl LatexCompleter {
             .map(|n| {
                 let sig = latex_syntax::signatures::command(&n);
                 let braces = sig.matches('m').count();
-                let insert = format!("{n}{}", "{}".repeat(braces));
+                // A big operator with its limits, Tab going from one to
+                // the other.
+                let limits = match n.as_str() {
+                    "sum" | "prod" | "coprod" | "int" | "iint" | "oint" | "bigcup" | "bigcap" => {
+                        "_{}^{}"
+                    }
+                    "lim" => "_{}",
+                    _ => "",
+                };
+                let insert = format!("{n}{limits}{}", "{}".repeat(braces));
                 let mut it = Item::new(format!("\\{n}"), insert, start..ctx.point, Kind::Keyword);
-                it.cursor = n.len() + usize::from(braces > 0);
-                it.detail = (0..braces).map(|_| "{…}").collect();
+                it.cursor =
+                    n.len() + usize::from(braces > 0) + if limits.is_empty() { 0 } else { 2 };
+                it.detail = if limits.is_empty() {
+                    (0..braces).map(|_| "{…}").collect()
+                } else {
+                    limits.replace("{}", "{…}")
+                };
                 it.source = "latex";
                 it
             })
@@ -384,7 +406,14 @@ impl LatexCompleter {
                         ""
                     };
                     let body = format!("{n}}}\n{indent}  {item}");
-                    (format!("{body}\n{indent}\\end{{{n}}}"), body.len())
+                    if crate::latex_edit::is_grid(&n) {
+                        // Two rows of two cells, Tab going from cell to
+                        // cell.
+                        let rows = format!(" &  \\\\\n{indent}   & \n{indent}\\end{{{n}}}");
+                        (format!("{body}{rows}"), body.len())
+                    } else {
+                        (format!("{body}\n{indent}\\end{{{n}}}"), body.len())
+                    }
                 };
                 let mut it = Item::new(n, insert, start..ctx.point, Kind::Snippet);
                 it.cursor = cursor;
@@ -641,6 +670,20 @@ mod tests {
         assert_eq!(
             env[0],
             ("align".to_string(), "align}\n  \n\\end{align}".to_string())
+        );
+        // Matrices open as a grid of cells; big operators with limits.
+        let m = c("\\begin{pmat");
+        assert_eq!(
+            m[0],
+            (
+                "pmatrix".to_string(),
+                "pmatrix}\n   &  \\\\\n   & \n\\end{pmatrix}".to_string()
+            )
+        );
+        assert!(
+            c("$\\su")
+                .iter()
+                .any(|(l, i)| l == "\\sum" && i == "sum_{}^{}")
         );
         assert_eq!(
             c("\\cite{knth"),
