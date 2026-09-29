@@ -2555,3 +2555,29 @@ fn latex_tables_as_grids(cx: &mut TestAppContext) {
         text.find("Qty").unwrap()
     );
 }
+
+#[gpui::test]
+fn file_manager_editable_names(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    let p = primary();
+    cx.simulate_keystrokes(&format!("{p}-alt-d"));
+    assert!(cursor_line(&ws, cx).ends_with(" a.org"));
+    // `e` makes the names text; typing edits them, Ctrl+S renames.
+    cx.simulate_keystrokes("e");
+    cx.simulate_input("new-");
+    assert!(
+        cursor_line(&ws, cx).ends_with(" new-a.org"),
+        "{}",
+        cursor_line(&ws, cx)
+    );
+    cx.simulate_keystrokes("ctrl-s");
+    cx.run_until_parked();
+    assert!(dir.join("proj/new-a.org").is_file() && !dir.join("proj/a.org").exists());
+    // Escape discards an edit.
+    cx.simulate_keystrokes("e");
+    cx.simulate_input("x");
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert!(cursor_line(&ws, cx).ends_with(" new-a.org"));
+    assert!(dir.join("proj/new-a.org").is_file());
+}

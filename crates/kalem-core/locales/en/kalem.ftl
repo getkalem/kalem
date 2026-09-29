@@ -505,6 +505,9 @@ cmd-dired-delete = Move to Trash
 cmd-dired-deletePermanently = Delete for Good
 cmd-dired-copy = Copy To
 cmd-dired-move = Rename or Move To
+cmd-dired-editNames = Edit Names
+cmd-dired-commitNames = Apply Edited Names
+cmd-dired-abortNames = Discard Edited Names
 cmd-dired-undo = Undo File Operation
 cmd-dired-mkdir = New Folder
 cmd-dired-newFile = New File
@@ -574,6 +577,15 @@ fm-undone-moved = { $count ->
 fm-undone-trashed = { $count ->
     [one] Brought 1 item back from the trash
    *[other] Brought { $count } items back from the trash
+}
+fm-wdired-help = Edit the names, then Ctrl+S to rename them all, Escape to discard
+fm-wdired-lines = Only names can change: a line was added, removed or changed outside its name
+fm-wdired-empty = The new name of { $name } is empty
+fm-wdired-duplicate = Two files would be named { $name }
+fm-wdired-no-folder = No folder for { $name }
+fm-renamed = { $count ->
+    [one] Renamed 1 item
+   *[other] Renamed { $count } items
 }
 fm-nothing-to-undo = No file operation to undo
 fm-undo-blocked = Cannot undo: { $name } is in the way or gone

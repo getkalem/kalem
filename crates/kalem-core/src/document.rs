@@ -255,6 +255,9 @@ impl DocumentState {
         let Some(state) = self.dired.as_mut() else {
             return;
         };
+        if state.wdired.is_some() {
+            return;
+        }
         let line = self.text.line_of(self.selection.head);
         let current = state.path_at(line);
         let text = state.render();
@@ -300,7 +303,11 @@ impl DocumentState {
 
     /// Reads the file manager's folder again, keeping marks and the cursor.
     pub fn refresh_listing(&mut self) {
+        // Not while its names are edited.
         if let Some(s) = self.dired.as_mut() {
+            if s.wdired.is_some() {
+                return;
+            }
             s.load();
         }
         self.show_listing(None);
@@ -547,7 +554,7 @@ impl DocumentState {
         // A folder listing is read-only; its commands change it. The
         // selection an edit would leave is not taken either: it may be past
         // the text the edit did not make.
-        if self.dired.is_some() {
+        if self.dired.as_ref().is_some_and(|d| d.wdired.is_none()) {
             return;
         }
         let before = self.selection;
@@ -1430,6 +1437,10 @@ impl DocumentState {
         if let DocumentMode::Text { language: Some(l) } = &self.meta.mode {
             c.set("editorLanguage", Value::Str(l.clone()));
         }
+        c.flag(
+            "wdired",
+            self.dired.as_ref().is_some_and(|d| d.wdired.is_some()),
+        );
         c.flag("hasSelection", self.selection.anchor != self.selection.head);
         c.flag("narrowed", self.narrowing.is_some());
         c.flag("modified", self.is_modified());
