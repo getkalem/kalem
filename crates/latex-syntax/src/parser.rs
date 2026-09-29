@@ -527,7 +527,17 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 Tok::ParBreak | Tok::RBrace => break,
-                t => self.token(kind(t), e),
+                t => {
+                    // The tables toggle `@` here too; stay in step with them.
+                    if t == Tok::ControlWord {
+                        match &self.src[self.pos + 1..e] {
+                            "makeatletter" => self.at_letter = true,
+                            "makeatother" => self.at_letter = false,
+                            _ => {}
+                        }
+                    }
+                    self.token(kind(t), e)
+                }
             }
         }
         self.builder.finish_node();
