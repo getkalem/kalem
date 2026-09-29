@@ -303,11 +303,7 @@ fn sections(root: &SyntaxNode) -> Vec<Section> {
 }
 
 /// The section at the line of `pos` and where its subtree ends.
-fn subtree(
-    text: &str,
-    root: &SyntaxNode,
-    pos: usize,
-) -> Option<(Vec<Section>, usize, usize)> {
+fn subtree(text: &str, root: &SyntaxNode, pos: usize) -> Option<(Vec<Section>, usize, usize)> {
     let all = sections(root);
     let lr = line_range(text, pos);
     let i = all.iter().position(|(s, _, _)| lr.contains(s))?;

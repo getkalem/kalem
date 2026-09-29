@@ -255,7 +255,11 @@ impl Registry {
     /// The built-in completers: Org's, and the document's words.
     pub fn with_builtins() -> Registry {
         Registry {
-            completers: vec![Arc::new(OrgCompleter), Arc::new(WordsCompleter)],
+            completers: vec![
+                Arc::new(OrgCompleter),
+                Arc::new(crate::latex_complete::LatexCompleter),
+                Arc::new(WordsCompleter),
+            ],
         }
     }
 

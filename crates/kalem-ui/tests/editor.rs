@@ -2422,3 +2422,26 @@ fn latex_structural_editing(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("ctrl-1");
     assert!(text_of(&e, cx).contains("\\section{some \\textbf{words}}"));
 }
+
+#[gpui::test]
+fn latex_completion(cx: &mut TestAppContext) {
+    let text = "\\section{A}\\label{sec:a}\n";
+    let (e, cx) = open_named(text, "c.tex", || None, cx);
+    at(&e, text.len(), cx);
+    cx.simulate_input("\\ref{se");
+    let labels = e.read_with(cx, |e, _| {
+        e.completion.as_ref().map(|m| {
+            m.items()
+                .iter()
+                .map(|i| i.label.clone())
+                .collect::<Vec<_>>()
+        })
+    });
+    assert_eq!(labels, Some(vec!["sec:a".to_string()]));
+    cx.simulate_keystrokes("enter");
+    assert!(
+        text_of(&e, cx).ends_with("\\ref{sec:a"),
+        "{}",
+        text_of(&e, cx)
+    );
+}
