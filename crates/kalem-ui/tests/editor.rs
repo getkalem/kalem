@@ -2618,3 +2618,29 @@ fn file_manager_find_and_search(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("enter");
     assert_eq!(active_title(&ws, cx), "b.org");
 }
+
+#[gpui::test]
+fn file_manager_stored_links(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(false, cx);
+    let p = primary();
+    cx.simulate_keystrokes(&format!("{p}-alt-d"));
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("link.store", serde_json::Value::Null, window, cx)
+    });
+    // Back in a.org, the link goes in at the cursor.
+    cx.simulate_keystrokes(&format!("{p}-alt-d"));
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "a.org");
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let end = e.read_with(cx, |e, _| e.doc.text().len());
+    at(&e, end, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.link.insertStored", serde_json::Value::Null, window, cx)
+    });
+    assert!(
+        crate::text(&e, cx).ends_with("[[file:a.org][a.org]]"),
+        "{}",
+        crate::text(&e, cx)
+    );
+}

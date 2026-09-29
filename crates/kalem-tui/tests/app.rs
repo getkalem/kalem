@@ -2822,3 +2822,23 @@ fn file_manager_find_and_search() {
     assert_eq!(title(&t), "b.org");
     let _ = dir;
 }
+
+#[test]
+fn file_manager_stored_links() {
+    let (mut t, _dir) = project_app(Config::default());
+    t.key(
+        KeyCode::Char('d'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    // Store a link to the file at the cursor, then insert it in a.org.
+    let at = t.text().find(" sub/").unwrap() + 1;
+    t.at(at);
+    t.app.run_command("link.store", serde_json::Value::Null);
+    assert!(status(&mut t).contains("sub"), "{}", status(&mut t));
+    t.typ("q");
+    assert_eq!(title(&t), "a.org");
+    t.at(t.text().len());
+    t.app
+        .run_command("org.link.insertStored", serde_json::Value::Null);
+    assert!(t.text().ends_with("[[file:sub][sub]]"), "{}", t.text());
+}

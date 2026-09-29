@@ -537,6 +537,19 @@ pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::Documen
         return d;
     }
     match (id, name) {
+        // The link stored last.
+        ("org.insert.link", "link") => crate::links::latest()
+            .first()
+            .map(|l| {
+                let dir = doc
+                    .meta
+                    .path
+                    .as_deref()
+                    .and_then(|p| std::path::absolute(p).ok())
+                    .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+                crate::links::file_target(&l.path, dir.as_deref(), l.search.as_deref())
+            })
+            .unwrap_or_default(),
         ("table.setFormula", "formula") => {
             let mut cache = crate::formulas::FormulaCache::default();
             crate::formulas::prompt(cache.get(doc))

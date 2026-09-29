@@ -8,7 +8,7 @@ use org_syntax::ast::{self, AstNode};
 use crate::palette::{PaletteItem, invocation};
 
 /// The heading the entry at `pos` starts with.
-fn heading(doc: &Document, pos: usize) -> Option<ast::Headline> {
+pub(crate) fn heading(doc: &Document, pos: usize) -> Option<ast::Headline> {
     let root = doc.parse().syntax();
     let offset =
         org_syntax::TextSize::try_from(pos.min(usize::from(root.text_range().end()))).ok()?;

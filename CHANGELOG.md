@@ -170,6 +170,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - File manager: Ctrl+Z undoes the last rename, move or move to the trash (items come back from the system trash), in both editors; `kalem_fs::restore` puts trashed paths back.
 - File manager: editable names (wdired): `e` makes the listing's names text, Ctrl+S renames them all at once (swaps and moves into folders too), Escape discards; empty and duplicate names, taken names and changed lines are reported before anything changes; in both editors.
 - File manager: `% f` finds files by name under the folder at any depth (a shell pattern or a part of the name) and lists them by their paths; `A` searches the text of the folder's files with the project search's results and jump to the match; in both editors.
+- Stored links: Store Link keeps links to the file manager's marked files or to a document's heading, Insert Stored Link puts them in an Org document as `[[file:…]]` links (relative in the document's folder tree), and Insert Link offers the last one; in both editors.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed
