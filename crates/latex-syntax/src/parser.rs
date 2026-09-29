@@ -490,6 +490,15 @@ impl<'a> Parser<'a> {
                         _ => None,
                     };
                     if let Some(e) = e {
+                        // The tables toggle `@` here too; stay in step
+                        // with them.
+                        if tok == Tok::ControlWord {
+                            match &self.src[p + 1..e] {
+                                "makeatletter" => self.at_letter = true,
+                                "makeatother" => self.at_letter = false,
+                                _ => {}
+                            }
+                        }
                         self.blanks(p);
                         self.token(kind(tok), e);
                     }

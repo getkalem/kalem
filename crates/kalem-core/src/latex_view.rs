@@ -336,6 +336,40 @@ fn lists_around(n: &SyntaxNode) -> Vec<(SyntaxNode, String)> {
         .collect()
 }
 
+/// The code of `\verb` or `\lstinline` node `verb`: between its
+/// delimiters (any character, or braces for `\lstinline`), after its
+/// options.
+fn verb_code(text: &str, verb: &SyntaxNode) -> Option<Range<usize>> {
+    let v = verb
+        .children_with_tokens()
+        .filter_map(|e| e.into_token())
+        .find(|t| t.kind() == K::VERBATIM)?;
+    let r = span(&v);
+    let src = &text[r.clone()];
+    let mut start = 0;
+    if src.starts_with('[') {
+        start = src.find(']')? + 1;
+    }
+    let open = src[start..].chars().next()?;
+    let close = if open == '{' { '}' } else { open };
+    let body = start + open.len_utf8();
+    let end = body + src[body..].rfind(close).filter(|_| src.ends_with(close))?;
+    Some(r.start + body..r.start + end)
+}
+
+/// The environments around `n` that indent their text, as lists do:
+/// `quote`, `quotation`, `verse` and `abstract`.
+fn quotes_around(n: &SyntaxNode) -> usize {
+    n.ancestors()
+        .filter(|a| a.kind() == K::BODY)
+        .filter_map(|a| a.parent())
+        .filter(|e| {
+            latex_syntax::name(e)
+                .is_some_and(|n| matches!(n.as_str(), "quote" | "quotation" | "verse" | "abstract"))
+        })
+        .count()
+}
+
 /// An `enumerate` label in LaTeX's default styles by depth (`1.`, `(a)`,
 /// `i.`, `A.`), or as `label=` of enumitem gives it.
 fn enum_label(n: i64, depth: usize, pattern: Option<&str>) -> String {
@@ -853,6 +887,8 @@ fn unflagged_line_view(
         ..Style::default()
     };
     let mut tok = latex_syntax::token_at(&root, line.start);
+    // An abstract's title line, centered.
+    let mut title_line = false;
     // In a list: the line's indentation by its depth, the source's own
     // blanks hidden (unless the cursor is in them).
     let mut first = tok.clone();
@@ -866,7 +902,7 @@ fn unflagged_line_view(
         && let Some(parent) = f.parent()
     {
         let fs = span(&f).start;
-        let depth = lists_around(&parent).len();
+        let depth = lists_around(&parent).len() + quotes_around(&parent);
         let delimiter = f
             .parent_ancestors()
             .find(|a| matches!(a.kind(), K::BEGIN | K::END));
@@ -877,12 +913,46 @@ fn unflagged_line_view(
                     || float_name(&n, false).is_some()
                     || matches!(
                         n.as_str(),
-                        "center" | "flushleft" | "flushright" | "quote" | "quotation"
+                        "center"
+                            | "flushleft"
+                            | "flushright"
+                            | "quote"
+                            | "quotation"
+                            | "verse"
+                            | "abstract"
                     )
             })
             && node_span(d).end >= line.start + text[line.clone()].trim_end().len()
         {
-            v.role = crate::view::LineRole::Delimiter;
+            // An abstract's title, as the article class prints it.
+            let ds = node_span(d);
+            if d.kind() == K::BEGIN
+                && d.parent().and_then(|e| latex_syntax::name(&e)).as_deref() == Some("abstract")
+                && !near(&ds)
+            {
+                let model = state.model();
+                let turkish = model
+                    .packages
+                    .iter()
+                    .any(|p| p.name == "babel" && p.options.iter().any(|o| o == "turkish"))
+                    || model
+                        .class
+                        .as_ref()
+                        .is_some_and(|c| c.options.iter().any(|o| o == "turkish"));
+                let bold = Style {
+                    bold: true,
+                    ..Style::default()
+                };
+                b.replace(ds.clone(), if turkish { "Özet" } else { "Abstract" }, bold);
+                title_line = true;
+                while let Some(n) = &tok
+                    && span(n).start < ds.end
+                {
+                    tok = n.next_token();
+                }
+            } else {
+                v.role = crate::view::LineRole::Delimiter;
+            }
         } else if depth > 0 && !near(&(line.start..fs)) {
             let item = f.kind() == K::CONTROL_WORD && &text[span(&f)] == "\\item";
             tok = first.clone();
@@ -918,6 +988,30 @@ fn unflagged_line_view(
             break;
         }
         tok = t.next_token();
+        // `\verb|…|` and `\lstinline{…}` away from the cursor: the code,
+        // monospace, the command and delimiters hidden.
+        if t.kind() == K::CONTROL_WORD
+            && let Some(verb) = t.parent().filter(|p| p.kind() == K::VERB)
+            && !near(&node_span(&verb))
+            && let Some(code) = verb_code(text, &verb)
+        {
+            let vs = node_span(&verb);
+            if vs.end <= line.end {
+                let code_style = Style {
+                    code: true,
+                    ..Style::default()
+                };
+                b.replace(vs.start..code.start, "", Style::default());
+                b.verbatim(code.clone(), code_style);
+                b.replace(code.end..vs.end, "", Style::default());
+                while let Some(n) = &tok
+                    && span(n).start < vs.end
+                {
+                    tok = n.next_token();
+                }
+                continue;
+            }
+        }
         // `\item`: its bullet, number or label, indented by its depth.
         if t.kind() == K::CONTROL_WORD
             && &text[r.clone()] == "\\item"
@@ -926,7 +1020,7 @@ fn unflagged_line_view(
             && !near(&node_span(&cmd))
         {
             let cs = node_span(&cmd);
-            let depth = lists_around(&cmd).len();
+            let depth = lists_around(&cmd).len() + quotes_around(&cmd);
             let items = state.items(&env);
             let label = items
                 .iter()
@@ -1329,7 +1423,11 @@ fn unflagged_line_view(
             .unwrap_or(level);
         v.heading = (level - top + 1).clamp(1, 6) as u8;
     }
-    v.align = alignment(&root, line.start);
+    v.align = if title_line {
+        crate::rich::Align::Center
+    } else {
+        alignment(&root, line.start)
+    };
     v
 }
 
@@ -1830,7 +1928,15 @@ pub fn renders_environment(name: &str, model: &latex_model::Model) -> bool {
         || latex_syntax::signatures::is_verbatim(name)
         || matches!(
             name,
-            "document" | "center" | "flushleft" | "flushright" | "proof"
+            "document"
+                | "center"
+                | "flushleft"
+                | "flushright"
+                | "proof"
+                | "quote"
+                | "quotation"
+                | "verse"
+                | "abstract"
         )
         || model.theorem_kinds.iter().any(|k| k.env == name)
 }
@@ -2305,6 +2411,40 @@ mod tests {
             &last.runs[0].widget,
             Some(crate::view::Widget::Math { display: true, .. })
         ));
+    }
+
+    #[test]
+    fn inline_code() {
+        let text = "A \\verb|x_y| and \\lstinline[language=C]{a+b}.\n";
+        let d = doc(text);
+        let v = shown(&d, 0, Some(text.len()));
+        assert_eq!(v.display(), "A x_y and a+b.");
+        let code: String = v
+            .runs
+            .iter()
+            .filter(|r| r.style.code)
+            .map(|r| r.text.as_str())
+            .collect();
+        assert_eq!(code, "x_ya+b");
+        // At the cursor, the source.
+        assert_eq!(shown(&d, 0, Some(4)).display(), "A \\verb|x_y| and a+b.");
+    }
+
+    #[test]
+    fn quotes_and_abstract() {
+        let text = "\\begin{abstract}\nWe show.\n\\end{abstract}\n\\begin{quote}\nSaid.\n\\begin{itemize}\n\\item One\n\\end{itemize}\n\\end{quote}\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        let title = shown(&d, 0, end);
+        assert_eq!(title.display(), "Abstract");
+        assert_eq!(title.align, crate::rich::Align::Center);
+        assert!(title.runs[0].style.bold);
+        // The abstract's and the quote's text indented as a list's is.
+        assert_eq!(shown(&d, 1, end).display(), "\u{2003}\u{2003}We show.");
+        assert_eq!(shown(&d, 2, end).role, crate::view::LineRole::Delimiter);
+        assert_eq!(shown(&d, 4, end).display(), "\u{2003}\u{2003}Said.");
+        // An item in a list in a quote: one level for each.
+        assert!(shown(&d, 6, end).display().starts_with("\u{2003}\u{2003}•"));
     }
 
     #[test]
