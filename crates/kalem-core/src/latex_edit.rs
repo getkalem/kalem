@@ -546,8 +546,26 @@ pub fn typed(text: &str, sel: Selection, root: &SyntaxNode, typed: &str) -> Opti
     }
 }
 
+/// Environments whose body is a grid of cells: matrices and `cases`.
+pub fn is_grid(name: &str) -> bool {
+    matches!(
+        name.trim_end_matches('*'),
+        "matrix"
+            | "pmatrix"
+            | "bmatrix"
+            | "Bmatrix"
+            | "vmatrix"
+            | "Vmatrix"
+            | "smallmatrix"
+            | "cases"
+            | "dcases"
+            | "rcases"
+    )
+}
+
 /// In math, the next empty `{}` after the cursor on its line (Tab's stop
-/// in `\frac{}{}`, `\sqrt{}`, `\sum_{}^{}`).
+/// in `\frac{}{}`, `\sqrt{}`, `\sum_{}^{}`); else, in a matrix or `cases`,
+/// the next cell: after the next `&` or the next row's `\\`.
 pub fn next_stop(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transaction> {
     if !in_math(root, pos) {
         return None;
@@ -559,10 +577,48 @@ pub fn next_stop(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transactio
     } else {
         pos
     };
-    let at = text[from..lr.end].find("{}")?;
+    let to = match text[from..lr.end].find("{}") {
+        Some(at) => from + at + 1,
+        None => next_cell(text, pos, root)?,
+    };
     let mut tx = Transaction::new("Next Field");
     tx.replace(pos..pos, "").ok()?;
-    Some(tx.select(Selection::caret(from + at + 1)))
+    Some(tx.select(Selection::caret(to)))
+}
+
+/// The start of the cell after the one at `pos` in the matrix or `cases`
+/// around it (one blank after the `&` or `\\` kept).
+fn next_cell(text: &str, pos: usize, root: &SyntaxNode) -> Option<usize> {
+    let t = latex_syntax::token_before(root, pos)?;
+    let body = t.parent_ancestors().find(|a| {
+        a.kind() == K::BODY
+            && a.parent()
+                .and_then(|e| latex_syntax::name(&e))
+                .is_some_and(|n| is_grid(&n))
+    })?;
+    let end = span(&body).end;
+    let rest = &text[pos..end];
+    let amp = rest.find('&');
+    let row = rest.find("\\\\");
+    let after = match (amp, row) {
+        (Some(a), Some(r)) if r < a => r + 2,
+        (Some(a), _) => a + 1,
+        (None, Some(r)) => r + 2,
+        (None, None) => return None,
+    };
+    let mut at = pos + after;
+    // To the cell's text: past the line break and the blanks before it,
+    // one blank kept after `&`.
+    let skip = text[at..end]
+        .find(|c: char| c != ' ' && c != '\t' && c != '\n' && c != '\r')
+        .unwrap_or(end - at);
+    let blank = text[at..at + skip].rfind(['\n']).map_or(0, |i| i + 1);
+    at += if blank > 0 {
+        blank + text[at + blank..at + skip].len()
+    } else {
+        skip.min(1)
+    };
+    Some(at)
 }
 
 /// Inline math at the cursor displayed (`$x$` to `\[x\]`), or displayed
@@ -667,6 +723,27 @@ mod tests {
 
     fn root(text: &str) -> SyntaxNode {
         latex_syntax::parse(text).syntax()
+    }
+
+    #[test]
+    fn matrix_cells() {
+        // Tab goes from cell to cell, and to the next row's first cell.
+        let text = "$\\begin{pmatrix}\n  a1 & b2 \\\\\n  c3 & d4\n\\end{pmatrix}$\n";
+        let root = latex_syntax::parse(text).syntax();
+        let stop = |pos: usize| {
+            let tx = next_stop(text, pos, &root)?;
+            Some(tx.selection_after?.head)
+        };
+        let at = |cell: &str| text.find(cell).unwrap();
+        assert_eq!(stop(at("a1") + 2), Some(at("b2")));
+        assert_eq!(stop(at("b2") + 2), Some(at("c3")));
+        assert_eq!(stop(at("c3") + 2), Some(at("d4")));
+        assert_eq!(stop(at("d4") + 2), None);
+        // An empty `{}` first.
+        let text = "$\\sum_{i}^{}$";
+        let root = latex_syntax::parse(text).syntax();
+        let tx = next_stop(text, 8, &root).unwrap();
+        assert_eq!(tx.selection_after.unwrap().head, 11);
     }
 
     #[test]
