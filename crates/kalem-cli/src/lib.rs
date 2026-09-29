@@ -100,13 +100,16 @@ enum Command {
     },
     /// Align tables and tags, and blank lines as each file has them.
     Fmt {
-        /// Org files to format in place.
+        /// Org or LaTeX files to format in place.
         #[arg(required = true)]
         files: Vec<PathBuf>,
         /// Change nothing; list the files that would change and fail if
         /// there are any (for CI).
         #[arg(long)]
         check: bool,
+        /// LaTeX: line up the `&` of tables and alignments.
+        #[arg(long)]
+        align: bool,
     },
     /// Export Org files as Emacs's Org exporter does: `kalem export
     /// notes.org --to html` writes `notes.html` beside it (or the file
@@ -282,7 +285,11 @@ where
             file,
             format: DumpFormat::EmacsJson,
         } => commands::dump(&file),
-        Command::Fmt { files, check } => commands::fmt(&files, check),
+        Command::Fmt {
+            files,
+            check,
+            align,
+        } => commands::fmt(&files, check, align),
         Command::Complete { place } => commands::complete(&place),
         Command::Commands { text_type } => commands::list_commands(text_type.as_deref()),
         Command::Export {

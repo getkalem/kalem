@@ -29,6 +29,7 @@ pub mod latex_build;
 pub mod latex_check;
 mod latex_complete;
 pub mod latex_edit;
+pub mod latex_fmt;
 pub mod latex_view;
 pub mod lines;
 pub mod logging;
