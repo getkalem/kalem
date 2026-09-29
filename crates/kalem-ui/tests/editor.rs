@@ -2316,3 +2316,30 @@ fn latex_math(cx: &mut TestAppContext) {
         vec![0, 1, 2, 3, 4, 5]
     );
 }
+
+#[gpui::test]
+fn latex_floats(cx: &mut TestAppContext) {
+    let text = "\\begin{figure}\n\\centering\n\\includegraphics[width=\\linewidth]{fig}\n\\caption{Cats.}\n\\end{figure}\n";
+    let (e, cx) = open_named(text, "f.tex", || None, cx);
+    let dir = e.read_with(cx, |e, _| {
+        e.doc
+            .meta
+            .path
+            .clone()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    });
+    std::fs::write(dir.join("fig.png"), b"not really").unwrap();
+    at(&e, text.len(), cx);
+    let pic = e.read_with(cx, |e, _| e.line_view(2));
+    assert!(matches!(
+        &pic.runs[0].widget,
+        Some(kalem_core::view::Widget::Image { path, .. }) if path == "fig.png"
+    ));
+    assert_eq!(
+        e.read_with(cx, |e, _| e.line_view(3).display()),
+        "Figure 1: Cats."
+    );
+}

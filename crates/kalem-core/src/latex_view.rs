@@ -582,6 +582,7 @@ pub fn line_view(
             && let Some(env) = d.parent()
             && latex_syntax::name(&env).is_some_and(|n| {
                 is_list(&n)
+                    || float_name(&n, false).is_some()
                     || matches!(
                         n.as_str(),
                         "center" | "flushleft" | "flushright" | "quote" | "quotation"
@@ -599,6 +600,8 @@ pub fn line_view(
         }
     }
     let mut heading_command: Option<SyntaxNode> = None;
+    // Source ranges not shown (a caption's closing brace).
+    let mut hidden: Vec<Range<usize>> = Vec::new();
     while let Some(t) = tok {
         let r = span(&t);
         if r.start >= line.end {
@@ -633,6 +636,98 @@ pub fn line_view(
                 tok = n.next_token();
             }
             continue;
+        }
+        if let Some(skip) = hidden.iter().find(|h| h.start <= r.start && r.end <= h.end) {
+            let _ = skip;
+            continue;
+        }
+        if t.kind() == K::CONTROL_WORD
+            && let Some(cmd) = t
+                .parent()
+                .filter(|p| p.kind() == K::COMMAND && p.first_token().as_ref() == Some(&t))
+            && !near(&node_span(&cmd))
+        {
+            let cs = node_span(&cmd);
+            match &text[r.clone()] {
+                // A picture: drawn, at the width its options ask for.
+                "\\includegraphics" => {
+                    if let Some(path) = picture_path(doc, &state.model(), &cmd) {
+                        b.runs.push(Run {
+                            src: cs.clone(),
+                            text: crate::view::PLACEHOLDER.to_string(),
+                            verbatim: false,
+                            style: Style::default(),
+                            widget: Some(crate::view::Widget::Image {
+                                path,
+                                width: picture_width(&cmd),
+                            }),
+                        });
+                        while let Some(n) = &tok
+                            && span(n).start < cs.end
+                        {
+                            tok = n.next_token();
+                        }
+                        continue;
+                    }
+                }
+                "\\centering" => {
+                    while let Some(n) = &tok
+                        && span(n).start < cs.end
+                    {
+                        tok = n.next_token();
+                    }
+                    continue;
+                }
+                // A caption: `Figure 1: ` for the command and its brace.
+                "\\caption" => {
+                    let model = state.model();
+                    let found = model.floats.iter().find_map(|f| {
+                        let c = f
+                            .captions
+                            .iter()
+                            .find(|c| c.range.start == cs.start && c.file == 0)?;
+                        Some((f.kind.clone(), c.number.clone()))
+                    });
+                    if let (Some((kind, number)), Some(g)) =
+                        (found, cmd.children().find(|c| c.kind() == K::GROUP))
+                    {
+                        let gs = node_span(&g);
+                        let turkish =
+                            model.packages.iter().any(|p| {
+                                p.name == "babel" && p.options.iter().any(|o| o == "turkish")
+                            }) || model
+                                .class
+                                .as_ref()
+                                .is_some_and(|c| c.options.iter().any(|o| o == "turkish"));
+                        let name = float_name(&kind, turkish).unwrap_or("");
+                        let sub = cmd.ancestors().any(|a| {
+                            a.kind() == K::ENVIRONMENT
+                                && latex_syntax::name(&a).is_some_and(|n| n.starts_with("sub"))
+                        });
+                        let label = match number {
+                            // In `subfigure`: `(a) `.
+                            Some(n) if sub => format!("({n}) "),
+                            Some(n) => format!("{name} {n}: "),
+                            None => format!("{name}: "),
+                        };
+                        let bold = Style {
+                            bold: true,
+                            ..Style::default()
+                        };
+                        b.replace(cs.start..gs.start + 1, &label, bold);
+                        if text[..gs.end].ends_with('}') {
+                            hidden.push(gs.end - 1..gs.end);
+                        }
+                        while let Some(n) = &tok
+                            && span(n).start < gs.start + 1
+                        {
+                            tok = n.next_token();
+                        }
+                        continue;
+                    }
+                }
+                _ => {}
+            }
         }
         // A formula on this line, away from the cursor: drawn.
         if let Some(m) = math_node(&t)
@@ -815,7 +910,17 @@ fn alignment(root: &SyntaxNode, pos: usize) -> crate::rich::Align {
         if a.kind() == K::BODY
             && let Some(env) = a.parent()
         {
-            match latex_syntax::name(&env).as_deref() {
+            let name = latex_syntax::name(&env).unwrap_or_default();
+            if float_name(&name, false).is_some()
+                && a.descendants().any(|c| {
+                    c.kind() == K::COMMAND
+                        && latex_syntax::name(&c).as_deref() == Some("centering")
+                        && c.ancestors().find(|x| x.kind() == K::BODY).as_ref() == Some(&a)
+                })
+            {
+                return crate::rich::Align::Center;
+            }
+            match Some(name.as_str()) {
                 Some("center") => return crate::rich::Align::Center,
                 Some("flushright") => return crate::rich::Align::Right,
                 Some("flushleft") => return crate::rich::Align::Left,
@@ -824,6 +929,90 @@ fn alignment(root: &SyntaxNode, pos: usize) -> crate::rich::Align {
         }
     }
     crate::rich::Align::default()
+}
+
+/// What a float is called in its caption.
+fn float_name(kind: &str, turkish: bool) -> Option<&'static str> {
+    Some(match (kind.trim_end_matches('*'), turkish) {
+        ("figure" | "wrapfigure" | "subfigure", false) => "Figure",
+        ("figure" | "wrapfigure" | "subfigure", true) => "\u{15e}ekil",
+        ("table" | "wraptable" | "subtable", false) => "Table",
+        ("table" | "wraptable" | "subtable", true) => "Tablo",
+        _ => return None,
+    })
+}
+
+/// The file an `\includegraphics` shows, relative to the document: its
+/// name as written, in the document's folder or a `\graphicspath` folder,
+/// with the extensions LaTeX tries when it has none.
+fn picture_path(
+    doc: &crate::DocumentState,
+    model: &latex_model::Model,
+    cmd: &SyntaxNode,
+) -> Option<String> {
+    let name = cmd
+        .children()
+        .find(|c| c.kind() == K::GROUP)
+        .map(|g| group_text(&g))?;
+    let name = name.trim();
+    let base = doc.meta.path.as_deref().and_then(std::path::Path::parent);
+    let dirs = std::iter::once("").chain(model.graphics_paths.iter().map(String::as_str));
+    let has_ext = std::path::Path::new(name).extension().is_some();
+    for d in dirs {
+        let stem = format!("{d}{name}");
+        let tries: Vec<String> = if has_ext {
+            vec![stem]
+        } else {
+            ["png", "jpg", "jpeg", "pdf", "svg", "eps"]
+                .iter()
+                .map(|e| format!("{stem}.{e}"))
+                .collect()
+        };
+        for t in tries {
+            let full = base.map_or_else(|| std::path::PathBuf::from(&t), |b| b.join(&t));
+            if full.is_file() {
+                return Some(t);
+            }
+        }
+    }
+    None
+}
+
+/// The width `width=` asks for: a share of `\textwidth`, `\linewidth` or
+/// `\columnwidth`, or a length in pixels at 96 dpi.
+fn picture_width(cmd: &SyntaxNode) -> Option<crate::view::ImageWidth> {
+    use crate::view::ImageWidth;
+    let opt = cmd
+        .children()
+        .find(|c| c.kind() == K::OPT_ARG)?
+        .text()
+        .to_string();
+    let opt = opt.trim_start_matches('[').trim_end_matches(']');
+    let value = opt.split(',').find_map(|p| {
+        let (k, v) = p.split_once('=')?;
+        (k.trim() == "width").then(|| v.trim().to_string())
+    })?;
+    for w in ["\\textwidth", "\\linewidth", "\\columnwidth", "\\hsize"] {
+        if let Some(f) = value.strip_suffix(w) {
+            let f = f.trim();
+            let f: f64 = if f.is_empty() { 1.0 } else { f.parse().ok()? };
+            return Some(ImageWidth::Percent(
+                (f * 100.0).round().clamp(1.0, 1000.0) as u32
+            ));
+        }
+    }
+    let unit = |u: &str, px: f64| {
+        value
+            .strip_suffix(u)
+            .and_then(|n| n.trim().parse::<f64>().ok())
+            .map(|n| n * px)
+    };
+    let px = unit("cm", 37.8)
+        .or_else(|| unit("mm", 3.78))
+        .or_else(|| unit("in", 96.0))
+        .or_else(|| unit("pt", 96.0 / 72.27))
+        .or_else(|| unit("px", 1.0))?;
+    (px >= 1.0).then(|| ImageWidth::Pixels(px.round() as u32))
 }
 
 /// The outermost math around `t`: `$…$`, `\(…\)`, `\[…\]`, `$$…$$` or a
@@ -1080,6 +1269,32 @@ mod tests {
             &last.runs[0].widget,
             Some(crate::view::Widget::Math { display: true, .. })
         ));
+    }
+
+    #[test]
+    fn floats() {
+        let dir = std::env::temp_dir().join(format!("kalem-latex-view-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("figs")).unwrap();
+        std::fs::write(dir.join("figs/cat.png"), b"png").unwrap();
+        let text = "\\usepackage[turkish]{babel}\n\\graphicspath{{figs/}}\n\\begin{figure}\n\\centering\n\\includegraphics[width=0.5\\textwidth]{cat}\n\\caption{A cat.}\\label{f}\n\\includegraphics{missing}\n\\end{figure}\n";
+        let mut d = doc(text);
+        d.meta.path = Some(dir.join("p.tex"));
+        let end = Some(text.len());
+        assert_eq!(shown(&d, 2, end).role, crate::view::LineRole::Delimiter);
+        assert_eq!(shown(&d, 3, end).display(), "");
+        let pic = shown(&d, 4, end);
+        assert_eq!(pic.align, crate::rich::Align::Center);
+        assert!(matches!(
+            &pic.runs[0].widget,
+            Some(crate::view::Widget::Image { path, width: Some(crate::view::ImageWidth::Percent(50)) }) if path == "figs/cat.png"
+        ));
+        assert_eq!(
+            shown(&d, 5, end).display(),
+            "\u{15e}ekil 1: A cat.\\label{f}"
+        );
+        // A missing file stays as its source.
+        assert_eq!(shown(&d, 6, end).display(), "\\includegraphics{missing}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
