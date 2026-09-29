@@ -770,7 +770,11 @@ typeset, =\maketitle= shows the title, the authors and the date, and
 =enumerate= and =description= lists each =\item= shows its bullet, its
 number in LaTeX's style for its depth (=1.=, =(a)=, =i.=, =A.=, or what
 enumitem's =label= and =start= say) or its own =[label]=, indented by
-its depth. Comments are
+its depth. Formulas (=$…$=, =\(…\)=, =\[…\]=, =$$…$$= and the math
+environments) are typeset away from the cursor, equations with the
+numbers LaTeX gives them, using the macros the document defines; a math
+environment on lines of its own shows as one formula until the cursor
+enters it. Comments are
 dimmed; commands Kalem does not render stay as they are written. The
 source view (Ctrl+/) shows the text itself. Documents of several files
 are numbered as one: the root document comes from a =% !TEX root= line,

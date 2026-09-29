@@ -430,6 +430,8 @@ impl Editor {
             return b.clone();
         }
         let b = match self.doc.parse() {
+            // LaTeX: its displayed formulas, and the text between them.
+            _ if self.doc.latex().is_some() => Arc::new(kalem_core::latex_view::blocks(&self.doc)),
             Some((p, true)) => Arc::new(view::blocks(&p.syntax(), p.context())),
             _ => Arc::new(Vec::new()),
         };
@@ -2504,7 +2506,19 @@ impl Editor {
         if m.0 != version {
             let text = match self.doc.parse() {
                 Some((p, _)) => crate::math::macros(p),
-                None => String::new(),
+                // LaTeX: the document's own definitions.
+                None => match self.doc.latex() {
+                    Some(l) => {
+                        let model = l.model();
+                        let defs: Vec<String> = model
+                            .macro_definitions(self.doc.text().as_str())
+                            .into_iter()
+                            .map(str::to_string)
+                            .collect();
+                        org_math::source::macros(&defs)
+                    }
+                    None => String::new(),
+                },
             };
             *m = (version, Rc::from(text));
         }
