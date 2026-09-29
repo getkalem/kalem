@@ -490,6 +490,159 @@ pub fn indent_item(text: &str, pos: usize, root: &SyntaxNode, deeper: bool) -> O
     Some(tx.select(Selection::caret(caret)))
 }
 
+/// Whether `pos` is in math (a formula or a math environment's body).
+fn in_math(root: &SyntaxNode, pos: usize) -> bool {
+    root.token_at_offset(TextSize::from(pos as u32))
+        .left_biased()
+        .is_some_and(|t| {
+            t.parent_ancestors().any(|a| {
+                matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
+                    || (a.kind() == K::BODY
+                        && a.parent()
+                            .and_then(|e| latex_syntax::name(&e))
+                            .is_some_and(|n| latex_syntax::signatures::is_math(&n)))
+            })
+        })
+}
+
+/// What typing `typed` at the cursor does in math (T2.7h.16): `$` pairs
+/// (and steps over the closing one), `\(` and `\[` get their closing
+/// pair, `\left(` its `\right)`. `None` types it as it is.
+pub fn typed(text: &str, sel: Selection, root: &SyntaxNode, typed: &str) -> Option<Transaction> {
+    if sel.anchor != sel.head {
+        return None;
+    }
+    let pos = sel.head;
+    let before = &text[..pos];
+    let escaped = before.ends_with('\\') && !before.ends_with("\\\\");
+    let insert = |s: &str, caret: usize| {
+        let mut tx = Transaction::new("Typing");
+        tx.replace(pos..pos, s).ok()?;
+        Some(tx.select(Selection::caret(pos + caret)))
+    };
+    match typed {
+        "$" if !escaped => {
+            // The closing `$` of this formula: stepped over.
+            if text[pos..].starts_with('$') && in_math(root, pos) {
+                let mut tx = Transaction::new("Typing");
+                tx.replace(pos..pos, "").ok()?;
+                return Some(tx.select(Selection::caret(pos + 1)));
+            }
+            if in_math(root, pos) {
+                return None;
+            }
+            insert("$$", 1)
+        }
+        "(" if escaped => insert("(\\)", 1),
+        "[" if escaped => insert("[\\]", 1),
+        "(" | "[" | "." | "|" if before.ends_with("\\left") => {
+            let close = match typed {
+                "(" => ")",
+                "[" => "]",
+                c => c,
+            };
+            insert(&format!("{typed} \\right{close}"), 1)
+        }
+        "{" if before.ends_with("\\left\\") => insert("{ \\right\\}", 1),
+        _ => None,
+    }
+}
+
+/// In math, the next empty `{}` after the cursor on its line (Tab's stop
+/// in `\frac{}{}`, `\sqrt{}`, `\sum_{}^{}`).
+pub fn next_stop(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transaction> {
+    if !in_math(root, pos) {
+        return None;
+    }
+    let lr = line_range(text, pos);
+    // Past the brace the cursor is in.
+    let from = if text[pos..].starts_with('}') {
+        pos + 1
+    } else {
+        pos
+    };
+    let at = text[from..lr.end].find("{}")?;
+    let mut tx = Transaction::new("Next Field");
+    tx.replace(pos..pos, "").ok()?;
+    Some(tx.select(Selection::caret(from + at + 1)))
+}
+
+/// Inline math at the cursor displayed (`$x$` to `\[x\]`), or displayed
+/// math inline.
+pub fn toggle_display(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transaction> {
+    let t = root
+        .token_at_offset(TextSize::from(pos as u32))
+        .left_biased()?;
+    let m = t
+        .parent_ancestors()
+        .find(|a| matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH))?;
+    let r = span(&m);
+    let src = &text[r.clone()];
+    let body = latex_syntax_body(src)?;
+    let new = if m.kind() == K::INLINE_MATH {
+        format!("\\[ {} \\]", body.trim())
+    } else {
+        format!("${}$", body.trim())
+    };
+    let mut tx = Transaction::new("Display Math");
+    tx.replace(r.clone(), new.clone()).ok()?;
+    Some(tx.select(Selection::caret(r.start + new.len().min(pos - r.start + 1))))
+}
+
+fn latex_syntax_body(src: &str) -> Option<&str> {
+    for (a, b) in [("$$", "$$"), ("\\[", "\\]"), ("\\(", "\\)"), ("$", "$")] {
+        if let Some(inner) = src.strip_prefix(a).and_then(|s| s.strip_suffix(b)) {
+            return Some(inner);
+        }
+    }
+    None
+}
+
+/// The math environment at the cursor numbered or not: its name with a
+/// star or without, at both ends.
+pub fn toggle_numbering(pos: usize, root: &SyntaxNode) -> Option<Transaction> {
+    let t = root
+        .token_at_offset(TextSize::from(pos as u32))
+        .left_biased()?;
+    let env = t.parent_ancestors().find(|a| {
+        a.kind() == K::ENVIRONMENT
+            && latex_syntax::name(a).is_some_and(|n| {
+                matches!(
+                    n.trim_end_matches('*'),
+                    "equation"
+                        | "align"
+                        | "gather"
+                        | "multline"
+                        | "flalign"
+                        | "alignat"
+                        | "eqnarray"
+                )
+            })
+    })?;
+    let mut tx = Transaction::new("Numbering");
+    for n in env
+        .descendants_with_tokens()
+        .filter_map(|e| e.into_token())
+        .filter(|t| t.kind() == K::ENV_NAME)
+    {
+        if n.parent_ancestors()
+            .find(|a| a.kind() == K::ENVIRONMENT)
+            .as_ref()
+            != Some(&env)
+        {
+            continue;
+        }
+        let r = usize::from(n.text_range().start())..usize::from(n.text_range().end());
+        let name = n.text();
+        let new = match name.strip_suffix('*') {
+            Some(base) => base.to_string(),
+            None => format!("{name}*"),
+        };
+        tx.replace(r, new).ok()?;
+    }
+    Some(tx)
+}
+
 trait Around {
     /// The list environment around this one, if any.
     fn parent_ancestors_list(&self) -> Option<(SyntaxNode, String)>;
@@ -590,6 +743,37 @@ mod tests {
             s,
             "\\documentclass{article}\nIntro\n\\section{B}\nb\n\\section{A}\na\n\\subsection{A1}\n"
         );
+    }
+
+    #[test]
+    fn math_editing() {
+        let t = "Let x";
+        let r = root(t);
+        let tx = typed(t, Selection::caret(4), &r, "$").unwrap();
+        let (s, c) = apply(t, &tx);
+        assert_eq!((s.as_str(), c), ("Let $$x", 5));
+        // In the formula, `$` steps over the closing one.
+        let s = "Let $a$ x";
+        let tx = typed(s, Selection::caret(6), &root(s), "$").unwrap();
+        assert_eq!(apply(s, &tx), (s.to_string(), 7));
+        assert!(typed("a \\", Selection::caret(3), &root("a \\"), "$").is_none());
+        let s = "a \\";
+        let tx = typed(s, Selection::caret(3), &root(s), "(").unwrap();
+        assert_eq!(apply(s, &tx).0, "a \\(\\)");
+        let s = "$\\left$";
+        let tx = typed(s, Selection::caret(6), &root(s), "(").unwrap();
+        assert_eq!(apply(s, &tx).0, "$\\left( \\right)$");
+        // Tab stops.
+        let s = "$\\frac{a}{}$";
+        let tx = next_stop(s, 7, &root(s)).unwrap();
+        assert_eq!(apply(s, &tx).1, 10);
+        // Inline and displayed.
+        let s = "x $a+b$ y";
+        let tx = toggle_display(s, 4, &root(s)).unwrap();
+        assert_eq!(apply(s, &tx).0, "x \\[ a+b \\] y");
+        let s = "\\begin{equation}\na\n\\end{equation}";
+        let tx = toggle_numbering(17, &root(s)).unwrap();
+        assert_eq!(apply(s, &tx).0, "\\begin{equation*}\na\n\\end{equation*}");
     }
 
     #[test]

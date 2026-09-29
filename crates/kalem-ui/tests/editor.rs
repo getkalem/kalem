@@ -2445,3 +2445,27 @@ fn latex_completion(cx: &mut TestAppContext) {
         text_of(&e, cx)
     );
 }
+
+#[gpui::test]
+fn latex_math_and_inserts(cx: &mut TestAppContext) {
+    let text = "Let \n";
+    let (e, cx) = open_named(text, "m.tex", || None, cx);
+    at(&e, 4, cx);
+    cx.simulate_input("$\\frac");
+    assert_eq!(text_of(&e, cx), "Let $\\frac$\n");
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("latex.insert.equation", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    assert!(text_of(&e, cx).contains("\\begin{equation}\n  \n  \\label{eq:}\n\\end{equation}\n"));
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "latex.math.toggleNumbering",
+            serde_json::Value::Null,
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    assert!(text_of(&e, cx).contains("\\begin{equation*}"));
+}

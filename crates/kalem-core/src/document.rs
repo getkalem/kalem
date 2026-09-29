@@ -884,8 +884,18 @@ impl DocumentState {
             self.insert_text(text, now);
             return;
         }
-        // LaTeX: `\begin{name}` typed gets its `\end{name}`.
-        if self.latex.is_some() {
+        // LaTeX: `\begin{name}` typed gets its `\end{name}`; `$`, `\(`,
+        // `\[` and `\left(` their closing pairs.
+        if let Some(l) = &self.latex {
+            if let Some(tx) = crate::latex_edit::typed(
+                self.text.as_str(),
+                self.selection,
+                &l.parse().syntax(),
+                text,
+            ) {
+                self.apply(&tx, ChangeKind::Typing, now);
+                return;
+            }
             self.insert_text(text, now);
             if text == "}"
                 && let Some(l) = &self.latex
