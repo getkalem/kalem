@@ -701,3 +701,5 @@ cmd-latex-export-markdown = Markdown Olarak Dışa Aktar (pandoc)
 cmd-latex-export-docx = Word Olarak Dışa Aktar (pandoc)
 cmd-latex-convertToOrg = Org'a Dönüştür (pandoc)
 msg-latex-converted-one-way = Tek yönlü dönüştürüldü: LaTeX dosyası değişmedi ve Org dosyasındaki değişiklikler ona geri gitmez
+cmd-file-newFromTemplate = Şablondan Yeni…
+msg-unknown-template = { $name } diye bir şablon yok

@@ -2618,3 +2618,38 @@ fn latex_math_and_inserts() {
         .run_command("latex.insert.citation", serde_json::json!({"key": "knuth"}));
     assert!(t.app.doc.text().as_str().contains("\\cite{knuth}"));
 }
+
+#[test]
+fn latex_new_from_template() {
+    let mut t = with_file("notes\n", "n.org", Config::default(), (60, 10));
+    t.app.run_command(
+        "file.newFromTemplate",
+        serde_json::json!({"template": "article"}),
+    );
+    let path = t.app.doc.meta.path.clone().unwrap();
+    assert!(path.ends_with("article.tex"), "{path:?}");
+    assert_eq!(t.app.doc.meta.mode, kalem_core::DocumentMode::Latex);
+    assert!(
+        t.app
+            .doc
+            .text()
+            .as_str()
+            .starts_with("\\documentclass[11pt,a4paper]{article}")
+    );
+    // A second one does not overwrite the first.
+    t.app.run_command(
+        "file.newFromTemplate",
+        serde_json::json!({"template": "article"}),
+    );
+    assert!(
+        t.app
+            .doc
+            .meta
+            .path
+            .clone()
+            .unwrap()
+            .ends_with("article-2.tex")
+    );
+    let _ = std::fs::remove_file(path.with_file_name("article-2.tex"));
+    let _ = std::fs::remove_file(path);
+}

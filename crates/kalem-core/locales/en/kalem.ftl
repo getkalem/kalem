@@ -754,3 +754,5 @@ cmd-latex-export-markdown = Export as Markdown (pandoc)
 cmd-latex-export-docx = Export as Word (pandoc)
 cmd-latex-convertToOrg = Convert to Org (pandoc)
 msg-latex-converted-one-way = Converted one way: the LaTeX file is unchanged, and edits to the Org file do not go back to it
+cmd-file-newFromTemplate = New from Template…
+msg-unknown-template = No template { $name }

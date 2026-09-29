@@ -104,12 +104,9 @@ pub fn problems(log: &str) -> Vec<Problem> {
     let mut i = 0;
     while i < lines.len() {
         let l = lines[i];
-        // `./chapters/one.tex:12: Undefined control sequence.`
-        if let Some((file, rest)) = l.split_once(".tex:")
-            && !file.contains(' ')
-            && let Some((n, msg)) = rest.split_once(": ")
-            && let Ok(n) = n.parse::<usize>()
-        {
+        // `./chapters/one.tex:12: Undefined control sequence.`, or from a
+        // package: `/…/babel.sty:1234: Package babel Error: …`.
+        if let Some((file, n, msg)) = file_line_error(l) {
             let mut message = msg.trim().to_string();
             if let Some(f) = missing_file(&message)
                 && let Some(h) = install_hint(&f, &search)
@@ -117,7 +114,7 @@ pub fn problems(log: &str) -> Vec<Problem> {
                 message = format!("{message} {h}");
             }
             out.push(Problem {
-                file: Some(format!("{file}.tex")),
+                file: Some(file.to_string()),
                 line: Some(n),
                 message,
                 severity: Severity::Error,
@@ -174,6 +171,31 @@ pub fn problems(log: &str) -> Vec<Problem> {
         i += 1;
     }
     out
+}
+
+/// `FILE:LINE: MESSAGE`, as `-file-line-error` writes errors: the file a
+/// name with an extension and no blanks.
+fn file_line_error(l: &str) -> Option<(&str, usize, &str)> {
+    let mut from = 0;
+    while let Some(i) = l[from..].find(':') {
+        let colon = from + i;
+        let rest = &l[colon + 1..];
+        let digits = rest.len() - rest.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+        if digits > 0 && rest[digits..].starts_with(": ") {
+            let file = &l[..colon];
+            let ext = file.rsplit_once('.').map(|(_, e)| e);
+            if !file.contains(' ')
+                && ext.is_some_and(|e| {
+                    !e.is_empty() && e.len() <= 4 && e.chars().all(|c| c.is_ascii_alphanumeric())
+                })
+            {
+                let n = rest[..digits].parse().ok()?;
+                return Some((file, n, rest[digits + 2..].trim()));
+            }
+        }
+        from = colon + 1;
+    }
+    None
 }
 
 /// The file names opened and closed on a log line.

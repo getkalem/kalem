@@ -210,6 +210,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[("columns", "integer", false), ("rows", "integer", false)]),
         ),
         ("latex.insert.citation", object(&[("key", "string", false)])),
+        (
+            "file.newFromTemplate",
+            object(&[("template", "string", false), ("path", "string", false)]),
+        ),
         ("view.setMode", {
             let mut s = object(&[("mode", "string", true)]);
             s["properties"]["mode"]["enum"] = serde_json::json!(["org", "markdown", "csv", "text"]);
@@ -2536,6 +2540,64 @@ fn plain_commands() -> Vec<Command> {
             &["ctrl+n"],
             None,
             |ctx, _| request(ctx, Request::New),
+        ),
+        cmd(
+            "file.newFromTemplate",
+            "New from Template…",
+            "File",
+            &[],
+            None,
+            |ctx, args| {
+                let Some(name) = args.get("template").and_then(Value::as_str) else {
+                    let items = crate::latex_templates::TEMPLATES
+                        .iter()
+                        .map(|t| crate::palette::PaletteItem {
+                            id: crate::palette::invocation(
+                                "file.newFromTemplate",
+                                &serde_json::json!({ "template": t.name }),
+                            ),
+                            title: t.title.to_string(),
+                            category: "LaTeX".into(),
+                            keys: String::new(),
+                            also: String::new(),
+                        })
+                        .collect();
+                    return request(ctx, Request::Choose(items));
+                };
+                let t = crate::latex_templates::find(name).ok_or_else(|| {
+                    CommandError::new(crate::tr!("msg-unknown-template", name = name))
+                })?;
+                // A copy beside the document (or in the working folder).
+                let dir = match args.get("path").and_then(Value::as_str) {
+                    Some(p) => std::path::PathBuf::from(p),
+                    None => ctx
+                        .document
+                        .as_deref()
+                        .and_then(|d| d.meta.path.as_deref())
+                        .and_then(std::path::Path::parent)
+                        .map(std::path::Path::to_path_buf)
+                        .or_else(|| std::env::current_dir().ok())
+                        .unwrap_or_default(),
+                };
+                let path = if dir.extension().is_some_and(|e| e == "tex") {
+                    dir
+                } else {
+                    crate::latex_templates::free_path(&dir, t.name)
+                };
+                if path.exists() {
+                    return Err(CommandError::new(crate::tr!(
+                        "msg-import-exists",
+                        path = path.display().to_string()
+                    )));
+                }
+                std::fs::write(&path, t.text).map_err(|e| CommandError::new(e.to_string()))?;
+                request(
+                    ctx,
+                    Request::Open {
+                        path: Some(path.display().to_string()),
+                    },
+                )
+            },
         ),
         cmd(
             "file.close",
