@@ -186,9 +186,13 @@ impl Editor {
         let mut o = self.outline.take()?;
         let version = self.doc.version();
         if o.version != Some(version)
-            && let Some(m) = self.doc.model()
+            && let Some(items) = self
+                .doc
+                .model()
+                .map(|m| kalem_core::view::outline_items(&m))
+                .or_else(|| kalem_core::latex_view::outline_items(&self.doc))
         {
-            o.items = kalem_core::view::outline_items(&m);
+            o.items = items;
             o.version = Some(version);
             let starts: HashSet<usize> = o.items.iter().map(|i| i.start).collect();
             o.collapsed.retain(|s| starts.contains(s));

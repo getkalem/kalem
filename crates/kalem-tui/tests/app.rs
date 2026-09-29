@@ -2702,3 +2702,16 @@ fn latex_formulas_as_images() {
     assert!(!all.contains("E = mc^2"), "its source lines are hidden");
     assert!(all.contains("after"));
 }
+
+#[test]
+fn latex_outline() {
+    let text = "\\section{Intro}\ntext\n\\subsection{Details}\n\\section{End}\n";
+    let mut t = with_file(text, "o.tex", Config::default(), (60, 8));
+    t.at(text.len());
+    t.key(KeyCode::Char('o'), KeyModifiers::ALT);
+    let s = screen(&mut t).join("\n");
+    assert!(
+        s.contains("Intro") && s.contains("1.1") && s.contains("Details"),
+        "{s}"
+    );
+}

@@ -164,6 +164,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX mode performance: token lookups by binary search (rowan's scan a node's children), caches compared by pointer, blocks and `\iffalse` regions found through the text: a keystroke with a screen of a 1 MB paper from 163 ms to 11 ms.
 - `kalem check --unrendered` gives the share of a LaTeX document's body the editor renders rather than shows as source (the coverage metric), in text and JSON.
 - LaTeX in the terminal: math environments drawn as one image through kitty, iTerm2 or sixel graphics away from the cursor (the document's macros, LaTeX's numbers), formulas and pictures alone on their lines as images, code environments colored by their language, and the rendered text no longer colored as LaTeX syntax.
+- LaTeX outline: the outline panel lists a LaTeX document's sections with their numbers, in both editors; a document without `\documentclass` is numbered as an article.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed
