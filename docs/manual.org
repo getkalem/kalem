@@ -880,6 +880,9 @@ on its line. The errors and warnings of the last /Build PDF/ are flagged
 on their lines too. /Next Problem/ and /Previous Problem/ (Alt+F8,
 Alt+Shift+F8) go from one flagged place to the next and say what it is.
 
+Typing ="= in the text writes LaTeX's quotes, =``= to open and =''= to
+close; typed again right away, it is a plain ="= (not in documents whose
+language makes ="= a shorthand, such as German).
 Enter on a list item starts the next =\item= (on an empty one, it leaves
 the list); Tab and Shift+Tab nest an item under the one before it and
 take it out again. Typing =\begin{name}= adds =\end{name}=, and renaming

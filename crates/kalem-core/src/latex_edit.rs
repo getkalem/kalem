@@ -503,9 +503,40 @@ fn in_math(root: &SyntaxNode, pos: usize) -> bool {
     })
 }
 
-/// What typing `typed` at the cursor does in math (T2.7h.16): `$` pairs
+/// Whether `pos` is in running text where `"` means quotes: not in math,
+/// code or a comment, and not in a document whose babel language makes
+/// `"` a shorthand (German, Dutch and others).
+fn in_prose(text: &str, root: &SyntaxNode, pos: usize) -> bool {
+    if in_math(root, pos) {
+        return false;
+    }
+    let code = latex_syntax::token_before(root, pos).is_some_and(|t| {
+        t.kind() == K::COMMENT
+            || t.parent_ancestors().any(|a| {
+                a.kind() == K::VERB
+                    || (a.kind() == K::ENVIRONMENT
+                        && latex_syntax::name(&a)
+                            .is_some_and(|n| latex_syntax::signatures::is_verbatim(&n)))
+            })
+    });
+    let preamble = &text[..text
+        .find("\\begin{document}")
+        .unwrap_or(text.len().min(8192))];
+    let shorthand = preamble.lines().any(|l| {
+        l.contains("babel")
+            && [
+                "german", "dutch", "danish", "finnish", "swedish", "russian", "czech",
+            ]
+            .iter()
+            .any(|lang| l.contains(lang))
+    });
+    !code && !shorthand
+}
+
+/// What typing `typed` at the cursor does (T2.7h.15, T2.7h.16): `$` pairs
 /// (and steps over the closing one), `\(` and `\[` get their closing
-/// pair, `\left(` its `\right)`. `None` types it as it is.
+/// pair, `\left(` its `\right)`; `"` in text makes LaTeX's quotes. `None`
+/// types it as it is.
 pub fn typed(text: &str, sel: Selection, root: &SyntaxNode, typed: &str) -> Option<Transaction> {
     if sel.anchor != sel.head {
         return None;
@@ -542,6 +573,23 @@ pub fn typed(text: &str, sel: Selection, root: &SyntaxNode, typed: &str) -> Opti
             insert(&format!("{typed} \\right{close}"), 1)
         }
         "{" if before.ends_with("\\left\\") => insert("{ \\right\\}", 1),
+        // In text, `"` as LaTeX's quotes: ``` `` ``` opening, `''` closing;
+        // typed again right after, a plain `"` (as AUCTeX does).
+        "\"" if !escaped && in_prose(text, root, pos) => {
+            for q in ["``", "''"] {
+                if before.ends_with(q) {
+                    let mut tx = Transaction::new("Typing");
+                    tx.replace(pos - 2..pos, "\"").ok()?;
+                    return Some(tx.select(Selection::caret(pos - 1)));
+                }
+            }
+            let opening = before
+                .chars()
+                .next_back()
+                .is_none_or(|c| c.is_whitespace() || "([{~".contains(c));
+            let q = if opening { "``" } else { "''" };
+            insert(q, 2)
+        }
         _ => None,
     }
 }
@@ -723,6 +771,28 @@ mod tests {
 
     fn root(text: &str) -> SyntaxNode {
         latex_syntax::parse(text).syntax()
+    }
+
+    #[test]
+    fn typed_quotes() {
+        let ty = |text: &str, pos: usize| {
+            let root = latex_syntax::parse(text).syntax();
+            let tx = typed(text, Selection::caret(pos), &root, "\"")?;
+            let mut t = text.to_string();
+            for e in tx.edits.iter().rev() {
+                t.replace_range(e.range.clone(), &e.insert);
+            }
+            Some(t)
+        };
+        assert_eq!(ty("Say ", 4).as_deref(), Some("Say ``"));
+        assert_eq!(ty("Say ``hi", 8).as_deref(), Some("Say ``hi''"));
+        // Twice: a plain `"`.
+        assert_eq!(ty("Say ``", 6).as_deref(), Some("Say \""));
+        // Not in math, code, comments, or German documents.
+        assert_eq!(ty("$x$", 2), None);
+        assert_eq!(ty("\\verb|a|", 7), None);
+        assert_eq!(ty("% a", 3), None);
+        assert_eq!(ty("\\usepackage[ngerman]{babel}\nSo ", 31), None);
     }
 
     #[test]
