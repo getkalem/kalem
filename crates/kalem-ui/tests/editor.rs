@@ -1863,6 +1863,19 @@ fn file_manager_and_projects_view(cx: &mut TestAppContext) {
                 .as_str()
                 .contains("renamed/"))
     );
+    // Ctrl+Z takes the rename back, and redoes nothing more.
+    cx.simulate_keystrokes("ctrl-z");
+    cx.run_until_parked();
+    assert!(dir.join("proj/made").is_dir() && !dir.join("proj/renamed").exists());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "dired.move",
+            serde_json::json!({ "target": "renamed" }),
+            window,
+            cx,
+        );
+    });
+    settle_jobs(&ws, cx);
     e.update_in(cx, |e, window, cx| {
         e.run_command(
             "dired.deletePermanently",

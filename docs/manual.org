@@ -596,6 +596,7 @@ Commands act on the marked entries, or on the one at the cursor.
 | =C=                 | Copy                                                  |
 | =D=, Delete         | Move to the trash (asks first)                        |
 | =S=, =M=, =T=       | Symbolic link, permissions, touch                     |
+| Ctrl+Z              | Undo the last rename, move or move to the trash       |
 | =w=                 | Copy the names                                        |
 | =q=                 | Close the file manager                                |
 
@@ -603,7 +604,9 @@ Commands act on the marked entries, or on the one at the cursor.
 Operations/ are in the palette. Copying and moving run in the background,
 with their progress in the status bar. When a file is already at the
 destination, Kalem asks: overwrite, skip, or keep both (the new one becomes
-=name (2).ext=), for that file or for all that are left.
+=name (2).ext=), for that file or for all that are left. Ctrl+Z takes
+back the renames, moves and moves to the trash done in this session, the
+last first; it refuses when a file has been put in the way.
 
 With Vim keys the file manager's keys come first, except =n=, =p=, =w= and
 Backspace, which Vim keeps; =g r= reads the folder again, =g g= goes to the

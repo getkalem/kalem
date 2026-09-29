@@ -505,6 +505,7 @@ cmd-dired-delete = Move to Trash
 cmd-dired-deletePermanently = Delete for Good
 cmd-dired-copy = Copy To
 cmd-dired-move = Rename or Move To
+cmd-dired-undo = Undo File Operation
 cmd-dired-mkdir = New Folder
 cmd-dired-newFile = New File
 cmd-dired-symlink = Symbolic Link
@@ -566,6 +567,16 @@ fm-trashed = { $count ->
     [one] Moved 1 item to the trash
    *[other] Moved { $count } items to the trash
 }
+fm-undone-moved = { $count ->
+    [one] Moved 1 item back
+   *[other] Moved { $count } items back
+}
+fm-undone-trashed = { $count ->
+    [one] Brought 1 item back from the trash
+   *[other] Brought { $count } items back from the trash
+}
+fm-nothing-to-undo = No file operation to undo
+fm-undo-blocked = Cannot undo: { $name } is in the way or gone
 fm-deleted = { $count ->
     [one] Deleted 1 item
    *[other] Deleted { $count } items

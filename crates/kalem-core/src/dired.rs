@@ -855,6 +855,7 @@ impl Running {
     /// whether it is an error.
     pub fn poll(&mut self) -> Option<(kalem_fs::Outcome, String, bool)> {
         let out = self.job.take_outcome()?;
+        record(self.kind, &out);
         let msg = outcome_message(self.kind, &out);
         let error = !out.errors.is_empty();
         Some((out, msg, error))
@@ -867,8 +868,98 @@ impl Running {
 
     /// Waits for the end (tests).
     pub fn wait(self) -> kalem_fs::Outcome {
-        self.job.wait()
+        let out = self.job.wait();
+        record(self.kind, &out);
+        out
     }
+}
+
+/// A file operation that can be taken back (T2.7e.7).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Undo {
+    /// Renamed or moved: each item's old path and new one.
+    Moved(Vec<(PathBuf, PathBuf)>),
+    /// Moved to the trash, from these paths.
+    Trashed(Vec<PathBuf>),
+}
+
+thread_local! {
+    /// The file operations done from this thread (the frontend's), the
+    /// last at the end.
+    static HISTORY: std::cell::RefCell<Vec<Undo>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Remembers what an operation did, to undo it later.
+fn record(kind: kalem_fs::OpKind, out: &kalem_fs::Outcome) {
+    let undo = match kind {
+        kalem_fs::OpKind::Move => Undo::Moved(
+            out.done
+                .iter()
+                .filter_map(|(s, d)| Some((s.clone(), d.clone()?)))
+                .collect(),
+        ),
+        kalem_fs::OpKind::Trash => Undo::Trashed(out.done.iter().map(|(s, _)| s.clone()).collect()),
+        _ => return,
+    };
+    if matches!(&undo, Undo::Moved(v) if v.is_empty())
+        || matches!(&undo, Undo::Trashed(v) if v.is_empty())
+    {
+        return;
+    }
+    HISTORY.with(|h| {
+        let mut h = h.borrow_mut();
+        h.push(undo);
+        if h.len() > 100 {
+            h.remove(0);
+        }
+    });
+}
+
+fn name_of(p: &Path) -> String {
+    p.file_name().map_or_else(
+        || p.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    )
+}
+
+/// Takes back the last rename, move or trashing: the paths back in place
+/// and the message, or why it cannot (the operation is kept then).
+pub fn undo_last() -> Result<(Vec<PathBuf>, String), String> {
+    let undo = HISTORY
+        .with(|h| h.borrow_mut().pop())
+        .ok_or_else(|| tr("fm-nothing-to-undo"))?;
+    let result = match &undo {
+        Undo::Moved(items) => {
+            // Everything checked before anything moves.
+            if let Some((from, _)) = items.iter().find(|(from, to)| {
+                std::fs::symlink_metadata(from).is_ok() || std::fs::symlink_metadata(to).is_err()
+            }) {
+                Err(crate::tr!("fm-undo-blocked", name = name_of(from)))
+            } else {
+                items
+                    .iter()
+                    .rev()
+                    .try_for_each(|(from, to)| kalem_fs::move_path(to, from))
+                    .map_err(|e| e.to_string())
+                    .map(|()| {
+                        (
+                            items.iter().map(|(from, _)| from.clone()).collect(),
+                            crate::tr!("fm-undone-moved", count = items.len()),
+                        )
+                    })
+            }
+        }
+        Undo::Trashed(paths) => kalem_fs::restore(paths).map(|()| {
+            (
+                paths.clone(),
+                crate::tr!("fm-undone-trashed", count = paths.len()),
+            )
+        }),
+    };
+    if result.is_err() {
+        HISTORY.with(|h| h.borrow_mut().push(undo));
+    }
+    result
 }
 
 /// The message for what an operation did.
@@ -1632,6 +1723,19 @@ pub(crate) fn commands() -> Vec<Command> {
             |ctx, args| transfer(ctx, args, OpKind::Move),
         ),
         cmd(
+            "dired.undo",
+            "Undo File Operation",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let (paths, msg) = undo_last().map_err(CommandError::new)?;
+                changed(doc, paths.first().map(PathBuf::as_path));
+                ctx.messages.push(msg);
+                Ok(())
+            },
+        ),
+        cmd(
             "dired.mkdir",
             "New Folder",
             &[],
@@ -2003,6 +2107,40 @@ mod tests {
         goto(&mut doc, "sub/");
         run(&mut doc, "dired.open", json!({})).0.unwrap();
         assert!(state(&doc).subdirs.is_empty());
+    }
+
+    #[test]
+    fn undo_renames_and_moves() {
+        let d = tree("undo", &["a.txt", "dir/"]);
+        let mut doc = DocumentState::open(
+            &d,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        let mv = |from: PathBuf, to: PathBuf| {
+            let op = crate::command::FileOp {
+                kind: kalem_fs::OpKind::Move,
+                sources: vec![from],
+                target: Some(to),
+            };
+            Task::new(&op).unwrap().start().wait();
+        };
+        mv(d.join("a.txt"), d.join("b.txt"));
+        mv(d.join("b.txt"), d.join("dir"));
+        assert!(d.join("dir/b.txt").exists());
+        doc.refresh_listing();
+        run(&mut doc, "dired.undo", json!({})).0.unwrap();
+        assert!(d.join("b.txt").exists() && !d.join("dir/b.txt").exists());
+        assert!(line(&doc).ends_with("b.txt"), "{}", line(&doc));
+        // Not over a file put in the way; the operation stays to undo.
+        std::fs::write(d.join("a.txt"), "").unwrap();
+        assert!(run(&mut doc, "dired.undo", json!({})).0.is_err());
+        std::fs::remove_file(d.join("a.txt")).unwrap();
+        run(&mut doc, "dired.undo", json!({})).0.unwrap();
+        assert!(d.join("a.txt").exists() && !d.join("b.txt").exists());
+        assert!(run(&mut doc, "dired.undo", json!({})).0.is_err());
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]
