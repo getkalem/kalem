@@ -2469,3 +2469,29 @@ fn latex_math_and_inserts(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert!(text_of(&e, cx).contains("\\begin{equation*}"));
 }
+
+#[gpui::test]
+fn latex_new_from_template(cx: &mut TestAppContext) {
+    let (e, cx) = open_named("notes\n", "n.org", || None, cx);
+    let dir = e.read_with(cx, |e, _| {
+        e.doc
+            .meta
+            .path
+            .clone()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    });
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "file.newFromTemplate",
+            serde_json::json!({"template": "beamer"}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let written = std::fs::read_to_string(dir.join("beamer.tex")).unwrap();
+    assert!(written.starts_with("\\documentclass{beamer}"));
+}

@@ -16,7 +16,11 @@ fn exports_and_converts() {
     std::fs::create_dir_all(&dir).unwrap();
     let tex = dir.join("paper.tex");
     std::fs::write(&tex, "\\documentclass{article}\\begin{document}\\section{Intro}Hello $x^2$ \\emph{world}.\\end{document}\n").unwrap();
-    for (to, ext, want) in [("html5", "html", "<math"), ("markdown", "md", "# Intro"), ("docx", "docx", "")] {
+    for (to, ext, want) in [
+        ("html5", "html", "<math"),
+        ("markdown", "md", "# Intro"),
+        ("docx", "docx", ""),
+    ] {
         let out = dir.join(format!("paper.{ext}"));
         kalem_core::pandoc::export_latex(&pandoc, &tex, to, &out).unwrap();
         let bytes = std::fs::read(&out).unwrap();
@@ -27,7 +31,9 @@ fn exports_and_converts() {
     }
     // Convert to Org, from the LaTeX mode.
     let base = kalem_core::Config::default().parse_base();
-    let mut doc = kalem_core::DocumentState::open(&tex, Arc::new(org_model::Settings::default()), &base).unwrap();
+    let mut doc =
+        kalem_core::DocumentState::open(&tex, Arc::new(org_model::Settings::default()), &base)
+            .unwrap();
     assert_eq!(doc.meta.mode, kalem_core::DocumentMode::Latex);
     let reg = kalem_core::CommandRegistry::with_builtins();
     let mut clip = kalem_core::command::Clipboard::default();
@@ -41,7 +47,8 @@ fn exports_and_converts() {
         messages: Vec::new(),
         requests: Vec::new(),
     };
-    reg.execute("latex.convertToOrg", &mut ctx, &serde_json::Value::Null).unwrap();
+    reg.execute("latex.convertToOrg", &mut ctx, &serde_json::Value::Null)
+        .unwrap();
     let org = std::fs::read_to_string(dir.join("paper.org")).unwrap();
     assert!(org.contains("* Intro") && org.contains("/world/"), "{org}");
     let _ = std::fs::remove_dir_all(&dir);

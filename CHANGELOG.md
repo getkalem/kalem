@@ -159,6 +159,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX math editing and inserts: `$` paired and stepped over, `\(`, `\[` and `\left(` closed, Tab to the next empty argument in math, Display Math and Number Equation; Insert Figure, Insert Table (booktabs when loaded), Insert Equation and Insert Citation (picker over the bibliography), in both editors.
 - `kalem fmt FILE.tex [--check] [--align]`: environments indented by depth with the document's own step (documents that do not indent are left), runs of blank lines made one, trailing blanks removed, verbatim untouched, `&` of tables and alignments lined up with `--align`; idempotent.
 - LaTeX through pandoc: Export as HTML (formulas as MathML), Markdown and Word, citations resolved when the document names a bibliography, and a one-way Convert to Org; fuzz targets for the LaTeX parser and its incremental reparse in CI.
+- New from Template…: article, report, book, beamer, letter, CV, thesis and a Turkish thesis in the YÖK layout, written beside the current document and opened (each template compiled in the tests); LaTeX log errors raised inside packages (`file.sty:N:`) now reported.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed
