@@ -351,6 +351,60 @@ fn check_latex(
     Ok((ok, None))
 }
 
+/// `kalem latex build`.
+pub(crate) fn latex_build(
+    file: &Path,
+    json: bool,
+    engine: Option<&str>,
+    outdir: Option<&Path>,
+) -> Result<ExitCode> {
+    use kalem_core::latex_build::{self, Severity};
+    let text = read(file)?;
+    let file = std::path::absolute(file).map_err(|e| e.to_string())?;
+    let disk = latex_model::project::Disk;
+    let root = latex_model::project::find_root(&file, &text, &disk, None, None);
+    let project = latex_model::project::ProjectCache::default().load(&root, &disk);
+    let root_text = std::fs::read_to_string(&root).map_err(|e| e.to_string())?;
+    let engine = latex_build::engine(&root_text, &project.model, engine.unwrap_or("auto"));
+    let built = latex_build::build(&root, engine, outdir)?;
+    let failed =
+        built.problems.iter().any(|p| p.severity == Severity::Error) || built.pdf.is_none();
+    let mut out = std::io::stdout().lock();
+    if json {
+        let problems: Vec<serde_json::Value> = built
+            .problems
+            .iter()
+            .map(|p| {
+                serde_json::json!({
+                    "file": p.file,
+                    "line": p.line,
+                    "severity": format!("{:?}", p.severity).to_lowercase(),
+                    "message": p.message,
+                })
+            })
+            .collect();
+        let v = serde_json::json!({
+            "root": root.display().to_string(),
+            "pdf": built.pdf.as_ref().map(|p| p.display().to_string()),
+            "problems": problems,
+        });
+        writeln!(out, "{v}").map_err(|e| e.to_string())?;
+    } else {
+        let report = latex_build::report(&root, &built.problems);
+        if !report.is_empty() {
+            writeln!(out, "{report}").map_err(|e| e.to_string())?;
+        }
+        if let Some(pdf) = &built.pdf {
+            writeln!(out, "{}", pdf.display()).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(if failed {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    })
+}
+
 pub(crate) fn dump(file: &Path) -> Result<ExitCode> {
     let text = read(file)?;
     let ctx = org_syntax::ParseContext::for_file(&text, file, &org_syntax::ParseContext::default());

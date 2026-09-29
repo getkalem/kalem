@@ -2496,3 +2496,18 @@ fn latex_theorems_and_code() {
         assert!(s.iter().any(|l| l.contains(want)), "{want}: {s:#?}");
     }
 }
+
+#[test]
+fn latex_build_command() {
+    // Without a file there is nothing to build (a real build is
+    // `kalem-core`'s and the command line's test).
+    let mut t = with_file(
+        "\\documentclass{article}\n",
+        "b.tex",
+        Config::default(),
+        (70, 8),
+    );
+    t.app.doc.meta.path = None;
+    t.key(KeyCode::F(5), KeyModifiers::NONE);
+    assert!(status(&mut t).contains("Save"), "{}", status(&mut t));
+}

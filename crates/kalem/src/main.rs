@@ -19,6 +19,7 @@ const SUBCOMMANDS: &[&str] = &[
     "import",
     "query",
     "table",
+    "latex",
     "dump",
     "diff-emacs",
     "help",

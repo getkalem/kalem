@@ -597,6 +597,17 @@ pub(crate) fn commands() -> Vec<Command> {
     let mut all = plain_commands();
     all.extend(crate::dired::commands());
     all.extend(csv_commands());
+    all.push(scoped(
+        cmd(
+            "latex.build",
+            "Build PDF",
+            "LaTeX",
+            &["f5"],
+            None,
+            |ctx, _| latex_build(ctx),
+        ),
+        crate::command::Scope::only(&["latex"]),
+    ));
     for c in &mut all {
         c.args_schema = schemas
             .iter()
@@ -1019,6 +1030,99 @@ fn csv_edit(
             d.selection = org_edit::Selection::caret(at);
         }
     }
+    Ok(())
+}
+
+/// Builds the PDF of the LaTeX document in the background: its project's
+/// root document, with the engine and output folder the document and the
+/// settings ask for (T2.7h.22).
+fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let doc = ctx
+        .document
+        .as_deref()
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-no-document")))?;
+    let Some(path) = doc.meta.path.clone() else {
+        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+    };
+    let path = std::path::absolute(&path).unwrap_or(path);
+    let text = doc.text().as_str().to_string();
+    let disk = latex_model::project::Disk;
+    let root = latex_model::project::find_root(&path, &text, &disk, None, None);
+    let project = latex_model::project::ProjectCache::default().load(&root, &disk);
+    let root_text = if root == path {
+        text
+    } else {
+        std::fs::read_to_string(&root).unwrap_or_default()
+    };
+    let engine = crate::latex_build::engine(
+        &root_text,
+        &project.model,
+        ctx.config.str("latex.engine").trim(),
+    );
+    let out = ctx.config.str("latex.output_directory").trim().to_string();
+    let open_after = ctx.config.bool("export.open_after");
+    let status = crate::l10n::tr("msg-compiling-pdf");
+    ctx.messages.push(status.clone());
+    crate::jobs::spawn(status, move || {
+        let out_dir = (!out.is_empty()).then(|| std::path::PathBuf::from(&out));
+        match crate::latex_build::build(&root, engine, out_dir.as_deref()) {
+            Err(e) => crate::jobs::Finished {
+                message: crate::tr!("msg-pdf-failed", error = e),
+                error: true,
+                open: None,
+            },
+            Ok(b) => {
+                use crate::latex_build::Severity;
+                let errors: Vec<_> = b
+                    .problems
+                    .iter()
+                    .filter(|p| p.severity == Severity::Error)
+                    .collect();
+                let warnings = b
+                    .problems
+                    .iter()
+                    .filter(|p| p.severity == Severity::Warning)
+                    .count();
+                if let Some(first) = errors.first() {
+                    let file = first
+                        .file
+                        .clone()
+                        .unwrap_or_else(|| root.display().to_string());
+                    let place = match first.line {
+                        Some(n) => format!("{file}:{n}"),
+                        None => file,
+                    };
+                    crate::jobs::Finished {
+                        message: crate::tr!(
+                            "msg-pdf-error",
+                            place = place,
+                            error = first.message.clone(),
+                            count = errors.len() - 1
+                        ),
+                        error: true,
+                        open: None,
+                    }
+                } else {
+                    match b.pdf {
+                        Some(pdf) => crate::jobs::Finished {
+                            message: crate::tr!(
+                                "msg-latex-built",
+                                path = pdf.display().to_string(),
+                                count = warnings
+                            ),
+                            error: false,
+                            open: open_after.then(|| crate::input::LinkAction::Url(file_url(&pdf))),
+                        },
+                        None => crate::jobs::Finished {
+                            message: crate::tr!("msg-pdf-failed", error = "no PDF".to_string()),
+                            error: true,
+                            open: None,
+                        },
+                    }
+                }
+            }
+        }
+    });
     Ok(())
 }
 

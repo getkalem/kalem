@@ -194,6 +194,24 @@ pub const SPECS: &[Spec] = &[
         description: "Open an exported file with the system's application",
     },
     Spec {
+        key: "latex.engine",
+        kind: Kind::Str,
+        default: r#""auto""#,
+        description: "The TeX engine for LaTeX documents: auto (from % !TEX program and the packages), pdflatex, xelatex, lualatex or tectonic",
+    },
+    Spec {
+        key: "latex.build_on_save",
+        kind: Kind::Bool,
+        default: "false",
+        description: "Build the PDF of a LaTeX document each time it is saved",
+    },
+    Spec {
+        key: "latex.output_directory",
+        kind: Kind::Str,
+        default: r#""""#,
+        description: "Where LaTeX builds go, relative to the root document (empty: beside it)",
+    },
+    Spec {
         key: "org.footnote_section",
         kind: Kind::Str,
         default: r#""Footnotes""#,

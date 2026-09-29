@@ -2392,3 +2392,12 @@ fn latex_theorems_and_code(cx: &mut TestAppContext) {
     assert_eq!(colored, Some(true));
     assert!(e.read_with(cx, |e, _| e.line_view(5).mono));
 }
+
+#[gpui::test]
+fn latex_build_command(cx: &mut TestAppContext) {
+    let (e, cx) = open_named("\\documentclass{article}\n", "b.tex", || None, cx);
+    e.update(cx, |e, _| e.doc.meta.path = None);
+    cx.simulate_keystrokes("f5");
+    let status = e.read_with(cx, |e, _| e.status.clone().map(|s| s.0).unwrap_or_default());
+    assert!(status.contains("Save"), "{status}");
+}

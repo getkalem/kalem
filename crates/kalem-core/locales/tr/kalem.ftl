@@ -667,3 +667,11 @@ latex-double-dollar = $$…$$ düz TeX'tir; \[…\] kullanın
 latex-tie = Göndermeden ve atıftan önce ~ kullanın, önünde satır kırılmasın
 latex-ellipsis = Üç nokta için \ldots kullanın
 latex-quotes = Tırnak için `` ve '' kullanın
+latex-install-texlive = Kurmak için: tlmgr install { $package }
+latex-install-miktex = MiKTeX Console ile ya da şununla kurun: mpm --install={ $package }
+cmd-latex-build = PDF Oluştur
+category-latex = LaTeX
+msg-latex-built = Oluşturuldu: { $path }{ $count ->
+    [0] {""}
+   *[other] {" "}({ $count } LaTeX uyarısı)
+}
