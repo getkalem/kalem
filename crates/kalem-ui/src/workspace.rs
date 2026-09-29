@@ -1784,6 +1784,7 @@ pub fn menus() -> Vec<Menu> {
                 item("export.markdownSubtree"),
                 // LaTeX: the PDF, and the project through pandoc.
                 item("latex.build"),
+                item("latex.cancelBuild"),
                 item("latex.export.html"),
                 item("latex.export.markdown"),
                 item("latex.export.docx"),

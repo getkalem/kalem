@@ -8,6 +8,8 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::pdf::{self, Engine, Tool};
 
@@ -361,23 +363,69 @@ fn build_command(tool: &Tool, engine: Engine, root: &Path, out_dir: Option<&Path
     cmd
 }
 
+/// The flag of the build that runs, which [`cancel`] raises.
+static CURRENT: std::sync::Mutex<Option<Arc<AtomicBool>>> = std::sync::Mutex::new(None);
+
+/// Stops the build that runs, if one does (Cancel Build); `false` when
+/// none does.
+pub fn cancel() -> bool {
+    match CURRENT.lock().ok().and_then(|c| c.clone()) {
+        Some(flag) => {
+            flag.store(true, Ordering::SeqCst);
+            true
+        }
+        None => false,
+    }
+}
+
+/// Runs `cmd` to its end, or kills it when `cancelled` is raised.
+fn run_to_end(cmd: &mut Command, cancelled: &AtomicBool) -> Result<(), String> {
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    loop {
+        if cancelled.load(Ordering::SeqCst) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(crate::l10n::tr("msg-build-cancelled"));
+        }
+        match child.try_wait() {
+            Ok(Some(_)) => return Ok(()),
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(20)),
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+}
+
 /// Builds the root document `root` with `engine`, the output in
 /// `out_dir` (relative to the root's folder) when given. Without
 /// `latexmk` the engine runs, then `biber` or `bibtex` if the document
-/// has a bibliography, then the engine twice more.
+/// has a bibliography, then the engine twice more. [`cancel`] stops it.
 pub fn build(root: &Path, engine: Engine, out_dir: Option<&Path>) -> Result<Built, String> {
+    let flag = Arc::new(AtomicBool::new(false));
+    if let Ok(mut c) = CURRENT.lock() {
+        *c = Some(flag.clone());
+    }
+    let out = build_inner(root, engine, out_dir, &flag);
+    if let Ok(mut c) = CURRENT.lock()
+        && c.as_ref().is_some_and(|f| Arc::ptr_eq(f, &flag))
+    {
+        *c = None;
+    }
+    out
+}
+
+fn build_inner(
+    root: &Path,
+    engine: Engine,
+    out_dir: Option<&Path>,
+    cancelled: &AtomicBool,
+) -> Result<Built, String> {
     let search = std::env::var_os("PATH").unwrap_or_default();
     let tool = pdf::detect(engine, &search).ok_or_else(|| crate::l10n::tr("msg-no-latex"))?;
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     if let Some(d) = out_dir {
         std::fs::create_dir_all(dir.join(d)).map_err(|e| e.to_string())?;
     }
-    let run = || {
-        build_command(&tool, engine, root, out_dir)
-            .status()
-            .map(|_| ())
-            .map_err(|e| e.to_string())
-    };
+    let run = || run_to_end(&mut build_command(&tool, engine, root, out_dir), cancelled);
     run()?;
     let out = out_dir.map_or(dir.clone(), |d| dir.join(d));
     let stem = root.file_stem().map(PathBuf::from).unwrap_or_default();
@@ -405,13 +453,15 @@ pub fn build(root: &Path, engine: Engine, out_dir: Option<&Path>) -> Result<Buil
                 .ok()
                 .and_then(|j| pdf::find(b, &j))
             {
-                let _ = Command::new(p)
-                    .arg(&stem)
-                    .current_dir(&out)
-                    .stdin(std::process::Stdio::null())
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status();
+                run_to_end(
+                    Command::new(p)
+                        .arg(&stem)
+                        .current_dir(&out)
+                        .stdin(std::process::Stdio::null())
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null()),
+                    cancelled,
+                )?;
                 again = 2;
             }
         }
@@ -452,6 +502,22 @@ pub fn report(root: &Path, problems: &[Problem]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn cancelling_stops_the_program() {
+        let flag = Arc::new(AtomicBool::new(false));
+        let raise = flag.clone();
+        let t = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            raise.store(true, Ordering::SeqCst);
+        });
+        let started = std::time::Instant::now();
+        let r = run_to_end(Command::new("sleep").arg("10"), &flag);
+        t.join().unwrap();
+        assert_eq!(r, Err(crate::l10n::tr("msg-build-cancelled")));
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    }
 
     #[test]
     fn engines() {
