@@ -28,7 +28,12 @@ pub struct LatexState {
     parse: latex_syntax::Parse,
     models: RefCell<latex_model::Cache>,
     titles: RefCell<Option<(latex_syntax::GreenNode, Titles)>>,
+    /// The labels of the items of each list, by its green node.
+    lists: RefCell<std::collections::HashMap<usize, (latex_syntax::GreenNode, Arc<Items>)>>,
 }
+
+/// Where each `\item` of a list starts and what it shows.
+type Items = Vec<(usize, String)>;
 
 impl LatexState {
     /// The state of `text`.
@@ -37,6 +42,7 @@ impl LatexState {
             parse: latex_syntax::parse(text),
             models: RefCell::new(latex_model::Cache::default()),
             titles: RefCell::new(None),
+            lists: RefCell::new(std::collections::HashMap::new()),
         }
     }
 
@@ -63,6 +69,22 @@ impl LatexState {
     /// The document model (numbers, labels, citations, definitions).
     pub fn model(&self) -> Arc<latex_model::Model> {
         self.models.borrow_mut().model(&self.parse)
+    }
+
+    /// The labels of the items of list environment `env`.
+    fn items(&self, env: &SyntaxNode) -> Arc<Items> {
+        let green = env.green();
+        let key = std::ptr::from_ref(green).cast::<()>() as usize;
+        let mut lists = self.lists.borrow_mut();
+        if let Some((_, v)) = lists.get(&key) {
+            return v.clone();
+        }
+        let v = Arc::new(list_items(env));
+        if lists.len() > 4096 {
+            lists.clear();
+        }
+        lists.insert(key, (green.to_owned(), v.clone()));
+        v
     }
 
     /// `\title`, `\author` and `\date`, as written.
@@ -98,6 +120,158 @@ impl LatexState {
         *t = Some((self.parse.green().clone(), v.clone()));
         v
     }
+}
+
+fn is_list(name: &str) -> bool {
+    matches!(name, "itemize" | "enumerate" | "description")
+}
+
+/// The list environments around `n`, innermost first.
+fn lists_around(n: &SyntaxNode) -> Vec<(SyntaxNode, String)> {
+    n.ancestors()
+        .filter(|a| a.kind() == K::ENVIRONMENT)
+        .filter_map(|a| {
+            let name = latex_syntax::name(&a)?;
+            is_list(&name).then_some((a, name))
+        })
+        .collect()
+}
+
+/// An `enumerate` label in LaTeX's default styles by depth (`1.`, `(a)`,
+/// `i.`, `A.`), or as `label=` of enumitem gives it.
+fn enum_label(n: i64, depth: usize, pattern: Option<&str>) -> String {
+    let arabic = n.to_string();
+    let alph = |upper: bool| {
+        if (1..=26).contains(&n) {
+            let c = (b'a' + (n - 1) as u8) as char;
+            if upper { c.to_ascii_uppercase() } else { c }.to_string()
+        } else {
+            arabic.clone()
+        }
+    };
+    let roman = |upper: bool| {
+        let mut s = String::new();
+        let mut m = n;
+        for (v, r) in [
+            (1000, "m"),
+            (900, "cm"),
+            (500, "d"),
+            (400, "cd"),
+            (100, "c"),
+            (90, "xc"),
+            (50, "l"),
+            (40, "xl"),
+            (10, "x"),
+            (9, "ix"),
+            (5, "v"),
+            (4, "iv"),
+            (1, "i"),
+        ] {
+            while m >= v {
+                s.push_str(r);
+                m -= v;
+            }
+        }
+        if upper { s.to_uppercase() } else { s }
+    };
+    if let Some(p) = pattern {
+        return p
+            .replace("\\arabic*", &arabic)
+            .replace("\\alph*", &alph(false))
+            .replace("\\Alph*", &alph(true))
+            .replace("\\roman*", &roman(false))
+            .replace("\\Roman*", &roman(true));
+    }
+    match depth {
+        1 => format!("{arabic}."),
+        2 => format!("({})", alph(false)),
+        3 => format!("{}.", roman(false)),
+        _ => format!("{}.", alph(true)),
+    }
+}
+
+/// `key=value` among a list's options (enumitem).
+fn list_option(env: &SyntaxNode, key: &str) -> Option<String> {
+    let begin = env.children().find(|c| c.kind() == K::BEGIN)?;
+    let opt = begin.children().find(|c| c.kind() == K::OPT_ARG)?;
+    let s = opt.text().to_string();
+    let s = s.strip_prefix('[')?.strip_suffix(']')?;
+    // Split at top-level commas.
+    let mut depth = 0;
+    let mut parts = Vec::new();
+    let mut start = 0;
+    for (i, c) in s.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(&s[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&s[start..]);
+    parts.iter().find_map(|p| {
+        let (k, v) = p.split_once('=')?;
+        (k.trim() == key).then(|| {
+            let v = v.trim();
+            v.strip_prefix('{')
+                .and_then(|v| v.strip_suffix('}'))
+                .unwrap_or(v)
+                .to_string()
+        })
+    })
+}
+
+/// The items of a list and what each shows: a bullet by the depth of
+/// `itemize` lists, a number in the style of the depth of `enumerate`
+/// lists, or the item's own label.
+fn list_items(env: &SyntaxNode) -> Items {
+    let around = lists_around(env);
+    let name = around.first().map(|(_, n)| n.clone()).unwrap_or_default();
+    let depth_of = |kind: &str| around.iter().filter(|(_, n)| n == kind).count();
+    let label = list_option(env, "label");
+    let mut n: i64 = list_option(env, "start")
+        .and_then(|s| s.parse().ok())
+        .map_or(0, |s: i64| s - 1);
+    let mut out = Vec::new();
+    for cmd in env.descendants().filter(|c| c.kind() == K::COMMAND) {
+        if latex_syntax::name(&cmd).as_deref() != Some("item") {
+            continue;
+        }
+        // Items of this list, not of one inside it.
+        if cmd
+            .ancestors()
+            .find(|a| {
+                a.kind() == K::ENVIRONMENT && latex_syntax::name(a).is_some_and(|n| is_list(&n))
+            })
+            .as_ref()
+            != Some(env)
+        {
+            continue;
+        }
+        let start = usize::from(cmd.text_range().start());
+        let own = cmd.children().find(|c| c.kind() == K::OPT_ARG).map(|o| {
+            let t = o.text().to_string();
+            t[1..t.len() - usize::from(t.ends_with(']'))].to_string()
+        });
+        let shown = match (own, name.as_str()) {
+            (Some(l), _) => l,
+            (None, "enumerate") => {
+                n += 1;
+                enum_label(n, depth_of("enumerate"), label.as_deref())
+            }
+            (None, "description") => String::new(),
+            (None, _) => label.clone().unwrap_or_else(|| {
+                ["\u{2022}", "\u{2013}", "\u{2217}", "\u{b7}"]
+                    [(depth_of("itemize").max(1) - 1).min(3)]
+                .to_string()
+            }),
+        };
+        out.push((start, shown));
+    }
+    out
 }
 
 /// The text of a group without its braces.
@@ -387,6 +561,43 @@ pub fn line_view(
     let mut tok = root
         .token_at_offset(TextSize::from(line.start as u32))
         .right_biased();
+    // In a list: the line's indentation by its depth, the source's own
+    // blanks hidden (unless the cursor is in them).
+    let mut first = tok.clone();
+    while let Some(t) = &first
+        && matches!(t.kind(), K::WHITESPACE)
+        && span(t).end < line.end
+    {
+        first = t.next_token();
+    }
+    if let Some(f) = first.clone().filter(|f| span(f).start < line.end)
+        && let Some(parent) = f.parent()
+    {
+        let fs = span(&f).start;
+        let depth = lists_around(&parent).len();
+        let delimiter = f
+            .parent_ancestors()
+            .find(|a| matches!(a.kind(), K::BEGIN | K::END));
+        if let Some(d) = &delimiter
+            && let Some(env) = d.parent()
+            && latex_syntax::name(&env).is_some_and(|n| {
+                is_list(&n)
+                    || matches!(
+                        n.as_str(),
+                        "center" | "flushleft" | "flushright" | "quote" | "quotation"
+                    )
+            })
+            && node_span(d).end >= line.start + text[line.clone()].trim_end().len()
+        {
+            v.role = crate::view::LineRole::Delimiter;
+        } else if depth > 0 && !near(&(line.start..fs)) {
+            let item = f.kind() == K::CONTROL_WORD && &text[span(&f)] == "\\item";
+            tok = first.clone();
+            if !item {
+                b.replace(fs..fs, &"\u{2003}\u{2003}".repeat(depth), Style::default());
+            }
+        }
+    }
     let mut heading_command: Option<SyntaxNode> = None;
     while let Some(t) = tok {
         let r = span(&t);
@@ -394,6 +605,35 @@ pub fn line_view(
             break;
         }
         tok = t.next_token();
+        // `\item`: its bullet, number or label, indented by its depth.
+        if t.kind() == K::CONTROL_WORD
+            && &text[r.clone()] == "\\item"
+            && let Some(cmd) = t.parent().filter(|p| p.kind() == K::COMMAND)
+            && let Some((env, name)) = lists_around(&cmd).into_iter().next()
+            && !near(&node_span(&cmd))
+        {
+            let cs = node_span(&cmd);
+            let depth = lists_around(&cmd).len();
+            let items = state.items(&env);
+            let label = items
+                .iter()
+                .find(|(p, _)| *p == cs.start)
+                .map(|(_, l)| l.clone())
+                .unwrap_or_default();
+            let indent = "\u{2003}\u{2003}".repeat(depth - 1);
+            let style = Style {
+                bold: name == "description",
+                ..Style::default()
+            };
+            b.replace(cs.start..cs.start, &indent, Style::default());
+            b.replace(cs.clone(), &label, style);
+            while let Some(n) = &tok
+                && span(n).start < cs.end
+            {
+                tok = n.next_token();
+            }
+            continue;
+        }
         let c = context(&t);
         if let Some(cmd) = &c.marker_of {
             if latex_syntax::signatures::is_sectioning(&latex_syntax::name(cmd).unwrap_or_default())
@@ -582,6 +822,34 @@ mod tests {
         let r = d.text().line_range(line);
         let r = r.start..r.end - usize::from(d.text().as_str()[r.clone()].ends_with('\n'));
         line_view(d, r, cursor)
+    }
+
+    #[test]
+    fn lists() {
+        let text = "\\begin{itemize}\n  \\item One\n  more\n  \\begin{enumerate}\n  \\item A\n  \\item[x)] B\n  \\item C\n  \\end{enumerate}\n\\item[Term] Two\n\\end{itemize}\n\\begin{enumerate}[label=(\\roman*), start=3]\n\\item Z\n\\end{enumerate}\n\\begin{description}\n\\item[Key] value\n\\end{description}\n";
+        let d = doc(text);
+        let lines: Vec<String> = (0..16)
+            .map(|l| shown(&d, l, Some(text.len())).display())
+            .collect();
+        let em = "\u{2003}\u{2003}";
+        assert_eq!(lines[1], "\u{2022} One");
+        assert_eq!(lines[2], format!("{em}more"));
+        assert_eq!(lines[4], format!("{em}1. A"));
+        assert_eq!(lines[5], format!("{em}x) B"));
+        assert_eq!(lines[6], format!("{em}2. C"));
+        assert_eq!(lines[8], "Term Two");
+        assert_eq!(lines[11], "(iii) Z");
+        assert_eq!(lines[14], "Key value");
+        assert_eq!(
+            shown(&d, 0, Some(text.len())).role,
+            crate::view::LineRole::Delimiter
+        );
+        assert!(
+            shown(&d, 14, Some(text.len()))
+                .runs
+                .iter()
+                .any(|r| r.text == "Key" && r.style.bold)
+        );
     }
 
     #[test]
