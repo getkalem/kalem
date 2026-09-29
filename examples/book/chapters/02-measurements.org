@@ -1,0 +1,33 @@
+* Measurements
+:PROPERTIES:
+:CUSTOM_ID: sec:measurements
+:END:
+
+[[tab:timings]] lists how long each export of this sample took, and the
+total is computed by the table itself. The energy of a body at rest,
+equation [[eq:energy]], is the usual example of a displayed
+formula.[fn:formula]
+
+#+CAPTION: Export times of the sample, in milliseconds.
+#+NAME: tab:timings
+| Format | First run | Second run | Mean |
+|--------+-----------+------------+------|
+| HTML   |        12 |         10 |   11 |
+| LaTeX  |        15 |         13 |   14 |
+| Word   |       420 |        400 |  410 |
+|--------+-----------+------------+------|
+| Total  |       447 |        423 |  435 |
+#+TBLFM: $4=($2+$3)/2::@5$2=vsum(@2..@4)::@5$3=vsum(@2..@4)
+
+#+NAME: eq:energy
+\begin{equation}
+E = m c^2
+\end{equation}
+
+Inline mathematics works too: the mean of $n$ runs is
+$\bar{x} = \frac{1}{n}\sum_{i=1}^{n} x_i$. Back in
+[[#sec:plain-text][the first chapter]], the pipeline of
+[[#sec:pipeline]] produced these files.
+
+[fn:formula] See [cite:@knuth84 p. 168] for how TeX sets displayed
+equations.

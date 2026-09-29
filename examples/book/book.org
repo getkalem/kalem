@@ -1,0 +1,28 @@
+#+TITLE: Writing Books in Plain Text
+#+SUBTITLE: A sample chapter for Kalem
+#+AUTHOR: The Kalem Authors
+#+DATE: 2026-09-29
+#+LANGUAGE: en
+#+OPTIONS: toc:2 num:t
+#+BIBLIOGRAPHY: refs.bib
+#+LATEX_CLASS: book
+#+MACRO: kalem /Kalem/
+
+This book is written in Org and edited with {{{kalem}}}. It keeps each
+chapter in a file of its own; this file pulls them together with
+=#+INCLUDE= and holds the bibliography.
+
+* Foundations
+:PROPERTIES:
+:CUSTOM_ID: part:foundations
+:END:
+
+#+INCLUDE: "chapters/01-plain-text.org" :minlevel 2
+#+INCLUDE: "chapters/02-measurements.org" :minlevel 2
+
+* References
+:PROPERTIES:
+:UNNUMBERED: t
+:END:
+
+#+PRINT_BIBLIOGRAPHY:

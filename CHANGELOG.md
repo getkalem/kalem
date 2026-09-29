@@ -129,6 +129,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Refile (Ctrl+Alt+W) to a heading of the same document, Archive to Sibling and Toggle Archive Tag in both editors, ported from `org-refile.el` and `org-archive.el` and identical to Emacs on 434 cases.
 - Copy as Rich Text (HTML and plain text on the macOS clipboard) and Copy as HTML (the markup as text) in both editors, from the HTML export of the selection.
 - HTML paste: merged cells (`colspan`, `rowspan`), tables inside cells, zero-width spaces around emphasis inside words, and the HTML clipboard read on Linux through `wl-paste` or `xclip` (UTF-16 from Firefox too).
+- `examples/book`: a sample book (a part, included chapters, a figure, a computed table, an equation, citations, footnotes, cross references) exported to HTML, LaTeX, text and Markdown exactly as Emacs exports it, and to PDF and Word without errors (checked when TeX and pandoc are installed).
+- HTML: a link to a named math environment is `\eqref{…}` with MathJax (`#+HTML_EQUATION_REFERENCE_FORMAT`), as in Org.
+- Word, OpenDocument, EPUB and RTF through pandoc: citations rendered with `--citeproc`, math environments kept as displayed formulas, and cross references labelled ("Figure 1", "Table 2", "(3)", a heading's title).
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

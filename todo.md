@@ -330,8 +330,8 @@ Phases are sequential. The next phase does not start before the current phase's 
 
 ### 2.7 Book writing validation (§9.4)
 
-- [ ] T2.7.1 Sample book chapter: figures, tables, formulas, citations, footnotes, cross references, `#+INCLUDE`
-- [ ] T2.7.2 Error-free export to LaTeX and PDF; export to HTML and DOCX
+- [x] T2.7.1 Sample book chapter: figures, tables, formulas, citations, footnotes, cross references, `#+INCLUDE` (`examples/book`: `book.org` with a part and two chapters included with `:minlevel 2`, a PNG figure, a table with `#+TBLFM`, a named equation, a source block with a caption, `[cite:…]` with `refs.bib` and `#+PRINT_BIBLIOGRAPHY:`, footnotes, links to figures, tables, equations and `CUSTOM_ID`s; its whole HTML, LaTeX, text and Markdown exports are identical to Emacs's (`tests/export/book`, `org-export`'s `sample_book` test), which found the missing `\eqref` for links to math environments in HTML)
+- [x] T2.7.2 Error-free export to LaTeX and PDF; export to HTML and DOCX (`kalem-core/tests/book.rs`: the sample book compiles to PDF with pdfLaTeX and `latexmk` without errors or undefined references, and exports to Word through pandoc with citations (`--citeproc`), the figure, the equation (math environments as `\[…\]`) and labelled cross references (`kalem_core::pandoc::prepare`); each part runs when TeX or pandoc is installed, which CI does not install yet)
 - [ ] T2.7.3 Word count targets, per-chapter statistics
 
 ### 2.7a General purpose editing (§2.6)

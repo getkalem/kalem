@@ -1,0 +1,37 @@
+* Why plain text
+:PROPERTIES:
+:CUSTOM_ID: sec:plain-text
+:END:
+
+Books have been typeset from plain text for decades [cite:@knuth84].
+Org keeps the structure of a document in its text: headings, lists,
+tables and formulas are all written as characters on a line, so the file
+outlives every program that edits it.[fn:1]
+
+** A pipeline
+:PROPERTIES:
+:CUSTOM_ID: sec:pipeline
+:END:
+
+The text goes through one exporter for each format, as
+[[fig:pipeline]] shows: HTML for the web, LaTeX for print, and Word
+through pandoc for colleagues who ask for it [cite:@dominik10].
+
+#+CAPTION: From one Org file to several formats.
+#+NAME: fig:pipeline
+#+ATTR_HTML: :width 360
+#+ATTR_LATEX: :width 0.6\textwidth
+[[file:../figures/pipeline.png]]
+
+The code that builds the book can live in the book itself, as in
+literate programming [cite:@schulte12]:
+
+#+NAME: src:build
+#+CAPTION: Building every format.
+#+begin_src sh
+kalem export book.org --to html
+kalem export book.org --to pdf
+kalem export book.org --to docx
+#+end_src
+
+[fn:1] Plain text also diffs well, so a book can be reviewed like code.

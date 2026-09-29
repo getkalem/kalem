@@ -460,7 +460,19 @@ With pandoc installed (https://pandoc.org), /Export as Word/,
 into an Org file beside it, its pictures in a =NAME_assets= folder. The
 import is cleaned up: the anchors and =CUSTOM_ID= properties pandoc adds
 and nothing links to go, and tables are aligned. Kalem's own formatting
-(fonts, colors) does not reach Word or OpenDocument yet.
+(fonts, colors) does not reach Word or OpenDocument yet. For pandoc,
+citations go through its =--citeproc= with the file =#+BIBLIOGRAPHY:=
+names, math environments become displayed formulas, and a link without a
+description to a figure, table, equation or listing gets the label the
+other exports print ("Figure 1", "Table 2", "(3)"), and one to a heading
+its title.
+
+=examples/book= is a sample book to start from: a main file that pulls
+its chapters in with =#+INCLUDE: … :minlevel 2= under a part, a picture,
+a table computed by its formulas, an equation, citations with a
+bibliography, footnotes and cross references. It exports to HTML, LaTeX,
+text and Markdown as Emacs exports it, and to PDF and Word without
+errors.
 
 Citations (=[cite:@key]=, =[cite/t:@key]=, =[cite/a/c:@key]= and the
 other styles and variants of Org's manual) come out as Org's =basic=

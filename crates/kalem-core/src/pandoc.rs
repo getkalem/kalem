@@ -68,7 +68,115 @@ pub fn prepare(text: &str, file: Option<&Path>) -> Result<String, String> {
     let text = org_export::include::expand(text, file)?;
     let now = jiff::Zoned::now();
     let text = org_export::macros::expand(&text, &["TITLE", "DATE", "AUTHOR"], file, &now)?;
-    Ok(crate::kinds::strip_markup(&text).0)
+    Ok(for_pandoc(&crate::kinds::strip_markup(&text).0))
+}
+
+/// What pandoc's Org reader does not know, written as it knows it: math
+/// environments as displayed formulas (`\[…\]`), and links without a
+/// description to a named figure, table, equation or listing, a
+/// `CUSTOM_ID` or a heading given the label the Org exporters print
+/// (`Figure 1`, `Table 2`, `(3)`, the heading's title).
+fn for_pandoc(text: &str) -> String {
+    use org_syntax::SyntaxKind::*;
+    use org_syntax::ast::{self, AstNode};
+    let root = org_syntax::parse(text).syntax();
+    let mut labels: std::collections::HashMap<String, String> = Default::default();
+    let mut edits: Vec<(std::ops::Range<usize>, String)> = Vec::new();
+    let (mut figures, mut tables, mut equations, mut listings) = (0, 0, 0, 0);
+    for n in root.descendants() {
+        let name = crate::affiliated::value(&n, "NAME");
+        let caption = crate::affiliated::value(&n, "CAPTION").is_some();
+        let label = match n.kind() {
+            PARAGRAPH if caption && n.descendants().any(|d| d.kind() == LINK) => {
+                figures += 1;
+                Some(format!("Figure {figures}"))
+            }
+            TABLE if caption => {
+                tables += 1;
+                Some(format!("Table {tables}"))
+            }
+            SRC_BLOCK if caption => {
+                listings += 1;
+                Some(format!("Listing {listings}"))
+            }
+            LATEX_ENVIRONMENT => {
+                let value = ast::LatexEnvironment::cast(n.clone())
+                    .map(|l| l.value())
+                    .unwrap_or_default();
+                let start = usize::from(n.text_range().start())
+                    + n.text().to_string().find(value.trim_start()).unwrap_or(0);
+                let body = value.trim();
+                let env = body
+                    .strip_prefix("\\begin{")
+                    .and_then(|r| r.split_once('}'))
+                    .map(|(e, _)| e.to_string())
+                    .unwrap_or_default();
+                let inner = body
+                    .strip_prefix(&format!("\\begin{{{env}}}"))
+                    .and_then(|r| r.strip_suffix(&format!("\\end{{{env}}}")))
+                    .map(str::trim);
+                let base = env.trim_end_matches('*');
+                let display = match (base, inner) {
+                    ("equation" | "displaymath" | "math" | "multline", Some(i)) => {
+                        Some(i.to_string())
+                    }
+                    ("align" | "flalign" | "alignat" | "eqnarray", Some(i)) => {
+                        Some(format!("\\begin{{aligned}}\n{i}\n\\end{{aligned}}"))
+                    }
+                    ("gather", Some(i)) => {
+                        Some(format!("\\begin{{gathered}}\n{i}\n\\end{{gathered}}"))
+                    }
+                    _ => None,
+                };
+                match display {
+                    Some(d) => {
+                        edits.push((start..start + body.len(), format!("\\[\n{d}\n\\]")));
+                        (!env.ends_with('*')).then(|| {
+                            equations += 1;
+                            format!("({equations})")
+                        })
+                    }
+                    None => None,
+                }
+            }
+            _ => None,
+        };
+        if let (Some(name), Some(label)) = (name, label) {
+            labels.entry(name).or_insert(label);
+        }
+    }
+    let doc = org_model::Document::new(org_syntax::parse(text));
+    for e in doc.outline().entries.iter().filter(|e| !e.inlinetask) {
+        let title = e.raw_title.trim().to_string();
+        if let Some((_, id)) = e
+            .drawer
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("CUSTOM_ID"))
+        {
+            labels.entry(format!("#{id}")).or_insert(title.clone());
+        }
+        labels.entry(format!("*{title}")).or_insert(title);
+    }
+    for n in root.descendants().filter(|n| n.kind() == LINK) {
+        let t = n.text().to_string();
+        let t = t.trim_end();
+        let Some(target) = t.strip_prefix("[[").and_then(|r| r.strip_suffix("]]")) else {
+            continue;
+        };
+        if target.contains("][") {
+            continue;
+        }
+        if let Some(label) = labels.get(target) {
+            let start = usize::from(n.text_range().start());
+            edits.push((start..start + t.len(), format!("[[{target}][{label}]]")));
+        }
+    }
+    edits.sort_by_key(|(r, _)| std::cmp::Reverse(r.start));
+    let mut out = text.to_string();
+    for (r, new) in edits {
+        out.replace_range(r, &new);
+    }
+    out
 }
 
 /// Writes `text` (from the Org file `file`) as `format` to `out` with the
@@ -95,6 +203,11 @@ pub fn export(
     .arg(out);
     if let Some(d) = dir {
         cmd.current_dir(d).arg("--resource-path").arg(d);
+    }
+    // Citations, from the file `#+BIBLIOGRAPHY` names.
+    let lower = prepared.to_lowercase();
+    if lower.contains("[cite") || lower.contains("#+print_bibliography") {
+        cmd.arg("--citeproc");
     }
     run(cmd, Some(prepared.as_bytes())).map(|_| ())
 }
@@ -268,6 +381,21 @@ mod tests {
         );
         assert_eq!(Format::from_name(".DOCX"), Some(Format::Docx));
         assert_eq!(Format::Epub.pandoc_name(), "epub3");
+    }
+
+    #[test]
+    fn preparing_for_pandoc() {
+        let text = "See [[fig:a]], [[tab:t]], [[eq:e]], [[#intro]] and [[*Intro]].\n\n* Intro\n:PROPERTIES:\n:CUSTOM_ID: intro\n:END:\n#+CAPTION: A picture.\n#+NAME: fig:a\n[[file:a.png]]\n\n#+CAPTION: Numbers.\n#+NAME: tab:t\n| 1 |\n\n#+NAME: eq:e\n\\begin{equation}\nE = mc^2\n\\end{equation}\n\n\\begin{align*}\na &= b\n\\end{align*}\n";
+        let out = for_pandoc(text);
+        assert!(
+            out.starts_with("See [[fig:a][Figure 1]], [[tab:t][Table 1]], [[eq:e][(1)]], [[#intro][Intro]] and [[*Intro][Intro]]."),
+            "{out}"
+        );
+        assert!(out.contains("#+NAME: eq:e\n\\[\nE = mc^2\n\\]\n"), "{out}");
+        assert!(
+            out.contains("\\[\n\\begin{aligned}\na &= b\n\\end{aligned}\n\\]"),
+            "{out}"
+        );
     }
 
     #[test]
