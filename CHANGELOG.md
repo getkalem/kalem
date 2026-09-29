@@ -174,6 +174,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - File manager: `W` opens the marked files with their applications, Show in System File Manager selects the file in Finder, Explorer or the desktop's file manager, and `!` runs a shell command on the marked files after asking (`*` and `?` as in Dired); in both editors.
 - File manager (graphical): `v` shows a preview pane beside the listing (pictures, the first lines of text files, folders' names), Ctrl+T the listing's pictures as thumbnails, a click going to the picture's line.
 - LaTeX links: Open Link (Ctrl-click, Cmd-click on macOS) follows a reference to its label, `\url` and `\href` to the browser, `\input` and `\include` to their file, `\includegraphics` to its picture and a citation to the bibliography file; in both editors.
+- Fixed: an empty `.tex` file crashed both editors (a stack overflow looking up the token at the cursor).
+- `kalem_core::latex_check::text_diagnostics` gives the diagnostics that need no other file, with fixes for deprecated font commands (`\bf` to `\bfseries`), a missing tie before a reference, `...` and `$$…$$`.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

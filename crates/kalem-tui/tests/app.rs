@@ -2875,3 +2875,18 @@ fn latex_follow_reference() {
         .run_command("latex.link.open", serde_json::Value::Null);
     assert_eq!(t.app.doc.selection.head, text.find("\\label").unwrap());
 }
+
+#[test]
+fn empty_latex_document() {
+    // An empty `.tex` file opens, draws and takes typing.
+    let mut t = with_file("", "empty.tex", Config::default(), (40, 6));
+    screen(&mut t);
+    t.typ("\\section{A}");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen(&mut t);
+    for _ in 0..20 {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    assert_eq!(t.text(), "");
+    screen(&mut t);
+}

@@ -124,6 +124,9 @@ impl Parse {
 /// a node's children, slow in a long document's body).
 pub fn token_at(root: &SyntaxNode, pos: usize) -> Option<SyntaxToken> {
     let len = usize::from(root.text_range().end());
+    if len == 0 {
+        return None;
+    }
     if pos >= len {
         return token_before(root, len);
     }
@@ -133,10 +136,13 @@ pub fn token_at(root: &SyntaxNode, pos: usize) -> Option<SyntaxToken> {
 
 /// The token ending at or holding byte `pos - 1` (the one before `pos`).
 pub fn token_before(root: &SyntaxNode, pos: usize) -> Option<SyntaxToken> {
-    if pos == 0 {
-        return token_at(root, 0).filter(|_| usize::from(root.text_range().end()) > 0);
-    }
     let len = usize::from(root.text_range().end());
+    if len == 0 {
+        return None;
+    }
+    if pos == 0 {
+        return token_at(root, 0);
+    }
     let pos = pos.min(len);
     let range = TextRange::at(TextSize::from((pos - 1) as u32), TextSize::from(1));
     root.covering_element(range).into_token()

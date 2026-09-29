@@ -2724,3 +2724,13 @@ fn latex_follow_reference(cx: &mut TestAppContext) {
         text.find("\\label").unwrap()
     );
 }
+
+#[gpui::test]
+fn empty_latex_document(cx: &mut TestAppContext) {
+    // An empty `.tex` file opens, draws and takes typing.
+    let (e, cx) = open_named("", "empty.tex", || None, cx);
+    cx.simulate_input("x");
+    cx.simulate_keystrokes("backspace");
+    cx.run_until_parked();
+    assert_eq!(crate::text(&e, cx), "");
+}
