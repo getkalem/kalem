@@ -779,7 +779,14 @@ picture (PNG, JPEG or SVG, found in the document's folder or a
 =\graphicspath= folder with the extensions LaTeX tries) at the width
 =width== asks for, =\centering= centers it, and =\caption= shows as
 "Figure 1: …" with LaTeX's number (=Şekil= and =Tablo= with babel's
-=turkish=). A PDF or EPS picture shows as its name. Comments are
+=turkish=). A PDF or EPS picture shows as its name. =\ref=, =\eqref=,
+=\cref=, =\autoref= and =\nameref= show the numbers (or titles) they
+resolve to, in red as =??= when no =\label= has the key; citations show
+the authors and years of the entries in the =\bibliography= or
+=\addbibresource= files, with their notes, and the entry cited shows
+in the status bar at the cursor and in a tooltip under the mouse.
+=\footnote= shows its raised number before its dimmed text, and =\url=
+and =\href= show as links. Comments are
 dimmed; commands Kalem does not render stay as they are written. The
 source view (Ctrl+/) shows the text itself. Documents of several files
 are numbered as one: the root document comes from a =% !TEX root= line,
