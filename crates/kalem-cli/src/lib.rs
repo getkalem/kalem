@@ -150,6 +150,20 @@ enum Command {
         #[arg(long)]
         force: bool,
     },
+    /// Compares the structure Kalem reads in LaTeX files with pandoc's
+    /// LaTeX reader: headings, formulas, citations, footnotes, figures,
+    /// tables, code blocks and list items (development).
+    DiffPandoc {
+        /// LaTeX files to compare.
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+        /// Print how many files agree in each category.
+        #[arg(long)]
+        summary: bool,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = Format::Text)]
+        format: Format,
+    },
     /// LaTeX documents: `kalem latex build FILE`.
     Latex {
         #[command(subcommand)]
@@ -331,6 +345,11 @@ where
                 },
         } => commands::recalc(&files, iterate, check),
         Command::Query { args, format } => commands::query(&args, matches!(format, Format::Json)),
+        Command::DiffPandoc {
+            files,
+            summary,
+            format,
+        } => commands::diff_pandoc(&files, summary, matches!(format, Format::Json)),
         Command::Latex {
             action:
                 LatexAction::Build {

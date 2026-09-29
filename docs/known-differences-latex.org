@@ -1,0 +1,17 @@
+#+TITLE: Known differences from pandoc's LaTeX reader
+
+=kalem diff-pandoc FILE... [--summary]= compares the structure Kalem reads
+in a LaTeX document with what =pandoc -f latex -t json= reads: headings
+and their levels (ranked, since the two number levels differently),
+inline and displayed formulas, cited keys, footnotes, figures, tables,
+code blocks and list items. The counts that agree should only go up.
+These differences are deliberate: Kalem follows LaTeX where pandoc does
+not.
+
+| Category                                                                            | Kalem                                                           | pandoc 3.1                       | Why                                                              |
+|-------------------------------------------------------------------------------------+-----------------------------------------------------------------+----------------------------------+------------------------------------------------------------------|
+| headings, formulas, … in files brought in by =\subfile=, =\import= and =\subimport= | Read, as LaTeX reads them with the subfiles and import packages | Not read                         | Kalem follows the packages a project uses (T2.7h.4)              |
+| figures                                                                             | =figure*= counts as a figure                                    | Only =figure= becomes a =Figure= | =figure*= is a figure across both columns, with the same counter |
+
+On the fixtures of =tests/latex=, every other category agrees
+(=kalem diff-pandoc --summary tests/latex/model/*.tex tests/latex/project/main.tex=).

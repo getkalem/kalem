@@ -378,3 +378,18 @@ fn fmt_latex() {
     assert_eq!(code, 0);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn diff_pandoc() {
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    if !std::env::split_paths(&search).any(|d| d.join("pandoc").is_file()) {
+        return;
+    }
+    let (code, out, _) = kalem(&["diff-pandoc", "../../tests/latex/model/book.tex"]);
+    assert_eq!(code, 0);
+    assert_eq!(out, "", "every category agrees on the book");
+    let (code, out, _) = kalem(&["diff-pandoc", "../../tests/latex/model/article.tex"]);
+    assert_eq!(code, 0);
+    // The one deliberate difference (docs/known-differences-latex.org).
+    assert_eq!(out.trim(), "../../tests/latex/model/article.tex: figures: kalem 2, pandoc 1");
+}
