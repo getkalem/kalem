@@ -2511,3 +2511,34 @@ fn latex_outline(cx: &mut TestAppContext) {
         text.find("\\section{End}").unwrap()
     );
 }
+
+#[gpui::test]
+fn latex_tables_as_grids(cx: &mut TestAppContext) {
+    let text = "\\begin{tabular}{lr}\nName & Qty \\\\\n\\hline\n\\emph{apple} & 3 \\\\\nb & 10 \\\\\n\\end{tabular}\n\nafter\n";
+    let (e, cx) = open_named(text, "t.tex", || None, cx);
+    at(&e, text.len(), cx);
+    let x = |e: &Editor, line: usize, src: usize| {
+        let p = e.painted.borrow().get(&line).cloned().expect("painted");
+        p.layout.caret(p.view.display_offset(src)).origin.x
+    };
+    let (name, apple, b, three_end, ten_end) = e.read_with(cx, |e, _| {
+        (
+            x(e, 1, text.find("Name").unwrap()),
+            x(e, 3, text.find("apple").unwrap()),
+            x(e, 4, text.find("b &").unwrap()),
+            x(e, 3, text.find("3 \\").unwrap() + 1),
+            x(e, 4, text.find("10").unwrap() + 2),
+        )
+    });
+    // Text columns start together, right-aligned columns end together.
+    let near = |a: gpui::Pixels, b: gpui::Pixels| (f32::from(a) - f32::from(b)).abs() < 0.01;
+    assert!(near(name, b) && near(apple, b), "{name:?} {apple:?} {b:?}");
+    assert!(near(three_end, ten_end), "{three_end:?} {ten_end:?}");
+    // In the table, Tab goes to the next cell.
+    at(&e, text.find("Name").unwrap(), cx);
+    cx.simulate_keystrokes("tab");
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.selection.head),
+        text.find("Qty").unwrap()
+    );
+}

@@ -692,9 +692,21 @@ impl<'a> Layout<'a> {
         if let Some(g) = self.grids.borrow().1.get(&start) {
             return Some(g.clone());
         }
-        let p = self.parse?;
+        // A LaTeX table's cells are drawn with an empty Org tree.
+        let empty;
+        let (view, p) = match self.parse {
+            Some(p) if self.doc.latex().is_none() => {
+                (view::table_view(&p.syntax(), p.context(), start, None)?, p)
+            }
+            _ => {
+                empty = org_syntax::parse("");
+                (
+                    kalem_core::latex_table::table_view(self.doc, start)?,
+                    &empty,
+                )
+            }
+        };
         let root = p.syntax();
-        let view = view::table_view(&root, p.context(), start, None)?;
         let n = view.align.len();
         let mut widths = vec![1u16; n];
         let mut cells = Vec::new();
@@ -897,6 +909,17 @@ impl<'a> Layout<'a> {
             return vec![vec![blank]; rows as usize];
         }
         let on_line = range.start <= self.cursor && self.cursor <= range.end;
+        // A LaTeX table away from the cursor: a row of the grid.
+        if self.doc.latex().is_some()
+            && !self.source
+            && let Some(block) = self.table_block(range.start)
+            && !(block.range.start <= self.cursor && self.cursor <= block.content_end)
+            && let Some(row) = self
+                .grid(block.range.start)
+                .and_then(|g| self.grid_row(&g, &range))
+        {
+            return vec![row];
+        }
         if let (Some(p), false) = (self.parse, self.source)
             && let Some(block) = self.table_block(range.start)
         {

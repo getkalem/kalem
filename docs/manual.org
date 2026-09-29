@@ -788,7 +788,12 @@ in the status bar at the cursor and in a tooltip under the mouse.
 =\footnote= shows its raised number before its dimmed text, and =\url=
 and =\href= show as links. Theorems declared with =\newtheorem= show
 their names and numbers ("Theorem 1.1 (Pythagoras).") and =proof= its
-"Proof." and ∎; =\paragraph= is a bold heading in the text. The code of
+"Proof." and ∎; =\paragraph= is a bold heading in the text. A
+=tabular= (also =tabularx=, =array=, =longtable=) written one row a
+line, with plain columns (=l=, =c=, =r=, =p{}=, =|=), shows as a grid
+with its rules (=\hline=, =\toprule=, =\midrule=, =\bottomrule=) until
+the cursor enters it; there Tab and Shift+Tab go from cell to cell.
+Other tables stay as source. The code of
 =verbatim=, =lstlisting= and =minted= is monospace, colored by the
 language its options name (graphical editor). Comments, =comment=
 environments and the text between =\iffalse= and its =\fi= are

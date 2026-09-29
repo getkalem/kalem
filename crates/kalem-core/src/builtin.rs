@@ -1198,7 +1198,10 @@ fn latex_commands() -> Vec<Command> {
         // In math, Tab goes to the next empty argument.
         latex_edit_with(
             ctx,
-            |t, s, r, _| crate::latex_edit::next_stop(t, s.head, r),
+            |t, s, r, _| {
+                crate::latex_edit::next_stop(t, s.head, r)
+                    .or_else(|| crate::latex_table::next_cell(t, s.head, r, false))
+            },
             Some(|ctx| {
                 let now = ctx.now;
                 ctx.doc()?.indent(false, now);
@@ -1207,9 +1210,16 @@ fn latex_commands() -> Vec<Command> {
         )
     }
     fn outdent(ctx: &mut EditorContext<'_>) -> CommandResult {
-        let now = ctx.now;
-        ctx.doc()?.indent(true, now);
-        Ok(())
+        // In a table, Shift+Tab goes to the previous cell.
+        latex_edit_with(
+            ctx,
+            |t, s, r, _| crate::latex_table::next_cell(t, s.head, r, true),
+            Some(|ctx| {
+                let now = ctx.now;
+                ctx.doc()?.indent(true, now);
+                Ok(())
+            }),
+        )
     }
     vec![
         c("latex.enter", "New Line or Item", &["enter"], |ctx, _| {

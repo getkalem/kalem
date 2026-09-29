@@ -1761,6 +1761,21 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
             })
     });
     for n in nodes {
+        // A simple table's rows: the grid (T2.7h.9).
+        if n.kind() == K::ENVIRONMENT
+            && let Some(t) = crate::latex_table::simple(text, &n)
+        {
+            if t.body.start < at {
+                continue;
+            }
+            if t.body.start > at {
+                out.push(block(BlockKind::Paragraph, at..t.body.start, t.body.start));
+            }
+            let content_end = t.body.end - usize::from(text[..t.body.end].ends_with('\n'));
+            out.push(block(BlockKind::Table, t.body.clone(), content_end));
+            at = t.body.end;
+            continue;
+        }
         let kind = match n.kind() {
             K::DISPLAY_MATH => BlockKind::Math,
             K::ENVIRONMENT => match latex_syntax::name(&n) {

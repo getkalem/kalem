@@ -165,6 +165,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `kalem check --unrendered` gives the share of a LaTeX document's body the editor renders rather than shows as source (the coverage metric), in text and JSON.
 - LaTeX in the terminal: math environments drawn as one image through kitty, iTerm2 or sixel graphics away from the cursor (the document's macros, LaTeX's numbers), formulas and pictures alone on their lines as images, code environments colored by their language, and the rendered text no longer colored as LaTeX syntax.
 - LaTeX outline: the outline panel lists a LaTeX document's sections with their numbers, in both editors; a document without `\documentclass` is numbered as an article.
+- LaTeX tables: a `tabular`, `tabular*`, `tabularx`, `array` or `longtable` written one row a line with a plain column specification shows as the same grid as Org tables, rule lines drawn, in both editors; Tab and Shift+Tab move between its cells.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

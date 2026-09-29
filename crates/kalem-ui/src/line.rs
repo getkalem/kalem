@@ -106,15 +106,22 @@ fn grid(editor: &Editor, start: usize, fs: Pixels, window: &mut Window) -> Optio
             return Some(grid.clone());
         }
     }
-    let (p, current) = editor.doc.parse()?;
-    if !current {
-        return None;
-    }
-    let view = kalem_core::view::table_view(&p.syntax(), p.context(), start, None)?;
-    let rule = view
-        .rows
-        .iter()
-        .position(|r| matches!(r, kalem_core::view::TableRow::Rule { .. }));
+    let view = if editor.doc.latex().is_some() {
+        kalem_core::latex_table::table_view(&editor.doc, start)?
+    } else {
+        let (p, current) = editor.doc.parse()?;
+        if !current {
+            return None;
+        }
+        kalem_core::view::table_view(&p.syntax(), p.context(), start, None)?
+    };
+    // The header: the rows before the first rule under a row.
+    let rule = view.rows.iter().enumerate().position(|(i, r)| {
+        matches!(r, kalem_core::view::TableRow::Rule { .. })
+            && view.rows[..i]
+                .iter()
+                .any(|r| matches!(r, kalem_core::view::TableRow::Data { .. }))
+    });
     let header = match rule {
         Some(i) if i > 0 && i + 1 < view.rows.len() => i,
         _ => 0,

@@ -1113,7 +1113,7 @@ pub struct TableView {
 }
 
 /// The runs of `view` within `range`, cut at its ends.
-fn runs_within(view: &LineView, range: &Range<usize>) -> Vec<Run> {
+pub(crate) fn runs_within(view: &LineView, range: &Range<usize>) -> Vec<Run> {
     view.runs
         .iter()
         .filter(|r| r.src.start < range.end && r.src.end > range.start)
