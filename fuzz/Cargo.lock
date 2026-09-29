@@ -90,6 +90,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "latex-syntax"
+version = "0.0.1"
+dependencies = [
+ "rowan",
+ "stacker",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -144,6 +152,7 @@ dependencies = [
 name = "org-syntax-fuzz"
 version = "0.0.0"
 dependencies = [
+ "latex-syntax",
  "libfuzzer-sys",
  "org-syntax",
 ]
