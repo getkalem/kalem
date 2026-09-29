@@ -144,7 +144,7 @@ pub fn text_diagnostics(parse: &latex_syntax::Parse) -> Vec<Diagnostic> {
                     let mut d = info("latex-ellipsis", "latex-ellipsis");
                     let at = range.start + i;
                     d.range = at..at + 3;
-                    // `\\ldots{}`: the braces keep the space or letter after it.
+                    // `\ldots{}`: the braces keep the space or letter after it.
                     d.fix = Some((d.range.clone(), "\\ldots{}".to_string()));
                     out.push(d);
                 }
