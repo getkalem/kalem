@@ -1,0 +1,23 @@
+[package]
+name = "latex-syntax"
+description = "Lossless, error tolerant, incremental parser for LaTeX documents"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["latex", "tex", "parser", "cst", "lossless"]
+categories = ["parser-implementations", "text-processing"]
+publish = false
+
+[dependencies]
+rowan = "0.17"
+stacker = "0.1"
+
+[dev-dependencies]
+rowan = "0.17"
+proptest = "1"
+
+[lints]
+workspace = true

@@ -3962,6 +3962,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "latex-syntax"
+version = "0.0.1"
+dependencies = [
+ "proptest 1.11.0",
+ "rowan",
+ "stacker",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
