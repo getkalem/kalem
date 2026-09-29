@@ -2782,7 +2782,27 @@ fn menus_and_toolbar_follow_the_mode(cx: &mut TestAppContext) {
         );
         assert!(!sep.windows(2).any(|w| w[0] && w[1]), "{}", m.name);
     }
+    // Each mode brings its own: LaTeX's formatting and sections, CSV's
+    // rows and columns, code's comments and lines.
+    assert!(latex.iter().any(|i| i == "latex.format.italic"));
+    assert!(latex.iter().any(|i| i == "latex.section.setLevel"));
+    assert!(latex.iter().any(|i| i == "latex.insert.equation"));
+    assert!(latex.iter().any(|i| i == "latex.build"));
+    assert!(
+        !klm.iter()
+            .any(|i| i.starts_with("latex.") || i.starts_with("csv."))
+    );
+    let csv = ids("csv", "csv");
+    assert!(csv.iter().any(|i| i == "csv.insertRow"));
+    assert!(!csv.iter().any(|i| i.starts_with("latex.")));
+    let python = ids("text", "python");
+    assert!(python.iter().any(|i| i == "edit.toggleComment"));
+    assert!(python.iter().any(|i| i == "lines.moveUp"));
     let (_e, cx) = open_named("\\section{A}\n", "a.tex", || None, cx);
-    assert!(cx.debug_bounds("tool-1").is_none(), "no Italic button");
+    assert!(cx.debug_bounds("tool-1").is_none(), "no Org Italic button");
+    assert!(
+        cx.debug_bounds("tool-10").is_some(),
+        "LaTeX's Emphasis button"
+    );
     assert!(cx.debug_bounds("tool-files").is_some());
 }

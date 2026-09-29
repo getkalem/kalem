@@ -912,27 +912,53 @@ fn spawn_tick(editor: &Entity<Editor>, cx: &mut App) {
     .detach();
 }
 
-/// Toolbar buttons: label, tooltip, command, arguments.
-const TOOLBAR: &[(&str, &str, &str, &str)] = &[
-    ("B", "Bold", "org.emphasis.bold", ""),
-    ("I", "Italic", "org.emphasis.italic", ""),
-    ("U", "Underline", "org.emphasis.underline", ""),
-    ("S", "Strike Through", "org.emphasis.strikeThrough", ""),
-    ("</>", "Code", "org.emphasis.code", ""),
-    ("•", "List", "list.cycleBullet", ""),
+/// Toolbar buttons: label, tooltip, command, arguments, and a mode they
+/// are not shown in (besides the documents their command is not offered in).
+const TOOLBAR: &[(&str, &str, &str, &str, &str)] = &[
+    ("B", "Bold", "org.emphasis.bold", "", ""),
+    ("I", "Italic", "org.emphasis.italic", "", ""),
+    ("U", "Underline", "org.emphasis.underline", "", ""),
+    ("S", "Strike Through", "org.emphasis.strikeThrough", "", ""),
+    ("</>", "Code", "org.emphasis.code", "", ""),
+    ("•", "List", "list.cycleBullet", "", ""),
     (
         "☐",
         "Checkbox",
         "list.toggleCheckbox",
         r#"{"presence":true}"#,
+        "",
     ),
-    ("TODO", "Cycle TODO State", "org.todo.cycle", ""),
+    ("TODO", "Cycle TODO State", "org.todo.cycle", "", ""),
     (
         "⊞",
         "Insert Table",
         "table.create",
         r#"{"columns":3,"rows":2}"#,
+        "",
     ),
+    // LaTeX.
+    ("B", "Bold", "latex.format.bold", "", ""),
+    ("I", "Emphasis", "latex.format.italic", "", ""),
+    ("U", "Underline", "latex.format.underline", "", ""),
+    ("</>", "Typewriter", "latex.format.code", "", ""),
+    ("∑", "Insert Equation", "latex.insert.equation", "", ""),
+    ("▣", "Insert Figure", "latex.insert.figure", "", ""),
+    (
+        "⊞",
+        "Insert Table",
+        "latex.insert.table",
+        r#"{"columns":3,"rows":2}"#,
+        "",
+    ),
+    ("PDF", "Build PDF", "latex.build", "", ""),
+    // CSV.
+    ("+↓", "Insert Row", "csv.insertRow", "", ""),
+    ("−↓", "Delete Row", "csv.deleteRow", "", ""),
+    ("+→", "Insert Column", "csv.insertColumn", "", ""),
+    ("−→", "Delete Column", "csv.deleteColumn", "", ""),
+    ("⇅", "Sort File by Column", "csv.sortFile", "", ""),
+    // Code.
+    ("//", "Toggle Comment", "edit.toggleComment", "", "org"),
 ];
 
 impl Workspace {
@@ -1018,9 +1044,10 @@ impl Workspace {
                 .child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
         }
         let doc = self.editor.read(cx).doc.document_context();
-        for (i, (label, _tip, id, args)) in TOOLBAR.iter().enumerate() {
+        let mode = self.editor.read(cx).doc.meta.mode.name();
+        for (i, (label, _tip, id, args, not_in)) in TOOLBAR.iter().enumerate() {
             // Only the buttons whose command the document offers.
-            if !self.shared.registry.offered(id, &doc) {
+            if *not_in == mode || !self.shared.registry.offered(id, &doc) {
                 continue;
             }
             let (id, args) = (id.to_string(), args.to_string());
@@ -1721,6 +1748,13 @@ pub fn menus() -> Vec<Menu> {
             json!({ "level": level }),
         )
     };
+    let section = |level: u8| {
+        with(
+            kalem_core::tr!("menu-heading", level = level.to_string()),
+            "latex.section.setLevel",
+            json!({ "level": level }),
+        )
+    };
     vec![
         Menu {
             name: "Kalem".into(),
@@ -1747,6 +1781,16 @@ pub fn menus() -> Vec<Menu> {
                 item("export.gfm"),
                 item("export.htmlSubtree"),
                 item("export.markdownSubtree"),
+                // LaTeX: the PDF, and the project through pandoc.
+                item("latex.build"),
+                item("latex.export.html"),
+                item("latex.export.markdown"),
+                item("latex.export.docx"),
+                item("latex.convertToOrg"),
+                // CSV.
+                item("csv.copyAsTsv"),
+                item("csv.convertToOrg"),
+                item("csv.openAsText"),
                 MenuItem::separator(),
                 item("app.save"),
                 named(tr("menu-save-as"), "app.saveAs"),
@@ -1790,6 +1834,16 @@ pub fn menus() -> Vec<Menu> {
                 item("edit.pastePlain"),
                 item("edit.selectAll"),
                 MenuItem::separator(),
+                // Code and plain text.
+                item("edit.toggleComment"),
+                item("edit.gotoBracket"),
+                item("lines.moveUp"),
+                item("lines.moveDown"),
+                item("lines.duplicate"),
+                item("lines.join"),
+                item("lines.sort"),
+                item("edit.trimTrailingWhitespace"),
+                MenuItem::separator(),
                 item("find.open"),
                 item("find.replace"),
             ],
@@ -1821,6 +1875,29 @@ pub fn menus() -> Vec<Menu> {
                 named(tr("menu-archive-sibling"), "org.archive.sibling"),
                 named(tr("menu-archive-tag"), "org.archive.toggleTag"),
                 item("list.toggleCheckbox"),
+                MenuItem::separator(),
+                // LaTeX.
+                item("latex.format.bold"),
+                item("latex.format.italic"),
+                item("latex.format.underline"),
+                item("latex.format.code"),
+                MenuItem::separator(),
+                section(1),
+                section(2),
+                section(3),
+                with(
+                    tr("menu-body-text"),
+                    "latex.section.setLevel",
+                    json!({"level": 0}),
+                ),
+                MenuItem::separator(),
+                item("latex.section.promote"),
+                item("latex.section.demote"),
+                item("latex.section.moveUp"),
+                item("latex.section.moveDown"),
+                MenuItem::separator(),
+                item("latex.math.toggleDisplay"),
+                item("latex.math.toggleNumbering"),
             ],
         },
         Menu {
@@ -1847,6 +1924,33 @@ pub fn menus() -> Vec<Menu> {
                     json!({"type": "src"}),
                 ),
                 named(tr("menu-horizontal-rule"), "org.insert.horizontalRule"),
+                // LaTeX.
+                named(tr("menu-citation"), "latex.insert.citation"),
+                item("latex.insert.equation"),
+                item("latex.insert.figure"),
+                with(
+                    tr("menu-table"),
+                    "latex.insert.table",
+                    json!({"columns": 3, "rows": 2}),
+                ),
+            ],
+        },
+        Menu {
+            // CSV files: rows and columns.
+            name: tr("menu-table").into(),
+            disabled: false,
+            items: vec![
+                item("csv.insertRow"),
+                item("csv.deleteRow"),
+                item("csv.moveRowUp"),
+                item("csv.moveRowDown"),
+                MenuItem::separator(),
+                item("csv.insertColumn"),
+                item("csv.deleteColumn"),
+                item("csv.moveColumnLeft"),
+                item("csv.moveColumnRight"),
+                MenuItem::separator(),
+                item("csv.sortFile"),
             ],
         },
         Menu {
