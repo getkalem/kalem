@@ -979,7 +979,7 @@ impl<'a> Layout<'a> {
             return None;
         }
         let line = self.text().as_str()[v.range.clone()].trim();
-        let begin = line.len() >= 7 && line[..7].eq_ignore_ascii_case("#+begin");
+        let begin = line.len() >= 7 && line.as_bytes()[..7].eq_ignore_ascii_case(b"#+begin");
         let label = if begin {
             match &b.kind {
                 BlockKind::Code { language: None } => String::new(),

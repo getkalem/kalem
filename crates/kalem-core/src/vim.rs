@@ -2560,6 +2560,7 @@ mod tests {
             mode,
             line_ending: LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         DocumentState::new(text, meta, std::sync::Arc::default())
     }

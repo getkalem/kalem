@@ -55,7 +55,7 @@ fn constants(text: &str) -> Vec<(String, String)> {
     let mut out = Vec::new();
     for l in text.lines() {
         let t = l.trim();
-        if t.len() > 12 && t[..12].eq_ignore_ascii_case("#+constants:") {
+        if t.len() > 12 && t.as_bytes()[..12].eq_ignore_ascii_case(b"#+constants:") {
             for pair in t[12..].split_whitespace() {
                 if let Some((k, v)) = pair.split_once('=') {
                     out.push((k.to_string(), v.to_string()));

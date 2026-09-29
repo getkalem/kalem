@@ -743,7 +743,8 @@ pub fn align(el: &SyntaxNode) -> Align {
 pub fn is_attr_line(text: &str, line_start: usize) -> bool {
     let line = text[line_start..].split('\n').next().unwrap_or("");
     let t = line.trim_start();
-    t.len() >= 13 && t[..13].eq_ignore_ascii_case("#+attr_kalem:")
+    t.get(..13)
+        .is_some_and(|p| p.eq_ignore_ascii_case("#+attr_kalem:"))
 }
 
 /// A change of the character formatting.

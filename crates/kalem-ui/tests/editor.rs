@@ -984,6 +984,56 @@ fn vim_block_selection(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn legacy_encodings(cx: &mut TestAppContext) {
+    let dir = std::env::temp_dir().join(format!("kalem-ui-enc-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("notlar.org");
+    let turkish =
+        "* Ağaçların gölgesinde çalışan işçiler\ngüneşin doğuşunu şarkılarla karşıladı.\n";
+    let (bytes, _, _) = kalem_core::encoding_rs::WINDOWS_1254.encode(turkish);
+    std::fs::write(&path, &bytes).unwrap();
+    let mut shared = kalem_ui::shared(Config::default());
+    shared.html_clipboard = || None;
+    shared.settings_path = Some(dir.join("settings.toml"));
+    shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
+        dir.join("projects.toml"),
+    )));
+    let shared = Rc::new(shared);
+    let mut editor = None;
+    let (_ws, cx) = cx.add_window_view(|window, cx| {
+        let e = kalem_ui::editor::open(Some(&path), shared, Theme::light(), cx).unwrap();
+        window.focus(&gpui::Focusable::focus_handle(e.read(cx), cx), cx);
+        editor = Some(e.clone());
+        Workspace::new(e, window, cx)
+    });
+    cx.run_until_parked();
+    let e = editor.unwrap();
+    let (text, encoding, status) = e.read_with(cx, |e, _| {
+        (
+            e.doc.text().as_str().to_string(),
+            e.doc.meta.encoding,
+            e.status.clone(),
+        )
+    });
+    assert_eq!(text, turkish);
+    assert_eq!(encoding, kalem_core::encoding_rs::WINDOWS_1254);
+    assert!(status.is_some_and(|(s, _)| s.contains("windows-1254")));
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "file.saveWithEncoding",
+            serde_json::json!({"encoding": "UTF-16LE"}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let saved = std::fs::read(&path).unwrap();
+    assert_eq!(&saved[..2], &[0xFF, 0xFE]);
+    let back = kalem_core::files::decode(Some(&path), saved).unwrap();
+    assert_eq!(back.0, turkish);
+}
+
+#[gpui::test]
 fn plain_text_view(cx: &mut TestAppContext) {
     let dir = std::env::temp_dir().join(format!("kalem-ui-plain-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

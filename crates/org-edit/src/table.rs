@@ -627,7 +627,7 @@ fn fix_formulas(
         let e = eol(&buf.text, l);
         let line = buf.text[l..e].to_string();
         let t = line.trim_start_matches([' ', '\t']);
-        if !(t.len() >= 8 && t[..8].eq_ignore_ascii_case("#+tblfm:")) {
+        if !(t.len() >= 8 && t.as_bytes()[..8].eq_ignore_ascii_case(b"#+tblfm:")) {
             break;
         }
         let mut new = line.clone();
