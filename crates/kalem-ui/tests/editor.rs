@@ -30,11 +30,21 @@ fn open_with<'a>(
     html: fn() -> Option<String>,
     cx: &'a mut TestAppContext,
 ) -> (Entity<Editor>, &'a mut VisualTestContext) {
+    open_named(text, "t.org", html, cx)
+}
+
+/// Opens `text` saved as `name`.
+fn open_named<'a>(
+    text: &str,
+    name: &str,
+    html: fn() -> Option<String>,
+    cx: &'a mut TestAppContext,
+) -> (Entity<Editor>, &'a mut VisualTestContext) {
     static N: AtomicUsize = AtomicUsize::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("kalem-ui-{}-{n}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("t.org");
+    let path = dir.join(name);
     std::fs::write(&path, text).unwrap();
     let mut shared = kalem_ui::shared(Config::default());
     shared.html_clipboard = html;
@@ -981,6 +991,31 @@ fn vim_block_selection(cx: &mut TestAppContext) {
     cx.simulate_input("-");
     cx.simulate_keystrokes("escape");
     assert_eq!(text(&e, cx), "a-bcd\ne-fgh\n");
+}
+
+#[gpui::test]
+fn long_lines(cx: &mut TestAppContext) {
+    let long = format!("{}\n", "abc ".repeat(100_000));
+    let (e, cx) = open_named(&long, "long.txt", || None, cx);
+    at(&e, 200_000, cx);
+    let shown = e.read_with(cx, |e, _| e.line_view(0).display());
+    assert!(
+        shown.starts_with('…') && shown.ends_with('…'),
+        "{}",
+        shown.len()
+    );
+    assert!(shown.len() < 20_000);
+}
+
+#[gpui::test]
+fn long_org_lines(cx: &mut TestAppContext) {
+    let long = format!("* A\n{}\n", "abc ".repeat(100_000));
+    let start = std::time::Instant::now();
+    let (e, cx) = open(&long, cx);
+    at(&e, 200_000, cx);
+    let shown = e.read_with(cx, |e, _| e.line_view(1).display());
+    assert!(shown.starts_with('…') && shown.len() < 20_000);
+    assert!(start.elapsed() < std::time::Duration::from_secs(5));
 }
 
 #[gpui::test]

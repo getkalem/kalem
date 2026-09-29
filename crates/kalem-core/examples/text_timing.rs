@@ -2,6 +2,7 @@
 //! index, and the whole change (history and incremental reparse).
 //!
 //! Usage: `cargo run --release -p kalem-core --example text_timing [FILE.org]`
+//! (a file that does not end in `.org` is timed as plain text)
 
 #![allow(clippy::print_stdout)]
 
@@ -17,6 +18,9 @@ fn percentile(v: &mut [Duration], p: f64) -> Duration {
 }
 
 fn main() {
+    let plain = std::env::args()
+        .nth(1)
+        .is_some_and(|p| !p.ends_with(".org"));
     let text = match std::env::args().nth(1) {
         Some(path) => std::fs::read_to_string(path).expect("file"),
         None => "* Heading\nSome text with *bold* and a [[https://orgmode.org][link]].\n- item\n"
@@ -44,7 +48,11 @@ fn main() {
 
     let meta = Metadata {
         path: None,
-        mode: DocumentMode::Org,
+        mode: if plain {
+            DocumentMode::Text { language: None }
+        } else {
+            DocumentMode::Org
+        },
         line_ending: LineEnding::Lf,
         bom: false,
         encoding: kalem_core::encoding_rs::UTF_8,

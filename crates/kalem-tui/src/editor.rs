@@ -70,6 +70,9 @@ pub struct EditorView {
     /// A plain text document's highlighting and indentation step, for its
     /// text version.
     plain: PlainCache,
+    /// The highlighting of a file too large for `plain`'s: the lines on
+    /// screen, in windows.
+    windowed: RefCell<kalem_highlight::Windowed>,
 }
 
 /// See [`EditorView`]'s `plain`.
@@ -299,6 +302,7 @@ struct Shared<'a> {
     source: bool,
     focus: bool,
     plain: &'a PlainCache,
+    windowed: &'a RefCell<kalem_highlight::Windowed>,
     raw_math: bool,
     outline_indent: bool,
 }
@@ -329,6 +333,7 @@ pub(crate) struct Layout<'a> {
     images: &'a RefCell<Images>,
     toc: &'a TocCache,
     plain: &'a PlainCache,
+    windowed: &'a RefCell<kalem_highlight::Windowed>,
     /// The cursor's line, shown with a background in plain text and the
     /// source view.
     current: Option<usize>,
@@ -351,6 +356,7 @@ impl<'a> Layout<'a> {
             source,
             focus,
             plain,
+            windowed,
             raw_math,
             outline_indent,
         } = shared;
@@ -364,10 +370,17 @@ impl<'a> Layout<'a> {
                     kalem_core::DocumentMode::Markdown => Some("md"),
                     _ => None,
                 };
-                // Very large files go without colors for now (§2.6, phase 2).
-                let language = lang
-                    .and_then(kalem_highlight::Language::find)
-                    .filter(|_| text.len() <= 4 << 20);
+                // Very large files are colored a window at a time (T2.7a.3).
+                let found = lang.and_then(kalem_highlight::Language::find);
+                let large = text.len() > 4 << 20;
+                let language = found.filter(|_| !large);
+                {
+                    let mut w = windowed.borrow_mut();
+                    let wanted = found.filter(|_| large);
+                    if w.language.map(|l| l.name()) != wanted.map(|l| l.name()) {
+                        *w = kalem_highlight::Windowed::new(wanted);
+                    }
+                }
                 let old = p.take().and_then(|(_, h, _)| h);
                 let h = language.map(|l| match old {
                     Some(mut h) if h.language().name() == l.name() => {
@@ -465,6 +478,7 @@ impl<'a> Layout<'a> {
             images,
             toc,
             plain,
+            windowed,
             current: (is_plain || source).then(|| doc.text().line_of(doc.selection.head)),
         }
     }
@@ -841,7 +855,10 @@ impl<'a> Layout<'a> {
             return tui_rich_text::wrap(lg.glyphs, lg.hang, self.width.get());
         }
         let mut justify = false;
-        let lg = match self.parse {
+        // A very long line, in any mode: the part around the cursor, as it
+        // is.
+        let parse = self.parse.filter(|_| range.len() <= view::LONG_LINE);
+        let lg = match parse {
             Some(p) if !self.source => {
                 let root = p.syntax();
                 let v = view::line_view(&root, p.context(), range.clone(), Some(self.cursor));
@@ -906,17 +923,9 @@ impl<'a> Layout<'a> {
                 lg
             }
             None => {
-                let v = view::LineView {
-                    range: range.clone(),
-                    runs: vec![view::Run {
-                        src: range.clone(),
-                        text: self.text().as_str()[range.clone()].to_string(),
-                        verbatim: true,
-                        style: view::Style::default(),
-                        widget: None,
-                    }],
-                    ..view::LineView::default()
-                };
+                // A very long line shows the part around the cursor.
+                let v =
+                    view::plain_line_view(self.text().as_str(), range.clone(), Some(self.cursor));
                 let empty = org_syntax::parse("");
                 let mut lg = render::glyphs(
                     &v,
@@ -1039,8 +1048,27 @@ impl<'a> Layout<'a> {
         let Some((_, h, step)) = p.as_ref() else {
             return;
         };
-        if let Some(h) = h {
-            let spans = h.line(line);
+        // A very large file: a window of lines.
+        let windowed = h.is_none().then(|| {
+            let mut w = self.windowed.borrow_mut();
+            w.language?;
+            let t = self.text();
+            Some(
+                w.line(
+                    self.doc.version(),
+                    line,
+                    t.as_str(),
+                    |n| t.line_range(n),
+                    t.line_count(),
+                )
+                .to_vec(),
+            )
+        });
+        let spans = match (h, windowed.flatten()) {
+            (Some(h), _) => Some(h.line(line).to_vec()),
+            (None, w) => w,
+        };
+        if let Some(spans) = spans {
             for g in glyphs.iter_mut() {
                 if g.src_end <= g.src {
                     continue;
@@ -1209,6 +1237,7 @@ macro_rules! shared {
             source: $v.source,
             focus: $v.focus,
             plain: &$v.plain,
+            windowed: &$v.windowed,
             raw_math: $v.raw_math,
             outline_indent: $v.outline_indent,
         }

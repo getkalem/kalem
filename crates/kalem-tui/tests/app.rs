@@ -1968,6 +1968,29 @@ fn editing_properties() {
 }
 
 #[test]
+fn large_and_long() {
+    // Over 4 MB: colored a window at a time.
+    let big = "fn main() { let x = 1; }\n".repeat(200_000);
+    let mut t = with_file(&big, "big.rs", Config::default(), (60, 6));
+    let colored = |t: &mut T| {
+        let buf = t.draw();
+        (0..buf.area.width).any(|x| buf[(x, 0)].fg != Color::Reset)
+    };
+    assert!(colored(&mut t));
+    let end = t.app.doc.text().len() - 3;
+    t.at(end);
+    assert!(colored(&mut t));
+    // A very long line shows the part around the cursor.
+    let long = format!("{}\n", "abc ".repeat(100_000));
+    let mut t = with_file(&long, "long.txt", Config::default(), (60, 6));
+    t.at(200_000);
+    let start = std::time::Instant::now();
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("abc") && rows.contains("1:200001"), "{rows}");
+    assert!(start.elapsed() < std::time::Duration::from_secs(2));
+}
+
+#[test]
 fn multiple_cursors() {
     let mut t = with_file("one\ntwo\nthree\n", "t.txt", Config::default(), (60, 10));
     t.at(0);
