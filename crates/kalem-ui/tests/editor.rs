@@ -2863,3 +2863,24 @@ fn csv_filter_and_header(cx: &mut TestAppContext) {
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.clearFilter"));
     assert_eq!(e.read_with(cx, |e, _| e.visible.len()), 62);
 }
+
+#[gpui::test]
+fn latex_view_with_replaced_text(cx: &mut TestAppContext) {
+    // The view shows `↵` for `\\`: the syntax colors of the source must
+    // not cut it (they did, and the frame callback aborted).
+    for text in [
+        "x\\\\y \\ref{a} \\\\*[2pt]\n",
+        "Some {\\bf x}\\\\\nnext \\ref{nope}\\\\\n",
+        "\\begin{tabular}{ll}\na & b \\\\\n\\hline\nc & d \\\\\n\\end{tabular}\n",
+    ] {
+        let (e, cx) = open_named(text, "t.tex", || None, cx);
+        e.update(cx, |e, _| e.doc.update_latex_diagnostics());
+        for pos in (0..=text.len()).filter(|p| text.is_char_boundary(*p)) {
+            e.update(cx, |e, cx| {
+                e.doc.move_cursor(pos, false);
+                cx.notify();
+            });
+            cx.run_until_parked();
+        }
+    }
+}

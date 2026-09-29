@@ -583,6 +583,29 @@ fn color_listing(
     out
 }
 
+/// Moves each boundary between `runs` that falls inside a character of
+/// `text` to the character's end, and makes the lengths add up to the
+/// text's: gpui cuts the text at the runs, and a cut inside a character
+/// would end the program from the frame callback. Debug builds say so,
+/// since a cut there is a bug in whatever made the runs.
+fn fit_runs(text: &str, runs: &mut [TextRun]) {
+    let mut at = 0;
+    for r in runs.iter_mut() {
+        let mut end = (at + r.len).min(text.len());
+        while !text.is_char_boundary(end) {
+            debug_assert!(false, "a run ends inside a character of {text:?}");
+            end += 1;
+        }
+        r.len = end - at;
+        at = end;
+    }
+    if at < text.len()
+        && let Some(last) = runs.last_mut()
+    {
+        last.len += text.len() - at;
+    }
+}
+
 /// Splits `runs` so that source code ranges get their syntax colors.
 fn color_code(
     runs: Vec<TextRun>,
@@ -993,8 +1016,14 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         runs = color_listing(runs, &text, d.styles(line), &theme);
     }
     // Plain text: syntax colors of its language (a window of lines in very
-    // large files).
-    if editor.doc.meta.mode != kalem_core::DocumentMode::Org && editor.doc.dired.is_none() {
+    // large files). Only where the line shows its source byte for byte:
+    // the spans are in source offsets (LaTeX's view shows `↵` for `\\`,
+    // CSV's grid pads its fields).
+    let as_source = editor.doc.text().as_str().get(view.range.clone()) == Some(text.as_str());
+    if editor.doc.meta.mode != kalem_core::DocumentMode::Org
+        && editor.doc.dired.is_none()
+        && as_source
+    {
         let spans = match editor.plain.borrow().as_ref() {
             Some((_, Some(h), _)) => Some(h.line(line).to_vec()),
             _ => None,
@@ -1055,6 +1084,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         text.push_str(" …");
     }
     if !text.is_empty() {
+        fit_runs(&text, &mut runs);
         pieces.push(Piece::Text { text, runs });
     }
     let background = match block.as_ref().map(|b| &b.kind) {
