@@ -2653,3 +2653,52 @@ fn latex_new_from_template() {
     let _ = std::fs::remove_file(path.with_file_name("article-2.tex"));
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn latex_code_colored_by_its_language() {
+    let text = "plain words\n\\begin{lstlisting}[language=Python]\ndef f():\n    return 1\n\\end{lstlisting}\n";
+    let mut t = with_file(text, "c.tex", Config::default(), (60, 8));
+    t.at(0);
+    let buf = t.draw();
+    // Find `def` on its row.
+    let row = (0..buf.area.height)
+        .find(|&y| {
+            (0..buf.area.width)
+                .map(|x| buf[(x, y)].symbol().to_string())
+                .collect::<String>()
+                .contains("def f():")
+        })
+        .expect("the code line shows");
+    let col = (0..buf.area.width)
+        .find(|&x| buf[(x, row)].symbol() == "d")
+        .unwrap();
+    let words = (0..buf.area.width)
+        .find(|&x| buf[(x, 0)].symbol() == "p")
+        .unwrap();
+    // The keyword colored as Python; the text as it is.
+    assert_ne!(buf[(col, row)].fg, buf[(words, 0)].fg);
+    assert_eq!(buf[(words, 0)].fg, Color::Reset);
+}
+
+#[test]
+fn latex_formulas_as_images() {
+    let text = "Before\n\\begin{equation}\n  E = mc^2\n\\end{equation}\nafter\n";
+    let mut t = with_file(text, "i.tex", Config::default(), (60, 12));
+    t.at(0);
+    // Without graphics: the source over its lines.
+    let s = screen(&mut t);
+    assert!(s.iter().any(|l| l.contains("E = mc^2")), "{s:#?}");
+    // With kitty's: the equation as one image on its first line, the
+    // others hidden.
+    let mut picker = ratatui_image::picker::Picker::halfblocks();
+    picker.set_protocol_type(ratatui_image::picker::ProtocolType::Kitty);
+    t.app.editor.images.borrow_mut().picker = Some(picker);
+    let buf = t.draw();
+    let all: String = (0..buf.area.height)
+        .flat_map(|y| (0..buf.area.width).map(move |x| (x, y)))
+        .map(|p| buf[p].symbol().to_string())
+        .collect();
+    assert!(all.contains("\x1b_G"), "an image is drawn");
+    assert!(!all.contains("E = mc^2"), "its source lines are hidden");
+    assert!(all.contains("after"));
+}

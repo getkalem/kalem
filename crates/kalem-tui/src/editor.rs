@@ -147,6 +147,32 @@ impl Images {
         }
     }
 
+    /// A formula's key, with the definitions of a LaTeX document.
+    fn latex_math(&mut self, source: &str, doc: &DocumentState) -> ImageKey {
+        let version = doc.version();
+        if self.macros.as_ref().is_none_or(|(v, _)| *v != version) {
+            let defs: Vec<String> = doc
+                .latex()
+                .map(|l| {
+                    l.model()
+                        .macro_definitions(doc.text().as_str())
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default();
+            self.macros = Some((version, org_math::source::macros(&defs)));
+        }
+        ImageKey::Math {
+            source: source.to_string(),
+            macros: self
+                .macros
+                .as_ref()
+                .map(|(_, m)| m.clone())
+                .unwrap_or_default(),
+        }
+    }
+
     /// A formula's key, with the document's macros.
     fn math(&mut self, source: &str, parse: &Parse, version: u64) -> ImageKey {
         if self.macros.as_ref().is_none_or(|(v, _)| *v != version) {
@@ -421,10 +447,10 @@ impl<'a> Layout<'a> {
         {
             r.end = len + 1;
         }
-        // LaTeX environments drawn as images show on their first line.
-        if let (Some(p), false, false) = (parse, source, raw_math)
-            && images.borrow().picker.is_some()
-        {
+        // LaTeX environments drawn as images show on their first line (in
+        // Org documents and LaTeX documents).
+        let latex = doc.latex().is_some();
+        if (parse.is_some() || latex) && !source && !raw_math && images.borrow().picker.is_some() {
             let text = doc.text();
             let c = doc.selection.head;
             for b in blocks.iter().filter(|b| b.kind == BlockKind::Math) {
@@ -438,7 +464,14 @@ impl<'a> Layout<'a> {
                 }
                 let src = text.as_str()[b.range.start..b.content_end].trim_end();
                 let mut im = images.borrow_mut();
-                let key = im.math(src, p, doc.version());
+                let key = match parse {
+                    Some(p) => im.math(src, p, doc.version()),
+                    None => {
+                        let src = kalem_core::latex_view::math_source(doc, b.range.clone())
+                            .unwrap_or_else(|| src.to_string());
+                        im.latex_math(&src, doc)
+                    }
+                };
                 if im.size(&key, width).is_none() {
                     continue;
                 }
@@ -489,6 +522,9 @@ impl<'a> Layout<'a> {
     /// on it, or a LaTeX environment (on its first line). Returns what it
     /// shows, a label for when it cannot show, and its size.
     fn image(&self, line: usize) -> Option<(ImageKey, String, u16, u16)> {
+        if self.doc.latex().is_some() && !self.source {
+            return self.latex_image(line);
+        }
         let p = self.parse.filter(|_| !self.source)?;
         self.images.borrow().picker.as_ref()?;
         let range = self.range(line);
@@ -522,6 +558,57 @@ impl<'a> Layout<'a> {
             view::Widget::Math { source, .. } if !self.raw_math => {
                 let label = kalem_core::math::unicode(&source);
                 (images.math(&source, p, self.doc.version()), label)
+            }
+            _ => return None,
+        };
+        let limit = match &key {
+            ImageKey::File(_, cols) => *cols,
+            ImageKey::Math { .. } => self.width.get(),
+        };
+        let (rows, cols) = images.size(&key, limit)?;
+        Some((key, label, rows, cols))
+    }
+
+    /// [`Layout::image`] in a LaTeX document: a math environment on its
+    /// first line, a formula or a picture alone on its line.
+    fn latex_image(&self, line: usize) -> Option<(ImageKey, String, u16, u16)> {
+        self.images.borrow().picker.as_ref()?;
+        let range = self.range(line);
+        if let Some(src) = self.math_block(range.start) {
+            let b = self.block_at(range.start)?;
+            let source = kalem_core::latex_view::math_source(self.doc, b.range.clone())
+                .unwrap_or_else(|| src.to_string());
+            let mut images = self.images.borrow_mut();
+            let key = images.latex_math(&source, self.doc);
+            let (rows, cols) = images.size(&key, self.width.get())?;
+            let label = src.lines().next().unwrap_or("").to_string();
+            return Some((key, label, rows, cols));
+        }
+        if range.start <= self.cursor && self.cursor <= range.end {
+            return None;
+        }
+        let v = kalem_core::latex_view::line_view(self.doc, range, Some(self.cursor));
+        let mut found = None;
+        for r in &v.runs {
+            match &r.widget {
+                Some(
+                    w @ (view::Widget::Image { .. } | view::Widget::Math { display: true, .. }),
+                ) if found.is_none() => {
+                    found = Some(w.clone());
+                }
+                None if r.text.trim().is_empty() => {}
+                _ => return None,
+            }
+        }
+        let mut images = self.images.borrow_mut();
+        let (key, label) = match found? {
+            view::Widget::Image { path, width } => {
+                let cols = images.cols(width, self.width.get());
+                (images.file(&path, cols), format!("[image: {path}]"))
+            }
+            view::Widget::Math { source, .. } if !self.raw_math => {
+                let label = kalem_core::math::unicode(&source);
+                (images.latex_math(&source, self.doc), label)
             }
             _ => return None,
         };
@@ -951,7 +1038,13 @@ impl<'a> Layout<'a> {
                     self.caps,
                     self.raw_math,
                 );
-                self.plain_colors(line, &range, &mut lg.glyphs);
+                if self.doc.latex().is_some() && !self.source {
+                    // LaTeX as it reads: code in its language, the rest as
+                    // the view styles it.
+                    self.color_code(&range, &mut lg.glyphs);
+                } else {
+                    self.plain_colors(line, &range, &mut lg.glyphs);
+                }
                 lg
             }
         };
@@ -1295,6 +1388,8 @@ impl EditorView {
             return b.clone();
         }
         let b = match doc.parse() {
+            // LaTeX: its displayed formulas and code, the text between.
+            _ if doc.latex().is_some() => Arc::new(kalem_core::latex_view::blocks(doc)),
             Some((p, true)) => Arc::new(view::blocks(&p.syntax(), p.context())),
             _ => Arc::new(Vec::new()),
         };
