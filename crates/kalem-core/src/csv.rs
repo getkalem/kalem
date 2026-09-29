@@ -1,0 +1,948 @@
+//! CSV mode's model (§2.6.2, T2.7d): the dialect of a file (delimiter,
+//! quote, header row, line endings), found from its text and kept; the
+//! records with the byte range of every field, found lazily from the top;
+//! and edits that change only the fields they touch, quoting only where
+//! RFC 4180 needs it, as transactions on the text (so undo, saving and the
+//! other views work as for any document).
+//!
+//! The scanner is Kalem's own rather than the `csv` crate's reader: edits
+//! need the byte range of each field in the source, quotes included, which
+//! a reader that yields unquoted values does not give.
+
+use std::borrow::Cow;
+use std::ops::Range;
+
+use org_edit::{Selection, Transaction};
+
+/// How a CSV file writes its records.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Dialect {
+    /// The field delimiter: `,`, `;`, a tab or `|`.
+    pub delimiter: u8,
+    /// The quote character.
+    pub quote: u8,
+    /// Whether the first record names the columns.
+    pub header: bool,
+    /// Records end with CR LF.
+    pub crlf: bool,
+}
+
+impl Default for Dialect {
+    fn default() -> Self {
+        Dialect {
+            delimiter: b',',
+            quote: b'"',
+            header: true,
+            crlf: false,
+        }
+    }
+}
+
+impl Dialect {
+    /// The delimiter as a character.
+    pub fn delimiter_char(&self) -> char {
+        self.delimiter as char
+    }
+
+    /// The line ending records get.
+    pub fn line_ending(&self) -> &'static str {
+        if self.crlf { "\r\n" } else { "\n" }
+    }
+}
+
+/// A field in the text: its source range (quotes included) and whether it
+/// is quoted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Field {
+    /// The bytes of the field in the text.
+    pub range: Range<usize>,
+    /// Written in quotes.
+    pub quoted: bool,
+}
+
+/// A record in the text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Record {
+    /// Its fields.
+    pub fields: Vec<Field>,
+    /// Its bytes, without the line ending.
+    pub range: Range<usize>,
+    /// Where the next record starts.
+    pub next: usize,
+}
+
+/// The record starting at `start`.
+pub fn scan(text: &str, start: usize, d: &Dialect) -> Record {
+    let b = text.as_bytes();
+    let mut fields = Vec::new();
+    let mut i = start;
+    loop {
+        let fs = i;
+        let quoted = b.get(i) == Some(&d.quote);
+        if quoted {
+            i += 1;
+            while i < b.len() {
+                if b[i] == d.quote {
+                    if b.get(i + 1) == Some(&d.quote) {
+                        i += 2;
+                        continue;
+                    }
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            // Anything after the closing quote belongs to the field.
+            while i < b.len() && b[i] != d.delimiter && b[i] != b'\n' && b[i] != b'\r' {
+                i += 1;
+            }
+        } else {
+            while i < b.len() && b[i] != d.delimiter && b[i] != b'\n' && b[i] != b'\r' {
+                i += 1;
+            }
+        }
+        fields.push(Field {
+            range: fs..i,
+            quoted,
+        });
+        if i < b.len() && b[i] == d.delimiter {
+            i += 1;
+            continue;
+        }
+        let end = i;
+        let next = if b.get(i) == Some(&b'\r') && b.get(i + 1) == Some(&b'\n') {
+            i + 2
+        } else if i < b.len() {
+            i + 1
+        } else {
+            i
+        };
+        return Record {
+            fields,
+            range: start..end,
+            next,
+        };
+    }
+}
+
+/// The value of a field: unquoted, doubled quotes as one.
+pub fn value<'a>(text: &'a str, f: &Field, d: &Dialect) -> Cow<'a, str> {
+    let s = &text[f.range.clone()];
+    if !f.quoted {
+        return Cow::Borrowed(s);
+    }
+    let q = d.quote as char;
+    let inner = s.strip_prefix(q).unwrap_or(s);
+    let close = inner.rfind(q).unwrap_or(inner.len());
+    let (body, rest) = (&inner[..close], &inner[(close + 1).min(inner.len())..]);
+    let dq = format!("{q}{q}");
+    Cow::Owned(format!("{}{rest}", body.replace(&dq, &q.to_string())))
+}
+
+/// `value` as a field: quoted when it has the delimiter, the quote or a
+/// line break, or blanks at its ends.
+pub fn encode(value: &str, d: &Dialect) -> String {
+    let q = d.quote as char;
+    let needs = value.contains(d.delimiter_char())
+        || value.contains(q)
+        || value.contains(['\n', '\r'])
+        || value.starts_with([' ', '\t'])
+        || value.ends_with([' ', '\t']);
+    if needs {
+        format!("{q}{}{q}", value.replace(q, &format!("{q}{q}")))
+    } else {
+        value.to_string()
+    }
+}
+
+/// Finds the dialect of `text` from its first records: the delimiter that
+/// gives the most records with the same number of fields (more than one),
+/// a header when the first record's values are all text where later ones
+/// have numbers, or all different and not empty.
+pub fn detect(text: &str) -> Dialect {
+    let sample_end = text
+        .char_indices()
+        .map(|(i, _)| i)
+        .nth(64 * 1024)
+        .unwrap_or(text.len());
+    let sample = &text[..sample_end];
+    let crlf = sample.contains("\r\n");
+    let mut best = (0usize, b',');
+    for delim in *b",;\t|" {
+        let d = Dialect {
+            delimiter: delim,
+            crlf,
+            ..Dialect::default()
+        };
+        let mut counts = Vec::new();
+        let mut at = 0;
+        while at < sample.len() && counts.len() < 50 {
+            let r = scan(sample, at, &d);
+            if r.next == at {
+                break;
+            }
+            if !(r.range.is_empty() && r.next >= sample.len()) {
+                counts.push(r.fields.len());
+            }
+            at = r.next;
+        }
+        let Some(&first) = counts.first() else {
+            continue;
+        };
+        let same = counts.iter().filter(|&&n| n == first).count();
+        let score = if first > 1 { same * first } else { 0 };
+        if score > best.0 {
+            best = (score, delim);
+        }
+    }
+    let mut d = Dialect {
+        delimiter: best.1,
+        crlf,
+        ..Dialect::default()
+    };
+    d.header = looks_like_header(sample, &d);
+    d
+}
+
+fn looks_like_header(text: &str, d: &Dialect) -> bool {
+    let first = scan(text, 0, d);
+    if first.next >= text.len() {
+        return false;
+    }
+    let names: Vec<Cow<'_, str>> = first.fields.iter().map(|f| value(text, f, d)).collect();
+    let number = |s: &str| {
+        let s = s.trim().replace(['\u{a0}', ' '], "");
+        !s.is_empty() && (s.parse::<f64>().is_ok() || s.replace(',', ".").parse::<f64>().is_ok())
+    };
+    if names.iter().any(|n| number(n)) {
+        return false;
+    }
+    // Later records with numbers where the first has text: a header.
+    let mut at = first.next;
+    for _ in 0..20 {
+        if at >= text.len() {
+            break;
+        }
+        let r = scan(text, at, d);
+        if r.fields.iter().any(|f| number(&value(text, f, d))) {
+            return true;
+        }
+        at = r.next;
+    }
+    let mut seen = std::collections::HashSet::new();
+    names
+        .iter()
+        .all(|n| !n.trim().is_empty() && seen.insert(n.to_string()))
+}
+
+/// The starts of the records of a text, found as far as asked (a large
+/// file is not scanned whole to show its first screen).
+#[derive(Debug, Clone, Default)]
+pub struct Index {
+    starts: Vec<usize>,
+    complete: bool,
+    len: usize,
+}
+
+impl Index {
+    /// An index of `text`, nothing scanned yet.
+    pub fn new(text: &str) -> Index {
+        Index {
+            starts: vec![0],
+            complete: text.is_empty(),
+            len: text.len(),
+        }
+    }
+
+    /// Scans until record `row` is known (or the end).
+    pub fn ensure(&mut self, text: &str, row: usize, d: &Dialect) {
+        while !self.complete && self.starts.len() <= row + 1 {
+            let at = *self.starts.last().expect("a start");
+            let r = scan(text, at, d);
+            if r.next >= text.len() || r.next == at {
+                self.complete = true;
+                // A final line feed does not start an empty record.
+                if r.next > at && r.next < text.len() {
+                    self.starts.push(r.next);
+                }
+            } else {
+                self.starts.push(r.next);
+            }
+        }
+    }
+
+    /// The number of records, scanning the whole text.
+    pub fn count(&mut self, text: &str, d: &Dialect) -> usize {
+        self.ensure(text, usize::MAX - 1, d);
+        self.starts.len()
+    }
+
+    /// Record `row`, if the text has it.
+    pub fn record(&mut self, text: &str, row: usize, d: &Dialect) -> Option<Record> {
+        self.ensure(text, row, d);
+        let at = *self.starts.get(row)?;
+        (at < text.len() || (row == 0 && text.is_empty())).then(|| scan(text, at, d))
+    }
+
+    /// The record holding byte `pos`, and its row.
+    pub fn row_at(&mut self, text: &str, pos: usize, d: &Dialect) -> usize {
+        while !self.complete && *self.starts.last().expect("a start") <= pos {
+            let n = self.starts.len();
+            self.ensure(text, n, d);
+        }
+        self.starts.partition_point(|&s| s <= pos).saturating_sub(1)
+    }
+
+    /// Whether the index was made for a text of `len` bytes.
+    pub fn fits(&self, len: usize) -> bool {
+        self.len == len
+    }
+}
+
+/// All records of `text` as values, for tests and conversions.
+pub fn rows(text: &str, d: &Dialect) -> Vec<Vec<String>> {
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    (0..n)
+        .filter_map(|i| idx.record(text, i, d))
+        .map(|r| {
+            r.fields
+                .iter()
+                .map(|f| value(text, f, d).into_owned())
+                .collect()
+        })
+        .collect()
+}
+
+/// Sets field `col` of the record at `rec` to `v`: only that field's bytes
+/// change; a record with fewer fields gets empty ones first.
+pub fn set_cell(_text: &str, rec: &Record, col: usize, v: &str, d: &Dialect) -> Transaction {
+    let enc = encode(v, d);
+    let mut tx = Transaction::new("Edit Cell");
+    let caret = match rec.fields.get(col) {
+        Some(f) => {
+            tx.replace(f.range.clone(), &enc).expect("one edit");
+            f.range.start + enc.len()
+        }
+        None => {
+            let pad = d
+                .delimiter_char()
+                .to_string()
+                .repeat(col + 1 - rec.fields.len());
+            let at = rec.range.end;
+            tx.replace(at..at, format!("{pad}{enc}")).expect("one edit");
+            at + pad.len() + enc.len()
+        }
+    };
+    tx.select(Selection::caret(caret))
+}
+
+/// A new empty record of `columns` fields after the record `rec`.
+pub fn insert_row(text: &str, rec: &Record, columns: usize, d: &Dialect) -> Transaction {
+    let blank = d
+        .delimiter_char()
+        .to_string()
+        .repeat(columns.saturating_sub(1));
+    let mut tx = Transaction::new("Insert Row");
+    let at = rec.range.end;
+    let nl = if text[at..].starts_with("\r\n") || (d.crlf && at >= text.len()) {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    tx.replace(at..at, format!("{nl}{blank}"))
+        .expect("one edit");
+    tx.select(Selection::caret(at + nl.len()))
+}
+
+/// Deletes the record `rec`, its line ending with it.
+pub fn delete_row(text: &str, rec: &Record) -> Transaction {
+    let mut tx = Transaction::new("Delete Row");
+    let r = if rec.next > rec.range.end || rec.range.start == 0 {
+        rec.range.start..rec.next
+    } else {
+        // The last record: the line ending before it goes.
+        let before = if text[..rec.range.start].ends_with("\r\n") {
+            2
+        } else {
+            1
+        };
+        rec.range.start.saturating_sub(before)..rec.range.end
+    };
+    tx.replace(r.clone(), "").expect("one edit");
+    tx.select(Selection::caret(r.start.min(text.len() - r.len())))
+}
+
+/// Swaps two records, `a` before `b`, keeping each one's bytes.
+pub fn swap_rows(text: &str, a: &Record, b: &Record) -> Transaction {
+    let mut tx = Transaction::new("Move Row");
+    let (ta, tb) = (&text[a.range.clone()], &text[b.range.clone()]);
+    tx.replace(a.range.clone(), tb).expect("apart");
+    tx.replace(b.range.clone(), ta).expect("apart");
+    let shift = tb.len() as isize - ta.len() as isize;
+    tx.select(Selection::caret((b.range.start as isize + shift) as usize))
+}
+
+/// Inserts an empty column before column `col` in every record (`col`
+/// past the last: after it).
+pub fn insert_column(text: &str, d: &Dialect, col: usize) -> Transaction {
+    let mut tx = Transaction::new("Insert Column");
+    let delim = d.delimiter_char().to_string();
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    for i in 0..n {
+        let Some(r) = idx.record(text, i, d) else {
+            continue;
+        };
+        match r.fields.get(col) {
+            Some(f) => {
+                let _ = tx.replace(f.range.start..f.range.start, delim.clone());
+            }
+            None => {
+                let _ = tx.replace(
+                    r.range.end..r.range.end,
+                    delim.repeat(col + 1 - r.fields.len()),
+                );
+            }
+        }
+    }
+    tx
+}
+
+/// Deletes column `col` from every record.
+pub fn delete_column(text: &str, d: &Dialect, col: usize) -> Transaction {
+    let mut tx = Transaction::new("Delete Column");
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    for i in 0..n {
+        let Some(r) = idx.record(text, i, d) else {
+            continue;
+        };
+        let Some(f) = r.fields.get(col) else { continue };
+        // The field with the delimiter after it (before it, for the last).
+        let range = if col + 1 < r.fields.len() {
+            f.range.start..r.fields[col + 1].range.start
+        } else if col > 0 {
+            r.fields[col - 1].range.end..f.range.end
+        } else {
+            f.range.clone()
+        };
+        let _ = tx.replace(range, "");
+    }
+    tx
+}
+
+/// Swaps columns `a` and `a + 1` in every record, keeping each field's
+/// bytes.
+pub fn swap_columns(text: &str, d: &Dialect, a: usize) -> Transaction {
+    let mut tx = Transaction::new("Move Column");
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    for i in 0..n {
+        let Some(r) = idx.record(text, i, d) else {
+            continue;
+        };
+        let (Some(x), Some(y)) = (r.fields.get(a), r.fields.get(a + 1)) else {
+            continue;
+        };
+        let _ = tx.replace(x.range.clone(), &text[y.range.clone()]);
+        let _ = tx.replace(y.range.clone(), &text[x.range.clone()]);
+    }
+    tx
+}
+
+/// How rows compare for sorting by a column: as numbers when both are.
+fn compare(a: &str, b: &str) -> std::cmp::Ordering {
+    let num = |s: &str| s.trim().replace(',', ".").parse::<f64>().ok();
+    match (num(a), num(b)) {
+        (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
+        _ => a.to_lowercase().cmp(&b.to_lowercase()),
+    }
+}
+
+/// The order of the data rows (the header stays first) sorted by column
+/// `col` (`reverse`: descending), for a view that sorts without changing
+/// the file.
+pub fn sorted_order(text: &str, d: &Dialect, col: usize, reverse: bool) -> Vec<usize> {
+    let rows = rows(text, d);
+    let first = usize::from(d.header);
+    let mut order: Vec<usize> = (first..rows.len()).collect();
+    let key = |i: usize| rows[i].get(col).map_or("", String::as_str);
+    order.sort_by(|&a, &b| {
+        let o = compare(key(a), key(b));
+        if reverse { o.reverse() } else { o }
+    });
+    let mut out: Vec<usize> = (0..first).collect();
+    out.extend(order);
+    out
+}
+
+/// Sort File: the records rewritten in the order of column `col` (the
+/// header stays first), each record's bytes kept.
+pub fn sort_file(text: &str, d: &Dialect, col: usize, reverse: bool) -> Transaction {
+    let order = sorted_order(text, d, col, reverse);
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    let recs: Vec<Record> = (0..n).filter_map(|i| idx.record(text, i, d)).collect();
+    let body: Vec<&str> = order
+        .iter()
+        .map(|&i| &text[recs[i].range.clone()])
+        .collect();
+    let nl = d.line_ending();
+    let end = recs.last().map_or(0, |r| r.range.end);
+    let mut tx = Transaction::new("Sort File");
+    tx.replace(0..end, body.join(nl)).expect("one edit");
+    tx
+}
+
+/// Rows as tab-separated values, the way spreadsheets copy them.
+pub fn to_tsv(rows: &[Vec<String>]) -> String {
+    let d = Dialect {
+        delimiter: b'\t',
+        ..Dialect::default()
+    };
+    rows.iter()
+        .map(|r| {
+            r.iter()
+                .map(|v| encode(v, &d))
+                .collect::<Vec<_>>()
+                .join("\t")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The rows as an Org table (Convert to Org Table), a rule under the
+/// header, aligned as Org aligns tables.
+pub fn to_org_table(text: &str, d: &Dialect) -> String {
+    let rows = rows(text, d);
+    let mut lines: Vec<Option<Vec<String>>> = rows
+        .into_iter()
+        .map(|r| {
+            Some(
+                r.into_iter()
+                    .map(|v| crate::paste::field_text(&v))
+                    .collect(),
+            )
+        })
+        .collect();
+    if d.header && lines.len() > 1 {
+        lines.insert(1, None);
+    }
+    let t = lines
+        .iter()
+        .map(|r| match r {
+            Some(cells) => format!("| {} |", cells.join(" | ")),
+            None => "|-".to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    crate::paste::align_tables(&format!("{t}\n"))
+}
+
+/// Numbers of column `col` of the data rows: count, sum, average, min, max.
+pub fn column_stats(text: &str, d: &Dialect, col: usize) -> Option<(usize, f64, f64, f64, f64)> {
+    let rows = rows(text, d);
+    let nums: Vec<f64> = rows
+        .iter()
+        .skip(usize::from(d.header))
+        .filter_map(|r| r.get(col))
+        .filter_map(|v| {
+            let v = v.trim().replace(['\u{a0}', ' '], "");
+            v.parse::<f64>().ok().or_else(|| {
+                // `1.234,5` in Turkish and most European locales.
+                v.replace('.', "").replace(',', ".").parse::<f64>().ok()
+            })
+        })
+        .collect();
+    if nums.is_empty() {
+        return None;
+    }
+    let sum: f64 = nums.iter().sum();
+    let min = nums.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = nums.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    Some((nums.len(), sum, sum / nums.len() as f64, min, max))
+}
+
+/// How a CSV document is laid out as a grid, for a text version: its
+/// dialect, the width of each column (from the first thousand records,
+/// at most forty characters), and the record index.
+#[derive(Debug)]
+pub struct Layout {
+    /// The dialect.
+    pub dialect: Dialect,
+    /// Column widths, in characters.
+    pub widths: Vec<usize>,
+    /// Record starts, found as far as the view needed.
+    pub index: std::cell::RefCell<Index>,
+}
+
+/// The widest a column is laid out.
+const MAX_WIDTH: usize = 40;
+
+impl Layout {
+    /// The layout of `text`.
+    pub fn new(text: &str) -> Layout {
+        use unicode_width::UnicodeWidthStr;
+        let dialect = detect(text);
+        let mut index = Index::new(text);
+        let mut widths: Vec<usize> = Vec::new();
+        for i in 0..1000 {
+            let Some(r) = index.record(text, i, &dialect) else {
+                break;
+            };
+            for (j, f) in r.fields.iter().enumerate() {
+                let w = text[f.range.clone()].width().min(MAX_WIDTH);
+                if j >= widths.len() {
+                    widths.push(w);
+                } else {
+                    widths[j] = widths[j].max(w);
+                }
+            }
+        }
+        Layout {
+            dialect,
+            widths,
+            index: std::cell::RefCell::new(index),
+        }
+    }
+
+    /// The row and the record starting at byte `line_start`, when a record
+    /// starts there (not inside a quoted field of the one before).
+    pub fn record_at(&self, text: &str, line_start: usize) -> Option<(usize, Record)> {
+        let mut idx = self.index.borrow_mut();
+        let row = idx.row_at(text, line_start, &self.dialect);
+        let r = idx.record(text, row, &self.dialect)?;
+        (r.range.start == line_start).then_some((row, r))
+    }
+}
+
+/// What a memo is for: the text's version and a length or column.
+type Key = (u64, usize);
+
+thread_local! {
+    static LAYOUT: std::cell::RefCell<Option<(Key, std::rc::Rc<Layout>)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The layout of the CSV document `doc`, for its text version.
+pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
+    let key = (doc.version(), doc.text().len());
+    LAYOUT.with(|l| {
+        if let Some((k, v)) = &*l.borrow()
+            && *k == key
+        {
+            return v.clone();
+        }
+        let v = std::rc::Rc::new(Layout::new(doc.text().as_str()));
+        *l.borrow_mut() = Some((key, v.clone()));
+        v
+    })
+}
+
+/// A line of a CSV document as a row of the grid: each field as written
+/// (so that it is edited in place), padded to its column's width, with
+/// `│` for the delimiters; the header row bold. A line inside a record
+/// that spans lines (a quoted line break) shows as it is.
+pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view::LineView {
+    use crate::view::{LineView, Run, Style};
+    use unicode_width::UnicodeWidthStr;
+    let Some((row, rec)) = layout
+        .record_at(text, line.start)
+        .filter(|(_, r)| r.range.end <= line.end)
+    else {
+        return crate::view::plain_line_view(text, line, None);
+    };
+    let header = row == 0 && layout.dialect.header;
+    let style = Style {
+        bold: header,
+        ..Style::default()
+    };
+    let deco = |at: usize, t: String, dim: bool| Run {
+        src: at..at,
+        text: t,
+        verbatim: false,
+        style: Style {
+            dim,
+            bold: header && !dim,
+            ..Style::default()
+        },
+        widget: None,
+    };
+    let mut runs = Vec::new();
+    for (j, f) in rec.fields.iter().enumerate() {
+        let s = &text[f.range.clone()];
+        if !s.is_empty() {
+            runs.push(Run {
+                src: f.range.clone(),
+                text: s.to_string(),
+                verbatim: true,
+                style,
+                widget: None,
+            });
+        }
+        let last = j + 1 == rec.fields.len();
+        let pad = layout
+            .widths
+            .get(j)
+            .copied()
+            .unwrap_or(0)
+            .saturating_sub(s.width());
+        if !last {
+            // The padding, then the delimiter drawn as a bar.
+            if pad > 0 {
+                runs.push(deco(f.range.end, " ".repeat(pad), false));
+            }
+            runs.push(Run {
+                src: f.range.end..f.range.end + 1,
+                text: " │ ".into(),
+                verbatim: false,
+                style: Style {
+                    dim: true,
+                    ..Style::default()
+                },
+                widget: None,
+            });
+        }
+    }
+    LineView {
+        runs,
+        range: line,
+        mono: true,
+        ..LineView::default()
+    }
+}
+
+/// The cell at the cursor of the CSV document `doc`: the layout, the row,
+/// its record and the column.
+pub fn cell_at(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Layout>, usize, Record, usize)> {
+    if doc.meta.mode != crate::DocumentMode::Csv {
+        return None;
+    }
+    let layout = layout(doc);
+    let text = doc.text().as_str();
+    let pos = doc.selection.head.min(text.len());
+    let (row, rec) = {
+        let mut idx = layout.index.borrow_mut();
+        let row = idx.row_at(text, pos, &layout.dialect);
+        let rec = idx.record(text, row, &layout.dialect)?;
+        (row, rec)
+    };
+    let col = rec
+        .fields
+        .iter()
+        .position(|f| pos <= f.range.end)
+        .unwrap_or(rec.fields.len().saturating_sub(1));
+    Some((layout, row, rec, col))
+}
+
+thread_local! {
+    static STATS: std::cell::RefCell<Option<(Key, Option<String>)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The status bar's numbers for the column at the cursor of a CSV
+/// document: count, sum, average, smallest and largest.
+pub fn status(doc: &crate::DocumentState) -> Option<String> {
+    let (layout, _, _, col) = cell_at(doc)?;
+    let key = (doc.version(), col);
+    STATS.with(|s| {
+        if let Some((k, v)) = &*s.borrow()
+            && *k == key
+        {
+            return v.clone();
+        }
+        let v = column_stats(doc.text().as_str(), &layout.dialect, col).map(
+            |(n, sum, avg, min, max)| {
+                let f = |x: f64| crate::formulas::number(x);
+                format!(
+                    "{}   {}",
+                    crate::tr!("status-table-count", count = n),
+                    crate::tr!(
+                        "status-table-numbers",
+                        sum = f(sum),
+                        average = f(avg),
+                        min = f(min),
+                        max = f(max)
+                    )
+                )
+            },
+        );
+        *s.borrow_mut() = Some((key, v.clone()));
+        v
+    })
+}
+
+/// Pasted text in a CSV document: tab-separated rows (copied from a
+/// spreadsheet) written with the document's delimiter.
+pub fn pasted(text: &str, d: &Dialect) -> Option<String> {
+    if d.delimiter == b'\t' || !text.contains('\t') {
+        return None;
+    }
+    let tsv = Dialect {
+        delimiter: b'\t',
+        ..*d
+    };
+    let rows = rows(text, &tsv);
+    let out: Vec<String> = rows
+        .iter()
+        .map(|r| {
+            r.iter()
+                .map(|v| encode(v, d))
+                .collect::<Vec<_>>()
+                .join(&d.delimiter_char().to_string())
+        })
+        .collect();
+    let mut out = out.join("\n");
+    if text.ends_with('\n') {
+        out.push('\n');
+    }
+    Some(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn apply(text: &str, tx: Transaction) -> String {
+        tx.apply(text)
+    }
+
+    #[test]
+    fn dialects() {
+        let d = detect("name,age\nAda,36\nAlan,41\n");
+        assert_eq!((d.delimiter, d.header, d.crlf), (b',', true, false));
+        let d = detect("ad;yaş;şehir\r\nAyşe;30;İzmir\r\nMehmet;41;Ankara\r\n");
+        assert_eq!((d.delimiter, d.header, d.crlf), (b';', true, true));
+        let d = detect("a\tb\tc\n1\t2\t3\n");
+        assert_eq!(d.delimiter, b'\t');
+        let d = detect("1,2,3\n4,5,6\n");
+        assert!(!d.header);
+        // Commas inside numbers do not fool it.
+        let d = detect("ürün;fiyat\nelma;1,5\narmut;2,25\n");
+        assert_eq!(d.delimiter, b';');
+    }
+
+    #[test]
+    fn rfc4180() {
+        let d = Dialect::default();
+        let t = "a,\"b,c\",\"say \"\"hi\"\"\"\n\"multi\nline\",x,\n";
+        let r = rows(t, &d);
+        assert_eq!(
+            r,
+            [vec!["a", "b,c", "say \"hi\""], vec!["multi\nline", "x", ""]]
+        );
+        assert_eq!(encode("plain", &d), "plain");
+        assert_eq!(encode("a,b", &d), "\"a,b\"");
+        assert_eq!(encode("say \"hi\"", &d), "\"say \"\"hi\"\"\"");
+        assert_eq!(encode(" pad", &d), "\" pad\"");
+        // No final line feed; an empty file.
+        assert_eq!(rows("x,y", &d), [vec!["x", "y"]]);
+        assert!(rows("", &d).iter().all(|r| r == &vec![String::new()]));
+    }
+
+    #[test]
+    fn minimal_edits() {
+        let d = Dialect::default();
+        let t = "id,name,note\n1,\"Ada\",keep  \n2,Alan,x\n";
+        let mut idx = Index::new(t);
+        let rec = idx.record(t, 1, &d).unwrap();
+        // Only the field changes; the quotes elsewhere stay.
+        assert_eq!(
+            apply(t, set_cell(t, &rec, 2, "a,b", &d)),
+            "id,name,note\n1,\"Ada\",\"a,b\"\n2,Alan,x\n"
+        );
+        assert_eq!(
+            apply(t, set_cell(t, &rec, 4, "e", &d)),
+            "id,name,note\n1,\"Ada\",keep  ,,e\n2,Alan,x\n"
+        );
+        let rec2 = idx.record(t, 2, &d).unwrap();
+        assert_eq!(apply(t, insert_row(t, &rec2, 3, &d)), format!("{t},,\n"));
+        assert_eq!(apply(t, delete_row(t, &rec)), "id,name,note\n2,Alan,x\n");
+        assert_eq!(
+            apply(t, swap_rows(t, &rec, &rec2)),
+            "id,name,note\n2,Alan,x\n1,\"Ada\",keep  \n"
+        );
+        assert_eq!(
+            apply(t, insert_column(t, &d, 1)),
+            "id,,name,note\n1,,\"Ada\",keep  \n2,,Alan,x\n"
+        );
+        assert_eq!(
+            apply(t, delete_column(t, &d, 1)),
+            "id,note\n1,keep  \n2,x\n"
+        );
+        assert_eq!(
+            apply(t, delete_column(t, &d, 2)),
+            "id,name\n1,\"Ada\"\n2,Alan\n"
+        );
+        assert_eq!(
+            apply(t, swap_columns(t, &d, 0)),
+            "name,id,note\n\"Ada\",1,keep  \nAlan,2,x\n"
+        );
+        assert_eq!(idx.row_at(t, 20, &d), 1);
+    }
+
+    #[test]
+    fn sorting_and_conversions() {
+        let t = "name,n\nb,10\na,9\nc,100\n";
+        let d = detect(t);
+        assert_eq!(sorted_order(t, &d, 1, false), [0, 2, 1, 3]);
+        assert_eq!(
+            apply(t, sort_file(t, &d, 0, true)),
+            "name,n\nc,100\nb,10\na,9\n"
+        );
+        assert_eq!(to_tsv(&[vec!["a b".into(), "c".into()]]), "a b\tc");
+        assert_eq!(
+            to_org_table(t, &d),
+            "| name |   n |\n|------+-----|\n| b    |  10 |\n| a    |   9 |\n| c    | 100 |\n"
+        );
+        let (n, sum, avg, min, max) = column_stats(t, &d, 1).unwrap();
+        assert_eq!((n, sum, avg, min, max), (3, 119.0, 119.0 / 3.0, 9.0, 100.0));
+        assert!(column_stats(t, &d, 0).is_none());
+        // European numbers.
+        let e = "ürün;fiyat\nelma;1,5\narmut;1.234,5\n";
+        let d = detect(e);
+        assert_eq!(column_stats(e, &d, 1).unwrap().1, 1236.0);
+    }
+
+    #[test]
+    fn grid_rows() {
+        let t = "name,n\nAda,36\n\"long, name\",7\n\"two\nlines\",1\n";
+        let l = Layout::new(t);
+        assert_eq!(l.widths, [12, 2]);
+        let lines: Vec<Range<usize>> = {
+            let mut out = Vec::new();
+            let mut s = 0;
+            for (i, _) in t.match_indices('\n') {
+                out.push(s..i);
+                s = i + 1;
+            }
+            out
+        };
+        let v = line_view(&l, t, lines[1].clone());
+        assert_eq!(v.display(), "Ada          │ 36");
+        assert!(v.runs[0].verbatim && !v.runs[0].style.bold);
+        assert!(line_view(&l, t, lines[0].clone()).runs[0].style.bold);
+        // Editing positions map through: after `Ada` is in the field.
+        let at = t.find("Ada").unwrap() + 3;
+        assert_eq!(v.source_offset(v.display_offset(at)), at);
+        // A record over two lines shows as written.
+        assert_eq!(line_view(&l, t, lines[3].clone()).display(), "\"two");
+        assert_eq!(line_view(&l, t, lines[4].clone()).display(), "lines\",1");
+    }
+
+    #[test]
+    fn large_files_open_lazily() {
+        let t: String = (0..100_000)
+            .map(|i| format!("{i},name {i},{}\n", i * 2))
+            .collect();
+        let d = detect(&t);
+        let start = std::time::Instant::now();
+        let mut idx = Index::new(&t);
+        let r = idx.record(&t, 30, &d).unwrap();
+        assert_eq!(value(&t, &r.fields[1], &d), "name 30");
+        assert!(idx.starts.len() < 100);
+        assert_eq!(idx.count(&t, &d), 100_000);
+        assert!(start.elapsed() < std::time::Duration::from_secs(2));
+    }
+}

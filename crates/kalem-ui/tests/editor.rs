@@ -2243,3 +2243,18 @@ fn inserting_drawers(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(text_of(&e, cx), ":LOGBOOK:\nOne.\nTwo.\n:END:\n");
 }
+
+#[gpui::test]
+fn csv_grid(cx: &mut TestAppContext) {
+    let (e, cx) = open_named("name,age\nAda,36\nBob,7\n", "p.csv", || None, cx);
+    let shown = e.read_with(cx, |e, _| e.line_view(1).display());
+    assert!(shown.contains("Ada  │ 36"), "{shown}");
+    at(&e, 9, cx);
+    cx.simulate_keystrokes("tab");
+    assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), 13);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("csv.moveRowDown", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    assert_eq!(text_of(&e, cx), "name,age\nBob,7\nAda,36\n");
+}

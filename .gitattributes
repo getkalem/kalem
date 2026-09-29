@@ -2,3 +2,4 @@
 # files with CRLF line endings are test cases of their own.
 * text=auto eol=lf
 tests/corpus/synthetic/bom-crlf.org -text
+tests/csv/*.csv -text

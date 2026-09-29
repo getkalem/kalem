@@ -199,6 +199,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
                 ("inactive", "boolean", false),
             ]),
         ),
+        ("csv.sortFile", object(&[("reverse", "boolean", false)])),
         ("view.setMode", {
             let mut s = object(&[("mode", "string", true)]);
             s["properties"]["mode"]["enum"] = serde_json::json!(["org", "markdown", "csv", "text"]);
@@ -595,6 +596,7 @@ pub(crate) fn commands() -> Vec<Command> {
     schemas.extend(crate::dired::schemas());
     let mut all = plain_commands();
     all.extend(crate::dired::commands());
+    all.extend(csv_commands());
     for c in &mut all {
         c.args_schema = schemas
             .iter()
@@ -962,6 +964,253 @@ fn lines_command(
         d.apply(&tx, org_edit::ChangeKind::Command, now);
     }
     Ok(())
+}
+
+/// Where the cursor goes in field `f`: its first character, inside the
+/// quotes of a quoted one.
+fn csv_caret(f: &crate::csv::Field) -> usize {
+    f.range.start + usize::from(f.quoted)
+}
+
+/// Runs a CSV edit on the cell at the cursor: `f` gets the text, the
+/// layout, the row, its record and the column, and gives the change and
+/// the cell (row, column) the cursor goes to after it.
+fn csv_edit(
+    ctx: &mut EditorContext<'_>,
+    f: impl FnOnce(
+        &str,
+        &crate::csv::Layout,
+        usize,
+        &crate::csv::Record,
+        usize,
+    ) -> Result<(Option<org_edit::Transaction>, Option<(usize, usize)>), CommandError>,
+) -> CommandResult {
+    let now = ctx.now;
+    let d = ctx.doc()?;
+    let (layout, row, rec, col) =
+        crate::csv::cell_at(d).ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+    let (tx, to) = f(d.text().as_str(), &layout, row, &rec, col)?;
+    if let Some(tx) = tx {
+        d.apply(&tx, org_edit::ChangeKind::Command, now);
+    }
+    if let Some((row, col)) = to {
+        let layout = crate::csv::layout(d);
+        let text = d.text().as_str();
+        let r = layout.index.borrow_mut().record(text, row, &layout.dialect);
+        if let Some(r) = r {
+            let at = r
+                .fields
+                .get(col)
+                .or(r.fields.last())
+                .map_or(r.range.start, csv_caret);
+            d.selection = org_edit::Selection::caret(at);
+        }
+    }
+    Ok(())
+}
+
+/// The commands of CSV documents (§2.6.2).
+fn csv_commands() -> Vec<Command> {
+    use crate::command::Scope;
+    let csv = || Scope::only(&["csv"]);
+    let c = |id: &str, title: &str, keys: &[&str], h: Handler| {
+        scoped(cmd(id, title, "CSV", keys, None, h), csv())
+    };
+    vec![
+        c("csv.nextField", "Next Field", &["tab"], |ctx, _| {
+            csv_edit(ctx, |text, l, row, rec, col| {
+                if col + 1 < rec.fields.len() {
+                    return Ok((None, Some((row, col + 1))));
+                }
+                let n = l.index.borrow_mut().count(text, &l.dialect);
+                if row + 1 < n {
+                    return Ok((None, Some((row + 1, 0))));
+                }
+                // Past the last field: a new row, as Tab in an Org table.
+                let columns = l.widths.len().max(rec.fields.len());
+                Ok((
+                    Some(crate::csv::insert_row(text, rec, columns, &l.dialect)),
+                    Some((row + 1, 0)),
+                ))
+            })
+        }),
+        c(
+            "csv.previousField",
+            "Previous Field",
+            &["shift+tab"],
+            |ctx, _| {
+                csv_edit(ctx, |_, l, row, _, col| {
+                    if col > 0 {
+                        return Ok((None, Some((row, col - 1))));
+                    }
+                    if row == 0 {
+                        return Ok((None, None));
+                    }
+                    let _ = l;
+                    Ok((None, Some((row - 1, usize::MAX))))
+                })
+            },
+        ),
+        c("csv.insertRow", "Insert Row", &[], |ctx, _| {
+            csv_edit(ctx, |text, l, row, rec, col| {
+                let columns = l.widths.len().max(rec.fields.len());
+                Ok((
+                    Some(crate::csv::insert_row(text, rec, columns, &l.dialect)),
+                    Some((row + 1, col)),
+                ))
+            })
+        }),
+        c("csv.deleteRow", "Delete Row", &[], |ctx, _| {
+            csv_edit(ctx, |text, _, row, rec, col| {
+                Ok((Some(crate::csv::delete_row(text, rec)), Some((row, col))))
+            })
+        }),
+        c("csv.moveRowUp", "Move Row Up", &[], |ctx, _| {
+            csv_edit(ctx, |text, l, row, rec, col| {
+                let top = usize::from(l.dialect.header);
+                if row <= top {
+                    return Err(CommandError::new(crate::tr!("msg-csv-no-row")));
+                }
+                let prev = l.index.borrow_mut().record(text, row - 1, &l.dialect);
+                let prev = prev.ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-row")))?;
+                Ok((
+                    Some(crate::csv::swap_rows(text, &prev, rec)),
+                    Some((row - 1, col)),
+                ))
+            })
+        }),
+        c("csv.moveRowDown", "Move Row Down", &[], |ctx, _| {
+            csv_edit(ctx, |text, l, row, rec, col| {
+                if l.dialect.header && row == 0 {
+                    return Err(CommandError::new(crate::tr!("msg-csv-no-row")));
+                }
+                let next = l.index.borrow_mut().record(text, row + 1, &l.dialect);
+                let next = next.ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-row")))?;
+                Ok((
+                    Some(crate::csv::swap_rows(text, rec, &next)),
+                    Some((row + 1, col)),
+                ))
+            })
+        }),
+        c("csv.insertColumn", "Insert Column", &[], |ctx, _| {
+            csv_edit(ctx, |text, l, row, _, col| {
+                Ok((
+                    Some(crate::csv::insert_column(text, &l.dialect, col)),
+                    Some((row, col)),
+                ))
+            })
+        }),
+        c("csv.deleteColumn", "Delete Column", &[], |ctx, _| {
+            csv_edit(ctx, |text, l, row, _, col| {
+                Ok((
+                    Some(crate::csv::delete_column(text, &l.dialect, col)),
+                    Some((
+                        row,
+                        col.saturating_sub(usize::from(col + 1 >= l.widths.len())),
+                    )),
+                ))
+            })
+        }),
+        c("csv.moveColumnLeft", "Move Column Left", &[], |ctx, _| {
+            csv_edit(ctx, |text, l, row, _, col| {
+                if col == 0 {
+                    return Err(CommandError::new(crate::tr!("msg-csv-no-column")));
+                }
+                Ok((
+                    Some(crate::csv::swap_columns(text, &l.dialect, col - 1)),
+                    Some((row, col - 1)),
+                ))
+            })
+        }),
+        c("csv.moveColumnRight", "Move Column Right", &[], |ctx, _| {
+            csv_edit(ctx, |text, l, row, rec, col| {
+                if col + 1 >= rec.fields.len() {
+                    return Err(CommandError::new(crate::tr!("msg-csv-no-column")));
+                }
+                Ok((
+                    Some(crate::csv::swap_columns(text, &l.dialect, col)),
+                    Some((row, col + 1)),
+                ))
+            })
+        }),
+        c("csv.sortFile", "Sort File by Column", &[], |ctx, args| {
+            let reverse = arg_bool(args, "reverse");
+            csv_edit(ctx, |text, l, _, _, col| {
+                let top = usize::from(l.dialect.header);
+                Ok((
+                    Some(crate::csv::sort_file(text, &l.dialect, col, reverse)),
+                    Some((top, col)),
+                ))
+            })
+        }),
+        c(
+            "csv.copyAsTsv",
+            "Copy as Tab-Separated Values",
+            &[],
+            |ctx, _| {
+                let d = ctx.doc()?;
+                let layout = crate::csv::layout(d);
+                let text = d.text().as_str();
+                let sel = d.selection;
+                // The records the selection covers (all of them without one).
+                let part = if sel.anchor == sel.head {
+                    text.to_string()
+                } else {
+                    let (a, b) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
+                    let mut idx = layout.index.borrow_mut();
+                    let first = idx.row_at(text, a, &layout.dialect);
+                    let last = idx.row_at(text, b, &layout.dialect);
+                    let s = idx
+                        .record(text, first, &layout.dialect)
+                        .map_or(a, |r| r.range.start);
+                    let e = idx
+                        .record(text, last, &layout.dialect)
+                        .map_or(b, |r| r.range.end);
+                    text[s..e].to_string()
+                };
+                let tsv = crate::csv::to_tsv(&crate::csv::rows(&part, &layout.dialect));
+                request(ctx, Request::CopyText(tsv))
+            },
+        ),
+        c("csv.openAsText", "Open as Plain Text", &[], |ctx, _| {
+            let base = ctx.config.parse_base();
+            let doc = ctx.doc()?;
+            doc.set_mode(crate::DocumentMode::Text { language: None }, &base);
+            ctx.messages.push(crate::tr!(
+                "msg-mode-set",
+                mode = crate::DocumentMode::Text { language: None }.title()
+            ));
+            request(ctx, Request::ModeChanged)
+        }),
+        c("csv.convertToOrg", "Convert to Org Table", &[], |ctx, _| {
+            let d = ctx.doc()?;
+            let layout = crate::csv::layout(d);
+            let table = crate::csv::to_org_table(d.text().as_str(), &layout.dialect);
+            let path = d
+                .meta
+                .path
+                .clone()
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-save-first")))?;
+            let target = path.with_extension("org");
+            if target.exists() {
+                return Err(CommandError::new(crate::tr!(
+                    "msg-import-exists",
+                    path = target.display().to_string()
+                )));
+            }
+            std::fs::write(&target, table).map_err(|e| CommandError::new(e.to_string()))?;
+            ctx.messages.push(crate::tr!(
+                "msg-csv-converted",
+                path = target.display().to_string()
+            ));
+            request(
+                ctx,
+                Request::Open {
+                    path: Some(target.display().to_string()),
+                },
+            )
+        }),
+    ]
 }
 
 fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
@@ -3924,6 +4173,91 @@ mod tests {
         d.undo();
         d.undo();
         assert_eq!(d.text().as_str(), "* A\n* B\n");
+    }
+
+    #[test]
+    fn csv_commands() {
+        let reg = CommandRegistry::with_builtins();
+        let mut d = doc("name,age\nAda,36\nBob,7\n", 9);
+        d.set_mode(
+            DocumentMode::Csv,
+            &crate::settings::Config::default().parse_base(),
+        );
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let clock = jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0);
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock,
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        let mut run = |id: &str, args: serde_json::Value| {
+            let r = reg.execute(id, &mut ctx, &args);
+            let d = ctx.document.as_deref().unwrap();
+            r.map(|_| (d.text().as_str().to_string(), d.selection.head))
+        };
+        assert_eq!(run("csv.nextField", json!({})).unwrap().1, 13);
+        assert_eq!(run("csv.nextField", json!({})).unwrap().1, 16);
+        assert_eq!(run("csv.previousField", json!({})).unwrap().1, 13);
+        let (t, at) = run("csv.moveRowDown", json!({})).unwrap();
+        assert_eq!(t, "name,age\nBob,7\nAda,36\n");
+        assert_eq!(at, 19);
+        let (t, at) = run("csv.moveRowUp", json!({})).unwrap();
+        assert_eq!(t, "name,age\nAda,36\nBob,7\n");
+        assert_eq!(at, 13);
+        // Not above the header.
+        assert!(run("csv.moveRowUp", json!({})).is_err());
+        let (t, _) = run("csv.moveRowDown", json!({})).unwrap();
+        assert_eq!(t, "name,age\nBob,7\nAda,36\n");
+        // By the column at the cursor, as numbers.
+        let (t, _) = run("csv.sortFile", json!({"reverse": true})).unwrap();
+        assert_eq!(t, "name,age\nAda,36\nBob,7\n");
+        let (t, _) = run("csv.sortFile", json!({})).unwrap();
+        assert_eq!(t, "name,age\nBob,7\nAda,36\n");
+        run("csv.previousField", json!({})).unwrap();
+        let (t, _) = run("csv.moveColumnRight", json!({})).unwrap();
+        assert_eq!(t, "age,name\n7,Bob\n36,Ada\n");
+        let (t, _) = run("csv.moveColumnLeft", json!({})).unwrap();
+        assert_eq!(t, "name,age\nBob,7\nAda,36\n");
+        let (t, _) = run("csv.insertColumn", json!({})).unwrap();
+        assert_eq!(t, ",name,age\n,Bob,7\n,Ada,36\n");
+        let (t, _) = run("csv.deleteColumn", json!({})).unwrap();
+        assert_eq!(t, "name,age\nBob,7\nAda,36\n");
+        let (t, _) = run("csv.insertRow", json!({})).unwrap();
+        assert_eq!(t, "name,age\nBob,7\n,\nAda,36\n");
+        let (t, _) = run("csv.deleteRow", json!({})).unwrap();
+        assert_eq!(t, "name,age\nBob,7\nAda,36\n");
+        run("csv.copyAsTsv", json!({})).unwrap();
+        assert!(
+            matches!(ctx.requests.last(), Some(Request::CopyText(t)) if t == "name\tage\nBob\t7\nAda\t36")
+        );
+        drop(ctx);
+        // Tab past the last field: a new row.
+        d.selection = org_edit::Selection::caret(d.text().len() - 1);
+        let mut clip = Clipboard::default();
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock,
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("csv.nextField", &mut ctx, &json!({})).unwrap();
+        drop(ctx);
+        assert_eq!(d.text().as_str(), "name,age\nBob,7\nAda,36\n,\n");
+        // The column's numbers in the status bar.
+        d.selection = org_edit::Selection::caret(13);
+        let s = crate::formulas::selection_stats(&d).unwrap();
+        assert!(s.contains("43"), "{s}");
+        // Spreadsheet rows pasted with the file's delimiter.
+        d.paste("x\t1\ny\t2", None, false, Instant::now());
+        assert!(d.text().as_str().contains("x,1\ny,2"));
     }
 
     #[test]

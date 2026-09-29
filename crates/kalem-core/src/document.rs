@@ -625,7 +625,14 @@ impl DocumentState {
         {
             return self.paste(&links, None, true, now);
         }
-        let text = text.replace("\r\n", "\n");
+        let mut text = text.replace("\r\n", "\n");
+        // Rows copied from a spreadsheet, in a CSV file: its delimiter.
+        if !plain
+            && self.meta.mode == DocumentMode::Csv
+            && let Some(t) = crate::csv::pasted(&text, &crate::csv::layout(self).dialect)
+        {
+            text = t;
+        }
         if !self.extra.is_empty() {
             self.paste_at_cursors(&text, now);
             return;

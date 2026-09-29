@@ -94,7 +94,7 @@ fn fields(line: &str) -> Option<Vec<std::ops::Range<usize>>> {
 }
 
 /// A number as a table shows it: `3`, `2.5`, `-0.125`.
-fn number(x: f64) -> String {
+pub(crate) fn number(x: f64) -> String {
     if x.fract() == 0.0 && x.abs() < 1e15 {
         format!("{}", x as i64)
     } else {
@@ -108,6 +108,10 @@ fn number(x: f64) -> String {
 /// the cursor's): how many are filled, and the sum, average, smallest and
 /// largest of the numbers among them. `None` without such a selection.
 pub fn selection_stats(doc: &DocumentState) -> Option<String> {
+    // CSV: the numbers of the column at the cursor.
+    if doc.meta.mode == crate::DocumentMode::Csv {
+        return crate::csv::status(doc);
+    }
     let sel = doc.selection;
     if sel.anchor == sel.head {
         return None;

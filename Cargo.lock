@@ -3800,6 +3800,7 @@ dependencies = [
  "tracing-subscriber",
  "unic-langid",
  "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]

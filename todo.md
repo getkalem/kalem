@@ -362,14 +362,14 @@ Phases are sequential. The next phase does not start before the current phase's 
 
 ### 2.7d CSV mode (§2.6.2)
 
-- [ ] T2.7d.1 Dialect detection (delimiter, quoting, header row, line endings, encoding, BOM) and preservation; lazy record index with byte positions (`csv` crate)
-- [ ] T2.7d.2 Grid view in both frontends: virtualized rows, column widths, frozen header, cell editing
-- [ ] T2.7d.3 Row and column operations: insert, delete, move; view-only sorting and filtering; explicit "sort file"
-- [ ] T2.7d.4 Minimal rewriting: only edited records change, quoting only where needed; undo through the normal transaction stack
-- [ ] T2.7d.5 Clipboard as TSV (spreadsheet interoperability); column statistics in the status bar
-- [ ] T2.7d.6 "Open as text"; "Convert to Org table"; 100,000-row files open quickly
-- [ ] T2.7d.7 Tests: dialect round trips, RFC 4180 edge cases (quotes, embedded newlines), large files
-- [ ] T2.7d.8 Interoperability tests with files saved by Excel and LibreOffice Calc: UTF-8 BOM, CRLF, `;` as the delimiter and `,` as the decimal separator (Turkish and most European locales), quoted numbers, dates; each opens, edits and saves without changing the untouched records (review, 2026-09-28)
+- [x] T2.7d.1 Dialect detection (delimiter, quoting, header row, line endings, encoding, BOM) and preservation; lazy record index with byte positions (`csv` crate) (`kalem_core::csv`, an own scanner rather than the `csv` crate, since editing needs the byte range of every field: `detect` from a sample, `Index` finds record starts only as far as asked; the encoding and byte order mark come from `files` as for every file)
+- [~] T2.7d.2 Grid view in both frontends: virtualized rows, column widths, frozen header, cell editing (done: `csv::line_view` draws each line as a grid row, fields verbatim and padded to their column (widths from the first 1,000 records), `│` for delimiters, the header bold, only the lines on screen laid out; cells are edited in place; open: the frozen header, which needs a row pinned above the scrolled text in both editors)
+- [~] T2.7d.3 Row and column operations: insert, delete, move; view-only sorting and filtering; explicit "sort file" (done: `csv.insertRow`, `deleteRow`, `moveRowUp`/`Down`, `insertColumn`, `deleteColumn`, `moveColumnLeft`/`Right`, `csv.sortFile` with `reverse`, Tab and Shift+Tab between fields; open: view-only sorting and filtering, which need a view whose rows are not the text's lines (`csv::sorted_order` is ready for it))
+- [x] T2.7d.4 Minimal rewriting: only edited records change, quoting only where needed; undo through the normal transaction stack (every operation is a transaction touching only the fields it changes; `csv::encode` quotes only for the delimiter, quotes, line breaks or edge blanks)
+- [x] T2.7d.5 Clipboard as TSV (spreadsheet interoperability); column statistics in the status bar (`csv.copyAsTsv`; tab-separated rows pasted get the file's delimiter; count, sum, average, min and max of the cursor's column through `formulas::selection_stats`, decimal commas read, in both status bars)
+- [x] T2.7d.6 "Open as text"; "Convert to Org table"; 100,000-row files open quickly (`csv.openAsText`, `csv.convertToOrg` writing `NAME.org` beside the file; the lazy index lays out a 100,000-row file without scanning it)
+- [x] T2.7d.7 Tests: dialect round trips, RFC 4180 edge cases (quotes, embedded newlines), large files (`csv` unit tests, `kalem-core/tests/csv.rs`, `csv_commands` and the `csv_grid` tests of both editors)
+- [x] T2.7d.8 Interoperability tests with files saved by Excel and LibreOffice Calc: UTF-8 BOM, CRLF, `;` as the delimiter and `,` as the decimal separator (Turkish and most European locales), quoted numbers, dates; each opens, edits and saves without changing the untouched records (review, 2026-09-28) (`tests/csv`: an Excel file in a Turkish locale, a LibreOffice file with quoted text cells and an RFC 4180 file, each edited and saved in `kalem-core/tests/csv.rs` with every other byte kept)
 
 ### 2.7g More document modes (§2.6; review, 2026-09-28)
 

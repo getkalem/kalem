@@ -924,8 +924,16 @@ impl<'a> Layout<'a> {
             }
             None => {
                 // A very long line shows the part around the cursor.
-                let v =
-                    view::plain_line_view(self.text().as_str(), range.clone(), Some(self.cursor));
+                let v = if self.doc.meta.mode == kalem_core::DocumentMode::Csv
+                    && !self.source
+                    && range.len() <= view::LONG_LINE
+                {
+                    // A CSV row as a row of the grid.
+                    let layout = kalem_core::csv::layout(self.doc);
+                    kalem_core::csv::line_view(&layout, self.text().as_str(), range.clone())
+                } else {
+                    view::plain_line_view(self.text().as_str(), range.clone(), Some(self.cursor))
+                };
                 let empty = org_syntax::parse("");
                 let mut lg = render::glyphs(
                     &v,
