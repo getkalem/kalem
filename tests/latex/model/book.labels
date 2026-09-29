@@ -1,0 +1,19 @@
+ch:preface 
+sec:thanks 0.1
+part:one I
+ch:first 1
+sec:one 1.1
+eq:a 1.1.1
+sec:sub 1.1.1
+sec:toodeep 1.1.1
+after:fn 1.1.1
+fig:one 1.1
+ch:second 2
+sec:two 2.1
+eq:b 2.1.1
+fig:two 2.1
+part:two II
+ch:third 3
+ch:extra A
+sec:more A.1
+ch:index A.1

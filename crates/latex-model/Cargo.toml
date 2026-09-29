@@ -1,0 +1,17 @@
+[package]
+name = "latex-model"
+description = "The document model of LaTeX files: structure, numbering, labels, citations and definitions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+latex-syntax.workspace = true
+rowan = "0.17"
+
+[lints]
+workspace = true

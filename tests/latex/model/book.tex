@@ -1,0 +1,36 @@
+\documentclass{book}
+\usepackage{amsmath}
+\numberwithin{equation}{section}
+\begin{document}
+\frontmatter
+\chapter{Preface}\label{ch:preface}
+\section{Thanks}\label{sec:thanks}
+\mainmatter
+\part{Beginning}\label{part:one}
+\chapter{First}\label{ch:first}
+\section{One}\label{sec:one}
+\begin{equation}\label{eq:a}
+  a = b
+\end{equation}
+\begin{figure}
+  \caption{Fig.}\label{fig:one}
+\end{figure}
+\subsection{Sub}\label{sec:sub}
+\subsubsection{Too deep}\label{sec:toodeep}
+Text\footnote{Note.}\label{after:fn}.
+\chapter{Second}\label{ch:second}
+\section{Two}\label{sec:two}
+\begin{equation}\label{eq:b}
+  c = d
+\end{equation}
+\begin{figure}
+  \caption{Fig 2.}\label{fig:two}
+\end{figure}
+\part{Ending}\label{part:two}
+\chapter{Third}\label{ch:third}
+\appendix
+\chapter{Extra}\label{ch:extra}
+\section{More}\label{sec:more}
+\backmatter
+\chapter{Index}\label{ch:index}
+\end{document}

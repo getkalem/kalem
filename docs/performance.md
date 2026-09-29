@@ -42,6 +42,7 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | Keystroke in a 100 MB plain text file (text, line index and history) | 2.7 ms median, 14 ms p99 | under 16 ms |
 | LaTeX parse, 1 MB paper (`latex-syntax`, `--example timing`) | 32 ms | under 100 ms |
 | LaTeX incremental parse, keystroke in a paragraph of a 1 MB paper, p50 / p99 | 0.64 ms / 0.83 ms | under 2 ms |
+| LaTeX document model, 1 MB paper, first build / after an edit (`latex-model`, `--example timing`) | 21 ms / 6.7 ms | — |
 
 Every target is met. The binary size target includes math fonts, which come with phase 2 (T2.2.1).
 

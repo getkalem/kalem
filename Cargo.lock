@@ -3962,6 +3962,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "latex-model"
+version = "0.0.1"
+dependencies = [
+ "latex-syntax",
+ "rowan",
+]
+
+[[package]]
 name = "latex-syntax"
 version = "0.0.1"
 dependencies = [

@@ -16,12 +16,18 @@ pub fn command(name: &str) -> &'static str {
         | "widehat" | "widetilde" | "overbrace" | "underbrace" | "overrightarrow"
         | "overleftarrow" | "label" | "ref" | "eqref" | "pageref" | "autoref" | "cref" | "Cref"
         | "nameref" | "input" | "include" | "includeonly" | "bibliography"
-        | "bibliographystyle" | "author" | "date" | "thanks" | "tag" | "phantom" | "hphantom"
+        | "bibliographystyle" | "author" | "date" | "thanks" | "phantom" | "hphantom"
         | "vphantom" | "intertext" | "sout" | "uline" | "enquote" | "appendixname" | "keywords"
-        | "email" | "affiliation" | "address" | "subtitle" => "m",
+        | "email" | "affiliation" | "address" | "subtitle" | "vref" | "Vref" | "cpageref"
+        | "refstepcounter" | "stepcounter" | "subfile" | "graphicspath" => "m",
         "frac" | "dfrac" | "tfrac" | "cfrac" | "binom" | "dbinom" | "tbinom" | "stackrel"
         | "overset" | "underset" | "setlength" | "setcounter" | "addtocounter" | "newcounter"
-        | "renewcommand*" => "mm",
+        | "texorpdfstring" | "import" | "subimport" => "mm",
+        "tag" => "*m",
+        "numberwithin" => "omm",
+        "counterwithin" | "counterwithout" => "*mm",
+        "captionof" => "*mom",
+        "bibitem" | "hyperref" | "includepdf" | "footnotemark" => "om",
         "title" | "caption" | "footnote" | "footnotetext" | "color" | "usepackage"
         | "RequirePackage" | "documentclass" | "addbibresource" | "xrightarrow" | "xleftarrow"
         | "shortauthor" => "om",

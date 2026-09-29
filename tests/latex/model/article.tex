@@ -1,0 +1,79 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{amsmath,amsthm}
+\usepackage[utf8]{inputenc}
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{lem}[thm]{Lemma}
+\newtheorem*{rem}{Remark}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\lVert #1 \rVert}
+\DeclareMathOperator{\tr}{tr}
+\def\half{\frac{1}{2}}
+\newenvironment{note}[1][Note]{\textbf{#1.}}{}
+
+\begin{document}
+\section{Introduction}\label{sec:intro}
+Text\footnote{A note.\label{fn:one}} and more\footnote{Two.}.
+\begin{equation}\label{eq:one}
+  a = b
+\end{equation}
+\begin{align}
+  x &= 1 \label{eq:x}\\
+  y &= 2 \nonumber\\
+  z &= 3 \tag{star}\label{eq:z}\\
+  w &= 4 \label{eq:w}\\
+\end{align}
+\begin{equation*}
+  c = d
+\end{equation*}
+\begin{subequations}\label{eq:sub}
+\begin{align}
+  p &= 1 \label{eq:p}\\
+  q &= 2 \label{eq:q}
+\end{align}
+\end{subequations}
+\begin{equation}
+\begin{split}
+  e &= f\\
+    &= g
+\end{split}\label{eq:split}
+\end{equation}
+\subsection{Background}\label{sec:bg}
+\begin{thm}[Pythagoras]\label{thm:py}
+  $a^2+b^2=c^2$.
+\end{thm}
+\begin{lem}\label{lem:a}
+  Easy.
+\end{lem}
+\begin{rem}
+  Unnumbered.
+\end{rem}
+\subsubsection{Deep}\label{sec:deep}
+\paragraph{Para}\label{sec:para}
+Text.
+\section*{Unnumbered}
+\section{Figures}\label{sec:fig}
+\begin{figure}[h]
+  \centering
+  \caption[Short]{A figure.}\label{fig:a}
+\end{figure}
+\begin{table}
+  \caption{A table.}\label{tab:a}
+\end{table}
+\begin{figure*}
+  \caption{Wide.}\label{fig:b}
+\end{figure*}
+\begin{thm}\label{thm:two}
+  Another.
+\end{thm}
+See \ref{sec:intro}, \eqref{eq:x} and \cite[p.~3]{knuth,lamport}.
+\setcounter{secnumdepth}{1}
+\subsection{Not numbered now}\label{sec:nonum}
+\appendix
+\section{Proofs}\label{sec:proofs}
+\subsection{First}\label{sec:proofs1}
+\begin{equation}\label{eq:app}
+  u = v
+\end{equation}
+\bibliographystyle{plain}
+\bibliography{refs,more}
+\end{document}
