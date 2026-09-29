@@ -658,3 +658,4 @@ msg-printing = { $path } yazdırılıyor
 msg-print-viewer = { $path } açıldı; görüntüleyiciden yazdırın
 msg-print-no-display = { $path } yazıldı; ekran olmadığından lp ile yazdırın
 msg-print-failed = Yazdırılamadı: { $error }
+latex-unknown-label = { $key } etiketi yok

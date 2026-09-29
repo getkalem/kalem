@@ -28,7 +28,12 @@ static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 /// folder), read again only when a file changes.
 pub fn bibliography(doc: &Document, file: Option<&Path>) -> Arc<Bibliography> {
     let dir = file.and_then(Path::parent);
-    let files = doc.bibliography(dir);
+    load(&doc.bibliography(dir))
+}
+
+/// The entries of the bibliography `files`, read again only when one of
+/// them changes.
+pub fn load(files: &[PathBuf]) -> Arc<Bibliography> {
     let stamp: Vec<(PathBuf, Option<SystemTime>)> = files
         .iter()
         .map(|f| {
@@ -41,7 +46,7 @@ pub fn bibliography(doc: &Document, file: Option<&Path>) -> Arc<Bibliography> {
         if let Some(b) = cache.get(&stamp) {
             return b.clone();
         }
-        let (bib, _errors) = Bibliography::load(&files);
+        let (bib, _errors) = Bibliography::load(files);
         let bib = Arc::new(bib);
         // A few documents' worth.
         if cache.len() > 16 {
@@ -50,7 +55,7 @@ pub fn bibliography(doc: &Document, file: Option<&Path>) -> Arc<Bibliography> {
         cache.insert(stamp, bib.clone());
         return bib;
     }
-    Arc::new(Bibliography::load(&files).0)
+    Arc::new(Bibliography::load(files).0)
 }
 
 /// A field without the braces BibTeX protects words with.
@@ -64,11 +69,34 @@ fn field<'a>(e: &'a Entry, name: &str) -> Option<std::borrow::Cow<'a, str>> {
 }
 
 /// The year of an entry: `year`, or the start of `date`.
-fn year(e: &Entry) -> Option<String> {
+pub fn year(e: &Entry) -> Option<String> {
     e.field("year").map(str::to_string).or_else(|| {
         let d = e.field("date")?;
         (d.len() >= 4 && d.as_bytes()[..4].iter().all(u8::is_ascii_digit))
             .then(|| d[..4].to_string())
+    })
+}
+
+/// The family names of an entry's authors (or editors), as a citation
+/// names them: `Knuth`, `Knuth and Lamport`, `Knuth et al.`.
+pub fn short_authors(e: &Entry) -> Option<String> {
+    let who = field(e, "author").or_else(|| field(e, "editor"))?;
+    let names: Vec<String> = who
+        .split(" and ")
+        .map(|n| {
+            let n = n.trim();
+            match n.split_once(',') {
+                Some((family, _)) => family.trim().to_string(),
+                None => n.rsplit(' ').next().unwrap_or(n).to_string(),
+            }
+        })
+        .filter(|n| !n.is_empty())
+        .collect();
+    Some(match names.len() {
+        0 => return None,
+        1 => names[0].clone(),
+        2 => format!("{} and {}", names[0], names[1]),
+        _ => format!("{} et al.", names[0]),
     })
 }
 
@@ -172,7 +200,10 @@ impl Preview {
         if self.at.as_ref() != Some(&at) {
             let path = at.0.clone();
             self.at = Some(at);
-            self.text = doc.model().and_then(|m| note_at(&m, path.as_deref(), head));
+            self.text = doc
+                .model()
+                .and_then(|m| note_at(&m, path.as_deref(), head))
+                .or_else(|| crate::latex_view::note_at(doc, head));
         }
         self.text.clone()
     }

@@ -2451,3 +2451,37 @@ fn latex_floats() {
     assert!(s.iter().any(|l| l.contains("[image: fig.png]")), "{s:#?}");
     assert!(s.iter().any(|l| l.contains("Figure 1: Cats.")), "{s:#?}");
 }
+
+#[test]
+fn latex_references() {
+    let text = "\\section{One}\\label{s}\nSee \\ref{s} and \\cite{knuth}.\n\\bibliography{refs}\n";
+    let mut t = with_file(text, "r.tex", Config::default(), (70, 8));
+    let dir = t
+        .app
+        .doc
+        .meta
+        .path
+        .clone()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    std::fs::write(
+        dir.join("refs.bib"),
+        "@book{knuth, author = {Knuth, Donald}, title = {The TeXbook}, year = 1984}\n",
+    )
+    .unwrap();
+    t.at(text.len());
+    let s = screen(&mut t);
+    assert!(
+        s.iter().any(|l| l.contains("See 1 and [Knuth 1984].")),
+        "{s:#?}"
+    );
+    // At the citation, the entry in the status line.
+    t.at(text.find("\\cite").unwrap() + 3);
+    assert!(
+        status(&mut t).contains("@knuth: Knuth, Donald (1984)"),
+        "{}",
+        status(&mut t)
+    );
+}

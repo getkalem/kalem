@@ -2234,8 +2234,10 @@ impl Editor {
                 .hit(ev.position)
                 .and_then(|h| {
                     let path = self.doc.meta.path.clone();
-                    let model = self.doc.model()?;
-                    kalem_core::cite::note_at(&model, path.as_deref(), h.pos)
+                    match self.doc.model() {
+                        Some(model) => kalem_core::cite::note_at(&model, path.as_deref(), h.pos),
+                        None => kalem_core::latex_view::note_at(&self.doc, h.pos),
+                    }
                 })
                 .map(|t| (ev.position, t));
             if hover.as_ref().map(|h| &h.1) != self.cite_hover.as_ref().map(|h| &h.1) {

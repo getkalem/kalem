@@ -710,3 +710,4 @@ msg-printing = Printing { $path }
 msg-print-viewer = Opened { $path }; print it from the viewer
 msg-print-no-display = Written { $path }; with no display, print it with lp
 msg-print-failed = Could not print: { $error }
+latex-unknown-label = No label { $key }

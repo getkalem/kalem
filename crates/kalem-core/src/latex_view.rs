@@ -369,6 +369,9 @@ fn context(t: &SyntaxToken) -> Context {
                 if section {
                     c.heading = true;
                 }
+                if name == "footnote" {
+                    c.style.dim = true;
+                }
                 if !prose(&name) {
                     c.typography = false;
                 }
@@ -670,6 +673,51 @@ pub fn line_view(
                         continue;
                     }
                 }
+                name if chip_command(&name[1..]) => {
+                    let model = state.model();
+                    let (shown, resolved) = chip(doc, &model, &name[1..], &cmd);
+                    let style = Style {
+                        link: resolved,
+                        todo: (!resolved).then_some(true),
+                        ..Style::default()
+                    };
+                    b.replace(cs.clone(), &shown, style);
+                    while let Some(n) = &tok
+                        && span(n).start < cs.end
+                    {
+                        tok = n.next_token();
+                    }
+                    continue;
+                }
+                // A footnote: its mark raised, its text dimmed.
+                "\\footnote" => {
+                    let model = state.model();
+                    if let (Some(f), Some(g)) = (
+                        model
+                            .footnotes
+                            .iter()
+                            .find(|f| f.range.start == cs.start && f.file == 0),
+                        cmd.children().find(|c| c.kind() == K::GROUP),
+                    ) {
+                        let gs = node_span(&g);
+                        let mark = Style {
+                            superscript: true,
+                            link: true,
+                            ..Style::default()
+                        };
+                        b.replace(cs.start..gs.start + 1, &f.number, mark);
+                        b.replace(gs.start + 1..gs.start + 1, " ", Style::default());
+                        if text[..gs.end].ends_with('}') {
+                            hidden.push(gs.end - 1..gs.end);
+                        }
+                        while let Some(n) = &tok
+                            && span(n).start < gs.start + 1
+                        {
+                            tok = n.next_token();
+                        }
+                        continue;
+                    }
+                }
                 "\\centering" => {
                     while let Some(n) = &tok
                         && span(n).start < cs.end
@@ -929,6 +977,287 @@ fn alignment(root: &SyntaxNode, pos: usize) -> crate::rich::Align {
         }
     }
     crate::rich::Align::default()
+}
+
+/// Commands shown as what they resolve to.
+fn chip_command(name: &str) -> bool {
+    matches!(
+        name,
+        "ref"
+            | "eqref"
+            | "pageref"
+            | "autoref"
+            | "cref"
+            | "Cref"
+            | "nameref"
+            | "vref"
+            | "Vref"
+            | "url"
+            | "href"
+    ) || latex_syntax::signatures::command(name) == "*oom"
+}
+
+/// The optional and mandatory arguments of a command, as written.
+fn arguments(cmd: &SyntaxNode) -> (Vec<String>, Vec<String>) {
+    let mut opts = Vec::new();
+    let mut mands = Vec::new();
+    for c in cmd.children() {
+        match c.kind() {
+            K::OPT_ARG => {
+                let t = c.text().to_string();
+                opts.push(t[1..t.len() - usize::from(t.ends_with(']'))].to_string());
+            }
+            K::GROUP => mands.push(group_text(&c)),
+            _ => {}
+        }
+    }
+    (opts, mands)
+}
+
+/// What a reference names its target by (`\autoref`, `\cref`, `\Cref`).
+fn target_name(model: &latex_model::Model, target: &latex_model::Target, command: &str) -> String {
+    use latex_model::Target;
+    let (long, short) = match target {
+        Target::Section(-1) => ("Part", "part"),
+        Target::Section(0) => ("Chapter", "chapter"),
+        Target::Section(_) => ("Section", "section"),
+        Target::Equation => ("Equation", "eq."),
+        Target::Float(k) if k == "table" => ("Table", "table"),
+        Target::Float(_) => ("Figure", "fig."),
+        Target::Footnote => ("Footnote", "footnote"),
+        Target::Theorem(env) => {
+            let title = model
+                .theorem_kinds
+                .iter()
+                .find(|k| k.env == *env)
+                .map_or_else(|| env.clone(), |k| k.title.clone());
+            return if command == "cref" {
+                title.to_lowercase()
+            } else {
+                title
+            };
+        }
+        Target::None => ("", ""),
+    };
+    if command == "cref" {
+        short.to_string()
+    } else {
+        long.to_string()
+    }
+}
+
+/// What a reference, a citation or a link shows, and whether it resolved.
+fn chip(
+    doc: &crate::DocumentState,
+    model: &latex_model::Model,
+    name: &str,
+    cmd: &SyntaxNode,
+) -> (String, bool) {
+    let (opts, mands) = arguments(cmd);
+    let first = mands.first().cloned().unwrap_or_default();
+    match name {
+        "url" => (first, true),
+        "href" => (mands.get(1).cloned().unwrap_or(first), true),
+        "ref" | "eqref" | "pageref" | "autoref" | "cref" | "Cref" | "nameref" | "vref" | "Vref" => {
+            let mut all = true;
+            let parts: Vec<String> = first
+                .split(',')
+                .map(str::trim)
+                .filter(|k| !k.is_empty())
+                .map(|k| {
+                    let Some(l) = model.label(k) else {
+                        all = false;
+                        return "??".to_string();
+                    };
+                    let n = l.number.clone().unwrap_or_default();
+                    match name {
+                        "eqref" => format!("({n})"),
+                        "pageref" => k.to_string(),
+                        "nameref" => model
+                            .sections
+                            .iter()
+                            .rev()
+                            .find(|s| s.range.start <= l.range.start && s.file == l.file)
+                            .map_or(n, |s| s.title.clone()),
+                        "autoref" | "cref" | "Cref" => {
+                            let what = target_name(model, &l.target, name);
+                            let n =
+                                if l.target == latex_model::Target::Equation && name != "autoref" {
+                                    format!("({n})")
+                                } else {
+                                    n
+                                };
+                            if what.is_empty() {
+                                n
+                            } else {
+                                format!("{what}\u{a0}{n}")
+                            }
+                        }
+                        _ => n,
+                    }
+                })
+                .collect();
+            (parts.join(", "), all)
+        }
+        _ => {
+            // A citation: author and year from the bibliography.
+            let base = doc.meta.path.as_deref().and_then(std::path::Path::parent);
+            let files: Vec<std::path::PathBuf> = model
+                .bibliography
+                .iter()
+                .flat_map(|b| b.files.iter())
+                .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
+                .collect();
+            let bib = crate::cite::load(&files);
+            let mut all = true;
+            let (pre, post) = match opts.as_slice() {
+                [post] => (None, Some(post.clone())),
+                [pre, post, ..] => (Some(pre.clone()), Some(post.clone())),
+                [] => (None, None),
+            };
+            let entries: Vec<(String, Option<String>, Option<String>)> = first
+                .split(',')
+                .map(str::trim)
+                .filter(|k| !k.is_empty())
+                .map(|k| match bib.get(k) {
+                    Some(e) => (
+                        k.to_string(),
+                        crate::cite::short_authors(e),
+                        crate::cite::year(e),
+                    ),
+                    None => {
+                        all = false;
+                        (k.to_string(), None, None)
+                    }
+                })
+                .collect();
+            let one = |(key, who, year): &(String, Option<String>, Option<String>)| -> String {
+                match (name, who, year) {
+                    ("citeauthor" | "Citeauthor", Some(w), _) => w.clone(),
+                    ("citeyear", _, Some(y)) => y.clone(),
+                    ("citet" | "Citet" | "textcite" | "Textcite", Some(w), Some(y)) => {
+                        format!("{w} ({y})")
+                    }
+                    (_, Some(w), Some(y)) => format!("{w} {y}"),
+                    (_, Some(w), None) => w.clone(),
+                    _ => key.clone(),
+                }
+            };
+            let mut body = entries.iter().map(one).collect::<Vec<_>>().join("; ");
+            if let Some(p) = pre.filter(|p| !p.trim().is_empty()) {
+                body = format!("{} {body}", p.replace('~', "\u{a0}"));
+            }
+            if let Some(p) = post.filter(|p| !p.trim().is_empty()) {
+                body = format!("{body}, {}", p.replace('~', "\u{a0}"));
+            }
+            let shown = match name {
+                "citet" | "Citet" | "textcite" | "Textcite" | "citeauthor" | "Citeauthor"
+                | "citeyear" => body,
+                "citep" | "Citep" | "parencite" | "Parencite" | "autocite" | "Autocite"
+                | "footcite" | "citealp" => {
+                    format!("({body})")
+                }
+                _ => format!("[{body}]"),
+            };
+            (shown, all)
+        }
+    }
+}
+
+/// What the status bar and a tooltip say about the citation, reference
+/// or footnote at `pos` of a LaTeX document: the entries cited, what a
+/// label numbers, the footnote's text.
+pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
+    let state = doc.latex()?;
+    let root = state.parse().syntax();
+    let t = root
+        .token_at_offset(TextSize::try_from(pos).ok()?)
+        .right_biased()?;
+    let cmd = t.parent_ancestors().find(|a| {
+        a.kind() == K::COMMAND
+            && latex_syntax::name(a)
+                .is_some_and(|n| n == "footnote" || (chip_command(&n) && n != "url" && n != "href"))
+    })?;
+    let name = latex_syntax::name(&cmd)?;
+    let model = state.model();
+    let (_, mands) = arguments(&cmd);
+    let keys: Vec<&str> = mands.first().map_or(Vec::new(), |k| {
+        k.split(',')
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+            .collect()
+    });
+    if name == "footnote" {
+        let number = model
+            .footnotes
+            .iter()
+            .find(|f| f.range.start == node_span(&cmd).start)
+            .map(|f| f.number.clone());
+        return Some(crate::tr!(
+            "footnote-preview",
+            label = number.unwrap_or_default().as_str(),
+            text = mands.first().map_or("", |s| s.trim())
+        ));
+    }
+    if latex_syntax::signatures::command(&name) == "*oom" {
+        let base = doc.meta.path.as_deref().and_then(std::path::Path::parent);
+        let files: Vec<std::path::PathBuf> = model
+            .bibliography
+            .iter()
+            .flat_map(|b| b.files.iter())
+            .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
+            .collect();
+        let bib = crate::cite::load(&files);
+        let notes: Vec<String> = keys
+            .iter()
+            .map(|k| match bib.get(k) {
+                Some(e) => format!("@{k}: {}", crate::cite::describe(e)),
+                None => crate::tr!("cite-unknown-key", key = *k),
+            })
+            .collect();
+        return Some(notes.join("  "));
+    }
+    let notes: Vec<String> = keys
+        .iter()
+        .map(|k| match model.label(k) {
+            Some(l) => {
+                let what = target_name(&model, &l.target, "Cref");
+                let n = l.number.clone().unwrap_or_default();
+                let title = model
+                    .sections
+                    .iter()
+                    .find(|s| {
+                        l.target != latex_model::Target::Equation
+                            && s.number.as_deref() == Some(n.as_str())
+                            && s.range.start <= l.range.start
+                    })
+                    .map(|s| s.title.clone())
+                    .or_else(|| {
+                        model
+                            .floats
+                            .iter()
+                            .flat_map(|f| f.captions.iter())
+                            .find(|c| {
+                                c.number.as_deref() == Some(n.as_str())
+                                    && c.range.start <= l.range.start
+                                    && matches!(l.target, latex_model::Target::Float(_))
+                            })
+                            .map(|c| c.text.clone())
+                    });
+                let head = if what.is_empty() {
+                    n
+                } else {
+                    format!("{what} {n}")
+                };
+                match title {
+                    Some(t) => format!("{head}: {t}"),
+                    None => head,
+                }
+            }
+            None => crate::tr!("latex-unknown-label", key = *k),
+        })
+        .collect();
+    Some(notes.join("  "))
 }
 
 /// What a float is called in its caption.
@@ -1294,6 +1623,55 @@ mod tests {
         );
         // A missing file stays as its source.
         assert_eq!(shown(&d, 6, end).display(), "\\includegraphics{missing}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn references_and_citations() {
+        let dir = std::env::temp_dir().join(format!("kalem-latex-cite-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("refs.bib"), "@book{knuth,\n  author = {Knuth, Donald E.},\n  title = {The TeXbook},\n  year = {1984}\n}\n@article{ll,\n  author = {Lamport, Leslie and Lynch, Nancy},\n  year = 1990\n}\n").unwrap();
+        let text = "\\section{One}\\label{s}\n\\begin{equation}\\label{e} a \\end{equation}\nSee \\ref{s}, \\eqref{e}, \\cref{e}, \\autoref{s}, \\ref{nope}.\n\\cite[p.~3]{knuth,ll} \\citet{knuth} \\citep[see][]{ll} \\cite{zzz}\nText\\footnote{A note.} \\url{https://x.org} \\href{https://y.org}{Y}\n\\bibliography{refs}\n";
+        let mut d = doc(text);
+        d.meta.path = Some(dir.join("p.tex"));
+        let end = Some(text.len());
+        let refs = shown(&d, 2, end);
+        assert_eq!(
+            refs.display(),
+            "See 1, (1), eq.\u{a0}(1), Section\u{a0}1, ??."
+        );
+        assert!(
+            refs.runs
+                .iter()
+                .any(|r| r.text == "??" && r.style.todo == Some(true))
+        );
+        assert_eq!(
+            shown(&d, 3, end).display(),
+            "[Knuth 1984; Lamport and Lynch 1990, p.\u{a0}3] Knuth (1984) (see Lamport and Lynch 1990) [zzz]"
+        );
+        let foot = shown(&d, 4, end);
+        assert_eq!(foot.display(), "Text1 A note. https://x.org Y");
+        assert!(
+            foot.runs
+                .iter()
+                .any(|r| r.text == "1" && r.style.superscript)
+        );
+        crate::l10n::set_language("en");
+        let at = |s: &str| text.find(s).unwrap() + 2;
+        assert_eq!(
+            note_at(&d, at("\\ref{s}")).as_deref(),
+            Some("Section 1: One")
+        );
+        assert_eq!(
+            note_at(&d, at("\\ref{nope}")).as_deref(),
+            Some("No label nope")
+        );
+        assert!(
+            note_at(&d, at("\\citet"))
+                .unwrap()
+                .starts_with("@knuth: Knuth, Donald E. (1984). The TeXbook.")
+        );
+        assert!(note_at(&d, at("\\footnote")).unwrap().contains("A note."));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

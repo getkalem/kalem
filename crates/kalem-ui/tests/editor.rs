@@ -2343,3 +2343,34 @@ fn latex_floats(cx: &mut TestAppContext) {
         "Figure 1: Cats."
     );
 }
+
+#[gpui::test]
+fn latex_references(cx: &mut TestAppContext) {
+    let text = "\\section{One}\\label{s}\nSee \\ref{s} and \\cite{knuth}.\n\\bibliography{refs}\n";
+    let (e, cx) = open_named(text, "r.tex", || None, cx);
+    let dir = e.read_with(cx, |e, _| {
+        e.doc
+            .meta
+            .path
+            .clone()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    });
+    std::fs::write(
+        dir.join("refs.bib"),
+        "@book{knuth, author = {Knuth, Donald}, title = {The TeXbook}, year = 1984}\n",
+    )
+    .unwrap();
+    at(&e, text.len(), cx);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.line_view(1).display()),
+        "See 1 and [Knuth 1984]."
+    );
+    at(&e, text.find("\\cite").unwrap() + 3, cx);
+    let status = e
+        .read_with(cx, |e, _| e.formula_status.clone())
+        .unwrap_or_default();
+    assert!(status.contains("@knuth: Knuth, Donald (1984)"), "{status}");
+}
