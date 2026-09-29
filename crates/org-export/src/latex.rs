@@ -345,7 +345,7 @@ fn clean_invalid_line_breaks(s: &str) -> String {
 
 /// Whether `value` starts a math environment
 /// (`org-latex-math-environments-re`).
-fn math_environment(value: &str) -> bool {
+pub(crate) fn math_environment(value: &str) -> bool {
     let v = value.trim_start_matches([' ', '\t']);
     let Some(rest) = v.strip_prefix("\\begin{") else {
         return false;

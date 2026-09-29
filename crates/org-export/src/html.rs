@@ -642,6 +642,23 @@ impl Html {
                     };
                     return Some(format!("<a href=\"#{href}\"{attrs}>{d}</a>"));
                 }
+                // A math environment with MathJax: its label is in the
+                // formula, referred to with `\eqref`.
+                let with = ex.opt("with-latex");
+                if (with == Value::T || with.sym() == Some("mathjax"))
+                    && ex.tree.kind(dest) == Some(LATEX_ENVIRONMENT)
+                    && crate::latex::math_environment(&remove_indentation(
+                        &ex.syntax(dest)
+                            .and_then(|s| ast::AstNode::cast(s.clone()))
+                            .map(|l: ast::LatexEnvironment| l.value())
+                            .unwrap_or_default(),
+                    ))
+                {
+                    let r = self.reference(ex, dest, false).unwrap_or_default();
+                    let format = option_string(ex, "html-equation-reference-format")
+                        .unwrap_or_else(|| "\\eqref{%s}".into());
+                    return Some(format.replacen("%s", &r, 1));
+                }
                 let r = self.reference(ex, dest, false).unwrap_or_default();
                 let d = match desc {
                     Some(d) => d,
@@ -2053,6 +2070,13 @@ impl Backend for Html {
                 None,
                 Behavior::Space,
                 Value::Str(String::new()),
+            ),
+            (
+                "html-equation-reference-format",
+                Some("HTML_EQUATION_REFERENCE_FORMAT"),
+                None,
+                Behavior::Last,
+                Value::Str("\\eqref{%s}".into()),
             ),
         ]
     }

@@ -1,0 +1,105 @@
+% Created 2026-09-29 Tue 00:55
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\author{The Kalem Authors}
+\date{2026-09-29}
+\title{Writing Books in Plain Text\\\medskip
+\large A sample chapter for Kalem}
+\hypersetup{
+ pdfauthor={The Kalem Authors},
+ pdftitle={Writing Books in Plain Text},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.7.11)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\setcounter{tocdepth}{2}
+\tableofcontents
+
+This book is written in Org and edited with \emph{Kalem}. It keeps each
+chapter in a file of its own; this file pulls them together with
+\texttt{\#+INCLUDE} and holds the bibliography.
+\part{Foundations}
+\label{sec:org89a03a2}
+\chapter{Why plain text}
+\label{sec:orgb5ff499}
+Books have been typeset from plain text for decades (Knuth, Donald E., 1984).
+Org keeps the structure of a document in its text: headings, lists,
+tables and formulas are all written as characters on a line, so the file
+outlives every program that edits it.\footnote{Plain text also diffs well, so a book can be reviewed like code.}
+\section{A pipeline}
+\label{sec:org6c7538d}
+The text goes through one exporter for each format, as
+\ref{fig:org0711760} shows: HTML for the web, \LaTeX{} for print, and Word
+through pandoc for colleagues who ask for it (Dominik, Carsten, 2010).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.6\textwidth]{figures/pipeline.png}
+\caption{\label{fig:org0711760}From one Org file to several formats.}
+\end{figure}
+
+The code that builds the book can live in the book itself, as in
+literate programming (Schulte, Eric and Davison, Dan and Dye, Thomas and Dominik, Carsten, 2012):
+
+\begin{verbatim}
+kalem export book.org --to html
+kalem export book.org --to pdf
+kalem export book.org --to docx
+\end{verbatim}
+\captionof{figure}{\label{lst:orgc95557e}Building every format.}
+\chapter{Measurements}
+\label{sec:org8ed545c}
+\ref{tab:orgf625274} lists how long each export of this sample took, and the
+total is computed by the table itself. The energy of a body at rest,
+equation \ref{eq:orgc7843a4}, is the usual example of a displayed
+formula.\footnote{See (Knuth, Donald E., 1984 p. 168) for how \TeX{} sets displayed
+equations.}
+
+\begin{table}[htbp]
+\caption{\label{tab:orgf625274}Export times of the sample, in milliseconds.}
+\centering
+\begin{tabular}{lrrr}
+Format & First run & Second run & Mean\\
+\hline
+HTML & 12 & 10 & 11\\
+\LaTeX{} & 15 & 13 & 14\\
+Word & 420 & 400 & 410\\
+\hline
+Total & 447 & 423 & 435\\
+\end{tabular}
+\end{table}
+
+\begin{equation}
+\label{eq:orgc7843a4}
+E = m c^2
+\end{equation}
+
+Inline mathematics works too: the mean of \(n\) runs is
+\(\bar{x} = \frac{1}{n}\sum_{i=1}^{n} x_i\). Back in
+\hyperref[sec:orgb5ff499]{the first chapter}, the pipeline of
+\ref{sec:org6c7538d} produced these files.
+\part*{References}
+\label{sec:org44d2ff9}
+\noindent
+Dominik, Carsten (2010). \emph{The Org Mode 7 Reference Manual}, Network Theory.
+
+\noindent
+Knuth, Donald E. (1984). \emph{The {\TeX}book}, Addison-Wesley.
+
+\noindent
+Schulte, Eric and Davison, Dan and Dye, Thomas and Dominik, Carsten (2012). \emph{A Multi-Language Computing Environment for Literate Programming and Reproducible Research}.
+\end{document}

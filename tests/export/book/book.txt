@@ -1,0 +1,108 @@
+                     _____________________________
+
+                      WRITING BOOKS IN PLAIN TEXT
+                       A sample chapter for Kalem
+
+                           The Kalem Authors
+                     _____________________________
+
+
+                               2026-09-29
+
+
+Table of Contents
+_________________
+
+1. Foundations
+.. 1. Why plain text
+.. 2. Measurements
+References
+
+
+This book is written in Org and edited with /Kalem/. It keeps each
+chapter in a file of its own; this file pulls them together with
+`#+INCLUDE' and holds the bibliography.
+
+
+1 Foundations
+=============
+
+1.1 Why plain text
+~~~~~~~~~~~~~~~~~~
+
+  Books have been typeset from plain text for decades (Knuth, Donald E.,
+  1984).  Org keeps the structure of a document in its text: headings,
+  lists, tables and formulas are all written as characters on a line, so
+  the file outlives every program that edits it.[1]
+
+
+1.1.1 A pipeline
+----------------
+
+  The text goes through one exporter for each format, as 1 shows: HTML
+  for the web, LaTeX for print, and Word through pandoc for colleagues
+  who ask for it (Dominik, Carsten, 2010).
+
+  <file:figures/pipeline.png>
+
+  The code that builds the book can live in the book itself, as in
+  literate programming (Schulte, Eric and Davison, Dan and Dye, Thomas
+  and Dominik, Carsten, 2012):
+
+  ,----
+  | kalem export book.org --to html
+  | kalem export book.org --to pdf
+  | kalem export book.org --to docx
+  `----
+  Listing 1: Building every format.
+
+
+1.2 Measurements
+~~~~~~~~~~~~~~~~
+
+  1 lists how long each export of this sample took, and the total is
+  computed by the table itself. The energy of a body at rest, equation
+  ???, is the usual example of a displayed formula.[2]
+
+   Format  First run  Second run  Mean 
+  -------------------------------------
+   HTML           12          10    11 
+   LaTeX          15          13    14 
+   Word          420         400   410 
+  -------------------------------------
+   Total         447         423   435 
+  Table 1: Export times of the sample, in milliseconds.
+
+  \begin{equation}
+  E = m c^2
+  \end{equation}
+
+  Inline mathematics works too: the mean of $n$ runs is $\bar{x} =
+  \frac{1}{n}\sum_{i=1}^{n} x_i$. Back in [the first chapter], the
+  pipeline of 1.1.1 produced these files.
+
+
+[the first chapter] See section 1.1
+
+
+References
+==========
+
+  Dominik, Carsten (2010). /The Org Mode 7 Reference Manual/, Network
+  Theory.
+
+  Knuth, Donald E. (1984). /The \TeXbook/, Addison-Wesley.
+
+  Schulte, Eric and Davison, Dan and Dye, Thomas and Dominik, Carsten
+  (2012). /A Multi-Language Computing Environment for Literate Programming
+  and Reproducible Research/.
+
+
+
+Footnotes
+_________
+
+[1] Plain text also diffs well, so a book can be reviewed like code.
+
+[2] See (Knuth, Donald E., 1984 p. 168) for how TeX sets displayed
+equations.

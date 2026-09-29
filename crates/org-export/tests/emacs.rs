@@ -297,3 +297,53 @@ fn text_document() {
 fn text() {
     run(&org_export::Text::default(), "txt", &[]);
 }
+
+/// The sample book of `examples/book` (a part, two included chapters,
+/// a figure, a table with formulas, an equation, citations, footnotes and
+/// cross references) against Emacs's whole documents in
+/// `tests/export/book` (`KALEM_EXPORT_FULL=1 emacs -Q --batch -l
+/// tests/emacs/export.el examples/book tests/export/book`).
+#[test]
+fn sample_book() {
+    let book = root().join("../../examples/book/book.org");
+    let text = std::fs::read_to_string(&book).unwrap();
+    type Case<'a> = (&'a dyn org_export::Backend, &'a str, fn(&str) -> String);
+    let backends: [Case<'_>; 4] = [
+        (&org_export::Html, "html", normalize_page),
+        (&org_export::Latex::default(), "tex", normalize_latex),
+        (&org_export::Text::default(), "txt", normalize),
+        (&org_export::Markdown, "md", normalize),
+    ];
+    let mut failed = Vec::new();
+    for (backend, ext, norm) in backends {
+        let got = org_export::export(
+            &text,
+            backend,
+            &org_export::Settings {
+                body_only: false,
+                input_file: Some(book.clone()),
+                now: Some("2026-09-28T10:00:00[Europe/Istanbul]".parse().unwrap()),
+                subtree: None,
+                math: None,
+                options: None,
+            },
+        )
+        .unwrap_or_else(|e| format!("ERROR: {e}\n"));
+        let want =
+            std::fs::read_to_string(root().join("book").join(format!("book.{ext}"))).unwrap();
+        if norm(&got) != norm(&want) {
+            if std::env::var_os("KALEM_EXPORT_DIFF").is_some() {
+                let d = std::env::temp_dir().join(format!("kalem-book.{ext}"));
+                std::fs::write(&d, norm(&got)).unwrap();
+                let w = std::env::temp_dir().join(format!("kalem-book.want.{ext}"));
+                std::fs::write(&w, norm(&want)).unwrap();
+                eprintln!("{ext}: got {} want {}", d.display(), w.display());
+            }
+            failed.push(ext);
+        }
+    }
+    assert!(
+        failed.is_empty(),
+        "the sample book differs from Emacs in {failed:?}"
+    );
+}
