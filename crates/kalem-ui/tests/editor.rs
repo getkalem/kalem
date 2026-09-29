@@ -2710,3 +2710,17 @@ fn file_manager_preview(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert!(cx.debug_bounds("preview").is_none());
 }
+
+#[gpui::test]
+fn latex_follow_reference(cx: &mut TestAppContext) {
+    let text = "\\section{Intro}\\label{intro}\ntext\nSee \\ref{intro}.\n";
+    let (e, cx) = open_named(text, "r.tex", || None, cx);
+    at(&e, text.find("\\ref").unwrap() + 2, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("latex.link.open", serde_json::Value::Null, window, cx)
+    });
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.selection.head),
+        text.find("\\label").unwrap()
+    );
+}

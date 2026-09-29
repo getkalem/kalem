@@ -1225,6 +1225,22 @@ fn latex_commands() -> Vec<Command> {
         c("latex.enter", "New Line or Item", &["enter"], |ctx, _| {
             latex_edit_with(ctx, |t, s, r, _| e::enter(t, s, r), Some(newline))
         }),
+        c("latex.link.open", "Open Link", &[], |ctx, _| {
+            use crate::input::LinkAction;
+            let doc = ctx.doc()?;
+            match crate::latex_view::link_at(doc, doc.selection.head) {
+                Some(LinkAction::Jump(p)) => {
+                    doc.move_cursor(p, false);
+                    Ok(())
+                }
+                Some(LinkAction::Missing(s)) => Err(CommandError::new(crate::tr!(
+                    "latex-unknown-label",
+                    key = s
+                ))),
+                Some(other) => request(ctx, Request::OpenLink(other)),
+                None => Err(CommandError::new(crate::tr!("msg-no-link"))),
+            }
+        }),
         c("latex.list.indent", "Nest Item", &["tab"], |ctx, _| {
             latex_edit_with(
                 ctx,

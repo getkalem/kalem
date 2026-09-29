@@ -838,7 +838,11 @@ the bibliography of a CSL style has it (the style closest to biblatex's
 entries pasted into the document go into its first bibliography file
 (keys it has already are left) and a =\cite= of them is pasted instead.
 =\footnote= shows its raised number before its dimmed text, and =\url=
-and =\href= show as links. Theorems declared with =\newtheorem= show
+and =\href= show as links. /Open Link/ (Ctrl-click, Cmd-click on macOS)
+follows the command at the cursor: a reference to its =\label=, =\url=
+and =\href= to the browser, =\input=, =\include= and =\subfile= to their
+file, =\includegraphics= to its picture and a citation to the
+bibliography file. Theorems declared with =\newtheorem= show
 their names and numbers ("Theorem 1.1 (Pythagoras).") and =proof= its
 "Proof." and ∎; =\paragraph= is a bold heading in the text. A
 =tabular= (also =tabularx=, =array=, =longtable=) written one row a

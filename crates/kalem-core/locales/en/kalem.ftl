@@ -778,6 +778,7 @@ msg-latex-built = Built { $path }{ $count ->
 msg-not-latex = Not a LaTeX document
 msg-latex-not-here = Not here: put the cursor on a sectioning command or a list item
 cmd-latex-enter = New Line or Item
+cmd-latex-link-open = Open Link
 cmd-latex-list-indent = Nest Item
 cmd-latex-list-outdent = Unnest Item
 cmd-latex-format-bold = Bold

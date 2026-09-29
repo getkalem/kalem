@@ -1444,6 +1444,76 @@ pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
     Some(notes.join("  "))
 }
 
+/// Where the command at `pos` leads (`org-open-at-point` for LaTeX): a
+/// reference to its `\label`, `\url` and `\href` to their address,
+/// `\input`, `\include` and `\subfile` to their file, `\includegraphics`
+/// to its picture, a citation to the bibliography file.
+pub fn link_at(doc: &crate::DocumentState, pos: usize) -> Option<crate::input::LinkAction> {
+    use crate::input::LinkAction;
+    let state = doc.latex()?;
+    let root = state.parse().syntax();
+    let t =
+        latex_syntax::token_at(&root, pos).or_else(|| latex_syntax::token_before(&root, pos))?;
+    let cmd = t.parent_ancestors().find(|a| {
+        a.kind() == K::COMMAND
+            && latex_syntax::name(a).is_some_and(|n| {
+                chip_command(&n)
+                    || matches!(
+                        n.as_str(),
+                        "input" | "include" | "subfile" | "includegraphics" | "import"
+                    )
+            })
+    })?;
+    let name = latex_syntax::name(&cmd)?;
+    let model = state.model();
+    let (_, mands) = arguments(&cmd);
+    let first = mands
+        .first()
+        .map(|m| m.trim().to_string())
+        .unwrap_or_default();
+    let base = doc.meta.path.as_deref().and_then(std::path::Path::parent);
+    let file = |p: std::path::PathBuf| LinkAction::File {
+        path: p.display().to_string(),
+        search: None,
+    };
+    match name.as_str() {
+        "url" | "href" => Some(LinkAction::Url(first)),
+        "includegraphics" => picture_path(doc, &model, &cmd).map(|p| LinkAction::File {
+            path: p,
+            search: None,
+        }),
+        "input" | "include" | "subfile" | "import" => {
+            let target = if name == "import" {
+                format!("{}{}", first, mands.get(1).map_or("", |m| m.trim()))
+            } else {
+                first
+            };
+            let p = base.map_or_else(|| std::path::PathBuf::from(&target), |b| b.join(&target));
+            let p = if p.exists() || p.extension().is_some() {
+                p
+            } else {
+                p.with_extension("tex")
+            };
+            Some(file(p))
+        }
+        _ if latex_syntax::signatures::command(&name) == "*oom" => {
+            let bib = model.bibliography.first()?.files.first()?.clone();
+            Some(file(base.map_or_else(
+                || std::path::PathBuf::from(&bib),
+                |b| b.join(&bib),
+            )))
+        }
+        _ => {
+            let key = first.split(',').next()?.trim().to_string();
+            match model.label(&key) {
+                Some(l) if l.file == 0 => Some(LinkAction::Jump(l.range.start)),
+                Some(l) => model.files.get(l.file).cloned().map(file),
+                None => Some(LinkAction::Missing(key)),
+            }
+        }
+    }
+}
+
 /// The sectioning commands of a LaTeX document for the outline panel:
 /// levels from 1 (the document's top level), titles with their numbers.
 pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::OutlineItem>> {
@@ -1844,6 +1914,38 @@ mod tests {
         let r = d.text().line_range(line);
         let r = r.start..r.end - usize::from(d.text().as_str()[r.clone()].ends_with('\n'));
         line_view(d, r, cursor)
+    }
+
+    #[test]
+    fn links() {
+        use crate::input::LinkAction;
+        let text = "\\section{A}\\label{s}\nSee \\ref{s}, \\ref{no}, \\url{https://x.org} and \\input{chap}.\n";
+        let mut d = doc(text);
+        d.meta.path = Some(std::path::PathBuf::from("/w/p.tex"));
+        let at = |s: &str| text.find(s).unwrap() + 2;
+        assert_eq!(
+            link_at(&d, at("\\ref{s}")),
+            Some(LinkAction::Jump(text.find("\\label").unwrap()))
+        );
+        assert_eq!(
+            link_at(&d, at("\\ref{no}")),
+            Some(LinkAction::Missing("no".into()))
+        );
+        assert_eq!(
+            link_at(&d, at("\\url")),
+            Some(LinkAction::Url("https://x.org".into()))
+        );
+        assert_eq!(
+            link_at(&d, at("\\input")),
+            Some(LinkAction::File {
+                path: std::path::Path::new("/w")
+                    .join("chap.tex")
+                    .display()
+                    .to_string(),
+                search: None
+            })
+        );
+        assert_eq!(link_at(&d, 1), None);
     }
 
     #[test]

@@ -2120,7 +2120,12 @@ impl Editor {
         };
         if open && widget.is_none() {
             self.doc.move_cursor(pos, false);
-            self.run_command("org.link.open", Value::Null, window, cx);
+            let id = if self.doc.latex().is_some() {
+                "latex.link.open"
+            } else {
+                "org.link.open"
+            };
+            self.run_command(id, Value::Null, window, cx);
             return;
         }
         if let Some((src, Widget::Checkbox(_))) = widget {

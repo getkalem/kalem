@@ -713,6 +713,7 @@ msg-latex-built = Oluşturuldu: { $path }{ $count ->
 msg-not-latex = LaTeX belgesi değil
 msg-latex-not-here = Burada olmaz: imleci bir bölüm komutuna ya da liste öğesine koyun
 cmd-latex-enter = Yeni Satır ya da Öğe
+cmd-latex-link-open = Bağlantıyı Aç
 cmd-latex-list-indent = Öğeyi İçeri Al
 cmd-latex-list-outdent = Öğeyi Dışarı Al
 cmd-latex-format-bold = Kalın
