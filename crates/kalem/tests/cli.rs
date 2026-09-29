@@ -306,3 +306,19 @@ fn citation_checks() {
     );
     assert!(!out.contains("knuth84"), "{out}");
 }
+
+#[test]
+fn check_latex() {
+    let (code, out, _) = kalem(&["check", "--unrendered", "tests/fixtures/sample.tex"]);
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(
+        out,
+        "tests/fixtures/sample.tex:4:17: warning[latex-undefined-reference]: No label b\n\
+         tests/fixtures/sample.tex:4:27: info[latex-deprecated]: \\bf is deprecated in LaTeX 2ε; use the \\text… command or the declaration (\\bfseries, \\itshape)\n\
+         tests/fixtures/sample.tex:5:1: warning[latex-syntax]: \\begin{itemize} is not closed\n\
+         tests/fixtures/sample.tex: unrendered: \\bf (1)\n\
+         tests/fixtures/sample.tex: unrendered: \\tikzset (1)\n"
+    );
+    let (code, _, _) = kalem(&["check", "--deny-warnings", "tests/fixtures/sample.tex"]);
+    assert_eq!(code, 1);
+}

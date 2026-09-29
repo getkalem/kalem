@@ -889,16 +889,17 @@ and says which.
 
 * The command line
 
-| Command                        | What it does                                                               |
-|--------------------------------+----------------------------------------------------------------------------|
-| =kalem check FILE...=          | Syntax diagnostics; exits 1 on errors (=--deny-warnings=, =--format json=) |
-| =kalem fmt FILE...=            | Aligns tables and tags, tidies blank lines; =--check= for CI               |
-| =kalem complete FILE:LINE:COL= | Prints the completions there: label, kind and completer, one a line        |
-| =kalem commands [--type T]=    | Lists the commands (of text type =T=): ID, title, scope and keys           |
-| =kalem query FILE... MATCH=    | Headlines matching an Org match string, such as ='TODO="NEXT"+work'=       |
-| =kalem parse FILE=             | The syntax tree                                                            |
-| =kalem dump FILE=              | The syntax tree as JSON, in Emacs's terms                                  |
-| =kalem diff-emacs FILE...=     | Compares the parse with Emacs (development)                                |
+| Command                             | What it does                                                                     |
+|-------------------------------------+----------------------------------------------------------------------------------|
+| =kalem check FILE...=               | Syntax diagnostics; exits 1 on errors (=--deny-warnings=, =--format json=)       |
+| =kalem check FILE.tex --unrendered= | LaTeX: unbalanced groups, labels, citations, missing files; what shows as source |
+| =kalem fmt FILE...=                 | Aligns tables and tags, tidies blank lines; =--check= for CI                     |
+| =kalem complete FILE:LINE:COL=      | Prints the completions there: label, kind and completer, one a line              |
+| =kalem commands [--type T]=         | Lists the commands (of text type =T=): ID, title, scope and keys                 |
+| =kalem query FILE... MATCH=         | Headlines matching an Org match string, such as ='TODO="NEXT"+work'=             |
+| =kalem parse FILE=                  | The syntax tree                                                                  |
+| =kalem dump FILE=                   | The syntax tree as JSON, in Emacs's terms                                        |
+| =kalem diff-emacs FILE...=          | Compares the parse with Emacs (development)                                      |
 
 =--format json= gives stable output for scripts.
 

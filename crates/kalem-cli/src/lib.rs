@@ -47,9 +47,10 @@ enum Command {
         /// The Org file to parse.
         file: PathBuf,
     },
-    /// Check files: syntax diagnostics and round-trip verification.
+    /// Check files: syntax diagnostics and round-trip verification (Org
+    /// and LaTeX files).
     Check {
-        /// Org files to check.
+        /// Org or LaTeX files to check.
         #[arg(required = true)]
         files: Vec<PathBuf>,
         /// Output format.
@@ -58,6 +59,10 @@ enum Command {
         /// Exit with status 1 when there are warnings.
         #[arg(long)]
         deny_warnings: bool,
+        /// For LaTeX files, also list the commands and environments the
+        /// editor shows as source, most frequent first.
+        #[arg(long)]
+        unrendered: bool,
     },
     /// List the commands, one a line: ID, title, scope and keys; with
     /// `--type`, those that serve that text type (`org`, `python`, `csv`).
@@ -240,7 +245,13 @@ where
             files,
             format,
             deny_warnings,
-        } => commands::check(&files, matches!(format, Format::Json), deny_warnings),
+            unrendered,
+        } => commands::check(
+            &files,
+            matches!(format, Format::Json),
+            deny_warnings,
+            unrendered,
+        ),
         Command::Dump {
             file,
             format: DumpFormat::EmacsJson,
