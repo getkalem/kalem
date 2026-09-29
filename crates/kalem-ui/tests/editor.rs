@@ -2274,7 +2274,7 @@ fn print_compiles_first(cx: &mut TestAppContext) {
 
 #[gpui::test]
 fn latex_rendered(cx: &mut TestAppContext) {
-    let text = "\\section{Intro}\nSome \\emph{very} ``good'' text---yes.\n";
+    let text = "\\section{Intro}\nSome \\emph{very} ``good'' text---yes.\n\\begin{itemize}\n\\item First\n\\end{itemize}\n";
     let (e, cx) = open_named(text, "paper.tex", || None, cx);
     // Away from the heading's command.
     at(&e, text.len(), cx);
@@ -2284,6 +2284,10 @@ fn latex_rendered(cx: &mut TestAppContext) {
     });
     assert_eq!(heading, ("1\u{2003}Intro".to_string(), 1));
     assert_eq!(body, "Some very \u{201c}good\u{201d} text\u{2014}yes.");
+    assert_eq!(
+        e.read_with(cx, |e, _| e.line_view(3).display()),
+        "\u{2022} First"
+    );
     // At the command, its markers show for editing.
     at(&e, text.find("\\emph").unwrap(), cx);
     let body = e.read_with(cx, |e, _| e.line_view(1).display());

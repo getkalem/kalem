@@ -2401,13 +2401,14 @@ fn print_compiles_first() {
 
 #[test]
 fn latex_rendered() {
-    let text = "\\section{Intro}\nSome \\emph{very} ``good'' text---yes.\n";
+    let text = "\\section{Intro}\nSome \\emph{very} ``good'' text---yes.\n\\begin{enumerate}\n\\item First\n\\end{enumerate}\n";
     let mut t = with_file(text, "paper.tex", Config::default(), (60, 8));
     assert_eq!(t.app.doc.meta.mode, kalem_core::DocumentMode::Latex);
     // Away from the heading's command.
     t.at(text.len());
     let s = screen(&mut t);
     assert!(status(&mut t).contains("LaTeX"));
+    assert!(s.iter().any(|l| l.contains("1. First")), "{s:#?}");
     assert!(
         s.iter()
             .any(|l| l.contains("Intro") && !l.contains("\\section")),
