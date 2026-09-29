@@ -1555,8 +1555,12 @@ impl Workspace {
             Some(_) => format!("{}   ", kalem_core::l10n::tr("kind-org")),
             None => String::new(),
         };
-        let left =
-            format!("{mode}{project}{name}   {kind}{state}   {position}{words}{formula}{table}");
+        let encoding = kalem_core::files::encoding_label(&e.doc.meta)
+            .map(|n| format!("{n}   "))
+            .unwrap_or_default();
+        let left = format!(
+            "{mode}{project}{name}   {kind}{encoding}{state}   {position}{words}{formula}{table}"
+        );
         let (msg, error) = match self.shared.jobs.borrow().first() {
             // A file operation running: its progress.
             Some(j) => (j.status(), false),
@@ -1671,6 +1675,8 @@ pub fn menus() -> Vec<Menu> {
                 item("app.save"),
                 named(tr("menu-save-as"), "app.saveAs"),
                 item("app.revert"),
+                item("file.reopenWithEncoding"),
+                item("file.saveWithEncoding"),
                 MenuItem::separator(),
                 item("file.close"),
             ],

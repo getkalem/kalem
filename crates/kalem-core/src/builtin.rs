@@ -93,6 +93,16 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.insert.drawer", object(&[("name", "string", true)])),
         ("org.caption.set", object(&[("caption", "string", true)])),
         ("edit.gotoLine", object(&[("line", "integer", true)])),
+        ("file.reopenWithEncoding", {
+            let mut s = object(&[("encoding", "string", true)]);
+            s["properties"]["encoding"]["enum"] = serde_json::json!(crate::files::COMMON_ENCODINGS);
+            s
+        }),
+        ("file.saveWithEncoding", {
+            let mut s = object(&[("encoding", "string", true)]);
+            s["properties"]["encoding"]["enum"] = serde_json::json!(crate::files::COMMON_ENCODINGS);
+            s
+        }),
         (
             "stats.setDocumentTarget",
             object(&[("words", "string", true)]),
@@ -1130,6 +1140,59 @@ fn plain_commands() -> Vec<Command> {
         cmd("edit.cut", "Cut", "Edit", &["ctrl+x"], None, |ctx, _| {
             request(ctx, Request::Cut)
         }),
+        cmd(
+            "file.reopenWithEncoding",
+            "Reopen with Encoding",
+            "File",
+            &[],
+            None,
+            |ctx, args| {
+                let name = arg_str(args, "encoding")?.to_string();
+                let enc = crate::files::encoding_for(&name).ok_or_else(|| {
+                    CommandError::new(crate::tr!("msg-unknown-encoding", name = name.clone()))
+                })?;
+                let now = ctx.now;
+                let doc = ctx.doc()?;
+                if doc.meta.path.is_none() {
+                    return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+                }
+                if doc.is_modified() {
+                    return Err(CommandError::new(crate::l10n::tr("msg-reopen-modified")));
+                }
+                doc.reopen_with(enc, now)
+                    .map_err(|e| CommandError::new(e.to_string()))?;
+                ctx.messages
+                    .push(crate::tr!("msg-reopened", encoding = enc.name()));
+                Ok(())
+            },
+        ),
+        cmd(
+            "file.saveWithEncoding",
+            "Save with Encoding",
+            "File",
+            &[],
+            None,
+            |ctx, args| {
+                let name = arg_str(args, "encoding")?.to_string();
+                let enc = crate::files::encoding_for(&name).ok_or_else(|| {
+                    CommandError::new(crate::tr!("msg-unknown-encoding", name = name.clone()))
+                })?;
+                let doc = ctx.doc()?;
+                if let Some(ch) = crate::files::unencodable(doc.text().as_str(), enc) {
+                    return Err(CommandError::new(crate::tr!(
+                        "msg-unencodable",
+                        ch = ch.to_string(),
+                        encoding = enc.name()
+                    )));
+                }
+                let utf16 = enc == encoding_rs::UTF_16LE || enc == encoding_rs::UTF_16BE;
+                doc.meta.bom = utf16 || (enc == encoding_rs::UTF_8 && doc.meta.bom);
+                doc.meta.encoding = enc;
+                // Saved as the Save command saves (a file name asked for if
+                // there is none).
+                request(ctx, Request::Save)
+            },
+        ),
         cmd(
             "edit.gotoLine",
             "Go to Line",
@@ -3053,6 +3116,7 @@ mod tests {
             mode: DocumentMode::Org,
             line_ending: LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         let mut d = DocumentState::new(text, meta, Arc::new(org_model::Settings::default()));
         d.selection = org_edit::Selection::caret(point);
@@ -3650,6 +3714,7 @@ mod tests {
             mode: DocumentMode::Org,
             line_ending: LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         let mut d = DocumentState::with_base(
             "* A\n",

@@ -50,15 +50,23 @@ fn by_name(name: &str) -> Option<DocumentMode> {
     })
 }
 
-/// Whether the start of a file looks binary: a NUL byte or invalid UTF-8
-/// (other than a character cut at the end of the sample).
+/// Whether the start of a file looks binary: a NUL byte, or bytes that are
+/// not UTF-8 with many control characters among them (text in a legacy
+/// encoding such as Windows-1254 has none).
 pub fn looks_binary(sample: &[u8]) -> bool {
     if sample.contains(&0) {
         return true;
     }
     match std::str::from_utf8(sample) {
         Ok(_) => false,
-        Err(e) => e.error_len().is_some(),
+        Err(e) if e.error_len().is_none() => false,
+        Err(_) => {
+            let control = sample
+                .iter()
+                .filter(|b| matches!(b, 0x01..=0x08 | 0x0B | 0x0E..=0x1A | 0x1C..=0x1F | 0x7F))
+                .count();
+            control * 20 > sample.len()
+        }
     }
 }
 

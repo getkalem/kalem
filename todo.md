@@ -336,7 +336,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 
 ### 2.7a General purpose editing (§2.6)
 
-- [ ] T2.7a.1 Encodings: UTF-16 with BOM, "reopen with encoding" (encoding_rs)
+- [x] T2.7a.1 Encodings: UTF-16 with BOM, "reopen with encoding" (encoding_rs) (`kalem_core::files`: `Metadata::encoding`; UTF-8 and UTF-16LE/BE with a byte order mark read and written back byte for byte; other text that is not UTF-8 read in the encoding chardetng guesses (a message says so) and saved in it, a character it cannot hold stopping the save (`SaveError::Unencodable`); reloading keeps the encoding; `looks_binary` no longer calls legacy-encoded text binary; Reopen with Encoding and Save with Encoding (a list of 17 encodings, any `encoding_rs` label accepted) in both editors and the File menu, the encoding in both status bars when it is not UTF-8. Found and fixed on the way: slicing `#+ATTR_KALEM:`, `#+begin`, `#+end_` and `:END:` prefixes inside a multi-byte character panicked)
 - [ ] T2.7a.2 Multiple cursors and column selection
 - [ ] T2.7a.3 Large files: 100 MB target (§15), lazy highlighting, long-line safety; a rope or piece table for plain text mode, where the parser needs no contiguous text (T1.3.1a)
 - [x] T2.7a.4 Workspace sidebar, fuzzy open file, find in files (project scope: T2.7f) (all done: the list of open files, Find File in Project, Search in Project, and the current project's folder tree below the open files in both editors, from the project's file index (ignored files left out), folders opened and closed with a click, Reveal in Folder Tree, `ui.folder_tree`)

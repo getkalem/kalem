@@ -39,8 +39,11 @@ pub struct Metadata {
     pub mode: DocumentMode,
     /// The file's line endings, kept on save.
     pub line_ending: LineEnding,
-    /// The file started with a UTF-8 byte order mark.
+    /// The file started with a byte order mark (UTF-8, or UTF-16).
     pub bom: bool,
+    /// The file's character encoding, kept on save: UTF-8, UTF-16 (with a
+    /// byte order mark) or a legacy encoding such as Windows-1254.
+    pub encoding: &'static encoding_rs::Encoding,
 }
 
 /// Starts a full parse of `text` (version `version`) in the background,
@@ -115,6 +118,14 @@ pub enum SaveError {
     ChangedOnDisk,
     /// Writing failed.
     Io(std::io::Error),
+    /// A character of the text has no place in the file's encoding; Save
+    /// with Encoding (UTF-8) writes it.
+    Unencodable {
+        /// The character.
+        ch: char,
+        /// The encoding's name.
+        encoding: &'static str,
+    },
 }
 
 impl std::fmt::Display for SaveError {
@@ -123,6 +134,11 @@ impl std::fmt::Display for SaveError {
             SaveError::NoPath => f.write_str("The document has no file name"),
             SaveError::ChangedOnDisk => f.write_str("The file was changed by another program"),
             SaveError::Io(e) => write!(f, "{e}"),
+            SaveError::Unencodable { ch, encoding } => f.write_str(&crate::tr!(
+                "msg-unencodable",
+                ch = ch.to_string(),
+                encoding = *encoding
+            )),
         }
     }
 }
@@ -208,6 +224,7 @@ impl DocumentState {
             mode: DocumentMode::Directory,
             line_ending: LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         let mut d = DocumentState::new("", meta, settings);
         let mut state = crate::dired::DirState::new(place, options, details);
@@ -356,6 +373,12 @@ impl DocumentState {
                 DiskChange::Unchanged | DiskChange::Touched(_) | DiskChange::Deleted => {}
             }
         }
+        if let Some(ch) = files::unencodable(self.text.as_str(), self.meta.encoding) {
+            return Err(SaveError::Unencodable {
+                ch,
+                encoding: self.meta.encoding.name(),
+            });
+        }
         let bytes = files::encode(self.text.as_str(), &self.meta);
         self.disk = Some(files::write(&path, &bytes, options).map_err(SaveError::Io)?);
         self.mark_saved();
@@ -397,17 +420,33 @@ impl DocumentState {
         }
     }
 
-    /// Replaces the text with the file's, as one undo step that changes
-    /// only the part that differs, so the cursor and undo history stay.
-    pub fn reload(&mut self, now: Instant) -> Result<(), OpenError> {
-        if self.dired.is_some() {
-            self.refresh_listing();
-            return Ok(());
-        }
+    /// Reads the file again in `encoding` (Reopen with Encoding), as one
+    /// undo step; refused while there are unsaved changes.
+    pub fn reopen_with(
+        &mut self,
+        encoding: &'static encoding_rs::Encoding,
+        now: Instant,
+    ) -> Result<(), OpenError> {
         let path = self.meta.path.clone().ok_or_else(|| {
             OpenError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "no file"))
         })?;
-        let (text, meta, disk) = files::read(&path)?;
+        let bytes = std::fs::read(&path)?;
+        let modified = std::fs::metadata(&path)?.modified().ok();
+        let disk = files::DiskState::of(&bytes, modified);
+        let (text, meta) = files::decode_as(Some(&path), &bytes, encoding);
+        self.replace_from_disk(&text, meta, disk, now);
+        Ok(())
+    }
+
+    /// The document's text replaced by `text` read from the file, as one
+    /// undo step that changes only the part that differs.
+    fn replace_from_disk(
+        &mut self,
+        text: &str,
+        meta: Metadata,
+        disk: files::DiskState,
+        now: Instant,
+    ) {
         let old = self.text.as_str();
         let (a, b) = (old.as_bytes(), text.as_bytes());
         let mut pre = a.iter().zip(b).take_while(|(x, y)| x == y).count();
@@ -432,8 +471,25 @@ impl DocumentState {
         self.apply(&tx, ChangeKind::Command, now);
         self.meta.line_ending = meta.line_ending;
         self.meta.bom = meta.bom;
+        self.meta.encoding = meta.encoding;
         self.disk = Some(disk);
         self.mark_saved();
+    }
+
+    /// Replaces the text with the file's, as one undo step that changes
+    /// only the part that differs, so the cursor and undo history stay.
+    pub fn reload(&mut self, now: Instant) -> Result<(), OpenError> {
+        if self.dired.is_some() {
+            self.refresh_listing();
+            return Ok(());
+        }
+        let path = self.meta.path.clone().ok_or_else(|| {
+            OpenError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "no file"))
+        })?;
+        // The encoding the document has, unless a byte order mark says
+        // otherwise now.
+        let (text, meta, disk) = files::read_with(&path, Some(self.meta.encoding))?;
+        self.replace_from_disk(&text, meta, disk, now);
         tracing::info!(path = %path.display(), "reloaded from disk");
         Ok(())
     }
@@ -1233,6 +1289,7 @@ mod tests {
             },
             line_ending: LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         let now = Instant::now();
         let mut d = DocumentState::new("a\n  b\nc\n", meta("py"), Arc::new(Settings::default()));
@@ -1368,6 +1425,7 @@ mod tests {
             mode: DocumentMode::Org,
             line_ending: LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         let mut d = DocumentState::new(text, meta, Arc::new(Settings::default()));
         d.wait_for_parse();
@@ -1402,6 +1460,7 @@ mod tests {
             mode: DocumentMode::Org,
             line_ending: LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         DocumentState::new(text, meta, Arc::new(Settings::default()))
     }

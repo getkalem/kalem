@@ -1968,6 +1968,52 @@ fn editing_properties() {
 }
 
 #[test]
+fn legacy_encodings() {
+    let dir = std::env::temp_dir().join(format!("kalem-tui-enc-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("notlar.txt");
+    let turkish = "Ağaçların gölgesinde çalışan işçiler, güneşin doğuşunu şarkılarla karşıladı.\n";
+    let (bytes, _, _) = kalem_core::encoding_rs::WINDOWS_1254.encode(turkish);
+    std::fs::write(&path, &bytes).unwrap();
+    let app = App::with_keymap(
+        Some(&path),
+        Config::default(),
+        Caps::full(),
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
+    let term = Terminal::new(TestBackend::new(120, 8)).unwrap();
+    let mut t = T {
+        app,
+        term,
+        dir: Some(dir.clone()),
+    };
+    assert_eq!(t.app.doc.text().as_str(), turkish);
+    let s = status(&mut t);
+    assert!(s.contains("windows-1254") && s.contains("Not UTF-8"), "{s}");
+    // Saved as UTF-8.
+    t.app.run_command(
+        "file.saveWithEncoding",
+        serde_json::json!({"encoding": "UTF-8"}),
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), turkish.as_bytes());
+    assert!(!status(&mut t).contains("windows-1254"));
+    // Reopened in another encoding: the UTF-8 bytes read as Latin-1.
+    t.app.run_command(
+        "file.reopenWithEncoding",
+        serde_json::json!({"encoding": "ISO-8859-1"}),
+    );
+    assert!(
+        t.app.doc.text().as_str().starts_with("A\u{c4}\u{178}a"),
+        "{:?}",
+        t.app.doc.text().as_str()
+    );
+    assert!(status(&mut t).contains("windows-1252"));
+}
+
+#[test]
 fn word_targets_and_chapters() {
     let text = "* One\nthree four five\n* Two\nsix\n";
     let mut t = with_config(text, Config::default(), (100, 10));

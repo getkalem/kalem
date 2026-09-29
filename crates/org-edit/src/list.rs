@@ -245,16 +245,16 @@ fn is_drawer_begin(l: &str) -> bool {
 
 fn is_drawer_end(l: &str) -> bool {
     let t = l.trim_start_matches([' ', '\t']);
-    t.len() >= 5 && t[..5].eq_ignore_ascii_case(":END:")
+    t.len() >= 5 && t.as_bytes()[..5].eq_ignore_ascii_case(b":END:")
 }
 
 /// `^[ \t]*#\+\(begin\|end\)_`: Some(true) for begin, Some(false) for end.
 fn block_line(l: &str) -> Option<bool> {
     let t = l.trim_start_matches([' ', '\t']);
     let r = t.strip_prefix("#+")?;
-    if r.len() >= 6 && r[..6].eq_ignore_ascii_case("begin_") {
+    if r.len() >= 6 && r.as_bytes()[..6].eq_ignore_ascii_case(b"begin_") {
         Some(true)
-    } else if r.len() >= 4 && r[..4].eq_ignore_ascii_case("end_") {
+    } else if r.len() >= 4 && r.as_bytes()[..4].eq_ignore_ascii_case(b"end_") {
         Some(false)
     } else {
         None
@@ -275,8 +275,7 @@ fn inlinetask_line(text: &str, b: usize, ctx: &ParseContext) -> Option<bool> {
     if stars < min || word.len() == rest.len() {
         return None;
     }
-    let is_end = word.len() >= 3
-        && word[..3].eq_ignore_ascii_case("end")
+    let is_end = word.get(..3).is_some_and(|w| w.eq_ignore_ascii_case("end"))
         && word[3..].trim_matches([' ', '\t']).is_empty();
     Some(is_end)
 }
@@ -469,10 +468,10 @@ fn list_struct(text: &str, start: usize, ctx: &ParseContext) -> Struct {
         let l = line(text, p);
         let t = l.trim_start_matches([' ', '\t']);
         if t.len() >= 6
-            && t[..6].eq_ignore_ascii_case("#+end_")
+            && t.as_bytes()[..6].eq_ignore_ascii_case(b"#+end_")
             && let Some(x) = lines_back(text, p, lim_up).skip(1).find(|&x| {
                 let t = line(text, x).trim_start_matches([' ', '\t']);
-                t.len() >= 8 && t[..8].eq_ignore_ascii_case("#+begin_")
+                t.len() >= 8 && t.as_bytes()[..8].eq_ignore_ascii_case(b"#+begin_")
             })
         {
             p = x;
@@ -563,7 +562,7 @@ fn list_struct(text: &str, start: usize, ctx: &ParseContext) -> Struct {
             end2.push((ind, p));
         }
         let t = line(text, p).trim_start_matches([' ', '\t']);
-        if t.len() >= 8 && t[..8].eq_ignore_ascii_case("#+begin_") {
+        if t.len() >= 8 && t.as_bytes()[..8].eq_ignore_ascii_case(b"#+begin_") {
             let mut x = p;
             loop {
                 x = next_line(text, x);
@@ -571,7 +570,7 @@ fn list_struct(text: &str, start: usize, ctx: &ParseContext) -> Struct {
                     break;
                 }
                 let t = line(text, x).trim_start_matches([' ', '\t']);
-                if t.len() >= 6 && t[..6].eq_ignore_ascii_case("#+end_") {
+                if t.len() >= 6 && t.as_bytes()[..6].eq_ignore_ascii_case(b"#+end_") {
                     p = x;
                     break;
                 }
@@ -1025,7 +1024,7 @@ fn apply_struct(buf: &mut Buf, st: &Struct, old: &Struct, ctx: &ParseContext) {
                         if !blank_line(t, p) {
                             min_ind = min_ind.min(indent(t, p));
                             let l = line(t, p).trim_start_matches([' ', '\t']);
-                            if l.len() >= 7 && l[..7].eq_ignore_ascii_case("#+BEGIN") {
+                            if l.len() >= 7 && l.as_bytes()[..7].eq_ignore_ascii_case(b"#+BEGIN") {
                                 let kind =
                                     l[7..].split_whitespace().next().unwrap_or("").to_string();
                                 let _ = kind;
@@ -1037,7 +1036,9 @@ fn apply_struct(buf: &mut Buf, st: &Struct, old: &Struct, ctx: &ParseContext) {
                                         break;
                                     }
                                     let l2 = line(t, x).trim_start_matches([' ', '\t']);
-                                    if l2.len() >= 5 && l2[..5].eq_ignore_ascii_case("#+END") {
+                                    if l2.len() >= 5
+                                        && l2.as_bytes()[..5].eq_ignore_ascii_case(b"#+END")
+                                    {
                                         p = x;
                                         break;
                                     }
@@ -2019,10 +2020,10 @@ fn in_item(text: &str, pos: usize, ctx: &ParseContext) -> Option<usize> {
         let l = line(text, p);
         let t = l.trim_start_matches([' ', '\t']);
         if t.len() >= 6
-            && t[..6].eq_ignore_ascii_case("#+end_")
+            && t.as_bytes()[..6].eq_ignore_ascii_case(b"#+end_")
             && let Some(x) = lines_back(text, p, lim_up).skip(1).find(|&x| {
                 let t = line(text, x).trim_start_matches([' ', '\t']);
-                t.len() >= 8 && t[..8].eq_ignore_ascii_case("#+begin_")
+                t.len() >= 8 && t.as_bytes()[..8].eq_ignore_ascii_case(b"#+begin_")
             })
         {
             p = x;

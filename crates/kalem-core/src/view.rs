@@ -2014,6 +2014,7 @@ mod tests {
             mode: crate::DocumentMode::Org,
             line_ending: crate::LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         let mut d = crate::DocumentState::new(text, meta, std::sync::Arc::default());
         assert_eq!(limit(&d, false), None);

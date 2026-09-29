@@ -32,6 +32,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt"] }
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
 
+encoding_rs = "0.8"
+chardetng = "0.1"
+
 [dev-dependencies]
 proptest = "1"
 

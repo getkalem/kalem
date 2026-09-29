@@ -178,6 +178,7 @@ mod tests {
             mode: DocumentMode::Org,
             line_ending: LineEnding::Lf,
             bom: false,
+            encoding: encoding_rs::UTF_8,
         };
         let mut d = DocumentState::new(text, meta, std::sync::Arc::default());
         d.selection = org_edit::Selection {

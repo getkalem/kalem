@@ -2659,6 +2659,7 @@ pub fn open(
                     kalem_core::LineEnding::Lf
                 },
                 bom: false,
+                encoding: kalem_core::encoding_rs::UTF_8,
             };
             DocumentState::with_base("", meta, settings, &base)
         }
@@ -2678,7 +2679,14 @@ pub fn open(
     {
         doc.set_mode(m, &base);
     }
-    Ok(cx.new(|cx| Editor::new(doc, shared, theme, cx)))
+    let guessed = kalem_core::files::guessed_message(&doc.meta);
+    Ok(cx.new(|cx| {
+        let mut e = Editor::new(doc, shared, theme, cx);
+        if let Some(m) = guessed {
+            e.message(m, false);
+        }
+        e
+    }))
 }
 
 /// A new file manager editor showing `place`.

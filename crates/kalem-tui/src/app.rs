@@ -304,6 +304,7 @@ fn new_document(path: Option<&Path>, config: &Config) -> Result<DocumentState, O
                     LineEnding::Lf
                 },
                 bom: false,
+                encoding: kalem_core::encoding_rs::UTF_8,
             };
             DocumentState::with_base("", meta, settings, &base)
         }
@@ -453,6 +454,9 @@ impl App {
             .and_then(|p| p.parent())
             .map(Path::to_path_buf);
         app.startup_folds();
+        if let Some(m) = kalem_core::files::guessed_message(&app.doc.meta) {
+            app.message(m, false);
+        }
         let problems = app.config.issues().len()
             + app
                 .keymap_issues
@@ -700,6 +704,7 @@ impl App {
                     doc: doc_id,
                     path: Some(target.clone()),
                 });
+                let guessed = kalem_core::files::guessed_message(&doc.meta);
                 let editor = self.new_view(&doc);
                 // An untouched empty document gives way to the file.
                 let replace = self.doc.meta.path.is_none()
@@ -720,6 +725,9 @@ impl App {
                     self.active -= 1;
                 }
                 self.startup_folds();
+                if let Some(m) = guessed {
+                    self.message(m, false);
+                }
             }
         }
         if target.is_file() {
@@ -3030,6 +3038,10 @@ impl App {
             _ => tr!("mode-text"),
         };
         let view = if self.editor.source { " source" } else { "" };
+        let view = match kalem_core::files::encoding_label(&self.doc.meta) {
+            Some(n) => format!("{view} {n}"),
+            None => view.to_string(),
+        };
         let words = match self.doc.dired.as_deref() {
             // The file manager: how many entries, and how many marked.
             Some(d) => {
