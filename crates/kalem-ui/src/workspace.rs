@@ -113,6 +113,9 @@ impl Workspace {
             last_text: None,
         };
         ws.adopt(editor.clone(), window, cx);
+        // A window coming to the front brings its document's menus.
+        ws.subscriptions
+            .push(cx.observe_window_activation(window, |_, _, cx| cx.notify()));
         if let Some(p) = editor.read(cx).doc.meta.path.clone()
             && p.is_file()
         {
@@ -1014,7 +1017,12 @@ impl Workspace {
                 .child(self.command_button("tool-clear", "T̸".into(), "format.clear", "", cx))
                 .child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
         }
+        let doc = self.editor.read(cx).doc.document_context();
         for (i, (label, _tip, id, args)) in TOOLBAR.iter().enumerate() {
+            // Only the buttons whose command the document offers.
+            if !self.shared.registry.offered(id, &doc) {
+                continue;
+            }
             let (id, args) = (id.to_string(), args.to_string());
             let editor = self.editor.clone();
             bar = bar.child(
@@ -1589,6 +1597,19 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let theme = self.editor.read(cx).theme.clone();
+        // The menus of the active window's document: only the commands
+        // that serve it.
+        if window.is_window_active() {
+            let d = &self.editor.read(cx).doc;
+            let (doc, key) = (
+                d.document_context(),
+                format!("{} {}", d.meta.mode.name(), d.document_type()),
+            );
+            if MENUS_FOR.with(|m| m.borrow().as_deref() != Some(key.as_str())) {
+                cx.set_menus(menus_for(&self.shared.registry, &doc));
+                MENUS_FOR.with(|m| *m.borrow_mut() = Some(key));
+            }
+        }
         let menu = self.menu_view(&theme, window, cx);
         let shown = self.files_shown && self.files_at != FilesAt::Hidden;
         let left =
@@ -1629,7 +1650,62 @@ impl Render for Workspace {
     }
 }
 
-/// The menus, with the command of each item, in the interface language.
+/// The menus for a document with context `doc`
+/// (`DocumentState::document_context`): items whose command is not offered
+/// there are left out, and so are the separators and menus that leaves
+/// empty.
+pub fn menus_for(
+    registry: &kalem_core::CommandRegistry,
+    doc: &kalem_core::when::Context,
+) -> Vec<Menu> {
+    menus()
+        .into_iter()
+        .filter_map(|mut m| {
+            let items = std::mem::take(&mut m.items);
+            let mut kept: Vec<MenuItem> = Vec::new();
+            for it in items {
+                match &it {
+                    MenuItem::Separator => {
+                        if kept
+                            .last()
+                            .is_some_and(|l| !matches!(l, MenuItem::Separator))
+                        {
+                            kept.push(it);
+                        }
+                    }
+                    MenuItem::Action { action, .. } => {
+                        let serves = action
+                            .as_any()
+                            .downcast_ref::<RunCommand>()
+                            .is_none_or(|rc| registry.offered(&rc.id, doc));
+                        if serves {
+                            kept.push(it);
+                        }
+                    }
+                    _ => kept.push(it),
+                }
+            }
+            if matches!(kept.last(), Some(MenuItem::Separator)) {
+                kept.pop();
+            }
+            m.items = kept;
+            (!m.items.is_empty()).then_some(m)
+        })
+        .collect()
+}
+
+thread_local! {
+    /// The document context the application's menus were last made for.
+    static MENUS_FOR: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Makes the menus again on the next render of the active window (after a
+/// change of language, say).
+pub fn refresh_menus() {
+    MENUS_FOR.with(|m| m.borrow_mut().take());
+}
+
+/// Every menu item, with the command of each, in the interface language.
 pub fn menus() -> Vec<Menu> {
     use kalem_core::l10n::{command_key, tr};
     // An item titled like its command, or with its own label.

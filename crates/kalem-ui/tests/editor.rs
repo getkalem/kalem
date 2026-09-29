@@ -2734,3 +2734,55 @@ fn empty_latex_document(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(crate::text(&e, cx), "");
 }
+
+#[gpui::test]
+fn menus_and_toolbar_follow_the_mode(cx: &mut TestAppContext) {
+    // Commands that do not serve a document's type are not offered: no
+    // Italic for LaTeX, in the menus or on the toolbar.
+    let reg = kalem_core::CommandRegistry::with_builtins();
+    let doc = |mode: &str, ty: &str| {
+        let mut c = kalem_core::when::Context::default();
+        c.set("editorMode", kalem_core::when::Value::Str(mode.into()));
+        c.set("textType", kalem_core::when::Value::Str(ty.into()));
+        c
+    };
+    let ids = |mode: &str, ty: &str| -> Vec<String> {
+        kalem_ui::workspace::menus_for(&reg, &doc(mode, ty))
+            .into_iter()
+            .flat_map(|m| m.items)
+            .filter_map(|it| match it {
+                gpui::MenuItem::Action { action, .. } => action
+                    .as_any()
+                    .downcast_ref::<kalem_ui::editor::RunCommand>()
+                    .map(|rc| rc.id.to_string()),
+                _ => None,
+            })
+            .collect()
+    };
+    let klm = ids("org", "klm");
+    let latex = ids("latex", "latex");
+    assert!(klm.iter().any(|i| i == "org.emphasis.italic"));
+    assert!(!latex.iter().any(|i| i == "org.emphasis.italic"));
+    assert!(!latex.iter().any(|i| i == "org.headline.setLevel"));
+    assert!(!latex.iter().any(|i| i == "export.html"));
+    assert!(latex.iter().any(|i| i == "app.save"));
+    // Commands that turn on the cursor stay: Fold is on a heading only.
+    assert!(klm.iter().any(|i| i == "view.fold"));
+    // No separator at either end of a menu, nor two in a row.
+    for m in kalem_ui::workspace::menus_for(&reg, &doc("latex", "latex")) {
+        let sep: Vec<bool> = m
+            .items
+            .iter()
+            .map(|i| matches!(i, gpui::MenuItem::Separator))
+            .collect();
+        assert!(
+            !sep.is_empty() && !sep[0] && !sep[sep.len() - 1],
+            "{}",
+            m.name
+        );
+        assert!(!sep.windows(2).any(|w| w[0] && w[1]), "{}", m.name);
+    }
+    let (_e, cx) = open_named("\\section{A}\n", "a.tex", || None, cx);
+    assert!(cx.debug_bounds("tool-1").is_none(), "no Italic button");
+    assert!(cx.debug_bounds("tool-files").is_some());
+}

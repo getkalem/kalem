@@ -328,6 +328,37 @@ impl WhenClause {
     }
 }
 
+impl WhenClause {
+    /// Whether the clause can hold in `ctx` when the keys `ctx` lacks may
+    /// take any value: `false` only when what `ctx` has already rules it
+    /// out. Menus ask this with the document's keys alone, so a command
+    /// that depends on the cursor stays in them.
+    pub fn possible(&self, ctx: &Context) -> bool {
+        self.eval3(ctx) != Some(false)
+    }
+
+    /// Three-valued evaluation: `None` when it turns on a key `ctx` lacks.
+    fn eval3(&self, ctx: &Context) -> Option<bool> {
+        match self {
+            WhenClause::Key(k) => ctx.get(k).map(Value::truthy),
+            WhenClause::Eq(k, v) => ctx.get(k).map(|x| loose_eq(x, v)),
+            WhenClause::Ne(k, v) => ctx.get(k).map(|x| !loose_eq(x, v)),
+            WhenClause::Not(e) => e.eval3(ctx).map(|b| !b),
+            WhenClause::And(a, b) => match (a.eval3(ctx), b.eval3(ctx)) {
+                (Some(false), _) | (_, Some(false)) => Some(false),
+                (Some(true), Some(true)) => Some(true),
+                _ => None,
+            },
+            WhenClause::Or(a, b) => match (a.eval3(ctx), b.eval3(ctx)) {
+                (Some(true), _) | (_, Some(true)) => Some(true),
+                (Some(false), Some(false)) => Some(false),
+                _ => None,
+            },
+            WhenClause::Const(b) => Some(*b),
+        }
+    }
+}
+
 fn loose_eq(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Num(x), Value::Str(s)) | (Value::Str(s), Value::Num(x)) => {
@@ -356,6 +387,17 @@ mod tests {
         assert!(t("editorMode != 'markdown'"));
         assert!(t("level == 2 && (inTable || editorFocus)"));
         assert!(!t("missing"));
+        // With keys unknown: possible unless the known ones rule it out.
+        let mut doc = Context::default();
+        doc.set("editorMode", Value::Str("latex".into()));
+        let p = |s: &str| WhenClause::parse(s).unwrap().possible(&doc);
+        assert!(!p("editorMode == org"));
+        assert!(!p("editorMode == org && onHeadline"));
+        assert!(p("onHeadline"));
+        assert!(p("!onHeadline"));
+        assert!(p("editorMode == latex && inTable"));
+        assert!(p("editorMode == org || hasSelection"));
+        assert!(!p("editorMode == org || editorMode == markdown"));
         assert!(t("a || b && c || true"));
         assert!(WhenClause::parse("a &&").is_err());
         assert!(WhenClause::parse("(a").is_err());
