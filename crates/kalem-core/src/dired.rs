@@ -2509,6 +2509,53 @@ mod tests {
     }
 
     #[test]
+    fn stored_links() {
+        let d = tree("links", &["notes.org", "sub/a.txt", "sub/b.txt"]);
+        let mut listing = DocumentState::open(
+            &d.join("sub"),
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        goto(&mut listing, "a.txt");
+        run(&mut listing, "dired.mark", json!({})).0.unwrap();
+        run(&mut listing, "dired.mark", json!({})).0.unwrap();
+        run(&mut listing, "link.store", json!({})).0.unwrap();
+        let mut doc = DocumentState::open(
+            &d.join("notes.org"),
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        doc.move_cursor(doc.text().len(), false);
+        run(&mut doc, "org.link.insertStored", json!({})).0.unwrap();
+        assert!(
+            doc.text()
+                .as_str()
+                .ends_with("[[file:sub/a.txt][a.txt]]\n[[file:sub/b.txt][b.txt]]"),
+            "{}",
+            doc.text().as_str()
+        );
+        // A document's heading: a link with a search option, offered by
+        // Insert Link.
+        let text = doc.text().as_str().to_string();
+        let mut tx = org_edit::Transaction::new("Edit");
+        tx.replace(0..text.len(), "* Top\nbody\n").unwrap();
+        doc.apply(
+            &tx,
+            org_edit::ChangeKind::Command,
+            std::time::Instant::now(),
+        );
+        doc.move_cursor(8, false);
+        run(&mut doc, "link.store", json!({})).0.unwrap();
+        assert_eq!(
+            crate::command::argument_default("org.insert.link", "link", &mut doc),
+            "file:notes.org::*Top"
+        );
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
     fn find_by_name() {
         assert!(name_matches("Notes.ORG", "*.org"));
         assert!(name_matches("a.txt", "a?txt") && !name_matches("ab.txt", "a?txt"));

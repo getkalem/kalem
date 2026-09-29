@@ -13,6 +13,8 @@ cmd-edit-cut = Cut
 cmd-edit-paste = Paste
 cmd-edit-pastePlain = Paste as Plain Text
 cmd-edit-selectAll = Select All
+cmd-link-store = Store Link
+cmd-org-link-insertStored = Insert Stored Link
 cmd-org-link-open = Open Link
 cmd-edit-enter = New Line or Item
 cmd-edit-newline = Line Break
@@ -593,6 +595,9 @@ fm-found = { $count ->
     [one] 1 found by name { $pattern }
    *[other] { $count } found by name { $pattern }
 }
+msg-link-stored = Stored a link to { $names }
+msg-link-nothing-to-store = Nothing here to link to: the document has no file
+msg-no-stored-link = No link stored: use Store Link first
 fm-nothing-to-undo = No file operation to undo
 fm-undo-blocked = Cannot undo: { $name } is in the way or gone
 fm-deleted = { $count ->

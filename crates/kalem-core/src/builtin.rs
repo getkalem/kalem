@@ -3858,6 +3858,41 @@ fn plain_commands() -> Vec<Command> {
                 ctx.org(|d, p, m| org_edit::insert::insert_link(d, p, m, &link, desc.as_deref()))
             },
         ),
+        cmd("link.store", "Store Link", "Insert", &[], None, |ctx, _| {
+            let links = crate::links::links_of(ctx.doc()?);
+            if links.is_empty() {
+                return Err(CommandError::new(crate::tr!("msg-link-nothing-to-store")));
+            }
+            let names: Vec<&str> = links.iter().map(|l| l.description.as_str()).collect();
+            let msg = crate::tr!("msg-link-stored", names = names.join(", "));
+            crate::links::store(links);
+            ctx.messages.push(msg);
+            Ok(())
+        }),
+        cmd(
+            "org.link.insertStored",
+            "Insert Stored Link",
+            "Insert",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let links = crate::links::latest();
+                if links.is_empty() {
+                    return Err(CommandError::new(crate::tr!("msg-no-stored-link")));
+                }
+                let now = ctx.now;
+                let d = ctx.doc()?;
+                let text = crate::links::org_text(&links, d.meta.path.as_deref());
+                let s = d.selection;
+                let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
+                let mut tx = org_edit::Transaction::new("Insert Stored Link");
+                tx.replace(a..b, text.as_str())
+                    .map_err(|e| CommandError::new(e.to_string()))?;
+                let tx = tx.select(org_edit::Selection::caret(a + text.len()));
+                d.apply(&tx, org_edit::ChangeKind::Command, now);
+                Ok(())
+            },
+        ),
         cmd(
             crate::cite::INSERT,
             "Insert Citation",

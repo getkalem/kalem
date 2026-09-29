@@ -34,6 +34,7 @@ pub mod latex_table;
 pub mod latex_templates;
 pub mod latex_view;
 pub mod lines;
+pub mod links;
 pub mod logging;
 pub mod math;
 pub mod mode;

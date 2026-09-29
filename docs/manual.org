@@ -191,6 +191,13 @@ Ctrl+K inserts a link. Typing =[[= offers the document's headings and
 targets. Ctrl-click (Cmd-click on macOS) opens a link: web links in the
 browser, file links in Kalem or their application, internal links jump.
 
+/Store Link/ (the palette) keeps a link to what is at the cursor: in the
+file manager the marked files (or the one at the cursor), in a document its
+file and the heading the cursor is under. /Insert Stored Link/ puts them in
+an Org document as =[[file:…][name]]=, one a line, and Ctrl+K offers the
+last one. The path is relative when the file is in the document's folder
+or below it, absolute otherwise.
+
 ** Macros, export snippets and targets
 
 Away from the cursor, a macro such as ={{{title}}}= or ={{{version(2)}}}=
