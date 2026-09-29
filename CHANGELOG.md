@@ -149,6 +149,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX mode: `.tex` files open rendered in both editors: headings with LaTeX's numbers, formatting commands styled with their markers hidden away from the cursor, typographic quotes and dashes, `~`, `\&`, `\\` and the like as what they typeset, `\maketitle` as a title block, `center` and `flush*` aligned, comments dimmed; the parse follows each edit incrementally.
 - LaTeX mode: `itemize`, `enumerate` and `description` lists with bullets by depth, numbers in LaTeX's styles by depth (and enumitem's `label` and `start`), `\item[label]`, indentation by depth.
 - LaTeX mode: formulas typeset through org-math away from the cursor, inline and displayed, equations with their LaTeX numbers as tags, the document's `\newcommand`s applied, math environments on lines of their own shown as one formula (graphical editor; the terminal shows the Unicode approximation of one-line formulas).
+- LaTeX mode: `\includegraphics` shows the picture (found through `\graphicspath` and LaTeX's extensions, at the width `width=` asks for), `\caption` shows "Figure 1: …" with LaTeX's number (Turkish names with babel's `turkish`), subfigure captions as (a), `\centering` centers the float.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

@@ -774,7 +774,12 @@ its depth. Formulas (=$…$=, =\(…\)=, =\[…\]=, =$$…$$= and the math
 environments) are typeset away from the cursor, equations with the
 numbers LaTeX gives them, using the macros the document defines; a math
 environment on lines of its own shows as one formula until the cursor
-enters it. Comments are
+enters it. In =figure= and =table=, =\includegraphics= shows the
+picture (PNG, JPEG or SVG, found in the document's folder or a
+=\graphicspath= folder with the extensions LaTeX tries) at the width
+=width== asks for, =\centering= centers it, and =\caption= shows as
+"Figure 1: …" with LaTeX's number (=Şekil= and =Tablo= with babel's
+=turkish=). A PDF or EPS picture shows as its name. Comments are
 dimmed; commands Kalem does not render stay as they are written. The
 source view (Ctrl+/) shows the text itself. Documents of several files
 are numbered as one: the root document comes from a =% !TEX root= line,

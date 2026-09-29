@@ -2430,3 +2430,24 @@ fn latex_rendered() {
     let s = screen(&mut t);
     assert!(s.iter().any(|l| l.contains("\\section{Intro}")), "{s:#?}");
 }
+
+#[test]
+fn latex_floats() {
+    let text = "\\begin{figure}\n\\includegraphics[width=\\linewidth]{fig}\n\\caption{Cats.}\n\\end{figure}\n";
+    let mut t = with_file(text, "f.tex", Config::default(), (60, 8));
+    let dir = t
+        .app
+        .doc
+        .meta
+        .path
+        .clone()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    std::fs::write(dir.join("fig.png"), b"not really").unwrap();
+    t.at(text.len());
+    let s = screen(&mut t);
+    assert!(s.iter().any(|l| l.contains("[image: fig.png]")), "{s:#?}");
+    assert!(s.iter().any(|l| l.contains("Figure 1: Cats.")), "{s:#?}");
+}
