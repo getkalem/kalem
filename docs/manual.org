@@ -809,6 +809,13 @@ in books and reports, =\section= in articles), Ctrl+0 makes it text
 again, and Alt+Shift+Left and Right promote and demote a section with
 its subsections, Alt+Shift+Up and Down move it past its neighbor.
 
+Completion (as you type, or Alt+/) offers command names after =\= (the
+document's own macros too), environments after =\begin{= (with their
+=\end=) and =\end{=, the keys of the bibliography after =\cite{= and its
+kin (matched on key, authors and title), the labels after =\ref{= and its
+kin with what they number, files after =\input{= and
+=\includegraphics{=, and packages after =\usepackage{=.
+
 /Build PDF/ (F5) builds the project's root document in the background
 with =latexmk= (or the engine alone, with =biber= or =bibtex= between
 its runs): pdfLaTeX, or the engine a =% !TEX program = xelatex= line or

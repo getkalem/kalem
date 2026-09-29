@@ -2568,3 +2568,26 @@ fn latex_structural_editing() {
             .contains("\\section{some \\textbf{words}}")
     );
 }
+
+#[test]
+fn latex_completion() {
+    let text = "\\section{A}\\label{sec:a}\n";
+    let mut t = with_file(text, "c.tex", Config::default(), (60, 12));
+    t.at(text.len());
+    t.typ("\\begin{ite");
+    let s = screen(&mut t).join("\n");
+    assert!(s.contains("itemize"), "{s}");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(
+        t.app
+            .doc
+            .text()
+            .as_str()
+            .ends_with("\\begin{itemize}\n  \\item \n\\end{itemize}"),
+        "{}",
+        t.app.doc.text().as_str()
+    );
+    t.typ("see \\ref{se");
+    let s = screen(&mut t).join("\n");
+    assert!(s.contains("sec:a"), "{s}");
+}
