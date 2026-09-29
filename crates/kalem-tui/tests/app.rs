@@ -1968,6 +1968,52 @@ fn editing_properties() {
 }
 
 #[test]
+fn copying_as_html() {
+    let text = "Some *bold* text.\n";
+    let mut t = with_config(text, Config::default(), (80, 10));
+    t.at(0);
+    t.app.doc.move_cursor(11, true);
+    t.app.take_output();
+    t.app.run_command("edit.copyHtml", serde_json::Value::Null);
+    let out = t.app.take_output().concat();
+    let b64 = out
+        .trim_start_matches("\x1b]52;c;")
+        .trim_end_matches('\x07');
+    let html = String::from_utf8(base64_decode(b64)).unwrap();
+    assert!(html.contains("<b>bold</b>"), "{html}");
+    // Rich text: the terminal takes the plain text.
+    t.app
+        .run_command("edit.copyRichText", serde_json::Value::Null);
+    let out = t.app.take_output().concat();
+    let b64 = out
+        .trim_start_matches("\x1b]52;c;")
+        .trim_end_matches('\x07');
+    assert_eq!(
+        String::from_utf8(base64_decode(b64)).unwrap(),
+        "Some *bold*"
+    );
+}
+
+fn base64_decode(s: &str) -> Vec<u8> {
+    let val = |c: u8| match c {
+        b'A'..=b'Z' => c - b'A',
+        b'a'..=b'z' => c - b'a' + 26,
+        b'0'..=b'9' => c - b'0' + 52,
+        b'+' => 62,
+        _ => 63,
+    };
+    let bytes: Vec<u8> = s.bytes().filter(|&c| c != b'=').map(val).collect();
+    bytes
+        .chunks(4)
+        .flat_map(|c| {
+            let n = c.iter().fold(0u32, |a, &v| (a << 6) | v as u32) << (6 * (4 - c.len()));
+            let b = [(n >> 16) as u8, (n >> 8) as u8, n as u8];
+            b[..c.len() - 1].to_vec()
+        })
+        .collect()
+}
+
+#[test]
 fn archiving_and_refiling() {
     let text = "* A\n** a1\n* B\nb\n* C\n";
     let mut t = with_config(text, Config::default(), (80, 12));

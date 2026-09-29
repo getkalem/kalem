@@ -1886,6 +1886,34 @@ fn editing_properties(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn copying_as_html(cx: &mut TestAppContext) {
+    let (e, cx) = open("Some *bold* text.\n", cx);
+    e.update(cx, |e, cx| {
+        e.doc.move_cursor(0, false);
+        e.doc.move_cursor(11, true);
+        e.after_change(cx);
+    });
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.copyHtml", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    let copied = cx
+        .read_from_clipboard()
+        .and_then(|c| c.text())
+        .unwrap_or_default();
+    assert!(copied.contains("<b>bold</b>"), "{copied}");
+    // Without an HTML clipboard here, rich text is copied as plain text.
+    if !cfg!(target_os = "macos") {
+        e.update_in(cx, |e, window, cx| {
+            e.run_command("edit.copyRichText", serde_json::Value::Null, window, cx)
+        });
+        cx.run_until_parked();
+        let copied = cx.read_from_clipboard().and_then(|c| c.text());
+        assert_eq!(copied.as_deref(), Some("Some *bold*"));
+    }
+}
+
+#[gpui::test]
 fn archiving_and_refiling(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\n** a1\n* B\nb\n* C\n", cx);
     at(&e, 11, cx);

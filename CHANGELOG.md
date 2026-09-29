@@ -127,6 +127,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Set Caption, Set Name and Insert Cross Reference in both editors: `#+CAPTION:` and `#+NAME:` of the element at the cursor, and a picker over named elements, headings and targets; `[[` completion offers named elements.
 - Macros show their expansion away from the cursor in both editors (`#+MACRO:` definitions and the built-in ones), and export snippets their back-end and contents; `org_export::macros::expansions` computes them from the tree in one pass.
 - Refile (Ctrl+Alt+W) to a heading of the same document, Archive to Sibling and Toggle Archive Tag in both editors, ported from `org-refile.el` and `org-archive.el` and identical to Emacs on 434 cases.
+- Copy as Rich Text (HTML and plain text on the macOS clipboard) and Copy as HTML (the markup as text) in both editors, from the HTML export of the selection.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

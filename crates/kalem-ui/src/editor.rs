@@ -1048,6 +1048,12 @@ impl Editor {
                 }
             }
             Request::CopyText(t) => cx.write_to_clipboard(gpui::ClipboardItem::new_string(t)),
+            Request::CopyRich { html, text } => {
+                if !crate::clipboard::write_rich(&html, &text) {
+                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+                    self.message(tr!("msg-rich-copy-plain"), false);
+                }
+            }
             Request::SetSetting { key, value, quiet } => {
                 self.set_setting(&key, value, cx);
                 if quiet {
