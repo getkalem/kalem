@@ -844,7 +844,10 @@ and =\href= to the browser, =\input=, =\include= and =\subfile= to their
 file, =\includegraphics= to its picture and a citation to the
 bibliography file. Theorems declared with =\newtheorem= show
 their names and numbers ("Theorem 1.1 (Pythagoras).") and =proof= its
-"Proof." and ∎; =\paragraph= is a bold heading in the text. A
+"Proof." and ∎; =\paragraph= is a bold heading in the text. =quote=,
+=quotation=, =verse= and =abstract= are indented, the abstract under
+its centered title, and =\verb= and =\lstinline= show their code in
+monospace. A
 =tabular= (also =tabularx=, =array=, =longtable=) written one row a
 line, with plain columns (=l=, =c=, =r=, =p{}=, =|=), shows as a grid
 with its rules (=\hline=, =\toprule=, =\midrule=, =\bottomrule=) until

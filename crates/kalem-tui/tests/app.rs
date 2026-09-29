@@ -2985,4 +2985,7 @@ fn latex_project_numbers_across_files() {
     // The number, an em space, the title.
     assert!(rows.contains("2\u{2003}Two"), "{rows:?}");
     assert!(rows.contains("After chapter 1."), "{rows}");
+    // Completion offers the labels of the other files too.
+    let labels = t.app.doc.latex().unwrap().model().labels.clone();
+    assert!(labels.iter().any(|l| l.name == "one"));
 }
