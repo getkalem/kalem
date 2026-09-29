@@ -188,7 +188,7 @@ pub fn note_at(doc: &Document, file: Option<&Path>, pos: usize) -> Option<String
 /// the document or the cursor changes.
 #[derive(Debug, Default)]
 pub struct Preview {
-    at: Option<(Option<PathBuf>, u64, usize)>,
+    at: Option<(Option<PathBuf>, u64, usize, u64)>,
     text: Option<String>,
 }
 
@@ -196,14 +196,17 @@ impl Preview {
     /// The preview at `doc`'s cursor.
     pub fn get(&mut self, doc: &mut crate::document::DocumentState) -> Option<String> {
         let head = doc.selection.head;
-        let at = (doc.meta.path.clone(), doc.version(), head);
+        // LaTeX diagnostics arrive after the text changed.
+        let generation = doc.latex().map_or(0, |l| l.diagnostics.generation());
+        let at = (doc.meta.path.clone(), doc.version(), head, generation);
         if self.at.as_ref() != Some(&at) {
             let path = at.0.clone();
             self.at = Some(at);
             self.text = doc
                 .model()
                 .and_then(|m| note_at(&m, path.as_deref(), head))
-                .or_else(|| crate::latex_view::note_at(doc, head));
+                .or_else(|| crate::latex_view::note_at(doc, head))
+                .or_else(|| crate::latex_view::diagnostic_at(doc, head));
         }
         self.text.clone()
     }

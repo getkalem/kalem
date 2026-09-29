@@ -2849,6 +2849,10 @@ impl App {
         if matches!(self.doc.parse(), Some((_, false))) {
             t = t.min(Duration::from_millis(20));
         }
+        // LaTeX diagnostics behind the text: soon after typing stops.
+        if self.doc.latex().is_some() && self.doc.latex_diagnostics().is_none() {
+            t = t.min(Duration::from_millis(100));
+        }
         if let Some(d) = self.debouncer.next_due() {
             t = t.min(d.saturating_duration_since(now));
         }

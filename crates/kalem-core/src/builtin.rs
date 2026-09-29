@@ -1260,6 +1260,18 @@ fn latex_commands() -> Vec<Command> {
                 )
             },
         ),
+        c("latex.fix", "Quick Fix", &["ctrl+."], |ctx, _| {
+            let d = ctx.doc()?;
+            let Some(l) = d.latex() else {
+                return Err(CommandError::new(crate::tr!("msg-not-latex")));
+            };
+            let tx =
+                crate::latex_check::quick_fix(d.text().as_str(), d.selection, &l.parse().syntax())
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-no-fix")))?;
+            let now = ctx.now;
+            ctx.doc()?.apply(&tx, org_edit::ChangeKind::Command, now);
+            Ok(())
+        }),
         c("latex.format.bold", "Bold", &["ctrl+b"], |ctx, _| {
             latex_edit_with(ctx, |t, s, r, _| e::toggle(t, s, r, "textbf"), None)
         }),

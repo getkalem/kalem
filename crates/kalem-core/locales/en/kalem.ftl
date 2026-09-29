@@ -777,10 +777,13 @@ msg-latex-built = Built { $path }{ $count ->
 }
 msg-not-latex = Not a LaTeX document
 msg-latex-not-here = Not here: put the cursor on a sectioning command or a list item
+msg-no-fix = No fix here: put the cursor on a flagged construct with an obvious fix
+latex-diagnostic-fixable = { $mark } { $message } (Quick Fix fixes it)
 cmd-latex-enter = New Line or Item
 cmd-latex-link-open = Open Link
 cmd-latex-list-indent = Nest Item
 cmd-latex-list-outdent = Unnest Item
+cmd-latex-fix = Quick Fix
 cmd-latex-format-bold = Bold
 cmd-latex-format-italic = Emphasis
 cmd-latex-format-code = Typewriter

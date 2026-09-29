@@ -151,6 +151,18 @@ fn ansi256(r: u8, g: u8, b: u8) -> u8 {
 
 pub(crate) fn style_base(s: &ViewStyle, heading: u8, caps: &Caps) -> Style {
     let mut st = Style::default();
+    // Under a diagnostic: underlined, red for a warning, blue for style
+    // (terminals that know underline colors show them).
+    if let Some(warning) = s.flagged {
+        st = st.add_modifier(Modifier::UNDERLINED);
+        if !caps.no_color {
+            st = st.underline_color(if warning {
+                Color::LightRed
+            } else {
+                Color::LightBlue
+            });
+        }
+    }
     if s.bold || s.title || heading > 0 {
         st = st.add_modifier(Modifier::BOLD);
     }

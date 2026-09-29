@@ -860,6 +860,18 @@ the main file of a subfile, a =NAME.tex.latexmain= file, or the document
 up the folders that includes the file. The outline panel
 (Ctrl+Shift+O) lists the document's sections with their numbers.
 
+What =kalem check= reports shows in the text a moment after typing
+stops: a red wavy line under problems (a group or environment left open,
+a label defined twice, a reference or citation key nothing defines, a
+file or picture not found) and a blue one under matters of style
+(=\bf= and its kin, =$$=, a space before =\ref= where =~= belongs,
+=...=, ="=). With the cursor on one the status bar says what it is, and
+so does a tooltip under the mouse (graphical editor). /Quick Fix/
+(Ctrl+., Alt+. in a terminal) makes the obvious change where there is
+one: =\bfseries= for =\bf=, =~= for the space, =\ldots{}= for =...=,
+=\[…\]= for =$$…$$=; it takes the problem at the cursor, or the first
+on its line.
+
 Enter on a list item starts the next =\item= (on an empty one, it leaves
 the list); Tab and Shift+Tab nest an item under the one before it and
 take it out again. Typing =\begin{name}= adds =\end{name}=, and renaming

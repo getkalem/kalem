@@ -490,11 +490,24 @@ fn text_run(
         font,
         color,
         background_color: s.code.then_some(theme.code_bg).or(badge).or(highlight),
-        underline: (s.underline || s.link).then_some(UnderlineStyle {
-            color: Some(color),
-            thickness: px(1.),
-            wavy: false,
-        }),
+        // A diagnostic's wavy line, red for a warning, blue for style;
+        // else underlines and links.
+        underline: match s.flagged {
+            Some(warning) => Some(UnderlineStyle {
+                color: Some(if warning {
+                    gpui::hsla(0., 0.75, 0.5, 1.)
+                } else {
+                    gpui::hsla(0.58, 0.6, 0.55, 1.)
+                }),
+                thickness: px(1.),
+                wavy: true,
+            }),
+            None => (s.underline || s.link).then_some(UnderlineStyle {
+                color: Some(color),
+                thickness: px(1.),
+                wavy: false,
+            }),
+        },
         strikethrough: s.strike.then_some(StrikethroughStyle {
             color: Some(color),
             thickness: px(1.),

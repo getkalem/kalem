@@ -1843,6 +1843,8 @@ pub fn menus() -> Vec<Menu> {
                 item("lines.join"),
                 item("lines.sort"),
                 item("edit.trimTrailingWhitespace"),
+                // LaTeX's diagnostics.
+                item("latex.fix"),
                 MenuItem::separator(),
                 item("find.open"),
                 item("find.replace"),

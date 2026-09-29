@@ -2806,3 +2806,27 @@ fn menus_and_toolbar_follow_the_mode(cx: &mut TestAppContext) {
     );
     assert!(cx.debug_bounds("tool-files").is_some());
 }
+
+#[gpui::test]
+fn latex_diagnostics_in_the_editor(cx: &mut TestAppContext) {
+    // A deprecated command flagged with its message at the cursor, and
+    // fixed by Quick Fix.
+    let (e, cx) = open_named("Some {\\bf x} here.\n", "d.tex", || None, cx);
+    e.update(cx, |e, _| {
+        e.doc.update_latex_diagnostics();
+        e.doc.move_cursor(7, false);
+    });
+    let flagged = e.read_with(cx, |e, _| {
+        e.line_view(0)
+            .runs
+            .iter()
+            .filter(|r| r.style.flagged == Some(false))
+            .map(|r| r.text.clone())
+            .collect::<String>()
+    });
+    assert_eq!(flagged, "\\bf");
+    let note = e.update(cx, |e, _| e.cite_preview.get(&mut e.doc));
+    assert!(note.is_some_and(|n| n.starts_with("ⓘ")));
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("latex.fix"));
+    assert_eq!(text(&e, cx), "Some {\\bfseries x} here.\n");
+}

@@ -64,6 +64,9 @@ pub struct Style {
     pub cookie: bool,
     /// Kalem's own formatting: font, size, colors (`crate::rich`).
     pub rich: crate::rich::CharFormat,
+    /// Under a diagnostic: `Some(true)` for a warning, `Some(false)` for
+    /// style; drawn with a wavy underline.
+    pub flagged: Option<bool>,
 }
 
 /// A checkbox's state.
