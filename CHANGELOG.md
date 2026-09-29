@@ -135,6 +135,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Word targets for the document (`#+KALEM: word_target=`) and for sections (`WORD_TARGET`), shown with the counts in both status bars; Word Count by Chapter; Go to Line.
 - Encodings: UTF-16 files with a byte order mark, legacy encodings guessed from the bytes (Windows-1254, ISO-8859-9, Shift_JIS…) and saved in the same encoding, Reopen with Encoding and Save with Encoding in both editors, the encoding in the status bar when it is not UTF-8.
 - Fixed: a panic on lines whose first bytes end inside a non-ASCII character (`#+ATTR_KALEM:` and block checks).
+- Multiple cursors and column selection in both editors: Add Cursor Above and Below (Ctrl+Alt+Up and Down), Alt-click, Add Next Occurrence (Ctrl+D), Select All Occurrences, Column Selection (Ctrl+Alt+Shift+Down and Up); typing, deleting, moving, copying and pasting at every cursor.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

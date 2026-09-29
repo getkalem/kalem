@@ -1194,6 +1194,88 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "cursor.addBelow",
+            "Add Cursor Below",
+            "Edit",
+            &["ctrl+alt+down"],
+            None,
+            |ctx, _| {
+                ctx.doc()?.add_cursor_vertical(false);
+                Ok(())
+            },
+        ),
+        cmd(
+            "cursor.addAbove",
+            "Add Cursor Above",
+            "Edit",
+            &["ctrl+alt+up"],
+            None,
+            |ctx, _| {
+                ctx.doc()?.add_cursor_vertical(true);
+                Ok(())
+            },
+        ),
+        cmd(
+            "selection.addNextOccurrence",
+            "Add Next Occurrence",
+            "Edit",
+            &["ctrl+d"],
+            None,
+            |ctx, _| {
+                if !ctx.doc()?.add_next_occurrence() {
+                    ctx.messages
+                        .push(crate::l10n::tr("msg-no-more-occurrences"));
+                }
+                Ok(())
+            },
+        ),
+        cmd(
+            "selection.allOccurrences",
+            "Select All Occurrences",
+            "Edit",
+            &[],
+            None,
+            |ctx, _| {
+                let n = ctx.doc()?.select_all_occurrences();
+                ctx.messages
+                    .push(crate::tr!("msg-occurrences-selected", count = n));
+                Ok(())
+            },
+        ),
+        cmd(
+            "selection.columnDown",
+            "Column Selection Down",
+            "Edit",
+            &["ctrl+alt+shift+down"],
+            None,
+            |ctx, _| {
+                ctx.doc()?.extend_column(false);
+                Ok(())
+            },
+        ),
+        cmd(
+            "selection.columnUp",
+            "Column Selection Up",
+            "Edit",
+            &["ctrl+alt+shift+up"],
+            None,
+            |ctx, _| {
+                ctx.doc()?.extend_column(true);
+                Ok(())
+            },
+        ),
+        cmd(
+            "cursor.clearExtra",
+            "Single Cursor",
+            "Edit",
+            &[],
+            None,
+            |ctx, _| {
+                ctx.doc()?.clear_extra();
+                Ok(())
+            },
+        ),
+        cmd(
             "edit.gotoLine",
             "Go to Line",
             "Edit",
