@@ -1356,6 +1356,13 @@ impl App {
                 }
                 Err(e) => self.message(e, true),
             },
+            Request::Shell(op) => match kalem_core::dired::Task::shell(&op) {
+                Ok(t) => {
+                    self.task = Some(t);
+                    self.next_question();
+                }
+                Err(e) => self.message(e, true),
+            },
             Request::CancelFileOps => {
                 for j in &self.jobs {
                     j.cancel();
@@ -1504,6 +1511,15 @@ impl App {
             LinkAction::Print(pdf) => {
                 match kalem_core::print::run(&pdf) {
                     Ok(m) => self.message(m, false),
+                    Err(e) => self.message(e, true),
+                }
+                return;
+            }
+            LinkAction::System(path) => path.display().to_string(),
+            LinkAction::Reveal(path) => {
+                let name = path.display().to_string();
+                match kalem_core::system::reveal(&path) {
+                    Ok(()) => self.message(tr!("msg-opened", target = &name), false),
                     Err(e) => self.message(e, true),
                 }
                 return;

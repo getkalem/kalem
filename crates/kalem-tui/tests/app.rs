@@ -2842,3 +2842,26 @@ fn file_manager_stored_links() {
         .run_command("org.link.insertStored", serde_json::Value::Null);
     assert!(t.text().ends_with("[[file:sub][sub]]"), "{}", t.text());
 }
+
+#[cfg(unix)]
+#[test]
+fn file_manager_shell_command() {
+    let (mut t, dir) = project_app(Config::default());
+    t.key(
+        KeyCode::Char('d'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    assert!(cursor_line(&t).ends_with(" a.org"));
+    // `!` asks for the command, then whether to run it.
+    t.typ("!");
+    t.typ("cp ? copy.org");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("cp ? copy.org"), "{rows}");
+    t.typ("y");
+    settle(&mut t);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("proj/copy.org")).unwrap(),
+        "* A\nalpha\n"
+    );
+}

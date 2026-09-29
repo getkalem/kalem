@@ -50,6 +50,7 @@ pub mod rich;
 pub mod rich_copy;
 pub mod settings;
 pub mod stats;
+pub mod system;
 pub mod text;
 pub mod theme;
 pub mod toc;

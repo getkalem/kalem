@@ -89,6 +89,8 @@
   { "keys": "e", "command": "dired.editNames" },
   { "keys": "% f", "command": "dired.findName" },
   { "keys": "shift+a", "command": "dired.searchFiles" },
+  { "keys": "shift+w", "command": "dired.openExternal" },
+  { "keys": "!", "command": "dired.shellCommand" },
   { "keys": "ctrl+s", "command": "dired.commitNames" },
   { "keys": "escape", "command": "dired.abortNames" },
   { "keys": "shift+s", "command": "dired.symlink" },
