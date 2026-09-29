@@ -34,6 +34,7 @@ pub mod settings;
 pub mod stats;
 pub mod text;
 pub mod theme;
+pub mod toc;
 pub mod view;
 pub mod vim;
 pub mod when;

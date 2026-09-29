@@ -261,6 +261,33 @@ fn code_blocks_copy(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn table_of_contents(cx: &mut TestAppContext) {
+    let text = "#+TOC: headlines 2\n* One\n** One A\n* Two\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.len(), cx);
+    let rows = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow().get(&0).cloned().expect("painted");
+        p.jumps.clone()
+    });
+    assert_eq!(
+        rows.iter().map(|r| r.1).collect::<Vec<_>>(),
+        [19, 25, 34],
+        "{rows:?}"
+    );
+    // A row leads to its heading.
+    cx.simulate_click(rows[1].0.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), 25);
+    // On the cursor's line, the keyword is itself.
+    at(&e, 3, cx);
+    let (shown, rows) = e.read_with(cx, |e, _| {
+        let p = e.painted.borrow().get(&0).cloned().expect("painted");
+        (p.view.display(), p.jumps.len())
+    });
+    assert_eq!((shown.as_str(), rows), ("#+TOC: headlines 2", 0));
+}
+
+#[gpui::test]
 fn following_links(cx: &mut TestAppContext) {
     let text = "* Target\ntext [[*Target][go]] here\n";
     let (e, cx) = open(text, cx);
@@ -1867,7 +1894,12 @@ fn inserting_drawers(cx: &mut TestAppContext) {
         e.after_change(cx);
     });
     e.update_in(cx, |e, window, cx| {
-        e.run_command("org.insert.drawer", serde_json::json!({"name": "LOGBOOK"}), window, cx)
+        e.run_command(
+            "org.insert.drawer",
+            serde_json::json!({"name": "LOGBOOK"}),
+            window,
+            cx,
+        )
     });
     cx.run_until_parked();
     assert_eq!(text_of(&e, cx), ":LOGBOOK:\nOne.\nTwo.\n:END:\n");

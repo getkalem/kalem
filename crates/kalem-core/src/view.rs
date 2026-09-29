@@ -95,6 +95,12 @@ pub enum Widget {
         /// The width `#+ATTR_ORG: :width` asks for.
         width: Option<ImageWidth>,
     },
+    /// A row of a table of contents shown for `#+TOC:` (see
+    /// [`crate::toc`]), leading to the heading starting at `start`.
+    TocRow {
+        /// The heading's start.
+        start: usize,
+    },
 }
 
 /// The width of an image, from `#+ATTR_ORG: :width` (`300`, `300px`,

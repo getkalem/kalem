@@ -173,6 +173,8 @@ pub struct Hit {
     pub fold: Option<usize>,
     /// A copy button there, with its block's start.
     pub copy: Option<usize>,
+    /// A table of contents row there, with its heading's start.
+    pub jump: Option<usize>,
 }
 
 /// A line as last painted: for hit testing, the caret and IME.
@@ -190,6 +192,8 @@ pub struct Painted {
     pub fold: Option<(Bounds<Pixels>, usize)>,
     /// Copy buttons, with the start of their block.
     pub buttons: Vec<(Bounds<Pixels>, usize)>,
+    /// Table of contents rows, with the start of their heading.
+    pub jumps: Vec<(Bounds<Pixels>, usize)>,
 }
 
 /// The editor.
@@ -1903,6 +1907,7 @@ impl Editor {
                     widget: None,
                     fold: Some(*start),
                     copy: None,
+                    jump: None,
                 });
             }
             if let Some((_, start)) = p.buttons.iter().find(|(b, _)| b.contains(&pos)) {
@@ -1911,6 +1916,16 @@ impl Editor {
                     widget: None,
                     fold: None,
                     copy: Some(*start),
+                    jump: None,
+                });
+            }
+            if let Some((_, start)) = p.jumps.iter().find(|(b, _)| b.contains(&pos)) {
+                return Some(Hit {
+                    pos: p.view.range.start,
+                    widget: None,
+                    fold: None,
+                    copy: None,
+                    jump: Some(*start),
                 });
             }
         }
@@ -1936,6 +1951,7 @@ impl Editor {
                     widget: Some((src.clone(), w.clone())),
                     fold: None,
                     copy: None,
+                    jump: None,
                 });
             }
         }
@@ -1945,6 +1961,7 @@ impl Editor {
             widget: None,
             fold: None,
             copy: None,
+            jump: None,
         })
     }
 
@@ -1967,10 +1984,15 @@ impl Editor {
             widget,
             fold,
             copy,
+            jump,
         }) = self.hit(ev.position)
         else {
             return;
         };
+        if let Some(start) = jump {
+            self.jump_to(start, window, cx);
+            return;
+        }
         if let Some(start) = copy {
             self.copy_block(start, cx);
             return;
@@ -2743,7 +2765,7 @@ fn a11y_line(view: &LineView) -> (String, Vec<(usize, usize, bool)>) {
             }),
             Some(Widget::Math { source, .. }) => text.push_str(&kalem_core::math::unicode(source)),
             Some(Widget::Image { path, .. }) => text.push_str(&format!("image {path}")),
-            None => text.push_str(&r.text),
+            Some(Widget::TocRow { .. }) | None => text.push_str(&r.text),
         }
         d += r.text.len();
     }

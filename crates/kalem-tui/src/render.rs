@@ -149,7 +149,7 @@ fn ansi256(r: u8, g: u8, b: u8) -> u8 {
     16 + 36 * q(r) + 6 * q(g) + q(b)
 }
 
-fn style_base(s: &ViewStyle, heading: u8, caps: &Caps) -> Style {
+pub(crate) fn style_base(s: &ViewStyle, heading: u8, caps: &Caps) -> Style {
     let mut st = Style::default();
     if s.bold || s.title || heading > 0 {
         st = st.add_modifier(Modifier::BOLD);
@@ -404,6 +404,7 @@ pub fn glyphs(
                 style = style.add_modifier(Modifier::DIM);
                 (format!("[image: {path}]"), false)
             }
+            Some(Widget::TocRow { .. }) => (run.text.clone(), false),
             None if run.text == "•" && caps.ascii => ("-".to_string(), false),
             None if (run.style.superscript || run.style.subscript) && !run.verbatim => {
                 (run.text.clone(), false)

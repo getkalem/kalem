@@ -45,6 +45,8 @@ pub struct EditorView {
     code: CodeCache,
     /// Images.
     pub images: RefCell<Images>,
+    /// The model tables of contents are made from.
+    toc: TocCache,
     /// The text area of the last frame.
     pub area: Rect,
     /// Focus mode: only the section holding the cursor shows.
@@ -255,6 +257,17 @@ impl Images {
 /// Grids of tables by their start, for a text version.
 type GridCache = RefCell<(u64, HashMap<usize, Arc<Grid>>)>;
 
+/// The document model tables of contents are made from, for a text
+/// version.
+#[derive(Default)]
+struct TocCache(RefCell<Option<(u64, Arc<org_model::Document>)>>);
+
+impl std::fmt::Debug for TocCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TocCache")
+    }
+}
+
 /// Highlighted source blocks by their start, for a text version.
 type CodeCache = RefCell<(u64, HashMap<usize, Option<Arc<Code>>>)>;
 
@@ -282,6 +295,7 @@ struct Shared<'a> {
     grids: &'a GridCache,
     code: &'a CodeCache,
     images: &'a RefCell<Images>,
+    toc: &'a TocCache,
     source: bool,
     focus: bool,
     plain: &'a PlainCache,
@@ -313,6 +327,7 @@ pub(crate) struct Layout<'a> {
     grids: &'a GridCache,
     code: &'a CodeCache,
     images: &'a RefCell<Images>,
+    toc: &'a TocCache,
     plain: &'a PlainCache,
     /// The cursor's line, shown with a background in plain text and the
     /// source view.
@@ -332,6 +347,7 @@ impl<'a> Layout<'a> {
             grids,
             code,
             images,
+            toc,
             source,
             focus,
             plain,
@@ -447,6 +463,7 @@ impl<'a> Layout<'a> {
             grids,
             code,
             images,
+            toc,
             plain,
             current: (is_plain || source).then(|| doc.text().line_of(doc.selection.head)),
         }
@@ -702,9 +719,69 @@ impl<'a> Layout<'a> {
         }
     }
 
+    /// The table of contents a `#+TOC:` line shows away from the cursor:
+    /// a title row, then a row a heading, each leading to it.
+    fn toc_rows(&self, range: &Range<usize>) -> Option<Vec<Vec<Glyph>>> {
+        let p = self.parse.filter(|_| !self.source)?;
+        if !kalem_core::toc::wanted(self.text().as_str(), self.cursor, range) {
+            return None;
+        }
+        let version = self.doc.version();
+        let doc = {
+            let mut c = self.toc.0.borrow_mut();
+            match &*c {
+                Some((v, d)) if *v == version => d.clone(),
+                _ => {
+                    let d = Arc::new(org_model::Document::new(p.clone()));
+                    *c = Some((version, d.clone()));
+                    d
+                }
+            }
+        };
+        let entries = kalem_core::toc::toc_at(&doc, range.clone())?;
+        let style = |s: view::Style| render::style_base(&s, 0, self.caps);
+        let dim = style(view::Style {
+            dim: true,
+            ..Default::default()
+        });
+        let link = style(view::Style {
+            link: true,
+            ..Default::default()
+        });
+        let title = if entries.is_empty() {
+            "Contents: no headings"
+        } else {
+            "Contents"
+        };
+        let glyphs = |t: &str, st, data: Option<WidgetAt>| -> Vec<Glyph> {
+            use unicode_segmentation::UnicodeSegmentation;
+            t.graphemes(true)
+                .map(|g| Glyph {
+                    data: data.clone(),
+                    ..Glyph::decoration(g, st, range.start)
+                })
+                .collect()
+        };
+        let width = self.width.get();
+        let mut rows = tui_rich_text::wrap(glyphs(title, dim, None), 0, width);
+        for (text, start) in kalem_core::toc::lines(&entries) {
+            let data = (view::Widget::TocRow { start }, range.start, range.end);
+            let hang = (text.len() - text.trim_start().len()) as u16;
+            rows.extend(tui_rich_text::wrap(
+                glyphs(&text, link, Some(data)),
+                hang,
+                width,
+            ));
+        }
+        Some(rows)
+    }
+
     /// The line's rows.
     fn line_rows(&self, line: usize) -> Vec<Vec<Glyph>> {
         let range = self.range(line);
+        if let Some(rows) = self.toc_rows(&range) {
+            return rows;
+        }
         if let Some((_, _, rows, _)) = self.image(line) {
             let blank = Glyph {
                 text: " ".into(),
@@ -1128,6 +1205,7 @@ macro_rules! shared {
             grids: &$v.grids,
             code: &$v.code,
             images: &$v.images,
+            toc: &$v.toc,
             source: $v.source,
             focus: $v.focus,
             plain: &$v.plain,

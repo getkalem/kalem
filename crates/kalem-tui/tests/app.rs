@@ -222,6 +222,29 @@ fn clicking_a_checkbox() {
 }
 
 #[test]
+fn table_of_contents() {
+    let text = "#+TOC: headlines 2\n* One\n** One A\n* Two\n";
+    let mut t = open(text);
+    t.at(text.len() - 1);
+    assert_eq!(
+        (1..4).map(|r| t.row(r)).collect::<Vec<_>>(),
+        [" 1 One", "    1.1 One A", " 2 Two"]
+    );
+    assert_eq!(t.row(0), " Contents");
+    // A click on a row leads to its heading.
+    t.app.event(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: 6,
+        row: 2,
+        modifiers: KeyModifiers::NONE,
+    }));
+    assert_eq!(t.app.doc.selection.head, 25);
+    // On the cursor's line, the keyword is itself.
+    t.at(3);
+    assert_eq!(t.row(0), " #+TOC: headlines 2");
+}
+
+#[test]
 fn prompts_for_arguments() {
     let mut t = open("see here\n");
     t.at(4);
@@ -1950,7 +1973,11 @@ fn drawers_and_export_blocks() {
     let mut t = with_config(text, Config::default(), (60, 10));
     t.at(0);
     // Away from the cursor, an export block shows its back-end.
-    assert!(screen(&mut t).join("\n").contains("export html"), "{:?}", screen(&mut t));
+    assert!(
+        screen(&mut t).join("\n").contains("export html"),
+        "{:?}",
+        screen(&mut t)
+    );
     // A drawer at the cursor, the cursor inside it.
     t.at(6);
     t.app

@@ -29,6 +29,13 @@ enum Paint {
     Text(Rc<gpui::ShapedLine>),
     /// A button with a label; clicking copies the block starting there.
     Copy(Rc<gpui::ShapedLine>, usize),
+    /// A table of contents: its title and its rows, each leading to the
+    /// heading starting there, one `row` high.
+    Toc(
+        Rc<gpui::ShapedLine>,
+        Vec<(Rc<gpui::ShapedLine>, usize)>,
+        Pixels,
+    ),
 }
 
 /// A line, prepared for layout.
@@ -692,8 +699,92 @@ fn prepare_math_block(
     })
 }
 
+/// A `#+TOC: headlines` line away from the cursor: the table of contents
+/// the export puts there, each row leading to its heading.
+fn prepare_toc(
+    editor: &mut Editor,
+    line: usize,
+    base: Pixels,
+    window: &mut Window,
+) -> Option<Prepared> {
+    use kalem_core::view::PLACEHOLDER;
+    if editor.source {
+        return None;
+    }
+    let range = editor.doc.text().line_range(line);
+    let rows = kalem_core::toc::shown(&mut editor.doc, range.clone())?;
+    let theme = editor.theme.clone();
+    let shape = |t: String, color: Hsla, window: &mut Window| {
+        let mut run = text_run(
+            &kalem_core::view::Style::default(),
+            t.len(),
+            0,
+            false,
+            &theme,
+        );
+        run.color = color;
+        Rc::new(
+            window
+                .text_system()
+                .shape_line(t.into(), base, &[run], None),
+        )
+    };
+    let title = if rows.is_empty() {
+        "Contents: no headings"
+    } else {
+        "Contents"
+    };
+    let title = shape(title.to_string(), theme.muted, window);
+    let rows: Vec<_> = rows
+        .into_iter()
+        .map(|(t, start)| (shape(t, theme.link, window), start))
+        .collect();
+    let row = base * 1.5;
+    let width = rows
+        .iter()
+        .map(|(s, _)| s.width)
+        .fold(title.width, |a, b| a.max(b))
+        + px(16.);
+    let sz = size(width, row * (rows.len() + 1) as f32 + px(8.));
+    let mut run = stand_in(range.clone(), PLACEHOLDER);
+    run.src = range.clone();
+    Some(Prepared {
+        view: Rc::new(LineView {
+            range: range.clone(),
+            runs: vec![run],
+            ..LineView::default()
+        }),
+        pieces: vec![Piece::Widget {
+            len: PLACEHOLDER.len(),
+            size: sz,
+            ascent: base,
+        }],
+        // Painted as rows, not hit as a widget: a click elsewhere in it goes
+        // to the keyword line.
+        widgets: vec![(
+            0,
+            range,
+            Widget::TocRow { start: 0 },
+            Paint::Toc(title, rows, row),
+        )],
+        font_size: base,
+        hang_at: None,
+        fold: None,
+        background: None,
+        grid: None,
+        bar: false,
+        rule: false,
+        nowrap: false,
+        spacing: 1.,
+        fit: Vec::new(),
+    })
+}
+
 fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) -> Prepared {
     if let Some(p) = prepare_grid(editor, line, base, window) {
+        return p;
+    }
+    if let Some(p) = prepare_toc(editor, line, base, window) {
         return p;
     }
     if let Some(p) = prepare_math_block(editor, line, base, window) {
@@ -772,7 +863,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 let (shown, color) = match w {
                     Widget::Math { source, .. } => (kalem_core::math::unicode(source), theme.link),
                     Widget::Image { path, .. } => (format!("[image: {path}]"), theme.muted),
-                    Widget::Checkbox(_) => unreachable!("handled above"),
+                    Widget::Checkbox(_) | Widget::TocRow { .. } => unreachable!("handled above"),
                 };
                 let mut run = text_run(&r.style, shown.len(), view.heading, mono, &theme);
                 run.color = color;
@@ -785,7 +876,8 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 let sz = size(shaped.width, fs * 1.2);
                 Some((Paint::Text(Rc::new(shaped)), sz, fs * 0.9))
             }
-            None => None,
+            // Only in tables of contents, prepared apart.
+            Some(Widget::TocRow { .. }) | None => None,
         };
         if let Some((paint, sz, ascent)) = paint {
             if !text.is_empty() {
@@ -1396,6 +1488,7 @@ impl gpui::Element for LineElement {
         let boxes: std::collections::HashMap<usize, Bounds<Pixels>> = layout.widgets().collect();
         let mut hit = Vec::new();
         let mut buttons = Vec::new();
+        let mut jumps = Vec::new();
         for (d, src, w, paint) in &p.widgets {
             let Some(b) = boxes.get(d) else { continue };
             let b = Bounds::new(origin + b.origin, b.size);
@@ -1423,6 +1516,35 @@ impl gpui::Element for LineElement {
                         cx,
                     );
                     buttons.push((b, *start));
+                    continue;
+                }
+                Paint::Toc(title, rows, row) => {
+                    window.paint_quad(quad(
+                        b,
+                        px(4.),
+                        gpui::transparent_black(),
+                        px(1.),
+                        theme.border,
+                        Default::default(),
+                    ));
+                    let x = b.origin.x + px(8.);
+                    let mut y = b.origin.y + px(4.);
+                    let _ = title.paint(point(x, y), *row, gpui::TextAlign::Left, None, window, cx);
+                    for (shaped, start) in rows {
+                        y += *row;
+                        let _ = shaped.paint(
+                            point(x, y),
+                            *row,
+                            gpui::TextAlign::Left,
+                            None,
+                            window,
+                            cx,
+                        );
+                        jumps.push((
+                            Bounds::new(point(b.origin.x, y), size(b.size.width, *row)),
+                            *start,
+                        ));
+                    }
                     continue;
                 }
                 Paint::Text(shaped) => {
@@ -1523,6 +1645,7 @@ impl gpui::Element for LineElement {
                 view,
                 widgets: hit,
                 buttons,
+                jumps,
                 fold,
             },
         );
