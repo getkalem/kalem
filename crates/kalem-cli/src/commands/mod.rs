@@ -319,6 +319,7 @@ fn check_latex(
                 .iter()
                 .map(|(n, c)| serde_json::json!({ "construct": n, "count": c }))
                 .collect();
+            v["rendered"] = serde_json::json!(latex_check::coverage(text));
         }
         return Ok((ok, Some(v)));
     }
@@ -346,6 +347,13 @@ fn check_latex(
         .map_err(|e| e.to_string())?;
     }
     if let Some(r) = report {
+        writeln!(
+            out,
+            "{}: rendered: {:.1}%",
+            f.display(),
+            latex_check::coverage(text) * 100.0
+        )
+        .map_err(|e| e.to_string())?;
         for (n, c) in r {
             writeln!(out, "{}: unrendered: {n} ({c})", f.display()).map_err(|e| e.to_string())?;
         }
