@@ -1744,6 +1744,9 @@ pub fn menus() -> Vec<Menu> {
                 named(tr("menu-citation"), "org.cite.insert"),
                 named(tr("menu-footnote"), "org.footnote.new"),
                 named(tr("menu-drawer"), "org.insert.drawer"),
+                named(tr("menu-reference"), "org.insert.reference"),
+                named(tr("menu-caption"), "org.caption.set"),
+                named(tr("menu-name"), "org.name.set"),
                 with(
                     tr("menu-table"),
                     "table.create",

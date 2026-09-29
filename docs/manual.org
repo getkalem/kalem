@@ -191,6 +191,16 @@ Ctrl+K inserts a link. Typing =[[= offers the document's headings and
 targets. Ctrl-click (Cmd-click on macOS) opens a link: web links in the
 browser, file links in Kalem or their application, internal links jump.
 
+** Captions, names and cross references
+
+/Set Caption/ and /Set Name/ (Insert > Caption… and Name…) write the
+=#+CAPTION:= or =#+NAME:= line of the table, block, picture or paragraph
+at the cursor, the prompt starting with the one it has; an empty answer
+removes it. /Insert Cross Reference/ (Insert > Cross Reference…) lists
+what a link can point to (named elements with their captions, headings
+by =CUSTOM_ID= and title, and =<<targets>>=) and links to the one you
+choose; typing =[[= offers named elements too.
+
 ** Blocks and drawers
 
 Away from the cursor, a block shows its kind on a thin first line: a

@@ -315,6 +315,12 @@ fn link_items(doc: &Document, root: &SyntaxNode, prefix: &str) -> Vec<Completion
             add(format!("*{title}"), format!("*{title}"));
         }
     }
+    // Named elements (`#+NAME:`), which internal links reach by name.
+    for (target, _, kind) in crate::affiliated::references(doc) {
+        if !matches!(kind, "heading" | "target") {
+            add(target.clone(), target);
+        }
+    }
     for t in root.descendants().filter(|n| n.kind() == TARGET) {
         let s = t.text().to_string();
         let inner = s
@@ -674,6 +680,11 @@ mod tests {
         let c = completion(&doc, at("note [fn:")).unwrap();
         let labels: Vec<&str> = c.items.iter().map(|i| i.label.as_str()).collect();
         assert_eq!(labels, ["1", "note", "2 (new)"]);
+        // Named elements.
+        let text = "#+NAME: tab:int\n| 1 |\n\nsee [[int\n";
+        let doc = Document::new(org_syntax::parse(text));
+        let c = completion(&doc, text.len() - 1).unwrap();
+        assert_eq!(c.items[0].insert, "tab:int]]");
         // A block template puts the cursor after `src `.
         let doc = Document::new(org_syntax::parse("#+b\n"));
         let c = completion(&doc, 3).unwrap();

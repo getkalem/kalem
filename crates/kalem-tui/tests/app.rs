@@ -1968,6 +1968,41 @@ fn editing_properties() {
 }
 
 #[test]
+fn captions_names_and_references() {
+    let text = "#+CAPTION: Old\n| 1 |\n\nSee \n";
+    let mut t = with_config(text, Config::default(), (80, 10));
+    t.at(16);
+    // The prompt starts with the caption there.
+    t.app
+        .run_command("org.caption.set", serde_json::Value::Null);
+    for _ in 0.."Old".len() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("Numbers");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.app
+        .run_command("org.name.set", serde_json::json!({"name": "tab:n"}));
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "#+NAME: tab:n\n#+CAPTION: Numbers\n| 1 |\n\nSee \n"
+    );
+    // The reference picker lists the name; choosing it links to it.
+    let end = t.app.doc.text().len() - 1;
+    t.at(end);
+    t.app
+        .run_command("org.insert.reference", serde_json::Value::Null);
+    let s = screen(&mut t).join("\n");
+    assert!(s.contains("tab:n  Numbers"), "{s}");
+    t.typ("tab:n");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(
+        t.app.doc.text().as_str().ends_with("See [[tab:n]]\n"),
+        "{}",
+        t.app.doc.text().as_str()
+    );
+}
+
+#[test]
 fn drawers_and_export_blocks() {
     let text = "Intro.\n#+begin_export html\n<b>x</b>\n#+end_export\n";
     let mut t = with_config(text, Config::default(), (60, 10));

@@ -91,6 +91,12 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.property.delete", object(&[("key", "string", true)])),
         ("org.cite.insert", object(&[("key", "string", false)])),
         ("org.insert.drawer", object(&[("name", "string", true)])),
+        ("org.caption.set", object(&[("caption", "string", true)])),
+        ("org.name.set", object(&[("name", "string", true)])),
+        (
+            crate::affiliated::REFERENCE,
+            object(&[("target", "string", false)]),
+        ),
         ("org.schedule", {
             // `format: date`: frontends offer a date picker.
             let mut s = object(&[("date", "string", true)]);
@@ -1760,6 +1766,53 @@ fn plain_commands() -> Vec<Command> {
             |ctx, args| {
                 let name = arg_str(args, "name")?.trim().to_string();
                 ctx.org(|d, p, m| org_edit::insert::insert_drawer(&text_of(d), p, m, &name))
+            },
+        ),
+        cmd(
+            "org.caption.set",
+            "Set Caption",
+            "Insert",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                let v = arg_str(args, "caption")?.to_string();
+                ctx.org(|d, p, _| crate::affiliated::set(d, p, "CAPTION", &v))
+            },
+        ),
+        cmd(
+            "org.name.set",
+            "Set Name",
+            "Insert",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                let v = arg_str(args, "name")?.to_string();
+                ctx.org(|d, p, _| crate::affiliated::set(d, p, "NAME", &v))
+            },
+        ),
+        cmd(
+            crate::affiliated::REFERENCE,
+            "Insert Cross Reference",
+            "Insert",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                if let Some(target) = args.get("target").and_then(Value::as_str) {
+                    let target = target.to_string();
+                    return ctx
+                        .org(|d, p, m| org_edit::insert::insert_link(d, p, m, &target, None));
+                }
+                let doc = ctx.doc()?;
+                let model = doc
+                    .model()
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-org")))?;
+                let items = crate::affiliated::picker_items(&model);
+                if items.is_empty() {
+                    ctx.messages.push(crate::l10n::tr("msg-no-references"));
+                    return Ok(());
+                }
+                ctx.requests.push(Request::Choose(items));
+                Ok(())
             },
         ),
         cmd(
