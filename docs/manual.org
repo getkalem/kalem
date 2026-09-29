@@ -876,7 +876,9 @@ so does a tooltip under the mouse (graphical editor). /Quick Fix/
 (Ctrl+., Alt+. in a terminal) makes the obvious change where there is
 one: =\bfseries= for =\bf=, =~= for the space, =\ldots{}= for =...=,
 =\[…\]= for =$$…$$=; it takes the problem at the cursor, or the first
-on its line.
+on its line. The errors and warnings of the last /Build PDF/ are flagged
+on their lines too. /Next Problem/ and /Previous Problem/ (Alt+F8,
+Alt+Shift+F8) go from one flagged place to the next and say what it is.
 
 Enter on a list item starts the next =\item= (on an empty one, it leaves
 the list); Tab and Shift+Tab nest an item under the one before it and

@@ -206,6 +206,8 @@ pub struct Live {
     /// times they were installed.
     shown: Option<(u64, Arc<Vec<Diagnostic>>)>,
     installed: u64,
+    /// The builds recorded when the shown ones were worked out.
+    builds: u64,
     pending: Option<(u64, Receiver<Vec<Diagnostic>>)>,
     /// The version last seen changing, and when.
     changed: Option<(u64, Instant)>,
@@ -246,6 +248,12 @@ impl Live {
                 Err(TryRecvError::Disconnected) => self.pending = None,
             }
         }
+        // A build's problems: again at once.
+        let builds = crate::latex_build::recorded();
+        if builds != self.builds && self.pending.is_none() {
+            self.builds = builds;
+            self.shown = None;
+        }
         let known = self.shown.as_ref().is_some_and(|(v, _)| *v == version);
         if known || self.pending.is_some() {
             return shown;
@@ -272,6 +280,7 @@ impl Live {
     /// Works the diagnostics out now (tests, and batch use).
     pub fn update_now(&mut self, version: u64, path: Option<&Path>, text: &str) {
         self.pending = None;
+        self.builds = crate::latex_build::recorded();
         self.shown = Some((version, Arc::new(diagnose(path, text))));
         self.installed += 1;
     }
@@ -281,8 +290,64 @@ impl Live {
 /// of the text alone.
 fn diagnose(path: Option<&Path>, text: &str) -> Vec<Diagnostic> {
     match path {
-        Some(p) => check(p, text),
+        Some(p) => {
+            let mut out = check(p, text);
+            out.extend(build_diagnostics(p, text));
+            out.sort_by_key(|d| (d.range.start, d.range.end));
+            out
+        }
         None => text_diagnostics(&latex_syntax::parse(text)),
+    }
+}
+
+/// The problems the last build found in the file at `path` (T2.7h.23), on
+/// their lines of `text`.
+fn build_diagnostics(path: &Path, text: &str) -> Vec<Diagnostic> {
+    use crate::latex_build::Severity as S;
+    crate::latex_build::problems_in(path)
+        .into_iter()
+        .filter_map(|p| {
+            let n = p.line?.checked_sub(1)?;
+            let start = if n == 0 {
+                0
+            } else {
+                text.match_indices('\n').nth(n - 1)?.0 + 1
+            };
+            let end = text[start..].find('\n').map_or(text.len(), |i| start + i);
+            let line = &text[start..end];
+            let lead = line.len() - line.trim_start().len();
+            let range = (start + lead)..end.max(start + lead);
+            Some(Diagnostic {
+                range,
+                severity: if p.severity == S::BadBox {
+                    Severity::Info
+                } else {
+                    Severity::Warning
+                },
+                code: "latex-build",
+                message: crate::tr!("latex-build-problem", message = p.message.as_str()),
+                fix: None,
+            })
+        })
+        .collect()
+}
+
+/// The start of the diagnostic after `pos` (before it, when `back`),
+/// round to the first (last) at the end.
+pub fn next(diags: &[Diagnostic], pos: usize, back: bool) -> Option<usize> {
+    let starts = diags.iter().map(|d| d.range.start);
+    if back {
+        starts
+            .clone()
+            .filter(|&s| s < pos)
+            .max()
+            .or_else(|| starts.max())
+    } else {
+        starts
+            .clone()
+            .filter(|&s| s > pos)
+            .min()
+            .or_else(|| starts.min())
     }
 }
 
@@ -574,6 +639,38 @@ mod tests {
                 "cite-unused-entry",
             ]
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn build_problems_on_their_lines() {
+        use crate::latex_build::{Problem, Severity as S};
+        let dir = std::env::temp_dir().join(format!("kalem-build-problems-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let text = "\\documentclass{article}\n\\begin{document}\n  \\foo here\n\\end{document}\n";
+        let path = dir.join("main.tex");
+        std::fs::write(&path, text).unwrap();
+        let before = crate::latex_build::recorded();
+        crate::latex_build::record(
+            &path,
+            &[Problem {
+                file: Some("./main.tex".into()),
+                line: Some(3),
+                message: "Undefined control sequence.".into(),
+                severity: S::Error,
+            }],
+        );
+        assert!(crate::latex_build::recorded() > before);
+        let diags = diagnose(Some(&path), text);
+        let d = diags.iter().find(|d| d.code == "latex-build").unwrap();
+        assert_eq!(&text[d.range.clone()], "\\foo here");
+        assert!(d.message.contains("Undefined control sequence."));
+        // Next and previous, round the ends.
+        let starts: Vec<usize> = diags.iter().map(|d| d.range.start).collect();
+        assert_eq!(next(&diags, 0, false), Some(starts[0]));
+        assert_eq!(next(&diags, text.len(), false), Some(starts[0]));
+        assert_eq!(next(&diags, 0, true), starts.last().copied());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
