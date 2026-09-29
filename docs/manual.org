@@ -786,7 +786,12 @@ the authors and years of the entries in the =\bibliography= or
 =\addbibresource= files, with their notes, and the entry cited shows
 in the status bar at the cursor and in a tooltip under the mouse.
 =\footnote= shows its raised number before its dimmed text, and =\url=
-and =\href= show as links. Comments are
+and =\href= show as links. Theorems declared with =\newtheorem= show
+their names and numbers ("Theorem 1.1 (Pythagoras).") and =proof= its
+"Proof." and ∎; =\paragraph= is a bold heading in the text. The code of
+=verbatim=, =lstlisting= and =minted= is monospace, colored by the
+language its options name (graphical editor). Comments, =comment=
+environments and the text between =\iffalse= and its =\fi= are
 dimmed; commands Kalem does not render stay as they are written. The
 source view (Ctrl+/) shows the text itself. Documents of several files
 are numbered as one: the root document comes from a =% !TEX root= line,

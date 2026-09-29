@@ -2485,3 +2485,14 @@ fn latex_references() {
         status(&mut t)
     );
 }
+
+#[test]
+fn latex_theorems_and_code() {
+    let text = "\\newtheorem{thm}{Theorem}\n\\begin{thm}[Main]\nTrue.\n\\end{thm}\n\\begin{proof}\nClear.\n\\end{proof}\n\\begin{verbatim}\n\\emph{raw}\n\\end{verbatim}\n";
+    let mut t = with_file(text, "t.tex", Config::default(), (60, 14));
+    t.at(text.len());
+    let s = screen(&mut t);
+    for want in ["Theorem 1 (Main).", "Proof.", "\u{220e}", "\\emph{raw}"] {
+        assert!(s.iter().any(|l| l.contains(want)), "{want}: {s:#?}");
+    }
+}

@@ -2374,3 +2374,21 @@ fn latex_references(cx: &mut TestAppContext) {
         .unwrap_or_default();
     assert!(status.contains("@knuth: Knuth, Donald (1984)"), "{status}");
 }
+
+#[gpui::test]
+fn latex_theorems_and_code(cx: &mut TestAppContext) {
+    let text = "\\newtheorem{thm}{Theorem}\n\\begin{thm}[Main]\nTrue.\n\\end{thm}\n\\begin{lstlisting}[language=Rust]\nfn main() {}\n\\end{lstlisting}\n";
+    let (e, cx) = open_named(text, "t.tex", || None, cx);
+    at(&e, text.len(), cx);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.line_view(1).display()),
+        "Theorem 1 (Main). "
+    );
+    // The listing's lines are code, colored as Rust.
+    let colored = e.update(cx, |e, _| {
+        let b = e.block_at(text.find("fn main").unwrap())?;
+        e.code_spans(&b).map(|(_, spans)| !spans.is_empty())
+    });
+    assert_eq!(colored, Some(true));
+    assert!(e.read_with(cx, |e, _| e.line_view(5).mono));
+}

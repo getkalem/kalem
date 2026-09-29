@@ -151,6 +151,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX mode: formulas typeset through org-math away from the cursor, inline and displayed, equations with their LaTeX numbers as tags, the document's `\newcommand`s applied, math environments on lines of their own shown as one formula (graphical editor; the terminal shows the Unicode approximation of one-line formulas).
 - LaTeX mode: `\includegraphics` shows the picture (found through `\graphicspath` and LaTeX's extensions, at the width `width=` asks for), `\caption` shows "Figure 1: …" with LaTeX's number (Turkish names with babel's `turkish`), subfigure captions as (a), `\centering` centers the float.
 - LaTeX mode: references (`\ref`, `\eqref`, `\cref`, `\Cref`, `\autoref`, `\nameref`) show what they resolve to, unresolved ones in red; citations show authors and years from the bibliography with pre- and postnotes, the entry in the status bar and a tooltip; footnotes with their raised numbers; `\url` and `\href` as links.
+- LaTeX mode: theorems with their names, numbers and notes, proofs with "Proof." and ∎, `\paragraph` run in; code in `verbatim`, `lstlisting` and `minted` monospace and colored by its language (graphical editor); `comment` environments and `\iffalse` … `\fi` dimmed.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed
