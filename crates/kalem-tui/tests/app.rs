@@ -2511,3 +2511,60 @@ fn latex_build_command() {
     t.key(KeyCode::F(5), KeyModifiers::NONE);
     assert!(status(&mut t).contains("Save"), "{}", status(&mut t));
 }
+
+#[test]
+fn latex_structural_editing() {
+    let text = "\\begin{itemize}\n\\item One\n\\end{itemize}\nsome words\n";
+    let mut t = with_file(text, "e.tex", Config::default(), (60, 10));
+    // Enter continues the list.
+    t.at(text.find("One").unwrap() + 3);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.typ("Two");
+    assert!(
+        t.app
+            .doc
+            .text()
+            .as_str()
+            .contains("\\item One\n\\item Two\n")
+    );
+    // Ctrl+B on a word.
+    let at = t.app.doc.text().as_str().find("words").unwrap() + 1;
+    t.at(at);
+    t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
+    assert!(t.app.doc.text().as_str().contains("some \\textbf{words}"));
+    // `\begin{…}` gets its `\end{…}`.
+    let end = t.app.doc.text().len();
+    t.at(end);
+    t.typ("\\begin{center}");
+    assert!(
+        t.app
+            .doc
+            .text()
+            .as_str()
+            .ends_with("\\begin{center}\n  \n\\end{center}"),
+        "{}",
+        t.app.doc.text().as_str()
+    );
+    // Renaming one end renames the other.
+    let at = t.app.doc.text().as_str().rfind("\\begin{center}").unwrap() + "\\begin{cent".len();
+    t.at(at);
+    t.typ("X");
+    assert!(
+        t.app
+            .doc
+            .text()
+            .as_str()
+            .ends_with("\\begin{centXer}\n  \n\\end{centXer}")
+    );
+    // A heading level from the palette.
+    t.at(t.app.doc.text().as_str().find("some").unwrap());
+    t.app
+        .run_command("latex.section.setLevel", serde_json::json!({"level": 1}));
+    assert!(
+        t.app
+            .doc
+            .text()
+            .as_str()
+            .contains("\\section{some \\textbf{words}}")
+    );
+}

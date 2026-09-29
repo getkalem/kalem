@@ -2401,3 +2401,24 @@ fn latex_build_command(cx: &mut TestAppContext) {
     let status = e.read_with(cx, |e, _| e.status.clone().map(|s| s.0).unwrap_or_default());
     assert!(status.contains("Save"), "{status}");
 }
+
+#[gpui::test]
+fn latex_structural_editing(cx: &mut TestAppContext) {
+    let text = "\\begin{itemize}\n\\item One\n\\end{itemize}\nsome words\n";
+    let (e, cx) = open_named(text, "e.tex", || None, cx);
+    at(&e, text.find("One").unwrap() + 3, cx);
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("Two");
+    assert!(text_of(&e, cx).contains("\\item One\n\\item Two\n"));
+    let at_word = text_of(&e, cx).find("words").unwrap() + 1;
+    at(&e, at_word, cx);
+    cx.simulate_keystrokes("ctrl-b");
+    assert!(text_of(&e, cx).contains("some \\textbf{words}"));
+    let end = text_of(&e, cx).len();
+    at(&e, end, cx);
+    cx.simulate_input("\\begin{center}");
+    assert!(text_of(&e, cx).ends_with("\\begin{center}\n  \n\\end{center}"));
+    at(&e, text_of(&e, cx).find("some").unwrap(), cx);
+    cx.simulate_keystrokes("ctrl-1");
+    assert!(text_of(&e, cx).contains("\\section{some \\textbf{words}}"));
+}

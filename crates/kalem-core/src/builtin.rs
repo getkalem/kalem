@@ -200,6 +200,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
             ]),
         ),
         ("csv.sortFile", object(&[("reverse", "boolean", false)])),
+        (
+            "latex.section.setLevel",
+            object(&[("level", "integer", true)]),
+        ),
         ("view.setMode", {
             let mut s = object(&[("mode", "string", true)]);
             s["properties"]["mode"]["enum"] = serde_json::json!(["org", "markdown", "csv", "text"]);
@@ -608,6 +612,7 @@ pub(crate) fn commands() -> Vec<Command> {
         ),
         crate::command::Scope::only(&["latex"]),
     ));
+    all.extend(latex_commands());
     for c in &mut all {
         c.args_schema = schemas
             .iter()
@@ -1124,6 +1129,152 @@ fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
         }
     });
     Ok(())
+}
+
+/// Runs a LaTeX editing function on the document; `None` from it runs
+/// `fallback` instead, or reports that it does not apply.
+fn latex_edit_with(
+    ctx: &mut EditorContext<'_>,
+    f: impl FnOnce(
+        &str,
+        org_edit::Selection,
+        &latex_syntax::SyntaxNode,
+        Option<&str>,
+    ) -> Option<org_edit::Transaction>,
+    fallback: Option<fn(&mut EditorContext<'_>) -> CommandResult>,
+) -> CommandResult {
+    let now = ctx.now;
+    let d = ctx.doc()?;
+    let Some(l) = d.latex() else {
+        return Err(CommandError::new(crate::tr!("msg-not-latex")));
+    };
+    let root = l.parse().syntax();
+    let class = l.model().class.as_ref().map(|c| c.name.clone());
+    match f(d.text().as_str(), d.selection, &root, class.as_deref()) {
+        Some(tx) => {
+            d.apply(&tx, org_edit::ChangeKind::Command, now);
+            Ok(())
+        }
+        None => match fallback {
+            Some(g) => g(ctx),
+            None => Err(CommandError::new(crate::tr!("msg-latex-not-here"))),
+        },
+    }
+}
+
+/// The commands of LaTeX documents (T2.7h.15).
+fn latex_commands() -> Vec<Command> {
+    use crate::command::Scope;
+    use crate::latex_edit as e;
+    let c = |id: &str, title: &str, keys: &[&str], h: Handler| {
+        scoped(
+            cmd(id, title, "LaTeX", keys, None, h),
+            Scope::only(&["latex"]),
+        )
+    };
+    fn newline(ctx: &mut EditorContext<'_>) -> CommandResult {
+        let now = ctx.now;
+        let d = ctx.doc()?;
+        let s = d.selection;
+        let tx = crate::input::newline(
+            d.text().as_str(),
+            s.head,
+            (s.anchor != s.head).then_some(s.anchor),
+        );
+        d.apply(&tx, org_edit::ChangeKind::Command, now);
+        Ok(())
+    }
+    fn indent(ctx: &mut EditorContext<'_>) -> CommandResult {
+        let now = ctx.now;
+        ctx.doc()?.indent(false, now);
+        Ok(())
+    }
+    fn outdent(ctx: &mut EditorContext<'_>) -> CommandResult {
+        let now = ctx.now;
+        ctx.doc()?.indent(true, now);
+        Ok(())
+    }
+    vec![
+        c("latex.enter", "New Line or Item", &["enter"], |ctx, _| {
+            latex_edit_with(ctx, |t, s, r, _| e::enter(t, s, r), Some(newline))
+        }),
+        c("latex.list.indent", "Nest Item", &["tab"], |ctx, _| {
+            latex_edit_with(
+                ctx,
+                |t, s, r, _| e::indent_item(t, s.head, r, true),
+                Some(indent),
+            )
+        }),
+        c(
+            "latex.list.outdent",
+            "Unnest Item",
+            &["shift+tab"],
+            |ctx, _| {
+                latex_edit_with(
+                    ctx,
+                    |t, s, r, _| e::indent_item(t, s.head, r, false),
+                    Some(outdent),
+                )
+            },
+        ),
+        c("latex.format.bold", "Bold", &["ctrl+b"], |ctx, _| {
+            latex_edit_with(ctx, |t, s, r, _| e::toggle(t, s, r, "textbf"), None)
+        }),
+        c("latex.format.italic", "Emphasis", &["ctrl+i"], |ctx, _| {
+            latex_edit_with(ctx, |t, s, r, _| e::toggle(t, s, r, "emph"), None)
+        }),
+        c(
+            "latex.format.code",
+            "Typewriter",
+            &["ctrl+shift+k"],
+            |ctx, _| latex_edit_with(ctx, |t, s, r, _| e::toggle(t, s, r, "texttt"), None),
+        ),
+        c(
+            "latex.format.underline",
+            "Underline",
+            &["ctrl+u"],
+            |ctx, _| latex_edit_with(ctx, |t, s, r, _| e::toggle(t, s, r, "underline"), None),
+        ),
+        c(
+            "latex.section.setLevel",
+            "Heading Level",
+            &[],
+            |ctx, args| {
+                let level = args.get("level").and_then(Value::as_u64).ok_or_else(|| {
+                    CommandError::new(crate::tr!("msg-missing-argument", name = "level"))
+                })? as usize;
+                latex_edit_with(
+                    ctx,
+                    |t, s, r, class| e::set_level(t, s.head, r, class, level),
+                    None,
+                )
+            },
+        ),
+        c(
+            "latex.section.promote",
+            "Promote Section",
+            &["alt+shift+left"],
+            |ctx, _| latex_edit_with(ctx, |t, s, r, _| e::promote(t, s.head, r, true), None),
+        ),
+        c(
+            "latex.section.demote",
+            "Demote Section",
+            &["alt+shift+right"],
+            |ctx, _| latex_edit_with(ctx, |t, s, r, _| e::promote(t, s.head, r, false), None),
+        ),
+        c(
+            "latex.section.moveUp",
+            "Move Section Up",
+            &["alt+shift+up"],
+            |ctx, _| latex_edit_with(ctx, |t, s, r, _| e::move_section(t, s.head, r, false), None),
+        ),
+        c(
+            "latex.section.moveDown",
+            "Move Section Down",
+            &["alt+shift+down"],
+            |ctx, _| latex_edit_with(ctx, |t, s, r, _| e::move_section(t, s.head, r, true), None),
+        ),
+    ]
 }
 
 /// The commands of CSV documents (§2.6.2).

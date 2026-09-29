@@ -728,3 +728,17 @@ msg-latex-built = Built { $path }{ $count ->
     [one] {" "}(1 LaTeX warning)
    *[other] {" "}({ $count } LaTeX warnings)
 }
+msg-not-latex = Not a LaTeX document
+msg-latex-not-here = Not here: put the cursor on a sectioning command or a list item
+cmd-latex-enter = New Line or Item
+cmd-latex-list-indent = Nest Item
+cmd-latex-list-outdent = Unnest Item
+cmd-latex-format-bold = Bold
+cmd-latex-format-italic = Emphasis
+cmd-latex-format-code = Typewriter
+cmd-latex-format-underline = Underline
+cmd-latex-section-setLevel = Heading Level
+cmd-latex-section-promote = Promote Section
+cmd-latex-section-demote = Demote Section
+cmd-latex-section-moveUp = Move Section Up
+cmd-latex-section-moveDown = Move Section Down

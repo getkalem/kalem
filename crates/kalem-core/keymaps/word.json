@@ -16,6 +16,15 @@
   { "keys": "shift+enter", "command": "edit.newline", "terminalKeys": "ctrl+j" },
   // Enter in text files keeps the indentation.
   { "keys": "enter", "command": "edit.newline", "when": "editorMode != org" },
+  // In LaTeX, Enter continues list items.
+  { "keys": "enter", "command": "latex.enter", "when": "editorMode == latex" },
+  { "keys": "ctrl+1", "command": "latex.section.setLevel", "args": { "level": 1 }, "when": "editorMode == latex" },
+  { "keys": "ctrl+2", "command": "latex.section.setLevel", "args": { "level": 2 }, "when": "editorMode == latex" },
+  { "keys": "ctrl+3", "command": "latex.section.setLevel", "args": { "level": 3 }, "when": "editorMode == latex" },
+  { "keys": "ctrl+4", "command": "latex.section.setLevel", "args": { "level": 4 }, "when": "editorMode == latex" },
+  { "keys": "ctrl+5", "command": "latex.section.setLevel", "args": { "level": 5 }, "when": "editorMode == latex" },
+  { "keys": "ctrl+6", "command": "latex.section.setLevel", "args": { "level": 6 }, "when": "editorMode == latex" },
+  { "keys": "ctrl+0", "command": "latex.section.setLevel", "args": { "level": 0 }, "when": "editorMode == latex" },
   // Terminals send Ctrl+Enter as Enter.
   { "keys": "ctrl+enter", "command": "org.todo.cycle", "terminalKeys": "ctrl+t" },
   { "keys": "ctrl+,", "command": "app.settings", "terminalKeys": "alt+," },
