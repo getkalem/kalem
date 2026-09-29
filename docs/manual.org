@@ -322,8 +322,12 @@ the tags in use; the chosen tag is aligned at the right edge.
 ** Completion
 
 Typing =#+= offers keywords and blocks (=#+begin_src=, =#+title:=), =[[=
-link targets, =[fn:= footnote labels. Up and Down choose, Enter or Tab
-inserts, Escape closes.
+link targets, =[fn:= footnote labels, and a colon after a heading its
+tags. In every file, typing the third letter of a word offers the words
+of the document that start the same way, the nearest first. Alt+/ asks
+for completions at the cursor after a single letter. Up and Down choose,
+Tab inserts (Enter too, except for words, where it goes on to a new
+line), Escape closes. Items chosen lately come first.
 
 ** Paste
 
@@ -805,6 +809,7 @@ and says which.
 |-----------------------------+----------------------------------------------------------------------------|
 | =kalem check FILE...=       | Syntax diagnostics; exits 1 on errors (=--deny-warnings=, =--format json=) |
 | =kalem fmt FILE...=         | Aligns tables and tags, tidies blank lines; =--check= for CI               |
+| =kalem complete FILE:LINE:COL= | Prints the completions there: label, kind and completer, one a line      |
 | =kalem query FILE... MATCH= | Headlines matching an Org match string, such as ='TODO="NEXT"+work'=       |
 | =kalem parse FILE=          | The syntax tree                                                            |
 | =kalem dump FILE=           | The syntax tree as JSON, in Emacs's terms                                  |

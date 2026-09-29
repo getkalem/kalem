@@ -22,6 +22,48 @@ pub(crate) fn read(path: &Path) -> Result<String> {
     std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
+/// `kalem complete FILE:LINE:COL`: the items every completer gives there,
+/// as on request (Alt+/), best first.
+pub(crate) fn complete(place: &str) -> Result<ExitCode> {
+    let mut parts = place.rsplitn(3, ':');
+    let (col, line, file) = (parts.next(), parts.next(), parts.next());
+    let (Some(col), Some(line), Some(file)) = (col, line, file) else {
+        return Err(format!("{place}: expected FILE:LINE:COLUMN"));
+    };
+    let (line, col): (usize, usize) = (
+        line.parse().map_err(|_| format!("{place}: bad line"))?,
+        col.parse().map_err(|_| format!("{place}: bad column"))?,
+    );
+    let path = Path::new(file);
+    let mut doc = kalem_core::DocumentState::open(
+        path,
+        std::sync::Arc::new(org_model::Settings::default()),
+        &org_syntax::ParseContext::default(),
+    )
+    .map_err(|e| format!("{}: {e}", path.display()))?;
+    let text = doc.text();
+    let l = line.max(1) - 1;
+    if l >= text.line_count() {
+        return Err(format!("{place}: past the end of the file"));
+    }
+    let r = text.line_range(l);
+    let pos = text.as_str()[r.clone()]
+        .char_indices()
+        .nth(col.max(1) - 1)
+        .map_or(r.end, |(i, _)| r.start + i);
+    doc.move_cursor(pos, false);
+    let items = kalem_core::completers::Registry::with_builtins().complete(
+        &mut doc,
+        true,
+        std::time::Duration::from_secs(2),
+    );
+    let mut out = std::io::stdout().lock();
+    for i in items {
+        writeln!(out, "{}\t{}\t{}", i.label, i.kind.name(), i.source).map_err(|e| e.to_string())?;
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
 pub(crate) fn parse(file: &Path) -> Result<ExitCode> {
     let text = read(file)?;
     let parse = org_syntax::parse_file(&text, file);

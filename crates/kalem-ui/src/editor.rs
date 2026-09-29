@@ -84,6 +84,8 @@ pub struct Shared {
     pub projects: RefCell<kalem_core::projects::ProjectState>,
     /// File operations running in the background (the file manager).
     pub jobs: Rc<RefCell<Vec<kalem_core::dired::Running>>>,
+    /// The completers (built-ins, and plugins').
+    pub completers: kalem_core::completers::Registry,
 }
 
 /// What an editor asks of its window: documents to open, show or close.
@@ -239,8 +241,8 @@ pub struct Editor {
     pub code: CodeCache,
     /// Tables drawn as grids, by start and font size, for the text version.
     pub grids: GridCache,
-    /// The open completion menu and its chosen item.
-    pub completion: Option<(kalem_core::input::Completion, usize)>,
+    /// The open completion menu.
+    pub completion: Option<kalem_core::completers::Menu>,
     dragging: bool,
     /// Whether this pane is on the left in a split.
     left: bool,
@@ -1052,6 +1054,10 @@ impl Editor {
                 }
             }
             Request::CopyText(t) => cx.write_to_clipboard(gpui::ClipboardItem::new_string(t)),
+            Request::Complete => {
+                self.request_completion();
+                cx.notify();
+            }
             Request::CopyRich { html, text } => {
                 if !crate::clipboard::write_rich(&html, &text) {
                     cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
@@ -1630,6 +1636,9 @@ impl Editor {
                 }
                 self.goal_x = None;
                 self.after_change(cx);
+                if self.completion.is_some() {
+                    self.update_completion();
+                }
                 true
             }
             "delete" => {
@@ -1638,6 +1647,9 @@ impl Editor {
                 }
                 self.goal_x = None;
                 self.after_change(cx);
+                if self.completion.is_some() {
+                    self.update_completion();
+                }
                 true
             }
             "escape" => {
@@ -2273,6 +2285,13 @@ impl Editor {
     /// Background work: a finished background parse restyles the lines.
     pub fn tick(&mut self, cx: &mut Context<'_, Self>) {
         self.tick_palette(cx);
+        // Items of slow completers.
+        if let Some(m) = &mut self.completion
+            && m.session.waiting()
+            && m.session.poll()
+        {
+            cx.notify();
+        }
         // Work commands started in the background (a PDF compiling).
         for f in kalem_core::jobs::take_finished() {
             self.message(f.message, f.error);
@@ -2408,44 +2427,49 @@ impl Editor {
 
     /// Opens, updates or closes the completion menu after typing.
     pub fn update_completion(&mut self) {
-        let head = self.doc.selection.head;
-        let text = self.doc.text();
-        let line = text.line_range(text.line_of(head));
-        let before = &text.as_str()[line.start..head.max(line.start)];
-        let trigger = kalem_core::input::completion_trigger(before);
-        if !trigger || self.doc.meta.mode != DocumentMode::Org {
-            self.completion = None;
-            return;
+        self.completion = kalem_core::completers::Menu::update(
+            self.completion.take(),
+            &self.shared.completers,
+            &mut self.doc,
+            false,
+        );
+    }
+
+    /// Opens the completion menu on request (Alt+/).
+    pub fn request_completion(&mut self) {
+        self.completion = kalem_core::completers::Menu::update(
+            self.completion.take(),
+            &self.shared.completers,
+            &mut self.doc,
+            true,
+        );
+        if self.completion.is_none() {
+            self.message(tr!("msg-no-completions"), false);
         }
-        let chosen = self.completion.as_ref().map_or(0, |(_, i)| *i);
-        self.completion = self
-            .doc
-            .model()
-            .and_then(|m| kalem_core::input::completion(&m, head))
-            .map(|c| {
-                let i = chosen.min(c.items.len().saturating_sub(1));
-                (c, i)
-            });
     }
 
     /// Keys for the completion menu; `true` if used.
     fn completion_key(&mut self, k: &gpui::Keystroke, cx: &mut Context<'_, Self>) -> bool {
-        let Some((c, i)) = &mut self.completion else {
+        let Some(m) = &mut self.completion else {
             return false;
         };
-        let n = c.items.len();
         match k.key.as_str() {
-            "down" => *i = (*i + 1) % n,
-            "up" => *i = (*i + n - 1) % n,
+            "down" => m.step(true),
+            "up" => m.step(false),
             "escape" => self.completion = None,
-            "enter" | "tab" => {
-                let (c, item) = (c.clone(), c.items[*i].clone());
+            // Words are taken with Tab: Enter goes on writing prose.
+            "enter"
+                if m.current()
+                    .is_some_and(|i| i.kind == kalem_core::completers::Kind::Word) =>
+            {
                 self.completion = None;
-                let head = self.doc.selection.head;
-                if let Some(m) = self.doc.model() {
-                    let tx = kalem_core::input::apply_completion(&m, head, &c, &item);
-                    self.doc
-                        .apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+                return false;
+            }
+            "enter" | "tab" => {
+                let item = m.current().cloned();
+                self.completion = None;
+                if let Some(item) = item {
+                    kalem_core::completers::apply(&mut self.doc, &item, Instant::now());
                 }
                 self.after_change(cx);
             }
@@ -2503,15 +2527,11 @@ impl Editor {
             .layout
             .caret(p.view.display_offset(self.doc.selection.head));
         let at = p.bounds.origin + caret.origin + gpui::point(px(0.), caret.size.height + px(4.));
-        if let Some((c, chosen)) = &self.completion {
-            let first = chosen.saturating_sub(7);
-            let items = c
-                .items
-                .iter()
-                .enumerate()
-                .skip(first)
-                .take(8)
-                .map(|(i, it)| (it.label.clone(), i == *chosen))
+        if let Some(m) = &self.completion {
+            let items = m
+                .rows(8)
+                .into_iter()
+                .map(|(label, _, chosen)| (label, chosen))
                 .collect();
             return Some((at, items));
         }

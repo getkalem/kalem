@@ -1198,6 +1198,16 @@ impl DocumentState {
         self.org.as_ref().and_then(|o| o.last_level)
     }
 
+    /// The model [`DocumentState::model`] made for the current parse, if
+    /// it has made one.
+    pub fn cached_model(&self) -> Option<Arc<Document>> {
+        let org = self.org.as_ref()?;
+        match &org.model {
+            Some((v, m)) if *v == org.parse_version => Some(m.clone()),
+            _ => None,
+        }
+    }
+
     /// The document model of the current text, computed lazily and reusing
     /// unchanged subtrees across versions.
     pub fn model(&mut self) -> Option<Arc<Document>> {

@@ -123,6 +123,8 @@ pub enum Request {
     FileOp(FileOp),
     /// Stop the file operations that are running.
     CancelFileOps,
+    /// Open the completion menu at the cursor (`crate::completers`).
+    Complete,
     /// Put this text on the system clipboard.
     CopyText(String),
     /// Put rich text on the system clipboard: `html`, with `text` for

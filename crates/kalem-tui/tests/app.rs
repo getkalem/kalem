@@ -1968,6 +1968,27 @@ fn editing_properties() {
 }
 
 #[test]
+fn word_completion() {
+    let mut t = with_file("quartz quantum\n", "w.txt", Config::default(), (60, 10));
+    let end = t.app.doc.text().len();
+    t.at(end);
+    t.typ("qua");
+    let s = screen(&mut t).join("\n");
+    assert!(s.contains("quantum") && s.contains("quartz"), "{s}");
+    // Tab takes the word; Enter goes on writing.
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.text().as_str(), "quartz quantum\nquantum");
+    t.typ(" qua");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.text().as_str(), "quartz quantum\nquantum qua\n");
+    // Alt+/ asks with one letter.
+    t.typ("q");
+    t.key(KeyCode::Char('/'), KeyModifiers::ALT);
+    let s = screen(&mut t).join("\n");
+    assert!(s.contains("quartz"), "{s}");
+}
+
+#[test]
 fn line_commands() {
     let config = Config::from_layers(&[(
         Layer::User,
@@ -1979,7 +2000,8 @@ fn line_commands() {
     t.key(KeyCode::Down, KeyModifiers::ALT);
     assert_eq!(t.app.doc.text().as_str(), "apple\npear  \nfig\n");
     // Terminals send Ctrl+Shift+D as Ctrl+D: from the palette.
-    t.app.run_command("lines.duplicate", serde_json::Value::Null);
+    t.app
+        .run_command("lines.duplicate", serde_json::Value::Null);
     assert_eq!(t.app.doc.text().as_str(), "apple\npear  \npear  \nfig\n");
     t.key(KeyCode::Up, KeyModifiers::ALT);
     assert_eq!(t.app.doc.text().as_str(), "apple\npear  \npear  \nfig\n");
