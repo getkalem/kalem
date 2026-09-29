@@ -1866,6 +1866,11 @@ impl Editor {
             v.mono = self.doc.meta.mode != DocumentMode::Org;
             return v;
         }
+        // CSV: a row of the grid (the source view shows the text).
+        if self.doc.meta.mode == DocumentMode::Csv && !self.source {
+            let layout = kalem_core::csv::layout(&self.doc);
+            return kalem_core::csv::line_view(&layout, text.as_str(), range);
+        }
         match self.doc.parse() {
             Some((p, true)) if self.source => {
                 view::source_line_view(&p.syntax(), p.context(), text.as_str(), range)

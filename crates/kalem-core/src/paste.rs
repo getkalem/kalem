@@ -101,7 +101,7 @@ pub fn tsv(text: &str) -> Option<Vec<Vec<String>>> {
     }
     Some(
         rows.into_iter()
-            .map(|r| r.into_iter().map(|c| cell(&c)).collect())
+            .map(|r| r.into_iter().map(|c| field_text(&c)).collect())
             .collect(),
     )
 }
@@ -147,7 +147,7 @@ fn split_tsv(text: &str) -> Option<Vec<Vec<String>>> {
 }
 
 /// A table field: one line, trimmed, with `|` written as `\vert{}`.
-fn cell(text: &str) -> String {
+pub(crate) fn field_text(text: &str) -> String {
     let one_line: Vec<&str> = text.split_whitespace().collect();
     one_line.join(" ").replace('|', "\\vert{}")
 }
@@ -1063,7 +1063,7 @@ fn table(children: &[Node]) -> String {
             .any(|c| matches!(c, Node::Element { name, .. } if name == "table"));
         if !nested {
             let text = join_blocks(&blocks(children, 1));
-            return cell(&text.replace("\\\\\n", " "));
+            return field_text(&text.replace("\\\\\n", " "));
         }
         let mut parts = Vec::new();
         let mut run = Vec::new();

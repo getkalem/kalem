@@ -9,6 +9,7 @@ pub mod cite;
 pub mod code;
 pub mod command;
 pub mod completers;
+pub mod csv;
 pub mod cursors;
 pub mod dates;
 pub mod dired;

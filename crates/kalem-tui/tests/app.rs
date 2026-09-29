@@ -2367,3 +2367,23 @@ fn drawers_and_export_blocks() {
     );
     assert_eq!(t.app.doc.selection.head, 15);
 }
+
+#[test]
+fn csv_grid() {
+    let mut t = with_file(
+        "name,age\nAda,36\nBob,7\n",
+        "p.csv",
+        Config::default(),
+        (70, 8),
+    );
+    let s = screen(&mut t);
+    assert!(s.iter().any(|l| l.contains("Ada  │ 36")), "{s:#?}");
+    // Tab goes from field to field; the column's numbers in the status bar.
+    t.at(9);
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.selection.head, 13);
+    assert!(status(&mut t).contains("43"), "{}", status(&mut t));
+    t.app
+        .run_command("csv.moveRowDown", serde_json::Value::Null);
+    assert_eq!(t.app.doc.text().as_str(), "name,age\nBob,7\nAda,36\n");
+}
