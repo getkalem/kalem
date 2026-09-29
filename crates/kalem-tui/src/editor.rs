@@ -1433,6 +1433,18 @@ impl EditorView {
         } else {
             (&self.highlights, mark_style)
         };
+        // The bracket matching the one at the cursor, and it.
+        let with_pair: Vec<Range<usize>>;
+        let marks = match kalem_core::code::pair_at_cursor(doc).filter(|_| self.block.is_empty()) {
+            Some((o, c)) => {
+                let mut v: Vec<Range<usize>> =
+                    marks.iter().cloned().chain([o..o + 1, c..c + 1]).collect();
+                v.sort_by_key(|r| r.start);
+                with_pair = v;
+                &with_pair
+            }
+            None => marks,
+        };
         let options = Options {
             cursor: sel.head,
             selection: sel.anchor.min(sel.head)..sel.anchor.max(sel.head),

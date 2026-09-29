@@ -6,6 +6,7 @@
 pub mod affiliated;
 mod builtin;
 pub mod cite;
+pub mod code;
 pub mod command;
 pub mod cursors;
 pub mod dates;
