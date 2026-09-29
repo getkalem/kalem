@@ -924,7 +924,8 @@ its runs): pdfLaTeX, or the engine a =% !TEX program = xelatex= line or
 the =latex.engine= setting names, or XeLaTeX for documents that load
 =fontspec=. The status bar gives the first error at its file and line,
 or the PDF and the number of warnings; a missing package comes with the
-command that installs it. =latex.output_directory= sends the output to
+command that installs it; the problems are flagged in the text, and
+/Cancel Build/ stops a build that runs. =latex.output_directory= sends the output to
 a folder, and =latex.build_on_save= builds each time the document is
 saved. On the command line, =kalem latex build FILE= does the same
 (=--format json= for the problems as data).

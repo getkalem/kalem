@@ -1283,6 +1283,14 @@ fn latex_commands() -> Vec<Command> {
                 )
             },
         ),
+        c("latex.cancelBuild", "Cancel Build", &[], |ctx, _| {
+            if crate::latex_build::cancel() {
+                ctx.messages.push(crate::tr!("msg-build-cancelling"));
+                Ok(())
+            } else {
+                Err(CommandError::new(crate::tr!("msg-no-build")))
+            }
+        }),
         c(
             "latex.nextProblem",
             "Next Problem",

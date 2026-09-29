@@ -174,6 +174,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - File manager: `W` opens the marked files with their applications, Show in System File Manager selects the file in Finder, Explorer or the desktop's file manager, and `!` runs a shell command on the marked files after asking (`*` and `?` as in Dired); in both editors.
 - File manager (graphical): `v` shows a preview pane beside the listing (pictures, the first lines of text files, folders' names), Ctrl+T the listing's pictures as thumbnails, a click going to the picture's line.
 - LaTeX links: Open Link (Ctrl-click, Cmd-click on macOS) follows a reference to its label, `\url` and `\href` to the browser, `\input` and `\include` to their file, `\includegraphics` to its picture and a citation to the bibliography file; in both editors.
+- LaTeX: Cancel Build stops a Build PDF that runs.
 - LaTeX: the errors and warnings of the last Build PDF are flagged on their lines like the other diagnostics, and Next Problem and Previous Problem (Alt+F8, Alt+Shift+F8) go from one to the next.
 - LaTeX: `quote`, `quotation`, `verse` and `abstract` are indented, the abstract with its centered title; `\verb` and `\lstinline` show their code monospace with the delimiters hidden away from the cursor; completion offers the labels of the project's other files.
 - Fixed: after `\left\makeatletter`, editing the text after it could parse `@` differently from opening the file again.
