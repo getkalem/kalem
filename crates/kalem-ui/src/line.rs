@@ -867,11 +867,16 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
             Some(Widget::Image { path, width })
                 if let Some((image, w, h)) = editor.picture(path) =>
             {
-                // The picture at its size, or the width `#+ATTR_ORG` asks
-                // for; fitted to the text width when laid out.
+                // The picture at its size, or the width `#+ATTR_ORG` (or
+                // LaTeX's `width=`, `height=`, `scale=`) asks for; fitted to
+                // the text width when laid out.
                 let (w, h) = (w.max(1) as f32, h.max(1) as f32);
                 let tw = match width {
-                    Some(kalem_core::view::ImageWidth::Pixels(p)) => *p as f32,
+                    Some(
+                        iw @ (kalem_core::view::ImageWidth::Pixels(_)
+                        | kalem_core::view::ImageWidth::Scale(_)
+                        | kalem_core::view::ImageWidth::Height(_)),
+                    ) => iw.resolve(w, Some((w as u32, h as u32))),
                     _ => w,
                 };
                 let th = h * tw / w;

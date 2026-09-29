@@ -116,6 +116,10 @@ pub enum ImageWidth {
     Pixels(u32),
     /// A share of the text width, in percent.
     Percent(u32),
+    /// A share of the picture's own size, in percent (LaTeX's `scale=`).
+    Scale(u32),
+    /// A height in pixels, the width following (LaTeX's `height=`).
+    Height(u32),
 }
 
 impl ImageWidth {
@@ -134,11 +138,16 @@ impl ImageWidth {
         (f > 0.0 && f <= 10.0).then(|| ImageWidth::Percent((f * 100.0).round() as u32))
     }
 
-    /// The width in pixels for a text `available` pixels wide.
-    pub fn resolve(self, available: f32) -> f32 {
+    /// The width in pixels for a text `available` pixels wide and a
+    /// picture of `natural` size (when known; without it, a scale or a
+    /// height leaves the text's width).
+    pub fn resolve(self, available: f32, natural: Option<(u32, u32)>) -> f32 {
+        let natural = natural.map(|(w, h)| (w.max(1) as f32, h.max(1) as f32));
         match self {
             ImageWidth::Pixels(p) => p as f32,
             ImageWidth::Percent(p) => available * p as f32 / 100.0,
+            ImageWidth::Scale(p) => natural.map_or(available, |(w, _)| w * p as f32 / 100.0),
+            ImageWidth::Height(px) => natural.map_or(available, |(w, h)| w * px as f32 / h),
         }
     }
 }
@@ -1853,7 +1862,10 @@ mod tests {
         assert_eq!(ImageWidth::parse("50%"), Some(ImageWidth::Percent(50)));
         assert_eq!(ImageWidth::parse("0.25"), Some(ImageWidth::Percent(25)));
         assert_eq!(ImageWidth::parse("wide"), None);
-        assert_eq!(ImageWidth::Percent(50).resolve(800.), 400.);
+        assert_eq!(ImageWidth::Percent(50).resolve(800., None), 400.);
+        assert_eq!(ImageWidth::Scale(50).resolve(800., Some((300, 100))), 150.);
+        assert_eq!(ImageWidth::Height(50).resolve(800., Some((300, 100))), 150.);
+        assert_eq!(ImageWidth::Height(50).resolve(800., None), 800.);
         let t = "* A\n:PROPERTIES:\n:ID: abcdef-12\n:END:\n#+ATTR_ORG: :width 50%\n[[attachment:pic.png]]\n* B\n:PROPERTIES:\n:DIR: ~/pics/\n:END:\n#+attr_org: :align center :width 120px\n[[attachment:b.jpg]] and [[file:c.png]]\n";
         let p = org_syntax::parse(t);
         let widgets = |line: usize| -> Vec<Widget> {
