@@ -1702,6 +1702,8 @@ pub fn menus() -> Vec<Menu> {
                 MenuItem::separator(),
                 item("edit.cut"),
                 item("edit.copy"),
+                item("edit.copyRichText"),
+                item("edit.copyHtml"),
                 item("edit.paste"),
                 item("edit.pastePlain"),
                 item("edit.selectAll"),

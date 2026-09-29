@@ -333,6 +333,14 @@ its headings, emphasis, links and lists. Paste as Plain Text
 (Ctrl+Shift+V) inserts the text as it is. In source blocks, text is always
 pasted as it is.
 
+/Copy as Rich Text/ (Edit menu) copies the selection, or the whole
+document when nothing is selected, as HTML from the HTML export, with its
+Org text beside it for places that take plain text: pasted into mail or a
+word processor, it keeps its headings, emphasis, links, lists and tables.
+The HTML clipboard is there on macOS; elsewhere, and in the terminal, the
+command copies the plain text and says so. /Copy as HTML/ copies the HTML
+markup itself as text, in both editors.
+
 * Views
 
 - Source view (Ctrl+/) :: the Org text itself, with colors, line numbers

@@ -32,6 +32,7 @@ pub mod projects;
 pub mod properties;
 pub mod refile;
 pub mod rich;
+pub mod rich_copy;
 pub mod settings;
 pub mod stats;
 pub mod text;

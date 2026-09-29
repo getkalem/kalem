@@ -1341,6 +1341,12 @@ impl App {
                 self.clipboard.text = t.clone();
                 self.write_terminal(&osc52(&t));
             }
+            // The terminal's clipboard takes plain text only.
+            Request::CopyRich { text, .. } => {
+                self.clipboard.text = text.clone();
+                self.write_terminal(&osc52(&text));
+                self.message(tr!("msg-rich-copy-plain"), false);
+            }
             Request::Choose(items) => {
                 self.palette = Some(Palette::new(items));
                 self.dirty = true;

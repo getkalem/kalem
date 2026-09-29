@@ -1122,6 +1122,38 @@ fn plain_commands() -> Vec<Command> {
             request(ctx, Request::Cut)
         }),
         cmd(
+            "edit.copyRichText",
+            "Copy as Rich Text",
+            "Edit",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let text = crate::rich_copy::selection_text(doc);
+                let path = doc.meta.path.clone();
+                let html =
+                    crate::rich_copy::html(&text, path.as_deref()).map_err(CommandError::new)?;
+                ctx.requests.push(Request::CopyRich { html, text });
+                Ok(())
+            },
+        ),
+        cmd(
+            "edit.copyHtml",
+            "Copy as HTML",
+            "Edit",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let text = crate::rich_copy::selection_text(doc);
+                let path = doc.meta.path.clone();
+                let html =
+                    crate::rich_copy::html(&text, path.as_deref()).map_err(CommandError::new)?;
+                ctx.requests.push(Request::CopyText(html));
+                Ok(())
+            },
+        ),
+        cmd(
             "edit.paste",
             "Paste",
             "Edit",

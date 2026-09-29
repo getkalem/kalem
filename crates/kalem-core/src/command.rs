@@ -125,6 +125,14 @@ pub enum Request {
     CancelFileOps,
     /// Put this text on the system clipboard.
     CopyText(String),
+    /// Put rich text on the system clipboard: `html`, with `text` for
+    /// places that take plain text.
+    CopyRich {
+        /// The HTML.
+        html: String,
+        /// The plain text.
+        text: String,
+    },
     /// Show the export dialog: formats and export settings.
     ExportDialog,
     /// Offer a choice of commands, as the palette shows them.
