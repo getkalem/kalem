@@ -144,6 +144,16 @@ pub struct DirState {
     /// The name's bytes in each line.
     names: Vec<Range<usize>>,
     styles: Vec<Styles>,
+    /// The names being edited as text (wdired), with the listing as it
+    /// was.
+    pub wdired: Option<Wdired>,
+}
+
+/// A listing whose names are being edited: each line as it was, cut
+/// around the name, with the path of an entry's line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Wdired {
+    lines: Vec<(String, String, String, Option<PathBuf>)>,
 }
 
 impl DirState {
@@ -168,6 +178,7 @@ impl DirState {
             paths: Vec::new(),
             names: Vec::new(),
             styles: Vec::new(),
+            wdired: None,
         }
     }
 
@@ -479,11 +490,18 @@ impl DirState {
 
     /// The name's bytes in line `line`.
     pub fn name_range(&self, line: usize) -> Option<Range<usize>> {
+        if self.wdired.is_some() {
+            return None;
+        }
         self.names.get(line).cloned()
     }
 
-    /// The styled parts of line `line`, in bytes from its start.
+    /// The styled parts of line `line`, in bytes from its start (none
+    /// while the names are edited).
     pub fn styles(&self, line: usize) -> &[(Range<usize>, DirStyle)] {
+        if self.wdired.is_some() {
+            return &[];
+        }
         self.styles.get(line).map_or(&[], Vec::as_slice)
     }
 
@@ -930,23 +948,38 @@ pub fn undo_last() -> Result<(Vec<PathBuf>, String), String> {
         .ok_or_else(|| tr("fm-nothing-to-undo"))?;
     let result = match &undo {
         Undo::Moved(items) => {
-            // Everything checked before anything moves.
+            // Everything checked before anything moves: each old path free
+            // (or one this undo frees), each new one there.
+            let back: Vec<(PathBuf, PathBuf)> =
+                items.iter().map(|(a, b)| (b.clone(), a.clone())).collect();
+            let freed: std::collections::HashSet<&PathBuf> =
+                items.iter().map(|(_, to)| to).collect();
             if let Some((from, _)) = items.iter().find(|(from, to)| {
-                std::fs::symlink_metadata(from).is_ok() || std::fs::symlink_metadata(to).is_err()
+                (std::fs::symlink_metadata(from).is_ok() && !freed.contains(from))
+                    || std::fs::symlink_metadata(to).is_err()
             }) {
                 Err(crate::tr!("fm-undo-blocked", name = name_of(from)))
             } else {
-                items
-                    .iter()
-                    .rev()
-                    .try_for_each(|(from, to)| kalem_fs::move_path(to, from))
-                    .map_err(|e| e.to_string())
-                    .map(|()| {
-                        (
-                            items.iter().map(|(from, _)| from.clone()).collect(),
-                            crate::tr!("fm-undone-moved", count = items.len()),
-                        )
-                    })
+                let (done, error) = rename_all(&back);
+                match error {
+                    Some(e) => {
+                        if !done.is_empty() {
+                            // What moved back is done; the rest stays to undo.
+                            let left: Vec<(PathBuf, PathBuf)> = items
+                                .iter()
+                                .filter(|(from, _)| !done.iter().any(|(_, d)| d == from))
+                                .cloned()
+                                .collect();
+                            HISTORY.with(|h| h.borrow_mut().push(Undo::Moved(left)));
+                            return Err(e);
+                        }
+                        Err(e)
+                    }
+                    None => Ok((
+                        items.iter().map(|(from, _)| from.clone()).collect(),
+                        crate::tr!("fm-undone-moved", count = items.len()),
+                    )),
+                }
             }
         }
         Undo::Trashed(paths) => kalem_fs::restore(paths).map(|()| {
@@ -960,6 +993,149 @@ pub fn undo_last() -> Result<(Vec<PathBuf>, String), String> {
         HISTORY.with(|h| h.borrow_mut().push(undo));
     }
     result
+}
+
+/// The names of `doc`'s listing made editable (wdired).
+pub fn edit_names(doc: &mut DocumentState) -> Result<(), String> {
+    let text = doc.text().as_str().to_string();
+    let s = doc
+        .dired
+        .as_deref_mut()
+        .ok_or_else(|| tr("fm-not-listing"))?;
+    if s.dir().is_none() {
+        return Err(tr("fm-not-listing"));
+    }
+    let lines = text
+        .split('\n')
+        .enumerate()
+        .map(|(i, line)| {
+            let path = match s.rows.get(i) {
+                Some(Row::Entry(_)) => s.paths.get(i).cloned().flatten(),
+                _ => None,
+            };
+            match (s.names.get(i), &path) {
+                (Some(r), Some(_)) if r.end <= line.len() => (
+                    line[..r.start].to_string(),
+                    line[r.clone()].to_string(),
+                    line[r.end..].to_string(),
+                    path,
+                ),
+                _ => (line.to_string(), String::new(), String::new(), None),
+            }
+        })
+        .collect();
+    s.wdired = Some(Wdired { lines });
+    Ok(())
+}
+
+/// The renames the edited names ask for, checked: every line kept, no
+/// name empty, no two the same, none onto a file that stays.
+fn planned_renames(w: &Wdired, text: &str) -> Result<Vec<(PathBuf, PathBuf)>, String> {
+    let new: Vec<&str> = text.split('\n').collect();
+    if new.len() != w.lines.len() {
+        return Err(tr("fm-wdired-lines"));
+    }
+    let mut plan = Vec::new();
+    for ((prefix, name, suffix, path), line) in w.lines.iter().zip(&new) {
+        let Some(path) = path else {
+            if prefix != line {
+                return Err(tr("fm-wdired-lines"));
+            }
+            continue;
+        };
+        let middle = line
+            .strip_prefix(prefix.as_str())
+            .and_then(|l| l.strip_suffix(suffix.as_str()))
+            .ok_or_else(|| tr("fm-wdired-lines"))?;
+        if middle == name {
+            continue;
+        }
+        if middle.trim().is_empty() {
+            return Err(crate::tr!("fm-wdired-empty", name = name.as_str()));
+        }
+        let parent = path.parent().unwrap_or(Path::new(""));
+        plan.push((path.clone(), resolve(parent, middle)));
+    }
+    let sources: std::collections::HashSet<&PathBuf> = plan.iter().map(|(s, _)| s).collect();
+    let mut seen = std::collections::HashSet::new();
+    for (_, to) in &plan {
+        if !seen.insert(to) {
+            return Err(crate::tr!("fm-wdired-duplicate", name = name_of(to)));
+        }
+        if std::fs::symlink_metadata(to).is_ok() && !sources.contains(to) {
+            return Err(crate::tr!("fm-exists", name = to.display().to_string()));
+        }
+        if !to.parent().is_some_and(Path::is_dir) {
+            return Err(crate::tr!(
+                "fm-wdired-no-folder",
+                name = to.display().to_string()
+            ));
+        }
+    }
+    Ok(plan)
+}
+
+/// Renames each `from` to its `to` at once: each to a free temporary
+/// name beside it first, so names can swap. What was renamed, and the
+/// first error (its item left or put back where it was).
+fn rename_all(plan: &[(PathBuf, PathBuf)]) -> (Vec<(PathBuf, PathBuf)>, Option<String>) {
+    let mut parked: Vec<(PathBuf, PathBuf)> = Vec::new();
+    for (i, (from, _)) in plan.iter().enumerate() {
+        let tmp = from.with_file_name(format!(".kalem-rename-{}-{i}", std::process::id()));
+        if let Err(e) = kalem_fs::move_path(from, &tmp) {
+            for (tmp, from) in parked.iter().rev() {
+                let _ = kalem_fs::move_path(tmp, from);
+            }
+            return (Vec::new(), Some(e.to_string()));
+        }
+        parked.push((tmp, from.clone()));
+    }
+    let mut done = Vec::new();
+    let mut error = None;
+    for ((tmp, from), (_, to)) in parked.iter().zip(plan) {
+        match kalem_fs::move_path(tmp, to) {
+            Ok(()) => done.push((from.clone(), to.clone())),
+            Err(e) => {
+                let _ = kalem_fs::move_path(tmp, from);
+                error.get_or_insert(e.to_string());
+            }
+        }
+    }
+    (done, error)
+}
+
+/// Applies the edited names of `doc`'s listing: every rename at once
+/// (through temporary names, so names can swap), the listing read again.
+/// Returns how many were renamed.
+pub fn commit_names(doc: &mut DocumentState) -> Result<usize, String> {
+    let text = doc.text().as_str().to_string();
+    let s = doc
+        .dired
+        .as_deref_mut()
+        .ok_or_else(|| tr("fm-not-listing"))?;
+    let w = s.wdired.as_ref().ok_or_else(|| tr("fm-not-listing"))?;
+    let plan = planned_renames(w, &text)?;
+    let (done, error) = rename_all(&plan);
+    let n = done.len();
+    let first = done.first().map(|(_, to)| to.clone());
+    if !done.is_empty() {
+        HISTORY.with(|h| h.borrow_mut().push(Undo::Moved(done)));
+    }
+    s.wdired = None;
+    s.load();
+    doc.show_listing(first.as_deref());
+    match error {
+        Some(e) => Err(e),
+        None => Ok(n),
+    }
+}
+
+/// Leaves editing the names, the listing as it is on disk.
+pub fn abort_names(doc: &mut DocumentState) {
+    if let Some(s) = doc.dired.as_deref_mut() {
+        s.wdired = None;
+    }
+    doc.refresh_listing();
 }
 
 /// The message for what an operation did.
@@ -1006,7 +1182,8 @@ use crate::keys::KeySequence;
 use crate::when::WhenClause;
 use serde_json::Value;
 
-const IN_LISTING: &str = "editorMode == directory";
+const IN_LISTING: &str = "editorMode == directory && !wdired";
+const EDITING_NAMES: &str = "editorMode == directory && wdired";
 
 fn cmd(
     id: &str,
@@ -1723,6 +1900,40 @@ pub(crate) fn commands() -> Vec<Command> {
             |ctx, args| transfer(ctx, args, OpKind::Move),
         ),
         cmd(
+            "dired.editNames",
+            "Edit Names",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                edit_names(doc).map_err(CommandError::new)?;
+                ctx.messages.push(tr("fm-wdired-help"));
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.commitNames",
+            "Apply Edited Names",
+            &[],
+            Some(EDITING_NAMES),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let n = commit_names(doc).map_err(CommandError::new)?;
+                ctx.messages.push(crate::tr!("fm-renamed", count = n));
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.abortNames",
+            "Discard Edited Names",
+            &[],
+            Some(EDITING_NAMES),
+            |ctx, _| {
+                abort_names(listing(ctx)?);
+                Ok(())
+            },
+        ),
+        cmd(
             "dired.undo",
             "Undo File Operation",
             &[],
@@ -2107,6 +2318,69 @@ mod tests {
         goto(&mut doc, "sub/");
         run(&mut doc, "dired.open", json!({})).0.unwrap();
         assert!(state(&doc).subdirs.is_empty());
+    }
+
+    /// Replaces `old` in the listing's text with `new`, as typing would.
+    fn edit(doc: &mut DocumentState, old: &str, new: &str) {
+        let at = doc.text().as_str().find(old).expect("in the listing");
+        let mut tx = org_edit::Transaction::new("Edit");
+        tx.replace(at..at + old.len(), new).unwrap();
+        doc.apply(&tx, org_edit::ChangeKind::Typing, std::time::Instant::now());
+    }
+
+    #[test]
+    fn editable_names() {
+        let d = tree("wdired", &["a.txt", "b.txt", "c.txt", "dir/"]);
+        let mut doc = DocumentState::open(
+            &d,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        // A listing ignores edits until its names are made editable.
+        edit(&mut doc, "a.txt", "zzz");
+        assert!(doc.text().as_str().contains("a.txt"));
+        run(&mut doc, "dired.editNames", json!({})).0.unwrap();
+        assert!(doc.when_context().get("wdired").is_some());
+        // The file manager's keys are text now.
+        let reg = CommandRegistry::with_builtins();
+        let applies = |doc: &DocumentState, id: &str| {
+            reg.get(id)
+                .unwrap()
+                .when
+                .as_ref()
+                .is_none_or(|w| w.eval(&doc.when_context()))
+        };
+        assert!(!applies(&doc, "dired.mark") && applies(&doc, "dired.commitNames"));
+        // A swap, a rename and a move into a folder, at once.
+        edit(&mut doc, "a.txt", "b.txt#");
+        edit(&mut doc, " b.txt\n", " a.txt\n");
+        edit(&mut doc, "b.txt#", "b.txt");
+        edit(&mut doc, "c.txt", "dir/c2.txt");
+        std::fs::write(d.join("a.txt"), "A").unwrap();
+        std::fs::write(d.join("b.txt"), "B").unwrap();
+        run(&mut doc, "dired.commitNames", json!({})).0.unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "B");
+        assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "A");
+        assert!(d.join("dir/c2.txt").is_file() && !d.join("c.txt").exists());
+        assert!(state(&doc).wdired.is_none() && !doc.is_modified());
+        // Undo takes them all back.
+        run(&mut doc, "dired.undo", json!({})).0.unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "A");
+        assert!(d.join("c.txt").is_file());
+        // Refused before anything changes: two the same, an empty name,
+        // a line removed; the edit stays to fix.
+        for (old, new) in [("a.txt", "b.txt"), ("a.txt", ""), (" a.txt\n", "")] {
+            doc.refresh_listing();
+            run(&mut doc, "dired.editNames", json!({})).0.unwrap();
+            edit(&mut doc, old, new);
+            assert!(run(&mut doc, "dired.commitNames", json!({})).0.is_err());
+            assert!(state(&doc).wdired.is_some());
+            assert!(d.join("a.txt").is_file() && d.join("b.txt").is_file());
+            run(&mut doc, "dired.abortNames", json!({})).0.unwrap();
+            assert!(doc.text().as_str().contains(" a.txt\n"));
+        }
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

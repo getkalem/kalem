@@ -2750,3 +2750,43 @@ fn latex_tables_as_grids() {
     assert_eq!(t.app.doc.selection.head, text.find("Qty").unwrap());
     assert_eq!(t.text(), text);
 }
+
+#[test]
+fn file_manager_editable_names() {
+    let (mut t, dir) = project_app(Config::default());
+    t.key(
+        KeyCode::Char('d'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    assert!(cursor_line(&t).ends_with(" a.org"), "{}", cursor_line(&t));
+    // `e` makes the names text; typing edits them, Ctrl+S renames.
+    t.typ("e");
+    t.key(KeyCode::End, KeyModifiers::NONE);
+    for _ in 0.."a.org".len() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("renamed.org");
+    assert!(
+        cursor_line(&t).ends_with(" renamed.org"),
+        "{}",
+        cursor_line(&t)
+    );
+    t.key(KeyCode::Char('s'), KeyModifiers::CONTROL);
+    assert!(dir.join("proj/renamed.org").is_file() && !dir.join("proj/a.org").exists());
+    assert!(
+        status(&mut t).contains("Renamed 1 item"),
+        "{}",
+        status(&mut t)
+    );
+    // Letters are the file manager's keys again; Escape discards an edit.
+    t.typ("e");
+    t.typ("x");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(
+        cursor_line(&t).ends_with(" renamed.org"),
+        "{}",
+        cursor_line(&t)
+    );
+    assert!(dir.join("proj/renamed.org").is_file());
+    assert!(!t.app.doc.is_modified());
+}

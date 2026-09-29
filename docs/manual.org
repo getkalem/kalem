@@ -597,6 +597,7 @@ Commands act on the marked entries, or on the one at the cursor.
 | =D=, Delete         | Move to the trash (asks first)                        |
 | =S=, =M=, =T=       | Symbolic link, permissions, touch                     |
 | Ctrl+Z              | Undo the last rename, move or move to the trash       |
+| =e=                 | Edit the names as text; Ctrl+S renames, Escape stops  |
 | =w=                 | Copy the names                                        |
 | =q=                 | Close the file manager                                |
 
@@ -607,6 +608,15 @@ destination, Kalem asks: overwrite, skip, or keep both (the new one becomes
 =name (2).ext=), for that file or for all that are left. Ctrl+Z takes
 back the renames, moves and moves to the trash done in this session, the
 last first; it refuses when a file has been put in the way.
+
+=e= makes the names editable, as Emacs's wdired does: change them with
+any editing command (a name with a folder in it, such as =old/a.txt=,
+moves the file there), then Ctrl+S renames them all at
+once, names that swap included, and Escape leaves them as they were.
+Nothing changes when a name is empty, two files would get the same name,
+a name is taken by a file that stays, or a line was added, removed or
+changed outside its name; the edit stays to fix. Ctrl+Z undoes the whole
+set of renames.
 
 With Vim keys the file manager's keys come first, except =n=, =p=, =w= and
 Backspace, which Vim keeps; =g r= reads the folder again, =g g= goes to the
