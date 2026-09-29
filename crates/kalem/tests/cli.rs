@@ -354,3 +354,23 @@ fn latex_build() {
     assert_eq!(first["severity"], "error");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn fmt_latex() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-fmt-tex-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("a.tex");
+    std::fs::write(&f, "\\begin{itemize}\n  \\item a   \n\\item b\n\\end{itemize}\n\n\n\nx\n").unwrap();
+    let path = f.to_str().unwrap();
+    let (code, out, _) = kalem(&["fmt", "--check", path]);
+    assert_eq!((code, out.trim()), (1, path));
+    let (code, _, _) = kalem(&["fmt", path]);
+    assert_eq!(code, 0);
+    assert_eq!(
+        std::fs::read_to_string(&f).unwrap(),
+        "\\begin{itemize}\n  \\item a\n  \\item b\n\\end{itemize}\n\nx\n"
+    );
+    let (code, _, _) = kalem(&["fmt", "--check", path]);
+    assert_eq!(code, 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}

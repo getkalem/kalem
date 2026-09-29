@@ -157,6 +157,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX editing: Enter continues `\item`s and leaves a list on an empty one, Tab and Shift+Tab nest and unnest items, `\begin{…}` typed gets its `\end{…}`, renaming one end of an environment renames the other, Ctrl+B/I/U and Ctrl+Shift+K toggle `\textbf`, `\emph`, `\underline` and `\texttt`, Ctrl+1 to Ctrl+6 set the heading level with the class's commands, sections promoted, demoted and moved with their subsections (Alt+Shift+arrows), in both editors.
 - LaTeX completion: commands (and the document's macros) with their argument braces, environments completed with their `\end`, citation keys from the bibliography matched fuzzily with the entry beside them, labels with what they number, files for `\input` and `\includegraphics`, packages for `\usepackage`, in both editors.
 - LaTeX math editing and inserts: `$` paired and stepped over, `\(`, `\[` and `\left(` closed, Tab to the next empty argument in math, Display Math and Number Equation; Insert Figure, Insert Table (booktabs when loaded), Insert Equation and Insert Citation (picker over the bibliography), in both editors.
+- `kalem fmt FILE.tex [--check] [--align]`: environments indented by depth with the document's own step (documents that do not indent are left), runs of blank lines made one, trailing blanks removed, verbatim untouched, `&` of tables and alignments lined up with `--align`; idempotent.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

@@ -10,14 +10,20 @@ use super::Result;
 /// `kalem fmt`: tables and tags aligned, blank lines as each document has
 /// them (`org_edit::format`); with `check`, only lists the files that
 /// would change and fails if there are any.
-pub(crate) fn fmt(files: &[PathBuf], check: bool) -> Result<ExitCode> {
+pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCode> {
     let mut out = std::io::stdout().lock();
     let mut changed = 0;
     for path in files {
         let (text, meta, _) =
             kalem_core::files::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let doc = org_model::Document::new(org_syntax::parse(&text));
-        let formatted = org_edit::format::format(&doc);
+        let latex = path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("tex") || e.eq_ignore_ascii_case("ltx"));
+        let formatted = if latex {
+            kalem_core::latex_fmt::format(&text, align)
+        } else {
+            org_edit::format::format(&org_model::Document::new(org_syntax::parse(&text)))
+        };
         if formatted == text {
             continue;
         }
