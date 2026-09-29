@@ -19,6 +19,7 @@
 //! what they said.
 
 mod extract;
+pub mod project;
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -35,6 +36,9 @@ pub struct DocumentClass {
     pub options: Vec<String>,
     /// The `\documentclass` command.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A package loaded.
@@ -46,6 +50,9 @@ pub struct Package {
     pub options: Vec<String>,
     /// The `\usepackage` command.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A sectioning command.
@@ -68,6 +75,9 @@ pub struct Section {
     pub range: Range<usize>,
     /// The section it is in.
     pub parent: Option<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// What a label points at.
@@ -98,6 +108,9 @@ pub struct Label {
     pub number: Option<String>,
     /// What it points at.
     pub target: Target,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A reference: `\ref`, `\eqref`, `\cref`, ….
@@ -109,6 +122,9 @@ pub struct Reference {
     pub keys: Vec<String>,
     /// The command.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A citation: `\cite` and its kin.
@@ -122,6 +138,9 @@ pub struct Citation {
     pub notes: Vec<String>,
     /// The command.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A caption.
@@ -135,6 +154,9 @@ pub struct Caption {
     pub number: Option<String>,
     /// The command.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A float: `figure`, `table` and their starred forms.
@@ -148,6 +170,9 @@ pub struct Float {
     pub range: Range<usize>,
     /// Its captions.
     pub captions: Vec<Caption>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// An equation: a numbered environment, or a line of one of the
@@ -162,6 +187,9 @@ pub struct Equation {
     pub number: Option<String>,
     /// The number is a `\tag`.
     pub tag: bool,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A theorem-like environment declared by `\newtheorem`.
@@ -190,6 +218,9 @@ pub struct Theorem {
     pub number: Option<String>,
     /// The environment's range.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A footnote.
@@ -199,6 +230,9 @@ pub struct Footnote {
     pub number: String,
     /// The command.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A macro defined: `\newcommand`, `\renewcommand`, `\providecommand`,
@@ -217,6 +251,9 @@ pub struct Macro {
     pub body: String,
     /// The defining command's range.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// An environment defined by `\newenvironment` or `\renewenvironment`.
@@ -234,6 +271,9 @@ pub struct NewEnvironment {
     pub end: String,
     /// The defining command's range.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
 }
 
 /// A bibliography source: `\bibliography{a,b}` or `\addbibresource`.
@@ -245,6 +285,26 @@ pub struct BibliographySource {
     pub files: Vec<String>,
     /// The command.
     pub range: Range<usize>,
+    /// The file it is in: 0 for the document, an index into
+    /// [`Model::files`] for the files it includes.
+    pub file: usize,
+}
+
+/// An `\input`, `\include`, `\subfile`, `\import` or `\subimport`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Include {
+    /// The command's name.
+    pub command: String,
+    /// The file as written (`\import`'s folder and file joined).
+    pub target: String,
+    /// The command.
+    pub range: std::ops::Range<usize>,
+    /// The file it is in.
+    pub file: usize,
+    /// The file it includes, in [`Model::files`], when found.
+    pub resolved: Option<usize>,
+    /// Left out by `\includeonly`.
+    pub excluded: bool,
 }
 
 /// The model of a LaTeX document.
@@ -284,6 +344,15 @@ pub struct Model {
     pub bibliography: Vec<BibliographySource>,
     /// `\bibliographystyle`.
     pub bibliography_style: Option<String>,
+    /// The files included, in order.
+    pub includes: Vec<Include>,
+    /// `\includeonly`.
+    pub include_only: Option<Vec<String>>,
+    /// `\graphicspath`.
+    pub graphics_paths: Vec<String>,
+    /// The files of a project: the root document first, then the files it
+    /// includes, which the `file` fields index (empty for one file).
+    pub files: Vec<std::path::PathBuf>,
 }
 
 impl Model {
@@ -326,12 +395,23 @@ impl Cache {
         let root = parse.syntax();
         let items = self.events.document(&root);
         let len = usize::from(root.text_range().end());
-        let mut n = Numbering::new(len);
-        n.run(&items, 0);
-        let m = Arc::new(n.finish());
+        let m = Arc::new(number(&items, len, None));
         self.last = Some((parse.green().clone(), m.clone()));
         m
     }
+}
+
+/// Numbers the events of a document, reading included files through
+/// `resolver`.
+pub(crate) fn number<'r>(
+    items: &[Item],
+    len: usize,
+    resolver: Option<&'r mut Resolver<'r>>,
+) -> Model {
+    let mut n = Numbering::new(len);
+    n.resolver = resolver;
+    n.run(items, 0);
+    n.finish()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -414,9 +494,21 @@ struct EqEnv {
     lines: usize,
 }
 
+/// Finds an included file: from the file being read, the command and its
+/// arguments, the file's index and what it says.
+pub(crate) type Resolver<'r> =
+    dyn FnMut(usize, &str, &[String]) -> Option<(usize, Arc<Vec<Item>>)> + 'r;
+
 /// Numbering over the events, in order.
-#[derive(Debug)]
-struct Numbering {
+struct Numbering<'r> {
+    resolver: Option<&'r mut Resolver<'r>>,
+    /// The files being read, innermost last (for cycles).
+    active: Vec<usize>,
+    /// In a file included by `\subfile`, outside its `document`
+    /// environment: skipped, as the subfiles package skips it.
+    skipping: bool,
+    /// How deep in `document` environments of subfiles.
+    subfile_document: Option<usize>,
     model: Model,
     class: ClassKind,
     secnumdepth: Option<i64>,
@@ -432,12 +524,18 @@ struct Numbering {
     floats: Vec<usize>,
     sub_captions: i64,
     saved: Vec<(Option<String>, Target)>,
+    /// The file being read.
+    file: usize,
     len: usize,
 }
 
-impl Numbering {
-    fn new(len: usize) -> Numbering {
+impl<'r> Numbering<'r> {
+    fn new(len: usize) -> Numbering<'r> {
         Numbering {
+            resolver: None,
+            active: vec![0],
+            skipping: false,
+            subfile_document: None,
             model: Model {
                 preamble: 0..len,
                 ..Model::default()
@@ -456,6 +554,7 @@ impl Numbering {
             floats: Vec::new(),
             sub_captions: 0,
             saved: Vec::new(),
+            file: 0,
             len,
         }
     }
@@ -533,6 +632,33 @@ impl Numbering {
 
     fn event(&mut self, e: &Event, base: usize) {
         let at = |r: &Range<usize>| r.start + base..r.end + base;
+        if self.skipping {
+            if let Event::EnvEnter { name, .. } = e
+                && name == "document"
+            {
+                self.skipping = false;
+                self.subfile_document = Some(self.envs.len());
+                self.envs.push(name.clone());
+                self.saved.push(self.current.clone());
+            }
+            return;
+        }
+        if self.file != 0 {
+            match e {
+                // An included file's class and document are the root's.
+                Event::Class { .. } => return,
+                Event::EnvExit
+                    if self.subfile_document == Some(self.envs.len().saturating_sub(1)) =>
+                {
+                    self.envs.pop();
+                    self.saved.pop();
+                    self.subfile_document = None;
+                    self.skipping = true;
+                    return;
+                }
+                _ => {}
+            }
+        }
         match e {
             Event::Class {
                 name,
@@ -544,6 +670,7 @@ impl Numbering {
                     name: name.clone(),
                     options: options.clone(),
                     range: at(range),
+                    file: self.file,
                 });
             }
             Event::Package {
@@ -554,6 +681,7 @@ impl Numbering {
                 name: name.clone(),
                 options: options.clone(),
                 range: at(range),
+                file: self.file,
             }),
             Event::Section {
                 level,
@@ -593,6 +721,7 @@ impl Numbering {
                     short: short.clone(),
                     number,
                     range: at(range),
+                    file: self.file,
                     parent,
                 });
             }
@@ -614,6 +743,7 @@ impl Numbering {
                 self.model.labels.push(Label {
                     name: name.clone(),
                     range: at(range),
+                    file: self.file,
                     number,
                     target,
                 });
@@ -629,6 +759,7 @@ impl Numbering {
                 command: command.clone(),
                 keys: keys.clone(),
                 range: at(range),
+                file: self.file,
             }),
             Event::Cite {
                 command,
@@ -640,6 +771,7 @@ impl Numbering {
                 keys: keys.clone(),
                 notes: notes.clone(),
                 range: at(range),
+                file: self.file,
             }),
             Event::Caption { text, short, range } => {
                 let env = self
@@ -670,6 +802,7 @@ impl Numbering {
                     short: short.clone(),
                     number,
                     range: at(range),
+                    file: self.file,
                 };
                 if let Some(&f) = self.floats.last() {
                     self.model.floats[f].captions.push(caption);
@@ -688,6 +821,7 @@ impl Numbering {
                 self.model.footnotes.push(Footnote {
                     number,
                     range: at(range),
+                    file: self.file,
                 });
             }
             Event::Macro {
@@ -704,6 +838,7 @@ impl Numbering {
                 default: default.clone(),
                 body: body.clone(),
                 range: at(range),
+                file: self.file,
             }),
             Event::NewEnvironment {
                 name,
@@ -719,6 +854,7 @@ impl Numbering {
                 begin: begin.clone(),
                 end: end.clone(),
                 range: at(range),
+                file: self.file,
             }),
             Event::TheoremDef {
                 env,
@@ -746,6 +882,7 @@ impl Numbering {
                 command: command.clone(),
                 files: files.clone(),
                 range: at(range),
+                file: self.file,
             }),
             Event::BibliographyStyle(s) => self.model.bibliography_style = Some(s.clone()),
             Event::SetCounter {
@@ -781,6 +918,13 @@ impl Numbering {
                 }
             }
             Event::EnvExit => self.exit(),
+            Event::Include {
+                command,
+                args,
+                range,
+            } => self.include(command, args, at(range)),
+            Event::IncludeOnly(files) => self.model.include_only = Some(files.clone()),
+            Event::GraphicsPath(dirs) => self.model.graphics_paths.extend(dirs.iter().cloned()),
             Event::LineBreak { at: pos } => {
                 if self
                     .eq
@@ -803,6 +947,43 @@ impl Numbering {
         }
     }
 
+    fn include(&mut self, command: &str, args: &[String], range: Range<usize>) {
+        let target = args.concat();
+        let excluded = command == "include"
+            && self
+                .model
+                .include_only
+                .as_ref()
+                .is_some_and(|only| !only.contains(&target));
+        let from = self.file;
+        let found = match self.resolver.as_mut() {
+            Some(r) if self.active.len() < 32 => r(from, command, args),
+            _ => None,
+        };
+        let found = found.filter(|(id, _)| !self.active.contains(id));
+        self.model.includes.push(Include {
+            command: command.to_string(),
+            target,
+            range,
+            file: from,
+            resolved: found.as_ref().map(|(id, _)| *id),
+            excluded,
+        });
+        let Some((id, items)) = found else { return };
+        // Read in place, numbered with the rest (an excluded `\include`
+        // keeps its numbers too: LaTeX reads them from its `.aux`).
+        let (skipping, subfile_document) = (self.skipping, self.subfile_document);
+        self.skipping = command == "subfile";
+        self.subfile_document = None;
+        self.active.push(id);
+        self.file = id;
+        self.run(&items, 0);
+        self.active.pop();
+        self.file = from;
+        self.skipping = skipping;
+        self.subfile_document = subfile_document;
+    }
+
     fn enter(
         &mut self,
         name: &str,
@@ -814,7 +995,7 @@ impl Numbering {
         // An environment is a group: what `\label` would point at is
         // restored at its end.
         self.saved.push(self.current.clone());
-        if name == "document" {
+        if name == "document" && self.file == 0 {
             self.model.preamble = 0..range.start;
             self.model.body = Some(body.clone());
         }
@@ -828,6 +1009,7 @@ impl Numbering {
                 env: name.to_string(),
                 range: range.clone(),
                 captions: Vec::new(),
+                file: self.file,
             });
         }
         if name == "subequations" {
@@ -874,6 +1056,7 @@ impl Numbering {
                 note: note.clone(),
                 number,
                 range,
+                file: self.file,
             });
         }
     }
@@ -936,6 +1119,7 @@ impl Numbering {
             range,
             number,
             tag: is_tag,
+            file: self.file,
         });
     }
 }

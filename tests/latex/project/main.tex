@@ -1,0 +1,16 @@
+\documentclass{report}
+\usepackage{amsmath}
+\usepackage{import}
+\usepackage{graphicx}
+\usepackage{subfiles}
+\graphicspath{{figs/}{images/}}
+
+\begin{document}
+\chapter{Start}\label{ch:start}
+\input{chapters/one}
+\include{chapters/two}
+\include{chapters/three}
+\subfile{parts/sub}
+\import{parts/}{imported}
+See \ref{sec:one}, \ref{eq:two} and \cite{knuth}.
+\end{document}

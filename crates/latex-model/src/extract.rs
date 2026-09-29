@@ -111,6 +111,13 @@ pub(crate) enum Event {
         note: Option<String>,
     },
     FootnoteEnd,
+    Include {
+        command: String,
+        args: Vec<String>,
+        range: Range<usize>,
+    },
+    IncludeOnly(Vec<String>),
+    GraphicsPath(Vec<String>),
     EnvExit,
     LineBreak {
         at: usize,
@@ -499,6 +506,32 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                     within: (name != "counterwithout").then(|| w.trim().to_string()),
                 });
             }
+        }
+        "input" | "include" | "subfile" | "import" | "subimport" => {
+            if !m.is_empty() {
+                push(Event::Include {
+                    command: name.clone(),
+                    args: m.iter().map(|s| s.trim().to_string()).collect(),
+                    range,
+                });
+            }
+        }
+        "includeonly" => push(Event::IncludeOnly(
+            m.first().map(|s| list(s)).unwrap_or_default(),
+        )),
+        "graphicspath" => {
+            // `{{a/}{b/}}`: the folders in braces.
+            let dirs = m
+                .first()
+                .map(|s| {
+                    s.split(['{', '}'])
+                        .map(str::trim)
+                        .filter(|d| !d.is_empty())
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default();
+            push(Event::GraphicsPath(dirs));
         }
         "\\" => push(Event::LineBreak { at: range.start }),
         "nonumber" | "notag" => push(Event::NoNumber),
