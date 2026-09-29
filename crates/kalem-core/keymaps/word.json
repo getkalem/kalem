@@ -87,6 +87,8 @@
   { "keys": "delete", "command": "dired.delete" },
   { "keys": "ctrl+z", "command": "dired.undo" },
   { "keys": "e", "command": "dired.editNames" },
+  { "keys": "% f", "command": "dired.findName" },
+  { "keys": "shift+a", "command": "dired.searchFiles" },
   { "keys": "ctrl+s", "command": "dired.commitNames" },
   { "keys": "escape", "command": "dired.abortNames" },
   { "keys": "shift+s", "command": "dired.symlink" },

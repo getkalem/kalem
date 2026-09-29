@@ -170,6 +170,23 @@ impl Editor {
             self.message(tr!("msg-no-project"), true);
             return;
         };
+        self.open_search_project(project, cx);
+    }
+
+    /// Opens the search of the files under `dir`: the project's when it is
+    /// one (with its ignore rules), else the folder's.
+    pub fn open_search_in(&mut self, dir: &std::path::Path, cx: &mut Context<'_, Self>) {
+        let project = self.shared.projects.borrow().list.get(dir).cloned();
+        let project =
+            project.unwrap_or_else(|| kalem_core::projects::Project::new(dir.to_path_buf()));
+        self.open_search_project(project, cx);
+    }
+
+    fn open_search_project(
+        &mut self,
+        project: kalem_core::projects::Project,
+        cx: &mut Context<'_, Self>,
+    ) {
         let text = self
             .doc
             .selected_text()

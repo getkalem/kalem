@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use kalem_project::{FileIndex, Project, Projects};
+use kalem_project::{FileIndex, Projects};
 
 pub use kalem_project::list::normal;
-pub use kalem_project::{Hit, Query};
+pub use kalem_project::{Hit, Project, Query};
 
 use crate::command::PickKind;
 use crate::palette::PaletteItem;

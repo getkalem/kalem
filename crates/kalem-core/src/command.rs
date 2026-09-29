@@ -112,6 +112,8 @@ pub enum Request {
     Pick(PickKind),
     /// Search the text of the project's files.
     SearchProject,
+    /// Search the text of the files under a folder.
+    SearchIn(std::path::PathBuf),
     /// Show or hide the list of open files.
     OpenFiles,
     /// Change the project list, or act on the project's documents.

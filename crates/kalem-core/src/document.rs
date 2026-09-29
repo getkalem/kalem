@@ -328,6 +328,7 @@ impl DocumentState {
         }
         s.place = place;
         s.filter.clear();
+        s.find = None;
         s.subdirs.clear();
         s.load();
         // A new place starts at its first entry.

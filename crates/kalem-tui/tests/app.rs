@@ -2790,3 +2790,35 @@ fn file_manager_editable_names() {
     assert!(dir.join("proj/renamed.org").is_file());
     assert!(!t.app.doc.is_modified());
 }
+
+#[test]
+fn file_manager_find_and_search() {
+    let (mut t, dir) = project_app(Config::default());
+    t.key(
+        KeyCode::Char('d'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    // Find by name: every `.org` under the folder, by its path.
+    t.app
+        .run_command("dired.findName", serde_json::json!({ "pattern": "*.org" }));
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        rows.contains("sub/b.org") && rows.contains("2 found"),
+        "{rows}"
+    );
+    // `^` shows the folder again.
+    t.typ("^");
+    assert!(!screen(&mut t).join("\n").contains("sub/b.org"));
+    // `A` searches the text of the folder's files; Enter opens the match.
+    t.typ("A");
+    t.typ("needle");
+    settle(&mut t);
+    let rows = screen(&mut t);
+    assert!(
+        rows.iter().any(|r| r.contains("the needle here")),
+        "{rows:?}"
+    );
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(title(&t), "b.org");
+    let _ = dir;
+}

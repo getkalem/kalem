@@ -2581,3 +2581,40 @@ fn file_manager_editable_names(cx: &mut TestAppContext) {
     assert!(cursor_line(&ws, cx).ends_with(" new-a.org"));
     assert!(dir.join("proj/new-a.org").is_file());
 }
+
+#[gpui::test]
+fn file_manager_find_and_search(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(false, cx);
+    let p = primary();
+    cx.simulate_keystrokes(&format!("{p}-alt-d"));
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "dired.findName",
+            serde_json::json!({ "pattern": "*.org" }),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let text = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).doc.text().as_str().to_string()
+    });
+    let sep = std::path::MAIN_SEPARATOR;
+    assert!(text.contains(&format!("sub{sep}b.org")), "{text}");
+    // `A` searches the text of the folder's files.
+    cx.simulate_keystrokes("^ shift-a");
+    cx.simulate_input("needle");
+    settle_picker(&ws, cx);
+    let hits = ws.read_with(cx, |ws, cx| {
+        ws.editor
+            .read(cx)
+            .palette
+            .as_ref()
+            .and_then(|p| p.search.as_ref())
+            .map_or(0, |s| s.hits.len())
+    });
+    assert_eq!(hits, 1);
+    cx.simulate_keystrokes("enter");
+    assert_eq!(active_title(&ws, cx), "b.org");
+}
