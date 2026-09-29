@@ -692,6 +692,16 @@ impl CommandRegistry {
         self.commands.get(id)
     }
 
+    /// Whether command `id` is offered for a document with context `doc`
+    /// (`DocumentState::document_context`): its when-clause, which takes in
+    /// its scope, can hold there, whatever the cursor is on. Menus and
+    /// toolbars leave out the commands that are not; an unknown command is
+    /// not.
+    pub fn offered(&self, id: &str, doc: &crate::when::Context) -> bool {
+        self.get(id)
+            .is_some_and(|c| c.when.as_ref().is_none_or(|w| w.possible(doc)))
+    }
+
     /// Every command, by ID.
     pub fn commands(&self) -> impl Iterator<Item = &Command> {
         self.commands.values()

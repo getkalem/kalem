@@ -1287,6 +1287,36 @@ impl DocumentState {
         self.org.as_ref().and_then(|o| o.last_level)
     }
 
+    /// The type of the document as a whole, wherever the cursor is: `klm`
+    /// or `org` as the file is, a plain text file's language (lower case)
+    /// or `text`, `markdown`, `latex`, `csv`, `directory`. Menus and
+    /// toolbars show the commands that serve it.
+    pub fn document_type(&self) -> String {
+        match &self.meta.mode {
+            DocumentMode::Org => crate::kinds::file_kind(self).unwrap_or("org").to_string(),
+            DocumentMode::Text { language: Some(l) } => l.to_lowercase(),
+            m => m.name().to_string(),
+        }
+    }
+
+    /// The when-clause keys that hold for the whole document, wherever the
+    /// cursor is: `editorMode`, `fileKind`, `editorLanguage`, and
+    /// `textType` as `document_type`. Menus and toolbars offer the
+    /// commands whose when-clause can hold with these
+    /// (`CommandRegistry::offered`).
+    pub fn document_context(&self) -> Context {
+        let mut c = Context::default();
+        c.set("editorMode", Value::Str(self.meta.mode.name().into()));
+        if let Some(kind) = crate::kinds::file_kind(self) {
+            c.set("fileKind", Value::Str(kind.into()));
+        }
+        if let DocumentMode::Text { language: Some(l) } = &self.meta.mode {
+            c.set("editorLanguage", Value::Str(l.clone()));
+        }
+        c.set("textType", Value::Str(self.document_type()));
+        c
+    }
+
     /// The type of the text at the cursor (§11.2), innermost first: in an
     /// Org document the language of the source block the cursor is in
     /// (lower case), an export block's back-end, `latex` in a formula, else
