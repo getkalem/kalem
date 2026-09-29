@@ -675,3 +675,17 @@ msg-latex-built = Oluşturuldu: { $path }{ $count ->
     [0] {""}
    *[other] {" "}({ $count } LaTeX uyarısı)
 }
+msg-not-latex = LaTeX belgesi değil
+msg-latex-not-here = Burada olmaz: imleci bir bölüm komutuna ya da liste öğesine koyun
+cmd-latex-enter = Yeni Satır ya da Öğe
+cmd-latex-list-indent = Öğeyi İçeri Al
+cmd-latex-list-outdent = Öğeyi Dışarı Al
+cmd-latex-format-bold = Kalın
+cmd-latex-format-italic = Vurgu
+cmd-latex-format-code = Daktilo
+cmd-latex-format-underline = Altı Çizili
+cmd-latex-section-setLevel = Başlık Düzeyi
+cmd-latex-section-promote = Bölümü Yükselt
+cmd-latex-section-demote = Bölümü Alçalt
+cmd-latex-section-moveUp = Bölümü Yukarı Taşı
+cmd-latex-section-moveDown = Bölümü Aşağı Taşı

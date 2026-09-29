@@ -796,8 +796,23 @@ impl DocumentState {
         let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
         let mut tx = Transaction::new("Typing");
         tx.replace(a..b, text).expect("one edit");
-        let tx = tx.select(Selection::caret(a + text.len()));
+        // In an environment's name: the other end too (T2.7h.15).
+        let mut caret = a + text.len();
+        if let Some(m) = self.latex_mirror(a..b) {
+            let _ = tx.replace(m.clone(), text);
+            if m.start < a {
+                caret = (caret as isize + text.len() as isize - m.len() as isize) as usize;
+            }
+        }
+        let tx = tx.select(Selection::caret(caret));
         self.apply(&tx, ChangeKind::Typing, now);
+    }
+
+    /// For an edit of `range` in the name of a closed environment of a
+    /// LaTeX document: the same place at its other end.
+    fn latex_mirror(&self, range: std::ops::Range<usize>) -> Option<std::ops::Range<usize>> {
+        let l = self.latex.as_ref()?;
+        crate::latex_edit::mirror(&l.parse().syntax(), range)
     }
 
     /// The start of the grapheme before `pos` (a CR LF pair is one).
@@ -867,6 +882,21 @@ impl DocumentState {
     pub fn type_text(&mut self, text: &str, blank_field: bool, now: Instant) {
         if !self.extra.is_empty() {
             self.insert_text(text, now);
+            return;
+        }
+        // LaTeX: `\begin{name}` typed gets its `\end{name}`.
+        if self.latex.is_some() {
+            self.insert_text(text, now);
+            if text == "}"
+                && let Some(l) = &self.latex
+                && let Some(tx) = crate::latex_edit::complete_begin(
+                    self.text.as_str(),
+                    self.selection.head,
+                    l.parse(),
+                )
+            {
+                self.apply(&tx, ChangeKind::Typing, now);
+            }
             return;
         }
         let s = self.selection;
@@ -1036,10 +1066,19 @@ impl DocumentState {
             .map(|r| r.end.min(start).saturating_sub(r.start))
             .sum();
         let mut tx = Transaction::new("Delete");
+        let mut caret = start - before;
+        if let [one] = parts.as_slice()
+            && let Some(m) = self.latex_mirror(one.clone())
+        {
+            let _ = tx.replace(m.clone(), "");
+            if m.start < one.start {
+                caret -= m.len();
+            }
+        }
         for r in parts {
             tx.replace(r, "").expect("separate ranges");
         }
-        let tx = tx.select(Selection::caret(start - before));
+        let tx = tx.select(Selection::caret(caret));
         self.apply(&tx, ChangeKind::Typing, now);
     }
 

@@ -798,6 +798,17 @@ are numbered as one: the root document comes from a =% !TEX root= line,
 the main file of a subfile, a =NAME.tex.latexmain= file, or the document
 up the folders that includes the file.
 
+Enter on a list item starts the next =\item= (on an empty one, it leaves
+the list); Tab and Shift+Tab nest an item under the one before it and
+take it out again. Typing =\begin{name}= adds =\end{name}=, and renaming
+one end of an environment renames the other. Ctrl+B, Ctrl+I, Ctrl+U and
+Ctrl+Shift+K put =\textbf=, =\emph=, =\underline= and =\texttt= around
+the selection or the word, or take them off. Ctrl+1 to Ctrl+6 make the
+line a heading of that level with the class's commands (=\chapter= first
+in books and reports, =\section= in articles), Ctrl+0 makes it text
+again, and Alt+Shift+Left and Right promote and demote a section with
+its subsections, Alt+Shift+Up and Down move it past its neighbor.
+
 /Build PDF/ (F5) builds the project's root document in the background
 with =latexmk= (or the engine alone, with =biber= or =bibtex= between
 its runs): pdfLaTeX, or the engine a =% !TEX program = xelatex= line or
