@@ -1,6 +1,8 @@
 //! LaTeX through pandoc (T2.7h.26): HTML, Markdown and Word for
 //! co-authors, and a one-way conversion to Org. Skipped without pandoc.
 
+#![allow(clippy::print_stderr)]
+
 use std::sync::Arc;
 
 #[test]
