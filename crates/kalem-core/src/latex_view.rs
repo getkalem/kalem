@@ -28,9 +28,14 @@ pub struct LatexState {
     parse: latex_syntax::Parse,
     models: RefCell<latex_model::Cache>,
     titles: RefCell<Option<(latex_syntax::GreenNode, Titles)>>,
+    /// The text between `\iffalse` and its `\fi`, for the parse.
+    skipped: RefCell<Option<(latex_syntax::GreenNode, Spans)>>,
     /// The labels of the items of each list, by its green node.
     lists: RefCell<std::collections::HashMap<usize, (latex_syntax::GreenNode, Arc<Items>)>>,
 }
+
+/// Ranges of the source.
+type Spans = Arc<Vec<Range<usize>>>;
 
 /// Where each `\item` of a list starts and what it shows.
 type Items = Vec<(usize, String)>;
@@ -42,6 +47,7 @@ impl LatexState {
             parse: latex_syntax::parse(text),
             models: RefCell::new(latex_model::Cache::default()),
             titles: RefCell::new(None),
+            skipped: RefCell::new(None),
             lists: RefCell::new(std::collections::HashMap::new()),
         }
     }
@@ -84,6 +90,41 @@ impl LatexState {
             lists.clear();
         }
         lists.insert(key, (green.to_owned(), v.clone()));
+        v
+    }
+
+    /// The text between each `\iffalse` and its `\fi` (other `\if…`
+    /// commands between them nest).
+    fn skipped(&self) -> Spans {
+        let mut sk = self.skipped.borrow_mut();
+        if let Some((g, v)) = &*sk
+            && g == self.parse.green()
+        {
+            return v.clone();
+        }
+        let mut out = Vec::new();
+        let mut open: Option<(usize, usize)> = None;
+        for t in self
+            .parse
+            .syntax()
+            .descendants_with_tokens()
+            .filter_map(|e| e.into_token())
+            .filter(|t| t.kind() == K::CONTROL_WORD)
+        {
+            let name = &t.text()[1..];
+            match (&mut open, name) {
+                (None, "iffalse") => open = Some((usize::from(t.text_range().start()), 0)),
+                (Some((_, depth)), n) if n.starts_with("if") => *depth += 1,
+                (Some((_, depth)), "fi") if *depth > 0 => *depth -= 1,
+                (Some((start, _)), "fi") => {
+                    out.push(*start..usize::from(t.text_range().end()));
+                    open = None;
+                }
+                _ => {}
+            }
+        }
+        let v = Arc::new(out);
+        *sk = Some((self.parse.green().clone(), v.clone()));
         v
     }
 
@@ -272,6 +313,13 @@ fn list_items(env: &SyntaxNode) -> Items {
         out.push((start, shown));
     }
     out
+}
+
+/// The text of an optional argument without its brackets.
+fn group_text_brackets(o: &SyntaxNode) -> String {
+    let s = o.text().to_string();
+    let s = s.strip_prefix('[').unwrap_or(&s);
+    s.strip_suffix(']').unwrap_or(s).to_string()
 }
 
 /// The text of a group without its braces.
@@ -602,6 +650,24 @@ pub fn line_view(
             }
         }
     }
+    // Code: the lines of a verbatim environment's body, monospace; its
+    // `\begin` and `\end` lines delimiters; a `comment` dimmed.
+    let mut dimmed = false;
+    if let Some(env) = verbatim_env(&root, line.start) {
+        let body = env
+            .children()
+            .find(|c| c.kind() == K::BODY)
+            .map(|b| node_span(&b));
+        let name = latex_syntax::name(&env).unwrap_or_default();
+        match body {
+            Some(bs) if bs.start <= line.start && line.end <= bs.end => {
+                v.mono = true;
+                dimmed = name == "comment";
+            }
+            _ => v.role = crate::view::LineRole::Delimiter,
+        }
+    }
+    let skipped = state.skipped();
     let mut heading_command: Option<SyntaxNode> = None;
     // Source ranges not shown (a caption's closing brace).
     let mut hidden: Vec<Range<usize>> = Vec::new();
@@ -643,6 +709,80 @@ pub fn line_view(
         if let Some(skip) = hidden.iter().find(|h| h.start <= r.start && r.end <= h.end) {
             let _ = skip;
             continue;
+        }
+        // A theorem's or a proof's `\begin` and `\end`: its name, number
+        // and note; the end of a proof as ∎.
+        if t.kind() == K::CONTROL_WORD
+            && let Some(edge) = t.parent().filter(|p| {
+                matches!(p.kind(), K::BEGIN | K::END) && p.first_token().as_ref() == Some(&t)
+            })
+            && let Some(env) = edge.parent()
+            && let Some(name) = latex_syntax::name(&env)
+            && !near(&node_span(&edge))
+        {
+            let model = state.model();
+            let es = node_span(&edge);
+            let theorem = model
+                .theorems
+                .iter()
+                .find(|th| th.range.start == node_span(&env).start && th.file == 0);
+            let proof = name == "proof";
+            if theorem.is_some() || proof {
+                let skip_to = if edge.kind() == K::BEGIN {
+                    let bold = Style {
+                        bold: true,
+                        italic: proof,
+                        ..Style::default()
+                    };
+                    let (title, number, note) = match theorem {
+                        Some(th) => (th.title.clone(), th.number.clone(), th.note.clone()),
+                        None => (
+                            "Proof".to_string(),
+                            None,
+                            edge.children()
+                                .find(|c| c.kind() == K::OPT_ARG)
+                                .map(|o| group_text_brackets(&o)),
+                        ),
+                    };
+                    let head = match number {
+                        Some(n) => format!("{title} {n}"),
+                        None => title,
+                    };
+                    b.replace(es.start..es.start, &head, bold);
+                    // The note: an optional argument, or `[…]` right after.
+                    let mut end = es.end;
+                    if edge.children().all(|c| c.kind() != K::OPT_ARG)
+                        && note.is_some()
+                        && text[es.end..].trim_start().starts_with('[')
+                        && let Some(close) = text[es.end..line.end].find(']')
+                    {
+                        end = es.end + close + 1;
+                    }
+                    let tail = match &note {
+                        Some(n) => format!(" ({n}). "),
+                        None => ". ".to_string(),
+                    };
+                    let plain = Style {
+                        italic: proof,
+                        ..Style::default()
+                    };
+                    b.replace(es.start..end, &tail, plain);
+                    end
+                } else {
+                    if proof {
+                        b.replace(es.clone(), "\u{220e}", Style::default());
+                    } else {
+                        v.role = crate::view::LineRole::Delimiter;
+                    }
+                    es.end
+                };
+                while let Some(n) = &tok
+                    && span(n).start < skip_to
+                {
+                    tok = n.next_token();
+                }
+                continue;
+            }
         }
         if t.kind() == K::CONTROL_WORD
             && let Some(cmd) = t
@@ -914,12 +1054,31 @@ pub fn line_view(
         }
     }
     v.runs = b.runs;
+    for r in &mut v.runs {
+        if dimmed
+            || skipped
+                .iter()
+                .any(|k| k.start <= r.src.start && r.src.end <= k.end && !r.src.is_empty())
+        {
+            r.style.dim = true;
+        }
+    }
     // A heading: its level among the document's sectioning levels.
     if let Some(cmd) = heading_command
         && node_span(&cmd).start >= line.start
     {
         let name = latex_syntax::name(&cmd).unwrap_or_default();
         let level = latex_model_level(&name);
+        if level >= 4 {
+            // `\paragraph` and `\subparagraph` are run-in: bold, in the text.
+            for r in &mut v.runs {
+                if r.src.start < node_span(&cmd).end {
+                    r.style.bold = true;
+                }
+            }
+            v.align = alignment(&root, line.start);
+            return v;
+        }
         let top = state
             .model()
             .sections
@@ -1344,6 +1503,49 @@ fn picture_width(cmd: &SyntaxNode) -> Option<crate::view::ImageWidth> {
     (px >= 1.0).then(|| ImageWidth::Pixels(px.round() as u32))
 }
 
+/// The verbatim environment (`verbatim`, `lstlisting`, `minted`,
+/// `comment`) whose source holds `pos`.
+fn verbatim_env(root: &SyntaxNode, pos: usize) -> Option<SyntaxNode> {
+    let t = root
+        .token_at_offset(TextSize::from(pos as u32))
+        .right_biased()?;
+    t.parent_ancestors().find(|a| {
+        a.kind() == K::ENVIRONMENT
+            && latex_syntax::name(a).is_some_and(|n| latex_syntax::signatures::is_verbatim(&n))
+    })
+}
+
+/// The language of a code environment: `lstlisting`'s `language=`,
+/// `minted`'s argument.
+fn code_language(env: &SyntaxNode) -> Option<String> {
+    let name = latex_syntax::name(env)?;
+    let begin = env.children().find(|c| c.kind() == K::BEGIN)?;
+    let lang = match name.as_str() {
+        "minted" => begin
+            .children()
+            .filter(|c| c.kind() == K::GROUP)
+            .nth(1)
+            .map(|g| group_text(&g)),
+        "lstlisting" => begin
+            .children()
+            .find(|c| c.kind() == K::OPT_ARG)
+            .and_then(|o| {
+                group_text_brackets(&o).split(',').find_map(|p| {
+                    let (k, v) = p.split_once('=')?;
+                    (k.trim() == "language").then(|| v.trim().trim_matches(['{', '}']).to_string())
+                })
+            }),
+        _ => None,
+    }?;
+    Some(
+        lang.trim_start_matches('[')
+            .split(']')
+            .next_back()
+            .unwrap_or(&lang)
+            .to_lowercase(),
+    )
+}
+
 /// The outermost math around `t`: `$…$`, `\(…\)`, `\[…\]`, `$$…$$` or a
 /// math environment.
 fn math_node(t: &SyntaxToken) -> Option<SyntaxNode> {
@@ -1455,14 +1657,19 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
     let mut at = 0;
     let root = state.parse().syntax();
     for n in root.descendants() {
-        let math = match n.kind() {
-            K::DISPLAY_MATH => true,
-            K::ENVIRONMENT => latex_syntax::name(&n).is_some_and(|x| is_display_math(&x)),
-            _ => false,
+        let kind = match n.kind() {
+            K::DISPLAY_MATH => BlockKind::Math,
+            K::ENVIRONMENT => match latex_syntax::name(&n) {
+                Some(x) if is_display_math(&x) => BlockKind::Math,
+                Some(x) if latex_syntax::signatures::is_verbatim(&x) && x != "comment" => {
+                    BlockKind::Code {
+                        language: code_language(&n),
+                    }
+                }
+                _ => continue,
+            },
+            _ => continue,
         };
-        if !math {
-            continue;
-        }
         let r = node_span(&n);
         let line_start = text[..r.start].rfind('\n').map_or(0, |i| i + 1);
         let line_end = text[r.end..].find('\n').map_or(len, |i| r.end + i + 1);
@@ -1474,7 +1681,7 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
         if line_start > at {
             out.push(block(BlockKind::Paragraph, at..line_start, line_start));
         }
-        out.push(block(BlockKind::Math, line_start..line_end, r.end));
+        out.push(block(kind, line_start..line_end, r.end));
         at = line_end;
     }
     if at < len || out.is_empty() {
@@ -1673,6 +1880,41 @@ mod tests {
         );
         assert!(note_at(&d, at("\\footnote")).unwrap().contains("A note."));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn theorems() {
+        let text = "\\newtheorem{thm}{Theorem}[section]\n\\section{A}\n\\begin{thm}[Pythagoras]\nText.\n\\end{thm}\n\\begin{proof}\nEasy.\n\\end{proof}\n\\paragraph{Run} in.\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        assert_eq!(shown(&d, 2, end).display(), "Theorem 1.1 (Pythagoras). ");
+        assert_eq!(shown(&d, 4, end).role, crate::view::LineRole::Delimiter);
+        assert_eq!(shown(&d, 5, end).display(), "Proof. ");
+        assert_eq!(shown(&d, 7, end).display(), "\u{220e}");
+        let run = shown(&d, 8, end);
+        assert_eq!((run.display().as_str(), run.heading), ("Run in.", 0));
+        assert!(run.runs[0].style.bold);
+    }
+
+    #[test]
+    fn code_and_skipped_text() {
+        let text = "\\begin{lstlisting}[language=Python]\ndef f():\n    pass\n\\end{lstlisting}\n\\iffalse\nhidden \\ifx a \\fi text\n\\fi\nshown\n\\begin{comment}\nnote\n\\end{comment}\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        assert_eq!(shown(&d, 0, end).role, crate::view::LineRole::Delimiter);
+        let code = shown(&d, 1, end);
+        assert!(code.mono && code.display() == "def f():");
+        assert_eq!(shown(&d, 3, end).role, crate::view::LineRole::Delimiter);
+        assert!(shown(&d, 5, end).runs.iter().all(|r| r.style.dim));
+        assert!(shown(&d, 7, end).runs.iter().all(|r| !r.style.dim));
+        assert!(shown(&d, 9, end).runs.iter().all(|r| r.style.dim));
+        let b = blocks(&d);
+        assert_eq!(
+            b[0].kind,
+            crate::view::BlockKind::Code {
+                language: Some("python".into())
+            }
+        );
     }
 
     #[test]
