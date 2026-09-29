@@ -326,7 +326,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 ### 2.6 Clipboard (§10.3)
 
 - [x] T2.6.1 "Copy as rich text": selection → HTML clipboard (`kalem_core::rich_copy`: the selection, or the document, exported as HTML body without table of contents or numbers, formulas as SVG; Copy as Rich Text puts `public.html` and the Org text on the macOS pasteboard (`Request::CopyRich`, `kalem_ui::clipboard::write_rich`), Copy as HTML the markup as text; both editors, the Edit menu; X11, Wayland and Windows HTML writers and the terminal (OSC 52 is text only) copy the plain text with a message, see `docs/terminal-parity.org` and T2.9.6)
-- [ ] T2.6.2 Extend the HTML paste converter (tables, lists, links, emphasis; merged cells, nested tables, emphasis next to word characters; HTML clipboard readers for X11, Wayland and Windows)
+- [x] T2.6.2 Extend the HTML paste converter (tables, lists, links, emphasis; merged cells, nested tables, emphasis next to word characters; HTML clipboard readers for X11, Wayland and Windows) (`kalem_core::paste`: `colspan` and `rowspan` leave their cells empty in place, a table in a cell becomes `a, b; c, d`, emphasis and code next to word characters get U+200B on the sides Org's `org-emphasis-regexp-components` needs (link descriptions' ends count as boundaries); `kalem_ui::clipboard::html` reads `text/html` through `wl-paste` on Wayland and `xclip` on X11, with a half-second limit and UTF-16 (Firefox) decoded. The Windows `CF_HTML` reader stays with T2.9.6)
 
 ### 2.7 Book writing validation (§9.4)
 

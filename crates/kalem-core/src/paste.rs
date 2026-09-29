@@ -801,7 +801,7 @@ pub fn html_to_org(html: &str) -> Option<String> {
     if !meaningful(&nodes) {
         return None;
     }
-    let out = join_blocks(&blocks(&nodes, 0));
+    let out = boundaries(&join_blocks(&blocks(&nodes, 0)));
     let out = out.trim_matches('\n').to_string();
     (!out.trim().is_empty()).then_some(out)
 }
@@ -1056,7 +1056,55 @@ fn description_list(children: &[Node], depth: usize) -> String {
 /// A table's rows, the first followed by a rule when it is made of
 /// headers and more rows follow; aligned later.
 fn table(children: &[Node]) -> String {
-    fn rows(nodes: &[Node], out: &mut Vec<(Vec<String>, bool)>, caption: &mut Option<String>) {
+    /// A cell's text on one line; a table in it as `a, b; c, d`.
+    fn cell_text(children: &[Node]) -> String {
+        let nested = children
+            .iter()
+            .any(|c| matches!(c, Node::Element { name, .. } if name == "table"));
+        if !nested {
+            let text = join_blocks(&blocks(children, 1));
+            return cell(&text.replace("\\\\\n", " "));
+        }
+        let mut parts = Vec::new();
+        let mut run = Vec::new();
+        for c in children {
+            match c {
+                Node::Element { name, children, .. } if name == "table" => {
+                    if !run.is_empty() {
+                        parts.push(cell_text(&std::mem::take(&mut run)));
+                    }
+                    let mut rs = Vec::new();
+                    let mut caption = None;
+                    rows(children, &mut rs, &mut caption, &mut Vec::new());
+                    let flat: Vec<String> = rs
+                        .iter()
+                        .map(|(cells, _)| {
+                            cells
+                                .iter()
+                                .filter(|c| !c.is_empty())
+                                .cloned()
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        })
+                        .filter(|r| !r.is_empty())
+                        .collect();
+                    parts.push(flat.join("; "));
+                }
+                _ => run.push(c.clone()),
+            }
+        }
+        if !run.is_empty() {
+            parts.push(cell_text(&run));
+        }
+        parts.retain(|p| !p.is_empty());
+        parts.join(" ")
+    }
+    fn rows(
+        nodes: &[Node],
+        out: &mut Vec<(Vec<String>, bool)>,
+        caption: &mut Option<String>,
+        spans: &mut Vec<(usize, usize)>,
+    ) {
         for n in nodes {
             let Node::Element { name, children, .. } = n else {
                 continue;
@@ -1066,27 +1114,56 @@ fn table(children: &[Node]) -> String {
                     let mut cells = Vec::new();
                     let mut header = true;
                     for c in children {
-                        if let Node::Element { name, children, .. } = c
+                        if let Node::Element {
+                            name,
+                            attrs,
+                            children,
+                        } = c
                             && (name == "td" || name == "th")
                         {
                             header &= name == "th";
-                            let text = join_blocks(&blocks(children, 1));
-                            cells.push(cell(&text.replace("\\\\\n", " ")));
+                            // Cells merged from the rows above.
+                            while let Some(r) =
+                                spans.iter_mut().find(|r| r.0 == cells.len() && r.1 > 0)
+                            {
+                                r.1 -= 1;
+                                cells.push(String::new());
+                            }
+                            let text = cell_text(children);
+                            let span = |k: &str| {
+                                attr(attrs, k)
+                                    .and_then(|v| v.trim().parse::<usize>().ok())
+                                    .unwrap_or(1)
+                                    .clamp(1, 100)
+                            };
+                            let (cols, rows) = (span("colspan"), span("rowspan"));
+                            for k in 0..cols {
+                                if rows > 1 {
+                                    spans.retain(|r| r.0 != cells.len());
+                                    spans.push((cells.len(), rows - 1));
+                                }
+                                cells.push(if k == 0 { text.clone() } else { String::new() });
+                            }
                         }
+                    }
+                    // Merged cells at the end of the row.
+                    while let Some(r) = spans.iter_mut().find(|r| r.0 == cells.len() && r.1 > 0) {
+                        r.1 -= 1;
+                        cells.push(String::new());
                     }
                     if !cells.is_empty() {
                         out.push((cells, header));
                     }
                 }
                 "caption" => *caption = Some(paragraph(children).replace("\\\\\n", " ")),
-                "thead" | "tbody" | "tfoot" => rows(children, out, caption),
+                "thead" | "tbody" | "tfoot" => rows(children, out, caption, spans),
                 _ => {}
             }
         }
     }
     let mut rs = Vec::new();
     let mut caption = None;
-    rows(children, &mut rs, &mut caption);
+    rows(children, &mut rs, &mut caption, &mut Vec::new());
     let mut lines: Vec<Option<Vec<String>>> = Vec::new();
     let header = rs.first().is_some_and(|r| r.1) && rs.len() > 1;
     for (i, (cells, _)) in rs.into_iter().enumerate() {
@@ -1170,6 +1247,12 @@ fn preformatted(node: &Node) -> String {
     }
 }
 
+/// Before an opening emphasis marker: a zero-width space when the text
+/// before it is a word (`foo<b>bar</b>`), resolved by [`boundaries`].
+const OPEN: char = '\u{E000}';
+/// After a closing emphasis marker, as [`OPEN`].
+const CLOSE: char = '\u{E001}';
+
 /// Emphasis around `s`, with the blanks at its ends kept outside.
 fn wrap(m: char, s: &str) -> String {
     let core = s.trim_matches(|c: char| c == ' ' || c == '\n');
@@ -1178,7 +1261,44 @@ fn wrap(m: char, s: &str) -> String {
     }
     let lead = &s[..s.len() - s.trim_start_matches([' ', '\n']).len()];
     let trail = &s[s.trim_end_matches([' ', '\n']).len()..];
-    format!("{lead}{m}{core}{m}{trail}")
+    format!("{lead}{OPEN}{m}{core}{m}{CLOSE}{trail}")
+}
+
+/// Emphasis next to word characters: Org sees `*bar*` only after a blank
+/// or one of `-('"{` and before a blank or one of `-.,:!?;'")}\[`
+/// (`org-emphasis-regexp-components`), so a zero-width space goes between
+/// them, as the Org manual suggests.
+fn boundaries(text: &str) -> String {
+    const ZWSP: char = '\u{200B}';
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    for (i, &c) in chars.iter().enumerate() {
+        match c {
+            OPEN => {
+                let prev = out.chars().next_back();
+                if prev.is_some_and(|p| !(p.is_whitespace() || "-('\"{".contains(p) || p == ZWSP))
+                    && !out.ends_with("][")
+                {
+                    out.push(ZWSP);
+                }
+            }
+            CLOSE => {
+                let rest: String = chars[i + 1..]
+                    .iter()
+                    .filter(|c| !matches!(**c, OPEN | CLOSE))
+                    .take(2)
+                    .collect();
+                let next = rest.chars().next();
+                if next.is_some_and(|n| !(n.is_whitespace() || "-.,:!?;'\")}\\[".contains(n)))
+                    && rest != "]]"
+                {
+                    out.push(ZWSP);
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 #[derive(Default, Clone)]
@@ -1377,6 +1497,36 @@ mod tests {
         assert_eq!(tsv("a\tb\nc"), None);
         assert_eq!(tsv("\tfoo\n\tbar"), None);
         assert_eq!(tsv("fn main() {\n\tprintln!();\n}"), None);
+    }
+
+    #[test]
+    fn emphasis_tables_and_spans() {
+        // Emphasis inside a word gets zero-width spaces, which Org needs.
+        assert_eq!(
+            org("<p>foo<b>bar</b>baz and (<i>x</i>) and <code>c</code>s</p>"),
+            "foo\u{200B}*bar*\u{200B}baz and (/x/) and ~c~\u{200B}s"
+        );
+        let doc = Document::new(org_syntax::parse(&org("<p>un<b>believ</b>able</p>")));
+        assert!(
+            doc.parse()
+                .syntax()
+                .descendants()
+                .any(|n| n.kind() == org_syntax::SyntaxKind::BOLD)
+        );
+        // Merged cells take their place, empty.
+        assert_eq!(
+            org(
+                "<table><tr><th colspan=2>AB</th><th>C</th></tr><tr><td rowspan=2>1</td><td>2</td><td>3</td></tr><tr><td>5</td><td>6</td></tr></table>"
+            ),
+            "| AB |  | C |\n|-\n| 1 | 2 | 3 |\n|  | 5 | 6 |"
+        );
+        // A table in a cell, on one line.
+        assert_eq!(
+            org(
+                "<table><tr><td>x</td><td><table><tr><td>a</td><td>b</td></tr><tr><td>c</td></tr></table></td></tr></table>"
+            ),
+            "| x | a, b; c |"
+        );
     }
 
     #[test]

@@ -327,9 +327,13 @@ inserts, Escape closes.
 
 ** Paste
 
-Paste (Ctrl+V) converts: cells from a spreadsheet become a table, and on
-macOS text copied from a web page or a word processor becomes Org with
-its headings, emphasis, links and lists. Paste as Plain Text
+Paste (Ctrl+V) converts: cells from a spreadsheet become a table, and
+text copied from a web page or a word processor becomes Org with its
+headings, emphasis, links, lists and tables (merged cells take their
+place empty, a table inside a cell becomes =a, b; c, d=, and emphasis
+inside a word gets the zero-width spaces Org needs to see it). The
+graphical editor reads that HTML on macOS, and on Linux through
+=wl-paste= or =xclip= when installed. Paste as Plain Text
 (Ctrl+Shift+V) inserts the text as it is. In source blocks, text is always
 pasted as it is.
 
