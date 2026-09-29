@@ -1968,6 +1968,45 @@ fn editing_properties() {
 }
 
 #[test]
+fn line_commands() {
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.trim_trailing_whitespace = true\n",
+    )]);
+    let mut t = with_file("pear  \napple\nfig\n", "l.txt", config, (60, 8));
+    t.at(0);
+    t.key(KeyCode::Down, KeyModifiers::ALT);
+    assert_eq!(t.app.doc.text().as_str(), "apple\npear  \nfig\n");
+    // Terminals send Ctrl+Shift+D as Ctrl+D: from the palette.
+    t.app.run_command("lines.duplicate", serde_json::Value::Null);
+    assert_eq!(t.app.doc.text().as_str(), "apple\npear  \npear  \nfig\n");
+    t.key(KeyCode::Up, KeyModifiers::ALT);
+    assert_eq!(t.app.doc.text().as_str(), "apple\npear  \npear  \nfig\n");
+    // Sorting the whole text, then saving without the trailing blanks.
+    t.app.run_command("edit.selectAll", serde_json::Value::Null);
+    t.app.run_command("lines.sort", serde_json::Value::Null);
+    assert_eq!(t.app.doc.text().as_str(), "apple\nfig\npear  \npear  \n");
+    t.app.run_command("app.save", serde_json::Value::Null);
+    let path = t.app.doc.meta.path.clone().unwrap();
+    assert_eq!(
+        std::fs::read_to_string(path).unwrap(),
+        "apple\nfig\npear\npear\n"
+    );
+    // Join, and a selection grown and shrunk.
+    t.at(0);
+    t.app.run_command("lines.join", serde_json::Value::Null);
+    assert!(t.app.doc.text().as_str().starts_with("apple fig\n"));
+    t.at(1);
+    t.key(KeyCode::Right, KeyModifiers::CONTROL | KeyModifiers::ALT);
+    assert_eq!(t.app.doc.selected_text(), Some("apple"));
+    t.key(KeyCode::Right, KeyModifiers::CONTROL | KeyModifiers::ALT);
+    assert_eq!(t.app.doc.selected_text(), Some("apple fig"));
+    t.key(KeyCode::Left, KeyModifiers::CONTROL | KeyModifiers::ALT);
+    assert_eq!(t.app.doc.selected_text(), Some("apple"));
+}
+
+#[test]
 fn editing_code() {
     let mut t = with_file("fn a() {}\n", "a.rs", Config::default(), (60, 8));
     t.at(8);

@@ -110,6 +110,12 @@ pub const SPECS: &[Spec] = &[
         description: "Wrap long lines at the window's edge (Alt+Z toggles it for a window)",
     },
     Spec {
+        key: "editor.trim_trailing_whitespace",
+        kind: Kind::Bool,
+        default: "false",
+        description: "Remove the blanks at the ends of lines when saving",
+    },
+    Spec {
         key: "editor.line_numbers",
         kind: Kind::Bool,
         default: "true",

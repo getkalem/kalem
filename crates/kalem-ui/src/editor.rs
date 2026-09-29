@@ -1260,6 +1260,8 @@ impl Editor {
             self.save_as(window, cx);
             return;
         }
+        self.doc.before_save(&self.shared.config, Instant::now());
+        self.after_change(cx);
         match self.doc.save(self.shared.config.save_options(), false) {
             Ok(()) => {
                 self.disk_conflict = false;
