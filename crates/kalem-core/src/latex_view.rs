@@ -1419,6 +1419,56 @@ pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
     Some(notes.join("  "))
 }
 
+/// Whether the view renders command `name` (for the report of what a
+/// document leaves as source).
+pub fn renders_command(name: &str) -> bool {
+    format_style(name).is_some()
+        || latex_syntax::signatures::is_sectioning(name)
+        || chip_command(name)
+        || word(name).is_some()
+        || matches!(
+            name,
+            "item"
+                | "caption"
+                | "includegraphics"
+                | "centering"
+                | "footnote"
+                | "maketitle"
+                | "label"
+                | "begin"
+                | "end"
+                | "iffalse"
+                | "fi"
+                | "verb"
+                | "lstinline"
+                | "\\"
+                | "appendix"
+                | "frontmatter"
+                | "mainmatter"
+                | "backmatter"
+                | "tableofcontents"
+                | "bibliography"
+                | "bibliographystyle"
+                | "noindent"
+                | "par"
+        )
+}
+
+/// Whether the view renders environment `name` (theorems are the ones
+/// the model declares).
+pub fn renders_environment(name: &str, model: &latex_model::Model) -> bool {
+    is_list(name)
+        || float_name(name, false).is_some()
+        || is_display_math(name)
+        || latex_syntax::signatures::is_math(name)
+        || latex_syntax::signatures::is_verbatim(name)
+        || matches!(
+            name,
+            "document" | "center" | "flushleft" | "flushright" | "proof"
+        )
+        || model.theorem_kinds.iter().any(|k| k.env == name)
+}
+
 /// What a float is called in its caption.
 fn float_name(kind: &str, turkish: bool) -> Option<&'static str> {
     Some(match (kind.trim_end_matches('*'), turkish) {
@@ -1442,9 +1492,18 @@ fn picture_path(
         .children()
         .find(|c| c.kind() == K::GROUP)
         .map(|g| group_text(&g))?;
-    let name = name.trim();
     let base = doc.meta.path.as_deref().and_then(std::path::Path::parent);
-    let dirs = std::iter::once("").chain(model.graphics_paths.iter().map(String::as_str));
+    find_picture(base, &model.graphics_paths, name.trim())
+}
+
+/// The file of picture `name`, relative to the folder `base`: in it or a
+/// `\graphicspath` folder, with LaTeX's extensions when it has none.
+pub(crate) fn find_picture(
+    base: Option<&std::path::Path>,
+    graphics_paths: &[String],
+    name: &str,
+) -> Option<String> {
+    let dirs = std::iter::once("").chain(graphics_paths.iter().map(String::as_str));
     let has_ext = std::path::Path::new(name).extension().is_some();
     for d in dirs {
         let stem = format!("{d}{name}");

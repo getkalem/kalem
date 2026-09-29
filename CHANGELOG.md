@@ -152,6 +152,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX mode: `\includegraphics` shows the picture (found through `\graphicspath` and LaTeX's extensions, at the width `width=` asks for), `\caption` shows "Figure 1: …" with LaTeX's number (Turkish names with babel's `turkish`), subfigure captions as (a), `\centering` centers the float.
 - LaTeX mode: references (`\ref`, `\eqref`, `\cref`, `\Cref`, `\autoref`, `\nameref`) show what they resolve to, unresolved ones in red; citations show authors and years from the bibliography with pre- and postnotes, the entry in the status bar and a tooltip; footnotes with their raised numbers; `\url` and `\href` as links.
 - LaTeX mode: theorems with their names, numbers and notes, proofs with "Proof." and ∎, `\paragraph` run in; code in `verbatim`, `lstlisting` and `minted` monospace and colored by its language (graphical editor); `comment` environments and `\iffalse` … `\fi` dimmed.
+- `kalem check FILE.tex`: LaTeX diagnostics (what the parser closed, undefined and duplicate labels across the project, unknown citation keys, missing files and pictures, deprecated font commands and `$$`, chktex-like rules for ties, ellipses and quotes); `--unrendered` lists the commands and environments the editor shows as source.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

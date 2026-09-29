@@ -178,12 +178,22 @@ pub(crate) fn check(
     files: &[std::path::PathBuf],
     json: bool,
     deny_warnings: bool,
+    unrendered: bool,
 ) -> Result<ExitCode> {
     let mut failed = false;
     let mut results = Vec::new();
     let mut out = std::io::stdout().lock();
     for f in files {
         let text = read(f)?;
+        let latex = f
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("tex") || e.eq_ignore_ascii_case("ltx"));
+        if latex {
+            let (ok, result) = check_latex(f, &text, json, deny_warnings, unrendered, &mut out)?;
+            failed |= !ok;
+            results.extend(result);
+            continue;
+        }
         let parse = org_syntax::parse_file(&text, f);
         let roundtrip = parse.syntax().to_string() == text;
         let mut diags = parse.diagnostics();
@@ -269,6 +279,76 @@ pub(crate) fn check(
     } else {
         ExitCode::SUCCESS
     })
+}
+
+/// `kalem check` of a LaTeX file: whether it passes, and its JSON result.
+fn check_latex(
+    f: &Path,
+    text: &str,
+    json: bool,
+    deny_warnings: bool,
+    unrendered: bool,
+    out: &mut impl Write,
+) -> Result<(bool, Option<serde_json::Value>)> {
+    use kalem_core::latex_check::{self, Severity};
+    let roundtrip = latex_syntax::parse(text).syntax().to_string() == text;
+    let diags = latex_check::check(f, text);
+    let report = unrendered.then(|| latex_check::unrendered(text));
+    let ok = roundtrip && !(deny_warnings && diags.iter().any(|d| d.severity == Severity::Warning));
+    if json {
+        let list: Vec<serde_json::Value> = diags
+            .iter()
+            .map(|d| {
+                let (line, col) = line_col(text, d.range.start);
+                serde_json::json!({
+                    "code": d.code,
+                    "severity": format!("{:?}", d.severity).to_lowercase(),
+                    "message": d.message,
+                    "start": d.range.start,
+                    "end": d.range.end,
+                    "line": line,
+                    "column": col,
+                })
+            })
+            .collect();
+        let mut v = serde_json::json!({ "file": f.display().to_string(), "roundtrip": roundtrip, "diagnostics": list });
+        if let Some(r) = &report {
+            v["unrendered"] = r
+                .iter()
+                .map(|(n, c)| serde_json::json!({ "construct": n, "count": c }))
+                .collect();
+        }
+        return Ok((ok, Some(v)));
+    }
+    if !roundtrip {
+        writeln!(
+            out,
+            "{}: error: the parse tree does not reproduce the file (please report this)",
+            f.display()
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    for d in &diags {
+        let (line, col) = line_col(text, d.range.start);
+        let sev = match d.severity {
+            Severity::Warning => "warning",
+            Severity::Info => "info",
+        };
+        writeln!(
+            out,
+            "{}:{line}:{col}: {sev}[{}]: {}",
+            f.display(),
+            d.code,
+            d.message
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(r) = report {
+        for (n, c) in r {
+            writeln!(out, "{}: unrendered: {n} ({c})", f.display()).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok((ok, None))
 }
 
 pub(crate) fn dump(file: &Path) -> Result<ExitCode> {
