@@ -2293,3 +2293,26 @@ fn latex_rendered(cx: &mut TestAppContext) {
     let body = e.read_with(cx, |e, _| e.line_view(1).display());
     assert!(body.contains("\\emph{very}"), "{body}");
 }
+
+#[gpui::test]
+fn latex_math(cx: &mut TestAppContext) {
+    let text = "Inline $a^2$.\n\\begin{equation}\\label{e}\n  E = mc^2\n\\end{equation}\nAfter.\n";
+    let (e, cx) = open_named(text, "m.tex", || None, cx);
+    at(&e, text.len(), cx);
+    // Away from the cursor, the equation shows as one formula on its first
+    // line; the others are hidden.
+    assert_eq!(e.read_with(cx, |e, _| e.visible.clone()), vec![0, 1, 4, 5]);
+    let inline = e.read_with(cx, |e, _| e.line_view(0));
+    assert!(
+        inline
+            .runs
+            .iter()
+            .any(|r| matches!(r.widget, Some(kalem_core::view::Widget::Math { .. })))
+    );
+    // In it, the source.
+    at(&e, text.find("mc^2").unwrap(), cx);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.visible.clone()),
+        vec![0, 1, 2, 3, 4, 5]
+    );
+}

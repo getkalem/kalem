@@ -634,6 +634,29 @@ pub fn line_view(
             }
             continue;
         }
+        // A formula on this line, away from the cursor: drawn.
+        if let Some(m) = math_node(&t)
+            && let ms = node_span(&m)
+            && ms.start >= line.start
+            && ms.end <= line.end
+            && !near(&ms)
+            && let Some(source) = math_source(doc, ms.clone())
+        {
+            let display = m.kind() != K::INLINE_MATH;
+            b.runs.push(Run {
+                src: ms.clone(),
+                text: crate::view::PLACEHOLDER.to_string(),
+                verbatim: false,
+                style: Style::default(),
+                widget: Some(crate::view::Widget::Math { source, display }),
+            });
+            while let Some(n) = &tok
+                && span(n).start < ms.end
+            {
+                tok = n.next_token();
+            }
+            continue;
+        }
         let c = context(&t);
         if let Some(cmd) = &c.marker_of {
             if latex_syntax::signatures::is_sectioning(&latex_syntax::name(cmd).unwrap_or_default())
@@ -803,6 +826,145 @@ fn alignment(root: &SyntaxNode, pos: usize) -> crate::rich::Align {
     crate::rich::Align::default()
 }
 
+/// The outermost math around `t`: `$…$`, `\(…\)`, `\[…\]`, `$$…$$` or a
+/// math environment.
+fn math_node(t: &SyntaxToken) -> Option<SyntaxNode> {
+    t.parent_ancestors()
+        .filter(|a| match a.kind() {
+            K::INLINE_MATH | K::DISPLAY_MATH => true,
+            K::ENVIRONMENT => latex_syntax::name(a).is_some_and(|n| is_display_math(&n)),
+            _ => false,
+        })
+        .last()
+}
+
+/// Environments that are displayed formulas of their own (not `split`,
+/// `aligned` and the others that live inside one).
+fn is_display_math(name: &str) -> bool {
+    matches!(
+        name.trim_end_matches('*'),
+        "equation"
+            | "align"
+            | "gather"
+            | "multline"
+            | "eqnarray"
+            | "alignat"
+            | "flalign"
+            | "displaymath"
+            | "math"
+    )
+}
+
+/// The formula of a math node as the renderer takes it: `\label`,
+/// `\nonumber` and `\notag` taken out, and the numbers LaTeX gives the
+/// equations as `\tag`s of a starred environment.
+pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<String> {
+    let state = doc.latex()?;
+    let text = doc.text().as_str();
+    let root = state.parse().syntax();
+    let node = root
+        .token_at_offset(TextSize::from(range.start as u32))
+        .right_biased()
+        .and_then(|t| math_node(&t))
+        .filter(|n| node_span(n).start >= range.start)?;
+    let r = node_span(&node);
+    let mut edits: Vec<(Range<usize>, String)> = Vec::new();
+    for c in node.descendants().filter(|c| c.kind() == K::COMMAND) {
+        if matches!(
+            latex_syntax::name(&c).as_deref(),
+            Some("label" | "nonumber" | "notag")
+        ) {
+            edits.push((node_span(&c), String::new()));
+        }
+    }
+    let name = (node.kind() == K::ENVIRONMENT)
+        .then(|| latex_syntax::name(&node))
+        .flatten();
+    if let Some(name) = &name {
+        let model = state.model();
+        for e in model
+            .equations
+            .iter()
+            .filter(|e| e.file == 0 && r.start <= e.range.start && e.range.end <= r.end && !e.tag)
+        {
+            if let Some(n) = &e.number {
+                edits.push((e.range.end..e.range.end, format!("\\tag{{{n}}}")));
+            }
+        }
+        // Starred, so that only the tags number it.
+        if !name.ends_with('*') {
+            for pat in [format!("\\begin{{{name}}}"), format!("\\end{{{name}}}")] {
+                for (i, _) in text[r.clone()].match_indices(&pat) {
+                    let at = r.start + i + pat.len() - 1;
+                    edits.push((at..at, "*".into()));
+                }
+            }
+        }
+    }
+    edits.sort_by_key(|(e, _)| (e.start, e.end));
+    let mut out = String::new();
+    let mut at = r.start;
+    for (e, ins) in edits {
+        if e.start < at {
+            continue;
+        }
+        out.push_str(&text[at..e.start]);
+        out.push_str(&ins);
+        at = e.end;
+    }
+    out.push_str(&text[at..r.end]);
+    Some(out)
+}
+
+/// The blocks of a LaTeX document for the editors' line layout: its
+/// displayed formulas on lines of their own as math blocks (shown as one
+/// formula away from the cursor), the text between them as paragraphs.
+pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
+    use crate::view::{Block, BlockKind};
+    let Some(state) = doc.latex() else {
+        return Vec::new();
+    };
+    let text = doc.text().as_str();
+    let len = text.len();
+    let block = |kind, range: Range<usize>, content_end| Block {
+        kind,
+        range,
+        content_end,
+        depth: 0,
+        headline: None,
+    };
+    let mut out = Vec::new();
+    let mut at = 0;
+    let root = state.parse().syntax();
+    for n in root.descendants() {
+        let math = match n.kind() {
+            K::DISPLAY_MATH => true,
+            K::ENVIRONMENT => latex_syntax::name(&n).is_some_and(|x| is_display_math(&x)),
+            _ => false,
+        };
+        if !math {
+            continue;
+        }
+        let r = node_span(&n);
+        let line_start = text[..r.start].rfind('\n').map_or(0, |i| i + 1);
+        let line_end = text[r.end..].find('\n').map_or(len, |i| r.end + i + 1);
+        let alone =
+            text[line_start..r.start].trim().is_empty() && text[r.end..line_end].trim().is_empty();
+        if !alone || !text[r.clone()].contains('\n') || line_start < at {
+            continue;
+        }
+        if line_start > at {
+            out.push(block(BlockKind::Paragraph, at..line_start, line_start));
+        }
+        out.push(block(BlockKind::Math, line_start..line_end, r.end));
+        at = line_end;
+    }
+    if at < len || out.is_empty() {
+        out.push(block(BlockKind::Paragraph, at..len, len));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -875,6 +1037,49 @@ mod tests {
         let mid = shown(&d, 8, None);
         assert_eq!(mid.align, crate::rich::Align::Center);
         assert_eq!(mid.display(), "Middle \\unknown{x} \u{2026}");
+    }
+
+    #[test]
+    fn math() {
+        let text = "Inline $a^2$ and \\(b\\).\n\\begin{equation}\\label{e}\n  E = mc^2\n\\end{equation}\n\\begin{align}\n  x &= 1 \\\\\n  y &= 2 \\nonumber\n\\end{align}\n\\[ z \\]\n";
+        let d = doc(text);
+        let v = shown(&d, 0, Some(text.len()));
+        let maths: Vec<&crate::view::Widget> =
+            v.runs.iter().filter_map(|r| r.widget.as_ref()).collect();
+        assert_eq!(maths.len(), 2);
+        assert!(
+            matches!(maths[0], crate::view::Widget::Math { source, display: false } if source == "$a^2$")
+        );
+        let eq = text.find("\\begin{equation}").unwrap();
+        assert_eq!(
+            math_source(&d, eq..eq).unwrap(),
+            "\\begin{equation*}\n  E = mc^2\n\\tag{1}\\end{equation*}"
+        );
+        let al = text.find("\\begin{align}").unwrap();
+        assert_eq!(
+            math_source(&d, al..al).unwrap(),
+            "\\begin{align*}\n  x &= 1 \\tag{2}\\\\\n  y &= 2 \n\\end{align*}"
+        );
+        let b = blocks(&d);
+        let kinds: Vec<_> = b.iter().map(|b| b.kind.clone()).collect();
+        use crate::view::BlockKind;
+        assert_eq!(
+            kinds,
+            [
+                BlockKind::Paragraph,
+                BlockKind::Math,
+                BlockKind::Math,
+                BlockKind::Paragraph
+            ]
+        );
+        assert_eq!(b[1].range.start, eq);
+        assert_eq!(b.last().unwrap().range.end, text.len());
+        // Single-line display math is drawn in its line.
+        let last = shown(&d, 8, Some(0));
+        assert!(matches!(
+            &last.runs[0].widget,
+            Some(crate::view::Widget::Math { display: true, .. })
+        ));
     }
 
     #[test]

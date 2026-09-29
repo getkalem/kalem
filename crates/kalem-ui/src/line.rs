@@ -631,9 +631,13 @@ fn prepare_math_block(
     {
         return None;
     }
-    let src = editor.doc.text().as_str()[block.range.start..block.content_end]
-        .trim_end()
-        .to_string();
+    let src = match kalem_core::latex_view::math_source(&editor.doc, block.range.clone()) {
+        // LaTeX: numbered as LaTeX numbers it, labels taken out.
+        Some(s) => s,
+        None => editor.doc.text().as_str()[block.range.start..block.content_end]
+            .trim_end()
+            .to_string(),
+    };
     let theme = editor.theme.clone();
     let macros = editor.math_macros();
     let (paint, sz, ascent) =
