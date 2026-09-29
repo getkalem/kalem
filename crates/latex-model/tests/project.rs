@@ -1,0 +1,140 @@
+//! Projects of several files: `tests/latex/project` numbered as pdflatex
+//! numbers it (`main.labels`, from the `.aux` files of `main.tex`), and
+//! the root document found from each file.
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use latex_model::project::{Disk, Files, ProjectCache, find_root};
+
+fn dir() -> PathBuf {
+    std::fs::canonicalize(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/latex/project"
+    ))
+    .unwrap()
+}
+
+#[test]
+fn numbered_across_files() {
+    let root = dir().join("main.tex");
+    let p = ProjectCache::default().load(&root, &Disk);
+    let m = &p.model;
+    let expected = std::fs::read_to_string(dir().join("main.labels")).unwrap();
+    for line in expected.lines() {
+        let (key, number) = line.split_once(' ').unwrap();
+        let got = m.label(key).and_then(|l| l.number.clone());
+        assert_eq!(got.as_deref(), Some(number), "{key}");
+    }
+    let files: Vec<String> = m
+        .files
+        .iter()
+        .map(|f| f.strip_prefix(dir()).unwrap().display().to_string())
+        .collect();
+    assert_eq!(
+        files,
+        [
+            "main.tex",
+            "chapters/one.tex",
+            "chapters/two.tex",
+            "chapters/three.tex",
+            "parts/sub.tex",
+            "parts/deep/leaf.tex",
+            "parts/imported.tex",
+            "parts/deep/leaf2.tex",
+        ]
+    );
+    // Each label knows its file; the subfile's preamble is not the
+    // document's.
+    let leaf = m.label("sec:leaf").unwrap();
+    assert!(m.files[leaf.file].ends_with("parts/deep/leaf.tex"));
+    assert_eq!(m.class.as_ref().unwrap().name, "report");
+    assert_eq!(m.graphics_paths, ["figs/", "images/"]);
+    assert!(m.includes.iter().all(|i| i.resolved.is_some()));
+    assert_eq!(m.references.len(), 2);
+}
+
+#[test]
+fn roots() {
+    let root = dir().join("main.tex");
+    let read = |p: &Path| std::fs::read_to_string(p).unwrap();
+    for f in [
+        "main.tex",
+        "chapters/one.tex",
+        "chapters/two.tex",
+        "parts/sub.tex",
+    ] {
+        let file = dir().join(f);
+        assert_eq!(
+            find_root(&file, &read(&file), &Disk, None, Some(&dir())),
+            root,
+            "{f}"
+        );
+    }
+    // A setting names it for files that do not say.
+    let file = dir().join("chapters/two.tex");
+    let other = dir().join("other.tex");
+    assert_eq!(
+        find_root(&file, &read(&file), &Disk, Some(&other), Some(&dir())),
+        other
+    );
+}
+
+/// Files in memory.
+#[derive(Debug, Default)]
+struct Memory(HashMap<PathBuf, String>);
+
+impl Files for Memory {
+    fn read(&self, path: &Path) -> Option<String> {
+        self.0.get(path).cloned()
+    }
+    fn list(&self, dir: &Path) -> Vec<PathBuf> {
+        let mut v: Vec<PathBuf> = self
+            .0
+            .keys()
+            .filter(|p| p.parent() == Some(dir))
+            .cloned()
+            .collect();
+        v.sort();
+        v
+    }
+}
+
+#[test]
+fn includeonly_cycles_and_markers() {
+    let mut fs = Memory::default();
+    let put = |fs: &mut Memory, p: &str, t: &str| {
+        fs.0.insert(PathBuf::from(p), t.to_string());
+    };
+    put(
+        &mut fs,
+        "/p/main.tex",
+        "\\documentclass{book}\\includeonly{b}\\begin{document}\\include{a}\\include{b}\\input{loop}\\end{document}",
+    );
+    put(&mut fs, "/p/a.tex", "\\chapter{A}\\label{a}");
+    put(&mut fs, "/p/b.tex", "\\chapter{B}\\label{b}");
+    put(&mut fs, "/p/loop.tex", "\\input{loop2}");
+    put(
+        &mut fs,
+        "/p/loop2.tex",
+        "\\input{loop}\\chapter{C}\\label{c}",
+    );
+    let p = ProjectCache::default().load(Path::new("/p/main.tex"), &fs);
+    let m = &p.model;
+    // Left out by `\includeonly`, still numbered (from its `.aux`).
+    assert!(m.includes[0].excluded && !m.includes[1].excluded);
+    assert_eq!(m.label("b").unwrap().number.as_deref(), Some("2"));
+    // The cycle is read once.
+    assert_eq!(m.label("c").unwrap().number.as_deref(), Some("3"));
+    assert_eq!(
+        m.includes.iter().filter(|i| i.resolved.is_none()).count(),
+        1
+    );
+    // `NAME.tex.latexmain` marks the root.
+    put(&mut fs, "/q/thesis.tex.latexmain", "");
+    put(&mut fs, "/q/ch/x.tex", "\\section{X}");
+    assert_eq!(
+        find_root(Path::new("/q/ch/x.tex"), "\\section{X}", &fs, None, None),
+        PathBuf::from("/q/thesis.tex")
+    );
+}
