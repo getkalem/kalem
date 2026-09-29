@@ -1089,6 +1089,8 @@ fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
             },
             Ok(b) => {
                 use crate::latex_build::Severity;
+                // The editor shows them in the text.
+                crate::latex_build::record(&root, &b.problems);
                 let errors: Vec<_> = b
                     .problems
                     .iter()
@@ -1171,6 +1173,26 @@ fn latex_edit_with(
             None => Err(CommandError::new(crate::tr!("msg-latex-not-here"))),
         },
     }
+}
+
+/// Moves the cursor to the next (or previous) of a LaTeX document's
+/// diagnostics, the build's problems among them, and says what it is.
+fn goto_problem(ctx: &mut EditorContext<'_>, back: bool) -> CommandResult {
+    let d = ctx.doc()?;
+    if d.latex().is_none() {
+        return Err(CommandError::new(crate::tr!("msg-not-latex")));
+    }
+    if d.latex_diagnostics().is_none() {
+        d.update_latex_diagnostics();
+    }
+    let diags = d.latex_diagnostics().cloned().unwrap_or_default();
+    let at = crate::latex_check::next(&diags, d.selection.head, back)
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-no-problems")))?;
+    d.move_cursor(at, false);
+    if let Some(m) = crate::latex_view::diagnostic_at(d, at) {
+        ctx.messages.push(m);
+    }
+    Ok(())
 }
 
 /// The commands of LaTeX documents (T2.7h.15).
@@ -1260,6 +1282,18 @@ fn latex_commands() -> Vec<Command> {
                     Some(outdent),
                 )
             },
+        ),
+        c(
+            "latex.nextProblem",
+            "Next Problem",
+            &["alt+f8"],
+            |ctx, _| goto_problem(ctx, false),
+        ),
+        c(
+            "latex.previousProblem",
+            "Previous Problem",
+            &["alt+shift+f8"],
+            |ctx, _| goto_problem(ctx, true),
         ),
         c("latex.fix", "Quick Fix", &["ctrl+."], |ctx, _| {
             let d = ctx.doc()?;

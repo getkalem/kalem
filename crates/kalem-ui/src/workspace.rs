@@ -1846,6 +1846,8 @@ pub fn menus() -> Vec<Menu> {
                 item("edit.trimTrailingWhitespace"),
                 // LaTeX's diagnostics.
                 item("latex.fix"),
+                item("latex.nextProblem"),
+                item("latex.previousProblem"),
                 MenuItem::separator(),
                 item("find.open"),
                 item("find.replace"),

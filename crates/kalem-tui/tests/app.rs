@@ -2916,6 +2916,10 @@ fn latex_diagnostics_in_the_terminal() {
     assert!(flagged, "the deprecated command is underlined");
     let rows = screen(&mut t);
     assert!(rows.iter().any(|r| r.contains("ⓘ")), "{rows:#?}");
+    // Next Problem from the start of the text.
+    t.at(0);
+    t.key(KeyCode::F(8), KeyModifiers::ALT);
+    assert_eq!(t.app.doc.selection.head, 6);
     // Ctrl+. as terminals can send it.
     t.key(KeyCode::Char('.'), KeyModifiers::ALT);
     let rows = screen(&mut t);

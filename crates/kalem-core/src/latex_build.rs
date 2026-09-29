@@ -35,6 +35,55 @@ pub struct Problem {
     pub severity: Severity,
 }
 
+/// A root document and the problems of its last build, each with the
+/// file it is in.
+type Recorded = (PathBuf, Vec<(PathBuf, Problem)>);
+
+/// The problems of the last build of each root document, and a count of
+/// the builds recorded.
+static RECORDED: std::sync::Mutex<(u64, Vec<Recorded>)> = std::sync::Mutex::new((0, Vec::new()));
+
+/// Keeps the problems of a build of `root`, for the editor to show in the
+/// files they are in (a problem without a file is the root's).
+pub fn record(root: &Path, problems: &[Problem]) {
+    let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
+    let canon = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let located: Vec<(PathBuf, Problem)> = problems
+        .iter()
+        .map(|p| {
+            let file = match &p.file {
+                Some(f) => canon(&dir.join(f)),
+                None => canon(root),
+            };
+            (file, p.clone())
+        })
+        .collect();
+    if let Ok(mut r) = RECORDED.lock() {
+        let root = canon(root);
+        r.1.retain(|(k, _)| *k != root);
+        r.1.push((root, located));
+        r.0 += 1;
+    }
+}
+
+/// How many builds were recorded: the editor shows their problems again
+/// when it changes.
+pub fn recorded() -> u64 {
+    RECORDED.lock().map_or(0, |r| r.0)
+}
+
+/// The problems the last builds found in `file`.
+pub fn problems_in(file: &Path) -> Vec<Problem> {
+    let file = std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
+    RECORDED.lock().map_or(Vec::new(), |r| {
+        r.1.iter()
+            .flat_map(|(_, v)| v.iter())
+            .filter(|(f, _)| *f == file)
+            .map(|(_, p)| p.clone())
+            .collect()
+    })
+}
+
 /// `% !TEX program = NAME` among the first lines.
 fn magic_program(text: &str) -> Option<String> {
     text.lines().take(20).find_map(|l| {
