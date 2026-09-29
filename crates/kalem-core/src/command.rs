@@ -295,6 +295,122 @@ pub struct Command {
     pub args_schema: Option<Value>,
     /// Who registered the command.
     pub source: CommandSource,
+    /// The text types it serves (§11.2); registration refuses a command
+    /// without one, and folds it into `when` as a clause over `textType`.
+    pub scope: Option<Scope>,
+}
+
+/// Whether `t` names a text type Kalem knows: its modes, `latex` and the
+/// back-ends of export blocks, and the languages of files and source
+/// blocks it has comment markers for, or common data formats.
+pub fn known_text_type(t: &str) -> bool {
+    const TYPES: &[&str] = &[
+        "org",
+        "klm",
+        "markdown",
+        "csv",
+        "text",
+        "directory",
+        "latex",
+        "html",
+        "json",
+        "txt",
+        "log",
+        "tsv",
+        "diff",
+        "patch",
+        "bib",
+        "rtf",
+        "srt",
+        "ascii",
+    ];
+    let t = t.to_ascii_lowercase();
+    TYPES.contains(&t.as_str()) || crate::code::comment_style(&t).is_some()
+}
+
+/// The text types a command serves: all, or a list of them, less some
+/// (§11.2). A type is the innermost at the cursor: the file's (`org`,
+/// `klm`, `markdown`, `csv`, `text`, a language such as `rs`), or inside an
+/// Org document a source block's language, an export block's back-end or
+/// `latex` in a formula. `klm` is a kind of `org`: `org` takes it in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Scope {
+    /// The types, `None` for all.
+    pub types: Option<Vec<String>>,
+    /// Types left out.
+    pub except: Vec<String>,
+}
+
+impl Scope {
+    /// Every type.
+    pub fn all() -> Scope {
+        Scope {
+            types: None,
+            except: Vec::new(),
+        }
+    }
+
+    /// Only these types.
+    pub fn only(types: &[&str]) -> Scope {
+        Scope {
+            types: Some(types.iter().map(|t| t.to_string()).collect()),
+            except: Vec::new(),
+        }
+    }
+
+    /// Every type but these.
+    pub fn except(types: &[&str]) -> Scope {
+        Scope {
+            types: None,
+            except: types.iter().map(|t| t.to_string()).collect(),
+        }
+    }
+
+    /// The types a scope type stands for: `org` takes in `klm`.
+    fn expand(t: &str) -> Vec<&str> {
+        if t == "org" {
+            vec!["org", "klm"]
+        } else {
+            vec![t]
+        }
+    }
+
+    /// Whether the scope serves `text_type`.
+    pub fn serves(&self, text_type: &str) -> bool {
+        let is = |t: &String| Scope::expand(t).contains(&text_type);
+        self.types.as_ref().is_none_or(|ts| ts.iter().any(is)) && !self.except.iter().any(is)
+    }
+
+    /// The scope as a when-clause over `textType`; `None` for all types.
+    pub fn clause(&self) -> Option<WhenClause> {
+        let eq = |t: &str| WhenClause::Eq("textType".into(), crate::when::Value::Str(t.into()));
+        let any = |ts: &[String]| {
+            ts.iter()
+                .flat_map(|t| Scope::expand(t))
+                .map(eq)
+                .reduce(|a, b| WhenClause::Or(Box::new(a), Box::new(b)))
+        };
+        let only = self.types.as_deref().and_then(any);
+        let not = any(&self.except).map(|e| WhenClause::Not(Box::new(e)));
+        match (only, not) {
+            (Some(a), Some(b)) => Some(WhenClause::And(Box::new(a), Box::new(b))),
+            (a, b) => a.or(b),
+        }
+    }
+
+    /// How the manual and `kalem commands` name it: `all`, `org`,
+    /// `all except org`.
+    pub fn describe(&self) -> String {
+        let t = match &self.types {
+            None => "all".to_string(),
+            Some(ts) => ts.join(", "),
+        };
+        if self.except.is_empty() {
+            t
+        } else {
+            format!("{t} except {}", self.except.join(", "))
+        }
+    }
 }
 
 impl Command {
@@ -492,14 +608,30 @@ impl CommandRegistry {
     /// A registry with the built-in commands.
     pub fn with_builtins() -> CommandRegistry {
         let mut r = CommandRegistry::new();
-        for c in crate::builtin::commands() {
+        for mut c in crate::builtin::commands() {
+            if c.scope.is_none() {
+                c.scope = Some(crate::builtin::default_scope(&c));
+            }
             r.register(c).expect("built-in commands are valid");
         }
         r
     }
 
     /// Adds a command. IDs must follow the convention and be new.
-    pub fn register(&mut self, command: Command) -> Result<(), CommandError> {
+    pub fn register(&mut self, mut command: Command) -> Result<(), CommandError> {
+        let Some(scope) = &command.scope else {
+            return Err(CommandError::new(format!(
+                "Command `{}` has no scope",
+                command.id
+            )));
+        };
+        // The scope as part of the when-clause.
+        if let Some(c) = scope.clause() {
+            command.when = Some(match command.when.take() {
+                Some(w) => WhenClause::And(Box::new(c), Box::new(w)),
+                None => c,
+            });
+        }
         if !valid_id(&command.id) {
             return Err(CommandError::new(format!(
                 "Invalid command ID `{}`",

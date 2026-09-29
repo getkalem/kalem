@@ -73,6 +73,22 @@ pub enum WhenClause {
 }
 
 impl WhenClause {
+    /// The strings the clause compares context key `key` with.
+    pub fn values(&self, key: &str) -> Vec<String> {
+        match self {
+            WhenClause::Eq(k, Value::Str(v)) | WhenClause::Ne(k, Value::Str(v)) if k == key => {
+                vec![v.clone()]
+            }
+            WhenClause::Not(e) => e.values(key),
+            WhenClause::And(a, b) | WhenClause::Or(a, b) => {
+                let mut v = a.values(key);
+                v.extend(b.values(key));
+                v
+            }
+            _ => Vec::new(),
+        }
+    }
+
     /// Whether the clause looks at context key `key`.
     pub fn mentions(&self, key: &str) -> bool {
         match self {

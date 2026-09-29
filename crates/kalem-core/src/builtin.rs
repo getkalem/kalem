@@ -33,6 +33,42 @@ fn cmd(
         handler: CommandHandler::Native(handler),
         args_schema: None,
         source: CommandSource::Builtin,
+        scope: None,
+    }
+}
+
+/// `c` with an explicit scope.
+fn scoped(mut c: Command, scope: crate::command::Scope) -> Command {
+    c.scope = Some(scope);
+    c
+}
+
+/// The scope of a built-in command (§11.2): Org's editing commands serve
+/// Org text (not the source blocks in it), the line commands of plain
+/// text every type but Org, the file manager's the file manager, and the
+/// rest (files, views, search, the palette, exports) every type.
+pub(crate) fn default_scope(c: &Command) -> crate::command::Scope {
+    use crate::command::Scope;
+    use crate::when::{Value as W, WhenClause};
+    // The clauses of a top-level `&&` chain.
+    fn requires(w: &WhenClause, f: &dyn Fn(&WhenClause) -> bool) -> bool {
+        match w {
+            WhenClause::And(a, b) => requires(a, f) || requires(b, f),
+            w => f(w),
+        }
+    }
+    let org = |w: &WhenClause| matches!(w, WhenClause::Eq(k, W::Str(v)) if k == "editorMode" && v == "org");
+    let plain = |w: &WhenClause| matches!(w, WhenClause::Ne(k, W::Str(v)) if k == "editorMode" && v == "org");
+    let dired = |w: &WhenClause| matches!(w, WhenClause::Eq(k, W::Str(v)) if k == "editorMode" && v == "directory");
+    // Whole documents and files: every type at the cursor, their when
+    // keeps them to Org documents.
+    let document = ["export.", "file.", "app.", "view.", "stats.", "project."];
+    match &c.when {
+        _ if document.iter().any(|p| c.id.starts_with(p)) => Scope::all(),
+        Some(w) if requires(w, &dired) => Scope::only(&["directory"]),
+        Some(w) if requires(w, &org) => Scope::only(&["org"]),
+        Some(w) if requires(w, &plain) => Scope::except(&["org"]),
+        _ => Scope::all(),
     }
 }
 
@@ -222,8 +258,6 @@ fn resolve_path(doc: &crate::document::DocumentState, file: &str) -> std::path::
 const ORG: &str = "editorMode == org";
 const TABLE: &str = "editorMode == org && inTable";
 const LIST: &str = "editorMode == org && inList";
-/// Documents that are not Org (plain text, code).
-const PLAIN: &str = "editorMode != org";
 
 /// The text and parse context of a model, for the commands that take text.
 fn text_of(d: &org_model::Document) -> String {
@@ -1210,29 +1244,38 @@ fn plain_commands() -> Vec<Command> {
                 request(ctx, Request::Save)
             },
         ),
-        cmd(
-            "lines.duplicate",
-            "Duplicate Lines",
-            "Edit",
-            &["ctrl+shift+d"],
-            Some(PLAIN),
-            |ctx, _| lines_command(ctx, |t, s| Some(crate::lines::duplicate(t, s))),
+        scoped(
+            cmd(
+                "lines.duplicate",
+                "Duplicate Lines",
+                "Edit",
+                &["ctrl+shift+d"],
+                None,
+                |ctx, _| lines_command(ctx, |t, s| Some(crate::lines::duplicate(t, s))),
+            ),
+            crate::command::Scope::except(&["org"]),
         ),
-        cmd(
-            "lines.moveUp",
-            "Move Lines Up",
-            "Edit",
-            &["alt+up"],
-            Some(PLAIN),
-            |ctx, _| lines_command(ctx, |t, s| crate::lines::move_lines(t, s, true)),
+        scoped(
+            cmd(
+                "lines.moveUp",
+                "Move Lines Up",
+                "Edit",
+                &["alt+up"],
+                None,
+                |ctx, _| lines_command(ctx, |t, s| crate::lines::move_lines(t, s, true)),
+            ),
+            crate::command::Scope::except(&["org"]),
         ),
-        cmd(
-            "lines.moveDown",
-            "Move Lines Down",
-            "Edit",
-            &["alt+down"],
-            Some(PLAIN),
-            |ctx, _| lines_command(ctx, |t, s| crate::lines::move_lines(t, s, false)),
+        scoped(
+            cmd(
+                "lines.moveDown",
+                "Move Lines Down",
+                "Edit",
+                &["alt+down"],
+                None,
+                |ctx, _| lines_command(ctx, |t, s| crate::lines::move_lines(t, s, false)),
+            ),
+            crate::command::Scope::except(&["org"]),
         ),
         cmd("lines.join", "Join Lines", "Edit", &[], None, |ctx, _| {
             lines_command(ctx, crate::lines::join)
@@ -3989,6 +4032,39 @@ mod tests {
             d.text().as_str(),
             "* DONE A\nCLOSED: [2026-09-28 Mon 10:00]\n"
         );
+    }
+
+    #[test]
+    fn every_command_has_a_scope() {
+        let reg = CommandRegistry::with_builtins();
+        assert!(reg.commands().all(|c| c.scope.is_some()));
+        let mut c = reg.get("edit.undo").unwrap().clone();
+        c.id = "myPlugin.noScope".into();
+        c.scope = None;
+        assert!(CommandRegistry::new().register(c).is_err());
+        // The scopes at work: Org's in Org text only, the line commands in
+        // code, source blocks of Org documents included.
+        use crate::command::Scope;
+        let get = |id: &str| reg.get(id).unwrap().scope.clone().unwrap();
+        assert_eq!(get("org.emphasis.bold"), Scope::only(&["org"]));
+        assert_eq!(get("lines.moveUp"), Scope::except(&["org"]));
+        assert_eq!(get("edit.undo"), Scope::all());
+        assert!(get("org.emphasis.bold").serves("klm"));
+        let mut d = doc("* A\n#+begin_src python\nx = 1\n#+end_src\n", 26);
+        assert_eq!(d.text_type(), "python");
+        let ctx = d.when_context();
+        let when = |id: &str| {
+            reg.get(id)
+                .unwrap()
+                .when
+                .as_ref()
+                .is_none_or(|w| w.eval(&ctx))
+        };
+        assert!(!when("org.emphasis.bold"));
+        assert!(when("lines.moveUp"));
+        // A document without a file is a Kalem document.
+        d.selection = org_edit::Selection::caret(1);
+        assert_eq!(d.text_type(), "klm");
     }
 
     #[test]

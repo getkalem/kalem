@@ -698,6 +698,18 @@ Command IDs are shown in the palette. =leader= stands for the Vim leader.
 =docs/keymaps/emacs.json= is a complete keymap with Emacs Org mode keys,
 to copy into =keymap.json=.
 
+Every command serves some types of text: all of them, a list, or all but
+some. The type is the one at the cursor, innermost first: a source
+block's language in an Org document (=python=), =latex= in a formula, the
+file's kind (=org=, or =klm= for a Kalem document, which Org's commands
+serve too), a file's language (=rs=), =markdown=, =csv=, =text=. So
+Ctrl+B makes bold text in Org and does nothing in a Python block, and
+Alt+Up moves lines in code, source blocks included, but moves headings,
+items and rows in Org. A binding can use the type too: ="when":
+"textType == python"=; a type Kalem does not know is reported with the
+other problems of the keymap. =kalem commands --type org= lists the
+commands a type has, with their scope and keys.
+
 In a terminal, keys with Alt reach Kalem only when the terminal sends
 them: in macOS Terminal and iTerm2, set Option to act as Meta (Terminal:
 Settings, Profiles, Keyboard, "Use Option as Meta key"; iTerm2: Profiles,
@@ -810,6 +822,7 @@ and says which.
 | =kalem check FILE...=       | Syntax diagnostics; exits 1 on errors (=--deny-warnings=, =--format json=) |
 | =kalem fmt FILE...=         | Aligns tables and tags, tidies blank lines; =--check= for CI               |
 | =kalem complete FILE:LINE:COL= | Prints the completions there: label, kind and completer, one a line      |
+| =kalem commands [--type T]= | Lists the commands (of text type =T=): ID, title, scope and keys          |
 | =kalem query FILE... MATCH= | Headlines matching an Org match string, such as ='TODO="NEXT"+work'=       |
 | =kalem parse FILE=          | The syntax tree                                                            |
 | =kalem dump FILE=           | The syntax tree as JSON, in Emacs's terms                                  |
