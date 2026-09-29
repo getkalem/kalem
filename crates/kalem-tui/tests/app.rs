@@ -2921,3 +2921,30 @@ fn latex_diagnostics_in_the_terminal() {
     let rows = screen(&mut t);
     assert_eq!(t.text(), "Some {\\bfseries x} here.\n", "{rows:#?}");
 }
+
+#[test]
+fn csv_filter_and_header_in_the_terminal() {
+    let mut rows = String::from("name,city\n");
+    for i in 0..30 {
+        let city = if i % 10 == 0 { "Izmir" } else { "Ankara" };
+        rows.push_str(&format!("p{i},{city}\n"));
+    }
+    let mut t = with_file(&rows, "people.csv", Config::default(), (70, 8));
+    // Scrolled down: the header stays on the first row.
+    t.at(rows.find("p20").unwrap());
+    let screen_rows = screen(&mut t);
+    assert!(screen_rows[0].contains("name"), "{screen_rows:#?}");
+    assert!(screen_rows.iter().any(|r| r.contains("p20")));
+    // A filter: the header and the matching rows (and the cursor's).
+    t.at(0);
+    t.app.doc.csv_filter = Some("izmir".into());
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("p0") && shown.contains("p10") && shown.contains("p20"));
+    assert!(!shown.contains("p1 ") && !shown.contains("p5"), "{shown}");
+    assert!(
+        shown.contains("3 of 30"),
+        "the count in the status line: {shown}"
+    );
+    t.app.doc.csv_filter = None;
+    assert!(screen(&mut t).join("\n").contains("p5"));
+}

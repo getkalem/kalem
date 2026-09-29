@@ -2830,3 +2830,36 @@ fn latex_diagnostics_in_the_editor(cx: &mut TestAppContext) {
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("latex.fix"));
     assert_eq!(text(&e, cx), "Some {\\bfseries x} here.\n");
 }
+
+#[gpui::test]
+fn csv_filter_and_header(cx: &mut TestAppContext) {
+    let mut rows = String::from("name,city\n");
+    for i in 0..60 {
+        let city = if i % 10 == 0 { "Izmir" } else { "Ankara" };
+        rows.push_str(&format!("p{i},{city}\n"));
+    }
+    let (e, cx) = open_named(&rows, "people.csv", || None, cx);
+    // Scrolled down: the header row is pinned at the top.
+    assert!(cx.debug_bounds("csv-header").is_none());
+    e.update(cx, |e, _| {
+        e.list.scroll_to(gpui::ListOffset {
+            item_ix: 40,
+            offset_in_item: gpui::px(0.),
+        })
+    });
+    cx.run_until_parked();
+    e.update(cx, |_, cx| cx.notify());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("csv-header").is_some(), "the header pinned");
+    // A filter keeps the header, the matching rows and the cursor's.
+    cx.dispatch_action(kalem_ui::editor::RunCommand::with(
+        "csv.filter",
+        serde_json::json!({ "text": "izmir" }),
+    ));
+    let lines = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(lines, vec![0, 1, 11, 21, 31, 41, 51]);
+    let status = e.read_with(cx, |e, _| kalem_core::csv::status(&e.doc));
+    assert!(status.is_some_and(|s| s.contains("6")));
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.clearFilter"));
+    assert_eq!(e.read_with(cx, |e, _| e.visible.len()), 62);
+}

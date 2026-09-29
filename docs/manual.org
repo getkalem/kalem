@@ -940,7 +940,12 @@ they need it. /Copy as Tab-Separated Values/ copies the selected
 records (all of them without a selection) as a spreadsheet pastes them,
 and rows pasted from a spreadsheet get the file's delimiter. The status
 bar shows the count, sum, average, smallest and largest of the numbers
-in the cursor's column. /Open as Plain Text/ shows the text as it is,
+in the cursor's column. The header row stays at the top when the rows
+scroll. /Filter Rows/ asks for a text and shows only the rows with a
+field holding it (case ignored), with the header and the row at the
+cursor; the status bar says how many of the rows match, the file does
+not change, and /Show All Rows/ shows them all again. Both are in the
+/Table/ menu. /Open as Plain Text/ shows the text as it is,
 and /Convert to Org Table/ writes the rows as an Org table in a new
 =.org= file beside it and opens it.
 

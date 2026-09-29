@@ -240,6 +240,7 @@ status-saved = Saved
 status-position = Ln { $line }, Col { $column }
 status-formula-lisp = Emacs Lisp formula, not computed
 status-table-count = Count: { $count }
+status-csv-filter = Filtered: { $matched } of { $total } rows (“{ $filter }”)
 status-table-numbers = Sum: { $sum }   Average: { $average }   Min: { $min }   Max: { $max }
 status-formula-error = #ERROR: { $why }
 # $count is the number for plural rules; $shown is the same number with digit groups.
@@ -738,6 +739,8 @@ msg-csv-no-row = No row to move past
 msg-csv-no-column = No column to move past
 msg-csv-save-first = Save the file first
 msg-csv-converted = Written as { $path }
+cmd-csv-filter = Filter Rows
+cmd-csv-clearFilter = Show All Rows
 cmd-csv-nextField = Next Field
 cmd-csv-previousField = Previous Field
 cmd-csv-insertRow = Insert Row

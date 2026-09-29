@@ -200,6 +200,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
             ]),
         ),
         ("csv.sortFile", object(&[("reverse", "boolean", false)])),
+        ("csv.filter", object(&[("text", "string", true)])),
         (
             "latex.section.setLevel",
             object(&[("level", "integer", true)]),
@@ -1738,6 +1739,21 @@ fn csv_commands() -> Vec<Command> {
                     Some((top, col)),
                 ))
             })
+        }),
+        c("csv.filter", "Filter Rows", &[], |ctx, args| {
+            // Only the rows with a field holding the text show; the file
+            // stays as it is. An empty text shows them all.
+            let text = arg_str(args, "text")?.trim().to_string();
+            let d = ctx.doc()?;
+            if d.meta.mode != crate::DocumentMode::Csv {
+                return Err(CommandError::new(crate::tr!("msg-not-csv")));
+            }
+            d.csv_filter = (!text.is_empty()).then_some(text);
+            Ok(())
+        }),
+        c("csv.clearFilter", "Show All Rows", &[], |ctx, _| {
+            ctx.doc()?.csv_filter = None;
+            Ok(())
         }),
         c(
             "csv.copyAsTsv",
