@@ -719,3 +719,12 @@ latex-double-dollar = $$…$$ is plain TeX; use \[…\]
 latex-tie = Use ~ before a reference or a citation, so that no line breaks before it
 latex-ellipsis = Use \ldots for an ellipsis
 latex-quotes = Use `` and '' for quotation marks
+latex-install-texlive = Install it with: tlmgr install { $package }
+latex-install-miktex = Install it with the MiKTeX Console, or: mpm --install={ $package }
+cmd-latex-build = Build PDF
+category-latex = LaTeX
+msg-latex-built = Built { $path }{ $count ->
+    [0] {""}
+    [one] {" "}(1 LaTeX warning)
+   *[other] {" "}({ $count } LaTeX warnings)
+}

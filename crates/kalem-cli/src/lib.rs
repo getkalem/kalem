@@ -41,6 +41,27 @@ enum TableAction {
 }
 
 #[derive(Debug, Subcommand)]
+enum LatexAction {
+    /// Build the PDF of a LaTeX document: its project's root document,
+    /// with `latexmk` or the engine it names, and the problems of the log
+    /// at their files and lines; exits 1 when LaTeX reports an error.
+    Build {
+        /// A LaTeX file of the project.
+        file: PathBuf,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = Format::Text)]
+        format: Format,
+        /// The engine (`pdflatex`, `xelatex`, `lualatex`), instead of the
+        /// one the document asks for.
+        #[arg(long)]
+        engine: Option<String>,
+        /// Where the output goes, relative to the root document.
+        #[arg(long)]
+        outdir: Option<PathBuf>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum Command {
     /// Print the syntax tree of a file.
     Parse {
@@ -125,6 +146,11 @@ enum Command {
         /// Replace an Org file that exists.
         #[arg(long)]
         force: bool,
+    },
+    /// LaTeX documents: `kalem latex build FILE`.
+    Latex {
+        #[command(subcommand)]
+        action: LatexAction,
     },
     /// Table formulas: `kalem table recalc FILE...`.
     Table {
@@ -298,6 +324,20 @@ where
                 },
         } => commands::recalc(&files, iterate, check),
         Command::Query { args, format } => commands::query(&args, matches!(format, Format::Json)),
+        Command::Latex {
+            action:
+                LatexAction::Build {
+                    file,
+                    format,
+                    engine,
+                    outdir,
+                },
+        } => commands::latex_build(
+            &file,
+            matches!(format, Format::Json),
+            engine.as_deref(),
+            outdir.as_deref(),
+        ),
         Command::DiffEmacs {
             files,
             emacs_dumps,

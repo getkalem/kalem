@@ -798,6 +798,17 @@ are numbered as one: the root document comes from a =% !TEX root= line,
 the main file of a subfile, a =NAME.tex.latexmain= file, or the document
 up the folders that includes the file.
 
+/Build PDF/ (F5) builds the project's root document in the background
+with =latexmk= (or the engine alone, with =biber= or =bibtex= between
+its runs): pdfLaTeX, or the engine a =% !TEX program = xelatex= line or
+the =latex.engine= setting names, or XeLaTeX for documents that load
+=fontspec=. The status bar gives the first error at its file and line,
+or the PDF and the number of warnings; a missing package comes with the
+command that installs it. =latex.output_directory= sends the output to
+a folder, and =latex.build_on_save= builds each time the document is
+saved. On the command line, =kalem latex build FILE= does the same
+(=--format json= for the problems as data).
+
 ** CSV files
 
 CSV and TSV files open as a grid: each field padded to its column's
@@ -893,6 +904,7 @@ and says which.
 |-------------------------------------+----------------------------------------------------------------------------------|
 | =kalem check FILE...=               | Syntax diagnostics; exits 1 on errors (=--deny-warnings=, =--format json=)       |
 | =kalem check FILE.tex --unrendered= | LaTeX: unbalanced groups, labels, citations, missing files; what shows as source |
+| =kalem latex build FILE=            | Builds the PDF of a LaTeX project; its problems at their files and lines         |
 | =kalem fmt FILE...=                 | Aligns tables and tags, tidies blank lines; =--check= for CI                     |
 | =kalem complete FILE:LINE:COL=      | Prints the completions there: label, kind and completer, one a line              |
 | =kalem commands [--type T]=         | Lists the commands (of text type =T=): ID, title, scope and keys                 |

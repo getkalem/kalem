@@ -322,3 +322,35 @@ fn check_latex() {
     let (code, _, _) = kalem(&["check", "--deny-warnings", "tests/fixtures/sample.tex"]);
     assert_eq!(code, 1);
 }
+
+#[test]
+fn latex_build() {
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    if !std::env::split_paths(&search).any(|d| d.join("pdflatex").is_file()) {
+        return;
+    }
+    let dir = std::env::temp_dir().join(format!("kalem-cli-latex-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("ch")).unwrap();
+    std::fs::write(
+        dir.join("main.tex"),
+        "\\documentclass{article}\\begin{document}\\input{ch/one}\\end{document}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("ch/one.tex"),
+        "% !TEX root = ../main.tex\nHello \\undefinedcommand.\n",
+    )
+    .unwrap();
+    let one = dir.join("ch/one.tex");
+    let (code, out, _) = kalem(&["latex", "build", "--format", "json", one.to_str().unwrap()]);
+    assert_eq!(code, 1, "{out}");
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert!(v["root"].as_str().unwrap().ends_with("main.tex"));
+    let first = &v["problems"][0];
+    assert_eq!(
+        (first["file"].as_str(), first["line"].as_u64()),
+        (Some("./ch/one.tex"), Some(2))
+    );
+    assert_eq!(first["severity"], "error");
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -1591,6 +1591,14 @@ impl App {
                     tr!("msg-saved-as", path = path.display().to_string()),
                     false,
                 );
+                // A LaTeX document builds on save when asked to, one build
+                // at a time.
+                if self.doc.latex().is_some()
+                    && self.config.bool("latex.build_on_save")
+                    && !kalem_core::jobs::running()
+                {
+                    self.run_command("latex.build", serde_json::Value::Null);
+                }
             }
             Err(kalem_core::document::SaveError::ChangedOnDisk) => {
                 self.ask(
