@@ -91,6 +91,8 @@
   { "keys": "shift+a", "command": "dired.searchFiles" },
   { "keys": "shift+w", "command": "dired.openExternal" },
   { "keys": "!", "command": "dired.shellCommand" },
+  { "keys": "v", "command": "dired.togglePreview" },
+  { "keys": "ctrl+t", "command": "dired.thumbnails" },
   { "keys": "ctrl+s", "command": "dired.commitNames" },
   { "keys": "escape", "command": "dired.abortNames" },
   { "keys": "shift+s", "command": "dired.symlink" },

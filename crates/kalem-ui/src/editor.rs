@@ -248,6 +248,11 @@ pub struct Editor {
     left: bool,
     /// The outline sidebar, when shown.
     pub outline: Option<crate::outline::Outline>,
+    /// The file manager's preview pane, when shown: `true` for the
+    /// listing's thumbnails.
+    pub preview: Option<bool>,
+    /// What the preview pane shows, for the file it was read from.
+    pub preview_cache: crate::preview::Cache,
     /// The command palette, when open.
     pub palette: Option<crate::panels::Palette>,
     /// The find bar, when open.
@@ -368,6 +373,8 @@ impl Editor {
             left: true,
             other: None,
             outline: None,
+            preview: None,
+            preview_cache: Default::default(),
             palette: None,
             find: None,
             date_picker: None,
@@ -998,6 +1005,10 @@ impl Editor {
             Request::Fold { global } => self.fold(global, cx),
             Request::OpenLink(action) => self.open_link(action, cx),
             Request::Outline => self.toggle_outline(cx),
+            Request::Preview { thumbnails } => {
+                self.preview = (self.preview != Some(thumbnails)).then_some(thumbnails);
+                cx.notify();
+            }
             Request::Palette => self.open_palette(cx),
             Request::Find { replace } => self.open_find(replace, cx),
             Request::Open { path: Some(p) } => {
@@ -3147,6 +3158,7 @@ impl gpui::Render for Editor {
             )
         });
         let outline = self.outline_panel(cx);
+        let preview = self.preview_panel(cx);
         let panes = match other {
             Some(o) if self.left => vec![active, o.border_l_1().border_color(theme.border)],
             Some(o) => vec![o, active.border_l_1().border_color(theme.border)],
@@ -3220,6 +3232,7 @@ impl gpui::Render for Editor {
             }))
             .children(outline)
             .children(panes)
+            .children(preview)
             .children(self.find_view(cx))
             .children(self.which_key_view())
             .children(self.palette_view(cx))

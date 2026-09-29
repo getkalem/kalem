@@ -609,6 +609,7 @@ Commands act on the marked entries, or on the one at the cursor.
 | =A=                 | Search the text of the files under the folder         |
 | =W=                 | Open with the system's application                    |
 | =!=                 | Shell command on the marked files (asks first)        |
+| =v=, Ctrl+T         | Preview pane; thumbnails of the pictures (graphical)  |
 | =w=                 | Copy the names                                        |
 | =q=                 | Close the file manager                                |
 
@@ -644,6 +645,12 @@ with the file there; otherwise it runs once per file with the file at the
 end, as in Dired. The last line of its output shows in the status bar.
 /Show in System File Manager/ (the palette) shows the file selected in
 Finder, Explorer or the desktop's file manager.
+
+In the graphical editor =v= shows a pane beside the listing with the file
+at the cursor: a picture, the first lines of an Org, Markdown or other text
+file, or a folder's names. Ctrl+T shows the listing's pictures (the marked
+ones, or all) as thumbnails there instead; a click on one goes to its line.
+The same key hides the pane.
 
 With Vim keys the file manager's keys come first, except =n=, =p=, =w= and
 Backspace, which Vim keeps; =g r= reads the folder again, =g g= goes to the
