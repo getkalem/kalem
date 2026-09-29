@@ -1488,6 +1488,13 @@ impl App {
                 self.message(tr!("msg-no-match-for", target = s), true);
                 return;
             }
+            LinkAction::Print(pdf) => {
+                match kalem_core::print::run(&pdf) {
+                    Ok(m) => self.message(m, false),
+                    Err(e) => self.message(e, true),
+                }
+                return;
+            }
         };
         let opener = if cfg!(target_os = "macos") {
             "open"

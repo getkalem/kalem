@@ -2387,3 +2387,14 @@ fn csv_grid() {
         .run_command("csv.moveRowDown", serde_json::Value::Null);
     assert_eq!(t.app.doc.text().as_str(), "name,age\nBob,7\nAda,36\n");
 }
+
+#[test]
+fn print_compiles_first() {
+    // Without a file there is nothing to compile beside (a test must not
+    // reach a real print dialog; `kalem-core/tests/book.rs` covers the rest).
+    let mut t = with_file("Hello.\n", "p.org", Config::default(), (70, 8));
+    t.app.doc.meta.path = None;
+    t.app.run_command("file.print", serde_json::Value::Null);
+    let s = status(&mut t);
+    assert!(s.contains("Save"), "{s}");
+}

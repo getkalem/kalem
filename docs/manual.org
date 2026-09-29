@@ -479,6 +479,14 @@ MacTeX or MiKTeX provide them. When LaTeX stops on an error, the status
 line gives it at the line of the Org file it comes from. With
 =export.open_after= on, the PDF opens when it is ready.
 
+/Print/ (File menu) compiles the PDF the same way and hands it to the
+system's print dialog: through Preview on macOS and the PDF
+application's Print command on Windows. On Linux it opens Evince's print
+preview when Evince is installed, otherwise the default PDF viewer, from
+which you print. In a terminal without a display nothing is sent to a
+printer; the status line names the PDF for =lp=. Printing needs TeX, as
+the PDF export does.
+
 With pandoc installed (https://pandoc.org), /Export as Word/,
 /OpenDocument/, /EPUB/ and /RTF/ write those formats, and /Import as Org/
 (File menu) turns a Word, OpenDocument, Markdown, HTML, EPUB or RTF file

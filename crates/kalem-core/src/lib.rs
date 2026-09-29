@@ -33,6 +33,7 @@ pub mod palette;
 pub mod pandoc;
 pub mod paste;
 pub mod pdf;
+pub mod print;
 pub mod projects;
 pub mod properties;
 pub mod refile;

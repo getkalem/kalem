@@ -1214,6 +1214,10 @@ impl Editor {
                 self.after_change(cx);
             }
             LinkAction::Missing(s) => self.message(tr!("msg-no-match-for", target = s), true),
+            LinkAction::Print(pdf) => match kalem_core::print::run(&pdf) {
+                Ok(m) => self.message(m, false),
+                Err(e) => self.message(e, true),
+            },
         }
     }
 

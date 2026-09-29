@@ -102,3 +102,47 @@ fn book_to_pdf() {
     assert!(compiled.pdf.is_some_and(|p| p.is_file()));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn print_hands_the_pdf_over() {
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    if kalem_core::pdf::detect(kalem_core::pdf::Engine::PdfLatex, &search).is_none() {
+        eprintln!("no TeX: printing is not checked");
+        return;
+    }
+    let dir = std::env::temp_dir().join(format!("kalem-print-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("note.org");
+    std::fs::write(&path, "#+TITLE: Note\n\nHello.\n").unwrap();
+    let base = kalem_core::settings::Config::default().parse_base();
+    let mut doc = kalem_core::DocumentState::open(
+        &path,
+        std::sync::Arc::new(org_model::Settings::default()),
+        &base,
+    )
+    .unwrap();
+    let reg = kalem_core::CommandRegistry::with_builtins();
+    let mut clip = kalem_core::command::Clipboard::default();
+    let config = kalem_core::Config::default();
+    let mut ctx = kalem_core::command::EditorContext {
+        document: Some(&mut doc),
+        clipboard: &mut clip,
+        config: &config,
+        now: std::time::Instant::now(),
+        clock: jiff::civil::date(2026, 9, 29).at(10, 0, 0, 0),
+        messages: Vec::new(),
+        requests: Vec::new(),
+    };
+    reg.execute("file.print", &mut ctx, &serde_json::Value::Null)
+        .unwrap();
+    let done = kalem_core::jobs::wait_all();
+    assert_eq!(done.len(), 1);
+    assert!(!done[0].error, "{}", done[0].message);
+    assert_eq!(
+        done[0].open,
+        Some(kalem_core::input::LinkAction::Print(dir.join("note.pdf")))
+    );
+    let plan = kalem_core::print::plan(&dir.join("note.pdf"), "linux", false, &search);
+    assert_eq!(plan, None);
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -683,6 +683,13 @@ const LATEX: org_export::Latex = org_export::Latex {
 /// (`crate::pdf`); the result, or LaTeX's first error at its Org line,
 /// shows when it ends.
 fn export_pdf(ctx: &mut EditorContext<'_>, subtree: bool) -> CommandResult {
+    pdf_then(ctx, subtree, false)
+}
+
+/// Compiles the document (or the subtree at the cursor) to a PDF in the
+/// background; then opens it (`export.open_after`) or, with `print`,
+/// hands it to the system's print dialog.
+fn pdf_then(ctx: &mut EditorContext<'_>, subtree: bool, print: bool) -> CommandResult {
     let doc = ctx
         .document
         .as_deref()
@@ -718,7 +725,13 @@ fn export_pdf(ctx: &mut EditorContext<'_>, subtree: bool) -> CommandResult {
     let open_after = ctx.config.bool("export.open_after");
     ctx.messages.push(crate::l10n::tr("msg-compiling-pdf"));
     crate::jobs::spawn(crate::l10n::tr("msg-compiling-pdf"), move || {
-        pdf_result(&path, crate::pdf::compile(&tool, engine, &tex), open_after)
+        let compiled = crate::pdf::compile(&tool, engine, &tex);
+        let pdf = compiled.as_ref().ok().and_then(|c| c.pdf.clone());
+        let mut done = pdf_result(&path, compiled, open_after && !print);
+        if print && !done.error {
+            done.open = pdf.map(crate::input::LinkAction::Print);
+        }
+        done
     });
     Ok(())
 }
@@ -1333,6 +1346,14 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some("editorMode == org"),
             |ctx, _| export_pdf(ctx, false),
+        ),
+        cmd(
+            "file.print",
+            "Print",
+            "File",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| pdf_then(ctx, false, true),
         ),
         cmd(
             "export.pdfSubtree",

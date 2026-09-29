@@ -2258,3 +2258,16 @@ fn csv_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(text_of(&e, cx), "name,age\nBob,7\nAda,36\n");
 }
+
+#[gpui::test]
+fn print_compiles_first(cx: &mut TestAppContext) {
+    // Without a file there is nothing to compile beside (a test must not
+    // reach a real print dialog; `kalem-core/tests/book.rs` covers the rest).
+    let (e, cx) = open_named("Hello.\n", "p.org", || None, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.doc.meta.path = None;
+        e.run_command("file.print", serde_json::Value::Null, window, cx)
+    });
+    let status = e.read_with(cx, |e, _| e.status.clone().map(|s| s.0).unwrap_or_default());
+    assert!(status.contains("Save"), "{status}");
+}
