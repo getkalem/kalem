@@ -2398,3 +2398,34 @@ fn print_compiles_first() {
     let s = status(&mut t);
     assert!(s.contains("Save"), "{s}");
 }
+
+#[test]
+fn latex_rendered() {
+    let text = "\\section{Intro}\nSome \\emph{very} ``good'' text---yes.\n";
+    let mut t = with_file(text, "paper.tex", Config::default(), (60, 8));
+    assert_eq!(t.app.doc.meta.mode, kalem_core::DocumentMode::Latex);
+    // Away from the heading's command.
+    t.at(text.len());
+    let s = screen(&mut t);
+    assert!(status(&mut t).contains("LaTeX"));
+    assert!(
+        s.iter()
+            .any(|l| l.contains("Intro") && !l.contains("\\section")),
+        "{s:#?}"
+    );
+    assert!(
+        s.iter()
+            .any(|l| l.contains("Some very \u{201c}good\u{201d} text\u{2014}yes.")),
+        "{s:#?}"
+    );
+    // At the command, its markers show for editing.
+    let at = text.find("\\emph").unwrap();
+    t.at(at);
+    let s = screen(&mut t);
+    assert!(s.iter().any(|l| l.contains("\\emph{very}")), "{s:#?}");
+    // The source view shows the text.
+    t.app
+        .run_command("view.toggleSource", serde_json::Value::Null);
+    let s = screen(&mut t);
+    assert!(s.iter().any(|l| l.contains("\\section{Intro}")), "{s:#?}");
+}

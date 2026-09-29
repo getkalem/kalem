@@ -25,6 +25,7 @@ pub mod keymap;
 pub mod keys;
 pub mod kinds;
 pub mod l10n;
+pub mod latex_view;
 pub mod lines;
 pub mod logging;
 pub mod math;

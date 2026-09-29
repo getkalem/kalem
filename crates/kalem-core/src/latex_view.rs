@@ -1,0 +1,631 @@
+//! The LaTeX editor's view (design §9.5, T2.7h.5): each source line of a
+//! `.tex` file drawn as the document reads, the file left as it is.
+//!
+//! Sectioning commands are headings with the numbers LaTeX gives them;
+//! `\emph`, `\textbf` and their kin show their text styled, with the
+//! command and its braces hidden away from the cursor (as Org's emphasis
+//! markers are); quotes and dashes (``` `` ```, `''`, `--`, `---`) and
+//! `~`, `\&`, `\%`, `\,`, `\\` show as the characters they typeset;
+//! `\maketitle` shows the title, the authors and the date; `center`,
+//! `flushleft` and `flushright` align their lines; comments are dimmed.
+//! Anything else stays as its source, never hidden or guessed.
+
+use std::cell::RefCell;
+use std::ops::Range;
+use std::sync::Arc;
+
+use latex_syntax::{SyntaxKind as K, SyntaxNode, SyntaxToken, TextSize};
+
+use crate::view::{LineView, Run, Style};
+
+/// `\title`, `\author` and `\date`.
+type Titles = Arc<[Option<String>; 3]>;
+
+/// The parse of a LaTeX document, kept up to date with its edits, and
+/// its model.
+#[derive(Debug)]
+pub struct LatexState {
+    parse: latex_syntax::Parse,
+    models: RefCell<latex_model::Cache>,
+    titles: RefCell<Option<(latex_syntax::GreenNode, Titles)>>,
+}
+
+impl LatexState {
+    /// The state of `text`.
+    pub fn new(text: &str) -> LatexState {
+        LatexState {
+            parse: latex_syntax::parse(text),
+            models: RefCell::new(latex_model::Cache::default()),
+            titles: RefCell::new(None),
+        }
+    }
+
+    /// After an edit of the text (now `text`): parsed again, only around
+    /// the edit where that gives the same tree.
+    pub(crate) fn edit(&mut self, text: &str, edit: Option<&org_syntax::TextEdit>) {
+        self.parse = match edit {
+            Some(e) => {
+                let edit = latex_syntax::TextEdit {
+                    range: usize::from(e.range.start())..usize::from(e.range.end()),
+                    insert: e.insert.clone(),
+                };
+                self.parse.reparse(text, &edit)
+            }
+            None => latex_syntax::parse(text),
+        };
+    }
+
+    /// The parse.
+    pub fn parse(&self) -> &latex_syntax::Parse {
+        &self.parse
+    }
+
+    /// The document model (numbers, labels, citations, definitions).
+    pub fn model(&self) -> Arc<latex_model::Model> {
+        self.models.borrow_mut().model(&self.parse)
+    }
+
+    /// `\title`, `\author` and `\date`, as written.
+    fn titles(&self) -> Titles {
+        let mut t = self.titles.borrow_mut();
+        if let Some((g, v)) = &*t
+            && g == self.parse.green()
+        {
+            return v.clone();
+        }
+        let mut v: [Option<String>; 3] = [None, None, None];
+        for n in self.parse.syntax().descendants() {
+            if n.kind() != K::COMMAND {
+                continue;
+            }
+            let i = match latex_syntax::name(&n).as_deref() {
+                Some("title") => 0,
+                Some("author") => 1,
+                Some("date") => 2,
+                _ => continue,
+            };
+            if let Some(g) = n.children().find(|c| c.kind() == K::GROUP) {
+                let s = group_text(&g).replace("\\\\", "\\and");
+                let parts: Vec<String> = s
+                    .split("\\and")
+                    .map(|p| p.split_whitespace().collect::<Vec<_>>().join(" "))
+                    .filter(|p| !p.is_empty())
+                    .collect();
+                v[i] = Some(parts.join(", "));
+            }
+        }
+        let v = Arc::new(v);
+        *t = Some((self.parse.green().clone(), v.clone()));
+        v
+    }
+}
+
+/// The text of a group without its braces.
+fn group_text(g: &SyntaxNode) -> String {
+    let s = g.text().to_string();
+    let s = s.strip_prefix('{').unwrap_or(&s);
+    s.strip_suffix('}').unwrap_or(s).to_string()
+}
+
+fn span(t: &SyntaxToken) -> Range<usize> {
+    usize::from(t.text_range().start())..usize::from(t.text_range().end())
+}
+
+fn node_span(n: &SyntaxNode) -> Range<usize> {
+    usize::from(n.text_range().start())..usize::from(n.text_range().end())
+}
+
+/// The style a formatting command gives its argument.
+fn format_style(name: &str) -> Option<Style> {
+    let mut s = Style::default();
+    match name {
+        "emph" | "textit" | "textsl" => s.italic = true,
+        "textbf" => s.bold = true,
+        "texttt" => s.code = true,
+        "underline" | "uline" => s.underline = true,
+        "sout" => s.strike = true,
+        "textsuperscript" => s.superscript = true,
+        "textsubscript" => s.subscript = true,
+        "textsc" | "textsf" | "textrm" | "textup" | "textmd" | "textnormal" => {}
+        _ => return None,
+    }
+    Some(s)
+}
+
+fn merge(a: &mut Style, b: &Style) {
+    a.bold |= b.bold;
+    a.italic |= b.italic;
+    a.code |= b.code;
+    a.underline |= b.underline;
+    a.strike |= b.strike;
+    a.superscript |= b.superscript;
+    a.subscript |= b.subscript;
+}
+
+/// Commands whose arguments are text a reader reads (typography applies).
+fn prose(name: &str) -> bool {
+    format_style(name).is_some()
+        || latex_syntax::signatures::is_sectioning(name)
+        || matches!(
+            name,
+            "footnote"
+                | "caption"
+                | "item"
+                | "title"
+                | "author"
+                | "date"
+                | "text"
+                | "mbox"
+                | "textcolor"
+                | "thanks"
+                | "enquote"
+                | "\\"
+        )
+}
+
+/// What the view makes of a token.
+#[derive(Debug, Default)]
+struct Context {
+    style: Style,
+    math: bool,
+    typography: bool,
+    /// The command whose marker the token is (hidden away from it).
+    marker_of: Option<SyntaxNode>,
+    /// The token is the title's opening brace of this sectioning command.
+    title_open: Option<SyntaxNode>,
+    /// Inside a sectioning command.
+    heading: bool,
+}
+
+fn context(t: &SyntaxToken) -> Context {
+    let mut c = Context {
+        typography: true,
+        ..Context::default()
+    };
+    let mut child: Option<SyntaxNode> = None;
+    for a in t.parent_ancestors() {
+        match a.kind() {
+            K::COMMAND => {
+                let name = latex_syntax::name(&a).unwrap_or_default();
+                let section = latex_syntax::signatures::is_sectioning(&name);
+                let format = format_style(&name);
+                if let Some(s) = &format {
+                    merge(&mut c.style, s);
+                }
+                if section {
+                    c.heading = true;
+                }
+                if !prose(&name) {
+                    c.typography = false;
+                }
+                if (format.is_some() || section) && c.marker_of.is_none() {
+                    let marker = match &child {
+                        // The name, a star, blanks between the arguments.
+                        None => {
+                            matches!(
+                                t.kind(),
+                                K::CONTROL_WORD | K::STAR | K::WHITESPACE | K::NEWLINE
+                            ) && (t.kind() != K::CONTROL_WORD
+                                || t.prev_sibling_or_token().is_none())
+                        }
+                        // The braces of an argument, a short title.
+                        Some(g) if g.kind() == K::GROUP => {
+                            let first = g.first_token().is_some_and(|f| f == *t);
+                            let last = g
+                                .last_token()
+                                .is_some_and(|l| l == *t && l.kind() == K::R_BRACE);
+                            if first && section {
+                                c.title_open = Some(a.clone());
+                            }
+                            (first || last) && t.parent().as_ref() == Some(g)
+                        }
+                        Some(o) if o.kind() == K::OPT_ARG => section,
+                        _ => false,
+                    };
+                    if marker {
+                        c.marker_of = Some(a.clone());
+                    }
+                }
+            }
+            K::INLINE_MATH | K::DISPLAY_MATH => {
+                c.math = true;
+                c.typography = false;
+            }
+            K::ENVIRONMENT => {
+                let name = latex_syntax::name(&a).unwrap_or_default();
+                if latex_syntax::signatures::is_math(&name) {
+                    c.math = true;
+                    c.typography = false;
+                }
+                if latex_syntax::signatures::is_verbatim(&name) {
+                    c.typography = false;
+                }
+            }
+            K::VERB | K::BEGIN | K::END => c.typography = false,
+            _ => {}
+        }
+        child = Some(a);
+    }
+    c
+}
+
+/// Typographic replacements in text: `` ` `` `'` quotes and dashes.
+fn typography(s: &str) -> Vec<(Range<usize>, &'static str)> {
+    let b = s.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        let rep: Option<(usize, &str)> = match b[i] {
+            b'`' if b.get(i + 1) == Some(&b'`') => Some((2, "\u{201c}")),
+            b'`' => Some((1, "\u{2018}")),
+            b'\'' if b.get(i + 1) == Some(&b'\'') => Some((2, "\u{201d}")),
+            b'\'' => Some((1, "\u{2019}")),
+            b'-' if b.get(i + 1) == Some(&b'-') && b.get(i + 2) == Some(&b'-') => {
+                Some((3, "\u{2014}"))
+            }
+            b'-' if b.get(i + 1) == Some(&b'-') => Some((2, "\u{2013}")),
+            _ => None,
+        };
+        match rep {
+            Some((n, r)) => {
+                out.push((i..i + n, r));
+                i += n;
+            }
+            None => i += 1,
+        }
+    }
+    out
+}
+
+/// What a control symbol typesets in text.
+fn symbol(s: &str) -> Option<&'static str> {
+    Some(match s {
+        "\\&" => "&",
+        "\\%" => "%",
+        "\\$" => "$",
+        "\\#" => "#",
+        "\\_" => "_",
+        "\\{" => "{",
+        "\\}" => "}",
+        "\\," => "\u{2009}",
+        "\\ " => " ",
+        "\\@" => "",
+        "\\/" => "",
+        _ => return None,
+    })
+}
+
+/// What a command without arguments typesets.
+fn word(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "ldots" | "dots" | "textellipsis" => "\u{2026}",
+        "LaTeX" => "LaTeX",
+        "TeX" => "TeX",
+        "textendash" => "\u{2013}",
+        "textemdash" => "\u{2014}",
+        "S" => "\u{a7}",
+        "P" => "\u{b6}",
+        "copyright" => "\u{a9}",
+        "quad" => "\u{2003}",
+        "qquad" => "\u{2003}\u{2003}",
+        "newline" | "linebreak" => "\u{21b5}",
+        _ => return None,
+    })
+}
+
+struct Builder<'a> {
+    text: &'a str,
+    line: Range<usize>,
+    runs: Vec<Run>,
+}
+
+impl Builder<'_> {
+    fn verbatim(&mut self, src: Range<usize>, style: Style) {
+        let src = src.start.max(self.line.start)..src.end.min(self.line.end);
+        if src.is_empty() {
+            return;
+        }
+        if let Some(last) = self.runs.last_mut()
+            && last.verbatim
+            && last.widget.is_none()
+            && last.src.end == src.start
+            && last.style == style
+        {
+            last.text.push_str(&self.text[src.clone()]);
+            last.src.end = src.end;
+            return;
+        }
+        self.runs.push(Run {
+            text: self.text[src.clone()].to_string(),
+            src,
+            verbatim: true,
+            style,
+            widget: None,
+        });
+    }
+
+    fn replace(&mut self, src: Range<usize>, text: &str, style: Style) {
+        self.runs.push(Run {
+            src,
+            text: text.to_string(),
+            verbatim: false,
+            style,
+            widget: None,
+        });
+    }
+}
+
+/// The view of source line `line` (without its line ending) of the LaTeX
+/// document `doc`, with the cursor at `cursor`.
+pub fn line_view(
+    doc: &crate::DocumentState,
+    line: Range<usize>,
+    cursor: Option<usize>,
+) -> LineView {
+    let text = doc.text().as_str();
+    let Some(state) = doc.latex() else {
+        return crate::view::plain_line_view(text, line, cursor);
+    };
+    let mut v = LineView {
+        range: line.clone(),
+        ..LineView::default()
+    };
+    if line.is_empty() {
+        return v;
+    }
+    let root = state.parse().syntax();
+    let near = |r: &Range<usize>| cursor.is_some_and(|c| r.start <= c && c <= r.end);
+    let mut b = Builder {
+        text,
+        line: line.clone(),
+        runs: Vec::new(),
+    };
+    let dim = Style {
+        dim: true,
+        ..Style::default()
+    };
+    let mut tok = root
+        .token_at_offset(TextSize::from(line.start as u32))
+        .right_biased();
+    let mut heading_command: Option<SyntaxNode> = None;
+    while let Some(t) = tok {
+        let r = span(&t);
+        if r.start >= line.end {
+            break;
+        }
+        tok = t.next_token();
+        let c = context(&t);
+        if let Some(cmd) = &c.marker_of {
+            if latex_syntax::signatures::is_sectioning(&latex_syntax::name(cmd).unwrap_or_default())
+            {
+                heading_command = Some(cmd.clone());
+            }
+            if !near(&node_span(cmd)) {
+                // The title's number where its brace was.
+                if let Some(sec) = &c.title_open {
+                    let model = state.model();
+                    let start = node_span(sec).start;
+                    if let Some(n) = model
+                        .sections
+                        .iter()
+                        .find(|s| s.range.start == start && s.file == 0)
+                        .and_then(|s| s.number.clone())
+                    {
+                        b.replace(r.end..r.end, &format!("{n}\u{2003}"), c.style);
+                    }
+                }
+                continue;
+            }
+            b.verbatim(r, dim);
+            continue;
+        }
+        if c.heading && heading_command.is_none() {
+            heading_command = t.parent_ancestors().find(|a| {
+                a.kind() == K::COMMAND
+                    && latex_syntax::signatures::is_sectioning(
+                        &latex_syntax::name(a).unwrap_or_default(),
+                    )
+            });
+        }
+        let s = &text[r.clone()];
+        match t.kind() {
+            K::TEXT if c.typography => {
+                let mut at = r.start;
+                for (rr, rep) in typography(s) {
+                    let src = r.start + rr.start..r.start + rr.end;
+                    if near(&src) && cursor != Some(src.start) && cursor != Some(src.end) {
+                        continue;
+                    }
+                    b.verbatim(at..src.start, c.style);
+                    b.replace(src.clone(), rep, c.style);
+                    at = src.end;
+                }
+                b.verbatim(at..r.end, c.style);
+            }
+            K::CONTROL_SYMBOL if !c.math && !near(&r) => {
+                let is_break = s == "\\\\";
+                match symbol(s) {
+                    Some(rep) => b.replace(r, rep, c.style),
+                    None if is_break => {
+                        // `\\` and its star and spacing argument.
+                        let cmd = t.parent().filter(|p| p.kind() == K::COMMAND);
+                        let end = cmd.map_or(r.end, |p| node_span(&p).end);
+                        if near(&(r.start..end)) {
+                            b.verbatim(r, c.style);
+                        } else {
+                            b.replace(r.start..end, "\u{21b5}", dim);
+                            // Skip what the replacement covers.
+                            while let Some(n) = &tok
+                                && span(n).start < end
+                            {
+                                tok = n.next_token();
+                            }
+                        }
+                    }
+                    None => b.verbatim(r, c.style),
+                }
+            }
+            K::CONTROL_WORD if !c.math && !near(&r) => {
+                let name = &s[1..];
+                match (name, word(name)) {
+                    ("maketitle", _) => {
+                        let [title, author, date] = &*state.titles();
+                        let title_style = Style {
+                            title: true,
+                            ..Style::default()
+                        };
+                        let by = Style {
+                            byline: true,
+                            ..Style::default()
+                        };
+                        b.replace(
+                            r.start..r.start,
+                            title.as_deref().unwrap_or(""),
+                            title_style,
+                        );
+                        let rest: Vec<&str> =
+                            [author, date].iter().filter_map(|x| x.as_deref()).collect();
+                        let rest = if rest.is_empty() {
+                            String::new()
+                        } else {
+                            format!("\u{2003}{}", rest.join(" \u{b7} "))
+                        };
+                        b.replace(r, &rest, by);
+                    }
+                    (_, Some(rep)) => b.replace(r, rep, c.style),
+                    _ => {
+                        let known = format_style(name).is_some()
+                            || !latex_syntax::signatures::command(name).is_empty();
+                        let mut st = c.style;
+                        st.dim = !known;
+                        b.verbatim(r, st);
+                    }
+                }
+            }
+            K::TILDE if !c.math && !near(&r) => b.replace(r, "\u{a0}", c.style),
+            K::COMMENT => b.verbatim(r, dim),
+            _ => b.verbatim(r, c.style),
+        }
+    }
+    v.runs = b.runs;
+    // A heading: its level among the document's sectioning levels.
+    if let Some(cmd) = heading_command
+        && node_span(&cmd).start >= line.start
+    {
+        let name = latex_syntax::name(&cmd).unwrap_or_default();
+        let level = latex_model_level(&name);
+        let top = state
+            .model()
+            .sections
+            .iter()
+            .map(|s| s.level)
+            .min()
+            .unwrap_or(level);
+        v.heading = (level - top + 1).clamp(1, 6) as u8;
+    }
+    v.align = alignment(&root, line.start);
+    v
+}
+
+fn latex_model_level(name: &str) -> i8 {
+    match name {
+        "part" => -1,
+        "chapter" => 0,
+        "section" => 1,
+        "subsection" => 2,
+        "subsubsection" => 3,
+        "paragraph" => 4,
+        _ => 5,
+    }
+}
+
+/// The alignment of the environment around `pos`: `center`, `flushleft`,
+/// `flushright`.
+fn alignment(root: &SyntaxNode, pos: usize) -> crate::rich::Align {
+    let Some(t) = root
+        .token_at_offset(TextSize::from(pos as u32))
+        .right_biased()
+    else {
+        return crate::rich::Align::default();
+    };
+    for a in t.parent_ancestors() {
+        if a.kind() == K::BODY
+            && let Some(env) = a.parent()
+        {
+            match latex_syntax::name(&env).as_deref() {
+                Some("center") => return crate::rich::Align::Center,
+                Some("flushright") => return crate::rich::Align::Right,
+                Some("flushleft") => return crate::rich::Align::Left,
+                _ => {}
+            }
+        }
+    }
+    crate::rich::Align::default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn doc(text: &str) -> crate::DocumentState {
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Latex,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+        };
+        crate::DocumentState::new(text, meta, Arc::new(org_model::Settings::default()))
+    }
+
+    fn shown(d: &crate::DocumentState, line: usize, cursor: Option<usize>) -> LineView {
+        let r = d.text().line_range(line);
+        let r = r.start..r.end - usize::from(d.text().as_str()[r.clone()].ends_with('\n'));
+        line_view(d, r, cursor)
+    }
+
+    #[test]
+    fn rendered_lines() {
+        let text = "\\title{On Things}\\author{Ada \\and Bob}\n\\begin{document}\n\\maketitle\n\\section{Intro}\\label{s}\nThis is \\emph{very} ``good''---really -- ok~now \\& more\\\\\n\\subsection*{Aside}\n% a comment\n\\begin{center}\nMiddle \\unknown{x} \\ldots\n\\end{center}\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(shown(&d, 2, None).display(), "On Things\u{2003}Ada, Bob");
+        let h = shown(&d, 3, None);
+        assert_eq!(h.display(), "1\u{2003}Intro\\label{s}");
+        assert_eq!(h.heading, 1);
+        let body = shown(&d, 4, None);
+        assert_eq!(
+            body.display(),
+            "This is very \u{201c}good\u{201d}\u{2014}really \u{2013} ok\u{a0}now & more\u{21b5}"
+        );
+        assert!(body.runs.iter().any(|r| r.text == "very" && r.style.italic));
+        // The cursor in `\emph{…}` shows its markers.
+        let at = text.find("very").unwrap();
+        assert!(shown(&d, 4, Some(at)).display().contains("\\emph{very}"));
+        let sub = shown(&d, 5, None);
+        assert_eq!((sub.display().as_str(), sub.heading), ("Aside", 2));
+        assert!(shown(&d, 6, None).runs[0].style.dim);
+        let mid = shown(&d, 8, None);
+        assert_eq!(mid.align, crate::rich::Align::Center);
+        assert_eq!(mid.display(), "Middle \\unknown{x} \u{2026}");
+    }
+
+    #[test]
+    fn follows_edits() {
+        let mut d = doc("\\section{A}\n\\section{B}\n");
+        let tx = {
+            let mut tx = org_edit::Transaction::new("t");
+            tx.replace(0..0, "\\section{New}\n").unwrap();
+            tx
+        };
+        d.apply(
+            &tx,
+            org_edit::ChangeKind::Command,
+            std::time::Instant::now(),
+        );
+        assert_eq!(shown(&d, 2, None).display(), "3\u{2003}B");
+        assert_eq!(
+            d.latex().unwrap().parse(),
+            &latex_syntax::parse(d.text().as_str())
+        );
+    }
+}

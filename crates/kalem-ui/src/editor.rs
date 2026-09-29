@@ -1792,6 +1792,7 @@ impl Editor {
         let lang = match &self.doc.meta.mode {
             DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
             DocumentMode::Markdown => Some("md"),
+            DocumentMode::Latex => Some("latex"),
             _ => None,
         };
         // Very large files are colored a window at a time (T2.7a.3).
@@ -1869,6 +1870,14 @@ impl Editor {
             let mut v = view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
             v.mono = self.doc.meta.mode != DocumentMode::Org;
             return v;
+        }
+        // LaTeX: the document as it reads (the source view shows the text).
+        if self.doc.meta.mode == DocumentMode::Latex && !self.source {
+            return kalem_core::latex_view::line_view(
+                &self.doc,
+                range,
+                Some(self.doc.selection.head),
+            );
         }
         // CSV: a row of the grid (the source view shows the text).
         if self.doc.meta.mode == DocumentMode::Csv && !self.source {

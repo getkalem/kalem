@@ -505,6 +505,23 @@ fn expansions(root: &SyntaxNode) -> Expansions {
 /// hidden markers skipped as the arrow keys skip them; `None` without a
 /// current parse (not an Org document) or at the line's end (start).
 pub fn visible_step(doc: &crate::DocumentState, pos: usize, right: bool) -> Option<usize> {
+    if doc.latex().is_some() {
+        let text = doc.text();
+        let mut range = text.line_range(text.line_of(pos));
+        if text.as_str()[range.clone()].ends_with('\n') {
+            range.end -= 1;
+        }
+        if text.as_str()[range.clone()].ends_with('\r') {
+            range.end -= 1;
+        }
+        let v = crate::latex_view::line_view(doc, range, Some(pos));
+        let next = if right {
+            v.next_position(pos).map(|p| v.run_start_at(p))
+        } else {
+            v.prev_position(pos)
+        }?;
+        return (next != pos).then_some(next);
+    }
     let (parse, fresh) = doc.parse()?;
     if !fresh {
         return None;

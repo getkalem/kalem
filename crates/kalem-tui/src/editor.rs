@@ -368,6 +368,7 @@ impl<'a> Layout<'a> {
                 let lang = match &doc.meta.mode {
                     kalem_core::DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
                     kalem_core::DocumentMode::Markdown => Some("md"),
+                    kalem_core::DocumentMode::Latex => Some("latex"),
                     _ => None,
                 };
                 // Very large files are colored a window at a time (T2.7a.3).
@@ -924,7 +925,13 @@ impl<'a> Layout<'a> {
             }
             None => {
                 // A very long line shows the part around the cursor.
-                let v = if self.doc.meta.mode == kalem_core::DocumentMode::Csv
+                let v = if self.doc.meta.mode == kalem_core::DocumentMode::Latex
+                    && !self.source
+                    && range.len() <= view::LONG_LINE
+                {
+                    // LaTeX as the document reads.
+                    kalem_core::latex_view::line_view(self.doc, range.clone(), Some(self.cursor))
+                } else if self.doc.meta.mode == kalem_core::DocumentMode::Csv
                     && !self.source
                     && range.len() <= view::LONG_LINE
                 {

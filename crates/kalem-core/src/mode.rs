@@ -11,6 +11,9 @@ pub enum DocumentMode {
     Markdown,
     /// The CSV grid; the delimiter is detected later.
     Csv,
+    /// The LaTeX editor (design §9.5): the document rendered, the file
+    /// kept as it is.
+    Latex,
     /// Plain text, with a language for highlighting when one is known
     /// (an extension or an interpreter name).
     Text {
@@ -46,6 +49,7 @@ fn by_name(name: &str) -> Option<DocumentMode> {
         "org" | "org_archive" | "klm" => DocumentMode::Org,
         "md" | "markdown" | "mdown" | "mkd" | "gfm" => DocumentMode::Markdown,
         "csv" | "tsv" | "tab" => DocumentMode::Csv,
+        "tex" | "latex" | "ltx" => DocumentMode::Latex,
         _ => return None,
     })
 }
@@ -77,6 +81,7 @@ impl DocumentMode {
             DocumentMode::Org => "org",
             DocumentMode::Markdown => "markdown",
             DocumentMode::Csv => "csv",
+            DocumentMode::Latex => "latex",
             DocumentMode::Text { .. } => "text",
             DocumentMode::Binary => "binary",
             DocumentMode::Directory => "directory",
@@ -105,6 +110,7 @@ impl DocumentMode {
             DocumentMode::Org => "Org".into(),
             DocumentMode::Markdown => "Markdown".into(),
             DocumentMode::Csv => "CSV".into(),
+            DocumentMode::Latex => "LaTeX".into(),
             DocumentMode::Text { language: Some(l) } => l.clone(),
             DocumentMode::Text { language: None } | DocumentMode::Binary => {
                 crate::l10n::tr("mode-text")
