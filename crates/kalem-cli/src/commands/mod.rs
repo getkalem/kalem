@@ -22,6 +22,37 @@ pub(crate) fn read(path: &Path) -> Result<String> {
     std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
+/// `kalem commands [--type TYPE]`: every command, or those whose scope
+/// serves `text_type`, with their scope and default keys.
+pub(crate) fn list_commands(text_type: Option<&str>) -> Result<ExitCode> {
+    let reg = kalem_core::CommandRegistry::with_builtins();
+    let mut cmds: Vec<_> = reg
+        .commands()
+        .filter(|c| {
+            text_type.is_none_or(|t| {
+                c.scope
+                    .as_ref()
+                    .is_some_and(|s| s.serves(&t.to_lowercase()))
+            })
+        })
+        .collect();
+    cmds.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut out = std::io::stdout().lock();
+    for c in cmds {
+        let keys: Vec<String> = c.default_keys.iter().map(ToString::to_string).collect();
+        writeln!(
+            out,
+            "{}\t{}\t{}\t{}",
+            c.id,
+            c.display_title(),
+            c.scope.as_ref().map_or_else(String::new, |s| s.describe()),
+            keys.join(" ")
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
 /// `kalem complete FILE:LINE:COL`: the items every completer gives there,
 /// as on request (Alt+/), best first.
 pub(crate) fn complete(place: &str) -> Result<ExitCode> {

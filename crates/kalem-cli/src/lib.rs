@@ -59,6 +59,13 @@ enum Command {
         #[arg(long)]
         deny_warnings: bool,
     },
+    /// List the commands, one a line: ID, title, scope and keys; with
+    /// `--type`, those that serve that text type (`org`, `python`, `csv`).
+    Commands {
+        /// A text type.
+        #[arg(long = "type")]
+        text_type: Option<String>,
+    },
     /// Print the completions at a place in a file, one a line: label,
     /// kind and the completer (`kalem complete notes.org:12:5`).
     Complete {
@@ -240,6 +247,7 @@ where
         } => commands::dump(&file),
         Command::Fmt { files, check } => commands::fmt(&files, check),
         Command::Complete { place } => commands::complete(&place),
+        Command::Commands { text_type } => commands::list_commands(text_type.as_deref()),
         Command::Export {
             files,
             to,

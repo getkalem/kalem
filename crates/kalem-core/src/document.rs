@@ -1198,6 +1198,59 @@ impl DocumentState {
         self.org.as_ref().and_then(|o| o.last_level)
     }
 
+    /// The type of the text at the cursor (§11.2), innermost first: in an
+    /// Org document the language of the source block the cursor is in
+    /// (lower case), an export block's back-end, `latex` in a formula, else
+    /// `klm` or `org` as the file is; a plain text file's language, or
+    /// `text`; `markdown`, `csv`, `directory`.
+    pub fn text_type(&self) -> String {
+        use org_syntax::SyntaxKind as K;
+        match &self.meta.mode {
+            DocumentMode::Org => {}
+            DocumentMode::Text { language: Some(l) } => return l.to_lowercase(),
+            m => return m.name().to_string(),
+        }
+        let base = crate::kinds::file_kind(self).unwrap_or("org").to_string();
+        let Some((parse, _)) = self.parse() else {
+            return base;
+        };
+        let root = parse.syntax();
+        let len = usize::from(root.text_range().end());
+        let pos = self.selection.head.min(len);
+        if len == 0 {
+            return base;
+        }
+        let text = self.text.as_str();
+        let Some(tok) = root
+            .token_at_offset(org_syntax::TextSize::from(pos.min(len - 1) as u32))
+            .right_biased()
+        else {
+            return base;
+        };
+        for a in tok.parent_ancestors() {
+            match a.kind() {
+                K::LATEX_FRAGMENT | K::LATEX_ENVIRONMENT => return "latex".into(),
+                K::SRC_BLOCK | K::EXPORT_BLOCK => {
+                    // Inside the contents: past the first line, before
+                    // the last.
+                    let r = a.text_range();
+                    let (s, e) = (usize::from(r.start()), usize::from(r.end()));
+                    let first = text[s..e].find('\n').map_or(e, |i| s + i);
+                    let body = &text[s..e];
+                    let end_line = body.trim_end().rfind('\n').map_or(e, |i| s + i + 1);
+                    if pos <= first || pos >= end_line {
+                        return base;
+                    }
+                    let head = &text[s..first];
+                    let word = head.split_whitespace().nth(1).map(|w| w.to_lowercase());
+                    return word.unwrap_or(base);
+                }
+                _ => {}
+            }
+        }
+        base
+    }
+
     /// The model [`DocumentState::model`] made for the current parse, if
     /// it has made one.
     pub fn cached_model(&self) -> Option<Arc<Document>> {
@@ -1299,6 +1352,7 @@ impl DocumentState {
         c.flag("hasSelection", self.selection.anchor != self.selection.head);
         c.flag("narrowed", self.narrowing.is_some());
         c.flag("modified", self.is_modified());
+        c.set("textType", Value::Str(self.text_type()));
         let Some((parse, _)) = self.parse() else {
             return c;
         };

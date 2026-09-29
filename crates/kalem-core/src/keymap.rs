@@ -134,6 +134,9 @@ pub enum IssueKind {
     PrefixShadowed,
     /// A binding the terminal cannot send and that has no variant.
     NoTerminalKey,
+    /// A binding whose when-clause names a text type Kalem does not know
+    /// (`textType == pyhton`); it never applies there.
+    UnknownTextType,
 }
 
 /// A keymap problem.
@@ -390,6 +393,18 @@ impl Keymap {
         let mut issues = Vec::new();
         let mut bindings = Vec::new();
         for b in all {
+            for t in b.when.iter().flat_map(|w| w.values("textType")) {
+                if !crate::command::known_text_type(&t) {
+                    issues.push(KeymapIssue {
+                        kind: IssueKind::UnknownTextType,
+                        message: format!(
+                            "`{}` is bound for the text type `{t}`, which Kalem does not know",
+                            b.keys
+                        ),
+                        keys: Some(b.keys.clone()),
+                    });
+                }
+            }
             match registry.get(&b.command) {
                 Some(c) => bindings.push(Active {
                     when: and(b.when.clone(), c.when.clone()),
@@ -640,6 +655,7 @@ mod tests {
     fn org_ctx(flags: &[&str]) -> Context {
         let mut c = Context::default();
         c.set("editorMode", V::Str("org".into()));
+        c.set("textType", V::Str("org".into()));
         for f in flags {
             c.flag(f, true);
         }
@@ -655,6 +671,21 @@ mod tests {
             Lookup::Command { command, args } => Some((command, args)),
             _ => None,
         }
+    }
+
+    #[test]
+    fn unknown_text_types() {
+        let reg = CommandRegistry::with_builtins();
+        let json = r#"[{ "keys": "ctrl+alt+x", "command": "edit.undo", "when": "textType == pyhton" },
+                       { "keys": "ctrl+alt+y", "command": "edit.undo", "when": "textType == python" }]"#;
+        let (entries, _) = parse_keymap(json, Origin::User);
+        let (_, issues) = Keymap::build(&reg, Profile::Word, &entries);
+        let unknown: Vec<_> = issues
+            .iter()
+            .filter(|i| i.kind == IssueKind::UnknownTextType)
+            .collect();
+        assert_eq!(unknown.len(), 1, "{issues:#?}");
+        assert!(unknown[0].message.contains("pyhton"));
     }
 
     #[test]

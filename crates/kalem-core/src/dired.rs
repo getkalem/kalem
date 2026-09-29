@@ -935,6 +935,7 @@ fn cmd(
         when: when.map(|w| WhenClause::parse(w).expect("valid when-clause")),
         handler: CommandHandler::Native(handler),
         args_schema: None,
+        scope: None,
         source: CommandSource::Builtin,
     }
 }
