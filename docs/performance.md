@@ -43,6 +43,8 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | LaTeX parse, 1 MB paper (`latex-syntax`, `--example timing`) | 32 ms | under 100 ms |
 | LaTeX incremental parse, keystroke in a paragraph of a 1 MB paper, p50 / p99 | 0.64 ms / 0.83 ms | under 2 ms |
 | LaTeX document model, 1 MB paper, first build / after an edit (`latex-model`, `--example timing`) | 21 ms / 6.7 ms | — |
+| LaTeX mode, 1 MB paper: opening (parse and state) | 50 ms | under 200 ms |
+| LaTeX mode, 1 MB paper: a keystroke with the model, the blocks and a screen of 50 lines, p50 / p99 (`kalem-core --example latex_timing`) | 10.7 ms / 15.8 ms | under 16 ms |
 
 Every target is met. The binary size target includes math fonts, which come with phase 2 (T2.2.1).
 

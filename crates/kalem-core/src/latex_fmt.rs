@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
-use latex_syntax::{SyntaxKind as K, SyntaxNode, TextSize};
+use latex_syntax::{SyntaxKind as K, SyntaxNode};
 
 /// Verbatim text: environments' bodies and verbatim arguments.
 fn protected(root: &SyntaxNode) -> Vec<Range<usize>> {
@@ -22,10 +22,7 @@ fn protected(root: &SyntaxNode) -> Vec<Range<usize>> {
 /// How many environments (not `document`) hold the line starting its
 /// text at `p`, the `\begin` and `\end` lines counting outside theirs.
 fn depth(root: &SyntaxNode, p: usize) -> usize {
-    let Some(t) = root
-        .token_at_offset(TextSize::from(p as u32))
-        .right_biased()
-    else {
+    let Some(t) = latex_syntax::token_at(root, p) else {
         return 0;
     };
     t.parent_ancestors()
@@ -200,9 +197,7 @@ fn align_ampersands(text: &str) -> String {
             let line = &text[at..end];
             let content = line.trim_start();
             let indent = line[..line.len() - content.len()].to_string();
-            let nested = root
-                .token_at_offset(TextSize::from((at + indent.len()) as u32))
-                .right_biased()
+            let nested = latex_syntax::token_at(&root, at + indent.len())
                 .and_then(|t| t.parent_ancestors().find(|a| a.kind() == K::ENVIRONMENT))
                 .is_some_and(|e| e != env);
             if content.contains('&') && !content.contains("\\multicolumn") && !nested {

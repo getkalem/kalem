@@ -336,11 +336,7 @@ impl LatexCompleter {
             // `\end{`: the environment left open first.
             let open = doc.and_then(DocumentState::latex).and_then(|l| {
                 let root = l.parse().syntax();
-                let t = root
-                    .token_at_offset(latex_syntax::TextSize::from(
-                        ctx.point.saturating_sub(1) as u32
-                    ))
-                    .left_biased()?;
+                let t = latex_syntax::token_before(&root, ctx.point.saturating_sub(1))?;
                 t.parent_ancestors()
                     .filter(|a| a.kind() == latex_syntax::SyntaxKind::ENVIRONMENT)
                     .find_map(|a| latex_syntax::name(&a))

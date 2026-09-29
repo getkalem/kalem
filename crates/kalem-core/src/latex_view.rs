@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::ops::Range;
 use std::sync::Arc;
 
-use latex_syntax::{SyntaxKind as K, SyntaxNode, SyntaxToken, TextSize};
+use latex_syntax::{SyntaxKind as K, SyntaxNode, SyntaxToken};
 
 use crate::view::{LineView, Run, Style};
 
@@ -95,14 +95,20 @@ impl LatexState {
 
     /// The text between each `\iffalse` and its `\fi` (other `\if…`
     /// commands between them nest).
-    fn skipped(&self) -> Spans {
+    fn skipped(&self, text: &str) -> Spans {
         let mut sk = self.skipped.borrow_mut();
         if let Some((g, v)) = &*sk
-            && g == self.parse.green()
+            && same(g, self.parse.green())
         {
             return v.clone();
         }
         let mut out = Vec::new();
+        // Most documents have none: no walk over the tree for them.
+        if !text.contains("\\iffalse") {
+            let v = Arc::new(out);
+            *sk = Some((self.parse.green().clone(), v.clone()));
+            return v;
+        }
         let mut open: Option<(usize, usize)> = None;
         for t in self
             .parse
@@ -132,7 +138,7 @@ impl LatexState {
     fn titles(&self) -> Titles {
         let mut t = self.titles.borrow_mut();
         if let Some((g, v)) = &*t
-            && g == self.parse.green()
+            && same(g, self.parse.green())
         {
             return v.clone();
         }
@@ -313,6 +319,16 @@ fn list_items(env: &SyntaxNode) -> Items {
         out.push((start, shown));
     }
     out
+}
+
+/// Whether two green trees are the same node (a pointer comparison; the
+/// derived equality compares the whole trees).
+fn same(a: &latex_syntax::GreenNode, b: &latex_syntax::GreenNode) -> bool {
+    let (a, b): (&latex_syntax::GreenNode, &latex_syntax::GreenNode) = (a, b);
+    std::ptr::eq(
+        std::ptr::from_ref(&**a).cast::<()>(),
+        std::ptr::from_ref(&**b).cast::<()>(),
+    )
 }
 
 /// The text of an optional argument without its brackets.
@@ -609,9 +625,7 @@ pub fn line_view(
         dim: true,
         ..Style::default()
     };
-    let mut tok = root
-        .token_at_offset(TextSize::from(line.start as u32))
-        .right_biased();
+    let mut tok = latex_syntax::token_at(&root, line.start);
     // In a list: the line's indentation by its depth, the source's own
     // blanks hidden (unless the cursor is in them).
     let mut first = tok.clone();
@@ -667,7 +681,7 @@ pub fn line_view(
             _ => v.role = crate::view::LineRole::Delimiter,
         }
     }
-    let skipped = state.skipped();
+    let skipped = state.skipped(text);
     let mut heading_command: Option<SyntaxNode> = None;
     // Source ranges not shown (a caption's closing brace).
     let mut hidden: Vec<Range<usize>> = Vec::new();
@@ -1107,10 +1121,7 @@ fn latex_model_level(name: &str) -> i8 {
 /// The alignment of the environment around `pos`: `center`, `flushleft`,
 /// `flushright`.
 fn alignment(root: &SyntaxNode, pos: usize) -> crate::rich::Align {
-    let Some(t) = root
-        .token_at_offset(TextSize::from(pos as u32))
-        .right_biased()
-    else {
+    let Some(t) = latex_syntax::token_at(root, pos) else {
         return crate::rich::Align::default();
     };
     for a in t.parent_ancestors() {
@@ -1329,9 +1340,7 @@ fn chip(
 pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
     let state = doc.latex()?;
     let root = state.parse().syntax();
-    let t = root
-        .token_at_offset(TextSize::try_from(pos).ok()?)
-        .right_biased()?;
+    let t = latex_syntax::token_at(&root, pos)?;
     let cmd = t.parent_ancestors().find(|a| {
         a.kind() == K::COMMAND
             && latex_syntax::name(a)
@@ -1565,9 +1574,7 @@ fn picture_width(cmd: &SyntaxNode) -> Option<crate::view::ImageWidth> {
 /// The verbatim environment (`verbatim`, `lstlisting`, `minted`,
 /// `comment`) whose source holds `pos`.
 fn verbatim_env(root: &SyntaxNode, pos: usize) -> Option<SyntaxNode> {
-    let t = root
-        .token_at_offset(TextSize::from(pos as u32))
-        .right_biased()?;
+    let t = latex_syntax::token_at(root, pos)?;
     t.parent_ancestors().find(|a| {
         a.kind() == K::ENVIRONMENT
             && latex_syntax::name(a).is_some_and(|n| latex_syntax::signatures::is_verbatim(&n))
@@ -1641,9 +1648,7 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
     let state = doc.latex()?;
     let text = doc.text().as_str();
     let root = state.parse().syntax();
-    let node = root
-        .token_at_offset(TextSize::from(range.start as u32))
-        .right_biased()
+    let node = latex_syntax::token_at(&root, range.start)
         .and_then(|t| math_node(&t))
         .filter(|n| node_span(n).start >= range.start)?;
     let r = node_span(&node);
@@ -1715,7 +1720,24 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
     let mut out = Vec::new();
     let mut at = 0;
     let root = state.parse().syntax();
-    for n in root.descendants() {
+    // Where a displayed formula or an environment can start: found in the
+    // text, not by walking the whole tree.
+    let mut starts: Vec<usize> = text
+        .match_indices("\\begin")
+        .chain(text.match_indices("\\["))
+        .chain(text.match_indices("$$"))
+        .map(|(i, _)| i)
+        .collect();
+    starts.sort_unstable();
+    starts.dedup();
+    let nodes = starts.into_iter().filter_map(|p| {
+        latex_syntax::token_at(&root, p)?
+            .parent_ancestors()
+            .find(|a| {
+                matches!(a.kind(), K::ENVIRONMENT | K::DISPLAY_MATH) && node_span(a).start == p
+            })
+    });
+    for n in nodes {
         let kind = match n.kind() {
             K::DISPLAY_MATH => BlockKind::Math,
             K::ENVIRONMENT => match latex_syntax::name(&n) {

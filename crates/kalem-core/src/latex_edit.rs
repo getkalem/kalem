@@ -8,7 +8,7 @@
 
 use std::ops::Range;
 
-use latex_syntax::{SyntaxKind as K, SyntaxNode, TextSize};
+use latex_syntax::{SyntaxKind as K, SyntaxNode};
 use org_edit::{Selection, Transaction};
 
 fn span(n: &SyntaxNode) -> Range<usize> {
@@ -31,9 +31,7 @@ fn is_list(name: &str) -> bool {
 
 /// The innermost list environment around `pos`, and its name.
 fn list_at(root: &SyntaxNode, pos: usize) -> Option<(SyntaxNode, String)> {
-    let t = root
-        .token_at_offset(TextSize::from(pos as u32))
-        .left_biased()?;
+    let t = latex_syntax::token_before(root, pos)?;
     t.parent_ancestors().find_map(|a| {
         let name = (a.kind() == K::ENVIRONMENT)
             .then(|| latex_syntax::name(&a))
@@ -119,9 +117,14 @@ pub fn complete_begin(text: &str, pos: usize, parse: &latex_syntax::Parse) -> Op
 /// For an edit of `range` inside the name of a closed environment's
 /// `\begin` or `\end`: the same place in the name at the other end.
 pub fn mirror(root: &SyntaxNode, range: Range<usize>) -> Option<Range<usize>> {
-    let t = root
-        .token_at_offset(TextSize::from(range.start as u32))
-        .find(|t| t.kind() == K::ENV_NAME)?;
+    // At a boundary, the name on either side.
+    let t = [
+        latex_syntax::token_at(root, range.start),
+        latex_syntax::token_before(root, range.start),
+    ]
+    .into_iter()
+    .flatten()
+    .find(|t| t.kind() == K::ENV_NAME)?;
     let name = usize::from(t.text_range().start())..usize::from(t.text_range().end());
     if range.start < name.start || range.end > name.end {
         return None;
@@ -153,10 +156,7 @@ pub fn mirror(root: &SyntaxNode, range: Range<usize>) -> Option<Range<usize>> {
 pub fn toggle(text: &str, sel: Selection, root: &SyntaxNode, command: &str) -> Option<Transaction> {
     let (a, b) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
     // Inside `\command{…}`: unwrapped.
-    if let Some(t) = root
-        .token_at_offset(TextSize::from(a as u32))
-        .right_biased()
-    {
+    if let Some(t) = latex_syntax::token_at(root, a) {
         let cmd = t.parent_ancestors().find(|n| {
             n.kind() == K::COMMAND
                 && latex_syntax::name(n).as_deref() == Some(command)
@@ -492,17 +492,15 @@ pub fn indent_item(text: &str, pos: usize, root: &SyntaxNode, deeper: bool) -> O
 
 /// Whether `pos` is in math (a formula or a math environment's body).
 fn in_math(root: &SyntaxNode, pos: usize) -> bool {
-    root.token_at_offset(TextSize::from(pos as u32))
-        .left_biased()
-        .is_some_and(|t| {
-            t.parent_ancestors().any(|a| {
-                matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
-                    || (a.kind() == K::BODY
-                        && a.parent()
-                            .and_then(|e| latex_syntax::name(&e))
-                            .is_some_and(|n| latex_syntax::signatures::is_math(&n)))
-            })
+    latex_syntax::token_before(root, pos).is_some_and(|t| {
+        t.parent_ancestors().any(|a| {
+            matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
+                || (a.kind() == K::BODY
+                    && a.parent()
+                        .and_then(|e| latex_syntax::name(&e))
+                        .is_some_and(|n| latex_syntax::signatures::is_math(&n)))
         })
+    })
 }
 
 /// What typing `typed` at the cursor does in math (T2.7h.16): `$` pairs
@@ -570,9 +568,7 @@ pub fn next_stop(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transactio
 /// Inline math at the cursor displayed (`$x$` to `\[x\]`), or displayed
 /// math inline.
 pub fn toggle_display(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transaction> {
-    let t = root
-        .token_at_offset(TextSize::from(pos as u32))
-        .left_biased()?;
+    let t = latex_syntax::token_before(root, pos)?;
     let m = t
         .parent_ancestors()
         .find(|a| matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH))?;
@@ -601,9 +597,7 @@ fn latex_syntax_body(src: &str) -> Option<&str> {
 /// The math environment at the cursor numbered or not: its name with a
 /// star or without, at both ends.
 pub fn toggle_numbering(pos: usize, root: &SyntaxNode) -> Option<Transaction> {
-    let t = root
-        .token_at_offset(TextSize::from(pos as u32))
-        .left_biased()?;
+    let t = latex_syntax::token_before(root, pos)?;
     let env = t.parent_ancestors().find(|a| {
         a.kind() == K::ENVIRONMENT
             && latex_syntax::name(a).is_some_and(|n| {

@@ -119,6 +119,29 @@ impl Parse {
     }
 }
 
+/// The token holding byte `pos` (the one starting there at a boundary),
+/// found by binary search at each level (rowan's `token_at_offset` scans
+/// a node's children, slow in a long document's body).
+pub fn token_at(root: &SyntaxNode, pos: usize) -> Option<SyntaxToken> {
+    let len = usize::from(root.text_range().end());
+    if pos >= len {
+        return token_before(root, len);
+    }
+    let range = TextRange::at(TextSize::from(pos as u32), TextSize::from(1));
+    root.covering_element(range).into_token()
+}
+
+/// The token ending at or holding byte `pos - 1` (the one before `pos`).
+pub fn token_before(root: &SyntaxNode, pos: usize) -> Option<SyntaxToken> {
+    if pos == 0 {
+        return token_at(root, 0).filter(|_| usize::from(root.text_range().end()) > 0);
+    }
+    let len = usize::from(root.text_range().end());
+    let pos = pos.min(len);
+    let range = TextRange::at(TextSize::from((pos - 1) as u32), TextSize::from(1));
+    root.covering_element(range).into_token()
+}
+
 /// The name of a command (without the backslash) or an environment (for
 /// `ENVIRONMENT`, `BEGIN` and `END` nodes).
 pub fn name(node: &SyntaxNode) -> Option<String> {
