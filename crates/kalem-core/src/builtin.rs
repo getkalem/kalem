@@ -1500,9 +1500,7 @@ fn latex_insert_citation(ctx: &mut EditorContext<'_>, args: &Value) -> CommandRe
     let text = d.text().as_str();
     let root = l.parse().syntax();
     let inside = (|| {
-        let t = root
-            .token_at_offset(latex_syntax::TextSize::from(pos as u32))
-            .left_biased()?;
+        let t = latex_syntax::token_before(&root, pos)?;
         let cmd = t.parent_ancestors().find(|a| {
             a.kind() == latex_syntax::SyntaxKind::COMMAND
                 && latex_syntax::name(a)

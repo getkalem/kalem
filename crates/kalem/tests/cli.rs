@@ -391,5 +391,8 @@ fn diff_pandoc() {
     let (code, out, _) = kalem(&["diff-pandoc", "../../tests/latex/model/article.tex"]);
     assert_eq!(code, 0);
     // The one deliberate difference (docs/known-differences-latex.org).
-    assert_eq!(out.trim(), "../../tests/latex/model/article.tex: figures: kalem 2, pandoc 1");
+    assert_eq!(
+        out.trim(),
+        "../../tests/latex/model/article.tex: figures: kalem 2, pandoc 1"
+    );
 }

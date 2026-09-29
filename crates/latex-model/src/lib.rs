@@ -387,8 +387,9 @@ pub struct Cache {
 impl Cache {
     /// The model of `parse`.
     pub fn model(&mut self, parse: &latex_syntax::Parse) -> Arc<Model> {
+        // The same tree: the same node (not a deep comparison).
         if let Some((g, m)) = &self.last
-            && g == parse.green()
+            && std::ptr::eq::<rowan::GreenNodeData>(&**g, &**parse.green())
         {
             return m.clone();
         }
