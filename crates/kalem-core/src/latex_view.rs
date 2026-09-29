@@ -34,6 +34,96 @@ pub struct LatexState {
     lists: RefCell<std::collections::HashMap<usize, (latex_syntax::GreenNode, Arc<Items>)>>,
     /// The diagnostics, worked out in the background.
     pub diagnostics: crate::latex_check::Live,
+    /// The project the document belongs to, once its root is found.
+    project: RefCell<Option<ProjectView>>,
+    /// The root document, being found on a thread.
+    root: Option<(
+        std::path::PathBuf,
+        std::sync::mpsc::Receiver<std::path::PathBuf>,
+    )>,
+}
+
+/// A document's project: the other files from the disk (read again when
+/// they change), the document itself as edited, and the model seen from
+/// it (T2.7h.4).
+#[derive(Debug)]
+struct ProjectView {
+    root: std::path::PathBuf,
+    path: std::path::PathBuf,
+    cache: latex_model::project::ProjectCache,
+    disk: DiskCache,
+    last: Option<(latex_syntax::GreenNode, Arc<latex_model::Model>)>,
+}
+
+/// Files read from the disk, kept while their modification time stays.
+#[derive(Debug, Default)]
+struct DiskCache {
+    files: RefCell<std::collections::HashMap<std::path::PathBuf, (std::time::SystemTime, String)>>,
+}
+
+/// The disk, with one file's text as edited.
+struct Overlay<'a> {
+    disk: &'a DiskCache,
+    path: &'a std::path::Path,
+    text: &'a str,
+}
+
+impl latex_model::project::Files for Overlay<'_> {
+    fn read(&self, path: &std::path::Path) -> Option<String> {
+        if path == self.path {
+            return Some(self.text.to_string());
+        }
+        let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok()?;
+        let mut files = self.disk.files.borrow_mut();
+        if let Some((t, text)) = files.get(path)
+            && *t == modified
+        {
+            return Some(text.clone());
+        }
+        let text = std::fs::read_to_string(path).ok()?;
+        files.insert(path.to_path_buf(), (modified, text.clone()));
+        Some(text)
+    }
+
+    fn list(&self, dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+        latex_model::project::Disk.list(dir)
+    }
+}
+
+impl ProjectView {
+    /// The project's model seen from the document, whose parse is `parse`
+    /// and own model `own`; `None` when the document is alone.
+    fn model(
+        &mut self,
+        parse: &latex_syntax::Parse,
+        own: &latex_model::Model,
+    ) -> Option<Arc<latex_model::Model>> {
+        // The root document that includes nothing needs no project.
+        if self.root == self.path && own.includes.is_empty() {
+            return None;
+        }
+        if let Some((g, m)) = &self.last
+            && same(g, parse.green())
+        {
+            return Some(m.clone());
+        }
+        let text = parse.syntax().text().to_string();
+        self.cache.set_parse(&self.path, &text, parse.clone());
+        let files = Overlay {
+            disk: &self.disk,
+            path: &self.path,
+            text: &text,
+        };
+        let project = self.cache.load(&self.root, &files);
+        let this = project.model.files.iter().position(|f| *f == self.path)?;
+        let mut m = project.model.seen_from(this);
+        // The document's own preamble and body.
+        m.preamble = own.preamble.clone();
+        m.body = own.body.clone();
+        let m = Arc::new(m);
+        self.last = Some((parse.green().clone(), m.clone()));
+        Some(m)
+    }
 }
 
 /// Ranges of the source.
@@ -52,6 +142,8 @@ impl LatexState {
             skipped: RefCell::new(None),
             lists: RefCell::new(std::collections::HashMap::new()),
             diagnostics: crate::latex_check::Live::default(),
+            project: RefCell::new(None),
+            root: None,
         }
     }
 
@@ -75,9 +167,66 @@ impl LatexState {
         &self.parse
     }
 
-    /// The document model (numbers, labels, citations, definitions).
+    /// The document model (numbers, labels, citations, definitions): in
+    /// a project of several files, the project's, seen from this file
+    /// (its numbers continue the files before it, and labels in the other
+    /// files resolve).
     pub fn model(&self) -> Arc<latex_model::Model> {
-        self.models.borrow_mut().model(&self.parse)
+        let own = self.models.borrow_mut().model(&self.parse);
+        let mut project = self.project.borrow_mut();
+        match project.as_mut().and_then(|p| p.model(&self.parse, &own)) {
+            Some(m) => m,
+            None => own,
+        }
+    }
+
+    /// Starts finding the root document of the file at `path`, whose text
+    /// is `text`, on a thread (it reads the folders around).
+    pub(crate) fn find_project(&mut self, path: &std::path::Path, text: &str) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (p, t) = (path.to_path_buf(), text.to_string());
+        std::thread::spawn(move || {
+            let root =
+                latex_model::project::find_root(&p, &t, &latex_model::project::Disk, None, None);
+            let _ = tx.send(root);
+        });
+        self.root = Some((path.to_path_buf(), rx));
+    }
+
+    /// Takes the root document when it is found; `true` then.
+    pub(crate) fn poll_project(&mut self) -> bool {
+        let Some((path, rx)) = &self.root else {
+            return false;
+        };
+        match rx.try_recv() {
+            Ok(root) => {
+                let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
+                let root = std::fs::canonicalize(&root).unwrap_or(root);
+                *self.project.borrow_mut() = Some(ProjectView {
+                    root,
+                    path,
+                    cache: latex_model::project::ProjectCache::default(),
+                    disk: DiskCache::default(),
+                    last: None,
+                });
+                self.root = None;
+                true
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => false,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                self.root = None;
+                false
+            }
+        }
+    }
+
+    /// Waits for the root document (tests).
+    pub fn wait_for_project(&mut self) {
+        while self.root.is_some() {
+            if !self.poll_project() {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+        }
     }
 
     /// The labels of the items of list environment `env`.
