@@ -519,9 +519,15 @@ fn in_prose(text: &str, root: &SyntaxNode, pos: usize) -> bool {
                             .is_some_and(|n| latex_syntax::signatures::is_verbatim(&n)))
             })
     });
-    let preamble = &text[..text
-        .find("\\begin{document}")
-        .unwrap_or(text.len().min(8192))];
+    let end = text.find("\\begin{document}").unwrap_or_else(|| {
+        // The first 8 KiB, cut at a character.
+        let mut e = text.len().min(8192);
+        while !text.is_char_boundary(e) {
+            e -= 1;
+        }
+        e
+    });
+    let preamble = &text[..end];
     let shorthand = preamble.lines().any(|l| {
         l.contains("babel")
             && [
@@ -775,6 +781,11 @@ mod tests {
 
     #[test]
     fn typed_quotes() {
+        // A long text without `\begin{document}` whose 8 KiB end in a
+        // letter of two bytes.
+        let long = format!("{}ç ", "a".repeat(8191));
+        let root = latex_syntax::parse(&long).syntax();
+        assert!(typed(&long, Selection::caret(long.len()), &root, "\"").is_some());
         let ty = |text: &str, pos: usize| {
             let root = latex_syntax::parse(text).syntax();
             let tx = typed(text, Selection::caret(pos), &root, "\"")?;

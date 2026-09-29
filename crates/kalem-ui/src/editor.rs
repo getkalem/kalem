@@ -1905,6 +1905,21 @@ impl Editor {
 
     /// The line view of source line `line` with the cursor, as displayed.
     pub fn line_view(&self, line: usize) -> LineView {
+        // A fault in a view shows the line as its text rather than ending
+        // the program (a panic cannot unwind out of the frame callback).
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.line_view_of(line))) {
+            Ok(v) => v,
+            Err(_) => {
+                tracing::error!(line, "the line's view failed; shown as text");
+                let text = self.doc.text();
+                let mut v = view::plain_line_view(text.as_str(), text.line_range(line), None);
+                v.mono = true;
+                v
+            }
+        }
+    }
+
+    fn line_view_of(&self, line: usize) -> LineView {
         let text = self.doc.text();
         let mut range = text.line_range(line);
         if range.end > range.start && text.as_str().as_bytes()[range.end - 1] == b'\r' {
