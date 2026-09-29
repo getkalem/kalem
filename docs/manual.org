@@ -718,6 +718,15 @@ the language's marker (=//=, =#=, =--=, =;=, =%=, or =<!-- … -->= in HTML
 and Markdown), or uncomments them; in an Org document it works in source
 blocks with their language, and elsewhere writes Org's =#= comments.
 
+/Duplicate Lines/ (Ctrl+Shift+D), /Move Lines Up/ and /Down/ (Alt+Up and
+Alt+Down), /Join Lines/, /Sort Lines/ and /Trim Trailing Whitespace/ act
+on the lines of the selection (the keys are those of plain text; Org
+keeps Alt+Up and Down for headings, items and rows). /Go to Line/ asks
+for a line number. /Expand Selection/ (Ctrl+Alt+Right) grows the
+selection to the word, the inside of the brackets around it and the
+brackets, the line and the paragraph (in Org documents, the object and
+the element around it), and /Shrink Selection/ (Ctrl+Alt+Left) goes back.
+
 The kind of a file comes from, in order: your choice with the command
 /Set Document Mode/ (remembered in the workspace settings), a mode line
 such as =-*- mode: org -*-= on the first line, the extension, and a
@@ -744,6 +753,7 @@ Windows, or =~/.config=. A project can have its own
 | =editor.center_text=      | =false=    | The text column in the middle of the window      |
 | =editor.soft_wrap=        | =true=     | Wrap long lines                                  |
 | =editor.line_numbers=     | =true=     | Line numbers in plain text and the source view   |
+| =editor.trim_trailing_whitespace= | =false= | Remove the blanks at the ends of lines when saving |
 | =editor.keymap_profile=   | ="word"=   | =word= or =vim=                                  |
 | =editor.vim.modes=        | =[]=       | Kinds of documents with Vim keys; empty for all  |
 | =editor.vim.leader=       | ="space"=  | The leader of the Vim keys (=SPC p p=)           |

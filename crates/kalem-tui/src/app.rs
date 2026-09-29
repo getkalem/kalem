@@ -1565,6 +1565,8 @@ impl App {
             self.message(tr!("msg-not-saved", reason = reason), true);
             return;
         }
+        self.doc.before_save(&self.config, Instant::now());
+        self.after_change(true);
         match self.doc.save(self.config.save_options(), force) {
             Ok(()) => {
                 if let Some(w) = &mut self.watcher {

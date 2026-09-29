@@ -994,6 +994,26 @@ fn vim_block_selection(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn line_commands(cx: &mut TestAppContext) {
+    let (e, cx) = open_named("pear\napple\nfig\n", "l.txt", || None, cx);
+    at(&e, 0, cx);
+    cx.simulate_keystrokes("alt-down");
+    assert_eq!(text_of(&e, cx), "apple\npear\nfig\n");
+    cx.simulate_keystrokes("ctrl-shift-d");
+    assert_eq!(text_of(&e, cx), "apple\npear\npear\nfig\n");
+    let sel = |e: &Entity<Editor>, cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| e.doc.selected_text().map(str::to_string))
+    };
+    cx.simulate_keystrokes("ctrl-alt-right");
+    assert_eq!(sel(&e, cx).as_deref(), Some("pear"));
+    // The line is the word: the paragraph next.
+    cx.simulate_keystrokes("ctrl-alt-right");
+    assert_eq!(sel(&e, cx).as_deref(), Some("apple\npear\npear\nfig"));
+    cx.simulate_keystrokes("ctrl-alt-left");
+    assert_eq!(sel(&e, cx).as_deref(), Some("pear"));
+}
+
+#[gpui::test]
 fn editing_code(cx: &mut TestAppContext) {
     let (e, cx) = open_named("fn a() {}\n", "a.rs", || None, cx);
     at(&e, 8, cx);

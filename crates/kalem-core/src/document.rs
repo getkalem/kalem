@@ -97,6 +97,9 @@ pub struct DocumentState {
     /// besides the primary [`DocumentState::selection`]: typing, deleting
     /// and pasting act at each (see `crate::cursors`).
     pub extra: Vec<Selection>,
+    /// Expand Selection's steps, to go back with Shrink Selection: the
+    /// selection before each, and the one it made.
+    pub(crate) expansions: Vec<(Selection, Selection)>,
     history: History,
     /// File and mode information.
     pub meta: Metadata,
@@ -204,6 +207,7 @@ impl DocumentState {
             settings,
             selection: Selection::caret(0),
             extra: Vec::new(),
+            expansions: Vec::new(),
             history: History::new(),
             meta,
             narrowing: None,

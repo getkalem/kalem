@@ -93,6 +93,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.insert.drawer", object(&[("name", "string", true)])),
         ("org.caption.set", object(&[("caption", "string", true)])),
         ("edit.gotoLine", object(&[("line", "integer", true)])),
+        ("lines.sort", object(&[("reverse", "boolean", false)])),
         ("file.reopenWithEncoding", {
             let mut s = object(&[("encoding", "string", true)]);
             s["properties"]["encoding"]["enum"] = serde_json::json!(crate::files::COMMON_ENCODINGS);
@@ -221,6 +222,8 @@ fn resolve_path(doc: &crate::document::DocumentState, file: &str) -> std::path::
 const ORG: &str = "editorMode == org";
 const TABLE: &str = "editorMode == org && inTable";
 const LIST: &str = "editorMode == org && inList";
+/// Documents that are not Org (plain text, code).
+const PLAIN: &str = "editorMode != org";
 
 /// The text and parse context of a model, for the commands that take text.
 fn text_of(d: &org_model::Document) -> String {
@@ -913,6 +916,20 @@ fn export_setting(
     request(ctx, Request::ExportDialog)
 }
 
+/// Runs a line command on the text and selection of the document, as one
+/// undo step; `None` from it changes nothing.
+fn lines_command(
+    ctx: &mut EditorContext<'_>,
+    f: impl FnOnce(&str, org_edit::Selection) -> Option<org_edit::Transaction>,
+) -> CommandResult {
+    let now = ctx.now;
+    let d = ctx.doc()?;
+    if let Some(tx) = f(d.text().as_str(), d.selection) {
+        d.apply(&tx, org_edit::ChangeKind::Command, now);
+    }
+    Ok(())
+}
+
 fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
     ctx.requests.push(r);
     Ok(())
@@ -1191,6 +1208,91 @@ fn plain_commands() -> Vec<Command> {
                 // Saved as the Save command saves (a file name asked for if
                 // there is none).
                 request(ctx, Request::Save)
+            },
+        ),
+        cmd(
+            "lines.duplicate",
+            "Duplicate Lines",
+            "Edit",
+            &["ctrl+shift+d"],
+            Some(PLAIN),
+            |ctx, _| lines_command(ctx, |t, s| Some(crate::lines::duplicate(t, s))),
+        ),
+        cmd(
+            "lines.moveUp",
+            "Move Lines Up",
+            "Edit",
+            &["alt+up"],
+            Some(PLAIN),
+            |ctx, _| lines_command(ctx, |t, s| crate::lines::move_lines(t, s, true)),
+        ),
+        cmd(
+            "lines.moveDown",
+            "Move Lines Down",
+            "Edit",
+            &["alt+down"],
+            Some(PLAIN),
+            |ctx, _| lines_command(ctx, |t, s| crate::lines::move_lines(t, s, false)),
+        ),
+        cmd("lines.join", "Join Lines", "Edit", &[], None, |ctx, _| {
+            lines_command(ctx, crate::lines::join)
+        }),
+        cmd(
+            "lines.sort",
+            "Sort Lines",
+            "Edit",
+            &[],
+            None,
+            |ctx, args| {
+                let reverse = arg_bool(args, "reverse");
+                lines_command(ctx, |t, s| crate::lines::sort(t, s, reverse))
+            },
+        ),
+        cmd(
+            "edit.trimTrailingWhitespace",
+            "Trim Trailing Whitespace",
+            "Edit",
+            &[],
+            None,
+            |ctx, _| lines_command(ctx, |t, _| crate::lines::trim_trailing(t)),
+        ),
+        cmd(
+            "edit.selectWord",
+            "Select Word",
+            "Edit",
+            &[],
+            None,
+            |ctx, _| {
+                let d = ctx.doc()?;
+                if let Some(w) = crate::lines::word_at(d.text().as_str(), d.selection.head) {
+                    d.selection = org_edit::Selection {
+                        anchor: w.start,
+                        head: w.end,
+                    };
+                }
+                Ok(())
+            },
+        ),
+        cmd(
+            "edit.expandSelection",
+            "Expand Selection",
+            "Edit",
+            &["ctrl+alt+right"],
+            None,
+            |ctx, _| {
+                ctx.doc()?.expand_selection();
+                Ok(())
+            },
+        ),
+        cmd(
+            "edit.shrinkSelection",
+            "Shrink Selection",
+            "Edit",
+            &["ctrl+alt+left"],
+            None,
+            |ctx, _| {
+                ctx.doc()?.shrink_selection();
+                Ok(())
             },
         ),
         cmd(
