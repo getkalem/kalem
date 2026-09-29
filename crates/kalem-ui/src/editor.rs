@@ -1051,6 +1051,10 @@ impl Editor {
                 Ok(t) => self.ask_task(t, window, cx),
                 Err(e) => self.message(e, true),
             },
+            Request::Shell(op) => match kalem_core::dired::Task::shell(&op) {
+                Ok(t) => self.ask_task(t, window, cx),
+                Err(e) => self.message(e, true),
+            },
             Request::CancelFileOps => {
                 for j in self.shared.jobs.borrow().iter() {
                     j.cancel();
@@ -1221,6 +1225,8 @@ impl Editor {
                 Ok(m) => self.message(m, false),
                 Err(e) => self.message(e, true),
             },
+            LinkAction::System(path) => cx.open_with_system(&path),
+            LinkAction::Reveal(path) => cx.reveal_path(&path),
         }
     }
 

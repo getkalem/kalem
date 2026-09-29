@@ -2644,3 +2644,26 @@ fn file_manager_stored_links(cx: &mut TestAppContext) {
         crate::text(&e, cx)
     );
 }
+
+#[cfg(unix)]
+#[gpui::test]
+fn file_manager_shell_command(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    let p = primary();
+    cx.simulate_keystrokes(&format!("{p}-alt-d"));
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "dired.shellCommand",
+            serde_json::json!({ "command": "cp ? copy.org" }),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    assert!(cx.has_pending_prompt());
+    cx.simulate_prompt_answer("Yes");
+    cx.run_until_parked();
+    settle_jobs(&ws, cx);
+    assert!(dir.join("proj/copy.org").is_file());
+}

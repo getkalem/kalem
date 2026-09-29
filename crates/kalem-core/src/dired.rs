@@ -818,9 +818,16 @@ pub enum Answer {
 /// A file operation on its way: questions, then the background job.
 #[derive(Debug)]
 pub struct Task {
-    op: kalem_fs::Operation,
+    work: Work,
     confirm: Option<String>,
     conflicts: Vec<PathBuf>,
+}
+
+/// What a task does.
+#[derive(Debug)]
+enum Work {
+    Fs(kalem_fs::Operation),
+    Shell(crate::command::ShellOp),
 }
 
 fn names_of(paths: &[PathBuf]) -> String {
@@ -859,9 +866,30 @@ impl Task {
         };
         let conflicts = kalem_fs::conflicts(&op);
         Ok(Task {
-            op,
+            work: Work::Fs(op),
             confirm,
             conflicts,
+        })
+    }
+
+    /// The task of a shell command on files, asked first.
+    pub fn shell(req: &crate::command::ShellOp) -> Result<Task, String> {
+        if req.command.trim().is_empty() {
+            return Err(tr("fm-nothing"));
+        }
+        let what = if req.files.is_empty() {
+            req.dir.display().to_string()
+        } else {
+            names_of(&req.files)
+        };
+        Ok(Task {
+            confirm: Some(crate::tr!(
+                "fm-confirm-shell",
+                command = req.command.trim(),
+                what = what
+            )),
+            work: Work::Shell(req.clone()),
+            conflicts: Vec::new(),
         })
     }
 
@@ -906,12 +934,15 @@ impl Task {
             Answer::Yes => (Conflict::Overwrite, false),
             Answer::No => return false,
         };
+        let Work::Fs(op) = &mut self.work else {
+            return true;
+        };
         if all {
             for p in self.conflicts.drain(..) {
-                self.op.choices.insert(p, choice);
+                op.choices.insert(p, choice);
             }
         } else {
-            self.op.choices.insert(path, choice);
+            op.choices.insert(path, choice);
             self.conflicts.remove(0);
         }
         true
@@ -919,21 +950,42 @@ impl Task {
 
     /// Starts the work in the background.
     pub fn start(self) -> Running {
-        let count = self.op.items.len();
-        let kind = self.op.kind;
-        Running {
-            job: kalem_fs::Job::start(self.op),
-            kind,
-            count,
+        match self.work {
+            Work::Fs(op) => {
+                let count = op.items.len();
+                let kind = op.kind;
+                Running {
+                    job: Job::Fs(kalem_fs::Job::start(op), kind),
+                    count,
+                }
+            }
+            Work::Shell(req) => {
+                let (tx, rx) = std::sync::mpsc::channel();
+                let command = req.command.trim().to_string();
+                std::thread::spawn(move || {
+                    let _ = tx.send(crate::system::run_shell(&req));
+                });
+                Running {
+                    job: Job::Shell(rx, command),
+                    count: 1,
+                }
+            }
         }
     }
+}
+
+/// The work of a running task.
+#[derive(Debug)]
+enum Job {
+    Fs(kalem_fs::Job, kalem_fs::OpKind),
+    /// A shell command: its message and whether it failed, once done.
+    Shell(std::sync::mpsc::Receiver<(String, bool)>, String),
 }
 
 /// A file operation running in the background.
 #[derive(Debug)]
 pub struct Running {
-    job: kalem_fs::Job,
-    kind: kalem_fs::OpKind,
+    job: Job,
     count: usize,
 }
 
@@ -949,31 +1001,54 @@ fn verb(kind: kalem_fs::OpKind) -> &'static str {
 impl Running {
     /// What the status bar says: `Copying… 45%`.
     pub fn status(&self) -> String {
-        let p = self.job.progress();
-        let percent = (p.fraction() * 100.0).round() as u32;
-        crate::tr!(verb(self.kind), percent = percent, count = self.count)
+        match &self.job {
+            Job::Fs(job, kind) => {
+                let p = job.progress();
+                let percent = (p.fraction() * 100.0).round() as u32;
+                crate::tr!(verb(*kind), percent = percent, count = self.count)
+            }
+            Job::Shell(_, command) => crate::tr!("fm-running-shell", command = command.as_str()),
+        }
     }
 
     /// The result, once finished, with the message for the user and
     /// whether it is an error.
     pub fn poll(&mut self) -> Option<(kalem_fs::Outcome, String, bool)> {
-        let out = self.job.take_outcome()?;
-        record(self.kind, &out);
-        let msg = outcome_message(self.kind, &out);
-        let error = !out.errors.is_empty();
-        Some((out, msg, error))
+        match &mut self.job {
+            Job::Fs(job, kind) => {
+                let out = job.take_outcome()?;
+                record(*kind, &out);
+                let msg = outcome_message(*kind, &out);
+                let error = !out.errors.is_empty();
+                Some((out, msg, error))
+            }
+            Job::Shell(rx, _) => {
+                let (msg, error) = rx.try_recv().ok()?;
+                Some((kalem_fs::Outcome::default(), msg, error))
+            }
+        }
     }
 
-    /// Asks it to stop.
+    /// Asks it to stop (a shell command runs to its end).
     pub fn cancel(&self) {
-        self.job.cancel();
+        if let Job::Fs(job, _) = &self.job {
+            job.cancel();
+        }
     }
 
     /// Waits for the end (tests).
     pub fn wait(self) -> kalem_fs::Outcome {
-        let out = self.job.wait();
-        record(self.kind, &out);
-        out
+        match self.job {
+            Job::Fs(job, kind) => {
+                let out = job.wait();
+                record(kind, &out);
+                out
+            }
+            Job::Shell(rx, _) => {
+                let _ = rx.recv();
+                kalem_fs::Outcome::default()
+            }
+        }
     }
 }
 
@@ -1599,6 +1674,7 @@ pub(crate) fn schemas() -> Vec<(&'static str, Value)> {
         ("dired.markChangedSince", one("since")),
         ("dired.filter", one("text")),
         ("dired.findName", one("pattern")),
+        ("dired.shellCommand", one("command")),
     ]
 }
 
@@ -2055,6 +2131,65 @@ pub(crate) fn commands() -> Vec<Command> {
             Some(EDITING_NAMES),
             |ctx, _| {
                 abort_names(listing(ctx)?);
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.openExternal",
+            "Open with Application",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let t = state(doc).targets(cursor_line(doc));
+                if t.is_empty() {
+                    return Err(CommandError::new(tr("fm-nothing")));
+                }
+                for p in t {
+                    ctx.requests
+                        .push(Request::OpenLink(crate::input::LinkAction::System(p)));
+                }
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.reveal",
+            "Show in System File Manager",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let line = cursor_line(doc);
+                let s = state(doc);
+                let p = s
+                    .entry(line)
+                    .map(|e| e.path.clone())
+                    .or_else(|| s.dir_at(line).map(Path::to_path_buf))
+                    .ok_or_else(|| CommandError::new(tr("fm-nothing")))?;
+                ctx.requests
+                    .push(Request::OpenLink(crate::input::LinkAction::Reveal(p)));
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.shellCommand",
+            "Shell Command on Files",
+            &[],
+            Some(IN_LISTING),
+            |ctx, args| {
+                let command = arg(args, "command")?.to_string();
+                let doc = listing(ctx)?;
+                let dir = the_dir(doc)?;
+                let files = state(doc)
+                    .targets(cursor_line(doc))
+                    .into_iter()
+                    .map(|p| p.strip_prefix(&dir).map(Path::to_path_buf).unwrap_or(p))
+                    .collect();
+                ctx.requests.push(Request::Shell(crate::command::ShellOp {
+                    command,
+                    files,
+                    dir,
+                }));
                 Ok(())
             },
         ),
@@ -2552,6 +2687,48 @@ mod tests {
             crate::command::argument_default("org.insert.link", "link", &mut doc),
             "file:notes.org::*Top"
         );
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_command_on_files() {
+        let d = tree("shell", &["a.txt", "b.txt"]);
+        let mut doc = DocumentState::open(
+            &d,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        goto(&mut doc, "a.txt");
+        run(&mut doc, "dired.mark", json!({})).0.unwrap();
+        run(&mut doc, "dired.mark", json!({})).0.unwrap();
+        let (_, req) = run(
+            &mut doc,
+            "dired.shellCommand",
+            json!({"command": "cat * > all"}),
+        );
+        let [Request::Shell(op)] = &req[..] else {
+            panic!("{req:?}")
+        };
+        assert_eq!(op.files, [PathBuf::from("a.txt"), PathBuf::from("b.txt")]);
+        // Asked first; "no" gives up.
+        let mut t = Task::shell(op).unwrap();
+        assert!(matches!(t.question(), Some(Question::Confirm(q)) if q.contains("cat * > all")));
+        assert!(t.answer(Answer::Yes));
+        assert!(t.question().is_none());
+        t.start().wait();
+        assert_eq!(std::fs::read_to_string(d.join("all")).unwrap(), "xx");
+        let mut t = Task::shell(op).unwrap();
+        assert!(!t.answer(Answer::No));
+        // The system's application and file manager are the frontend's.
+        let (_, req) = run(&mut doc, "dired.reveal", json!({}));
+        assert!(matches!(
+            &req[..],
+            [Request::OpenLink(crate::input::LinkAction::Reveal(_))]
+        ));
+        let (_, req) = run(&mut doc, "dired.openExternal", json!({}));
+        assert_eq!(req.len(), 2);
         let _ = std::fs::remove_dir_all(&d);
     }
 

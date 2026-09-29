@@ -123,6 +123,8 @@ pub enum Request {
     /// Run a file operation in the background, after the questions it
     /// needs (`crate::dired::Task`).
     FileOp(FileOp),
+    /// Run a shell command on files, after asking (`crate::dired::Task`).
+    Shell(ShellOp),
     /// Stop the file operations that are running.
     CancelFileOps,
     /// Open the completion menu at the cursor (`crate::completers`).
@@ -182,6 +184,17 @@ pub struct FileOp {
     pub sources: Vec<std::path::PathBuf>,
     /// Where they go (copy and move).
     pub target: Option<std::path::PathBuf>,
+}
+
+/// A shell command on files (Dired's `!`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShellOp {
+    /// The command, with `*` or `?` for the files.
+    pub command: String,
+    /// The files, relative to `dir` or absolute.
+    pub files: Vec<std::path::PathBuf>,
+    /// Where it runs.
+    pub dir: std::path::PathBuf,
 }
 
 /// The lists [`Request::Pick`] offers.

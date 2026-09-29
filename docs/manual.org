@@ -607,6 +607,8 @@ Commands act on the marked entries, or on the one at the cursor.
 | =e=                 | Edit the names as text; Ctrl+S renames, Escape stops  |
 | =% f=               | Find by name under the folder (=*.org=, or a part)    |
 | =A=                 | Search the text of the files under the folder         |
+| =W=                 | Open with the system's application                    |
+| =!=                 | Shell command on the marked files (asks first)        |
 | =w=                 | Copy the names                                        |
 | =q=                 | Close the file manager                                |
 
@@ -634,6 +636,14 @@ are copied, moved or renamed as other entries are, and =^= goes back to the
 folder's own entries. =A= searches the text of the files under the folder
 (its project's ignore rules when it is a project) and opens a match at its
 line.
+
+=!= runs a shell command on the marked files (or the one at the cursor)
+in their folder, after asking: a =*= standing alone is replaced by all of
+them and the command runs once; a =?= standing alone runs it once per file
+with the file there; otherwise it runs once per file with the file at the
+end, as in Dired. The last line of its output shows in the status bar.
+/Show in System File Manager/ (the palette) shows the file selected in
+Finder, Explorer or the desktop's file manager.
 
 With Vim keys the file manager's keys come first, except =n=, =p=, =w= and
 Backspace, which Vim keeps; =g r= reads the folder again, =g g= goes to the

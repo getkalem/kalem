@@ -108,6 +108,11 @@ pub enum LinkAction {
     Missing(String),
     /// A PDF for the system's print dialog ([`crate::print`]).
     Print(std::path::PathBuf),
+    /// A file for its application ([`crate::system::open`]).
+    System(std::path::PathBuf),
+    /// A file to show in the system's file manager
+    /// ([`crate::system::reveal`]).
+    Reveal(std::path::PathBuf),
 }
 
 /// The link at `pos` and where it leads (`org-open-at-point`).
