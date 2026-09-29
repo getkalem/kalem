@@ -532,6 +532,13 @@ struct Numbering<'r> {
 
 impl<'r> Numbering<'r> {
     fn new(len: usize) -> Numbering<'r> {
+        let mut n = Numbering::bare(len);
+        // Without `\documentclass`, the article class's counters.
+        n.set_class(ClassKind::Article);
+        n
+    }
+
+    fn bare(len: usize) -> Numbering<'r> {
         Numbering {
             resolver: None,
             active: vec![0],

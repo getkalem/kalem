@@ -796,7 +796,8 @@ dimmed; commands Kalem does not render stay as they are written. The
 source view (Ctrl+/) shows the text itself. Documents of several files
 are numbered as one: the root document comes from a =% !TEX root= line,
 the main file of a subfile, a =NAME.tex.latexmain= file, or the document
-up the folders that includes the file.
+up the folders that includes the file. The outline panel
+(Ctrl+Shift+O) lists the document's sections with their numbers.
 
 Enter on a list item starts the next =\item= (on an empty one, it leaves
 the list); Tab and Shift+Tab nest an item under the one before it and

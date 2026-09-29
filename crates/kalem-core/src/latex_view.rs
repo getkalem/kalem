@@ -1428,6 +1428,29 @@ pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
     Some(notes.join("  "))
 }
 
+/// The sectioning commands of a LaTeX document for the outline panel:
+/// levels from 1 (the document's top level), titles with their numbers.
+pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::OutlineItem>> {
+    let model = doc.latex()?.model();
+    let top = model.sections.iter().map(|s| s.level).min().unwrap_or(1);
+    Some(
+        model
+            .sections
+            .iter()
+            .filter(|s| s.file == 0)
+            .map(|s| crate::view::OutlineItem {
+                level: (s.level - top + 1).max(1) as usize,
+                todo: None,
+                title: match &s.number {
+                    Some(n) => format!("{n}\u{2003}{}", s.title),
+                    None => s.title.clone(),
+                },
+                start: s.range.start,
+            })
+            .collect(),
+    )
+}
+
 /// Whether the view renders command `name` (for the report of what a
 /// document leaves as source).
 pub fn renders_command(name: &str) -> bool {
@@ -1996,6 +2019,14 @@ mod tests {
                 language: Some("python".into())
             }
         );
+    }
+
+    #[test]
+    fn outline() {
+        let d = doc("\\documentclass{book}\n\\chapter{A}\n\\section{B}\n\\section*{C}\n");
+        let items = outline_items(&d).unwrap();
+        let v: Vec<(usize, &str)> = items.iter().map(|i| (i.level, i.title.as_str())).collect();
+        assert_eq!(v, [(1, "1\u{2003}A"), (2, "1.1\u{2003}B"), (2, "C")]);
     }
 
     #[test]

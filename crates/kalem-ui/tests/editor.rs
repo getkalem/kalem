@@ -2495,3 +2495,19 @@ fn latex_new_from_template(cx: &mut TestAppContext) {
     let written = std::fs::read_to_string(dir.join("beamer.tex")).unwrap();
     assert!(written.starts_with("\\documentclass{beamer}"));
 }
+
+#[gpui::test]
+fn latex_outline(cx: &mut TestAppContext) {
+    let text = "\\section{Intro}\ntext\n\\subsection{Details}\n\\section{End}\n";
+    let (e, cx) = open_named(text, "o.tex", || None, cx);
+    cx.simulate_keystrokes(&format!("{}-shift-o", primary()));
+    cx.run_until_parked();
+    // A click on End's row jumps to it.
+    let c = cx.debug_bounds("outline-2").expect("the row of End");
+    cx.simulate_click(c.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.selection.head),
+        text.find("\\section{End}").unwrap()
+    );
+}
