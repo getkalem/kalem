@@ -1696,6 +1696,12 @@ impl App {
                     self.run_command("list.toggleCheckbox", Value::Null);
                     return;
                 }
+                // A row of a table of contents leads to its heading.
+                if let Some((Widget::TocRow { start }, ..)) = widget {
+                    self.doc.move_cursor(start, false);
+                    self.after_change(true);
+                    return;
+                }
                 // The file manager: a click on a name (or a double click on
                 // its line) opens it.
                 if let Some(d) = self.doc.dired.as_deref() {

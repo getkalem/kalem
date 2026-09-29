@@ -203,6 +203,15 @@ cursor enters them. /Insert Drawer/ (Insert > Drawer) asks for a name and
 writes an empty drawer at the cursor, or around the selected lines, as
 Emacs's =org-insert-drawer= does.
 
+** Table of contents
+
+Away from the cursor, a =#+TOC: headlines 2= line shows the table of
+contents an export puts there: the headings to that depth, numbered as
+the export numbers them, leaving out =COMMENT= and =:noexport:= headings
+and numbering none under =:UNNUMBERED:=. =#+TOC: headlines 1 local=
+lists only the headings below the keyword's own. A click on a row goes
+to its heading; with the cursor on the line you edit the keyword.
+
 ** Footnotes
 
 /New Footnote/ (Ctrl+Alt+F, or Insert > Footnote) writes the next free
