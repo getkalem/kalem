@@ -1565,6 +1565,18 @@ fn file_manager_in_the_terminal() {
     settle(&mut t);
     assert!(!dir.join("proj/gone.txt").exists());
     assert!(!t.text().contains("gone.txt"), "{}", t.text());
+    // A rename, then Ctrl+Z takes it back.
+    t.app
+        .run_command("dired.newFile", serde_json::json!({ "name": "x.txt" }));
+    t.app
+        .run_command("dired.move", serde_json::json!({ "target": "y.txt" }));
+    settle(&mut t);
+    assert!(dir.join("proj/y.txt").is_file());
+    t.key(KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert!(dir.join("proj/x.txt").is_file() && !dir.join("proj/y.txt").exists());
+    assert!(cursor_line(&t).ends_with(" x.txt"), "{}", cursor_line(&t));
+    std::fs::remove_file(dir.join("proj/x.txt")).unwrap();
+    t.typ("g");
     // A click on a file's name opens it.
     let buf = t.draw();
     let (x, y) = (0..buf.area.height)

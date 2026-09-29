@@ -85,6 +85,7 @@
   { "keys": "c", "command": "dired.newFile" },
   { "keys": "f2", "command": "dired.move" },
   { "keys": "delete", "command": "dired.delete" },
+  { "keys": "ctrl+z", "command": "dired.undo" },
   { "keys": "shift+s", "command": "dired.symlink" },
   { "keys": "shift+m", "command": "dired.chmod" },
   { "keys": "shift+t", "command": "dired.touch" },

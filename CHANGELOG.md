@@ -167,6 +167,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX outline: the outline panel lists a LaTeX document's sections with their numbers, in both editors; a document without `\documentclass` is numbered as an article.
 - LaTeX tables: a `tabular`, `tabular*`, `tabularx`, `array` or `longtable` written one row a line with a plain column specification shows as the same grid as Org tables, rule lines drawn, in both editors; Tab and Shift+Tab move between its cells.
 - LaTeX bibliography: the hover card of a citation is the entry as a CSL style's bibliography shows it (chosen from biblatex's `style=` or `\bibliographystyle`); BibTeX pasted into a LaTeX document is added to its bibliography file and pasted as a `\cite`; `kalem check` on the root document lists bibliography entries nothing cites.
+- File manager: Ctrl+Z undoes the last rename, move or move to the trash (items come back from the system trash), in both editors; `kalem_fs::restore` puts trashed paths back.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

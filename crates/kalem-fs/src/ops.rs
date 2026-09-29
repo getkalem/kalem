@@ -307,6 +307,65 @@ pub fn trash_paths(paths: &[PathBuf]) -> Result<(), String> {
     ctx.delete_all(paths).map_err(|e| e.to_string())
 }
 
+/// Puts `paths`, moved to the trash before, back where they were: the
+/// latest item trashed from each. On macOS, where the trash cannot be
+/// listed, the item of that name in `~/.Trash`.
+pub fn restore(paths: &[PathBuf]) -> Result<(), String> {
+    for p in paths {
+        if std::fs::symlink_metadata(p).is_ok() {
+            return Err(format!("{} exists", p.display()));
+        }
+    }
+    restore_items(paths)
+}
+
+#[cfg(any(
+    target_os = "windows",
+    all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android")
+    )
+))]
+fn restore_items(paths: &[PathBuf]) -> Result<(), String> {
+    let mut items = trash::os_limited::list().map_err(|e| e.to_string())?;
+    // The latest first.
+    items.sort_by_key(|i| std::cmp::Reverse(i.time_deleted));
+    let mut chosen = Vec::new();
+    for p in paths {
+        let i = items
+            .iter()
+            .position(|i| &i.original_path() == p)
+            .ok_or_else(|| format!("{} is not in the trash", p.display()))?;
+        chosen.push(items.remove(i));
+    }
+    trash::os_limited::restore_all(chosen).map_err(|e| e.to_string())
+}
+
+#[cfg(not(any(
+    target_os = "windows",
+    all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android")
+    )
+)))]
+fn restore_items(paths: &[PathBuf]) -> Result<(), String> {
+    let home = std::env::var_os("HOME").ok_or("no home folder")?;
+    let trash = Path::new(&home).join(".Trash");
+    for p in paths {
+        let name = p.file_name().ok_or("no name")?;
+        let item = trash.join(name);
+        if std::fs::symlink_metadata(&item).is_err() {
+            return Err(format!("{} is not in the trash", p.display()));
+        }
+        move_path(&item, p).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Makes directory `path` and its missing parents; fails if it exists.
 pub fn mkdir(path: &Path) -> io::Result<()> {
     if std::fs::symlink_metadata(path).is_ok() {
