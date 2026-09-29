@@ -1376,10 +1376,26 @@ pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
             .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
             .collect();
         let bib = crate::cite::load(&files);
+        // The card in the style the document asks for: biblatex's
+        // `style=`, else `\bibliographystyle`.
+        let style = model
+            .packages
+            .iter()
+            .find(|p| p.name == "biblatex")
+            .and_then(|p| {
+                p.options
+                    .iter()
+                    .find_map(|o| o.trim().strip_prefix("style="))
+            })
+            .or(model.bibliography_style.as_deref());
+        let style = crate::cite::csl_style(style);
         let notes: Vec<String> = keys
             .iter()
             .map(|k| match bib.get(k) {
-                Some(e) => format!("@{k}: {}", crate::cite::describe(e)),
+                Some(e) => format!(
+                    "@{k}: {}",
+                    crate::cite::card(&files, k, style).unwrap_or_else(|| crate::cite::describe(e))
+                ),
                 None => crate::tr!("cite-unknown-key", key = *k),
             })
             .collect();
@@ -1992,10 +2008,11 @@ mod tests {
             note_at(&d, at("\\ref{nope}")).as_deref(),
             Some("No label nope")
         );
-        assert!(
-            note_at(&d, at("\\citet"))
-                .unwrap()
-                .starts_with("@knuth: Knuth, Donald E. (1984). The TeXbook.")
+        // The entry as the CSL style's bibliography has it.
+        let card = note_at(&d, at("\\citet")).unwrap();
+        assert_eq!(
+            card, "@knuth: Knuth, Donald E. 1984. The Texbook.",
+            "{card}"
         );
         assert!(note_at(&d, at("\\footnote")).unwrap().contains("A note."));
         let _ = std::fs::remove_dir_all(&dir);

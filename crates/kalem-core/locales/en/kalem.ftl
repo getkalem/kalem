@@ -668,6 +668,7 @@ msg-imported = Imported as { $path }
 msg-import-exists = { $path } exists already
 cite-bibliography-unreadable = The bibliography { $file } cannot be read: { $error }
 cite-unknown-key = No bibliography has the key @{ $key }
+cite-unused-entry = Nothing cites the bibliography entry @{ $key }
 category-footnotes = Footnotes
 menu-footnote = Footnote
 footnote-preview = Footnote { $label }: { $text }

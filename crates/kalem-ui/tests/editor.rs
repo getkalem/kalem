@@ -2372,7 +2372,7 @@ fn latex_references(cx: &mut TestAppContext) {
     let status = e
         .read_with(cx, |e, _| e.formula_status.clone())
         .unwrap_or_default();
-    assert!(status.contains("@knuth: Knuth, Donald (1984)"), "{status}");
+    assert!(status.contains("@knuth: Knuth, Donald. 1984."), "{status}");
 }
 
 #[gpui::test]

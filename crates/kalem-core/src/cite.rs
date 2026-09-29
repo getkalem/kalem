@@ -295,3 +295,207 @@ mod tests {
         assert_eq!(preview(&d, Some(&file), 2), None);
     }
 }
+
+/// The CSL style for a `\bibliographystyle`: the one Kalem ships closest
+/// to it, else the default.
+pub fn csl_style(bibliography_style: Option<&str>) -> &'static str {
+    match bibliography_style
+        .map(|s| s.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some(
+            "ieeetr" | "ieee" | "ieeetran" | "unsrt" | "numeric" | "numeric-comp" | "plain"
+            | "abbrv" | "alpha",
+        ) => "ieee",
+        Some("apalike" | "apa" | "apacite" | "plainnat" | "abbrvnat" | "unsrtnat") => "apa",
+        Some("mla") => "modern-language-association",
+        _ => org_cite::csl::DEFAULT_STYLE,
+    }
+}
+
+/// Bibliography files with their modification times.
+type Stamp = Vec<(PathBuf, Option<SystemTime>)>;
+
+thread_local! {
+    /// CSL styles loaded, by name.
+    static STYLES: std::cell::RefCell<HashMap<String, Option<Arc<org_cite::csl::Processor>>>> =
+        std::cell::RefCell::new(HashMap::new());
+    /// The CSL library of the bibliography files last asked for.
+    static LIBRARY: std::cell::RefCell<Option<(Stamp, Arc<org_cite::csl::Library>)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The entry `key` of the bibliography `files` as the bibliography of
+/// the CSL `style` shows it, in plain text.
+pub fn card(files: &[PathBuf], key: &str, style: &str) -> Option<String> {
+    let processor = STYLES.with(|s| {
+        s.borrow_mut()
+            .entry(style.to_string())
+            .or_insert_with(|| {
+                org_cite::csl::Processor::new(Some(style), None, None)
+                    .ok()
+                    .map(Arc::new)
+            })
+            .clone()
+    })?;
+    let stamp: Vec<(PathBuf, Option<SystemTime>)> = files
+        .iter()
+        .map(|f| {
+            (
+                f.clone(),
+                std::fs::metadata(f).and_then(|m| m.modified()).ok(),
+            )
+        })
+        .collect();
+    let lib = LIBRARY.with(|l| {
+        let mut l = l.borrow_mut();
+        match &*l {
+            Some((s, lib)) if *s == stamp => lib.clone(),
+            _ => {
+                let lib = Arc::new(org_cite::csl::Library::load(files).0);
+                *l = Some((stamp, lib.clone()));
+                lib
+            }
+        }
+    });
+    lib.get(key)?;
+    let r = processor.render(
+        &lib,
+        &[org_cite::csl::CiteRequest {
+            items: vec![org_cite::csl::ItemRequest {
+                key: key.to_string(),
+                locator: None,
+                mode: org_cite::csl::Mode::Normal,
+            }],
+            hidden: true,
+            note_number: None,
+        }],
+    );
+    let (_, label, spans) = r.bibliography?.items.into_iter().next()?;
+    let text = org_cite::csl::plain(&spans);
+    let text = match label {
+        Some(l) => format!("{} {}", org_cite::csl::plain(&l), text.trim()),
+        None => text.trim().to_string(),
+    };
+    (!text.is_empty()).then_some(text)
+}
+
+/// BibTeX pasted into a LaTeX document: its entries added to the
+/// document's first bibliography file (those it has already left as they
+/// are), and a `\cite` of them to insert instead.
+pub fn pasted_bibtex(doc: &crate::DocumentState, text: &str) -> Option<String> {
+    if !text.trim_start().starts_with('@') {
+        return None;
+    }
+    let entries = org_cite::bib::parse_bibtex(text).ok()?;
+    if entries.is_empty() {
+        return None;
+    }
+    let model = doc.latex()?.model();
+    let dir = doc.meta.path.as_deref()?.parent()?;
+    let file = dir.join(model.bibliography.first()?.files.first()?);
+    let old = std::fs::read_to_string(&file).unwrap_or_default();
+    let known: std::collections::HashSet<String> = org_cite::bib::parse_bibtex(&old)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|e| e.key)
+        .collect();
+    // Each new entry's own text, cut where the next one starts.
+    let starts: Vec<usize> = text
+        .match_indices('@')
+        .map(|(i, _)| i)
+        .filter(|&i| i == 0 || text[..i].ends_with(['\n', ' ', '\t']))
+        .collect();
+    let mut add = String::new();
+    for (n, &at) in starts.iter().enumerate() {
+        let end = starts.get(n + 1).copied().unwrap_or(text.len());
+        let chunk = text[at..end].trim();
+        let Some(e) = org_cite::bib::parse_bibtex(chunk)
+            .ok()
+            .and_then(|v| v.into_iter().next())
+        else {
+            continue;
+        };
+        if !known.contains(&e.key) {
+            add.push('\n');
+            add.push_str(chunk);
+            add.push('\n');
+        }
+    }
+    if !add.is_empty() {
+        let mut new = old;
+        if !new.is_empty() && !new.ends_with('\n') {
+            new.push('\n');
+        }
+        if new.is_empty() {
+            add.remove(0);
+        }
+        new.push_str(&add);
+        std::fs::write(&file, new).ok()?;
+    }
+    let keys: Vec<String> = entries.into_iter().map(|e| e.key).collect();
+    Some(format!("\\cite{{{}}}", keys.join(",")))
+}
+
+#[cfg(test)]
+mod card_tests {
+    #[test]
+    fn cards_in_a_csl_style() {
+        let dir = std::env::temp_dir().join(format!("kalem-card-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("refs.bib");
+        std::fs::write(
+            &f,
+            "@book{knuth84, author = {Donald E. Knuth}, title = {The {\\TeX}book}, publisher = {Addison-Wesley}, year = {1984}}\n",
+        )
+        .unwrap();
+        let files = vec![f];
+        let apa = super::card(&files, "knuth84", "apa").unwrap();
+        assert!(apa.starts_with("Knuth, D. E. (1984)"), "{apa}");
+        let ieee = super::card(&files, "knuth84", super::csl_style(Some("ieeetr"))).unwrap();
+        assert!(ieee.starts_with("[1]"), "{ieee}");
+        assert_eq!(super::card(&files, "nope", "apa"), None);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn bibtex_pasted_into_latex() {
+        let dir = std::env::temp_dir().join(format!("kalem-paste-bib-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let bib = dir.join("refs.bib");
+        std::fs::write(&bib, "@book{old, title = {O}}").unwrap();
+        let text = "See \n\\bibliography{refs}\n";
+        let meta = crate::Metadata {
+            path: Some(dir.join("p.tex")),
+            mode: crate::DocumentMode::Latex,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+        };
+        let mut d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        d.selection = org_edit::Selection::caret(4);
+        let now = std::time::Instant::now();
+        d.paste(
+            "@article{new1,\n  title = {N},\n  year = 2020\n}\n@book{old, title = {O}}\n",
+            None,
+            false,
+            now,
+        );
+        assert_eq!(
+            d.text().as_str(),
+            "See \\cite{new1,old}\n\\bibliography{refs}\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&bib).unwrap(),
+            "@book{old, title = {O}}\n\n@article{new1,\n  title = {N},\n  year = 2020\n}\n"
+        );
+        // Plain text stays text.
+        d.paste("@someone", None, false, now);
+        assert!(d.text().as_str().contains("@someone"));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}

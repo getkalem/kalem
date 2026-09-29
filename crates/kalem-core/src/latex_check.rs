@@ -111,6 +111,31 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                 });
             }
         }
+        // Entries nothing cites, reported with the root document (unless
+        // `\nocite{*}` takes them all).
+        let all = model
+            .citations
+            .iter()
+            .any(|c| c.keys.iter().any(|k| k == "*"));
+        if errors.is_empty() && this == 0 && same_file(&root, path) && !all {
+            let cited: std::collections::HashSet<&str> = model
+                .citations
+                .iter()
+                .flat_map(|c| c.keys.iter().map(String::as_str))
+                .collect();
+            if let Some(b) = model.bibliography.iter().find(|b| b.file == 0) {
+                for e in bib.entries() {
+                    if !cited.contains(e.key.as_str()) {
+                        out.push(Diagnostic {
+                            range: b.range.clone(),
+                            severity: Severity::Info,
+                            code: "cite-unused-entry",
+                            message: crate::tr!("cite-unused-entry", key = e.key.as_str()),
+                        });
+                    }
+                }
+            }
+        }
         if errors.len() < files.len() {
             for c in model.citations.iter().filter(|c| c.file == this) {
                 for k in &c.keys {
@@ -332,7 +357,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("refs.bib"),
-            "@book{knuth, title = {T}, year = 1984}\n",
+            "@book{knuth, title = {T}, year = 1984}\n@book{extra, title = {U}}\n",
         )
         .unwrap();
         let text = "\\documentclass{article}\n\\begin{document}\n\\section{A}\\label{a}\\label{a}\nSee \\ref{b} and\\ref{a}, {\\bf x} $$y$$ \"q\" wait... \\cite{knuth,nope}\n\\input{missing}\n\\includegraphics{nofig}\n\\begin{itemize}\n\\bibliography{refs}\n\\end{document}\n";
@@ -355,6 +380,7 @@ mod tests {
                 "latex-missing-file",
                 "latex-missing-picture",
                 "latex-syntax",
+                "cite-unused-entry",
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);
