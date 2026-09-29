@@ -2480,7 +2480,7 @@ fn latex_references() {
     // At the citation, the entry in the status line.
     t.at(text.find("\\cite").unwrap() + 3);
     assert!(
-        status(&mut t).contains("@knuth: Knuth, Donald (1984)"),
+        status(&mut t).contains("@knuth: Knuth, Donald. 1984."),
         "{}",
         status(&mut t)
     );

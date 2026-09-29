@@ -648,6 +648,13 @@ impl DocumentState {
         {
             text = t;
         }
+        // BibTeX in a LaTeX document: into its bibliography, cited here.
+        if !plain
+            && self.meta.mode == DocumentMode::Latex
+            && let Some(t) = crate::cite::pasted_bibtex(self, &text)
+        {
+            text = t;
+        }
         if !self.extra.is_empty() {
             self.paste_at_cursors(&text, now);
             return;

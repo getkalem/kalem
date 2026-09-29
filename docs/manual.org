@@ -784,7 +784,12 @@ picture (PNG, JPEG or SVG, found in the document's folder or a
 resolve to, in red as =??= when no =\label= has the key; citations show
 the authors and years of the entries in the =\bibliography= or
 =\addbibresource= files, with their notes, and the entry cited shows
-in the status bar at the cursor and in a tooltip under the mouse.
+in the status bar at the cursor and in a tooltip under the mouse, as
+the bibliography of a CSL style has it (the style closest to biblatex's
+=style== or to =\bibliographystyle=: =ieee= for =plain= and =unsrt=,
+=apa= for =apalike= and natbib's, else =chicago-author-date=). BibTeX
+entries pasted into the document go into its first bibliography file
+(keys it has already are left) and a =\cite= of them is pasted instead.
 =\footnote= shows its raised number before its dimmed text, and =\url=
 and =\href= show as links. Theorems declared with =\newtheorem= show
 their names and numbers ("Theorem 1.1 (Pythagoras).") and =proof= its

@@ -616,6 +616,7 @@ msg-imported = { $path } olarak içe aktarıldı
 msg-import-exists = { $path } zaten var
 cite-bibliography-unreadable = { $file } kaynakçası okunamıyor: { $error }
 cite-unknown-key = Hiçbir kaynakçada @{ $key } anahtarı yok
+cite-unused-entry = Kaynakçadaki @{ $key } girdisine hiç atıf yapılmıyor
 category-footnotes = Dipnotlar
 menu-footnote = Dipnot
 footnote-preview = Dipnot { $label }: { $text }
