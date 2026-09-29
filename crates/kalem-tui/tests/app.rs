@@ -2865,3 +2865,13 @@ fn file_manager_shell_command() {
         "* A\nalpha\n"
     );
 }
+
+#[test]
+fn latex_follow_reference() {
+    let text = "\\section{Intro}\\label{intro}\ntext\nSee \\ref{intro}.\n";
+    let mut t = with_file(text, "r.tex", Config::default(), (60, 8));
+    t.at(text.find("\\ref").unwrap() + 2);
+    t.app
+        .run_command("latex.link.open", serde_json::Value::Null);
+    assert_eq!(t.app.doc.selection.head, text.find("\\label").unwrap());
+}
