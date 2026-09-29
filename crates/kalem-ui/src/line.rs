@@ -450,10 +450,10 @@ fn text_run(
     if s.bold || s.title || heading > 0 || s.todo.is_some() {
         font.weight = FontWeight::BOLD;
     }
-    if s.italic || s.byline {
+    if s.italic || s.byline || s.expansion {
         font.style = FontStyle::Italic;
     }
-    let color = if s.link {
+    let color = if s.link || s.expansion {
         theme.link
     } else if let Some(done) = s.todo {
         if done { theme.done } else { theme.todo }
