@@ -30,6 +30,7 @@ pub mod latex_check;
 mod latex_complete;
 pub mod latex_edit;
 pub mod latex_fmt;
+pub mod latex_table;
 pub mod latex_templates;
 pub mod latex_view;
 pub mod lines;

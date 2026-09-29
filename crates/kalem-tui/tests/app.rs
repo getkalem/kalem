@@ -2715,3 +2715,26 @@ fn latex_outline() {
         "{s}"
     );
 }
+
+#[test]
+fn latex_tables_as_grids() {
+    let text = "\\begin{tabular}{lr}\n\\toprule\nName & Qty \\\\\n\\midrule\n\\textbf{apple} & 3 \\\\\nb & 10 \\\\\n\\bottomrule\n\\end{tabular}\n\nafter\n";
+    let mut t = with_file(text, "t.tex", Config::default(), (40, 12));
+    t.at(text.len());
+    // The rows after the line numbers.
+    let rows: Vec<String> = (0..8).map(|y| t.row(y)[4..].to_string()).collect();
+    assert_eq!(rows[2], "│ Name  │ Qty │", "{rows:#?}");
+    assert_eq!(rows[3], "├───────┼─────┤");
+    assert_eq!(rows[4], "│ apple │   3 │");
+    assert_eq!(rows[5], "│ b     │  10 │");
+    // In the table: the source, and Tab goes to the next cell.
+    t.at(text.find("Name").unwrap());
+    assert!(t.row(2).contains("Name & Qty"), "{}", t.row(2));
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.selection.head, text.find("Qty").unwrap());
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.selection.head, text.find("\\textbf").unwrap());
+    t.key(KeyCode::BackTab, KeyModifiers::SHIFT);
+    assert_eq!(t.app.doc.selection.head, text.find("Qty").unwrap());
+    assert_eq!(t.text(), text);
+}
