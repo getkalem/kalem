@@ -92194,5 +92194,2609 @@
     "text": "x\n",
     "point": 1,
     "error": "Invalid drawer name"
+  },
+  {
+    "name": "archive-tag 0@0",
+    "text": "* P [0/2]                                                           :ARCHIVE:\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@0",
+    "text": "* Q\ntext\n* Archive                                                           :ARCHIVE:\n** P [0/2]\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** TODO a\nbody a\n*** TODO b\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@2",
+    "text": "* P [0/2]                                                           :ARCHIVE:\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@2",
+    "text": "* Q\ntext\n* Archive                                                           :ARCHIVE:\n** P [0/2]\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** TODO a\nbody a\n*** TODO b\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@10",
+    "text": "* P [0/2]\n** TODO a                                                           :ARCHIVE:\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@10",
+    "text": "* P [0/1]\n** TODO b\n** Archive                                                          :ARCHIVE:\n*** TODO a\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nbody a\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@12",
+    "text": "* P [0/2]\n** TODO a                                                           :ARCHIVE:\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@12",
+    "text": "* P [0/1]\n** TODO b\n** Archive                                                          :ARCHIVE:\n*** TODO a\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nbody a\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@20",
+    "text": "* P [0/2]\n** TODO a                                                           :ARCHIVE:\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@20",
+    "text": "* P [0/1]\n** TODO b\n** Archive                                                          :ARCHIVE:\n*** TODO a\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nbody a\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@22",
+    "text": "* P [0/2]\n** TODO a                                                           :ARCHIVE:\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@22",
+    "text": "* P [0/1]\n** TODO b\n** Archive                                                          :ARCHIVE:\n*** TODO a\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nbody a\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@27",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b                                                           :ARCHIVE:\n* Q\ntext\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@27",
+    "text": "* P [0/1]\n** TODO a\nbody a\n** Archive                                                          :ARCHIVE:\n*** TODO b\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n* Q\ntext\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@29",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b                                                           :ARCHIVE:\n* Q\ntext\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@29",
+    "text": "* P [0/1]\n** TODO a\nbody a\n** Archive                                                          :ARCHIVE:\n*** TODO b\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n* Q\ntext\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@37",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q                                                                 :ARCHIVE:\ntext\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@37",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Archive                                                           :ARCHIVE:\n** Q\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@39",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q                                                                 :ARCHIVE:\ntext\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@39",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Archive                                                           :ARCHIVE:\n** Q\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@41",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q                                                                 :ARCHIVE:\ntext\n",
+    "point": 115,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@41",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Archive                                                           :ARCHIVE:\n** Q\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@43",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q                                                                 :ARCHIVE:\ntext\n",
+    "point": 115,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@43",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Archive                                                           :ARCHIVE:\n** Q\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "archive-tag 0@46",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q                                                                 :ARCHIVE:\ntext\n",
+    "point": 120,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 0@46",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Archive                                                           :ARCHIVE:\n** Q\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "refile 0@0->0",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@0->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@0->27",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@0->37",
+    "text": "* Q\ntext\n** P [0/2]\n*** TODO a\nbody a\n*** TODO b\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "refile 0@2->0",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@2->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@2->27",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@2->37",
+    "text": "* Q\ntext\n** P [0/2]\n*** TODO a\nbody a\n*** TODO b\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "refile 0@10->0",
+    "text": "* P [0/2]\n** TODO b\n** TODO a\nbody a\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "refile 0@10->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 10,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@10->27",
+    "text": "* P [0/2]\n** TODO b\n*** TODO a\nbody a\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "refile 0@10->37",
+    "text": "* P [0/2]\n** TODO b\n* Q\ntext\n** TODO a\nbody a\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "refile 0@12->0",
+    "text": "* P [0/2]\n** TODO b\n** TODO a\nbody a\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "refile 0@12->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 12,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@12->27",
+    "text": "* P [0/2]\n** TODO b\n*** TODO a\nbody a\n* Q\ntext\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "refile 0@12->37",
+    "text": "* P [0/2]\n** TODO b\n* Q\ntext\n** TODO a\nbody a\n",
+    "point": 10,
+    "error": null
+  },
+  {
+    "name": "refile 0@27->0",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "refile 0@27->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n*** TODO b\n* Q\ntext\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "refile 0@27->27",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 27,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@27->37",
+    "text": "* P [0/2]\n** TODO a\nbody a\n* Q\ntext\n** TODO b\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "refile 0@29->0",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "refile 0@29->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n*** TODO b\n* Q\ntext\n",
+    "point": 38,
+    "error": null
+  },
+  {
+    "name": "refile 0@29->27",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 29,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@29->37",
+    "text": "* P [0/2]\n** TODO a\nbody a\n* Q\ntext\n** TODO b\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "refile 0@37->0",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n** Q\ntext\n",
+    "point": 47,
+    "error": null
+  },
+  {
+    "name": "refile 0@37->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n*** Q\ntext\n** TODO b\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "refile 0@37->27",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n*** Q\ntext\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "refile 0@37->37",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 37,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@39->0",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n** Q\ntext\n",
+    "point": 47,
+    "error": null
+  },
+  {
+    "name": "refile 0@39->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n*** Q\ntext\n** TODO b\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "refile 0@39->27",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n*** Q\ntext\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "refile 0@39->37",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 39,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 0@46->0",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n** Q\ntext\n",
+    "point": 47,
+    "error": null
+  },
+  {
+    "name": "refile 0@46->10",
+    "text": "* P [0/2]\n** TODO a\nbody a\n*** Q\ntext\n** TODO b\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "refile 0@46->27",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n*** Q\ntext\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "refile 0@46->37",
+    "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "point": 46,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "archive-tag 1@0",
+    "text": "* Top                                                               :ARCHIVE:\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@0",
+    "text": "* Other\n* Archive                                                           :ARCHIVE:\n** Top\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** one\n*** Archive                                                         :ARCHIVE:\n**** old\n*** two                                                                   :x:\n\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@2",
+    "text": "* Top                                                               :ARCHIVE:\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@2",
+    "text": "* Other\n* Archive                                                           :ARCHIVE:\n** Top\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** one\n*** Archive                                                         :ARCHIVE:\n**** old\n*** two                                                                   :x:\n\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@6",
+    "text": "* Top\n** one                                                              :ARCHIVE:\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@6",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n*** one\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@8",
+    "text": "* Top\n** one                                                              :ARCHIVE:\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@8",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n*** one\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@13",
+    "text": "* Top\n** one\n** Archive\n*** old\n** two :x:\n\n* Other\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@13",
+    "text": "* Top\n** one\n*** Archive                                                         :ARCHIVE:\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n**** old\n** two :x:\n\n* Other\n",
+    "point": 155,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@15",
+    "text": "* Top\n** one\n** Archive\n*** old\n** two :x:\n\n* Other\n",
+    "point": 15,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@15",
+    "text": "* Top\n** one\n*** Archive                                                         :ARCHIVE:\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n**** old\n** two :x:\n\n* Other\n",
+    "point": 155,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old                                                             :ARCHIVE:\n** two :x:\n\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** Archive                                                         :ARCHIVE:\n**** old\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n** two :x:\n\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@36",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old                                                             :ARCHIVE:\n** two :x:\n\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@36",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** Archive                                                         :ARCHIVE:\n**** old\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n** two :x:\n\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two                                                            :x:ARCHIVE:\n\n* Other\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n*** two                                                                   :x:\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n* Other\n",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@44",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two                                                            :x:ARCHIVE:\n\n* Other\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@44",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n*** two                                                                   :x:\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n* Other\n",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@53",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two                                                            :x:ARCHIVE:\n\n* Other\n",
+    "point": 120,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@53",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n*** two                                                                   :x:\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n* Other\n",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other                                                             :ARCHIVE:\n",
+    "point": 54,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Archive                                                           :ARCHIVE:\n** Other\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 54,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@55",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other                                                             :ARCHIVE:\n",
+    "point": 54,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@55",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Archive                                                           :ARCHIVE:\n** Other\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 54,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@56",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other                                                             :ARCHIVE:\n",
+    "point": 54,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@56",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Archive                                                           :ARCHIVE:\n** Other\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 54,
+    "error": null
+  },
+  {
+    "name": "archive-tag 1@62",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other                                                             :ARCHIVE:\n",
+    "point": 132,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 1@62",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Archive                                                           :ARCHIVE:\n** Other\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 54,
+    "error": null
+  },
+  {
+    "name": "refile 1@0->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@0->6",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@0->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@0->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@0->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@0->54",
+    "text": "* Other\n** Top\n*** one\n*** Archive                                                         :ARCHIVE:\n**** old\n*** two                                                                   :x:\n\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "refile 1@2->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@2->6",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@2->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@2->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@2->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@2->54",
+    "text": "* Other\n** Top\n*** one\n*** Archive                                                         :ARCHIVE:\n**** old\n*** two                                                                   :x:\n\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "refile 1@6->0",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n** one\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@6->6",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@6->13",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n*** one\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@6->34",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n**** one\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@6->42",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n*** one\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@6->54",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n** one\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@8->0",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n** one\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@8->6",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 8,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@8->13",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n*** one\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@8->34",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n**** one\n** two :x:\n\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@8->42",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n*** one\n* Other\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@8->54",
+    "text": "* Top\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n** one\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 1@13->0",
+    "text": "* Top\n** one\n** two :x:\n\n** Archive                                                          :ARCHIVE:\n*** old\n* Other\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "refile 1@13->6",
+    "text": "* Top\n** one\n*** Archive                                                         :ARCHIVE:\n**** old\n** two :x:\n\n* Other\n",
+    "point": 100,
+    "error": null
+  },
+  {
+    "name": "refile 1@13->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 13,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@13->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 13,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@13->42",
+    "text": "* Top\n** one\n** two :x:\n\n*** Archive                                                         :ARCHIVE:\n**** old\n* Other\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "refile 1@13->54",
+    "text": "* Top\n** one\n** two :x:\n\n* Other\n** Archive                                                          :ARCHIVE:\n*** old\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "refile 1@15->0",
+    "text": "* Top\n** one\n** two :x:\n\n** Archive                                                          :ARCHIVE:\n*** old\n* Other\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "refile 1@15->6",
+    "text": "* Top\n** one\n*** Archive                                                         :ARCHIVE:\n**** old\n** two :x:\n\n* Other\n",
+    "point": 100,
+    "error": null
+  },
+  {
+    "name": "refile 1@15->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 15,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@15->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 15,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@15->42",
+    "text": "* Top\n** one\n** two :x:\n\n*** Archive                                                         :ARCHIVE:\n**** old\n* Other\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "refile 1@15->54",
+    "text": "* Top\n** one\n** two :x:\n\n* Other\n** Archive                                                          :ARCHIVE:\n*** old\n",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "refile 1@34->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n** two :x:\n\n** old\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "refile 1@34->6",
+    "text": "* Top\n** one\n*** old\n** Archive :ARCHIVE:\n** two :x:\n\n* Other\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "refile 1@34->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "refile 1@34->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 34,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@34->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n** two :x:\n\n*** old\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "refile 1@34->54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n** two :x:\n\n* Other\n** old\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "refile 1@36->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n** two :x:\n\n** old\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "refile 1@36->6",
+    "text": "* Top\n** one\n*** old\n** Archive :ARCHIVE:\n** two :x:\n\n* Other\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "refile 1@36->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "refile 1@36->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 36,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@36->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n** two :x:\n\n*** old\n* Other\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "refile 1@36->54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n** two :x:\n\n* Other\n** old\n",
+    "point": 34,
+    "error": null
+  },
+  {
+    "name": "refile 1@42->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two                                                                    :x:\n\n* Other\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "refile 1@42->6",
+    "text": "* Top\n** one\n*** two                                                                   :x:\n\n** Archive :ARCHIVE:\n*** old\n* Other\n",
+    "point": 121,
+    "error": null
+  },
+  {
+    "name": "refile 1@42->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n*** two                                                                   :x:\n\n* Other\n",
+    "point": 121,
+    "error": null
+  },
+  {
+    "name": "refile 1@42->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n**** two                                                                  :x:\n\n* Other\n",
+    "point": 121,
+    "error": null
+  },
+  {
+    "name": "refile 1@42->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 42,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@42->54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n* Other\n** two                                                                    :x:\n\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "refile 1@44->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two                                                                    :x:\n\n* Other\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "refile 1@44->6",
+    "text": "* Top\n** one\n*** two                                                                   :x:\n\n** Archive :ARCHIVE:\n*** old\n* Other\n",
+    "point": 121,
+    "error": null
+  },
+  {
+    "name": "refile 1@44->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n*** two                                                                   :x:\n\n* Other\n",
+    "point": 121,
+    "error": null
+  },
+  {
+    "name": "refile 1@44->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n**** two                                                                  :x:\n\n* Other\n",
+    "point": 121,
+    "error": null
+  },
+  {
+    "name": "refile 1@44->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 44,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@44->54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n* Other\n** two                                                                    :x:\n\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "refile 1@54->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n** Other\n",
+    "point": 63,
+    "error": null
+  },
+  {
+    "name": "refile 1@54->6",
+    "text": "* Top\n** one\n*** Other\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@54->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n*** Other\n** two :x:\n\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@54->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n**** Other\n** two :x:\n\n",
+    "point": 65,
+    "error": null
+  },
+  {
+    "name": "refile 1@54->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n*** Other\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@54->54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 54,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@56->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n** Other\n",
+    "point": 63,
+    "error": null
+  },
+  {
+    "name": "refile 1@56->6",
+    "text": "* Top\n** one\n*** Other\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@56->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n*** Other\n** two :x:\n\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@56->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n**** Other\n** two :x:\n\n",
+    "point": 65,
+    "error": null
+  },
+  {
+    "name": "refile 1@56->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n*** Other\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@56->54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 56,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 1@62->0",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n** Other\n",
+    "point": 63,
+    "error": null
+  },
+  {
+    "name": "refile 1@62->6",
+    "text": "* Top\n** one\n*** Other\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@62->13",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n*** Other\n** two :x:\n\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@62->34",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n**** Other\n** two :x:\n\n",
+    "point": 65,
+    "error": null
+  },
+  {
+    "name": "refile 1@62->42",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n*** Other\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "refile 1@62->54",
+    "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "point": 62,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "archive-tag 2@0",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "archive-sibling 2@0",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "archive-tag 2@2",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 2,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "archive-sibling 2@2",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 0,
+    "error": "Before first headline at position 1 in buffer  *temp*"
+  },
+  {
+    "name": "archive-tag 2@6",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@6",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@8",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@8",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@16",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 84,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@16",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@18",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 84,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@18",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@29",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 97,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@29",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@31",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 97,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@31",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@36",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@36",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@38",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@38",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@42",
+    "text": "Intro\n* A                                                             :tag:ARCHIVE:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 110,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@42",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@44",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B                                                                 :ARCHIVE:\n\n\n* C\nno newline",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@44",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** B\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@46",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B                                                                 :ARCHIVE:\n\n\n* C\nno newline",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@46",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** B\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@48",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B                                                                 :ARCHIVE:\n\n\n* C\nno newline",
+    "point": 122,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@48",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** B\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@49",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B                                                                 :ARCHIVE:\n\n\n* C\nno newline",
+    "point": 123,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@49",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* C\nno newline\n* Archive                                                           :ARCHIVE:\n** B\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@50",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C                                                                 :ARCHIVE:\nno newline",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@50",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* Archive                                                           :ARCHIVE:\n** C\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nno newline\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@51",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C                                                                 :ARCHIVE:\nno newline",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@51",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* Archive                                                           :ARCHIVE:\n** C\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nno newline\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@52",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C                                                                 :ARCHIVE:\nno newline",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@52",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* Archive                                                           :ARCHIVE:\n** C\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nno newline\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@54",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C                                                                 :ARCHIVE:\nno newline",
+    "point": 128,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@54",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* Archive                                                           :ARCHIVE:\n** C\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nno newline\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "archive-tag 2@56",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C                                                                 :ARCHIVE:\nno newline",
+    "point": 128,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 2@56",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* Archive                                                           :ARCHIVE:\n** C\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nno newline\n",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "refile 2@6->6",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 6,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 2@6->44",
+    "text": "Intro\n* B\n\n\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* C\nno newline",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 2@6->50",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 2@8->6",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 8,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 2@8->44",
+    "text": "Intro\n* B\n\n\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* C\nno newline",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 2@8->50",
+    "text": "Intro\n* B\n\n\n* C\nno newline\n** A                                                                    :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n",
+    "point": 6,
+    "error": null
+  },
+  {
+    "name": "refile 2@44->6",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n** B\n\n\n* C\nno newline",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "refile 2@44->44",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 44,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 2@44->50",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* C\nno newline\n** B\n\n\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "refile 2@46->6",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n** B\n\n\n* C\nno newline",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "refile 2@46->44",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 46,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 2@46->50",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* C\nno newline\n** B\n\n\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "refile 2@50->6",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n** C\nno newline\n* B\n\n\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "refile 2@50->44",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n** C\nno newline\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "refile 2@50->50",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 50,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 2@52->6",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n** C\nno newline\n* B\n\n\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "refile 2@52->44",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n** C\nno newline\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "refile 2@52->50",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 52,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 2@56->6",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n** C\nno newline\n* B\n\n\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "refile 2@56->44",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n** C\nno newline\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "refile 2@56->50",
+    "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "point": 56,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "archive-tag 3@0",
+    "text": "* Proj [%]                                                          :ARCHIVE:\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@0",
+    "text": "* Archive                                                           :ARCHIVE:\n** Proj [%]\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** DONE x\n\n*** TODO y\n**** sub\n\n*** NEXT z\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@2",
+    "text": "* Proj [%]                                                          :ARCHIVE:\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@2",
+    "text": "* Archive                                                           :ARCHIVE:\n** Proj [%]\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** DONE x\n\n*** TODO y\n**** sub\n\n*** NEXT z\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@11",
+    "text": "* Proj [%]\n** DONE x                                                           :ARCHIVE:\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@11",
+    "text": "* Proj [0%]\n** TODO y\n*** sub\n\n** NEXT z\n** Archive                                                          :ARCHIVE:\n*** DONE x\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@13",
+    "text": "* Proj [%]\n** DONE x                                                           :ARCHIVE:\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@13",
+    "text": "* Proj [0%]\n** TODO y\n*** sub\n\n** NEXT z\n** Archive                                                          :ARCHIVE:\n*** DONE x\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@21",
+    "text": "* Proj [%]\n** DONE x                                                           :ARCHIVE:\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 89,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@21",
+    "text": "* Proj [0%]\n** TODO y\n*** sub\n\n** NEXT z\n** Archive                                                          :ARCHIVE:\n*** DONE x\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n",
+    "point": 12,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y                                                           :ARCHIVE:\n*** sub\n\n** NEXT z\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@22",
+    "text": "* Proj [100%]\n** DONE x\n\n** NEXT z\n** Archive                                                          :ARCHIVE:\n*** TODO y\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n**** sub\n\n",
+    "point": 25,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@23",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y                                                           :ARCHIVE:\n*** sub\n\n** NEXT z\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@23",
+    "text": "* Proj [100%]\n** DONE x\n\n** NEXT z\n** Archive                                                          :ARCHIVE:\n*** TODO y\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n**** sub\n\n",
+    "point": 25,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@24",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y                                                           :ARCHIVE:\n*** sub\n\n** NEXT z\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@24",
+    "text": "* Proj [100%]\n** DONE x\n\n** NEXT z\n** Archive                                                          :ARCHIVE:\n*** TODO y\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n**** sub\n\n",
+    "point": 25,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub                                                             :ARCHIVE:\n\n** NEXT z\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** Archive                                                         :ARCHIVE:\n**** sub\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n** NEXT z\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@34",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub                                                             :ARCHIVE:\n\n** NEXT z\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@34",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** Archive                                                         :ARCHIVE:\n**** sub\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n** NEXT z\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@40",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub                                                             :ARCHIVE:\n\n** NEXT z\n",
+    "point": 110,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@40",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** Archive                                                         :ARCHIVE:\n**** sub\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n\n** NEXT z\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@41",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z                                                           :ARCHIVE:\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@41",
+    "text": "* Proj [50%]\n** DONE x\n\n** TODO y\n*** sub\n\n** Archive                                                          :ARCHIVE:\n*** NEXT z\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@42",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z                                                           :ARCHIVE:\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@42",
+    "text": "* Proj [50%]\n** DONE x\n\n** TODO y\n*** sub\n\n** Archive                                                          :ARCHIVE:\n*** NEXT z\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@43",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z                                                           :ARCHIVE:\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@43",
+    "text": "* Proj [50%]\n** DONE x\n\n** TODO y\n*** sub\n\n** Archive                                                          :ARCHIVE:\n*** NEXT z\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "archive-tag 3@51",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z                                                           :ARCHIVE:\n",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 3@51",
+    "text": "* Proj [50%]\n** DONE x\n\n** TODO y\n*** sub\n\n** Archive                                                          :ARCHIVE:\n*** NEXT z\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "refile 3@0->0",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@0->11",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@0->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@0->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@0->41",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@2->0",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@2->11",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@2->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@2->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@2->41",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@11->0",
+    "text": "* Proj [%]\n** TODO y\n*** sub\n\n** NEXT z\n** DONE x\n\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "refile 3@11->11",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 11,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@11->22",
+    "text": "* Proj [%]\n** TODO y\n*** sub\n\n*** DONE x\n\n** NEXT z\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "refile 3@11->32",
+    "text": "* Proj [%]\n** TODO y\n*** sub\n\n**** DONE x\n\n** NEXT z\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "refile 3@11->41",
+    "text": "* Proj [%]\n** TODO y\n*** sub\n\n** NEXT z\n*** DONE x\n\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "refile 3@13->0",
+    "text": "* Proj [%]\n** TODO y\n*** sub\n\n** NEXT z\n** DONE x\n\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "refile 3@13->11",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 13,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@13->22",
+    "text": "* Proj [%]\n** TODO y\n*** sub\n\n*** DONE x\n\n** NEXT z\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "refile 3@13->32",
+    "text": "* Proj [%]\n** TODO y\n*** sub\n\n**** DONE x\n\n** NEXT z\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "refile 3@13->41",
+    "text": "* Proj [%]\n** TODO y\n*** sub\n\n** NEXT z\n*** DONE x\n\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "refile 3@22->0",
+    "text": "* Proj [%]\n** DONE x\n\n** NEXT z\n** TODO y\n*** sub\n\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "refile 3@22->11",
+    "text": "* Proj [%]\n** DONE x\n\n*** TODO y\n**** sub\n\n** NEXT z\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "refile 3@22->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 22,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@22->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 22,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@22->41",
+    "text": "* Proj [%]\n** DONE x\n\n** NEXT z\n*** TODO y\n**** sub\n\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "refile 3@24->0",
+    "text": "* Proj [%]\n** DONE x\n\n** NEXT z\n** TODO y\n*** sub\n\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "refile 3@24->11",
+    "text": "* Proj [%]\n** DONE x\n\n*** TODO y\n**** sub\n\n** NEXT z\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "refile 3@24->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 24,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@24->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 24,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@24->41",
+    "text": "* Proj [%]\n** DONE x\n\n** NEXT z\n*** TODO y\n**** sub\n\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "refile 3@32->0",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n** NEXT z\n** sub\n\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "refile 3@32->11",
+    "text": "* Proj [%]\n** DONE x\n\n*** sub\n\n** TODO y\n** NEXT z\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "refile 3@32->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "refile 3@32->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 32,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@32->41",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n** NEXT z\n*** sub\n\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "refile 3@34->0",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n** NEXT z\n** sub\n\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "refile 3@34->11",
+    "text": "* Proj [%]\n** DONE x\n\n*** sub\n\n** TODO y\n** NEXT z\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "refile 3@34->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "refile 3@34->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 34,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@34->41",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n** NEXT z\n*** sub\n\n",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "refile 3@41->0",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "refile 3@41->11",
+    "text": "* Proj [%]\n** DONE x\n\n*** NEXT z\n** TODO y\n*** sub\n\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "refile 3@41->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n*** NEXT z\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "refile 3@41->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n**** NEXT z\n",
+    "point": 53,
+    "error": null
+  },
+  {
+    "name": "refile 3@41->41",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 41,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@43->0",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 41,
+    "error": null
+  },
+  {
+    "name": "refile 3@43->11",
+    "text": "* Proj [%]\n** DONE x\n\n*** NEXT z\n** TODO y\n*** sub\n\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "refile 3@43->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n*** NEXT z\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "refile 3@43->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n**** NEXT z\n",
+    "point": 53,
+    "error": null
+  },
+  {
+    "name": "refile 3@43->41",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 43,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 3@51->0",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "refile 3@51->11",
+    "text": "* Proj [%]\n** DONE x\n\n*** NEXT z\n** TODO y\n*** sub\n\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "refile 3@51->22",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n*** NEXT z\n",
+    "point": 52,
+    "error": null
+  },
+  {
+    "name": "refile 3@51->32",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n**** NEXT z\n",
+    "point": 53,
+    "error": null
+  },
+  {
+    "name": "refile 3@51->41",
+    "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "point": 51,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "archive-tag 4@0",
+    "text": "* A                                                                 :ARCHIVE:\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@0",
+    "text": "* E\n* Archive                                                           :ARCHIVE:\n** A\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** B\n**** C\nc\n*** D\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@2",
+    "text": "* A                                                                 :ARCHIVE:\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@2",
+    "text": "* E\n* Archive                                                           :ARCHIVE:\n** A\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** B\n**** C\nc\n*** D\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@4",
+    "text": "* A\n** B                                                                :ARCHIVE:\n*** C\nc\n** D\n* E\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@4",
+    "text": "* A\n** D\n** Archive                                                          :ARCHIVE:\n*** B\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n**** C\nc\n* E\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@6",
+    "text": "* A\n** B                                                                :ARCHIVE:\n*** C\nc\n** D\n* E\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@6",
+    "text": "* A\n** D\n** Archive                                                          :ARCHIVE:\n*** B\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n**** C\nc\n* E\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@9",
+    "text": "* A\n** B\n*** C                                                               :ARCHIVE:\nc\n** D\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@9",
+    "text": "* A\n** B\n*** Archive                                                         :ARCHIVE:\n**** C\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nc\n** D\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@11",
+    "text": "* A\n** B\n*** C                                                               :ARCHIVE:\nc\n** D\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@11",
+    "text": "* A\n** B\n*** Archive                                                         :ARCHIVE:\n**** C\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nc\n** D\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@15",
+    "text": "* A\n** B\n*** C                                                               :ARCHIVE:\nc\n** D\n* E\n",
+    "point": 87,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@15",
+    "text": "* A\n** B\n*** Archive                                                         :ARCHIVE:\n**** C\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\nc\n** D\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@17",
+    "text": "* A\n** B\n*** C\nc\n** D                                                                :ARCHIVE:\n* E\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@17",
+    "text": "* A\n** B\n*** C\nc\n** Archive                                                          :ARCHIVE:\n*** D\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n* E\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@19",
+    "text": "* A\n** B\n*** C\nc\n** D                                                                :ARCHIVE:\n* E\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@19",
+    "text": "* A\n** B\n*** C\nc\n** Archive                                                          :ARCHIVE:\n*** D\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n* E\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@22",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E                                                                 :ARCHIVE:\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@22",
+    "text": "* A\n** B\n*** C\nc\n** D\n* Archive                                                           :ARCHIVE:\n** E\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@24",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E                                                                 :ARCHIVE:\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@24",
+    "text": "* A\n** B\n*** C\nc\n** D\n* Archive                                                           :ARCHIVE:\n** E\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "archive-tag 4@26",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E                                                                 :ARCHIVE:\n",
+    "point": 100,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 4@26",
+    "text": "* A\n** B\n*** C\nc\n** D\n* Archive                                                           :ARCHIVE:\n** E\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n",
+    "point": 22,
+    "error": null
+  },
+  {
+    "name": "refile 4@0->0",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@0->4",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@0->9",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@0->17",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@0->22",
+    "text": "* E\n** A\n*** B\n**** C\nc\n*** D\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "refile 4@2->0",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@2->4",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@2->9",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@2->17",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@2->22",
+    "text": "* E\n** A\n*** B\n**** C\nc\n*** D\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "refile 4@4->0",
+    "text": "* A\n** D\n** B\n*** C\nc\n* E\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "refile 4@4->4",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 4,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@4->9",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 4,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@4->17",
+    "text": "* A\n** D\n*** B\n**** C\nc\n* E\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "refile 4@4->22",
+    "text": "* A\n** D\n* E\n** B\n*** C\nc\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "refile 4@6->0",
+    "text": "* A\n** D\n** B\n*** C\nc\n* E\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "refile 4@6->4",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 6,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@6->9",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 6,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@6->17",
+    "text": "* A\n** D\n*** B\n**** C\nc\n* E\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "refile 4@6->22",
+    "text": "* A\n** D\n* E\n** B\n*** C\nc\n",
+    "point": 4,
+    "error": null
+  },
+  {
+    "name": "refile 4@9->0",
+    "text": "* A\n** B\n** D\n** C\nc\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 4@9->4",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 4@9->9",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 9,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@9->17",
+    "text": "* A\n** B\n** D\n*** C\nc\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 4@9->22",
+    "text": "* A\n** B\n** D\n* E\n** C\nc\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 4@11->0",
+    "text": "* A\n** B\n** D\n** C\nc\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 4@11->4",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 4@11->9",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 11,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@11->17",
+    "text": "* A\n** B\n** D\n*** C\nc\n* E\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 4@11->22",
+    "text": "* A\n** B\n** D\n* E\n** C\nc\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 4@17->0",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "refile 4@17->4",
+    "text": "* A\n** B\n*** C\nc\n*** D\n* E\n",
+    "point": 23,
+    "error": null
+  },
+  {
+    "name": "refile 4@17->9",
+    "text": "* A\n** B\n*** C\nc\n**** D\n* E\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "refile 4@17->17",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 17,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@17->22",
+    "text": "* A\n** B\n*** C\nc\n* E\n** D\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "refile 4@19->0",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "refile 4@19->4",
+    "text": "* A\n** B\n*** C\nc\n*** D\n* E\n",
+    "point": 23,
+    "error": null
+  },
+  {
+    "name": "refile 4@19->9",
+    "text": "* A\n** B\n*** C\nc\n**** D\n* E\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "refile 4@19->17",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 19,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@19->22",
+    "text": "* A\n** B\n*** C\nc\n* E\n** D\n",
+    "point": 17,
+    "error": null
+  },
+  {
+    "name": "refile 4@22->0",
+    "text": "* A\n** B\n*** C\nc\n** D\n** E\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "refile 4@22->4",
+    "text": "* A\n** B\n*** C\nc\n*** E\n** D\n",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "refile 4@22->9",
+    "text": "* A\n** B\n*** C\nc\n**** E\n** D\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "refile 4@22->17",
+    "text": "* A\n** B\n*** C\nc\n** D\n*** E\n",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "refile 4@22->22",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 22,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@24->0",
+    "text": "* A\n** B\n*** C\nc\n** D\n** E\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "refile 4@24->4",
+    "text": "* A\n** B\n*** C\nc\n*** E\n** D\n",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "refile 4@24->9",
+    "text": "* A\n** B\n*** C\nc\n**** E\n** D\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "refile 4@24->17",
+    "text": "* A\n** B\n*** C\nc\n** D\n*** E\n",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "refile 4@24->22",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 24,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 4@26->0",
+    "text": "* A\n** B\n*** C\nc\n** D\n** E\n",
+    "point": 27,
+    "error": null
+  },
+  {
+    "name": "refile 4@26->4",
+    "text": "* A\n** B\n*** C\nc\n*** E\n** D\n",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "refile 4@26->9",
+    "text": "* A\n** B\n*** C\nc\n**** E\n** D\n",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "refile 4@26->17",
+    "text": "* A\n** B\n*** C\nc\n** D\n*** E\n",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "refile 4@26->22",
+    "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "point": 26,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "archive-tag 5@0",
+    "text": "* é one                                                             :ARCHIVE:\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@0",
+    "text": "* Archive                                                           :ARCHIVE:\n** é one\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** Archive                                                         :ARCHIVE:\n*** é two\ntext é\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 5@2",
+    "text": "* é one                                                             :ARCHIVE:\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@2",
+    "text": "* Archive                                                           :ARCHIVE:\n** é one\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n*** Archive                                                         :ARCHIVE:\n*** é two\ntext é\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "archive-tag 5@9",
+    "text": "* é one\n** Archive\n** é two\ntext é\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@9",
+    "text": "* é one\n*** Archive                                                         :ARCHIVE:\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n** é two\ntext é\n",
+    "point": 142,
+    "error": null
+  },
+  {
+    "name": "archive-tag 5@11",
+    "text": "* é one\n** Archive\n** é two\ntext é\n",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@11",
+    "text": "* é one\n*** Archive                                                         :ARCHIVE:\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\n** é two\ntext é\n",
+    "point": 142,
+    "error": null
+  },
+  {
+    "name": "archive-tag 5@30",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two                                                            :ARCHIVE:\ntext é\n",
+    "point": 30,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@30",
+    "text": "* é one\n** Archive :ARCHIVE:\n*** é two\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext é\n",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "archive-tag 5@32",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two                                                            :ARCHIVE:\ntext é\n",
+    "point": 30,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@32",
+    "text": "* é one\n** Archive :ARCHIVE:\n*** é two\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext é\n",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "archive-tag 5@40",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two                                                            :ARCHIVE:\ntext é\n",
+    "point": 109,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@40",
+    "text": "* é one\n** Archive :ARCHIVE:\n*** é two\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext é\n",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "archive-tag 5@42",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two                                                            :ARCHIVE:\ntext é\n",
+    "point": 109,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@42",
+    "text": "* é one\n** Archive :ARCHIVE:\n*** é two\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext é\n",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "archive-tag 5@48",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two                                                            :ARCHIVE:\ntext é\n",
+    "point": 117,
+    "error": null
+  },
+  {
+    "name": "archive-sibling 5@48",
+    "text": "* é one\n** Archive :ARCHIVE:\n*** é two\n:PROPERTIES:\n:ARCHIVE_TIME: 2026-09-28 Mon 10:00\n:END:\ntext é\n",
+    "point": 104,
+    "error": null
+  },
+  {
+    "name": "refile 5@0->0",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@0->9",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@0->30",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 0,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@2->0",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@2->9",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@2->30",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 2,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@9->0",
+    "text": "* é one\n** é two\ntext é\n** Archive                                                          :ARCHIVE:\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 5@9->9",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 9,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@9->30",
+    "text": "* é one\n** é two\ntext é\n*** Archive                                                         :ARCHIVE:\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 5@11->0",
+    "text": "* é one\n** é two\ntext é\n** Archive                                                          :ARCHIVE:\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 5@11->9",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 11,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@11->30",
+    "text": "* é one\n** é two\ntext é\n*** Archive                                                         :ARCHIVE:\n",
+    "point": 9,
+    "error": null
+  },
+  {
+    "name": "refile 5@30->0",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 30,
+    "error": null
+  },
+  {
+    "name": "refile 5@30->9",
+    "text": "* é one\n** Archive :ARCHIVE:\n*** é two\ntext é\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "refile 5@30->30",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 30,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@32->0",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 30,
+    "error": null
+  },
+  {
+    "name": "refile 5@32->9",
+    "text": "* é one\n** Archive :ARCHIVE:\n*** é two\ntext é\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "refile 5@32->30",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 32,
+    "error": "Cannot refile to position inside the tree or region"
+  },
+  {
+    "name": "refile 5@48->0",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 48,
+    "error": null
+  },
+  {
+    "name": "refile 5@48->9",
+    "text": "* é one\n** Archive :ARCHIVE:\n*** é two\ntext é\n",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "refile 5@48->30",
+    "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+    "point": 48,
+    "error": "Cannot refile to position inside the tree or region"
   }
 ]

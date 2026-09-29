@@ -290,6 +290,16 @@ value, starting with the old one, and the list also offers a new
 property and the removal of each. The drawer is written as Emacs's
 =org-entry-put= writes it, values aligned.
 
+/Refile/ (Ctrl+Alt+W, or Org > Refile…) moves the subtree at the cursor
+under another heading of the document, chosen from a list of outline
+paths (=Project/Tasks=), as its last child. /Archive to Sibling/ moves it
+under an =Archive= heading among its siblings, tagged =ARCHIVE= and made
+when missing, with the time in an =ARCHIVE_TIME= property; /Toggle
+Archive Tag/ sets or removes the =ARCHIVE= tag. The three give the text
+Emacs's =org-refile=, =org-archive-to-archive-sibling= and
+=org-toggle-archive-tag= give. Archiving into another file
+(=org-archive-subtree=) is not there yet.
+
 With =org.enforce_todo_dependencies= on, a task cannot be marked done
 while a task below it is still open, and under a heading with the
 =ORDERED= property (Toggle Ordered Subtasks) each task waits for the ones

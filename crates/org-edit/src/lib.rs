@@ -5,6 +5,7 @@
 //! as one step. The text a command produces is the text the Emacs command
 //! of the same name produces, which the Emacs differential tests check.
 
+pub mod archive;
 mod buffer;
 pub mod emphasis;
 pub mod footnote;

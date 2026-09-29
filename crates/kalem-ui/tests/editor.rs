@@ -1886,6 +1886,30 @@ fn editing_properties(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn archiving_and_refiling(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n** a1\n* B\nb\n* C\n", cx);
+    at(&e, 11, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.refile", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    cx.simulate_input("A/a1");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert_eq!(text_of(&e, cx), "* A\n** a1\n*** B\nb\n* C\n");
+    at(&e, 16, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("org.archive.sibling", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    let text = text_of(&e, cx);
+    assert!(
+        text.contains("*** Archive") && text.contains("**** B\n:PROPERTIES:\n:ARCHIVE_TIME:"),
+        "{text}"
+    );
+}
+
+#[gpui::test]
 fn macros_and_snippets(cx: &mut TestAppContext) {
     let text = "#+MACRO: v version $1\nThis is {{{v(2)}}} @@html:<br>@@ ok.\nend\n";
     let (e, cx) = open(text, cx);

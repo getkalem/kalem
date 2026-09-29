@@ -1460,9 +1460,41 @@ def drawer_cases():
     out.append({"name": "drawer bad name", "text": "x\n", "point": 1, "mark": None, "form": "(org-insert-drawer nil \"a b\")", "cmd": "drawer", "args": ["a b"]})
     return out
 
+ARCHIVE_DOCS = [
+    "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+    "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+    "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+    "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+    "* A\n** B\n*** C\nc\n** D\n* E\n",
+    "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+]
+
+
+def archive_cases():
+    """`org-toggle-archive-tag', `org-archive-to-archive-sibling' and
+    `org-refile' within the buffer."""
+    out = []
+    for d, doc in enumerate(ARCHIVE_DOCS):
+        data = doc.encode()
+        lines = byte_offsets_of_lines(doc)
+        points = sorted({p for s, _ in lines for p in (s, min(s + 2, len(data)))})
+        points = [p for p in points if p <= len(data) and (p == len(data) or (data[p] & 0xC0) != 0x80)]
+        heads = [s for s, l in lines if l.startswith(b"*")]
+        for p in points:
+            out.append({"name": f"archive-tag {d}@{p}", "text": doc, "point": p, "mark": None, "form": "(org-toggle-archive-tag)", "cmd": "archive-tag", "args": []})
+            out.append({"name": f"archive-sibling {d}@{p}", "text": doc, "point": p, "mark": None, "form": "(org-archive-to-archive-sibling)", "cmd": "archive-sibling", "args": []})
+        for p in sorted({h + k for h in heads for k in (0, 2)} | {points[-1]}):
+            for t in heads:
+                form = ("(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil))"
+                        " (write-region nil nil f nil 'silent) (set-visited-file-name f t t)"
+                        f" (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos {t})))"
+                        " (set-visited-file-name nil t) (delete-file f)))")
+                out.append({"name": f"refile {d}@{p}->{t}", "text": doc, "point": p, "mark": None, "form": form, "cmd": "refile", "args": [t]})
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")

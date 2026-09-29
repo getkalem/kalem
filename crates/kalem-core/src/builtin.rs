@@ -92,6 +92,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.cite.insert", object(&[("key", "string", false)])),
         ("org.insert.drawer", object(&[("name", "string", true)])),
         ("org.caption.set", object(&[("caption", "string", true)])),
+        (
+            crate::refile::REFILE,
+            object(&[("target", "integer", false)]),
+        ),
         ("org.name.set", object(&[("name", "string", true)])),
         (
             crate::affiliated::REFERENCE,
@@ -1863,6 +1867,66 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some(ORG),
             |ctx, args| planning(ctx, org_edit::todo::Planning::Deadline, args, true),
+        ),
+        cmd(
+            "org.archive.toggleTag",
+            "Toggle Archive Tag",
+            "Tasks",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let mut set = false;
+                ctx.org(|d, p, _| {
+                    let (tx, s) = org_edit::archive::toggle_archive_tag(d, p)?;
+                    set = s;
+                    Ok(tx)
+                })?;
+                ctx.messages.push(crate::l10n::tr(if set {
+                    "msg-archived"
+                } else {
+                    "msg-unarchived"
+                }));
+                Ok(())
+            },
+        ),
+        cmd(
+            "org.archive.sibling",
+            "Archive to Sibling",
+            "Tasks",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let now = jiff::Zoned::now().strftime("%Y-%m-%d %a %H:%M").to_string();
+                ctx.org(|d, p, _| org_edit::archive::archive_to_sibling(d, p, &now))
+            },
+        ),
+        cmd(
+            crate::refile::REFILE,
+            "Refile",
+            "Tasks",
+            &["ctrl+alt+w"],
+            Some(ORG),
+            |ctx, args| {
+                if let Some(target) = args.get("target").and_then(Value::as_u64) {
+                    return ctx.org(|d, p, _| org_edit::archive::refile(d, p, target as usize));
+                }
+                let doc = ctx.doc()?;
+                let pos = doc.selection.head;
+                let model = doc
+                    .model()
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-org")))?;
+                if model
+                    .outline()
+                    .entries
+                    .iter()
+                    .all(|e| usize::from(e.range.start()) > pos)
+                {
+                    return Err(CommandError::new(crate::l10n::tr("msg-not-in-subtree")));
+                }
+                ctx.requests
+                    .push(Request::Choose(crate::refile::picker_items(&model, pos)));
+                Ok(())
+            },
         ),
         cmd(
             "org.footnote.new",

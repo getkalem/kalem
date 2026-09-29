@@ -82,7 +82,7 @@ pub(crate) fn is_inlinetask_end(text: &str, bol: usize, ctx: &ParseContext) -> b
 }
 
 /// `org-get-valid-level`.
-fn valid_level(level: usize, change: isize, odd: bool) -> usize {
+pub(crate) fn valid_level(level: usize, change: isize, odd: bool) -> usize {
     if odd {
         let l = level as isize;
         let v = if change == 0 {
@@ -529,6 +529,15 @@ pub fn paste_subtree(
     }
     let limit = ctx.inlinetask_min_level;
     run(text, point, "Paste subtree", |buf| {
+        paste_in(buf, clip, None, limit);
+        Ok(())
+    })
+}
+
+/// `org-paste-subtree` in `buf` at point with the clipboard `clip` (a
+/// subtree), at the numeric `level` when given.
+pub(crate) fn paste_in(buf: &mut Buf, clip: &str, level: Option<usize>, limit: Option<usize>) {
+    {
         let hs = headings(&buf.text, limit);
         let old_level = headings(clip, limit).first().map(|(_, l)| *l);
         let bol = buf.bol(buf.point);
@@ -544,14 +553,15 @@ pub fn paste_subtree(
         // `(org-outline-level)` there: the level of the heading at or
         // before the line (a line of stars alone is not a heading), 0 if
         // none.
-        let level_indicator = (only_stars && buf.text.as_bytes().get(buf.point) != Some(&b'*'))
-            .then(|| {
-                hs.iter()
-                    .rev()
-                    .find(|(s, _)| *s <= bol)
-                    .map_or(0, |(_, l)| *l)
-            });
-        let force = level_indicator.or_else(|| {
+        let level_indicator =
+            (level.is_none() && only_stars && buf.text.as_bytes().get(buf.point) != Some(&b'*'))
+                .then(|| {
+                    hs.iter()
+                        .rev()
+                        .find(|(s, _)| *s <= bol)
+                        .map_or(0, |(_, l)| *l)
+                });
+        let force = level_indicator.or(level).or_else(|| {
             (buf.point == bol && at_heading)
                 .then(|| hs.iter().find(|(s, _)| *s == bol).map(|(_, l)| *l))
                 .flatten()
@@ -606,8 +616,7 @@ pub fn paste_subtree(
             }
         }
         buf.point = beg;
-        Ok(())
-    })
+    }
 }
 
 /// Moves the subtree at `from` before the heading line starting at `to`,

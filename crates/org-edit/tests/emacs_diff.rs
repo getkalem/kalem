@@ -92,6 +92,16 @@ fn run(
             schedule(&doc, point, kind, &change, &settings).map(|(t, _)| t)
         }
         "drawer" => org_edit::insert::insert_drawer(text, point, mark, args[0].as_str().unwrap()),
+        "archive-tag" | "archive-sibling" | "refile" => {
+            use org_edit::archive::*;
+            let doc = org_model::Document::new(org_syntax::parse(text));
+            match cmd {
+                "archive-tag" => toggle_archive_tag(&doc, point).map(|(t, _)| t),
+                // The clock `tests/emacs/edit.el` fixes.
+                "archive-sibling" => archive_to_sibling(&doc, point, "2026-09-28 Mon 10:00"),
+                _ => refile(&doc, point, arg(0)),
+            }
+        }
         "toggle-ordered" => {
             let doc = org_model::Document::new(org_syntax::parse(text));
             org_edit::property::toggle_ordered(&doc, point).map(|(t, _)| t)
