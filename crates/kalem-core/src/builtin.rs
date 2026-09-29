@@ -92,6 +92,15 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.cite.insert", object(&[("key", "string", false)])),
         ("org.insert.drawer", object(&[("name", "string", true)])),
         ("org.caption.set", object(&[("caption", "string", true)])),
+        ("edit.gotoLine", object(&[("line", "integer", true)])),
+        (
+            "stats.setDocumentTarget",
+            object(&[("words", "string", true)]),
+        ),
+        (
+            "stats.setSectionTarget",
+            object(&[("words", "string", true)]),
+        ),
         (
             crate::refile::REFILE,
             object(&[("target", "integer", false)]),
@@ -1121,6 +1130,113 @@ fn plain_commands() -> Vec<Command> {
         cmd("edit.cut", "Cut", "Edit", &["ctrl+x"], None, |ctx, _| {
             request(ctx, Request::Cut)
         }),
+        cmd(
+            "edit.gotoLine",
+            "Go to Line",
+            "Edit",
+            &[],
+            None,
+            |ctx, args| {
+                let line = args
+                    .get("line")
+                    .and_then(|v| v.as_u64().or_else(|| v.as_str()?.trim().parse().ok()))
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-bad-line")))?;
+                let doc = ctx.doc()?;
+                let n = doc.text().line_count();
+                let line = (line as usize).clamp(1, n.max(1)) - 1;
+                let pos = doc.text().line_start(line);
+                doc.move_cursor(pos, false);
+                Ok(())
+            },
+        ),
+        cmd(
+            "stats.chapters",
+            "Word Count by Chapter",
+            "View",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let Some((parse, _)) = doc.parse() else {
+                    return Err(CommandError::new(crate::l10n::tr("msg-not-org")));
+                };
+                let root = parse.syntax();
+                let chapters = crate::stats::chapters(&root);
+                if chapters.is_empty() {
+                    ctx.messages.push(crate::l10n::tr("msg-no-headings"));
+                    return Ok(());
+                }
+                let text = doc.text();
+                let items = chapters
+                    .iter()
+                    .map(|c| crate::palette::PaletteItem {
+                        id: crate::palette::invocation(
+                            "edit.gotoLine",
+                            &serde_json::json!({ "line": text.line_of(c.start) + 1 }),
+                        ),
+                        title: format!("{}{}", "   ".repeat(c.level - 1), c.title),
+                        category: match c.target {
+                            Some(t) => crate::stats::progress(c.words, t),
+                            None => crate::stats::thousands(c.words),
+                        },
+                        keys: String::new(),
+                        also: String::new(),
+                    })
+                    .collect();
+                ctx.requests.push(Request::Choose(items));
+                Ok(())
+            },
+        ),
+        cmd(
+            "stats.setDocumentTarget",
+            "Set Document Word Target",
+            "View",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                let v = arg_str(args, "words")?.to_string();
+                let value = match v.trim() {
+                    "" | "0" => String::new(),
+                    w => crate::stats::parse_target(w)
+                        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-bad-word-target")))?
+                        .to_string(),
+                };
+                ctx.org(|d, _, _| {
+                    let text = d.parse().syntax().to_string();
+                    Ok(crate::rich::set_kalem_option(
+                        &d.parse().syntax(),
+                        &text,
+                        "word_target",
+                        &value,
+                    ))
+                })
+            },
+        ),
+        cmd(
+            "stats.setSectionTarget",
+            "Set Section Word Target",
+            "View",
+            &[],
+            Some(ORG),
+            |ctx, args| {
+                let v = arg_str(args, "words")?.trim().to_string();
+                if v.is_empty() || v == "0" {
+                    return ctx.org(|d, p, _| {
+                        org_edit::property::delete_property(d, p, "WORD_TARGET").ok_or_else(|| {
+                            org_edit::EditError {
+                                message: crate::l10n::tr("msg-no-word-target"),
+                                point: None,
+                            }
+                        })
+                    });
+                }
+                let n = crate::stats::parse_target(&v)
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-bad-word-target")))?;
+                ctx.org(|d, p, _| {
+                    org_edit::property::set_property(d, p, "WORD_TARGET", &n.to_string(), false)
+                })
+            },
+        ),
         cmd(
             "edit.copyRichText",
             "Copy as Rich Text",

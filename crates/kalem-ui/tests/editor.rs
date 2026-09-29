@@ -688,6 +688,62 @@ fn word_counts(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn word_targets_and_chapters(cx: &mut TestAppContext) {
+    let (e, cx) = open("* One\nthree four five\n* Two\nsix\n", cx);
+    at(&e, 8, cx);
+    for (cmd, words) in [
+        ("stats.setDocumentTarget", "1k"),
+        ("stats.setSectionTarget", "10"),
+    ] {
+        e.update_in(cx, |e, window, cx| {
+            e.run_command(cmd, serde_json::json!({ "words": words }), window, cx)
+        });
+        cx.run_until_parked();
+    }
+    let text = text_of(&e, cx);
+    assert!(text.starts_with("#+KALEM: word_target=1000\n"), "{text}");
+    assert!(text.contains(":WORD_TARGET: 10\n"), "{text}");
+    // The counts catch up after a pause in typing.
+    std::thread::sleep(std::time::Duration::from_millis(350));
+    let targets = e.read_with(cx, |e, _| {
+        let mut w = e.words.borrow_mut();
+        w.get(&e.doc);
+        w.targets()
+    });
+    assert_eq!((targets.document, targets.section), (Some(1000), Some(10)));
+    // The chapters, with their words; choosing one goes there.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("stats.chapters", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    let items = e.read_with(cx, |e, _| {
+        e.palette
+            .as_ref()
+            .map(|p| {
+                p.matches()
+                    .iter()
+                    .map(|i| (i.title.clone(), i.category.clone()))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    });
+    assert_eq!(
+        items,
+        [
+            ("One".to_string(), "4 of 10 (40%)".to_string()),
+            ("Two".to_string(), "2".to_string())
+        ]
+    );
+    cx.simulate_input("Two");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let (head, text) = e.read_with(cx, |e, _| {
+        (e.doc.selection.head, e.doc.text().as_str().to_string())
+    });
+    assert_eq!(head, text.find("* Two").unwrap());
+}
+
+#[gpui::test]
 fn date_picker(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\nx <2026-10-02 Fri 10:00> y\n", cx);
     // On a timestamp: the picker starts at its date and time.

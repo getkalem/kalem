@@ -3044,7 +3044,12 @@ impl App {
             None => self
                 .words
                 .get(&self.doc)
-                .map(|(d, s)| format!("  {}", kalem_core::stats::describe(d, s)))
+                .map(|(d, s)| {
+                    format!(
+                        "  {}",
+                        kalem_core::stats::describe(d, s, self.words.targets())
+                    )
+                })
                 .unwrap_or_default(),
         };
         let formula = formula_status.map(|f| format!("  {f}")).unwrap_or_default();

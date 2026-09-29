@@ -1968,6 +1968,37 @@ fn editing_properties() {
 }
 
 #[test]
+fn word_targets_and_chapters() {
+    let text = "* One\nthree four five\n* Two\nsix\n";
+    let mut t = with_config(text, Config::default(), (100, 10));
+    t.at(8);
+    t.app.run_command(
+        "stats.setDocumentTarget",
+        serde_json::json!({"words": "1k"}),
+    );
+    t.app
+        .run_command("stats.setSectionTarget", serde_json::json!({"words": "10"}));
+    // The counts catch up after a pause in typing.
+    std::thread::sleep(std::time::Duration::from_millis(350));
+    let s = status(&mut t);
+    assert!(
+        s.contains("6 of 1,000 (0%) words, 4 of 10 (40%) in section"),
+        "{s}"
+    );
+    t.app.run_command("stats.chapters", serde_json::Value::Null);
+    let screen = screen(&mut t).join("\n");
+    assert!(screen.contains("4 of 10 (40%)"), "{screen}");
+    t.typ("Two");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let text = t.app.doc.text().as_str().to_string();
+    assert_eq!(t.app.doc.selection.head, text.find("* Two").unwrap());
+    // Go to Line.
+    t.app
+        .run_command("edit.gotoLine", serde_json::json!({"line": 1}));
+    assert_eq!(t.app.doc.selection.head, 0);
+}
+
+#[test]
 fn copying_as_html() {
     let text = "Some *bold* text.\n";
     let mut t = with_config(text, Config::default(), (80, 10));

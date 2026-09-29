@@ -1516,12 +1516,12 @@ impl Workspace {
                 }
                 s
             }
-            None => e
-                .words
-                .borrow_mut()
-                .get(&e.doc)
-                .map(|(d, s)| format!("   {}", kalem_core::stats::describe(d, s)))
-                .unwrap_or_default(),
+            None => {
+                let mut w = e.words.borrow_mut();
+                w.get(&e.doc)
+                    .map(|(d, s)| format!("   {}", kalem_core::stats::describe(d, s, w.targets())))
+                    .unwrap_or_default()
+            }
         };
         let state = kalem_core::l10n::tr(if e.doc.is_modified() {
             "status-modified"
@@ -1782,6 +1782,8 @@ pub fn menus() -> Vec<Menu> {
                 item("file.previous"),
                 MenuItem::separator(),
                 item("view.outline"),
+                item("stats.chapters"),
+                item("edit.gotoLine"),
                 item("view.palette"),
             ],
         },
