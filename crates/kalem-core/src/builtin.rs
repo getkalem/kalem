@@ -2187,22 +2187,28 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::Complete),
         ),
-        cmd(
-            "edit.toggleComment",
-            "Toggle Comment",
-            "Edit",
-            &["ctrl+alt+c"],
-            None,
-            |ctx, _| {
-                let now = ctx.now;
-                let d = ctx.doc()?;
-                let style = crate::code::language_at(d)
-                    .and_then(|l| crate::code::comment_style(&l))
-                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-comment-style")))?;
-                let tx = crate::code::toggle_comment(d.text().as_str(), d.selection, style);
-                d.apply(&tx, org_edit::ChangeKind::Command, now);
-                Ok(())
-            },
+        // Where a language has comments: not CSV, plain text or listings.
+        scoped(
+            cmd(
+                "edit.toggleComment",
+                "Toggle Comment",
+                "Edit",
+                &["ctrl+alt+c"],
+                None,
+                |ctx, _| {
+                    let now = ctx.now;
+                    let d = ctx.doc()?;
+                    let style = crate::code::language_at(d)
+                        .and_then(|l| crate::code::comment_style(&l))
+                        .ok_or_else(|| {
+                            CommandError::new(crate::l10n::tr("msg-no-comment-style"))
+                        })?;
+                    let tx = crate::code::toggle_comment(d.text().as_str(), d.selection, style);
+                    d.apply(&tx, org_edit::ChangeKind::Command, now);
+                    Ok(())
+                },
+            ),
+            crate::command::Scope::except(&["csv", "text", "directory", "binary"]),
         ),
         cmd(
             "edit.gotoBracket",
