@@ -162,6 +162,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - New from Template…: article, report, book, beamer, letter, CV, thesis and a Turkish thesis in the YÖK layout, written beside the current document and opened (each template compiled in the tests); LaTeX log errors raised inside packages (`file.sty:N:`) now reported.
 - `kalem diff-pandoc FILE.tex [--summary] [--format json]`: the structure Kalem reads in a LaTeX project (headings and their ranked levels, formulas, cited keys, footnotes, figures, tables, code blocks, list items) against pandoc's LaTeX reader; the deliberate differences in `docs/known-differences-latex.org`.
 - LaTeX mode performance: token lookups by binary search (rowan's scan a node's children), caches compared by pointer, blocks and `\iffalse` regions found through the text: a keystroke with a screen of a 1 MB paper from 163 ms to 11 ms.
+- `kalem check --unrendered` gives the share of a LaTeX document's body the editor renders rather than shows as source (the coverage metric), in text and JSON.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

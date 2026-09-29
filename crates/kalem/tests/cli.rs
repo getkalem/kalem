@@ -316,6 +316,7 @@ fn check_latex() {
         "tests/fixtures/sample.tex:4:17: warning[latex-undefined-reference]: No label b\n\
          tests/fixtures/sample.tex:4:27: info[latex-deprecated]: \\bf is deprecated in LaTeX 2ε; use the \\text… command or the declaration (\\bfseries, \\itshape)\n\
          tests/fixtures/sample.tex:5:1: warning[latex-syntax]: \\begin{itemize} is not closed\n\
+         tests/fixtures/sample.tex: rendered: 85.3%\n\
          tests/fixtures/sample.tex: unrendered: \\bf (1)\n\
          tests/fixtures/sample.tex: unrendered: \\tikzset (1)\n"
     );

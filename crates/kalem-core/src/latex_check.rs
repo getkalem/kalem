@@ -278,6 +278,49 @@ pub fn unrendered(text: &str) -> Vec<(String, usize)> {
     v
 }
 
+/// The share of the body's text (its characters that are not blanks)
+/// the view renders rather than shows as source (T2.7h.36): the
+/// commands and environments it does not render count as source, whole.
+pub fn coverage(text: &str) -> f64 {
+    let parse = latex_syntax::parse(text);
+    let model = latex_model::Model::new(&parse);
+    let body = model.body.clone().unwrap_or(0..text.len());
+    let solid = |r: std::ops::Range<usize>| text[r].chars().filter(|c| !c.is_whitespace()).count();
+    let total = solid(body.clone());
+    if total == 0 {
+        return 1.0;
+    }
+    let mut source = 0;
+    let mut until = 0;
+    for n in parse.syntax().descendants() {
+        let r = usize::from(n.text_range().start())..usize::from(n.text_range().end());
+        if !body.contains(&r.start) || r.start < until {
+            continue;
+        }
+        let in_math = n.ancestors().skip(1).any(|a| {
+            matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
+                || (a.kind() == K::ENVIRONMENT
+                    && latex_syntax::name(&a)
+                        .is_some_and(|x| latex_syntax::signatures::is_math(&x)))
+        });
+        let unrendered = !in_math
+            && match n.kind() {
+                K::COMMAND => latex_syntax::name(&n).is_some_and(|name| {
+                    !crate::latex_view::renders_command(&name)
+                        && name.chars().all(|c| c.is_ascii_alphabetic() || c == '@')
+                }),
+                K::ENVIRONMENT => latex_syntax::name(&n)
+                    .is_some_and(|name| !crate::latex_view::renders_environment(&name, &model)),
+                _ => false,
+            };
+        if unrendered {
+            source += solid(r.start..r.end.min(body.end));
+            until = r.end;
+        }
+    }
+    1.0 - source as f64 / total as f64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,6 +358,16 @@ mod tests {
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn coverage_share() {
+        let text = "\\begin{document}\nabcd \\foo{xy} \\emph{ok}\n\\end{document}\n";
+        // `\\foo` (4 of 21 characters) stays as source; its argument is a
+        // group of text.
+        let c = coverage(text);
+        assert!((c - (1.0 - 4.0 / 21.0)).abs() < 1e-9, "{c}");
+        assert_eq!(coverage("\\begin{document}\n\\end{document}"), 1.0);
     }
 
     #[test]
