@@ -118,7 +118,12 @@ pub fn detect_indent(text: &str) -> Option<Indent> {
     let (mut tabs, mut spaces) = (0usize, 0usize);
     let mut steps = [0usize; 9];
     let mut prev = 0usize;
-    for line in text.lines().take(10_000) {
+    // The first lines, and at most a megabyte (a very long line).
+    let mut cut = text.len().min(1 << 20);
+    while !text.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    for line in text[..cut].lines().take(10_000) {
         if line.trim().is_empty() {
             continue;
         }

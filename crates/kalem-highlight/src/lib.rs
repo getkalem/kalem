@@ -322,6 +322,65 @@ impl Highlighter {
     }
 }
 
+/// Highlighting for texts too large to highlight whole (§15, T2.7a.3):
+/// the lines asked for are highlighted in a window, from a fresh state a
+/// little before it, and kept until the text changes or another window is
+/// asked for. A construct that opens more than [`Windowed::LOOKBACK`] lines
+/// before the window (a long block comment) may be colored as code.
+#[derive(Debug, Clone, Default)]
+pub struct Windowed {
+    /// The language, when the text has one.
+    pub language: Option<Language>,
+    version: u64,
+    first: usize,
+    lines: Vec<Vec<Span>>,
+}
+
+impl Windowed {
+    /// How many lines before a window are highlighted first.
+    pub const LOOKBACK: usize = 200;
+    /// How many lines a window has.
+    pub const SIZE: usize = 400;
+
+    /// Highlighting in `language`, for texts of version `version`.
+    pub fn new(language: Option<Language>) -> Windowed {
+        Windowed {
+            language,
+            ..Windowed::default()
+        }
+    }
+
+    /// The spans of line `i` of `text` (version `version`; `range(n)` is
+    /// line `n`'s byte range, without its line feed, and `count` the
+    /// number of lines).
+    pub fn line(
+        &mut self,
+        version: u64,
+        i: usize,
+        text: &str,
+        range: impl Fn(usize) -> Range<usize>,
+        count: usize,
+    ) -> &[Span] {
+        let Some(language) = self.language else {
+            return &[];
+        };
+        let cached =
+            self.version == version && i >= self.first && i < self.first + self.lines.len();
+        if !cached {
+            let first = i.saturating_sub(Self::SIZE / 4);
+            let from = first.saturating_sub(Self::LOOKBACK);
+            let last = (first + Self::SIZE).min(count.max(1)) - 1;
+            let (a, b) = (range(from).start, range(last).end);
+            let mut lines = highlight(language, &text[a..b]);
+            lines.drain(..(first - from).min(lines.len()));
+            self.version = version;
+            self.first = first;
+            self.lines = lines;
+        }
+        self.lines.get(i - self.first).map_or(&[], Vec::as_slice)
+    }
+}
+
 /// Highlights `text` line by line; the spans of each line are in order
 /// and do not overlap. Lines are split at `\n`.
 pub fn highlight(language: Language, text: &str) -> Vec<Vec<Span>> {
@@ -367,6 +426,37 @@ pub fn highlight(language: Language, text: &str) -> Vec<Vec<Span>> {
         out.push(Vec::new());
     }
     out
+}
+
+#[cfg(test)]
+mod window_tests {
+    use super::*;
+
+    #[test]
+    fn windows_of_a_large_text() {
+        let rust = Language::find("rs").unwrap();
+        let text: String = (0..2000)
+            .map(|i| format!("let x{i} = \"s\"; // c\n"))
+            .collect();
+        let starts: Vec<usize> = std::iter::once(0)
+            .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+            .collect();
+        let range = |n: usize| starts[n]..starts.get(n + 1).map_or(text.len(), |e| e - 1);
+        let whole = highlight(rust, &text);
+        let mut w = Windowed::new(Some(rust));
+        for i in [0, 1, 999, 1500, 1999] {
+            assert_eq!(
+                w.line(1, i, &text, range, 2000),
+                whole[i].as_slice(),
+                "line {i}"
+            );
+        }
+        assert!(
+            Windowed::new(None)
+                .line(1, 3, &text, range, 2000)
+                .is_empty()
+        );
+    }
 }
 
 #[cfg(test)]

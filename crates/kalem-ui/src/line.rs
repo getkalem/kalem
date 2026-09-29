@@ -963,11 +963,31 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
     if let Some(d) = editor.doc.dired.as_deref() {
         runs = color_listing(runs, &text, d.styles(line), &theme);
     }
-    // Plain text: syntax colors of its language.
-    if editor.doc.meta.mode != kalem_core::DocumentMode::Org
-        && let Some((_, Some(h), _)) = editor.plain.borrow().as_ref()
-    {
-        runs = color_code(runs, &text, &view, h.line(line), &theme);
+    // Plain text: syntax colors of its language (a window of lines in very
+    // large files).
+    if editor.doc.meta.mode != kalem_core::DocumentMode::Org && editor.doc.dired.is_none() {
+        let spans = match editor.plain.borrow().as_ref() {
+            Some((_, Some(h), _)) => Some(h.line(line).to_vec()),
+            _ => None,
+        };
+        let spans = spans.or_else(|| {
+            let mut w = editor.windowed.borrow_mut();
+            w.language?;
+            let t = editor.doc.text();
+            Some(
+                w.line(
+                    editor.doc.version(),
+                    line,
+                    t.as_str(),
+                    |n| t.line_range(n),
+                    t.line_count(),
+                )
+                .to_vec(),
+            )
+        });
+        if let Some(spans) = spans {
+            runs = color_code(runs, &text, &view, &spans, &theme);
+        }
     }
     // Source code in a block: syntax colors.
     let code_line = block

@@ -39,6 +39,7 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | Binary size (terminal-only) | 7 MB | under 15 MB |
 | 100 MB plain text file, until interactive (graphical) | 430 ms | under 1 s |
 | 100 MB plain text file, until interactive (terminal) | 135 ms | under 1 s |
+| Keystroke in a 100 MB plain text file (text, line index and history) | 2.7 ms median, 14 ms p99 | under 16 ms |
 
 Every target is met. The binary size target includes math fonts, which come with phase 2 (T2.2.1).
 
@@ -49,5 +50,7 @@ A full parse of the Org manual takes 42 ms (about 20 MB/s). Opening an Org docum
 - **Parser.** Element regexes run only on lines that start with a byte they can match. Emphasis closers are indexed from the marker bytes, and block ends from one pass per leading byte. Word boundaries between ASCII characters skip the script table, and plain links check the first byte of the link types.
 - **Formatter.** `kalem fmt` parses once and maps positions through the table and tag alignments, where it used to parse four times.
 - **Graphical editor.** The file given on the command line is read and parsed on another thread while the window system starts. Only a launch from an app bundle without a file waits for the files the system opens.
+
+- **Large files (T2.7a.3).** A keystroke in a 100 MB plain text file costs 2.7 ms at the median and 14 ms at the 99th percentile (`cargo run --release -p kalem-core --example text_timing FILE.txt`), under a frame, so plain text mode keeps contiguous text with its line index rather than a rope or piece table (T1.3.1a). Files over 4 MB are colored a window of 400 lines at a time, from a fresh parser state 200 lines before it (`kalem_highlight::Windowed`), and a line longer than 16 KiB shows the 16 KiB around the cursor with `…` for the rest (`kalem_core::view::plain_line_view`), in every mode.
 
 The CI job for benchmarks (a benchmark per target, regressions blocking a pull request) is not set up yet.

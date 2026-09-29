@@ -535,6 +535,67 @@ pub fn line_view(
     line_view_with(root, ctx, line, cursor, false)
 }
 
+/// How much of a very long line shows at a time: lines longer than this
+/// (a minified file, a log) show this many bytes around the cursor, with
+/// `…` for the rest, so that laying out a line stays cheap (T2.7a.3).
+pub const LONG_LINE: usize = 16 * 1024;
+
+/// A line of plain text as it is, monospace; a line longer than
+/// [`LONG_LINE`] shows only the part around `cursor` (or its start).
+pub fn plain_line_view(text: &str, range: Range<usize>, cursor: Option<usize>) -> LineView {
+    let run = |src: Range<usize>| Run {
+        text: text[src.clone()].to_string(),
+        src,
+        verbatim: true,
+        style: Style::default(),
+        widget: None,
+    };
+    if range.len() <= LONG_LINE {
+        return LineView {
+            runs: vec![run(range.clone())],
+            range,
+            mono: true,
+            ..LineView::default()
+        };
+    }
+    let mut start = match cursor.filter(|c| range.contains(c) || *c == range.end) {
+        Some(c) => c.saturating_sub(LONG_LINE / 2).max(range.start),
+        None => range.start,
+    };
+    let mut end = (start + LONG_LINE).min(range.end);
+    start = end.saturating_sub(LONG_LINE).max(range.start);
+    while !text.is_char_boundary(start) {
+        start -= 1;
+    }
+    while !text.is_char_boundary(end) {
+        end += 1;
+    }
+    let more = |at: usize, t: String| Run {
+        src: at..at,
+        text: t,
+        verbatim: false,
+        style: Style {
+            dim: true,
+            ..Style::default()
+        },
+        widget: None,
+    };
+    let mut runs = Vec::new();
+    if start > range.start {
+        runs.push(more(start, "…".into()));
+    }
+    runs.push(run(start..end));
+    if end < range.end {
+        runs.push(more(end, "…".into()));
+    }
+    LineView {
+        runs,
+        range,
+        mono: true,
+        ..LineView::default()
+    }
+}
+
 /// A heading in an outline panel.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutlineItem {
@@ -1836,6 +1897,27 @@ mod tests {
         // The blank after an object does not reveal it.
         assert_eq!(show(t, 1, Some(19 + 12)), "Some bold and a link and α.");
         assert_eq!(show(t, 1, Some(19 + 11)), "Some *bold* and a link and α.");
+    }
+
+    #[test]
+    fn long_lines() {
+        let short = "abc";
+        assert_eq!(plain_line_view(short, 0..3, None).display(), "abc");
+        let long = "x".repeat(LONG_LINE * 3);
+        let v = plain_line_view(&long, 0..long.len(), None);
+        assert_eq!(v.display().len(), LONG_LINE + "…".len());
+        assert!(v.display().ends_with('…'));
+        // Around the cursor, with the rest on both sides elided.
+        let c = LONG_LINE * 2;
+        let v = plain_line_view(&long, 0..long.len(), Some(c));
+        let shown = v.display();
+        assert!(shown.starts_with('…') && shown.ends_with('…'));
+        let d = v.display_offset(c);
+        assert_eq!(v.source_offset(d), c);
+        // Multi-byte text is cut at character boundaries.
+        let wide = "é".repeat(LONG_LINE);
+        let v = plain_line_view(&wide, 0..wide.len(), Some(LONG_LINE + 1));
+        assert!(v.runs.iter().all(|r| wide.is_char_boundary(r.src.start)));
     }
 
     #[test]

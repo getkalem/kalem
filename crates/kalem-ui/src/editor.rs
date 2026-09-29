@@ -285,6 +285,9 @@ pub struct Editor {
     pub hscroll: Pixels,
     /// A plain text document's highlighting and indentation step.
     pub plain: PlainCache,
+    /// The highlighting of a file too large for [`Editor::plain`]'s: the
+    /// lines on screen, in windows.
+    pub windowed: RefCell<kalem_highlight::Windowed>,
     /// When the file was last compared with the disk.
     disk_checked: Instant,
     /// A change on disk was reported and is not resolved.
@@ -382,6 +385,7 @@ impl Editor {
             wrap: true,
             hscroll: px(0.),
             plain: RefCell::default(),
+            windowed: RefCell::default(),
             disk_checked: Instant::now(),
             disk_conflict: false,
         };
@@ -1772,10 +1776,17 @@ impl Editor {
             DocumentMode::Markdown => Some("md"),
             _ => None,
         };
-        // Very large files go without colors for now (§2.6, phase 2).
-        let language = lang
-            .and_then(kalem_highlight::Language::find)
-            .filter(|_| text.len() <= 4 << 20);
+        // Very large files are colored a window at a time (T2.7a.3).
+        let found = lang.and_then(kalem_highlight::Language::find);
+        let large = text.len() > 4 << 20;
+        let language = found.filter(|_| !large);
+        {
+            let mut w = self.windowed.borrow_mut();
+            let wanted = found.filter(|_| large);
+            if w.language.map(|l| l.name()) != wanted.map(|l| l.name()) {
+                *w = kalem_highlight::Windowed::new(wanted);
+            }
+        }
         let old = p.take().and_then(|(_, h, _)| h);
         let h = language.map(|l| match old {
             Some(mut h) if h.language().name() == l.name() => {
@@ -1834,6 +1845,13 @@ impl Editor {
         if range.end > range.start && text.as_str().as_bytes()[range.end - 1] == b'\r' {
             range.end -= 1;
         }
+        // A very long line, in any mode: the part around the cursor, as
+        // it is (laying out all of it would take seconds).
+        if range.len() > view::LONG_LINE {
+            let mut v = view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
+            v.mono = self.doc.meta.mode != DocumentMode::Org;
+            return v;
+        }
         match self.doc.parse() {
             Some((p, true)) if self.source => {
                 view::source_line_view(&p.syntax(), p.context(), text.as_str(), range)
@@ -1849,19 +1867,14 @@ impl Editor {
                     table,
                 )
             }
-            // Plain text is monospace, as the source view.
-            _ => LineView {
-                runs: vec![view::Run {
-                    src: range.clone(),
-                    text: text.as_str()[range.clone()].to_string(),
-                    verbatim: true,
-                    style: view::Style::default(),
-                    widget: None,
-                }],
-                range,
-                mono: self.doc.meta.mode != DocumentMode::Org,
-                ..LineView::default()
-            },
+            // Plain text is monospace, as the source view; a very long
+            // line shows the part around the cursor.
+            _ => {
+                let mut v =
+                    view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
+                v.mono = self.doc.meta.mode != DocumentMode::Org;
+                v
+            }
         }
     }
 
