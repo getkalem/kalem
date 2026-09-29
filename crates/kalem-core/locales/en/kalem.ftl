@@ -508,6 +508,8 @@ cmd-dired-move = Rename or Move To
 cmd-dired-editNames = Edit Names
 cmd-dired-commitNames = Apply Edited Names
 cmd-dired-abortNames = Discard Edited Names
+cmd-dired-findName = Find by Name
+cmd-dired-searchFiles = Search in Files
 cmd-dired-undo = Undo File Operation
 cmd-dired-mkdir = New Folder
 cmd-dired-newFile = New File
@@ -586,6 +588,10 @@ fm-wdired-no-folder = No folder for { $name }
 fm-renamed = { $count ->
     [one] Renamed 1 item
    *[other] Renamed { $count } items
+}
+fm-found = { $count ->
+    [one] 1 found by name { $pattern }
+   *[other] { $count } found by name { $pattern }
 }
 fm-nothing-to-undo = No file operation to undo
 fm-undo-blocked = Cannot undo: { $name } is in the way or gone

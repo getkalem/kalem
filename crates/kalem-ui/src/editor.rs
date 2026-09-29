@@ -1043,6 +1043,7 @@ impl Editor {
                 kalem_core::projects::After::Open,
             )),
             Request::SearchProject => cx.emit(DocEvent::Search(None)),
+            Request::SearchIn(dir) => self.open_search_in(&dir, cx),
             Request::OpenFiles => cx.emit(DocEvent::ToggleFiles),
             Request::Project(r) => self.project_request(r, cx),
             Request::FileManager(r) => self.file_manager_request(r, cx),

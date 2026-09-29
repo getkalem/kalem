@@ -100,6 +100,30 @@ pub enum DirStyle {
     Note,
 }
 
+/// At most this many entries are found by name.
+const MAX_FOUND: usize = 5_000;
+
+/// Whether file name `name` matches `pattern`: a shell pattern (`*`,
+/// `?`) when it has one, else a part of the name; case ignored.
+pub fn name_matches(name: &str, pattern: &str) -> bool {
+    let name = name.to_lowercase();
+    let pattern = pattern.trim().to_lowercase();
+    if !pattern.contains(['*', '?']) {
+        return name.contains(&pattern);
+    }
+    fn glob(n: &[char], p: &[char]) -> bool {
+        match p.split_first() {
+            None => n.is_empty(),
+            Some(('*', rest)) => (0..=n.len()).any(|i| glob(&n[i..], rest)),
+            Some(('?', rest)) => !n.is_empty() && glob(&n[1..], rest),
+            Some((c, rest)) => n.first() == Some(c) && glob(&n[1..], rest),
+        }
+    }
+    let n: Vec<char> = name.chars().collect();
+    let p: Vec<char> = pattern.chars().collect();
+    glob(&n, &p)
+}
+
 /// The styled parts of a line, in bytes from its start.
 type Styles = Vec<(Range<usize>, DirStyle)>;
 
@@ -127,6 +151,9 @@ pub struct DirState {
     pub details: bool,
     /// Only names containing this (case ignored) are shown.
     pub filter: String,
+    /// Files and folders found under the folder by name, at any depth
+    /// (`find-name-dired`), instead of the folder's entries.
+    pub find: Option<String>,
     /// Why the folder could not be read.
     pub error: Option<String>,
     /// Folders listed below the folder's own entries, in order, as Dired
@@ -170,6 +197,7 @@ impl DirState {
             options,
             details,
             filter: String::new(),
+            find: None,
             error: None,
             subdirs: Vec::new(),
             sections: Vec::new(),
@@ -197,6 +225,10 @@ impl DirState {
             return;
         };
         let dir = dir.clone();
+        if let Some(pattern) = self.find.clone() {
+            self.load_found(&dir, &pattern);
+            return;
+        }
         // Listed folders that are gone, or no longer inside, go.
         self.subdirs
             .retain(|d| d.starts_with(&dir) && *d != dir && d.is_dir());
@@ -233,6 +265,51 @@ impl DirState {
             p.parent().is_some_and(|d| listed.iter().any(|l| l == d))
                 && std::fs::symlink_metadata(p).is_ok()
         });
+    }
+
+    /// The entries under `dir` whose names match `pattern`, named by their
+    /// paths from `dir`.
+    fn load_found(&mut self, dir: &Path, pattern: &str) {
+        self.subdirs.clear();
+        self.error = None;
+        let mut found = Vec::new();
+        let mut stack = vec![dir.to_path_buf()];
+        while let Some(d) = stack.pop() {
+            let Ok(read) = std::fs::read_dir(&d) else {
+                continue;
+            };
+            for e in read.flatten() {
+                let path = e.path();
+                let name = e.file_name().to_string_lossy().into_owned();
+                if !self.options.hidden && name.starts_with('.') {
+                    continue;
+                }
+                let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
+                if is_dir && !matches!(name.as_str(), ".git" | ".hg" | ".svn") {
+                    stack.push(path.clone());
+                }
+                if name_matches(&name, pattern)
+                    && let Ok(mut entry) = Entry::read(&path)
+                {
+                    entry.name = path
+                        .strip_prefix(dir)
+                        .unwrap_or(&path)
+                        .to_string_lossy()
+                        .into_owned();
+                    found.push(entry);
+                    if found.len() >= MAX_FOUND {
+                        stack.clear();
+                        break;
+                    }
+                }
+            }
+        }
+        kalem_fs::sort(&mut found, &self.options);
+        self.entries = found;
+        self.sections = vec![(dir.to_path_buf(), 0..self.entries.len(), None)];
+        self.parent = None;
+        self.marks
+            .retain(|p, _| p.starts_with(dir) && std::fs::symlink_metadata(p).is_ok());
     }
 
     /// The folder line `line` is in: the folder shown, or a folder listed
@@ -343,6 +420,14 @@ impl DirState {
                 let mut title = format!("  {}:", tilde(&dir));
                 let len = title.len();
                 let mut styles = vec![(2..len, DirStyle::Header)];
+                if let Some(f) = &self.find {
+                    let at = title.len() + 1;
+                    title.push_str(&format!(
+                        " ({})",
+                        crate::tr!("fm-found", pattern = f.clone(), count = self.entries.len())
+                    ));
+                    styles.push((at..title.len(), DirStyle::Detail));
+                }
                 if !self.filter.is_empty() {
                     let at = title.len() + 1;
                     title.push_str(&format!(
@@ -1053,8 +1138,11 @@ fn planned_renames(w: &Wdired, text: &str) -> Result<Vec<(PathBuf, PathBuf)>, St
         if middle.trim().is_empty() {
             return Err(crate::tr!("fm-wdired-empty", name = name.as_str()));
         }
-        let parent = path.parent().unwrap_or(Path::new(""));
-        plan.push((path.clone(), resolve(parent, middle)));
+        // Relative to where the shown name starts (a found entry's name
+        // is its path from the folder).
+        let depth = Path::new(name.as_str()).components().count().max(1);
+        let base = path.ancestors().nth(depth).unwrap_or(Path::new(""));
+        plan.push((path.clone(), resolve(base, middle)));
     }
     let sources: std::collections::HashSet<&PathBuf> = plan.iter().map(|(s, _)| s).collect();
     let mut seen = std::collections::HashSet::new();
@@ -1364,6 +1452,13 @@ fn up(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
         doc.show_listing(Some(&d));
         return Ok(());
     }
+    // From what was found by name: the folder's own entries.
+    if s.find.is_some() {
+        let at = s.path_at(cursor_line(doc));
+        state_mut(doc).find = None;
+        changed(doc, at.as_deref());
+        return Ok(());
+    }
     let Place::Dir(d) = s.place.clone() else {
         return Ok(());
     };
@@ -1503,6 +1598,7 @@ pub(crate) fn schemas() -> Vec<(&'static str, Value)> {
         ("dired.markExtension", one("extension")),
         ("dired.markChangedSince", one("since")),
         ("dired.filter", one("text")),
+        ("dired.findName", one("pattern")),
     ]
 }
 
@@ -1531,6 +1627,7 @@ pub(crate) fn argument_default(id: &str, name: &str, doc: &DocumentState) -> Opt
             .map(|e| format!("{:o}", e.mode & 0o7777))
             .unwrap_or_default(),
         ("dired.filter", "text") => s.filter.clone(),
+        ("dired.findName", "pattern") => s.find.clone().unwrap_or_default(),
         _ => return None,
     })
 }
@@ -1755,6 +1852,34 @@ pub(crate) fn commands() -> Vec<Command> {
                 let doc = listing(ctx)?;
                 state_mut(doc).filter = text;
                 changed(doc, None);
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.findName",
+            "Find by Name",
+            &[],
+            Some(IN_LISTING),
+            |ctx, args| {
+                let pattern = arg(args, "pattern")?.trim().to_string();
+                let doc = listing(ctx)?;
+                if state(doc).dir().is_none() {
+                    return Err(CommandError::new(tr("fm-in-projects")));
+                }
+                state_mut(doc).find = (!pattern.is_empty()).then_some(pattern);
+                changed(doc, None);
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.searchFiles",
+            "Search in Files",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let dir = the_dir(doc)?;
+                ctx.requests.push(Request::SearchIn(dir));
                 Ok(())
             },
         ),
@@ -2380,6 +2505,67 @@ mod tests {
             run(&mut doc, "dired.abortNames", json!({})).0.unwrap();
             assert!(doc.text().as_str().contains(" a.txt\n"));
         }
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn find_by_name() {
+        assert!(name_matches("Notes.ORG", "*.org"));
+        assert!(name_matches("a.txt", "a?txt") && !name_matches("ab.txt", "a?txt"));
+        assert!(name_matches("report-2026.pdf", "2026"));
+        assert!(!name_matches("x.org", "*.txt"));
+        let d = tree(
+            "find",
+            &[
+                "a.org",
+                "sub/",
+                "sub/b.org",
+                "sub/deep/",
+                "sub/deep/c.org",
+                "x.txt",
+            ],
+        );
+        let mut doc = DocumentState::open(
+            &d,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        run(&mut doc, "dired.findName", json!({"pattern": "*.org"}))
+            .0
+            .unwrap();
+        let text = doc.text().as_str().to_string();
+        let sep = std::path::MAIN_SEPARATOR;
+        assert!(
+            text.contains(" a.org") && text.contains(&format!(" sub{sep}deep{sep}c.org")),
+            "{text}"
+        );
+        assert!(
+            !text.contains("x.txt") && text.contains("3 found"),
+            "{text}"
+        );
+        // Entries found open and move like any other; wdired renames them
+        // where they are.
+        goto(&mut doc, &format!("sub{sep}b.org"));
+        assert_eq!(
+            state(&doc).path_at(cursor_line(&doc)),
+            Some(d.join("sub/b.org"))
+        );
+        run(&mut doc, "dired.editNames", json!({})).0.unwrap();
+        edit(
+            &mut doc,
+            &format!("sub{sep}b.org"),
+            &format!("sub{sep}b2.org"),
+        );
+        run(&mut doc, "dired.commitNames", json!({})).0.unwrap();
+        assert!(d.join("sub/b2.org").is_file());
+        // `^` goes back to the folder's own entries.
+        run(&mut doc, "dired.up", json!({})).0.unwrap();
+        assert!(state(&doc).find.is_none());
+        assert!(doc.text().as_str().contains(" x.txt"));
+        // Searching the files' text asks the frontend.
+        let (_, req) = run(&mut doc, "dired.searchFiles", json!({}));
+        assert!(matches!(&req[..], [Request::SearchIn(p)] if *p == d));
         let _ = std::fs::remove_dir_all(&d);
     }
 

@@ -1297,6 +1297,19 @@ impl App {
             Request::Cycle { back } => self.cycle(back),
             Request::Pick(kind) => self.pick(kind, None, After::Open),
             Request::SearchProject => self.search_project(None),
+            Request::SearchIn(dir) => {
+                // The project's search when the folder is one, else the
+                // folder's.
+                let project = self
+                    .projects
+                    .list
+                    .get(&dir)
+                    .cloned()
+                    .unwrap_or_else(|| kalem_core::projects::Project::new(dir));
+                self.completion = None;
+                self.palette = Some(Palette::searching(ProjectSearch::new(&project, "")));
+                self.dirty = true;
+            }
             Request::OpenFiles => {
                 if self.files_at == FilesAt::Hidden {
                     self.files_at = FilesAt::Left;

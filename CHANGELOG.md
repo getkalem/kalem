@@ -169,6 +169,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX bibliography: the hover card of a citation is the entry as a CSL style's bibliography shows it (chosen from biblatex's `style=` or `\bibliographystyle`); BibTeX pasted into a LaTeX document is added to its bibliography file and pasted as a `\cite`; `kalem check` on the root document lists bibliography entries nothing cites.
 - File manager: Ctrl+Z undoes the last rename, move or move to the trash (items come back from the system trash), in both editors; `kalem_fs::restore` puts trashed paths back.
 - File manager: editable names (wdired): `e` makes the listing's names text, Ctrl+S renames them all at once (swaps and moves into folders too), Escape discards; empty and duplicate names, taken names and changed lines are reported before anything changes; in both editors.
+- File manager: `% f` finds files by name under the folder at any depth (a shell pattern or a part of the name) and lists them by their paths; `A` searches the text of the folder's files with the project search's results and jump to the match; in both editors.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

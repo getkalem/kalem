@@ -598,6 +598,8 @@ Commands act on the marked entries, or on the one at the cursor.
 | =S=, =M=, =T=       | Symbolic link, permissions, touch                     |
 | Ctrl+Z              | Undo the last rename, move or move to the trash       |
 | =e=                 | Edit the names as text; Ctrl+S renames, Escape stops  |
+| =% f=               | Find by name under the folder (=*.org=, or a part)    |
+| =A=                 | Search the text of the files under the folder         |
 | =w=                 | Copy the names                                        |
 | =q=                 | Close the file manager                                |
 
@@ -617,6 +619,14 @@ Nothing changes when a name is empty, two files would get the same name,
 a name is taken by a file that stays, or a line was added, removed or
 changed outside its name; the edit stays to fix. Ctrl+Z undoes the whole
 set of renames.
+
+=% f= lists the files and folders under the folder, at any depth, whose
+names match a shell pattern (=*.org=, =report-??.pdf=) or contain the text
+given, each named by its path from the folder; they open, take marks and
+are copied, moved or renamed as other entries are, and =^= goes back to the
+folder's own entries. =A= searches the text of the files under the folder
+(its project's ignore rules when it is a project) and opens a match at its
+line.
 
 With Vim keys the file manager's keys come first, except =n=, =p=, =w= and
 Backspace, which Vim keeps; =g r= reads the folder again, =g g= goes to the
