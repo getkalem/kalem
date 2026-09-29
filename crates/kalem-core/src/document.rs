@@ -844,6 +844,22 @@ impl DocumentState {
             return;
         }
         let s = self.selection;
+        // In code, a closing bracket alone on its line goes back a level.
+        if s.anchor == s.head
+            && matches!(self.meta.mode, DocumentMode::Text { language: Some(_) })
+            && let Some(r) = crate::code::dedent_for(
+                self.text.as_str(),
+                s.head,
+                text,
+                &crate::code::indent_text(self),
+            )
+        {
+            let mut tx = Transaction::new("Typing");
+            tx.replace(r.clone(), text).expect("one edit");
+            let tx = tx.select(Selection::caret(r.start + text.len()));
+            self.apply(&tx, ChangeKind::Typing, now);
+            return;
+        }
         if s.anchor != s.head || !self.org_typing_at(s.head) {
             self.insert_text(text, now);
             return;

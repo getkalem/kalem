@@ -1194,6 +1194,47 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "edit.toggleComment",
+            "Toggle Comment",
+            "Edit",
+            &["ctrl+alt+c"],
+            None,
+            |ctx, _| {
+                let now = ctx.now;
+                let d = ctx.doc()?;
+                let style = crate::code::language_at(d)
+                    .and_then(|l| crate::code::comment_style(&l))
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-comment-style")))?;
+                let tx = crate::code::toggle_comment(d.text().as_str(), d.selection, style);
+                d.apply(&tx, org_edit::ChangeKind::Command, now);
+                Ok(())
+            },
+        ),
+        cmd(
+            "edit.gotoBracket",
+            "Go to Matching Bracket",
+            "Edit",
+            &["ctrl+alt+b"],
+            None,
+            |ctx, _| {
+                let d = ctx.doc()?;
+                let head = d.selection.head;
+                let Some((open, close)) = crate::code::matching(d.text().as_str(), head) else {
+                    ctx.messages.push(crate::l10n::tr("msg-no-bracket"));
+                    return Ok(());
+                };
+                // To the other one: after a closing bracket, before an
+                // opening one.
+                let target = if head == open || head == open + 1 {
+                    close + 1
+                } else {
+                    open
+                };
+                d.move_cursor(target, false);
+                Ok(())
+            },
+        ),
+        cmd(
             "cursor.addBelow",
             "Add Cursor Below",
             "Edit",
@@ -1488,9 +1529,24 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| {
                 let now = ctx.now;
                 let d = ctx.doc()?;
+                if !d.extra.is_empty() {
+                    d.insert_text("\n", now);
+                    return Ok(());
+                }
                 let s = d.selection;
-                let mark = (s.anchor != s.head).then_some(s.anchor);
-                let tx = crate::input::newline(d.text().as_str(), s.head, mark);
+                let tx = match &d.meta.mode {
+                    // Code: a level deeper after an opening bracket.
+                    crate::DocumentMode::Text { language: Some(l) } => crate::code::newline(
+                        d.text().as_str(),
+                        s,
+                        &crate::code::indent_text(d),
+                        Some(l.as_str()),
+                    ),
+                    _ => {
+                        let mark = (s.anchor != s.head).then_some(s.anchor);
+                        crate::input::newline(d.text().as_str(), s.head, mark)
+                    }
+                };
                 d.apply(&tx, org_edit::ChangeKind::Command, now);
                 Ok(())
             },

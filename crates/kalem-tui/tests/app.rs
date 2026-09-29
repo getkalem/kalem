@@ -1968,6 +1968,55 @@ fn editing_properties() {
 }
 
 #[test]
+fn editing_code() {
+    let mut t = with_file("fn a() {}\n", "a.rs", Config::default(), (60, 8));
+    t.at(8);
+    // Enter between braces: the closing one on its own line.
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.text().as_str(), "fn a() {\n    \n}\n");
+    t.typ("let x = (1);");
+    // The matching brackets are marked.
+    t.key(KeyCode::Left, KeyModifiers::NONE);
+    t.key(KeyCode::Left, KeyModifiers::NONE);
+    let buf = t.draw();
+    let marked = (0..buf.area.width)
+        .filter(|&x| buf[(x, 1)].bg != buf[(0, 1)].bg)
+        .count();
+    assert!(marked >= 2, "{marked}");
+    // Toggle Comment, twice.
+    t.app
+        .run_command("edit.toggleComment", serde_json::Value::Null);
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "fn a() {\n    // let x = (1);\n}\n"
+    );
+    t.app
+        .run_command("edit.toggleComment", serde_json::Value::Null);
+    assert_eq!(t.app.doc.text().as_str(), "fn a() {\n    let x = (1);\n}\n");
+    // Go to Matching Bracket.
+    t.at(7);
+    t.app
+        .run_command("edit.gotoBracket", serde_json::Value::Null);
+    assert_eq!(
+        t.app.doc.selection.head,
+        t.app.doc.text().as_str().find('}').unwrap() + 1
+    );
+    // A closing bracket alone on its line goes back a level.
+    let end = t.app.doc.text().as_str().find(';').unwrap() + 1;
+    t.at(end);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.typ("if y {");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.typ("z");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.typ("}");
+    assert_eq!(
+        t.app.doc.text().as_str(),
+        "fn a() {\n    let x = (1);\n    if y {\n        z\n    }\n}\n"
+    );
+}
+
+#[test]
 fn large_and_long() {
     // Over 4 MB: colored a window at a time.
     let big = "fn main() { let x = 1; }\n".repeat(200_000);

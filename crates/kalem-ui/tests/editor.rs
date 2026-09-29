@@ -994,6 +994,23 @@ fn vim_block_selection(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn editing_code(cx: &mut TestAppContext) {
+    let (e, cx) = open_named("fn a() {}\n", "a.rs", || None, cx);
+    at(&e, 8, cx);
+    cx.simulate_keystrokes("enter");
+    assert_eq!(text_of(&e, cx), "fn a() {\n    \n}\n");
+    cx.simulate_input("x");
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.toggleComment", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    assert_eq!(text_of(&e, cx), "fn a() {\n    // x\n}\n");
+    at(&e, 8, cx);
+    let pair = e.read_with(cx, |e, _| kalem_core::code::pair_at_cursor(&e.doc));
+    assert_eq!(pair, Some((7, 18)));
+}
+
+#[gpui::test]
 fn long_lines(cx: &mut TestAppContext) {
     let long = format!("{}\n", "abc ".repeat(100_000));
     let (e, cx) = open_named(&long, "long.txt", || None, cx);

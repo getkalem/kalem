@@ -1335,11 +1335,20 @@ impl gpui::Element for LineElement {
                 &editor.highlights
             };
             let i = h.partition_point(|r| r.end < ls);
-            h[i..]
+            let mut m: Vec<std::ops::Range<usize>> = h[i..]
                 .iter()
                 .take_while(|r| r.start <= le)
                 .cloned()
-                .collect()
+                .collect();
+            // The bracket matching the one at the cursor, and it.
+            if let Some((o, c)) = kalem_core::code::pair_at_cursor(&editor.doc) {
+                m.extend(
+                    [o..o + 1, c..c + 1]
+                        .into_iter()
+                        .filter(|r| ls <= r.start && r.end <= le),
+                );
+            }
+            m
         };
         let painted = match (&editor.other, self.other) {
             (Some(o), true) => o.painted.clone(),

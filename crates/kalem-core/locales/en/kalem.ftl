@@ -118,6 +118,8 @@ cmd-org-emphasis-verbatim = Verbatim
 cmd-org-insert-link = Insert Link
 cmd-org-cite-insert = Insert Citation
 cmd-org-insert-drawer = Insert Drawer
+cmd-edit-toggleComment = Toggle Comment
+cmd-edit-gotoBracket = Go to Matching Bracket
 cmd-cursor-addBelow = Add Cursor Below
 cmd-cursor-addAbove = Add Cursor Above
 cmd-selection-addNextOccurrence = Add Next Occurrence
@@ -260,6 +262,8 @@ msg-no-match-for = No match for { $target }
 msg-no-link = No link here
 msg-no-property = No { $key } property here
 msg-no-bibliography = No bibliography: add #+BIBLIOGRAPHY: with a .bib or .json file
+msg-no-comment-style = This language has no comment marker Kalem knows
+msg-no-bracket = No bracket at the cursor, or it has no match
 msg-no-more-occurrences = No more occurrences
 msg-occurrences-selected = { $count ->
     [one] { $count } occurrence selected
