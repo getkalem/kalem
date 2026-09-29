@@ -100,6 +100,8 @@ jobs:
       # rust-toolchain.toml asks for stable; the fuzzer needs nightly.
       - run: cargo +nightly fuzz run parse -- -max_total_time=120
       - run: cargo +nightly fuzz run reparse -- -max_total_time=120
+      - run: cargo +nightly fuzz run latex_parse -- -max_total_time=60
+      - run: cargo +nightly fuzz run latex_reparse -- -max_total_time=60
 
   emacs:
     name: differential test against Emacs

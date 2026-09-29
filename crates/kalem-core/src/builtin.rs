@@ -1368,7 +1368,82 @@ fn latex_commands() -> Vec<Command> {
             &[],
             latex_insert_citation,
         ),
+        c(
+            "latex.export.html",
+            "Export as HTML (pandoc)",
+            &[],
+            |ctx, _| latex_pandoc(ctx, "html5", "html"),
+        ),
+        c(
+            "latex.export.markdown",
+            "Export as Markdown (pandoc)",
+            &[],
+            |ctx, _| latex_pandoc(ctx, "markdown", "md"),
+        ),
+        c(
+            "latex.export.docx",
+            "Export as Word (pandoc)",
+            &[],
+            |ctx, _| latex_pandoc(ctx, "docx", "docx"),
+        ),
+        c(
+            "latex.convertToOrg",
+            "Convert to Org (pandoc)",
+            &[],
+            |ctx, _| {
+                let d = ctx.doc()?;
+                let path =
+                    d.meta.path.clone().ok_or_else(|| {
+                        CommandError::new(crate::l10n::tr("msg-export-needs-file"))
+                    })?;
+                import_file(
+                    ctx,
+                    &serde_json::json!({ "file": path.display().to_string() }),
+                )?;
+                // One way: the LaTeX file stays as it is.
+                ctx.messages
+                    .push(crate::l10n::tr("msg-latex-converted-one-way"));
+                Ok(())
+            },
+        ),
     ]
+}
+
+/// Writes the LaTeX document (its project's root) as `to` through pandoc
+/// beside it, in the background.
+fn latex_pandoc(ctx: &mut EditorContext<'_>, to: &'static str, ext: &'static str) -> CommandResult {
+    let d = ctx.doc()?;
+    let path = d
+        .meta
+        .path
+        .clone()
+        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-export-needs-file")))?;
+    let path = std::path::absolute(&path).unwrap_or(path);
+    let text = d.text().as_str().to_string();
+    let root =
+        latex_model::project::find_root(&path, &text, &latex_model::project::Disk, None, None);
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    let pandoc = crate::pandoc::find(&search)
+        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-pandoc")))?;
+    let out = root.with_extension(ext);
+    let open_after = ctx.config.bool("export.open_after");
+    let status = crate::l10n::tr("msg-converting");
+    ctx.messages.push(status.clone());
+    crate::jobs::spawn(status, move || {
+        match crate::pandoc::export_latex(&pandoc, &root, to, &out) {
+            Ok(()) => crate::jobs::Finished {
+                message: crate::tr!("msg-exported", path = out.display().to_string()),
+                error: false,
+                open: open_after.then(|| crate::input::LinkAction::Url(file_url(&out))),
+            },
+            Err(e) => crate::jobs::Finished {
+                message: crate::tr!("msg-pandoc-failed", error = e),
+                error: true,
+                open: None,
+            },
+        }
+    });
+    Ok(())
 }
 
 /// Inserts a citation of `key` (in a `\cite{…}` at the cursor, one key

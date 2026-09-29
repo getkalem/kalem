@@ -818,6 +818,11 @@ booktabs' rules when the document loads it), /Insert Equation/ and
 /Insert Citation/ (the entries of the bibliography to choose from) write
 the usual constructs with a caption and a label to fill.
 
+With pandoc installed, /Export as HTML/, /Markdown/ and /Word/ write the
+project's root document in those formats for co-authors who do not use
+LaTeX, and /Convert to Org/ writes an Org file beside it: one way, the
+LaTeX file stays as it is.
+
 Completion (as you type, or Alt+/) offers command names after =\= (the
 document's own macros too), environments after =\begin{= (with their
 =\end=) and =\end{=, the keys of the bibliography after =\cite{= and its

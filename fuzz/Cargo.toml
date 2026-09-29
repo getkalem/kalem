@@ -10,6 +10,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 org-syntax = { path = "../crates/org-syntax" }
+latex-syntax = { path = "../crates/latex-syntax" }
 
 # Not part of the main workspace: it needs a nightly toolchain.
 [workspace]
@@ -25,6 +26,20 @@ bench = false
 [[bin]]
 name = "reparse"
 path = "fuzz_targets/reparse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "latex_parse"
+path = "fuzz_targets/latex_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "latex_reparse"
+path = "fuzz_targets/latex_reparse.rs"
 test = false
 doc = false
 bench = false

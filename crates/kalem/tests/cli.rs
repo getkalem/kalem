@@ -360,7 +360,11 @@ fn fmt_latex() {
     let dir = std::env::temp_dir().join(format!("kalem-cli-fmt-tex-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let f = dir.join("a.tex");
-    std::fs::write(&f, "\\begin{itemize}\n  \\item a   \n\\item b\n\\end{itemize}\n\n\n\nx\n").unwrap();
+    std::fs::write(
+        &f,
+        "\\begin{itemize}\n  \\item a   \n\\item b\n\\end{itemize}\n\n\n\nx\n",
+    )
+    .unwrap();
     let path = f.to_str().unwrap();
     let (code, out, _) = kalem(&["fmt", "--check", path]);
     assert_eq!((code, out.trim()), (1, path));

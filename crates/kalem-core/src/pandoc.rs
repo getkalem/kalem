@@ -212,6 +212,28 @@ pub fn export(
     run(cmd, Some(prepared.as_bytes())).map(|_| ())
 }
 
+/// Writes the LaTeX file `file` as `to` (`html5`, `markdown`, `docx`)
+/// to `out` through pandoc, for co-authors on Word and the web (T2.7h.26):
+/// the pictures found beside the file, citations resolved when the
+/// document names a bibliography, formulas as MathML in HTML.
+pub fn export_latex(pandoc: &Path, file: &Path, to: &str, out: &Path) -> Result<(), String> {
+    let text = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let mut cmd = Command::new(pandoc);
+    cmd.args(["--from", "latex", "--to", to, "--standalone", "--output"])
+        .arg(out);
+    if to.starts_with("html") {
+        cmd.arg("--mathml");
+    }
+    if text.contains("\\bibliography{") || text.contains("\\addbibresource{") {
+        cmd.arg("--citeproc");
+    }
+    if let Some(d) = file.parent().filter(|d| !d.as_os_str().is_empty()) {
+        cmd.current_dir(d).arg("--resource-path").arg(d);
+    }
+    cmd.arg(file.file_name().map(PathBuf::from).unwrap_or_default());
+    run(cmd, None).map(|_| ())
+}
+
 /// The Org text pandoc makes of `input` (Word, OpenDocument, Markdown,
 /// HTML, EPUB or RTF, by its extension), cleaned up; the pictures in it go
 /// to `media`, which the links name relative to `input`'s folder.
