@@ -162,6 +162,8 @@ pub(crate) struct Buf {
     original: String,
     /// Emacs markers (insertion type nil): positions that follow edits.
     markers: Vec<usize>,
+    /// Markers of insertion type t: text inserted at them goes before.
+    advancing: Vec<usize>,
 }
 
 /// Where a marker at `p` goes when `start..end` becomes `len` bytes: a
@@ -184,7 +186,20 @@ impl Buf {
             point,
             original: text.to_string(),
             markers: Vec::new(),
+            advancing: Vec::new(),
         }
+    }
+
+    /// A new marker of insertion type t at `pos`; see
+    /// [`Buf::advancing_marker`].
+    pub(crate) fn add_advancing_marker(&mut self, pos: usize) -> usize {
+        self.advancing.push(pos);
+        self.advancing.len() - 1
+    }
+
+    /// The position of a marker of insertion type t.
+    pub(crate) fn advancing_marker(&self, id: usize) -> usize {
+        self.advancing[id]
     }
 
     /// A new marker at `pos`; see [`Buf::marker`].
@@ -201,6 +216,13 @@ impl Buf {
     fn edit(&mut self, start: usize, end: usize, new: &str) {
         for m in &mut self.markers {
             *m = adjust(*m, start, end, new.len());
+        }
+        for m in &mut self.advancing {
+            *m = if start == end && *m == start {
+                *m + new.len()
+            } else {
+                adjust(*m, start, end, new.len())
+            };
         }
         self.text.replace_range(start..end, new);
     }
@@ -233,7 +255,7 @@ impl Buf {
             }
         };
         self.point = f(self.point);
-        for m in &mut self.markers {
+        for m in self.markers.iter_mut().chain(&mut self.advancing) {
             *m = f(*m);
         }
         self.text.replace_range(start..end, new);

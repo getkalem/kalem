@@ -1577,7 +1577,12 @@ fn add_planning(
 
 /// `org-update-parent-todo-statistics` for the headline at `h` with
 /// `ltoggle` stars.
-fn update_parent_todo_statistics(buf: &mut Buf, doc: &Document, h: usize, ltoggle: usize) {
+pub(crate) fn update_parent_todo_statistics(
+    buf: &mut Buf,
+    doc: &Document,
+    h: usize,
+    ltoggle: usize,
+) {
     let ctx = doc.parse().context();
     let outline = doc.outline();
     // Parents are before `h`, where the text has not changed.

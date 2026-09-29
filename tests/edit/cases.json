@@ -196032,5 +196032,4443 @@
   "args": [
    "a b"
   ]
+ },
+ {
+  "name": "archive-tag 0@0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@2",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@2",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 10,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 10,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@12",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@12",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 12,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@20",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 20,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@20",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 20,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@22",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 22,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@22",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 22,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 27,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 27,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@29",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@29",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 29,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 37,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 37,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@39",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 39,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@39",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 39,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@41",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 41,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@41",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 41,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@43",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 43,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@43",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 43,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 0@46",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 46,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 0@46",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 46,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "refile 0@0->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@0->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@0->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@0->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "refile 0@2->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@2->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@2->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@2->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "refile 0@10->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 10,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@10->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 10,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@10->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 10,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@10->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 10,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "refile 0@12->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@12->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@12->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@12->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 12,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "refile 0@27->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 27,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@27->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 27,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@27->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 27,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@27->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 27,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "refile 0@29->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@29->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@29->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@29->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 29,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "refile 0@37->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 37,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@37->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 37,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@37->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 37,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@37->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 37,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "refile 0@39->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 39,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@39->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 39,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@39->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 39,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@39->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 39,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "refile 0@46->0",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 46,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 0@46->10",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 46,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 10))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   10
+  ]
+ },
+ {
+  "name": "refile 0@46->27",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 46,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 27))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   27
+  ]
+ },
+ {
+  "name": "refile 0@46->37",
+  "text": "* P [0/2]\n** TODO a\nbody a\n** TODO b\n* Q\ntext\n",
+  "point": 46,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 37))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   37
+  ]
+ },
+ {
+  "name": "archive-tag 1@0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@2",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@2",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 6,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 6,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@8",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 8,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@8",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 8,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@15",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 15,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@15",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 15,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 34,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 34,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@36",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 36,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@36",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 36,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 42,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 42,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@44",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@44",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 44,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@53",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 53,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@53",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 53,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 54,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 54,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@55",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 55,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@55",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 55,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@56",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@56",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 56,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 1@62",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 62,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 1@62",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 62,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "refile 1@0->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@0->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@0->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@0->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@0->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@0->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@2->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@2->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@2->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@2->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@2->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@2->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@6->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@6->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@6->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@6->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@6->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@6->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@8->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@8->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@8->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@8->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@8->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@8->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@13->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@13->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@13->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@13->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@13->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@13->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@15->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 15,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@15->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 15,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@15->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 15,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@15->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 15,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@15->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 15,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@15->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 15,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@34->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@34->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@34->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@34->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@34->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@34->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@36->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 36,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@36->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 36,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@36->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 36,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@36->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 36,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@36->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 36,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@36->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 36,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@42->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 42,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@42->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 42,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@42->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 42,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@42->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 42,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@42->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 42,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@42->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 42,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@44->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@44->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@44->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@44->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@44->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@44->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@54->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 54,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@54->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 54,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@54->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 54,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@54->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 54,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@54->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 54,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@54->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 54,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@56->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@56->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@56->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@56->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@56->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@56->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "refile 1@62->0",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 62,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 1@62->6",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 62,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 1@62->13",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 62,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 13))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   13
+  ]
+ },
+ {
+  "name": "refile 1@62->34",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 62,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 34))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   34
+  ]
+ },
+ {
+  "name": "refile 1@62->42",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 62,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 42))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   42
+  ]
+ },
+ {
+  "name": "refile 1@62->54",
+  "text": "* Top\n** one\n** Archive :ARCHIVE:\n*** old\n** two :x:\n\n* Other\n",
+  "point": 62,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 54))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   54
+  ]
+ },
+ {
+  "name": "archive-tag 2@0",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@0",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 0,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@2",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 2,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@2",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 2,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 6,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 6,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@8",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 8,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@8",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 8,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@16",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 16,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@16",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 16,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@18",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 18,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@18",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 18,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@29",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 29,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@29",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 29,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@31",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 31,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@31",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 31,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@36",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 36,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@36",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 36,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@38",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 38,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@38",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 38,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@42",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 42,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@42",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 42,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 44,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 44,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@46",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 46,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@46",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 46,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@48",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 48,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@48",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 48,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@49",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 49,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@49",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 49,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 50,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 50,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@51",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 51,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@51",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 51,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@52",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 52,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@52",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 52,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@54",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 54,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@54",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 54,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 2@56",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 56,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 2@56",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 56,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "refile 2@6->6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 2@6->44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 44))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   44
+  ]
+ },
+ {
+  "name": "refile 2@6->50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 50))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   50
+  ]
+ },
+ {
+  "name": "refile 2@8->6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 2@8->44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 44))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   44
+  ]
+ },
+ {
+  "name": "refile 2@8->50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 8,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 50))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   50
+  ]
+ },
+ {
+  "name": "refile 2@44->6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 2@44->44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 44))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   44
+  ]
+ },
+ {
+  "name": "refile 2@44->50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 44,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 50))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   50
+  ]
+ },
+ {
+  "name": "refile 2@46->6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 46,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 2@46->44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 46,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 44))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   44
+  ]
+ },
+ {
+  "name": "refile 2@46->50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 46,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 50))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   50
+  ]
+ },
+ {
+  "name": "refile 2@50->6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 50,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 2@50->44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 50,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 44))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   44
+  ]
+ },
+ {
+  "name": "refile 2@50->50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 50,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 50))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   50
+  ]
+ },
+ {
+  "name": "refile 2@52->6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 52,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 2@52->44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 52,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 44))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   44
+  ]
+ },
+ {
+  "name": "refile 2@52->50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 52,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 50))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   50
+  ]
+ },
+ {
+  "name": "refile 2@56->6",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 6))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   6
+  ]
+ },
+ {
+  "name": "refile 2@56->44",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 44))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   44
+  ]
+ },
+ {
+  "name": "refile 2@56->50",
+  "text": "Intro\n* A :tag:\n:PROPERTIES:\n:ID: 1\n:END:\nx\n* B\n\n\n* C\nno newline",
+  "point": 56,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 50))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   50
+  ]
+ },
+ {
+  "name": "archive-tag 3@0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@2",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@2",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@13",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@13",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 13,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@21",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 21,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@21",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 21,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 22,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 22,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@23",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@23",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 23,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@24",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 24,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@24",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 24,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 32,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 32,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@34",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 34,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@34",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 34,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@40",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 40,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@40",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 40,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 41,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 41,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@42",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 42,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@42",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 42,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@43",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 43,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@43",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 43,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 3@51",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 51,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 3@51",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 51,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "refile 3@0->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@0->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@0->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@0->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@0->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@2->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@2->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@2->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@2->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@2->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@11->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@11->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@11->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@11->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@11->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@13->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@13->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@13->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@13->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@13->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 13,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@22->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@22->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@22->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@22->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@22->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@24->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@24->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@24->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@24->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@24->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@32->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 32,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@32->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 32,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@32->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 32,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@32->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 32,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@32->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 32,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@34->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@34->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@34->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@34->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@34->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 34,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@41->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 41,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@41->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 41,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@41->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 41,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@41->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 41,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@41->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 41,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@43->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 43,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@43->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 43,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@43->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 43,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@43->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 43,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@43->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 43,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "refile 3@51->0",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 51,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 3@51->11",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 51,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 11))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   11
+  ]
+ },
+ {
+  "name": "refile 3@51->22",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 51,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 3@51->32",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 51,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 32))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   32
+  ]
+ },
+ {
+  "name": "refile 3@51->41",
+  "text": "* Proj [%]\n** DONE x\n\n** TODO y\n*** sub\n\n** NEXT z\n",
+  "point": 51,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 41))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   41
+  ]
+ },
+ {
+  "name": "archive-tag 4@0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@2",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@2",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 4,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@6",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 6,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@6",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 6,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 9,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 9,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@11",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@11",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@15",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 15,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@15",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 15,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 17,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@19",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 19,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@19",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 19,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 22,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 22,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@24",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 24,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@24",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 24,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 4@26",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 26,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 4@26",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 26,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "refile 4@0->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@0->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@0->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@0->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@0->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@2->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@2->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@2->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@2->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@2->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@4->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@4->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@4->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@4->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@4->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 4,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@6->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@6->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@6->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@6->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@6->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 6,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@9->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 9,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@9->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 9,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@9->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 9,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@9->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 9,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@9->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 9,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@11->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@11->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@11->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@11->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@11->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@17->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@17->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@17->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@17->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@17->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 17,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@19->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 19,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@19->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 19,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@19->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 19,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@19->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 19,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@19->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 19,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@22->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@22->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@22->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@22->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@22->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 22,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@24->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@24->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@24->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@24->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@24->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 24,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "refile 4@26->0",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 26,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 4@26->4",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 26,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 4))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   4
+  ]
+ },
+ {
+  "name": "refile 4@26->9",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 26,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 4@26->17",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 26,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 17))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   17
+  ]
+ },
+ {
+  "name": "refile 4@26->22",
+  "text": "* A\n** B\n*** C\nc\n** D\n* E\n",
+  "point": 26,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 22))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   22
+  ]
+ },
+ {
+  "name": "archive-tag 5@0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 5@2",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@2",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 2,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 5@9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 9,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 9,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 5@11",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@11",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 11,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 5@30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 30,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 30,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 5@32",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 32,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@32",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 32,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 5@40",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 40,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@40",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 40,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 5@42",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 42,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@42",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 42,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "archive-tag 5@48",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 48,
+  "mark": null,
+  "form": "(org-toggle-archive-tag)",
+  "cmd": "archive-tag",
+  "args": []
+ },
+ {
+  "name": "archive-sibling 5@48",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 48,
+  "mark": null,
+  "form": "(org-archive-to-archive-sibling)",
+  "cmd": "archive-sibling",
+  "args": []
+ },
+ {
+  "name": "refile 5@0->0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 5@0->9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 5@0->30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 0,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 30))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   30
+  ]
+ },
+ {
+  "name": "refile 5@2->0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 5@2->9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 5@2->30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 2,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 30))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   30
+  ]
+ },
+ {
+  "name": "refile 5@9->0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 9,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 5@9->9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 9,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 5@9->30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 9,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 30))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   30
+  ]
+ },
+ {
+  "name": "refile 5@11->0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 5@11->9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 5@11->30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 11,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 30))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   30
+  ]
+ },
+ {
+  "name": "refile 5@30->0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 30,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 5@30->9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 30,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 5@30->30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 30,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 30))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   30
+  ]
+ },
+ {
+  "name": "refile 5@32->0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 32,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 5@32->9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 32,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 5@32->30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 32,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 30))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   30
+  ]
+ },
+ {
+  "name": "refile 5@48->0",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 48,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 0))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   0
+  ]
+ },
+ {
+  "name": "refile 5@48->9",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 48,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 9))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   9
+  ]
+ },
+ {
+  "name": "refile 5@48->30",
+  "text": "* é one\n** Archive :ARCHIVE:\n** é two\ntext é\n",
+  "point": 48,
+  "mark": null,
+  "form": "(let ((f (make-temp-file \"kalem-refile\" nil \".org\")) (org-bookmark-names-plist nil)) (write-region nil nil f nil 'silent) (set-visited-file-name f t t) (unwind-protect (org-refile nil nil (list \"T\" f nil (kalem-edit--pos 30))) (set-visited-file-name nil t) (delete-file f)))",
+  "cmd": "refile",
+  "args": [
+   30
+  ]
  }
 ]

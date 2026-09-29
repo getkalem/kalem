@@ -1968,6 +1968,36 @@ fn editing_properties() {
 }
 
 #[test]
+fn archiving_and_refiling() {
+    let text = "* A\n** a1\n* B\nb\n* C\n";
+    let mut t = with_config(text, Config::default(), (80, 12));
+    t.at(11);
+    // The picker lists the headings outside the subtree.
+    t.app.run_command("org.refile", serde_json::Value::Null);
+    let s = screen(&mut t).join("\n");
+    assert!(s.contains("A/a1") && !s.contains("B/"), "{s}");
+    t.typ("A/a1");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.text().as_str(), "* A\n** a1\n*** B\nb\n* C\n");
+    // Archived under the Archive sibling, and tagged.
+    t.at(1);
+    t.app
+        .run_command("org.archive.toggleTag", serde_json::Value::Null);
+    assert!(
+        t.app.doc.text().as_str().starts_with("* A")
+            && t.app.doc.text().as_str().contains(":ARCHIVE:")
+    );
+    t.at(t.app.doc.text().as_str().find("*** B").unwrap());
+    t.app
+        .run_command("org.archive.sibling", serde_json::Value::Null);
+    let text = t.app.doc.text().as_str().to_string();
+    assert!(
+        text.contains("*** Archive") && text.contains("**** B\n:PROPERTIES:\n:ARCHIVE_TIME:"),
+        "{text}"
+    );
+}
+
+#[test]
 fn macros_and_snippets() {
     let text = "#+MACRO: v version $1\nThis is {{{v(2)}}} @@html:<br>@@ ok.\nend\n";
     let mut t = with_config(text, Config::default(), (80, 10));

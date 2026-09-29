@@ -59,6 +59,11 @@
           (string-lessp a b))))
 
 ;; Primitives that read the clock themselves when given nil.
+(defun kalem-edit--fixed-format (orig format &optional time &rest args)
+  "Call ORIG with FORMAT and TIME, the fixed time standing for nil."
+  (apply orig format (or time kalem-edit-now) args))
+
+(advice-add 'format-time-string :around #'kalem-edit--fixed-format)
 (advice-add 'float-time :around #'kalem-edit--fixed-time)
 (advice-add 'time-less-p :around #'kalem-edit--fixed-times)
 (advice-add 'time-subtract :around #'kalem-edit--fixed-times)
