@@ -32,6 +32,9 @@ pub struct Diagnostic {
     pub code: &'static str,
     /// What, for the user.
     pub message: String,
+    /// The edit that fixes it, when one is obvious: the range replaced
+    /// and the text put there.
+    pub fix: Option<(Range<usize>, String)>,
 }
 
 fn same_file(a: &Path, b: &Path) -> bool {
@@ -41,9 +44,10 @@ fn same_file(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// The diagnostics of the LaTeX file `path` with text `text`, in order.
-pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
-    let parse = latex_syntax::parse(text);
+/// The diagnostics of a LaTeX text that need no other file: what the
+/// parser closed or skipped, deprecated commands and chktex's rules, with
+/// their fixes. The editor shows these as the text changes.
+pub fn text_diagnostics(parse: &latex_syntax::Parse) -> Vec<Diagnostic> {
     let mut out: Vec<Diagnostic> = parse
         .diagnostics()
         .iter()
@@ -52,8 +56,113 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
             severity: Severity::Warning,
             code: "latex-syntax",
             message: d.message.clone(),
+            fix: None,
         })
         .collect();
+    let root_node = parse.syntax();
+    // Deprecated commands and chktex's rules, in text.
+    for t in root_node
+        .descendants_with_tokens()
+        .filter_map(|e| e.into_token())
+    {
+        let range = usize::from(t.text_range().start())..usize::from(t.text_range().end());
+        let in_math = t.parent_ancestors().any(|a| {
+            matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
+                || (a.kind() == K::ENVIRONMENT
+                    && latex_syntax::name(&a).is_some_and(|n| {
+                        latex_syntax::signatures::is_math(&n)
+                            || latex_syntax::signatures::is_verbatim(&n)
+                    }))
+        });
+        let info = |code: &'static str, key: &str| Diagnostic {
+            range: range.clone(),
+            severity: Severity::Info,
+            code,
+            message: crate::l10n::tr(key),
+            fix: None,
+        };
+        match t.kind() {
+            K::CONTROL_WORD => {
+                let name = &t.text()[1..];
+                if matches!(name, "bf" | "it" | "rm" | "sc" | "sf" | "tt" | "sl" | "cal") {
+                    // The LaTeX 2ε declaration that does the same.
+                    let modern = match name {
+                        "bf" => Some("\\bfseries"),
+                        "it" => Some("\\itshape"),
+                        "rm" => Some("\\rmfamily"),
+                        "sc" => Some("\\scshape"),
+                        "sf" => Some("\\sffamily"),
+                        "tt" => Some("\\ttfamily"),
+                        "sl" => Some("\\slshape"),
+                        _ => None,
+                    };
+                    out.push(Diagnostic {
+                        range: range.clone(),
+                        severity: Severity::Info,
+                        code: "latex-deprecated",
+                        message: crate::tr!("latex-deprecated-font", command = name),
+                        fix: modern.map(|m| (range.clone(), m.to_string())),
+                    });
+                }
+                if matches!(
+                    name,
+                    "ref" | "eqref" | "cite" | "cref" | "autoref" | "pageref"
+                ) && !in_math
+                    && t.prev_token().is_some_and(|p| p.kind() == K::WHITESPACE)
+                    && t.prev_token()
+                        .and_then(|p| p.prev_token())
+                        .is_some_and(|w| w.kind() == K::TEXT)
+                {
+                    let mut d = info("latex-tie", "latex-tie");
+                    d.fix = t.prev_token().map(|w| {
+                        (
+                            usize::from(w.text_range().start())..usize::from(w.text_range().end()),
+                            "~".to_string(),
+                        )
+                    });
+                    out.push(d);
+                }
+            }
+            K::DOUBLE_DOLLAR
+                if t.parent()
+                    .and_then(|p| p.children_with_tokens().next())
+                    .is_some_and(|f| f.as_token() == Some(&t)) =>
+            {
+                let mut d = info("latex-deprecated", "latex-double-dollar");
+                // `\[…\]` for `$$…$$`.
+                d.fix = t.parent().and_then(|m| {
+                    let r = usize::from(m.text_range().start())..usize::from(m.text_range().end());
+                    let src = m.text().to_string();
+                    let body = src.strip_prefix("$$")?.strip_suffix("$$")?;
+                    Some((r, format!("\\[{body}\\]")))
+                });
+                out.push(d);
+            }
+            K::TEXT if !in_math => {
+                let s = t.text();
+                if let Some(i) = s.find("...") {
+                    let mut d = info("latex-ellipsis", "latex-ellipsis");
+                    let at = range.start + i;
+                    d.range = at..at + 3;
+                    // `\\ldots{}`: the braces keep the space or letter after it.
+                    d.fix = Some((d.range.clone(), "\\ldots{}".to_string()));
+                    out.push(d);
+                }
+                if s.contains('"') {
+                    out.push(info("latex-quotes", "latex-quotes"));
+                }
+            }
+            _ => {}
+        }
+    }
+    out.sort_by_key(|d| (d.range.start, d.range.end));
+    out
+}
+
+/// The diagnostics of the LaTeX file `path` with text `text`, in order.
+pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
+    let parse = latex_syntax::parse(text);
+    let mut out: Vec<Diagnostic> = Vec::new();
     // The project it belongs to, for labels and citations in other files.
     let root = find_root(path, text, &Disk, None, None);
     let project = ProjectCache::default().load(&root, &Disk);
@@ -73,6 +182,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                 severity: Severity::Warning,
                 code: "latex-duplicate-label",
                 message: crate::tr!("latex-duplicate-label", key = l.name.as_str()),
+                fix: None,
             });
         }
     }
@@ -84,6 +194,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                     severity: Severity::Warning,
                     code: "latex-undefined-reference",
                     message: crate::tr!("latex-unknown-label", key = k.as_str()),
+                    fix: None,
                 });
             }
         }
@@ -108,6 +219,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                         file = f.display().to_string(),
                         error = e.clone()
                     ),
+                    fix: None,
                 });
             }
         }
@@ -131,6 +243,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                             severity: Severity::Info,
                             code: "cite-unused-entry",
                             message: crate::tr!("cite-unused-entry", key = e.key.as_str()),
+                            fix: None,
                         });
                     }
                 }
@@ -145,6 +258,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                             severity: Severity::Warning,
                             code: "cite-unknown-key",
                             message: crate::tr!("cite-unknown-key", key = k.as_str()),
+                            fix: None,
                         });
                     }
                 }
@@ -161,6 +275,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
             severity: Severity::Warning,
             code: "latex-missing-file",
             message: crate::tr!("latex-missing-file", file = i.target.as_str()),
+            fix: None,
         });
     }
     let root_node = parse.syntax();
@@ -186,72 +301,12 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                     severity: Severity::Warning,
                     code: "latex-missing-picture",
                     message: crate::tr!("latex-missing-picture", file = name.as_str()),
+                    fix: None,
                 });
             }
         }
     }
-    // Deprecated commands and chktex's rules, in text.
-    for t in root_node
-        .descendants_with_tokens()
-        .filter_map(|e| e.into_token())
-    {
-        let range = usize::from(t.text_range().start())..usize::from(t.text_range().end());
-        let in_math = t.parent_ancestors().any(|a| {
-            matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
-                || (a.kind() == K::ENVIRONMENT
-                    && latex_syntax::name(&a).is_some_and(|n| {
-                        latex_syntax::signatures::is_math(&n)
-                            || latex_syntax::signatures::is_verbatim(&n)
-                    }))
-        });
-        let info = |code: &'static str, key: &str| Diagnostic {
-            range: range.clone(),
-            severity: Severity::Info,
-            code,
-            message: crate::l10n::tr(key),
-        };
-        match t.kind() {
-            K::CONTROL_WORD => {
-                let name = &t.text()[1..];
-                if matches!(name, "bf" | "it" | "rm" | "sc" | "sf" | "tt" | "sl" | "cal") {
-                    out.push(Diagnostic {
-                        range: range.clone(),
-                        severity: Severity::Info,
-                        code: "latex-deprecated",
-                        message: crate::tr!("latex-deprecated-font", command = name),
-                    });
-                }
-                if matches!(
-                    name,
-                    "ref" | "eqref" | "cite" | "cref" | "autoref" | "pageref"
-                ) && !in_math
-                    && t.prev_token().is_some_and(|p| p.kind() == K::WHITESPACE)
-                    && t.prev_token()
-                        .and_then(|p| p.prev_token())
-                        .is_some_and(|w| w.kind() == K::TEXT)
-                {
-                    out.push(info("latex-tie", "latex-tie"));
-                }
-            }
-            K::DOUBLE_DOLLAR
-                if t.parent()
-                    .and_then(|p| p.children_with_tokens().next())
-                    .is_some_and(|f| f.as_token() == Some(&t)) =>
-            {
-                out.push(info("latex-deprecated", "latex-double-dollar"));
-            }
-            K::TEXT if !in_math => {
-                let s = t.text();
-                if s.contains("...") {
-                    out.push(info("latex-ellipsis", "latex-ellipsis"));
-                }
-                if s.contains('"') {
-                    out.push(info("latex-quotes", "latex-quotes"));
-                }
-            }
-            _ => {}
-        }
-    }
+    out.extend(text_diagnostics(&parse));
     out.sort_by_key(|d| (d.range.start, d.range.end));
     out
 }
@@ -384,6 +439,25 @@ mod tests {
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fixes() {
+        let text = "{\\bf x} see \\ref{a} and so... on $$y$$\n";
+        let p = latex_syntax::parse(text);
+        let mut fixed = text.to_string();
+        let mut fixes: Vec<(Range<usize>, String)> = text_diagnostics(&p)
+            .into_iter()
+            .filter_map(|d| d.fix)
+            .collect();
+        fixes.sort_by_key(|f| std::cmp::Reverse(f.0.start));
+        for (r, t) in fixes {
+            fixed.replace_range(r, &t);
+        }
+        assert_eq!(
+            fixed,
+            "{\\bfseries x} see~\\ref{a} and so\\ldots{} on \\[y\\]\n"
+        );
     }
 
     #[test]

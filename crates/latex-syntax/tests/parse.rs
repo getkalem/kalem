@@ -424,3 +424,18 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn tokens_of_an_empty_text() {
+    let p = parse("");
+    let root = p.syntax();
+    for pos in [0, 1, 5] {
+        assert!(latex_syntax::token_at(&root, pos).is_none());
+        assert!(latex_syntax::token_before(&root, pos).is_none());
+    }
+    let p = parse("a");
+    let root = p.syntax();
+    assert!(latex_syntax::token_at(&root, 0).is_some());
+    assert!(latex_syntax::token_before(&root, 0).is_some());
+    assert!(latex_syntax::token_at(&root, 9).is_some());
+}
