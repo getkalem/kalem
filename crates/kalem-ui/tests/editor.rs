@@ -1886,6 +1886,17 @@ fn editing_properties(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn macros_and_snippets(cx: &mut TestAppContext) {
+    let text = "#+MACRO: v version $1\nThis is {{{v(2)}}} @@html:<br>@@ ok.\nend\n";
+    let (e, cx) = open(text, cx);
+    at(&e, text.len() - 1, cx);
+    let shown = e.read_with(cx, |e, _| {
+        e.painted.borrow().get(&1).map(|p| p.view.display())
+    });
+    assert_eq!(shown.as_deref(), Some("This is version 2 html:<br> ok."));
+}
+
+#[gpui::test]
 fn captions_names_and_references(cx: &mut TestAppContext) {
     let (e, cx) = open("#+CAPTION: Old\n| 1 |\n\nSee \n", cx);
     at(&e, 16, cx);

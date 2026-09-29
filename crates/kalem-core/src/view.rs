@@ -58,6 +58,8 @@ pub struct Style {
     pub footnote: bool,
     /// A target or radio target.
     pub target: bool,
+    /// A macro's expansion, shown in place of the macro.
+    pub expansion: bool,
     /// A statistics cookie.
     pub cookie: bool,
     /// Kalem's own formatting: font, size, colors (`crate::rich`).
@@ -375,6 +377,7 @@ const HIDABLE: &[SyntaxKind] = &[
     TARGET,
     FOOTNOTE_REFERENCE,
     INLINE_SRC_BLOCK,
+    EXPORT_SNIPPET,
 ];
 
 /// The body of a LaTeX fragment: `$x$`, `$$x$$`, `\(x\)` or `\[x\]`.
@@ -458,6 +461,44 @@ struct LineBuilder<'a> {
     hide_blank: bool,
     /// Kalem's formatted spans of the line's element.
     spans: Vec<(Range<usize>, crate::rich::CharFormat)>,
+    /// The document, for macro expansions.
+    root: &'a SyntaxNode,
+}
+
+/// Macro expansions by macro start.
+type Expansions = std::rc::Rc<std::collections::HashMap<usize, String>>;
+
+thread_local! {
+    /// The macro expansions of the last documents shown, by tree.
+    static EXPANSIONS: std::cell::RefCell<Vec<(SyntaxNode, Expansions)>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// What the macros of the document `root` expand to, by macro start
+/// (undefined and empty ones left out); computed once for each tree.
+fn expansions(root: &SyntaxNode) -> Expansions {
+    let same = |a: &SyntaxNode| std::ptr::eq(a.green(), root.green());
+    if let Some(e) = EXPANSIONS.with(|c| {
+        c.borrow()
+            .iter()
+            .find(|(r, _)| same(r))
+            .map(|(_, e)| e.clone())
+    }) {
+        return e;
+    }
+    let now = jiff::Zoned::now();
+    let map: std::collections::HashMap<usize, String> =
+        org_export::macros::expansions(root, None, &now)
+            .into_iter()
+            .filter_map(|(r, v)| Some((r.start, v.filter(|v| !v.trim().is_empty())?)))
+            .collect();
+    let e = std::rc::Rc::new(map);
+    EXPANSIONS.with(|c| {
+        let mut c = c.borrow_mut();
+        c.insert(0, (root.clone(), e.clone()));
+        c.truncate(4);
+    });
+    e
 }
 
 /// One step right (or left) of `pos` over the text the rich view shows,
@@ -604,6 +645,7 @@ pub fn line_view_with(
         },
         hide_blank: false,
         spans: Vec::new(),
+        root,
     };
     let len = end(root);
     if line.start >= line.end || line.start >= len {
@@ -699,6 +741,31 @@ impl LineBuilder<'_> {
                 let r = reveal_range(&a);
                 if s == r.start {
                     self.push(r, PLACEHOLDER.into(), false, Style::default(), Some(w));
+                }
+                self.hide_blank = false;
+                return;
+            }
+        }
+        // A macro away from the cursor: what it expands to.
+        if let Some(a) = tok
+            .parent_ancestors()
+            .find(|a| a.kind() == MACRO && !blank_of.contains(a))
+            && !self.shows(&a)
+        {
+            let r = reveal_range(&a);
+            if let Some(v) = expansions(self.root).get(&r.start) {
+                if s == r.start {
+                    let style = Style {
+                        expansion: true,
+                        ..Style::default()
+                    };
+                    self.push(
+                        r,
+                        v.split_whitespace().collect::<Vec<_>>().join(" "),
+                        false,
+                        style,
+                        None,
+                    );
                 }
                 self.hide_blank = false;
                 return;
@@ -845,6 +912,10 @@ impl LineBuilder<'_> {
                     hidden = true;
                 }
             }
+            // An export snippet's contents, as code.
+            CODE_TEXT if parent.as_ref().is_some_and(|p| p.kind() == EXPORT_SNIPPET) => {
+                style.code = true;
+            }
             CODE_TEXT => {
                 // A link's target is hidden when the link has a description.
                 if let Some(p) = &parent
@@ -866,6 +937,15 @@ impl LineBuilder<'_> {
                         ast::AstNode::cast(p.clone()).and_then(|e: ast::Entity| e.utf8())
                 {
                     shown = Some(u.to_string());
+                }
+                // An export snippet's back-end, dimmed, before its contents.
+                if let Some(p) = &parent
+                    && p.kind() == EXPORT_SNIPPET
+                {
+                    style.dim = true;
+                    if !self.shows(p) {
+                        shown = Some(format!("{text}:"));
+                    }
                 }
                 if let Some(p) = &parent
                     && p.kind() == FOOTNOTE_REFERENCE
@@ -1756,6 +1836,32 @@ mod tests {
         // The blank after an object does not reveal it.
         assert_eq!(show(t, 1, Some(19 + 12)), "Some bold and a link and α.");
         assert_eq!(show(t, 1, Some(19 + 11)), "Some *bold* and a link and α.");
+    }
+
+    #[test]
+    fn macros_snippets_and_targets() {
+        let t = "#+TITLE: Doc\n#+MACRO: v 1.$1\n{{{title}}} {{{v(2)}}} {{{nope}}} @@html:<b>@@ <<here>> <<<Radio>>> and Radio.\n";
+        let at = t.find("{{{title").unwrap();
+        assert_eq!(
+            show(t, 2, None),
+            "Doc 1.2 {{{nope}}} html:<b> here Radio and Radio."
+        );
+        // At the cursor, the macro and the snippet as written.
+        assert_eq!(
+            show(t, 2, Some(at + 3)),
+            "{{{title}}} 1.2 {{{nope}}} html:<b> here Radio and Radio."
+        );
+        let snippet = t.find("@@html").unwrap();
+        assert!(show(t, 2, Some(snippet + 3)).contains("@@html:<b>@@"));
+        let p = org_syntax::parse(t);
+        let v = line_view(&p.syntax(), p.context(), lines(t)[2].clone(), None);
+        let doc = v.runs.iter().find(|r| r.text == "Doc").unwrap();
+        assert!(doc.style.expansion && !doc.verbatim);
+        assert_eq!(doc.src, at..at + "{{{title}}}".len());
+        let b = v.runs.iter().find(|r| r.text == "<b>").unwrap();
+        assert!(b.style.code);
+        let radio = v.runs.iter().rfind(|r| r.text == "Radio").unwrap();
+        assert!(radio.style.link);
     }
 
     #[test]

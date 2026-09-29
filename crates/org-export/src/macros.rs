@@ -240,9 +240,19 @@ fn next_macro(text: &str, from: usize, parsed: &[&str]) -> Option<Found> {
 /// the file before the first headline.
 fn property_at(text: &str, at: usize, name: &str) -> Option<String> {
     let parse = org_syntax::parse(text);
-    let root = parse.syntax();
+    property_in(&parse.syntax(), &parse.keywords(), at, name)
+}
+
+/// [`property_at`] in the tree `root`, with its `keywords`.
+fn property_in(
+    root: &SyntaxNode,
+    keywords: &[(String, String)],
+    at: usize,
+    name: &str,
+) -> Option<String> {
+    let len = usize::from(root.text_range().end());
     let tok = root
-        .token_at_offset(TextSize::from(at.min(text.len()) as u32))
+        .token_at_offset(TextSize::from(at.min(len) as u32))
         .right_biased()?;
     let headline = tok.parent_ancestors().find(|a| a.kind() == HEADLINE);
     match headline {
@@ -253,15 +263,76 @@ fn property_at(text: &str, at: usize, name: &str) -> Option<String> {
                 .find(|(k, _)| k.eq_ignore_ascii_case(name))
                 .map(|(_, v)| v)
         }
-        None => parse
-            .keywords()
-            .into_iter()
+        None => keywords
+            .iter()
             .filter(|(k, _)| k.eq_ignore_ascii_case("PROPERTY"))
             .filter_map(|(_, v)| {
                 let (k, val) = v.split_once(char::is_whitespace)?;
                 k.eq_ignore_ascii_case(name).then(|| val.trim().to_string())
             })
             .next_back(),
+    }
+}
+
+/// What the macro `key` called with `args` expands to (`None` when it is
+/// undefined), `property` giving the entry's properties.
+fn value_of(
+    templates: &HashMap<String, Template>,
+    keywords: &[(String, String)],
+    counters: &mut HashMap<String, i64>,
+    key: &str,
+    args: &[String],
+    now: &jiff::Zoned,
+    property: impl FnOnce(&str) -> Option<String>,
+) -> Option<String> {
+    match templates.get(key) {
+        Some(Template::Text(t)) => Some(fill(t, args)),
+        Some(Template::Keyword) => Some(
+            keyword_value(
+                keywords,
+                args.first().map(String::as_str).unwrap_or(""),
+                true,
+            )
+            .unwrap_or_default(),
+        ),
+        Some(Template::Counter) => {
+            let name = args
+                .first()
+                .map(|s| s.trim().to_string())
+                .unwrap_or_default();
+            let action = args
+                .get(1)
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+            let cur = counters.get(&name).copied();
+            let v = match action.as_deref() {
+                None => cur.unwrap_or(0) + 1,
+                Some("-") => cur.unwrap_or(1),
+                Some(a) if a.chars().all(|c| c.is_ascii_digit()) => a.parse().unwrap_or(1),
+                Some(_) => 1,
+            };
+            counters.insert(name, v);
+            Some(v.to_string())
+        }
+        Some(Template::Property) => {
+            let name = args.first().cloned().unwrap_or_default();
+            Some(property(&name).unwrap_or_default())
+        }
+        Some(Template::Time) => Some(format_time(
+            args.first().map(String::as_str).unwrap_or(""),
+            now,
+        )),
+        Some(Template::ModificationTime(t)) => {
+            let z = t
+                .map(|t| t.to_zoned(now.time_zone().clone()))
+                .unwrap_or_else(|| now.clone());
+            Some(format_time(
+                args.first().map(String::as_str).unwrap_or(""),
+                &z,
+            ))
+        }
+        Some(Template::Eval) => Some(String::new()),
+        None => None,
     }
 }
 
@@ -299,57 +370,15 @@ pub fn expand_tracking(
     let mut text = text.to_string();
     let mut pos = 0;
     while let Some(m) = next_macro(&text, pos, parsed) {
-        let value = match templates.get(&m.key) {
-            Some(Template::Text(t)) => Some(fill(t, &m.args)),
-            Some(Template::Keyword) => Some(
-                keyword_value(
-                    &keywords,
-                    m.args.first().map(String::as_str).unwrap_or(""),
-                    true,
-                )
-                .unwrap_or_default(),
-            ),
-            Some(Template::Counter) => {
-                let name = m
-                    .args
-                    .first()
-                    .map(|s| s.trim().to_string())
-                    .unwrap_or_default();
-                let action = m
-                    .args
-                    .get(1)
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty());
-                let cur = counters.get(&name).copied();
-                let v = match action.as_deref() {
-                    None => cur.unwrap_or(0) + 1,
-                    Some("-") => cur.unwrap_or(1),
-                    Some(a) if a.chars().all(|c| c.is_ascii_digit()) => a.parse().unwrap_or(1),
-                    Some(_) => 1,
-                };
-                counters.insert(name, v);
-                Some(v.to_string())
-            }
-            Some(Template::Property) => {
-                let name = m.args.first().cloned().unwrap_or_default();
-                Some(property_at(&text, m.start, &name).unwrap_or_default())
-            }
-            Some(Template::Time) => Some(format_time(
-                m.args.first().map(String::as_str).unwrap_or(""),
-                now,
-            )),
-            Some(Template::ModificationTime(t)) => {
-                let z = t
-                    .map(|t| t.to_zoned(now.time_zone().clone()))
-                    .unwrap_or_else(|| now.clone());
-                Some(format_time(
-                    m.args.first().map(String::as_str).unwrap_or(""),
-                    &z,
-                ))
-            }
-            Some(Template::Eval) => Some(String::new()),
-            None => None,
-        };
+        let value = value_of(
+            &templates,
+            &keywords,
+            &mut counters,
+            &m.key,
+            &m.args,
+            now,
+            |name| property_at(&text, m.start, name),
+        );
         match value {
             Some(v) => {
                 let sig = (m.start, m.key.clone(), m.args.clone());
@@ -373,6 +402,77 @@ pub fn expand_tracking(
     Ok(text)
 }
 
+/// What each macro of the document `root` expands to, for showing it:
+/// its range (without trailing blanks) and its expansion with nested
+/// macros expanded, or `None` when it is undefined or does not end.
+/// Keyword values are left alone, and definitions come from the document
+/// itself, not its setup files.
+pub fn expansions(
+    root: &SyntaxNode,
+    file: Option<&Path>,
+    now: &jiff::Zoned,
+) -> Vec<(std::ops::Range<usize>, Option<String>)> {
+    let mut keywords: Vec<(String, String)> = Vec::new();
+    let mut stack = vec![root.clone()];
+    while let Some(n) = stack.pop() {
+        if let Some(k) = <ast::Keyword as ast::AstNode>::cast(n.clone()) {
+            keywords.push((k.key(), k.value()));
+            continue;
+        }
+        let children: Vec<SyntaxNode> = n
+            .children()
+            .filter(|c| c.kind() == KEYWORD || c.kind().is_greater_element())
+            .collect();
+        stack.extend(children.into_iter().rev());
+    }
+    let templates = templates(&keywords, &keywords, file);
+    let mut counters: HashMap<String, i64> = HashMap::new();
+    let mut out = Vec::new();
+    for n in root.descendants().filter(|n| n.kind() == MACRO) {
+        if in_commented_heading(&n) {
+            continue;
+        }
+        let Some(mac) = <ast::Macro as ast::AstNode>::cast(n.clone()) else {
+            continue;
+        };
+        let start = usize::from(n.text_range().start());
+        let end = usize::from(n.text_range().end()) - ast::post_blank(&n);
+        let property = |name: &str| property_in(root, &keywords, start, name);
+        let mut v = value_of(
+            &templates,
+            &keywords,
+            &mut counters,
+            &mac.key(),
+            &mac.args(),
+            now,
+            property,
+        );
+        // Macros in the expansion, a few levels deep.
+        let mut steps = 0;
+        while let Some(t) = v.as_ref()
+            && let Some(i) = t.find("{{{")
+        {
+            steps += 1;
+            let inner = parse_macro_at(t, i);
+            v = match inner {
+                Some(f) if steps <= 20 => value_of(
+                    &templates,
+                    &keywords,
+                    &mut counters,
+                    &f.key,
+                    &f.args,
+                    now,
+                    |name| property_in(root, &keywords, start, name),
+                )
+                .map(|x| format!("{}{x}{}", &t[..f.start], &t[f.end..])),
+                _ => None,
+            };
+        }
+        out.push((start..end, v));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -394,5 +494,25 @@ mod tests {
         );
         let t = "* H\n:PROPERTIES:\n:P: v\n:END:\n{{{property(P)}}}\n";
         assert!(expand(t, &[], None, &now()).unwrap().ends_with("\nv\n"));
+    }
+
+    #[test]
+    fn expansions_for_display() {
+        let t = "#+TITLE: T\n#+MACRO: two {{{title}}}-{{{n}}}\n#+MACRO: loop {{{loop}}}\n{{{two}}} {{{nope}}} {{{n}}} {{{loop}}}\n* H\n:PROPERTIES:\n:P: v\n:END:\n{{{property(P)}}}\n";
+        let root = org_syntax::parse(t).syntax();
+        let shown: Vec<_> = expansions(&root, None, &now())
+            .into_iter()
+            .map(|(r, v)| (&t[r], v))
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                ("{{{two}}}", Some("T-1".to_string())),
+                ("{{{nope}}}", None),
+                ("{{{n}}}", Some("2".to_string())),
+                ("{{{loop}}}", None),
+                ("{{{property(P)}}}", Some("v".to_string())),
+            ]
+        );
     }
 }

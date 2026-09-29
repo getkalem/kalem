@@ -1968,6 +1968,27 @@ fn editing_properties() {
 }
 
 #[test]
+fn macros_and_snippets() {
+    let text = "#+MACRO: v version $1\nThis is {{{v(2)}}} @@html:<br>@@ ok.\nend\n";
+    let mut t = with_config(text, Config::default(), (80, 10));
+    t.at(text.len() - 1);
+    assert!(
+        screen(&mut t)
+            .join("\n")
+            .contains("This is version 2 html:<br> ok."),
+        "{:?}",
+        screen(&mut t)
+    );
+    // At the cursor, as written.
+    t.at(text.find("{{{").unwrap() + 4);
+    assert!(
+        screen(&mut t).join("\n").contains("This is {{{v(2)}}}"),
+        "{:?}",
+        screen(&mut t)
+    );
+}
+
+#[test]
 fn captions_names_and_references() {
     let text = "#+CAPTION: Old\n| 1 |\n\nSee \n";
     let mut t = with_config(text, Config::default(), (80, 10));

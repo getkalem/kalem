@@ -191,6 +191,18 @@ Ctrl+K inserts a link. Typing =[[= offers the document's headings and
 targets. Ctrl-click (Cmd-click on macOS) opens a link: web links in the
 browser, file links in Kalem or their application, internal links jump.
 
+** Macros, export snippets and targets
+
+Away from the cursor, a macro such as ={{{title}}}= or ={{{version(2)}}}=
+shows what the export writes in its place, in the link color and
+italic: the =#+MACRO:= definitions of the document with their =$1=
+arguments, and Org's own =title=, =author=, =date=, =email=, =keyword=,
+=property=, =n= and =time=. A macro the document does not define stays
+as written. An export snippet, =@@html:<br>@@=, shows its back-end,
+dimmed, and its contents as code. Targets (=<<here>>=) and radio targets
+(=<<<Term>>>=) hide their brackets, and every other =Term= in the text
+is a link to the radio target.
+
 ** Captions, names and cross references
 
 /Set Caption/ and /Set Name/ (Insert > Caption… and Name…) write the

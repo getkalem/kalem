@@ -164,7 +164,7 @@ pub(crate) fn style_base(s: &ViewStyle, heading: u8, caps: &Caps) -> Style {
             Modifier::DIM
         });
     }
-    if s.italic {
+    if s.italic || s.expansion {
         st = st.add_modifier(if caps.italic {
             Modifier::ITALIC
         } else {
@@ -212,7 +212,7 @@ pub(crate) fn style_base(s: &ViewStyle, heading: u8, caps: &Caps) -> Style {
     if s.priority {
         st = st.fg(Color::LightRed);
     }
-    if s.footnote || s.superscript || s.subscript {
+    if s.footnote || s.superscript || s.subscript || s.expansion {
         st = st.fg(Color::LightCyan);
     }
     st
@@ -232,7 +232,7 @@ fn themed(
     if s.code {
         st = st.bg(code_bg(caps));
     }
-    if s.link || s.footnote || s.superscript || s.subscript {
+    if s.link || s.footnote || s.superscript || s.subscript || s.expansion {
         st = st.fg(rgb(t.link));
     }
     if s.link {

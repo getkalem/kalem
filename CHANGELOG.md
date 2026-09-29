@@ -125,6 +125,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Export blocks show their back-end and are colored in its language, comment blocks are dimmed, and Insert Drawer (at the cursor or around the selection, as `org-insert-drawer`, checked on 163 cases) is in both editors.
 - `#+TOC: headlines N` (and `local`) shows the table of contents in both editors, numbered as the export numbers it, each row leading to its heading.
 - Set Caption, Set Name and Insert Cross Reference in both editors: `#+CAPTION:` and `#+NAME:` of the element at the cursor, and a picker over named elements, headings and targets; `[[` completion offers named elements.
+- Macros show their expansion away from the cursor in both editors (`#+MACRO:` definitions and the built-in ones), and export snippets their back-end and contents; `org_export::macros::expansions` computes them from the tree in one pass.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed
