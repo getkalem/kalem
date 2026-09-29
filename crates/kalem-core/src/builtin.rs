@@ -204,6 +204,12 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "latex.section.setLevel",
             object(&[("level", "integer", true)]),
         ),
+        ("latex.insert.figure", object(&[("path", "string", false)])),
+        (
+            "latex.insert.table",
+            object(&[("columns", "integer", false), ("rows", "integer", false)]),
+        ),
+        ("latex.insert.citation", object(&[("key", "string", false)])),
         ("view.setMode", {
             let mut s = object(&[("mode", "string", true)]);
             s["properties"]["mode"]["enum"] = serde_json::json!(["org", "markdown", "csv", "text"]);
@@ -1185,9 +1191,16 @@ fn latex_commands() -> Vec<Command> {
         Ok(())
     }
     fn indent(ctx: &mut EditorContext<'_>) -> CommandResult {
-        let now = ctx.now;
-        ctx.doc()?.indent(false, now);
-        Ok(())
+        // In math, Tab goes to the next empty argument.
+        latex_edit_with(
+            ctx,
+            |t, s, r, _| crate::latex_edit::next_stop(t, s.head, r),
+            Some(|ctx| {
+                let now = ctx.now;
+                ctx.doc()?.indent(false, now);
+                Ok(())
+            }),
+        )
     }
     fn outdent(ctx: &mut EditorContext<'_>) -> CommandResult {
         let now = ctx.now;
@@ -1274,7 +1287,207 @@ fn latex_commands() -> Vec<Command> {
             &["alt+shift+down"],
             |ctx, _| latex_edit_with(ctx, |t, s, r, _| e::move_section(t, s.head, r, true), None),
         ),
+        c("latex.math.toggleDisplay", "Display Math", &[], |ctx, _| {
+            latex_edit_with(ctx, |t, s, r, _| e::toggle_display(t, s.head, r), None)
+        }),
+        c(
+            "latex.math.toggleNumbering",
+            "Number Equation",
+            &[],
+            |ctx, _| latex_edit_with(ctx, |_, s, r, _| e::toggle_numbering(s.head, r), None),
+        ),
+        c("latex.insert.figure", "Insert Figure", &[], |ctx, args| {
+            let path = args
+                .get("path")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            latex_insert(ctx, |_, indent, _| {
+                let stem = std::path::Path::new(&path)
+                    .file_stem()
+                    .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+                let head = format!(
+                    "{indent}\\begin{{figure}}[htbp]\n{indent}  \\centering\n{indent}  \\includegraphics[width=0.8\\linewidth]{{{path}}}\n{indent}  \\caption{{"
+                );
+                let tail =
+                    format!("}}\n{indent}  \\label{{fig:{stem}}}\n{indent}\\end{{figure}}\n");
+                (format!("{head}{tail}"), head.len())
+            })
+        }),
+        c("latex.insert.table", "Insert Table", &[], |ctx, args| {
+            let columns = args
+                .get("columns")
+                .and_then(Value::as_u64)
+                .unwrap_or(3)
+                .clamp(1, 26) as usize;
+            let rows = args
+                .get("rows")
+                .and_then(Value::as_u64)
+                .unwrap_or(2)
+                .clamp(1, 200) as usize;
+            latex_insert(ctx, move |_, indent, model| {
+                // booktabs' rules when the document loads it.
+                let booktabs = model.packages.iter().any(|p| p.name == "booktabs");
+                let (top, mid, bottom) = if booktabs {
+                    ("\\toprule", "\\midrule", "\\bottomrule")
+                } else {
+                    ("\\hline", "\\hline", "\\hline")
+                };
+                let row = format!("{indent}    {} \\\\\n", vec![""; columns].join(" & "));
+                let head = format!(
+                    "{indent}\\begin{{table}}[htbp]\n{indent}  \\centering\n{indent}  \\caption{{"
+                );
+                let mut t = head.clone();
+                t.push_str(&format!(
+                    "}}\n{indent}  \\label{{tab:}}\n{indent}  \\begin{{tabular}}{{{}}}\n{indent}    {top}\n",
+                    "l".repeat(columns)
+                ));
+                t.push_str(&row);
+                t.push_str(&format!("{indent}    {mid}\n"));
+                for _ in 1..rows {
+                    t.push_str(&row);
+                }
+                t.push_str(&format!(
+                    "{indent}    {bottom}\n{indent}  \\end{{tabular}}\n{indent}\\end{{table}}\n"
+                ));
+                (t, head.len())
+            })
+        }),
+        c("latex.insert.equation", "Insert Equation", &[], |ctx, _| {
+            latex_insert(ctx, |_, indent, _| {
+                let head = format!("{indent}\\begin{{equation}}\n{indent}  ");
+                (
+                    format!("{head}\n{indent}  \\label{{eq:}}\n{indent}\\end{{equation}}\n"),
+                    head.len(),
+                )
+            })
+        }),
+        c(
+            "latex.insert.citation",
+            "Insert Citation",
+            &[],
+            latex_insert_citation,
+        ),
     ]
+}
+
+/// Inserts a citation of `key` (in a `\cite{…}` at the cursor, one key
+/// more); without a key, the entries of the bibliography to choose from.
+fn latex_insert_citation(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    let key = args.get("key").and_then(Value::as_str).map(str::to_string);
+    let now = ctx.now;
+    let d = ctx.doc()?;
+    let Some(l) = d.latex() else {
+        return Err(CommandError::new(crate::tr!("msg-not-latex")));
+    };
+    let Some(key) = key else {
+        let model = l.model();
+        let base = d
+            .meta
+            .path
+            .as_deref()
+            .and_then(std::path::Path::parent)
+            .map(std::path::Path::to_path_buf);
+        let files: Vec<std::path::PathBuf> = model
+            .bibliography
+            .iter()
+            .flat_map(|b| b.files.iter())
+            .map(|f| {
+                base.as_ref()
+                    .map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f))
+            })
+            .collect();
+        let bib = crate::cite::load(&files);
+        let items: Vec<crate::palette::PaletteItem> = bib
+            .entries()
+            .iter()
+            .map(|e| crate::palette::PaletteItem {
+                id: crate::palette::invocation(
+                    "latex.insert.citation",
+                    &serde_json::json!({ "key": e.key }),
+                ),
+                title: format!("{}  {}", e.key, crate::cite::describe(e)),
+                category: e.kind.to_lowercase(),
+                keys: String::new(),
+                also: String::new(),
+            })
+            .collect();
+        if items.is_empty() {
+            return Err(CommandError::new(crate::tr!("msg-latex-no-bibliography")));
+        }
+        return request(ctx, Request::Choose(items));
+    };
+    let pos = d.selection.head;
+    let text = d.text().as_str();
+    let root = l.parse().syntax();
+    let inside = (|| {
+        let t = root
+            .token_at_offset(latex_syntax::TextSize::from(pos as u32))
+            .left_biased()?;
+        let cmd = t.parent_ancestors().find(|a| {
+            a.kind() == latex_syntax::SyntaxKind::COMMAND
+                && latex_syntax::name(a)
+                    .is_some_and(|n| latex_syntax::signatures::command(&n) == "*oom")
+        })?;
+        let g = cmd
+            .children()
+            .find(|c| c.kind() == latex_syntax::SyntaxKind::GROUP)?;
+        let end = usize::from(g.text_range().end());
+        text[..end].ends_with('}').then_some(end - 1)
+    })();
+    let (at, insert) = match inside {
+        Some(end) => (end, format!(",{key}")),
+        None => (pos, format!("\\cite{{{key}}}")),
+    };
+    let mut tx = org_edit::Transaction::new("Insert Citation");
+    tx.replace(at..at, insert.clone())
+        .map_err(|e| CommandError::new(e.to_string()))?;
+    let tx = tx.select(org_edit::Selection::caret(
+        at + insert.len() + usize::from(inside.is_some()),
+    ));
+    d.apply(&tx, org_edit::ChangeKind::Command, now);
+    Ok(())
+}
+
+/// Inserts what `make` gives (text and the cursor's place in it) on the
+/// cursor's line when it is empty, else on a line of its own after it,
+/// with the line's indentation.
+fn latex_insert(
+    ctx: &mut EditorContext<'_>,
+    make: impl FnOnce(&str, &str, &latex_model::Model) -> (String, usize),
+) -> CommandResult {
+    let now = ctx.now;
+    let d = ctx.doc()?;
+    let Some(l) = d.latex() else {
+        return Err(CommandError::new(crate::tr!("msg-not-latex")));
+    };
+    let model = l.model();
+    let text = d.text().as_str();
+    let pos = d.selection.head;
+    let line_start = text[..pos].rfind('\n').map_or(0, |i| i + 1);
+    let line_end = text[pos..].find('\n').map_or(text.len(), |i| pos + i);
+    let line = &text[line_start..line_end];
+    let indent: String = line
+        .chars()
+        .take_while(|c| *c == ' ' || *c == '\t')
+        .collect();
+    let (block, cursor) = make(text, &indent, &model);
+    let (replace, lead) = if line.trim().is_empty() {
+        (line_start..(line_end + 1).min(text.len()), String::new())
+    } else if line_end == text.len() {
+        (line_end..line_end, "\n".to_string())
+    } else {
+        (line_end + 1..line_end + 1, String::new())
+    };
+    let insert = format!("{lead}{block}");
+    let mut tx = org_edit::Transaction::new("Insert");
+    tx.replace(replace.clone(), insert)
+        .map_err(|e| CommandError::new(e.to_string()))?;
+    let tx = tx.select(org_edit::Selection::caret(
+        replace.start + lead.len() + cursor,
+    ));
+    d.apply(&tx, org_edit::ChangeKind::Command, now);
+    Ok(())
 }
 
 /// The commands of CSV documents (§2.6.2).

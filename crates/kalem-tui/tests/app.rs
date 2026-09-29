@@ -2591,3 +2591,30 @@ fn latex_completion() {
     let s = screen(&mut t).join("\n");
     assert!(s.contains("sec:a"), "{s}");
 }
+
+#[test]
+fn latex_math_and_inserts() {
+    let text = "\\usepackage{booktabs}\nLet \n";
+    let mut t = with_file(text, "m.tex", Config::default(), (60, 20));
+    t.at(text.find("Let ").unwrap() + 4);
+    t.typ("$x$ ok");
+    assert!(
+        t.app.doc.text().as_str().contains("Let $x$ ok\n"),
+        "{}",
+        t.app.doc.text().as_str()
+    );
+    t.app.run_command(
+        "latex.insert.table",
+        serde_json::json!({"columns": 2, "rows": 1}),
+    );
+    let s = t.app.doc.text().as_str().to_string();
+    assert!(
+        s.contains(
+            "\\begin{tabular}{ll}\n    \\toprule\n     &  \\\\\n    \\midrule\n    \\bottomrule"
+        ),
+        "{s}"
+    );
+    t.app
+        .run_command("latex.insert.citation", serde_json::json!({"key": "knuth"}));
+    assert!(t.app.doc.text().as_str().contains("\\cite{knuth}"));
+}
