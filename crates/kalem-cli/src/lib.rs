@@ -59,6 +59,12 @@ enum Command {
         #[arg(long)]
         deny_warnings: bool,
     },
+    /// Print the completions at a place in a file, one a line: label,
+    /// kind and the completer (`kalem complete notes.org:12:5`).
+    Complete {
+        /// `FILE:LINE:COLUMN` (1-based; the column in characters).
+        place: String,
+    },
     /// Align tables and tags, and blank lines as each file has them.
     Fmt {
         /// Org files to format in place.
@@ -233,6 +239,7 @@ where
             format: DumpFormat::EmacsJson,
         } => commands::dump(&file),
         Command::Fmt { files, check } => commands::fmt(&files, check),
+        Command::Complete { place } => commands::complete(&place),
         Command::Export {
             files,
             to,

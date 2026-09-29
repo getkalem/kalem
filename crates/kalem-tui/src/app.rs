@@ -145,8 +145,10 @@ pub struct App {
     last_command: Option<String>,
     /// Escape sequences for the terminal (OSC 52), written between frames.
     output: Vec<String>,
-    /// The open completion menu and its selected item.
-    completion: Option<(kalem_core::input::Completion, usize)>,
+    /// The open completion menu.
+    completion: Option<kalem_core::completers::Menu>,
+    /// The completers (built-ins, and plugins').
+    completers: kalem_core::completers::Registry,
     /// The command palette, when open.
     palette: Option<Palette>,
     /// The find bar, when open.
@@ -409,6 +411,7 @@ impl App {
             last_command: None,
             output: Vec::new(),
             completion: None,
+            completers: kalem_core::completers::Registry::with_builtins(),
             palette: None,
             find: None,
             last_query: String::new(),
@@ -1349,6 +1352,7 @@ impl App {
                 self.clipboard.text = t.clone();
                 self.write_terminal(&osc52(&t));
             }
+            Request::Complete => self.request_completion(),
             // The terminal's clipboard takes plain text only.
             Request::CopyRich { text, .. } => {
                 self.clipboard.text = text.clone();
@@ -2107,48 +2111,54 @@ impl App {
 
     /// Opens, updates or closes the completion menu after typing.
     fn update_completion(&mut self) {
-        let head = self.doc.selection.head;
-        let text = self.doc.text();
-        let line = text.line_range(text.line_of(head));
-        let before = &text.as_str()[line.start..head.max(line.start)];
-        let trigger = kalem_core::input::completion_trigger(before);
-        if !trigger || self.doc.meta.mode != DocumentMode::Org {
-            self.completion = None;
-            return;
+        self.completion = kalem_core::completers::Menu::update(
+            self.completion.take(),
+            &self.completers,
+            &mut self.doc,
+            false,
+        );
+        self.dirty = true;
+    }
+
+    /// Opens the completion menu on request (Alt+/).
+    fn request_completion(&mut self) {
+        self.completion = kalem_core::completers::Menu::update(
+            self.completion.take(),
+            &self.completers,
+            &mut self.doc,
+            true,
+        );
+        if self.completion.is_none() {
+            self.message(tr!("msg-no-completions"), false);
         }
-        let selected = self.completion.as_ref().map_or(0, |(_, i)| *i);
-        self.completion = self
-            .doc
-            .model()
-            .and_then(|m| kalem_core::input::completion(&m, head))
-            .map(|c| {
-                let i = selected.min(c.items.len().saturating_sub(1));
-                (c, i)
-            });
         self.dirty = true;
     }
 
     /// Keys for the completion menu; `false` for keys it leaves alone.
     fn completion_key(&mut self, k: &KeyEvent) -> bool {
-        let Some((c, i)) = &mut self.completion else {
+        let Some(m) = &mut self.completion else {
             return false;
         };
         let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
-        let n = c.items.len();
         match k.code {
-            KeyCode::Down => *i = (*i + 1) % n,
-            KeyCode::Char('n') if ctrl => *i = (*i + 1) % n,
-            KeyCode::Up => *i = (*i + n - 1) % n,
-            KeyCode::Char('p') if ctrl => *i = (*i + n - 1) % n,
+            KeyCode::Down => m.step(true),
+            KeyCode::Char('n') if ctrl => m.step(true),
+            KeyCode::Up => m.step(false),
+            KeyCode::Char('p') if ctrl => m.step(false),
             KeyCode::Esc => self.completion = None,
-            KeyCode::Enter | KeyCode::Tab => {
-                let (c, item) = (c.clone(), c.items[*i].clone());
+            // Words are taken with Tab: Enter goes on writing prose.
+            KeyCode::Enter
+                if m.current()
+                    .is_some_and(|i| i.kind == kalem_core::completers::Kind::Word) =>
+            {
                 self.completion = None;
-                let head = self.doc.selection.head;
-                if let Some(m) = self.doc.model() {
-                    let tx = kalem_core::input::apply_completion(&m, head, &c, &item);
-                    self.doc
-                        .apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+                return false;
+            }
+            KeyCode::Enter | KeyCode::Tab => {
+                let item = m.current().cloned();
+                self.completion = None;
+                if let Some(item) = item {
+                    kalem_core::completers::apply(&mut self.doc, &item, Instant::now());
                 }
                 self.after_change(true);
             }
@@ -2161,14 +2171,10 @@ impl App {
     /// Draws the completion menu, or the formula preview, below the cursor.
     fn draw_popup(&self, buf: &mut ratatui::buffer::Buffer, area: Rect, cursor: (u16, u16)) {
         let bg = crate::panels::panel_style(&self.caps);
-        let lines: Vec<(String, bool)> = if let Some((c, sel)) = &self.completion {
-            let first = sel.saturating_sub(7);
-            c.items
-                .iter()
-                .enumerate()
-                .skip(first)
-                .take(8)
-                .map(|(i, it)| (it.label.clone(), i == *sel))
+        let lines: Vec<(String, bool)> = if let Some(m) = &self.completion {
+            m.rows(8)
+                .into_iter()
+                .map(|(label, _, chosen)| (label, chosen))
                 .collect()
         } else if let Some((p, true)) = self.doc.parse()
             && !self.editor.source
@@ -2396,7 +2402,9 @@ impl App {
                 }
                 self.editor.viewport.goal_x = None;
                 self.after_change(true);
-                self.update_completion();
+                if self.completion.is_some() {
+                    self.update_completion();
+                }
             }
             KeyCode::Delete => {
                 if let Some(m) = self.doc.delete_forward(now) {
@@ -2695,6 +2703,13 @@ impl App {
     /// Background work: parses, file changes, debounced events. Returns
     /// whether something changed on screen.
     pub fn tick(&mut self, now: Instant) {
+        // Items of slow completers.
+        if let Some(m) = &mut self.completion
+            && m.session.waiting()
+            && m.session.poll()
+        {
+            self.dirty = true;
+        }
         // Work commands started in the background (a PDF compiling).
         for f in kalem_core::jobs::take_finished() {
             self.message(f.message, f.error);

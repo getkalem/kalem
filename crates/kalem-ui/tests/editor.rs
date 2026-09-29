@@ -784,14 +784,41 @@ fn date_picker(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn word_completion(cx: &mut TestAppContext) {
+    let (e, cx) = open_named("quartz quantum\n", "w.txt", || None, cx);
+    at(&e, 15, cx);
+    cx.simulate_input("qua");
+    let labels = e.read_with(cx, |e, _| {
+        e.completion.as_ref().map(|m| {
+            m.items()
+                .iter()
+                .map(|i| i.label.clone())
+                .collect::<Vec<_>>()
+        })
+    });
+    assert_eq!(
+        labels,
+        Some(vec!["quantum".to_string(), "quartz".to_string()])
+    );
+    cx.simulate_keystrokes("tab");
+    assert_eq!(text(&e, cx), "quartz quantum\nquantum");
+    cx.simulate_input(" qua");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(text(&e, cx), "quartz quantum\nquantum qua\n");
+}
+
+#[gpui::test]
 fn tag_completion(cx: &mut TestAppContext) {
     let (e, cx) = open("#+TAGS: work home\n* A\n", cx);
     at(&e, 21, cx);
     cx.simulate_input(" :h");
     let labels = e.read_with(cx, |e, _| {
-        e.completion
-            .as_ref()
-            .map(|(c, _)| c.items.iter().map(|i| i.label.clone()).collect::<Vec<_>>())
+        e.completion.as_ref().map(|m| {
+            m.items()
+                .iter()
+                .map(|i| i.label.clone())
+                .collect::<Vec<_>>()
+        })
     });
     assert_eq!(labels, Some(vec!["home".to_string()]));
     cx.simulate_keystrokes("enter");

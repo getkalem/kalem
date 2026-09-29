@@ -1296,6 +1296,14 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "edit.complete",
+            "Complete",
+            "Edit",
+            &["alt+/"],
+            None,
+            |ctx, _| request(ctx, Request::Complete),
+        ),
+        cmd(
             "edit.toggleComment",
             "Toggle Comment",
             "Edit",

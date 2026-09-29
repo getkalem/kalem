@@ -139,6 +139,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Large files: files over 4 MB are syntax colored a window at a time, a line longer than 16 KiB shows the part around the cursor (in Org documents too), and a keystroke in a 100 MB file stays under a frame (2.7 ms median).
 - Code: Enter indents after an opening bracket (and `:` in Python and YAML) and splits `{|}`, a closing bracket alone on its line goes back a level, matching brackets are marked, Go to Matching Bracket (Ctrl+Alt+B), and Toggle Comment (Ctrl+Alt+C) with each language's marker, in Org source blocks too; both editors.
 - Line commands in both editors: Duplicate Lines, Move Lines Up and Down (Alt+Up and Down in plain text), Join Lines, Sort Lines, Trim Trailing Whitespace (and `editor.trim_trailing_whitespace` on save), Select Word, Expand and Shrink Selection (Ctrl+Alt+Right and Left) by words, brackets, lines, paragraphs or Org's syntax.
+- Completers (`kalem_core::completers`): one contract for completions (a when-clause, triggers, cancellable items with kinds and details, slow completers on another thread within a budget), Org's completions moved onto it, the words of the document offered in every file, Alt+/ to ask, one menu in both editors, and `kalem complete FILE:LINE:COL`.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
 ### Changed

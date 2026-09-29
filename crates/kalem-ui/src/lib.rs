@@ -48,6 +48,7 @@ pub fn shared(config: Config) -> editor::Shared {
             kalem_core::projects::list_file(),
         )),
         jobs: Rc::default(),
+        completers: kalem_core::completers::Registry::with_builtins(),
         config,
         registry,
         keymap,
