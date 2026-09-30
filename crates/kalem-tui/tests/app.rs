@@ -3139,5 +3139,17 @@ fn latex_footnotes_listed_at_the_end() {
     t.at(text.find("Text").unwrap());
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("Notes"), "{rows}");
-    assert!(rows.contains("1 A first note.") && rows.contains("2 And a second."), "{rows}");
+    assert!(
+        rows.contains("1 A first note.") && rows.contains("2 And a second."),
+        "{rows}"
+    );
+}
+
+#[test]
+fn latex_formula_preview_at_the_cursor() {
+    let text = "A formula $x^2 + y$ here.\n";
+    let mut t = with_file(text, "m.tex", Config::default(), (50, 6));
+    t.at(text.find("x^2").unwrap() + 1);
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("= x² + y"), "{rows}");
 }

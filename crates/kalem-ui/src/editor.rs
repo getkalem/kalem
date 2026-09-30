@@ -2632,10 +2632,7 @@ impl Editor {
         if !self.math || self.completion.is_some() {
             return None;
         }
-        let (parse, true) = self.doc.parse()? else {
-            return None;
-        };
-        let f = kalem_core::input::formula_at(&parse.syntax(), self.doc.selection.head)?;
+        let f = self.formula_under_caret()?;
         let at = self.popup().map(|(at, _)| at)?;
         let formula = self.shared.math.get(
             &f,
@@ -2666,14 +2663,26 @@ impl Editor {
                 .collect();
             return Some((at, items));
         }
-        let (parse, true) = self.doc.parse()? else {
-            return None;
-        };
-        let f = kalem_core::input::formula_at(&parse.syntax(), self.doc.selection.head)?;
+        let f = self.formula_under_caret()?;
         Some((
             at,
             vec![(format!("= {}", kalem_core::math::unicode(&f)), false)],
         ))
+    }
+
+    /// The formula the caret is in: in Org text, or in a LaTeX document
+    /// (where it shows its source at the caret).
+    fn formula_under_caret(&self) -> Option<String> {
+        let head = self.doc.selection.head;
+        if self.doc.latex().is_some() {
+            return (!self.source)
+                .then(|| kalem_core::latex_view::formula_at(&self.doc, head))
+                .flatten();
+        }
+        let (parse, true) = self.doc.parse()? else {
+            return None;
+        };
+        kalem_core::input::formula_at(&parse.syntax(), head)
     }
 }
 

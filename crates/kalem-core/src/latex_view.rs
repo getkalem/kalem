@@ -2185,6 +2185,18 @@ fn is_display_math(name: &str) -> bool {
     )
 }
 
+/// The formula the cursor at `pos` is in, as the renderer takes it (the
+/// preview under the cursor, T2.7h.16).
+pub fn formula_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
+    let root = doc.latex()?.parse().syntax();
+    let node = latex_syntax::token_before(&root, pos).and_then(|t| math_node(&t))?;
+    let r = node_span(&node);
+    if !(r.start < pos && pos < r.end) {
+        return None;
+    }
+    math_source(doc, r)
+}
+
 /// The formula of a math node as the renderer takes it: `\label`,
 /// `\nonumber` and `\notag` taken out, and the numbers LaTeX gives the
 /// equations as `\tag`s of a starred environment.
@@ -2509,6 +2521,17 @@ mod tests {
             shown(&d, 0, Some(text.len())).display(),
             "5€ © 2026, LaTeX a\u{2002}b ½"
         );
+    }
+
+    #[test]
+    fn formula_under_the_cursor() {
+        let text = "A $x^2$ and \\begin{equation}\\frac{a}{b}\\label{e}\\end{equation}\n";
+        let d = doc(text);
+        let f = formula_at(&d, text.find("x^2").unwrap() + 1).unwrap();
+        assert!(f.contains("x^2"), "{f}");
+        let f = formula_at(&d, text.find("frac").unwrap()).unwrap();
+        assert!(f.contains("\\frac{a}{b}") && !f.contains("label"), "{f}");
+        assert_eq!(formula_at(&d, 1), None);
     }
 
     #[test]
