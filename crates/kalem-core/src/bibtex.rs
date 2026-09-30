@@ -353,11 +353,122 @@ pub const COLUMNS: [&str; 5] = ["key", "type", "author", "title", "year"];
 /// The widest each column is laid out, in characters.
 const MAX: [usize; 5] = [24, 13, 24, 48, 4];
 
+/// The `@string` abbreviations of `text`, by lower-case name.
+pub fn strings(text: &str) -> std::collections::HashMap<String, String> {
+    let mut out = std::collections::HashMap::new();
+    let lower = text.to_ascii_lowercase();
+    let mut from = 0;
+    while let Some(i) = lower[from..].find("@string") {
+        let at = from + i + "@string".len();
+        from = at;
+        let rest = text[at..].trim_start();
+        let open = at + (text[at..].len() - rest.len());
+        let close = match rest.chars().next() {
+            Some('{') => '}',
+            Some('(') => ')',
+            _ => continue,
+        };
+        // The matching close, outside braces.
+        let mut depth = 0i32;
+        let mut end = None;
+        for (j, c) in text[open + 1..].char_indices() {
+            match c {
+                '{' => depth += 1,
+                '}' if depth > 0 => depth -= 1,
+                c if c == close && depth == 0 => {
+                    end = Some(open + 1 + j);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        let Some(end) = end else { continue };
+        if let Some((name, value)) = text[open + 1..end].split_once('=') {
+            let v = expand(value.trim(), &out);
+            // The text, without the braces or quotes around it.
+            let inner = v
+                .strip_prefix(['{', '"'])
+                .and_then(|x| x.strip_suffix(['}', '"']))
+                .unwrap_or(&v)
+                .to_string();
+            out.insert(name.trim().to_ascii_lowercase(), inner);
+        }
+        from = end;
+    }
+    out
+}
+
+/// A field's value with its `@string` abbreviations, month names and `#`
+/// concatenations written out (a braced or quoted part as it is).
+pub fn expand(value: &str, strings: &std::collections::HashMap<String, String>) -> String {
+    const MONTHS: [(&str, &str); 12] = [
+        ("jan", "January"),
+        ("feb", "February"),
+        ("mar", "March"),
+        ("apr", "April"),
+        ("may", "May"),
+        ("jun", "June"),
+        ("jul", "July"),
+        ("aug", "August"),
+        ("sep", "September"),
+        ("oct", "October"),
+        ("nov", "November"),
+        ("dec", "December"),
+    ];
+    // The parts between `#` outside braces and quotes.
+    let mut parts = Vec::new();
+    let (mut depth, mut quoted, mut start) = (0i32, false, 0);
+    for (i, c) in value.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            '"' if depth == 0 => quoted = !quoted,
+            '#' if depth == 0 && !quoted => {
+                parts.push(&value[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&value[start..]);
+    if parts.len() == 1 && (value.starts_with('{') || value.starts_with('"')) {
+        return value.to_string();
+    }
+    let mut out = String::new();
+    for p in parts {
+        let p = p.trim();
+        if (p.starts_with('{') && p.ends_with('}')) || (p.starts_with('"') && p.ends_with('"')) {
+            out.push_str(&p[1..p.len() - 1]);
+        } else if p.chars().all(|c| c.is_ascii_digit()) {
+            out.push_str(p);
+        } else {
+            let k = p.to_ascii_lowercase();
+            match strings.get(&k) {
+                Some(v) => out.push_str(v),
+                None => match MONTHS.iter().find(|(m, _)| *m == k) {
+                    Some((_, m)) => out.push_str(m),
+                    None => out.push_str(p),
+                },
+            }
+        }
+    }
+    format!("{{{out}}}")
+}
+
 /// An entry's cells, as the grid shows them.
 pub fn cells(text: &str, e: &Entry) -> [String; 5] {
+    cells_with(text, e, &strings(text))
+}
+
+/// [`cells`] with the file's `@string` abbreviations.
+pub fn cells_with(
+    text: &str,
+    e: &Entry,
+    strings: &std::collections::HashMap<String, String>,
+) -> [String; 5] {
     let get = |n: &str| {
         e.field(text, n)
-            .map(|f| plain(&text[f.value.clone()]))
+            .map(|f| plain(&expand(&text[f.value.clone()], strings)))
             .unwrap_or_default()
     };
     let author = {
@@ -410,7 +521,11 @@ pub fn grid(doc: &crate::DocumentState) -> std::rc::Rc<Grid> {
         }
         let text = doc.text().as_str();
         let entries = entries(text);
-        let cells: Vec<[String; 5]> = entries.iter().map(|e| cells(text, e)).collect();
+        let abbreviations = strings(text);
+        let cells: Vec<[String; 5]> = entries
+            .iter()
+            .map(|e| cells_with(text, e, &abbreviations))
+            .collect();
         let mut widths = [0; 5];
         for c in &cells {
             for (i, s) in c.iter().enumerate() {
@@ -756,6 +871,20 @@ mod tests {
         );
         assert_eq!(cells(BIB, &es[0])[3], "The TeXbook");
         assert_eq!(cells(BIB, &es[0])[2], "Knuth");
+    }
+
+    #[test]
+    fn abbreviations_expanded() {
+        let st = strings(BIB);
+        assert_eq!(st.get("tug").map(String::as_str), Some("TUGboat"));
+        assert_eq!(expand("tug # { 1}", &st), "{TUGboat 1}");
+        assert_eq!(expand("jan", &st), "{January}");
+        assert_eq!(expand("{Plain}", &st), "{Plain}");
+        let text = "@string{me = {Kalem Team}}\n@misc{a,\n  author = me,\n  year = 2026\n}\n";
+        let e = entries(text);
+        // The author column shows family names: `me` expanded to "Kalem
+        // Team" is Team.
+        assert_eq!(cells(text, &e[0])[2], "Team");
     }
 
     #[test]
