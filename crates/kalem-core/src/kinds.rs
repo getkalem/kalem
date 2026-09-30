@@ -1,73 +1,35 @@
-//! Two kinds of Org file (design §3.7, decision D24): a `.org` file is
-//! strict Org, and Kalem never writes its own additions into it; a `.klm`
-//! file is a Kalem document, Org with Kalem's additions written through
-//! Org's extension points. A `.org` file opts in with `#+KALEM:
-//! markup=yes`, or a folder with the setting `org.allow_kalem_markup`.
+//! Org files and what earlier versions of Kalem added to them. A `.org`
+//! file is strict Org (D24), and Kalem writes nothing into it that Org does
+//! not define (principle 8, T2.13.13). Earlier versions wrote their own
+//! formatting into Org files (`@@kalem:…@@` snippets, `#+ATTR_KALEM:` and
+//! `#+KALEM:` lines); such a file keeps its bytes and shows them as Emacs
+//! does, and [`markup`] finds them for `kalem check` and [`strip_markup`]
+//! takes them out. A `.klm` file opens as strict Org until the Kalem
+//! format's parser takes the extension (T2.13.3).
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::document::DocumentState;
 use crate::mode::DocumentMode;
 
-/// The file kind of an Org document: `org` for a `.org` (or
-/// `.org_archive`) file, else `klm`, a Kalem document (an Org document not
-/// saved yet is one until it is saved under another name); `None` for
-/// other modes.
+/// The file kind of an Org document: `klm` for a `.klm` file (opened as
+/// strict Org until the Kalem format's parser exists), else `org`, a
+/// document not saved yet included; `None` for other modes.
 pub fn file_kind(doc: &DocumentState) -> Option<&'static str> {
     if doc.meta.mode != DocumentMode::Org {
         return None;
     }
-    let org = doc
-        .meta
-        .path
-        .as_deref()
-        .and_then(Path::extension)
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| {
-            let e = e.to_ascii_lowercase();
-            e == "org" || e == "org_archive"
-        });
-    Some(if org { "org" } else { "klm" })
+    Some(if is_klm(doc.meta.path.as_deref()) {
+        "klm"
+    } else {
+        "org"
+    })
 }
 
 /// Whether `path` names a Kalem document.
 pub fn is_klm(path: Option<&Path>) -> bool {
     path.and_then(Path::extension)
         .is_some_and(|e| e.eq_ignore_ascii_case("klm"))
-}
-
-/// Whether Kalem's formatting may be written into `doc`: a Kalem document,
-/// a `.org` file that opted in (`#+KALEM: markup=yes`), or any Org file
-/// when `org.allow_kalem_markup` is on.
-pub fn markup_allowed(doc: &DocumentState, config: &crate::settings::Config) -> bool {
-    match file_kind(doc) {
-        Some("klm") => true,
-        Some(_) => {
-            config.bool("org.allow_kalem_markup")
-                || doc.parse().is_some_and(|(p, _)| {
-                    crate::rich::kalem_option(&p.keywords(), "markup")
-                        .is_some_and(|v| v.eq_ignore_ascii_case("yes"))
-                })
-        }
-        None => false,
-    }
-}
-
-/// What the list offered when Kalem's formatting is asked for in a strict
-/// `.org` file holds: make it a Kalem document, or allow the formatting
-/// in this file.
-pub fn offer_items() -> Vec<crate::palette::PaletteItem> {
-    use crate::l10n::tr;
-    ["file.makeKalemDocument", "format.allowMarkup"]
-        .into_iter()
-        .map(|id| crate::palette::PaletteItem {
-            id: id.to_string(),
-            title: tr(&crate::l10n::command_key(id)),
-            category: tr("kind-strict-org"),
-            keys: String::new(),
-            also: id.replace('.', " "),
-        })
-        .collect()
 }
 
 /// What Kalem adds to Org, found in a document.
@@ -195,58 +157,6 @@ pub fn relative(from: &Path, to: &Path) -> Option<String> {
     Some(parts.join("/"))
 }
 
-/// Replaces links to `old` with links to `new` in the Org files (`.org`
-/// and `.klm`) under `root`, skipping what version control ignores: the
-/// forms `[[file:PATH`, `[[./PATH` and `[[PATH` with `PATH` relative to
-/// each file, or absolute. Returns the files changed.
-pub fn update_links(root: &Path, old: &Path, new: &Path) -> Vec<PathBuf> {
-    let cancel = std::sync::atomic::AtomicBool::new(false);
-    let mut files = Vec::new();
-    kalem_project::walk(root, &[], &cancel, |rel| files.push(root.join(rel)));
-    let mut changed = Vec::new();
-    for f in files {
-        let org = f
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "org" | "klm"));
-        if !org || f == new {
-            continue;
-        }
-        let Ok(text) = std::fs::read_to_string(&f) else {
-            continue;
-        };
-        let Some(dir) = f.parent() else { continue };
-        let mut pairs: Vec<(String, String)> = Vec::new();
-        if let (Some(o), Some(n)) = (relative(dir, old), relative(dir, new)) {
-            for prefix in ["[[file:", "[[./", "[[file:./"] {
-                let o2 = o.trim_start_matches("./");
-                pairs.push((
-                    format!("{prefix}{o2}"),
-                    format!("{prefix}{}", n.trim_start_matches("./")),
-                ));
-            }
-            if o.starts_with("..") {
-                pairs.push((format!("[[{o}"), format!("[[{n}")));
-            }
-        }
-        pairs.push((
-            format!("[[file:{}", old.display()),
-            format!("[[file:{}", new.display()),
-        ));
-        let mut out = text.clone();
-        for (a, b) in &pairs {
-            // Only whole names: the link's path ends at `]` or `::`.
-            for end in ["]", "::"] {
-                out = out.replace(&format!("{a}{end}"), &format!("{b}{end}"));
-            }
-        }
-        if out != text && std::fs::write(&f, out).is_ok() {
-            changed.push(f);
-        }
-    }
-    changed
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,39 +199,6 @@ mod tests {
         assert_eq!(
             relative(Path::new("/p"), Path::new("/p/a/b.org")).as_deref(),
             Some("a/b.org")
-        );
-    }
-
-    #[test]
-    fn links_follow_the_new_name() {
-        let d = std::env::temp_dir().join(format!("kalem-kinds-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&d);
-        std::fs::create_dir_all(d.join("sub")).unwrap();
-        let d = d.canonicalize().unwrap();
-        std::fs::write(
-            d.join("index.org"),
-            "[[file:notes.org][Notes]] [[file:notes.org::*A]] [[./notes.org]] [[file:notes.orgx]]\n",
-        )
-        .unwrap();
-        std::fs::write(
-            d.join("sub/deep.klm"),
-            "[[../notes.org]] [[file:../notes.org]]\n",
-        )
-        .unwrap();
-        std::fs::write(d.join("readme.txt"), "[[file:notes.org]]\n").unwrap();
-        let changed = update_links(&d, &d.join("notes.org"), &d.join("notes.klm"));
-        assert_eq!(changed.len(), 2);
-        assert_eq!(
-            std::fs::read_to_string(d.join("index.org")).unwrap(),
-            "[[file:notes.klm][Notes]] [[file:notes.klm::*A]] [[./notes.klm]] [[file:notes.orgx]]\n"
-        );
-        assert_eq!(
-            std::fs::read_to_string(d.join("sub/deep.klm")).unwrap(),
-            "[[../notes.klm]] [[file:../notes.klm]]\n"
-        );
-        assert_eq!(
-            std::fs::read_to_string(d.join("readme.txt")).unwrap(),
-            "[[file:notes.org]]\n"
         );
     }
 }

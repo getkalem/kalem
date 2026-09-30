@@ -12,7 +12,7 @@
   sideways.
 - Word counts :: the status bar counts the words of the document and of
   the section at the cursor. /Set Document Word Target/ writes
-  =#+KALEM: word_target=80000= and /Set Section Word Target/ a
+  =#+PROPERTY: WORD_TARGET 80000= and /Set Section Word Target/ a
   =WORD_TARGET= property on the heading (=80,000= and =80k= work too; 0
   removes it); the counts then show against them, "12,400 of 80,000
   (15%) words, 900 of 4,000 (22%) in section". /Word Count by Chapter/

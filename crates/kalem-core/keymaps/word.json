@@ -42,13 +42,6 @@
   { "keys": "cmd+shift+tab", "command": "file.previous", "terminalKeys": "ctrl+pageup" },
   { "keys": "ctrl+shift+]", "command": "file.next", "terminalKeys": "ctrl+pagedown" },
   { "keys": "ctrl+shift+[", "command": "file.previous", "terminalKeys": "ctrl+pageup" },
-  // Word's keys for sizes and justifying. Ctrl+[ is Escape and Ctrl+J a
-  // line feed in terminals: Alt+= and Alt+- there, and no Ctrl+J.
-  { "keys": "ctrl+]", "command": "format.grow", "terminalKeys": "alt+=" },
-  { "keys": "ctrl+[", "command": "format.shrink", "terminalKeys": "alt+-" },
-  { "keys": "ctrl+shift+.", "command": "format.grow", "terminalKeys": "alt+=" },
-  { "keys": "ctrl+shift+,", "command": "format.shrink", "terminalKeys": "alt+-" },
-  { "keys": "ctrl+j", "command": "format.justify", "when": "!terminal" },
   // The file manager: Dired's keys (design §2.7). They apply in a folder
   // listing only, which is read-only, so single letters are free. `c`
   // creates a file (a folder when the name ends with a slash), as in

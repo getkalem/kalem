@@ -14,7 +14,6 @@ pub mod fill;
 pub mod gfm;
 pub mod html;
 pub mod include;
-pub mod kalem;
 pub mod latex;
 pub mod macros;
 pub mod md;
@@ -323,6 +322,21 @@ pub fn output_file_name_for(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn earlier_kalem_additions_are_dropped_as_emacs_drops_them() {
+        // Snippets for another back-end, an unknown attribute line and an
+        // unknown keyword leave nothing in the output.
+        let text = "#+KALEM: size=12\n\nSome @@kalem:color=red@@red@@kalem:end@@ text.\n\n#+ATTR_KALEM: :align right\nRight.\n";
+        let settings = Settings {
+            body_only: true,
+            ..Settings::default()
+        };
+        let html = export(text, &Html, &settings).unwrap();
+        assert_eq!(html, "<p>\nSome red text.\n</p>\n\n<p>\nRight.\n</p>\n");
+        let latex = export(text, &Latex::default(), &settings).unwrap();
+        assert_eq!(latex, "Some red text.\n\nRight.\n");
+    }
     use std::path::Path;
 
     #[test]
@@ -449,52 +463,6 @@ mod tests {
         )
         .unwrap();
         assert!(none.contains("\\(x\\)"), "{none}");
-    }
-
-    #[test]
-    fn kalem_formatting_in_html() {
-        let text = "#+KALEM: font=\"Georgia\" size=12 spacing=1.5\n\nSome @@kalem:color=red size=14@@red @@kalem:bg=yellow@@marked@@kalem:end@@ text@@kalem:end@@ and on.\n\n#+ATTR_KALEM: :align right\nRight @@kalem:font=\"Mono\"@@open\n\n| @@kalem:color=blue@@cell | b |\n\n* A @@kalem:color=green@@green title\n";
-        let settings = Settings {
-            body_only: true,
-            ..Settings::default()
-        };
-        let out = export(text, &Html, &settings).unwrap();
-        let red = "<span class=\"kalem-format\" style=\"font-size: 14pt; color: #c00000\">";
-        let marked = "<span class=\"kalem-format\" style=\"background-color: #fff2a8\">";
-        assert!(
-            out.contains(&format!(
-                "Some {red}red {marked}marked</span> text</span> and on."
-            )),
-            "{out}"
-        );
-        assert!(out.contains("<p style=\"text-align: right\">"), "{out}");
-        let spaced = export(
-            "#+ATTR_KALEM: :before 12 :after 6 :align justify\nText.\n",
-            &Html,
-            &settings,
-        )
-        .unwrap();
-        assert!(
-            spaced.contains(
-                "<p style=\"text-align: justify; margin-top: 12pt; margin-bottom: 6pt\">"
-            ),
-            "{spaced}"
-        );
-        assert!(out.contains("open</span>\n</p>"), "{out}");
-        assert!(out.contains("Right <span"), "{out}");
-        assert!(out.contains("cell</span></td>"), "{out}");
-        assert!(out.contains("green title</span>"), "{out}");
-        assert!(!out.contains('\u{E000}'));
-        let page = export(text, &Html, &Settings::default()).unwrap();
-        assert!(
-            page.contains(
-                "#content { font-family: \"Georgia\"; font-size: 12pt; line-height: 1.5; }"
-            ),
-            "{page}"
-        );
-        // Markdown leaves them out, as Emacs does.
-        let md = export(text, &Markdown, &settings).unwrap();
-        assert!(md.contains("Some red marked text and on."), "{md}");
     }
 
     #[test]

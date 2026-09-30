@@ -2916,47 +2916,6 @@ mod tests {
     }
 
     #[test]
-    fn motions_skip_hidden_markers_in_the_rich_view() {
-        // Kalem's formatting snippets never show in the rich view.
-        let text = "a @@kalem:size=14@@bc@@kalem:end@@ d\n";
-        let press = |rich: bool, at: usize, keys: &str| {
-            let mut d = doc(text, DocumentMode::Org);
-            d.selection = Selection::caret(at);
-            let mut v = Vim::new();
-            let mut host = TestHost {
-                rich,
-                ..TestHost::default()
-            };
-            for c in keys.chars() {
-                v.key(&mut d, Key::Char(c), &mut host);
-            }
-            d.selection.head
-        };
-        let b = text.find("bc").unwrap();
-        let space = text.find(" d").unwrap();
-        // In the rich view `l` goes from the blank to `b`, then over the
-        // closing snippet to the blank before `d`; in the source it walks
-        // the snippets.
-        assert_eq!(press(true, 1, "l"), b);
-        assert_eq!(press(true, b, "ll"), space);
-        assert_eq!(press(false, 1, "l"), 2);
-        // `h` back the same way.
-        assert_eq!(press(true, space, "hh"), b);
-        // `dl` on `c` deletes `c` only.
-        let mut d = doc(text, DocumentMode::Org);
-        d.selection = Selection::caret(b + 1);
-        let mut v = Vim::new();
-        let mut host = TestHost {
-            rich: true,
-            ..TestHost::default()
-        };
-        for c in "dl".chars() {
-            v.key(&mut d, Key::Char(c), &mut host);
-        }
-        assert_eq!(d.text().as_str(), "a @@kalem:size=14@@b@@kalem:end@@ d\n");
-    }
-
-    #[test]
     fn org_text_objects() {
         let org = || DocumentMode::Org;
         let r = |t: &str, at: usize, k: &str| run_in(t, at, k, org()).0;

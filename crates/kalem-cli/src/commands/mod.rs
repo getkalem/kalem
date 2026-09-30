@@ -246,12 +246,11 @@ pub(crate) fn check(
         } else {
             (parse.syntax().to_string() == text, parse.diagnostics())
         };
-        // Kalem's additions in a strict `.org` file (design §3.7).
-        let org = mode != kalem_core::DocumentMode::Csv
-            && f.extension().is_some_and(|e| e.eq_ignore_ascii_case("org"));
-        let opted_in = kalem_core::rich::kalem_option(&parse.keywords(), "markup")
-            .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        if org && !opted_in {
+        // Formatting an earlier Kalem wrote into an Org file (T2.13.13).
+        let org = mode == kalem_core::DocumentMode::Org
+            && f.extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("org") || e.eq_ignore_ascii_case("klm"));
+        if org {
             for (r, _) in kalem_core::kinds::markup(&parse.syntax()) {
                 diags.push(org_syntax::Diagnostic {
                     range: org_syntax::TextRange::new(

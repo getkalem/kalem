@@ -134,7 +134,7 @@ project's root document in those formats for co-authors who do not use
 LaTeX, and /Convert to Org/ writes an Org file beside it: one way, the
 LaTeX file stays as it is.
 
-Completion (as you type, or Alt+/) offers command names after =\= (the
+Completion (as you type, or Ctrl+Space or Alt+/) offers command names after =\= (the
 document's own macros too), environments after =\begin{= (with their
 =\end=) and =\end{=, the keys of the bibliography after =\cite{= and its
 kin (matched on key, authors and title), the labels after =\ref{= and its

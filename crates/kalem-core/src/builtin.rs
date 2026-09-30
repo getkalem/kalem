@@ -171,16 +171,6 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("file.import", object(&[("file", "string", true)])),
         ("org.note.add", object(&[("note", "string", false)])),
         ("org.footnote.new", object(&[("label", "string", false)])),
-        ("format.font", object(&[("family", "string", true)])),
-        ("format.size", object(&[("size", "string", true)])),
-        ("format.color", object(&[("color", "string", true)])),
-        ("format.highlight", object(&[("color", "string", true)])),
-        ("format.align", object(&[("align", "string", true)])),
-        ("format.documentFont", object(&[("family", "string", true)])),
-        ("format.documentSize", object(&[("size", "string", true)])),
-        ("format.lineSpacing", object(&[("spacing", "string", true)])),
-        ("format.spaceBefore", object(&[("points", "string", true)])),
-        ("format.spaceAfter", object(&[("points", "string", true)])),
         ("project.add", object(&[("path", "string", false)])),
         ("project.rename", object(&[("name", "string", true)])),
         ("table.import", object(&[("file", "string", true)])),
@@ -462,246 +452,6 @@ fn priority(ctx: &mut EditorContext<'_>, a: org_edit::todo::PriorityAction) -> C
     ctx.org(|d, p, _| org_edit::todo::priority(d, p, a, false, &base.for_document(d)))
 }
 
-/// Kalem's character formatting on the selection (or the word at the
-/// cursor), as a word processor formats (`crate::rich`).
-/// In a strict `.org` file (§3.7), Kalem's formatting is not written:
-/// the frontend offers to make the document a Kalem document or to allow
-/// the formatting in this file. Whether that happened.
-fn strict_org(ctx: &mut EditorContext<'_>) -> bool {
-    let config = ctx.config;
-    let Some(doc) = ctx.document.as_deref() else {
-        return false;
-    };
-    if crate::kinds::file_kind(doc) != Some("org") || crate::kinds::markup_allowed(doc, config) {
-        return false;
-    }
-    ctx.messages.push(crate::l10n::tr("kind-offer"));
-    ctx.requests
-        .push(Request::Choose(crate::kinds::offer_items()));
-    true
-}
-
-fn rich_format(ctx: &mut EditorContext<'_>, change: crate::rich::Change) -> CommandResult {
-    // Clearing takes Kalem's formatting away, which strict Org allows.
-    if change != crate::rich::Change::Clear && strict_org(ctx) {
-        return Ok(());
-    }
-    ctx.org(|d, p, m| {
-        let root = d.parse().syntax();
-        let text = root.text().to_string();
-        let (mut s, mut e) = m.map_or((p, p), |m| (m.min(p), m.max(p)));
-        if s == e {
-            // The word at the cursor, over formatting snippets.
-            let mut p = p;
-            while let Some(m) = crate::rich::marker_at(&root, p) {
-                p = m.end;
-            }
-            let is_word = |c: char| c.is_alphanumeric() || c == '_' || c == '\'';
-            s = text[..p]
-                .char_indices()
-                .rev()
-                .take_while(|(_, c)| is_word(*c))
-                .last()
-                .map_or(p, |(i, _)| i);
-            e = p + text[p..]
-                .char_indices()
-                .take_while(|(_, c)| is_word(*c))
-                .last()
-                .map_or(0, |(i, c)| i + c.len_utf8());
-            if s == e {
-                return Err(org_edit::EditError {
-                    message: crate::l10n::tr("msg-select-text"),
-                    point: None,
-                });
-            }
-        }
-        let (tx, r) =
-            crate::rich::apply(&root, &text, s..e, &change).ok_or_else(|| org_edit::EditError {
-                message: crate::l10n::tr("msg-cannot-format-here"),
-                point: None,
-            })?;
-        // The selection covers the same text; a caret stays a caret.
-        let sel = if m.is_some() {
-            let (a, h) = if m.is_some_and(|m| m > p) {
-                (r.end, r.start)
-            } else {
-                (r.start, r.end)
-            };
-            org_edit::Selection { anchor: a, head: h }
-        } else {
-            org_edit::Selection::caret(tx.map(p, org_edit::Assoc::After))
-        };
-        Ok(tx.select(sel))
-    })
-}
-
-fn rich_color(args: &Value, key: &str) -> Result<Option<crate::theme::Color>, CommandError> {
-    let v = arg_str(args, key)?.trim();
-    if v.is_empty() || v.eq_ignore_ascii_case("none") || v.eq_ignore_ascii_case("auto") {
-        return Ok(None);
-    }
-    crate::rich::parse_color(v)
-        .map(Some)
-        .ok_or_else(|| CommandError::new(crate::tr!("msg-not-a-color", color = v)))
-}
-
-fn align_cmd(ctx: &mut EditorContext<'_>, align: crate::rich::Align) -> CommandResult {
-    if strict_org(ctx) {
-        return Ok(());
-    }
-    ctx.org(|d, p, m| {
-        let root = d.parse().syntax();
-        let text = root.text().to_string();
-        let (s, e) = m.map_or((p, p), |m| (m.min(p), m.max(p)));
-        crate::rich::set_align(&root, &text, s..e, align).ok_or_else(|| org_edit::EditError {
-            message: crate::l10n::tr("msg-not-a-paragraph"),
-            point: None,
-        })
-    })
-}
-
-/// Writes the Kalem document as strict Org beside it (`notes.klm` to
-/// `notes.org`, with unsaved changes), without Kalem's additions, and says
-/// what was left out. The document itself stays as it is.
-fn save_as_org(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
-    let doc = ctx.doc()?;
-    let Some(path) = doc.meta.path.clone() else {
-        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
-    };
-    let target = path.with_extension("org");
-    if target.exists() {
-        return Err(CommandError::new(crate::tr!(
-            "kind-exists",
-            path = target.display().to_string()
-        )));
-    }
-    let (text, counts) = crate::kinds::strip_markup(doc.text().as_str());
-    std::fs::write(&target, text).map_err(|e| CommandError::new(e.to_string()))?;
-    ctx.messages.push(crate::tr!(
-        "kind-saved-org",
-        name = target
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default(),
-        dropped = crate::kinds::dropped_summary(counts)
-    ));
-    Ok(())
-}
-
-/// Saves the `.org` document as a `.klm` Kalem document beside it (the
-/// `.org` file goes), and turns the links to it in its project (or its
-/// folder) to the new name.
-fn make_kalem_document(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
-    let options = ctx.config.save_options();
-    let doc = ctx.doc()?;
-    let Some(old) = doc.meta.path.clone() else {
-        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
-    };
-    let old = std::path::absolute(&old).unwrap_or(old);
-    let new = old.with_extension("klm");
-    if new.exists() {
-        return Err(CommandError::new(crate::tr!(
-            "kind-exists",
-            path = new.display().to_string()
-        )));
-    }
-    doc.save_as(&new, options)
-        .map_err(|e| CommandError::new(e.to_string()))?;
-    if old.exists() {
-        std::fs::remove_file(&old).map_err(|e| CommandError::new(e.to_string()))?;
-    }
-    let root = kalem_project::list::detect_root(&new)
-        .or_else(|| new.parent().map(std::path::Path::to_path_buf))
-        .unwrap_or_default();
-    let changed = crate::kinds::update_links(&root, &old, &new);
-    ctx.messages.push(crate::tr!(
-        "kind-made",
-        name = new
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default(),
-        count = changed.len()
-    ));
-    // The frontends watch the new file.
-    ctx.requests.push(Request::Save);
-    Ok(())
-}
-
-/// Puts color `c` first in the recent colors of setting `key` (six at
-/// most), for the color menus.
-fn remember_color(ctx: &mut EditorContext<'_>, key: &str, c: Option<crate::theme::Color>) {
-    let Some(c) = c else { return };
-    let (r, g, b) = c.rgb();
-    let hex = format!("#{r:02x}{g:02x}{b:02x}");
-    let mut list: Vec<String> = ctx
-        .config
-        .strings(key)
-        .into_iter()
-        .filter(|s| !s.eq_ignore_ascii_case(&hex))
-        .map(str::to_string)
-        .collect();
-    list.insert(0, hex);
-    list.truncate(6);
-    if list != ctx.config.strings(key) {
-        ctx.requests.push(Request::SetSetting {
-            key: key.to_string(),
-            value: list.into(),
-            quiet: true,
-        });
-    }
-}
-
-/// Sets the space before (or after) the paragraphs of the selection to
-/// `points` (`12`, `6.5`; `0` or `none` takes it away).
-fn spacing_cmd(ctx: &mut EditorContext<'_>, points: &str, after: bool) -> CommandResult {
-    let v = points.trim();
-    let size = match crate::rich::parse_size(v) {
-        Some(s) => Some(s),
-        None if v.is_empty() || v == "0" || v.eq_ignore_ascii_case("none") => None,
-        None => {
-            return Err(CommandError::new(crate::tr!(
-                "msg-not-a-spacing",
-                spacing = v
-            )));
-        }
-    };
-    let change = Some(size);
-    if strict_org(ctx) {
-        return Ok(());
-    }
-    ctx.org(|d, p, m| {
-        let root = d.parse().syntax();
-        let text = root.text().to_string();
-        let (s, e) = m.map_or((p, p), |m| (m.min(p), m.max(p)));
-        let (before, after) = if after {
-            (None, change)
-        } else {
-            (change, None)
-        };
-        crate::rich::set_spacing(&root, &text, s..e, before, after).ok_or_else(|| {
-            org_edit::EditError {
-                message: crate::l10n::tr("msg-not-a-paragraph"),
-                point: None,
-            }
-        })
-    })
-}
-
-/// Changes the document's own defaults (`#+KALEM:`).
-fn doc_defaults(
-    ctx: &mut EditorContext<'_>,
-    change: impl FnOnce(&mut crate::rich::DocDefaults),
-) -> CommandResult {
-    if strict_org(ctx) {
-        return Ok(());
-    }
-    ctx.org(|d, _, _| {
-        let root = d.parse().syntax();
-        let text = root.text().to_string();
-        Ok(crate::rich::set_defaults(&root, &text, change))
-    })
-}
-
 fn emphasis(ctx: &mut EditorContext<'_>, kind: org_edit::emphasis::Emphasis) -> CommandResult {
     ctx.org(|d, p, m| {
         let (s, e) = m.map_or((p, p), |m| (m.min(p), m.max(p)));
@@ -742,21 +492,11 @@ pub(crate) fn commands() -> Vec<Command> {
     all
 }
 
-/// After leaving a field: the table's formulas again, when the document
-/// (`#+KALEM: recalc=auto`) or `org.table_auto_recalc` asks for it and
-/// the table has any. Errors stay quiet; F9 reports them.
+/// After leaving a field: the table's formulas again, when
+/// `org.table_auto_recalc` asks for it and the table has any. Errors stay
+/// quiet; F9 reports them.
 fn auto_recalc(ctx: &mut EditorContext<'_>) {
-    let setting = ctx.config.bool("org.table_auto_recalc");
-    let Ok(doc) = ctx.doc() else { return };
-    let Some((parse, _)) = doc.parse() else {
-        return;
-    };
-    let auto = match crate::rich::kalem_option(&parse.keywords(), "recalc").as_deref() {
-        Some("auto") => true,
-        Some("manual") => false,
-        _ => setting,
-    };
-    if !auto {
+    if !ctx.config.bool("org.table_auto_recalc") {
         return;
     }
     let _ = ctx.org(|d, p, _| {
@@ -2650,7 +2390,7 @@ fn plain_commands() -> Vec<Command> {
             "edit.complete",
             "Complete",
             "Edit",
-            &["alt+/"],
+            &["ctrl+space", "alt+/"],
             None,
             |ctx, _| request(ctx, Request::Complete),
         ),
@@ -2848,20 +2588,16 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             |ctx, args| {
                 let v = arg_str(args, "words")?.to_string();
-                let value = match v.trim() {
-                    "" | "0" => String::new(),
-                    w => crate::stats::parse_target(w)
-                        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-bad-word-target")))?
-                        .to_string(),
+                let target = match v.trim() {
+                    "" | "0" => None,
+                    w => Some(crate::stats::parse_target(w).ok_or_else(|| {
+                        CommandError::new(crate::l10n::tr("msg-bad-word-target"))
+                    })?),
                 };
                 ctx.org(|d, _, _| {
-                    let text = d.parse().syntax().to_string();
-                    Ok(crate::rich::set_kalem_option(
-                        &d.parse().syntax(),
-                        &text,
-                        "word_target",
-                        &value,
-                    ))
+                    let root = d.parse().syntax();
+                    let text = root.to_string();
+                    Ok(crate::stats::set_document_target(&root, &text, target))
                 })
             },
         ),
@@ -4112,246 +3848,6 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| ctx.org(|d, p, _| l::repair(d, p)),
         ),
         // Emphasis.
-        // Kalem's formatting beyond Org (§9.5).
-        cmd(
-            "format.font",
-            "Font",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let f = arg_str(args, "family")?.trim().to_string();
-                let f = (!f.is_empty() && !f.eq_ignore_ascii_case("default")).then_some(f);
-                rich_format(ctx, crate::rich::Change::Font(f))
-            },
-        ),
-        cmd(
-            "format.size",
-            "Font Size",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let v = arg_str(args, "size")?.trim();
-                let size =
-                    if v.is_empty() || v.eq_ignore_ascii_case("default") {
-                        None
-                    } else {
-                        Some(crate::rich::parse_size(v).ok_or_else(|| {
-                            CommandError::new(crate::tr!("msg-not-a-size", size = v))
-                        })?)
-                    };
-                rich_format(ctx, crate::rich::Change::Size(size))
-            },
-        ),
-        cmd(
-            "format.grow",
-            "Grow Font",
-            "Format",
-            &["ctrl+]"],
-            Some(ORG),
-            |ctx, _| {
-                let base = (ctx.config.int("editor.font_size").clamp(6, 72) * 10) as u16;
-                rich_format(ctx, crate::rich::Change::Grow { down: false, base })
-            },
-        ),
-        cmd(
-            "format.shrink",
-            "Shrink Font",
-            "Format",
-            &["ctrl+["],
-            Some(ORG),
-            |ctx, _| {
-                let base = (ctx.config.int("editor.font_size").clamp(6, 72) * 10) as u16;
-                rich_format(ctx, crate::rich::Change::Grow { down: true, base })
-            },
-        ),
-        cmd(
-            "format.color",
-            "Text Color",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let c = rich_color(args, "color")?;
-                rich_format(ctx, crate::rich::Change::Color(c))?;
-                remember_color(ctx, "format.recent_colors", c);
-                Ok(())
-            },
-        ),
-        cmd(
-            "format.highlight",
-            "Highlight",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let c = rich_color(args, "color")?;
-                rich_format(ctx, crate::rich::Change::Highlight(c))?;
-                remember_color(ctx, "format.recent_highlights", c);
-                Ok(())
-            },
-        ),
-        cmd(
-            "format.clear",
-            "Clear Formatting",
-            "Format",
-            &["ctrl+space"],
-            Some(ORG),
-            |ctx, _| rich_format(ctx, crate::rich::Change::Clear),
-        ),
-        cmd(
-            "format.align",
-            "Align",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let v = arg_str(args, "align")?;
-                let a = crate::rich::Align::from_name(v).ok_or_else(|| {
-                    CommandError::new(crate::tr!("msg-not-an-alignment", align = v))
-                })?;
-                align_cmd(ctx, a)
-            },
-        ),
-        cmd(
-            "format.alignLeft",
-            "Align Left",
-            "Format",
-            &["ctrl+l"],
-            Some(ORG),
-            |ctx, _| align_cmd(ctx, crate::rich::Align::Left),
-        ),
-        cmd(
-            "format.alignCenter",
-            "Center",
-            "Format",
-            &["ctrl+e"],
-            Some(ORG),
-            |ctx, _| align_cmd(ctx, crate::rich::Align::Center),
-        ),
-        cmd(
-            "format.alignRight",
-            "Align Right",
-            "Format",
-            &["ctrl+r"],
-            Some(ORG),
-            |ctx, _| align_cmd(ctx, crate::rich::Align::Right),
-        ),
-        cmd(
-            "format.documentFont",
-            "Document Font",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let f = arg_str(args, "family")?.trim().to_string();
-                let f = (!f.is_empty() && !f.eq_ignore_ascii_case("default"))
-                    .then(|| crate::rich::FontName::new(&f));
-                doc_defaults(ctx, |d| d.font = f)
-            },
-        ),
-        cmd(
-            "format.documentSize",
-            "Document Font Size",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let v = arg_str(args, "size")?.trim();
-                let size =
-                    if v.is_empty() || v.eq_ignore_ascii_case("default") {
-                        None
-                    } else {
-                        Some(crate::rich::parse_size(v).ok_or_else(|| {
-                            CommandError::new(crate::tr!("msg-not-a-size", size = v))
-                        })?)
-                    };
-                doc_defaults(ctx, |d| d.size = size)
-            },
-        ),
-        cmd(
-            "format.lineSpacing",
-            "Line Spacing",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let v = arg_str(args, "spacing")?.trim();
-                let spacing = match v.parse::<f32>() {
-                    Ok(x) if (0.5..=5.).contains(&x) => Some((x * 10.).round() as u16),
-                    _ if v.is_empty() || v.eq_ignore_ascii_case("default") => None,
-                    _ => {
-                        return Err(CommandError::new(crate::tr!(
-                            "msg-not-a-spacing",
-                            spacing = v
-                        )));
-                    }
-                };
-                let spacing = spacing.filter(|s| *s != 10);
-                doc_defaults(ctx, |d| d.spacing = spacing)
-            },
-        ),
-        cmd(
-            "format.allowMarkup",
-            "Allow Kalem's Formatting in This File",
-            "Format",
-            &[],
-            Some("fileKind == org"),
-            |ctx, _| {
-                ctx.org(|d, _, _| {
-                    let root = d.parse().syntax();
-                    let text = root.text().to_string();
-                    Ok(crate::rich::set_kalem_option(&root, &text, "markup", "yes"))
-                })
-            },
-        ),
-        cmd(
-            "file.saveAsOrg",
-            "Save as Org",
-            "File",
-            &[],
-            Some("fileKind == klm"),
-            save_as_org,
-        ),
-        cmd(
-            "file.makeKalemDocument",
-            "Make Kalem Document (.klm)",
-            "File",
-            &[],
-            Some("fileKind == org"),
-            make_kalem_document,
-        ),
-        cmd(
-            "format.spaceBefore",
-            "Space Before Paragraph",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let v = arg_str(args, "points")?.to_string();
-                spacing_cmd(ctx, &v, false)
-            },
-        ),
-        cmd(
-            "format.spaceAfter",
-            "Space After Paragraph",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, args| {
-                let v = arg_str(args, "points")?.to_string();
-                spacing_cmd(ctx, &v, true)
-            },
-        ),
-        cmd(
-            "format.justify",
-            "Justify",
-            "Format",
-            &[],
-            Some(ORG),
-            |ctx, _| align_cmd(ctx, crate::rich::Align::Justify),
-        ),
         cmd(
             "org.emphasis.bold",
             "Bold",
@@ -5199,213 +4695,26 @@ mod tests {
         assert!(out.starts_with("| 2 | 3 | 6 |"), "{out}");
         let out = run(t, 6, on, &["table.previousField"]);
         assert!(out.starts_with("| 2 | 3 | 6 |"), "{out}");
-        // The document's keyword wins over the setting, both ways.
-        let kw = format!("#+KALEM: recalc=auto\n{t}");
-        let out = run(&kw, kw.find('2').unwrap(), "", &["table.nextField"]);
-        assert!(out.contains("| 2 | 3 | 6 |"), "{out}");
-        let kw = format!("#+KALEM: recalc=manual\n{t}");
-        let out = run(&kw, kw.find('2').unwrap(), on, &["table.nextField"]);
-        assert!(!out.contains('6'), "{out}");
         // A table without formulas is left alone.
         let plain = "| a | b |\n";
         assert!(run(plain, 2, on, &["table.nextField"]).starts_with("| a | b |"));
     }
 
-    /// The formatting commands with arguments that work.
-    const FORMATTING: &[(&str, &str)] = &[
-        ("format.font", r#"{"family": "Georgia"}"#),
-        ("format.size", r#"{"size": "14"}"#),
-        ("format.color", r#"{"color": "red"}"#),
-        ("format.highlight", r#"{"color": "yellow"}"#),
-        ("format.grow", "{}"),
-        ("format.shrink", "{}"),
-        ("format.clear", "{}"),
-        ("format.align", r#"{"align": "right"}"#),
-        ("format.alignLeft", "{}"),
-        ("format.alignCenter", "{}"),
-        ("format.alignRight", "{}"),
-        ("format.justify", "{}"),
-        ("format.documentFont", r#"{"family": "Georgia"}"#),
-        ("format.documentSize", r#"{"size": "12"}"#),
-        ("format.lineSpacing", r#"{"spacing": "1.5"}"#),
-        ("format.spaceBefore", r#"{"points": "12"}"#),
-        ("format.spaceAfter", r#"{"points": "6"}"#),
-    ];
-
-    /// Runs the formatting commands `ops` (a command of [`FORMATTING`]
-    /// and a selection) on `text` saved as `path`; the text after.
-    fn format_ops(text: &str, path: &str, ops: &[(usize, usize, usize)]) -> String {
-        let mut d = doc(text, 0);
-        d.meta.path = Some(std::path::PathBuf::from(path));
+    #[test]
+    fn no_formatting_beyond_org() {
+        // What Org cannot express is not offered in it (T2.13.13).
         let reg = CommandRegistry::with_builtins();
-        let mut clip = Clipboard::default();
-        let config = crate::settings::Config::default();
-        for &(c, a, h) in ops {
-            let len = d.text().len();
-            let fix = |p: usize| {
-                let t = d.text().as_str();
-                let mut p = p % (len + 1);
-                while !t.is_char_boundary(p) {
-                    p -= 1;
-                }
-                p
-            };
-            let (a, h) = (fix(a), fix(h));
-            d.selection = org_edit::Selection { anchor: a, head: h };
-            let (id, args) = FORMATTING[c % FORMATTING.len()];
-            let mut ctx = EditorContext {
-                document: Some(&mut d),
-                clipboard: &mut clip,
-                config: &config,
-                now: Instant::now(),
-                clock: jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0),
-                messages: Vec::new(),
-                requests: Vec::new(),
-            };
-            let _ = reg.execute(id, &mut ctx, &serde_json::from_str(args).unwrap());
+        for id in [
+            "format.font",
+            "format.color",
+            "format.align",
+            "format.lineSpacing",
+            "format.allowMarkup",
+            "file.saveAsOrg",
+            "file.makeKalemDocument",
+        ] {
+            assert!(reg.get(id).is_none(), "{id}");
         }
-        d.text().as_str().to_string()
-    }
-
-    const FORMAT_TEXT: &str =
-        "#+TITLE: T\n\nSome words here, and there.\n\n| a | b |\n\n* Head\nMore çok text.\n";
-
-    #[test]
-    fn formatting_writes_markup_only_where_allowed() {
-        // Every command writes Kalem's markup into a Kalem document…
-        for (c, (id, _)) in FORMATTING.iter().enumerate() {
-            // Clearing, and aligning left as paragraphs are, write nothing.
-            if matches!(*id, "format.clear" | "format.alignLeft") {
-                continue;
-            }
-            let out = format_ops(FORMAT_TEXT, "/k/n.klm", &[(c, 12, 17)]);
-            // (Centering writes Org's own center block.)
-            let center = out.contains("#+begin_center");
-            assert!(
-                center || !crate::kinds::markup(&org_syntax::parse(&out).syntax()).is_empty(),
-                "{id}: {out}"
-            );
-        }
-        // …and into a `.org` file that opted in.
-        let opted = format!("#+KALEM: markup=yes\n{FORMAT_TEXT}");
-        let out = format_ops(&opted, "/k/n.org", &[(2, 32, 37)]);
-        assert!(out.contains("@@kalem:"), "{out}");
-    }
-
-    /// Every construct Kalem's formatting commands write, in
-    /// `tests/corpus/klm/written.klm`, which the differential test against
-    /// Emacs parses (`kalem diff-emacs`): each is one that org-element
-    /// reads as Kalem does. `KALEM_WRITE_CORPUS=1` writes the file anew.
-    #[test]
-    fn constructs_kalem_writes() {
-        let text = "* Heading\n\nOne two three four five six seven *bold* /it/ and =code= here.\n\nLeft.\n\nRight.\n\nCentered.\n\nJustified.\n\nSpaced.\n\n| cell | other |\n\n- item words\n";
-        let at = |w: &str| text.find(w).unwrap();
-        let word = |w: &str, c: usize| (c, at(w), at(w) + w.len());
-        let idx = |id: &str| FORMATTING.iter().position(|(c, _)| *c == id).unwrap();
-        let ops = [
-            word("two", idx("format.font")),
-            word("three", idx("format.size")),
-            word("four", idx("format.color")),
-            word("five", idx("format.highlight")),
-            word("six", idx("format.grow")),
-            word("*bold* /it", idx("format.color")),
-            word("=code=", idx("format.highlight")),
-            word("Heading", idx("format.color")),
-            word("words", idx("format.color")),
-            word("Right", idx("format.alignRight")),
-            word("Centered", idx("format.alignCenter")),
-            word("Justified", idx("format.justify")),
-            word("Spaced", idx("format.spaceBefore")),
-            word("Spaced", idx("format.spaceAfter")),
-            (idx("format.documentFont"), 0, 0),
-            (idx("format.documentSize"), 0, 0),
-            (idx("format.lineSpacing"), 0, 0),
-        ];
-        // Each operation on the text as the ones before left it.
-        let mut out = text.to_string();
-        for (c, a, h) in ops {
-            let w = &text[a..h];
-            let (a, h) = if a == h {
-                (0, 0)
-            } else {
-                let i = out.find(w).unwrap();
-                (i, i + w.len())
-            };
-            out = format_ops(&out, "/k/n.klm", &[(c, a, h)]);
-        }
-        let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/corpus/klm/written.klm");
-        if std::env::var_os("KALEM_WRITE_CORPUS").is_some() {
-            std::fs::write(&file, &out).unwrap();
-        }
-        assert_eq!(out, std::fs::read_to_string(&file).unwrap_or_default());
-        let (strict, counts) = crate::kinds::strip_markup(&out);
-        assert!(counts.iter().all(|&n| n > 0), "{counts:?}");
-        assert!(
-            !strict.contains("kalem") && !strict.contains("KALEM"),
-            "{strict}"
-        );
-    }
-
-    proptest::proptest! {
-        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(64))]
-        /// A `.org` file that did not opt in never gets Kalem's markup,
-        /// whatever formatting is asked for.
-        #[test]
-        fn strict_org_stays_strict(
-            ops in proptest::collection::vec((0usize..64, 0usize..96, 0usize..96), 1..8),
-        ) {
-            let out = format_ops(FORMAT_TEXT, "/k/n.org", &ops);
-            proptest::prop_assert_eq!(out, FORMAT_TEXT);
-            let out = format_ops(FORMAT_TEXT, "/k/n.ORG_ARCHIVE", &ops);
-            proptest::prop_assert_eq!(out, FORMAT_TEXT);
-        }
-    }
-
-    #[test]
-    fn colors_used_are_remembered() {
-        use crate::command::Request;
-        let mut d = doc("Some words here.\n", 0);
-        d.selection = org_edit::Selection { anchor: 0, head: 4 };
-        let reg = CommandRegistry::with_builtins();
-        let mut clip = Clipboard::default();
-        let config = crate::settings::Config::from_layers(&[(
-            crate::settings::Layer::User,
-            None,
-            "[format]\nrecent_colors = [\"#1f5fbf\", \"#c00000\"]\n",
-        )]);
-        let clock = jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0);
-        let mut ctx = EditorContext {
-            document: Some(&mut d),
-            clipboard: &mut clip,
-            config: &config,
-            now: Instant::now(),
-            clock,
-            messages: Vec::new(),
-            requests: Vec::new(),
-        };
-        reg.execute("format.color", &mut ctx, &json!({"color": "red"}))
-            .unwrap();
-        assert_eq!(
-            ctx.requests,
-            vec![Request::SetSetting {
-                key: "format.recent_colors".into(),
-                value: json!(["#c00000", "#1f5fbf"]),
-                quiet: true,
-            }]
-        );
-        // The prompt starts with the color used last.
-        let mut d2 = doc("x\n", 0);
-        assert_eq!(
-            crate::command::argument_default_with(
-                "format.color",
-                "color",
-                &json!({}),
-                &mut d2,
-                &config
-            ),
-            "#1f5fbf"
-        );
     }
 
     #[test]
@@ -5732,9 +5041,9 @@ mod tests {
         };
         assert!(!when("org.emphasis.bold"));
         assert!(when("lines.moveUp"));
-        // A document without a file is a Kalem document.
+        // A document without a file is an Org document.
         d.selection = org_edit::Selection::caret(1);
-        assert_eq!(d.text_type(), "klm");
+        assert_eq!(d.text_type(), "org");
     }
 
     #[test]

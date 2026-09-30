@@ -658,7 +658,7 @@ pub struct Menu {
     pub session: Session,
     /// The chosen item.
     pub chosen: usize,
-    /// Opened on request (Alt+/): it stays open for shorter prefixes.
+    /// Opened on request (Ctrl+Space, Alt+/): it stays open for shorter prefixes.
     pub requested: bool,
 }
 

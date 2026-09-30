@@ -83,22 +83,19 @@ fn kalem_markup_and_file_kinds() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let body = "#+KALEM: size=12\nSome @@kalem:color=red@@red@@kalem:end@@ text.\n\n#+ATTR_KALEM: :align right\n| a | bb |\n| ccc |\n";
-    // In a .klm file the additions are fine; in a .org file they warn.
+    // Formatting an earlier Kalem wrote is listed, in `.org` and `.klm`
+    // files alike (T2.13.13); only `--deny-warnings` fails on it.
     let klm = dir.join("doc.klm");
     std::fs::write(&klm, body).unwrap();
-    let (code, out, _) = kalem(&["check", "--deny-warnings", klm.to_str().unwrap()]);
-    assert_eq!((code, out.as_str()), (0, ""));
     let org = dir.join("doc.org");
     std::fs::write(&org, body).unwrap();
-    let (code, out, _) = kalem(&["check", "--deny-warnings", org.to_str().unwrap()]);
-    assert_eq!(code, 1);
-    assert_eq!(out.matches("kalem-markup-in-org").count(), 4, "{out}");
-    let (code, _, _) = kalem(&["check", org.to_str().unwrap()]);
-    assert_eq!(code, 0);
-    // Opted in: no warnings.
-    std::fs::write(&org, format!("#+KALEM: markup=yes\n{body}")).unwrap();
-    let (code, out, _) = kalem(&["check", "--deny-warnings", org.to_str().unwrap()]);
-    assert_eq!((code, out.as_str()), (0, ""), "{out}");
+    for f in [&org, &klm] {
+        let (code, out, _) = kalem(&["check", "--deny-warnings", f.to_str().unwrap()]);
+        assert_eq!(code, 1);
+        assert_eq!(out.matches("kalem-markup-in-org").count(), 4, "{out}");
+        let (code, _, _) = kalem(&["check", f.to_str().unwrap()]);
+        assert_eq!(code, 0);
+    }
     // `kalem export --to org` writes strict Org and says what went.
     let (code, out, err) = kalem(&["export", klm.to_str().unwrap(), "--to", "org", "-o", "-"]);
     assert_eq!(code, 0);

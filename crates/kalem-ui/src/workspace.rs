@@ -13,7 +13,6 @@ use gpui::{
 use kalem_core::command::PickKind;
 use kalem_core::projects::{self, After, Entry};
 use kalem_core::tr;
-use serde_json::json;
 
 use crate::editor::{DocEvent, Editor, RunCommand, Shared};
 use crate::theme::Theme;
@@ -40,21 +39,6 @@ impl FilesAt {
     }
 }
 
-/// A menu of the toolbar, when open.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ToolMenu {
-    /// Font families.
-    Font,
-    /// Font sizes.
-    Size,
-    /// Text colors.
-    Color,
-    /// Highlight colors.
-    Highlight,
-    /// Line spacings of the document.
-    Spacing,
-}
-
 /// A window's content.
 pub struct Workspace {
     /// The active document's editor.
@@ -67,20 +51,12 @@ pub struct Workspace {
     pub files_at: FilesAt,
     /// The list of open files is shown (View > Open Files toggles it).
     pub files_shown: bool,
-    /// The open menu of the toolbar.
-    pub menu: Option<ToolMenu>,
     /// The open menu of the window's own menu bar (Linux and Windows,
     /// where gpui draws no menus), by its place in the bar.
     pub menubar: Option<usize>,
     /// The menu of the bar a click outside just closed (its title's click
     /// must not open it again).
     menubar_closed: Option<(usize, std::time::Instant)>,
-    /// The menu a click outside just closed (its button's click must not
-    /// open it again).
-    menu_closed: Option<(ToolMenu, std::time::Instant)>,
-    /// What is typed while the font menu is open: fonts whose names
-    /// contain it are listed.
-    pub font_filter: String,
     subscriptions: Vec<Subscription>,
     /// The last document shown that is not a file manager, to go back to.
     last_text: Option<Entity<Editor>>,
@@ -112,11 +88,8 @@ impl Workspace {
             shared,
             files_at,
             files_shown: files_at != FilesAt::Hidden,
-            menu: None,
             menubar: None,
             menubar_closed: None,
-            menu_closed: None,
-            font_filter: String::new(),
             subscriptions: Vec::new(),
             last_text: None,
         };
@@ -998,60 +971,6 @@ impl Workspace {
                 cx,
             ))
             .child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
-        // Kalem's formatting: font, size, colors, alignment (§9.5).
-        let org = self.editor.read(cx).doc.meta.mode == kalem_core::DocumentMode::Org;
-        if org {
-            let (f, doc) = {
-                let e = self.editor.read(cx);
-                (e.format_at_cursor(), e.doc_defaults())
-            };
-            let font = f
-                .font
-                .or(doc.font)
-                .map(|f| f.family().to_string())
-                .unwrap_or_else(|| kalem_core::l10n::tr("toolbar-font"));
-            let size = f
-                .size
-                .or(doc.size)
-                .map(kalem_core::rich::size_text)
-                .unwrap_or_else(|| (theme.size as u16).to_string());
-            bar = bar
-                .child(self.menu_button("tool-font", font, ToolMenu::Font, 130., theme, cx))
-                .child(self.menu_button("tool-size", size, ToolMenu::Size, 44., theme, cx))
-                .child(self.command_button("tool-grow", "A+".into(), "format.grow", "", cx))
-                .child(self.command_button("tool-shrink", "A−".into(), "format.shrink", "", cx))
-                .child(self.swatch_button("tool-color", ToolMenu::Color, f.color, theme, cx))
-                .child(self.swatch_button(
-                    "tool-highlight",
-                    ToolMenu::Highlight,
-                    f.highlight,
-                    theme,
-                    cx,
-                ))
-                .child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
-            for (i, (align, id)) in [
-                (kalem_core::rich::Align::Left, "format.alignLeft"),
-                (kalem_core::rich::Align::Center, "format.alignCenter"),
-                (kalem_core::rich::Align::Right, "format.alignRight"),
-                (kalem_core::rich::Align::Justify, "format.justify"),
-            ]
-            .into_iter()
-            .enumerate()
-            {
-                bar = bar.child(self.align_button(i, align, id, theme, cx));
-            }
-            bar = bar
-                .child(self.menu_button(
-                    "tool-spacing",
-                    "↕".into(),
-                    ToolMenu::Spacing,
-                    34.,
-                    theme,
-                    cx,
-                ))
-                .child(self.command_button("tool-clear", "T̸".into(), "format.clear", "", cx))
-                .child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
-        }
         let doc = self.editor.read(cx).doc.document_context();
         let mode = self.editor.read(cx).doc.meta.mode.name();
         for (i, (label, _tip, id, args, not_in)) in TOOLBAR.iter().enumerate() {
@@ -1085,74 +1004,6 @@ impl Workspace {
         bar.flex_wrap().items_center()
     }
 
-    fn toggle_menu(&mut self, menu: ToolMenu, cx: &mut Context<'_, Self>) {
-        let just_closed = self.menu_closed.take().is_some_and(|(m, at)| {
-            m == menu && at.elapsed() < std::time::Duration::from_millis(400)
-        });
-        self.menu = if self.menu == Some(menu) || just_closed {
-            None
-        } else {
-            Some(menu)
-        };
-        self.font_filter.clear();
-        cx.notify();
-    }
-
-    /// Typing while the font menu is open searches the fonts: letters
-    /// narrow the list, Backspace widens it, Enter takes the first font,
-    /// Escape closes the menu.
-    fn font_menu_key(
-        &mut self,
-        ev: &gpui::KeyDownEvent,
-        window: &mut Window,
-        cx: &mut Context<'_, Self>,
-    ) {
-        if self.menu != Some(ToolMenu::Font) {
-            return;
-        }
-        let k = &ev.keystroke;
-        if k.modifiers.control || k.modifiers.platform || k.modifiers.alt {
-            return;
-        }
-        match k.key.as_str() {
-            "escape" => {
-                self.menu = None;
-                self.font_filter.clear();
-            }
-            "backspace" => {
-                self.font_filter.pop();
-            }
-            "enter" => {
-                if let Some(family) = self.font_names(window).into_iter().next() {
-                    self.font_filter.clear();
-                    self.run_active("format.font", json!({ "family": family }), window, cx);
-                }
-            }
-            _ => match &k.key_char {
-                Some(c) if !c.chars().any(char::is_control) => self.font_filter.push_str(c),
-                _ => return,
-            },
-        }
-        cx.stop_propagation();
-        cx.notify();
-    }
-
-    /// The system's fonts whose names contain the typed filter (case
-    /// ignored), sorted.
-    fn font_names(&self, window: &mut Window) -> Vec<String> {
-        let filter = self.font_filter.to_lowercase();
-        let mut names: Vec<String> = window
-            .text_system()
-            .all_font_names()
-            .into_iter()
-            .filter(|n| !n.starts_with('.'))
-            .filter(|n| n.to_lowercase().contains(&filter))
-            .collect();
-        names.sort();
-        names.dedup();
-        names
-    }
-
     /// Runs `id` with `args` in the active editor, then gives it the focus.
     fn run_active(
         &mut self,
@@ -1161,7 +1012,6 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) {
-        self.menu = None;
         let editor = self.editor.clone();
         editor.update(cx, |e, cx| e.run_command(id, args, window, cx));
         let focus = gpui::Focusable::focus_handle(editor.read(cx), cx);
@@ -1192,103 +1042,6 @@ impl Workspace {
             }))
     }
 
-    fn menu_button(
-        &self,
-        name: &'static str,
-        label: String,
-        menu: ToolMenu,
-        width: f32,
-        theme: &Theme,
-        cx: &mut Context<'_, Self>,
-    ) -> impl IntoElement {
-        div()
-            .id(name)
-            .debug_selector(move || name.to_string())
-            .w(px(width))
-            .flex()
-            .flex_row()
-            .justify_between()
-            .px(px(6.))
-            .py(px(2.))
-            .rounded(px(4.))
-            .border_1()
-            .border_color(theme.border)
-            .bg(theme.background)
-            .cursor_pointer()
-            .overflow_hidden()
-            .child(div().overflow_hidden().child(label))
-            .child(div().text_color(theme.muted).child("▾"))
-            .on_click(cx.listener(move |ws, _, _, cx| ws.toggle_menu(menu, cx)))
-    }
-
-    fn swatch_button(
-        &self,
-        name: &'static str,
-        menu: ToolMenu,
-        current: Option<kalem_core::theme::Color>,
-        theme: &Theme,
-        cx: &mut Context<'_, Self>,
-    ) -> impl IntoElement {
-        let (label, bar_color) = match menu {
-            ToolMenu::Color => ("A", current.map_or(theme.foreground, crate::theme::color)),
-            _ => (
-                "ab",
-                current.map_or(gpui::hsla(0.15, 1., 0.7, 1.), crate::theme::color),
-            ),
-        };
-        div()
-            .id(name)
-            .debug_selector(move || name.to_string())
-            .flex()
-            .flex_col()
-            .items_center()
-            .px(px(6.))
-            .rounded(px(4.))
-            .cursor_pointer()
-            .hover(|s| s.bg(gpui::hsla(0., 0., 0.5, 0.15)))
-            .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child(label))
-            .child(div().w(px(16.)).h(px(3.)).rounded(px(1.)).bg(bar_color))
-            .on_click(cx.listener(move |ws, _, _, cx| ws.toggle_menu(menu, cx)))
-    }
-
-    fn align_button(
-        &self,
-        i: usize,
-        align: kalem_core::rich::Align,
-        id: &'static str,
-        theme: &Theme,
-        cx: &mut Context<'_, Self>,
-    ) -> impl IntoElement {
-        use kalem_core::rich::Align;
-        // Four lines drawn like the icons of word processors.
-        let widths: [f32; 4] = match align {
-            Align::Justify => [14., 14., 14., 14.],
-            _ => [14., 9., 12., 8.],
-        };
-        let mut icon = div().w(px(14.)).flex().flex_col().gap(px(2.));
-        icon = match align {
-            Align::Left | Align::Justify => icon.items_start(),
-            Align::Center => icon.items_center(),
-            Align::Right => icon.items_end(),
-        };
-        for w in widths {
-            icon = icon.child(div().w(px(w)).h(px(1.5)).bg(theme.foreground));
-        }
-        div()
-            .id(("tool-align", i))
-            .debug_selector(move || format!("tool-align-{i}"))
-            .px(px(5.))
-            .py(px(5.))
-            .rounded(px(4.))
-            .cursor_pointer()
-            .hover(|s| s.bg(gpui::hsla(0., 0., 0.5, 0.15)))
-            .child(icon)
-            .on_click(cx.listener(move |ws, _, window, cx| {
-                ws.run_active(id, serde_json::Value::Null, window, cx);
-            }))
-    }
-
-    /// The open menu of the toolbar: fonts, sizes or colors.
     /// The window's own menu bar where the system draws none (Linux,
     /// Windows): the menus of `menus_for`, each opening a list of its
     /// items with their keys; `ui.menu_bar = false` hides it.
@@ -1399,258 +1152,6 @@ impl Workspace {
         Some(bar.into_any_element())
     }
 
-    fn menu_view(
-        &self,
-        theme: &Theme,
-        window: &mut Window,
-        cx: &mut Context<'_, Self>,
-    ) -> Option<gpui::AnyElement> {
-        let menu = self.menu?;
-        let item = |id: gpui::ElementId, label: String| {
-            div()
-                .id(id)
-                .px(px(10.))
-                .py(px(3.))
-                .cursor_pointer()
-                .hover(|s| s.bg(gpui::hsla(0., 0., 0.5, 0.15)))
-                .child(label)
-        };
-        let panel = div()
-            .id("tool-menu")
-            .occlude()
-            .on_mouse_down_out(cx.listener(move |ws, _, _, cx| {
-                ws.menu_closed = ws.menu.map(|m| (m, std::time::Instant::now()));
-                ws.menu = None;
-                cx.notify();
-            }))
-            .absolute()
-            .top(px(34.))
-            .left(px(8.))
-            .py(px(4.))
-            .rounded(px(6.))
-            .border_1()
-            .border_color(theme.border)
-            .bg(theme.bar)
-            .text_size(px(theme.size * 0.85));
-        let panel = match menu {
-            ToolMenu::Font => {
-                let names = self.font_names(window);
-                let search = if self.font_filter.is_empty() {
-                    kalem_core::l10n::tr("toolbar-font-search")
-                } else {
-                    format!("{}▏", self.font_filter)
-                };
-                let mut list = panel
-                    .w(px(240.))
-                    .max_h(px(360.))
-                    .overflow_y_scroll()
-                    .child(
-                        div()
-                            .debug_selector(|| "font-search".to_string())
-                            .px(px(8.))
-                            .py(px(3.))
-                            .text_color(theme.muted)
-                            .child(search),
-                    )
-                    .child(
-                        item(
-                            "font-default".into(),
-                            kalem_core::l10n::tr("toolbar-automatic"),
-                        )
-                        .on_click(cx.listener(|ws, _, window, cx| {
-                            ws.run_active(
-                                "format.font",
-                                json!({ "family": "default" }),
-                                window,
-                                cx,
-                            );
-                        })),
-                    );
-                for (n, name) in names.into_iter().enumerate() {
-                    let family = name.clone();
-                    list = list.child(
-                        item(("font", n).into(), name.clone())
-                            .font_family(SharedString::from(name))
-                            .on_click(cx.listener(move |ws, _, window, cx| {
-                                ws.run_active(
-                                    "format.font",
-                                    json!({ "family": family }),
-                                    window,
-                                    cx,
-                                );
-                            })),
-                    );
-                }
-                list.left(px(8.))
-            }
-            ToolMenu::Size => {
-                let mut list = panel
-                    .w(px(70.))
-                    .max_h(px(360.))
-                    .overflow_y_scroll()
-                    .left(px(146.));
-                for &sz in kalem_core::rich::SIZES {
-                    list = list.child(
-                        item(("size", sz as usize).into(), sz.to_string())
-                            .debug_selector(move || format!("size-{sz}"))
-                            .on_click(cx.listener(move |ws, _, window, cx| {
-                                ws.run_active(
-                                    "format.size",
-                                    json!({ "size": sz.to_string() }),
-                                    window,
-                                    cx,
-                                );
-                            })),
-                    );
-                }
-                list
-            }
-            ToolMenu::Spacing => {
-                let mut list = panel.w(px(150.)).left(px(470.));
-                for &sp in kalem_core::rich::SPACINGS {
-                    let label = kalem_core::rich::size_text(sp);
-                    let v = label.clone();
-                    list = list.child(
-                        item(("spacing", sp as usize).into(), label)
-                            .debug_selector(move || format!("spacing-{sp}"))
-                            .on_click(cx.listener(move |ws, _, window, cx| {
-                                ws.run_active(
-                                    "format.lineSpacing",
-                                    json!({ "spacing": v }),
-                                    window,
-                                    cx,
-                                );
-                            })),
-                    );
-                }
-                // The paragraph's space before and after it.
-                for (id, key, points) in [
-                    ("format.spaceBefore", "toolbar-space-before", "0"),
-                    ("format.spaceBefore", "toolbar-space-before", "6"),
-                    ("format.spaceBefore", "toolbar-space-before", "12"),
-                    ("format.spaceAfter", "toolbar-space-after", "0"),
-                    ("format.spaceAfter", "toolbar-space-after", "6"),
-                    ("format.spaceAfter", "toolbar-space-after", "12"),
-                ] {
-                    let label = kalem_core::tr!(key, points = points);
-                    let name = format!("{id}-{points}");
-                    list = list.child(
-                        item(SharedString::from(name.clone()).into(), label)
-                            .debug_selector(move || name.clone())
-                            .on_click(cx.listener(move |ws, _, window, cx| {
-                                ws.run_active(id, json!({ "points": points }), window, cx);
-                            })),
-                    );
-                }
-                list
-            }
-            ToolMenu::Color | ToolMenu::Highlight => {
-                let (colors, id, none) = if menu == ToolMenu::Color {
-                    (
-                        kalem_core::rich::COLORS,
-                        "format.color",
-                        "toolbar-automatic",
-                    )
-                } else {
-                    (
-                        kalem_core::rich::HIGHLIGHTS,
-                        "format.highlight",
-                        "toolbar-none",
-                    )
-                };
-                let mut grid = div()
-                    .flex()
-                    .flex_row()
-                    .flex_wrap()
-                    .gap(px(4.))
-                    .w(px(150.))
-                    .px(px(8.))
-                    .py(px(4.));
-                for (n, (name, hex)) in colors.iter().enumerate() {
-                    let c = kalem_core::theme::Color::parse(hex)
-                        .map_or(theme.foreground, crate::theme::color);
-                    let name = name.to_string();
-                    grid = grid.child(
-                        div()
-                            .id(("swatch", n))
-                            .debug_selector(move || format!("swatch-{n}"))
-                            .size(px(22.))
-                            .rounded(px(4.))
-                            .border_1()
-                            .border_color(theme.border)
-                            .bg(c)
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |ws, _, window, cx| {
-                                ws.run_active(id, json!({ "color": name }), window, cx);
-                            })),
-                    );
-                }
-                // The colors used lately, above the named ones.
-                let key = if menu == ToolMenu::Color {
-                    "format.recent_colors"
-                } else {
-                    "format.recent_highlights"
-                };
-                let recent: Vec<String> = self
-                    .shared
-                    .config
-                    .strings(key)
-                    .into_iter()
-                    .map(str::to_string)
-                    .collect();
-                let mut recent_row = div()
-                    .flex()
-                    .flex_row()
-                    .flex_wrap()
-                    .gap(px(4.))
-                    .w(px(150.))
-                    .px(px(8.))
-                    .py(px(4.));
-                for (n, hex) in recent.iter().enumerate() {
-                    let c = kalem_core::theme::Color::parse(hex)
-                        .map_or(theme.foreground, crate::theme::color);
-                    let value = hex.clone();
-                    recent_row = recent_row.child(
-                        div()
-                            .id(("recent-swatch", n))
-                            .debug_selector(move || format!("recent-swatch-{n}"))
-                            .size(px(22.))
-                            .rounded(px(4.))
-                            .border_1()
-                            .border_color(theme.border)
-                            .bg(c)
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |ws, _, window, cx| {
-                                ws.run_active(id, json!({ "color": value }), window, cx);
-                            })),
-                    );
-                }
-                let mut panel = panel
-                    .left(px(if menu == ToolMenu::Color { 250. } else { 280. }))
-                    .child(
-                        item("swatch-none".into(), kalem_core::l10n::tr(none)).on_click(
-                            cx.listener(move |ws, _, window, cx| {
-                                ws.run_active(id, json!({ "color": "none" }), window, cx);
-                            }),
-                        ),
-                    );
-                if !recent.is_empty() {
-                    panel = panel
-                        .child(
-                            div()
-                                .px(px(8.))
-                                .pt(px(4.))
-                                .text_color(theme.muted)
-                                .child(kalem_core::l10n::tr("toolbar-recent")),
-                        )
-                        .child(recent_row);
-                }
-                panel.child(grid)
-            }
-        };
-        Some(panel.into_any_element())
-    }
-
     fn status_bar(&self, theme: &Theme, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let e = self.editor.read(cx);
         let name = e.title();
@@ -1756,7 +1257,6 @@ impl Render for Workspace {
                 MENUS_FOR.with(|m| *m.borrow_mut() = Some(key));
             }
         }
-        let menu = self.menu_view(&theme, window, cx);
         let shown = self.files_shown && self.files_at != FilesAt::Hidden;
         let left =
             (shown && self.files_at == FilesAt::Left).then(|| self.files_view(&theme, false, cx));
@@ -1770,7 +1270,6 @@ impl Render for Workspace {
             .text_color(theme.foreground)
             .font_family(SharedString::from(theme.font.clone()))
             .on_action(cx.listener(|ws, _: &AddProjectFolder, _, cx| ws.add_project_folder(cx)))
-            .capture_key_down(cx.listener(Self::font_menu_key))
             .relative()
             .children(self.menu_bar(&theme, cx))
             .child(self.toolbar(&theme, cx))
@@ -1793,7 +1292,6 @@ impl Render for Workspace {
                     ),
             )
             .child(self.status_bar(&theme, cx))
-            .children(menu)
     }
 }
 

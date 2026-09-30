@@ -12,6 +12,7 @@
 
 use std::ops::Range;
 
+use org_edit::Transaction;
 use org_syntax::{NodeOrToken, SyntaxKind, SyntaxNode};
 
 /// Elements and objects whose text is not counted.
@@ -141,7 +142,7 @@ pub struct WordCounts {
     targets: Targets,
 }
 
-/// Word targets: the document's (`#+KALEM: word_target=80000`) and the
+/// Word targets: the document's (`#+PROPERTY: WORD_TARGET 80000`) and the
 /// section's (its heading's `WORD_TARGET` property).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Targets {
@@ -162,15 +163,68 @@ pub fn parse_target(v: &str) -> Option<usize> {
     (n > 0).then_some(n * k)
 }
 
-/// The document's word target: `word_target=` in `#+KALEM:`.
-pub fn document_target(root: &SyntaxNode) -> Option<usize> {
+/// The `#+PROPERTY: WORD_TARGET` lines of the document.
+fn target_lines(root: &SyntaxNode) -> Vec<(SyntaxNode, String)> {
     use org_syntax::ast::AstNode;
-    let keywords: Vec<(String, String)> = root
-        .descendants()
+    root.descendants()
         .filter_map(org_syntax::ast::Keyword::cast)
-        .map(|k| (k.key(), k.value()))
-        .collect();
-    crate::rich::kalem_option(&keywords, "word_target").and_then(|v| parse_target(&v))
+        .filter(|k| k.key().eq_ignore_ascii_case("PROPERTY"))
+        .filter_map(|k| {
+            let v = k.value();
+            let (name, value) = v.trim().split_once([' ', '\t'])?;
+            name.eq_ignore_ascii_case("WORD_TARGET")
+                .then(|| (k.syntax().clone(), value.trim().to_string()))
+        })
+        .collect()
+}
+
+/// The document's word target: its `#+PROPERTY: WORD_TARGET 80000`, a
+/// property of the whole file as Org has them (the last line wins).
+pub fn document_target(root: &SyntaxNode) -> Option<usize> {
+    target_lines(root).last().and_then(|(_, v)| parse_target(v))
+}
+
+/// Sets the document's word target (`None` takes it away): its
+/// `#+PROPERTY: WORD_TARGET` line changed, or one added after the
+/// keywords at the top.
+pub fn set_document_target(root: &SyntaxNode, text: &str, target: Option<usize>) -> Transaction {
+    let mut tx = Transaction::new("Word Target");
+    let lines = target_lines(root);
+    let line = |n: &SyntaxNode| {
+        let s = usize::from(n.text_range().start());
+        let e = text[s..].find('\n').map_or(text.len(), |i| s + i + 1);
+        s..e
+    };
+    match (lines.last(), target) {
+        (Some((n, _)), Some(t)) => {
+            let r = line(n);
+            let nl = if text[r.clone()].ends_with('\n') {
+                "\n"
+            } else {
+                ""
+            };
+            let _ = tx.replace(r, format!("#+PROPERTY: WORD_TARGET {t}{nl}"));
+        }
+        (Some(_), None) => {
+            for (n, _) in lines.iter().rev() {
+                let _ = tx.delete(line(n));
+            }
+        }
+        (None, Some(t)) => {
+            let mut at = 0;
+            for l in text.split_inclusive('\n') {
+                let t = l.trim_start().to_ascii_lowercase();
+                if t.starts_with("#+") && !t.starts_with("#+begin") {
+                    at += l.len();
+                } else {
+                    break;
+                }
+            }
+            let _ = tx.insert(at, format!("#+PROPERTY: WORD_TARGET {t}\n"));
+        }
+        (None, None) => {}
+    }
+    tx
 }
 
 /// The word target of the headline starting at `start`: its own
@@ -381,7 +435,7 @@ mod tests {
         assert_eq!(parse_target("80,000"), Some(80_000));
         assert_eq!(parse_target("5k"), Some(5_000));
         assert_eq!(parse_target("none"), None);
-        let t = "#+KALEM: spacing=1.5 word_target=10k\n* Part\n** One\n:PROPERTIES:\n:WORD_TARGET: 100\n:END:\nfour words right here\n*** Deep\nthree more words\n** Two\nx y\n";
+        let t = "#+PROPERTY: WORD_TARGET 10k\n* Part\n** One\n:PROPERTIES:\n:WORD_TARGET: 100\n:END:\nfour words right here\n*** Deep\nthree more words\n** Two\nx y\n";
         let root = org_syntax::parse(t).syntax();
         assert_eq!(document_target(&root), Some(10_000));
         let cs = chapters(&root);
