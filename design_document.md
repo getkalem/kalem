@@ -478,6 +478,7 @@ The terminal shows colors and highlights and aligns short lines; it cannot show 
 5. **Lightness is a feature.** Every new dependency is justified by its effect on binary size and startup time.
 6. **Superset of Emacs, not a copy of its limits.** Same meaning for every file Emacs opens; none of Emacs's implementation limits (3.6).
 7. **The terminal is never second class** (asked by the owner, 2026-09-28). Wherever it is possible, the terminal frontend supports a feature as strongly as the graphical one: the same commands, keymaps, settings, panels and plugins, and a terminal form for everything a character grid can carry (text, glyphs, colors, images through the graphics protocols, OSC 8 links, OSC 52 clipboard). A feature lands in both frontends together and is done only when it works in both; what the terminal cannot show (fonts, sizes, pixel layout) gets its nearest honest form and is listed in `book/part-5/terminal-parity.org`, never dropped silently. People over SSH and in tmux (P6) are first-class users.
+8. **Only the Kalem format is ours** (owner, 2026-09-30). `.klm` is the one format Kalem designs; every other format, Org, Markdown, CSV, LaTeX, and the files plugins open, is implemented to its own specification with nothing added, removed or changed, and nothing of Kalem's written into it. Anything Kalem wants to add to a document lives in `.klm` alone (D24, D53, D55).
 
 ### 4.2 Crate map
 
