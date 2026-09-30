@@ -654,7 +654,7 @@ LaTeX
 BibTeX
 - [x] T2.11.56 The grid's scanner stopped at the first malformed field and showed the rest of the file as one entry; now a bad field is skipped and an unclosed entry ends where the next one starts (`bibtex::entries`)
 - [x] T2.11.57 `\addbibresource{refs.json}` was read as `refs.json.bib`; `\addbibresource` keeps its extension
-- [ ] T2.11.58 Org's bibliography reader cannot read `.yaml` (the CSL library can) and rejects a whole `.bib` for one syntax error, where BibTeX and biber report the entry and go on; the grid does not expand `@string` macros or `#`; no comparison with BibTeX or biber has been run (code, book)
+- [x] T2.11.58 (done: `.yaml` read through hayagriva; a malformed entry left out and reported, the rest read; the grid expands `@string`, months and `#`; the numbering of citations compared with bibtex, `tests/latex/citations`; biber is not installed here) Org's bibliography reader cannot read `.yaml` (the CSL library can) and rejects a whole `.bib` for one syntax error, where BibTeX and biber report the entry and go on; the grid does not expand `@string` macros or `#`; no comparison with BibTeX or biber has been run (code, book)
 
 CSV
 - [x] T2.11.59 Typing a delimiter, quote or line break in a grid field split the field; it now goes into the value and the field is quoted (`csv::typed`)

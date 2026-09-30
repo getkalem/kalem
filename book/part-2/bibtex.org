@@ -144,7 +144,10 @@ A BibTeX document is shown as a grid with one row per entry
 | title  | =title=, italic                                  |     48 |
 | year   | =year=, else the first four characters of =date= |      4 |
 
-Authors are split at the word =and= between spaces; a name with a comma
+A value is shown with the file's =@string= abbreviations, the month
+names (=jan= … =dec=) and =#= concatenations written out
+(=bibtex::expand=), braced and quoted parts as they are. Authors are
+split at the word =and= between spaces; a name with a comma
 is taken as "Last, First" and gives the part before the comma, other
 names give their last word. One name shows alone, two as "A and B", more
 as "A et al.". Each column is as wide as its widest cell, up to the
@@ -236,11 +239,12 @@ with the files named by =\bibliography= or =\addbibresource=) use
 =org_cite::Bibliography= (=crates/org-cite/src/bib.rs=). It reads a
 file by its extension:
 
-| Extension         | Read as                                      |
-|-------------------+----------------------------------------------|
-| =.bib=, =.bibtex= | BibTeX and BibLaTeX, as =bibtex-parse-entry= |
-| =.json=           | CSL-JSON, as =oc-basic= reads it             |
-| anything else     | An error: "Unknown bibliography extension"   |
+| Extension         | Read as                                                                                                                                  |
+|-------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+| =.bib=, =.bibtex= | BibTeX and BibLaTeX, as =bibtex-parse-entry=                                                                                             |
+| =.json=           | CSL-JSON, as =oc-basic= reads it                                                                                                         |
+| =.yaml=, =.yml=   | hayagriva's YAML (as the CSL renderer reads it): =author= and =editor= as "Family, Given" joined with =and=, =title=, =year= from =date= |
+| anything else     | An error: "Unknown bibliography extension"                                                                                               |
 
 Several files are read in order; a key seen in an earlier file keeps
 its entry. A file that cannot be read is reported with the reason, and
@@ -261,10 +265,12 @@ The BibTeX reader follows Emacs:
    =@string= definition, else by the full month name when it is one of
    =jan= … =dec=, else kept as written.
 4. In each value, runs of spaces and line feeds become one space.
-5. An entry needs a comma after its key and before every field. Any
+5. An entry needs a comma after its key and before every field. A
    syntax error (unbalanced braces, a missing ~=~ or comma, an
-   unterminated string) makes the whole file unreadable, not just that
-   entry.
+   unterminated string) leaves that entry out and the reading goes on
+   at the next line starting with =@=, as BibTeX reports an entry and
+   goes on; =@string= definitions before it still apply. The entries
+   left out are listed with the reason (=bibliography-entry-skipped=).
 
 CSL-JSON is read as =oc-basic= reads it: =id= is the key and =type= the
 type; =author= and =editor= become "Family Given" names joined by
@@ -342,11 +348,12 @@ For a LaTeX document (=latex_check::check=, shown in the editor and by
 =kalem check=), when the document or its project names bibliography
 files:
 
-| Code                      | Severity | Where                                       | When                                                                                                                                     |
-|---------------------------+----------+---------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
-| =bibliography-unreadable= | warning  | The =\bibliography= command in this file    | A named file cannot be read by Org's reader                                                                                              |
-| =cite-unknown-key=        | warning  | The citation                                | A cited key is in no file; only when at least one file could be read                                                                     |
-| =cite-unused-entry=       | info     | The root document's =\bibliography= command | An entry no citation in the project uses; only on the root document, when every file could be read, and not when =\nocite{*}= is present |
+| Code                         | Severity | Where                                       | When                                                                                                                                     |
+|------------------------------+----------+---------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+| =bibliography-unreadable=    | warning  | The =\bibliography= command in this file    | A named file cannot be read by Org's reader                                                                                              |
+| =bibliography-entry-skipped= | warning  | The =\bibliography= command in this file    | An entry of a named file is malformed and left out; the rest of the file is read                                                         |
+| =cite-unknown-key=           | warning  | The citation                                | A cited key is in no file; only when at least one file could be read                                                                     |
+| =cite-unused-entry=          | info     | The root document's =\bibliography= command | An entry no citation in the project uses; only on the root document, when every file could be read, and not when =\nocite{*}= is present |
 
 For an Org document, =kalem check= reports =bibliography-unreadable= on
 the =#+BIBLIOGRAPHY:= line of a file that cannot be read, and

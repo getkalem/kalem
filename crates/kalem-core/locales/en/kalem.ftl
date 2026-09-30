@@ -726,6 +726,7 @@ msg-pandoc-failed = pandoc could not convert it: { $error }
 msg-imported = Imported as { $path }
 msg-import-exists = { $path } exists already
 cite-bibliography-unreadable = The bibliography { $file } cannot be read: { $error }
+cite-entry-skipped = An entry of { $file } is left out: { $error }
 cite-unknown-key = No bibliography has the key @{ $key }
 cite-unused-entry = Nothing cites the bibliography entry @{ $key }
 category-footnotes = Footnotes

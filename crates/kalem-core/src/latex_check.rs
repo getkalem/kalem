@@ -482,6 +482,22 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
         .collect();
     if !files.is_empty() {
         let (bib, errors) = org_cite::Bibliography::load(&files);
+        // Malformed entries left out, the rest read, as BibTeX goes on.
+        if let Some(b) = model.bibliography.iter().find(|b| b.file == this) {
+            for (f, e) in bib.skipped() {
+                out.push(Diagnostic {
+                    range: b.range.clone(),
+                    severity: Severity::Warning,
+                    code: "bibliography-entry-skipped",
+                    message: crate::tr!(
+                        "cite-entry-skipped",
+                        file = f.display().to_string(),
+                        error = e.clone()
+                    ),
+                    fix: None,
+                });
+            }
+        }
         for (f, e) in &errors {
             if let Some(b) = model.bibliography.iter().find(|b| b.file == this) {
                 out.push(Diagnostic {

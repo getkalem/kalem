@@ -33,6 +33,7 @@ impl Entry {
 pub struct Bibliography {
     entries: Vec<Entry>,
     index: HashMap<String, usize>,
+    skipped: Vec<(PathBuf, String)>,
 }
 
 impl Bibliography {
@@ -64,13 +65,38 @@ impl Bibliography {
         let mut bib = Bibliography::default();
         let mut errors = Vec::new();
         for f in files {
-            match read(f) {
-                Ok(entries) => bib.extend(entries),
+            match read_tolerant(f) {
+                Ok((entries, skipped)) => {
+                    bib.extend(entries);
+                    bib.skipped
+                        .extend(skipped.into_iter().map(|e| (f.clone(), e)));
+                }
                 Err(e) => errors.push((f.clone(), e)),
             }
         }
         (bib, errors)
     }
+
+    /// The entries of the files read that were malformed and left out,
+    /// with the reason, as BibTeX reports an entry and goes on.
+    pub fn skipped(&self) -> &[(PathBuf, String)] {
+        &self.skipped
+    }
+}
+
+/// The entries of one file, a malformed BibTeX entry left out with its
+/// reason (the rest of the file is read); `Err` when the file cannot be
+/// read at all.
+pub fn read_tolerant(file: &Path) -> Result<(Vec<Entry>, Vec<String>), String> {
+    let lower = file
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    if matches!(lower.as_deref(), Some("bib" | "bibtex")) {
+        let text = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+        return Ok(parse_bibtex_tolerant(&text));
+    }
+    read(file).map(|e| (e, Vec::new()))
 }
 
 /// The entries of one file.
@@ -84,6 +110,7 @@ pub fn read(file: &Path) -> Result<Vec<Entry>, String> {
     {
         Some("json") => parse_csl_json(&text),
         Some("bib" | "bibtex") => parse_bibtex(&text),
+        Some("yaml" | "yml") => parse_yaml(&text),
         Some(e) => Err(format!("Unknown bibliography extension: {e:?}")),
         None => Err("Unknown bibliography extension".into()),
     }
@@ -248,12 +275,95 @@ fn squeeze(s: &str) -> String {
 /// The entries of a BibTeX or BibLaTeX text. Text outside entries is a
 /// comment; `@comment` and `@preamble` are skipped, `@string` defines
 /// abbreviations.
+/// [`parse_bibtex`] going on after a malformed entry, from the next `@`
+/// at the start of a line: the entries read and the errors met.
+pub fn parse_bibtex_tolerant(text: &str) -> (Vec<Entry>, Vec<String>) {
+    let mut entries = Vec::new();
+    let mut errors = Vec::new();
+    let mut strings = HashMap::new();
+    let mut at = 0;
+    while at < text.len() {
+        // The next entry, and where the one after starts.
+        let next = text[at + 1..]
+            .match_indices("\n@")
+            .map(|(i, _)| at + 1 + i + 1)
+            .next()
+            .unwrap_or(text.len());
+        let chunk = &text[at..next];
+        match parse_bibtex_with(chunk, &mut strings) {
+            Ok(e) => entries.extend(e),
+            Err(e) => errors.push(e),
+        }
+        at = next;
+    }
+    (entries, errors)
+}
+
+/// The entries of a hayagriva YAML file, as BibTeX-like fields: `author`
+/// and `editor` as `Family, Given` joined with `and`, `title`, `year`.
+pub fn parse_yaml(text: &str) -> Result<Vec<Entry>, String> {
+    let lib = hayagriva::io::from_yaml_str(text).map_err(|e| e.to_string())?;
+    let names = |ps: &[hayagriva::types::Person]| {
+        ps.iter()
+            .map(|p| {
+                let family = match &p.prefix {
+                    Some(v) => format!("{v} {}", p.name),
+                    None => p.name.clone(),
+                };
+                match &p.given_name {
+                    Some(g) => format!("{family}, {g}"),
+                    None => family,
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" and ")
+    };
+    Ok(lib
+        .iter()
+        .map(|e| {
+            let mut fields = Vec::new();
+            if let Some(a) = e.authors() {
+                fields.push(("author".to_string(), names(a)));
+            }
+            if let Some(a) = e.editors() {
+                fields.push(("editor".to_string(), names(a)));
+            }
+            if let Some(t) = e.title() {
+                fields.push(("title".to_string(), t.to_string()));
+            }
+            if let Some(d) = e.date() {
+                fields.push(("year".to_string(), d.year.to_string()));
+            }
+            Entry {
+                key: e.key().to_string(),
+                kind: format!("{:?}", e.entry_type()).to_lowercase(),
+                fields,
+            }
+        })
+        .collect())
+}
+
 pub fn parse_bibtex(text: &str) -> Result<Vec<Entry>, String> {
+    parse_bibtex_with(text, &mut HashMap::new())
+}
+
+/// [`parse_bibtex`] with the `@string` abbreviations defined so far, which
+/// it adds to.
+fn parse_bibtex_with(
+    text: &str,
+    strings: &mut HashMap<String, String>,
+) -> Result<Vec<Entry>, String> {
     let mut p = Parser {
         s: text,
         pos: 0,
-        strings: HashMap::new(),
+        strings: std::mem::take(strings),
     };
+    let out = parse_entries(&mut p);
+    *strings = std::mem::take(&mut p.strings);
+    out
+}
+
+fn parse_entries(p: &mut Parser<'_>) -> Result<Vec<Entry>, String> {
     let mut out = Vec::new();
     while let Some(at) = p.s[p.pos..].find('@') {
         p.pos += at + 1;
@@ -417,6 +527,27 @@ mod tests {
         assert_eq!(e[1].field("journal"), Some("Journal of Tests (Series)"));
         assert_eq!(e[1].field("note"), Some("With \"quotes\" and {braces}"));
         assert!(parse_bibtex("@book{x, title = {open").is_err());
+        // One malformed entry, the others read.
+        let (e, errors) = parse_bibtex_tolerant(
+            "@book{a, title = {A}}\n@book{b, title {B}}\n@book{c, title = {C}}\n",
+        );
+        assert_eq!(
+            e.iter().map(|e| e.key.as_str()).collect::<Vec<_>>(),
+            ["a", "c"]
+        );
+        assert_eq!(errors.len(), 1);
+        // Abbreviations reach the entries after them.
+        let (e, _) =
+            parse_bibtex_tolerant("@string{ae = {Addison-Wesley}}\n@book{a, publisher = ae}\n");
+        assert_eq!(e[0].field("publisher"), Some("Addison-Wesley"));
+        // hayagriva's YAML.
+        let y = parse_yaml(
+            "knuth:\n  type: book\n  title: The TeXbook\n  author: Knuth, Donald\n  date: 1984\n",
+        )
+        .unwrap();
+        assert_eq!(y[0].key, "knuth");
+        assert_eq!(y[0].field("author"), Some("Knuth, Donald"));
+        assert_eq!(y[0].field("year"), Some("1984"));
     }
 
     #[test]
