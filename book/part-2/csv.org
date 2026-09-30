@@ -77,15 +77,30 @@ Kalem does not open.
 
 A dialect has four parts (=csv::Dialect=):
 
-| Part      | Values                    | How it is found                 |
-|-----------+---------------------------+---------------------------------|
-| Delimiter | =,= =;= tab, vertical bar | Detected from the text          |
-| Quote     | ="=                       | Fixed; not detected             |
-| Header    | yes or no                 | Detected from the first records |
-| CR LF     | yes or no                 | Detected from the text          |
+| Part      | Values                    | How it is found                         |
+|-----------+---------------------------+-----------------------------------------|
+| Delimiter | =,= =;= tab, vertical bar | Detected from the text, or set          |
+| Quote     | ="= or another character  | ="= unless set                          |
+| Header    | yes or no                 | Detected from the first records, or set |
+| CR LF     | yes or no                 | Detected from the text                  |
 
 Detection (=csv::detect=) looks at a sample: the first 65,536
 characters of the text (after the byte order mark is removed).
+
+The dialect is detected once, when the document is first laid out, and
+kept for the document's life (=DocumentState::csv_dialect=): renaming a
+header cell to a number does not turn the header off, and editing the
+first line does not change the delimiter. Four commands change it by
+hand (see [[*The commands][The commands]]): Set Delimiter, Set Quote Character,
+First Row Is a Header, and Detect Delimiter and Header Again, which forgets the kept
+dialect and detects it from the current text.
+
+** Excel's =sep= line
+
+A file whose first line is exactly =sep== followed by one character
+(Excel writes ~sep=;~) takes that character as its delimiter without
+further detection; the line is not a record, so it is neither shown in
+the grid nor taken for a header, and it is kept in the file as it is.
 
 ** Line endings
 
@@ -102,16 +117,28 @@ it is.
 Each candidate is tried in the order =,= =;= tab and vertical bar. For a
 candidate, the sample is scanned with the full scanner (so delimiters
 inside quotes do not count) for at most 50 records; an empty record at
-the very end (the line after a final line feed) is not counted. Let /f/
-be the number of fields of the first record and /s/ the number of
-records that have exactly /f/ fields. The candidate's score is /s × f/
-when /f/ is more than one, and zero otherwise. The candidate with the
-highest score wins; a tie goes to the one tried first; when every score
-is zero the delimiter is the comma.
+the very end (the line after a final line feed) is not counted. Let /m/
+be the most common number of fields among those records, counting only
+numbers above one (the larger number on a tie), and /s/ the number of
+records with /m/ fields. A candidate for which no record has more than
+one field is out. The others are compared, in this order, by
 
-So =ürün;fiyat= followed by =elma;1,5= is read with =;=: the comma
-inside =1,5= gives the first record one field under =,= and scores
-nothing.
+1. /s/, more is better; the first record takes no part of its own, so
+   a title or metadata first line of one field does not decide the
+   delimiter;
+2. how many fields of the first twenty records read as numbers (with
+   =.= or =,= as the decimal separator), more is better;
+3. how many of those fields are not numbers and hold another
+   candidate delimiter, fewer is better;
+4. /m/, more is better;
+
+and a tie on all four goes to the one tried first. When every candidate
+is out the delimiter is the comma.
+
+So =ürün;fiyat= followed by =elma;1,5= is read with =;=: under =,= the
+fields =ürün;fiyat= and =elma;1= hold a semicolon and =5= is the only
+number, while under =;= the field =1,5= is a number. Likewise
+=1,5;2,5;3,5= splits at =;= into three numbers.
 
 ** The header row
 
@@ -132,8 +159,8 @@ follows:
 
 The header matters to the grid (bold, pinned), to row moves and sorting
 (it stays first), to the statistics and the filter (it is not data),
-and to Convert to Org Table (a rule under it). There is no way to set
-the header by hand yet.
+and to Convert to Org Table (a rule under it). First Row Is a Header
+sets it by hand.
 
 * The scanner
 
@@ -194,8 +221,7 @@ integration test =large_files_lay_out_lazily= check this.
 | MIME parameters =charset= and =header=               | Not applicable: the encoding and header are detected                |
 
 Constructs of CSV dialects outside the RFC that Kalem does not
-recognize, and therefore shows and keeps as ordinary data: Excel's
-~sep=;~ first line, comment lines, backslash escapes, a quote character
+recognize, and therefore shows and keeps as ordinary data: comment lines, backslash escapes, a quote character
 other than ="=, and blanks after a delimiter as in Python's
 =skipinitialspace=.
 
@@ -285,29 +311,37 @@ sorts), on its toolbar (insert and delete row and column, Sort File,
 Filter Rows), in the /File/ menu (Copy as Tab-Separated Values, Convert
 to Org Table, Open as Plain Text) and in the palette of both editors.
 
-| Command               | Title                        | Key       | Changes the file         |
-|-----------------------+------------------------------+-----------+--------------------------|
-| =csv.nextField=       | Next Field                   | Tab       | Only past the last field |
-| =csv.previousField=   | Previous Field               | Shift+Tab | No                       |
-| =csv.insertRow=       | Insert Row                   |           | Yes                      |
-| =csv.deleteRow=       | Delete Row                   |           | Yes                      |
-| =csv.moveRowUp=       | Move Row Up                  |           | Yes                      |
-| =csv.moveRowDown=     | Move Row Down                |           | Yes                      |
-| =csv.insertColumn=    | Insert Column                |           | Yes                      |
-| =csv.deleteColumn=    | Delete Column                |           | Yes                      |
-| =csv.moveColumnLeft=  | Move Column Left             |           | Yes                      |
-| =csv.moveColumnRight= | Move Column Right            |           | Yes                      |
-| =csv.sortFile=        | Sort File by Column          |           | Yes                      |
-| =csv.filter=          | Filter Rows                  |           | No                       |
-| =csv.clearFilter=     | Show All Rows                |           | No                       |
-| =csv.sortView=        | Sort View by Column          |           | No                       |
-| =csv.unsortView=      | File Order                   |           | No                       |
-| =csv.copyAsTsv=       | Copy as Tab-Separated Values |           | No                       |
-| =csv.openAsText=      | Open as Plain Text           |           | No                       |
-| =csv.convertToOrg=    | Convert to Org Table         |           | Writes a new file        |
+| Command               | Title                             | Key       | Changes the file         |
+|-----------------------+-----------------------------------+-----------+--------------------------|
+| =csv.nextField=       | Next Field                        | Tab       | Only past the last field |
+| =csv.previousField=   | Previous Field                    | Shift+Tab | No                       |
+| =csv.insertRow=       | Insert Row                        |           | Yes                      |
+| =csv.deleteRow=       | Delete Row                        |           | Yes                      |
+| =csv.moveRowUp=       | Move Row Up                       |           | Yes                      |
+| =csv.moveRowDown=     | Move Row Down                     |           | Yes                      |
+| =csv.insertColumn=    | Insert Column                     |           | Yes                      |
+| =csv.deleteColumn=    | Delete Column                     |           | Yes                      |
+| =csv.moveColumnLeft=  | Move Column Left                  |           | Yes                      |
+| =csv.moveColumnRight= | Move Column Right                 |           | Yes                      |
+| =csv.sortFile=        | Sort File by Column               |           | Yes                      |
+| =csv.filter=          | Filter Rows                       |           | No                       |
+| =csv.clearFilter=     | Show All Rows                     |           | No                       |
+| =csv.sortView=        | Sort View by Column               |           | No                       |
+| =csv.unsortView=      | File Order                        |           | No                       |
+| =csv.copyAsTsv=       | Copy as Tab-Separated Values      |           | No                       |
+| =csv.openAsText=      | Open as Plain Text                |           | No                       |
+| =csv.convertToOrg=    | Convert to Org Table              |           | Writes a new file        |
+| =csv.setDelimiter=    | Set Delimiter                     |           | No                       |
+| =csv.setQuote=        | Set Quote Character               |           | No                       |
+| =csv.toggleHeader=    | First Row Is a Header             |           | No                       |
+| =csv.detectDialect=   | Detect Delimiter and Header Again |           | No                       |
 
 Arguments: =csv.sortFile= and =csv.sortView= take =reverse= (boolean);
-=csv.filter= takes =text= (string, required).
+=csv.filter= takes =text= (string, required); =csv.setDelimiter= takes
+=delimiter= and =csv.setQuote= takes =quote= (strings, required: one
+ASCII character, and for the delimiter also =tab= or =\t=; anything
+else is refused with a message). The dialect set by hand lasts until the
+document is closed; it is not written to the file.
 
 ** Moving between fields
 
@@ -512,10 +546,9 @@ Saving is atomic, as for every file.
 
 * Known differences and limits
 
-- The quote character is always ="=; the module's documentation and
-  =todo.md= (T2.7d.1) speak of quoting as detected, but it is fixed.
-- Only four delimiters are candidates: =,= =;= tab and vertical bar.
-- The header is guessed and cannot be set by hand.
+- The quote character is not detected: it is ="= unless set by hand.
+- Only four delimiters are detected: =,= =;= tab and vertical bar;
+  others can be set by hand or with a =sep== line.
 - Column widths are measured on the source text, quotes included, from
   the first 1,000 records only.
 - The dialect's CR LF flag (any CR LF in the sample) and the document's

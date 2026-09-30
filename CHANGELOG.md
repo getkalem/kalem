@@ -240,6 +240,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- CSV: the delimiter and header are detected once and kept while the file is open (renaming a header cell to a number no longer drops the header); detection prefers the delimiter that reads fields as numbers (`elma;1,5` and `1,5;2,5` split at `;`) and is not decided by a one-field title line; Excel's `sep=;` first line sets the delimiter and is not taken for the header. New commands set the delimiter, the quote character and the header by hand, and detect them again.
 - CSV: a comma, quote or line break typed in a field of the grid goes into its value, the field quoted (it used to split the field); the source view still types raw. Sorting a column that mixes numbers and text could panic; numbers now sort before text in a total order. Column statistics read `1,234.5`, `1.234,5` and `1,234,567` as spreadsheets write them, and leave NaN and infinities out.
 - BibTeX grid: a malformed field or an unclosed entry no longer swallows the rest of the file into one entry.
 - LaTeX: `\addbibresource{refs.json}` is `refs.json`, not `refs.json.bib`.

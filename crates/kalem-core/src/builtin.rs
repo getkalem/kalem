@@ -204,6 +204,8 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("csv.sortFile", object(&[("reverse", "boolean", false)])),
         ("csv.filter", object(&[("text", "string", true)])),
         ("csv.sortView", object(&[("reverse", "boolean", false)])),
+        ("csv.setDelimiter", object(&[("delimiter", "string", true)])),
+        ("csv.setQuote", object(&[("quote", "string", true)])),
         (
             "bib.sortView",
             object(&[("column", "string", false), ("reverse", "boolean", false)]),
@@ -2119,6 +2121,62 @@ fn csv_commands() -> Vec<Command> {
             d.csv_sort = Some((col, reverse));
             Ok(())
         }),
+        // The dialect by hand: it is detected once and kept.
+        c("csv.setDelimiter", "Set Delimiter", &[], |ctx, args| {
+            let v = arg_str(args, "delimiter")?.to_string();
+            let b = match v.trim() {
+                "tab" | "\\t" => b'\t',
+                s if s.len() == 1 => s.as_bytes()[0],
+                _ => {
+                    return Err(CommandError::new(crate::tr!(
+                        "msg-csv-bad-delimiter",
+                        value = v.as_str()
+                    )));
+                }
+            };
+            let d = ctx.doc()?;
+            let mut dialect = crate::csv::layout(d).dialect;
+            dialect.delimiter = b;
+            d.csv_dialect.set(Some(dialect));
+            Ok(())
+        }),
+        c("csv.setQuote", "Set Quote Character", &[], |ctx, args| {
+            let v = arg_str(args, "quote")?.to_string();
+            let Some(&q) = v.trim().as_bytes().first().filter(|_| v.trim().len() == 1) else {
+                return Err(CommandError::new(crate::tr!(
+                    "msg-csv-bad-delimiter",
+                    value = v.as_str()
+                )));
+            };
+            let d = ctx.doc()?;
+            let mut dialect = crate::csv::layout(d).dialect;
+            dialect.quote = q;
+            d.csv_dialect.set(Some(dialect));
+            Ok(())
+        }),
+        c(
+            "csv.toggleHeader",
+            "First Row Is a Header",
+            &[],
+            |ctx, _| {
+                let d = ctx.doc()?;
+                let mut dialect = crate::csv::layout(d).dialect;
+                dialect.header = !dialect.header;
+                d.csv_dialect.set(Some(dialect));
+                Ok(())
+            },
+        ),
+        c(
+            "csv.detectDialect",
+            "Detect Delimiter and Header Again",
+            &[],
+            |ctx, _| {
+                let d = ctx.doc()?;
+                d.csv_dialect
+                    .set(Some(crate::csv::detect(d.text().as_str())));
+                Ok(())
+            },
+        ),
         c("csv.unsortView", "File Order", &[], |ctx, _| {
             ctx.doc()?.csv_sort = None;
             Ok(())

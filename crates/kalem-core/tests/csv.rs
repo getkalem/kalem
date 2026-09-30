@@ -132,3 +132,49 @@ fn large_files_lay_out_lazily() {
     // book/part-5/performance.org.
     assert!(start.elapsed().as_secs() < 5, "{:?}", start.elapsed());
 }
+
+#[test]
+fn dialect_kept_and_set_by_hand() {
+    // Detected once: renaming the header cell to a number keeps the
+    // header; the commands set the dialect by hand.
+    let dir = std::env::temp_dir().join(format!("kalem-csv-dialect-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("d.csv");
+    std::fs::write(&path, "name,qty\napple,3\n").unwrap();
+    let base = kalem_core::settings::Config::default().parse_base();
+    let mut d =
+        DocumentState::open(&path, Arc::new(org_model::Settings::default()), &base).unwrap();
+    let l = csv::layout(&d);
+    assert!(l.dialect.header);
+    let text = d.text().as_str().to_string();
+    let rec = l.index.borrow_mut().record(&text, 0, &l.dialect).unwrap();
+    let tx = csv::set_cell(&text, &rec, 0, "2024", &l.dialect);
+    d.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+    assert!(csv::layout(&d).dialect.header, "{}", d.text().as_str());
+    let reg = kalem_core::CommandRegistry::with_builtins();
+    let config = kalem_core::settings::Config::default();
+    let run = |d: &mut DocumentState, id: &str, args: serde_json::Value| {
+        let mut clip = kalem_core::command::Clipboard::default();
+        let mut ctx = kalem_core::command::EditorContext {
+            document: Some(d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 9, 30).at(10, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute(id, &mut ctx, &args).unwrap();
+    };
+    run(&mut d, "csv.toggleHeader", serde_json::json!({}));
+    assert!(!csv::layout(&d).dialect.header);
+    run(
+        &mut d,
+        "csv.setDelimiter",
+        serde_json::json!({"delimiter": ";"}),
+    );
+    assert_eq!(csv::layout(&d).dialect.delimiter, b';');
+    run(&mut d, "csv.detectDialect", serde_json::json!({}));
+    assert_eq!(csv::layout(&d).dialect.delimiter, b',');
+    let _ = std::fs::remove_dir_all(&dir);
+}
