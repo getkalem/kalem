@@ -296,7 +296,7 @@ fn check_latex(
     use kalem_core::latex_check::{self, Severity};
     let roundtrip = latex_syntax::parse(text).syntax().to_string() == text;
     let diags = latex_check::check(f, text);
-    let report = unrendered.then(|| latex_check::unrendered(text));
+    let report = unrendered.then(|| latex_check::unrendered_in(text, Some(f)));
     let ok = roundtrip && !(deny_warnings && diags.iter().any(|d| d.severity == Severity::Warning));
     if json {
         let list: Vec<serde_json::Value> = diags
@@ -320,7 +320,7 @@ fn check_latex(
                 .iter()
                 .map(|(n, c)| serde_json::json!({ "construct": n, "count": c }))
                 .collect();
-            v["rendered"] = serde_json::json!(latex_check::coverage(text));
+            v["rendered"] = serde_json::json!(latex_check::coverage_in(text, Some(f)));
         }
         return Ok((ok, Some(v)));
     }
@@ -352,7 +352,7 @@ fn check_latex(
             out,
             "{}: rendered: {:.1}%",
             f.display(),
-            latex_check::coverage(text) * 100.0
+            latex_check::coverage_in(text, Some(f)) * 100.0
         )
         .map_err(|e| e.to_string())?;
         for (n, c) in r {

@@ -654,6 +654,33 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                 });
             }
         }
+        // `\input file` without braces: TeX reads the name up to a blank.
+        "input" if !cmd.children().any(|c| c.kind() == GROUP) => {
+            let mut file = String::new();
+            let mut end = range.end;
+            let mut next = cmd.first_token().and_then(|t| t.next_token());
+            while let Some(t) = next {
+                if matches!(t.kind(), WHITESPACE | NEWLINE) && !file.is_empty() {
+                    break;
+                }
+                if !matches!(t.kind(), TEXT | WHITESPACE) {
+                    break;
+                }
+                if t.kind() == TEXT {
+                    file.push_str(t.text());
+                    end = rel(t.text_range(), base).end;
+                }
+                next = t.next_token();
+            }
+            let file = file.split_whitespace().next().unwrap_or("").to_string();
+            if !file.is_empty() {
+                push(Event::Include {
+                    command: name.clone(),
+                    args: vec![file],
+                    range: range.start..end,
+                });
+            }
+        }
         "input" | "include" | "subfile" | "import" | "subimport" => {
             if !m.is_empty() {
                 push(Event::Include {

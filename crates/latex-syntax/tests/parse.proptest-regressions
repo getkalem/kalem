@@ -8,3 +8,4 @@ cc d1e2680d1b5a7192c297a6f5632b69aa8f23f59ae0791445115f5f7383192b18 # shrinks to
 cc bd0b8669e96b2cdd53710151a4bbb0fda6dad7cb09598a3d12452b98b0e0f86c # shrinks to text = "\\left\\makeatletter\\begin{itemize}\\end{itemize}\n\n", a = 48, len = 0, insert = ["\\a@b"]
 cc 10c07dcbb5a08f0b50a13f902fdfd98968fbdfa3821579d14115722d22a5066e # shrinks to paras = ["\\begin{verbatim}", "\\end{document}$\\makeatletter", "%", "\\makeatletter"], which = 2, a = 1, len = 0, insert = ["\\end{verbatim}"]
 cc 2f67d65344a4bea04bde0f0ce58a43b9ccc7fa783ebd553af9e6e7058837e8b0 # shrinks to text = "{[&\\begin{verbatim}\\makeatletter\\makeatletter}\n\n\\a@b", a = 51, len = 0, insert = []
+cc ab87732063d5dc189735bea31da592c50e5eb47f56a4dc0b3363a938ab8f466e # shrinks to text = "\\section%"

@@ -413,8 +413,12 @@ fn verb_code(text: &str, verb: &SyntaxNode) -> Option<Range<usize>> {
     let r = span(&v);
     let src = &text[r.clone()];
     let mut start = 0;
-    if src.starts_with('[') {
-        start = src.find(']')? + 1;
+    // `\verb*|…|`: the star is not the delimiter.
+    if src.starts_with('*') {
+        start = 1;
+    }
+    if src[start..].starts_with('[') {
+        start += src[start..].find(']')? + 1;
     }
     let open = src[start..].chars().next()?;
     let close = if open == '{' { '}' } else { open };
@@ -968,6 +972,10 @@ fn context(t: &SyntaxToken) -> Context {
         }
         child = Some(a);
     }
+    // A typewriter font has no ligatures: `--` and ``` `` ``` stay.
+    if c.style.code {
+        c.typography = false;
+    }
     c
 }
 
@@ -986,6 +994,9 @@ fn typography(s: &str) -> Vec<(Range<usize>, &'static str)> {
                 Some((3, "\u{2014}"))
             }
             b'-' if b.get(i + 1) == Some(&b'-') => Some((2, "\u{2013}")),
+            // The Spanish ligatures.
+            b'!' if b.get(i + 1) == Some(&b'`') => Some((2, "\u{a1}")),
+            b'?' if b.get(i + 1) == Some(&b'`') => Some((2, "\u{bf}")),
             _ => None,
         };
         match rep {
@@ -1464,7 +1475,20 @@ fn unflagged_line_view(
                     ..Style::default()
                 };
                 b.replace(vs.start..code.start, "", Style::default());
-                b.verbatim(code.clone(), code_style);
+                // `\verb*` shows its spaces as ␣.
+                let starred = text[span(&t).end..code.start].starts_with('*');
+                if starred && text[code.clone()].contains(' ') {
+                    let mut at = code.start;
+                    for (i, _) in text[code.clone()].match_indices(' ') {
+                        let sp = code.start + i;
+                        b.verbatim(at..sp, code_style);
+                        b.replace(sp..sp + 1, "\u{2423}", code_style);
+                        at = sp + 1;
+                    }
+                    b.verbatim(at..code.end, code_style);
+                } else {
+                    b.verbatim(code.clone(), code_style);
+                }
                 b.replace(code.end..vs.end, "", Style::default());
                 while let Some(n) = &tok
                     && span(n).start < vs.end
@@ -4138,6 +4162,27 @@ mod tests {
         let small = style_of(7, "tiny");
         assert!(small.bold && small.rich.size == Some(108), "{small:?}");
         assert_eq!(style_of(7, "and").rich.size, None);
+    }
+
+    #[test]
+    fn verb_star() {
+        let text = "A \\verb*|a b| and \\verb|c d|.\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 0, Some(text.len())).display(),
+            "A a\u{2423}b and c d."
+        );
+    }
+
+    #[test]
+    fn ligatures() {
+        let text = "!`Hola! ?`Qu\\'e? a--b \\texttt{a--b ``c''} {\\tt x--y}\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 0, Some(text.len())).display(),
+            // Declarations stay as source, dimmed.
+            "\u{a1}Hola! \u{bf}Qué? a\u{2013}b a--b ``c'' {\\tt x--y}"
+        );
     }
 
     #[test]
