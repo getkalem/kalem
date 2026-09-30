@@ -204,6 +204,117 @@ const ENVIRONMENTS: &[&str] = &[
     "column",
 ];
 
+/// The options of common packages and of the standard classes, offered
+/// in `\usepackage[…]` and `\documentclass[…]`.
+const OPTIONS: &[(&str, &[&str])] = &[
+    (
+        "\\documentclass",
+        &[
+            "10pt",
+            "11pt",
+            "12pt",
+            "a4paper",
+            "letterpaper",
+            "a5paper",
+            "twocolumn",
+            "onecolumn",
+            "twoside",
+            "oneside",
+            "titlepage",
+            "notitlepage",
+            "openright",
+            "openany",
+            "landscape",
+            "draft",
+            "final",
+            "fleqn",
+            "leqno",
+        ],
+    ),
+    (
+        "babel",
+        &[
+            "turkish",
+            "english",
+            "british",
+            "american",
+            "german",
+            "ngerman",
+            "french",
+            "spanish",
+            "italian",
+            "portuguese",
+            "russian",
+            "greek",
+            "dutch",
+            "main=",
+        ],
+    ),
+    ("inputenc", &["utf8", "latin1", "latin5"]),
+    ("fontenc", &["T1", "OT1", "T2A", "LY1"]),
+    (
+        "geometry",
+        &[
+            "margin=",
+            "left=",
+            "right=",
+            "top=",
+            "bottom=",
+            "a4paper",
+            "letterpaper",
+            "landscape",
+            "includeheadfoot",
+            "showframe",
+        ],
+    ),
+    (
+        "hyperref",
+        &[
+            "colorlinks",
+            "hidelinks",
+            "unicode",
+            "bookmarks",
+            "linkcolor=",
+            "urlcolor=",
+            "citecolor=",
+            "pdfusetitle",
+        ],
+    ),
+    (
+        "biblatex",
+        &[
+            "backend=biber",
+            "style=",
+            "citestyle=",
+            "bibstyle=",
+            "sorting=",
+            "natbib",
+            "maxbibnames=",
+            "maxcitenames=",
+        ],
+    ),
+    (
+        "natbib",
+        &[
+            "numbers",
+            "authoryear",
+            "round",
+            "square",
+            "sort",
+            "compress",
+            "sort&compress",
+        ],
+    ),
+    ("xcolor", &["dvipsnames", "svgnames", "x11names", "table"]),
+    ("graphicx", &["draft", "final"]),
+    (
+        "caption",
+        &["font=", "labelfont=", "skip=", "justification="],
+    ),
+    ("cleveref", &["capitalise", "nameinlink", "noabbrev"]),
+    ("siunitx", &["group-separator=", "output-decimal-marker="]),
+];
+
 /// Packages offered for `\usepackage`.
 const PACKAGES: &[&str] = &[
     "amsmath",
@@ -294,6 +405,56 @@ fn argument(line: &str) -> Option<(&str, &str)> {
     name.chars()
         .all(|c| c.is_ascii_alphabetic())
         .then_some((name, arg))
+}
+
+/// In `\usepackage[…` or `\documentclass[…`: the options of the package
+/// (named after the cursor, `]{name}`), or of the common ones before it is
+/// written.
+fn options(ctx: &Context, line: &str) -> Option<Vec<Item>> {
+    let open = line.rfind('[')?;
+    let typed = &line[open + 1..];
+    if typed.contains(']') || typed.contains('{') {
+        return None;
+    }
+    let head = line[..open].trim_end();
+    let class = head.ends_with("\\documentclass");
+    if !class && !head.ends_with("\\usepackage") && !head.ends_with("\\RequirePackage") {
+        return None;
+    }
+    let prefix = typed.rsplit(',').next().unwrap_or("").trim_start();
+    let rest = ctx.slice(ctx.point..ctx.point + 200);
+    let rest = rest.lines().next().unwrap_or("");
+    let package = rest
+        .split_once("]{")
+        .and_then(|(_, r)| r.split_once('}'))
+        .map(|(p, _)| p.trim().to_string());
+    let used: Vec<&str> = typed.split(',').map(str::trim).collect();
+    let mut out = Vec::new();
+    for (name, opts) in OPTIONS {
+        let wanted = if class {
+            *name == "\\documentclass"
+        } else {
+            match &package {
+                Some(p) => p == name,
+                None => *name != "\\documentclass",
+            }
+        };
+        if !wanted {
+            continue;
+        }
+        for o in opts
+            .iter()
+            .filter(|o| o.starts_with(prefix) && !used.contains(o))
+        {
+            let mut it = Item::new(*o, *o, ctx.point - prefix.len()..ctx.point, Kind::Keyword);
+            if !class {
+                it.detail = name.to_string();
+            }
+            it.source = "latex";
+            out.push(it);
+        }
+    }
+    Some(out)
 }
 
 /// LaTeX's completer.
@@ -553,11 +714,14 @@ impl Completer for LatexCompleter {
     }
 
     fn trigger(&self) -> Trigger {
-        Trigger::Strings(&["\\", "{", ","])
+        Trigger::Strings(&["\\", "{", ",", "["])
     }
 
     fn complete(&self, ctx: &Context, doc: Option<&DocumentState>, _cancel: &Cancel) -> Vec<Item> {
         let line = ctx.line_before();
+        if let Some(items) = options(ctx, line) {
+            return items;
+        }
         if let Some((command, arg)) = argument(line) {
             return match command {
                 "begin" => self.environments(ctx, doc, arg, true),
@@ -693,6 +857,14 @@ mod tests {
         assert_eq!(c("\\ref{sec")[0].0, "sec:a");
         assert_eq!(c("\\input{ch/"), [("one".to_string(), "one".to_string())]);
         assert!(c("\\usepackage{amss").iter().any(|(l, _)| l == "amssymb"));
+        // Options: of the package named after the cursor, or of the class.
+        assert!(c("\\usepackage[tur").iter().any(|(l, _)| l == "turkish"));
+        assert!(
+            c("\\documentclass[12pt,a4")
+                .iter()
+                .any(|(l, _)| l == "a4paper")
+        );
+        assert!(!c("\\documentclass[12").iter().any(|(l, _)| l == "turkish"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

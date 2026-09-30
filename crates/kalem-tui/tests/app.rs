@@ -3126,5 +3126,8 @@ fn latex_table_with_spans_is_a_grid() {
     let mut t = with_file(text, "s.tex", Config::default(), (60, 10));
     t.at(text.find("After").unwrap());
     let rows = screen(&mut t).join("\n");
-    assert!(rows.contains("Head") && !rows.contains("multicolumn") && !rows.contains("multirow"), "{rows}");
+    assert!(
+        rows.contains("Head") && !rows.contains("multicolumn") && !rows.contains("multirow"),
+        "{rows}"
+    );
 }
