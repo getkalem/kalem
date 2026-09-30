@@ -1,0 +1,20 @@
+Switches written as Org's parser reads them.
+
+```python
+5  a = 1
+6  b = 2  #      (two)
+```
+
+```python
+8  c = 3  #
+```
+
+Lines [BROKEN LINK: coderef:two] and [BROKEN LINK: coderef:three].
+
+```
+3      kept
+```
+
+```sh
+4  echo x
+```

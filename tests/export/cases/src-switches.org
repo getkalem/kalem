@@ -1,0 +1,20 @@
+Switches written as Org's parser reads them.
+
+#+begin_src python -n5
+a = 1
+b = 2  # (ref:two)
+#+end_src
+
+#+begin_src python +n2 -r
+c = 3  # (ref:three)
+#+end_src
+
+Lines [[(two)]] and [[(three)]].
+
+#+begin_example -N3 -I
+    kept
+#+end_example
+
+#+begin_src sh -n 4x
+echo x
+#+end_src

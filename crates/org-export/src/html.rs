@@ -1410,9 +1410,7 @@ pub fn unravel_code(ex: &Exporter<'_>, id: Id) -> (String, Vec<(usize, String)>)
         }
         _ => (String::new(), None),
     };
-    let preserve = switches
-        .as_deref()
-        .is_some_and(|sw| sw.split_whitespace().any(|w| w == "-i"));
+    let preserve = switches.as_deref().is_some_and(|sw| has_switch(sw, "-i"));
     let code = if preserve {
         value
     } else {
@@ -1473,19 +1471,56 @@ pub fn number_lines(ex: &Exporter<'_>, id: Id) -> (Option<(bool, usize)>, bool) 
     let Some(sw) = switches else {
         return (None, true);
     };
-    let mut numbers = None;
-    let words: Vec<&str> = sw.split_whitespace().collect();
-    for (i, w) in words.iter().enumerate() {
-        if *w == "-n" || *w == "+n" {
-            let n = words
-                .get(i + 1)
-                .and_then(|x| x.parse::<usize>().ok())
-                .map_or(0, |x| x.saturating_sub(1));
-            numbers = Some((*w == "-n", n));
+    let numbers = number_switch(&sw);
+    let retain = !has_switch(&sw, "-r") || (numbers.is_some() && has_switch(&sw, "-k"));
+    (numbers, retain)
+}
+
+/// Whether `flag` (`-r`, lower case) is in the switches as `string-match`
+/// with `FLAG\\>` and `case-fold-search` finds it: in either case,
+/// anywhere, followed by the end or a character that is not a letter or
+/// digit.
+pub fn has_switch(switches: &str, flag: &str) -> bool {
+    // The parsers bind `case-fold-search` to t.
+    let switches = switches.to_ascii_lowercase();
+    switches.match_indices(flag).any(|(i, _)| {
+        switches[i + flag.len()..]
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_alphanumeric())
+    })
+}
+
+/// The line numbering switch as `org-element` reads it with
+/// `[-+]n\\(?: *[0-9]+\\)?\\>`, the first match, in either case: whether
+/// it is `-n` (new numbering) and the number of lines before the first
+/// (`-n5`, `-n 5`).
+pub fn number_switch(switches: &str) -> Option<(bool, usize)> {
+    let switches = switches.to_ascii_lowercase();
+    let word_end = |rest: &str| rest.chars().next().is_none_or(|c| !c.is_alphanumeric());
+    for (i, _) in switches.match_indices('n') {
+        let Some(sign) = switches[..i]
+            .chars()
+            .next_back()
+            .filter(|c| matches!(c, '-' | '+'))
+        else {
+            continue;
+        };
+        let after = &switches[i + 1..];
+        let spaced = after.trim_start_matches(' ');
+        let digits = spaced.len()
+            - spaced
+                .trim_start_matches(|c: char| c.is_ascii_digit())
+                .len();
+        if digits > 0 && word_end(&spaced[digits..]) {
+            let n = spaced[..digits].parse::<usize>().unwrap_or(usize::MAX);
+            return Some((sign == '-', n.saturating_sub(1)));
+        }
+        if word_end(after) {
+            return Some((sign == '-', 0));
         }
     }
-    let retain = !words.contains(&"-r") || (numbers.is_some() && words.contains(&"-k"));
-    (numbers, retain)
+    None
 }
 
 /// `org-export-get-coderef-format`: the description with `(REF)` as the
@@ -1522,14 +1557,10 @@ pub fn resolve_coderef(ex: &Exporter<'_>, r: &str) -> Option<String> {
             .filter(|(_, l)| l.trim_end_matches([' ', '\t']).ends_with(&label))
             .last();
         let Some((line, _)) = found else { continue };
-        let words: Vec<&str> = switches
+        let (_, retain) = number_lines(ex, d);
+        let use_labels = switches
             .as_deref()
-            .unwrap_or("")
-            .split_whitespace()
-            .collect();
-        let (numbers, retain) = number_lines(ex, d);
-        let _ = numbers;
-        let use_labels = switches.is_none() || (retain && !words.contains(&"-k"));
+            .is_none_or(|sw| retain && !has_switch(sw, "-k"));
         return Some(if use_labels {
             r.to_string()
         } else {
