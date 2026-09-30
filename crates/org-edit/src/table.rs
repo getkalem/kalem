@@ -447,7 +447,7 @@ pub fn align_table(doc: &Document, point: usize) -> Result<Transaction, EditErro
 /// In the middle of a line, Emacs inserts the table after the line break
 /// but the rule before the table's first row, and aligns from outside the
 /// table; Kalem breaks the line and creates the table at the start of the
-/// new line, indented like the broken one (docs/known-differences.org).
+/// new line, indented like the broken one (book/part-2/org-known-differences.org).
 pub fn create_table(
     doc: &Document,
     point: usize,

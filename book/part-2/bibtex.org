@@ -1,0 +1,372 @@
+This chapter describes how Kalem reads and writes BibTeX, the
+bibliography format of LaTeX, which Org's citations also use. BibTeX
+appears in Kalem in three places, each with its own reader:
+
+| Where                                                         | Reader                               | Code                              |
+|---------------------------------------------------------------+--------------------------------------+-----------------------------------|
+| A =.bib= file open in the editor, as a grid                   | Kalem's range scanner                | =crates/kalem-core/src/bibtex.rs= |
+| Citations: picker, preview, diagnostics, Org's =basic= export | Org's reading (=bibtex-parse-entry=) | =crates/org-cite/src/bib.rs=      |
+| Rendering with a CSL style                                    | hayagriva's BibLaTeX reader          | =crates/org-cite/src/csl.rs=      |
+
+The grid needs byte ranges so that what it does not touch stays byte for
+byte; the citation features need values as Emacs reads them, so that
+Kalem agrees with Org; the CSL processor needs hayagriva's typed
+entries. The three readers are described in turn.
+
+* The oracle and what is tested
+
+The oracle for BibTeX is BibTeX or biber reading the same file: an entry
+Kalem shows, cites or reports must be the entry those programs see,
+with the same key, type and fields, and a file Kalem edits must still be
+read by them as before, apart from the edited field.
+
+What is tested today:
+
+- the grid's scanner, its cells, its sorting and its edits, on a sample
+  with a comment, an =@string=, braces, quotes, =#= and accents (unit
+  tests of =bibtex.rs=);
+- Org's reading against Emacs's =bibtex-parse-entry= on a sample
+  (=@string= and month expansion, =#=, blank squeezing; unit tests of
+  =org-cite=, T2.4.2 in =todo.md=);
+- CSL cards for the LaTeX view in the =apa= and =ieee= styles
+  (=cite::card_tests=), and BibTeX pasted into a LaTeX document;
+- the diagnostics about citation keys in =latex_check= and in
+  =kalem check= (=crates/kalem/tests/cli.rs=).
+
+Not yet done: running =bibtex= or =biber= on a corpus of =.bib= files
+and comparing the entries they read with each of Kalem's readers, and
+checking that every edit Kalem writes is accepted by them.
+
+* Which files are BibTeX
+
+A file with the extension =bib= opens in text mode with the language
+=bib=; that combination is what makes it a BibTeX document
+(=bibtex::is_bib=). Its source is highlighted with the BibTeX syntax of
+the highlighter, and its lines are drawn as the grid described below. A
+mode line =-*- bib -*-= or /Set Document Mode/ with =bib= has the same
+effect. The commands of this chapter have the scope =bib=.
+
+* The grid's scanner
+
+The scanner (=bibtex::entries=) reads the text into entries, each with
+the byte ranges of its type, its key, each field's name and value, and
+its closing delimiter. Nothing is unescaped or expanded: the values are
+ranges of the text as written. Its grammar, exactly:
+
+1. Find the next =@=. Everything before it, and everything between
+   entries, is a comment (as in BibTeX) and is skipped.
+2. The type is the run of bytes after the =@= up to whitespace or one of
+   ~{ } ( ) , = # "~. After optional whitespace, the next byte must be
+   ={= or =(=; otherwise the =@= is not an entry and the search goes on
+   from the byte after it. The matching closing delimiter is =}= or =)=.
+3. When the type is =string=, =preamble= or =comment= (in any letter
+   case), the construct is skipped: with ={=, to the end of a balanced
+   brace group; with =(=, to the first =)=. These constructs are kept in
+   the file but are not entries.
+4. Otherwise, after whitespace, the key is the run of bytes up to a
+   comma, the closing delimiter or whitespace. It may be empty.
+5. Fields follow. Whitespace and any number of commas are skipped. The
+   closing delimiter ends the entry. Otherwise a field name is read with
+   the same rule as the type; after optional whitespace an ~=~ must
+   follow, then optional whitespace and the value.
+6. A value is one or more parts joined by =#= (whitespace allowed around
+   it). A part is a braced group ={…}= with balanced braces; a quoted
+   string ="…"=, in which quotes inside braces do not end it; or a bare
+   token (a number or a macro name) read with the type's rule. In braced
+   and quoted parts a backslash makes the next byte ordinary. The
+   field's value range runs from the first part to the end of the last.
+7. When a field name is empty, or no ~=~ follows it, or the text ends
+   before the closing delimiter, the entry is taken as left open: it is
+   kept, with the fields read so far, as running to the end of the file,
+   and scanning stops.
+
+The last rule means that one malformed field (a stray =%= comment line
+inside an entry, for instance, since BibTeX has no comments inside
+entries) makes the grid show the rest of the file as part of that entry.
+The text is not changed by this; only the grid is.
+
+* Values for display
+
+The grid shows values as a reader would see them (=bibtex::plain=):
+
+1. The value is trimmed; one pair of outer braces, or of outer quotes,
+   is removed.
+2. Braces are dropped; =~= becomes a space.
+3. An accent command followed by a letter becomes the accented letter.
+   The letter may follow directly, after a brace, or (for the letter
+   accents =\c=, =\u=, =\v=, =\H=) after spaces: ={\"o}=, =\"{o}=,
+   =\c c= and =\c{c}= all give the letter with the mark. The pairs
+   known are:
+
+   | Command | Letters                                            | Result                                |
+   |---------+----------------------------------------------------+---------------------------------------|
+   | =\"=    | a e i o u y A E I O U                              | ä ë ï ö ü ÿ Ä Ë Ï Ö Ü                 |
+   | =\'=    | a e i o u y c n s z and capitals A E I O U C N S Z | á é í ó ú ý ć ń ś ź Á É Í Ó Ú Ć Ń Ś Ź |
+   | =\`=    | a e i o u A E I O U                                | à è ì ò ù À È Ì Ò Ù                   |
+   | =\^=    | a e i o u A E I O U                                | â ê î ô û Â Ê Î Ô Û                   |
+   | =\~=    | a n o A N O                                        | ã ñ õ Ã Ñ Õ                           |
+   | =\c=    | c s C S                                            | ç ş Ç Ş                               |
+   | =\u=    | g G                                                | ğ Ğ                                   |
+   | =\v=    | c s z n r C S Z N R                                | č š ž ň ř Č Š Ž Ň Ř                   |
+   | =\.=    | z I Z                                              | ż İ Ż                                 |
+   | =\H=    | o u O U                                            | ő ű Ő Ű                               |
+
+   The marks ~\=~ and =\u= on other letters are recognized as accents
+   but have no entry: the bare letter is shown.
+4. A command made of letters loses its name, and its argument shows
+   through since braces are dropped (=\textit{x}= shows as =x=). Some
+   names stand for letters: =\ss= ß, =\i= ı, =\o= ø, =\O= Ø, =\ae= æ,
+   =\aa= å, =\l= ł, =\L= Ł; =\TeX=, =\LaTeX=, =\BibTeX= and =\LaTeXe=
+   show as their names. Any other command shows as nothing (so =\OE=
+   and =\AE= disappear).
+5. A backslash before any other character shows that character (=\&=
+   as =&=, =\%= as =%=).
+6. Runs of whitespace become one space.
+
+Macros are not expanded and =#= is not evaluated in the grid: a
+journal written =tug # { 1}= shows as =tug # 1=. The citation reader
+(below) does expand them.
+
+* The grid
+
+A BibTeX document is shown as a grid with one row per entry
+(=bibtex::line_view=, =bibtex::shown_lines=). The columns are fixed
+(=bibtex::COLUMNS=):
+
+| Column | Content                                          | Widest |
+|--------+--------------------------------------------------+--------|
+| key    | The key as written, bold                         |     24 |
+| type   | The type, lower-cased, dimmed                    |     13 |
+| author | Last names of =author=, else =editor= (below)    |     24 |
+| title  | =title=, italic                                  |     48 |
+| year   | =year=, else the first four characters of =date= |      4 |
+
+Authors are split at the word =and= between spaces; a name with a comma
+is taken as "Last, First" and gives the part before the comma, other
+names give their last word. One name shows alone, two as "A and B", more
+as "A et al.". Each column is as wide as its widest cell, up to the
+limit in the table; a longer cell is cut with =…=. The year, the last
+column, is not cut.
+
+The document's lines are shown in this order: the lines between entries
+that are not blank (comments, =@string=, =@preamble=), then each entry
+as one row drawn on its first line, all in file order. The entry that
+holds the cursor is shown instead as all of its source lines, so it is
+edited as text. The row's key cell stands for the whole first line: a
+click on it puts the cursor in the entry, which opens it. A row is drawn
+only when the entry starts its line (nothing but blanks before the
+=@=). /Toggle Source View/ shows the file as text. The status bar says
+how many entries the file has, and the sort.
+
+** Sorting the view
+
+/Sort Entries by Column/ (=bib.sortView=) orders the rows by a column:
+the one named by its =column= argument (=key=, =type=, =author=,
+=title= or =year=), or else the one whose field holds the cursor
+(=editor= counts as =author=; the key as =key=; anything else as the
+first column). Cells are compared as lower-cased text, so years sort
+as text. Running it again on the same column sorts in descending order;
+=reverse= asks for it directly. /File Order/ (=bib.unsortView=) ends
+the sort. The file does not change.
+
+* Editing
+
+Besides typing in the source of the entry at the cursor, two commands
+edit a BibTeX file. Each writes one transaction, touching only the
+bytes it must.
+
+/Set Field/ (=bib.setField=, arguments =field= and =value=) sets a field
+of the entry holding the cursor (=bibtex::set_field=). The field name
+must be letters, digits, =-=, =_=, =:= or =.=; names are matched without
+regard to letter case.
+
+- When the entry has the field and the value is not empty, the value's
+  range (braces, quotes, =#= parts and all) is replaced by the new
+  value in braces, ={value}=. The value is written as given: Kalem
+  neither escapes it nor checks that its braces balance.
+- When the entry lacks the field, a new line is added after the last
+  field's value (after its comma if one follows it, else with a comma
+  added), holding the indentation of the entry's first field (two
+  spaces when that field does not start its line) and ~name = {value}~.
+- When the value is empty and the entry has the field, the field is
+  removed together with its comma; when the field is alone on its line,
+  the whole line goes. An empty value for a missing field does nothing.
+
+#+begin_example
+@book{knuth84,              @book{knuth84,
+  author = {Donald Knuth},    author = {Donald Knuth},
+  year = 1984,       →        year = {1986},
+}                           }
+                            (Set Field year = 1986)
+
+@Article{lamport,           @Article{lamport,
+  year = {1994}      →        year = {1994},
+}                             doi = {10.1/x}
+                            }
+                            (Set Field doi = 10.1/x)
+#+end_example
+
+/New Entry/ (=bib.newEntry=, arguments =type=, default =article=, and
+=key=, required) adds an entry. The key must not be empty or contain a
+comma, a brace or a space, and must differ from every key in the file
+(compared exactly, letter case included). The entry goes after the
+entry holding the cursor, or at the end of the file, separated from what
+precedes it by one blank line, and is written as:
+
+#+begin_example
+@article{KEY,
+  author = {},
+  title = {},
+  year = {},
+}
+#+end_example
+
+The cursor is placed inside the braces of =author=. Line endings are
+written as line feeds and become CR LF on saving a CR LF file, as for
+every file.
+
+* Reading bibliographies for citations
+
+Citations in Org documents (=[cite:@key]=, with the files named by
+=#+BIBLIOGRAPHY:=) and in LaTeX documents (=\cite= and its relatives,
+with the files named by =\bibliography= or =\addbibresource=) use
+=org_cite::Bibliography= (=crates/org-cite/src/bib.rs=). It reads a
+file by its extension:
+
+| Extension         | Read as                                      |
+|-------------------+----------------------------------------------|
+| =.bib=, =.bibtex= | BibTeX and BibLaTeX, as =bibtex-parse-entry= |
+| =.json=           | CSL-JSON, as =oc-basic= reads it             |
+| anything else     | An error: "Unknown bibliography extension"   |
+
+Several files are read in order; a key seen in an earlier file keeps
+its entry. A file that cannot be read is reported with the reason, and
+the others are still used.
+
+The BibTeX reader follows Emacs:
+
+1. Text outside entries is a comment. =@comment{…}= is skipped (a brace
+   group; =@comment(= is not skipped specially), =@preamble= is read and
+   ignored, and =@string{name = value}= defines an abbreviation, names
+   compared without letter case.
+2. Names (types, keys, field names, bare values) end at whitespace or
+   one of ~=~ =,= ={= =}= =(= =)= ="= =#= =%=. Field names are
+   lower-cased; the type and the key are kept as written.
+3. A value is parts joined by =#=: a braced group (balanced, the outer
+   braces removed, inner braces kept), a quoted string (up to a quote
+   outside braces), a number, or a name, which is replaced by its
+   =@string= definition, else by the full month name when it is one of
+   =jan= … =dec=, else kept as written.
+4. In each value, runs of spaces and line feeds become one space.
+5. An entry needs a comma after its key and before every field. Any
+   syntax error (unbalanced braces, a missing ~=~ or comma, an
+   unterminated string) makes the whole file unreadable, not just that
+   entry.
+
+CSL-JSON is read as =oc-basic= reads it: =id= is the key and =type= the
+type; =author= and =editor= become "Family Given" names joined by
+the word =and=; =issued= gives =year= from its first date part, or from the
+first four digits in a row of its =literal= or =raw= text; every other
+property is kept as a field, its value as a string.
+
+Kalem uses these entries for:
+
+- /Insert Citation/ in Org (=org.cite.insert=): the picker lists every
+  entry as =@key  Author (Year). Title. Journal.=, searched by key,
+  author and title; choosing one inserts =[cite:@key]=, or =; @key=
+  before the closing bracket when the cursor is in a citation already;
+- the preview of the entry cited under the cursor, in the status bar
+  and, in the graphical editor, in a tooltip;
+- Org's =basic= citation processor on export;
+- the LaTeX completer, the citation chips of the LaTeX view and
+  /Insert Citation/ in LaTeX;
+- the diagnostics below.
+
+In these one-line descriptions braces are removed from values, and the
+year is =year= or the first four digits of =date=.
+
+* Rendering with a CSL style
+
+Formatted references (Org's =csl= export processor, and the hover card
+of a citation in a LaTeX document) go through hayagriva
+(=crates/org-cite/src/csl.rs=), which reads files with its own parsers:
+=.json= as CSL-JSON (converted by Kalem to hayagriva's YAML: types,
+names, dates and the common fields), =.yaml= and =.yml= as hayagriva's
+YAML, and every other extension as BibTeX and BibLaTeX through
+hayagriva's BibLaTeX reader. A style is a =.csl= file (absolute, or
+relative to the document's folder), or one of the styles in hayagriva's
+archive, which Kalem ships; a dependent style is resolved to its parent
+in the archive. Without a style, Org's default, =chicago-author-date=,
+is used.
+
+In a LaTeX document the hover card uses the style closest to the
+document's own (=cite::csl_style=), taken from biblatex's ~style=~
+package option, else from =\bibliographystyle=:
+
+| Document's style                                                                    | CSL style                     |
+|-------------------------------------------------------------------------------------+-------------------------------|
+| =ieeetr= =ieee= =ieeetran= =unsrt= =numeric= =numeric-comp= =plain= =abbrv= =alpha= | =ieee=                        |
+| =apalike= =apa= =apacite= =plainnat= =abbrvnat= =unsrtnat=                          | =apa=                         |
+| =mla=                                                                               | =modern-language-association= |
+| anything else, or none                                                              | =chicago-author-date=         |
+
+When the CSL rendering fails, the card falls back to the one-line
+description above.
+
+* BibTeX pasted into a LaTeX document
+
+Pasting text that starts (after blanks) with =@= into a LaTeX document
+(=cite::pasted_bibtex=) is taken as BibTeX when Org's reader reads at
+least one entry from it and the document names a bibliography:
+
+1. The target is the first file of the first =\bibliography= or
+   =\addbibresource= command, relative to the document's folder.
+2. The pasted text is cut into entries at each =@= that starts the text
+   or follows a blank or line break. Each entry whose key the target
+   file does not have yet is appended to the file as its own text,
+   unchanged, after a blank line. Entries whose keys the file already
+   has are left out.
+3. What is pasted into the document is =\cite{k1,k2,…}= with the keys
+   of every pasted entry, known ones included.
+
+The bibliography file is written directly, not through an open editor
+window; an open copy of it sees the change as a change on disk. Paste
+as Plain Text pastes the BibTeX itself.
+
+* Diagnostics about keys
+
+For a LaTeX document (=latex_check::check=, shown in the editor and by
+=kalem check=), when the document or its project names bibliography
+files:
+
+| Code                      | Severity | Where                                       | When                                                                                                                                     |
+|---------------------------+----------+---------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+| =bibliography-unreadable= | warning  | The =\bibliography= command in this file    | A named file cannot be read by Org's reader                                                                                              |
+| =cite-unknown-key=        | warning  | The citation                                | A cited key is in no file; only when at least one file could be read                                                                     |
+| =cite-unused-entry=       | info     | The root document's =\bibliography= command | An entry no citation in the project uses; only on the root document, when every file could be read, and not when =\nocite{*}= is present |
+
+For an Org document, =kalem check= reports =bibliography-unreadable= on
+the =#+BIBLIOGRAPHY:= line of a file that cannot be read, and
+=cite-unknown-key= on a citation whose key no file has (when at least
+one file could be read). Keys are compared exactly.
+
+* Known differences and limits
+
+- The grid's scanner stops at the first malformed field and shows the
+  rest of the file as one entry (rule 7 above).
+- The grid does not expand =@string= macros or evaluate =#=.
+- Org's reader rejects a whole file for one syntax error, where BibTeX
+  and biber report the entry and go on.
+- =@comment(…)= is skipped by the grid's scanner but not by Org's
+  reader.
+- An accent command applied to a command (=\'{\i}=) is not combined
+  and shows as =\i=.
+- =\addbibresource{refs.json}= is resolved as =refs.json.bib=, because
+  =.bib= is added to every name that does not end in it.
+- =.yaml= bibliographies are read for CSL rendering but not by the
+  picker, the preview or the diagnostics, which know only =.bib=,
+  =.bibtex= and =.json=.
+- New keys are checked against the file with letter case, while BibTeX
+  itself treats keys that differ only in case as the same.
+- There is no pinned header naming the grid's columns, and no entry
+  from a DOI yet (T2.7h.19).

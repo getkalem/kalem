@@ -1,0 +1,105 @@
+/* The Kalem Book: light and dark, a sidebar of contents, a readable column. */
+:root {
+  --bg: #fdfcf9;
+  --fg: #22211f;
+  --muted: #6b6760;
+  --accent: #2f5d8a;
+  --rule: #e4e0d8;
+  --code-bg: #f3f1ec;
+  --side-bg: #f6f4ef;
+  --mark: #fff1a8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1c1e;
+    --fg: #e6e3dc;
+    --muted: #9c978d;
+    --accent: #8ab4de;
+    --rule: #34363a;
+    --code-bg: #25272a;
+    --side-bg: #202124;
+    --mark: #5a4e14;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1c1e;
+  --fg: #e6e3dc;
+  --muted: #9c978d;
+  --accent: #8ab4de;
+  --rule: #34363a;
+  --code-bg: #25272a;
+  --side-bg: #202124;
+  --mark: #5a4e14;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); }
+body {
+  font: 17px/1.6 "Iowan Old Style", "Charter", "Georgia", serif;
+}
+a { color: var(--accent); }
+header.top {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--rule);
+  font-family: system-ui, sans-serif; font-size: 15px;
+}
+.book-title { font-weight: 600; text-decoration: none; color: var(--fg); margin-right: auto; }
+header button {
+  background: none; border: 1px solid var(--rule); color: var(--fg);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 15px;
+}
+header .menu { display: none; }
+input.search {
+  width: min(260px, 40vw); padding: 5px 10px; border-radius: 6px;
+  border: 1px solid var(--rule); background: var(--side-bg); color: var(--fg); font-size: 14px;
+}
+.layout { display: flex; min-height: calc(100vh - 50px); }
+aside.sidebar {
+  flex: 0 0 290px; background: var(--side-bg); border-right: 1px solid var(--rule);
+  padding: 16px 12px; font-family: system-ui, sans-serif; font-size: 14px;
+  position: sticky; top: 50px; height: calc(100vh - 50px); overflow-y: auto;
+}
+.toc ol { list-style: none; margin: 0; padding: 0; }
+.toc .part { margin-bottom: 14px; }
+.toc .part-title {
+  display: block; font-weight: 600; color: var(--muted); font-size: 12px;
+  text-transform: uppercase; letter-spacing: .04em; margin: 0 0 4px 6px;
+}
+.toc a { display: block; padding: 3px 6px; border-radius: 5px; color: var(--fg); text-decoration: none; }
+.toc a:hover { background: var(--rule); }
+.toc a.current { background: var(--accent); color: var(--bg); }
+main { flex: 1; min-width: 0; padding: 24px 32px 64px; }
+article { max-width: 46em; margin: 0 auto; }
+.page-title { font-size: 2em; line-height: 1.2; margin: .4em 0 .8em; }
+article h2, article h3, article h4 { line-height: 1.25; margin-top: 1.8em; }
+article .title { display: none; }
+pre, code { font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; font-size: .86em; }
+pre { background: var(--code-bg); padding: 12px 14px; border-radius: 6px; overflow-x: auto; line-height: 1.45; }
+code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; margin: 1em 0; font-size: .92em; display: block; overflow-x: auto; }
+th, td { border: 1px solid var(--rule); padding: 4px 8px; vertical-align: top; text-align: left; }
+th { background: var(--side-bg); }
+blockquote { margin: 1em 0; padding: 0 1em; border-left: 3px solid var(--rule); color: var(--muted); }
+img, svg { max-width: 100%; }
+.pager {
+  max-width: 46em; margin: 3em auto 0; display: flex; justify-content: space-between; gap: 16px;
+  font-family: system-ui, sans-serif; font-size: 15px; border-top: 1px solid var(--rule); padding-top: 16px;
+}
+.pager a { text-decoration: none; }
+.pager .next { margin-left: auto; text-align: right; }
+.results { max-width: 46em; margin: 0 auto 2em; font-family: system-ui, sans-serif; }
+.results a { display: block; padding: 8px 10px; border-bottom: 1px solid var(--rule); text-decoration: none; color: var(--fg); }
+.results a strong { color: var(--accent); }
+.results .snippet { display: block; color: var(--muted); font-size: 14px; }
+.results mark { background: var(--mark); color: inherit; }
+@media (max-width: 800px) {
+  header .menu { display: inline-block; }
+  aside.sidebar { display: none; position: fixed; top: 50px; left: 0; z-index: 3; width: 85vw; }
+  body.toc-open aside.sidebar { display: block; }
+  main { padding: 16px; }
+  input.search { width: 36vw; }
+}

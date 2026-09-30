@@ -1,5 +1,6 @@
 //! Subcommand implementations.
 
+pub(crate) mod book;
 mod diff_emacs;
 mod diff_model;
 mod diff_pandoc;

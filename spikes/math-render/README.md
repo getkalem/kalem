@@ -2,7 +2,7 @@
 
 Renders `corpus.txt` (100 LaTeX formulas) with typst + MiTeX and with RaTeX,
 and reports coverage and timing. The findings are in
-`docs/decisions/D4-math-engine.md`. Throwaway code, not part of the workspace.
+`book/part-5/decisions/D4-math-engine.org`. Throwaway code, not part of the workspace.
 
 ```sh
 cargo run --release -- corpus.txt --out /tmp/math   # SVGs and a TSV per engine

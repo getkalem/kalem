@@ -1313,7 +1313,7 @@ def footnote_cases():
     return out
 
 
-# Cases where Emacs fails (docs/known-differences.org, Footnotes).
+# Cases where Emacs fails (book/part-2/org-known-differences.org, Footnotes).
 KNOWN_FOOTNOTE_BUGS = {
     "fnr 14 local fn-normalize": "org-footnote-normalize takes the last anonymous footnote of the document for one nested in a definition, and extracts text past the end (Args out of range)",
     "fnr 14 section fn-normalize": "org-footnote-normalize takes the last anonymous footnote of the document for one nested in a definition, and extracts text past the end (Args out of range)",
@@ -1426,7 +1426,7 @@ DRAWER_DOCS = [
 ]
 
 
-# Regions Emacs re-indents (docs/known-differences.org, Drawers).
+# Regions Emacs re-indents (book/part-2/org-known-differences.org, Drawers).
 KNOWN_DRAWER_DIFFERENCES = {
     "drawer 2 17-18": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",
     "drawer 2 18-19": "org-insert-drawer indents the region with indent-for-tab-command while it is still active; a region starting or ending inside a line's indentation has its lines re-indented by org-indent-region, which Kalem does not reproduce",

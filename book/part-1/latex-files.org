@@ -1,0 +1,154 @@
+=.tex= files open rendered, as the document reads, and stay standard
+LaTeX byte for byte: nothing is rewritten. Sectioning commands show as
+headings with the numbers LaTeX gives them, =\emph=, =\textbf=,
+=\texttt= and their kin show their text styled with the command and its
+braces hidden until the cursor reaches them, quotes and dashes (=``=,
+=''=, =--=, =---=), =~=, =\&=, =\%= and =\\= show as the characters they
+typeset, =\maketitle= shows the title, the authors and the date, and
+=center=, =flushleft= and =flushright= align their lines. In =itemize=,
+=enumerate= and =description= lists each =\item= shows its bullet, its
+number in LaTeX's style for its depth (=1.=, =(a)=, =i.=, =A.=, or what
+enumitem's =label= and =start= say) or its own =[label]=, indented by
+its depth. Formulas (=$…$=, =\(…\)=, =\[…\]=, =$$…$$= and the math
+environments) are typeset away from the cursor, equations with the
+numbers LaTeX gives them, using the macros the document defines; a math
+environment on lines of its own shows as one formula until the cursor
+enters it. In =figure= and =table=, =\includegraphics= shows the
+picture (PNG, JPEG or SVG, found in the document's folder or a
+=\graphicspath= folder with the extensions LaTeX tries) at the width
+=width== asks for, =\centering= centers it, and =\caption= shows as
+"Figure 1: …" with LaTeX's number (=Şekil= and =Tablo= with babel's
+=turkish=). A PDF or EPS picture shows as its name. =\ref=, =\eqref=,
+=\cref=, =\autoref= and =\nameref= show the numbers (or titles) they
+resolve to, in red as =??= when no =\label= has the key; citations show
+the authors and years of the entries in the =\bibliography= or
+=\addbibresource= files, with their notes, and the entry cited shows
+in the status bar at the cursor and in a tooltip under the mouse, as
+the bibliography of a CSL style has it (the style closest to biblatex's
+=style== or to =\bibliographystyle=: =ieee= for =plain= and =unsrt=,
+=apa= for =apalike= and natbib's, else =chicago-author-date=). BibTeX
+entries pasted into the document go into its first bibliography file
+(keys it has already are left) and a =\cite= of them is pasted instead.
+A =.bib= file opens as a grid: each entry one row with its key, type,
+authors, title and year, and the entry at the cursor as its source.
+The BibTeX menu (the palette in the terminal) sorts the rows by author,
+year, title or key without changing the file (/File Order/ goes back),
+adds an entry (/New Entry/) and sets a field of the entry at the cursor
+(/Set Field/; an empty value removes the field), writing only what
+changes. The status bar counts the entries.
+=\footnote= shows its raised number before its dimmed text, and =\url=
+and =\href= show as links. /Open Link/ (Ctrl-click, Cmd-click on macOS)
+follows the command at the cursor: a reference to its =\label=, =\url=
+and =\href= to the browser, =\input=, =\include= and =\subfile= to their
+file, =\includegraphics= to its picture and a citation to the
+bibliography file. Theorems declared with =\newtheorem= show
+their names and numbers ("Theorem 1.1 (Pythagoras).") and =proof= its
+"Proof." and ∎; =\paragraph= is a bold heading in the text. =quote=,
+=quotation=, =verse= and =abstract= are indented, the abstract under
+its centered title, and =\verb= and =\lstinline= show their code in
+monospace, =\lstinline= in the colors of its language (its
+=language== option or =\lstset='s). The front matter of the common
+journal classes shows as the class prints it: IEEEtran's author blocks,
+"Index Terms" and =\IEEEPARstart=, acmart's affiliations, e-mail and
+keywords, elsarticle's =frontmatter= and =keyword=, llncs's
+=\institute=, RevTeX's =\affiliation= and =\pacs=. A
+=tabular= (also =tabularx=, =array=, =longtable=) written one row a
+line, with plain columns (=l=, =c=, =r=, =p{}=, =|=), shows as a grid
+with its rules (=\hline=, =\toprule=, =\midrule=, =\bottomrule=) until
+the cursor enters it; there Tab and Shift+Tab go from cell to cell.
+A =\multicolumn= is one cell across the columns it covers, and a rule
+written after a row's =\\= is drawn under the row.
+Other tables stay as source. The code of
+=verbatim=, =lstlisting= and =minted= is monospace, colored by the
+language its options name (graphical editor). Comments, =comment=
+environments and the text between =\iffalse= and its =\fi= are
+dimmed, and fold to their first line away from the cursor; commands Kalem does not render stay as they are written. The
+source view (Ctrl+/) shows the text itself. The preamble shows only
+its first line until the cursor goes into it. So does an environment of eight
+lines or more that Kalem shows as source (a =tikzpicture=, say). Documents of several files
+are numbered as one: the root document comes from a =% !TEX root= line,
+the main file of a subfile, a =NAME.tex.latexmain= file, or the document
+up the folders that includes the file; a file of the project shows the
+numbers it has in the whole document, and its references to labels in
+the other files resolve (the other files are read from the disk, again
+when they change). The outline panel
+(Ctrl+Shift+O) lists the document's sections with their numbers. A
+=\tableofcontents= line shows the table of contents LaTeX will print
+there, each entry leading to its section. The =\end{document}= line lists the
+document's footnotes, each leading to its =\footnote=.
+
+What =kalem check= reports shows in the text a moment after typing
+stops: a red wavy line under problems (a group or environment left open,
+a label defined twice, a reference or citation key nothing defines, a
+file or picture not found) and a blue one under matters of style
+(=\bf= and its kin, =$$=, a space before =\ref= where =~= belongs,
+=...=, ="=). With the cursor on one the status bar says what it is, and
+so does a tooltip under the mouse (graphical editor). /Quick Fix/
+(Ctrl+., Alt+. in a terminal) makes the obvious change where there is
+one: =\bfseries= for =\bf=, =~= for the space, =\ldots{}= for =...=,
+=\[…\]= for =$$…$$=; it takes the problem at the cursor, or the first
+on its line. The errors and warnings of the last /Build PDF/ are flagged
+on their lines too. /Next Problem/ and /Previous Problem/ (Alt+F8,
+Alt+Shift+F8) go from one flagged place to the next and say what it is. /Show Problems/ lists them all with their lines;
+choosing one goes to it.
+
+Typing ="= in the text writes LaTeX's quotes, =``= to open and =''= to
+close; typed again right away, it is a plain ="= (not in documents whose
+language makes ="= a shorthand, such as German).
+Enter on a list item starts the next =\item= (on an empty one, it leaves
+the list); Tab and Shift+Tab nest an item under the one before it and
+take it out again. Typing =\begin{name}= adds =\end{name}=, and renaming
+one end of an environment renames the other. Ctrl+B, Ctrl+I, Ctrl+U and
+Ctrl+Shift+K put =\textbf=, =\emph=, =\underline= and =\texttt= around
+the selection or the word, or take them off. Ctrl+1 to Ctrl+6 make the
+line a heading of that level with the class's commands (=\chapter= first
+in books and reports, =\section= in articles), Ctrl+0 makes it text
+again, and Alt+Shift+Left and Right promote and demote a section with
+its subsections, Alt+Shift+Up and Down move it past its neighbor. Tab on
+a section's line folds it as Tab folds an Org heading: its text and
+subsections hidden, then its subsections shown, then everything.
+
+In math, =$= pairs (and steps over the closing =$=), =\(= and =\[= get
+their closing pair and =\left(= its =\right)=, and Tab goes to the next
+empty ={}= (after =\frac=, =\sqrt=, and the limits =\sum=, =\int= and
+their kin complete with); in a matrix or =cases=, which complete as two
+rows of two cells, Tab goes to the next cell. While the cursor is in a formula,
+it shows rendered under the cursor. /Display Math/ turns =$…$= into
+=\[…\]= and back, and /Number Equation/ adds or takes off the star of the
+environment at the cursor. /Insert Figure/, /Insert Table/ (with
+booktabs' rules when the document loads it), /Insert Equation/ and
+/Insert Citation/ (the entries of the bibliography to choose from) write
+the usual constructs with a caption and a label to fill. /Insert Figure/
+asks in turn for the picture, its width (a share of the line, or a
+length) and its caption. Command completion knows the commands and
+environments of the packages the preamble loads, with their arguments.
+
+/New from Template…/ (File menu) writes a new document beside the current
+one from a template and opens it: an article, a report, a book, a beamer
+presentation, a letter, a CV, a thesis, or a Turkish thesis laid out as
+YÖK's guidelines ask (which needs babel's Turkish, as TeX Live's full
+installation has). The templates themselves never change.
+
+With pandoc installed, /Export as HTML/, /Markdown/ and /Word/ write the
+project's root document in those formats for co-authors who do not use
+LaTeX, and /Convert to Org/ writes an Org file beside it: one way, the
+LaTeX file stays as it is.
+
+Completion (as you type, or Alt+/) offers command names after =\= (the
+document's own macros too), environments after =\begin{= (with their
+=\end=) and =\end{=, the keys of the bibliography after =\cite{= and its
+kin (matched on key, authors and title), the labels after =\ref{= and its
+kin with what they number, files after =\input{= and
+=\includegraphics{=, and packages after =\usepackage{=.
+
+/Build PDF/ (F5) builds the project's root document in the background
+with =latexmk= (or the engine alone, with =biber= or =bibtex= between
+its runs): pdfLaTeX, or the engine a =% !TEX program = xelatex= line or
+the =latex.engine= setting names, or XeLaTeX for documents that load
+=fontspec=. The status bar gives the first error at its file and line,
+or the PDF and the number of warnings; a missing package comes with the
+command that installs it; the problems are flagged in the text, and
+/Cancel Build/ stops a build that runs. =latex.output_directory= sends the output to
+a folder, and =latex.build_on_save= builds each time the document is
+saved. On the command line, =kalem latex build FILE= does the same
+(=--format json= for the problems as data).

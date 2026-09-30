@@ -1,0 +1,91 @@
+#+TITLE: The Kalem Book
+
+Kalem is an editor for plain text documents that looks like a word
+processor. Bold text is bold, headings are large, tables are grids,
+formulas are typeset and links are links, while the file on disk stays
+the standard text it was: Org, LaTeX, CSV, BibTeX or code, byte for byte
+where you did not edit it. Kalem runs as a desktop application and in a
+terminal, with the same commands in both, and it has command-line tools
+for scripts and CI.
+
+This book is the one reference for Kalem. It has five parts:
+
+- *Part I, Kalem*, is the manual: installing, the two editors, writing,
+  views, projects, exporting, keys, settings and the command line.
+- *Part II, the standard formats*, says exactly what Kalem does with each
+  format it opens, which parts it renders, edits and exports, and against
+  which reference implementation (the /oracle/) that is tested.
+- *Part III, the Kalem format*, will hold the specification of Kalem's
+  own document format. It is being designed.
+- *Part IV, extending Kalem*, covers commands, keys, completers and the
+  plugin model.
+- *Part V, design*, gathers the design documents, the decision records,
+  performance and terminal parity.
+
+The appendices list every command, every setting and the command line's
+help; they are generated from the code each time the book is built, so
+they cannot fall behind it.
+
+The book at the =main= branch describes the =main= branch. Its source is
+the =book/= folder of the repository, written in Org; =kalem book build=
+turns it into this site.
+
+* Part I. Kalem
+- [[file:part-1/installing.org][Installing]]
+- [[file:part-1/starting.org][Starting]]
+- [[file:part-1/writing-in-org.org][Writing in Org]]
+- [[file:part-1/views.org][Views]]
+- [[file:part-1/finding-and-commands.org][Finding and commands]]
+- [[file:part-1/documents-and-projects.org][Documents and projects]]
+- [[file:part-1/citations.org][Citations]]
+- [[file:part-1/exporting.org][Exporting]]
+- [[file:part-1/the-file-manager.org][The file manager]]
+- [[file:part-1/keys.org][Keys]]
+- [[file:part-1/plain-text-and-code.org][Plain text and code]]
+- [[file:part-1/latex-files.org][LaTeX files]]
+- [[file:part-1/csv-files.org][CSV files]]
+- [[file:part-1/settings.org][Settings]]
+- [[file:part-1/files.org][Files]]
+- [[file:part-1/the-command-line.org][The command line]]
+- [[file:part-1/when-something-goes-wrong.org][When something goes wrong]]
+
+* Part II. The standard formats
+- [[file:part-2/overview.org][Standard modes and their oracles]]
+- [[file:part-2/org.org][Org]]
+- [[file:part-2/org-known-differences.org][Org: known differences from Emacs]]
+- [[file:part-2/latex.org][LaTeX]]
+- [[file:part-2/latex-known-differences.org][LaTeX: known differences]]
+- [[file:part-2/bibtex.org][BibTeX]]
+- [[file:part-2/csv.org][CSV]]
+- [[file:part-2/markdown.org][Markdown]]
+- [[file:part-2/plain-text.org][Plain text and code]]
+
+* Part III. The Kalem format
+- [[file:part-3/status.org][Status of the specification]]
+
+* Part IV. Extending Kalem
+- [[file:part-4/overview.org][The extension model]]
+- [[file:part-4/commands-and-keys.org][Commands, scopes and keys]]
+- [[file:part-4/completers-and-modes.org][Completers, modes and highlighters]]
+- [[file:part-4/plugins.org][Plugins]]
+
+* Part V. Design
+- [[file:part-5/design-documents.org][Design documents]]
+- [[file:part-5/decisions.org][Decision records]]
+- [[file:part-5/decisions/D2-parser-foundation.org][D2: Parser foundation]]
+- [[file:part-5/decisions/D3-ui-framework.org][D3: UI framework]]
+- [[file:part-5/decisions/D4-math-engine.org][D4: Math engine]]
+- [[file:part-5/decisions/D9-configuration-formats.org][D9: Configuration formats]]
+- [[file:part-5/decisions/D14-terminal-ui-stack.org][D14: Terminal UI stack]]
+- [[file:part-5/decisions/D16-syntax-highlighting.org][D16: Syntax highlighting]]
+- [[file:part-5/decisions/D18-entity-table-provenance.org][D18: Entity table provenance]]
+- [[file:part-5/decisions/D20-file-operations.org][D20: File operations]]
+- [[file:part-5/performance.org][Performance]]
+- [[file:part-5/terminal-parity.org][Terminal parity]]
+
+* Appendices
+- [[generated:commands][Commands and keys]]
+- [[generated:settings][Settings]]
+- [[generated:cli][The command line]]
+- [[file:appendices/glossary.org][Glossary]]
+- [[file:appendices/licenses.org][Licenses]]

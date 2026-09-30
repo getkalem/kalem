@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}} · {{book_title}}</title>
+<link rel="stylesheet" href="{{root}}theme/book.css">
+<script>
+try { var t = localStorage.getItem("kalem-book-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+<header class="top">
+  <button class="menu" aria-label="Contents" onclick="document.body.classList.toggle('toc-open')">☰</button>
+  <a class="book-title" href="{{root}}index.html">{{book_title}}</a>
+  <input class="search" type="search" placeholder="Search" aria-label="Search the Book">
+  <button class="theme" aria-label="Light or dark theme" title="Light or dark theme">☾ ☀</button>
+</header>
+<div class="layout">
+  <aside class="sidebar">{{toc}}</aside>
+  <main>
+    <div class="results" hidden></div>
+    <article>
+      <h1 class="page-title">{{title}}</h1>
+      {{content}}
+    </article>
+    <nav class="pager">{{prev}}{{next}}</nav>
+  </main>
+</div>
+<script>window.BOOK_ROOT = "{{root}}";</script>
+<script src="{{root}}search-index.js"></script>
+<script src="{{root}}theme/book.js"></script>
+</body>
+</html>

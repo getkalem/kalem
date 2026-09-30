@@ -1,0 +1,108 @@
+Kalem has two keymaps, chosen in the settings: Word-like keys, the
+default, and Vim keys. On macOS, Command takes the place of Control in the
+Word-like keys (Cmd+S saves).
+
+* Word-like keys
+
+| Keys                   | Command                               |
+|------------------------+---------------------------------------|
+| Ctrl+S, Ctrl+Shift+S   | Save, Save As                         |
+| Ctrl+Z, Ctrl+Y         | Undo, Redo (also Ctrl+Shift+Z)        |
+| Ctrl+X, Ctrl+C, Ctrl+V | Cut, Copy, Paste                      |
+| Ctrl+A                 | Select All                            |
+| Shift+Enter            | Line break within a paragraph         |
+| Ctrl+,                 | Settings                              |
+| Ctrl+Q                 | Quit                                  |
+| Ctrl+O, Ctrl+N, Ctrl+W | Open, New, Close document             |
+| Ctrl+Shift+P, F1       | Command palette (Ctrl+G in terminals) |
+
+The other keys are in the sections above, and in the command palette.
+
+* Vim keys
+
+With =editor.keymap_profile = "vim"=, the editor has Vim's modes. Normal
+mode moves and edits: =h j k l=, =w b e=, =0 ^ $=, =gg G=, =f t ; ,=, =%=,
+={ }=, counts, the operators =d c y > <= and =gu gU g~= with motions and
+text objects (=iw=, =i"=, =i(=, =ip= and their =a= forms; in Org
+documents also =ih= the headline's title, =iR= the subtree below its
+headline, =ii= a list item's text, =ic= a table cell and =ie= the inside
+of emphasis, and their =a= forms with the whole headline, subtree, item,
+cell or emphasis), =x D C p P J r ~ u= Ctrl+R and =.= to repeat. =v= and =V= select characters and lines, Ctrl+V a block of columns
+(=I= and =A= then type on each of its lines).
+=/= and =?= search, =n N * #= repeat. Registers: ="a= to ="z=, and ="+=
+for the system clipboard. The command line knows =:w=, =:q=, =:q!=,
+=:wq=, =:x=, =:NUMBER=, =:noh=, =:e FILE=, =:bn=, =:bp=, =:bd= and =:ls=;
+=gt= and =gT= go to the next and previous document.
+
+Space is the leader, as in Doom Emacs. Press it and a panel shows what can
+follow:
+
+| Keys                 | Command                                     |
+|----------------------+---------------------------------------------|
+| =SPC p p=            | Switch Project                              |
+| =SPC p f=, =SPC SPC= | Find File in Project                        |
+| =SPC p r=, =SPC p b= | Recent files, open documents of the project |
+| =SPC p a=, =SPC p d= | Add Project, Remove Project                 |
+| =SPC s p=, =SPC /=   | Search in Project                           |
+| =SPC ,=, =SPC b b=   | Switch Document                             |
+| =SPC b n=, =SPC b p= | Next, previous document                     |
+| =SPC b k=            | Close Document                              |
+| =SPC f f=, =SPC .=   | Open File                                   |
+| =SPC f r=            | Recent files                                |
+| =SPC f s=            | Save                                        |
+| =SPC o p=            | Show or hide the open files                 |
+| =SPC o -=            | File manager at the document's folder       |
+| =SPC o P=, =SPC p D= | Projects view; the project's folder         |
+| =SPC :=              | Command palette                             |
+
+=editor.vim.leader= makes another key the leader (="\\"= or =","=, say).
+
+Insert mode (=i a o= and the others) types as usual, with the Word-like
+keys. Keys with Control or Alt that Vim does not use, such as Ctrl+S, keep
+their Word-like meaning in every mode. In Org documents, =>>= and =<<=
+demote and promote headings and indent list items.
+
+=editor.vim.modes= limits Vim keys to some kinds of documents, for example
+=["plain"]= for plain text only.
+
+* Your own keys
+
+Every key can be changed. =keymap.json= in the settings directory changes
+keys:
+
+#+begin_src json
+[
+  // Ctrl+Shift+W sets the tag "work".
+  { "keys": "ctrl+shift+w", "command": "org.tags.set",
+    "args": { "tags": ["work"] }, "when": "onHeadline" },
+  // No Ctrl+B for bold.
+  { "keys": "ctrl+b", "command": "-org.emphasis.bold" },
+  // Two-key sequences, Emacs style.
+  { "keys": "C-c C-t", "command": "org.todo.cycle" },
+  // Vim keys: SPC p t lists the project's recent files; no SPC q q.
+  { "keys": "leader p t", "command": "project.recentFiles", "when": "vimCommand" },
+  { "keys": "leader q q", "command": "-app.quit" }
+]
+#+end_src
+
+Command IDs are shown in the palette. =leader= stands for the Vim leader.
+=docs/keymaps/emacs.json= is a complete keymap with Emacs Org mode keys,
+to copy into =keymap.json=.
+
+Every command serves some types of text: all of them, a list, or all but
+some. The type is the one at the cursor, innermost first: a source
+block's language in an Org document (=python=), =latex= in a formula, the
+file's kind (=org=, or =klm= for a Kalem document, which Org's commands
+serve too), a file's language (=rs=), =markdown=, =csv=, =text=. So
+Ctrl+B makes bold text in Org and does nothing in a Python block, and
+Alt+Up moves lines in code, source blocks included, but moves headings,
+items and rows in Org. A binding can use the type too: ="when":
+"textType == python"=; a type Kalem does not know is reported with the
+other problems of the keymap. =kalem commands --type org= lists the
+commands a type has, with their scope and keys.
+
+In a terminal, keys with Alt reach Kalem only when the terminal sends
+them: in macOS Terminal and iTerm2, set Option to act as Meta (Terminal:
+Settings, Profiles, Keyboard, "Use Option as Meta key"; iTerm2: Profiles,
+Keys, "Left Option key: Esc+"). Terminals with the kitty keyboard protocol
+(kitty, WezTerm, Ghostty, foot) send every key as it is.

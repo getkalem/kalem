@@ -1,0 +1,928 @@
+Kalem reads, shows, edits and exports Org files as Emacs does. This
+chapter says what that means construct by construct: what the parser
+recognizes, what the document model computes, which editing commands
+exist and what they write, what the table engine computes, and what the
+exporters produce. It is a reference, and it is informative: the
+standard is Org itself, and where this chapter and Emacs disagree, Emacs
+is right and Kalem has a bug, unless the difference is listed in
+[[file:org-known-differences.org][Known differences from Emacs]].
+
+* The standard and the oracle
+
+** What Kalem follows
+
+There is no separate formal grammar of Org. The /Org Syntax/ document
+on Worg describes the syntax in prose, and =org-element.el= implements
+it; where the two disagree, the implementation decides. Kalem follows:
+
+| Aspect           | Reference                                                                                                 |
+|------------------+-----------------------------------------------------------------------------------------------------------|
+| Syntax           | =org-element.el= of Org 9.7.11, as shipped with Emacs 30.1                                                |
+| Syntax, prose    | Worg's =org-syntax.org=, commit =22fc0631=                                                                |
+| Document model   | The Org functions each model query is named after (=org-entry-get=, =org-get-tags=, =org-clock-sum=, ...) |
+| Editing commands | The Org command of the same name (=org-todo=, =org-table-align=, ...)                                     |
+| Table formulas   | =org-table.el= and Emacs Calc, with Org's Calc modes                                                      |
+| Export           | =ox.el= and its back-ends =ox-html=, =ox-md=, =ox-latex=, =ox-ascii=                                      |
+| Citations        | =oc.el=, =oc-basic.el=, =oc-natbib.el=, =oc-biblatex.el=                                                  |
+
+Defaults are those of =emacs -Q= with Org 9.7 and =org-inlinetask=
+loaded: variables that change parsing or behavior (=org-todo-keywords=,
+=org-use-tag-inheritance=, =org-footnote-section= and the rest) start
+at their Emacs defaults, and Kalem's settings change only the ones the
+settings chapter names.
+
+** The oracle
+
+The oracle is Emacs 30.1 itself. Each layer of the Org mode is compared
+with it by a differential test:
+
+| Layer          | What is compared                                                                                                                                           | How                                                                                   |
+|----------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------|
+| Parser         | Every element and object: type, begin, end, contents begin and end, post-affiliated position, blank lines after, and the properties =org-element= computes | ~kalem diff-emacs FILE...~ with =tests/emacs/dump.el=                                 |
+| Parser, fuzzed | The same, on randomly mutated copies of the corpus                                                                                                         | =tools/fuzz-diff.py= (5,000 mutants per CI run)                                       |
+| Document model | Tags, properties, TODO sets, categories, match strings, link targets, footnotes, statistics cookies, clock sums                                            | ~kalem diff-emacs --model FILE...~ with =tests/emacs/model.el=                        |
+| Editing        | Text, point and error of each command on 15,800 cases                                                                                                      | =tests/emacs/edit.el=, =tests/edit/cases.json=, =crates/org-edit/tests/emacs_diff.rs= |
+| Table formulas | Every field of 928 tables recalculated, and 3,000 Calc formulas                                                                                            | =tests/emacs/table.el=, =tests/emacs/calc.el=, =crates/org-table/tests=               |
+| Export         | Output of each back-end, byte for byte after renumbering Emacs's random =orgXXXXXXX= identifiers                                                           | =tests/emacs/export.el=, =crates/org-export/tests=                                    |
+
+~kalem diff-emacs~ runs =emacs -Q --batch -l tests/emacs/dump.el= on
+the files (or reads dumps made earlier, with =--emacs-dumps DIR=),
+dumps Kalem's tree in the same JSON (~kalem dump --format emacs-json~),
+and compares the two node by node. The affiliated keyword properties
+=:caption=, =:header=, =:plot= and =:results= are not compared; =:name=
+is. A node that Emacs lets run past the end of its parent is counted as
+a known difference rather than a failure (see below).
+
+#+begin_example
+kalem diff-emacs --summary tests/corpus/org-mode/org-manual.org
+kalem diff-emacs --model --summary tests/corpus/model/*.org
+#+end_example
+
+** The corpus
+
+The committed corpus is =tests/corpus=; =tests/corpus/LICENSES.md=
+records the source and license of every file.
+
+| Folder       | Contents                                                                                                      |
+|--------------+---------------------------------------------------------------------------------------------------------------|
+| =org-mode/=  | The Org manual, the Org guide, =ORG-NEWS= and Org's =testing/examples=, release 9.7.11                        |
+| =worg/=      | Worg's =org-syntax.org=                                                                                       |
+| =synthetic/= | Files written for Kalem: CRLF with a byte order mark, CJK, Turkish, malformed input, deep nesting, edge cases |
+| =model/=     | Documents for the model differential: tags, clocks, groups, match strings, statistics                         |
+| =tables/=    | 928 =#+TBLFM= tables, most of them generated at random                                                        |
+| =klm/=       | Every construct the interim =.klm= formatting writes (see below)                                              |
+
+=tests/corpus/fetch-extended.sh= clones the whole Org repository at
+=release_9.7.11= and Worg at =22fc0631= into =.cache/=; CI runs the
+parser and model differentials on it too. The export cases are in
+=tests/export/cases=, and the Worg files exported by Emacs make the
+extended export corpus.
+
+* Rules
+
+The three rules of every standard mode
+([[file:overview.org][Standard modes and their oracles]]) hold for Org
+as follows.
+
+- *Ranges, never text.* The parser returns a lossless tree: for every
+  input, the text of the tree is the input, byte for byte. Commands
+  replace ranges of the text; nothing regenerates the file from the
+  tree. Untouched parts of a file keep their spacing, case, line
+  endings and byte order mark. The one place Org itself reformats is
+  tables: Kalem realigns the table you edit, with =org-table-align='s
+  algorithm, and only that table. ~kalem fmt~ reformats a whole
+  document, and only when asked.
+- *No extension.* Kalem writes nothing into a =.org= file that Org does
+  not define. Kalem's own settings live in =settings.toml=, not in
+  the file (the interim =#+KALEM:= keyword is the exception described
+  below, and is being retired).
+- *Unknown constructs stay visible.* Every line of an Org file belongs
+  to some element; what Org itself reads as a paragraph (an unterminated
+  block, a malformed timestamp, a keyword Org does not know) Kalem reads
+  as a paragraph or a keyword too, and shows as its source.
+
+** Strict =.org= and interim =.klm=
+
+A file named =*.org= (or =*.org_archive=) is strict Org. Decision D24 of
+RFC 0001 (section 3.7) also defined =.klm= as Org plus Kalem's
+word-processor formatting, written through Org's extension points so
+that Emacs still opens the file:
+
+| Addition                               | Written as                                                                                |
+|----------------------------------------+-------------------------------------------------------------------------------------------|
+| Font, size, color, highlight of a span | ~@@kalem:font="Georgia" size=14 color=#c00000@@~ ... ~@@kalem:end@@~                      |
+| Paragraph alignment and spacing        | =#+ATTR_KALEM: :align right=, =:before 12 :after 6=                                       |
+| Document defaults and options          | ~#+KALEM: font="Georgia" size=12 spacing=1.5~, also =recalc=, =word_target=, =markup=yes= |
+
+These additions exist in Kalem today. In a =.org= file the formatting
+commands write nothing unless the file opts in with
+=#+KALEM: markup=yes= (or a folder with the setting
+=org.allow_kalem_markup=), and ~kalem check~ reports each addition in
+a =.org= file as =kalem-markup-in-org=. The HTML and LaTeX back-ends
+honor the additions; Emacs's exports drop them.
+
+They are interim. RFC 0002 (=design_doc2.md=, section 12) retires
+section 3.7 and D24: the =@@kalem:…@@=, =#+ATTR_KALEM:= and =#+KALEM:=
+mechanisms are to be removed before the first release, =.org= files
+stay strict Org, and =.klm= becomes a format of its own, specified in
+Part III, not Org with additions. Nothing in this chapter depends on
+them.
+
+* The syntax tree
+
+The parser (crate =org-syntax=) follows =org-element.el= function by
+function: =current_element= is =org-element--current-element=, and so on.
+Its tree is a [[https://github.com/rust-analyzer/rowan][rowan]] tree whose
+node kinds are the element and object types of =org-element=, so the
+two trees compare directly.
+
+** Properties of the parser
+
+- *Lossless.* ~parse(text).syntax().to_string() == text~ for every
+  input.
+- *Error tolerant.* There is no invalid input and no panic. Malformed
+  constructs parse as Emacs parses them, usually as paragraph text.
+- *Incremental.* An edit reparses only the elements it can affect, and
+  the result is identical to a full parse (property tests and fuzzing
+  check this). Three levels are tried in order: the elements of one
+  section around the edit; the whole section, when the edited lines
+  contain an end line (=#+END...=, =:END:=, =\end{...}=) or a footnote
+  definition; the whole document, when the edit changes the headline
+  structure, an in-buffer setting that the parser reads, or a radio
+  target. Documents with CRLF line endings or a byte order mark keep a
+  second tree of the normalized text and reparse incrementally there.
+- *Line endings.* A file with =\r\n= line endings is parsed as Emacs
+  parses it after decoding: carriage returns are in the tree but in no
+  value.
+- *Character classes.* Word, blank and case tables are generated from
+  Emacs (=tools/gen-tables.el=), so emphasis boundaries and case folding
+  agree with Org for every Unicode character.
+
+** Node kinds
+
+The =SyntaxKind= enum has token kinds, node kinds shared with
+=org-element= and a few structural node kinds.
+
+Tokens:
+
+| Kind              | Holds                                                                                         |
+|-------------------+-----------------------------------------------------------------------------------------------|
+| =TEXT=            | Plain text                                                                                    |
+| =WHITESPACE=      | Spaces and tabs                                                                               |
+| =NEWLINE=         | A line feed                                                                                   |
+| =BLANK_LINE=      | A whole blank line                                                                            |
+| =MARKER=          | Syntax characters a rendered view hides: emphasis markers, link brackets, =#+=, drawer colons |
+| =STARS=           | The stars of a headline or inlinetask                                                         |
+| =TODO_KEYWORD=    | A TODO keyword in a headline                                                                  |
+| =PRIORITY=        | A priority cookie such as =[#A]=                                                              |
+| =COMMENT_KEYWORD= | =COMMENT= in a commented headline                                                             |
+| =TAGS=            | Headline tags with their colons                                                               |
+| =KEY=             | The name of a keyword, block, drawer or affiliated keyword                                    |
+| =BULLET=          | A list bullet such as =-= or =1.=                                                             |
+| =CHECKBOX=        | A checkbox such as =[X]=                                                                      |
+| =COUNTER=         | An item counter such as =[@3]=                                                                |
+| =CODE_TEXT=       | Raw content: source code, verbatim text, link paths                                           |
+| =BOM=             | A UTF-8 byte order mark                                                                       |
+
+Structural nodes without an =org-element= counterpart, which give shape
+to syntax Emacs keeps in properties:
+
+| Kind                 | Holds                                                   |
+|----------------------+---------------------------------------------------------|
+| =AFFILIATED_KEYWORD= | A line such as =#+NAME: x= attached to the next element |
+| =KEYWORD_VALUE=      | The parsed value of =#+CAPTION=                         |
+| =HEADLINE_TITLE=     | The parsed title of a headline or inlinetask            |
+| =ITEM_TAG=           | The tag of a descriptive list item                      |
+| =CITATION_PREFIX=    | The prefix of a citation or of a reference              |
+| =CITATION_SUFFIX=    | The suffix of a citation or of a reference              |
+| =BLOCK_BEGIN=        | The opening line of a block, drawer or dynamic block    |
+| =BLOCK_END=          | The closing line of a block, drawer or dynamic block    |
+
+The shared kinds are listed in the next three sections. The document
+node is =DOCUMENT= (=org-data=).
+
+* Document structure
+
+** Headlines and sections
+
+A headline is a line starting with one or more stars and a space. Its
+parts, in order, are all optional but the stars:
+
+#+begin_src org
+,#+TODO: TODO NEXT(n) WAIT(w@/!) | DONE(d) CANCELLED(c@)
+,* NEXT [#A] COMMENT Write the chapter on tables :writing:book:
+#+end_src
+
+- the stars, whose count is the true level; with =#+STARTUP: odd= the
+  level is computed as Org computes it for odd levels only;
+- a TODO keyword, one of the document's keywords (default =TODO= and
+  =DONE=);
+- a priority cookie =[#X]= with any single character;
+- =COMMENT=, which makes the headline commented (=:commentedp=);
+- the title, parsed for objects (no line breaks);
+- tags, =:a:b:= at the end of the line; the tag =ARCHIVE= makes the
+  headline archived (=:archivedp=).
+
+A headline whose title is the footnote section name (=Footnotes=) is
+the footnote section. A section is the text between a headline and the
+next headline; the text before the first headline is the zeroth section.
+A section contains no headlines; a headline contains its section and
+its child headlines, as in =org-element=.
+
+The typed wrapper =ast::Headline= gives =:level=, =:todo-keyword=,
+=:todo-type=, =:priority=, =:commentedp=, =:tags=, =:archivedp=,
+=:raw-value=, =:pre-blank=, the planning line and the property drawer.
+
+** Planning lines
+
+A planning line directly follows a headline and holds =SCHEDULED:=,
+=DEADLINE:= and =CLOSED:= timestamps in any order:
+
+#+begin_src org
+,* TODO Submit the paper
+DEADLINE: <2026-10-15 Thu -3d> SCHEDULED: <2026-10-05 Mon 09:00 +1w>
+#+end_src
+
+When a keyword is repeated and the timestamps overlap, Kalem keeps the
+timestamp Emacs uses and drops an overlapping one (a listed
+difference).
+
+** Property drawers and node properties
+
+A property drawer follows the headline, or its planning line, or
+starts the zeroth section (the document's own properties). Each line is
+a node property =:KEY: value=; =:KEY+: value= appends to a value.
+
+#+begin_src org
+,* Chapter
+:PROPERTIES:
+:CUSTOM_ID: tables
+:EFFORT:   2:00
+:END:
+#+end_src
+
+** Drawers
+
+A drawer is =:NAME:= on a line of its own, contents, and =:END:=. A
+drawer line without =:END:= is paragraph text. =LOGBOOK= is the drawer
+state changes and clocks go into when logging into a drawer is on.
+
+** Inlinetasks
+
+With =org-inlinetask= loaded (the default here), a headline of at least
+=org-inlinetask-min-level= stars (15; 29 with =#+STARTUP: odd=) is an
+inlinetask: a task inside a section, closed by a line of as many stars
+followed by =END=, or standing alone on one line. It does not end the
+section it is in.
+
+* Greater elements
+
+Greater elements contain other elements. Every greater element of
+=org-element= is parsed; the columns say what the editors show, which
+editing commands work on it, and whether the exporters write it.
+
+| =org-element= type    | Kind                  | Shown                                           | Editing commands                                                                                           | Exported                                               |
+|-----------------------+-----------------------+-------------------------------------------------+------------------------------------------------------------------------------------------------------------+--------------------------------------------------------|
+| =org-data=            | =DOCUMENT=            | The document                                    | Every command                                                                                              | Yes                                                    |
+| =headline=            | =HEADLINE=            | A heading of its level; folds                   | Promote, demote, move, cut, copy, paste, sort, refile, archive, TODO, priority, tags, properties, schedule | Yes, by =H=, tags and TODO options                     |
+| =section=             | =SECTION=             | Its contents                                    | Narrowing                                                                                                  | Yes                                                    |
+| =inlinetask=          | =INLINETASK=          | As a block, basic                               | The TODO commands, as in Emacs                                                                             | With =inline:t= (default)                              |
+| =property-drawer=     | =PROPERTY_DRAWER=     | Dimmed; Edit Properties shows it as a list      | =org-entry-put=, delete, =org-toggle-ordered-property=                                                     | With =prop:t=                                          |
+| =drawer=              | =DRAWER=              | Folded to its first line                        | Insert Drawer (=org-insert-drawer=)                                                                        | By the =d= option (not =LOGBOOK= by default)           |
+| =plain-list=          | =PLAIN_LIST=          | Bullets, numbers and checkboxes                 | The list commands of =org-list.el=                                                                         | Yes                                                    |
+| =item=                | =ITEM=                | As its list                                     | Indent, outdent, move, insert, checkbox                                                                    | Yes                                                    |
+| =table=               | =TABLE=               | Org tables as a grid; table.el tables as source | Org tables: the table commands and formulas; table.el: none                                                | Org tables: yes; table.el: LaTeX and text only (below) |
+| =center-block=        | =CENTER_BLOCK=        | Centered                                        | As text                                                                                                    | Yes                                                    |
+| =quote-block=         | =QUOTE_BLOCK=         | With a bar                                      | As text                                                                                                    | Yes                                                    |
+| =special-block=       | =SPECIAL_BLOCK=       | Delimiter lines dimmed, contents rendered       | As text                                                                                                    | Yes (a =div= in HTML, an environment in LaTeX)         |
+| =dynamic-block=       | =DYNAMIC_BLOCK=       | Delimiter lines dimmed, contents rendered       | As text; never updated                                                                                     | Its contents                                           |
+| =footnote-definition= | =FOOTNOTE_DEFINITION= | A footnote block                                | The footnote commands                                                                                      | Yes                                                    |
+
+A table.el table (one whose first line starts with =+-=) is kept as
+raw text, as =org-element= keeps it. The LaTeX and plain text back-ends
+write it as Org does; the HTML back-end, and Markdown through it, write
+an empty =<table>= where =ox-html= converts it with =table.el=.
+
+* Elements
+
+| =org-element= type  | Kind                | Syntax                                               | Shown                                                      | Exported                               |
+|---------------------+---------------------+------------------------------------------------------+------------------------------------------------------------+----------------------------------------|
+| =planning=          | =PLANNING=          | =SCHEDULED:= =DEADLINE:= =CLOSED:= after a headline  | Dimmed                                                     | With =p:t=                             |
+| =node-property=     | =NODE_PROPERTY=     | =:KEY: value= in a property drawer                   | Dimmed                                                     | With =prop:t=                          |
+| =table-row=         | =TABLE_ROW=         | A line starting with \vert, or a rule                | A grid row                                                 | Yes                                    |
+| =babel-call=        | =BABEL_CALL=        | =#+CALL: name(args)=                                 | As a keyword line                                          | Removed, as when evaluation is refused |
+| =clock=             | =CLOCK=             | =CLOCK: [...]--[...] =>  1:30=                       | Dimmed                                                     | With =c:t=                             |
+| =comment=           | =COMMENT=           | Lines starting with =#= and a space                  | Dimmed                                                     | No                                     |
+| =comment-block=     | =COMMENT_BLOCK=     | =#+begin_comment= ... =#+end_comment=                | Monospace, dimmed                                          | No                                     |
+| =diary-sexp=        | =DIARY_SEXP=        | =%%(...)= at the start of a line                     | Dimmed source                                              | No                                     |
+| =example-block=     | =EXAMPLE_BLOCK=     | =#+begin_example= ... =#+end_example=                | Monospace                                                  | Yes                                    |
+| =export-block=      | =EXPORT_BLOCK=      | =#+begin_export html= ... =#+end_export=             | Monospace, highlighted in its back-end's language          | Only by that back-end                  |
+| =fixed-width=       | =FIXED_WIDTH=       | Lines starting with =:= and a space                  | Monospace                                                  | With =::t=                             |
+| =horizontal-rule=   | =HORIZONTAL_RULE=   | Five or more dashes alone on a line                  | A rule                                                     | Yes                                    |
+| =keyword=           | =KEYWORD=           | =#+KEY: value=                                       | Source; =#+TITLE= and the byline keywords as a title block | By their meaning (below)               |
+| =latex-environment= | =LATEX_ENVIRONMENT= | =\begin{env}= ... =\end{env}= at the start of a line | Typeset as a displayed formula                             | Yes                                    |
+| =paragraph=         | =PARAGRAPH=         | Anything else                                        | Rendered text                                              | Yes                                    |
+| =src-block=         | =SRC_BLOCK=         | =#+begin_src lang switches args= ... =#+end_src=     | Highlighted code                                           | By =:exports= (below)                  |
+| =verse-block=       | =VERSE_BLOCK=       | =#+begin_verse= ... =#+end_verse=                    | With a bar, lines kept                                     | Yes                                    |
+
+Block names, keywords and drawer names are case-insensitive. A block
+without its end line is paragraph text, and ~kalem check~ says so.
+Commas protecting =*= and =#+= lines inside example and source blocks
+are part of the text and are removed from the block's value, as Org
+removes them.
+
+** Affiliated keywords
+
+An affiliated keyword attaches to the element right after it:
+=#+CAPTION:= (with an optional short caption in brackets, and its value
+parsed for objects), =#+NAME:=, =#+HEADER:=, =#+PLOT:=, =#+RESULTS:=
+(with an optional hash in brackets) and =#+ATTR_BACKEND:= for any
+back-end name. The old names =DATA=, =LABEL=, =RESNAME=, =SOURCE=,
+=SRCNAME= and =TBLNAME= are read as =NAME=, =RESULT= as =RESULTS=,
+=HEADERS= as =HEADER=, as =org-element-keyword-translation-alist= has
+them. Affiliated keywords followed by a blank line or by the end of
+their container attach to nothing and are plain keywords; ~kalem
+check~ reports them as =orphaned-affiliated-keyword=.
+
+#+begin_src org
+,#+CAPTION[Short]: Results of the second run.
+,#+NAME: tab:results
+,#+ATTR_LATEX: :booktabs t
+| Run | Time |
+|-----+------|
+|   2 | 4.1  |
+#+end_src
+
+* Objects
+
+Objects live inside elements. Every object type of =org-element= is
+parsed:
+
+| =org-element= type   | Kind                 | Syntax                                                             | Shown                                         |
+|----------------------+----------------------+--------------------------------------------------------------------+-----------------------------------------------|
+| =bold=               | =BOLD=               | =*text*=                                                           | Bold; markers hidden away from the cursor     |
+| =italic=             | =ITALIC=             | =/text/=                                                           | Italic                                        |
+| =underline=          | =UNDERLINE=          | =_text_=                                                           | Underlined                                    |
+| =strike-through=     | =STRIKE_THROUGH=     | =+text+=                                                           | Struck through                                |
+| =code=               | =CODE=               | =~text~=                                                           | Monospace                                     |
+| =verbatim=           | =VERBATIM=           | ~=text=~                                                           | Monospace                                     |
+| =link=               | =LINK=               | =[[target][description]]=, =<https://x.org>=, =https://x.org=      | A link; image links as pictures               |
+| =timestamp=          | =TIMESTAMP=          | =<2026-10-01 Thu>=, =[2026-10-01 Thu 09:00]=, ranges, =<%%(sexp)>= | Styled                                        |
+| =footnote-reference= | =FOOTNOTE_REFERENCE= | =[fn:label]=, =[fn:label:text]=, =[fn::text]=                      | Styled; brackets hidden                       |
+| =citation=           | =CITATION=           | =[cite/style:prefix;@key suffix;@key2]=                            | Source; the entry previewed in the status bar |
+| =citation-reference= | =CITATION_REFERENCE= | =@key= with its prefix and suffix, inside a citation               | As its citation                               |
+| =entity=             | =ENTITY=             | =\alpha=, =\alpha{}=                                               | The character, away from the cursor           |
+| =latex-fragment=     | =LATEX_FRAGMENT=     | =$x$=, =$$x$$=, =\(x\)=, =\[x\]=, =\cmd[opt]{arg}=                 | Typeset (math fragments)                      |
+| =subscript=          | =SUBSCRIPT=          | =a_b=, =a_{b}=                                                     | Lowered                                       |
+| =superscript=        | =SUPERSCRIPT=        | =a^b=, =a^{b}=                                                     | Raised                                        |
+| =line-break=         | =LINE_BREAK=         | =\\= at the end of a line                                          | Hidden                                        |
+| =macro=              | =MACRO=              | ={{{name(arg1,arg2)}}}=                                            | Its expansion, away from the cursor           |
+| =export-snippet=     | =EXPORT_SNIPPET=     | =@@html:<b>@@=                                                     | The back-end dimmed, the value as code        |
+| =inline-babel-call=  | =INLINE_BABEL_CALL=  | =call_name[h](args)[h]=                                            | Source                                        |
+| =inline-src-block=   | =INLINE_SRC_BLOCK=   | =src_lang[args]{code}=                                             | Monospace                                     |
+| =radio-target=       | =RADIO_TARGET=       | =<<<text>>>=                                                       | Brackets hidden                               |
+| =target=             | =TARGET=             | =<<text>>=                                                         | Brackets hidden                               |
+| =statistics-cookie=  | =STATISTICS_COOKIE=  | =[1/3]=, =[33%]=                                                   | Styled; kept up to date by commands           |
+| =table-cell=         | =TABLE_CELL=         | A field between bars                                               | A grid cell                                   |
+
+Emphasis follows =org-emphasis-regexp-components= of Org 9.7: the
+characters allowed before the opening marker and after the closing one,
+the contents not starting or ending with a blank. The export options
+=^:{}= and =^:nil= change how sub- and superscripts export; they do not
+change the tree, which always contains them, as in Emacs.
+
+** Where objects may appear
+
+Which objects a container may hold is =org-element-object-restrictions=:
+
+| Container                                                                   | Objects allowed                                                                                                                                             |
+|-----------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Paragraph, verse block, emphasis, sub- and superscripts, footnote reference | All but citation references and table cells                                                                                                                 |
+| Headline and inlinetask titles, item tags                                   | The same, without line breaks                                                                                                                               |
+| Keyword values (=#+CAPTION=, =#+TITLE=, ...)                                | The standard set without footnote references                                                                                                                |
+| Link descriptions                                                           | Emphasis, code, verbatim, entities, LaTeX fragments, sub- and superscripts, export snippets, inline calls, inline source blocks, macros, statistics cookies |
+| Radio targets                                                               | Emphasis, code, verbatim, entities, LaTeX fragments, sub- and superscripts                                                                                  |
+| Table cells                                                                 | That minimal set, plus citations, export snippets, footnote references, links, macros, radio targets, targets, timestamps                                   |
+| Citations                                                                   | Citation references only                                                                                                                                    |
+| Citation prefixes and suffixes                                              | The standard set without line breaks, citations, footnote references and links                                                                              |
+
+** Links
+
+A bracket link =[[target]]= or =[[target][description]]= resolves as
+=org-element-link-parser= resolves it: a target starting with =/=, =./=
+or =~= is a file; =#id= is a custom ID; =(ref)= a code reference;
+=type:path= a link of that type when the type is registered; anything
+else is a fuzzy link to a target, a name or a headline. Plain links
+(=https://orgmode.org=) and angle links (=<https://orgmode.org>=) need a
+registered type. Text matching a radio target is a radio link.
+
+The registered types are fixed, since Emacs's set depends on the
+libraries loaded in a session: those of =emacs -Q= with Org 9.7 plus
+=attachment= (=DEFAULT_LINK_TYPES=):
+
+#+begin_example
+attachment bbdb bibtex doi docview elisp eww file file+emacs file+sys
+ftp gnus help http https id info irc mailto mhe news rmail shell w3m
+#+end_example
+
+=#+LINK: key replacement= defines an abbreviation: =key:tag= becomes the
+replacement with =%s= replaced by the tag, or =%h= by the tag
+URL-encoded, or the tag appended. A replacement with =%(function)= is
+Lisp and is not expanded.
+
+Internal links resolve as =org-link-search= resolves them: to a
+=<<target>>=, a =#+NAME=, a headline title, a =CUSTOM_ID=, a code
+reference, or a radio target; =id:= links to an entry of the same
+document with that =ID= property.
+
+** Entities
+
+The 414 entities of =org-entities.el= (Org 9.7.11) are recognized, each
+with its LaTeX, HTML, ASCII, Latin-1 and UTF-8 renderings. A name
+given twice in =org-entities= (=deg=, =sup=) takes the first.
+
+* In-buffer settings
+
+These keywords are honored, each where Org reads it. The parser reads
+its keywords in a pre-pass, as =org-set-regexps-and-options= does,
+before the document is parsed.
+
+| Keyword                             | Read by                | Effect                                                                                       |
+|-------------------------------------+------------------------+----------------------------------------------------------------------------------------------|
+| =#+TODO=, =#+SEQ_TODO=              | Parser, model          | A workflow sequence of TODO keywords; keywords after \vert are done, else the last one       |
+| =#+TYP_TODO=                        | Parser, model          | A sequence of type keywords; type sets come first, as in Emacs                               |
+| =#+LINK=                            | Parser                 | Link abbreviations                                                                           |
+| =#+STARTUP=                         | Parser, commands, view | See the next table                                                                           |
+| =#+SETUPFILE=                       | Parser, model, export  | The keywords of another file, inserted before this line                                      |
+| =#+FILETAGS=                        | Model                  | Tags inherited by every entry                                                                |
+| =#+TAGS=                            | Model, commands        | The tag table: fast keys, exclusive groups ={ }=, group tags ={ G : a b }= and =[ G : a b ]= |
+| =#+PROPERTY=                        | Model                  | Document properties; =KEY+= appends                                                          |
+| =#+CATEGORY=                        | Model                  | The document's category (the last one wins)                                                  |
+| =#+PRIORITIES=                      | Model, commands        | Highest, lowest and default priority                                                         |
+| =#+ARCHIVE=                         | Model                  | Read, first one; archiving to another file is not implemented                                |
+| =#+COLUMNS=                         | Model                  | Read, first one; column view is not implemented                                              |
+| =#+CONSTANTS=                       | Tables                 | =name=value= constants for formulas                                                          |
+| =#+TBLFM=                           | Tables                 | The formulas of the table above                                                              |
+| =#+MACRO=                           | Export, view           | Macro definitions with =$1= arguments                                                        |
+| =#+INCLUDE=                         | Export                 | Other files or parts of them                                                                 |
+| =#+BIBLIOGRAPHY=                    | Model, export          | Bibliography files                                                                           |
+| =#+CITE_EXPORT=                     | Model, export          | The citation processor                                                                       |
+| =#+PRINT_BIBLIOGRAPHY=              | Export                 | Where the bibliography goes                                                                  |
+| =#+OPTIONS=, =#+TITLE= and the rest | Export                 | See [[*Export][Export]]                                                                                   |
+
+=#+SETUPFILE= files are read relative to the file that names them (a
+leading =~/= is the home directory); URLs are not fetched. Setup files
+may include setup files eight levels deep; a file already in the chain
+being read is skipped, as =org--collect-keywords-1= skips it.
+
+A change to =#+TODO=, =#+SEQ_TODO=, =#+TYP_TODO=, =#+LINK=, =#+STARTUP=
+or =#+SETUPFILE= reparses the whole document, since it can change what
+every headline means.
+
+** =#+STARTUP= values
+
+| Values                                                     | Effect                                                  |
+|------------------------------------------------------------+---------------------------------------------------------|
+| =odd=, =oddeven=                                           | Headline levels for odd levels only, or not (parser)    |
+| =overview=, =fold=, =content=, =showall=, =showeverything= | Initial folding in both editors                         |
+| =indent=, =noindent=                                       | The indented outline view, and the style of new content |
+| =logdone=, =lognotedone=, =nologdone=                      | What marking a task done records                        |
+| =logrepeat=, =lognoterepeat=, =nologrepeat=                | What completing a repeating task records                |
+| =logdrawer=, =nologdrawer=                                 | Log into the =LOGBOOK= drawer, or not                   |
+| =logstatesreversed=, =nologstatesreversed=                 | Newest log entries first, or not                        |
+
+Other values (=hidestars=, =inlineimages=, =latexpreview=,
+=entitiespretty=, =hideblocks=, =align=, and the rest) are ignored:
+they change neither the file nor what it means.
+
+* Tasks, tags and properties
+
+The document model (crate =org-model=) computes from the tree what Org
+computes from a buffer. Each function follows the Emacs function it is
+named after; ~kalem diff-emacs --model~ compares them.
+
+** Task states
+
+Keyword sets are =org-todo-sets=: one per =#+TODO=, =#+SEQ_TODO= or
+=#+TYP_TODO= line, in Emacs's order. A keyword may carry a fast key and
+logging settings, =WAIT(w@/!)=: =@= asks for a note, =!= records a time,
+the part before =/= applies on entering the state and the part after on
+leaving it. The =LOGGING= property overrides these and =#+STARTUP=.
+
+** Tags
+
+Tags come from the headline, from its ancestors (=org-use-tag-inheritance=,
+default all) and from =#+FILETAGS=, less =org-tags-exclude-from-inheritance=.
+Group tags from =#+TAGS= expand in match strings, as =org-tags-expand=
+does.
+
+** Properties
+
+=org-entry-get= semantics: drawer properties of the entry; with
+inheritance, the ancestors', the document's (its top property drawer and
+=#+PROPERTY=) and the global ones. =org-use-property-inheritance= is
+nil by default. =KEY+= values append with a space. The special
+properties are computed:
+
+#+begin_example
+ALLTAGS BLOCKED CATEGORY CLOCKSUM CLOCKSUM_T CLOSED DEADLINE FILE ITEM
+PRIORITY SCHEDULED TAGS TIMESTAMP TIMESTAMP_IA TODO
+#+end_example
+
+Allowed values come from =KEY_ALL= properties and the fixed global
+ones. As in Emacs, =org-entry-get= returns the last value of a key
+given twice in one drawer and =org-entry-properties= the first.
+
+** Categories
+
+An entry's category is its =CATEGORY= property (inherited), else the
+last =#+CATEGORY= of the document, else =org-category=, else
+the file name without its extension.
+
+** Match strings
+
+~kalem query FILE... MATCH~ and the model accept =org-make-tags-matcher=
+syntax: tags with =+=, =-=, =&= and =|=, regular expressions in
+braces, property comparisons (~PRIORITY="A"~, ~LEVEL>1~,
+~SCHEDULED<"<today>"~), and a TODO part after =/= (=/!= for not-done
+states only). Emacs's quirks that change results are kept (listed in
+the known differences).
+
+** Statistics, footnotes, links, clocks
+
+- Statistics cookies (=[2/5]=, =[40%]=) are computed as
+  =(org-update-statistics-cookies 'all)= does: from checkboxes, then
+  from the TODO states of child headlines, which win; hierarchical by
+  default.
+- A footnote reference finds its definition as
+  =org-footnote-get-definition= does.
+- Clock sums follow =org-clock-sum=: closed =CLOCK:= lines, per heading
+  including its subtree, measured in the system time zone.
+
+* Timestamps
+
+A timestamp is active (=<...>=) or inactive (=[...]=): a date
+=YYYY-MM-DD=, an optional day name, an optional time =H:MM= or a time
+range =10:00-11:30=, an optional repeater and an optional warning delay.
+Two timestamps joined by =--= make a date range. =<%%(sexp)>= is a diary
+timestamp.
+
+#+begin_src org
+<2026-10-05 Mon 09:00 +1w>
+<2026-10-15 Thu -3d>
+[2026-10-01 Thu 10:00-11:30]
+<2026-10-01 Thu>--<2026-10-03 Sat>
+<2026-10-01 Thu .+1d/3d>
+#+end_src
+
+| Part              | Syntax                 | Meaning                                              |
+|-------------------+------------------------+------------------------------------------------------|
+| Repeater          | =+1w=                  | Cumulate: shift by one interval                      |
+|                   | =++1w=                 | Catch up: shift until the date is in the future      |
+|                   | =.+1w=                 | Restart: shift from today                            |
+| Repeater deadline | =/3d= after a repeater | The deadline of a habit (=:repeater-deadline-value=) |
+| Warning           | =-3d=                  | Warn three days before                               |
+|                   | =--3d=                 | Only for the first occurrence                        |
+| Units             | =h= =d= =w= =m= =y=    | Lower case only, as Emacs compares them              |
+
+Dates are computed as Emacs's =encode-time= computes them: fields are
+added and then normalized, so January 31 plus one month is March 3 (or
+2), and an impossible date such as =2014-02-30= is carried over.
+~kalem check~ reports impossible dates as =invalid-timestamp=; the
+timestamp is still a timestamp, as in Emacs. Diary sexps are parsed
+and kept; they are not evaluated.
+
+When a task with a repeater is marked done, Kalem shifts the planning
+timestamps, records =LAST_REPEAT= and the log entry, and sets the state
+back as =org-todo-repeat-to-state= says. With a =++= repeater far in the
+past, Kalem shifts as far as needed without asking (a listed
+difference).
+
+* Editing commands
+
+Every command (crate =org-edit=) reads the document and returns one
+transaction of range replacements, undone as one step; a failing
+command changes nothing. The text a command writes, where point ends
+and whether it fails are those of the Emacs command, checked on 15,800
+cases.
+
+| Area       | Emacs commands reproduced                                                                                                                                                                                                                                                                                                                                                                                              |
+|------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Headlines  | =org-do-promote=, =org-do-demote=, =org-promote-subtree=, =org-demote-subtree=, =org-move-subtree-up=, =org-move-subtree-down=, =org-cut-subtree=, =org-copy-subtree=, =org-paste-subtree=, =org-sort-entries= (every key but a custom function)                                                                                                                                                                       |
+| TODO       | =org-todo= with every argument (cycle, =right=, =left=, a keyword, =none=, =done=, =nextset=, =previousset=, a number), fast selection, logging and notes, =org-enforce-todo-dependencies=, =ORDERED=, checkbox dependencies, =org-todo-state-tags-triggers=, repeaters; =org-priority=                                                                                                                                |
+| Planning   | =org-schedule=, =org-deadline=, with and without a time, removal                                                                                                                                                                                                                                                                                                                                                       |
+| Tags       | =org-set-tags=, =org-toggle-tag=, =org-change-tag-in-region=, =org-align-tags=, tag selection with exclusive groups                                                                                                                                                                                                                                                                                                    |
+| Properties | =org-entry-put=, =org-entry-delete=, =org-toggle-ordered-property=                                                                                                                                                                                                                                                                                                                                                     |
+| Lists      | =org-indent-item=, =org-outdent-item=, =org-indent-item-tree=, =org-outdent-item-tree=, =org-cycle-list-bullet=, =org-toggle-checkbox=, =org-move-item-up=, =org-move-item-down=, =org-insert-item=, =org-list-repair=                                                                                                                                                                                                 |
+| Tables     | =org-table-align=, =org-table-create=, =org-table-insert-row=, =org-table-kill-row=, =org-table-move-row=, =org-table-insert-hline=, =org-table-insert-column=, =org-table-delete-column=, =org-table-move-column=, =org-table-next-field=, =org-table-previous-field=, =org-table-next-row=, =org-table-sort-lines=, =org-table-convert-region=, =orgtbl-to-csv= and =orgtbl-to-tsv=, =#+TBLFM= references renumbered |
+| Footnotes  | =org-footnote-new=, =org-footnote-renumber-fn:N=, =org-footnote-sort=, =org-footnote-normalize=, =org-footnote-delete=, =org-footnote-action=                                                                                                                                                                                                                                                                          |
+| Insertion  | =org-insert-link=, =org-insert-structure-template=, =org-timestamp= with a date, =org-insert-drawer=, a horizontal rule                                                                                                                                                                                                                                                                                                |
+| Emphasis   | =org-emphasize=                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Typing     | =org-self-insert-command=, =org-delete-backward-char=, =org-delete-char=: columns kept aligned in tables, tags on headlines                                                                                                                                                                                                                                                                                            |
+| Archiving  | =org-toggle-archive-tag=, =org-archive-to-archive-sibling=, =org-refile= within one file                                                                                                                                                                                                                                                                                                                               |
+| Narrowing  | =org-narrow-to-subtree=, =org-narrow-to-element=, =org-narrow-to-block=; any command on the narrowed part                                                                                                                                                                                                                                                                                                              |
+
+Settings that Emacs keeps in variables (=org-adapt-indentation=,
+=org-tags-column=, blank lines before headlines, keyword case) are
+inferred from the document by style inference, and default to =emacs
+-Q= where the document shows nothing. Backspace and Delete remove a
+whole grapheme cluster where Emacs removes one character (a listed
+difference). The Emacs bugs Kalem does not reproduce are listed with
+the known differences.
+
+* Tables and formulas
+
+** Tables
+
+An Org table is a run of lines starting with =|=. A line of dashes
+and =+= after the bar is a rule. Alignment is =org-table-align='s: numbers
+right, other fields left, the =<l>=, =<c>=, =<r>= and =<N>= cookies
+honored, widths measured as Emacs measures display width, with the
+hidden parts of bracket links left out. A tab in a field counts as one
+column (a listed difference).
+
+** =#+TBLFM=
+
+The table engine (crate =org-table=) evaluates formulas as Emacs does:
+it substitutes the referenced fields into the formula's text, as
+=org-table-eval-formula= does, and evaluates the result with a
+reimplementation of the part of Calc that table formulas use, in Org's
+Calc modes (12 digits of working precision, results shown with 8
+significant digits, degrees).
+
+#+begin_src org
+,#+CONSTANTS: vat=0.2
+| Item  | Qty | Price |   Net | Gross |
+|-------+-----+-------+-------+-------|
+| Paper |   3 |  4.50 | 13.50 | 16.20 |
+| Ink   |   2 | 12.00 | 24.00 | 28.80 |
+|-------+-----+-------+-------+-------|
+| Total |     |       | 37.50 | 45.00 |
+,#+TBLFM: $4=$2*$3;%.2f::$5=$4*(1+$vat);%.2f::@>$4=vsum(@I..@II);%.2f::@>$5=vsum(@I..@II);%.2f
+#+end_src
+
+Left-hand sides: a column (~$3~, ~$>~, ~$name~), a field (~@2$3~,
+~@>$<~), a range of fields (~@2$1..@4$3~), and the column names of a
+=!= row. Formulas are applied in Emacs's order: column formulas row
+after row, then field formulas, each in the order of their left-hand
+sides, each seeing what the ones before it wrote; a dependency graph
+would give other results. Iterating (=C-u C-u C-c *=, ~kalem table
+recalc --iterate~) repeats at most ten times and reports a table that
+does not settle.
+
+References on the right-hand side:
+
+| Reference                         | Meaning                                                                              |
+|-----------------------------------+--------------------------------------------------------------------------------------|
+| ~$2~, ~@3~, ~@3$2~                | A column, a row, a field                                                             |
+| ~$-1~, ~@+1~                      | Relative to the current field                                                        |
+| ~$<~, ~$>~, ~@<~, ~@>~, ~@>>~     | First and last columns and rows, counted from the ends                               |
+| ~@I~, ~@II~, ~@-I~, ~@+II~        | Rows by horizontal rules, absolute or relative                                       |
+| ~@#~, ~$#~                        | The current row and column numbers                                                   |
+| ~@2$1..@5$3~, ~$1..$3~, ~@I..@II~ | Ranges, as vectors                                                                   |
+| ~$name~                           | A column name (=!= row), a parameter (=_= or =^= row), a constant from =#+CONSTANTS= |
+| ~$PROP_name~                      | A property of the entry holding the table (inherited)                                |
+| ~remote(name, @2$3)~              | A field or range of another table of the document, found by its =#+NAME=             |
+
+Calc as reproduced:
+
+- Numbers: integers of any size, fractions, decimal floats with Calc's
+  rounding, to the digit; infinities (=inf=, =uinf=) and =nan=; dates
+  and times (a timestamp in a field is a date; the difference of two is
+  days) and durations.
+- Operators: ~+~, ~-~, ~*~, ~/~, ~^~, ~%~ (percent or remainder), ~\~
+  (integer division), =mod=, ~!~ and ~!!~ (factorials), the comparisons
+  ~<~, ~>~, ~<=~, ~>=~, ~=~, ~==~, ~!=~, and ~&&~, ~||~, ~!~, ~?:~;
+  implicit multiplication binds tighter than ~/~, as in Calc.
+- Functions: =abs=, =sign=, =floor=, =ceil=, =round=, =trunc=, =sqrt=,
+  =exp=, =ln=, =log=, =log10=, =sin=, =cos=, =tan=, =arcsin=, =arccos=,
+  =arctan=, =fact=, =choose=, =gcd=, =lcm=, =idiv=, =fdiv=, =min=,
+  =max=, =if=, =year=, =month=, =day=, =weekday=, and the vector
+  functions =vsum=, =vprod=, =vmax=, =vmin=, =vcount=, =vlen=, =vmean=,
+  =vmedian=, =vvar=, =vsdev=, =vpvar=, =vpsdev=.
+- Formulas over text fields stay symbolic, with Calc's basic
+  simplifications (=x + 2=, =2 a=).
+
+Flags after the last =;= are read as =org-table-eval-formula= reads
+them:
+
+| Flag                   | Meaning                                                              |
+|------------------------+----------------------------------------------------------------------|
+| =pN=                   | Working precision of N digits                                        |
+| =nN=, =fN=, =sN=, =eN= | Float display: normal, fixed, scientific, engineering                |
+| =N=                    | Fields are numbers; empty or non-numeric fields are 0                |
+| =E=                    | Empty fields are kept in ranges                                      |
+| =L=                    | Fields inserted literally (for Lisp formulas)                        |
+| =D=, =R=               | Degrees or radians                                                   |
+| =F=                    | Fractions rather than floats                                         |
+| =S=                    | Symbolic results                                                     |
+| =T=, =t=, =U=          | Durations: =HH:MM:SS=, the custom format (hours by default), =HH:MM= |
+| a =format= string      | Emacs's =format=, such as =%.2f=                                     |
+
+#+begin_src org
+| Task |     Time |
+|------+----------|
+| A    |     1:30 |
+| B    |     2:15 |
+|------+----------|
+| Sum  | 03:45:00 |
+,#+TBLFM: @>$2=vsum(@I..@II);T
+#+end_src
+
+Not reproduced (see the known differences): Emacs Lisp formulas
+(='(...)=), which are kept, not evaluated, and named; Calc's full
+algebra beyond the basic simplifications; complex numbers, the gamma
+function, radix, HMS and error forms; a formula that makes Calc
+overflow shows =#ERROR=; error messages have Kalem's wording. Also not
+reproduced: Calc's named constants =pi=, =e= and the like, which Kalem
+leaves symbolic where Calc outside symbolic mode gives their values
+(define them with =#+CONSTANTS=); and =remote()= to a table found by an
+entry's =ID= or in another file.
+
+~kalem table recalc FILE...~ recalculates every table with a =#+TBLFM=
+line and aligns it, as =org-table-recalculate-buffer-tables= does;
+=--check= changes nothing and fails if a table would change.
+
+* Citations and mathematics
+
+** Citations
+
+The parser reads =[cite/style/variant:common prefix; prefix @key suffix; @key2]=
+with every part =org-element= gives. Bibliographies named by
+=#+BIBLIOGRAPHY:= are read as Org reads them (crate =org-cite=): BibTeX
+and BibLaTeX as =bibtex-parse-entry= does, with =@string= and month
+abbreviations expanded, and CSL-JSON as =oc-basic= does. ~kalem check~
+reports unreadable bibliography files (=bibliography-unreadable=) and
+keys that none of them has (=cite-unknown-key=).
+
+=#+CITE_EXPORT:= chooses the export processor:
+
+| Processor  | Oracle                           | Output                                                                                                                                              |
+|------------+----------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| =basic=    | =oc-basic.el=, compared          | Author–year or numeric citations and a sorted bibliography                                                                                          |
+| =natbib=   | =oc-natbib.el=, compared         | =natbib= commands, =\bibliography=, the package loaded                                                                                              |
+| =biblatex= | =oc-biblatex.el=, compared       | =biblatex= commands, =\printbibliography=, =\addbibresource=                                                                                        |
+| =csl=      | None: =oc-csl= needs citeproc-el | CSL styles rendered with hayagriva: bundled styles (=apa=, =ieee=, =chicago-author-date= the default, =chicago-notes=, =mla=, ...) or a =.csl= file |
+
+** Mathematics
+
+LaTeX fragments and environments are rendered in the editors by the
+RaTeX engine (crate =org-math=, decision D4), a KaTeX-compatible
+layout; =\newcommand=, =\renewcommand=, =\providecommand=, =\def= and
+=\DeclareMathOperator= definitions from =#+LATEX_HEADER= and
+=#+LATEX_HEADER_EXTRA= are applied. A formula the engine cannot render
+is shown as its source in a red frame. This is display only; the file
+keeps the LaTeX, and the LaTeX back-end hands it to TeX unchanged.
+
+* Export
+
+The exporter (crate =org-export=) is a port of =ox.el=: the export
+options, the pruned tree, =org-export-data= and the back-ends.
+
+| Back-end   | =--to=        | Follows                                            | Compared with Emacs                                                                                                           |
+|------------+---------------+----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------|
+| HTML       | =html=        | =ox-html=, XHTML strict by default                 | Body byte for byte on every test case and on all 287 Worg files; whole pages on the test cases but =footnotes= and =includes= |
+| Markdown   | =md=          | =ox-md=                                            | Every test case and all 287 Worg files                                                                                        |
+| GFM        | =gfm=         | =ox-md= with the additions of the =ox-gfm= package | No oracle: =ox-gfm= is not part of Org                                                                                        |
+| LaTeX      | =latex=       | =ox-latex=: article, report, book                  | Every test case and whole document but =images=; the corpus but the attachment example                                        |
+| Plain text | =txt=, =utf8= | =ox-ascii=, ASCII or UTF-8 charset                 | Every test case; whole documents but =images=                                                                                 |
+
+Around them, Kalem adds PDF through LaTeX (=latexmk=, the engine of
+=#+LATEX_COMPILER=, or =tectonic=), Word, OpenDocument, EPUB and RTF
+through pandoc, and =org= (a document without Kalem's interim
+additions). These have no Emacs oracle.
+
+** Options and keywords
+
+=#+OPTIONS:= items are read as Lisp values, as =ox.el= reads them, with
+the defaults of Emacs without customizations:
+
+#+begin_example
+'   *   -   :   <   \n  ^   |   arch   author   broken-links   c
+creator   d   date   e   email   expand-links   f   H   inline   num
+p   pri   prop   stat   tags   tasks   tex   timestamp   title   toc
+todo
+#+end_example
+
+Keywords: =#+TITLE=, =#+DATE=, =#+AUTHOR= (parsed as Org text),
+=#+EMAIL=, =#+LANGUAGE=, =#+SELECT_TAGS=, =#+EXCLUDE_TAGS=,
+=#+CREATOR=, =#+SUBTITLE=, =#+DESCRIPTION=, =#+KEYWORDS=,
+=#+EXPORT_FILE_NAME=, =#+TOC=, =#+INCLUDE=, =#+MACRO=, =#+SETUPFILE=,
+and =#+HTML:=, =#+LATEX:=, =#+ASCII:= lines for their back-ends. Per
+back-end:
+
+| Back-end | Keywords and options                                                                                                                                                                                                                                                                                |
+|----------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| HTML     | =#+HTML_DOCTYPE=, =#+HTML_HEAD=, =#+HTML_HEAD_EXTRA=, =#+HTML_CONTAINER=, =#+HTML_CONTENT_CLASS=, =#+HTML_LINK_HOME=, =#+HTML_LINK_UP=, =#+HTML_MATHJAX=, =#+HTML_EQUATION_REFERENCE_FORMAT=; options =html-postamble=, =html-preamble=, =html-style=, =html-scripts=, =html5-fancy=; =#+ATTR_HTML= |
+| LaTeX    | =#+LATEX_CLASS=, =#+LATEX_CLASS_OPTIONS=, =#+LATEX_HEADER=, =#+LATEX_HEADER_EXTRA=, =#+LATEX_COMPILER=, =#+INDEX=; =#+ATTR_LATEX= for tables, images, lists and blocks                                                                                                                              |
+| Text     | =#+ATTR_ASCII=                                                                                                                                                                                                                                                                                      |
+
+Also honored: the =noexport= and =export= tags, =COMMENT= subtrees,
+=EXPORT_= properties in subtree export (~kalem export --subtree~), the
+=UNNUMBERED= and =ALT_TITLE= properties, smart quotes in the
+document's language (=':t=), the =org-export-dictionary= translations,
+and Babel as when evaluation is refused (=:eval never-export=):
+=:exports code= (the default) writes the block and removes its results,
+=both= keeps them, =results= keeps only the results, =none= neither;
+=#+CALL:= lines and inline calls go, Noweb references expand with
+=:noweb yes=. Timestamps are written without custom formats. HTML
+formulas go to MathJax, or, with =tex:svg= (and the image types
+=dvisvgm=, =dvipng= and =imagemagick=, which need LaTeX in Emacs), to
+inline SVG drawn by the editor's math engine.
+
+Differences in export: macros defined as =(eval ...)= are Lisp and
+expand to nothing; Kalem's own style sheet and MathJax set-up replace
+Org's in whole HTML pages (the comparison skips them); table.el tables
+export as an empty table in HTML and Markdown; the interim Kalem
+formatting is written by the HTML and LaTeX back-ends.
+
+The expected outputs of the test cases were exported by Emacs 30.1
+with Org 9.7.11, except, as the work breakdown records, the whole HTML
+pages of =tests/export/full= and the setup-file and subtree cases,
+which were made with Emacs 29.3 and Org 9.6.15. The comparison of
+whole pages drops blank lines, and the =footnotes= and =includes= pages
+are expected to differ, since Org 9.7 names footnotes by label where
+9.6 numbered them.
+
+* Diagnostics
+
+~kalem check~ parses each file, verifies the round trip, and reports
+likely mistakes in the spirit of =org-lint=:
+
+| Code                             | Meaning                                           |
+|----------------------------------+---------------------------------------------------|
+| =unterminated-block=             | =#+begin_NAME= without =#+end_NAME=; read as text |
+| =unterminated-latex-environment= | =\begin{...}= without =\end{...}=; read as text   |
+| =unterminated-drawer=            | A drawer line without =:END:=; read as text       |
+| =stray-end=                      | =:END:= or =#+end_...= with nothing to close      |
+| =orphaned-affiliated-keyword=    | An affiliated keyword attached to nothing         |
+| =invalid-timestamp=              | A date or time that does not exist                |
+| =unbalanced-call=                | A =#+CALL:= line whose brackets do not balance    |
+| =duplicate-custom-id=            | A =CUSTOM_ID= used twice                          |
+| =duplicate-name=                 | A =#+NAME= used twice                             |
+| =bibliography-unreadable=        | A =#+BIBLIOGRAPHY= file that cannot be read       |
+| =cite-unknown-key=               | A citation key no bibliography has                |
+| =kalem-markup-in-org=            | An interim Kalem addition in a =.org= file        |
+
+Diagnostics never change how the file parses.
+
+* Limits and performance
+
+Emacs's implementation limits are not carried over where exceeding them
+makes Emacs fail; limits that decide what text means are kept
+(RFC 0001, section 3.6).
+
+| Limit                                                                | Kalem                                                                                 |
+|----------------------------------------------------------------------+---------------------------------------------------------------------------------------|
+| Nesting (Emacs stops at =max-lisp-eval-depth=, a few hundred levels) | =MAX_DEPTH= = 4096 levels of elements and objects; deeper content stays as plain text |
+| Radio targets (Emacs splits its regexp above 8 KB)                   | No limit: one matcher for any number of targets                                       |
+| =org-table-convert-region-max-lines= (999)                           | No limit                                                                              |
+| Clock sums under 29 inlinetask levels                                | No limit                                                                              |
+| Tab width 8 for list indentation                                     | Kept: it decides which list an item belongs to                                        |
+| Sub- and superscript braces nest at most 3 levels                    | Kept                                                                                  |
+| Emphasis boundary characters                                         | Kept                                                                                  |
+| Calc precision (12 digits, 8 shown)                                  | Kept, to the digit                                                                    |
+
+Measured figures (Apple M1 Max; see the performance chapter of Part V):
+a keystroke in a paragraph reparses in about 0.05 ms, and in the
+840 KB Org manual in about 60 µs; full parses run at about 12 MB/s in
+the parser benchmark (42 ms for the Org manual in the application).
+The targets are 2 ms for a typical edit and 10 MB/s for a full parse.
+
+* What is not implemented
+
+Stated plainly, from the work breakdown (=todo.md=, phases 3 and 4):
+
+- *Babel execution.* Source blocks are never run; there is no
+  =org-babel-execute-src-block=, no =#+RESULTS:= insertion, no
+  tangling, no sessions. Export treats blocks as Emacs does when
+  evaluation is refused.
+- *The agenda.* No agenda views, capture or workspace-wide =id:=
+  resolution; ~kalem query~ runs match strings over files.
+- *Clocking.* =CLOCK:= lines are parsed and summed; clocking in and
+  out is not implemented.
+- *Dynamic blocks* are parsed and shown, never updated (no
+  =clocktable=, no =columnview=).
+- *Column view* (=#+COLUMNS= is read, not used), the habit graph,
+  =org-crypt=.
+- *Archiving to another file* (=org-archive-subtree= with
+  =org-archive-location=); archiving to a sibling and refiling within
+  one file are implemented.
+- *Diary sexps* are parsed and kept, not evaluated.
+- *table.el tables* are kept and exported by LaTeX and text, not
+  edited.
+- *Emacs Lisp anywhere*: formulas (='(...)=), =(eval ...)= macros,
+  =%(...)= in link abbreviations, =elisp:= links are kept and not run.
+- *Back-ends* other than the five above: no Beamer, reveal.js, ODT
+  (native), Texinfo, man or iCalendar exporters, and no publishing
+  (=org-publish=).
+- *Shifting a timestamp field* with the keyboard (=org-timestamp-up=):
+  Kalem changes timestamp fields only through repeaters and the date
+  commands.
+
+* Known differences
+
+Where Kalem differs from Emacs on purpose (all on malformed input, on
+Emacs bugs, or where Emacs depends on the machine it runs on), the
+difference is listed, with its test, in
+[[file:org-known-differences.org][Known differences from Emacs]].

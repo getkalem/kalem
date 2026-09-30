@@ -28,7 +28,7 @@ Every value is compared with Emacs 30.1 / Org 9.7 by
 `kalem diff-emacs --model` over the Org manual, all of Worg and dedicated test
 files (329,000+ checks, all identical). Where Emacs has quirks that change what
 documents mean, `org-model` reproduces them; they are listed in
-[`docs/known-differences.org`](https://github.com/kalem-editor/kalem/blob/main/docs/known-differences.org).
+[`book/part-2/org-known-differences.org`](https://github.com/kalem-editor/kalem/blob/main/book/part-2/org-known-differences.org).
 
 ## License
 

@@ -1,0 +1,233 @@
+This chapter states what Kalem does with Markdown today and what it
+plans. The two are kept apart: the sections under /Today/ describe the
+code as it is; the section /Planned: Markdown mode/ describes work that
+has not started and is marked as such throughout.
+
+In short: Kalem has no Markdown parser yet. A Markdown file is edited
+as highlighted plain text. Kalem writes Markdown, as an export of Org
+documents, in two flavours: Emacs's =ox-md= Markdown, byte for byte, and
+GitHub Flavored Markdown. Markdown is read only through pandoc, when a
+Markdown file is converted to Org.
+
+* The oracle
+
+The standard is CommonMark with the GitHub extensions (GFM). The oracle
+named by the design is the CommonMark and GFM specification test suites,
+every example of each specification a test, with =cmark-gfm= as the
+reference implementation where the suites are silent, plus a byte-exact
+round trip of untouched text on a corpus of real READMEs and note
+vaults. None of this runs today, because there is no Markdown reader to
+test (T2.7c.11 in =todo.md=, planned).
+
+The Markdown Kalem /writes/ has a different oracle, Org's exporter:
+the =md= back-end is compared byte for byte with Emacs's =ox-md= (see
+/Markdown export from Org/ below).
+
+* Today: Markdown files in the editor
+
+** Which files
+
+A file is in Markdown mode when its extension is =md=, =markdown=,
+=mdown=, =mkd= or =gfm= (any letter case), when its first line has a
+mode line naming =markdown= (=-*- mode: markdown -*-=, =-*- markdown
+-*-=, or =markdown-mode=), or when the user chose Markdown with /Set
+Document Mode/ (=view.setMode= with =mode: markdown=), which is
+remembered for the file under =files.modes= in the workspace settings.
+The mode's name in when-clauses and scopes is =markdown=
+(~editorMode == markdown~, text type =markdown=); the status bar says
+"Markdown".
+
+** What the mode does
+
+Markdown mode (=DocumentMode::Markdown=) is, today, plain text mode
+under another name. Concretely:
+
+- The file is read, decoded and saved as every text file is (the
+  chapter /Plain text and code/): encoding, byte order mark and
+  line endings kept, untouched bytes unchanged. Kalem never rewrites a
+  Markdown file.
+- Each line is drawn as it is, in a monospace font; no marker is hidden,
+  no heading enlarged, no image or formula rendered, no table drawn as a
+  grid.
+- The text is coloured by the Markdown syntax definition bundled with
+  the highlighter (the Sublime Text Markdown syntax that =syntect=
+  ships, language name "Markdown"), looked up as =md=. That syntax is a
+  set of regular expressions, not a CommonMark parser: its colouring is
+  an approximation and can disagree with CommonMark on edge cases
+  (lazy continuation lines, nested emphasis, HTML blocks). Files over 4
+  MiB are coloured a window of lines at a time.
+- Tab indents: with a selection over lines, those lines one step;
+  otherwise a tab or the spaces to the next step. The step is the one
+  the file uses (tabs, or 2, 3, 4 or 8 spaces), else four spaces.
+  Shift+Tab outdents.
+- Enter (=edit.newline=) starts a new line with the current line's
+  indentation. It does not continue lists, task lists or block quotes.
+- /Toggle Comment/ (Ctrl+Alt+C) wraps each selected line in
+  =<!--= … =-->=, or unwraps lines that all have them.
+- The line commands (/Duplicate Lines/, /Move Lines Up/ and /Down/,
+  /Join Lines/, /Sort Lines/, /Trim Trailing Whitespace/), /Go to
+  Matching Bracket/, /Expand Selection/, find and replace and
+  the other commands for all files work as in plain text.
+- The export commands of the /Export/ menu apply to Org documents only;
+  they are not offered for a Markdown file.
+
+A link in an Org document to a =.md= file opens it in Kalem. The macOS
+application bundle declares Markdown as a type it can open.
+
+** Converting Markdown to Org
+
+/Import as Org/ (the command =file.import=, and =kalem import FILE.md=
+on the command line) converts a Markdown file to Org through pandoc,
+when pandoc is installed. The file is read with pandoc's =markdown=
+reader (Pandoc's Markdown, which differs from CommonMark in places),
+the result is cleaned up, written as =NAME.org= beside the file (never
+over an existing one, unless =--force= is given on the command line),
+its pictures in =NAME_assets=, and opened. The Markdown file does not
+change. This is a one-way conversion; Kalem has no reader of its own.
+
+* Today: Markdown export from Org
+
+Kalem writes Markdown from Org documents with two back-ends of its
+Rust port of Org's export engine (=crates/org-export=):
+
+| Back-end | Command                                                                | Command line                 | Reference                                |
+|----------+------------------------------------------------------------------------+------------------------------+------------------------------------------|
+| =md=     | /Export as Markdown/ (=export.markdown=), /Export Subtree as Markdown/ | =kalem export FILE --to md=  | Emacs's =ox-md=, byte for byte           |
+| =gfm=    | /Export as GitHub Markdown/ (=export.gfm=)                             | =kalem export FILE --to gfm= | The =ox-gfm= package's rules; unit tests |
+
+Both write =NAME.md= (or where =#+EXPORT_FILE_NAME= says), honour the
+export options (=#+OPTIONS=, =#+SETUPFILE=, =EXPORT_= properties, body
+only), and read their input as Org whatever its extension: =kalem
+export README.md= does not read Markdown.
+
+** The =md= back-end
+
+The =md= back-end (=org_export::Markdown=, =md.rs=) is a port of
+=ox-md.el=. Like =ox-md=, it derives from the HTML back-end: what
+Markdown cannot express is written as HTML. Its output is identical to
+Emacs's on the 37 export cases of =tests/export/expected=, on all 287
+Worg files of the extended corpus (=crates/org-export/tests/corpus.rs=,
+=worg_md=), and on the sample book of =examples/book=.
+
+What it writes, element by element:
+
+| Org                                                                                   | Markdown written                                                                                                                                                                        |
+|---------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Headline at most =H:= deep and at most level 6                                        | ATX heading: a blank line, =#= times the level, the TODO keyword, the priority as =[#A]=, the title, the tags after five spaces as =:a:b:=, a blank line                                |
+| A headline listed by a table of contents or the target of an =id= or =CUSTOM_ID= link | The heading preceded by ~<a id="REF"></a>~ and a blank line                                                                                                                             |
+| Headline below =H:= or deeper than 6                                                  | A list item (=-= or its number), its contents indented four spaces                                                                                                                      |
+| Bold, italic                                                                          | =**…**=, =*…*=                                                                                                                                                                          |
+| Code, verbatim, inline source                                                         | Backticks; double backticks when the text contains one, padded with spaces when it starts or ends with one                                                                              |
+| Underline, strike-through, subscript, superscript, entities and other objects         | As the HTML back-end writes them                                                                                                                                                        |
+| Paragraph                                                                             | Its lines, blank lines inside removed; a leading =#= escaped                                                                                                                            |
+| Plain list item                                                                       | =-= and three spaces, or =N.= padded to four columns; =[X]=, =[-]=, =[ ]= and a space for checkboxes; a description item's tag as =**tag:**= and a space; contents indented four spaces |
+| Quote block                                                                           | Every line prefixed with =>=                                                                                                                                                            |
+| Example block, source block, fixed width                                              | Indented four spaces (no fence, no language); line numbers and coderefs as =org-export-format-code-default= writes them                                                                 |
+| Table, center block, special block, inline task                                       | HTML, as the HTML back-end writes it                                                                                                                                                    |
+| Horizontal rule                                                                       | =---=                                                                                                                                                                                   |
+| Line break (=\\=)                                                                     | Two spaces and a line feed                                                                                                                                                              |
+| LaTeX fragment (with =tex:t=)                                                         | =$…$= for =\(…\)=, =$$…$$= for =\[…\]=, others as written                                                                                                                               |
+| LaTeX environment (with =tex:t=)                                                      | As written, with =\label{REF}= after its first line when it is named                                                                                                                    |
+| Link with a description                                                               | =[description](path)=; a file link to =X.org= becomes =X.md=                                                                                                                            |
+| Link without a description                                                            | =<path>=                                                                                                                                                                                |
+| Link to a headline or target                                                          | =[title or number](#REF)=                                                                                                                                                               |
+| Image link without a description                                                      | =![img](path)=, with the caption as title: =![img](path "caption")=                                                                                                                     |
+| Radio link                                                                            | ~<a href="#REF">…</a>~                                                                                                                                                                  |
+| Property drawer                                                                       | Its lines indented four spaces (empty ones left out)                                                                                                                                    |
+| =#+MARKDOWN:= and =#+MD:= keywords, =#+begin_export markdown= or =md=                 | Their text as it is                                                                                                                                                                     |
+| =#+begin_export html=, other keywords                                                 | As the HTML back-end writes them                                                                                                                                                        |
+| Export snippet =@@md:…@@= or =@@html:…@@=                                             | Its text; other back-ends' snippets are dropped                                                                                                                                         |
+| =#+TOC: headlines [N] [local]=                                                        | A table of contents at that place                                                                                                                                                       |
+| Footnotes                                                                             | A "Footnotes" heading at the end, each as ~<sup><a id="fn.N" href="#fnr.N">N</a></sup> text~                                                                                            |
+
+The document's title is not written (=ox-md='s template has none). With
+=toc:t= or =toc:N= a "Table of Contents" heading and a nested list of
+=[title](#REF)= links come first. Elements are separated by one blank
+line, except inside items and for a first paragraph followed by an
+item's last sub-list. In plain text, =`= =*= =_= and =\= are escaped
+with a backslash, as are a =#= at the start of a line and a =![=; with
+=':t= quotes become typographic HTML entities, with =-:t= special
+strings become their HTML entities, and with =\n:t= every line ends in
+two spaces. The headings Kalem adds ("Table of Contents", "Footnotes")
+are translated by =#+LANGUAGE= as the HTML back-end translates them.
+
+** The =gfm= back-end
+
+The =gfm= back-end (=org_export::Gfm=, =gfm.rs=) is the =md= back-end
+with the three additions the =ox-gfm= package makes. Plain =md= stays
+=ox-md='s.
+
+- An Org table (not a =table.el= table) becomes a pipe table. The
+  first row group is the header when the table has one; otherwise the
+  header row is empty. Horizontal rules inside the table are dropped,
+  since GFM has one rule only. Each column is padded to its widest cell
+  (at least three), cells are trimmed, line breaks in them become spaces
+  and =|= is escaped as =\|=. Alignment comes from the column's
+  alignment, as Org computes it (=<l>=, =<c>=, =<r>= cookies, else right
+  for a column of numbers): the rule is =---=, =--:= or =:-:= accordingly,
+  and cells are padded on the matching side.
+- Strike-through becomes =~~…~~=.
+- A source block becomes a fenced block: three backticks and the
+  block's language, the code, three backticks.
+- Export snippets =@@gfm:…@@= and =#+begin_export gfm= are written as
+  they are.
+
+#+begin_example
+| Name | n |              | Name     |   n |
+|------+---|              | -------- | --: |
+| *a*  | 1 |      →       | **a**    |   1 |
+| b\vert{}c | 22 |        | b&vert;c |  22 |
+#+end_example
+
+There is no Emacs reference for =gfm=, since =ox-gfm= is not part of
+Org; the back-end is checked by its unit tests.
+
+** Markdown from LaTeX
+
+A LaTeX document can be exported as Markdown through pandoc
+(=latex.export.markdown=, /Export as Markdown (pandoc)/). Pandoc's
+=markdown= writer produces it; Kalem passes the file and, when the
+document names one, its bibliography.
+
+* Planned: Markdown mode
+
+*Everything in this section is planned, not implemented.* It is group
+2.7c of =todo.md= and section 2.6.1 of the design document; decision
+D19 (the parser) and the order of the work (D21, T2.7c.0) are open.
+
+- *Dialect.* CommonMark with the GitHub extensions: tables, task lists,
+  strike-through, autolinks, footnotes; YAML or TOML front matter; and
+  =$…$= and =$$…$$= math.
+- *Parser.* A CommonMark parser that reports source offsets, reparsed
+  from the enclosing top-level block on each edit. pulldown-cmark's
+  offset iterator is the recommended candidate (D19, spike T2.7c.1);
+  comrak, tree-sitter-markdown and a parser of Kalem's own are the
+  alternatives considered.
+- *Lossless editing.* As for Org: the file is edited as text, never
+  regenerated from a tree; the parser only yields ranges for the view,
+  so untouched bytes stay as they were (T2.7c.8).
+- *View.* The inline model of the Org editor: emphasis, code and link
+  markers hidden away from the cursor; headings by level; clickable task
+  list checkboxes; images and formulas rendered; code fences
+  highlighted; front matter folded (T2.7c.2, T2.7c.3).
+- *Editing.* Tables in the grid Org tables use; Enter continuing lists
+  and quotes; autoformat triggers; an outline from the headings
+  (T2.7c.4, T2.7c.5).
+- *Conversion.* "Convert to Org" and "Convert from Org", through the
+  exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).
+- *What note-taking users expect.* Wiki links =[[Page]]= resolved and
+  completed in the project, front matter edited as a form, copy as HTML
+  and as rich text (T2.7c.9).
+- *Conformance.* Every example of the CommonMark and GFM specifications
+  as a test, the parsed tree rendered to HTML by a minimal transcoder
+  and compared with the specification's expected output; =cmark-gfm= as
+  the reference where the suites are silent; the byte-exact round trip
+  on a corpus of READMEs and note vaults; a known-differences list; the
+  agreement counts only go up (T2.7c.11).
+- *The mode contract.* Markdown mode is to be written against the
+  document mode contract that plugins will use (T2.7c.10), so that a
+  plugin mode can do everything it does.
+
+Until then, the rule of the standard modes holds for Markdown in its
+simplest form: Kalem writes nothing into a Markdown file that the user
+did not type, and shows everything as source.

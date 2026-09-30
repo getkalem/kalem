@@ -3883,15 +3883,18 @@ dependencies = [
  "jiff",
  "kalem-core",
  "kalem-highlight",
+ "kalem-tui",
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
  "org-edit",
  "org-math",
  "org-model",
  "org-syntax",
+ "ratatui",
  "serde_json",
  "tracing",
  "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]

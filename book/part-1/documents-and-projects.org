@@ -1,0 +1,35 @@
+A window holds several documents. Opening a file (Ctrl+O, the File menu, a
+file link, or a file opened from Finder) shows it in the same window. The
+open files are listed on the left; the setting =ui.open_files= puts them
+at the top as tabs, or hides them, and Ctrl+Shift+E shows or hides the
+list. A click shows a document. Ctrl+Tab and Ctrl+PageDown go to the next
+one, Ctrl+Shift+Tab and Ctrl+PageUp to the previous one, Ctrl+Alt+O lists
+them by name, Ctrl+Alt+R lists the files you opened recently, and Ctrl+W
+closes the document (asking first when it has unsaved changes).
+
+A project is a folder in your project list: /Add Project/ adds the
+document's folder, /Add Project Folder…/ in the Project menu chooses one,
+and a folder under version control (Git, Mercurial, Subversion) or with a
+=.projectile= file joins the list by itself when you open one of its files
+(=projects.auto_add = false= turns that off). Nothing is written into the
+folder: the list is kept in =projects.toml= in the settings folder,
+=~/.config/kalem/projects.toml= unless =KALEM_CONFIG_DIR= or
+=XDG_CONFIG_HOME= says otherwise (=%APPDATA%\kalem= on Windows).
+
+The document you are in decides the current project: Ctrl+P and Search in
+Project work on its project at once, and Switch Project lists it first.
+Files of a project are listed under its name; files outside every project
+come after, one by one. The status bar shows the project of the
+document.
+
+| Keys         | Command                                                              |
+|--------------+----------------------------------------------------------------------|
+| Ctrl+Alt+P   | Switch Project: its last file, or its files                          |
+| Ctrl+P       | Find File in Project, recent files first                             |
+| Ctrl+Shift+F | Search in Project; Alt+C case, Alt+W words, Alt+R regular expression |
+|              | Recent Files in Project, Remove Project, Rename Project (palette)    |
+
+The file list follows the ignore rules of ripgrep: =.gitignore= and
+=.ignore= files, with or without a Git repository, and never =.git= itself
+or binary files. The list of projects and recent files is kept in
+=projects.toml=, beside =settings.toml=.

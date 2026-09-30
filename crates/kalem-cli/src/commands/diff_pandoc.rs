@@ -3,7 +3,7 @@
 //! most widely used structural reading of LaTeX: headings (and their
 //! levels, ranked), inline and displayed formulas, cited keys, footnotes,
 //! figures, tables, code blocks and list items, counted on both sides.
-//! Deliberate differences are in `docs/known-differences-latex.org`.
+//! Deliberate differences are in `book/part-2/latex-known-differences.org`.
 
 use std::collections::BTreeMap;
 use std::io::Write;

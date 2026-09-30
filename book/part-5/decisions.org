@@ -1,0 +1,33 @@
+Every decision of the design, with the task that closes it and its state, as the work breakdown (=todo.md=) records it. The decisions with a record of their own are the following chapters.
+
+| ID | Decision | Closed in | Status |
+|-
+| D1 | License | T0.1.2 | *Decided:* MIT OR Apache-2.0 |
+| D2 | Parser foundation | T0.2.6 | *Decided:* new parser |
+| D3 | UI framework | T0.6.8 | *Decided:* gpui |
+| D4 | Math engine | T0.7.4 | *Decided:* RaTeX |
+| D5 | tectonic distribution | T2.3.7 | Open |
+| D6 | API definition source | T3.1.3 | *Decided (D28):* WIT |
+| D7 | Project name | T0.1.1 | *Decided:* Kalem / ~kalem-editor~ |
+| D8 | Agenda index storage | T3.5.2 | Open |
+| D9 | Configuration formats | T1.3.6 | *Decided:* TOML settings, JSON keymap; no script file (D28) |
+| D10 | A second scripting language | T4.1.1 | *Closed (owner, 2026-09-28):* none ships |
+| D11 | Webviews in plugin panels | T3.1.5 | Open |
+| D12 | Multiple documents | T2.5.9 | *Decided:* one window, many documents, listed by project on the left or as tabs at the top |
+| D13 | Time library | T1.1.5 | *Decided:* jiff |
+| D14 | Terminal UI stack | T0.8.4 | *Decided:* ratatui + crossterm |
+| D15 | Ecosystem crate spin-out timing | §4.7 | *Decided:* incubate, spin out when stable |
+| D16 | Syntax highlighting engine | T1.6a.2 | *Decided:* syntect |
+| D17 | Vim mode engine | T2.7b.1 | Decided: own engine; replaces the Emacs profile |
+| D18 | Entity table provenance | Phase 0 exit | Open: owner decision |
+| D19 | Markdown parser | T2.7c.1 | Open |
+| D20 | File operations for the file manager | T2.7e.1 | Decided 2026-09-28 |
+| D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | Open: owner decision, narrowed by D24; scientific writing the third pillar (§9.5, owner, 2026-09-28) |
+| D22 | PDF without TeX: the renderer for "Export as PDF" from HTML (system print to PDF, a bundled HTML renderer, or typst) | T2.3.13 | Open (review, 2026-09-28) |
+| D23 | UI framework revisited: stay on gpui through a registry snapshot or vendoring (T2.8.6), or leave gpui (T2.8.7) | T2.8.6a, T2.8.7, 2.9 | Open: owner decision (review, 2026-09-28) |
+| D24 | File kinds: ~.org~ is strict Org, ~.klm~ a Kalem document (Org plus Kalem's additions through Org's extension points; new syntax only by RFC) | T2.2a.9 | *Decided (owner, 2026-09-28)* |
+| D25 | Highlighters, renderers and completers from plugins on the contracts built-ins use (§11.11, §11.12) | T2.7c.10, T2.7a.8, T3.1.9g, T3.1.9c | *Decided (owner, 2026-09-28)* |
+| D26 | The terminal is never second class (§4.1, principle 7) | TS.13 | *Decided (owner, 2026-09-28)* |
+| D27 | Command scope: one axis, the type of the text at the cursor (§11.2) | T2.7a.9 | *Decided (owner, 2026-09-28)* |
+| D28 | Plugin ABI and language: WASM components on a WIT API, Rust the only language, no scripting engine; the engine by the spike | T3.1.0, T3.1.1, T3.1.2 | *Decided (owner, 2026-09-28)*, engine open |
+| D29 | Small core: Org, Markdown, CSV and LaTeX (2.7h), the text engine, the two frontends, the infrastructure before plugins; the rest bundled or community plugins | T3.3.2a | *Decided (owner, 2026-09-28)*; new modes and file types in ~getkalem/plugins~ (T3.3.7) |

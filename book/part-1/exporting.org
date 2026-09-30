@@ -1,0 +1,95 @@
+/Export as HTML/, /Export as Markdown/, /Export as LaTeX/ and /Export as
+Plain Text/ (Export…,
+Ctrl+Alt+E, the File menu, or the palette) write the document beside its file, or where =#+EXPORT_FILE_NAME= says,
+with unsaved changes too. The result is what Emacs's Org exporter writes:
+=#+OPTIONS=, =#+INCLUDE=, macros, footnotes, tables, links and source
+blocks behave as there. Kalem does not run code: source blocks show their
+code and the results already in the file.
+
+The LaTeX file is Emacs's too: =#+LATEX_CLASS= (=article=, =report= or
+=book=), =#+LATEX_CLASS_OPTIONS=, =#+LATEX_HEADER= and =#+ATTR_LATEX= on
+tables, figures, lists and blocks work as in Org's manual. A Kalem
+document's fonts, sizes, colors, highlights, alignment and spacing go into
+it too (fonts only for XeLaTeX and LuaLaTeX, =#+LATEX_COMPILER=).
+
+/Export as PDF (LaTeX)/ writes the LaTeX file and compiles it in the
+background with =latexmk=, else the TeX engine (=pdflatex=, or the one
+=#+LATEX_COMPILER= names) or =tectonic=, whichever is installed; TeX Live,
+MacTeX or MiKTeX provide them. When LaTeX stops on an error, the status
+line gives it at the line of the Org file it comes from. With
+=export.open_after= on, the PDF opens when it is ready.
+
+/Print/ (File menu) compiles the PDF the same way and hands it to the
+system's print dialog: through Preview on macOS and the PDF
+application's Print command on Windows. On Linux it opens Evince's print
+preview when Evince is installed, otherwise the default PDF viewer, from
+which you print. In a terminal without a display nothing is sent to a
+printer; the status line names the PDF for =lp=. Printing needs TeX, as
+the PDF export does.
+
+With pandoc installed (https://pandoc.org), /Export as Word/,
+/OpenDocument/, /EPUB/ and /RTF/ write those formats, and /Import as Org/
+(File menu) turns a Word, OpenDocument, Markdown, HTML, EPUB or RTF file
+into an Org file beside it, its pictures in a =NAME_assets= folder. The
+import is cleaned up: the anchors and =CUSTOM_ID= properties pandoc adds
+and nothing links to go, and tables are aligned. Kalem's own formatting
+(fonts, colors) does not reach Word or OpenDocument yet. For pandoc,
+citations go through its =--citeproc= with the file =#+BIBLIOGRAPHY:=
+names, math environments become displayed formulas, and a link without a
+description to a figure, table, equation or listing gets the label the
+other exports print ("Figure 1", "Table 2", "(3)"), and one to a heading
+its title.
+
+=examples/book= is a sample book to start from: a main file that pulls
+its chapters in with =#+INCLUDE: … :minlevel 2= under a part, a picture,
+a table computed by its formulas, an equation, citations with a
+bibliography, footnotes and cross references. It exports to HTML, LaTeX,
+text and Markdown as Emacs exports it, and to PDF and Word without
+errors.
+
+Citations (=[cite:@key]=, =[cite/t:@key]=, =[cite/a/c:@key]= and the
+other styles and variants of Org's manual) come out as Org's =basic=
+processor writes them: "(Author, Year)", "Author (Year)", numbers, or a
+footnote for the =note= and =ft= styles, with the keys looked up in the
+files =#+BIBLIOGRAPHY:= names (BibTeX, BibLaTeX or CSL-JSON).
+=#+PRINT_BIBLIOGRAPHY:= becomes the list of the works cited, sorted by
+author; =#+CITE_EXPORT: basic numeric= (or =plain=) chooses its style, and
+a third word the default citation style.
+
+=#+CITE_EXPORT: csl apa= renders citations and the bibliography in a
+Citation Style Language style instead: the name of one of the styles
+Kalem ships (=apa=, =ieee=, =mla=, =chicago-author-date= (the default),
+=chicago-notes=, =nature=, =vancouver= and about eighty more), or a =.csl=
+file beside the document. Author–date and numeric styles put the
+citation in the text, note styles in a footnote; =[cite:see @key p. 12]=
+passes "p. 12" as the locator. HTML gets a =csl-bib-body= list, LaTeX a
+=cslbibliography= environment with its definitions in the preamble, as
+Org's =csl= processor writes them. =#+LANGUAGE= chooses the style's
+terms.
+
+For LaTeX, =#+CITE_EXPORT: biblatex= and =#+CITE_EXPORT: natbib= leave
+citations to those packages, as Org does: =[cite/t:@key]= becomes
+=\textcite{key}= or =\citet{key}=, =#+PRINT_BIBLIOGRAPHY:= becomes
+=\printbibliography= (its =:key value= options passed on) or
+=\bibliography=, and the package and the bibliography files go into the
+preamble. The second word is the style (=biblatex authoryear=, =natbib
+plainnat=). /Export as PDF/ then runs =biber= or =bibtex= between LaTeX
+runs, as =latexmk= does.
+
+Plain text is filled to 72 columns as Emacs fills it, with underlined
+titles, boxed code and tables drawn in ASCII; =export.text_charset =
+"utf-8"= uses UTF-8 lines, bullets and quotes instead.
+
+From the command line:
+
+#+begin_src sh
+kalem export notes.org                  # notes.html
+kalem export notes.org --to md -o -     # Markdown to standard output
+kalem export *.org --body-only          # only the body of each page
+kalem export paper.org --to latex       # paper.tex
+kalem export notes.org --to txt         # plain text, 72 columns (utf8 for UTF-8)
+kalem export paper.org --to pdf         # paper.pdf; errors as paper.org:LINE: …
+kalem export report.org --to docx       # also odt, epub, rtf (pandoc)
+kalem import report.docx                # report.org, cleaned up (pandoc)
+kalem export paper.org --to latex --source-lines   # %% org:LINE comments
+#+end_src

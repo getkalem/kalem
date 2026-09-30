@@ -1,0 +1,35 @@
+Part III will hold the specification of the Kalem format, =.klm=:
+Kalem's own text-based document format, designed from scratch rather
+than as an extension of Org (design_doc2.md, sections 3 to 9).
+
+* Where it stands
+
+The specification has not been written yet. Its preamble is decided: the
+twelve design principles of design_doc2.md, section 5, among them one way
+to say each thing, a formal grammar with every example a test, lossless
+and incremental parsing, mathematics in LaTeX notation, and styles and
+layout as semantics. Its syntax is not: the open decisions D31 to D46
+(heading and emphasis markers, attributes, fenced blocks, front matter,
+tasks, table formulas, mathematics, the stylesheet language, layout,
+comments, includes, executable blocks, extensions, license and where the
+specification lives) are to be closed in RFC 0003 with prototypes.
+
+* What =.klm= files are today
+
+Until then, a =.klm= file is an Org file in which Kalem's word-processor
+formatting may be written through Org's extension points (decision
+D24): spans of font, size and color as =@@kalem:…@@= export snippets,
+alignment as =#+ATTR_KALEM:= lines, and document defaults as a
+=#+KALEM:= keyword. Emacs reads such a file as Org and shows those
+markers as text. This interim format is to be retired before the first
+release (design_doc2.md, section 12), and Kalem will convert such files
+to the Kalem format when it exists.
+
+* How the specification will be written
+
+- Every example in this part will be a case of the conformance suite
+  (=tests/klm-spec/=), and the part will be generated from the suite, so
+  the text cannot drift from the tests.
+- Normative text will use the words of RFC 2119 (/must/, /should/,
+  /may/); the rest of the book describes.
+- The specification carries its own version, independent of Kalem's.

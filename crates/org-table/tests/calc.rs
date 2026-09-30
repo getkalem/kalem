@@ -4,7 +4,7 @@
 //! The formulas are random and many are far from what tables compute:
 //! symbolic statistics, complex numbers, factorials of fractions, sines
 //! of twenty-digit numbers. Those differences are known
-//! (`docs/known-differences.org`); the count may only go down.
+//! (`book/part-2/org-known-differences.org`); the count may only go down.
 
 #![allow(clippy::print_stderr)]
 
