@@ -13,11 +13,13 @@ labels: bug
 1.
 2.
 
-**A minimal Org snippet that shows the problem** (if relevant)
-
-```org
+**A minimal file or snippet that shows the problem** (if relevant: Org, LaTeX, CSV, BibTeX, Markdown, plain text or `.klm`; say which)
 
 ```
+
+```
+
+**What the reference does with it** (if relevant: Emacs for Org, a TeX engine or pandoc for LaTeX, a spreadsheet for CSV)
 
 **Environment**
 

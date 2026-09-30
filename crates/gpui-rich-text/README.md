@@ -27,6 +27,6 @@ let hit = layout.index_for_position(mouse - origin);
 
 Offsets are byte offsets into the display text: the concatenated text of the pieces, with each widget counting its `len`. Mapping them to a document's source is the caller's business.
 
-It incubates in the [Kalem](https://github.com/kalem-editor/kalem) repository, which uses it for its Org editor, and will move to its own repository once its API settles and gpui is released with the APIs it uses (see §4.7 of Kalem's design document). Its terminal counterpart is `tui-rich-text`.
+It incubates in the [Kalem](https://github.com/getkalem/kalem) repository, whose graphical editor draws every document mode with it, and will move to its own repository once its API settles and gpui is released with the APIs it uses (see §4.7 of Kalem's design document). Its terminal counterpart is `tui-rich-text`.
 
 License: MIT OR Apache-2.0.

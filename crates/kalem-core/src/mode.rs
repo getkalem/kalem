@@ -5,7 +5,7 @@ use std::path::Path;
 /// How a document is edited.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DocumentMode {
-    /// The Org editor.
+    /// Org files, shown and edited as documents.
     Org,
     /// The Markdown editor.
     Markdown,

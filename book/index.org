@@ -14,7 +14,9 @@ This book is the one reference for Kalem. It has five parts:
   views, projects, exporting, keys, settings and the command line.
 - *Part II, the standard formats*, says exactly what Kalem does with each
   format it opens, which parts it renders, edits and exports, and against
-  which reference implementation (the /oracle/) that is tested.
+  which reference implementation (the /oracle/) that is tested. It is
+  written, for every format and LaTeX included, precisely enough to serve
+  as the reference for later implementations, Kalem's own and others'.
 - *Part III, the Kalem format*, is the specification of Kalem's own
   document format, =.klm=: its syntax, structure, stylesheets, canonical
   form, grammar and conformance.

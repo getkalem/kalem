@@ -12,6 +12,6 @@ A document is lines of styled graphemes, each mapped back to a range of the sour
 
 The document implements the `Lines` trait: which lines exist and show, and the glyphs of each. Glyphs that stand for no source (decorations, indentation) have an empty source range; each glyph can carry data of the caller's type, such as the widget it draws.
 
-It incubates in the [Kalem](https://github.com/kalem-editor/kalem) repository, which uses it for its Org editor, and will move to its own repository once its API settles (see §4.7 of Kalem's design document).
+It incubates in the [Kalem](https://github.com/getkalem/kalem) repository, whose terminal editor draws every document mode with it, and will move to its own repository once its API settles (see §4.7 of Kalem's design document).
 
 License: MIT OR Apache-2.0.
