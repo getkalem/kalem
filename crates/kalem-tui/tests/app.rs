@@ -3079,11 +3079,17 @@ fn insert_figure_asks_for_the_picture() {
         .run_command("latex.insert.figure", serde_json::json!({}));
     t.typ("figs/cat.png");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
+    // Then its width (0.8 of the line offered) and its caption.
+    assert!(!t.text().contains("figure"));
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.typ("A cat");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
     let text = t.text();
     assert!(
         text.contains("\\includegraphics[width=0.8\\linewidth]{figs/cat.png}"),
         "{text}"
     );
+    assert!(text.contains("\\caption{A cat}"), "{text}");
     assert!(text.contains("\\label{fig:cat}"), "{text}");
     // A width as a share of the line.
     t.app.run_command(

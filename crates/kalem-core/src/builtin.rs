@@ -209,7 +209,11 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         (
             "latex.insert.figure",
-            object(&[("path", "string", false), ("width", "string", false)]),
+            object(&[
+                ("path", "string", false),
+                ("width", "string", false),
+                ("caption", "string", false),
+            ]),
         ),
         (
             "latex.insert.table",
@@ -1450,16 +1454,37 @@ fn latex_commands() -> Vec<Command> {
             |ctx, _| latex_edit_with(ctx, |_, s, r, _| e::toggle_numbering(s.head, r), None),
         ),
         c("latex.insert.figure", "Insert Figure", &[], |ctx, args| {
-            // Without a picture: ask for one.
+            // Without a picture: a dialog asking for it, its width and its
+            // caption, one after the other.
             if args.get("path").is_none() {
                 return request(
                     ctx,
                     Request::PickFile {
                         command: "latex.insert.figure".into(),
                         arg: "path".into(),
+                        args: serde_json::json!({ "ask": true }),
                     },
                 );
             }
+            let asking = args.get("ask").and_then(Value::as_bool) == Some(true);
+            for step in ["width", "caption"] {
+                if asking && args.get(step).is_none() {
+                    return request(
+                        ctx,
+                        Request::Ask {
+                            command: "latex.insert.figure".into(),
+                            args: args.clone(),
+                            arg: step.into(),
+                        },
+                    );
+                }
+            }
+            let caption = args
+                .get("caption")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
             let path = args
                 .get("path")
                 .and_then(Value::as_str)
@@ -1479,11 +1504,17 @@ fn latex_commands() -> Vec<Command> {
                     .file_stem()
                     .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
                 let head = format!(
-                    "{indent}\\begin{{figure}}[htbp]\n{indent}  \\centering\n{indent}  \\includegraphics[width={width}]{{{path}}}\n{indent}  \\caption{{"
+                    "{indent}\\begin{{figure}}[htbp]\n{indent}  \\centering\n{indent}  \\includegraphics[width={width}]{{{path}}}\n{indent}  \\caption{{{caption}"
                 );
                 let tail =
                     format!("}}\n{indent}  \\label{{fig:{stem}}}\n{indent}\\end{{figure}}\n");
-                (format!("{head}{tail}"), head.len())
+                // The cursor in the caption, or after the figure once it has one.
+                let at = if caption.is_empty() {
+                    head.len()
+                } else {
+                    head.len() + tail.len()
+                };
+                (format!("{head}{tail}"), at)
             })
         }),
         c("latex.insert.table", "Insert Table", &[], |ctx, args| {

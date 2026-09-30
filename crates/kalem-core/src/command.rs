@@ -111,6 +111,18 @@ pub enum Request {
         command: String,
         /// Its argument that takes the path.
         arg: String,
+        /// Its other arguments.
+        args: serde_json::Value,
+    },
+    /// Ask for argument `arg` of `command` (a line of text) and run it with
+    /// `args` and the answer: the steps of a dialog, in the palette.
+    Ask {
+        /// The command.
+        command: String,
+        /// Its arguments so far.
+        args: serde_json::Value,
+        /// The argument asked for.
+        arg: String,
     },
     /// A new, empty document.
     New,
@@ -577,6 +589,7 @@ pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::Documen
                 crate::links::file_target(&l.path, dir.as_deref(), l.search.as_deref())
             })
             .unwrap_or_default(),
+        ("latex.insert.figure", "width") => "0.8".to_string(),
         ("table.setFormula", "formula") => {
             let mut cache = crate::formulas::FormulaCache::default();
             crate::formulas::prompt(cache.get(doc))
