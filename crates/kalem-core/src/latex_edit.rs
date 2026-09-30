@@ -519,6 +519,12 @@ fn in_prose(text: &str, root: &SyntaxNode, pos: usize) -> bool {
                             .is_some_and(|n| latex_syntax::signatures::is_verbatim(&n)))
             })
     });
+    !code && !quote_shorthand(text)
+}
+
+/// Whether the document's babel language makes `"` a shorthand (German,
+/// Dutch and others): the preamble, or the first 8 KiB.
+pub(crate) fn quote_shorthand(text: &str) -> bool {
     let end = text.find("\\begin{document}").unwrap_or_else(|| {
         // The first 8 KiB, cut at a character.
         let mut e = text.len().min(8192);
@@ -528,15 +534,14 @@ fn in_prose(text: &str, root: &SyntaxNode, pos: usize) -> bool {
         e
     });
     let preamble = &text[..end];
-    let shorthand = preamble.lines().any(|l| {
+    preamble.lines().any(|l| {
         l.contains("babel")
             && [
                 "german", "dutch", "danish", "finnish", "swedish", "russian", "czech",
             ]
             .iter()
             .any(|lang| l.contains(lang))
-    });
-    !code && !shorthand
+    })
 }
 
 /// What typing `typed` at the cursor does (T2.7h.15, T2.7h.16): `$` pairs

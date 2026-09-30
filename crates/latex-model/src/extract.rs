@@ -115,6 +115,12 @@ pub(crate) enum Event {
         note: Option<String>,
     },
     FootnoteEnd,
+    /// `\addcontentsline{toc}{level}{title}`.
+    ContentsLine {
+        level: i8,
+        title: String,
+        range: Range<usize>,
+    },
     /// `\newcounter{counter}[within]`: reset by `within`, printed alone.
     ResetWithin {
         counter: String,
@@ -610,6 +616,18 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                     counter: c.trim().to_string(),
                     value,
                     add: name == "addtocounter",
+                });
+            }
+        }
+        "addcontentsline" => {
+            if let [list, lvl, title] = m.as_slice()
+                && list.trim() == "toc"
+                && let Some(level) = level(lvl.trim())
+            {
+                push(Event::ContentsLine {
+                    level,
+                    title: title.trim().to_string(),
+                    range,
                 });
             }
         }

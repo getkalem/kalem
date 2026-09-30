@@ -35,6 +35,7 @@ pub fn command(name: &str) -> &'static str {
         "numberwithin" => "omm",
         "counterwithin" | "counterwithout" => "*mm",
         "captionof" => "*mom",
+        "addcontentsline" => "mmm",
         "declaretheorem" => "omo",
         "subfloat" => "oom",
         "bibitem" | "hyperref" | "includepdf" => "om",

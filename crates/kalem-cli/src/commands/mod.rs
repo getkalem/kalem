@@ -216,9 +216,9 @@ pub(crate) fn check(
     let mut out = std::io::stdout().lock();
     for f in files {
         let text = read(f)?;
-        let latex = f
-            .extension()
-            .is_some_and(|e| e.eq_ignore_ascii_case("tex") || e.eq_ignore_ascii_case("ltx"));
+        // As the editors decide: `.tex`, `.latex`, `.ltx`, or a mode line.
+        let latex = kalem_core::DocumentMode::detect(Some(f), text.as_bytes())
+            == kalem_core::DocumentMode::Latex;
         if latex {
             let (ok, result) = check_latex(f, &text, json, deny_warnings, unrendered, &mut out)?;
             failed |= !ok;

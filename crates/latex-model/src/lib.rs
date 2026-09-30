@@ -101,6 +101,21 @@ pub enum Target {
     None,
 }
 
+/// An `\addcontentsline{toc}{…}{…}`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContentsLine {
+    /// The sectioning level it is listed at.
+    pub level: i8,
+    /// Its title.
+    pub title: String,
+    /// How many of [`Model::sections`] come before it.
+    pub after: usize,
+    /// The command.
+    pub range: Range<usize>,
+    /// The file it is in.
+    pub file: usize,
+}
+
 /// A `\label`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Label {
@@ -352,6 +367,12 @@ pub struct Model {
     pub includes: Vec<Include>,
     /// `\includeonly`.
     pub include_only: Option<Vec<String>>,
+    /// `\setcounter{tocdepth}{n}`: the deepest level the table of
+    /// contents lists, when the document sets it.
+    pub toc_depth: Option<i64>,
+    /// `\addcontentsline{toc}{level}{title}`: entries of the table of
+    /// contents besides the sections, in document order.
+    pub contents_lines: Vec<ContentsLine>,
     /// `\graphicspath`.
     pub graphics_paths: Vec<String>,
     /// The files of a project: the root document first, then the files it
@@ -1105,6 +1126,12 @@ impl<'r> Numbering<'r> {
                 if counter == "secnumdepth" {
                     let old = self.secnumdepth();
                     self.secnumdepth = Some(if *add { old + value } else { *value });
+                } else if counter == "tocdepth" {
+                    let old = self.model.toc_depth.unwrap_or(match self.class {
+                        ClassKind::Article | ClassKind::AmsBook => 3,
+                        _ => 2,
+                    });
+                    self.model.toc_depth = Some(if *add { old + value } else { *value });
                 } else {
                     let v = self.counters.entry(counter.clone()).or_insert(0);
                     *v = if *add { *v + value } else { *value };
@@ -1133,6 +1160,17 @@ impl<'r> Numbering<'r> {
                 }
             }
             Event::EnvExit => self.exit(),
+            Event::ContentsLine {
+                level,
+                title,
+                range,
+            } => self.model.contents_lines.push(ContentsLine {
+                level: *level,
+                title: title.clone(),
+                after: self.model.sections.len(),
+                range: at(range),
+                file: self.file,
+            }),
             Event::ResetWithin { counter, within } => {
                 self.within.insert(counter.clone(), within.clone());
                 self.plain.insert(counter.clone());
