@@ -226,3 +226,15 @@ fn addbibresource_keeps_its_extension() {
         .collect();
     assert_eq!(files, ["refs.json", "more.bib", "a.bib", "b.bib"]);
 }
+
+#[test]
+fn macro_parameters_are_not_keys() {
+    let text = "\\newcommand\\citeproc[2]{\\cite{#1}\\label{#2}\\ref{#2}}\n\
+                \\begin{document}\\cite{a,#1}\\end{document}\n";
+    let parse = latex_syntax::parse(text);
+    let m = latex_model::Model::new(&parse);
+    assert_eq!(m.citations.len(), 1);
+    assert_eq!(m.citations[0].keys, ["a"]);
+    assert!(m.labels.is_empty());
+    assert!(m.references.is_empty());
+}

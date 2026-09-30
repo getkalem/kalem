@@ -286,6 +286,14 @@ fn opts(args: &[Arg]) -> Vec<&str> {
         .collect()
 }
 
+/// The keys of a citation or reference, without a macro's parameters
+/// (`\cite{#1}` in a definition cites nothing).
+fn keys(s: &str) -> Vec<String> {
+    let mut k = list(s);
+    k.retain(|k| !k.starts_with('#'));
+    k
+}
+
 fn list(s: &str) -> Vec<String> {
     s.split(',')
         .map(|k| k.trim().to_string())
@@ -348,7 +356,7 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
         "mainmatter" => push(Event::MainMatter),
         "backmatter" => push(Event::BackMatter),
         "label" => {
-            if let Some(n) = m.first() {
+            if let Some(n) = m.first().filter(|n| !n.trim().starts_with('#')) {
                 push(Event::Label {
                     name: n.trim().to_string(),
                     range,
@@ -357,10 +365,10 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
         }
         "ref" | "eqref" | "pageref" | "autoref" | "cref" | "Cref" | "nameref" | "vref" | "Vref"
         | "cpageref" => {
-            if let Some(k) = m.first() {
+            if let Some(k) = m.first().map(|k| keys(k)).filter(|k| !k.is_empty()) {
                 push(Event::Ref {
                     command: name.clone(),
-                    keys: list(k),
+                    keys: k,
                     range,
                 });
             }
@@ -546,10 +554,10 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             }
         }
         n if is_cite(n) => {
-            if let Some(k) = m.first() {
+            if let Some(k) = m.first().map(|k| keys(k)).filter(|k| !k.is_empty()) {
                 push(Event::Cite {
                     command: name.clone(),
-                    keys: list(k),
+                    keys: k,
                     notes: o.iter().map(|s| s.to_string()).collect(),
                     range,
                 });
