@@ -60,6 +60,8 @@ pub struct Workspace {
     subscriptions: Vec<Subscription>,
     /// The last document shown that is not a file manager, to go back to.
     last_text: Option<Entity<Editor>>,
+    /// The document shown before the active one (`SPC b l`).
+    previous: Option<Entity<Editor>>,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -92,6 +94,7 @@ impl Workspace {
             menubar_closed: None,
             subscriptions: Vec::new(),
             last_text: None,
+            previous: None,
         };
         ws.adopt(editor.clone(), window, cx);
         // A window coming to the front brings its document's menus.
@@ -174,6 +177,9 @@ impl Workspace {
     ) {
         if self.editor.read(cx).doc.dired.is_none() {
             self.last_text = Some(self.editor.clone());
+        }
+        if self.editor != editor {
+            self.previous = Some(self.editor.clone());
         }
         self.editor = editor.clone();
         let focus = gpui::Focusable::focus_handle(editor.read(cx), cx);
@@ -380,6 +386,86 @@ impl Workspace {
     }
 
     /// The editors of the documents in the project at `root`.
+    /// Doom's `SPC b` commands on the open documents (T2.7i.2).
+    fn documents(
+        &mut self,
+        r: kalem_core::command::DocumentsRequest,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        use kalem_core::command::DocumentsRequest as D;
+        let status = |ws: &Self, msg: String, error: bool, cx: &mut Context<'_, Self>| {
+            ws.editor.update(cx, |e, cx| {
+                e.status = Some((msg, error));
+                cx.notify();
+            });
+        };
+        match r {
+            D::SaveAll => {
+                let mut n = 0;
+                for e in self.editors.clone() {
+                    let saved = e.update(cx, |e, cx| {
+                        let was = e.doc.is_modified() && e.doc.meta.path.is_some();
+                        let ok = was && e.save_quietly();
+                        cx.notify();
+                        ok
+                    });
+                    n += usize::from(saved);
+                }
+                status(
+                    self,
+                    tr!("msg-saved-count", count = n.to_string()),
+                    false,
+                    cx,
+                );
+            }
+            D::CloseOthers | D::CloseAll => {
+                let keep = self.editor.clone();
+                for e in self.editors.clone() {
+                    if e != keep && !e.read(cx).doc.is_modified() {
+                        self.close(&e, window, cx);
+                    }
+                }
+                self.activate(keep.clone(), window, cx);
+                // The last one gives way to an empty document.
+                if r == D::CloseAll && !keep.read(cx).doc.is_modified() {
+                    self.new_document(window, cx);
+                    self.close(&keep, window, cx);
+                }
+            }
+            D::Last => match self.previous.clone().filter(|p| self.editors.contains(p)) {
+                Some(p) => self.activate(p, window, cx),
+                None => status(self, tr!("msg-no-last-document"), true, cx),
+            },
+            D::Bury => {
+                if self.editors.len() < 2 {
+                    return;
+                }
+                let buried = self.editor.clone();
+                self.cycle(false, window, cx);
+                self.editors.retain(|e| *e != buried);
+                self.editors.push(buried);
+                cx.notify();
+            }
+            D::Scratch { project } => {
+                let root = self.editor.read(cx).project();
+                if project && root.is_none() {
+                    status(self, tr!("msg-no-project"), true, cx);
+                    return;
+                }
+                let root = if project { root } else { None };
+                let Some(path) = kalem_core::command::scratch_path(root.as_deref()) else {
+                    status(self, tr!("msg-no-state-dir"), true, cx);
+                    return;
+                };
+                if let Some(dir) = path.parent() {
+                    let _ = std::fs::create_dir_all(dir);
+                }
+                self.open(&path, None, window, cx);
+            }
+        }
+    }
+
     fn in_project(&self, root: &Path, cx: &App) -> Vec<Entity<Editor>> {
         self.editors
             .iter()
@@ -529,6 +615,7 @@ impl Workspace {
                     }
                 }
             }
+            DocEvent::Documents(r) => self.documents(r, window, cx),
             DocEvent::Quit => self.quit(window, cx),
             DocEvent::FileManager { place, select } => self.file_manager(place, select, window, cx),
             DocEvent::LeaveFileManager => self.leave_file_manager(window, cx),

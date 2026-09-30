@@ -5,8 +5,8 @@
 use serde_json::Value;
 
 use crate::command::{
-    Command, CommandError, CommandHandler, CommandResult, CommandSource, EditorContext, PickKind,
-    ProjectRequest, Request,
+    Command, CommandError, CommandHandler, CommandResult, CommandSource, DocumentsRequest,
+    EditorContext, PickKind, ProjectRequest, Request,
 };
 use crate::keys::KeySequence;
 use crate::when::WhenClause;
@@ -127,6 +127,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "file.open",
             object(&[("path", "string", false), ("prompt", "boolean", false)]),
         ),
+        ("file.scratch", object(&[("project", "boolean", false)])),
         ("org.property.delete", object(&[("key", "string", true)])),
         ("org.cite.insert", object(&[("key", "string", false)])),
         ("org.insert.drawer", object(&[("name", "string", true)])),
@@ -2860,6 +2861,61 @@ fn plain_commands() -> Vec<Command> {
             &["ctrl+w"],
             None,
             |ctx, _| request(ctx, Request::Close),
+        ),
+        cmd("file.saveAll", "Save All", "File", &[], None, |ctx, _| {
+            request(ctx, Request::Documents(DocumentsRequest::SaveAll))
+        }),
+        cmd(
+            "file.closeOthers",
+            "Close Other Documents",
+            "File",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Documents(DocumentsRequest::CloseOthers)),
+        ),
+        cmd(
+            "file.closeAll",
+            "Close All Documents",
+            "File",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Documents(DocumentsRequest::CloseAll)),
+        ),
+        cmd("file.last", "Last Document", "File", &[], None, |ctx, _| {
+            request(ctx, Request::Documents(DocumentsRequest::Last))
+        }),
+        cmd(
+            "file.bury",
+            "Move Document to the End",
+            "File",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Documents(DocumentsRequest::Bury)),
+        ),
+        cmd(
+            "file.scratch",
+            "Scratch Document",
+            "File",
+            &[],
+            None,
+            |ctx, args| {
+                let project = args.get("project").and_then(Value::as_bool) == Some(true);
+                request(
+                    ctx,
+                    Request::Documents(DocumentsRequest::Scratch { project }),
+                )
+            },
+        ),
+        cmd(
+            "file.copyText",
+            "Copy the Whole Document",
+            "File",
+            &[],
+            None,
+            |ctx, _| {
+                let text = ctx.doc()?.text().as_str().to_string();
+                request(ctx, Request::CopyText(text))
+            },
         ),
         cmd(
             "file.next",

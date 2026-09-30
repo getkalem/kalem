@@ -146,6 +146,8 @@ pub enum Request {
     OpenFiles,
     /// Change the project list, or act on the project's documents.
     Project(ProjectRequest),
+    /// Act on the open documents (Doom's `SPC b`, T2.7i.2).
+    Documents(DocumentsRequest),
     /// Show the file manager.
     FileManager(FileManagerRequest),
     /// Run a file operation in the background, after the questions it
@@ -261,6 +263,47 @@ pub enum ProjectRequest {
     CloseAll,
     /// Open the folder tree down to the active document.
     RevealInTree,
+}
+
+/// What to do with the open documents.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DocumentsRequest {
+    /// Save every modified document that has a file.
+    SaveAll,
+    /// Close the other documents that have no unsaved changes.
+    CloseOthers,
+    /// Close every document that has no unsaved changes; an empty one
+    /// stays when none would.
+    CloseAll,
+    /// Show the document shown before this one.
+    Last,
+    /// Put this document at the end of the list and show the next one.
+    Bury,
+    /// Open the scratch document ([`scratch_path`]), the project's with
+    /// `project`.
+    Scratch {
+        /// The current project's own.
+        project: bool,
+    },
+}
+
+/// The scratch document: `scratch.klm` in the state directory, or for
+/// the project at `project` one named after it there, so nothing is
+/// written into the project.
+pub fn scratch_path(project: Option<&std::path::Path>) -> Option<std::path::PathBuf> {
+    let dir = crate::logging::state_dir()?.join("scratch");
+    Some(match project {
+        None => dir.join("scratch.klm"),
+        Some(root) => {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            root.hash(&mut h);
+            let name = root
+                .file_name()
+                .map_or_else(|| "project".into(), |n| n.to_string_lossy().into_owned());
+            dir.join(format!("{name}-{:08x}.klm", h.finish() as u32))
+        }
+    })
 }
 
 /// Why a command failed.
@@ -856,5 +899,23 @@ mod tests {
             assert_eq!(canonical_type(name), t, "{name}");
             assert!(known_text_type(t), "{t}");
         }
+    }
+
+    #[test]
+    fn scratch_documents() {
+        let Some(own) = scratch_path(None) else {
+            return;
+        };
+        assert!(own.ends_with("scratch/scratch.klm"), "{}", own.display());
+        let a = scratch_path(Some(std::path::Path::new("/w/notes"))).unwrap();
+        let b = scratch_path(Some(std::path::Path::new("/x/notes"))).unwrap();
+        assert!(
+            a.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("notes-")
+        );
+        assert_ne!(a, b);
+        assert_eq!(a.parent(), own.parent());
     }
 }

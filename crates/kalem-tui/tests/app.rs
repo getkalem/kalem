@@ -3563,3 +3563,41 @@ fn doom_keys_in_the_file_manager() {
     let out = t.app.take_output();
     assert!(out.iter().any(|o| o.starts_with("\x1b]52;c;")), "{out:?}");
 }
+
+/// Doom's `SPC b` keys on the open documents (T2.7i.2): the last one,
+/// bury, save all, close the others and close all.
+#[test]
+fn documents_keys() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, dir) = project_app(config);
+    t.app.open_path(&dir.join("proj/sub/b.org"), None);
+    t.app.open_path(&dir.join("loose.org"), None);
+    assert_eq!(title(&t), "loose.org");
+    // `SPC b l` and `` SPC ` ``: the one before, back and forth.
+    t.typ(" bl");
+    assert_eq!(title(&t), "b.org");
+    t.typ(" `");
+    assert_eq!(title(&t), "loose.org");
+    // `SPC b z`: to the end of the list, the next one shown.
+    let before = t.app.open_files().len();
+    t.typ(" bz");
+    assert_ne!(title(&t), "loose.org");
+    assert_eq!(t.app.open_files().len(), before);
+    // `SPC b S` saves every modified document with a file.
+    t.typ("ggOnew");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    let shown = title(&t);
+    t.typ(" bS");
+    let path = t.app.doc.meta.path.clone().unwrap();
+    assert!(
+        std::fs::read_to_string(&path).unwrap().starts_with("new"),
+        "{shown}"
+    );
+    // `SPC b O` keeps this one; `SPC b K` leaves an empty document.
+    t.typ(" bO");
+    assert_eq!(t.app.open_files().len(), 1);
+    assert_eq!(title(&t), shown);
+    t.typ(" bK");
+    assert_eq!(t.app.open_files().len(), 1);
+    assert_eq!(t.app.doc.meta.path, None);
+}
