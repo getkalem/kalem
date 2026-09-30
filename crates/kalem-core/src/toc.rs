@@ -133,13 +133,60 @@ pub fn toc_at(doc: &Document, line: Range<usize>) -> Option<Vec<TocEntry>> {
 
 /// The table of contents to show for the source line `line` of `state`,
 /// as lines of text with the start of their heading: when the line is a
-/// `#+TOC: headlines` keyword and the cursor is elsewhere.
+/// `#+TOC: headlines` keyword (`\\tableofcontents` in LaTeX) and the
+/// cursor is elsewhere.
 pub fn shown(state: &mut DocumentState, line: Range<usize>) -> Option<Vec<(String, usize)>> {
+    if state.latex().is_some() {
+        return latex_toc(state, line).map(|e| lines(&e));
+    }
     if !wanted(state.text().as_str(), state.selection.head, &line) {
         return None;
     }
     let doc = state.model()?;
     toc_at(&doc, line).map(|e| lines(&e))
+}
+
+/// The table of contents a LaTeX `\\tableofcontents` line shows away from
+/// the cursor (T2.7h.5): the numbered sections as LaTeX lists them, down
+/// to `\\subsubsection` (`\\subsection` in books and reports), with the
+/// project's other files; an entry in another file leads to the line.
+pub fn latex_toc(state: &DocumentState, line: Range<usize>) -> Option<Vec<TocEntry>> {
+    let text = state.text().as_str();
+    let cursor = state.selection.head;
+    if text.get(line.clone())?.trim() != "\\tableofcontents"
+        || (line.start <= cursor && cursor <= line.end)
+    {
+        return None;
+    }
+    let model = state.latex()?.model();
+    let chapters = model.class.as_ref().is_some_and(|c| {
+        matches!(
+            c.name.as_str(),
+            "book" | "report" | "memoir" | "scrbook" | "scrreprt"
+        )
+    });
+    let deepest = if chapters { 2 } else { 3 };
+    let listed: Vec<_> = model
+        .sections
+        .iter()
+        .filter(|s| !s.starred && s.level <= deepest)
+        .collect();
+    let top = listed.iter().map(|s| s.level).min().unwrap_or(1);
+    Some(
+        listed
+            .into_iter()
+            .map(|s| TocEntry {
+                depth: (s.level - top + 1).max(1) as usize,
+                number: s.number.clone(),
+                title: s.short.clone().unwrap_or_else(|| s.title.clone()),
+                start: if s.file == 0 {
+                    s.range.start
+                } else {
+                    line.start
+                },
+            })
+            .collect(),
+    )
 }
 
 /// Whether the source line `line` of `text` may show a table of contents:
@@ -172,6 +219,34 @@ mod tests {
 
     fn doc(t: &str) -> Document {
         Document::new(org_syntax::parse(t))
+    }
+
+    #[test]
+    fn latex_table_of_contents() {
+        let text = "\\documentclass{article}\n\\begin{document}\n\\tableofcontents\n\\section{One}\n\\subsection[Short]{A long title}\n\\section*{Unlisted}\n\\paragraph{Too deep}\n\\section{Two}\n\\end{document}\n";
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Latex,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+        };
+        let mut d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        let at = text.find("\\tableofcontents").unwrap();
+        let line = at..at + "\\tableofcontents".len();
+        let rows: Vec<String> = shown(&mut d, line.clone())
+            .unwrap()
+            .into_iter()
+            .map(|r| r.0)
+            .collect();
+        assert_eq!(rows, ["1 One", "   1.1 Short", "2 Two"]);
+        // At the cursor, the command itself.
+        d.move_cursor(at + 2, false);
+        assert!(shown(&mut d, line).is_none());
     }
 
     #[test]
