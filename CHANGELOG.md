@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Doom Emacs's leader map in the Book (T2.7i.1): `tests/keys/doom-leader.toml` lists Doom's 258 leader keys with the command each runs in Kalem or the task that will bring it; a test checks it against the Vim keymap, and the Keys chapter shows it.
 - Doom Emacs's file manager keys (T2.7e.18) with Vim keys: `h`, `l`, `y y`, `y n`, `y r`, `Y`, `f`, `a`, `N`, `$`, `C-x C-q`, `SPC .` (a typed path from the listed folder; a new name makes the file) and `SPC f D`, `SPC f R`, `SPC f C`; Dired's `* *`, `% u`, `% l`, `% R`, `Z` (compress or extract) and `&` with either keymap. `tests/keys/doom-dired.toml` gives each Doom key a command or a reason; the file manager's chapter shows it.
 - The file manager's context menu (T2.7e.17): a right click on an entry, on the marks or on the empty listing, or Shift+F10, opens Open, Cut, Copy, Paste, Duplicate, Rename, Move to, Copy to, Delete, New File and Folder, Copy Path and Relative Path, Select All, Sort and Properties, in both editors. The keys every file manager has (Ctrl+C, X, V, A, N, Shift+N, Shift+Delete, Space, Alt+Enter) and Ctrl-click and Shift-click marks work in the listing; cut and copy keep paths in an in-app file clipboard.
 - Part III of the Book is the specification of the Kalem format: seventeen chapters from RFC 0003 (now its frozen design record), a status page and the format's changelog. Every example in it is a file of the conformance suite, which `kalem book check` enforces.
