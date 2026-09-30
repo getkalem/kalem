@@ -36,6 +36,8 @@ pub fn panel_style(caps: &Caps) -> Style {
 pub struct Palette {
     /// What was typed.
     pub input: String,
+    /// The cursor, as characters after it ([`kalem_core::line_edit`]).
+    pub back: usize,
     /// The chosen line.
     pub selected: usize,
     items: Vec<PaletteItem>,
@@ -50,6 +52,7 @@ impl Palette {
     pub fn new(items: Vec<PaletteItem>) -> Palette {
         Palette {
             input: String::new(),
+            back: 0,
             selected: 0,
             items,
             pick: None,
@@ -155,9 +158,8 @@ impl Palette {
                     .collect();
                 (
                     format!(
-                        "{}: {}",
+                        "{}: ",
                         kalem_core::tr!("search-project", project = s.name.clone()),
-                        self.input
                     ),
                     format!("{}  {}", switches.join(" "), s.status()),
                 )
@@ -172,10 +174,14 @@ impl Palette {
                 } else {
                     String::new()
                 };
-                (format!("{}: {}", p.prompt, self.input), note)
+                (format!("{}: ", p.prompt), note)
             }
-            (None, None) => (format!("> {}", self.input), String::new()),
+            (None, None) => ("> ".to_string(), String::new()),
         };
+        // The label, then the typed text with the cursor shown in reverse.
+        let (before, after) = kalem_core::line_edit::split(&self.input, self.back);
+        let caret = (prompt.width() + before.width()) as u16;
+        let prompt = format!("{prompt}{before}{after}");
         buf.set_stringn(
             x + 1,
             y0,
@@ -183,6 +189,10 @@ impl Palette {
             (w - 2) as usize,
             accent.add_modifier(Modifier::BOLD),
         );
+        if caret + 1 < w - 1 {
+            let cell = &mut buf[(x + 1 + caret, y0)];
+            cell.set_style(cell.style().add_modifier(Modifier::REVERSED));
+        }
         let nw = note.width() as u16;
         if !note.is_empty() && prompt.width() as u16 + nw + 4 < w {
             buf.set_stringn(

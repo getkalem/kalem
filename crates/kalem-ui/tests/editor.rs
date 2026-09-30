@@ -1755,6 +1755,45 @@ fn file_manager_context_menu(cx: &mut TestAppContext) {
     assert_eq!(marks(cx), 0);
 }
 
+/// The arrows, Home, End and Delete edit an argument's text: Shift+R in
+/// the file manager, the cursor moved into the name (reported by the
+/// owner, 2026-09-30).
+#[gpui::test]
+fn editing_an_argument_with_the_arrows(cx: &mut TestAppContext) {
+    for vim in [false, true] {
+        let (ws, dir, cx) = open_project(vim, cx);
+        cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
+        cx.run_until_parked();
+        let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+        e.update_in(cx, |e, window, cx| {
+            let t = e.doc.text();
+            let at = t.as_str().find(" a.org").unwrap() + 1;
+            e.doc.move_cursor(at, false);
+            e.run_command("dired.move", serde_json::Value::Null, window, cx);
+        });
+        cx.run_until_parked();
+        let typed = |cx: &mut VisualTestContext| {
+            e.read_with(cx, |e, _| {
+                let p = e.palette.as_ref().expect("the prompt");
+                let (a, b) = kalem_core::line_edit::split(&p.input, p.back);
+                (a.to_string(), b.to_string())
+            })
+        };
+        let (a, b) = typed(cx);
+        assert!(a.ends_with("a.org") && b.is_empty(), "{a:?} {b:?}");
+        cx.simulate_keystrokes("left left left left");
+        cx.simulate_input("x");
+        let (a, b) = typed(cx);
+        assert!(a.ends_with("ax") && b == ".org", "{a:?} {b:?}");
+        cx.simulate_keystrokes("right delete home end backspace");
+        let (a, b) = typed(cx);
+        assert!(a.ends_with("ax.r") && b.is_empty(), "{a:?} {b:?}");
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert!(dir.join("proj/ax.r").exists(), "vim {vim}");
+    }
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]
