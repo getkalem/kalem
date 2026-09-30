@@ -466,10 +466,13 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
         }
         "bibliography" | "addbibresource" => {
             if let Some(f) = m.first() {
+                // `\bibliography{refs}` names `refs.bib`; `\addbibresource`
+                // names the file with its extension (`refs.bib`,
+                // `refs.json`), which biber reads as it is.
                 let files = list(f)
                     .into_iter()
                     .map(|f| {
-                        if f.ends_with(".bib") {
+                        if f.ends_with(".bib") || (name == "addbibresource" && f.contains('.')) {
                             f
                         } else {
                             format!("{f}.bib")

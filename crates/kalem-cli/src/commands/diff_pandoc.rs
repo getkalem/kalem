@@ -258,10 +258,26 @@ pub(crate) fn diff_pandoc(files: &[PathBuf], summary: bool, json: bool) -> Resul
     let mut out = std::io::stdout().lock();
     let mut agree: BTreeMap<&str, usize> = BTreeMap::new();
     let mut results = Vec::new();
+    // Files pandoc cannot read are reported and left out; the others are
+    // still compared.
+    let mut compared = 0;
+    let mut failed = 0;
     for f in files {
         read(f)?;
+        let theirs = match pandoc_json(&pandoc, f) {
+            Ok(j) => pandoc_counts(&j),
+            Err(e) => {
+                eprintln!(
+                    "{}: pandoc cannot read it: {}",
+                    f.display(),
+                    e.lines().next().unwrap_or("")
+                );
+                failed += 1;
+                continue;
+            }
+        };
+        compared += 1;
         let ours = kalem_counts(f);
-        let theirs = pandoc_counts(&pandoc_json(&pandoc, f)?);
         let mut rows = Vec::new();
         for cat in CATEGORIES {
             let (a, b) = (&ours[cat], &theirs[cat]);
@@ -290,11 +306,13 @@ pub(crate) fn diff_pandoc(files: &[PathBuf], summary: bool, json: bool) -> Resul
         for cat in CATEGORIES {
             writeln!(
                 out,
-                "{cat}: {} of {} files agree",
+                "{cat}: {} of {compared} files agree",
                 agree.get(cat).copied().unwrap_or(0),
-                files.len()
             )
             .map_err(|e| e.to_string())?;
+        }
+        if failed > 0 {
+            writeln!(out, "{failed} files pandoc could not read").map_err(|e| e.to_string())?;
         }
     }
     Ok(ExitCode::SUCCESS)

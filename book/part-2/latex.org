@@ -570,6 +570,22 @@ Every command the view renders, and how:
 
 Styles nest: =\textbf{a \emph{b}}= shows =b= bold italic.
 
+Font declarations style the rest of their group (=latex_view::declaration=):
+=\bf= and =\bfseries= bold; =\it=, =\itshape=, =\sl=, =\slshape= and
+=\em= italic; =\tt= and =\ttfamily= monospace; =\upshape= ends italic,
+=\mdseries= bold, =\rmfamily= and =\sffamily= monospace, and
+=\normalfont= and =\rm= all three; =\sc=, =\scshape= and =\sf= are known
+and change nothing shown. Only a declaration inside a group ={…}= is
+followed, from where it is to the group's end (=Plain {\bf bold}=); a
+declaration at the top level of a paragraph or an environment changes
+nothing shown. The declarations themselves stay as source, dimmed.
+
+| Command                                       | Shown                                                         |
+|-----------------------------------------------+---------------------------------------------------------------|
+| =\index= =\indexsee= =\glossary= =\nomenclature= | Dimmed with their arguments: they typeset nothing where they are |
+| =\texorpdfstring{TeX}{PDF}=                    | The first argument, the command, braces and second hidden      |
+| =\ensuremath{…}=                               | The formula, outside math                                     |
+
 ** Characters
 
 Typographic replacements apply in running text and in the arguments of

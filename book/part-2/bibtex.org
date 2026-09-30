@@ -75,15 +75,18 @@ ranges of the text as written. Its grammar, exactly:
    token (a number or a macro name) read with the type's rule. In braced
    and quoted parts a backslash makes the next byte ordinary. The
    field's value range runs from the first part to the end of the last.
-7. When a field name is empty, or no ~=~ follows it, or the text ends
-   before the closing delimiter, the entry is taken as left open: it is
-   kept, with the fields read so far, as running to the end of the file,
-   and scanning stops.
+7. What cannot be read is skipped: a field with no name, or a name
+   with no ~=~ after it, is skipped to the next comma or the entry's
+   end at the top level of braces, and the scan goes on.
+8. An entry left open ends where the next one starts: an =@= at the
+   start of a line ends the entry, and a braced or quoted value that
+   does not close ends there too. An entry still open at the end of the
+   file runs to its last character that is not a blank.
 
-The last rule means that one malformed field (a stray =%= comment line
-inside an entry, for instance, since BibTeX has no comments inside
-entries) makes the grid show the rest of the file as part of that entry.
-The text is not changed by this; only the grid is.
+So a malformed field (a stray =%= comment line inside an entry, for
+instance, since BibTeX has no comments inside entries) or an unbalanced
+brace costs that field or that entry, not the rest of the file. The text
+is not changed by this; only the grid is.
 
 * Values for display
 
@@ -352,8 +355,6 @@ one file could be read). Keys are compared exactly.
 
 * Known differences and limits
 
-- The grid's scanner stops at the first malformed field and shows the
-  rest of the file as one entry (rule 7 above).
 - The grid does not expand =@string= macros or evaluate =#=.
 - Org's reader rejects a whole file for one syntax error, where BibTeX
   and biber report the entry and go on.
@@ -361,8 +362,9 @@ one file could be read). Keys are compared exactly.
   reader.
 - An accent command applied to a command (=\'{\i}=) is not combined
   and shows as =\i=.
-- =\addbibresource{refs.json}= is resolved as =refs.json.bib=, because
-  =.bib= is added to every name that does not end in it.
+- =\bibliography{refs}= names =refs.bib=; =\addbibresource= names its
+  file with its extension, so =\addbibresource{refs.json}= is
+  =refs.json= (a name without a full stop still gets =.bib=).
 - =.yaml= bibliographies are read for CSL rendering but not by the
   picker, the preview or the diagnostics, which know only =.bib=,
   =.bibtex= and =.json=.

@@ -915,6 +915,32 @@ impl DocumentState {
     /// `blank_field`: the previous command moved to a table field, which is
     /// blanked first (`org-table-auto-blank-field`). A selection is
     /// replaced.
+    /// Typing in a CSV file's grid (not its source view): a delimiter, a
+    /// quote or a line break goes into the field's value, which is quoted
+    /// for it. Whether the text was typed so; else `type_text` types it.
+    pub fn type_in_grid(&mut self, text: &str, now: Instant) -> bool {
+        if self.meta.mode != DocumentMode::Csv
+            || self.selection.anchor != self.selection.head
+            || !self.extra.is_empty()
+        {
+            return false;
+        }
+        let Some((layout, _, rec, _)) = crate::csv::cell_at(self) else {
+            return false;
+        };
+        let Some(tx) = crate::csv::typed(
+            self.text.as_str(),
+            &rec,
+            self.selection.head,
+            text,
+            &layout.dialect,
+        ) else {
+            return false;
+        };
+        self.apply(&tx, ChangeKind::Typing, now);
+        true
+    }
+
     pub fn type_text(&mut self, text: &str, blank_field: bool, now: Instant) {
         if !self.extra.is_empty() {
             self.insert_text(text, now);

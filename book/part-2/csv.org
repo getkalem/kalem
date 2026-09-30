@@ -258,17 +258,23 @@ target field, just inside the opening quote of a quoted one.
 ** Typing
 
 Typing in the grid inserts and deletes characters in the file at the
-cursor, as in plain text. Kalem does not quote a field while you type
-in it: typing a comma in an unquoted field of a comma file splits it
-into two fields, and Enter inserts a line break (with the line's
-indentation, as =edit.newline= does in every non-Org file), which starts
-a new record unless the cursor is inside quotes. The grid and the
-layout follow the new text at once.
+cursor, as in plain text, with one exception: a delimiter, a quote or a
+line break typed inside a field belongs to the field's value
+(=csv::typed=, =DocumentState::type_in_grid=). In an unquoted field the
+field is rewritten quoted, the characters before the cursor and the
+typed ones inside the quotes, every quote doubled, and the cursor after
+what was typed; inside the quotes of a quoted field the characters are
+inserted with their quotes doubled. Other characters, blanks included,
+are inserted as they are, so a field is quoted only when it has to be.
+In the source view (Ctrl+/) typing is raw: a comma typed there is a
+delimiter. Enter inserts a line break (with the line's indentation, as
+=edit.newline= does in every non-Org file), which starts a new record
+unless the cursor is inside quotes. The grid and the layout follow the
+new text at once.
 
-The library has a quoting cell setter, =csv::set_cell=, which replaces
-only the field's bytes with the encoded value and pads a short record
-with empty fields; it is what the round-trip tests use to edit a cell.
-No command calls it yet, so interactive edits are raw.
+The library also has a cell setter, =csv::set_cell=, which replaces only
+the field's bytes with the encoded value and pads a short record with
+empty fields; the round-trip tests use it to edit a cell.
 
 ** The commands
 
@@ -386,12 +392,13 @@ they were.)
 
 /Sort File by Column/ (=csv::sort_file=) reorders the records of the
 file by the cursor's column; with =reverse=, in descending order. When
-a header was detected it stays first. Two values compare:
+a header was detected it stays first. Two values compare
+(=csv::compare=), in a total order whatever the column mixes:
 
-1. as numbers, when both parse as floating-point numbers after trimming
-   and turning commas into full stops;
-2. otherwise as text, after lower-casing both, by Unicode code points
-   (there is no locale collation).
+1. numbers (read as the column statistics read them, below) before
+   text, and two numbers by value;
+2. two texts after lower-casing both, by Unicode code points (there is
+   no locale collation).
 
 The sort is stable, and a missing field compares as an empty value. The
 file is rewritten from its first byte to the end of its last record as
@@ -476,10 +483,16 @@ Org tables.
 
 The status bar shows, for the cursor's column, statistics over the data
 records (the header skipped) (=csv::column_stats=). A value counts as a
-number when, after trimming and removing spaces and no-break spaces, it
-parses as a floating-point number as written, or else after removing
-every full stop and turning commas into full stops, which reads
-=1.234,5= (Turkish and most European locales) as 1234.5. Values that are
+number when, after trimming and removing spaces, no-break spaces and
+apostrophes, it reads as a number as spreadsheets write it
+(=csv::number=): with both a comma and a full stop, the last of them is
+the decimal point (=1,234.5= and =1.234,5= are 1234.5); with commas only,
+they group thousands when every group after the first has three digits
+and either there are several (=1,234,567=) or the file is not delimited
+by =;= (where European spreadsheets write decimal commas: =1,5=, and
+=1,234= reads as 1.234); with several full stops in groups of three,
+they group thousands (=1.234.567=); infinities and NaN are not numbers.
+Values that are
 neither are left out. The status bar shows "Count: /n/   Sum: …
 Average: …   Min: …   Max: …", each number written as an integer when it
 is whole and otherwise with up to six decimals; nothing is shown when
@@ -503,10 +516,6 @@ Saving is atomic, as for every file.
   =todo.md= (T2.7d.1) speak of quoting as detected, but it is fixed.
 - Only four delimiters are candidates: =,= =;= tab and vertical bar.
 - The header is guessed and cannot be set by hand.
-- Typing does not quote; only paste conversion and the TSV copy encode
-  values. A comma typed into a field of a comma file makes two fields.
-- The statistics misread numbers with English thousands separators: the
-  first parse of =1,234.5= fails and the fallback reads it as 1.2345.
 - Column widths are measured on the source text, quotes included, from
   the first 1,000 records only.
 - The dialect's CR LF flag (any CR LF in the sample) and the document's

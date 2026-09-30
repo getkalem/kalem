@@ -423,6 +423,32 @@ fn verb_code(text: &str, verb: &SyntaxNode) -> Option<Range<usize>> {
     Some(r.start + body..r.start + end)
 }
 
+/// Applies font declaration `name` (`bf`, `itshape`, `normalfont`…) to
+/// `style`; whether it is one.
+fn declaration(name: &str, style: &mut Style) -> bool {
+    match name {
+        "bf" | "bfseries" => style.bold = true,
+        "it" | "itshape" | "sl" | "slshape" | "em" => style.italic = true,
+        "tt" | "ttfamily" => style.code = true,
+        "upshape" => style.italic = false,
+        "mdseries" => style.bold = false,
+        "rmfamily" | "sffamily" => style.code = false,
+        "normalfont" | "rm" => {
+            style.bold = false;
+            style.italic = false;
+            style.code = false;
+        }
+        "sc" | "scshape" | "sf" => {}
+        _ => return false,
+    }
+    true
+}
+
+/// Whether token `t` is inside math.
+fn c_math(t: &SyntaxToken) -> bool {
+    math_node(t).is_some()
+}
+
 /// The lines from which an environment the view does not render folds.
 const LONG_UNKNOWN: usize = 8;
 
@@ -846,6 +872,32 @@ fn context(t: &SyntaxToken) -> Context {
             K::INLINE_MATH | K::DISPLAY_MATH => {
                 c.math = true;
                 c.typography = false;
+            }
+            // `{\\bf …}`, `{\\itshape …}`: the declarations before the token
+            // in its group style it to the group's end.
+            K::GROUP => {
+                let at = child.as_ref().map_or_else(
+                    || usize::from(t.text_range().start()),
+                    |c| usize::from(c.text_range().start()),
+                );
+                let mut declared = Style::default();
+                let mut any = false;
+                for e in a.children() {
+                    if usize::from(e.text_range().start()) >= at {
+                        break;
+                    }
+                    if e.kind() == K::COMMAND
+                        && let Some(n) = latex_syntax::name(&e)
+                        && declaration(&n, &mut declared)
+                    {
+                        any = true;
+                    }
+                }
+                if any {
+                    // The innermost group's declarations come first; an
+                    // outer group only adds.
+                    merge(&mut c.style, &declared);
+                }
             }
             K::ENVIRONMENT => {
                 let name = latex_syntax::name(&a).unwrap_or_default();
@@ -1438,6 +1490,51 @@ fn unflagged_line_view(
                         {
                             tok = n.next_token();
                         }
+                        continue;
+                    }
+                }
+                // Index entries typeset nothing where they are: dimmed
+                // with their arguments.
+                "\\index" | "\\indexsee" | "\\glossary" | "\\nomenclature" => {
+                    b.verbatim(cs.clone(), dim);
+                    while let Some(n) = &tok
+                        && span(n).start < cs.end
+                    {
+                        tok = n.next_token();
+                    }
+                    continue;
+                }
+                // `\\ensuremath{…}`: the formula.
+                "\\ensuremath" if !c_math(&t) => {
+                    if let Some(g) = cmd.children().find(|c| c.kind() == K::GROUP) {
+                        b.runs.push(Run {
+                            src: cs.clone(),
+                            text: crate::view::PLACEHOLDER.to_string(),
+                            verbatim: false,
+                            style: Style::default(),
+                            widget: Some(crate::view::Widget::Math {
+                                source: group_text(&g),
+                                display: false,
+                            }),
+                        });
+                        while let Some(n) = &tok
+                            && span(n).start < cs.end
+                        {
+                            tok = n.next_token();
+                        }
+                        continue;
+                    }
+                }
+                // `\\texorpdfstring{TeX}{PDF}`: the TeX text.
+                "\\texorpdfstring" => {
+                    let groups: Vec<SyntaxNode> =
+                        cmd.children().filter(|c| c.kind() == K::GROUP).collect();
+                    if let [first, second] = groups.as_slice() {
+                        let (f, sc) = (node_span(first), node_span(second));
+                        hidden.push(r.clone());
+                        hidden.push(f.start..f.start + 1);
+                        hidden.push(f.end - 1..f.end);
+                        hidden.push(sc);
                         continue;
                     }
                 }
@@ -2180,6 +2277,30 @@ pub fn renders_command(name: &str) -> bool {
             "item"
                 | "caption"
                 | "includegraphics"
+                | "index"
+                | "bf"
+                | "bfseries"
+                | "it"
+                | "itshape"
+                | "sl"
+                | "slshape"
+                | "em"
+                | "tt"
+                | "ttfamily"
+                | "upshape"
+                | "mdseries"
+                | "rmfamily"
+                | "sffamily"
+                | "normalfont"
+                | "rm"
+                | "sc"
+                | "scshape"
+                | "sf"
+                | "indexsee"
+                | "glossary"
+                | "nomenclature"
+                | "ensuremath"
+                | "texorpdfstring"
                 | "centering"
                 | "footnote"
                 | "maketitle"
@@ -3124,6 +3245,43 @@ mod tests {
                 .iter()
                 .any(|b| b.kind.highlight_language() == Some("rust"))
         );
+    }
+
+    #[test]
+    fn index_entries_and_pdf_strings() {
+        let text = "A word\\index{word!sub} here.\n\\section{\\texorpdfstring{$x^2$}{x squared} and more}\nAlways \\ensuremath{\\alpha} math.\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        let l0 = shown(&d, 0, end);
+        assert_eq!(l0.display(), "A word\\index{word!sub} here.");
+        assert!(
+            l0.runs
+                .iter()
+                .any(|r| r.text.contains("\\index{word!sub}") && r.style.dim)
+        );
+        let l1 = shown(&d, 1, end).display();
+        assert!(!l1.contains("x squared") && l1.contains("and more"), "{l1}");
+        let l2 = shown(&d, 2, end);
+        assert!(l2.runs.iter().any(|r| matches!(&r.widget, Some(crate::view::Widget::Math { source, .. }) if source == "\\alpha")));
+    }
+
+    #[test]
+    fn font_declarations() {
+        let text = "Plain {\\bf bold {\\it both}} and {\\em it \\normalfont up}.\n";
+        let d = doc(text);
+        let v = shown(&d, 0, Some(text.len()));
+        let style_of = |w: &str| {
+            v.runs
+                .iter()
+                .find(|r| r.text.contains(w))
+                .map(|r| r.style)
+                .unwrap()
+        };
+        assert!(style_of("bold").bold && !style_of("bold").italic);
+        assert!(style_of("both").bold && style_of("both").italic);
+        assert!(style_of(" it ").italic);
+        assert!(!style_of(" up").italic);
+        assert!(!style_of("Plain").bold);
     }
 
     #[test]
