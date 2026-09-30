@@ -2528,6 +2528,33 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| lines_command(ctx, |t, _| crate::lines::trim_trailing(t)),
         ),
         cmd(
+            "edit.trimTrailingBlankLines",
+            "Delete Trailing Blank Lines",
+            "Edit",
+            &[],
+            None,
+            |ctx, _| lines_command(ctx, |t, _| crate::lines::trim_trailing_blank_lines(t)),
+        ),
+        cmd(
+            "edit.formatDocument",
+            "Format Document",
+            "Edit",
+            &[],
+            Some("editorMode == org || editorMode == latex"),
+            |ctx, _| {
+                let latex = ctx.doc()?.meta.mode == crate::DocumentMode::Latex;
+                lines_command(ctx, |t, _| {
+                    // As `kalem fmt` does.
+                    let new = if latex {
+                        crate::latex_fmt::format(t, false)
+                    } else {
+                        org_edit::format::format(&org_model::Document::new(org_syntax::parse(t)))
+                    };
+                    crate::lines::replace_differing(t, &new, "Format Document")
+                })
+            },
+        ),
+        cmd(
             "edit.selectWord",
             "Select Word",
             "Edit",
@@ -5924,5 +5951,28 @@ mod tests {
     fn characters_described() {
         assert_eq!(super::describe_char('ç'), "ç  U+00E7  UTF-8 C3 A7");
         assert_eq!(super::describe_char('\n'), "\\n  U+000A  UTF-8 0A");
+    }
+
+    #[test]
+    fn format_document_as_kalem_fmt() {
+        let mut d = doc("* A\n| a |b|\n| ccc | d |\n\n\n", 0);
+        let (reg, mut clip, config) = (
+            CommandRegistry::with_builtins(),
+            Clipboard::default(),
+            crate::settings::Config::default(),
+        );
+        for id in ["edit.formatDocument", "edit.trimTrailingBlankLines"] {
+            let mut ctx = EditorContext {
+                document: Some(&mut d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 9, 30).at(9, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            reg.execute(id, &mut ctx, &serde_json::Value::Null).unwrap();
+        }
+        assert_eq!(d.text().as_str(), "* A\n| a   | b |\n| ccc | d |\n");
     }
 }

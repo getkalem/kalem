@@ -1117,109 +1117,109 @@ reason = "Not yet: the Book inside Kalem; its pages are in the =book= folder"
 doom = "SPC c a"
 keys = "space c a"
 what = "Code actions"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c c"
 keys = "space c c"
 what = "Compile"
-reason = "Planned: T2.7i.10"
+reason = "Not yet: a build command per project (a setting)"
 
 [[key]]
 doom = "SPC c C"
 keys = "space c shift+c"
 what = "Recompile"
-reason = "Planned: T2.7i.10"
+reason = "Not yet: a build command per project (a setting)"
 
 [[key]]
 doom = "SPC c d"
 keys = "space c d"
 what = "Definition"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c D"
 keys = "space c shift+d"
 what = "References"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c e"
 keys = "space c e"
 what = "Evaluate"
-reason = "Planned: T2.7i.10"
+reason = "In a table it recalculates the formulas; source blocks wait for Babel"
 
 [[key]]
 doom = "SPC c f"
 keys = "space c f"
 what = "Format"
-reason = "Planned: T2.7i.10"
+command = "edit.formatDocument"
 
 [[key]]
 doom = "SPC c i"
 keys = "space c i"
 what = "Implementations"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c j"
 keys = "space c j"
 what = "Symbol in the document"
-reason = "Planned: T2.7i.10"
+command = "search.lines"
 
 [[key]]
 doom = "SPC c J"
 keys = "space c shift+j"
 what = "Symbol in the workspace"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c k"
 keys = "space c k"
 what = "Documentation"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c l"
 keys = "space c l"
 what = "Language server commands"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c r"
 keys = "space c r"
 what = "Rename"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c t"
 keys = "space c t"
 what = "Type definition"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the language packs (3.8)"
 
 [[key]]
 doom = "SPC c w"
 keys = "space c w"
 what = "Delete trailing whitespace"
-reason = "Planned: T2.7i.10"
+command = "edit.trimTrailingWhitespace"
 
 [[key]]
 doom = "SPC c W"
 keys = "space c shift+w"
 what = "Delete trailing blank lines"
-reason = "Planned: T2.7i.10"
+command = "edit.trimTrailingBlankLines"
 
 [[key]]
 doom = "SPC c x"
 keys = "space c x"
 what = "Diagnostics"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the checks of =kalem check= in the editor, and the language packs (3.8)"
 
 [[key]]
 doom = "SPC c X"
 keys = "space c shift+x"
 what = "Project diagnostics"
-reason = "Planned: T2.7i.10"
+reason = "Waits for the checks of =kalem check= in the editor, and the language packs (3.8)"
 
 
 # Git =SPC g=.

@@ -97,6 +97,9 @@ follow:
 | =SPC t r=            | Read-only: edits refused, and back          |
 | =SPC t F=, =SPC t Z= | Full screen; full screen and focus mode     |
 | =SPC w v=            | Split view                                  |
+| =SPC c f=            | Format the document, as =kalem fmt= does    |
+| =SPC c w=, =SPC c W= | Delete blanks at line ends; blank lines at the end |
+| =SPC c j=            | Jump to a heading                           |
 | =SPC h k=            | What the next keys run                      |
 | =SPC h b b=          | Every key binding, to find and run one      |
 | =SPC h m=, =SPC h '= | This document's mode; the character         |

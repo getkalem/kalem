@@ -3772,3 +3772,16 @@ fn help_keys() {
     assert!(shown.contains("Save As"), "{shown}");
     t.key(KeyCode::Esc, KeyModifiers::NONE);
 }
+
+/// Doom's `SPC c f` formats the document as `kalem fmt` does (T2.7i.10);
+/// typing `a` and `P` on the way is text, not the projects view.
+#[test]
+fn format_key() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, _dir) = project_app(config);
+    t.typ("jo| a |b|");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.typ(" cf");
+    assert!(t.text().contains("| a | b |"), "{}", t.text());
+}

@@ -138,6 +138,50 @@ pub fn sort(text: &str, sel: Selection, reverse: bool) -> Option<Transaction> {
 }
 
 /// Removes the blanks at the ends of lines; `None` when there are none.
+/// The blank lines at the end of `text` removed, one line break kept
+/// (Doom's `SPC c W`).
+pub fn trim_trailing_blank_lines(text: &str) -> Option<Transaction> {
+    let kept = text.trim_end_matches(['\n', '\r', ' ', '\t']).len();
+    let end = if kept == 0 { 0 } else { kept + 1 };
+    if end >= text.len() {
+        return None;
+    }
+    let mut tx = Transaction::new("Delete Trailing Blank Lines");
+    let at = kept.min(text.len());
+    tx.replace(at..text.len(), if kept == 0 { "" } else { "\n" })
+        .expect("one change");
+    Some(tx)
+}
+
+/// `text` changed into `new` by one replacement of the part that differs,
+/// so the cursor and folds outside it stay (a formatter's result).
+pub fn replace_differing(text: &str, new: &str, label: &str) -> Option<Transaction> {
+    if text == new {
+        return None;
+    }
+    let mut start = text
+        .bytes()
+        .zip(new.bytes())
+        .take_while(|(a, b)| a == b)
+        .count();
+    while !text.is_char_boundary(start) || !new.is_char_boundary(start) {
+        start -= 1;
+    }
+    let mut end = text[start..]
+        .bytes()
+        .rev()
+        .zip(new[start..].bytes().rev())
+        .take_while(|(a, b)| a == b)
+        .count();
+    while !text.is_char_boundary(text.len() - end) || !new.is_char_boundary(new.len() - end) {
+        end -= 1;
+    }
+    let mut tx = Transaction::new(label);
+    tx.replace(start..text.len() - end, &new[start..new.len() - end])
+        .expect("one change");
+    Some(tx)
+}
+
 pub fn trim_trailing(text: &str) -> Option<Transaction> {
     let mut tx = Transaction::new("Trim Trailing Whitespace");
     let mut at = 0;
@@ -432,5 +476,15 @@ mod tests {
         assert_eq!(&o[s.anchor..s.head], "*bold word*");
         let s = expand(o, Some(&root), s).unwrap();
         assert_eq!(&o[s.anchor..s.head], "Some *bold word* here.");
+    }
+
+    #[test]
+    fn trailing_blank_lines_and_differences() {
+        let tx = trim_trailing_blank_lines("a\n\n\n  \n").unwrap();
+        assert_eq!(tx.apply("a\n\n\n  \n"), "a\n");
+        assert!(trim_trailing_blank_lines("a\n").is_none());
+        let tx = replace_differing("| a |b|\nx\n", "| a | b |\nx\n", "Format").unwrap();
+        assert_eq!(tx.apply("| a |b|\nx\n"), "| a | b |\nx\n");
+        assert!(replace_differing("same", "same", "Format").is_none());
     }
 }
