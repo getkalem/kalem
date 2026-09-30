@@ -110,6 +110,12 @@ pub const SPECS: &[Spec] = &[
         description: "Wrap long lines at the window's edge (Alt+Z toggles it for a window)",
     },
     Spec {
+        key: "ui.menu_bar",
+        kind: Kind::Bool,
+        default: "true",
+        description: "Show the window's menu bar on Linux and Windows (macOS has its own)",
+    },
+    Spec {
         key: "editor.trim_trailing_whitespace",
         kind: Kind::Bool,
         default: "false",

@@ -3274,6 +3274,9 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::Palette),
         ),
+        cmd("view.menus", "Menus", "View", &["f10"], None, |ctx, _| {
+            request(ctx, Request::Menus)
+        }),
         cmd("find.open", "Find", "Find", &["ctrl+f"], None, |ctx, _| {
             request(ctx, Request::Find { replace: false })
         }),

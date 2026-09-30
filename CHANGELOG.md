@@ -241,6 +241,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Menus on Linux and Windows: the graphical editor draws its own menu bar there (gpui draws none; `ui.menu_bar = false` hides it). F10 (`view.menus`) lists every menu item in the palette in both editors, the terminal editor's way to its menus. The menus are defined once, in `kalem_core::menus`.
 - Highlighting knows about two hundred languages (bat's syntax definitions added to syntect's): TOML, INI, TypeScript, Kotlin, Swift, Dockerfile, Nix and others are coloured; `.h` files are C, no longer Objective-C.
 - `kalem export` warns when the file it reads as Org is Markdown, CSV or LaTeX. Markdown import reads the file with pandoc's `gfm` reader (CommonMark with GitHub's extensions, as Kalem's Markdown mode) instead of Pandoc's Markdown, and `.gfm` files can be imported.
 - Import Table decodes the file as the editors do and reads a CSV file with another delimiter than comma or tab, or with line breaks in quoted fields, as CSV mode reads it instead of making one column.

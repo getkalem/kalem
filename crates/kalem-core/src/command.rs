@@ -64,6 +64,8 @@ pub enum Request {
     },
     /// Open the command palette.
     Palette,
+    /// List the menus' items to choose from (`palette::menu_items`).
+    Menus,
     /// Open find, or find and replace.
     Find {
         /// With a replacement field.

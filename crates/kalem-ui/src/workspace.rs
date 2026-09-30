@@ -8,7 +8,7 @@ use std::rc::Rc;
 use gpui::{
     App, AppContext, Context, Entity, InteractiveElement, IntoElement, KeyBinding, Menu, MenuItem,
     ParentElement, PathPromptOptions, Render, SharedString, StatefulInteractiveElement, Styled,
-    Subscription, Window, WindowBounds, WindowOptions, div, px, size,
+    Subscription, Window, WindowBounds, WindowOptions, div, prelude::FluentBuilder as _, px, size,
 };
 use kalem_core::command::PickKind;
 use kalem_core::projects::{self, After, Entry};
@@ -69,6 +69,12 @@ pub struct Workspace {
     pub files_shown: bool,
     /// The open menu of the toolbar.
     pub menu: Option<ToolMenu>,
+    /// The open menu of the window's own menu bar (Linux and Windows,
+    /// where gpui draws no menus), by its place in the bar.
+    pub menubar: Option<usize>,
+    /// The menu of the bar a click outside just closed (its title's click
+    /// must not open it again).
+    menubar_closed: Option<(usize, std::time::Instant)>,
     /// The menu a click outside just closed (its button's click must not
     /// open it again).
     menu_closed: Option<(ToolMenu, std::time::Instant)>,
@@ -107,6 +113,8 @@ impl Workspace {
             files_at,
             files_shown: files_at != FilesAt::Hidden,
             menu: None,
+            menubar: None,
+            menubar_closed: None,
             menu_closed: None,
             font_filter: String::new(),
             subscriptions: Vec::new(),
@@ -1281,6 +1289,116 @@ impl Workspace {
     }
 
     /// The open menu of the toolbar: fonts, sizes or colors.
+    /// The window's own menu bar where the system draws none (Linux,
+    /// Windows): the menus of `menus_for`, each opening a list of its
+    /// items with their keys; `ui.menu_bar = false` hides it.
+    fn menu_bar(&self, theme: &Theme, cx: &mut Context<'_, Self>) -> Option<gpui::AnyElement> {
+        if cfg!(target_os = "macos") || !self.shared.config.bool("ui.menu_bar") {
+            return None;
+        }
+        let doc = self.editor.read(cx).doc.document_context();
+        let menus = menus_for(&self.shared.registry, &doc);
+        let hover = gpui::hsla(0., 0., 0.5, 0.15);
+        let mut bar = div()
+            .id("menu-bar")
+            .flex()
+            .flex_row()
+            .px(px(4.))
+            .bg(theme.bar)
+            .border_b_1()
+            .border_color(theme.border)
+            .text_size(px(theme.size * 0.85));
+        for (i, m) in menus.into_iter().enumerate() {
+            let open = self.menubar == Some(i);
+            let name = m.name.to_string();
+            let mut title = div()
+                .id(("menu-title", i))
+                .debug_selector(move || format!("menu-{name}"))
+                .relative()
+                .px(px(8.))
+                .py(px(3.))
+                .cursor_pointer()
+                .hover(move |s| s.bg(hover))
+                .when(open, move |d| d.bg(hover))
+                .child(m.name.to_string())
+                .on_click(cx.listener(move |ws, _, _, cx| {
+                    let just_closed = ws
+                        .menubar_closed
+                        .is_some_and(|(j, t)| j == i && t.elapsed().as_millis() < 300);
+                    ws.menubar = (!just_closed && ws.menubar != Some(i)).then_some(i);
+                    cx.notify();
+                }))
+                .on_hover(cx.listener(move |ws, hovered: &bool, _, cx| {
+                    // With a menu open, pointing at another title opens it.
+                    if *hovered && ws.menubar.is_some_and(|j| j != i) {
+                        ws.menubar = Some(i);
+                        cx.notify();
+                    }
+                }));
+            if open {
+                let mut list = div()
+                    .id("menu-list")
+                    .occlude()
+                    .absolute()
+                    .top(px(theme.size * 0.85 + 10.))
+                    .left(px(0.))
+                    .min_w(px(240.))
+                    .py(px(4.))
+                    .rounded(px(6.))
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.bar)
+                    .on_mouse_down_out(cx.listener(move |ws, _, _, cx| {
+                        ws.menubar_closed = Some((i, std::time::Instant::now()));
+                        ws.menubar = None;
+                        cx.notify();
+                    }));
+                for (n, it) in m.items.into_iter().enumerate() {
+                    match it {
+                        MenuItem::Separator => {
+                            list = list.child(div().h(px(1.)).my(px(3.)).bg(theme.border));
+                        }
+                        MenuItem::Action { name, action, .. } => {
+                            let rc = action.as_any().downcast_ref::<RunCommand>();
+                            let id = rc.map_or(String::new(), |rc| rc.id.to_string());
+                            let keys = rc
+                                .and_then(|rc| {
+                                    self.shared.keymap.keys_for(&rc.id).first().map(|k| {
+                                        crate::panels::show_keys(k, self.shared.swap_primary)
+                                    })
+                                })
+                                .unwrap_or_default();
+                            list = list.child(
+                                div()
+                                    .id(("menu-item", n))
+                                    .debug_selector(move || format!("menu-item-{id}"))
+                                    .flex()
+                                    .flex_row()
+                                    .justify_between()
+                                    .gap(px(24.))
+                                    .px(px(10.))
+                                    .py(px(3.))
+                                    .cursor_pointer()
+                                    .hover(move |s| s.bg(hover))
+                                    .child(name.to_string())
+                                    .child(div().text_color(theme.muted).child(keys))
+                                    .on_click(cx.listener(move |ws, _, window, cx| {
+                                        ws.menubar = None;
+                                        window.dispatch_action(action.boxed_clone(), cx);
+                                        cx.notify();
+                                    })),
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+                title = title.child(gpui::deferred(list).with_priority(1));
+            }
+            bar = bar.child(title);
+        }
+        Some(bar.into_any_element())
+    }
+
     fn menu_view(
         &self,
         theme: &Theme,
@@ -1654,6 +1772,7 @@ impl Render for Workspace {
             .on_action(cx.listener(|ws, _: &AddProjectFolder, _, cx| ws.add_project_folder(cx)))
             .capture_key_down(cx.listener(Self::font_menu_key))
             .relative()
+            .children(self.menu_bar(&theme, cx))
             .child(self.toolbar(&theme, cx))
             .child(
                 div()
@@ -1733,289 +1852,36 @@ pub fn refresh_menus() {
     MENUS_FOR.with(|m| m.borrow_mut().take());
 }
 
-/// Every menu item, with the command of each, in the interface language.
+/// Every menu item, with the command of each, in the interface language
+/// (`kalem_core::menus`).
 pub fn menus() -> Vec<Menu> {
-    use kalem_core::l10n::{command_key, tr};
-    // An item titled like its command, or with its own label.
-    let item = |id: &'static str| MenuItem::action(tr(&command_key(id)), RunCommand::new(id));
-    let named = |label: String, id: &'static str| MenuItem::action(label, RunCommand::new(id));
-    let with = |label: String, id: &'static str, args: serde_json::Value| {
-        MenuItem::action(label, RunCommand::with(id, args))
-    };
-    let heading = |level: u8| {
-        with(
-            kalem_core::tr!("menu-heading", level = level.to_string()),
-            "org.headline.setLevel",
-            json!({ "level": level }),
-        )
-    };
-    let section = |level: u8| {
-        with(
-            kalem_core::tr!("menu-heading", level = level.to_string()),
-            "latex.section.setLevel",
-            json!({ "level": level }),
-        )
-    };
-    vec![
-        Menu {
-            name: "Kalem".into(),
+    use kalem_core::menus::MenuEntry;
+    kalem_core::menus::menus()
+        .into_iter()
+        .map(|m| Menu {
+            name: m.name.into(),
             disabled: false,
-            items: vec![
-                named(tr("menu-settings"), "app.settings"),
-                MenuItem::separator(),
-                named(tr("menu-quit"), "app.quit"),
-            ],
-        },
-        Menu {
-            name: tr("menu-file").into(),
-            disabled: false,
-            items: vec![
-                item("file.new"),
-                MenuItem::action(tr("menu-open"), OpenFile),
-                item("file.recent"),
-                MenuItem::separator(),
-                named(tr("menu-file-manager"), "dired.jump"),
-                MenuItem::separator(),
-                item("export.dialog"),
-                item("export.html"),
-                item("export.markdown"),
-                item("export.gfm"),
-                item("export.htmlSubtree"),
-                item("export.markdownSubtree"),
-                // LaTeX: the PDF, and the project through pandoc.
-                item("latex.build"),
-                item("latex.cancelBuild"),
-                item("latex.export.html"),
-                item("latex.export.markdown"),
-                item("latex.export.docx"),
-                item("latex.convertToOrg"),
-                // CSV.
-                item("csv.copyAsTsv"),
-                item("csv.convertToOrg"),
-                item("csv.openAsText"),
-                MenuItem::separator(),
-                item("app.save"),
-                named(tr("menu-save-as"), "app.saveAs"),
-                item("app.revert"),
-                item("file.reopenWithEncoding"),
-                item("file.saveWithEncoding"),
-                MenuItem::separator(),
-                item("file.close"),
-            ],
-        },
-        Menu {
-            name: tr("menu-project").into(),
-            disabled: false,
-            items: vec![
-                item("project.switch"),
-                item("project.findFile"),
-                item("project.search"),
-                item("project.recentFiles"),
-                MenuItem::separator(),
-                named(tr("menu-projects-view"), "dired.projects"),
-                item("dired.projectRoot"),
-                MenuItem::separator(),
-                item("project.add"),
-                MenuItem::action(tr("menu-add-project-folder"), AddProjectFolder),
-                item("project.remove"),
-                item("project.rename"),
-            ],
-        },
-        Menu {
-            name: tr("menu-edit").into(),
-            disabled: false,
-            items: vec![
-                item("edit.undo"),
-                item("edit.redo"),
-                MenuItem::separator(),
-                item("edit.cut"),
-                item("edit.copy"),
-                item("edit.copyRichText"),
-                item("edit.copyHtml"),
-                item("edit.paste"),
-                item("edit.pastePlain"),
-                item("edit.selectAll"),
-                MenuItem::separator(),
-                // Code and plain text.
-                item("edit.toggleComment"),
-                item("edit.gotoBracket"),
-                item("lines.moveUp"),
-                item("lines.moveDown"),
-                item("lines.duplicate"),
-                item("lines.join"),
-                item("lines.sort"),
-                item("edit.trimTrailingWhitespace"),
-                // LaTeX's diagnostics.
-                item("latex.fix"),
-                item("latex.problems"),
-                item("latex.nextProblem"),
-                item("latex.previousProblem"),
-                MenuItem::separator(),
-                item("find.open"),
-                item("find.replace"),
-            ],
-        },
-        Menu {
-            name: tr("menu-format").into(),
-            disabled: false,
-            items: vec![
-                item("org.emphasis.bold"),
-                item("org.emphasis.italic"),
-                item("org.emphasis.underline"),
-                item("org.emphasis.strikeThrough"),
-                item("org.emphasis.code"),
-                MenuItem::separator(),
-                heading(1),
-                heading(2),
-                heading(3),
-                with(
-                    tr("menu-body-text"),
-                    "org.headline.setLevel",
-                    json!({"level": 0}),
-                ),
-                MenuItem::separator(),
-                item("org.todo.cycle"),
-                named(tr("menu-schedule"), "org.schedule"),
-                named(tr("menu-deadline"), "org.deadline"),
-                named(tr("menu-properties"), "org.property.edit"),
-                named(tr("menu-refile"), "org.refile"),
-                named(tr("menu-archive-sibling"), "org.archive.sibling"),
-                named(tr("menu-archive-tag"), "org.archive.toggleTag"),
-                item("list.toggleCheckbox"),
-                MenuItem::separator(),
-                // LaTeX.
-                item("latex.format.bold"),
-                item("latex.format.italic"),
-                item("latex.format.underline"),
-                item("latex.format.code"),
-                MenuItem::separator(),
-                section(1),
-                section(2),
-                section(3),
-                with(
-                    tr("menu-body-text"),
-                    "latex.section.setLevel",
-                    json!({"level": 0}),
-                ),
-                MenuItem::separator(),
-                item("latex.section.promote"),
-                item("latex.section.demote"),
-                item("latex.section.moveUp"),
-                item("latex.section.moveDown"),
-                MenuItem::separator(),
-                item("latex.math.toggleDisplay"),
-                item("latex.math.toggleNumbering"),
-            ],
-        },
-        Menu {
-            name: tr("menu-insert").into(),
-            disabled: false,
-            items: vec![
-                named(tr("menu-link"), "org.insert.link"),
-                named(tr("menu-citation"), "org.cite.insert"),
-                named(tr("menu-footnote"), "org.footnote.new"),
-                named(tr("menu-drawer"), "org.insert.drawer"),
-                named(tr("menu-reference"), "org.insert.reference"),
-                named(tr("menu-caption"), "org.caption.set"),
-                named(tr("menu-name"), "org.name.set"),
-                with(
-                    tr("menu-table"),
-                    "table.create",
-                    json!({"columns": 3, "rows": 2}),
-                ),
-                named(tr("menu-timestamp"), "org.insert.timestamp"),
-                named(tr("menu-date"), "org.insert.date"),
-                with(
-                    tr("menu-source-block"),
-                    "org.insert.block",
-                    json!({"type": "src"}),
-                ),
-                named(tr("menu-horizontal-rule"), "org.insert.horizontalRule"),
-                // LaTeX.
-                named(tr("menu-citation"), "latex.insert.citation"),
-                item("latex.insert.equation"),
-                item("latex.insert.figure"),
-                with(
-                    tr("menu-table"),
-                    "latex.insert.table",
-                    json!({"columns": 3, "rows": 2}),
-                ),
-            ],
-        },
-        Menu {
-            // CSV files: rows and columns.
-            name: tr("menu-table").into(),
-            disabled: false,
-            items: vec![
-                item("csv.insertRow"),
-                item("csv.deleteRow"),
-                item("csv.moveRowUp"),
-                item("csv.moveRowDown"),
-                MenuItem::separator(),
-                item("csv.insertColumn"),
-                item("csv.deleteColumn"),
-                item("csv.moveColumnLeft"),
-                item("csv.moveColumnRight"),
-                MenuItem::separator(),
-                item("csv.filter"),
-                item("csv.clearFilter"),
-                item("csv.sortView"),
-                item("csv.unsortView"),
-                item("csv.sortFile"),
-            ],
-        },
-        Menu {
-            // BibTeX files: the entries as a grid.
-            name: tr("menu-bibtex").into(),
-            disabled: false,
-            items: vec![
-                item("bib.newEntry"),
-                item("bib.setField"),
-                MenuItem::separator(),
-                with(
-                    tr("menu-sort-author"),
-                    "bib.sortView",
-                    json!({"column": "author"}),
-                ),
-                with(
-                    tr("menu-sort-year"),
-                    "bib.sortView",
-                    json!({"column": "year"}),
-                ),
-                with(
-                    tr("menu-sort-title"),
-                    "bib.sortView",
-                    json!({"column": "title"}),
-                ),
-                with(
-                    tr("menu-sort-key"),
-                    "bib.sortView",
-                    json!({"column": "key"}),
-                ),
-                item("bib.unsortView"),
-            ],
-        },
-        Menu {
-            name: tr("menu-view").into(),
-            disabled: false,
-            items: vec![
-                item("view.fold"),
-                item("view.foldAll"),
-                named(tr("menu-source-view"), "view.toggleSource"),
-                item("view.split"),
-                MenuItem::separator(),
-                item("view.openFiles"),
-                item("file.switch"),
-                item("file.next"),
-                item("file.previous"),
-                MenuItem::separator(),
-                item("view.outline"),
-                item("stats.chapters"),
-                item("edit.gotoLine"),
-                item("view.palette"),
-            ],
-        },
-    ]
+            items: m
+                .entries
+                .into_iter()
+                .map(|e| match e {
+                    MenuEntry::Separator => MenuItem::separator(),
+                    MenuEntry::Command {
+                        label,
+                        id,
+                        args: None,
+                    } => MenuItem::action(label, RunCommand::new(id)),
+                    MenuEntry::Command {
+                        label,
+                        id,
+                        args: Some(args),
+                    } => MenuItem::action(label, RunCommand::with(id, args)),
+                    MenuEntry::Open(label) => MenuItem::action(label, OpenFile),
+                    MenuEntry::AddProjectFolder(label) => MenuItem::action(label, AddProjectFolder),
+                })
+                .collect(),
+        })
+        .collect()
 }
 
 gpui::actions!(kalem, [OpenFile]);
