@@ -84,10 +84,29 @@ fn table_at(
         })
         .ok_or_else(|| EditError::new("Not at a table"))?;
     let rows = rows_of(&table).ok_or_else(|| EditError::new("Not at a table"))?;
-    let formulas = tblfm::active_line(&text[rows.end..])
-        .map(|(_, v)| v.to_string())
-        .unwrap_or_default();
+    // On a later `#+TBLFM` line, that line's formulas
+    // (`org-table-calc-current-TBLFM`); else the first line's.
+    let formulas = tblfm_line_at(&text, rows.end, point)
+        .or_else(|| tblfm::active_line(&text[rows.end..]).map(|(_, v)| v))
+        .unwrap_or_default()
+        .to_string();
     Ok((table, rows, formulas))
+}
+
+/// The value of the `#+TBLFM` line holding `point`, when it is one of
+/// the lines after a table's rows (ending at `rows_end`).
+fn tblfm_line_at(text: &str, rows_end: usize, point: usize) -> Option<&str> {
+    if point < rows_end {
+        return None;
+    }
+    let bol = text[..point.min(text.len())]
+        .rfind('\n')
+        .map_or(0, |i| i + 1);
+    let eol = text[bol..].find('\n').map_or(text.len(), |i| bol + i);
+    let body = text[bol..eol].trim_start_matches([' ', '\t']);
+    let key = body.get(..8)?;
+    key.eq_ignore_ascii_case("#+tblfm:")
+        .then(|| body[8..].trim_start_matches(' '))
 }
 
 /// The table's lines with new fields, indented like its first line; the
@@ -514,6 +533,17 @@ mod tests {
             .unwrap()
             .transaction
             .apply(t)
+    }
+
+    #[test]
+    fn a_later_tblfm_line_applies_its_formulas() {
+        let t = "| 1 |   |\n| 2 |   |\n#+TBLFM: $2=$1+1\n#+TBLFM: $2=$1*10\n";
+        let tail = "#+TBLFM: $2=$1+1\n#+TBLFM: $2=$1*10\n";
+        assert_eq!(
+            run(t, t.rfind("#+TBLFM").unwrap() + 2),
+            format!("| 1 | 10 |\n| 2 | 20 |\n{tail}")
+        );
+        assert_eq!(run(t, 2), format!("| 1 | 2 |\n| 2 | 3 |\n{tail}"));
     }
 
     #[test]
