@@ -6,7 +6,7 @@ button, makes the search a regular expression; the replacement can use
 
 Ctrl+Shift+P (or F1) opens the command palette: every command that
 applies, by its title, with its category and keys. Type part of a title
-to find it; a command's ID, with spaces for its dots (=org todo cycle=),
+to find it; a command's ID (=org.todo.cycle=, or =org todo cycle=)
 finds it too, and =kalem commands= lists the IDs. Commands that need
 something, such as a heading level, ask for it. In a terminal the
 palette is Ctrl+G, and the status line says so.
