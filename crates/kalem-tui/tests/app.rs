@@ -3681,3 +3681,27 @@ fn live_line_search() {
     assert!(shown.contains("* B"), "{shown}");
     t.key(KeyCode::Esc, KeyModifiers::NONE);
 }
+
+/// Doom's `SPC t r`: the document refuses edits, the cursor still moves
+/// (T2.7i.6).
+#[test]
+fn read_only_toggle() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, _dir) = project_app(config);
+    let before = t.text();
+    t.typ(" tr");
+    t.typ("ixyz");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.typ("j");
+    assert_eq!(t.text(), before);
+    assert_eq!(t.app.doc.text().line_of(t.app.doc.selection.head), 1);
+    t.typ(" tr");
+    t.typ("ixyz");
+    // The first Escape may close a completion list.
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert_ne!(t.text(), before);
+    // Full screen is the terminal's.
+    t.typ(" tF");
+    assert!(status(&mut t).contains("terminal"), "{}", status(&mut t));
+}

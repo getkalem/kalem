@@ -88,6 +88,8 @@ pub enum Request {
     Settings,
     /// Show only the section holding the cursor, or everything again.
     Focus,
+    /// The window full screen, or back.
+    FullScreen,
     /// The document's mode changed: views start again.
     ModeChanged,
     /// Wrap long lines, or not.

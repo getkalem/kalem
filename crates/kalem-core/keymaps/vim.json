@@ -77,6 +77,12 @@
   { "keys": "leader t w", "command": "view.toggleWrap", "when": "vimCommand" },
   { "keys": "leader t z", "command": "view.focus", "when": "vimCommand" },
   { "keys": "leader t m", "command": "view.toggleMath", "when": "vimCommand" },
+  { "keys": "leader t l", "command": "view.toggleLineNumbers", "when": "vimCommand" },
+  { "keys": "leader t v", "command": "view.toggleSourceMarkers", "when": "vimCommand" },
+  { "keys": "leader t b", "command": "view.bigText", "when": "vimCommand" },
+  { "keys": "leader t r", "command": "view.toggleReadOnly", "when": "vimCommand" },
+  { "keys": "leader t shift+f", "command": "view.fullScreen", "when": "vimCommand" },
+  { "keys": "leader t shift+z", "command": "view.zen", "when": "vimCommand" },
   { "keys": "leader w v", "command": "view.split", "when": "vimCommand" },
   { "keys": "leader q q", "command": "app.quit", "when": "vimCommand" },
   // The file manager: `-` (vim-vinegar, Doom) and Doom's `SPC o -` open it
