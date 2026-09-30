@@ -13,8 +13,11 @@
 //!    elements before the edit (the end line of a block or drawer, a
 //!    `\end{...}`, a footnote definition), the whole section is parsed again.
 //! 3. **Document.** When the edit changes the headline structure, the
-//!    in-buffer settings or radio targets, or the text has CRLF line
-//!    endings, everything is parsed again.
+//!    in-buffer settings or radio targets, everything is parsed again.
+//!
+//! A document with CRLF line endings or a byte order mark is reparsed
+//! the same way, in the coordinates of its normalized text
+//! (`try_crlf`).
 
 use rowan::{GreenNode, NodeOrToken, TextRange, TextSize};
 

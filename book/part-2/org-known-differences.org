@@ -1,9 +1,13 @@
 #+TITLE: Known differences from Emacs Org
 
 Kalem's parser follows ~org-element.el~ (Org 9.7) and is checked against it
-with ~kalem diff-emacs~ on the test corpus and on randomly mutated files. This
-page lists the places where Kalem deliberately behaves differently. Each
-difference only occurs with malformed input.
+with ~kalem diff-emacs~ on the test corpus and on randomly mutated files; its
+commands and exporters are checked the same way against Emacs's. This page
+lists the places where Kalem deliberately behaves differently. The parser's
+differences occur only with malformed input or input Emacs cannot parse;
+the others are listed with their reasons: Emacs Lisp that Kalem does not
+run, files and networks it does not reach, and choices an editor makes
+differently from a batch tool.
 
 * Elements never extend past their container
 
@@ -133,6 +137,7 @@ Footnotes (=org-footnote.el=, 14 of the random cases in =tests/edit=):
   another one when there are several, and then extracts text past the
   end of the buffer (/Args out of range/); Kalem takes the nested
   footnote itself.
+
 * Table formulas
 
 Kalem computes =#+TBLFM= formulas without Emacs: it reproduces Org's
@@ -178,6 +183,22 @@ Kalem follows them for compatibility:
   headline line, even inside a link in the title.
 - ~org-entry-get~ and ~org-entry-properties~ disagree on duplicate drawer
   keys: the first returns the last value, the second the first.
+
+* Export without Emacs Lisp or the network
+
+- Macros defined as =(eval ...)= run Emacs Lisp in Emacs; Kalem expands
+  them to nothing.
+- =#+SETUPFILE:= files are read to eight levels of nesting (Emacs follows
+  them until a file repeats); a =#+SETUPFILE:= that is a URL is not
+  fetched.
+- =remote(NAME, REF)= in table formulas finds a table by its =#+NAME=
+  in the same document, not by an entry's =ID= or in another file.
+- HTML pages carry Kalem's style sheet instead of
+  =org-html-style-default=, and name Kalem as their generator; the
+  MathJax configuration is Emacs's.
+- With =tex:svg= (and the image types =dvisvgm=, =dvipng= and
+  =imagemagick=), formulas are drawn by the editor's math engine as inline
+  SVG; Emacs runs LaTeX and writes image files.
 
 * Broken links on export
 
