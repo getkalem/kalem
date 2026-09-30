@@ -18,8 +18,11 @@ Two branches from `278cc55`, one changing the first paragraph of the letter and 
 
 Beside each sample are its model (`.json`) and a plain HTML (`.html`),
 written by the parser spike of T2.13.2 (`spikes/klm-parser`); the samples
-are in canonical form, so they are their own canonical files. The RFC's
-examples are in `../rfc/`, one file per example named by its line in the
-RFC, each with its model, its canonical form and its HTML. When
+are in canonical form, so they are their own canonical files. The
+examples of Part III of the Book are in `../spec/`, one file per example
+named by its chapter, each with its model, its canonical form and its
+HTML (`klm-parser-spike examples ../../tests/klm-spec/spec
+../../book/part-3/*.org` writes them; `kalem book check` fails on an
+example that has no file here). When
 `klm-syntax` lands (T2.13.3), it is tested against these files, and the
 HTML files are replaced by `klm-export`'s.

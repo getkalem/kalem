@@ -1,4 +1,5 @@
-//! `klm-parser-spike parse|fmt|html|check FILE`, `examples RFC OUTDIR`.
+//! `klm-parser-spike parse|fmt|html|check FILE`, `examples OUTDIR
+//! CHAPTER.org…` (the suite's files from Part III's examples).
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
@@ -41,10 +42,27 @@ fn main() -> std::process::ExitCode {
                 return std::process::ExitCode::FAILURE;
             }
         }
-        ["examples", rfc, out] => {
+        ["examples", out, sources @ ..] => {
+            let _ = std::fs::remove_dir_all(out);
             std::fs::create_dir_all(out).unwrap();
-            for (line, src) in klm::examples(&read(rfc)) {
-                let name = format!("{out}/rfc-{line:04}");
+            let mut all = Vec::new();
+            for f in sources {
+                let stem = std::path::Path::new(f)
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned();
+                let found = if f.ends_with(".org") {
+                    klm::org_examples(&read(f))
+                } else {
+                    klm::examples(&read(f))
+                };
+                for (i, (_, src)) in found.into_iter().enumerate() {
+                    all.push((format!("{stem}-{}", i + 1), src));
+                }
+            }
+            for (base, src) in all {
+                let name = format!("{out}/{base}");
                 let doc = klm::parse(&src);
                 std::fs::write(format!("{name}.klm"), &src).unwrap();
                 std::fs::write(
@@ -57,7 +75,9 @@ fn main() -> std::process::ExitCode {
             }
         }
         _ => {
-            eprintln!("usage: klm-parser-spike parse|fmt|html|check FILE… | examples RFC OUTDIR");
+            eprintln!(
+                "usage: klm-parser-spike parse|fmt|html|check FILE… | examples OUTDIR CHAPTER.org…"
+            );
             return std::process::ExitCode::from(2);
         }
     }

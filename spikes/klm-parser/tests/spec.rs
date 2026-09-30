@@ -2,11 +2,31 @@
 //! samples parse, format idempotently and keep their model; each recovery
 //! rule of §15 and each known ambiguity has a case.
 
-use klm_parser_spike::{Body, Inline, Node, examples, fmt, model, parse};
+use klm_parser_spike::{Body, Inline, Node, examples, fmt, model, org_examples, parse};
 use serde_json::json;
 
 fn root() -> std::path::PathBuf {
     std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+}
+
+/// Every example of Part III of the Book (the specification since
+/// T2.10.9), by chapter.
+fn part3() -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let dir = root().join("book/part-3");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "org"))
+        .collect();
+    files.sort();
+    for f in files {
+        let text = std::fs::read_to_string(&f).unwrap();
+        for (line, src) in org_examples(&text) {
+            out.push((format!("{}:{line}", f.display()), src));
+        }
+    }
+    out
 }
 
 fn inputs() -> Vec<(String, String)> {
@@ -15,6 +35,7 @@ fn inputs() -> Vec<(String, String)> {
         .into_iter()
         .map(|(line, src)| (format!("RFC line {line}"), src))
         .collect();
+    out.extend(part3());
     for name in ["mektup", "makale", "gorevler"] {
         let p = root().join(format!("tests/klm-spec/samples/{name}.klm"));
         out.push((name.to_string(), std::fs::read_to_string(p).unwrap()));
@@ -52,8 +73,7 @@ fn samples_are_well_formed_and_canonical() {
 
 #[test]
 fn examples_are_canonical() {
-    let rfc = std::fs::read_to_string(root().join("rfcs/0003-kalem-format.md")).unwrap();
-    for (line, src) in examples(&rfc) {
+    for (line, src) in part3() {
         // The first example is the syntax's shape, not a document.
         if src.starts_with("\\name") {
             continue;

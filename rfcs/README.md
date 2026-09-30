@@ -23,7 +23,7 @@ Large or hard-to-reverse changes to Kalem go through a short written proposal, a
 |---|---|---|
 | 0001 | [Kalem design document](../design_document.md) | Accepted, living document |
 | 0002 | [Standard modes, the Kalem format, and the Book](../design_doc2.md) | Accepted (owner, 2026-09-30) |
-| 0003 | [The Kalem format (`.klm`), specification](0003-kalem-format.md) | Accepted as the working specification, draft 0.2, evolving |
+| 0003 | [The Kalem format (`.klm`), specification](0003-kalem-format.md) | Accepted, draft 0.2; frozen as the design record, the specification is Part III of the Book |
 
 ## Template
 

@@ -1,0 +1,82 @@
+A stylesheet is a TOML file. It never contains text or computation: only properties. A document names one in ~\meta[style=…]~; the editor ships built-in ones (=article=, =report=, =book=, =letter=, =thesis=, =notes=, =slides=); a template is a stylesheet plus a =\meta= skeleton.
+
+#+begin_src toml
+[document]
+font = "Source Serif 4"
+size = "11pt"
+leading = 1.35
+lang = "tr"
+hyphenate = true
+justify = true
+widows = 2
+orphans = 2
+
+[typography]
+ligatures = true
+kerning = true
+oldstyle-figures = false
+protrusion = true          # optical margin alignment
+small-caps = "opentype"    # or "synthetic"
+
+[page]
+size = "a4"                # or "148mm x 210mm"
+margins = { top = "25mm", bottom = "25mm", inner = "30mm", outer = "20mm" }
+columns = 1
+numbering = "1"            # "i" for front matter, set per \pagesetup
+first-page-header = false
+
+[page.header]
+left = "{h1}"
+right = "{page}"
+rule = true
+
+[page.footer]
+center = ""
+
+[style.h1]
+size = "20pt"
+weight = "bold"
+space-before = "24pt"
+space-after = "12pt"
+keep-with-next = true
+numbering = "1"            # "1.1" for h2 comes from [numbering]
+page-break-before = false
+
+[style.quote]
+indent = "1em"
+italic = true
+
+[style.warning]            # a \span or \block kind
+color = "#a40000"
+
+[block.theorem]
+counter = "theorem"        # shared: lemma, corollary use the same counter
+label = "Theorem {n}"
+italic-body = true
+
+[numbering]
+sections = "1.1.1"
+figures = "per-chapter"    # "Figure 2.3"
+equations = "(1)"
+
+[lists]
+bullets = ["•", "–", "·"]
+ordered = ["1.", "a.", "i."]
+
+[footnotes]
+placement = "page"         # or "end", "margin"
+numbering = "per-page"
+
+[toc]
+depth = 2
+leaders = "dots"
+
+[lang.tr]
+quotes = ["“", "”", "‘", "’"]
+hyphenation = "tr"
+
+[fonts]
+"Source Serif 4" = { file = "fonts/SourceSerif4-*.otf" }
+#+end_src
+
+Rules: properties only, no selectors beyond element and style names, no inheritance chains other than style → element → document; unknown keys are warnings; every property has a defined mapping to Typst, LaTeX, CSS and DOCX or is documented as unsupported for that target. Variables for fields: ~[vars] company = "Kalem"~ gives ={company}= and =\var[company]=.

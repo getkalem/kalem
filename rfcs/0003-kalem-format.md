@@ -1,6 +1,6 @@
-# RFC 0003: The Kalem Format (`.klm`), specification draft 0.1
+# RFC 0003: The Kalem Format (`.klm`), specification draft 0.2
 
-- Status: **Accepted as the working specification** (owner, 2026-09-30), draft 0.2, evolving with the conformance suite: a syntax change goes through this document and the format's changelog, never through code alone. Written from the owner's decisions of 2026-09-30 (design_doc2.md, and the discussion that followed) and from a survey of the formats used for writing and typesetting (section 2); revised after the first experiment (appendix A).
+- Status: **Accepted as the working specification** (owner, 2026-09-30), draft 0.2. **Frozen as the design record** (T2.10.9): sections 3 to 19 moved to Part III of the Book (`book/part-3/`), which is the specification from now on; a syntax change goes through Part III, its changelog and the conformance suite `tests/klm-spec/`, never through this document or code alone. What stays here is the reasoning: the survey (2), the alternatives (20), the open questions (21) and the experiments (appendices A and B). Written from the owner's decisions of 2026-09-30 (design_doc2.md, and the discussion that followed) and from a survey of the formats used for writing and typesetting (section 2); revised after the first experiment (appendix A).
 - Design document sections affected: 2.6, 3.7, 4.2, 9, 10, 11.0, 11.2, 18.2, 20, 21 (D21, D24, D29)
 - Decision IDs affected: D24 (superseded), D31 to D46 (closed here as drafts), D47 to D52 (new)
 

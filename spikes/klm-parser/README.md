@@ -12,7 +12,7 @@ cargo run -- parse FILE.klm          # the model as JSON
 cargo run -- fmt FILE.klm            # the canonical form
 cargo run -- html FILE.klm           # plain HTML
 cargo run -- check FILE.klm…         # recoveries, and whether it is canonical
-cargo run -- examples ../../rfcs/0003-kalem-format.md ../../tests/klm-spec/rfc
+cargo run -- examples ../../tests/klm-spec/spec ../../book/part-3/*.org
 cargo test                           # the RFC's examples, the samples, §15, ambiguities
 ```
 

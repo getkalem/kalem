@@ -15,8 +15,9 @@ This book is the one reference for Kalem. It has five parts:
 - *Part II, the standard formats*, says exactly what Kalem does with each
   format it opens, which parts it renders, edits and exports, and against
   which reference implementation (the /oracle/) that is tested.
-- *Part III, the Kalem format*, will hold the specification of Kalem's
-  own document format. It is being designed.
+- *Part III, the Kalem format*, is the specification of Kalem's own
+  document format, =.klm=: its syntax, structure, stylesheets, canonical
+  form, grammar and conformance.
 - *Part IV, extending Kalem*, covers commands, keys, completers and the
   plugin model.
 - *Part V, design*, gathers the design documents, the decision records,
@@ -62,7 +63,25 @@ turns it into this site.
 - [[file:part-2/plain-text.org][Plain text and code]]
 
 * Part III. The Kalem format
-- [[file:part-3/status.org][Status of the specification]]
+- [[file:part-3/status.org][Status]]
+- [[file:part-3/principles.org][3. Principles the syntax follows]]
+- [[file:part-3/syntax.org][4. The one syntax]]
+- [[file:part-3/document-structure.org][5. Document structure]]
+- [[file:part-3/text.org][6. Text]]
+- [[file:part-3/outline-tasks-lists.org][7. Structure: headings, tasks, lists]]
+- [[file:part-3/mathematics.org][8. Mathematics]]
+- [[file:part-3/figures-tables-code-blocks.org][9. Figures, tables, code, blocks]]
+- [[file:part-3/references-citations-notes.org][10. References, citations, notes]]
+- [[file:part-3/layout-and-pages.org][11. Layout and pages]]
+- [[file:part-3/review.org][12. Review: comments and tracked changes]]
+- [[file:part-3/stylesheets.org][13. Stylesheets]]
+- [[file:part-3/canonical-serialization.org][14. Canonical serialization]]
+- [[file:part-3/well-formedness-and-recovery.org][15. Well-formedness, error recovery, the editor's guarantee]]
+- [[file:part-3/grammar.org][16. Grammar]]
+- [[file:part-3/rendering-and-export.org][17. Rendering and export]]
+- [[file:part-3/conversion.org][18. Conversion from and to other formats]]
+- [[file:part-3/conformance-versioning-security.org][19. Conformance, versioning, security]]
+- [[file:part-3/changelog.org][Changelog of the format]]
 
 * Part IV. Extending Kalem
 - [[file:part-4/overview.org][The extension model]]

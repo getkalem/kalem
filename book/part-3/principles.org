@@ -1,0 +1,11 @@
+From design_doc2.md section 5, sharpened by the owner's decisions:
+
+1. *One explicit syntax for everything.* No lightweight markers for headings, lists or emphasis: the editor writes the file, so typing cost does not count, and one mechanism keeps the grammar and the tooling small. The single exception is inline mathematics (8), because its notation is LaTeX's own and =$= belongs to that notation.
+2. *The editor guarantees well-formedness.* Every command is inserted with its closing brace; the cursor never enters a delimiter; every edit is a tree operation; the document is well-formed after every transaction, checked in debug builds and by property tests (15).
+3. *Canonical serialization.* One content, one byte sequence (14). A word changed is one line changed.
+4. *Ranges, never text.* The parser returns ranges into the file; the model is derived; unknown commands stay visible (15).
+5. *Structure by lines.* Block commands start at the start of a line and close on their own line, so blocks reparse alone and an unclosed block cannot swallow the file (15).
+6. *Semantics in the text, appearance in the stylesheet* (13). Direct formatting is possible and discouraged.
+7. *Mathematics is LaTeX's*, unchanged, in the file and on the clipboard (8).
+8. *Everything Org means is expressible* (7, 9, 10, 18).
+9. *Small, versioned core; extensions by declared commands and namespaced attributes* (19).
