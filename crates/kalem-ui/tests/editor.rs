@@ -2641,6 +2641,28 @@ fn csv_malformed_field_in_the_status_bar(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn import_table_reads_csv_as_csv_mode(cx: &mut TestAppContext) {
+    let (e, cx) = open_named("Text\n", "i.org", || None, cx);
+    let dir = e.read_with(cx, |e, _| e.doc.meta.path.clone().unwrap());
+    let dir = dir.parent().unwrap();
+    std::fs::write(dir.join("tr.csv"), "ad;not\nAyşe;\"iki\nsatır\"\n").unwrap();
+    at(&e, 4, cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "table.import",
+            serde_json::json!({ "file": "tr.csv" }),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    assert_eq!(
+        text_of(&e, cx),
+        "Text\n| ad   | not       |\n|------+-----------|\n| Ayşe | iki satır |\n\n"
+    );
+}
+
+#[gpui::test]
 fn enter_in_csv_keeps_no_indentation(cx: &mut TestAppContext) {
     // Leading tabs are empty fields: Enter does not copy them.
     let text = "\ta\tb\n";

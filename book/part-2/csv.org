@@ -550,7 +550,9 @@ c,100           | a    |   9 |
 
 The other direction, and CSV import into an existing Org document, are
 Org's table commands (/Import Table/, /Export Table/), described with
-Org tables.
+Org tables in the Org chapter. /Import Table/ reads a CSV file as this
+chapter does when Emacs's reader would misread it (a delimiter other
+than comma or tab, a line break inside quotes).
 
 * Column statistics
 

@@ -240,6 +240,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Import Table decodes the file as the editors do and reads a CSV file with another delimiter than comma or tab, or with line breaks in quoted fields, as CSV mode reads it instead of making one column.
 - Emacs file variables: a `-*-` line on the second line after `#!`, a `Local Variables:` block's `mode:` (which beats the file name, as in Emacs) and `coding:` in either are read; a tab-separated `.txt` file (Excel's "Unicode Text") opens as CSV.
 - CSV: blank lines are not data: Sort File and Sort View keep them after the other rows, Filter Rows neither counts nor matches them, and Insert Column leaves them blank. Sort File and Filter Rows keep and skip an Excel `sep=` line.
 - CSV: a quote that is never closed, text after a closing quote and a quote inside an unquoted value are reported in the status bar at the record and by `kalem check` (which no longer checks a CSV file as Org); a quoted field's value ends at the first undoubled quote, as the scanner reads it.

@@ -673,6 +673,21 @@ honored, widths measured as Emacs measures display width, with the
 hidden parts of bracket links left out. A tab in a field counts as one
 column (a listed difference).
 
+/Import Table/ (=table.import=, =file=) is =org-table-import=: the file,
+decoded as the editors decode files (a byte order mark, a legacy
+encoding), is inserted at the cursor on a line of its own and made a
+table as =org-table-convert-region= does with its separator guessed:
+tabs when every non-empty line has one, else commas when every one has
+one (quoted fields with doubled quotes), else runs of blanks. One
+addition: a file
+that opens as CSV and that this reader would misread, because its
+delimiter is neither a comma nor a tab (=;=, =|=) or a quoted field
+holds a line break, is read as CSV mode reads it (see the CSV chapter)
+and converted as /Convert to Org Table/ converts it: a rule under a
+detected header, line breaks in values as spaces. /Export Table/
+(=table.export=, =file=) is =org-table-export=: CSV for a =.csv= name,
+TSV otherwise.
+
 ** =#+TBLFM=
 
 The table engine (crate =org-table=) evaluates formulas as Emacs does:
