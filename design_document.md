@@ -390,7 +390,7 @@ The following keywords are read in a pre-pass and affect parsing, display or exp
 |---|---|
 | `#+TODO`, `#+SEQ_TODO`, `#+TYP_TODO` | TODO keywords in headlines; multiple sequences; `(t@/!)` logging markers |
 | `#+TAGS` | Tag completion, mutually exclusive groups `{ }` |
-| `#+STARTUP` | overview/content/showall, indent, hidestars, logdone, folding behavior, etc. |
+| `#+STARTUP` | Folding (overview, content, showall, showeverything), indent, odd levels, logging (logdone, logrepeat, logreschedule, logredeadline, logrefile, logdrawer, logstatesreversed), footnotes (fninline, fnlocal, fnauto, fnprompt, fnconfirm, fnanon, fnadjust); display-only values such as hidestars are ignored |
 | `#+PROPERTY` | Document-wide properties and inheritance |
 | `#+PRIORITIES` | Priority range |
 | `#+FILETAGS` | File tags |
@@ -647,7 +647,7 @@ Some building blocks Kalem needs do not exist in the Rust ecosystem, or exist on
 
 - **rowan** GreenNode and SyntaxNode. The `SyntaxKind` enum contains both token kinds (WHITESPACE, NEWLINE, STAR, TEXT, ...) and node kinds (DOCUMENT, SECTION, HEADLINE, PARAGRAPH, ...).
 - **Two stages**, as in org-element: (1) element level, line based: headlines, blocks, lists, tables, drawers, keywords, paragraphs; (2) object level, inside paragraphs, headlines and cells: emphasis, links, timestamps, footnotes, formulas.
-- **Pre-pass:** keywords at the top of the document and `#+SETUPFILE` content are read to produce `ParseContext { todo_keywords, tags, link_abbrevs, macros, startup, constants }`.
+- **Pre-pass:** keywords at the top of the document and `#+SETUPFILE` content are read to produce `ParseContext { todo_keywords, done_keywords, todo_sequences, link_types, link_abbrevs, radio_targets, inlinetask_min_level, odd_levels_only, footnote_section, list_allow_alphabetical, item_terminator }`: what changes how the text parses. Tags, macros, constants and the other startup options are read from the keywords by the model, the editing commands and the exporter.
 - **Object rules** follow Org's regular expressions exactly: pre and post character constraints and at most two newlines for emphasis; link types; timestamp formats.
 
 ### 5.3 Incremental reparsing

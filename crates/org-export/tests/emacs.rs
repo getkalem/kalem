@@ -1,6 +1,8 @@
 //! Differential tests: every case in `tests/export/cases` exported as
 //! Emacs 30.1 with Org 9.7.11 exports it (`tools/export-expected.sh`),
-//! body only. References Emacs draws at random (`orgXXXXXXX`) are
+//! body only. The whole pages of `tests/export/full` and the setup-file
+//! cases were written by Org 9.6; their normalization absorbs the
+//! differences between the two versions. References Emacs draws at random (`orgXXXXXXX`) are
 //! numbered by first appearance on both sides before comparing.
 
 #![allow(clippy::print_stderr)]
