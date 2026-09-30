@@ -154,6 +154,8 @@ pub enum DocEvent {
         message: String,
         /// Whether it failed.
         error: bool,
+        /// What a file operation did, for the open documents to follow.
+        outcome: Option<(kalem_core::kalem_fs::OpKind, kalem_core::kalem_fs::Outcome)>,
     },
 }
 
@@ -2646,18 +2648,22 @@ impl Editor {
         // File operations: progress while they run, then the result.
         if !self.shared.jobs.borrow().is_empty() {
             let mut done = Vec::new();
-            self.shared
-                .jobs
-                .borrow_mut()
-                .retain_mut(|j| match j.poll() {
-                    Some((_, message, error)) => {
-                        done.push((message, error));
+            self.shared.jobs.borrow_mut().retain_mut(|j| {
+                let kind = j.kind();
+                match j.poll() {
+                    Some((out, message, error)) => {
+                        done.push((message, error, kind.map(|k| (k, out))));
                         false
                     }
                     None => true,
+                }
+            });
+            for (message, error, outcome) in done {
+                cx.emit(DocEvent::FilesChanged {
+                    message,
+                    error,
+                    outcome,
                 });
-            for (message, error) in done {
-                cx.emit(DocEvent::FilesChanged { message, error });
             }
             cx.notify();
         }

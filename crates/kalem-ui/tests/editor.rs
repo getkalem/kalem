@@ -1924,6 +1924,82 @@ fn documents_keys(cx: &mut TestAppContext) {
     assert_eq!(name(cx), None);
 }
 
+/// Doom's `SPC f` keys on this file (T2.7i.3): rename with the document
+/// following, copy, delete (the document closes).
+#[gpui::test]
+fn this_file_keys(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(true, cx);
+    let path = |cx: &mut VisualTestContext| {
+        ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.meta.path.clone())
+    };
+    // The editor's timer polls file operations; here by hand.
+    let tick = |cx: &mut VisualTestContext| {
+        let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+        e.update(cx, |e, cx| e.tick(cx));
+        cx.run_until_parked();
+    };
+    let wait = |cx: &mut VisualTestContext, f: &dyn Fn() -> bool| {
+        for _ in 0..300 {
+            tick(cx);
+            if f() {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    };
+    assert_eq!(path(cx), Some(dir.join("proj/a.org")));
+    cx.simulate_keystrokes("space f shift-r");
+    for _ in 0.."a.org".len() {
+        cx.simulate_keystrokes("backspace");
+    }
+    cx.simulate_input("renamed.org");
+    cx.simulate_keystrokes("enter");
+    let renamed = dir.join("proj/renamed.org");
+    wait(cx, &|| renamed.exists());
+    for _ in 0..50 {
+        tick(cx);
+        if path(cx).as_deref() == Some(renamed.as_path()) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(path(cx), Some(renamed.clone()));
+    cx.simulate_keystrokes("space f shift-c");
+    for _ in 0.."renamed.org".len() {
+        cx.simulate_keystrokes("backspace");
+    }
+    cx.simulate_input("copy.org");
+    cx.simulate_keystrokes("enter");
+    let copy = dir.join("proj/copy.org");
+    wait(cx, &|| copy.exists());
+    assert!(copy.exists());
+    assert_eq!(path(cx), Some(renamed.clone()));
+    // `SPC f D` asks, trashes the file and closes its document.
+    let p = copy.clone();
+    ws.update_in(cx, |ws, window, cx| ws.open(&p, None, window, cx));
+    cx.run_until_parked();
+    cx.simulate_keystrokes("space f shift-d");
+    cx.run_until_parked();
+    assert!(cx.has_pending_prompt());
+    cx.simulate_prompt_answer("Yes");
+    wait(cx, &|| !copy.exists());
+    for _ in 0..50 {
+        tick(cx);
+        if path(cx).as_deref() != Some(copy.as_path()) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(!copy.exists());
+    let open: Vec<_> = ws.read_with(cx, |ws, cx| {
+        ws.editors
+            .iter()
+            .map(|e| e.read(cx).doc.meta.path.clone())
+            .collect()
+    });
+    assert!(!open.contains(&Some(copy)), "{open:?}");
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

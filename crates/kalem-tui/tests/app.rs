@@ -3601,3 +3601,46 @@ fn documents_keys() {
     assert_eq!(t.app.open_files().len(), 1);
     assert_eq!(t.app.doc.meta.path, None);
 }
+
+/// Doom's `SPC f` keys on this file (T2.7i.3): rename and move with the
+/// document following, copy, copy the path, delete (the document closes).
+#[test]
+fn this_file_keys() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, dir) = project_app(config);
+    assert_eq!(title(&t), "a.org");
+    // `SPC f R`: the prompt holds the path; its name replaced.
+    t.typ(" fR");
+    for _ in 0.."a.org".len() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("renamed.org");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    settle(&mut t);
+    assert!(dir.join("proj/renamed.org").exists());
+    assert_eq!(
+        t.app.doc.meta.path.as_deref(),
+        Some(dir.join("proj/renamed.org").as_path())
+    );
+    // `SPC f C`: a copy, this document stays.
+    t.typ(" fC");
+    for _ in 0.."renamed.org".len() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("copy.org");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    settle(&mut t);
+    assert!(dir.join("proj/copy.org").exists());
+    assert_eq!(title(&t), "renamed.org");
+    // `SPC f y`: the path on the clipboard.
+    t.app.take_output();
+    t.typ(" fy");
+    assert!(!t.app.take_output().is_empty());
+    // `SPC f D` asks, moves it to the trash and closes the document.
+    t.app.open_path(&dir.join("proj/copy.org"), None);
+    t.typ(" fD");
+    t.typ("y");
+    settle(&mut t);
+    assert!(!dir.join("proj/copy.org").exists());
+    assert!(t.app.open_files().iter().all(|f| f.title != "copy.org"));
+}

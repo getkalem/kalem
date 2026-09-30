@@ -114,8 +114,9 @@ mod tests {
         assert!(rows.len() > 250, "{}", rows.len());
         let reg = CommandRegistry::with_builtins();
         let (vim, _) = Keymap::build(&reg, Profile::Vim, &[]);
-        // An Org document in a project.
+        // An Org document with a file, in a project.
         let mut ctx = Context::default();
+        ctx.flag("hasFile", true);
         ctx.set("editorMode", V::Str("org".into()));
         ctx.set("textType", V::Str("org".into()));
         ctx.flag("vimCommand", true);

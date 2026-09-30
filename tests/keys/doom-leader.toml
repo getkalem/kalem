@@ -245,25 +245,25 @@ command = "file.bury"
 doom = "SPC f c"
 keys = "space f c"
 what = "Open the workspace settings"
-reason = "Planned: T2.7i.3"
+command = "file.openWorkspaceSettings"
 
 [[key]]
 doom = "SPC f C"
 keys = "space f shift+c"
 what = "Copy this file"
-reason = "Planned: T2.7i.3"
+command = "file.copy"
 
 [[key]]
 doom = "SPC f d"
 keys = "space f d"
 what = "Find a folder"
-reason = "Planned: T2.7i.3"
+command = "file.open"
 
 [[key]]
 doom = "SPC f D"
 keys = "space f shift+d"
 what = "Delete this file"
-reason = "Planned: T2.7i.3"
+command = "file.delete"
 
 [[key]]
 doom = "SPC f e"
@@ -287,25 +287,25 @@ command = "file.open"
 doom = "SPC f F"
 keys = "space f shift+f"
 what = "Find a file from here"
-reason = "Planned: T2.7i.3"
+command = "file.open"
 
 [[key]]
 doom = "SPC f l"
 keys = "space f l"
 what = "Locate a file"
-reason = "Planned: T2.7i.3"
+reason = "Not yet: a file by name across every project; =SPC p f= finds one in a project"
 
 [[key]]
 doom = "SPC f p"
 keys = "space f p"
-what = "Find a file in the private config"
-reason = "Planned: T2.7i.3"
+what = "The settings folder"
+command = "file.openSettingsFolder"
 
 [[key]]
 doom = "SPC f P"
 keys = "space f shift+p"
-what = "Browse the private config"
-reason = "Planned: T2.7i.3"
+what = "Your keymap.json"
+command = "file.openKeymap"
 
 [[key]]
 doom = "SPC f r"
@@ -317,7 +317,7 @@ command = "file.recent"
 doom = "SPC f R"
 keys = "space f shift+r"
 what = "Rename or move this file"
-reason = "Planned: T2.7i.3"
+command = "file.rename"
 
 [[key]]
 doom = "SPC f s"
@@ -347,13 +347,13 @@ reason = "No editing as another user"
 doom = "SPC f y"
 keys = "space f y"
 what = "Copy the path"
-reason = "Planned: T2.7i.3"
+command = "file.copyPath"
 
 [[key]]
 doom = "SPC f Y"
 keys = "space f shift+y"
 what = "Copy the path from the project"
-reason = "Planned: T2.7i.3"
+command = "file.copyRelativePath"
 
 
 # Search =SPC s=.

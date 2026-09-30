@@ -128,6 +128,8 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[("path", "string", false), ("prompt", "boolean", false)]),
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
+        ("file.rename", object(&[("target", "string", false)])),
+        ("file.copy", object(&[("target", "string", false)])),
         ("org.property.delete", object(&[("key", "string", true)])),
         ("org.cite.insert", object(&[("key", "string", false)])),
         ("org.insert.drawer", object(&[("name", "string", true)])),
@@ -2003,6 +2005,55 @@ fn csv_commands() -> Vec<Command> {
     ]
 }
 
+/// The active document's file, made absolute.
+fn this_file(ctx: &mut EditorContext<'_>) -> Result<std::path::PathBuf, CommandError> {
+    let path = ctx
+        .doc()?
+        .meta
+        .path
+        .clone()
+        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-file")))?;
+    Ok(std::path::absolute(&path).unwrap_or(path))
+}
+
+/// Moves or copies this file to argument `target` (asked for when
+/// missing); the document follows a move ([`crate::dired::follow`]).
+fn this_file_to(
+    ctx: &mut EditorContext<'_>,
+    args: &Value,
+    kind: kalem_fs::OpKind,
+) -> CommandResult {
+    let path = this_file(ctx)?;
+    let Some(target) = args.get("target").and_then(Value::as_str) else {
+        let command = if kind == kalem_fs::OpKind::Move {
+            "file.rename"
+        } else {
+            "file.copy"
+        };
+        return request(
+            ctx,
+            Request::Ask {
+                command: command.into(),
+                args: serde_json::json!({}),
+                arg: "target".into(),
+            },
+        );
+    };
+    let target = std::path::PathBuf::from(crate::settings::expand_home(target));
+    let target = match (target.is_absolute(), path.parent()) {
+        (false, Some(dir)) => dir.join(target),
+        _ => target,
+    };
+    request(
+        ctx,
+        Request::FileOp(crate::command::FileOp {
+            kind,
+            sources: vec![path],
+            target: Some(target),
+        }),
+    )
+}
+
 fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
     ctx.requests.push(r);
     Ok(())
@@ -2915,6 +2966,125 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| {
                 let text = ctx.doc()?.text().as_str().to_string();
                 request(ctx, Request::CopyText(text))
+            },
+        ),
+        // This file (Doom's `SPC f`, T2.7i.3).
+        cmd(
+            "file.delete",
+            "Delete This File",
+            "File",
+            &[],
+            Some("hasFile"),
+            |ctx, _| {
+                let path = this_file(ctx)?;
+                request(
+                    ctx,
+                    Request::FileOp(crate::command::FileOp {
+                        kind: kalem_fs::OpKind::Trash,
+                        sources: vec![path],
+                        target: None,
+                    }),
+                )
+            },
+        ),
+        cmd(
+            "file.rename",
+            "Rename or Move This File",
+            "File",
+            &[],
+            Some("hasFile"),
+            |ctx, args| this_file_to(ctx, args, kalem_fs::OpKind::Move),
+        ),
+        cmd(
+            "file.copy",
+            "Copy This File To",
+            "File",
+            &[],
+            Some("hasFile"),
+            |ctx, args| this_file_to(ctx, args, kalem_fs::OpKind::Copy),
+        ),
+        cmd(
+            "file.copyPath",
+            "Copy This File's Path",
+            "File",
+            &[],
+            Some("hasFile"),
+            |ctx, _| {
+                let text = this_file(ctx)?.display().to_string();
+                ctx.messages.push(text.clone());
+                request(ctx, Request::CopyText(text))
+            },
+        ),
+        cmd(
+            "file.copyRelativePath",
+            "Copy This File's Path from the Project",
+            "File",
+            &[],
+            Some("hasFile"),
+            |ctx, _| {
+                let path = this_file(ctx)?;
+                let dir = path
+                    .parent()
+                    .map(std::path::Path::to_path_buf)
+                    .unwrap_or_default();
+                let base = kalem_project::list::detect_root(&dir).unwrap_or(dir);
+                let text = crate::kinds::relative(&base, &path)
+                    .unwrap_or_else(|| path.display().to_string());
+                ctx.messages.push(text.clone());
+                request(ctx, Request::CopyText(text))
+            },
+        ),
+        cmd(
+            "file.openSettingsFolder",
+            "Open the Settings Folder",
+            "File",
+            &[],
+            None,
+            |ctx, _| {
+                let dir = crate::settings::config_dir()
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-config-dir")))?;
+                let _ = std::fs::create_dir_all(&dir);
+                let path = Some(dir.display().to_string());
+                request(ctx, Request::Open { path })
+            },
+        ),
+        cmd(
+            "file.openKeymap",
+            "Open Your Keymap",
+            "File",
+            &[],
+            None,
+            |ctx, _| {
+                let dir = crate::settings::config_dir()
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-config-dir")))?;
+                let _ = std::fs::create_dir_all(&dir);
+                let path = Some(dir.join("keymap.json").display().to_string());
+                request(ctx, Request::Open { path })
+            },
+        ),
+        cmd(
+            "file.openWorkspaceSettings",
+            "Open the Workspace Settings",
+            "File",
+            &[],
+            None,
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let dir = crate::command::folder_of(doc)
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-file")))?;
+                // The nearest one, else a new one at the project's root.
+                let path = crate::settings::find_workspace_settings(&dir).unwrap_or_else(|| {
+                    let root = kalem_project::list::detect_root(&dir).unwrap_or(dir);
+                    let folder = root.join(".kalem");
+                    let _ = std::fs::create_dir_all(&folder);
+                    folder.join("settings.toml")
+                });
+                request(
+                    ctx,
+                    Request::Open {
+                        path: Some(path.display().to_string()),
+                    },
+                )
             },
         ),
         cmd(

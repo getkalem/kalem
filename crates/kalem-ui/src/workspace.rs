@@ -386,6 +386,43 @@ impl Workspace {
     }
 
     /// The editors of the documents in the project at `root`.
+    /// Open documents follow their files after an operation: to where
+    /// they were moved; closed when trashed or deleted, unless they have
+    /// unsaved changes.
+    fn follow_files(
+        &mut self,
+        kind: kalem_core::kalem_fs::OpKind,
+        out: &kalem_core::kalem_fs::Outcome,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        use kalem_core::dired::{Followed, follow};
+        for e in self.editors.clone() {
+            let path = e
+                .read(cx)
+                .doc
+                .meta
+                .path
+                .as_deref()
+                .and_then(|p| std::path::absolute(p).ok());
+            let Some(path) = path else { continue };
+            match follow(kind, out, &path) {
+                Some(Followed::Moved(to)) => e.update(cx, |e, cx| {
+                    e.doc.meta.path = Some(to);
+                    cx.notify();
+                }),
+                Some(Followed::Removed) if !e.read(cx).doc.is_modified() => {
+                    if self.editors.len() == 1 {
+                        self.new_document(window, cx);
+                    }
+                    self.close(&e, window, cx);
+                }
+                _ => {}
+            }
+        }
+        self.set_title(window, cx);
+    }
+
     /// Doom's `SPC b` commands on the open documents (T2.7i.2).
     fn documents(
         &mut self,
@@ -619,7 +656,14 @@ impl Workspace {
             DocEvent::Quit => self.quit(window, cx),
             DocEvent::FileManager { place, select } => self.file_manager(place, select, window, cx),
             DocEvent::LeaveFileManager => self.leave_file_manager(window, cx),
-            DocEvent::FilesChanged { message, error } => {
+            DocEvent::FilesChanged {
+                message,
+                error,
+                outcome,
+            } => {
+                if let Some((kind, out)) = &outcome {
+                    self.follow_files(*kind, out, window, cx);
+                }
                 for e in self.editors.clone() {
                     e.update(cx, |e, cx| {
                         if e.doc.dired.is_some() {

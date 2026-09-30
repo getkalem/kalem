@@ -1117,6 +1117,53 @@ impl App {
         }
     }
 
+    /// Open documents follow their files after an operation: to where
+    /// they were moved; closed when trashed or deleted, unless they have
+    /// unsaved changes.
+    fn follow_files(
+        &mut self,
+        kind: kalem_core::kalem_fs::OpKind,
+        out: &kalem_core::kalem_fs::Outcome,
+    ) {
+        use kalem_core::dired::{Followed, follow};
+        let mut removed = Vec::new();
+        let ids = self.doc_ids();
+        for (i, b) in self.docs.iter_mut().enumerate() {
+            let doc = match b {
+                Some(b) => &mut b.doc,
+                None => &mut self.doc,
+            };
+            let Some(path) = doc
+                .meta
+                .path
+                .as_deref()
+                .and_then(|p| std::path::absolute(p).ok())
+            else {
+                continue;
+            };
+            match follow(kind, out, &path) {
+                Some(Followed::Moved(to)) => doc.meta.path = Some(to),
+                Some(Followed::Removed) if !doc.is_modified() => removed.push(ids[i].0),
+                _ => {}
+            }
+        }
+        for id in removed {
+            if let Some(i) = self.doc_ids().iter().position(|&(d, _)| d == id) {
+                if self.docs.len() == 1 {
+                    self.new_empty();
+                }
+                let i = self
+                    .doc_ids()
+                    .iter()
+                    .position(|&(d, _)| d == id)
+                    .unwrap_or(i);
+                self.activate(i);
+                self.close_document();
+            }
+        }
+        self.dirty = true;
+    }
+
     /// Doom's `SPC b` commands on the open documents (T2.7i.2).
     fn documents_request(&mut self, r: kalem_core::command::DocumentsRequest) {
         use kalem_core::command::DocumentsRequest as D;
@@ -2956,13 +3003,21 @@ impl App {
         // File operations: progress, then the result.
         if !self.jobs.is_empty() {
             let mut done = Vec::new();
-            self.jobs.retain_mut(|j| match j.poll() {
-                Some((_, msg, error)) => {
-                    done.push((msg, error));
-                    false
+            let mut outcomes = Vec::new();
+            self.jobs.retain_mut(|j| {
+                let kind = j.kind();
+                match j.poll() {
+                    Some((out, msg, error)) => {
+                        done.push((msg, error));
+                        outcomes.extend(kind.map(|k| (k, out)));
+                        false
+                    }
+                    None => true,
                 }
-                None => true,
             });
+            for (kind, out) in outcomes {
+                self.follow_files(kind, &out);
+            }
             if let Some(j) = self.jobs.first() {
                 let s = j.status();
                 self.message(s, false);

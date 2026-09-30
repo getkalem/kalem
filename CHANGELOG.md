@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Doom's `SPC f` keys (T2.7i.3) in both editors: delete, rename or move and copy this file, copy its path (absolute or from the project), open the settings folder, your keymap and the workspace settings. An open document now follows its file when the file or a folder above it is moved, and closes when it goes to the trash (unless it has unsaved changes).
 - Doom's `SPC b` keys (T2.7i.2) and their commands in both editors: Save All, Close Other Documents, Close All Documents, Last Document (`SPC b l`, `` SPC ` ``), Move Document to the End, Scratch Document (`SPC b x`, `SPC x`; `SPC b X` the project's, kept in the state directory) and Copy the Whole Document.
 - Doom Emacs's leader map in the Book (T2.7i.1): `tests/keys/doom-leader.toml` lists Doom's 258 leader keys with the command each runs in Kalem or the task that will bring it; a test checks it against the Vim keymap, and the Keys chapter shows it.
 - Doom Emacs's file manager keys (T2.7e.18) with Vim keys: `h`, `l`, `y y`, `y n`, `y r`, `Y`, `f`, `a`, `N`, `$`, `C-x C-q`, `SPC .` (a typed path from the listed folder; a new name makes the file) and `SPC f D`, `SPC f R`, `SPC f C`; Dired's `* *`, `% u`, `% l`, `% R`, `Z` (compress or extract) and `&` with either keymap. `tests/keys/doom-dired.toml` gives each Doom key a command or a reason; the file manager's chapter shows it.

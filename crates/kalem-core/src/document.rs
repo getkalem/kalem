@@ -1537,6 +1537,7 @@ impl DocumentState {
         c.flag("hasSelection", self.selection.anchor != self.selection.head);
         c.flag("narrowed", self.narrowing.is_some());
         c.flag("modified", self.is_modified());
+        c.flag("hasFile", self.meta.path.is_some());
         c.set("textType", Value::Str(self.text_type()));
         let Some((parse, _)) = self.parse() else {
             return c;

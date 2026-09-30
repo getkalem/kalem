@@ -72,6 +72,7 @@ pub use document::{DocumentState, LineEnding, Metadata};
 /// The character encodings of files (`Metadata::encoding`).
 pub use encoding_rs;
 pub use events::{DocumentId, Event, EventBus, EventKind};
+pub use kalem_fs;
 pub use keymap::{Keymap, Lookup, Profile};
 pub use mode::DocumentMode;
 pub use settings::Config;

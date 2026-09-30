@@ -699,6 +699,14 @@ pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::Documen
             })
             .unwrap_or_default()
         }
+        // The file's own path, to change.
+        ("file.rename" | "file.copy", "target") => doc
+            .meta
+            .path
+            .as_deref()
+            .and_then(|p| std::path::absolute(p).ok())
+            .map(|p| crate::projects::tilde(&p))
+            .unwrap_or_default(),
         ("project.rename", "name") => doc
             .meta
             .path

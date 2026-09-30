@@ -68,6 +68,11 @@ follow:
 | =SPC b x=, =SPC b X= | Scratch document; the project's             |
 | =SPC b y=            | Copy the whole document                     |
 | =SPC f S=            | Save As                                     |
+| =SPC f R=, =SPC f C= | Rename or move, copy this file              |
+| =SPC f D=            | Move this file to the trash (asks first)    |
+| =SPC f y=, =SPC f Y= | Copy this file's path; from the project     |
+| =SPC f p=, =SPC f P= | The settings folder; your =keymap.json=     |
+| =SPC f c=            | The workspace settings                      |
 | =SPC p k=, =SPC p s= | Close, save the project's documents         |
 | =SPC p i=            | Refresh Project Files                       |
 | =SPC s s=            | Find                                        |
@@ -77,6 +82,10 @@ follow:
 | =SPC t m=            | Formula preview                             |
 | =SPC w v=            | Split view                                  |
 | =SPC q q=            | Quit                                        |
+
+A document follows its file when the file is renamed or moved, from
+here or from the file manager, and closes when the file goes to the
+trash, unless it has unsaved changes.
 
 =editor.vim.leader= makes another key the leader (="\\"= or =","=, say).
 
