@@ -1,6 +1,6 @@
 # Kalem Design Document 2: Standard Modes, the Kalem Format, and the Book
 
-RFC 0002. Status: **draft for the owner's review**, 2026-09-30. Written as a report: it records the roadmap the owner stated on 2026-09-30, examines it, and proposes how to carry it out. Where it changes RFC 0001 (`design_document.md`) it says so; nothing in RFC 0001 changes until the owner accepts a section here.
+RFC 0002. Status: **accepted by the owner, 2026-09-30.** Sections 11, 12 and 14 are carried into RFC 0001 (`design_document.md`), RFC 0003 (`rfcs/0003-kalem-format.md`) and `todo.md`. Written as a report: it records the roadmap the owner stated on 2026-09-30, examines it, and proposes how to carry it out.
 
 ## Contents
 
