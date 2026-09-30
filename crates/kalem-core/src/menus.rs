@@ -80,6 +80,7 @@ pub fn menus() -> Vec<MenuSpec> {
             name: tr("menu-file"),
             entries: vec![
                 item("file.new"),
+                item("file.newFromTemplate"),
                 MenuEntry::Open(tr("menu-open")),
                 item("file.recent"),
                 MenuEntry::Separator,
@@ -89,8 +90,18 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("export.html"),
                 item("export.markdown"),
                 item("export.gfm"),
+                item("export.latex"),
+                item("export.pdf"),
+                item("export.docx"),
+                item("export.odt"),
+                item("export.epub"),
+                item("export.rtf"),
+                item("export.text"),
                 item("export.htmlSubtree"),
                 item("export.markdownSubtree"),
+                item("export.latexSubtree"),
+                item("export.pdfSubtree"),
+                item("file.import"),
                 // LaTeX: the PDF, and the project through pandoc.
                 item("latex.build"),
                 item("latex.cancelBuild"),
@@ -108,6 +119,8 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("app.revert"),
                 item("file.reopenWithEncoding"),
                 item("file.saveWithEncoding"),
+                MenuEntry::Separator,
+                item("file.print"),
                 MenuEntry::Separator,
                 item("file.close"),
             ],
@@ -318,4 +331,45 @@ pub fn menus() -> Vec<MenuSpec> {
             ],
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_item_is_a_command() {
+        let reg = crate::command::CommandRegistry::with_builtins();
+        for m in menus() {
+            for e in m.entries {
+                if let MenuEntry::Command { id, .. } = e {
+                    assert!(reg.get(id).is_some(), "{} › {id}", m.name);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_file_menu_has_what_the_book_puts_there() {
+        let file = &menus()[1];
+        let ids: Vec<_> = file
+            .entries
+            .iter()
+            .filter_map(|e| match e {
+                MenuEntry::Command { id, .. } => Some(*id),
+                _ => None,
+            })
+            .collect();
+        for id in [
+            "file.print",
+            "file.import",
+            "file.newFromTemplate",
+            "export.latex",
+            "export.pdf",
+            "export.text",
+            "export.docx",
+        ] {
+            assert!(ids.contains(&id), "{id}");
+        }
+    }
 }
