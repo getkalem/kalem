@@ -8,8 +8,10 @@ Ctrl+Shift+P (or F1) opens the command palette: every command that
 applies, by its title, with its category and keys. Type part of a title
 to find it; a command's ID (=org.todo.cycle=, or =org todo cycle=)
 finds it too, and =kalem commands= lists the IDs. Commands that need
-something, such as a heading level, ask for it. In a terminal the
-palette is Ctrl+G, and the status line says so.
+something, such as a heading level, ask for it. What you type there, as
+in any question Kalem asks, is edited as a line: the left and right
+arrows, Home, End, Backspace and Delete, by words with Ctrl (Option on
+macOS). In a terminal the palette is Ctrl+G, and the status line says so.
 
 The menus hold the commands of the document you are in: a LaTeX file
 has LaTeX's, a CSV file a Table menu. On macOS they are in the menu bar

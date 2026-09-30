@@ -248,6 +248,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The palette and the questions Kalem asks (a rename, a file name) take the arrows, Home, End and Delete, and move and delete by words, in both editors; before, typing only added or removed at the end.
 - Menus on Linux and Windows: the graphical editor draws its own menu bar there (gpui draws none; `ui.menu_bar = false` hides it). F10 (`view.menus`) lists every menu item in the palette in both editors, the terminal editor's way to its menus. The menus are defined once, in `kalem_core::menus`.
 - The File menu has what the Book puts there: New from Template, Print, Import as Org, and the LaTeX, PDF, Word, OpenDocument, EPUB, RTF and text exports. The Book calls the menu with the Org commands the Format menu, its name.
 - Settings that did nothing now work: `editor.show_source_markers` (`always`, `never`), `org.assets_dir` for pasted and dropped pictures, `export.pdf_engine` (the tool tried first for an Org document's PDF) and `export.pandoc_path`. `files.modes` accepts `latex` and a language, and Set Document Mode remembers a chosen language; `editor.vim.modes` names `latex`, `text` and `directory` (`plain`, which covered them all, now means `text`).
