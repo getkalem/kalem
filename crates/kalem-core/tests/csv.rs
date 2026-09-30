@@ -39,14 +39,16 @@ fn edit_cell(name: &str, row: usize, col: usize, value: &str) -> (Vec<u8>, Vec<u
 
 #[test]
 fn excel_turkish_locale() {
-    // Excel in a Turkish locale: a byte order mark, CR LF, `;`, decimal
-    // commas, dates as text, numbers kept as text in quotes.
+    // Synthetic, in the style of Excel's "CSV UTF-8" in a Turkish locale
+    // (Excel is not available to the tests): a byte order mark, CR LF,
+    // `;`, decimal commas, dates as text, a field quoted only when it
+    // holds the delimiter.
     let (before, after) = edit_cell("excel-tr.csv", 2, 1, "99,5");
     let (b, a) = (
         String::from_utf8(before).unwrap(),
         String::from_utf8(after).unwrap(),
     );
-    assert_eq!(a, b.replace("\"12,75\"", "99,5"));
+    assert_eq!(a, b.replace("Mehmet;12,75;", "Mehmet;99,5;"));
     assert!(a.starts_with('\u{feff}'));
     // The column's numbers read with decimal commas.
     let text = b.trim_start_matches('\u{feff}');
@@ -55,30 +57,53 @@ fn excel_turkish_locale() {
     let (n, sum, ..) = csv::column_stats(text, &d, 1).unwrap();
     assert_eq!(n, 3);
     assert!((sum - 1243.75).abs() < 1e-9, "{sum}");
+    assert_eq!(csv::rows(text, &d)[2][3], "a;b");
 }
 
 #[test]
 fn libreoffice_quoted_text() {
-    // LibreOffice with "Quote all text cells": the untouched records keep
-    // their quotes; the edited field is quoted only when it needs it.
-    let (before, after) = edit_cell("libreoffice.csv", 3, 3, "a, b");
+    // Exported by LibreOffice 24.2 from `libreoffice.fods` with "Quote all
+    // text cells" (`tools/csv-oracle.sh`): numbers and dates unquoted,
+    // text quoted, a line break inside a quoted field. Untouched records
+    // keep their quotes; an edited field is quoted only when it needs it.
+    let (before, after) = edit_cell("libreoffice.csv", 3, 3, "x, y");
     let (b, a) = (
         String::from_utf8(before).unwrap(),
         String::from_utf8(after).unwrap(),
     );
-    assert_eq!(
-        a,
-        b.replace(
-            "\"Cem\",\"\",2026-10-01,\"\"",
-            "\"Cem\",\"\",2026-10-01,\"a, b\""
-        )
-    );
+    assert_eq!(a, b.replace("\"a, b; c\"", "\"x, y\""));
     let (_, after) = edit_cell("libreoffice.csv", 1, 1, "4");
     let a = String::from_utf8(after).unwrap();
     assert!(
-        a.contains("\"Ada\",4,2026-09-29,\"said \"\"hi\"\"\"\n"),
+        a.contains("\"Ayşe\",4,2026-09-29,\"said \"\"hi\"\"\"\n"),
         "{a}"
     );
+    let (_, after) = edit_cell("libreoffice.csv", 3, 0, "Can");
+    let a = String::from_utf8(after).unwrap();
+    assert!(a.contains("\nCan,,2026-10-01,"), "{a}");
+    let text = String::from_utf8(b.into_bytes()).unwrap();
+    let d = csv::detect(&text);
+    assert_eq!((d.delimiter, d.header, d.crlf), (b',', true, false));
+    assert_eq!(csv::rows(&text, &d)[2][3], "two\nlines");
+}
+
+#[test]
+fn libreoffice_turkish_locale() {
+    // Exported by LibreOffice 24.2 from `libreoffice-tr.fods`, cells
+    // formatted in Turkish: `;`, grouped numbers with decimal commas,
+    // dates as `DD.MM.YYYY`, text quoted only when it needs it.
+    let text = std::fs::read_to_string(fixture("libreoffice-tr.csv")).unwrap();
+    let d = csv::detect(&text);
+    assert_eq!((d.delimiter, d.header, d.crlf), (b';', true, false));
+    let (n, sum, ..) = csv::column_stats(&text, &d, 1).unwrap();
+    assert_eq!(n, 2);
+    assert!((sum - 1238.0).abs() < 1e-9, "{sum}");
+    let (before, after) = edit_cell("libreoffice-tr.csv", 2, 1, "7,25");
+    let (b, a) = (
+        String::from_utf8(before).unwrap(),
+        String::from_utf8(after).unwrap(),
+    );
+    assert_eq!(a, b.replace("Bob;1.234,50;", "Bob;7,25;"));
 }
 
 #[test]
