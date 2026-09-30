@@ -31,8 +31,11 @@ cell or emphasis), =x D C p P J r ~ u= Ctrl+R and =.= to repeat. =v= and =V= sel
 (=I= and =A= then type on each of its lines).
 =/= and =?= search, =n N * #= repeat. Registers: ="a= to ="z=, and ="+=
 for the system clipboard. The command line knows =:w=, =:q=, =:q!=,
-=:wq=, =:x=, =:NUMBER=, =:noh=, =:e FILE=, =:bn=, =:bp=, =:bd= and =:ls=;
-=gt= and =gT= go to the next and previous document.
+=:wq=, =:x=, =:NUMBER=, =:$=, =:noh=, =:e FILE= (=:e= alone asks for
+a file), =:e!= (Revert to Saved), =:enew= (a new document), =:bn=,
+=:bp=, =:bd= and =:ls=; =:Ex=, =:E=, =:Explore= and =:Dired= open the
+file manager, and =:Projects= the projects. =gt= and =gT= go to the next
+and previous document.
 
 Space is the leader, as in Doom Emacs. Press it and a panel shows what can
 follow:
@@ -54,6 +57,20 @@ follow:
 | =SPC o -=            | File manager at the document's folder       |
 | =SPC o P=, =SPC p D= | Projects view; the project's folder         |
 | =SPC :=              | Command palette                             |
+| =SPC b d=            | Close Document (as =SPC b k=)               |
+| =SPC b ]=, =SPC b [= | Next, previous document                     |
+| =SPC b s=, =SPC b r= | Save; Revert to Saved                       |
+| =SPC b N=            | New Document                                |
+| =SPC f S=            | Save As                                     |
+| =SPC p k=, =SPC p s= | Close, save the project's documents         |
+| =SPC p i=            | Refresh Project Files                       |
+| =SPC s s=            | Find                                        |
+| =SPC o o=            | Outline                                     |
+| =SPC t w=            | Soft wrap                                   |
+| =SPC t z=            | Focus mode                                  |
+| =SPC t m=            | Formula preview                             |
+| =SPC w v=            | Split view                                  |
+| =SPC q q=            | Quit                                        |
 
 =editor.vim.leader= makes another key the leader (="\\"= or =","=, say).
 
@@ -87,7 +104,8 @@ keys:
 ]
 #+end_src
 
-Command IDs are shown in the palette. =leader= stands for the Vim leader.
+=kalem commands= lists the command IDs (the palette shows titles, and
+finds a command by its ID too). =leader= stands for the Vim leader.
 =docs/keymaps/emacs.json= is a complete keymap with Emacs Org mode keys,
 to copy into =keymap.json=.
 
@@ -102,6 +120,30 @@ items and rows in Org. A binding can use the type too: ="when":
 "textType == python"=; a type Kalem does not know is reported with the
 other problems of the keymap. =kalem commands --type org= lists the
 commands a type has, with their scope and keys.
+
+* Keys in a terminal
+
+A terminal without the kitty keyboard protocol cannot send some keys:
+Ctrl+Enter arrives as Enter, Ctrl+Shift+P as Ctrl+P, and Command never
+arrives. The terminal editor then uses other keys for those commands,
+and the palette and menus show the keys it uses:
+
+| Keys                          | In such a terminal              |
+|-------------------------------+---------------------------------|
+| Ctrl+Enter (Cycle TODO State) | Ctrl+T                          |
+| Ctrl+, (Settings)             | Alt+,                           |
+| Shift+Enter (line break)      | Ctrl+J                          |
+| Ctrl+Shift+Z (Redo)           | Ctrl+Y                          |
+| Ctrl+Shift+P (palette)        | Ctrl+G (and F1)                 |
+| Ctrl+Tab, Ctrl+Shift+Tab      | Ctrl+PageDown, Ctrl+PageUp      |
+| Ctrl+/ (source view)          | Ctrl+_                          |
+
+Other Control keys such a terminal cannot send (with Shift, with a
+digit, Ctrl+.) become Alt and the same key: Ctrl+Shift+T is Alt+T,
+Ctrl+1 is Alt+1. A key with no such substitute, or whose substitute
+another binding already has, is left out in such a terminal. A binding
+in =keymap.json= can name its terminal key with
+="terminalKeys": "alt+w"=.
 
 In a terminal, keys with Alt reach Kalem only when the terminal sends
 them: in macOS Terminal and iTerm2, set Option to act as Meta (Terminal:

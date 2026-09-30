@@ -6,6 +6,31 @@ with unsaved changes too. The result is what Emacs's Org exporter writes:
 blocks behave as there. Kalem does not run code: source blocks show their
 code and the results already in the file.
 
+/Export…/ (Ctrl+Alt+E) lists the formats, then three switches, each
+with its value; choosing a switch changes it, saves it in your
+settings, and shows the list again:
+
+- /Body only/ (=export.body_only=) :: the document's body without the
+  page around it, for pasting into another page.
+- /Open after exporting/ (=export.open_after=) :: the exported file opens
+  in the system's application.
+- /Formulas/ (=export.math=) :: in HTML, formulas as MathJax, drawn by
+  the browser, or as SVG pictures drawn by Kalem; a document's own
+  =#+OPTIONS: tex:= wins.
+
+The palette has them as /Toggle Export of the Body Only/, /Toggle
+Opening Exported Files/ and /Toggle Formulas as MathJax or SVG/.
+
+/Export as GitHub Markdown/ writes Markdown as GitHub shows it: pipe
+tables, fenced code and =~~strike~~=, where /Export as Markdown/ writes
+what Emacs's =ox-md= writes (tables as HTML).
+
+/Export Subtree as HTML/, /as Markdown/, /as LaTeX/ and /as PDF (LaTeX)/
+export only the subtree the cursor is in, as Emacs's =C-c C-e C-s=
+does, with its =EXPORT_= properties (=EXPORT_TITLE=, =EXPORT_OPTIONS=…).
+The file is named by the heading's =EXPORT_FILE_NAME= property, else as
+the whole document's export is named.
+
 The LaTeX file is Emacs's too: =#+LATEX_CLASS= (=article=, =report= or
 =book=), =#+LATEX_CLASS_OPTIONS=, =#+LATEX_HEADER= and =#+ATTR_LATEX= on
 tables, figures, lists and blocks work as in Org's manual. A Kalem
@@ -85,6 +110,8 @@ From the command line:
 #+begin_src sh
 kalem export notes.org                  # notes.html
 kalem export notes.org --to md -o -     # Markdown to standard output
+kalem export notes.org --to gfm         # GitHub Markdown
+kalem export notes.org --subtree Tasks  # only the subtree "Tasks" (or #CUSTOM_ID)
 kalem export *.org --body-only          # only the body of each page
 kalem export paper.org --to latex       # paper.tex
 kalem export notes.org --to txt         # plain text, 72 columns (utf8 for UTF-8)

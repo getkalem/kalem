@@ -32,6 +32,9 @@ Commands act on the marked entries, or on the one at the cursor.
 | =m=, =u=, =U=, =t=  | Mark, unmark, unmark all, toggle marks                |
 | =d=, =x=            | Flag for deletion; move the flagged to the trash      |
 | =% m=, =* /=, =* .= | Mark by regular expression, folders, extension        |
+| =* t=               | Mark the entries changed since a time                 |
+| =i=                 | List the folder at the cursor below this one          |
+| =K=                 | Take the listed folder at the cursor out again        |
 | =c=                 | New file (a name ending with =/= makes a folder)      |
 | =+=                 | New folder                                            |
 | =R=, F2             | Rename or move                                        |
@@ -73,6 +76,14 @@ folder's own entries. =A= searches the text of the files under the folder
 (its project's ignore rules when it is a project) and opens a match at its
 line.
 
+=i= lists the folder at the cursor below the folder's own entries, as
+Dired's =i= does, and goes to it (to it at once when it is listed
+already); its entries take marks and commands as the others do. =K=,
+on a listed folder's line or its entries, takes it out of the listing
+again. =* t= asks since when: an age (=30m=, =2h=, =3d=, =1w=), =today=,
+=yesterday=, or a date and time (=2026-09-01=, =2026-09-01 14:30=), and
+marks the entries changed since then.
+
 =!= runs a shell command on the marked files (or the one at the cursor)
 in their folder, after asking: a =*= standing alone is replaced by all of
 them and the command runs once; a =?= standing alone runs it once per file
@@ -89,7 +100,8 @@ The same key hides the pane.
 
 With Vim keys the file manager's keys come first, except =n=, =p=, =w= and
 Backspace, which Vim keeps; =g r= reads the folder again, =g g= goes to the
-first entry and =Y= copies names. From a document, =-= opens the file
+first entry, =Y= copies names and =I= lists a folder below (=i= is
+Vim's insert). From a document, =-= opens the file
 manager (as vim-vinegar and Doom do; in the file manager it goes up), and
 so do =:Ex=, =:Explore= and =:E=; =:Projects= shows the projects. =SPC o -=
 opens the file manager and comes back, =SPC o P= shows the projects and

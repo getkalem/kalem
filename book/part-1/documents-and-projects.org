@@ -9,8 +9,9 @@ closes the document (asking first when it has unsaved changes).
 
 A project is a folder in your project list: /Add Project/ adds the
 document's folder, /Add Project Folder…/ in the Project menu chooses one,
-and a folder under version control (Git, Mercurial, Subversion) or with a
-=.projectile= file joins the list by itself when you open one of its files
+and a folder under version control (Git, Mercurial, Subversion), or with
+a =.projectile= file or a =.kalem= folder (where a project's own
+settings live), joins the list by itself when you open one of its files
 (=projects.auto_add = false= turns that off). Nothing is written into the
 folder: the list is kept in =projects.toml= in the settings folder,
 =~/.config/kalem/projects.toml= unless =KALEM_CONFIG_DIR= or
@@ -29,7 +30,27 @@ document.
 | Ctrl+Shift+F | Search in Project; Alt+C case, Alt+W words, Alt+R regular expression |
 |              | Recent Files in Project, Remove Project, Rename Project (palette)    |
 
+These have no keys; the palette has them:
+
+- /Switch Document in Project/ :: lists the project's open documents.
+- /Save Project Documents/ :: saves the project's documents that have
+  unsaved changes.
+- /Close Project Documents/ :: closes the project's documents; those
+  with unsaved changes stay open.
+- /Refresh Project Files/ :: walks the project's folder again, for files
+  added or removed outside Kalem.
+
 The file list follows the ignore rules of ripgrep: =.gitignore= and
 =.ignore= files, with or without a Git repository, and never =.git= itself
 or binary files. The list of projects and recent files is kept in
 =projects.toml=, beside =settings.toml=.
+
+* The folder tree
+
+When the document is in a project and the open files are on the left,
+the project's folders and files are listed below them, folders first.
+A click on a folder opens or closes it; a click on a file opens it, and
+the document's file is marked. /Reveal in Folder Tree/ opens the folders
+down to the document's file, and /Toggle Folder Tree/ shows or hides
+the tree, saving the setting =ui.folder_tree=. The tree lists the
+project's files as above, with the same ignore rules.
