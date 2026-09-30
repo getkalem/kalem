@@ -1509,6 +1509,31 @@ impl Blocks<'_> {
     }
 }
 
+/// The outline level of the line starting at `start`, for
+/// `org-indent-mode`: that of the heading it is under or starts
+/// ([`Block::depth`]), 0 before the first heading.
+pub fn outline_depth(blocks: &[Block], start: usize) -> usize {
+    let i = blocks.partition_point(|b| b.range.start <= start);
+    i.checked_sub(1).map_or(0, |i| blocks[i].depth)
+}
+
+/// Whether text under headings is indented (`org-indent-mode`):
+/// `setting` (`editor.outline_indent`), unless the last `indent` or
+/// `noindent` of the document's `#+STARTUP` lines says otherwise.
+pub fn outline_indent(keywords: &[(String, String)], setting: bool) -> bool {
+    keywords
+        .iter()
+        .filter(|(k, _)| k.eq_ignore_ascii_case("STARTUP"))
+        .flat_map(|(_, v)| v.split_whitespace())
+        .filter_map(|w| match w {
+            "indent" => Some(true),
+            "noindent" => Some(false),
+            _ => None,
+        })
+        .next_back()
+        .unwrap_or(setting)
+}
+
 /// The document's blocks, in order. Together they cover the whole text.
 pub fn blocks(root: &SyntaxNode, ctx: &ParseContext) -> Vec<Block> {
     let mut b = Blocks {
@@ -1853,6 +1878,22 @@ impl Folds {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn outline_depth_and_startup() {
+        use super::*;
+        let t = "intro\n* A\ntext\n** B\nmore\n";
+        let p = org_syntax::parse(t);
+        let b = blocks(&p.syntax(), p.context());
+        assert_eq!(outline_depth(&b, 0), 0);
+        assert_eq!(outline_depth(&b, t.find("* A").unwrap()), 1);
+        assert_eq!(outline_depth(&b, t.find("text").unwrap()), 1);
+        assert_eq!(outline_depth(&b, t.find("more").unwrap()), 2);
+        let kw = |v: &str| vec![("STARTUP".to_string(), v.to_string())];
+        assert!(outline_indent(&[], true));
+        assert!(!outline_indent(&kw("overview noindent"), true));
+        assert!(outline_indent(&kw("indent"), false));
+    }
 
     #[test]
     fn source_markers_setting() {

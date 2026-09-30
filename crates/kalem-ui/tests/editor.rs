@@ -144,6 +144,62 @@ fn lines_are_painted(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn outline_indentation(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\ntext\n** B\nmore\n", cx);
+    at(&e, 0, cx);
+    let x = |line: usize, cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            e.painted.borrow().get(&line).map(|p| p.bounds.origin.x)
+        })
+        .expect("painted")
+    };
+    // Under the second level, headings and text move right together.
+    assert_eq!(x(0, cx), x(1, cx));
+    assert!(x(2, cx) > x(1, cx));
+    assert_eq!(x(2, cx), x(3, cx));
+}
+
+#[gpui::test]
+fn no_outline_indentation_on_startup_noindent(cx: &mut TestAppContext) {
+    let (e, cx) = open("#+STARTUP: noindent\n* A\n** B\nmore\n", cx);
+    let indent = e.update(cx, |e, _| e.outline_indent_of(3));
+    assert_eq!(indent, gpui::px(0.));
+}
+
+#[gpui::test]
+fn events_on_the_bus(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\nword\n", cx);
+    let seen: Rc<std::cell::RefCell<Vec<&'static str>>> = Rc::default();
+    let log = seen.clone();
+    let bus = e.read_with(cx, |e, _| e.shared.bus.clone());
+    bus.borrow_mut().subscribe(None, move |ev| {
+        log.borrow_mut().push(ev.kind().name());
+        kalem_core::events::Reply::Continue
+    });
+    at(&e, 8, cx);
+    cx.simulate_input("s");
+    cx.simulate_keystrokes(&format!("{}-s", primary()));
+    cx.run_until_parked();
+    let seen = seen.borrow().clone();
+    for name in [
+        "selection:changed",
+        "document:before-save",
+        "document:after-save",
+    ] {
+        assert!(seen.contains(&name), "{name} in {seen:?}");
+    }
+    // A save vetoed by a listener does not happen.
+    bus.borrow_mut().subscribe(
+        Some(kalem_core::events::EventKind::DocumentBeforeSave),
+        |_| kalem_core::events::Reply::Veto("no".into()),
+    );
+    cx.simulate_input("!");
+    cx.simulate_keystrokes(&format!("{}-s", primary()));
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.doc.is_modified()));
+}
+
+#[gpui::test]
 fn accessible_text(cx: &mut TestAppContext) {
     let (e, cx) = open("* Head\nSome *bold* text\n- [X] task\n", cx);
     at(&e, 12, cx);

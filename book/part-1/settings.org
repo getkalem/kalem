@@ -36,7 +36,7 @@ one, generated from the code.
 | =ui.open_files=                          | ="left"=   | Open files on the =left=, at the =top=, =hidden=                                   |
 | =ui.menu_bar=                            | =true=     | The window's menu bar on Linux and Windows (macOS has its own)                     |
 | =ui.folder_tree=                         | =true=     | The project's folders and files below the open files on the left                   |
-| =editor.outline_indent=                  | =true=     | Text under a heading starts at its title (terminal)                                |
+| =editor.outline_indent=                  | =true=     | Text under a heading starts at its title                                           |
 | =projects.auto_add=                      | =true=     | Folders under version control become projects                                      |
 | =org.todo_keywords=                      | TODO, DONE | TODO states of files without =#+TODO=; see below                                   |
 | =org.log_done=                           | ="none"=   | What marking a task done records                                                   |

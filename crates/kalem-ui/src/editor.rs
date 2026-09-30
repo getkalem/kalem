@@ -86,7 +86,14 @@ pub struct Shared {
     pub jobs: Rc<RefCell<Vec<kalem_core::dired::Running>>>,
     /// The completers (built-ins, and plugins').
     pub completers: kalem_core::completers::Registry,
+    /// The event bus (design §11.3), shared by the windows: events to
+    /// plugins and the frontend's listeners, as the terminal editor sends
+    /// them.
+    pub bus: Rc<RefCell<kalem_core::events::EventBus>>,
 }
+
+/// The next document's number on the event bus.
+static NEXT_DOC: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 /// What an editor asks of its window: documents to open, show or close.
 #[derive(Debug, Clone, PartialEq)]
@@ -288,6 +295,15 @@ pub struct Editor {
     pub vim: Option<kalem_core::vim::Vim>,
     /// Long lines wrap (`editor.soft_wrap`, Alt+Z).
     pub wrap: bool,
+    /// `org-indent-mode` (`editor.outline_indent`, `#+STARTUP: indent`):
+    /// headings move right by level, and the text under one with it.
+    pub outline_indent: bool,
+    /// The document's number on the event bus.
+    pub doc_id: kalem_core::events::DocumentId,
+    /// Edits, sent as `document:changed` after a pause.
+    debouncer: kalem_core::events::ChangeDebouncer,
+    /// The selection last sent as `selection:changed`.
+    sent_selection: Option<(usize, usize)>,
     /// How far lines are scrolled sideways when they do not wrap.
     pub hscroll: Pixels,
     /// A plain text document's highlighting and indentation step.
@@ -392,6 +408,14 @@ impl Editor {
             focus_mode: false,
             vim: None,
             wrap: true,
+            outline_indent: false,
+            doc_id: kalem_core::events::DocumentId(
+                NEXT_DOC.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            ),
+            debouncer: kalem_core::events::ChangeDebouncer::new(std::time::Duration::from_millis(
+                300,
+            )),
+            sent_selection: None,
             hscroll: px(0.),
             plain: RefCell::default(),
             windowed: RefCell::default(),
@@ -399,6 +423,13 @@ impl Editor {
             disk_conflict: false,
         };
         e.refresh_vim();
+        e.shared
+            .bus
+            .borrow_mut()
+            .emit(&kalem_core::events::Event::DocumentOpen {
+                doc: e.doc_id,
+                path: e.doc.meta.path.clone(),
+            });
         e.wrap = e.shared.config.bool("editor.soft_wrap");
         e.startup_folds();
         e.visible = e.compute_visible();
@@ -408,9 +439,11 @@ impl Editor {
     }
 
     fn startup_folds(&mut self) {
+        self.outline_indent = self.shared.config.bool("editor.outline_indent");
         let Some((p, true)) = self.doc.parse() else {
             return;
         };
+        self.outline_indent = view::outline_indent(&p.keywords(), self.outline_indent);
         let option = p
             .keywords()
             .into_iter()
@@ -426,6 +459,22 @@ impl Editor {
             let blocks = self.blocks();
             self.folds = Folds::startup(&blocks, &o);
         }
+    }
+
+    /// How far line `line` moves right with `org-indent-mode`: the
+    /// width of two characters for each level of its heading below the
+    /// first, at most four.
+    pub fn outline_indent_of(&mut self, line: usize) -> Pixels {
+        if !self.outline_indent
+            || self.source
+            || self.doc.meta.mode != kalem_core::DocumentMode::Org
+        {
+            return px(0.);
+        }
+        let start = self.doc.text().line_start(line);
+        let depth = view::outline_depth(&self.blocks(), start);
+        let base = px(self.doc_theme().size);
+        base * 1.2 * depth.saturating_sub(1).min(4) as f32
     }
 
     /// The blocks of the current text (none while a full parse runs).
@@ -699,8 +748,23 @@ impl Editor {
     /// cursor.
     pub fn after_change(&mut self, cx: &mut Context<'_, Self>) {
         let changes = self.doc.take_changes();
+        let now = Instant::now();
         for tx in &changes {
             self.folds.map(tx);
+            self.debouncer
+                .record(self.doc_id, self.doc.version(), tx, now);
+        }
+        let sel = (self.doc.selection.anchor, self.doc.selection.head);
+        if self.sent_selection != Some(sel) || !changes.is_empty() {
+            self.sent_selection = Some(sel);
+            self.shared
+                .bus
+                .borrow_mut()
+                .emit(&kalem_core::events::Event::SelectionChanged {
+                    doc: self.doc_id,
+                    anchor: sel.0,
+                    head: sel.1,
+                });
         }
         if let Some(o) = &mut self.outline {
             o.map(&changes);
@@ -1351,10 +1415,33 @@ impl Editor {
             self.save_as(window, cx);
             return;
         }
+        let path = self.doc.meta.path.clone().unwrap_or_default();
+        let event = kalem_core::events::Event::DocumentBeforeSave {
+            doc: self.doc_id,
+            path: path.clone(),
+        };
+        let outcome = self
+            .shared
+            .bus
+            .borrow_mut()
+            .emit_vetoable(&event, Instant::now())
+            .wait();
+        self.shared.bus.borrow_mut().settle(&event, &outcome);
+        if let Some((_, reason)) = outcome.veto {
+            self.message(tr!("msg-not-saved", reason = reason), true);
+            return;
+        }
         self.doc.before_save(&self.shared.config, Instant::now());
         self.after_change(cx);
         match self.doc.save(self.shared.config.save_options(), false) {
             Ok(()) => {
+                self.shared
+                    .bus
+                    .borrow_mut()
+                    .emit(&kalem_core::events::Event::DocumentAfterSave {
+                        doc: self.doc_id,
+                        path,
+                    });
                 self.disk_conflict = false;
                 self.message(tr!("msg-saved"), false);
                 // A LaTeX document builds on save when asked to, one build
@@ -2421,6 +2508,17 @@ impl Editor {
     /// Background work: a finished background parse restyles the lines.
     pub fn tick(&mut self, cx: &mut Context<'_, Self>) {
         self.tick_palette(cx);
+        // Events: edits after their pause, and those raised elsewhere.
+        {
+            let mut bus = self.shared.bus.borrow_mut();
+            for e in self.debouncer.due(Instant::now()) {
+                bus.emit(&e);
+            }
+            bus.dispatch_queued();
+            for w in bus.take_warnings() {
+                tracing::warn!("{w}");
+            }
+        }
         // Items of slow completers.
         if let Some(m) = &mut self.completion
             && m.session.waiting()
@@ -2475,7 +2573,20 @@ impl Editor {
         use kalem_core::document::ExternalChange;
         self.disk_checked = Instant::now();
         let version = self.doc.version();
-        match self.doc.external_change(Instant::now()) {
+        let change = self.doc.external_change(Instant::now());
+        // Another program changed the file: `workspace:file-changed`.
+        if let (
+            Ok(ExternalChange::Reloaded | ExternalChange::Conflict | ExternalChange::Deleted),
+            Some(path),
+        ) = (&change, &self.doc.meta.path)
+            && !self.disk_conflict
+        {
+            self.shared
+                .bus
+                .borrow_mut()
+                .emit(&kalem_core::events::Event::WorkspaceFileChanged { path: path.clone() });
+        }
+        match change {
             // Saved or reverted since a conflict.
             Ok(ExternalChange::None) => self.disk_conflict = false,
             Ok(ExternalChange::Reloaded) => {
@@ -3217,6 +3328,9 @@ impl gpui::Render for Editor {
                 text.child(
                     list(state, move |ix, _window, cx| {
                         let line = visible.get(ix).copied().unwrap_or(0);
+                        // `org-indent-mode`: the line moved right by the
+                        // level of its heading, two characters a level.
+                        let indent = entity.update(cx, |e, _| e.outline_indent_of(line));
                         // Kalem's paragraph spacing, around the line.
                         let (before, after) = {
                             let e = entity.read(cx);
@@ -3236,12 +3350,13 @@ impl gpui::Render for Editor {
                             line,
                             other,
                         };
-                        if before == 0 && after == 0 {
+                        if before == 0 && after == 0 && indent == px(0.) {
                             element.into_any_element()
                         } else {
                             div()
                                 .pt(px(f32::from(before) / 10.))
                                 .pb(px(f32::from(after) / 10.))
+                                .pl(indent)
                                 .child(element)
                                 .into_any_element()
                         }
@@ -3359,5 +3474,13 @@ impl gpui::Render for Editor {
             .children(self.palette_view(cx))
             .children(self.date_picker_view(cx))
             .children(self.settings_view(cx))
+    }
+}
+
+impl Drop for Editor {
+    fn drop(&mut self) {
+        if let Ok(mut bus) = self.shared.bus.try_borrow_mut() {
+            bus.emit(&kalem_core::events::Event::DocumentClose { doc: self.doc_id });
+        }
     }
 }

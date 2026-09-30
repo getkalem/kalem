@@ -48,6 +48,7 @@ pub fn rebuild(old: &Shared, config: Config) -> Shared {
         html_clipboard: old.html_clipboard,
         settings_path: old.settings_path.clone(),
         jobs: old.jobs.clone(),
+        bus: old.bus.clone(),
         ..crate::shared(config)
     }
 }
