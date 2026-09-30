@@ -35,6 +35,11 @@ pub fn command(name: &str) -> &'static str {
         "numberwithin" => "omm",
         "counterwithin" | "counterwithout" => "*mm",
         "captionof" => "*mom",
+        // siunitx.
+        "num" | "si" | "unit" | "ang" | "numlist" => "om",
+        "qty" | "numrange" => "omm",
+        "SI" => "omom",
+        "SIrange" | "qtyrange" => "ommm",
         "addcontentsline" => "mmm",
         "declaretheorem" => "omo",
         "subfloat" => "oom",

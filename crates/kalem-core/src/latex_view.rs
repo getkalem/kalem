@@ -387,7 +387,7 @@ impl LatexState {
     }
 }
 
-fn is_list(name: &str) -> bool {
+pub(crate) fn is_list(name: &str) -> bool {
     matches!(name, "itemize" | "enumerate" | "description")
 }
 
@@ -616,8 +616,12 @@ fn list_items(env: &SyntaxNode) -> Items {
         .and_then(|s| s.parse().ok())
         .map_or(0, |s: i64| s - 1);
     let mut out = Vec::new();
+    // This level's counter, which `\setcounter` and `\addtocounter` set.
+    let counter =
+        ["enumi", "enumii", "enumiii", "enumiv"][(depth_of("enumerate").max(1) - 1).min(3)];
     for cmd in env.descendants().filter(|c| c.kind() == K::COMMAND) {
-        if latex_syntax::name(&cmd).as_deref() != Some("item") {
+        let cname = latex_syntax::name(&cmd).unwrap_or_default();
+        if !matches!(cname.as_str(), "item" | "setcounter" | "addtocounter") {
             continue;
         }
         // Items of this list, not of one inside it.
@@ -629,6 +633,16 @@ fn list_items(env: &SyntaxNode) -> Items {
             .as_ref()
             != Some(env)
         {
+            continue;
+        }
+        if cname != "item" {
+            let (_, m) = arguments(&cmd);
+            if name == "enumerate"
+                && m.first().map(|c| c.trim()) == Some(counter)
+                && let Some(v) = m.get(1).and_then(|v| v.trim().parse::<i64>().ok())
+            {
+                n = if cname == "setcounter" { v } else { n + v };
+            }
             continue;
         }
         let start = usize::from(cmd.text_range().start());
@@ -1929,6 +1943,34 @@ fn unflagged_line_view(
                 let name = &s[1..];
                 let untitled = name == "maketitle" && state.titles().iter().all(Option::is_none);
                 match (name, word(name)) {
+                    // siunitx's numbers and quantities, typeset.
+                    (
+                        "num" | "si" | "unit" | "SI" | "qty" | "ang" | "numrange" | "SIrange"
+                        | "qtyrange" | "numlist",
+                        _,
+                    ) if let Some(cmd) = t.parent().filter(|p| p.kind() == K::COMMAND)
+                        && node_span(&cmd).end <= line.end
+                        && !near(&node_span(&cmd))
+                        && state.model().packages.iter().any(|p| p.name == "siunitx")
+                        && let Some(shown) = crate::siunitx::render(
+                            name,
+                            &cmd.children()
+                                .filter(|c| c.kind() == K::GROUP)
+                                .map(|g| {
+                                    let t = g.text().to_string();
+                                    t[1..t.len() - usize::from(t.ends_with('}'))].to_string()
+                                })
+                                .collect::<Vec<_>>(),
+                        ) =>
+                    {
+                        let end = node_span(&cmd).end;
+                        b.replace(r.start..end, &shown, c.style);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
                     // `\vspace{…}` typesets nothing here, `\hspace{…}` a
                     // space: the command and its argument hidden.
                     ("vspace" | "hspace" | "addvspace" | "vskip" | "hskip", _)
@@ -3272,7 +3314,21 @@ const PACKAGE_MACROS: &[(&str, &[&str])] = &[
             "\\newcommand{\\SI}[2]{#1\\,\\mathrm{#2}}",
             "\\newcommand{\\si}[1]{\\mathrm{#1}}",
             "\\newcommand{\\num}[1]{#1}",
-            "\\newcommand{\\qtyunit}[2]{#1\\,\\mathrm{#2}}",
+            // Version 3's names.
+            "\\newcommand{\\qty}[2]{#1\\,\\mathrm{#2}}",
+            "\\newcommand{\\unit}[1]{\\mathrm{#1}}",
+            "\\newcommand{\\ang}[1]{#1^\\circ}",
+            "\\newcommand{\\percent}{\\%}",
+            "\\newcommand{\\degree}{^\\circ}",
+            "\\newcommand{\\ohm}{\\Omega}",
+            "\\newcommand{\\litre}{L}",
+            "\\newcommand{\\hour}{h}",
+            "\\newcommand{\\giga}{G}",
+            "\\newcommand{\\nano}{n}",
+            "\\newcommand{\\coulomb}{C}",
+            "\\newcommand{\\tesla}{T}",
+            "\\newcommand{\\electronvolt}{eV}",
+            "\\newcommand{\\square}{}",
             "\\newcommand{\\metre}{m}",
             "\\newcommand{\\meter}{m}",
             "\\newcommand{\\second}{s}",
@@ -3307,10 +3363,13 @@ pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
         return Vec::new();
     };
     let model = state.model();
+    let loaded = |p: &str| model.packages.iter().any(|m| m.name == p);
     let mut out: Vec<String> = PACKAGE_MACROS
         .iter()
-        .filter(|(p, _)| model.packages.iter().any(|m| m.name == *p))
+        .filter(|(p, _)| loaded(p))
         .flat_map(|(_, defs)| defs.iter().map(|d| d.to_string()))
+        // With siunitx, `\qty` is its quantity, not physics' parentheses.
+        .filter(|d| !(loaded("siunitx") && d.starts_with("\\newcommand{\\qty}[1]")))
         .collect();
     out.extend(
         model
@@ -4183,6 +4242,29 @@ mod tests {
             // Declarations stay as source, dimmed.
             "\u{a1}Hola! \u{bf}Qué? a\u{2013}b a--b ``c'' {\\tt x--y}"
         );
+    }
+
+    #[test]
+    fn siunitx_in_text() {
+        let text = "\\usepackage{siunitx}\n\\begin{document}\ng is \\SI{9.81}{\\metre\\per\\second\\squared}, \\qty{50}{\\percent} of \\num{12345}.\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 2, Some(text.len())).display(),
+            "g is 9.81\u{2009}m\u{2009}s⁻², 50\u{2009}% of 12\u{2009}345."
+        );
+    }
+
+    #[test]
+    fn enumerate_counter_set() {
+        let text = "\\begin{enumerate}\n\\setcounter{enumi}{4}\n\\item five\n\\item six\n\\end{enumerate}\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        assert!(
+            shown(&d, 2, end).display().starts_with("5."),
+            "{}",
+            shown(&d, 2, end).display()
+        );
+        assert!(shown(&d, 3, end).display().starts_with("6."));
     }
 
     #[test]

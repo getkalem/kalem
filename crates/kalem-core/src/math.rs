@@ -257,7 +257,51 @@ fn unicode_inner(s: &str) -> String {
                         });
                     }
                     "text" | "mathrm" | "textrm" | "mathit" | "operatorname" | "mathbf"
-                    | "boldsymbol" => out.push_str(&arg(s, &mut i)),
+                    | "boldsymbol" | "textbf" | "textit" | "mbox" | "emph" | "mathsf"
+                    | "mathtt" | "mathcal" => out.push_str(&arg(s, &mut i)),
+                    // Words between the lines of an alignment.
+                    "intertext" | "shortintertext" => {
+                        out.push_str(&format!(" {} ", arg(s, &mut i)));
+                    }
+                    // An environment inside: its delimiters, if it has any.
+                    "begin" | "end" => {
+                        let env = arg(s, &mut i);
+                        let base = env.trim_end_matches('*');
+                        // `\begin{array}{cc}`, `\begin{alignat}{2}`: the spec goes.
+                        if name == "begin"
+                            && matches!(base, "array" | "alignat" | "alignedat" | "subarray")
+                        {
+                            let _ = arg(s, &mut i);
+                        }
+                        let open = name == "begin";
+                        let d = match (base, open) {
+                            ("cases" | "dcases", true) => "{",
+                            ("rcases" | "drcases", false) => "}",
+                            ("pmatrix", true) => "(",
+                            ("pmatrix", false) => ")",
+                            ("bmatrix", true) => "[",
+                            ("bmatrix", false) => "]",
+                            ("Bmatrix", true) => "{",
+                            ("Bmatrix", false) => "}",
+                            ("vmatrix", _) => "|",
+                            ("Vmatrix", _) => "‖",
+                            _ => "",
+                        };
+                        out.push_str(d);
+                    }
+                    "tag" => out.push_str(&format!(" ({})", arg(s, &mut i))),
+                    "label" => {
+                        let _ = arg(s, &mut i);
+                    }
+                    "nonumber" | "notag" | "displaystyle" | "textstyle" | "limits" | "nolimits" => {
+                    }
+                    // `\left(`: the delimiter; `\left.`: none.
+                    "left" | "right" | "middle" | "big" | "Big" | "bigg" | "Bigg" | "bigl"
+                    | "bigr" | "Bigl" | "Bigr" => {
+                        if s[i..].starts_with('.') {
+                            i += 1;
+                        }
+                    }
                     "mathbb" => {
                         let x = arg(s, &mut i);
                         let m = match x.as_str() {
@@ -336,6 +380,14 @@ mod tests {
         assert_eq!(unicode("$\\sum_{i=1}^{n} i$"), "∑ᵢ₌₁ⁿ i");
         assert_eq!(unicode("$\\mathbb{R}^n$"), "ℝⁿ");
         assert_eq!(unicode("$e^{i\\pi}$"), "e^(iπ)");
+        // Environments, words and tags inside.
+        assert_eq!(
+            unicode("\\begin{equation*}a\\tag{0.1}\\end{equation*}"),
+            "a (0.1)"
+        );
+        assert_eq!(unicode("$x \\intertext{and} y$"), "x  and  y");
+        assert_eq!(unicode("$f = \\begin{cases} 1 \\end{cases}$"), "f = { 1 ");
+        assert_eq!(unicode("$\\left( x \\right.$"), "( x ");
     }
 }
 
