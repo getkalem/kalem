@@ -1104,6 +1104,18 @@ fn tables_from_and_to_files() {
     t.app
         .run_command("table.sortRows", serde_json::json!({ "by": "A" }));
     assert_eq!(t.text(), "Text\n| x, y | 2 |\n| a    | b |\n\n");
+    // Semicolons and a line break in a quoted field: read as CSV mode
+    // reads them (Emacs's reader would make one column).
+    let mut t = with_config("Text\n", Config::default(), (90, 10));
+    let dir = t.dir.clone().unwrap();
+    std::fs::write(dir.join("tr.csv"), "ad;not\nAyşe;\"iki\nsatır\"\n").unwrap();
+    t.at(4);
+    t.app
+        .run_command("table.import", serde_json::json!({ "file": "tr.csv" }));
+    assert_eq!(
+        t.text(),
+        "Text\n| ad   | not       |\n|------+-----------|\n| Ayşe | iki satır |\n\n"
+    );
 }
 
 #[test]

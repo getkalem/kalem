@@ -4598,13 +4598,43 @@ fn plain_commands() -> Vec<Command> {
                     .unwrap_or("")
                     .to_string();
                 let path = resolve_path(ctx.doc()?, &file);
-                let content = std::fs::read_to_string(&path).map_err(|e| {
+                let cannot = |e: String| {
                     CommandError::new(crate::tr!(
                         "msg-cannot-read",
                         error = format!("{}: {e}", path.display())
                     ))
-                })?;
+                };
+                // Decoded as the editors open files (a byte order mark, a
+                // legacy encoding).
+                let bytes = std::fs::read(&path).map_err(|e| cannot(e.to_string()))?;
+                let (content, meta) =
+                    crate::files::decode(Some(&path), bytes).map_err(|e| cannot(e.to_string()))?;
                 let content = content.replace("\r\n", "\n");
+                // CSV that Emacs's reader would misread (another delimiter
+                // than comma or tab, a line break in a quoted field): read
+                // as CSV mode reads it, a rule under a detected header.
+                if meta.mode == crate::DocumentMode::Csv {
+                    let dialect = crate::csv::detect(&content);
+                    let rows = crate::csv::rows(&content, &dialect);
+                    let breaks = rows.iter().flatten().any(|v| v.contains('\n'));
+                    if breaks || !matches!(dialect.delimiter, b',' | b'\t') {
+                        let now = ctx.now;
+                        let d = ctx.doc()?;
+                        let point = d.selection.head;
+                        let text = d.text().as_str();
+                        let mut table = String::new();
+                        if point > 0 && text.as_bytes()[point - 1] != b'\n' {
+                            table.push('\n');
+                        }
+                        let caret = point + table.len();
+                        table.push_str(&crate::csv::to_org_table(&content, &dialect));
+                        let mut tx = org_edit::Transaction::new("Import table");
+                        tx.replace(point..point, table).expect("one edit");
+                        let tx = tx.select(org_edit::Selection::caret(caret));
+                        d.apply(&tx, org_edit::ChangeKind::Command, now);
+                        return Ok(());
+                    }
+                }
                 ctx.org(|d, p, _| {
                     org_edit::recalc::import(d, p, &content, org_table::csv::Separator::Auto)
                 })
