@@ -189,6 +189,9 @@ Every field is kept as its byte range and a flag saying whether it was
 quoted; the record keeps its range without the line ending and the
 offset of the next record. A blank line is a record with one empty
 field. A final line feed does not start an empty record (=Index=).
+Blank lines are shown as empty rows but are not data: Sort File keeps
+them after the other rows, the filter neither counts nor matches them,
+and Insert Column leaves them blank.
 
 The value of a field (=csv::value=) is its text as written when it is
 unquoted. When it is quoted: the opening quote is dropped, the closing
@@ -456,8 +459,10 @@ a header was detected it stays first. Two values compare
 2. two texts after lower-casing both, by Unicode code points (there is
    no locale collation).
 
-The sort is stable, and a missing field compares as an empty value. The
-file is rewritten from its first byte to the end of its last record as
+The sort is stable, a missing field compares as an empty value, and
+blank lines go after every other record, in their file order, in both
+directions. The file is rewritten from its first record (a =sep== line
+stays) to the end of its last record as
 the records' own bytes, unchanged, joined with the dialect's line
 ending; the line ending after the last record, if any, stays. So
 quoting inside records is kept, while line endings between records are
@@ -477,13 +482,14 @@ untouched and saving writes all of it. The text asked for is trimmed;
 an empty text shows all rows again, as /Show All Rows/ does. A record is
 shown (=csv::filter_rows=) when it is the header, when it holds the
 cursor, or when any of its fields' values contains the text, compared
-case-insensitively (both lower-cased). The status bar says
-"Filtered: /m/ of /n/ rows (“/text/”)", where /n/ counts every record
-but the header and /m/ those that match.
+case-insensitively (both lower-cased); a blank line never matches. The
+status bar says "Filtered: /m/ of /n/ rows (“/text/”)", where /n/
+counts every record but the header and blank lines, and /m/ those that
+match.
 
 /Sort View by Column/ (=csv.sortView=) shows the records in the order of
 the cursor's column, compared as Sort File compares, with the header
-first; the file keeps its order. Running it again on the same column
+first and blank lines last; the file keeps its order. Running it again on the same column
 turns the order to descending, and again back to ascending; =reverse=
 asks for descending directly. /File Order/ ends it. With a filter on,
 the sorted view shows only the filtered records (=csv::shown_lines=).
