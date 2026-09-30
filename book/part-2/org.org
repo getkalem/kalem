@@ -299,9 +299,13 @@ editing commands work on it, and whether the exporters write it.
 | =footnote-definition= | =FOOTNOTE_DEFINITION= | A footnote block                                | The footnote commands                                                                                      | Yes                                                    |
 
 A table.el table (one whose first line starts with =+-=) is kept as
-raw text, as =org-element= keeps it. The LaTeX and plain text back-ends
-write it as Org does; the HTML back-end, and Markdown through it, write
-an empty =<table>= where =ox-html= converts it with =table.el=.
+raw text, as =org-element= keeps it. The HTML back-end, and Markdown
+through it, convert it as =ox-html= does with =table.el=
+(=html::table_el_html=: each cell's lines with their blanks as no-break
+spaces, byte for byte as Emacs writes it but for the Emacs version in
+the comment it adds). The plain text back-end writes it as Org does;
+the LaTeX back-end writes it in a =verbatim= environment where
+=ox-latex= converts it to a =tabular= (T2.11.1).
 
 * Elements
 
@@ -733,11 +737,12 @@ Not reproduced (see the known differences): Emacs Lisp formulas
 (='(...)=), which are kept, not evaluated, and named; Calc's full
 algebra beyond the basic simplifications; complex numbers, the gamma
 function, radix, HMS and error forms; a formula that makes Calc
-overflow shows =#ERROR=; error messages have Kalem's wording. Also not
-reproduced: Calc's named constants =pi=, =e= and the like, which Kalem
-leaves symbolic where Calc outside symbolic mode gives their values
-(define them with =#+CONSTANTS=); and =remote()= to a table found by an
-entry's =ID= or in another file.
+overflow shows =#ERROR=; error messages have Kalem's wording. Calc's
+named constants =pi= and =e= stay symbolic, as they do in Emacs's table
+formulas (=$2=pi*$1= gives =pi= in both); define them with
+=#+CONSTANTS= for a value. Also not reproduced: =remote()= to a table
+found by an entry's =ID= or in another file, and the Calc functions
+listed in T2.11.5.
 
 ~kalem table recalc FILE...~ recalculates every table with a =#+TBLFM=
 line and aligns it, as =org-table-recalculate-buffer-tables= does;
@@ -833,7 +838,7 @@ inline SVG drawn by the editor's math engine.
 Differences in export: macros defined as =(eval ...)= are Lisp and
 expand to nothing; Kalem's own style sheet and MathJax set-up replace
 Org's in whole HTML pages (the comparison skips them); table.el tables
-export as an empty table in HTML and Markdown; the interim Kalem
+export to LaTeX as =verbatim= (T2.11.1); the interim Kalem
 formatting is written by the HTML and LaTeX back-ends.
 
 The expected outputs of the test cases were exported by Emacs 30.1
@@ -909,8 +914,7 @@ Stated plainly, from the work breakdown (=todo.md=, phases 3 and 4):
   =org-archive-location=); archiving to a sibling and refiling within
   one file are implemented.
 - *Diary sexps* are parsed and kept, not evaluated.
-- *table.el tables* are kept and exported by LaTeX and text, not
-  edited.
+- *table.el tables* are kept and exported, not edited.
 - *Emacs Lisp anywhere*: formulas (='(...)=), =(eval ...)= macros,
   =%(...)= in link abbreviations, =elisp:= links are kept and not run.
 - *Back-ends* other than the five above: no Beamer, reveal.js, ODT
