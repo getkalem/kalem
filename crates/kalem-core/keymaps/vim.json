@@ -6,7 +6,7 @@
 [
   { "keys": "leader :", "command": "view.palette", "when": "vimCommand" },
   { "keys": "leader space", "command": "project.findFile", "when": "vimCommand" },
-  { "keys": "leader .", "command": "file.open", "when": "vimCommand" },
+  { "keys": "leader .", "command": "file.open", "args": { "prompt": true }, "when": "vimCommand" },
   { "keys": "leader ,", "command": "file.switch", "when": "vimCommand" },
   { "keys": "leader /", "command": "project.search", "when": "vimCommand" },
   // Buffers: the open documents.
@@ -21,7 +21,7 @@
   { "keys": "leader b r", "command": "app.revert", "when": "vimCommand" },
   { "keys": "leader b shift+n", "command": "file.new", "when": "vimCommand" },
   // Files.
-  { "keys": "leader f f", "command": "file.open", "when": "vimCommand" },
+  { "keys": "leader f f", "command": "file.open", "args": { "prompt": true }, "when": "vimCommand" },
   { "keys": "leader f r", "command": "file.recent", "when": "vimCommand" },
   { "keys": "leader f s", "command": "app.save", "when": "vimCommand" },
   { "keys": "leader f shift+s", "command": "app.saveAs", "when": "vimCommand" },
@@ -52,9 +52,14 @@
   // `vimCommand` come before Vim's own (`-` is no motion any more; remove
   // the binding in keymap.json to have it back). In a listing, Dired's keys (from
   // the Word-like keymap) come before Vim's, except those Vim needs for
-  // moving and searching: `n`, `p`, `w` and Backspace. `g r` reads the
-  // folder again, `g g` goes to the first entry and `Y` copies names, as
-  // in evil-collection.
+  // moving and searching: `n`, `p`, `w` and Backspace. Doom's keys
+  // (evil-collection and dirvish, T2.7e.18, the table in
+  // `tests/keys/doom-dired.toml`): `h` up and `l` open, `g r` reads the
+  // folder again, `g g` goes to the first entry, `y y` and `Y` copy the
+  // paths, `y n` the names, `y r` the relative paths, `f` shows a file's
+  // properties, `a` the projects, `N` narrows the listing, `$` takes a
+  // listed folder out, `C-x C-q` edits the names, and `SPC f D`, `SPC f
+  // R`, `SPC f C` delete, rename and copy the entry at point.
   { "keys": "leader o -", "command": "dired.jump", "when": "vimCommand" },
   { "keys": "-", "command": "dired.jump", "when": "vimCommand && editorMode != directory" },
   { "keys": "leader o shift+p", "command": "dired.projects", "when": "vimCommand" },
@@ -68,5 +73,19 @@
   { "keys": "shift+i", "command": "dired.insertSubdir" },
   { "keys": "g r", "command": "dired.refresh" },
   { "keys": "g g", "command": "dired.first" },
-  { "keys": "shift+y", "command": "dired.copyName" }
+  { "keys": "h", "command": "dired.up" },
+  { "keys": "l", "command": "dired.open" },
+  { "keys": "$", "command": "dired.removeSubdir" },
+  { "keys": "f", "command": "dired.properties" },
+  { "keys": "a", "command": "dired.projects" },
+  { "keys": "shift+n", "command": "dired.filter" },
+  { "keys": "y y", "command": "dired.copyPath" },
+  { "keys": "y n", "command": "dired.copyName" },
+  { "keys": "y r", "command": "dired.copyRelativePath" },
+  { "keys": "shift+y", "command": "dired.copyPath" },
+  { "keys": "ctrl+x", "command": "-dired.cutFiles" },
+  { "keys": "ctrl+x ctrl+q", "command": "dired.editNames" },
+  { "keys": "leader f shift+d", "command": "dired.delete", "when": "vimCommand && editorMode == directory" },
+  { "keys": "leader f shift+r", "command": "dired.move", "when": "vimCommand && editorMode == directory" },
+  { "keys": "leader f shift+c", "command": "dired.copy", "when": "vimCommand && editorMode == directory" }
 ]
