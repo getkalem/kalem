@@ -92,7 +92,7 @@ A lightweight, fast, single-binary, open source desktop editor that lets people 
 ### 1.4 Non-goals
 
 - **Microsoft Office compatibility.** docx is not a native format. Import and export go through pandoc.
-- **Page layout editor.** Margins, columns, page breaks, page number placement. Org is a semantic format; presentation is decided at export time.
+- **Page layout editor.** Margins, columns, page breaks, page number placement. Org is a semantic format; presentation is decided at export time. For the Kalem format, layout is a property of its stylesheet and its typeset output (RFC 0003, sections 11 and 13), still not of the editing surface.
 - **A full spreadsheet.** Pivot tables, a charting engine, hundreds of thousands of rows.
 - **A visual slide designer.** Presentations are export targets plus a simple presentation mode.
 - **Emulating Emacs.** Elisp, the Emacs key language, every agenda setting.
@@ -169,7 +169,7 @@ What users expect from Word, Excel and PowerPoint, the Org equivalent and its st
 
 ### 2.3 File model
 
-- **A document is a single `.org` or `.klm` file (3.7).** UTF-8. Line endings are taken from the file (LF or CRLF) and preserved. A BOM is preserved.
+- **A document is a single `.org` or `.klm` file (RFC 0003 for `.klm`).** UTF-8. Line endings are taken from the file (LF or CRLF) and preserved. A BOM is preserved.
 - **Attachments are side files.** Org does not embed binary data. Images and attachments are linked with relative paths. A pasted or dropped image is written to `<document-name>_assets/` and a relative link is inserted; the folder name is configurable. Compatibility with org-attach's `data/` layout is provided (`:ATTACH_DIR:` and `attachment:` links are resolved).
 - **A workspace folder is optional.** It is needed for the agenda, multi-file search and `id:` link resolution.
 - **Saving is atomic.** Write to a temporary file, then rename. Optional `.bak`.
@@ -185,7 +185,7 @@ macOS 12+, Linux (X11 and Wayland), Windows 10+. Single binary, no installation 
 - In-buffer settings (`#+TODO`, `#+TAGS`, `#+STARTUP`, `#+PROPERTY`) are honored. Kalem never writes its own settings into a document unless the user explicitly asks.
 - Newly generated syntax follows the document's existing style: indentation, blank-line rules, upper or lower case `#+` keywords, the TODO keyword sequence.
 - Table alignment is identical to Emacs's `org-table-align`; otherwise every save would produce table diffs.
-- A `.org` file never receives Kalem's own markup (3.7). The Word-like additions live in `.klm` files, Org plus those additions, or in a `.org` file that opted in.
+- A `.org` file never receives Kalem's own markup, with no opt-in. Word-like formatting belongs to the Kalem format (RFC 0003).
 - No file locking.
 
 ### 2.6 Other files: a general purpose text editor
@@ -194,7 +194,8 @@ Kalem opens any text file. Four document modes decide how:
 
 | Mode | Files | View |
 |---|---|---|
-| Org | `.org`, `.org_archive`; `.klm`, a Kalem document (Org plus Kalem's additions, 3.7) | The WYSIWYG editor (the rest of this document); in `.org` the formatting of 3.7 is off |
+| Org | `.org`, `.org_archive` | The WYSIWYG editor (the rest of this document); strict Org, Kalem writes nothing Org does not define |
+| Kalem format | `.klm`; stylesheets `.klms` | The rendered editor of the Kalem format (RFC 0003): one command syntax, Org's structure, LaTeX mathematics, styles and layout, canonical serialization |
 | Markdown | `.md`, `.markdown`, `.mdown`, `.mkd` | A WYSIWYG view like the Org one: hidden markers revealed at the cursor, rendered headings, lists, task lists, tables, images and math (2.6.1) |
 | CSV | `.csv`, `.tsv`, `.tab` | An editable grid, like a light spreadsheet (2.6.2) |
 | LaTeX | `.tex`, `.ltx` (`.sty`, `.cls`, `.bst` as plain text) | The rendered editor for LaTeX documents (9.5): standard LaTeX stays standard LaTeX |
@@ -447,7 +448,7 @@ Pathological inputs that make Emacs quadratic (for example thousands of nested b
 
 The owner set the rule on 2026-09-28: everything that works in Emacs works in Kalem, and Kalem adds features that Org mode does not have. Every standard Org file opens in Kalem with its Emacs meaning; a file that uses Kalem's additions may not look the same in Emacs.
 
-**Two file kinds (decided by the owner, 2026-09-28).** A `.org` file is strict Org: Kalem never writes its additions into it, so an Emacs co-author never sees a Kalem-only line and the extension keeps its meaning. A `.klm` file is a Kalem document, Kalem's own format: Org plus the additions of this section. `.klm` is a superset of Org, not a new syntax. Everything Kalem writes into it uses Org's extension points (export snippets, attribute lines, keywords, special blocks), so a `.klm` file renamed to `.org` is valid Org that Emacs opens and pandoc converts; `(add-to-list 'auto-mode-alist '("\\.klm\\'" . org-mode))` opens it in Emacs without renaming. A feature that cannot be expressed through Org's extension points is not added to `.klm` by default; it needs an RFC of its own. In practice: the formatting commands of this section are on in `.klm` and off in `.org`, where using one asks whether to make the document a Kalem document (rename to `.klm`) or to opt in with `#+KALEM: markup=yes`; the workspace setting `org.allow_kalem_markup` opts in a whole folder; "Save as Org" writes a copy without the additions and says what was dropped; `kalem check` warns about Kalem markup in a `.org` file, an error with `--deny-warnings`. Both kinds share the parser, the model, the commands, the exporters and the tests.
+**Superseded (owner, 2026-09-30).** The mechanism of this section, Kalem's additions written through Org's extension points, and the `.klm`-as-Org-superset of D24 are retired by RFC 0003: `.org` is strict Org with no opt-in, and `.klm` is the Kalem format, a specification of its own with one command syntax, Org's structure, LaTeX mathematics, styles and layout. The text below stays for the record until T2.13.13 removes the code; the formatting commands it describes are reimplemented as the Kalem format's styles and spans.
 
 Kalem writes its additions in syntax that Emacs already parses, so that such a file still opens, edits and exports in Emacs, only without the addition. Checked with Emacs 30.1 and Org 9.7.11: the HTML and ASCII exports of a file with every addition below leave them out and keep the text.
 
@@ -490,6 +491,11 @@ crates/
   org-table/      Table alignment, TBLFM parsing and evaluation
   org-math/       LaTeX math → vector image (preview)
   org-export/     HTML, LaTeX, Markdown, reveal.js, Beamer; pandoc bridge
+  klm-syntax/     The Kalem format's lossless parser (RFC 0003)
+  klm-model/      Its document model, on the semantics org-model computes
+  klm-edit/       Tree operations with the editor's well-formedness guarantee
+  klm-style/      Stylesheets (.klms), compiled to Typst, CSS, LaTeX and DOCX styles
+  klm-export/     HTML, PDF through Typst and LaTeX, DOCX, Org and Markdown with loss reports
   org-cite/       org-cite parsing, CSL and BibTeX through hayagriva
   org-babel/      Source block execution (subprocess), result insertion, tangling
   org-agenda/     Workspace index, agenda queries
@@ -1085,7 +1091,7 @@ A document that uses a plugin still opens in Emacs and in Kalem without the plug
 
 Kalem's own optional features are built on the same extension points wherever possible and shipped as **bundled plugins** (for example the kanban view and the word count panel). This keeps the API honest: if a built-in feature needs something, plugins get it too.
 
-**Small core (decided by the owner, 2026-09-28; D29).** The core is five things: Org (parser, model, editing, tables, the export engine), the Markdown, CSV and LaTeX modes (9.5), the text engine with the view model, the two frontends, and the infrastructure that runs before any plugin (commands, keymaps, settings, files, projects, search, the plugin loader). Everything else is a plugin on the public contracts (11.10 to 11.12): every other mode (2.7g of the work breakdown), every other completer, every export back-end beyond HTML, the views, the diagram renderers, the language server bridge. The ones everyone expects ship inside the binary as bundled plugins: embedded WASM components (D28), loaded on first use, so the user sees no difference and the API is proven complete. Markdown and CSV are written against the mode contract too and could move out; they stay in for speed, and because they are the second and third format people bring. New modes and file types are developed in the plugin repository `getkalem/plugins` (11.8), never in the core.
+**Small core (decided by the owner, 2026-09-28; D29).** The core is five things: Org (parser, model, editing, tables, the export engine), the Markdown, CSV and LaTeX modes (9.5), the Kalem format (RFC 0003), the text engine with the view model, the two frontends, and the infrastructure that runs before any plugin (commands, keymaps, settings, files, projects, search, the plugin loader). Everything else is a plugin on the public contracts (11.10 to 11.12): every other mode (2.7g of the work breakdown), every other completer, every export back-end beyond HTML, the views, the diagram renderers, the language server bridge. The ones everyone expects ship inside the binary as bundled plugins: embedded WASM components (D28), loaded on first use, so the user sees no difference and the API is proven complete. Markdown and CSV are written against the mode contract too and could move out; they stay in for speed, and because they are the second and third format people bring. New modes and file types are developed in the plugin repository `getkalem/plugins` (11.8), never in the core. The Kalem format is the one place where Kalem itself defines syntax, in a specification with a conformance suite; plugins still extend semantics, not syntax.
 
 ### 11.1 Layers
 
@@ -1548,7 +1554,7 @@ Test corpus files keep their own licenses (for example the Org Manual is GFDL) a
 - `CONTRIBUTING.md`, code of conduct, "good first issue" labels, PR template.
 - An `rfcs/` folder for large decisions; this document is RFC 0001.
 - `CHANGELOG.md`, semver, a regular release rhythm.
-- Documentation: user manual, plugin API and architecture with mdBook. Documentation is written in Org and produced by Kalem's own exporter (dogfooding).
+- Documentation: the Book (design_doc2.md, section 10), one source of truth on GitHub Pages: the manual, the standard formats as implemented, the Kalem format's specification, the plugin API and the design; built by Kalem's own exporter, mdBook only as a bridge; written in Org until the Kalem format lands, then in `.klm`.
 - Language: repository, code and documentation in English; the UI in English and Turkish.
 
 ### 18.3 Relationship with the Emacs community
@@ -1580,6 +1586,8 @@ Test corpus files keep their own licenses (for example the Org Manual is GFDL) a
 ## 20. Roadmap
 
 Durations are rough estimates for a single developer. The next phase does not start before the exit criteria of the current one are met.
+
+Two tracks run beside the phases below (design_doc2.md, section 11; owner, 2026-09-30): **Track B, the Kalem format** (K0 specification and prototypes, K1 parser, model and editing, K2 styles, layout and export, K3 conversion and specification 1.0; work breakdown group 2.13), which never runs ahead of the standard modes; and **Track C, the Book** (group 2.10), started now.
 
 ### Phase 0: Discovery and foundation (2 to 3 months)
 
@@ -1661,15 +1669,17 @@ Durations are rough estimates for a single developer. The next phase does not st
 | D18 | Entity table provenance | Keep with attribution; split (names and UTF-8 in `org-syntax`, export renderings elsewhere); ask the Org maintainers and the FSF; GPL for `org-syntax` | Split now, ask in parallel (`book/part-5/decisions/D18-entity-table-provenance.org`) | Open: owner decision, blocks publishing `org-syntax` |
 | D19 | Markdown parser | pulldown-cmark (offset iterator); comrak (AST with source positions); tree-sitter-markdown; own parser | pulldown-cmark: fast, CommonMark and GFM, MIT, offsets are enough because editing stays text-based | Open |
 | D20 | File operations for the file manager (2.7) | `trash` crate plus std::fs with own copy, move and progress; `fs_extra`; shelling out to system tools | `trash` for deletion, own operations on std::fs for progress, cancellation and conflict handling | Decided 2026-09-28 (book/part-5/decisions/D20-file-operations.org) |
-| D21 | Product positioning | Org editor first; Markdown editor too; a light Office replacement (fonts, colors, spreadsheet notation) | "Kalem edits plain-text files as they look, and keeps them plain text, byte for byte": Org first, Markdown next, the Word-like additions only in `.klm` (D24); the README, the launch and the order of phase 2 follow it | Open: owner decision, narrowed by D24; scientific writing is the third pillar, LaTeX rendered with Org's rigor (9.5, owner, 2026-09-28) |
+| D21 | Product positioning | Org editor first; Markdown editor too; a light Office replacement (fonts, colors, spreadsheet notation) | "Kalem edits plain-text files as they look, and keeps them plain text, byte for byte": Org first, Markdown next, the Word-like additions only in `.klm` (D24); the README, the launch and the order of phase 2 follow it | **Closed (owner, 2026-09-30):** faithful standard modes plus the Kalem format; four use cases: notes and tasks, documentation, scientific writing, printed documents (design_doc2.md) |
 | D22 | PDF without TeX | System print to PDF; a bundled HTML renderer; typst | Decide with T2.3.13, after the HTML page template exists | Open (review, 2026-09-28) |
 | D23 | UI framework revisited | Stay on gpui through a registry snapshot or vendoring; leave gpui | A registry snapshot first (`gpui-unofficial` or `gpui-pre`, T2.8.6a); the spike of T2.8.7 only if the snapshot lines fail twice or Zed's terms change | Open: owner decision (review, 2026-09-28) |
-| D24 | File kinds | One `.org` that may carry Kalem's additions; `.org` strict and `.klm` a superset | `.org` is strict Org; `.klm` is Org plus Kalem's additions through Org's extension points; new syntax only by RFC (3.7) | **Decided (owner, 2026-09-28)** |
+| D24 | File kinds | One `.org` that may carry Kalem's additions; `.org` strict and `.klm` a superset | `.org` is strict Org; `.klm` is the Kalem format of RFC 0003 | `.org` strict **decided**; the `.klm` half **superseded by RFC 0003** (owner, 2026-09-30) |
 | D25 | Plugin-provided highlighters, renderers and completers | Separate plugin APIs; the contracts built-in modes and completers use | One contract each, shared by built-ins and plugins, with a declarative and a programmatic level, a conformance suite and reference plugins (11.11, 11.12) | **Decided (owner, 2026-09-28)** |
 | D26 | Terminal parity | The terminal as a reduced frontend; the terminal never second class | Principle 7 of 4.1: a feature is done when it works in both frontends, gaps listed in `book/part-5/terminal-parity.org` | **Decided (owner, 2026-09-28)** |
 | D27 | Command scope | Keys for mode, language and file kind; one axis | One axis, the type of the text at the cursor, nesting by the innermost type, `klm` a subtype of `org`; structure stays in `when` (11.2) | **Decided (owner, 2026-09-28)** |
 | D28 | Plugin ABI and language | A scripting engine embedded natively with WASM later; WASM components with a scripting runtime; WASM components with Rust as the only language | WASM components on a WIT-defined API; Rust is the plugin language, on the same traits the core uses, so one crate builds as a bundled plugin inside the binary or as a sandboxed component; no scripting engine ships (D10); power users may compile community plugins into their own Kalem; out-of-process JSON-RPC for language servers and external tools; the engine (wasmtime or wasmi) by the spike T3.1.0 | **Decided (owner, 2026-09-28)**, engine open |
-| D29 | Small core | Everything built in; a small core with bundled plugins | The core: Org, Markdown, CSV and LaTeX (9.5), the text engine and view model, the two frontends, the infrastructure that runs before plugins; everything else a plugin, the expected ones bundled as embedded WASM components (11.0) | **Decided (owner, 2026-09-28)**, LaTeX added to the core the same day; new modes and file types live in `getkalem/plugins` (11.8) |
+| D29 | Small core | Everything built in; a small core with bundled plugins | The core: Org, Markdown, CSV and LaTeX (9.5), the Kalem format (RFC 0003), the text engine and view model, the two frontends, the infrastructure that runs before plugins; everything else a plugin, the expected ones bundled as embedded WASM components (11.0) | **Decided (owner, 2026-09-28)**, LaTeX added to the core the same day; new modes and file types live in `getkalem/plugins` (11.8) |
+| D31 to D46 | The Kalem format's syntax and stylesheet decisions | See RFC 0003 | One command syntax, paragraphs by blank lines, `$…$` as the only shortcut, Djot-style attributes, `\props` for planning and properties, spreadsheet-style column formulas, TOML stylesheets, layout in the stylesheet with `\pagesetup` inline | **Decided (owner, 2026-09-30)** in RFC 0003 draft 0.2 |
+| D47 to D52 | The command sigil `\`, implicit paragraphs, the single shortcut, the formula dialect, TOML stylesheets, Typst then LaTeX as PDF engines | See RFC 0003 | As RFC 0003 §4, §8, §9, §13, §17 | **Decided (owner, 2026-09-30)** |
 
 ---
 
