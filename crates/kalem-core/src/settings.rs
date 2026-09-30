@@ -113,7 +113,7 @@ pub const SPECS: &[Spec] = &[
         key: "editor.trim_trailing_whitespace",
         kind: Kind::Bool,
         default: "false",
-        description: "Remove the blanks at the ends of lines when saving",
+        description: "Remove the blanks at the ends of lines when saving (not in CSV and Markdown files)",
     },
     Spec {
         key: "editor.line_numbers",

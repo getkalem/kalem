@@ -3000,6 +3000,12 @@ fn plain_commands() -> Vec<Command> {
                         &crate::code::indent_text(d),
                         Some(l.as_str()),
                     ),
+                    // CSV: leading tabs are empty fields and leading blanks
+                    // part of a value, not indentation to copy.
+                    crate::DocumentMode::Csv => {
+                        d.insert_text("\n", now);
+                        return Ok(());
+                    }
                     _ => {
                         let mark = (s.anchor != s.head).then_some(s.anchor);
                         crate::input::newline(d.text().as_str(), s.head, mark)

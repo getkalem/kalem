@@ -296,9 +296,10 @@ what was typed; inside the quotes of a quoted field the characters are
 inserted with their quotes doubled. Other characters, blanks included,
 are inserted as they are, so a field is quoted only when it has to be.
 In the source view (Ctrl+/) typing is raw: a comma typed there is a
-delimiter. Enter inserts a line break (with the line's indentation, as
-=edit.newline= does in every non-Org file), which starts a new record
-unless the cursor is inside quotes. The grid and the layout follow the
+delimiter. Enter inserts a line break, without copying the line's
+leading blanks or tabs as =edit.newline= does in other files (they are
+part of a value or empty fields), which starts a new record unless the
+cursor is inside quotes. The grid and the layout follow the
 new text at once.
 
 The library also has a cell setter, =csv::set_cell=, which replaces only
@@ -543,8 +544,9 @@ and, in a CR LF document, a carriage return before every line feed that
 lacks one (commands and typing insert bare line feeds). This includes a
 line feed inside a quoted field: in a CR LF file, a line break typed in
 a field is saved as CR LF, as Excel writes it. The setting
-=editor.trim_trailing_whitespace= (off by default) applies to CSV files
-too and would remove blanks at the end of an unquoted last field.
+=editor.trim_trailing_whitespace= does not apply to CSV files: trailing
+tabs are empty fields and blanks at the end of a last field are part of
+its value.
 Saving is atomic, as for every file.
 
 * Known differences and limits
