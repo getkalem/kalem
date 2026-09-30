@@ -1,0 +1,433 @@
+*Everything in this chapter is planned.* The plugin runtime is not
+implemented: Kalem cannot load a plugin today. The design is decided
+(D25, D28, D29) and the work is group 3.1 of the work breakdown, with
+the live runtime in 3.2 and the ecosystem in 3.3. This chapter
+describes the plugin model as the design document (§11) states it, so
+that plugin authors and contributors can see where Kalem is going.
+Names and signatures are those of the design's sketch; the WIT
+definition (T3.1.3) is the one that will count, and it may differ in
+detail. What you can extend today is in [[file:overview.org][The extension model]].
+
+| Area                                   | Tasks              | State                         |
+|----------------------------------------+--------------------+-------------------------------|
+| Choice of WASM engine                  | T3.1.0             | Open: wasmtime or wasmi       |
+| WASM host, limits, loader              | T3.1.1, T3.1.10 to T3.1.13 | Open                  |
+| WIT API and =kalem-plugin= crate       | T3.1.3 to T3.1.9g  | Open                          |
+| Threads, batch mode                    | T3.1.15, T3.1.16   | Open                          |
+| Inspection, hot reload, debug socket   | T3.2.1 to T3.2.5   | Open                          |
+| Template, examples, bundled plugins    | T3.3.1, T3.3.2, T3.3.2a | Open                     |
+| =kalem plugin= commands                | T3.1.2, T3.3.3     | Open                          |
+| Plugin documentation                   | T3.3.4             | Open (this chapter is its start) |
+| Repository =getkalem/plugins=          | T3.3.7             | Skeleton in place             |
+
+* A plugin is a component, not a program
+
+A plugin is a *WebAssembly component* (D28): compiled code with a typed
+interface, run by Kalem in a sandbox. It has no file system, network,
+clock or threads of its own beyond what the API grants; its memory is
+its own; it never holds the document's text, only the ranges and edits
+the API passes. This is to be the first thing the plugin documentation
+says.
+
+Plugins are written in *Rust*, against the =kalem-plugin= crate. That
+crate is generated from the API's definition in *WIT*, the interface
+language of the WebAssembly component model, which is the single
+definition of the API (D6). The contract a plugin implements is the
+trait Kalem's own modes and completers implement: the completer trait of
+[[file:completers-and-modes.org][Completers, modes and highlighters]] is the model. So one crate builds
+two ways: as a sandboxed component that users install, or as a bundled
+plugin compiled into the Kalem binary. A component made in another
+language with a WIT binding is accepted, but Kalem ships no runtime and
+no tooling for other languages, and no scripting engine at all.
+
+Each plugin runs as one component instance per thread; a plugin that
+parses, renders or completes in parallel gets several instances, and
+they exchange messages through the host (T3.1.15). What cannot be a
+component (language servers, external programs, integrations in other
+languages) runs out of process and talks JSON-RPC over standard input
+and output.
+
+From phase 4, a power user may compile community plugins into their own
+Kalem binary (=kalem build --with=): native speed, real threads, and no
+sandbox, by their own choice.
+
+* The package
+
+A plugin is a folder with a manifest, =plugin.json=, and the compiled
+component:
+
+#+begin_src json
+{
+  "id": "com.example.wordcount",
+  "name": "Word Count",
+  "version": "0.1.0",
+  "description": "Word count per subtree",
+  "main": "dist/wordcount.wasm",
+  "api": "^1.0",
+  "activation": ["onStartup"],
+  "permissions": ["fs:read:workspace"],
+  "contributes": {
+    "commands": [{ "id": "com.example.wordcount.show", "title": "Show word count" }],
+    "keybindings": [{ "command": "com.example.wordcount.show", "keys": "ctrl+shift+w" }],
+    "settings": [{ "key": "com.example.wordcount.includeDrawers",
+                   "type": "boolean", "default": false }]
+  }
+}
+#+end_src
+
+| Field         | What it is                                                                       |
+|---------------+----------------------------------------------------------------------------------|
+| =id=          | The plugin's ID; its commands are named =ID.action=                              |
+| =main=        | The component, a =.wasm= file in the plugin's folder                             |
+| =api=         | The versions of the API the plugin was written for                               |
+| =activation=  | When it is loaded: =onStartup=, =onCommand:ID=, =onLanguage:LANG= (a Babel language), =onDocument= |
+| =permissions= | What it may reach beyond the sandbox (below)                                     |
+| =contributes= | Commands, key bindings and settings known before the plugin is loaded            |
+
+- Installed plugins live in =plugins/ID/= in the settings directory.
+- Components are loaded lazily, on their activation events, and
+  compiled once into a cache in the state directory (T3.1.1).
+- A plugin's entry point receives a context and registers what it
+  adds; every registration returns a /disposable/, which the plugin
+  pushes onto =ctx.subscriptions= so that everything is removed when it
+  is deactivated or reloaded (T3.1.12).
+- Plugins run unchanged in the graphical editor, the terminal editor and
+  batch mode. In batch mode, UI calls degrade: prompts return their
+  defaults, notifications go to standard error (T3.1.16).
+
+Command IDs follow the rule the registry enforces today: dotted parts,
+each starting with a lower case letter followed by letters and digits.
+So a plugin's ID has no hyphens: =com.example.wordcount= is valid,
+=com.example.word-count= is not.
+
+** Your configuration of plugins
+
+| File                   | What it holds                                                     |
+|------------------------+-------------------------------------------------------------------|
+| =plugins.toml=         | Enabled plugins and your permission decisions (§11.7, T3.1.10)    |
+| =settings.toml=        | Plugin settings, in tables =[plugins."ID"]=                       |
+| =keymap.json=          | Bindings for plugin commands, as for any command                  |
+
+Two parts of this exist already: =settings.toml= accepts tables under
+=plugins.ID= without checking them, and has a setting =plugins.enabled=,
+a list of plugin IDs, which nothing reads yet.
+
+#+begin_src toml
+[plugins."com.example.wordcount"]
+includeDrawers = true
+#+end_src
+
+* Permissions and limits
+
+- *Sandbox.* A plugin sees only the imports the WIT API grants.
+- *Permissions* are declared in the manifest, shown when the plugin is
+  installed or first run, approved by you, and recorded in
+  =plugins.toml=:
+
+  | Permission          | Grants                                              |
+  |---------------------+-----------------------------------------------------|
+  | =fs:read:workspace=  | Reading files in the workspace                     |
+  | =fs:write:workspace= | Writing files in the workspace                     |
+  | =fs:read:all=        | Reading any file                                   |
+  | =net:fetch:DOMAIN=   | HTTP requests to that domain                       |
+  | =subprocess=         | Running programs, with a separate, explicit warning |
+
+- *Time.* Fuel metering: a synchronous call that exceeds its budget,
+  100 ms by default, is cancelled with a warning. Long work uses
+  asynchronous calls and further instances on other threads (T3.1.11).
+- *Memory.* 64 MB per instance by default, enforced by the engine.
+- *Errors.* A plugin error never crashes Kalem. It is shown in the
+  plugin console; a plugin that fails repeatedly is disabled (T3.1.13).
+- *Events that can veto* (below) wait at most 500 ms for a plugin, then
+  proceed with a warning.
+- Code inside documents (Babel source blocks) has its own trust model,
+  separate from plugins.
+
+* The API
+
+The API is grouped in namespaces. The sketch below is the design's, in
+the shape of the Rust bindings; =Disposable= is what every registration
+returns.
+
+#+begin_src rust
+pub mod kalem {
+    pub const VERSION: &str;
+    pub fn command(id: &str, spec: CommandSpec) -> Disposable;   // title, run, scope, when, keys
+    pub fn run(id: &str, args: &[Value]) -> Result<Value>;
+    pub fn keymap(keys: &str, command_id: &str, when: Option<&str>) -> Disposable;
+    pub fn on<E: Event>(handler: impl Fn(E) + 'static) -> Disposable;
+    // ui, settings, fs, net, babel, exporter, tables, and the extension
+    // points: links, blocks, decorations, completers, hover, input_rules,
+    // views, diagnostics, importer, paste, dynamic_blocks, agenda,
+    // capture, cli, themes, modes
+}
+
+pub mod editor {
+    pub fn document() -> Document;
+    pub fn selection() -> Selection;
+    pub fn insert(text: &str, at: Option<usize>);
+    pub fn replace(range: Range, text: &str);
+    pub fn transact(label: &str, f: impl FnOnce());
+}
+#+end_src
+
+| Namespace                 | What it offers                                                            | Task    |
+|---------------------------+---------------------------------------------------------------------------+---------|
+| =kalem=                   | =command= (scope required), =run=, =keymap=, =on= for events              | T3.1.4  |
+| =kalem::ui=               | =notify=, =prompt=, =confirm=, =quick_pick=, the status bar, panels (a JSON widget tree both editors draw) | T3.1.5 |
+| =kalem::settings=         | =get=, =set=, =on_change=                                                 | T3.1.6  |
+| =kalem::fs=, =kalem::net= | Files and HTTP, each behind a permission                                  | T3.1.6  |
+| =editor=                  | The document, the selection, edits, transactions (one undo step)          | T3.1.7  |
+| =kalem::exporter=         | Export back-ends and filters                                              | T3.1.8  |
+| =kalem::tables=           | Functions for table formulas                                              | T3.1.8  |
+| =kalem::babel=            | Executors for source block languages                                      | T3.1.8  |
+| Extension points          | See the next section                                                      | T3.1.9a to T3.1.9g |
+
+The document interfaces give a plugin Org's structure without the
+text's syntax: a =Document= has its path, text by range, headlines (all,
+at an offset, by =ID= or =CUSTOM_ID=), TODO keywords, the node at an
+offset, a query by tag, TODO state or property, and its keywords. A
+=Headline= reads and sets its level, title, TODO state, priority, tags,
+properties, schedule and deadline, and promotes, demotes and moves. A
+=Table= reads and sets cells and formulas and recalculates.
+
+** Events
+
+| Event                                                                  | When                          | Can veto |
+|------------------------------------------------------------------------+-------------------------------+----------|
+| =app:ready=                                                            | Startup is complete           | no       |
+| =document:open=, =document:close=                                      |                               | no       |
+| =document:before-save=                                                 | Before saving                 | yes      |
+| =document:after-save=                                                  |                               | no       |
+| =document:changed=                                                     | With the changed ranges, debounced | no  |
+| =selection:changed=                                                    |                               | no       |
+| =headline:todo-changed=, =headline:tags-changed=, =headline:scheduled= |                               | no       |
+| =table:before-recalc=, =table:recalculated=                            |                               | no       |
+| =babel:before-execute=, =babel:after-execute=                          |                               | yes      |
+| =export:before=, =export:after=                                        | As filters that may change the output | yes |
+| =workspace:file-changed=                                               | The file watcher saw a change | no       |
+
+The event bus itself exists in =kalem-core= (=events.rs=), with these
+events, the 500 ms wait for vetoes and the removal of a handler that
+fails three times; the editors use it for their own listeners. Plugins
+subscribing to it is T3.1.9.
+
+* Extension points
+
+What a plugin can add, and how each appears in the two editors and on
+the command line:
+
+| Extension point               | The plugin adds                                    | Graphical                             | Terminal                              | Command line                    | Task    |
+|-------------------------------+----------------------------------------------------+---------------------------------------+---------------------------------------+---------------------------------+---------|
+| Commands, key bindings        | Actions                                            | Palette, menus, toolbar, context menu | Palette, keys                         | =kalem run=                     | T3.1.4  |
+| Link types                    | Behavior of =[[type:...]]=                         | Click, hover card, inline rendering   | Click, hover line                     | Export output                   | T3.1.9a |
+| Block renderers               | Special blocks, source languages                   | Widget tree or SVG in place of the block | Widget tree, image, or text        | Export output                   | T3.1.9b |
+| Decorations                   | Highlights, badges, gutter marks, virtual text     | Yes                                   | Colors, glyphs                        |                                 | T3.1.9c |
+| Completers and hover          | Completions for a language or mode; hover text     | Menu                                  | Menu                                  | =kalem complete FILE:LINE:COL= | T3.1.9c |
+| Input rules                   | Replacements as you type (=->= becomes an arrow)   | Yes                                   | Yes                                   |                                 | T3.1.9c |
+| Highlighters, document modes  | Syntax definitions; modes with a renderer          | Colors; rendered modes                | The same                              | =kalem check=, =fmt=, =export=  | T3.1.9g |
+| Views                         | Other views of a document: board, timeline, mind map | Editor area or panel                | Full screen or panel                  |                                 | T3.1.9d |
+| Panels                        | A JSON widget tree                                 | Side or bottom panel                  | Side or bottom panel                  |                                 | T3.1.5  |
+| Diagnostics                   | Checks with ranges and fixes                       | Squiggles, problems panel             | Underline, problems list              | =kalem check=                   | T3.1.9e |
+| Export back-ends and filters  | New formats, changes to output                     | Export dialog                         | Export dialog                         | =kalem export --to NAME=        | T3.1.8  |
+| Importers, paste handlers     | New input formats                                  | Open and paste                        | Open and paste                        | =kalem import=                  | T3.1.9e |
+| Babel languages               | Executors                                          | Run button                            | Run key                               | =kalem run=, =kalem tangle=     | T3.1.8  |
+| Table functions               | Functions for =#+TBLFM=                            | Formula bar                           | Formula bar                           | =kalem table recalc=            | T3.1.8  |
+| Dynamic blocks                | Generated content                                  | Refresh button                        | Refresh key                           | =kalem fmt --update-dynamic=    | T3.1.9d |
+| Agenda views, capture templates | Queries, templates                               | Agenda panel                          | Agenda panel                          | =kalem agenda --view ID=        | T3.1.9f |
+| Command-line subcommands      | Batch tools                                        |                                       |                                       | =kalem SUBCOMMAND=              | T3.1.9f |
+| Themes                        | Colors, glyph sets                                 | Yes                                   | Yes                                   |                                 | T3.1.9f |
+
+Of the command-line entries, =kalem complete=, =kalem check=, =kalem
+fmt=, =kalem export=, =kalem import= and =kalem table recalc= exist
+today for the built-in formats; =kalem run=, =kalem tangle=, =kalem
+agenda= and =kalem fmt --update-dynamic= do not.
+
+*Limits.* Plugins cannot change the parser's grammar (see the principle
+in [[file:overview.org][The extension model]]), cannot draw outside the widget tree and SVG,
+and cannot hold the editor's thread beyond the time budget.
+
+** Example: a kanban board
+
+A view that reads the TODO headlines under a headline tagged =:board:=,
+shows them as columns by TODO state, and turns drag and drop into
+=set_todo= calls. The document stays ordinary Org; in Emacs it is a
+normal outline. This is the design's sketch, not code that compiles
+today.
+
+#+begin_src rust
+use kalem_plugin::{editor, kalem, CommandSpec, PluginContext, Query, Scope, ViewSpec, Widget};
+
+pub fn activate(ctx: &mut PluginContext) {
+    ctx.subscriptions.push(kalem::views::register("kanban", ViewSpec {
+        title: "Board",
+        when: "documentHasTag:board",
+        render: |doc| Widget::columns(doc.todo_keywords().iter().map(|state| {
+            let cards = doc.find(Query::tag("board")).iter().flat_map(|h| h.children())
+                .filter(|h| h.todo().as_deref() == Some(state))
+                .map(|h| Widget::card(&h.title()).on_drop("kanban.move", [h.id()]));
+            Widget::column(state, cards)
+        })),
+    }));
+    ctx.subscriptions.push(kalem::command("kanban.move", CommandSpec {
+        title: "Move card",
+        scope: Scope::types(["org"]),
+        run: |(id, state): (String, String)| {
+            if let Some(h) = editor::document().headline_by_id(&id) { h.set_todo(Some(&state)); }
+        },
+        ..CommandSpec::default()
+    }));
+}
+#+end_src
+
+* Writing a mode
+
+A plugin adds a document mode with =kalem::modes::register(id, spec)=,
+over the same contract the built-in modes will use (§11.11; the
+contract is T2.7c.10, its plugin side T3.1.9g). The spec:
+
+| Part                                           | What the plugin gives                                                   | What Kalem does                                                          |
+|------------------------------------------------+-------------------------------------------------------------------------+--------------------------------------------------------------------------|
+| =detect=                                       | Extensions, mode lines, a sniff function over the first bytes           | Chooses the mode, your own choice first                                  |
+| =parse(text, edit?, previous?)=                | A tree of nodes, each a kind from a fixed vocabulary and a byte range   | Builds the view: markers hidden away from the cursor, widgets, folding, the outline; both editors draw it |
+| =grid(text)=                                   | Rows and cells with ranges, for table-like formats                      | The grid of CSV mode: cell editing, sorting in the view, TSV on the clipboard |
+| =edit=                                         | Enter, Tab, input rules and toggles, each returning edits with ranges   | Applies each as one undo step                                            |
+| =outline=, =format=, =complete=, =diagnostics= | The language pack hooks                                                 | The outline, Format Document and =kalem fmt=, completion, =kalem check=  |
+| =export=                                       | Optionally, conversion to Org or to HTML                                | Otherwise HTML from the tree                                             |
+
+The kinds are fixed: for blocks, heading (with its level), paragraph,
+list item (with a checkbox), quote, code (with its language), table row
+and cell, math block and rule; for inline text, emphasis, code, link
+(with its target), image, math, footnote reference and hidden marker.
+
+Rules:
+
+- *Ranges, never text.* =parse= returns ranges into the text and never
+  writes text, so a mode cannot break Kalem's byte-exact round trip.
+  The tree crosses the component boundary as flat arrays of kinds and
+  ranges, so a parse at every keystroke stays cheap.
+- *Incremental.* =parse= receives the edit and the previous tree and
+  parses again from the enclosing top-level block. A mode without
+  incremental parsing is parsed whole and must fit the budget.
+- *Budget.* The limits on time and memory apply to each parse. A mode
+  that exceeds them or fails drops the file to plain text with its
+  highlighter, tells you, and is disabled after repeated failures.
+- *Two levels.* Declarative: a syntax definition and a mapping from its
+  scopes to the kinds above, with no code, enough for gemtext, todo.txt
+  or Fountain. Programmatic: a parser in Rust, needed for AsciiDoc or
+  Djot.
+- *Batch.* =kalem check=, =kalem fmt= and =kalem export= call the mode's
+  hooks, so a plugin mode works from the command line and in CI.
+
+The standard way to write one is to be more than the API: a template
+with a mode skeleton and tests (T3.3.1), a conformance suite every mode
+runs (byte-exact round trip, incremental parse equal to a full one,
+snapshots in both editors, the budget), and two reference plugins,
+gemtext (declarative) and Djot (programmatic) (T3.3.6).
+
+* Writing a highlighter
+
+A highlighter needs no code: =kalem::modes::register_highlighter= loads
+a Sublime Text syntax definition from the plugin's folder into
+=kalem-highlight=, with comment tokens and indentation rules. Files of
+that language open in plain text mode with the plugin's colors, in both
+editors (T3.1.9g). The highlighter is also the base of a declarative
+mode. How Kalem highlights today is described in [[file:completers-and-modes.org][Completers, modes and
+highlighters]].
+
+* Writing a completer
+
+=kalem::completers::register(spec)= adds a completer over the contract
+that exists today in =kalem-core= (T3.1.9c): where it applies, its
+triggers, a =complete= that returns items asynchronously and can be
+cancelled, and optionally documentation per item and hover text. In the
+plugin API, where it applies is to be a scope, as for commands, plus a
+when-clause, such as ~docLanguage == tr~ for Turkish documents. The
+core merges and ranks the items of every completer that applies. A
+completer that misses its budget shows nothing for that keystroke, and
+the menu keeps the others' items.
+
+A completer may talk to a language server: the language server bridge
+is an out-of-process plugin that registers a completer, a hover
+provider and a diagnostics checker for its languages, installed by the
+user, never bundled. A completer may call a model through =kalem::net=,
+off by default and enabled per workspace through the permissions, with
+a visible indicator (phase 4). The reference plugins are a word list
+(declarative) and the language server bridge (programmatic) (T3.3.2).
+
+* Writing an exporter
+
+=kalem::exporter::register_backend(name, backend)= adds an export
+format, which then appears in the export dialog of both editors and as
+=kalem export --to NAME=; =kalem::exporter::add_filter(stage, filter)=
+changes the output of existing back-ends at a stage of the export. The
+events =export:before= and =export:after= act as filters too, and may
+veto (T3.1.8). Today the formats of =kalem export= are a fixed list
+built into Kalem (HTML, Markdown, GitHub Markdown, Org, LaTeX, plain
+text, PDF, and Word, OpenDocument, EPUB and RTF through pandoc). By the
+small-core decision (D29), every back-end beyond HTML is to become a
+plugin, the common ones bundled.
+
+* Inspection and reloading
+
+Kalem ships no scripting engine, so there is no REPL (D28). What
+remains of Emacs's live runtime is inspection and reload (§11.9, group
+3.2):
+
+- an inspection panel in both editors: the loaded plugins with their
+  permissions, budgets and recent errors, the command registry, and the
+  durations of recent operations (T3.2.1);
+- hot reloading: a plugin's component reloaded when its file changes,
+  its old disposables cleaned up (T3.2.2);
+- =kalem --debug-socket=, off by default and local only, exposing the
+  inspection commands (=kalem.inspect.tree=, =kalem.inspect.commands=,
+  =kalem.inspect.timings=) and the end-to-end test driver (T3.2.3 to
+  T3.2.5).
+
+* The plugin repository
+
+Plugins beyond the core live in one repository, =getkalem/plugins=
+(owner, 2026-09-28; §11.8). =getkalem/kalem= keeps the core and the
+plugin contracts with their tests; from now on a new mode, file type,
+language pack or completer beyond the core is developed in the plugin
+repository, never in the core.
+
+The repository is one Cargo workspace with a crate per plugin, a
+=template/= that =kalem plugin new= copies, owners per plugin
+(=CODEOWNERS=), and an index, =index.json=. Its skeleton exists (T3.3.7):
+the workspace, the template crate with its manifest and conformance
+tests, =index.json=, the script that builds the index, and the CI and
+release workflows. The release workflow has not run yet, and the
+template waits for the =kalem-plugin= bindings (T3.1.3).
+
+*Source in, WASM out.* Compiled components are never committed. CI
+builds every plugin against the current WIT on each pull request and
+runs the conformance suite. On a tag it builds each =.wasm= from the
+tagged source, hashes and signs it (sigstore through GitHub's OIDC, or
+minisign), publishes it as a release asset and as a package on
+ghcr.io, and regenerates =index.json=. Kalem reads the index as a static
+file, never through the GitHub API.
+
+The planned commands (T3.1.2, T3.3.3):
+
+| Command                             | What it does                                                          |
+|-------------------------------------+-----------------------------------------------------------------------|
+| =kalem plugin new=                  | A new plugin from the template                                        |
+| =kalem plugin build=                | Build the component with the Rust toolchain and the WASM target       |
+| =kalem plugin install NAME=, =URL=, =FILE= | Install from the index, a release asset or a local =.wasm=: hash and signature checked, permissions shown |
+| =kalem plugin build GIT_URL=        | Build a plugin from its source, for those who do not trust binaries   |
+| =kalem plugin verify=               | Rebuild and compare with the published component                     |
+| =kalem plugin list=, =remove=       | List and remove installed plugins                                     |
+
+Whether a plugin from the repository ships inside Kalem is a release
+decision: the release workflow may embed a pinned set, by tag and hash,
+so that it works out of the box, while its code stays in
+=getkalem/plugins=. When outside authors multiply, the index will also
+list plugins kept in their own repositories.
+
+The first plugins planned there: word count, Pomodoro, an export
+filter, a table function, a =jira:= link type, a Mermaid block renderer
+(T3.3.2); the kanban board and word count panel as bundled plugins
+(T3.3.2a); and modes for todo.txt, TaskPaper, Fountain, gemtext, Djot,
+subtitles, calendars and contacts, mail, notebooks and diagrams
+(T3.3.6), along with the language packs of T2.7a.7.

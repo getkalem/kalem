@@ -1,0 +1,373 @@
+This chapter describes how Kalem reads and writes files that are not Org,
+Markdown, CSV or LaTeX: plain text, source code, configuration files and
+every other text file. It also describes the file layer all modes share
+(encodings, byte order marks, line endings, saving) and what happens to
+files that are not text. The code is =crates/kalem-core/src/mode.rs=
+(which mode a file gets), =files.rs= (reading and writing),
+=document.rs= (indentation, pasting), =code.rs= (brackets, comments,
+Enter) and the highlighter, =crates/kalem-highlight=.
+
+* The oracle
+
+For a plain text file the oracle is the file itself: opened and saved
+without an edit, it stays byte for byte; opened, edited and saved, it
+differs only in the bytes of the edit. Kalem has no model of a text file
+beyond its characters, so there is nothing else to agree with.
+
+What is tested: the byte order mark and CR LF surviving a round trip,
+line feeds inserted by commands getting their carriage return in a CR
+LF file, UTF-16 LE and BE with a byte order mark round-tripping exactly,
+Windows-1254 text guessed from its bytes and written back to the same
+bytes, characters an encoding cannot hold, reopening in a chosen
+encoding (the =decoding= and =encodings= tests of =files.rs=); atomic
+saving, backups, change detection, symbolic links and permissions
+(=saving=, =links_and_permissions=); and an Org file with CR LF edited,
+saved and reloaded (=files= in =document.rs=). There is no corpus test
+of arbitrary files yet.
+
+* Which mode a file gets
+
+A document has one mode (=DocumentMode=): Org, Markdown, CSV, LaTeX,
+text with an optional language, binary (not opened) or a folder (the
+file manager). When a file is opened, the mode is decided in this order;
+the first rule that applies wins.
+
+1. *Binary.* Unless the file starts with a byte order mark, its first
+   8,192 bytes are checked (=looks_binary=): a NUL byte, or bytes that
+   are not UTF-8 (not merely a character cut at the end of the sample)
+   with control characters making up more than a twentieth of the
+   sample, make it binary. Text in a legacy encoding such as
+   Windows-1254 has no control characters and is not taken for binary.
+   A binary file is not opened (see /Files that are not text/).
+2. *The user's choice.* /Set Document Mode/ (=view.setMode=) records the
+   mode for the file in the workspace settings, in the table
+   =files.modes= of the nearest =.kalem/settings.toml= above the file
+   (created beside it when there is none), keyed by the file's path
+   relative to that workspace with =/= between names. When the file is
+   opened again, in either editor, this mode replaces the detected one.
+3. *A mode line.* On the first line (after a byte order mark), the text
+   between two =-*-= markers: either =mode: NAME= among
+   =;=-separated =key: value= pairs, or a bare =NAME= when there is no
+   colon. The name is lower-cased. With a trailing =-mode= removed, a
+   name of one of the modes below selects that mode (=org-mode=,
+   =markdown=, =csv=, =latex=...); any other name is taken as the
+   language of a text file, as written (so =-*- python -*-= highlights
+   Python, while =-*- mode: python-mode -*-= names the unknown language
+   =python-mode=).
+4. *The extension.* The file name's last extension, lower-cased:
+
+   | Extensions                              | Mode                                |
+   |-----------------------------------------+-------------------------------------|
+   | =org=, =org_archive=, =klm=             | Org                                 |
+   | =md=, =markdown=, =mdown=, =mkd=, =gfm= | Markdown                            |
+   | =csv=, =tsv=, =tab=                     | CSV                                 |
+   | =tex=, =latex=, =ltx=                   | LaTeX                               |
+   | any other                               | Text, the extension as its language |
+
+   Any extension decides, so a script named =run.sh= is shell by its
+   extension whatever its first line says, and =notes.txt= is text with
+   the language =txt=.
+5. *A shebang.* Only for a file without an extension: a first line
+   starting with =#!=. The program is its first word, or the word after
+   it when the first word ends in =/env=; its last path component with
+   trailing digits and dots removed is the language
+   (=#!/usr/bin/env python3= gives =python=, =#!/bin/sh= gives =sh=).
+6. *Plain text*, without a language.
+
+A file that does not exist yet (opened by name to be created) gets its
+mode from its name alone, UTF-8 without a byte order mark, and LF line
+endings (CR LF on Windows).
+
+The names /Set Document Mode/ accepts are =org=, =markdown=, =csv=,
+=text= or =plain=, the names and extensions of the table above (=md=,
+=tex=, =latex=...), and any other word, which is taken as a language:
+=view.setMode= with =python= gives text highlighted as Python. /Open as
+Plain Text/ in a CSV file switches to text for the session only.
+
+In when-clauses the mode is =editorMode= (=org=, =markdown=, =csv=,
+=latex=, =text=, =binary=, =directory=); the language of a text file is
+the command scope's text type, lower-cased (=rs=, =python=, =bib=).
+
+* Highlighting
+
+A text file with a language is coloured by the highlighter
+(=kalem_highlight=), which runs Sublime Text syntax definitions through
+=syntect= with pure Rust regular expressions. The language name is
+resolved (=Language::find=) in this order, ignoring letter case:
+
+1. Org's source-block language names that differ from the syntaxes'
+   names (the alias table below);
+2. a syntax whose name or extensions match the name (=syntect='s token
+   search);
+3. a syntax that claims the name as an extension.
+
+The syntax "Plain Text" is never used, so =txt= files are not coloured.
+A name that resolves to nothing leaves the file uncoloured, with every
+editing feature of text files still working.
+
+The aliases:
+
+| Names                                                                                                                                           | Syntax                    |
+|-------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------|
+| =sh= =shell= =bash= =zsh=                                                                                                                       | Bourne Again Shell (bash) |
+| =elisp= =emacs-lisp= =lisp= =scheme=                                                                                                            | Lisp                      |
+| =clojure=                                                                                                                                       | Clojure                   |
+| =js= =javascript= =ts= =typescript=                                                                                                             | JavaScript                |
+| =python= =py=                                                                                                                                   | Python                    |
+| =rust=                                                                                                                                          | Rust                      |
+| =c=                                                                                                                                             | C                         |
+| =cpp= =c++=                                                                                                                                     | C++                       |
+| =latex= =tex=                                                                                                                                   | LaTeX                     |
+| =sql= =sqlite=                                                                                                                                  | SQL                       |
+| =R=                                                                                                                                             | R                         |
+| =haskell= =ocaml= =java= =go= =ruby= =perl= =php= =html= =css= =xml= =yaml= =json= =markdown= =makefile= =diff= =lua= =matlab= =scala= =erlang= | The syntax of that name   |
+| =dot=                                                                                                                                           | Graphviz (DOT)            |
+
+The syntaxes and the extensions they claim (the default set of
+=syntect= 5.3):
+
+| Syntax                                                                        | Extensions                                                                                                                        |
+|-------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------|
+| ActionScript                                                                  | =as=                                                                                                                              |
+| AppleScript                                                                   | =applescript= =script editor=                                                                                                     |
+| ASP, HTML (ASP)                                                               | =asa=, =asp=                                                                                                                      |
+| Batch File                                                                    | =bat= =cmd=                                                                                                                       |
+| BibTeX                                                                        | =bib=                                                                                                                             |
+| C                                                                             | =c= =h=                                                                                                                           |
+| C#                                                                            | =cs= =csx=                                                                                                                        |
+| C++                                                                           | =cpp= =cc= =cp= =cxx= =c++= =C= =h= =hh= =hpp= =hxx= =h++= =inl= =ipp=                                                            |
+| Clojure                                                                       | =clj=                                                                                                                             |
+| CSS                                                                           | =css= =css.erb= =css.liquid=                                                                                                      |
+| D                                                                             | =d= =di=                                                                                                                          |
+| Diff                                                                          | =diff= =patch=                                                                                                                    |
+| Erlang, HTML (Erlang)                                                         | =erl= =hrl= =Emakefile= =emakefile=, =yaws=                                                                                       |
+| Go                                                                            | =go=                                                                                                                              |
+| Graphviz (DOT)                                                                | =dot= =DOT= =gv=                                                                                                                  |
+| Groovy                                                                        | =groovy= =gvy= =gradle=                                                                                                           |
+| Haskell, Literate Haskell                                                     | =hs=, =lhs=                                                                                                                       |
+| HTML                                                                          | =html= =htm= =shtml= =xhtml= =inc= =tmpl= =tpl=                                                                                   |
+| Java, Java Properties, Java Server Page (JSP)                                 | =java= =bsh=, =properties=, =jsp=                                                                                                 |
+| JavaScript                                                                    | =js= =htc=                                                                                                                        |
+| JSON                                                                          | =json= and Sublime Text's settings files                                                                                          |
+| LaTeX, TeX                                                                    | =tex= =ltx=, =sty= =cls=                                                                                                          |
+| Lisp                                                                          | =lisp= =cl= =clisp= =l= =mud= =el= =scm= =ss= =lsp= =fasl=                                                                        |
+| Lua                                                                           | =lua=                                                                                                                             |
+| Makefile                                                                      | =make= =GNUmakefile= =makefile= =Makefile= =OCamlMakefile= =mak= =mk=                                                             |
+| Markdown                                                                      | =md= =mdown= =markdown= =markdn=                                                                                                  |
+| MATLAB                                                                        | =matlab=                                                                                                                          |
+| NAnt Build File                                                               | =build=                                                                                                                           |
+| Objective-C, Objective-C++                                                    | =m= =h=, =mm= =M= =h=                                                                                                             |
+| OCaml, OCamllex, OCamlyacc                                                    | =ml= =mli=, =mll=, =mly=                                                                                                          |
+| Pascal                                                                        | =pas= =p= =dpr=                                                                                                                   |
+| Perl                                                                          | =pl= =pm= =pod= =t= =PL=                                                                                                          |
+| PHP                                                                           | =php= =php3= =php4= =php5= =php7= =phps= =phpt= =phtml=                                                                           |
+| Python                                                                        | =py= =py3= =pyw= =pyi= =pyx= =pxd= =pxi= =rpy= =cpy= =gyp= =gypi= and others                                                      |
+| R, Rd (R Documentation)                                                       | =R= =r= =s= =S= =Rprofile=, =rd=                                                                                                  |
+| Regular Expression                                                            | =re=                                                                                                                              |
+| reStructuredText                                                              | =rst= =rest=                                                                                                                      |
+| Ruby, Ruby Haml, Ruby on Rails, HTML (Rails), JavaScript (Rails), SQL (Rails) | =rb= =rake= =gemspec= and others, =haml= =sass=, =rxml= =builder=, =rails= =rhtml= =erb= =html.erb=, =js.erb=, =erbsql= =sql.erb= |
+| Rust                                                                          | =rs=                                                                                                                              |
+| Scala                                                                         | =scala= =sbt=                                                                                                                     |
+| Bourne Again Shell (bash)                                                     | =sh= =bash= =zsh= =fish= and shell start-up files                                                                                 |
+| SQL                                                                           | =sql= =ddl= =dml=                                                                                                                 |
+| Tcl, HTML (Tcl)                                                               | =tcl=, =adp=                                                                                                                      |
+| Textile                                                                       | =textile=                                                                                                                         |
+| XML                                                                           | =xml= =xsd= =xslt= =tld= =dtml= =rss= =opml= =svg=                                                                                |
+| YAML                                                                          | =yaml= =yml= =sublime-syntax=                                                                                                     |
+
+Consequences worth knowing: =.h= files are coloured as Objective-C and
+=.m= files as Objective-C, not MATLAB; TypeScript is coloured with the
+JavaScript syntax; there is no syntax for TOML, INI, Dockerfile,
+Swift, Kotlin, Zig, Nix, CMake, PowerShell, SCSS or Less, so those files
+are not coloured. A file whose extension is the only clue gets no
+colour when the extension is not a mode's (a file named =Makefile= has
+no extension and no shebang, and is plain text).
+
+The highlighter gives each span a kind (comment, string, number,
+constant, keyword, operator, function, type, variable, tag, macro,
+invalid) from its scope; the editors colour kinds with their theme.
+After an edit only the changed lines are highlighted again, and the
+lines after them until the parser's state is what it was. A file larger
+than 4 MiB is highlighted a window at a time: 400 lines around the one
+asked for, from a fresh state 200 lines before the window, so a
+construct opened further back (a long block comment) may be coloured as
+code. A line longer than 16 KiB is shown only in the part around the
+cursor, with =…= for the rest.
+
+* Comments
+
+/Toggle Comment/ (=edit.toggleComment=, Ctrl+Alt+C) uses the marker of
+the language (=code::comment_style=), from the same name the mode gives
+(the extension, a shebang's program, a mode line's name). It is not
+offered in text without a language, in CSV, in folders or in binary
+documents.
+
+| Names                                                                                                                                                                                                                                                                                                      | Marker                          |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------|
+| =rs= =rust= =c= =h= =cc= =cpp= =c++= =hpp= =cxx= =java= =js= =javascript= =jsx= =ts= =typescript= =tsx= =go= =swift= =kt= =kotlin= =scala= =cs= =csharp= =dart= =groovy= =zig= =d= =php= =json5= =jsonc= =proto= =glsl= =hlsl= =less= =scss= =sass= =v=                                                    | =//=                            |
+| =py= =python= =sh= =bash= =zsh= =fish= =shell= =rb= =ruby= =pl= =perl= =r= =yaml= =yml= =toml= =make= =makefile= =mk= =cmake= =conf= =cfg= =dockerfile= =nix= =jl= =julia= =tcl= =ps1= =powershell= =elixir= =ex= =exs= =nim= =coffee= =gitignore= =awk= =sed= =properties= =env= =crystal= =cr= =graphql= | =#=                             |
+| =lua= =sql= =hs= =haskell= =elm= =ada= =adb= =ads= =vhdl= =purs=                                                                                                                                                                                                                                           | =--=                            |
+| =lisp= =el= =elisp= =emacs-lisp= =clj= =clojure= =cljs= =scm= =scheme= =rkt= =racket= =fnl= =fennel= =ini= =asm= =s=                                                                                                                                                                                       | =;=                             |
+| =tex= =latex= =sty= =cls= =bib= =erl= =erlang= =m= =matlab= =octave= =pro= =prolog= =ps= =postscript=                                                                                                                                                                                                      | =%=                             |
+| =vim= =vimscript=                                                                                                                                                                                                                                                                                          | ="=                             |
+| =f90= =f95= =fortran=                                                                                                                                                                                                                                                                                      | =!=                             |
+| =bat= =cmd=                                                                                                                                                                                                                                                                                                | =REM=                           |
+| =org=                                                                                                                                                                                                                                                                                                      | =#=                             |
+| =html= =htm= =xml= =xhtml= =svg= =md= =markdown= =vue= =plist=                                                                                                                                                                                                                                             | =<!--= … =-->= around each line |
+| =css=                                                                                                                                                                                                                                                                                                      | =/*= … =*/= around each line    |
+| =ml= =ocaml= =fs= =fsharp=                                                                                                                                                                                                                                                                                 | =(*= … =*)= around each line    |
+
+The lines the selection covers are commented (a selection ending at the
+start of a line leaves that line out). When every non-blank line
+already starts with the marker (and, for the enclosing kinds, ends with
+the closing one), they are uncommented: the marker and one space after
+it are removed. Otherwise every non-blank line gets the marker and a
+space at the smallest indentation among them. Blank lines are left
+alone.
+
+* Indentation
+
+The indentation step of a document (=indent_unit=) comes from its text
+(=text::detect_indent=), looking at the first 10,000 lines within the
+first megabyte:
+
+- tabs, when more lines start with a tab than with a space;
+- otherwise spaces, the step being the most frequent increase of
+  indentation from one non-blank line to the next among 2, 4, 3 and 8
+  (4 when no increase is seen);
+- when no line is indented: tabs for the languages =makefile=, =make=,
+  =mk= and =go=, four spaces for everything else.
+
+Tab and Shift+Tab (in every mode but Org, where Tab folds and moves in
+tables, and CSV, where they move between fields):
+
+- With a selection spanning lines, Tab adds one step at the start of
+  every non-blank line; Shift+Tab removes one tab, or up to one step of
+  leading spaces, from each line.
+- Otherwise Tab inserts a tab, or the spaces up to the next multiple of
+  the step, replacing a selection within the line; Shift+Tab removes one
+  tab, or up to one step of leading spaces, from the start of the line.
+
+Enter (=edit.newline=, in every mode but Org and LaTeX, which have
+their own):
+
+- In a text file with a language (=code::newline=), the new line gets
+  the current line's indentation; one step more when the text before
+  the cursor ends with =(=, =[= or ={= (or with =:= in =py=, =python=,
+  =yaml=, =yml= and =nim=); and when the cursor sits between a bracket
+  and its partner (={|}=), the closing bracket goes to a line of its own
+  at the original indentation, the cursor on an indented line between.
+- In text without a language, Markdown and CSV (=input::newline=), the
+  new line gets the current line's indentation, when the cursor is past
+  it.
+
+Typing =}=, =)= or =]= in a text file with a language, where only
+indentation precedes the cursor on its line and that indentation ends
+with one full step, removes that step first (=code::dedent_for=).
+
+/Go to Matching Bracket/ (Ctrl+Alt+B) and the marking of the bracket
+matching the one at the cursor pair =(=, =[= and ={= by counting, up to
+256 KiB each way; brackets inside strings and comments count like any
+other.
+
+Kalem does not convert tabs to spaces or spaces to tabs, and never
+re-indents lines it did not touch.
+
+* Encodings
+
+A file's bytes are decoded as follows (=files::decode_with=):
+
+1. A UTF-8 byte order mark: the rest must be valid UTF-8, or the file
+   is not opened ("The file is not UTF-8 (invalid byte at offset /n/)");
+   the mark is removed from the text and remembered.
+2. A UTF-16 LE or BE byte order mark: the rest is decoded as UTF-16; the
+   mark is remembered.
+3. Otherwise, after the binary check: valid UTF-8 is UTF-8.
+4. Otherwise the encoding is guessed from the bytes with =chardetng=,
+   the way Emacs guesses a coding system, and the status bar says
+   "opened as" that encoding.
+
+The status bar names the encoding when it is not UTF-8. /Reopen with
+Encoding/ (=file.reopenWithEncoding=) reads the file again in the
+encoding chosen, whatever its bytes, dropping a byte order mark of that
+encoding and turning bytes it cannot read into U+FFFD; it refuses while
+the document has unsaved changes. /Save with Encoding/
+(=file.saveWithEncoding=) makes the document's encoding the one chosen
+and saves; UTF-16 is always written with a byte order mark, UTF-8 keeps
+the mark if the file had one, other encodings have none. Both offer
+UTF-8, UTF-16LE, UTF-16BE, windows-1252, ISO-8859-1, windows-1254,
+ISO-8859-9, ISO-8859-15, windows-1250, windows-1251, KOI8-R, Shift_JIS,
+EUC-JP, GBK, gb18030, Big5 and EUC-KR, and accept any label the WHATWG
+Encoding Standard knows (=latin1=, =utf-16le=...). When a file is
+reloaded after another program changed it, the document's encoding is
+used again unless a byte order mark names another.
+
+On save the text is encoded in the document's encoding, the byte order
+mark written if the file had one. When a character cannot be written in
+the encoding (a =ł= in a Windows-1254 file), the save stops and says
+which character and encoding; Save with Encoding (UTF-8) is the way out.
+
+* Line endings
+
+The text keeps its line endings as they are in the file; carriage
+returns are characters of the text. A document's line ending
+(=files::line_ending_of=) is CR LF when the file has at least one line
+feed and every line feed follows a carriage return, as Emacs decides
+between =dos= and =unix=; otherwise LF.
+
+- Lines are separated at line feeds. A lone carriage return (old Mac
+  files) is not a line break: such a file shows as one line.
+- In a CR LF document, commands and typing insert bare line feeds, and
+  saving writes a carriage return before every line feed that lacks one
+  (=files::encode=). Pasted text has its CR LF made LF first and, in a
+  CR LF document, every line feed made CR LF again.
+- In an LF document nothing is added: a file with mixed line endings
+  keeps each one as it was, and new lines get LF.
+- No final line feed is added or removed.
+
+The setting =editor.trim_trailing_whitespace= (off by default) removes
+spaces and tabs before the end of each line on saving, carriage returns
+excepted.
+
+* Saving
+
+Saving is atomic: the bytes go to a temporary file beside the target
+(=.NAME.kalem-PID-N.tmp=), which is synced and renamed over it, and the
+folder is synced. The file's permissions are kept; a symbolic link is
+followed, so the link stays a link and its target is written. A file
+with several hard links, or owned by another user, is written in place
+instead, since a rename would detach the links or change the owner.
+With =files.backup=, the previous file is first copied to =NAME.bak=.
+
+Before saving, Kalem compares the file with what it last read or wrote
+(length, time, and a hash of the contents when those differ); when
+another program changed it, saving stops unless forced. A document
+without unsaved changes reloads when another program changes its file.
+
+* Files that are not text
+
+A file found binary (rule 1 above) is not opened; opening it fails with
+"The file is not a text file". The graphical editor shows the reason in
+its status bar (a window opened on such a file shows an empty document
+with the reason); the terminal editor shows "Cannot open /path/: The
+file is not a text file". The file manager's preview of a file with a
+NUL byte in its first 64 KiB says "Not text: no preview"; pictures are
+previewed as pictures. Kalem never writes to a file it did not open.
+
+UTF-16 text without a byte order mark contains NUL bytes and is
+therefore taken for binary; /Reopen with Encoding/ cannot help, since
+the file is never opened.
+
+* Known differences and limits
+
+- /Set Document Mode/ remembers the mode's name only: a language chosen
+  for a text file (=python=) is saved as =text= and lost when the file
+  is opened again, and =latex= is not among the values the =files.modes=
+  setting accepts (=org=, =markdown=, =csv=, =text=).
+- A file named only by convention (=Makefile=, =Dockerfile=) gets no
+  language.
+- A shebang is looked at only when the file has no extension.
+- Bracket matching and Enter's bracket rules ignore strings and
+  comments.
+- Very large files are highlighted in windows and may colour a long
+  construct wrongly.

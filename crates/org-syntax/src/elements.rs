@@ -1174,7 +1174,7 @@ impl<'a> Parser<'a> {
             p = e;
         }
         // Unbalanced brackets can make Emacs run past the container. Kalem
-        // keeps elements inside their container (docs/known-differences.org).
+        // keeps elements inside their container (book/part-2/org-known-differences.org).
         let end = b
             .element_end(b.next_line(p), limit)
             .min(limit)

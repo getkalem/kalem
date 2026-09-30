@@ -1111,8 +1111,9 @@ fn formulas_as_images() {
     let text = "Top\n\\begin{align}\na &= b \\\\\nc &= d\n\\end{align}\n$$x^2$$\nafter\n";
     let mut t = open(text);
     t.at(0);
-    // Without a graphics protocol: the source, fragments approximated.
-    assert_eq!(t.row(1), " \\begin{align}");
+    // Without a graphics protocol: the environment's Unicode approximation
+    // on its first line, as in a LaTeX document.
+    assert_eq!(t.row(1), "   a = b ; c = d");
     let mut picker = ratatui_image::picker::Picker::halfblocks();
     picker.set_protocol_type(ratatui_image::picker::ProtocolType::Kitty);
     t.app.editor.images.borrow_mut().picker = Some(picker);

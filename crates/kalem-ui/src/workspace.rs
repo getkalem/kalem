@@ -2073,7 +2073,7 @@ pub fn open_window(path: Option<PathBuf>, shared: Rc<Shared>, cx: &mut App) {
         };
         let focus = gpui::Focusable::focus_handle(editor.read(cx), cx);
         window.focus(&focus, cx);
-        // For start-up measurements (docs/performance.md): quit after the
+        // For start-up measurements (book/part-5/performance.org): quit after the
         // first frame.
         if std::env::var_os("KALEM_EXIT_AFTER_START").is_some() {
             window.on_next_frame(|_, cx| cx.quit());

@@ -62,6 +62,27 @@ enum LatexAction {
 }
 
 #[derive(Debug, Subcommand)]
+enum BookAction {
+    /// Build the Book as a static site: every chapter of `index.org`
+    /// exported to HTML in the theme's page, with a search index.
+    Build {
+        /// The Book's folder.
+        #[arg(default_value = "book")]
+        dir: PathBuf,
+        /// Where the site goes.
+        #[arg(long, default_value = "target/book")]
+        out: PathBuf,
+    },
+    /// Check the Book: every chapter exports, and every link inside it
+    /// leads to one of its pages.
+    Check {
+        /// The Book's folder.
+        #[arg(default_value = "book")]
+        dir: PathBuf,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum Command {
     /// Print the syntax tree of a file.
     Parse {
@@ -168,6 +189,11 @@ enum Command {
     Latex {
         #[command(subcommand)]
         action: LatexAction,
+    },
+    /// The Book: `kalem book build`, `kalem book check`.
+    Book {
+        #[command(subcommand)]
+        action: BookAction,
     },
     /// Table formulas: `kalem table recalc FILE...`.
     Table {
@@ -306,6 +332,12 @@ where
         } => commands::fmt(&files, check, align),
         Command::Complete { place } => commands::complete(&place),
         Command::Commands { text_type } => commands::list_commands(text_type.as_deref()),
+        Command::Book {
+            action: BookAction::Build { dir, out },
+        } => commands::book::build(&dir, &out),
+        Command::Book {
+            action: BookAction::Check { dir },
+        } => commands::book::check(&dir),
         Command::Export {
             files,
             to,

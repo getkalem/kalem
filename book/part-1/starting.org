@@ -1,0 +1,11 @@
+| Command              | What it does                                                                 |
+|----------------------+------------------------------------------------------------------------------|
+| =kalem FILE=         | Opens the file in the graphical editor, or in the terminal without a display |
+| =kalem gui FILE=     | The graphical editor                                                         |
+| =kalem tui FILE=     | The terminal editor (also =kalem -t FILE=)                                   |
+| =kalem tui --detect= | What the terminal can do: colors, images, keyboard                           |
+| =kalem check FILE=   | Command-line tools: see [[file:the-command-line.org][The command line]]                                     |
+
+A file that does not exist yet is created when you save. A new file needs
+an extension, such as =notes.org=; a bare word is taken for a mistyped
+command.

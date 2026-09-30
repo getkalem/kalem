@@ -1,0 +1,519 @@
+This chapter describes comma- and tab-separated files exactly as Kalem
+reads, shows, edits and writes them. It is a reference: every rule below
+is taken from the code (=crates/kalem-core/src/csv.rs=, the CSV
+commands in =crates/kalem-core/src/builtin.rs= and the file layer in
+=crates/kalem-core/src/files.rs=), and where Kalem departs from RFC 4180
+or from what spreadsheets write, the departure is named. The manual's
+chapter /CSV files/ in Part I describes the same features for a reader
+who only wants to use them.
+
+The rule that governs everything here is the one that binds every
+standard mode: Kalem works on byte ranges in the file and never
+regenerates the file from a table. A CSV file that is opened, edited in
+one field and saved differs from the original in that field's bytes and
+nowhere else.
+
+* The oracle and what is tested
+
+The standard is RFC 4180 together with the dialects spreadsheets write
+in practice. The oracle, as the design names it, is a round trip on a
+corpus of files written by Microsoft Excel, LibreOffice Calc and Google
+Sheets in several locales, plus the edge cases of RFC 4180: each file
+opens with its dialect found, takes an edit, and saves with every
+untouched byte as it was.
+
+| Part of the oracle                                                                                      | State   |
+|---------------------------------------------------------------------------------------------------------+---------|
+| RFC 4180 edge cases (quotes, doubled quotes, CR LF, line breaks in fields, an empty last field)         | Tested  |
+| Excel, Turkish locale: UTF-8 byte order mark, CR LF, =;=, decimal commas, quoted numbers, dates as text | Tested  |
+| LibreOffice Calc with "Quote all text cells": LF, quoted text, a line break in a field                  | Tested  |
+| Google Sheets                                                                                           | Planned |
+| Excel and LibreOffice in further locales (en-US, de-DE, fr-FR, ...)                                     | Planned |
+| Excel's UTF-16 "Unicode Text" export                                                                    | Planned |
+| A test that every construct an editing command writes is valid RFC 4180 (TS.14)                         | Planned |
+
+The tested files are in =tests/csv/= (=excel-tr.csv=,
+=libreoffice.csv=, =rfc4180.csv=); =crates/kalem-core/tests/csv.rs=
+opens each one as a document, sets one field, saves, and compares the
+bytes with the original. The unit tests of =csv.rs= cover dialect
+detection, RFC 4180 values, each editing operation's exact output,
+sorting, the conversions and a 100,000-row file; =csv_commands= in
+=builtin.rs= runs the commands on a document; both editors have a
+=csv_grid= test. The work items are group 2.7d of =todo.md=; the corpus
+of the design (Google Sheets, more locales) is not there yet, so the
+design's table still lists CSV as planned.
+
+* Which files are CSV
+
+A file opens in CSV mode when its extension is =csv=, =tsv= or =tab=
+(in any letter case), when its first line carries an Emacs mode line
+naming =csv= (=-*- mode: csv -*-= or =-*- csv -*-=), or when the user
+chose CSV for it with /Set Document Mode/ (=view.setMode= with
+=mode: csv=), which is remembered in the workspace settings under
+=files.modes=. The order of these checks is given in the chapter
+/Plain text and code/. The extension decides nothing about the
+delimiter: a =.csv= file with semicolons and a =.tsv= file with commas
+are both read by what their text holds.
+
+* Encoding and byte order mark
+
+A CSV file is decoded like every other text file (=files::decode_with=):
+
+- a UTF-8 byte order mark is removed from the text and remembered;
+- a UTF-16 LE or BE byte order mark selects UTF-16, and is remembered;
+- without a byte order mark, valid UTF-8 is UTF-8;
+- anything else is decoded in the legacy encoding its bytes suggest
+  (=chardetng=), such as Windows-1254 for a file Excel saved as "CSV
+  (comma delimited)" on a Turkish system, and the status bar says which;
+- /Reopen with Encoding/ and /Save with Encoding/ override the guess.
+
+On save the text is encoded back in the same encoding, with the byte
+order mark if the file had one. A character the encoding cannot hold
+stops the save with a message naming it. UTF-16 without a byte order
+mark contains NUL bytes and is therefore taken for a binary file, which
+Kalem does not open.
+
+* The dialect
+
+A dialect has four parts (=csv::Dialect=):
+
+| Part      | Values                    | How it is found                 |
+|-----------+---------------------------+---------------------------------|
+| Delimiter | =,= =;= tab, vertical bar | Detected from the text          |
+| Quote     | ="=                       | Fixed; not detected             |
+| Header    | yes or no                 | Detected from the first records |
+| CR LF     | yes or no                 | Detected from the text          |
+
+Detection (=csv::detect=) looks at a sample: the first 65,536
+characters of the text (after the byte order mark is removed).
+
+** Line endings
+
+The dialect's CR LF flag is set when the sample contains a carriage
+return followed by a line feed anywhere. It decides the line ending of
+rows Kalem adds and of Sort File. Independently, the file layer decides
+the document's line ending for saving: CR LF only when every line feed
+in the file follows a carriage return (as Emacs chooses between =dos=
+and =unix=), otherwise LF with every carriage return kept in the text as
+it is.
+
+** The delimiter
+
+Each candidate is tried in the order =,= =;= tab and vertical bar. For a
+candidate, the sample is scanned with the full scanner (so delimiters
+inside quotes do not count) for at most 50 records; an empty record at
+the very end (the line after a final line feed) is not counted. Let /f/
+be the number of fields of the first record and /s/ the number of
+records that have exactly /f/ fields. The candidate's score is /s × f/
+when /f/ is more than one, and zero otherwise. The candidate with the
+highest score wins; a tie goes to the one tried first; when every score
+is zero the delimiter is the comma.
+
+So =ürün;fiyat= followed by =elma;1,5= is read with =;=: the comma
+inside =1,5= gives the first record one field under =,= and scores
+nothing.
+
+** The header row
+
+The first record is taken for a header (=looks_like_header=) as
+follows:
+
+1. When the sample holds a single record, there is no header.
+2. A value /looks like a number/ when, after trimming and removing
+   spaces and no-break spaces, it is not empty and parses as a
+   floating-point number either as written or with every comma turned
+   into a full stop.
+3. When any value of the first record looks like a number, there is no
+   header.
+4. Otherwise, when any value of the next twenty records looks like a
+   number, there is a header.
+5. Otherwise there is a header when every value of the first record is
+   not blank and no two are equal.
+
+The header matters to the grid (bold, pinned), to row moves and sorting
+(it stays first), to the statistics and the filter (it is not data),
+and to Convert to Org Table (a rule under it). There is no way to set
+the header by hand yet.
+
+* The scanner
+
+Kalem scans records itself rather than through the =csv= crate, because
+editing needs the byte range of every field, quotes included
+(=csv::scan=). Given a start offset and a dialect, it reads one record:
+
+1. A field starts. If its first byte is the quote, it is a quoted field:
+   bytes are consumed up to a quote that is not followed by a second
+   quote (a doubled quote is consumed as a pair); then every byte up to
+   the next delimiter, carriage return or line feed is also part of the
+   field. If no closing quote comes, the field runs to the end of the
+   text.
+2. Otherwise it is an unquoted field: bytes up to the next delimiter,
+   carriage return or line feed.
+3. A delimiter after the field starts the next field of the same
+   record.
+4. Otherwise the record ends. The next record starts after a CR LF pair,
+   after a lone carriage return or a lone line feed, or at the end of
+   the text.
+
+Every field is kept as its byte range and a flag saying whether it was
+quoted; the record keeps its range without the line ending and the
+offset of the next record. A blank line is a record with one empty
+field. A final line feed does not start an empty record (=Index=).
+
+The value of a field (=csv::value=) is its text as written when it is
+unquoted. When it is quoted: the opening quote is dropped, the last
+quote in the rest is taken as the closing one, doubled quotes before it
+become single quotes, and whatever follows the closing quote is
+appended. So ="ab"c= reads as =abc= and an unterminated ="abc= as
+=abc=.
+
+** A lazy index
+
+Records are found from the top only as far as a view asks
+(=csv::Index=): drawing the first screen of a 100,000-row file scans
+only its first records, and the whole file is scanned only by what needs
+all of it (the column operations, sorting, statistics, the filter and
+the conversions). The unit test =large_files_open_lazily= and the
+integration test =large_files_lay_out_lazily= check this.
+
+* RFC 4180: conformance and deviations
+
+| RFC 4180 rule                                        | Kalem                                                               |
+|------------------------------------------------------+---------------------------------------------------------------------|
+| Records end with CR LF                               | CR LF, LF and a lone CR all end a record; what the file has is kept |
+| The last record may lack a line break                | Kept as it is                                                       |
+| An optional header line                              | Detected heuristically (above); not settable yet                    |
+| Every record has the same number of fields           | Not required; short and long records are read and kept              |
+| Spaces are part of a field                           | Yes; nothing is trimmed on reading                                  |
+| Fields with line breaks, quotes or commas are quoted | Read; written quoted by =encode= (below)                            |
+| A quote inside a quoted field is doubled             | Read and written                                                    |
+| Only =,= separates fields                            | Also =;=, tab and vertical bar, detected                            |
+| Text after a closing quote is invalid                | Accepted and kept as part of the value                              |
+| An unterminated quoted field is invalid              | Accepted; it runs to the end of the file                            |
+| A quote inside an unquoted field is invalid          | Accepted as a literal character                                     |
+| MIME parameters =charset= and =header=               | Not applicable: the encoding and header are detected                |
+
+Constructs of CSV dialects outside the RFC that Kalem does not
+recognize, and therefore shows and keeps as ordinary data: Excel's
+~sep=;~ first line, comment lines, backslash escapes, a quote character
+other than ="=, and blanks after a delimiter as in Python's
+=skipinitialspace=.
+
+** Quoting on write
+
+Where Kalem writes a value it produced itself (a pasted spreadsheet row,
+Copy as Tab-Separated Values), it encodes it with =csv::encode=: the
+value is written in quotes, with every quote doubled, when it contains
+the delimiter, a quote, a carriage return or a line feed, or when it
+starts or ends with a space or a tab. Otherwise it is written as it is.
+
+| Value                    | Written (comma dialect) |
+|--------------------------+-------------------------|
+| =plain=                  | =plain=                 |
+| =a,b=                    | ="a,b"=                 |
+| =say "hi"=               | ="say ""hi"""=          |
+| =␣pad= (a leading space) | =" pad"=                |
+
+Blanks at the ends are quoted because spreadsheets drop them otherwise;
+RFC 4180 permits quoting any field.
+
+* The grid
+
+A CSV document is drawn as a grid over its text (=csv::line_view=).
+The layout (=csv::Layout=) is computed once per version of the text:
+
+- the dialect, as detected above;
+- a width for each column: the largest display width, in terminal
+  columns, of the field's source text (quotes included) in the first
+  1,000 records, at most 40.
+
+A line of the file that starts a record, and holds all of it, is drawn
+as a row: each field's source text as written, then padding to its
+column's width, then the delimiter drawn as a dimmed =│= with a space on
+each side. The last field is not padded. A field wider than 40 is not
+cut; the fields after it on that row shift right. The header row is
+bold. The fields are shown verbatim, so the cursor moves through their
+real characters and every keystroke edits the file at that place.
+
+A line that is part of a record spanning several lines (a quoted line
+break) is shown as plain text, exactly as written. In the terminal
+editor a line longer than 16 KiB is shown as plain text too. /Toggle
+Source View/ shows the whole file as text; /Open as Plain Text/ switches
+the document to text mode.
+
+When a header was detected, both editors keep the header row pinned at
+the top once it scrolls out of view.
+
+The cell at the cursor (=csv::cell_at=) is the record holding the cursor
+and, in it, the first field whose end is at or after the cursor (the
+last field when the cursor is past them all).
+
+* Editing, and the exact edits
+
+Every operation below is one transaction on the text: one undo step,
+shared with every other view of the document, and saved like any other
+change. Where an operation moves the cursor, it goes to the start of the
+target field, just inside the opening quote of a quoted one.
+
+** Typing
+
+Typing in the grid inserts and deletes characters in the file at the
+cursor, as in plain text. Kalem does not quote a field while you type
+in it: typing a comma in an unquoted field of a comma file splits it
+into two fields, and Enter inserts a line break (with the line's
+indentation, as =edit.newline= does in every non-Org file), which starts
+a new record unless the cursor is inside quotes. The grid and the
+layout follow the new text at once.
+
+The library has a quoting cell setter, =csv::set_cell=, which replaces
+only the field's bytes with the encoded value and pads a short record
+with empty fields; it is what the round-trip tests use to edit a cell.
+No command calls it yet, so interactive edits are raw.
+
+** The commands
+
+The commands are in the category /CSV/ and apply only in CSV documents
+(scope =csv=). Only Tab and Shift+Tab have keys by default; the others
+are in the graphical editor's /Table/ menu (rows, columns, filter and
+sorts), on its toolbar (insert and delete row and column, Sort File,
+Filter Rows), in the /File/ menu (Copy as Tab-Separated Values, Convert
+to Org Table, Open as Plain Text) and in the palette of both editors.
+
+| Command               | Title                        | Key       | Changes the file         |
+|-----------------------+------------------------------+-----------+--------------------------|
+| =csv.nextField=       | Next Field                   | Tab       | Only past the last field |
+| =csv.previousField=   | Previous Field               | Shift+Tab | No                       |
+| =csv.insertRow=       | Insert Row                   |           | Yes                      |
+| =csv.deleteRow=       | Delete Row                   |           | Yes                      |
+| =csv.moveRowUp=       | Move Row Up                  |           | Yes                      |
+| =csv.moveRowDown=     | Move Row Down                |           | Yes                      |
+| =csv.insertColumn=    | Insert Column                |           | Yes                      |
+| =csv.deleteColumn=    | Delete Column                |           | Yes                      |
+| =csv.moveColumnLeft=  | Move Column Left             |           | Yes                      |
+| =csv.moveColumnRight= | Move Column Right            |           | Yes                      |
+| =csv.sortFile=        | Sort File by Column          |           | Yes                      |
+| =csv.filter=          | Filter Rows                  |           | No                       |
+| =csv.clearFilter=     | Show All Rows                |           | No                       |
+| =csv.sortView=        | Sort View by Column          |           | No                       |
+| =csv.unsortView=      | File Order                   |           | No                       |
+| =csv.copyAsTsv=       | Copy as Tab-Separated Values |           | No                       |
+| =csv.openAsText=      | Open as Plain Text           |           | No                       |
+| =csv.convertToOrg=    | Convert to Org Table         |           | Writes a new file        |
+
+Arguments: =csv.sortFile= and =csv.sortView= take =reverse= (boolean);
+=csv.filter= takes =text= (string, required).
+
+** Moving between fields
+
+- /Next Field/ goes to the next field of the record; from the last
+  field, to the first field of the next record; from the last field of
+  the last record, it inserts a new row (as /Insert Row/ does) and goes
+  to its first field, as Tab does in an Org table.
+- /Previous Field/ goes to the previous field; from the first field, to
+  the last field of the previous record; in the first field of the first
+  record it does nothing.
+
+** Rows
+
+/Insert Row/ (=csv::insert_row=) inserts, right after the cursor's
+record (before its line ending), a line ending followed by an empty
+record of /n/ fields, that is /n − 1/ delimiters, where /n/ is the
+larger of the number of columns in the layout and the number of fields
+of the cursor's record. The line ending inserted is CR LF when the text
+after the record starts with CR LF, or when the dialect is CR LF and the
+record ends the text; otherwise LF. The cursor goes to the same column
+of the new row.
+
+#+begin_example
+id,name,note          id,name,note
+1,"Ada",keep          1,"Ada",keep
+2,Alan,x        →     2,Alan,x
+                      ,,
+#+end_example
+
+/Delete Row/ (=csv::delete_row=) removes the cursor's record together
+with its line ending. When the record is the last one and has no line
+ending after it, the line ending before it goes instead. The cursor
+stays on the same row number and column.
+
+/Move Row Up/ and /Move Row Down/ (=csv::swap_rows=) exchange the bytes
+of two neighbouring records; the line endings between them stay where
+they are, and so does every byte inside each record. When a header was
+detected, the header cannot move and no row can move above it. At the
+first or last record the command fails with "No row to move past".
+
+** Columns
+
+The column operations change every record of the file, each by the
+smallest edit, in one transaction.
+
+/Insert Column/ (=csv::insert_column=) inserts a delimiter at the start
+of field /c/ (the cursor's column) in every record that has it, which
+makes an empty field there. A record with fewer than /c + 1/ fields gets
+delimiters at its end until it has /c + 1/ fields.
+
+/Delete Column/ (=csv::delete_column=) removes, in every record that has
+field /c/, that field and the delimiter after it; for the last field of
+a record, the delimiter before it; for a record with a single field,
+just the field's text. Records without field /c/ are left alone. The
+cursor stays in column /c/, or moves one left when /c/ was the last
+column.
+
+/Move Column Left/ and /Right/ (=csv::swap_columns=) exchange the bytes
+of fields /c/ and its neighbour in every record that has both; other
+records are left alone. They fail with "No column to move past" at the
+first column (left) or at the last field of the cursor's record
+(right).
+
+#+begin_example
+id,name,note                 Insert Column at 1:  id,,name,note
+1,"Ada",keep␣␣               1,,"Ada",keep␣␣
+2,Alan,x                     2,,Alan,x
+
+Delete Column 1:  id,note    Delete Column 2:     id,name
+                  1,keep␣␣                        1,"Ada"
+                  2,x                             2,Alan
+
+Move Column Right at 0:  name,id,note
+                         "Ada",1,keep␣␣
+                         Alan,2,x
+#+end_example
+
+(=␣= marks a space; the fields' quoting and trailing blanks stay as
+they were.)
+
+** Sort File by Column
+
+/Sort File by Column/ (=csv::sort_file=) reorders the records of the
+file by the cursor's column; with =reverse=, in descending order. When
+a header was detected it stays first. Two values compare:
+
+1. as numbers, when both parse as floating-point numbers after trimming
+   and turning commas into full stops;
+2. otherwise as text, after lower-casing both, by Unicode code points
+   (there is no locale collation).
+
+The sort is stable, and a missing field compares as an empty value. The
+file is rewritten from its first byte to the end of its last record as
+the records' own bytes, unchanged, joined with the dialect's line
+ending; the line ending after the last record, if any, stays. So
+quoting inside records is kept, while line endings between records are
+made uniform. The cursor goes to the first data row, same column.
+
+#+begin_example
+name,n            name,n
+b,10       →      c,100       (column 0, reverse)
+a,9               b,10
+c,100             a,9
+#+end_example
+
+* Views that do not change the file
+
+/Filter Rows/ (=csv.filter=) shows only some records; the text is
+untouched and saving writes all of it. The text asked for is trimmed;
+an empty text shows all rows again, as /Show All Rows/ does. A record is
+shown (=csv::filter_rows=) when it is the header, when it holds the
+cursor, or when any of its fields' values contains the text, compared
+case-insensitively (both lower-cased). The status bar says
+"Filtered: /m/ of /n/ rows (“/text/”)", where /n/ counts every record
+but the header and /m/ those that match.
+
+/Sort View by Column/ (=csv.sortView=) shows the records in the order of
+the cursor's column, compared as Sort File compares, with the header
+first; the file keeps its order. Running it again on the same column
+turns the order to descending, and again back to ascending; =reverse=
+asks for descending directly. /File Order/ ends it. With a filter on,
+the sorted view shows only the filtered records (=csv::shown_lines=).
+Filter and view sort are state of the open document, not of the file;
+they are not saved.
+
+* The clipboard
+
+/Copy as Tab-Separated Values/ (=csv.copyAsTsv=) copies the records the
+selection touches, from the record holding its start to the record
+holding its end (the whole file without a selection). Each field's
+value is decoded as above and encoded again with a tab as the delimiter
+(=csv::to_tsv=), so a value with a tab, a quote, a line break or blanks
+at its ends is quoted; records are joined with LF and no line ending
+follows the last. This is the form spreadsheets paste.
+
+Pasting into a CSV document (=csv::pasted=, called by
+=DocumentState::paste=) converts rows copied from a spreadsheet: when
+the document's delimiter is not a tab and the pasted text contains a
+tab, the text is read as tab-separated records (quote ="=), each value
+is encoded with the document's dialect, fields are joined with the
+document's delimiter and records with LF, and a final line feed is kept
+if the pasted text had one. The result is inserted at the cursor as
+text, replacing the selection. In a CR LF document every inserted line
+feed becomes CR LF. /Paste as Plain Text/ skips the conversion; pasting
+into a tab-separated file inserts the text as it is.
+
+* Convert to Org Table
+
+/Convert to Org Table/ (=csv.convertToOrg=) writes a new file,
+=NAME.org= beside =NAME.csv=, and opens it; the CSV file does not
+change. It needs the document to have a file (otherwise "Save the file
+first") and refuses to overwrite an existing =NAME.org=. The table
+(=csv::to_org_table=) has one row per record; each value has its runs of
+whitespace, line breaks included, collapsed to one space, and every
+vertical bar written as =\vert{}=; when a header was detected and there
+is more than one record, a rule follows the first row. The table is then
+aligned as =org-table-align= aligns it (numbers to the right).
+
+#+begin_example
+name,n          | name |   n |
+b,10      →     |------+-----|
+a,9             | b    |  10 |
+c,100           | a    |   9 |
+                | c    | 100 |
+#+end_example
+
+The other direction, and CSV import into an existing Org document, are
+Org's table commands (/Import Table/, /Export Table/), described with
+Org tables.
+
+* Column statistics
+
+The status bar shows, for the cursor's column, statistics over the data
+records (the header skipped) (=csv::column_stats=). A value counts as a
+number when, after trimming and removing spaces and no-break spaces, it
+parses as a floating-point number as written, or else after removing
+every full stop and turning commas into full stops, which reads
+=1.234,5= (Turkish and most European locales) as 1234.5. Values that are
+neither are left out. The status bar shows "Count: /n/   Sum: …
+Average: …   Min: …   Max: …", each number written as an integer when it
+is whole and otherwise with up to six decimals; nothing is shown when
+the column has no numbers. With a filter on, the filter's count comes
+first.
+
+* Saving
+
+Saving writes the text in the file's encoding, with its byte order mark,
+and, in a CR LF document, a carriage return before every line feed that
+lacks one (commands and typing insert bare line feeds). This includes a
+line feed inside a quoted field: in a CR LF file, a line break typed in
+a field is saved as CR LF, as Excel writes it. The setting
+=editor.trim_trailing_whitespace= (off by default) applies to CSV files
+too and would remove blanks at the end of an unquoted last field.
+Saving is atomic, as for every file.
+
+* Known differences and limits
+
+- The quote character is always ="=; the module's documentation and
+  =todo.md= (T2.7d.1) speak of quoting as detected, but it is fixed.
+- Only four delimiters are candidates: =,= =;= tab and vertical bar.
+- The header is guessed and cannot be set by hand.
+- Typing does not quote; only paste conversion and the TSV copy encode
+  values. A comma typed into a field of a comma file makes two fields.
+- The statistics misread numbers with English thousands separators: the
+  first parse of =1,234.5= fails and the fallback reads it as 1.2345.
+- Column widths are measured on the source text, quotes included, from
+  the first 1,000 records only.
+- The dialect's CR LF flag (any CR LF in the sample) and the document's
+  line ending (every LF after a CR) can disagree on a file with mixed
+  line endings: rows added and Sort File use CR LF while saving adds no
+  carriage returns.
+- The filter and the column operations scan the whole file each time
+  the text changes.
+- Lenient reading: text after a closing quote, unterminated quotes and
+  bare quotes are accepted, not reported.

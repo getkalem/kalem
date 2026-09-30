@@ -483,10 +483,10 @@ impl<'a> Layout<'a> {
         // LaTeX environments drawn as images show on their first line (in
         // Org documents and LaTeX documents).
         let latex = doc.latex().is_some();
-        // Without images, a LaTeX document's formula shows its Unicode
-        // approximation on its first line all the same.
+        // Without images, the formula shows its Unicode approximation on
+        // its first line all the same.
         let pictures = images.borrow().picker.is_some();
-        if (parse.is_some() || latex) && !source && !raw_math && (pictures || latex) {
+        if (parse.is_some() || latex) && !source && !raw_math {
             let text = doc.text();
             let c = doc.selection.head;
             for b in blocks.iter().filter(|b| b.kind == BlockKind::Math) {
@@ -1012,7 +1012,9 @@ impl<'a> Layout<'a> {
                 .grid(block.range.start)
                 .and_then(|g| self.grid_row(&g, &range))
         {
-            return vec![row];
+            // A row wider than the screen wraps, as in the graphical
+            // editor, rather than losing its end.
+            return tui_rich_text::wrap(row, 0, self.width.get());
         }
         if let (Some(p), false) = (self.parse, self.source)
             && let Some(block) = self.table_block(range.start)
@@ -1023,7 +1025,7 @@ impl<'a> Layout<'a> {
                     .grid(block.range.start)
                     .and_then(|g| self.grid_row(&g, &range))
             {
-                return vec![row];
+                return tui_rich_text::wrap(row, 0, self.width.get());
             }
             // Being edited: the source, all markup shown, with box bars.
             let root = p.syntax();
@@ -1066,7 +1068,22 @@ impl<'a> Layout<'a> {
         let lg = match parse {
             Some(p) if !self.source => {
                 let root = p.syntax();
-                let v = view::line_view(&root, p.context(), range.clone(), Some(self.cursor));
+                // A LaTeX environment without the pictures of formulas: its
+                // Unicode approximation on its first line.
+                let v = match self.math_text(&range) {
+                    Some(u) => view::LineView {
+                        range: range.clone(),
+                        runs: vec![view::Run {
+                            src: range.clone(),
+                            text: u,
+                            verbatim: false,
+                            style: view::Style::default(),
+                            widget: None,
+                        }],
+                        ..view::LineView::default()
+                    },
+                    None => view::line_view(&root, p.context(), range.clone(), Some(self.cursor)),
+                };
                 if let Some(frame) = self.frame(&v) {
                     return vec![frame];
                 }
@@ -1238,7 +1255,8 @@ impl<'a> Layout<'a> {
         if self.image(self.text().line_of(range.start)).is_some() {
             return None;
         }
-        let src = kalem_core::latex_view::math_source(self.doc, b.range.clone())?;
+        let src = kalem_core::latex_view::math_source(self.doc, b.range.clone())
+            .unwrap_or_else(|| self.text().as_str()[b.range.start..b.content_end].to_string());
         // The body: the environment's `\\begin` and `\\end` out, its number
         // (a `\\tag`) after it.
         let mut body = src.trim().to_string();
@@ -1258,6 +1276,8 @@ impl<'a> Layout<'a> {
             tags.push(body[at + 5..at + len].to_string());
             body.replace_range(at..at + len + 1, "");
         }
+        // Alignment points go; rows are separated by semicolons.
+        let body = body.replace("\\\\", " ; ").replace('&', "");
         let body = body.split_whitespace().collect::<Vec<_>>().join(" ");
         let mut out = format!("  {}", kalem_core::math::unicode(&body));
         for t in tags {
@@ -1274,10 +1294,21 @@ impl<'a> Layout<'a> {
     /// A block's first or last line away from the cursor, drawn as a frame
     /// with the block's type (or a source block's language).
     fn frame(&self, v: &view::LineView) -> Option<Vec<Glyph>> {
-        if v.role != view::LineRole::Delimiter {
+        // A `#+begin_…` or `#+end_…` line of the block, as the graphical
+        // editor decides (its role may be content deep in nested blocks).
+        let lower = self.text().as_str()[v.range.clone()]
+            .trim_start()
+            .to_ascii_lowercase();
+        if v.role != view::LineRole::Delimiter
+            && !lower.starts_with("#+begin")
+            && !lower.starts_with("#+end")
+        {
             return None;
         }
         let b = self.block_at(v.range.start)?;
+        if v.range.start >= b.content_end {
+            return None;
+        }
         let framed = matches!(
             b.kind,
             BlockKind::Code { .. }

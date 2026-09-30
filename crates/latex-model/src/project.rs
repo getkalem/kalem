@@ -25,6 +25,12 @@ use crate::extract::{self, Item};
 pub trait Files {
     /// The text of `path`, if it is a readable text file.
     fn read(&self, path: &Path) -> Option<String>;
+    /// The text of `path`, shared: a reader that keeps texts gives the
+    /// same allocation for a file that did not change, so that the
+    /// project's cache sees at once that it did not.
+    fn read_shared(&self, path: &Path) -> Option<Arc<str>> {
+        self.read(path).map(Arc::from)
+    }
     /// The files in the folder `dir`.
     fn list(&self, dir: &Path) -> Vec<PathBuf>;
 }
@@ -179,44 +185,70 @@ pub struct Project {
 /// loads.
 #[derive(Debug, Default)]
 pub struct ProjectCache {
-    files: HashMap<PathBuf, (String, Parse, extract::Cache)>,
+    /// Each file's text, parse, events cache and last events.
+    files: HashMap<PathBuf, CachedFile>,
+}
+
+/// A file of a project as the cache keeps it.
+#[derive(Debug)]
+struct CachedFile {
+    text: Arc<str>,
+    parse: Parse,
+    events: extract::Cache,
+    /// The events of `parse`, while it stays the same.
+    items: Option<Arc<Vec<Item>>>,
+}
+
+impl CachedFile {
+    fn new() -> CachedFile {
+        CachedFile {
+            text: Arc::from(""),
+            parse: latex_syntax::parse(""),
+            events: extract::Cache::default(),
+            items: None,
+        }
+    }
 }
 
 impl ProjectCache {
-    /// The events of `path` with text `text`.
-    fn items(&mut self, path: &Path, text: String) -> Arc<Vec<Item>> {
-        let entry = self.files.entry(path.to_path_buf()).or_insert_with(|| {
-            (
-                String::new(),
-                latex_syntax::parse(""),
-                extract::Cache::default(),
-            )
-        });
-        if entry.0 != text {
-            entry.1 = latex_syntax::parse(&text);
-            entry.0 = text;
+    /// The events of `path` with text `text`: from the cache while the text
+    /// is the same allocation or the same bytes.
+    fn items(&mut self, path: &Path, text: Arc<str>) -> Arc<Vec<Item>> {
+        let entry = self
+            .files
+            .entry(path.to_path_buf())
+            .or_insert_with(CachedFile::new);
+        if !Arc::ptr_eq(&entry.text, &text) {
+            if *entry.text != *text {
+                entry.parse = latex_syntax::parse(&text);
+                entry.items = None;
+            }
+            entry.text = text;
         }
-        let root = entry.1.syntax();
-        Arc::new(entry.2.document(&root))
+        if let Some(items) = &entry.items {
+            return items.clone();
+        }
+        let root = entry.parse.syntax();
+        let items = Arc::new(entry.events.document(&root));
+        entry.items = Some(items.clone());
+        items
     }
 
     /// Updates the parse of an open document (after an edit, from the
     /// editor's incremental parse).
-    pub fn set_parse(&mut self, path: &Path, text: &str, parse: Parse) {
-        let entry = self.files.entry(path.to_path_buf()).or_insert_with(|| {
-            (
-                String::new(),
-                latex_syntax::parse(""),
-                extract::Cache::default(),
-            )
-        });
-        entry.0 = text.to_string();
-        entry.1 = parse;
+    pub fn set_parse(&mut self, path: &Path, text: Arc<str>, parse: Parse) {
+        let entry = self
+            .files
+            .entry(path.to_path_buf())
+            .or_insert_with(CachedFile::new);
+        entry.text = text;
+        entry.parse = parse;
+        entry.items = None;
     }
 
     /// The project whose root document is `root`.
     pub fn load(&mut self, root: &Path, files: &dyn Files) -> Project {
-        let text = files.read(root).unwrap_or_default();
+        let text = files.read_shared(root).unwrap_or_else(|| Arc::from(""));
         let len = text.len();
         let items = self.items(root, text);
         let root_dir = root.parent().unwrap_or(Path::new("")).to_path_buf();
@@ -247,7 +279,7 @@ impl ProjectCache {
                 };
                 let (path, text) = candidates
                     .into_iter()
-                    .find_map(|p| files.read(&p).map(|t| (p, t)))?;
+                    .find_map(|p| files.read_shared(&p).map(|t| (p, t)))?;
                 let base = match command {
                     "input" | "include" => bases[from].clone(),
                     _ => path.parent().unwrap_or(Path::new("")).to_path_buf(),

@@ -26,6 +26,9 @@ type Titles = Arc<[Option<String>; 3]>;
 #[derive(Debug)]
 pub struct LatexState {
     parse: latex_syntax::Parse,
+    /// The text of the parse, shared with the project's cache (building it
+    /// from the tree would walk every token).
+    text: Arc<str>,
     models: RefCell<latex_model::Cache>,
     titles: RefCell<Option<(latex_syntax::GreenNode, Titles)>>,
     /// The text between `\iffalse` and its `\fi`, for the parse.
@@ -71,20 +74,25 @@ struct ProjectView {
 /// Files read from the disk, kept while their modification time stays.
 #[derive(Debug, Default)]
 struct DiskCache {
-    files: RefCell<std::collections::HashMap<std::path::PathBuf, (std::time::SystemTime, String)>>,
+    files:
+        RefCell<std::collections::HashMap<std::path::PathBuf, (std::time::SystemTime, Arc<str>)>>,
 }
 
 /// The disk, with one file's text as edited.
 struct Overlay<'a> {
     disk: &'a DiskCache,
     path: &'a std::path::Path,
-    text: &'a str,
+    text: &'a Arc<str>,
 }
 
 impl latex_model::project::Files for Overlay<'_> {
     fn read(&self, path: &std::path::Path) -> Option<String> {
+        self.read_shared(path).map(|t| t.to_string())
+    }
+
+    fn read_shared(&self, path: &std::path::Path) -> Option<Arc<str>> {
         if path == self.path {
-            return Some(self.text.to_string());
+            return Some(self.text.clone());
         }
         let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok()?;
         let mut files = self.disk.files.borrow_mut();
@@ -93,7 +101,7 @@ impl latex_model::project::Files for Overlay<'_> {
         {
             return Some(text.clone());
         }
-        let text = std::fs::read_to_string(path).ok()?;
+        let text: Arc<str> = Arc::from(std::fs::read_to_string(path).ok()?);
         files.insert(path.to_path_buf(), (modified, text.clone()));
         Some(text)
     }
@@ -109,6 +117,7 @@ impl ProjectView {
     fn model(
         &mut self,
         parse: &latex_syntax::Parse,
+        text: &Arc<str>,
         own: &latex_model::Model,
     ) -> Option<Arc<latex_model::Model>> {
         // The root document that includes nothing needs no project.
@@ -120,8 +129,9 @@ impl ProjectView {
         {
             return Some(m.clone());
         }
-        let text = parse.syntax().text().to_string();
-        self.cache.set_parse(&self.path, &text, parse.clone());
+        let text = text.clone();
+        self.cache
+            .set_parse(&self.path, text.clone(), parse.clone());
         let files = Overlay {
             disk: &self.disk,
             path: &self.path,
@@ -129,6 +139,11 @@ impl ProjectView {
         };
         let project = self.cache.load(&self.root, &files);
         let this = project.model.files.iter().position(|f| *f == self.path)?;
+        // The root document: the project's model as it is (no copy).
+        if this == 0 && project.model.preamble == own.preamble && project.model.body == own.body {
+            self.last = Some((parse.green().clone(), project.model.clone()));
+            return Some(project.model);
+        }
         let mut m = project.model.seen_from(this);
         // The document's own preamble and body.
         m.preamble = own.preamble.clone();
@@ -150,6 +165,7 @@ impl LatexState {
     pub fn new(text: &str) -> LatexState {
         LatexState {
             parse: latex_syntax::parse(text),
+            text: Arc::from(text),
             models: RefCell::new(latex_model::Cache::default()),
             titles: RefCell::new(None),
             skipped: RefCell::new(None),
@@ -174,6 +190,7 @@ impl LatexState {
             }
             None => latex_syntax::parse(text),
         };
+        self.text = Arc::from(text);
     }
 
     /// The parse.
@@ -188,7 +205,10 @@ impl LatexState {
     pub fn model(&self) -> Arc<latex_model::Model> {
         let own = self.models.borrow_mut().model(&self.parse);
         let mut project = self.project.borrow_mut();
-        match project.as_mut().and_then(|p| p.model(&self.parse, &own)) {
+        match project
+            .as_mut()
+            .and_then(|p| p.model(&self.parse, &self.text, &own))
+        {
             Some(m) => m,
             None => own,
         }

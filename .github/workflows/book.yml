@@ -1,0 +1,53 @@
+name: Book
+
+# The Book (design_doc2.md §10): checked on every pull request, built by
+# Kalem and published to GitHub Pages on every merge to main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "book/**"
+      - "crates/kalem-cli/**"
+      - "crates/org-export/**"
+      - ".github/workflows/book.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: book-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # The terminal-only build: no windowing libraries needed.
+      - run: cargo build --release -p kalem-editor --no-default-features --features tui
+      - name: Check the Book
+        run: ./target/release/kalem book check book
+      - name: Build the Book
+        run: ./target/release/kalem book build book --out _site
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

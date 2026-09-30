@@ -316,7 +316,7 @@ pub(crate) fn diff_emacs(files: &[PathBuf], opts: &DiffOptions) -> Result<ExitCo
         );
         println!("files identical to Emacs: {files_exact} of {}", files.len());
         if known > 0 {
-            println!("known differences (docs/known-differences.org): {known}");
+            println!("known differences (book/part-2/org-known-differences.org): {known}");
         }
     }
     if opts.emacs_dumps.is_none() {

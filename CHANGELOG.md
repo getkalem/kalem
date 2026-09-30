@@ -219,6 +219,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX completion offers the commands and environments of the packages the preamble loads with their arguments, and the document's own macros with their number of arguments.
 - LaTeX: Insert Figure asks for the file, its width and its caption in one flow.
 - BibTeX files open as a grid in both editors: an entry a row (key, type, authors, title, year), its source at the cursor; the rows sorted in the view by any column; New Entry and Set Field write the smallest edit.
+- The Kalem Book (`book/`): the manual, the specification of every format as Kalem implements it, extending Kalem, and the design, built into a static site by `kalem book build` (search, light and dark themes) and checked by `kalem book check`; the appendices of commands, settings and the command line are generated from the code. A GitHub Actions workflow publishes it to GitHub Pages.
+- A LaTeX corpus: `tests/corpus/fetch-latex.sh` (21 repositories of books, papers, theses and templates at pinned commits), synthetic edge cases, and the `latex_corpus` example that checks round trips, drawing, diagnostics, completion and incremental parsing after random edits on every file.
+- A test that opens the same files in both editors and compares what each shows, line by line.
 ### Changed
 
 - The text column starts at the left edge of the window in both editors; `editor.center_text = true` centers it as before.
@@ -231,6 +234,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Word counts in the status bars are updated after a pause in typing rather than on every keystroke.
 
 ### Fixed
+
+- LaTeX: a keystroke in a file of a multi-file project took 43 ms in a 1.8 MB file (the text rebuilt from the tree, every file of the project copied); now 8 ms.
+- The terminal editor wraps a table row wider than the screen instead of cutting it, shows an Org document's LaTeX environment as its Unicode approximation when the terminal has no graphics (as the graphical editor shows it as a formula), and frames a block's delimiter deep in nested blocks.
 
 - The message for a file that cannot be opened had two definitions with different arguments; a test now keeps message names unique.
 - Entities Org names twice (`\deg`, `\sup`) export as Org's first one (°, ⊃); tables of contents use a headline's `ALT_TITLE`; Markdown anchors headlines listed by `#+TOC: headlines`; `#+TOC: tables` and `#+TOC: listings` list captioned tables and code in HTML.

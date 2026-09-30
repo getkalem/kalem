@@ -129,6 +129,6 @@ fn large_files_lay_out_lazily() {
     let view = csv::line_view(&l, &text, line);
     assert!(view.display().starts_with("99999"), "{}", view.display());
     // Generous for debug builds on slow machines; the release figure is in
-    // docs/performance.md.
+    // book/part-5/performance.org.
     assert!(start.elapsed().as_secs() < 5, "{:?}", start.elapsed());
 }

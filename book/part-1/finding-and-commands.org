@@ -1,0 +1,10 @@
+Ctrl+F finds, Ctrl+H finds and replaces. Every match is marked; Enter and
+Shift+Enter step through them. In the replace field, Enter replaces one
+match and Alt+Enter all of them, in one undo step. Alt+R, or the =.*=
+button, makes the search a regular expression; the replacement can use
+=$1= for its groups.
+
+Ctrl+Shift+P (or F1) opens the command palette: every command that
+applies, with its keys. Type part of a name to find it. Commands that need
+something, such as a heading level, ask for it. In a terminal the palette
+is Ctrl+G, and the status line says so.

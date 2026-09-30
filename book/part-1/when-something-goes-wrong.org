@@ -1,0 +1,5 @@
+The log is =kalem.log= in the state directory: =$KALEM_STATE_DIR=, or
+=kalem= in =$XDG_STATE_HOME=, =%LOCALAPPDATA%= on Windows, or
+=~/.local/state=. After a crash, a report is in the same directory. Please
+attach both to a bug report, with =kalem tui --detect= for problems in the
+terminal.

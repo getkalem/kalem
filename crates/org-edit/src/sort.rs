@@ -21,7 +21,7 @@ pub enum SortBy {
     /// `a`: the heading text without TODO keyword, priority, `COMMENT` and
     /// tags, with emphasis markers removed and links replaced by their
     /// description (or target). Compared by code point, see
-    /// `docs/known-differences.org`.
+    /// `book/part-2/org-known-differences.org`.
     Alpha,
     /// `n`: the number the heading text starts with (0 if none).
     Numeric,

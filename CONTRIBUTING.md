@@ -21,8 +21,9 @@ cargo test --workspace
 ## Rules that keep Kalem working
 
 - **Round-trip is sacred.** For every input, parsing and printing must return the input unchanged. Never normalize text the user did not edit.
-- **Emacs is the reference.** When the Org Syntax document is ambiguous, Kalem follows what `org-element.el` does. Record intentional differences in `docs/known-differences.org`.
+- **Emacs is the reference.** When the Org Syntax document is ambiguous, Kalem follows what `org-element.el` does. Record intentional differences in `book/part-2/org-known-differences.org`.
 - **The core has no UI dependencies.** `org-*` crates and `kalem-core` must not depend on a GUI or terminal library.
+- **The Book changes with the code.** A pull request that changes behavior changes the Book (`book/`) in the same pull request; `kalem book check` must pass.
 - **Every user action is a command.** Frontends and plugins go through the command registry.
 - **Documents stay valid Org.** Plugins and features may give meaning to Org's extension points, but never invent new syntax.
 

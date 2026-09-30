@@ -461,7 +461,7 @@ fn commands_match_emacs() {
         }
         let mark = c["mark"].as_u64().map(|m| m as usize);
         if let Some(reason) = c["known"].as_str() {
-            // A documented Emacs bug (`docs/known-differences.org`).
+            // A documented Emacs bug (`book/part-2/org-known-differences.org`).
             known.push(format!("{}: {reason}", c["name"].as_str().unwrap()));
             continue;
         }

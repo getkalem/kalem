@@ -1,0 +1,13 @@
+Saving is atomic: a crash never leaves half a file. Line endings, a byte
+order mark, file permissions and symbolic links are kept. When another
+program changes an open file, Kalem reloads it if you have no unsaved
+changes; otherwise the status bar says so, and /Revert to Saved/ takes the
+other version. Undo goes back past a reload.
+
+Files are read as UTF-8, or as UTF-16 when they start with its byte
+order mark. A file in another encoding (Windows-1254, ISO-8859-9,
+Shift_JIS…) is read in the one its bytes suggest, which the status bar
+names, and saved in it again. /Reopen with Encoding/ (File menu) reads
+the file again in the encoding you choose, and /Save with Encoding/
+saves it in another; a character the encoding cannot hold stops the save
+and says which.

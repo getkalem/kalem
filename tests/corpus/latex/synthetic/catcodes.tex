@@ -1,0 +1,15 @@
+\documentclass{article}
+\makeatletter
+\def\@foo{bar}
+\newcommand\x{\@foo}
+\makeatother
+\begin{document}
+\verb|\begin{itemize}| and \verb+{+ and \lstinline{a{b}c}.
+\begin{verbatim}
+\end{itemize} % not closing anything
+\end{verbatim}
+% \end{document}
+\iffalse
+\begin{itemize}
+\fi
+\end{document}

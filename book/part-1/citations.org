@@ -1,0 +1,7 @@
+/Insert Citation/ (Insert menu, or the palette) lists the entries of the
+files =#+BIBLIOGRAPHY:= names (BibTeX, BibLaTeX or CSL-JSON, beside the
+document or anywhere); typing narrows the list by key, author and title,
+and Enter writes =[cite:@key]=, or adds =; @key= when the cursor is in a
+citation already. With the cursor on a citation's key, the status bar
+shows the entry it cites, or that no bibliography has it; in the
+graphical editor, so does a tooltip under the mouse.

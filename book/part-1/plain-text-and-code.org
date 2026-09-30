@@ -1,0 +1,30 @@
+Kalem opens any text file. Org files get the rich editor. Other files are
+edited as plain text: monospace, colored by their language, with line
+numbers, the cursor's line marked and indentation guides. Tab follows the
+file's indentation (tabs, or its number of spaces) and indents selected
+lines; Shift+Tab outdents.
+
+In code, Enter keeps the line's indentation and goes a level deeper
+after an opening bracket (after =:= in Python and YAML); between a pair,
+={|}=, the closing bracket moves to a line of its own. A closing bracket
+typed alone on its line goes back a level. The bracket matching the one
+at the cursor is marked, and /Go to Matching Bracket/ (Ctrl+Alt+B) goes
+to it. /Toggle Comment/ (Ctrl+Alt+C) comments out the selected lines with
+the language's marker (=//=, =#=, =--=, =;=, =%=, or =<!-- … -->= in HTML
+and Markdown), or uncomments them; in an Org document it works in source
+blocks with their language, and elsewhere writes Org's =#= comments.
+
+/Duplicate Lines/ (Ctrl+Shift+D), /Move Lines Up/ and /Down/ (Alt+Up and
+Alt+Down), /Join Lines/, /Sort Lines/ and /Trim Trailing Whitespace/ act
+on the lines of the selection (the keys are those of plain text; Org
+keeps Alt+Up and Down for headings, items and rows). /Go to Line/ asks
+for a line number. /Expand Selection/ (Ctrl+Alt+Right) grows the
+selection to the word, the inside of the brackets around it and the
+brackets, the line and the paragraph (in Org documents, the object and
+the element around it), and /Shrink Selection/ (Ctrl+Alt+Left) goes back.
+
+The kind of a file comes from, in order: your choice with the command
+/Set Document Mode/ (remembered in the workspace settings), a mode line
+such as =-*- mode: org -*-= on the first line, the extension, and a
+=#!= line. Markdown files are edited as text for now. Binary files are
+not opened.

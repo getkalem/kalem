@@ -1,0 +1,68 @@
+- Status: *Decided* (2026-09-28)
+- Decision: *go with gpui* for =kalem-ui=. The Tauri + ProseMirror fallback is not needed.
+- Conditions: Kalem writes its own inline text layout on top of gpui's shaping (done in the spike); accessibility and right-to-left text are planned work, not something gpui provides today (see Risks).
+- Tasks: T0.6.1 to T0.6.8
+- Evaluation code: =spikes/gpui-editor= (standalone Cargo project, not part of the workspace)
+
+* What was built
+A minimal WYSIWYG Org editor, about 1,950 lines:
+
+| File        | Content                                                                                                                                                       |
+|-------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =view.rs=   | Display model of a source line from the =org-syntax= tree: hidden markers, styles, widgets, display ↔ source offset mapping                                   |
+| =inline.rs= | Inline layout: shaped text pieces and fixed-size widget boxes, row breaking, glyph and decoration painting, hit testing                                       |
+| =editor.rs= | Editor state, incremental reparse on every edit, virtualized list of lines, IME handler, folding, widgets, clipboard, drag and drop, file dialogs, benchmarks |
+| =math.rs=   | Formula images: RaTeX (D4) → SVG → resvg → gpui image                                                                                                         |
+
+Features: styled paragraphs and headings; emphasis markers, link targets and headline stars hidden away from the cursor and revealed on the cursor's line; entities shown as symbols; checkboxes drawn as widgets and toggled by click; LaTeX fragments drawn as formula images, rendered on background threads and revealed as source on click; fold arrows in the left margin that fold a subtree; =cmd-v=/=cmd-c=, file drop inserts =[[file:...]]= links, =cmd-o= and =cmd-shift-s= open the system file dialogs.
+
+* Results by spike goal
+| Goal (§7.1)                              | Result                                                                                                                                                                                                                                                                                                                    |
+|------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| T0.6.1 Build                             | gpui 0.2.2 with the =runtime_shaders= feature builds with the Command Line Tools only; no full Xcode. Stripped release binary with gpui, =org-syntax= and RaTeX including its fonts: 9.0 MB.                                                                                                                              |
+| T0.6.2 Editable styled paragraphs        | Works. Every keystroke reparses incrementally: p50 250 to 350 µs per edit on the Org manual and on a 4.2 MB, 117,850-line file. The spike keeps the text in a =String=; see "Rope" below.                                                                                                                                 |
+| T0.6.3 IME                               | Implemented through gpui's =EntityInputHandler= (marked text, replacement ranges, candidate window position, hit testing), the same mechanism Zed uses on macOS, Windows, X11 and Wayland. *Not verified interactively*: it needs a person with Japanese, Chinese or Korean input methods and dead keys; checklist below. |
+| T0.6.4 Scrolling                         | Goal met with a large margin (table below): 120 Hz with no frame over 17 ms, main-thread work under 7 ms per frame in every scenario.                                                                                                                                                                                     |
+| T0.6.5 Inline widgets                    | Works, but only through Kalem's own inline layout (=inline.rs=, 330 lines). gpui's =shape_text= cannot reserve space for inline boxes; its =LineWrapper= knows fixed-width elements but a single font. The spike shapes text pieces with =shape_line= and breaks rows itself, as Zed does for fold placeholders.          |
+| T0.6.6 Accessibility                     | gpui 0.2.2 (the latest crates.io release) has none. AccessKit support was merged into gpui's main branch on 2026-05-27 (zed-industries/zed#56065); it is plumbing only, components must add their own nodes.                                                                                                              |
+| T0.6.7 Clipboard, drag and drop, dialogs | Available and wired: =read_from_clipboard=/=write_to_clipboard=, =on_drop= with =ExternalPaths=, =prompt_for_paths= and =prompt_for_new_path=. Paste, drop and the dialogs were compiled and wired but not exercised by hand.                                                                                             |
+
+** Performance
+Measured on an Apple M1 Max (10 cores, 120 Hz built-in display), release build, window 900 × 800. "Work" is main-thread time from the start of a frame to the last painted line; "interval" is the time between frames and includes waiting for the display.
+
+| Scenario                                                    | Frame interval p99 | Frames over 17 ms | Work p50 / p99 |
+|-------------------------------------------------------------+--------------------+-------------------+----------------|
+| Org manual (23,000 lines): smooth scroll, 594 frames        | 9.3 ms             | 0                 | 1.5 / 3.2 ms   |
+| Org manual: page jump every frame (fresh lines every frame) | 9.3 ms             | 0                 | 2.5 / 4.0 ms   |
+| 4.2 MB, 117,850 lines: smooth scroll                        | 9.3 ms             | 0                 | 1.8 / 3.2 ms   |
+| 4.2 MB: page jump every frame                               | 9.3 ms             | 0                 | 2.6 / 4.0 ms   |
+| 5,000 lines, 9,000 distinct formulas: smooth scroll         | 9.3 ms             | 0                 | 2.6 / 3.1 ms   |
+| 5,000 lines, 9,000 distinct formulas: page jump every frame | 9.3 ms             | 0                 | 3.5 / 4.3 ms   |
+| Typing 300 characters, Org manual                           | 9.3 ms             | 0                 | 2.3 / 2.6 ms   |
+| Typing 300 characters, 4.2 MB file                          | 9.3 ms             | 0                 | 4.2 / 4.6 ms   |
+
+Formulas render off the main thread: p50 1.7 to 2.6 ms from request to image, p99 37 to 53 ms while page jumps queue about 30 new formulas per frame. Until an image arrives the formula is drawn as a grey box of estimated size, so the line shifts once when it arrives.
+
+Two measurement lessons, recorded because earlier numbers were wrong:
+
+- An early version of the scroll benchmark called =ListState::scroll_by= before the first layout. Unmeasured list items count as zero height, so the list jumped to the end and the benchmark re-laid out one static screen. The fixed benchmark waits for the first layout, and the page-jump benchmark forces fresh content every frame.
+- macOS stops asking for frames while the screen is locked or the window is hidden. Frame intervals then show multi-second gaps that are not the editor's fault; the work measure is immune to this.
+
+* Findings that shape the design
+- *Own text layout.* The editor view needs its own inline layout: text pieces, widget boxes, row breaking, painting, hit testing and the caret. This is the "rich text widget for gpui" gap in §4.7. The spike's =inline.rs= is the seed; it becomes a module of =kalem-ui= and may later be published as a standalone crate.
+- *Asynchronous widgets.* Anything expensive inside a line (formulas, images) must render off the main thread with a placeholder of estimated size. Synchronous formula rendering made page jumps take 170 ms per frame even with a fast renderer.
+- *Line-granular list.* One list item per source line works well with incremental reparsing: an edit re-measures only a few items. Folding maps list items to visible source lines.
+- *Rope.* The spike keeps a =String=; each edit copies the text and recomputes line starts, which is what makes typing in the 4.2 MB file cost 4.2 ms of work per frame. =kalem-core= needs a rope with a line index, plus a way to hand contiguous text to =org-syntax= (T1.x). This is a core concern, not a gpui limitation.
+- *Full reparse fallback.* An edit that changes document context, such as the =#+TITLE= line in a file that has =#+TODO= keywords, falls back to a full parse: 330 ms for 4.2 MB, observed as one 347 ms frame. Fallback parses must move to a background thread with the old tree kept on screen.
+
+* Risks and mitigations
+| Risk                                                                                             | Mitigation                                                                                                                                                                                                                                                       |
+|--------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| gpui's last crates.io release is 0.2.2 (2025-10-22); development continues in the Zed repository | Pin a git revision of gpui for Kalem releases once features from main are needed (accessibility). Publishing =kalem-ui= to crates.io is then blocked; binaries and =cargo install --git= are unaffected. If needed, publish a renamed fork (gpui is Apache-2.0). |
+| API churn between revisions                                                                      | Keep gpui-specific code inside =kalem-ui=; the view model (=view.rs=) is already independent of gpui.                                                                                                                                                            |
+| No accessibility in the released version                                                         | Target a gpui revision with AccessKit before 1.0 (§7.4); the custom text element must expose its text and caret through AccessKit nodes itself.                                                                                                                  |
+| No right-to-left or bidirectional text in gpui (open issue zed-industries/zed#31102)             | Not a goal for the first releases (§7.4). Because Kalem owns its inline layout, it can add Unicode bidi reordering of shaped runs itself; this needs its own spike before RTL is promised.                                                                       |
+| IME not verified by hand                                                                         | Manual checklist before Phase 1 ends: macOS Japanese (Kotoeri) and Pinyin composition with candidate window placement; Turkish and US-international dead keys; Windows Microsoft IME; Linux IBus and Fcitx on X11 and Wayland.                                   |
+
+* Why not the fallback
+Tauri + ProseMirror would have been chosen only if goals 1 to 3 failed. Goals 1 and 3 are met with a wide margin and goal 2 is implemented on the same platform layer Zed ships to CJK users. The web stack would add a WebView, a JavaScript editor model to keep in sync with the Rust tree, and a larger memory baseline (G3).

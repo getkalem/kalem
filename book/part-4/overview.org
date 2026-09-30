@@ -1,0 +1,212 @@
+Kalem can be changed in two ways. The first is data: settings, key
+bindings and themes, written in files that Kalem reads, checks and
+reports on. That way is available today. The second is code: plugins,
+which add modes, completers, block types, link types, views and export
+formats. That way is designed and decided, but its runtime is not built
+yet; it is the work of phase 3 of the roadmap.
+
+This part of the Book describes both, and keeps them apart. Every
+section says whether what it describes is *available today* or
+*planned*, and planned work is named by its task in the work breakdown
+(=todo.md=), such as T3.1.1, so that you can follow it.
+
+* Available today and planned
+
+| What                                          | Status    | Where                                    |
+|-----------------------------------------------+-----------+------------------------------------------|
+| Settings (=settings.toml=, workspace layers)  | Available | [[file:../part-1/settings.org][Settings]]                                 |
+| Key bindings (=keymap.json=, two profiles)    | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]                |
+| Command registry, scopes and when-clauses     | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]                |
+| Themes (=themes/light.toml=, =dark.toml=)     | Available | this chapter, below                      |
+| Completer contract (in Rust, inside Kalem)    | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]]       |
+| Highlighting of code (syntect, built in)      | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]]       |
+| Command line for scripts and CI               | Available | [[file:../part-1/the-command-line.org][The command line]]                         |
+| Document mode contract (=DocumentModeSpec=)   | Planned   | T2.7c.10                                 |
+| Plugins as WASM components on a WIT API       | Planned   | T3.1.0 to T3.1.17, [[file:plugins.org][Plugins]]                |
+| Plugin repository =getkalem/plugins=          | Started   | T3.3.7 (skeleton only), [[file:plugins.org][Plugins]]           |
+| Inspection panel, hot reload, debug socket    | Planned   | T3.2.1 to T3.2.5                         |
+
+"Available" means that it works in the current version, in both
+editors, and that this Book describes it from the code. "Planned" means
+that the design is decided and the task is open: the names and shapes
+given for it come from the design document and may still change.
+
+* Principle: new features, same format
+
+Plugins must be able to add real features, not only shortcuts: new
+block types, new link types, new views, new export targets, new
+document checks. At the same time every document must stay valid Org
+that Emacs opens without Kalem.
+
+The two goals meet in one rule: *plugins extend semantics, not syntax*.
+The parser's grammar is fixed. Org already has extension points made for
+exactly this, and Emacs packages use them the same way:
+
+| Org extension point      | Example                            | What a plugin gives it                                   |
+|--------------------------+------------------------------------+----------------------------------------------------------|
+| Special blocks           | =#+BEGIN_kanban= ... =#+END_kanban= | A renderer, an editor widget, export output              |
+| Source block languages   | =#+BEGIN_SRC mermaid=              | A renderer (a diagram), a Babel executor                 |
+| Link types               | =[[jira:ABC-123]]=                 | Resolution, click, hover, completion, rendering, export  |
+| Drawers and properties   | =:ESTIMATE: 3h=                    | Views, computations, badges                              |
+| Keywords                 | =#+KANBAN_COLUMNS: TODO DOING DONE= | Document-level configuration for a plugin                |
+| Tags and TODO keywords   | =:urgent:=, =WAITING=              | Views, highlighting, automation                          |
+| Export snippets, macros  | =@@myformat:...@@=, ={{{badge(new)}}}= | Output for one back-end, expansion                   |
+| Dynamic blocks           | =#+BEGIN: word-report=             | Generated content, refreshed on demand                   |
+
+A document that uses a plugin still opens in Emacs, and in Kalem
+without the plugin: the plugin's content shows as ordinary Org, a
+special block as a plain special block.
+
+Kalem's own optional features are meant to be built on the same
+extension points and shipped as /bundled plugins/, the kanban board and
+the word count panel for example. This keeps the API honest: if a
+built-in feature needs something, plugins get it too.
+
+The Kalem format (Part III) is the one place where Kalem itself defines
+syntax, and it does so in a specification; there too, plugins add
+meaning to generic blocks, spans and attributes, never syntax.
+
+* A small core (D29)
+
+The owner decided on 2026-09-28 that the core of Kalem is five things:
+
+1. Org: the parser, the model, editing, tables and the export engine.
+2. The Markdown, CSV and LaTeX modes.
+3. The text engine with the view model.
+4. The two frontends, graphical and terminal.
+5. The infrastructure that runs before any plugin: commands, keymaps,
+   settings, files, projects, search, and the plugin loader.
+
+Everything else is to be a plugin on the public contracts: every other
+mode, every other completer, every export back-end beyond HTML, the
+views, the diagram renderers, the language server bridge. The ones
+everyone expects will ship inside the binary as bundled plugins, WASM
+components embedded in the executable and loaded on first use, so that
+the user sees no difference and the API is proven complete (T3.3.2a).
+New modes and file types are developed in the plugin repository
+=getkalem/plugins=, never in the core.
+
+Today the core holds more than this: the export back-ends other than
+HTML (Markdown, LaTeX, plain text, PDF and the pandoc formats) are built
+in, because the plugin runtime they would move to does not exist yet.
+
+* One contract for built-ins and plugins (D25)
+
+Highlighters, document renderers and completers each have one contract,
+shared by the built-in ones and by plugins. A plugin can then do
+everything a built-in mode or completer does, and the contract is proven
+by the built-ins before any plugin uses it. Each contract has two
+levels: a declarative one, with no code (a syntax definition, a word
+list), and a programmatic one, in Rust. Each has a conformance suite
+and two reference plugins.
+
+Where this stands:
+
+- The *completer contract* exists in =kalem-core= (T2.7a.8, done). The
+  Org, LaTeX and document-words completers are written against it. It is
+  a Rust trait; plugins will reach it through the WIT bindings (T3.1.9c).
+- The *document mode contract* does not exist yet. Markdown, CSV and
+  LaTeX are still separate modes in the core; T2.7c.10 rewrites them
+  against a common =DocumentModeSpec= in phase 2, and T3.1.9g exposes it
+  to plugins.
+- The *highlighter* is syntect with the syntax definitions built into
+  Kalem (D16). Loading a plugin's Sublime syntax definition is T3.1.9g.
+
+* Plugins are WebAssembly components written in Rust (D28)
+
+The owner decided on 2026-09-28 how plugins run:
+
+- A plugin is a *WebAssembly component*. It sees only what the API
+  grants it: no file system, network or clock of its own, its own
+  memory, limits on time and memory (fuel metering, 64 MB by default).
+- The API is defined once, in *WIT*, the interface language of the
+  component model (D6). The Rust bindings are generated from it and
+  published as the =kalem-plugin= crate.
+- *Rust is the plugin language.* The contract a plugin implements is the
+  trait the core's own modes and completers implement, so a plugin
+  author reads the same types as a core contributor, and the same crate
+  builds as a bundled plugin inside the binary or as a sandboxed
+  component. Another language with a WIT binding can produce a
+  component, but Kalem ships no runtime for it.
+- *No scripting engine.* Kalem ships no JavaScript, Lua or Python
+  interpreter and reads no script file at startup; configuration is data
+  (D9). Automation is a plugin.
+- *Out of process* for what cannot be a component: language servers and
+  external tools talk JSON-RPC over standard input and output.
+- *Compiled in*, from phase 4: power users may build community plugins
+  into their own Kalem binary (=kalem build --with=), with native speed
+  and no sandbox, by their own choice.
+
+What this costs, and was accepted knowingly: no REPL and no instant
+reload (the live runtime shrinks to inspection and reload), a Rust
+toolchain for plugin authors (hidden behind =kalem plugin new= and
+=kalem plugin build=), fewer tiny plugins, and libraries that exist only
+in other languages reachable only through a port or a WASM build. What
+it buys: parsers and completers at near native speed, threads through
+several instances, a capability sandbox, one artifact for every
+platform, and one typed definition that a compiler checks.
+
+Which engine runs the components, wasmtime or wasmi, is still open; the
+spike T3.1.0 decides it against Kalem's size and speed targets.
+
+* The layers
+
+| Layer                        | Technology                                          | Status                     |
+|------------------------------+-----------------------------------------------------+----------------------------|
+| Command registry and events  | Rust, =kalem-core=                                  | Available (built-ins only) |
+| User configuration           | =settings.toml=, =keymap.json=, =projects.toml=; data, not code (D9) | Available |
+| Plugin package               | A WASM component in Rust, with a manifest           | Planned, phase 3           |
+| Bundled plugins              | The same components, embedded in the binary         | Planned, phase 3           |
+| Threads                      | One component instance per thread                   | Planned, phase 3           |
+| Out of process               | JSON-RPC over stdio: language servers, tools        | Planned, phases 3 and 4    |
+| Compiled distribution        | =kalem build --with=                                | Planned, phase 4           |
+
+The command registry and the event bus exist in =kalem-core= and carry
+every built-in command and the editors' own events. Their plugin side
+is what is missing: a command handler can today only be a Rust
+function inside Kalem. The registry already has a second kind of
+handler for plugin callbacks, and running a command of that kind fails
+with "Script commands are not available yet".
+
+* What you can change today
+
+- *Settings.* =settings.toml= in the settings directory
+  (=$KALEM_CONFIG_DIR=, or =kalem= in =$XDG_CONFIG_HOME=, =%APPDATA%= on
+  Windows, or =~/.config=), and =.kalem/settings.toml= in a project,
+  which applies over yours. Every value is checked; a wrong one is
+  reported and the layer below applies. Tables under =plugins.<id>= are
+  kept unchecked for plugins, and =plugins.enabled= lists plugin IDs,
+  both waiting for the loader. See [[file:../part-1/settings.org][Settings]].
+- *Keys.* =keymap.json= in the same directory: add, change and remove
+  bindings, with arguments, when-clauses and terminal variants. See
+  [[file:commands-and-keys.org][Commands, scopes and keys]].
+- *Themes.* =themes/light.toml= and =themes/dark.toml= in the settings
+  directory change any color of the built-in light and dark themes: the
+  page, text, links, the selection, TODO keywords, headline levels, and
+  six colors of source code (=keyword=, =string=, =comment=, =number=,
+  =function=, =type=). Colors left out keep their values. Themes with
+  other names are planned with the plugin API (=kalem.themes=).
+- *Document modes of files.* The first line's mode line
+  (~-*- mode: org -*-~), and /Set Document Mode/, which remembers the
+  choice in the workspace's =files.modes=.
+- *Scripts.* The =kalem= command line checks, formats, exports, queries
+  and completes files without a window, for scripts and CI. =kalem
+  commands= lists the commands with their scopes and keys, =kalem
+  complete FILE:LINE:COL= prints the completions at a place. See
+  [[file:../part-1/the-command-line.org][The command line]].
+
+Adding a command, a completer or a mode today means changing Kalem's
+source: the contracts are Rust types in =kalem-core=, and the chapters
+that follow describe them for contributors as well as for the plugin
+authors who will implement them later.
+
+* The chapters of this part
+
+- [[file:commands-and-keys.org][Commands, scopes and keys]]: the command registry, scopes, the
+  when-clause language and its keys, and keymap files. Available.
+- [[file:completers-and-modes.org][Completers, modes and highlighters]]: the completer contract as
+  implemented, the state of the document mode contract, and
+  highlighting. Mostly available.
+- [[file:plugins.org][Plugins]]: the WASM plugin model, the WIT API, permissions and
+  limits, the extension points, writing a mode, a highlighter, a
+  completer and an exporter, and the plugin repository. Planned.

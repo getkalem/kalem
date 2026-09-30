@@ -18,12 +18,13 @@ In short: **Typora for Org.**
 - **Tasks.** TODO states, priorities, tags, properties, scheduling with a date picker, state logging, repeaters, TODO dependencies, and match strings (`kalem query`), each command identical to Emacs on thousands of cases.
 - **Tables and formulas.** Automatic alignment, a grid editor, `#+TBLFM` formulas with Calc's functions, durations and dates, a formula bar, recalculation, import and export (CSV, TSV).
 - **Export.** HTML (with Kalem's style sheet, MathJax or SVG formulas), Markdown or GitHub Markdown, LaTeX and PDF, and plain text, matching Emacs's exporter, with citations and bibliographies in Org's `basic` styles or any CSL style (APA, IEEE, Chicago…), or left to biblatex and natbib in LaTeX; Word, OpenDocument, EPUB and RTF through pandoc; `.klm` Kalem documents with fonts, colors and alignment that stay valid Org.
+- **LaTeX, CSV and BibTeX.** `.tex` files rendered as the document reads (sections, formulas, references, citations, figures, tables) and built to PDF, with diagnostics and completion, staying LaTeX byte for byte; CSV files as a grid with sorting and filters; `.bib` files as a grid of entries.
 - **Around the files.** Projects, a folder tree, find in files, a Dired-style file manager, plain text with highlighting, themes, English and Turkish.
 
 ### Not yet
 
 - A citation picker
-- Markdown and CSV as documents (today they open as text)
+- Markdown as a document (today it opens as text)
 - The agenda, capture, clocking reports, Babel (running source blocks)
 - Plugins (planned as WebAssembly components), spell checking
 - Signed binaries and installers for macOS, Windows and Linux
@@ -39,6 +40,10 @@ In short: **Typora for Org.**
 - **Extensible.** Plugins written in Rust and run as sandboxed WebAssembly components add modes, completers, commands, link types, block renderers, views, exporters and document checks, while documents stay valid Org.
 
 What Kalem is not: a Microsoft Office clone, a page layout tool, or a replacement for Emacs. See [non-goals](design_document.md#14-non-goals).
+
+## Documentation
+
+[The Kalem Book](https://getkalem.github.io/kalem) is the reference: the manual, the specification of every format as Kalem implements it, extending Kalem, and the design. Its source is [`book/`](book/index.org); `kalem book build` turns it into the site.
 
 ## Command line
 

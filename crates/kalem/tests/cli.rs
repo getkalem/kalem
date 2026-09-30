@@ -391,9 +391,35 @@ fn diff_pandoc() {
     assert_eq!(out, "", "every category agrees on the book");
     let (code, out, _) = kalem(&["diff-pandoc", "../../tests/latex/model/article.tex"]);
     assert_eq!(code, 0);
-    // The one deliberate difference (docs/known-differences-latex.org).
+    // The one deliberate difference (book/part-2/latex-known-differences.org).
     assert_eq!(
         out.trim(),
         "../../tests/latex/model/article.tex: figures: kalem 2, pandoc 1"
     );
+}
+
+#[test]
+fn the_book_builds() {
+    // Every chapter exports and every link inside the Book leads to a page.
+    let book = concat!(env!("CARGO_MANIFEST_DIR"), "/../../book");
+    let (code, out, err) = kalem(&["book", "check", book]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains("0 problems"), "{out}");
+    // The site: pages, the theme, the search index.
+    let site = std::env::temp_dir().join(format!("kalem-book-{}", std::process::id()));
+    let (code, out, err) = kalem(&["book", "build", book, "--out", site.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}{err}");
+    for f in [
+        "index.html",
+        "part-1/installing.html",
+        "part-2/latex.html",
+        "appendices/commands.html",
+        "theme/book.css",
+        "search-index.js",
+    ] {
+        assert!(site.join(f).is_file(), "{f}");
+    }
+    let index = std::fs::read_to_string(site.join("search-index.js")).unwrap();
+    assert!(index.contains("bib.sortView"));
+    let _ = std::fs::remove_dir_all(&site);
 }

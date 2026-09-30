@@ -1,0 +1,494 @@
+Everything Kalem does is a /command/: saving, making text bold, moving a
+table row, opening the file manager. Menus, toolbars, the command
+palette and keys all run commands, and a key binding is nothing more
+than keys, a command, its arguments and a condition. This chapter
+describes the command registry, the /scope/ that says which kinds of
+text a command serves, the /when-clause/ language that decides where a
+command or binding applies, and the keymap files you write to change
+keys. All of it is available today. The appendix /Commands and keys/
+lists every command with its scope and default keys; it is generated
+from the registry each time the Book is built.
+
+The code is in =crates/kalem-core/src=: =command.rs= (the registry and
+scopes), =builtin.rs= (the built-in commands), =when.rs= (when-clauses),
+=document.rs= (the context keys), =keys.rs= (key syntax) and =keymap.rs=
+(keymaps). The design is §7.3 and §11.2 of the design document, and
+decisions D9 and D27.
+
+* Commands
+
+A command has these parts:
+
+| Field          | What it is                                                                                  |
+|----------------+---------------------------------------------------------------------------------------------|
+| =id=           | A dotted name: =org.todo.cycle=, =table.insertRow=; for a plugin, =pluginId.action=           |
+| =title=        | The name in the palette and menus, translated for built-in commands                         |
+| =category=     | The group in the palette: Edit, Format, TODO, Table, File, View                             |
+| =default_keys= | The keys of the Word-like profile                                                           |
+| =scope=        | The text types the command serves (below); required                                         |
+| =when=         | An optional when-clause for the rest: structure at the cursor, a selection, the file kind   |
+| =handler=      | What runs it: a Rust function; plugin callbacks are planned                                 |
+| =args_schema=  | A JSON schema of its arguments, if it takes any                                             |
+| =source=       | Who registered it: Kalem, a plugin by ID, or the user                                       |
+
+*IDs.* An ID has two or more parts separated by dots; each part starts
+with a lower case ASCII letter, followed by ASCII letters and digits
+only. =org.headline.setLevel= is valid; =org.set-level=, =Org.save= and
+=save= are not. The registry refuses an invalid ID, an ID that is
+already registered, and a command without a scope. The convention is
+=area.action= for Kalem and =pluginId.action= for plugins, so a plugin's
+ID cannot contain hyphens either.
+
+*Undo.* A command's change to the document is one undo step, however
+many edits it makes.
+
+*Where commands appear.* The palette (Ctrl+Shift+P, F1, Ctrl+G in
+terminals) shows the commands whose when-clause holds at the cursor,
+with their keys; you can find a command by its title in your language,
+its English title or its ID. Menus and toolbars show the commands that
+can run in the document at all (see [[*Menus, toolbars and the palette][Menus, toolbars and the palette]]).
+=kalem commands= prints every command, one a line: ID, title, scope and
+default keys, separated by tabs; =kalem commands --type csv= prints only
+those whose scope serves that type.
+
+** Arguments
+
+Some commands take arguments, as a JSON object: =org.todo.set= takes
+={"state": "NEXT"}=, =org.headline.setLevel= ={"level": 2}=,
+=org.insert.block= ={"type": "quote"}=. A key binding can pass them
+(the =args= of a keymap entry). When a command runs without a required
+argument, from the palette or from a binding that does not give it, the
+editor asks for it, one argument at a time, and reads the answer as the
+schema's type says:
+
+| Type      | What you type                                             |
+|-----------+-----------------------------------------------------------|
+| =integer= | A whole number                                            |
+| =boolean= | =y=, =yes=, =true= or =t= for true; anything else is false |
+| =array=   | Words separated by blanks or colons: =work:urgent=        |
+| =string=  | The text as it is (also when the schema names no type)    |
+
+Some prompts start with a useful value: the current formula for
+=table.setFormula=, the document's folder for =file.open=, the value of
+the property for =org.property.set=.
+
+* Scopes (D27)
+
+Every command says where it applies. Its /scope/ is either all text
+types, or a list of text types, less an optional list of exceptions.
+The when-clause stays for structure (=inTable=, =onHeadline=,
+=hasSelection=) and finer conditions. This was decided by the owner on
+2026-09-28 (D27).
+
+** Text types
+
+A text type is the type of the text *at the cursor*, innermost first:
+
+| Where the cursor is                        | Text type                                       |
+|--------------------------------------------+-------------------------------------------------|
+| In an Org source block                     | Its language, in lower case: =python=, =rust=  |
+| In an Org export block                     | Its back-end: =html=, =latex=                   |
+| In a LaTeX fragment or environment in Org  | =latex=                                         |
+| Elsewhere in an Org document               | =org= for =.org= and =.org_archive= files, =klm= otherwise |
+| In a Markdown, CSV or LaTeX file           | =markdown=, =csv=, =latex=                      |
+| In a plain text file with a language       | That language, in lower case                    |
+| In a plain text file without one           | =text=                                          |
+| In the file manager                        | =directory=                                     |
+
+Inside a block, the type is the block's only in its contents: on the
+=#+BEGIN_SRC= and =#+END_SRC= lines the type is the document's.
+
+A plain text file's language is what Kalem detected it by: the name in
+a mode line (~-*- mode: python -*-~), else the file's extension, else
+the interpreter of a =#!= line. So =script.py= has the type =py=, a file
+starting with =#!/usr/bin/env python3= has =python=, and a source block
+=#+BEGIN_SRC python= has =python=. A command or binding meant for Python
+everywhere names both: =["py", "python"]=.
+
+*=klm= is a kind of =org=.* A scope that names =org= serves =.klm= files
+too; a scope that names =klm= serves only Kalem documents. Nothing else
+is an axis: a scope never names a mode or an editor, because the type
+decides them.
+
+** Writing a scope
+
+In Rust, inside Kalem, a scope is one of:
+
+#+begin_src rust
+Scope::all()                    // every type
+Scope::only(&["csv"])           // CSV files
+Scope::only(&["org"])           // .org and .klm
+Scope::only(&["klm"])           // Kalem documents only
+Scope::except(&["org"])         // everything but Org text
+#+end_src
+
+The planned plugin API writes the same scopes as =Scope::types(["org"])=
+in Rust; the design document shows them in JSON form as ="all"=,
+=["csv"]= and ={ "all": true, "except": ["csv", "directory"] }=.
+
+=kalem commands= and the appendix describe a scope as =all=, a list such
+as =org=, or =all except org=.
+
+** How a scope takes effect
+
+When a command is registered, its scope is turned into a when-clause
+over the key =textType= and joined to the command's own when-clause
+with =&&=. =Scope::only(&["org"])= becomes
+
+#+begin_src text
+textType == org || textType == klm
+#+end_src
+
+and =Scope::except(&["org"])= becomes
+~!(textType == org || textType == klm)~. So the palette, menus, key bindings and the documentation all
+evaluate one expression.
+
+** The scopes of the built-in commands
+
+Most built-in commands get their scope from their when-clause:
+
+- Commands for whole documents and files (IDs starting with =export.=,
+  =file.=, =app.=, =view.=, =stats.= and =project.=) serve all types;
+  their when-clause, if any, keeps them to the documents they work on.
+- Commands whose when-clause requires ~editorMode == directory~ serve
+  =directory=.
+- Commands whose when-clause requires ~editorMode == org~ serve =org=:
+  Org's editing commands work on Org text, not on the source blocks in
+  it. Ctrl+B makes text bold in Org and does nothing in a Python block.
+- Commands whose when-clause requires ~editorMode != org~ serve every
+  type except =org=.
+- The rest serve all types.
+
+A few commands set their scope explicitly. The line commands
+(=lines.duplicate=, =lines.moveUp=, =lines.moveDown=) serve every type
+but =org=, so in an Org source block they move lines of code, while in
+Org text Alt+Up moves headings, items and rows.
+
+** Known text types
+
+Kalem knows these types: =org=, =klm=, =markdown=, =csv=, =text=,
+=directory=, =latex=, =html=, =json=, =txt=, =log=, =tsv=, =diff=,
+=patch=, =bib=, =rtf=, =srt=, =ascii=, and every language it has
+comment markers for (=rs=, =rust=, =py=, =python=, =sh=, =js=, =c=,
+=go=, =sql=, =yaml=, =toml= and about a hundred more names). A key
+binding whose when-clause compares =textType= with a type Kalem does not
+know is reported as a problem of the keymap (see [[*Problems][Problems]]): it would
+never apply.
+
+* When-clauses
+
+A when-clause is a condition on the editor's context:
+~editorFocus && inTable~, ~editorMode == org~, ~!hasSelection~. Commands have them, and so
+do key bindings.
+
+** Grammar
+
+#+begin_src text
+clause     = or
+or         = and { "||" and }
+and        = unary { "&&" unary }
+unary      = "!" unary
+           | "(" or ")"
+           | "true" | "false"
+           | key [ ( "==" | "!=" ) value ]
+value      = string | number | "true" | "false" | word
+key, word  = letter-or-"_" { letter | digit | "_" | "." | ":" | "-" }
+string     = "'" { any character but "'" } "'"
+           | '"' { any character but '"' } '"'
+number     = [ "-" ] digit { digit | "." }
+#+end_src
+
+- =&&= binds tighter than =||=: ~a || b && c~ is ~a || (b && c)~.
+- Letters are ASCII letters; keys and words may contain =.=, =:= and
+  =-= after the first character, so ~documentHasTag:board~ is one key.
+- A bare word after a comparison is a string: ~editorMode == org~ and
+  ~editorMode == 'org'~ are the same. =true= and =false= are the
+  booleans.
+- Strings have no escapes: a string in single quotes cannot contain a
+  single quote.
+- Blanks and tabs separate tokens and are otherwise ignored.
+- There are no other operators: no =<=, no regular expressions, no
+  =in=.
+
+A clause that cannot be read is an error with a position: in a keymap
+file, "Binding 3: when-clause: expected a value at 13", and the binding
+is skipped.
+
+** Evaluation
+
+- A bare key is true when it is set to a true value: a boolean =true=, a
+  non-empty string or a number other than zero. A key that is not set is
+  false.
+- ~key == value~ is true when the key is set and equal to the value;
+  ~key != value~ is true when it is not, including when the key is not
+  set.
+- A number and a string compare equal when the string reads as that
+  number: ~level == 2~ and ~level == '2'~ both hold for the number 2.
+- =!=, =&&=, =||= and parentheses are as usual.
+
+** Context keys
+
+These keys are set today. Keys marked /document/ are known for the
+whole document, wherever the cursor is; the others depend on the
+cursor or on the editor.
+
+| Key              | Value                                                               | Set by        |
+|------------------+---------------------------------------------------------------------+---------------|
+| =editorMode=     | =org=, =markdown=, =csv=, =latex=, =text=, =binary=, =directory=     | document      |
+| =fileKind=       | =org= or =klm=; only in Org documents                               | document      |
+| =editorLanguage= | A plain text file's language, as detected (=rs=, =python=)          | document      |
+| =textType=       | The text type at the cursor (see [[*Text types][Text types]])                        | cursor        |
+| =hasSelection=   | Text is selected                                                    | cursor        |
+| =narrowed=       | The document is narrowed to a part                                  | editor        |
+| =modified=       | The document has unsaved changes                                    | editor        |
+| =wdired=         | The file manager's listing is being edited                          | editor        |
+| =onHeadline=     | The cursor is on a heading line (or an inline task)                 | cursor, Org   |
+| =inTable=        | The cursor is on a row of a table                                   | cursor, Org   |
+| =inList=         | The cursor is in a list item                                        | cursor, Org   |
+| =inBlock=        | The cursor is in a block: source, example, export, comment, verse, quote, center, special or dynamic | cursor, Org |
+| =inSrcBlock=     | The element at the cursor is a source block                         | cursor, Org   |
+| =editorFocus=    | The editor has the keys: always in the graphical editor; in the terminal, when no prompt is open | frontend |
+| =sourceView=     | The source view is shown instead of the rich view                   | frontend      |
+| =terminal=       | Running in the terminal editor (not set in the graphical one)       | frontend      |
+| =inProject=      | The document belongs to a project                                   | frontend      |
+| =vimMode=        | With the Vim profile: =normal=, =insert=, =visual=, =visualLine=, =visualBlock=, =replace= | frontend |
+| =vimCommand=     | With the Vim profile: in normal or visual mode, with no command half typed and no =:= line open | frontend |
+
+The Org keys (=onHeadline= to =inSrcBlock=) are false outside Org
+documents. While a large Org document is being parsed again, they come
+from the previous parse. The keys named in the design document for
+later, such as =readOnly= or =docLanguage=, are not set yet, so a
+clause that names them treats them as false.
+
+** Menus, toolbars and the palette
+
+A command is offered only where it can work: a menu item, toolbar
+button or palette entry whose command cannot run in the document is not
+shown, not merely greyed out. Italic is absent from a LaTeX document's
+menus; a CSV file gets a Table menu.
+
+Menus and toolbars ask with the document's keys alone: =editorMode=,
+=fileKind=, =editorLanguage=, and =textType= set to the document's own
+type (=org=, =klm=, =markdown=, =latex=, =csv=, =directory=, or a plain
+text file's language), not to the type at the cursor. A command stays
+in the menus when its clause /could/ hold with those keys, whatever the
+other keys turn out to be: ~editorMode == org && onHeadline~ stays in
+the menus of an Org document, because =onHeadline= may become true,
+and leaves those of a LaTeX document, because ~editorMode == org~ is
+already false there. So menus do not change as the cursor moves.
+
+The palette evaluates the whole clause at the cursor, with every key.
+
+* Keymap files
+
+Your key bindings are in =keymap.json= in the settings directory:
+=$KALEM_CONFIG_DIR=, or =kalem= in =$XDG_CONFIG_HOME=, =%APPDATA%= on
+Windows, or =~/.config=. Kalem reads the file when it starts; restart it
+after changing the file. There is no project keymap.
+
+** Format
+
+A keymap file is a JSON array of entries. Comments are allowed, =//= to
+the end of the line and =/* ... */=, outside strings.
+
+| Field          | Required | What it is                                                                  |
+|----------------+----------+-----------------------------------------------------------------------------|
+| =keys=         | yes      | The keys (below); =key= is accepted as well                                 |
+| =command=      | yes      | A command ID, or =-= and an ID to remove bindings                           |
+| =args=         | no       | The command's arguments, a JSON value; none when left out                   |
+| =when=         | no       | A when-clause; it applies in addition to the command's own                 |
+| =terminalKeys= | no       | Other keys for terminals that cannot send =keys=                           |
+
+An entry whose command starts with =-= removes bindings of that command:
+those with the given keys, or all of them when =keys= is left out.
+Removing takes away default keys, profile keys and your own earlier
+entries alike.
+
+#+begin_src json
+[
+  // Ctrl+Shift+W sets the tag "work" on a heading.
+  { "keys": "ctrl+shift+w", "command": "org.tags.set",
+    "args": { "tags": ["work"] }, "when": "onHeadline" },
+  // Two-key sequences: Ctrl+Alt+X, then N marks a task NEXT, then Q
+  // inserts a quote block.
+  { "keys": "ctrl+alt+x n", "command": "org.todo.set", "args": { "state": "NEXT" } },
+  { "keys": "ctrl+alt+x q", "command": "org.insert.block", "args": { "type": "quote" } },
+  // Duplicate lines in Python only, in files and in source blocks.
+  { "keys": "ctrl+alt+l", "command": "lines.duplicate",
+    "when": "textType == py || textType == python" },
+  // No Ctrl+B for bold; no keys at all for Quit.
+  { "keys": "ctrl+b", "command": "-org.emphasis.bold" },
+  { "command": "-app.quit" }
+]
+#+end_src
+
+An entry that cannot be read (no command, keys that are not keys, a
+when-clause with a syntax error, a binding without keys) is skipped; the
+rest of the file applies. A file that is not a JSON array is ignored as
+a whole.
+
+** Keys
+
+A chord is modifiers and a key joined by =+=: =ctrl+s=, =ctrl+shift+t=,
+=alt+up=, =f5=. Case does not matter.
+
+| Modifier | Also written             |
+|----------+--------------------------|
+| =ctrl=   | =control=                |
+| =alt=    | =option=, =meta=         |
+| =shift=  |                          |
+| =cmd=    | =super=, =win=           |
+
+A key is a single character (=a=, =1=, =,=, =/=; a final =+= is the
+plus key, as in =ctrl++=), a function key =f1= to =f24=, or one of the
+names =enter=, =tab=, =escape=, =space=, =backspace=, =delete=,
+=insert=, =home=, =end=, =pageup=, =pagedown=, =up=, =down=, =left=,
+=right=. The names =ret=, =return=, =esc=, =spc=, =del=, =bs=, =pgup=
+and =pgdn= are read as those.
+
+Emacs style is accepted too: =C-= for Control, =M-= for Alt, =S-= for
+Shift, =s-= for Command, and a named key in angle brackets: =C-c=,
+=C-M-x=, =S-<up>=.
+
+A /sequence/ is chords separated by spaces: =C-c C-t=, or =leader p f=.
+After the first chord of a sequence Kalem waits for the next one, and
+shows what may follow. In a keymap file, =leader= (or =<leader>=) stands
+for the Vim leader, the key of =editor.vim.leader= (Space unless
+changed).
+
+On macOS, the graphical editor swaps Control and Command: a binding
+written =ctrl+s= is Cmd+S, and =cmd+s= is Control+S. The terminal editor
+never receives Command.
+
+In the graphical editor, a key with Shift that types punctuation
+arrives as the character it types: write =ctrl+?= rather than
+=ctrl+shift+/=.
+
+** Profiles and precedence
+
+=editor.keymap_profile= chooses a built-in profile: =word= (the
+default) or =vim=. The keymap is built in this order:
+
+1. The default keys of every command (the Word-like keys).
+2. The profile's own bindings, built into Kalem: for =word=, the
+   Word-like profile's (bindings with arguments, terminal keys, the file
+   manager's single keys); for =vim=, those and then the Vim profile's
+   leader bindings, which apply when =vimCommand= holds.
+3. Your =keymap.json=, entry by entry.
+
+An entry that repeats an existing binding (the same keys, command,
+arguments and when-clause) adds nothing, except its =terminalKeys=,
+which replace the old ones. A removal takes effect where it stands in
+this order.
+
+When keys are pressed, Kalem looks at the bindings whose conditions
+hold (the binding's when-clause and its command's):
+
+- If one of them is longer and starts with the keys pressed, Kalem waits
+  for the next key.
+- Otherwise the *last* binding of exactly those keys wins: yours over
+  the profile's, the profile's over the defaults, and a later entry of
+  yours over an earlier one.
+
+So order matters in your file: put general bindings first and special
+ones after, list bindings after heading ones and table bindings last,
+since a table can be inside a list item. =docs/keymaps/emacs.json= in
+the repository is a complete keymap with Emacs Org mode keys, written
+this way; copy it to =keymap.json= to use it.
+
+With the Vim profile, bindings whose when-clause names =vimCommand= are
+looked at before Vim's own keys, as the leader is. =editor.vim.modes=
+limits Vim keys to some kinds of documents.
+
+** Terminals
+
+A terminal without an enhanced keyboard protocol cannot send every
+chord: Control with Shift, with a digit, with Enter or Tab, =ctrl+i=,
+=ctrl+m=, =ctrl+h= and anything with Command arrive as other keys or
+not at all. For such a binding the terminal editor uses, in order:
+
+1. its =terminalKeys=, if the terminal can send them;
+2. else a variant, when no other binding uses it: Alt with the same
+   letter, digit or dot for a Control chord (=ctrl+shift+t= becomes
+   =alt+t=, =ctrl+1= becomes =alt+1=), and =ctrl+_= for =ctrl+/=;
+3. else the binding is dropped in that terminal.
+
+Terminals with the kitty keyboard protocol (kitty, WezTerm, Ghostty,
+foot) send every chord as it is, and the keymap is used unchanged.
+
+#+begin_src json
+[
+  { "keys": "ctrl+enter", "command": "org.todo.cycle", "terminalKeys": "ctrl+t" }
+]
+#+end_src
+
+** Problems
+
+Building the keymap finds bindings that cannot work:
+
+| Problem                  | What it means                                                             |
+|--------------------------+---------------------------------------------------------------------------|
+| Invalid entry            | An entry could not be read; it is skipped                                 |
+| Unknown command          | The command does not exist; the binding is skipped                        |
+| Shadowed                 | A later binding of the same keys with the same condition always wins      |
+| Shadowed by a prefix     | A longer binding starts with these keys, so Kalem always waits            |
+| Unknown text type        | The when-clause compares =textType= with a type Kalem does not know       |
+| No terminal key          | The terminal cannot send the keys and there is no variant                 |
+
+Unknown commands, shadowed bindings and unknown text types are written
+to the log (=kalem.log= in the state directory) at level =info=. The
+terminal editor also says at startup how many problems the settings and
+the keymap have. The built-in profiles have none; a test keeps it so.
+
+* Examples that combine the parts
+
+Bold with Ctrl+B only in Kalem documents, and with the sequence
+Ctrl+Alt+X B in =.org= files:
+
+#+begin_src json
+[
+  { "keys": "ctrl+b", "command": "-org.emphasis.bold" },
+  { "keys": "ctrl+b", "command": "org.emphasis.bold", "when": "fileKind == klm" },
+  { "keys": "ctrl+alt+x b", "command": "org.emphasis.bold", "when": "fileKind == org" }
+]
+#+end_src
+
+A timestamp with the time on F6, in Org text but not in tables:
+
+#+begin_src json
+[
+  { "keys": "f6", "command": "org.insert.timestamp", "args": { "withTime": true },
+    "when": "!inTable" }
+]
+#+end_src
+
+The command's own clause (~editorMode == org~ for these) applies as
+well, so the bindings do nothing in other files.
+
+Take care with prefixes: a binding of =C-c C-t= makes Ctrl+C a prefix
+wherever it applies, and Copy on Ctrl+C then never runs there (the
+keymap reports it as shadowed by a prefix). =docs/keymaps/emacs.json=
+removes Copy from Ctrl+C first for that reason.
+
+A leader binding for the Vim profile, and a key that only the terminal
+editor gets:
+
+#+begin_src json
+[
+  { "keys": "leader t d", "command": "org.todo.done", "when": "vimCommand" },
+  { "keys": "f7", "command": "view.outline", "when": "terminal" }
+]
+#+end_src
+
+* What is planned
+
+- Plugins register commands with =kalem::command(id, spec)=, where the
+  spec carries the title, the handler, the scope (required, as for
+  built-ins) and the when-clause, and bindings with =kalem::keymap(keys,
+  command_id, when)=; a plugin's manifest lists default key bindings
+  (T3.1.4, T3.1.12). Plugin commands appear in the same palette, menus
+  and keymap as the built-ins.
+- =kalem run PLUGIN COMMAND [FILE...]= runs commands without a window
+  (T3.1.16).
+- The inspection panel and =kalem.inspect.commands()= show the registry
+  of the running editor (T3.2.1, T3.2.4).

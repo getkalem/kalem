@@ -1,0 +1,51 @@
+- Status: *Decided* (2026-09-27)
+- Decision: *write a new parser, =org-syntax=*, on rowan, modeled function by function on =org-element.el=. Do not depend on or fork orgize.
+- Tasks: T0.2.1 to T0.2.6
+- Evaluation code: =spikes/orgize-eval= (standalone Cargo project, not part of the workspace)
+
+* What was measured
+orgize =0.10.0-alpha.10= against the core corpus (32 files, 1.39 MB: the Org manual, the Org guide, ORG-NEWS, Org's test examples and the Org Syntax specification), with Emacs 30.1 / Org 9.7.11 as the reference through =tests/emacs/dump.el=.
+
+| Measure                                                                           | Result                                        |
+|-----------------------------------------------------------------------------------+-----------------------------------------------|
+| Round-trip (=to_org() == input=)                                                  | 32 of 32 files                                |
+| Panics on corpus files                                                            | 0                                             |
+| Mutated inputs (200 per file)                                                     | 6,400 inputs, 0 panics, 0 round-trip failures |
+| Throughput (release build)                                                        | 62.6 MB/s                                     |
+| Structural agreement with Emacs (Jaccard over element and object start positions) | 72.5%                                         |
+
+Agreement by type, selected:
+
+| Type                                                  | Agreement       | Main cause                                                                                                                           |
+|-------------------------------------------------------+-----------------+--------------------------------------------------------------------------------------------------------------------------------------|
+| headline, item, src-block, property-drawer, footnotes | 100%            | --                                                                                                                                   |
+| code, verbatim, entity, macro                         | 99.5% or better | --                                                                                                                                   |
+| keyword                                               | 94.0%           | Lower-case affiliated keywords (=#+attr_texinfo:=) before lists and blocks become standalone keywords                                |
+| link                                                  | 84.0%           | Bracket links containing a newline are not links (open upstream PR since May 2026); plain links such as =mailto:= are not recognized |
+| paragraph                                             | 64.7%           | Paragraph starts differ inside descriptive list items; leading blank lines included                                                  |
+| table-row, table-cell                                 | 55.3%, 0%       | Different range conventions for cells and table.el rows                                                                              |
+| section                                               | 2.8%            | Different tree shape: planning and property drawers sit in the headline, not in the section                                          |
+| babel-call                                            | 50%             | Missing cases                                                                                                                        |
+
+* Other findings
+- *Coverage gaps (§3.2):* no citations (org-cite), no inlinetasks, no diary sexp element.
+- *Context:* in-buffer settings such as =#+TODO= are not read; the caller must build a =ParseConfig=.
+- *Incremental parsing:* a headline-level =replace_range= exists. It is not section granular and does not handle keyword changes (R3, R4).
+- *Tree shape:* differs from org-element in several places (sections, planning, cells). Kalem's model, differential tests and plugin API all benefit from matching org-element's shape.
+- *Maintenance:* last commit July 2024, last release June 2024 (still alpha). Pull requests from November 2024 onward are unmerged. The project appears dormant.
+- *License:* MIT, so ideas and test cases can be reused with attribution.
+
+* Options
+1. *Depend on orgize.* Rejected: coverage gaps, structural differences and a dormant upstream mean every fix would wait on an inactive maintainer.
+2. *Fork orgize.* Rejected: reaching 99% agreement requires changing the tree shape, the list parser and several element parsers, which is most of the parser. The nom-combinator structure would then fight a design that follows org-element's mode-driven algorithm.
+3. *New parser (chosen).* Follow =org-element.el= closely: the same element and object types, the same =:begin=/=:end=/=:contents-begin=/=:contents-end=/=:post-affiliated=/=:post-blank= ranges, the same mode-driven dispatch (=org-element--current-element=), the same list structure algorithm (=org-list-struct=) and the same object lexer and restrictions. Differential testing then compares like with like.
+
+* What we keep from orgize
+- rowan as the tree library, with fine-grained tokens so the UI can hide markers.
+- The idea of a typed AST layer over the untyped tree.
+- The mutation-based robustness test, which moves into =org-syntax='s test suite.
+
+* Consequences
+- Phase 0 carries the full parser implementation (T0.3).
+- The differential harness (=tests/emacs/dump.el= and the comparison tool) is the main correctness signal from the first day.
+- =dump.el= loads =org-inlinetask=, so inlinetasks are part of the reference (Kalem enables them by default).
