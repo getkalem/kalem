@@ -1013,6 +1013,7 @@ impl App {
                     }
                     (After::Pick(k), _) => self.pick(k, Some(root), After::Open),
                     (After::Search, _) => self.search_project(Some(root)),
+                    (After::Browse, _) => self.file_manager(Place::Dir(root), None),
                 }
             }
             PickKind::RemoveProject => match self.projects.remove(Path::new(&id)) {
@@ -1472,6 +1473,15 @@ impl App {
                 text,
             } => self.search_lines(all, headings, &text),
             Request::SearchOtherProject => self.pick(PickKind::Projects, None, After::Search),
+            Request::PickProject(after) => self.pick(PickKind::Projects, None, after),
+            Request::SearchProjectFor(text) => {
+                self.search_project(None);
+                if let Some(p) = self.palette.as_mut().filter(|p| p.search.is_some()) {
+                    p.input = text;
+                    p.back = 0;
+                    p.input_changed();
+                }
+            }
             Request::SearchIn(dir) => {
                 // The project's search when the folder is one, else the
                 // folder's.

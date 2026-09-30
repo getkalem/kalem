@@ -3719,3 +3719,30 @@ fn one_window_in_the_terminal() {
         status(&mut t)
     );
 }
+
+/// Doom's `SPC p` keys (T2.7i.8): another project in the file manager,
+/// the project's TODOs, a shell command at its folder.
+#[test]
+fn project_keys() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, dir) = project_app(config);
+    t.typ(" p>");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(title(&t), "proj/");
+    t.typ("q");
+    t.typ(" pt");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("TODO"), "{shown}");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.typ(" p!");
+    t.typ("touch made.txt");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.typ("y");
+    for _ in 0..200 {
+        settle(&mut t);
+        if dir.join("proj/made.txt").exists() {
+            break;
+        }
+    }
+    assert!(dir.join("proj/made.txt").exists(), "{}", status(&mut t));
+}

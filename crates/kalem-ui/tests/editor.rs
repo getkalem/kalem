@@ -2085,6 +2085,34 @@ fn new_window_key(cx: &mut TestAppContext) {
     assert_eq!(cx.windows().len(), before + 1);
 }
 
+/// Doom's `SPC p` keys (T2.7i.8): another project in the file manager,
+/// the project's TODOs searched.
+#[gpui::test]
+fn project_keys(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(true, cx);
+    cx.simulate_keystrokes("space p >");
+    cx.run_until_parked();
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let title = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).doc.dired.as_deref().map(|d| d.title())
+    });
+    assert_eq!(title.as_deref(), Some("proj/"));
+    cx.simulate_keystrokes("q");
+    cx.run_until_parked();
+    cx.simulate_keystrokes("space p t");
+    cx.run_until_parked();
+    let input = ws.read_with(cx, |ws, cx| {
+        ws.editor
+            .read(cx)
+            .palette
+            .as_ref()
+            .filter(|p| p.search.is_some())
+            .map(|p| p.input.clone())
+    });
+    assert_eq!(input.as_deref(), Some("TODO"));
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

@@ -299,6 +299,10 @@ impl Editor {
                     }
                     (After::Pick(k), _) => cx.emit(DocEvent::Pick(k, Some(root), After::Open)),
                     (After::Search, _) => cx.emit(DocEvent::Search(Some(root))),
+                    (After::Browse, _) => cx.emit(DocEvent::FileManager {
+                        place: kalem_core::dired::Place::Dir(root),
+                        select: None,
+                    }),
                 }
             }
             PickKind::RemoveProject => {
