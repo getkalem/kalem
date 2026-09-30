@@ -2993,3 +2993,54 @@ fn latex_project_numbers_across_files() {
     let labels = t.app.doc.latex().unwrap().model().labels.clone();
     assert!(labels.iter().any(|l| l.name == "one"));
 }
+
+#[test]
+fn insert_figure_asks_for_the_picture() {
+    let mut t = with_file(
+        "\\begin{document}\n\n\\end{document}\n",
+        "f.tex",
+        Config::default(),
+        (60, 8),
+    );
+    t.at(17);
+    t.app
+        .run_command("latex.insert.figure", serde_json::json!({}));
+    t.typ("figs/cat.png");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let text = t.text();
+    assert!(
+        text.contains("\\includegraphics[width=0.8\\linewidth]{figs/cat.png}"),
+        "{text}"
+    );
+    assert!(text.contains("\\label{fig:cat}"), "{text}");
+    // A width as a share of the line.
+    t.app.run_command(
+        "latex.insert.figure",
+        serde_json::json!({ "path": "dog.jpg", "width": "0.5" }),
+    );
+    assert!(
+        t.text()
+            .contains("\\includegraphics[width=0.5\\linewidth]{dog.jpg}")
+    );
+}
+
+#[test]
+fn inserted_latex_table_is_a_grid() {
+    // Insert Table writes a tabular the view shows as the grid: no `&`
+    // or `\\` on screen away from the cursor.
+    let mut t = with_file(
+        "\\begin{document}\n\n\\end{document}\n",
+        "t.tex",
+        Config::default(),
+        (60, 12),
+    );
+    t.at(17);
+    t.app.run_command(
+        "latex.insert.table",
+        serde_json::json!({ "columns": 2, "rows": 2 }),
+    );
+    assert!(t.text().contains("\\begin{tabular}"));
+    t.at(0);
+    let rows = screen(&mut t).join("\n");
+    assert!(!rows.contains(" & "), "{rows}");
+}

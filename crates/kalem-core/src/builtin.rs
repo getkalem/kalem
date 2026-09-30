@@ -205,7 +205,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "latex.section.setLevel",
             object(&[("level", "integer", true)]),
         ),
-        ("latex.insert.figure", object(&[("path", "string", false)])),
+        (
+            "latex.insert.figure",
+            object(&[("path", "string", false), ("width", "string", false)]),
+        ),
         (
             "latex.insert.table",
             object(&[("columns", "integer", false), ("rows", "integer", false)]),
@@ -1382,17 +1385,36 @@ fn latex_commands() -> Vec<Command> {
             |ctx, _| latex_edit_with(ctx, |_, s, r, _| e::toggle_numbering(s.head, r), None),
         ),
         c("latex.insert.figure", "Insert Figure", &[], |ctx, args| {
+            // Without a picture: ask for one.
+            if args.get("path").is_none() {
+                return request(
+                    ctx,
+                    Request::PickFile {
+                        command: "latex.insert.figure".into(),
+                        arg: "path".into(),
+                    },
+                );
+            }
             let path = args
                 .get("path")
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_string();
+            // A share of the line (`0.5`), or a length as written.
+            let width = match args.get("width") {
+                Some(Value::Number(n)) => format!("{}\\linewidth", n),
+                Some(Value::String(w)) if w.trim().parse::<f64>().is_ok() => {
+                    format!("{}\\linewidth", w.trim())
+                }
+                Some(Value::String(w)) if !w.trim().is_empty() => w.trim().to_string(),
+                _ => "0.8\\linewidth".to_string(),
+            };
             latex_insert(ctx, |_, indent, _| {
                 let stem = std::path::Path::new(&path)
                     .file_stem()
                     .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
                 let head = format!(
-                    "{indent}\\begin{{figure}}[htbp]\n{indent}  \\centering\n{indent}  \\includegraphics[width=0.8\\linewidth]{{{path}}}\n{indent}  \\caption{{"
+                    "{indent}\\begin{{figure}}[htbp]\n{indent}  \\centering\n{indent}  \\includegraphics[width={width}]{{{path}}}\n{indent}  \\caption{{"
                 );
                 let tail =
                     format!("}}\n{indent}  \\label{{fig:{stem}}}\n{indent}\\end{{figure}}\n");
