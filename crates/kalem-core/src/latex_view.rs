@@ -739,6 +739,42 @@ fn word(name: &str) -> Option<&'static str> {
         "quad" => "\u{2003}",
         "qquad" => "\u{2003}\u{2003}",
         "newline" | "linebreak" => "\u{21b5}",
+        // textcomp's characters, and spacing shown as a space.
+        "texteuro" | "euro" => "\u{20ac}",
+        "textcopyright" => "\u{a9}",
+        "textregistered" => "\u{ae}",
+        "texttrademark" => "\u{2122}",
+        "textdegree" => "\u{b0}",
+        "textonehalf" => "\u{bd}",
+        "textonequarter" => "\u{bc}",
+        "textthreequarters" => "\u{be}",
+        "textasciitilde" => "~",
+        "textasciicircum" => "^",
+        "textbackslash" => "\\",
+        "textbar" => "|",
+        "textless" => "<",
+        "textgreater" => ">",
+        "textbullet" => "\u{2022}",
+        "textdagger" | "dag" => "\u{2020}",
+        "textdaggerdbl" | "ddag" => "\u{2021}",
+        "textpilcrow" => "\u{b6}",
+        "textsection" => "\u{a7}",
+        "textperiodcentered" => "\u{b7}",
+        "textquoteleft" => "\u{2018}",
+        "textquoteright" => "\u{2019}",
+        "textquotedblleft" => "\u{201c}",
+        "textquotedblright" => "\u{201d}",
+        "pounds" | "textsterling" => "\u{a3}",
+        "textyen" => "\u{a5}",
+        "textcent" => "\u{a2}",
+        "textmu" => "\u{b5}",
+        "textpm" => "\u{b1}",
+        "texttimes" => "\u{d7}",
+        "textdiv" => "\u{f7}",
+        "hfill" | "hfil" | "enspace" | "enskip" => "\u{2002}",
+        "thinspace" => "\u{2009}",
+        "LaTeXe" => "LaTeX2\u{3b5}",
+        "METAFONT" => "METAFONT",
         _ => return None,
     })
 }
@@ -1384,7 +1420,26 @@ fn unflagged_line_view(
                         };
                         b.replace(r, &rest, by);
                     }
-                    (_, Some(rep)) => b.replace(r, rep, c.style),
+                    (_, Some(rep)) => {
+                        // TeX eats the blanks after a control word; an
+                        // empty `{}` after it ends it and typesets nothing.
+                        let mut end = r.end;
+                        if let Some(n) = tok.clone() {
+                            let close = n.next_token().filter(|m| m.kind() == K::R_BRACE);
+                            match (n.kind(), close) {
+                                (K::L_BRACE, Some(m)) if span(&m).end <= line.end => {
+                                    end = span(&m).end;
+                                    tok = m.next_token();
+                                }
+                                (K::WHITESPACE, _) if span(&n).end <= line.end => {
+                                    end = span(&n).end;
+                                    tok = n.next_token();
+                                }
+                                _ => {}
+                            }
+                        }
+                        b.replace(r.start..end, rep, c.style);
+                    }
                     _ => {
                         let known = format_style(name).is_some()
                             || !latex_syntax::signatures::command(name).is_empty();
@@ -2444,6 +2499,16 @@ mod tests {
             &last.runs[0].widget,
             Some(crate::view::Widget::Math { display: true, .. })
         ));
+    }
+
+    #[test]
+    fn text_symbols() {
+        let text = "5\\texteuro{} \\textcopyright\\ 2026, \\LaTeX{} a\\hfill b \\textonehalf\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 0, Some(text.len())).display(),
+            "5€ © 2026, LaTeX a\u{2002}b ½"
+        );
     }
 
     #[test]
