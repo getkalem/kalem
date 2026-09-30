@@ -659,6 +659,36 @@ fn code_again(text: &str, b: &Block, lib: &Library) -> Option<(usize, usize, Str
     (replacement != text[match_start..region_end]).then_some((match_start, region_end, replacement))
 }
 
+/// The error Emacs stops the export with at a Babel call whose block
+/// `text` does not name (`org-babel-exp-process-buffer`: "Unknown Babel
+/// reference"), even when evaluation is refused. Calls into other files
+/// (`file:name`) are not checked.
+pub fn unknown_call(text: &str) -> Option<String> {
+    let lower = text.to_ascii_lowercase();
+    if !lower.contains("call_") && !lower.contains("#+call:") {
+        return None;
+    }
+    let parse = org_syntax::parse(text);
+    let root = parse.syntax();
+    let names: Vec<String> = root
+        .descendants()
+        .filter(|n| n.kind() == SRC_BLOCK)
+        .filter_map(|n| {
+            ast::affiliated_keywords(&n)
+                .find(|k| k.key() == "NAME")
+                .map(|k| k.value().trim().to_lowercase())
+        })
+        .collect();
+    root.descendants()
+        .filter(|n| matches!(n.kind(), INLINE_BABEL_CALL | BABEL_CALL) && !in_skipped_heading(n))
+        .filter_map(|n| match n.kind() {
+            BABEL_CALL => <ast::BabelCall as ast::AstNode>::cast(n)?.call(),
+            _ => Some(<ast::InlineBabelCall as ast::AstNode>::cast(n)?.call()),
+        })
+        .find(|c| !c.contains(':') && !names.contains(&c.trim().to_lowercase()))
+        .map(|c| format!("Unknown Babel reference: {}", c.trim()))
+}
+
 /// `text` with Babel's export changes.
 pub fn process(text: &str) -> String {
     let lower = text.to_ascii_lowercase();
@@ -774,6 +804,22 @@ mod tests {
     #[test]
     fn exports() {
         assert_eq!(process("a src_py{1} b\n"), "a b\n");
+        assert_eq!(
+            unknown_call("#+CALL: nosuch()\n").as_deref(),
+            Some("Unknown Babel reference: nosuch")
+        );
+        assert_eq!(
+            unknown_call(
+                "#+NAME: Yes\n#+begin_src sh\n#+end_src\n#+CALL: yes()\nA call_yes() b.\n"
+            ),
+            None
+        );
+        assert_eq!(
+            unknown_call("#+NAME: tbl\n| 1 |\n\nA call_tbl() b.\n").as_deref(),
+            Some("Unknown Babel reference: tbl")
+        );
+        assert_eq!(unknown_call("* COMMENT x\n#+CALL: nosuch()\n"), None);
+        assert!(unknown_call("* x :noexport:\n#+CALL: nosuch()\n").is_some());
         assert_eq!(
             process("a src_py[:exports code]{1} b\n"),
             "a src_py[:exports code]{1} b\n"

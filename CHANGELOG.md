@@ -244,6 +244,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Org export: attachment links (`[[attachment:file]]`) point at the file in the entry's attachment folder; `{{{results(...)}}}` from inline source blocks and calls expands to its value; the `property` macro takes its second argument (the headline to read), gives the special properties (`TODO`, `PRIORITY`, `ITEM`, `TAGS`, `CATEGORY`, `FILE`, planning dates), and before the first headline reads the file's property drawer, as Emacs does.
 - Org tables: Calc formulas now know `sqr`, `inv`, `hypot`, `round` to digits, `nroot`, `rad`, `deg`, hyperbolic functions, `sec`/`csc`/`cot` and `dfact`, checked against Emacs.
 - LaTeX: formulas in `\index`, `\nomenclature` and the PDF string of `\texorpdfstring` are not counted as text by `kalem diff-pandoc`; `\nomenclature`'s arguments are its own.
+- Org export: a Babel call (`#+CALL:`, `call_name()`) to a block the document does not name stops the export with "Unknown Babel reference", as Emacs does, instead of disappearing.
+- Org export: `#+OPTIONS: broken-links:nil` stops the export at a link that resolves to nothing, as Emacs does (it used to leave the link out as `broken-links:t` does); the default stays `mark`.
 - `kalem diff-pandoc` reports a file pandoc cannot read and goes on with the others.
 - The Book's generated appendices show `|` and code from the settings' descriptions correctly, and underscores in the Book no longer turn into subscripts.
 

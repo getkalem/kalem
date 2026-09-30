@@ -134,6 +134,9 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     let whole = parse_document(&text, file);
     let (parse, keywords) = match &region {
         Some(_) => {
+            if let Some(e) = babel::unknown_call(&text[marks[0]..marks[1]]) {
+                return Err(e);
+            }
             let body = macros::expand_results(&babel::process(&text[marks[0]..marks[1]]), &parsed);
             (
                 org_syntax::parse_with(&body, whole.context()),
@@ -141,6 +144,9 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
             )
         }
         None => {
+            if let Some(e) = babel::unknown_call(&text) {
+                return Err(e);
+            }
             let text = macros::expand_results(&babel::process(&text), &parsed);
             let parse = parse_document(&text, file);
             let keywords = parse.keywords();
@@ -165,6 +171,9 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     let cite_finalizer = cite::process(&mut ex, &keywords)?;
     let root_id = ex.tree.root;
     let body = export::normalize_string(&ex.data(root_id));
+    if let Some(e) = ex.error.take() {
+        return Err(e);
+    }
     let full = backend.inner_template(&mut ex, body);
     let out = if settings.body_only {
         full
@@ -355,6 +364,26 @@ mod tests {
                 display: formula.starts_with("\\begin"),
             })
         }
+    }
+
+    #[test]
+    fn broken_links() {
+        let settings = Settings {
+            body_only: true,
+            ..Settings::default()
+        };
+        let html = |t: &str| export(t, &html::Html, &settings);
+        assert!(
+            html("See [[nowhere]].\n")
+                .unwrap()
+                .contains("[BROKEN LINK: nowhere]")
+        );
+        assert_eq!(
+            html("#+OPTIONS: broken-links:t\nSee [[nowhere]].\n").unwrap(),
+            "<p>\nSee .\n</p>\n"
+        );
+        let e = html("#+OPTIONS: broken-links:nil\nSee [[nowhere]].\n").unwrap_err();
+        assert!(e.contains("unable to resolve link \"nowhere\""), "{e}");
     }
 
     #[test]
