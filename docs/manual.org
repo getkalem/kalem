@@ -904,7 +904,8 @@ In math, =$= pairs (and steps over the closing =$=), =\(= and =\[= get
 their closing pair and =\left(= its =\right)=, and Tab goes to the next
 empty ={}= (after =\frac=, =\sqrt=, and the limits =\sum=, =\int= and
 their kin complete with); in a matrix or =cases=, which complete as two
-rows of two cells, Tab goes to the next cell. /Display Math/ turns =$…$= into
+rows of two cells, Tab goes to the next cell. While the cursor is in a formula,
+it shows rendered under the cursor. /Display Math/ turns =$…$= into
 =\[…\]= and back, and /Number Equation/ adds or takes off the star of the
 environment at the cursor. /Insert Figure/, /Insert Table/ (with
 booktabs' rules when the document loads it), /Insert Equation/ and
