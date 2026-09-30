@@ -155,8 +155,9 @@ pub fn parse(value: &str) -> Tblfm {
 
 /// The formulas in force for a table, `text` being what follows it: the
 /// value of the first `#+TBLFM` line, which blank lines may precede, and
-/// its offset in `text`. Later `#+TBLFM` lines are alternatives Org does
-/// not apply.
+/// its offset in `text`. Later `#+TBLFM` lines are alternatives,
+/// applied only when recalculating from them
+/// (`org-table-calc-current-TBLFM`).
 pub fn active_line(text: &str) -> Option<(usize, &str)> {
     let mut at = 0;
     loop {

@@ -650,12 +650,11 @@ A column with no non-empty field is aligned right.
 ** Several =#+TBLFM= lines
 
 A table may be followed by several =#+TBLFM:= lines; the parser keeps
-them all (=:tblfm=). Only the first is in force: recalculating the
-table applies it. In Emacs, =C-c C-c= on a later line applies that
-line's formulas once, leaving the first line as it is
-(=org-table-calc-current-TBLFM=), a way to keep alternative formulas.
-Kalem keeps the other lines but always applies the first; applying a
-later line is not implemented.
+them all (=:tblfm=). The first is in force: recalculating the table
+applies it. Recalculating with the cursor on a later line applies that
+line's formulas once, leaving the first line as it is, as =C-c C-c=
+there does in Emacs (=org-table-calc-current-TBLFM=): a way to keep
+alternative formulas.
 
 #+begin_src org
 | x | y |
