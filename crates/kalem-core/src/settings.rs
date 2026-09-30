@@ -622,6 +622,38 @@ impl Default for Config {
     }
 }
 
+/// Logs the problems of the settings and keymap files, a warning each
+/// (the settings are read before the log starts), and gives how many
+/// there are for the user to hear of. Bindings the terminal cannot send
+/// are logged for the terminal editor (`terminal`) without being counted,
+/// and not at all for the graphical one.
+pub fn report_problems(
+    config: &Config,
+    keymap: &[crate::keymap::KeymapIssue],
+    terminal: bool,
+) -> usize {
+    let mut count = 0;
+    for i in config.issues() {
+        let path = i
+            .path
+            .as_deref()
+            .map_or_else(String::new, |p| p.display().to_string());
+        tracing::warn!(path, "settings: {}", i.message);
+        count += 1;
+    }
+    for i in keymap {
+        if i.kind == crate::keymap::IssueKind::NoTerminalKey {
+            if terminal {
+                tracing::info!("keymap: {i}");
+            }
+            continue;
+        }
+        tracing::warn!("keymap: {i}");
+        count += 1;
+    }
+    count
+}
+
 impl Config {
     /// Applies the settings the whole process shares: the interface
     /// language, when source markers show, where pictures go. Called when

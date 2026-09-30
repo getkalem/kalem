@@ -461,12 +461,7 @@ impl App {
         if let Some(m) = kalem_core::files::guessed_message(&app.doc.meta) {
             app.message(m, false);
         }
-        let problems = app.config.issues().len()
-            + app
-                .keymap_issues
-                .iter()
-                .filter(|i| i.kind != keymap::IssueKind::NoTerminalKey)
-                .count();
+        let problems = settings::report_problems(&app.config, &app.keymap_issues, true);
         if problems > 0 {
             app.message(tr!("msg-config-problems", count = problems), true);
         }

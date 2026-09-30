@@ -113,8 +113,10 @@ pub struct Context {
     pub point: usize,
     /// The document's mode.
     pub mode: DocumentMode,
-    /// The language at the cursor: a file's, a source block's, `org`.
-    pub language: Option<String>,
+    /// The text type at the cursor (§11.2, the `textType` of
+    /// when-clauses): a file's (`python`, `markdown`), a source block's,
+    /// `org`.
+    pub text_type: String,
     /// The document's file.
     pub path: Option<PathBuf>,
     /// The user asked (Ctrl+Space), rather than typing a trigger.
@@ -198,7 +200,13 @@ pub trait Completer: Send + Sync {
     fn priority(&self) -> i32 {
         0
     }
-    /// Where it applies (its when-clause, over the context).
+    /// The text types it serves (§11.2), as commands have them; all by
+    /// default.
+    fn scope(&self) -> crate::command::Scope {
+        crate::command::Scope::all()
+    }
+    /// Where else it applies within its scope (its when-clause, over the
+    /// context).
     fn applies(&self, ctx: &Context) -> bool;
     /// What opens its menu.
     fn trigger(&self) -> Trigger;
@@ -207,13 +215,26 @@ pub trait Completer: Send + Sync {
     fn slow(&self) -> bool {
         false
     }
+    /// How long a slow completer may take for one keystroke (§11.6);
+    /// items that come later are dropped.
+    fn budget(&self) -> Duration {
+        DEFAULT_BUDGET
+    }
     /// Its items for `ctx`; long work checks `cancel`.
     fn complete(&self, ctx: &Context, doc: Option<&DocumentState>, cancel: &Cancel) -> Vec<Item>;
     /// Documentation for an item, fetched when it is chosen in the menu.
     fn resolve(&self, _item: &Item) -> Option<String> {
         None
     }
+    /// Text about the thing under the cursor, for a hover card.
+    fn hover(&self, _ctx: &Context, _doc: Option<&DocumentState>) -> Option<String> {
+        None
+    }
 }
+
+/// A slow completer's time for one keystroke unless it says otherwise:
+/// the synchronous budget of §11.6.
+pub const DEFAULT_BUDGET: Duration = Duration::from_millis(100);
 
 /// Whether the trigger of a completer fires in `ctx`.
 fn fires(t: Trigger, ctx: &Context) -> bool {
@@ -276,11 +297,23 @@ impl Registry {
         self.completers.push(c);
     }
 
+    /// Text about the thing under the cursor of `doc` from the first
+    /// completer in scope that has some (a hover card).
+    pub fn hover(&self, doc: &DocumentState) -> Option<String> {
+        let ctx = context(doc, false);
+        self.completers
+            .iter()
+            .filter(|c| c.scope().serves(&ctx.text_type) && c.applies(&ctx))
+            .find_map(|c| c.hover(&ctx, Some(doc)))
+    }
+
     /// The completers that apply in `ctx` and whose trigger fires.
     fn active(&self, ctx: &Context) -> Vec<Arc<dyn Completer>> {
         self.completers
             .iter()
-            .filter(|c| c.applies(ctx) && fires(c.trigger(), ctx))
+            .filter(|c| {
+                c.scope().serves(&ctx.text_type) && c.applies(ctx) && fires(c.trigger(), ctx)
+            })
             .cloned()
             .collect()
     }
@@ -314,6 +347,7 @@ impl Registry {
             results: None,
             pending: 0,
             cancel: cancel.clone(),
+            deadline: None,
         };
         let active = self.active(&ctx);
         if active.is_empty() {
@@ -326,6 +360,8 @@ impl Registry {
         for c in active {
             if c.slow() {
                 session.pending += 1;
+                let due = Instant::now() + c.budget();
+                session.deadline = Some(session.deadline.map_or(due, |d| d.max(due)));
                 let (ctx, cancel, send, c) = (ctx.clone(), cancel.clone(), send.clone(), c.clone());
                 std::thread::spawn(move || {
                     let items = c.complete(&ctx, None, &cancel);
@@ -379,7 +415,7 @@ pub fn context(doc: &DocumentState, requested: bool) -> Context {
         base: a,
         point,
         mode: doc.meta.mode.clone(),
-        language: crate::code::language_at(doc),
+        text_type: doc.text_type(),
         path: doc.meta.path.clone(),
         requested,
     }
@@ -394,6 +430,8 @@ pub struct Session {
     results: Option<mpsc::Receiver<Vec<(Item, i32)>>>,
     pending: usize,
     cancel: Cancel,
+    /// When the slow completers' budget runs out.
+    deadline: Option<Instant>,
 }
 
 impl Drop for Session {
@@ -413,6 +451,11 @@ impl Session {
         while let Ok(items) = r.try_recv() {
             self.pending = self.pending.saturating_sub(1);
             got.extend(items);
+        }
+        // Past the budget, the rest is dropped (§11.12: never blocking).
+        if self.pending > 0 && self.deadline.is_some_and(|d| Instant::now() >= d) {
+            self.pending = 0;
+            self.cancel.cancel();
         }
         if self.pending == 0 {
             self.results = None;
@@ -483,6 +526,10 @@ impl Completer for OrgCompleter {
         10
     }
 
+    fn scope(&self) -> crate::command::Scope {
+        crate::command::Scope::only(&["org"])
+    }
+
     fn applies(&self, ctx: &Context) -> bool {
         ctx.mode == DocumentMode::Org
     }
@@ -530,6 +577,10 @@ struct WordsCompleter;
 impl Completer for WordsCompleter {
     fn id(&self) -> &'static str {
         "words"
+    }
+
+    fn scope(&self) -> crate::command::Scope {
+        crate::command::Scope::except(&["directory"])
     }
 
     fn applies(&self, ctx: &Context) -> bool {
@@ -695,7 +746,7 @@ mod tests {
             base: 0,
             point: 1,
             mode: DocumentMode::Latex,
-            language: None,
+            text_type: "text".into(),
             path: None,
             requested: false,
         };
@@ -771,6 +822,9 @@ mod tests {
         fn slow(&self) -> bool {
             true
         }
+        fn budget(&self) -> Duration {
+            Duration::from_secs(5)
+        }
         fn complete(&self, ctx: &Context, _: Option<&DocumentState>, _: &Cancel) -> Vec<Item> {
             std::thread::sleep(Duration::from_millis(30));
             vec![Item::new(
@@ -799,5 +853,70 @@ mod tests {
         assert!(s.items.iter().any(|i| i.source == "slow"));
         // Exact prefix first.
         assert_eq!(s.items[0].label, "alpha");
+    }
+
+    /// A server that answers too late, and only for Python.
+    struct Late;
+
+    impl Completer for Late {
+        fn id(&self) -> &'static str {
+            "late"
+        }
+        fn scope(&self) -> crate::command::Scope {
+            crate::command::Scope::only(&["python"])
+        }
+        fn applies(&self, _: &Context) -> bool {
+            true
+        }
+        fn trigger(&self) -> Trigger {
+            Trigger::Request
+        }
+        fn slow(&self) -> bool {
+            true
+        }
+        fn budget(&self) -> Duration {
+            Duration::from_millis(20)
+        }
+        fn complete(&self, ctx: &Context, _: Option<&DocumentState>, c: &Cancel) -> Vec<Item> {
+            let end = Instant::now() + Duration::from_millis(500);
+            while Instant::now() < end && !c.cancelled() {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            vec![Item::new(
+                "late",
+                "late",
+                ctx.point..ctx.point,
+                Kind::Symbol,
+            )]
+        }
+        fn hover(&self, _: &Context, _: Option<&DocumentState>) -> Option<String> {
+            Some("a Python name".into())
+        }
+    }
+
+    #[test]
+    fn scopes_budgets_and_hover() {
+        let mut r = Registry::with_builtins();
+        r.register(Arc::new(Late));
+        // Out of scope: not run.
+        let t = "alpha\nal";
+        let mut d = doc(t, DocumentMode::Text { language: None }, t.len());
+        assert!(!r.start(&mut d, true).waiting());
+        assert_eq!(r.hover(&d), None);
+        // In scope (`py` is `python`), dropped when its budget runs out.
+        let lang = DocumentMode::Text {
+            language: Some("py".into()),
+        };
+        let mut d = doc(t, lang, t.len());
+        assert_eq!(r.hover(&d).as_deref(), Some("a Python name"));
+        let mut s = r.start(&mut d, true);
+        assert!(s.waiting());
+        let end = Instant::now() + Duration::from_secs(2);
+        while s.waiting() && Instant::now() < end {
+            s.poll();
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(!s.waiting());
+        assert!(s.items.iter().all(|i| i.source != "late"));
     }
 }

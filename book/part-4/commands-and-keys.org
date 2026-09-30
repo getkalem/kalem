@@ -100,10 +100,12 @@ Inside a block, the type is the block's only in its contents: on the
 
 A plain text file's language is what Kalem detected it by: the name in
 a mode line (~-*- mode: python -*-~), else the file's extension, else
-the interpreter of a =#!= line. So =script.py= has the type =py=, a file
-starting with =#!/usr/bin/env python3= has =python=, and a source block
-=#+BEGIN_SRC python= has =python=. A command or binding meant for Python
-everywhere names both: =["py", "python"]=.
+the interpreter of a =#!= line. The type is that language's one name,
+whatever named it: =script.py=, a file starting with
+=#!/usr/bin/env python3= and a source block =#+BEGIN_SRC python= all
+have =python=; =.js= is =javascript=, =.rs= =rust=, =.sh= and =bash=
+=shell=, =.md= =markdown=, =.yml= =yaml=, =.h= =c=
+(=command::canonical_type=).
 
 *=klm= is a kind of =org=.* A scope that names =org= serves =.klm= files
 too; a scope that names =klm= serves only Kalem documents. Nothing else
@@ -315,7 +317,7 @@ entries alike.
   { "keys": "ctrl+alt+x q", "command": "org.insert.block", "args": { "type": "quote" } },
   // Duplicate lines in Python only, in files and in source blocks.
   { "keys": "ctrl+alt+l", "command": "lines.duplicate",
-    "when": "textType == py || textType == python" },
+    "when": "textType == python" },
   // No Ctrl+B for bold; no keys at all for Quit.
   { "keys": "ctrl+b", "command": "-org.emphasis.bold" },
   { "command": "-app.quit" }
