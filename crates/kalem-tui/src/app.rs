@@ -106,6 +106,8 @@ struct Prompt {
     kind: PromptKind,
     label: String,
     input: String,
+    /// The cursor, as characters after it ([`kalem_core::line_edit`]).
+    back: usize,
 }
 
 /// A message in the status line.
@@ -1170,6 +1172,7 @@ impl App {
                     name = &name
                 ),
                 input,
+                back: 0,
                 kind: PromptKind::Arg {
                     command: id.to_string(),
                     args,
@@ -1603,6 +1606,7 @@ impl App {
             kind,
             label: label.to_string(),
             input,
+            back: 0,
         });
         self.dirty = true;
     }
@@ -1704,7 +1708,8 @@ impl App {
             TermEvent::Key(k) => self.key(k),
             TermEvent::Paste(text) => {
                 if let Some(p) = &mut self.prompt {
-                    p.input.push_str(text.lines().next().unwrap_or(""));
+                    let line = text.lines().next().unwrap_or("");
+                    kalem_core::line_edit::insert(&mut p.input, p.back, line);
                     self.dirty = true;
                 } else {
                     self.paste(&text, false);
@@ -1945,6 +1950,16 @@ impl App {
             s.toggle(c);
             return;
         }
+        // The arrows, Home, End and the deletions edit the typed text.
+        if let Some(edit) = line_key(k) {
+            if kalem_core::line_edit::apply(&mut p.input, &mut p.back, edit) {
+                p.selected = 0;
+                if let Some(s) = &mut p.search {
+                    s.set_text(&p.input);
+                }
+            }
+            return;
+        }
         match k.code {
             KeyCode::Esc => {
                 if let Some(s) = &mut p.search {
@@ -1980,16 +1995,9 @@ impl App {
             KeyCode::Up if n > 0 => p.selected = (p.selected + n - 1) % n,
             KeyCode::PageDown if n > 0 => p.selected = (p.selected + 10).min(n - 1),
             KeyCode::PageUp => p.selected = p.selected.saturating_sub(10),
-            KeyCode::Backspace => {
-                p.input.pop();
-                p.selected = 0;
-                if let Some(s) = &mut p.search {
-                    s.set_text(&p.input);
-                }
-            }
             _ => {
                 if let Some(c) = input::text(k) {
-                    p.input.push(c);
+                    kalem_core::line_edit::insert(&mut p.input, p.back, c.encode_utf8(&mut [0; 4]));
                     p.selected = 0;
                     if let Some(s) = &mut p.search {
                         s.set_text(&p.input);
@@ -2679,6 +2687,11 @@ impl App {
             p.kind,
             PromptKind::Quit | PromptKind::Close | PromptKind::Reload | PromptKind::Overwrite
         );
+        if !yes_no && let Some(edit) = line_key(&k) {
+            kalem_core::line_edit::apply(&mut p.input, &mut p.back, edit);
+            self.prompt = Some(p);
+            return;
+        }
         match k.code {
             KeyCode::Esc => {
                 self.message(tr!("msg-cancelled"), false);
@@ -2721,13 +2734,8 @@ impl App {
                 return;
             }
             KeyCode::Enter => {}
-            KeyCode::Backspace => {
-                p.input.pop();
-                self.prompt = Some(p);
-                return;
-            }
             KeyCode::Char(c) if input::text(&k).is_some() => {
-                p.input.push(c);
+                kalem_core::line_edit::insert(&mut p.input, p.back, c.encode_utf8(&mut [0; 4]));
                 self.prompt = Some(p);
                 return;
             }
@@ -3130,17 +3138,19 @@ impl App {
                 accent.add_modifier(Modifier::BOLD),
             );
             let lw = p.label.width() as u16;
-            // A long input shows its end, where the cursor is.
+            // A long input is cut at the start so the cursor shows.
             let room = area.width.saturating_sub(lw + 2) as usize;
-            let mut shown = p.input.clone();
-            if shown.width() > room && room > 1 {
-                while shown.width() > room - 1 {
-                    shown.remove(0);
+            let (before, after) = kalem_core::line_edit::split(&p.input, p.back);
+            let mut before = before.to_string();
+            if before.width() >= room && room > 1 {
+                while before.width() > room.saturating_sub(2) {
+                    before.remove(0);
                 }
-                shown.insert(0, '…');
+                before.insert(0, '…');
             }
+            let shown = format!("{before}{after}");
             buf.set_stringn(area.x + 1 + lw, y, &shown, room, bar);
-            let x = (area.x + 1 + lw + shown.width() as u16).min(area.right().saturating_sub(1));
+            let x = (area.x + 1 + lw + before.width() as u16).min(area.right().saturating_sub(1));
             f.set_cursor_position((x, y));
             self.dirty = false;
             return;
@@ -3373,4 +3383,22 @@ impl App {
     pub fn context_flag(&self, key: &str) -> bool {
         self.context().get(key) == Some(&WhenValue::Bool(true))
     }
+}
+
+/// The edit a key makes in a one-line input: the arrows, Home, End,
+/// Backspace and Delete, by words with Ctrl or Alt.
+fn line_key(k: &KeyEvent) -> Option<kalem_core::line_edit::LineKey> {
+    let name = match k.code {
+        KeyCode::Left => "left",
+        KeyCode::Right => "right",
+        KeyCode::Home => "home",
+        KeyCode::End => "end",
+        KeyCode::Backspace => "backspace",
+        KeyCode::Delete => "delete",
+        _ => return None,
+    };
+    let word = k
+        .modifiers
+        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
+    kalem_core::line_edit::from_key(name, word, false)
 }

@@ -39,6 +39,8 @@ pub struct ArgPrompt {
 pub struct Palette {
     /// What was typed.
     pub input: String,
+    /// The cursor, as characters after it ([`kalem_core::line_edit`]).
+    pub back: usize,
     /// The chosen line.
     pub selected: usize,
     items: Vec<PaletteItem>,
@@ -54,6 +56,7 @@ impl Palette {
     fn new(input: String) -> Palette {
         Palette {
             input,
+            back: 0,
             selected: 0,
             items: Vec::new(),
             arg: None,
@@ -372,6 +375,25 @@ impl Editor {
             cx.notify();
             return true;
         }
+        // The arrows, Home, End and the deletions edit the typed text.
+        let mac = cfg!(target_os = "macos");
+        let word = if mac {
+            k.modifiers.alt
+        } else {
+            k.modifiers.control
+        };
+        if let Some(edit) =
+            kalem_core::line_edit::from_key(&k.key, word, mac && k.modifiers.platform)
+        {
+            if kalem_core::line_edit::apply(&mut p.input, &mut p.back, edit) {
+                p.selected = 0;
+                if let Some(s) = &mut p.search {
+                    s.set_text(&p.input);
+                }
+            }
+            cx.notify();
+            return true;
+        }
         match k.key.as_str() {
             "escape" => {
                 if let Some(s) = &mut p.search {
@@ -398,13 +420,6 @@ impl Editor {
             },
             "down" if n > 0 => p.selected = (p.selected + 1) % n,
             "up" if n > 0 => p.selected = (p.selected + n - 1) % n,
-            "backspace" => {
-                p.input.pop();
-                p.selected = 0;
-                if let Some(s) = &mut p.search {
-                    s.set_text(&p.input);
-                }
-            }
             "pagedown" if n > 0 => p.selected = (p.selected + 10).min(n - 1),
             "pageup" => p.selected = p.selected.saturating_sub(10),
             _ => return false,
@@ -419,7 +434,7 @@ impl Editor {
             return true;
         }
         if let Some(p) = &mut self.palette {
-            p.input.push_str(text);
+            kalem_core::line_edit::insert(&mut p.input, p.back, text);
             p.selected = 0;
             if let Some(s) = &mut p.search {
                 s.set_text(&p.input);
@@ -602,8 +617,11 @@ impl Editor {
         let p = self.palette.as_ref()?;
         let theme = &self.theme;
         let mut note = String::new();
+        // The typed text with the cursor drawn where it is.
+        let (before, after) = kalem_core::line_edit::split(&p.input, p.back);
+        let typed = format!("{before}▏{after}");
         let prompt = match (&p.arg, &p.pick, &p.search) {
-            (Some(a), _, _) => format!("{}  {}▏", a.label, p.input),
+            (Some(a), _, _) => format!("{}  {typed}", a.label),
             (_, Some(k), _) => {
                 if k.partial {
                     note = kalem_core::l10n::tr("pick-walking");
@@ -612,7 +630,7 @@ impl Editor {
                 {
                     note = kalem_core::l10n::tr("pick-no-projects");
                 }
-                format!("{}: {}▏", k.prompt, p.input)
+                format!("{}: {typed}", k.prompt)
             }
             (_, _, Some(s)) => {
                 let switches: Vec<String> = s
@@ -622,12 +640,11 @@ impl Editor {
                     .collect();
                 note = format!("{}   {}", switches.join(" "), s.status());
                 format!(
-                    "{}: {}▏",
+                    "{}: {typed}",
                     kalem_core::tr!("search-project", project = s.name.clone()),
-                    p.input
                 )
             }
-            _ => format!("> {}▏", p.input),
+            _ => format!("> {typed}"),
         };
         // Lines: a title, a detail and keys (or a mark).
         let lines: Vec<(String, String, String)> = match &p.search {
