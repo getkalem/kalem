@@ -4,11 +4,11 @@ Status: draft. To be sent at the end of phase 1 (task T1.8.5), when there is som
 
 ---
 
-Subject: [ANN] Kalem: a standalone WYSIWYG editor for Org files (for your non-Emacs co-authors)
+Subject: [ANN] Kalem: a rendered, byte-faithful editor for Org files (and LaTeX, CSV, BibTeX), for your non-Emacs co-authors
 
 Hello everyone,
 
-I would like to introduce Kalem, an open source (MIT/Apache-2.0) editor for Org files aimed at people who do not use Emacs. It shows Org documents formatted, the way a word processor would, and lets people edit them without learning Org syntax or Emacs.
+I would like to introduce Kalem, an open source (MIT/Apache-2.0) editor that shows plain-text documents the way they read and keeps them plain text, byte for byte. It opens Org, LaTeX, CSV and BibTeX files rendered (Markdown is next) and edits them in place; Org is its first and most complete mode, and the reason I am writing here: it shows Org documents formatted, the way a word processor would, and lets people who do not use Emacs edit them without learning Org syntax.
 
 The motivation is simple. Many of us write in Org and then have to share documents with colleagues, co-authors or students who will never install Emacs. Kalem is meant to be the tool we can point them to, while the file stays plain Org.
 
@@ -25,6 +25,7 @@ Kalem is not meant to replace Emacs. If you use Org in Emacs, you already have t
 
 Feedback on compatibility is especially welcome: if Kalem changes something in one of your files that it should not, that is a bug.
 
-Repository: https://github.com/kalem-editor/kalem
+Repository: https://github.com/getkalem/kalem
+Documentation: https://getkalem.github.io/kalem (Part II, "Org", says exactly what Kalem does with each Org construct and what is tested against Emacs)
 
 Thank you for Org.

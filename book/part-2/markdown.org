@@ -276,7 +276,7 @@ D19 (the parser) and the order of the work (D21, T2.7c.0) are open.
 - *Lossless editing.* As for Org: the file is edited as text, never
   regenerated from a tree; the parser only yields ranges for the view,
   so untouched bytes stay as they were (T2.7c.8).
-- *View.* The inline model of the Org editor: emphasis, code and link
+- *View.* The inline model the Org mode uses: emphasis, code and link
   markers hidden away from the cursor; headings by level; clickable task
   list checkboxes; images and formulas rendered; code fences
   highlighted; front matter folded (T2.7c.2, T2.7c.3).

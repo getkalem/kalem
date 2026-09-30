@@ -1,4 +1,4 @@
-- Source view (Ctrl+/) :: the Org text itself, with colors, line numbers
+- Source view (Ctrl+/) :: the file's own text, with colors, line numbers
   and every character shown.
 - Split view (Ctrl+\) :: the source beside the rich view of the same
   document. A click makes a side the active one.

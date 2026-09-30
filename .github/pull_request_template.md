@@ -9,6 +9,7 @@ Closes # / todo.md task ID:
 - [ ] `cargo fmt --all` and `cargo clippy --workspace --all-targets` are clean
 - [ ] Tests added or updated
 - [ ] `CHANGELOG.md` updated under "Unreleased"
-- [ ] `design_document.md` updated if the design changed
-- [ ] Round-trip guarantee preserved (no untouched byte changes)
+- [ ] The Book (`book/`) updated in the same pull request; `kalem book check` passes
+- [ ] `design_document.md` or `design_doc2.md` updated if the design changed
+- [ ] Round-trip guarantee preserved in every format (no untouched byte changes); nothing written into a standard file that its standard does not define
 - [ ] Works in the terminal editor too, or the terminal form and the gap are recorded in `book/part-5/terminal-parity.org` (design 4.1, principle 7)

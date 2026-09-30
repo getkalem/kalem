@@ -1,6 +1,6 @@
 [package]
 name = "kalem-editor"
-description = "Kalem: a lightweight WYSIWYG editor for Org mode files, for the desktop and the terminal"
+description = "Kalem: a fast editor that shows plain-text documents as they read and keeps them byte for byte (Org, LaTeX, CSV, BibTeX, code), for the desktop and the terminal"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
