@@ -1266,13 +1266,20 @@ impl<'r> Numbering<'r> {
         let base = name.trim_end_matches('*');
         let by_line = matches!(
             base,
-            "align" | "gather" | "flalign" | "alignat" | "eqnarray"
+            "align"
+                | "gather"
+                | "flalign"
+                | "alignat"
+                | "eqnarray"
+                | "xalignat"
+                | "xxalignat"
+                | "IEEEeqnarray"
         );
-        if by_line || matches!(base, "equation" | "multline") {
+        if by_line || matches!(base, "equation" | "multline" | "displaymath" | "dmath") {
             self.eq.push(EqEnv {
                 name: name.to_string(),
                 by_line,
-                numbered: !name.ends_with('*'),
+                numbered: !name.ends_with('*') && !matches!(base, "displaymath" | "xxalignat"),
                 body_end: body.end,
                 line_start: body.start,
                 nonumber: false,
@@ -1295,6 +1302,10 @@ impl<'r> Numbering<'r> {
                 self.current = (Some(n.clone()), Target::Theorem(name.to_string()));
                 n
             });
+            // An unnumbered one: a `\label` in it prints nothing.
+            if number.is_none() {
+                self.current = (Some(String::new()), Target::Theorem(name.to_string()));
+            }
             self.model.theorems.push(Theorem {
                 env: name.to_string(),
                 title: kind.title,

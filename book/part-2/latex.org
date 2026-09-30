@@ -465,12 +465,19 @@ steps nothing until it is used, and the model does not expand macros.
 
 ** Equations
 
-| Environment                                         | Numbers                                                                                                                                              |
-|-----------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =equation=, =multline=                              | one                                                                                                                                                  |
-| =align=, =gather=, =flalign=, =alignat=, =eqnarray= | one per line: each =\\= ends a line, and so does the end of the environment (so an empty line after a final =\\= is numbered, as amsmath numbers it) |
-| the starred forms                                   | none, but a =\tag= still gives its line a number                                                                                                     |
-| =subequations=                                      | steps =equation= once; the lines inside number as that number and a letter: =3a=, =3b=                                                               |
+| Environment                                                                     | Numbers                                                                                                                                              |
+|---------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =equation=, =multline=, =dmath= (breqn)                                         | one                                                                                                                                                  |
+| =align=, =gather=, =flalign=, =alignat=, =eqnarray=, =xalignat=, =IEEEeqnarray= | one per line: each =\\= ends a line, and so does the end of the environment (so an empty line after a final =\\= is numbered, as amsmath numbers it) |
+| the starred forms                                                               | none, but a =\tag= still gives its line a number                                                                                                     |
+| =subequations=                                                                  | steps =equation= once; the lines inside number as that number and a letter: =3a=, =3b=                                                               |
+
+=\[…\]= and =displaymath= are unnumbered equations: a =\tag= there
+numbers them, as amsmath does; in =$$…$$= it does not (amsmath's =\tag=
+fails there). =empheq= numbers as the environment its argument names
+(=\begin{empheq}{align}= as =align=). =xxalignat= numbers nothing, and
+=CD=, =multlined=, =rcases= and the other inner environments number
+nothing of their own.
 
 On a line, =\nonumber= or =\notag= takes the number away and =\tag{x}=
 replaces it with =x=. A =\label= in a line gets that line's number.
@@ -504,7 +511,13 @@ float's captions with their short captions.
 =\newtheorem{env}{Title}= declares a theorem-like environment with its
 own counter; =\newtheorem{env}[other]{Title}= shares =other='s counter;
 =\newtheorem{env}{Title}[within]= numbers it within =within= (=1.1=);
-=\newtheorem*= declares an unnumbered one. Each environment of a declared
+=\newtheorem*= declares an unnumbered one (a =\label= in it prints
+nothing). thmtools' =\declaretheorem[options]{env}= declares one too:
+=name= (or =title=) is its title, the name with a capital first letter
+when missing; =numberwithin= (or =within=, =parent=) numbers it within a
+counter; =sibling= (or =sharenumber=, =numberlike=) shares one;
+=numbered=no= leaves it unnumbered; =style= and the other options are
+not read. ntheorem's =\newtheorem= is LaTeX's. Each environment of a declared
 name in the text steps its counter; its note is its optional argument,
 or a =[note]= at the very start of its body when the signature table
 does not give the environment an optional argument.
@@ -734,11 +747,16 @@ options are ignored.
 
 ** Theorems and proofs
 
-The =\begin= of an environment declared with =\newtheorem= shows "Title
-N (note). ": the title and number bold, the note from the optional
-argument or from =[…]= at the start of the body. Its =\end= line is a
-delimiter line. =\begin{proof}= shows "Proof. " bold italic, or
-"Proof (X). " for =\begin{proof}[X]=, and =\end{proof}= shows ∎.
+The =\begin= of an environment declared with =\newtheorem= or
+=\declaretheorem= shows "Title N (note)": the title and number bold, the
+note from the optional argument or from =[…]= at the start of the body,
+followed by a period when amsthm is loaded (=\usepackage{amsthm}= or an
+AMS class), as amsthm's heads end, and by nothing otherwise, as LaTeX's
+own =\newtheorem= prints it. Its =\end= line is a delimiter line.
+=\begin{proof}= shows "Proof. " bold italic, or "X. " for
+=\begin{proof}[X]= (amsthm prints the note in place of "Proof"), and
+=\end{proof}= shows ∎. =\theoremstyle= is not read: every body is shown
+upright, where amsthm's =plain= style sets it in italics.
 
 #+begin_src latex
 \begin{theorem}[Pythagoras]\label{thm:p}
@@ -750,7 +768,8 @@ delimiter line. =\begin{proof}= shows "Proof. " bold italic, or
 #+end_src
 
 In a =report= with =\newtheorem{theorem}{Theorem}[chapter]= in the
-second chapter, the first line shows "*Theorem 2.1* (Pythagoras). ".
+second chapter and amsthm loaded, the first line shows "*Theorem 2.1*
+(Pythagoras). ".
 
 ** Pictures
 
@@ -840,8 +859,9 @@ everything shown.
 The outline panel lists the sections of the file with their numbers,
 levels counted from the file's highest level. A =\tableofcontents= line,
 away from the cursor, shows the table of contents LaTeX prints there: the
-unstarred sections down to =\subsubsection= (=\subsection= in the =book=,
-=report=, =memoir=, =scrbook= and =scrreprt= classes), with their short
+unstarred sections down to =\subsubsection= (=\subsection= in the classes
+with chapters: =book=, =report=, =amsbook=, =memoir=, =scrbook=,
+=scrreprt=, =extbook=, =extreport=), with their short
 titles, including those of the project's other files; each entry leads
 to its section. The =\end{document}= line, away from the cursor, lists
 the file's footnotes, each with its number and text, leading to it.
@@ -851,21 +871,28 @@ the file's footnotes, each with its number and text, leading to it.
 ** References
 
 A reference shows what it resolves to, as a link; with any key unknown,
-that key shows as =??= and the chip is red. Several keys, separated by
-commas, are joined with ", ".
+that key shows as =??= and the chip is red. Every form is checked
+against what pdflatex typesets with hyperref and cleveref
+(=tests/latex/references=, regenerated by =tools/latex-typeset.py=).
 
-| Command                | Shows                                                                                                                                                        |
-|------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =\ref= =\vref= =\Vref= | the label's number                                                                                                                                           |
-| =\eqref=               | the number in parentheses: =(3)=                                                                                                                             |
-| =\pageref=             | the key itself (Kalem does not paginate)                                                                                                                     |
-| =\nameref=             | the title of the last section before the label in its file, or the number                                                                                    |
-| =\autoref=             | hyperref's name, a no-break space and the number: "Section 2", "Equation 3", "Figure 1", "Table 1", "Chapter 1", "Part I", "Footnote 2", the theorem's title |
-| =\Cref=                | as =\autoref=, the equation's number in parentheses: "Equation (3)"                                                                                          |
-| =\cref=                | cleveref's short names: "section 2", "eq. (3)", "fig. 1", "table 1", "chapter 1", "part I", "footnote 2", the theorem's title in lower case                  |
+| Command                | Shows                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =\ref= =\vref= =\Vref= | the label's number                                                                                                                                                                                                                                                                                                                                                                                                     |
+| =\eqref=               | the number in parentheses: =(3)=                                                                                                                                                                                                                                                                                                                                                                                       |
+| =\pageref=             | the key itself (Kalem does not paginate)                                                                                                                                                                                                                                                                                                                                                                               |
+| =\nameref=             | a float's caption, a theorem's note (nothing without one), else the title of the section the label is in                                                                                                                                                                                                                                                                                                               |
+| =\autoref=             | hyperref's name, a no-break space and the number: "chapter 1", "section 1.1", "subsection 1.1.1", "Equation 1.1", "Figure 1", "Table 1", "footnote 2", "item 1", "Part I", "Appendix A" for a chapter of the appendix; a theorem by its counter's name ("Theorem 2" for a lemma sharing =theorem='s counter), and the number alone for a counter hyperref has no name for; the document's =\<counter>autorefname= wins |
+| =\cref=                | cleveref's names: "chapter 1", "section 1.1" for every level, "appendix A.1" in the appendix, "eq. (3)", "fig. 1", "table 1", "footnote 2", "item 1", "part I", the theorem's title in lower case                                                                                                                                                                                                                      |
+| =\Cref=                | the same with a capital, "Equation (3)" and "Figure 1" written out                                                                                                                                                                                                                                                                                                                                                     |
 
-Every section level from =\section= down is named "Section". =\cpageref=
-is read by the model but not drawn.
+=\ref=, =\eqref=, =\pageref=, =\autoref= and =\nameref= take one key:
+=\ref{a,b}= looks up the label =a,b= and shows =??=, as LaTeX does.
+=\cref= and =\Cref= take a list, printed as cleveref prints it: keys of
+one kind grouped under the plural ("eqs. (1) and (2)", "sections 1 and
+2"), sorted, three or more consecutive numbers as a range ("eqs. (1) to
+(3)"), kinds joined with "and", and three or more kinds with commas and
+", and" ("fig. 1, table 1, and eq. (1)"). =\cpageref= is read by the
+model but not drawn.
 
 ** Citations
 

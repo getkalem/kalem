@@ -215,6 +215,21 @@ impl Cache {
                     }
                 }
                 ENVIRONMENT => self.environment(&child, base, out),
+                // `\[…\]` is amsmath's `equation*`: a `\tag` there numbers
+                // it (not in `$$…$$`, where amsmath's `\tag` fails).
+                DISPLAY_MATH if child.text().to_string().starts_with("\\[") => {
+                    let range = rel(child.text_range(), base);
+                    let body = (range.start + 2).min(range.end)
+                        ..range.end.saturating_sub(2).max(range.start);
+                    out.push(Item::Event(Event::EnvEnter {
+                        name: "displaymath".into(),
+                        range,
+                        body,
+                        note: None,
+                    }));
+                    self.walk(&child, base, out);
+                    out.push(Item::Event(Event::EnvExit));
+                }
                 VERB => {}
                 _ => self.walk(&child, base, out),
             }
@@ -222,7 +237,16 @@ impl Cache {
     }
 
     fn environment(&mut self, env: &SyntaxNode, base: usize, out: &mut Vec<Item>) {
-        let name = latex_syntax::name(env).unwrap_or_default();
+        let mut name = latex_syntax::name(env).unwrap_or_default();
+        // `\begin{empheq}{align}` numbers as the environment it names.
+        if name == "empheq"
+            && let Some(inner) = env
+                .children()
+                .find(|c| c.kind() == BEGIN)
+                .and_then(|b| b.children().filter(|c| c.kind() == GROUP).nth(1))
+        {
+            name = crate::extract::inner(&inner).trim().to_string();
+        }
         let range = rel(env.text_range(), base);
         let body = env.children().find(|c| c.kind() == BODY);
         let body_range = body
@@ -484,6 +508,44 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                     begin: b.to_string(),
                     end: e.to_string(),
                     range,
+                });
+            }
+            return false;
+        }
+        // thmtools: `\declaretheorem[key=value,…]{name}` (or the options
+        // after the name).
+        "declaretheorem" => {
+            let env = m.first().map(|s| s.trim().to_string());
+            let mut title = None;
+            let (mut shared, mut within, mut numbered) = (None, None, true);
+            for opts in &o {
+                for kv in opts.split(',') {
+                    let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
+                    let v = v.trim().trim_matches(['{', '}']).trim().to_string();
+                    match k.trim() {
+                        "name" | "title" => title = Some(v),
+                        "numberwithin" | "within" | "parent" => within = Some(v),
+                        "sibling" | "sharenumber" | "numberlike" | "sharecounter" => {
+                            shared = Some(v)
+                        }
+                        "numbered" => numbered = v != "no",
+                        _ => {}
+                    }
+                }
+            }
+            if let Some(env) = env.filter(|e| !e.is_empty()) {
+                let title = title.unwrap_or_else(|| {
+                    let mut c = env.chars();
+                    c.next()
+                        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+                        .unwrap_or_default()
+                });
+                push(Event::TheoremDef {
+                    env,
+                    title,
+                    shared,
+                    within,
+                    numbered,
                 });
             }
             return false;

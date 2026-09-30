@@ -1,0 +1,12 @@
+\documentclass{article}
+\usepackage{amsmath,empheq,breqn,amscd}
+\begin{document}
+\begin{xalignat}{2} a &= b & c &= d \label{x1}\\ e &= f & g &= h \label{x2}\end{xalignat}
+\begin{dmath} a = b + c \label{dm1}\end{dmath}
+\begin{empheq}[left=\empheqlbrace]{align} a &= b \label{em1}\\ c &= d \label{em2}\end{empheq}
+\begin{empheq}{equation} a = \begin{rcases} b \end{rcases} \label{em3}\end{empheq}
+\begin{equation} \begin{CD} A @>>> B \end{CD} \label{cd1}\end{equation}
+\begin{equation} \begin{multlined} a \\ b \end{multlined} \label{ml1}\end{equation}
+\begin{xxalignat}{2} a &= b & c &= d \end{xxalignat}
+\begin{equation} z \label{last}\end{equation}
+\end{document}
