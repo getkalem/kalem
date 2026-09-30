@@ -2787,6 +2787,51 @@ fn latex_tables_as_grids() {
 }
 
 #[test]
+fn bibtex_grid() {
+    let text = "% refs\n@book{knuth84,\n  author = {Donald E. Knuth},\n  title = {The {\\TeX}book},\n  year = 1984,\n}\n\n@article{lamport,\n  author = {Lamport, Leslie},\n  title = {Paxos},\n  year = {1998}\n}\n";
+    let mut t = with_file(text, "refs.bib", Config::default(), (70, 10));
+    t.at(0);
+    let s = screen(&mut t);
+    // Each entry one row: key, type, authors, title, year; its field lines
+    // hidden.
+    assert!(
+        s.iter()
+            .any(|l| l.contains("knuth84 │ book    │ Knuth   │ The TeXbook │ 1984")),
+        "{s:#?}"
+    );
+    assert!(
+        s.iter()
+            .any(|l| l.contains("lamport │ article │ Lamport │")),
+        "{s:#?}"
+    );
+    assert!(!s.iter().any(|l| l.contains("author =")), "{s:#?}");
+    // Sorted by year, descending: Lamport first; the file as it was.
+    t.app.run_command(
+        "bib.sortView",
+        serde_json::json!({ "column": "year", "reverse": true }),
+    );
+    let s = screen(&mut t);
+    let lamport = s.iter().position(|l| l.contains("lamport │")).unwrap();
+    let knuth = s.iter().position(|l| l.contains("knuth84 │")).unwrap();
+    assert!(lamport < knuth, "{s:#?}");
+    assert_eq!(t.text(), text);
+    t.app.run_command("bib.unsortView", serde_json::json!({}));
+    // In an entry: its source; a field set by the smallest edit.
+    t.at(text.find("Paxos").unwrap());
+    let s = screen(&mut t);
+    assert!(s.iter().any(|l| l.contains("title = {Paxos},")), "{s:#?}");
+    t.app.run_command(
+        "bib.setField",
+        serde_json::json!({ "field": "doi", "value": "10.1/p" }),
+    );
+    assert!(
+        t.text().contains("  year = {1998},\n  doi = {10.1/p}\n}"),
+        "{}",
+        t.text()
+    );
+}
+
+#[test]
 fn latex_table_spans() {
     let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & z \\\\ \\hline\nalpha & beta & gamma \\\\\n\\end{tabular}\n\nafter\n";
     let mut t = with_file(text, "t.tex", Config::default(), (50, 8));

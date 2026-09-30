@@ -2621,6 +2621,43 @@ fn latex_tables_as_grids(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn bibtex_grid(cx: &mut TestAppContext) {
+    let text = "% refs\n@book{knuth84,\n  author = {Donald E. Knuth},\n  title = {The {\\TeX}book},\n  year = 1984,\n}\n\n@article{lamport,\n  author = {Lamport, Leslie},\n  title = {Paxos},\n  year = {1998}\n}\n";
+    let (e, cx) = open_named(text, "refs.bib", || None, cx);
+    at(&e, 0, cx);
+    let row = e.read_with(cx, |e, _| e.line_view(1).display());
+    assert!(
+        row.starts_with("knuth84 │ book    │ Knuth   │ The TeXbook │ 1984"),
+        "{row}"
+    );
+    // Only the entries' first lines show away from them.
+    let lines = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(lines, vec![0, 1, 7]);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "bib.sortView",
+            serde_json::json!({ "column": "year", "reverse": true }),
+            window,
+            cx,
+        )
+    });
+    let lines = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(lines, vec![0, 7, 1]);
+    assert_eq!(text_of(&e, cx), text);
+    // In an entry: all its lines, as source.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("bib.unsortView", serde_json::json!({}), window, cx)
+    });
+    at(&e, text.find("Paxos").unwrap(), cx);
+    let lines = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(lines, vec![0, 1, 7, 8, 9, 10, 11]);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.line_view(9).display()),
+        "  title = {Paxos},"
+    );
+}
+
+#[gpui::test]
 fn latex_table_spans(cx: &mut TestAppContext) {
     let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & z \\\\ \\hline\nalpha & beta & gamma \\\\\n\\end{tabular}\n\nafter\n";
     let (e, cx) = open_named(text, "t.tex", || None, cx);
@@ -2874,6 +2911,10 @@ fn menus_and_toolbar_follow_the_mode(cx: &mut TestAppContext) {
     // Each mode brings its own: LaTeX's formatting and sections, CSV's
     // rows and columns, code's comments and lines.
     assert!(latex.iter().any(|i| i == "latex.format.italic"));
+    // BibTeX's grid commands in a `.bib` file only.
+    let bib = ids("text", "bib");
+    assert!(bib.iter().any(|i| i == "bib.sortView"));
+    assert!(!latex.iter().any(|i| i == "bib.sortView"));
     assert!(latex.iter().any(|i| i == "latex.section.setLevel"));
     assert!(latex.iter().any(|i| i == "latex.insert.equation"));
     assert!(latex.iter().any(|i| i == "latex.build"));

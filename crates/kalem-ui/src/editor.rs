@@ -484,6 +484,7 @@ impl Editor {
         // A CSV filter or sort: the lines of the rows shown, in their order.
         if !self.source
             && let Some(lines) = kalem_core::csv::shown_lines(&self.doc)
+                .or_else(|| kalem_core::bibtex::shown_lines(&self.doc))
         {
             return lines.to_vec();
         }
@@ -1972,6 +1973,10 @@ impl Editor {
             );
         }
         // CSV: a row of the grid (the source view shows the text).
+        // BibTeX: an entry as a row of the grid, away from the cursor.
+        if kalem_core::bibtex::is_bib(&self.doc) && !self.source {
+            return kalem_core::bibtex::line_view(&self.doc, range, Some(self.doc.selection.head));
+        }
         if self.doc.meta.mode == DocumentMode::Csv && !self.source {
             let layout = kalem_core::csv::layout(&self.doc);
             return kalem_core::csv::line_view(&layout, text.as_str(), range);

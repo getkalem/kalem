@@ -1965,6 +1965,37 @@ pub fn menus() -> Vec<Menu> {
             ],
         },
         Menu {
+            // BibTeX files: the entries as a grid.
+            name: tr("menu-bibtex").into(),
+            disabled: false,
+            items: vec![
+                item("bib.newEntry"),
+                item("bib.setField"),
+                MenuItem::separator(),
+                with(
+                    tr("menu-sort-author"),
+                    "bib.sortView",
+                    json!({"column": "author"}),
+                ),
+                with(
+                    tr("menu-sort-year"),
+                    "bib.sortView",
+                    json!({"column": "year"}),
+                ),
+                with(
+                    tr("menu-sort-title"),
+                    "bib.sortView",
+                    json!({"column": "title"}),
+                ),
+                with(
+                    tr("menu-sort-key"),
+                    "bib.sortView",
+                    json!({"column": "key"}),
+                ),
+                item("bib.unsortView"),
+            ],
+        },
+        Menu {
             name: tr("menu-view").into(),
             disabled: false,
             items: vec![
