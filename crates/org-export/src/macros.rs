@@ -21,7 +21,12 @@ enum Template {
     Counter,
     Property,
     Time,
-    ModificationTime(Option<jiff::Timestamp>),
+    /// `{{{modification-time(FORMAT, VC)}}}`: the file's time, or with a
+    /// second argument its last commit's.
+    ModificationTime(Option<jiff::Timestamp>, std::path::PathBuf),
+    /// `{{{date}}}` when `#+DATE` is one timestamp: the value, or with an
+    /// argument the timestamp formatted (`org-macro--find-date`).
+    Date(String, ast::DateTime),
     Eval,
 }
 
@@ -72,17 +77,25 @@ fn templates(
         };
         set(name, tpl, &mut t);
     }
+    // The keywords' values come after the definitions in
+    // `org-macro--set-templates`: a keyword that is present replaces a
+    // `#+MACRO:` of the same name; an absent one leaves it.
     for (name, key, collect) in [
         ("author", "AUTHOR", true),
         ("email", "EMAIL", false),
         ("title", "TITLE", true),
         ("date", "DATE", false),
     ] {
-        set(
-            name,
-            Template::Text(keyword_value(keywords, key, collect).unwrap_or_default()),
-            &mut t,
-        );
+        match keyword_value(keywords, key, collect) {
+            Some(v) => {
+                let tpl = match single_timestamp(&v).filter(|_| name == "date") {
+                    Some(ts) => Template::Date(v, ts),
+                    None => Template::Text(v),
+                };
+                t.insert(name.to_string(), tpl);
+            }
+            None => set(name, Template::Text(String::new()), &mut t),
+        }
     }
     if let Some(f) = file.filter(|f| f.exists()) {
         let name = f
@@ -96,7 +109,7 @@ fn templates(
             .and_then(|m| jiff::Timestamp::try_from(m).ok());
         set(
             "modification-time",
-            Template::ModificationTime(mtime),
+            Template::ModificationTime(mtime, f.to_path_buf()),
             &mut t,
         );
     }
@@ -418,8 +431,13 @@ fn value_of(
             args.first().map(String::as_str).unwrap_or(""),
             now,
         )),
-        Some(Template::ModificationTime(t)) => {
-            let z = t
+        Some(Template::ModificationTime(t, file)) => {
+            let vc = args
+                .get(1)
+                .filter(|a| !a.trim().is_empty())
+                .and_then(|_| last_commit_time(file));
+            let z = vc
+                .or(*t)
                 .map(|t| t.to_zoned(now.time_zone().clone()))
                 .unwrap_or_else(|| now.clone());
             Some(format_time(
@@ -427,9 +445,58 @@ fn value_of(
                 &z,
             ))
         }
+        Some(Template::Date(raw, ts)) => Some(match args.first() {
+            Some(f) if !f.trim().is_empty() => {
+                // `org-format-timestamp`: the start, at midnight without a
+                // time, in the local time zone.
+                let (h, m) = ts.time.unwrap_or((0, 0));
+                let n = |x: u32| i8::try_from(x).unwrap_or(i8::MAX);
+                i16::try_from(ts.year)
+                    .ok()
+                    .and_then(|y| {
+                        jiff::civil::DateTime::new(y, n(ts.month), n(ts.day), n(h), n(m), 0, 0).ok()
+                    })
+                    .and_then(|d| d.to_zoned(now.time_zone().clone()).ok())
+                    .map_or_else(|| raw.clone(), |z| format_time(f, &z))
+            }
+            _ => raw.clone(),
+        }),
         Some(Template::Eval) => Some(String::new()),
         None => None,
     }
+}
+
+/// The timestamp a keyword's value is, when it is that alone.
+fn single_timestamp(value: &str) -> Option<ast::DateTime> {
+    let p = org_syntax::parse(value.trim());
+    let para = p.syntax().descendants().find(|n| n.kind() == PARAGRAPH)?;
+    let mut objects = para.children_with_tokens().filter(|c| {
+        c.as_token()
+            .is_none_or(|t| !t.text().chars().all(char::is_whitespace))
+    });
+    let ts = objects
+        .next()?
+        .into_node()
+        .filter(|n| n.kind() == TIMESTAMP)?;
+    if objects.next().is_some() {
+        return None;
+    }
+    <ast::Timestamp as ast::AstNode>::cast(ts)?.start()
+}
+
+/// The time of the last commit of `file` (`org-macro--vc-modified-time`,
+/// for Git, the author date `git log` prints).
+fn last_commit_time(file: &Path) -> Option<jiff::Timestamp> {
+    let dir = file.parent().filter(|d| !d.as_os_str().is_empty())?;
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["log", "-1", "--format=%aI", "--"])
+        .arg(file.file_name()?)
+        .output()
+        .ok()?;
+    let s = String::from_utf8(out.stdout).ok()?;
+    s.trim().parse().ok()
 }
 
 /// Every macro in `text` replaced by its expansion; `parsed` are the
