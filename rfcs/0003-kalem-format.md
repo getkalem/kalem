@@ -1,6 +1,6 @@
 # RFC 0003: The Kalem Format (`.klm`), specification draft 0.1
 
-- Status: **Draft**, 2026-09-30. Written from the owner's decisions of 2026-09-30 (design_doc2.md, and the discussion that followed) and from a survey of the formats used for writing and typesetting (section 2). Every syntax choice below is a draft decision; the owner closes each one by keeping or changing it.
+- Status: **Draft 0.2**, 2026-09-30, revised after the first experiment (appendix A). Written from the owner's decisions of 2026-09-30 (design_doc2.md, and the discussion that followed) and from a survey of the formats used for writing and typesetting (section 2). Every syntax choice below is a draft decision; the owner closes each one by keeping or changing it.
 - Design document sections affected: 2.6, 3.7, 4.2, 9, 10, 11.0, 11.2, 18.2, 20, 21 (D21, D24, D29)
 - Decision IDs affected: D24 (superseded), D31 to D46 (closed here as drafts), D47 to D52 (new)
 
@@ -114,6 +114,8 @@ Items separated by whitespace:
 | `key` | A boolean attribute set to true. |
 | `value` | A positional value, at most one, meaning defined by the command (`\link[URL]`, `\ref[TARGET]`, `\cite[KEYS]`, `\img[SRC]`). |
 
+A positional value contains no whitespace: several citation keys are separated by commas, `\cite[euler1740,apostol1976]`. A reference names an identifier bare, without `#`: `\ref[eq:euler]` refers to the element declared with `#eq:euler`; the `#` in an attribute list always declares, never refers.
+
 Attribute keys are ASCII names. A key the specification does not define for a command is a **user property**: kept, shown in the properties panel, exported to the formats that have a place for it. A key with a namespace prefix (`plugin.key`) belongs to that plugin.
 
 Values with meaning across the format: lengths (`12pt`, `2cm`, `60%`, `1.5em`), colors (`#c00000`, `red`), timestamps in Org's grammar (`<2026-10-03 Sat 10:00 +1w -2d>`, `[2026-10-03 Sat]`), durations (`2h`, `1d`), lists (`tags=writing,urgent`).
@@ -181,14 +183,19 @@ Typographic replacements (straight to curly quotes, `--` to dashes) are **not** 
 ### 7.1 Headings and the outline
 
 ```
-\h2[#write-section todo=TODO priority=A tags=writing,urgent scheduled=<2026-10-03 Sat> effort=2h]{Write the second section}
+\h2[#write-section todo=TODO priority=A tags=writing,urgent]{Write the second section}
+\props{
+  scheduled=<2026-10-03 Sat>
+  effort=2h
+  client=getkalem
+}
 ```
 
 - `\part`, `\h1` … `\h6`: block commands with inline content; they form the outline. `\part` sits above `\h1` and is used in books.
 - `numbered=false` on a heading excludes it from numbering (LaTeX's starred form). `toc=false` excludes it from the table of contents.
-- **Org's task attributes:** `todo=KEYWORD` (the keyword set comes from `\meta[todo="TODO NEXT | DONE CANCELLED"]`, default `TODO | DONE`), `priority=A`, `tags=a,b` (inherited by subsections, `\meta[tags-inherit=false]` turns it off), `scheduled=`, `deadline=`, `closed=`, `effort=`, `category=`, `archive=`, `noexport` (Org's `:noexport:`), `comment` (Org's `COMMENT` heading, kept and never rendered).
-- **Properties:** any other key is a user property (4.2), inherited by subsections when the stylesheet or `\meta[props-inherit=…]` says so, exactly as Org's property inheritance. The agenda, the match language (`+writing-urgent/TODO`) and the queries of `kalem query` read them as they read Org's.
-- **Logs and clocks:** a heading's history lives in a `\log{…}` block directly under it, with `\entry[state=DONE from=TODO at=<…>]{note}` and `\clock[from=<…> to=<…>]` lines; the editor writes them, the stylesheet hides them. This is Org's `LOGBOOK` with one syntax.
+- **The heading line carries the outline attributes only,** what Org shows on a headline: `#id`, `.style`, `todo=KEYWORD` (the keyword set from `\meta[todo="TODO NEXT | DONE CANCELLED"]`, default `TODO | DONE`), `priority=A`, `tags=a,b` (inherited by subsections, `\meta[tags-inherit=false]` turns it off), `numbered`, `toc`, `noexport` (Org's `:noexport:`), `comment` (Org's `COMMENT` heading, kept and never rendered). Everything else about a heading lives in an attached **`\props{…}`** block directly under it, one `key=value` per line with the attribute value grammar: `scheduled=`, `deadline=`, `closed=`, `effort=`, `category=`, `archive=`, and the user properties. This is Org's headline against its planning line and property drawer, with one syntax; a heading stays one readable line, and a rescheduling is a one-line diff (appendix A).
+- **Properties:** any other key in `\props` is a user property (4.2), inherited by subsections when the stylesheet or `\meta[props-inherit=…]` says so, exactly as Org's property inheritance. The agenda, the match language (`+writing-urgent/TODO`) and the queries of `kalem query` read them as they read Org's.
+- **Logs and clocks:** a heading's history lives in a `\log{…}` block attached under it (after `\props` when both exist), with `\entry[state=DONE from=TODO at=<…>]{note}` and `\clock[from=<…> to=<…>]` lines; the editor writes them, the stylesheet hides them. This is Org's `LOGBOOK` with one syntax.
 - **Statistics:** `\h2[stats=checkbox]{…}` shows the `[2/5]` cookie computed from the items and subtasks below; `stats=percent` shows `40%`.
 - **Identifiers:** the editor assigns `#id` to every heading on creation (a short random string), so links survive renames and a moved section appears as a move in a diff. Ids never change; a duplicate id is an error the editor cannot produce and `kalem check` reports.
 
@@ -216,7 +223,7 @@ Typographic replacements (straight to curly quotes, `--` to dashes) are **not** 
 - `\ul`, `\ol`, `\dl` are block commands holding `\li` (or `\dt`/`\dd`); `\li` holds inline content and, after a blank line, blocks.
 - `\ol[start= type=1|a|A|i|I]`; nested numbering styles come from the stylesheet.
 - **Task items:** `state=todo|done|partial`; the parent's `[2/5]` cookie follows; `\li[todo=NEXT]` uses the heading keyword set when a list is used for tasks.
-- Every `\li` may carry `#id`, `tags=`, timestamps and user properties, as headings do.
+- Every `\li` may carry `#id`, `tags=` and `state=`; timestamps and user properties go in an attached `\props{…}` inside the item, as for headings.
 
 ---
 
@@ -259,18 +266,20 @@ Typographic replacements (straight to curly quotes, `--` to dashes) are **not** 
   \tr{\th{Item} \th{Qty} \th{Price} \th{Total}}
   \tr{\td{Paper} \td{3} \td{4.50} \td{}}
   \tr{\td{Ink} \td{1} \td{12.00} \td{}}
-  \tr{\td{} \td{} \td{} \td{}}
+  \tfoot{
+    \tr{\td{Total} \td{} \td{} \td{}}
+  }
   \formulas{
-    D2:D3 = B * C
-    D4 = SUM(D2:D3)
+    D = B * C
+    D@foot = SUM(D)
   }
   \caption{Costs}
 }
 ```
 
-- `cols`: one letter per column, `l`, `c`, `r`, `p` (paragraph), with optional widths in the stylesheet or `cols="l r{3cm}"`.
+- `cols`: one letter per column, `l`, `c`, `r`, `p` (paragraph), with optional widths in the stylesheet or `cols="l r{3cm}"`; `numbers=` for the number format (see formulas).
 - `header=N` rows are header rows; `\th` marks header cells; `\td[colspan= rowspan= align=]`.
-- **Formulas** (`\formulas`, verbatim lines): the spreadsheet dialect, `A1` references, ranges, `$` for absolute references, the common functions (`SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `IF`, `ROUND`, `ABS`, `SQRT`, `MOD`, `CONCAT`, dates and durations), column formulas (`D2:D3 = B * C` applies per row), remote tables (`@tbl:other!B2`), Org's evaluation order and iteration limit. The engine is `org-table`'s with a second front-end grammar; results are written into the cells, as Org does, so the file reads without a calculator.
+- **Formulas** (`\formulas`, one formula per line, indented canonically): the spreadsheet dialect, `A1` references, ranges, `$` for absolute references, the common functions (`SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `IF`, `ROUND`, `ABS`, `SQRT`, `MOD`, `CONCAT`, dates and durations), remote tables (`@tbl:other!B2`), Org's evaluation order and iteration limit. **Column formulas** are the rule: `D = B * C` applies to every data row, and a bare column in a function (`SUM(D)`) covers the data rows, so inserting a row changes no formula (appendix A). Data rows are the rows that are neither header rows (`header=N`) nor footer rows (`\tfoot`); footer cells are addressed with `@foot` (`D@foot`, `D@foot2` for a second footer row). Explicit ranges (`D2:D4`) remain for partial ranges. **Numbers** follow the document language for decimal and group separators (`1,4636` in Turkish) unless `numbers=en` or another tag is set on the table; the engine reads and writes cells in that format. The engine is `org-table`'s with a second front-end grammar; results are written into the cells, as Org does, so the file reads without a calculator.
 - `\caption` and `caption-position`; `\tfoot` for footer rows; `longtable` behavior in paged output through the stylesheet.
 
 ### 9.3 Code and results
@@ -302,8 +311,8 @@ hello
 |---|---|
 | `\link[TARGET]{text}` | External link; `TARGET` is a URL, or a typed link `file:`, `id:`, `mailto:`, or a custom type a plugin declares. Text optional: the target is shown. |
 | `\target[#id]` | An anchor (a bookmark) at a point in text. |
-| `\ref[TARGET]{text}` | A cross reference to `#id`; without text, the generated text by kind: "Figure 3", "Table 2", "equation (4)", "section 2.1", "Theorem 1"; `kind=number|page|title|full` chooses. Across included files. |
-| `\cite[KEYS pre="see" post="p. 3" style=text]{}` | A citation of one or more BibTeX keys, rendered by the CSL style of `\meta[cite-style]`; `style=text` gives "Knuth (1984)", default parenthetical. Sources from `\meta[bibliography=…]`. |
+| `\ref[TARGET]{text}` | A cross reference to the element declared with `#TARGET` (the target is written bare); without text, and then without braces, the generated text by kind: "Figure 3", "Table 2", "equation (4)", "section 2.1", "Theorem 1"; `kind=number|page|title|full` chooses. Across included files. |
+| `\cite[KEYS pre="see" post="p. 3" style=text]` | A citation of one or more comma-separated BibTeX keys, rendered by the CSL style of `\meta[cite-style]`; `style=text` gives "Knuth (1984)", default parenthetical. Sources from `\meta[bibliography=…]`. |
 | `\fn{…}` | A footnote, content at the reference point; `kind=end` makes it an endnote; `#id` allows a second reference to the same note with `\fnref[#id]`. |
 | `\index[term]` | Index entry (6); `\printindex` (11) generates the index. |
 | `\bibliography[style=apa title="References"]` | The generated bibliography block. |
@@ -432,13 +441,14 @@ The specification defines the bytes the editor writes. `kalem fmt` produces them
 
 1. UTF-8, no byte order mark, LF line endings, one trailing newline.
 2. `\klm[…]` on line 1, `\meta` on line 2 when present, one blank line, then the body.
-3. **Block commands** start at the line's indentation, `{` ends the opening line, content is indented two spaces per nesting level, `}` stands alone on its own line at the parent's indentation. Consecutive blocks are separated by one blank line at level zero and by no blank line inside a container, except paragraphs, which are always separated by one blank line.
-4. **Inline commands** are written inline with no spaces inside the delimiters.
+3. **Block commands** start at the line's indentation, `{` ends the opening line, content is indented two spaces per nesting level, `}` stands alone on its own line at the parent's indentation. Consecutive blocks are separated by one blank line at level zero and by no blank line inside a container, except paragraphs, which are always separated by one blank line. **Attached blocks** (`\props`, `\log`, `\results`, `\formulas`, `\caption`, `\tfoot`) follow their owner with no blank line.
+4. **Inline commands** are written inline with no spaces inside the delimiters. A command whose content is optional and empty is written **without braces**: `\ref[eq:euler]`, `\cite[knuth1984]`, `\img[a.png]`, `\toc`.
 5. **Paragraph text is one line.** No hard wrapping. A setting `format.lines = sentence` breaks after sentence ends instead, for projects that prefer sentence-per-line diffs; both are canonical for the project that chose them, recorded in `\meta[format=…]`.
-6. **Attributes:** `#id` first, then `.style`s in the order applied, then keys in the order the specification lists them for that command, then user properties alphabetically; one space between items; quotes only when the value needs them; booleans as bare keys; no trailing spaces. When a command has more than three attributes, each goes on its own line, indented, in canonical form (block commands only).
+6. **Attributes:** always on the command's line: `#id` first, then `.style`s in the order applied, then keys in the order the specification lists them for that command, then user properties alphabetically; one space between items; quotes only when the value needs them; booleans as bare keys; no trailing spaces. Long lists do not wrap: what would make a heading long belongs in `\props` (7.1), where each property has its own line.
 7. **Verbatim content** is written as it is, with the closing brace on its own line for blocks.
 8. **Text** is written as typed; the editor inserts typographic characters, the serializer never rewrites them. Escapes are written only where needed.
 9. Formatting is **idempotent** and **content-preserving**: `fmt(fmt(x)) = fmt(x)` and `parse(fmt(x)) = parse(x)` for every well-formed `x`; the conformance suite checks both.
+10. **Version control.** Kalem writes a `.gitattributes` for a project on request: `*.klm diff=klm` with a `klm` diff driver whose word regex treats a command, an attribute and a word as tokens, so `git diff --word-diff` shows the changed word inside a long paragraph; `kalem diff` renders the difference of two files or revisions without git literacy.
 
 ---
 
@@ -551,11 +561,43 @@ Every construct has a defined rendering in each target; the table names the mapp
 
 ## 21. Unresolved questions
 
-1. Whether diffs of real documents read well enough without any inline shortcut for emphasis (the three-document experiment of design_doc2.md, section 11, K0).
-2. Long attribute lists on headings with many properties: attributes on separate lines (14.6) or a `\props{…}` block under the heading.
-3. The exact spreadsheet function list and its agreement with Excel's semantics for dates and rounding.
-4. Whether `\log` and `\results` belong in the document or in a sidecar file for projects that dislike machine-written blocks in their diffs.
-5. Table cell content beyond inline text (lists and paragraphs in cells) and its canonical form.
-6. Slides: a `slides` stylesheet with `\h2` as a slide, or a `\slide` command.
-7. Forms and protected regions (Word's content controls): not in 1.0.
-8. The stylesheet's limit: which InDesign-grade controls (baseline grid, optical alignment per glyph) are in 1.0 and which wait for engine support.
+1. The exact spreadsheet function list and its agreement with Excel's semantics for dates and rounding.
+2. Whether `\log` and `\results` belong in the document or in a sidecar file for projects that dislike machine-written blocks in their diffs.
+3. Table cell content beyond inline text (lists and paragraphs in cells) and its canonical form.
+4. Slides: a `slides` stylesheet with `\h2` as a slide, or a `\slide` command.
+5. Forms and protected regions (Word's content controls): not in 1.0.
+6. The stylesheet's limit: which InDesign-grade controls (baseline grid, optical alignment per glyph) are in 1.0 and which wait for engine support.
+
+Closed by the first experiment (appendix A): no inline shortcut beyond `$…$` is needed; headings keep their outline attributes on one line and everything else in `\props`.
+
+---
+
+## Appendix A. The first experiment (T2.13.1, 2026-09-30)
+
+Three documents were written by hand in draft 0.1 and its canonical form (`tests/klm-spec/samples/`: a letter, a paper with mathematics, a task notebook), then edited as a user would in one session, and the diffs and one merge were examined (commits `278cc55` and `4328c3d` of `getkalem/kalem`).
+
+| Edit | Lines changed |
+|---|---|
+| A word changed inside a bold span in a paragraph (letter) | 1 |
+| A date changed inside `\date` (letter) | 1 |
+| A list item added (letter, notebook) | 1 added |
+| A span wrapped around two words (letter) | 1 |
+| A total changed (letter) | 1 |
+| A theorem title, a citation key, a sentence appended (paper) | 1 each |
+| A figure width, a caption (paper) | 1 each |
+| A deadline moved on a heading written with one attribute per line (notebook) | 1 |
+| A schedule moved on a heading written on one line (notebook) | 1, the whole heading line |
+| A checkbox ticked (notebook) | 1 |
+| A `\log` with a clock added under a heading (notebook) | 3 added |
+| A table row added (paper, notebook) | 1 added, plus the formula range lines that named the old range: 1 (paper), 2 (notebook), plus the totals row |
+| Two branches editing different paragraphs of the letter, merged | Clean |
+
+What it showed, and what draft 0.2 changed:
+
+1. **No shortcut is needed.** `\b{üç}` inside a paragraph reads as well in a diff as `*üç*` would; the one-syntax rule stands. Question 1 of 0.1 closed.
+2. **Headings.** One attribute per line gave one-line diffs but a nine-line heading in raw text; one line gave a readable heading but a whole-line diff. Draft 0.2 keeps the outline attributes on the heading line and moves planning and properties to an attached `\props` block, one per line: both readable and diff-friendly (7.1, 14.6). Question 2 closed.
+3. **Formulas.** Inserting a row forced a change to every formula that named a range, exactly as in a spreadsheet. Draft 0.2 makes column formulas the rule (`D = B * C`, `SUM(D)` over data rows) and addresses footer rows with `@foot`, so a row insertion changes no formula (9.2).
+4. **Empty braces** after `\ref` and `\cite` were noise; the canonical form omits them (14.4). References name identifiers bare; citation keys are comma-separated (4.2, 10).
+5. **Turkish numbers** in table cells (`1,4636`) need the engine to know the decimal separator; the number format follows the document language, with `numbers=` to override (9.2).
+6. **Attached blocks** (`\log`, `\props`, `\formulas`, `\caption`) follow their owner without a blank line; the rule is now written (14.3).
+7. **Long paragraphs** are one line, so a changed word shows as one changed line; reading the change inside the line needs `--word-diff`, hence the `.gitattributes` and `kalem diff` of 14.10. The sentence-per-line option remains for projects that prefer it.
