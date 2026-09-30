@@ -61,6 +61,12 @@ follow:
 | =SPC b ]=, =SPC b [= | Next, previous document                     |
 | =SPC b s=, =SPC b r= | Save; Revert to Saved                       |
 | =SPC b N=            | New Document                                |
+| =SPC b l=, =SPC `=   | The document shown before                   |
+| =SPC b S=            | Save all                                    |
+| =SPC b O=, =SPC b K= | Close the others, close all (unsaved stay)  |
+| =SPC b z=            | Move the document to the end of the list    |
+| =SPC b x=, =SPC b X= | Scratch document; the project's             |
+| =SPC b y=            | Copy the whole document                     |
 | =SPC f S=            | Save As                                     |
 | =SPC p k=, =SPC p s= | Close, save the project's documents         |
 | =SPC p i=            | Refresh Project Files                       |

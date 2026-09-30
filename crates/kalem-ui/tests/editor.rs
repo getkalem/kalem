@@ -1865,6 +1865,65 @@ fn doom_keys_in_the_file_manager(cx: &mut TestAppContext) {
     let _ = title;
 }
 
+/// Doom's `SPC b` keys on the open documents (T2.7i.2): the last one,
+/// bury, save all, close the others and close all.
+#[gpui::test]
+fn documents_keys(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(true, cx);
+    for f in ["proj/sub/b.org", "loose.org"] {
+        let p = dir.join(f);
+        ws.update_in(cx, |ws, window, cx| ws.open(&p, None, window, cx));
+    }
+    cx.run_until_parked();
+    let name = |cx: &mut VisualTestContext| {
+        ws.read_with(cx, |ws, cx| {
+            ws.editor
+                .read(cx)
+                .doc
+                .meta
+                .path
+                .as_deref()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().into_owned())
+        })
+    };
+    let count = |cx: &mut VisualTestContext| ws.read_with(cx, |ws, _| ws.editors.len());
+    assert_eq!(name(cx).as_deref(), Some("loose.org"));
+    cx.simulate_keystrokes("space b l");
+    cx.run_until_parked();
+    assert_eq!(name(cx).as_deref(), Some("b.org"));
+    cx.simulate_keystrokes("space `");
+    cx.run_until_parked();
+    assert_eq!(name(cx).as_deref(), Some("loose.org"));
+    let n = count(cx);
+    cx.simulate_keystrokes("space b z");
+    cx.run_until_parked();
+    assert_ne!(name(cx).as_deref(), Some("loose.org"));
+    assert_eq!(count(cx), n);
+    let last = ws.read_with(cx, |ws, cx| {
+        ws.editors.last().unwrap().read(cx).doc.meta.path.clone()
+    });
+    assert_eq!(last, Some(dir.join("loose.org")));
+    // `SPC b S` saves every modified document with a file.
+    cx.simulate_keystrokes("g g shift-o");
+    cx.simulate_input("new");
+    cx.simulate_keystrokes("escape space b shift-s");
+    cx.run_until_parked();
+    let path = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).doc.meta.path.clone().unwrap()
+    });
+    assert!(std::fs::read_to_string(&path).unwrap().starts_with("new"));
+    let shown = name(cx);
+    cx.simulate_keystrokes("space b shift-o");
+    cx.run_until_parked();
+    assert_eq!(count(cx), 1);
+    assert_eq!(name(cx), shown);
+    cx.simulate_keystrokes("space b shift-k");
+    cx.run_until_parked();
+    assert_eq!(count(cx), 1);
+    assert_eq!(name(cx), None);
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

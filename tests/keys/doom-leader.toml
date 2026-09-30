@@ -37,13 +37,13 @@ command = "file.switch"
 doom = "SPC <"
 keys = "space <"
 what = "Switch document"
-reason = "Planned: T2.7i.18"
+command = "file.switch"
 
 [[key]]
 doom = "SPC `"
 keys = "space `"
 what = "Last document"
-reason = "Planned: T2.7i.18"
+command = "file.last"
 
 [[key]]
 doom = "SPC /"
@@ -97,7 +97,7 @@ reason = "No Lisp to evaluate; the palette runs commands"
 doom = "SPC x"
 keys = "space x"
 what = "Scratch document"
-reason = "Planned: T2.7i.18"
+command = "file.scratch"
 
 
 # Buffers =SPC b=.
@@ -111,13 +111,13 @@ command = "file.switch"
 doom = "SPC b B"
 keys = "space b shift+b"
 what = "Switch document across projects"
-reason = "Planned: T2.7i.2"
+command = "file.switch"
 
 [[key]]
 doom = "SPC b c"
 keys = "space b c"
 what = "Clone into a new pane"
-reason = "Planned: T2.7i.2"
+command = "view.split"
 
 [[key]]
 doom = "SPC b d"
@@ -135,31 +135,31 @@ command = "file.close"
 doom = "SPC b i"
 keys = "space b i"
 what = "The documents list"
-reason = "Planned: T2.7i.2"
+command = "view.openFiles"
 
 [[key]]
 doom = "SPC b K"
 keys = "space b shift+k"
 what = "Kill all documents"
-reason = "Planned: T2.7i.2"
+command = "file.closeAll"
 
 [[key]]
 doom = "SPC b l"
 keys = "space b l"
 what = "Last document"
-reason = "Planned: T2.7i.2"
+command = "file.last"
 
 [[key]]
 doom = "SPC b m"
 keys = "space b m"
 what = "Set bookmark"
-reason = "Planned: T2.7i.2"
+reason = "Kalem has no bookmarks yet; they come with =SPC s m= (T2.7i.4)"
 
 [[key]]
 doom = "SPC b M"
 keys = "space b shift+m"
 what = "Delete bookmark"
-reason = "Planned: T2.7i.2"
+reason = "Kalem has no bookmarks yet; they come with =SPC s m= (T2.7i.4)"
 
 [[key]]
 doom = "SPC b n"
@@ -183,7 +183,7 @@ command = "file.new"
 doom = "SPC b O"
 keys = "space b shift+o"
 what = "Kill other documents"
-reason = "Planned: T2.7i.2"
+command = "file.closeOthers"
 
 [[key]]
 doom = "SPC b p"
@@ -213,31 +213,31 @@ command = "app.save"
 doom = "SPC b S"
 keys = "space b shift+s"
 what = "Save all documents"
-reason = "Planned: T2.7i.2"
+command = "file.saveAll"
 
 [[key]]
 doom = "SPC b x"
 keys = "space b x"
 what = "Scratch document"
-reason = "Planned: T2.7i.2"
+command = "file.scratch"
 
 [[key]]
 doom = "SPC b X"
 keys = "space b shift+x"
 what = "Scratch document in the project"
-reason = "Planned: T2.7i.2"
+command = "file.scratch"
 
 [[key]]
 doom = "SPC b y"
 keys = "space b y"
 what = "Copy the document"
-reason = "Planned: T2.7i.2"
+command = "file.copyText"
 
 [[key]]
 doom = "SPC b z"
 keys = "space b z"
 what = "Bury document"
-reason = "Planned: T2.7i.2"
+command = "file.bury"
 
 
 # Files =SPC f=.

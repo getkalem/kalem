@@ -133,6 +133,8 @@ pub enum DocEvent {
     SaveProject(std::path::PathBuf),
     /// Close the documents of the project at this folder.
     CloseProject(std::path::PathBuf),
+    /// Act on the open documents (Doom's `SPC b`).
+    Documents(kalem_core::command::DocumentsRequest),
     /// Quit, asking about every unsaved document.
     Quit,
     /// Show `place` in the window's file manager (a new one if there is
@@ -1147,6 +1149,7 @@ impl Editor {
             Request::SearchIn(dir) => self.open_search_in(&dir, cx),
             Request::OpenFiles => cx.emit(DocEvent::ToggleFiles),
             Request::Project(r) => self.project_request(r, cx),
+            Request::Documents(r) => cx.emit(DocEvent::Documents(r)),
             Request::FileManager(r) => self.file_manager_request(r, cx),
             Request::FileOp(op) => match kalem_core::dired::Task::new(&op) {
                 Ok(t) => self.ask_task(t, window, cx),

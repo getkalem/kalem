@@ -192,6 +192,8 @@ pub struct App {
     tree_spots: Vec<(Rect, usize)>,
     /// The last document shown that is not a file manager, to go back to.
     last_text: Option<DocumentId>,
+    /// The document shown before the active one (`SPC b l`).
+    previous: Option<DocumentId>,
     /// A file operation asking its questions.
     task: Option<kalem_core::dired::Task>,
     /// File operations running in the background.
@@ -436,6 +438,7 @@ impl App {
             tree_rows: Vec::new(),
             tree_spots: Vec::new(),
             last_text: None,
+            previous: None,
             task: None,
             jobs: Vec::new(),
             watched_dirs: Vec::new(),
@@ -601,6 +604,7 @@ impl App {
         if self.doc.dired.is_none() {
             self.last_text = Some(self.doc_id);
         }
+        self.previous = Some(self.doc_id);
         let old = Buffer {
             doc: std::mem::replace(&mut self.doc, b.doc),
             doc_id: std::mem::replace(&mut self.doc_id, b.doc_id),
@@ -1085,6 +1089,103 @@ impl App {
         }
     }
 
+    /// The open documents' ids, by their place in `docs`.
+    fn doc_ids(&self) -> Vec<(DocumentId, bool)> {
+        self.docs
+            .iter()
+            .map(|b| match b {
+                Some(b) => (b.doc_id, b.doc.is_modified()),
+                None => (self.doc_id, self.doc.is_modified()),
+            })
+            .collect()
+    }
+
+    /// Closes the documents without unsaved changes other than `keep`,
+    /// then shows `keep` again.
+    fn close_others(&mut self, keep: DocumentId) {
+        loop {
+            let i = self
+                .doc_ids()
+                .iter()
+                .position(|&(id, modified)| id != keep && !modified);
+            let Some(i) = i else { break };
+            self.activate(i);
+            self.close_document();
+        }
+        if let Some(i) = self.doc_ids().iter().position(|&(id, _)| id == keep) {
+            self.activate(i);
+        }
+    }
+
+    /// Doom's `SPC b` commands on the open documents (T2.7i.2).
+    fn documents_request(&mut self, r: kalem_core::command::DocumentsRequest) {
+        use kalem_core::command::DocumentsRequest as D;
+        match r {
+            D::SaveAll => {
+                let n = self.save_all(None);
+                self.message(tr!("msg-saved-count", count = n.to_string()), false);
+            }
+            D::CloseOthers => self.close_others(self.doc_id),
+            D::CloseAll => {
+                let keep = self.doc_id;
+                self.close_others(keep);
+                // The last one gives way to an empty document.
+                if !self.doc.is_modified() {
+                    self.new_empty();
+                    if let Some(i) = self.doc_ids().iter().position(|&(id, _)| id == keep) {
+                        self.activate(i);
+                        self.close_document();
+                    }
+                }
+            }
+            D::Last => {
+                let at = self
+                    .previous
+                    .and_then(|p| self.doc_ids().iter().position(|&(id, _)| id == p));
+                match at {
+                    Some(i) => self.activate(i),
+                    None => self.message(tr!("msg-no-last-document"), true),
+                }
+            }
+            D::Bury => {
+                if self.docs.len() < 2 {
+                    return;
+                }
+                let buried = self.doc_id;
+                self.cycle(false);
+                if let Some(i) = self.doc_ids().iter().position(|&(id, _)| id == buried) {
+                    let b = self.docs.remove(i);
+                    self.docs.push(b);
+                    if self.active > i {
+                        self.active -= 1;
+                    }
+                }
+            }
+            D::Scratch { project } => {
+                let root = if project {
+                    match self.project() {
+                        Some(r) => Some(r),
+                        None => {
+                            self.message(tr!("msg-no-project"), true);
+                            return;
+                        }
+                    }
+                } else {
+                    None
+                };
+                let Some(path) = kalem_core::command::scratch_path(root.as_deref()) else {
+                    self.message(tr!("msg-no-state-dir"), true);
+                    return;
+                };
+                if let Some(dir) = path.parent() {
+                    let _ = std::fs::create_dir_all(dir);
+                }
+                self.open_path(&path, None);
+            }
+        }
+        self.dirty = true;
+    }
+
     /// Saves the modified documents with a file (of the project at
     /// `root`, or all); how many were saved.
     fn save_all(&mut self, root: Option<&Path>) -> usize {
@@ -1342,6 +1443,7 @@ impl App {
                 self.dirty = true;
             }
             Request::Project(r) => self.project_request(r),
+            Request::Documents(r) => self.documents_request(r),
             Request::FileManager(r) => match r {
                 FileManagerRequest::Dir { dir } => {
                     let (dir, select) = match (dir, self.doc.meta.path.clone()) {
