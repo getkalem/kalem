@@ -142,10 +142,7 @@ fn row(text: &str, line: Range<usize>, columns: usize, open: &mut bool) -> Optio
     if any && e == line.end {
         return Some(Row::Rule(line));
     }
-    if ["\\multicolumn", "\\multirow", "\\verb", "\\lstinline"]
-        .iter()
-        .any(|c| s.contains(c))
-    {
+    if ["\\verb", "\\lstinline"].iter().any(|c| s.contains(c)) {
         return None;
     }
     let b = text.as_bytes();
@@ -198,24 +195,97 @@ fn row(text: &str, line: Range<usize>, columns: usize, open: &mut bool) -> Optio
         raw.push(cell..line.end);
         *open = true;
     }
-    if raw.len() > columns {
+    let mut cells = Vec::new();
+    for r in raw {
+        let t = &text[r.clone()];
+        let lead = t.len() - t.trim_start().len();
+        if lead == t.len() {
+            // An empty cell: after one blank.
+            let at = r.start + t.len().min(1);
+            cells.push(at..at);
+            continue;
+        }
+        let trail = t.len() - t.trim_end().len();
+        let r = r.start + lead..r.end - trail;
+        // A span: its text in its first column, the columns it covers
+        // after it empty (the grid has no spans).
+        match span_cell(text, r.clone()) {
+            Some((content, columns)) => {
+                cells.push(content);
+                for _ in 1..columns {
+                    cells.push(r.end..r.end);
+                }
+            }
+            None if text[r.clone()].contains("\\multicolumn")
+                || text[r.clone()].contains("\\multirow") =>
+            {
+                return None;
+            }
+            None => cells.push(r),
+        }
+    }
+    if cells.len() > columns {
         return None;
     }
-    let cells = raw
-        .into_iter()
-        .map(|r| {
-            let t = &text[r.clone()];
-            let lead = t.len() - t.trim_start().len();
-            if lead == t.len() {
-                // An empty cell: after one blank.
-                let at = r.start + t.len().min(1);
-                return at..at;
-            }
-            let trail = t.len() - t.trim_end().len();
-            r.start + lead..r.end - trail
-        })
-        .collect();
     Some(Row::Data(line, cells))
+}
+
+/// A cell that is all a `\\multicolumn{n}{spec}{text}` or a
+/// `\\multirow{n}[…]{width}{text}`: its text's range and the columns it
+/// covers.
+fn span_cell(text: &str, cell: Range<usize>) -> Option<(Range<usize>, usize)> {
+    let b = text.as_bytes();
+    let s = &text[cell.clone()];
+    // The groups `{…}` from `i`, balanced, with their inner ranges.
+    let group = |i: usize| -> Option<(Range<usize>, usize)> {
+        let i = skip_blanks(b, i, cell.end);
+        if b.get(i) != Some(&b'{') {
+            return None;
+        }
+        let mut depth = 0;
+        for (k, &c) in b[i..cell.end].iter().enumerate() {
+            match c {
+                b'{' => depth += 1,
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some((i + 1..i + k, i + k + 1));
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    };
+    let (name, multi) = if s.starts_with("\\multicolumn") {
+        ("\\multicolumn", true)
+    } else if s.starts_with("\\multirow") {
+        ("\\multirow", false)
+    } else {
+        return None;
+    };
+    let (n, at) = group(cell.start + name.len())?;
+    let count: usize = text[n].trim().parse().ok()?;
+    let at = if multi {
+        at
+    } else {
+        // `\\multirow{n}[bigstruts]{width}`.
+        let at = skip_blanks(b, at, cell.end);
+        skip_group(b, at, cell.end, b'[', b']')?
+    };
+    // The specification or width: a group, or `*` for `\\multirow`.
+    let w = skip_blanks(b, at, cell.end);
+    let at = if !multi && b.get(w) == Some(&b'*') {
+        w + 1
+    } else {
+        group(at)?.1
+    };
+    let (content, end) = group(at)?;
+    if end != cell.end {
+        return None;
+    }
+    let columns = if multi { count.max(1) } else { 1 };
+    Some((content, columns))
 }
 
 /// `env` as a simple table: its specification plain and every line of
@@ -375,10 +445,29 @@ mod tests {
     }
 
     #[test]
+    fn spans_in_their_first_column() {
+        let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & c \\\\\n\\multirow{2}*{A} & b & c \\\\\n\\multirow{2}{3cm}{B} & e & f \\\\\n\\end{tabular}\n";
+        let (_p, e) = env(text);
+        let t = simple(text, &e).expect("simple with spans");
+        let Row::Data(_, cells) = &t.rows[0] else {
+            panic!()
+        };
+        assert_eq!(cells.len(), 3);
+        assert_eq!(&text[cells[0].clone()], "Head");
+        assert!(cells[1].is_empty());
+        assert_eq!(&text[cells[2].clone()], "c");
+        let Row::Data(_, cells) = &t.rows[2] else {
+            panic!()
+        };
+        assert_eq!(&text[cells[0].clone()], "B");
+    }
+
+    #[test]
     fn complex_tables_stay_source() {
         for text in [
             "\\begin{tabular}{@{}ll}\na & b \\\\\n\\end{tabular}\n",
-            "\\begin{tabular}{ll}\n\\multicolumn{2}{c}{x} \\\\\n\\end{tabular}\n",
+            "\\begin{tabular}{ll}\n\\multicolumn{3}{c}{x} \\\\\n\\end{tabular}\n",
+            "\\begin{tabular}{ll}\na \\multicolumn{2}{c}{x} \\\\\n\\end{tabular}\n",
             "\\begin{tabular}{ll}\na & b \\\\ c & d \\\\\n\\end{tabular}\n",
             "\\begin{tabular}{ll}\na & b & c \\\\\n\\end{tabular}\n",
             "\\begin{tabular}{ll} a & b \\\\\n\\end{tabular}\n",

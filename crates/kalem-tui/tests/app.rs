@@ -3119,3 +3119,12 @@ fn latex_problems_list() {
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.app.doc.selection.head, text.find("\\ref").unwrap());
 }
+
+#[test]
+fn latex_table_with_spans_is_a_grid() {
+    let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & c \\\\\n\\multirow{2}*{A} & b & c \\\\\n\\end{tabular}\nAfter.\n";
+    let mut t = with_file(text, "s.tex", Config::default(), (60, 10));
+    t.at(text.find("After").unwrap());
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("Head") && !rows.contains("multicolumn") && !rows.contains("multirow"), "{rows}");
+}
