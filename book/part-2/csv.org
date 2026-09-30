@@ -22,26 +22,35 @@ Sheets in several locales, plus the edge cases of RFC 4180: each file
 opens with its dialect found, takes an edit, and saves with every
 untouched byte as it was.
 
-| Part of the oracle                                                                                      | State   |
-|---------------------------------------------------------------------------------------------------------+---------|
-| RFC 4180 edge cases (quotes, doubled quotes, CR LF, line breaks in fields, an empty last field)         | Tested  |
-| Excel, Turkish locale: UTF-8 byte order mark, CR LF, =;=, decimal commas, quoted numbers, dates as text | Tested  |
-| LibreOffice Calc with "Quote all text cells": LF, quoted text, a line break in a field                  | Tested  |
-| Google Sheets                                                                                           | Planned |
-| Excel and LibreOffice in further locales (en-US, de-DE, fr-FR, ...)                                     | Planned |
-| Excel's UTF-16 "Unicode Text" export                                                                    | Planned |
-| A test that every construct an editing command writes is valid RFC 4180 (TS.14)                         | Planned |
+| Part of the oracle                                                                                                      | State               |
+|-------------------------------------------------------------------------------------------------------------------------+---------------------|
+| RFC 4180 edge cases (quotes, doubled quotes, CR LF, line breaks in fields, an empty last field)                         | Tested              |
+| LibreOffice Calc 24.2 with "Quote all text cells": LF, quoted text, unquoted numbers and dates, a line break in a field | Tested, real export |
+| LibreOffice Calc 24.2, cells formatted in Turkish: =;=, grouped numbers with decimal commas, =DD.MM.YYYY= dates         | Tested, real export |
+| Excel, Turkish locale: UTF-8 byte order mark, CR LF, =;=, decimal commas, dates as text                                 | Tested, synthetic   |
+| Google Sheets                                                                                                           | Planned             |
+| Excel exports, and both in further locales (en-US, de-DE, fr-FR, ...)                                                   | Planned             |
+| Excel's UTF-16 "Unicode Text" export                                                                                    | Planned             |
+| A test that every construct an editing command writes is valid RFC 4180 (TS.14)                                         | Planned             |
 
-The tested files are in =tests/csv/= (=excel-tr.csv=,
-=libreoffice.csv=, =rfc4180.csv=); =crates/kalem-core/tests/csv.rs=
-opens each one as a document, sets one field, saves, and compares the
-bytes with the original. The unit tests of =csv.rs= cover dialect
-detection, RFC 4180 values, each editing operation's exact output,
-sorting, the conversions and a 100,000-row file; =csv_commands= in
-=builtin.rs= runs the commands on a document; both editors have a
-=csv_grid= test. The work items are group 2.7d of =todo.md=; the corpus
-of the design (Google Sheets, more locales) is not there yet, so the
-design's table still lists CSV as planned.
+The tested files are in =tests/csv/=. The two LibreOffice files are real
+exports: =tools/csv-oracle.sh= regenerates them with LibreOffice Calc
+from the spreadsheets beside them (=libreoffice.fods=,
+=libreoffice-tr.fods=), and a regenerated file must equal the committed
+one byte for byte. The Excel file (=excel-tr.csv=) is written by hand in
+the style of Excel's "CSV UTF-8" in a Turkish locale, as Excel is not
+available to the tests: it follows Excel's documented behaviour (a
+field is quoted only when it holds the delimiter, a quote or a line
+break; numbers are never quoted) but is not an oracle.
+=crates/kalem-core/tests/csv.rs= opens each file as a document, sets
+one field, saves, and compares the bytes with the original. The unit
+tests of =csv.rs= cover dialect detection, RFC 4180 values, each editing
+operation's exact output, sorting, the conversions and a 100,000-row
+file; =csv_commands= in =builtin.rs= runs the commands on a document;
+both editors have a =csv_grid= test. The work items are group 2.7d of
+=todo.md=; the corpus of the design (Google Sheets, Excel, more
+locales) is not there yet, so the design's table still lists CSV as
+planned.
 
 * Which files are CSV
 
