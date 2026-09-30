@@ -443,3 +443,23 @@ fn check_csv() {
         "{out}"
     );
 }
+
+#[test]
+fn export_says_markdown_is_read_as_org() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-md-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let md = dir.join("notes.md");
+    std::fs::write(&md, "Some Title\n").unwrap();
+    let (code, out, err) = kalem(&["export", "--to", "html", "-o", "-", md.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    assert!(out.contains("Title"), "{out}");
+    assert!(
+        err.contains("warning: read as Org, not as Markdown"),
+        "{err}"
+    );
+    let org = dir.join("notes.org");
+    std::fs::write(&org, "* Title\n").unwrap();
+    let (_, _, err) = kalem(&["export", "--to", "html", "-o", "-", org.to_str().unwrap()]);
+    assert!(err.is_empty(), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

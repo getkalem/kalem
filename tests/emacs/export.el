@@ -89,6 +89,13 @@
           (set-buffer-file-coding-system 'utf-8-unix)
           (insert out))))))
 
+;; With KALEM_OX_GFM naming ox-gfm.el (tools/fetch-ox-gfm.sh), the gfm
+;; back-end too, to NAME.gfm.
+(let ((gfm (getenv "KALEM_OX_GFM")))
+  (when (and gfm (file-exists-p gfm))
+    (load gfm nil t)
+    (setq kalem-export-backends (append kalem-export-backends '((gfm . "gfm"))))))
+
 ;; With a third argument `recursive', every Org file under CASES-DIR, named
 ;; after its path with `/' as `__'; the back-ends can be limited with
 ;; KALEM_EXPORT_BACKENDS (such as "html md").

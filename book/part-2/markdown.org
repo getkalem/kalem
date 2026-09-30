@@ -71,6 +71,24 @@ under another name. Concretely:
 - The export commands of the /Export/ menu apply to Org documents only;
   they are not offered for a Markdown file.
 
+Since these commands know nothing of Markdown, some change its meaning:
+
+- /Join Lines/ removes each line break with the blanks around it and
+  puts one space in its place. Two trailing spaces (a hard line break)
+  go with it, and a heading, list item or quote line joined to the next
+  line takes that line into itself (=# Title= and =Text= become
+  =# Title Text=).
+- /Sort Lines/ sorts whole lines by their text (code points). An item
+  that continues on further lines, a nested list or a paragraph under
+  an item is split apart; a numbered list is sorted by its numbers as
+  text (=10.= before =2.=), not by its items' words.
+- /Trim Trailing Whitespace/ (the command) removes the two trailing
+  spaces of hard line breaks. The setting
+  =editor.trim_trailing_whitespace= does not apply to Markdown files, so
+  saving keeps them.
+- /Toggle Comment/ wraps lines in =<!--= … =-->=, which inside a code
+  block or an indented code line is text, not a comment.
+
 A link in an Org document to a =.md= file opens it in Kalem. The macOS
 application bundle declares Markdown as a type it can open.
 
@@ -78,9 +96,13 @@ application bundle declares Markdown as a type it can open.
 
 /Import as Org/ (the command =file.import=, and =kalem import FILE.md=
 on the command line) converts a Markdown file to Org through pandoc,
-when pandoc is installed. The file is read with pandoc's =markdown=
-reader (Pandoc's Markdown, which differs from CommonMark in places),
-the result is cleaned up, written as =NAME.org= beside the file (never
+when pandoc is installed. The file (=.md=, =.markdown=, =.mdown=,
+=.mkd= or =.gfm=) is read with pandoc's =gfm= reader, CommonMark with
+GitHub's extensions (tables, task lists, strike-through, footnotes,
+bare URLs as links) as Kalem's Markdown mode takes it, plus a YAML
+metadata block for the title (=gfm+yaml_metadata_block=); Pandoc's own
+Markdown dialect, which differs from CommonMark in places, is not used.
+The result is cleaned up, written as =NAME.org= beside the file (never
 over an existing one, unless =--force= is given on the command line),
 its pictures in =NAME_assets=, and opened. The Markdown file does not
 change. This is a one-way conversion; Kalem has no reader of its own.
@@ -90,15 +112,19 @@ change. This is a one-way conversion; Kalem has no reader of its own.
 Kalem writes Markdown from Org documents with two back-ends of its
 Rust port of Org's export engine (=crates/org-export=):
 
-| Back-end | Command                                                                | Command line                 | Reference                                |
-|----------+------------------------------------------------------------------------+------------------------------+------------------------------------------|
-| =md=     | /Export as Markdown/ (=export.markdown=), /Export Subtree as Markdown/ | =kalem export FILE --to md=  | Emacs's =ox-md=, byte for byte           |
-| =gfm=    | /Export as GitHub Markdown/ (=export.gfm=)                             | =kalem export FILE --to gfm= | The =ox-gfm= package's rules; unit tests |
+| Back-end | Command                                                                | Command line                 | Reference                           |
+|----------+------------------------------------------------------------------------+------------------------------+-------------------------------------|
+| =md=     | /Export as Markdown/ (=export.markdown=), /Export Subtree as Markdown/ | =kalem export FILE --to md=  | Emacs's =ox-md=, byte for byte      |
+| =gfm=    | /Export as GitHub Markdown/ (=export.gfm=)                             | =kalem export FILE --to gfm= | The =ox-gfm= package, byte for byte |
 
 Both write =NAME.md= (or where =#+EXPORT_FILE_NAME= says), honour the
 export options (=#+OPTIONS=, =#+SETUPFILE=, =EXPORT_= properties, body
 only), and read their input as Org whatever its extension: =kalem
-export README.md= does not read Markdown.
+export README.md= does not read Markdown, and says so on standard
+error ("read as Org, not as Markdown"). The output is the input's
+name with its extension replaced by =.md=, except when that is the
+input itself: =README.md= exports to =README.md.md= (Emacs refuses with
+"Output file cannot be the same as the input file").
 
 ** The =md= back-end
 
@@ -113,7 +139,7 @@ What it writes, element by element:
 
 | Org                                                                                   | Markdown written                                                                                                                                                                        |
 |---------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Headline at most =H:= deep and at most level 6                                        | ATX heading: a blank line, =#= times the level, the TODO keyword, the priority as =[#A]=, the title, the tags after five spaces as =:a:b:=, a blank line                                |
+| Headline at most =H:= deep and at most level 6                                        | ATX heading: a blank line, =#= times the level, the TODO keyword, the priority as =[#A]= (with =pri:t= only), the title, the tags after five spaces as =:a:b:=, a blank line            |
 | A headline listed by a table of contents or the target of an =id= or =CUSTOM_ID= link | The heading preceded by ~<a id="REF"></a>~ and a blank line                                                                                                                             |
 | Headline below =H:= or deeper than 6                                                  | A list item (=-= or its number), its contents indented four spaces                                                                                                                      |
 | Bold, italic                                                                          | =**…**=, =*…*=                                                                                                                                                                          |
@@ -121,7 +147,7 @@ What it writes, element by element:
 | Underline, strike-through, subscript, superscript, entities and other objects         | As the HTML back-end writes them                                                                                                                                                        |
 | Paragraph                                                                             | Its lines, blank lines inside removed; a leading =#= escaped                                                                                                                            |
 | Plain list item                                                                       | =-= and three spaces, or =N.= padded to four columns; =[X]=, =[-]=, =[ ]= and a space for checkboxes; a description item's tag as =**tag:**= and a space; contents indented four spaces |
-| Quote block                                                                           | Every line prefixed with =>=                                                                                                                                                            |
+| Quote block                                                                           | Every line prefixed with =>= and a space                                                                                                                                                |
 | Example block, source block, fixed width                                              | Indented four spaces (no fence, no language); line numbers and coderefs as =org-export-format-code-default= writes them                                                                 |
 | Table, center block, special block, inline task                                       | HTML, as the HTML back-end writes it                                                                                                                                                    |
 | Horizontal rule                                                                       | =---=                                                                                                                                                                                   |
@@ -141,8 +167,12 @@ What it writes, element by element:
 | Footnotes                                                                             | A "Footnotes" heading at the end, each as ~<sup><a id="fn.N" href="#fnr.N">N</a></sup> text~                                                                                            |
 
 The document's title is not written (=ox-md='s template has none). With
-=toc:t= or =toc:N= a "Table of Contents" heading and a nested list of
-=[title](#REF)= links come first. Elements are separated by one blank
+=toc:t= (the default) or =toc:N= a "Table of Contents" heading and a
+nested list of =[title](#REF)= links come first; a document without
+headlines gets the heading over an empty list, as in Emacs. The
+heading style is always ATX and the top level always =#=: =ox-md='s
+=org-md-headline-style= (=setext=, =mixed=) and
+=org-md-toplevel-hlevel= are not options in Kalem. Elements are separated by one blank
 line, except inside items and for a first paragraph followed by an
 item's last sub-list. In plain text, =`= =*= =_= and =\= are escaped
 with a backslash, as are a =#= at the start of a line and a =![=; with
@@ -153,34 +183,74 @@ are translated by =#+LANGUAGE= as the HTML back-end translates them.
 
 ** The =gfm= back-end
 
-The =gfm= back-end (=org_export::Gfm=, =gfm.rs=) is the =md= back-end
-with the three additions the =ox-gfm= package makes. Plain =md= stays
-=ox-md='s.
+The =gfm= back-end (=org_export::Gfm=, =gfm.rs=) is a port of the
+=ox-gfm= package (=larstvei/ox-gfm=, the one MELPA ships), which is not
+part of Org. Like it, it is the =md= back-end with these changes:
 
-- An Org table (not a =table.el= table) becomes a pipe table. The
-  first row group is the header when the table has one; otherwise the
-  header row is empty. Horizontal rules inside the table are dropped,
-  since GFM has one rule only. Each column is padded to its widest cell
-  (at least three), cells are trimmed, line breaks in them become spaces
-  and =|= is escaped as =\|=. Alignment comes from the column's
-  alignment, as Org computes it (=<l>=, =<c>=, =<r>= cookies, else right
-  for a column of numbers): the rule is =---=, =--:= or =:-:= accordingly,
-  and cells are padded on the matching side.
-- Strike-through becomes =~~…~~=.
-- A source block becomes a fenced block: three backticks and the
+- A paragraph is written on one line: its words joined by single
+  spaces (so a line break =\\= disappears), unless =\n:t=.
+- Source and example blocks are fenced: three backticks and the source
   block's language, the code, three backticks.
+- Strike-through becomes =~~…~~=.
+- An Org table (not a =table.el= table) becomes a pipe table. Each cell
+  is padded with spaces to its column's width (the longest cell of the
+  column, counted in characters); a row is =| a | b |=. A rule is kept
+  only as the table's second row, written =|---- |--- |= (dashes to the
+  column's width, at least three, no alignment colons); other rules are
+  dropped. A table of one row gets an empty header and a rule above it;
+  a table of several rows without a rule gets none, which GFM reads as
+  a header row without its delimiter row, that is, as a paragraph.
+  Cells are not escaped: a =|= inside a cell (written =\vert{}=)
+  becomes =&vert;=, as the HTML back-end writes the entity.
+- The table of contents (=toc:t=, the default, or =toc:N=) has no
+  heading: a list of =- [title](#REF)= links, indented two spaces per
+  level of the headline (its level as written, not relative), then a
+  blank line.
+- The footnotes come under =## Footnotes= (always level 2 and in
+  English, not translated), each as
+  ~<sup><a id="fn.N" class="footnum" href="#fnr.N">N</a></sup> text~,
+  separated by blank lines.
+- The whole body is trimmed of leading and trailing blank lines.
 - Export snippets =@@gfm:…@@= and =#+begin_export gfm= are written as
   they are.
 
 #+begin_example
-| Name | n |              | Name     |   n |
-|------+---|              | -------- | --: |
-| *a*  | 1 |      →       | **a**    |   1 |
-| b\vert{}c | 22 |        | b&vert;c |  22 |
+| Name | n |                | Name     | n  |
+|------+---|                |-------- |--- |
+| *a*  | 1 |      →         | **a**    | 1  |
+| b\vert{}c | 22 |          | b&vert;c | 22 |
 #+end_example
 
-There is no Emacs reference for =gfm=, since =ox-gfm= is not part of
-Org; the back-end is checked by its unit tests.
+Its output is identical to that of =ox-gfm= (pinned at commit
+=4f774f1=, run on Emacs's Org 9.7) on the 37 export cases of
+=tests/export/expected= (the =.gfm= files) and on =ORG-NEWS=:
+=tools/fetch-ox-gfm.sh= fetches the package, which, being GPL-3.0, is
+not in the repository, and =tools/export-expected.sh= uses it when it
+is there.
+
+** Known differences from CommonMark and GitHub
+
+Both back-ends, like =ox-md= and =ox-gfm=, escape only what =ox-md=
+escapes in plain text (=`= =*= =_= =\= , a =#= at the start of a line,
+=![=). A reader following CommonMark can therefore read some Org text
+as Markdown constructs it was not meant as:
+
+- a line of a paragraph that starts with =>= (a quote), =-=, =+= or
+  =1.= followed by a space (a list), or =    = (four spaces: code), or
+  that is =---= or =***= (a rule, or a setext heading underline);
+- raw HTML in the text (=<b>=, =<!--=), which passes through;
+- =[x](y)= or =<https://…>= written in the text, which becomes a link;
+- =&amp;=-style entity references, which are decoded.
+
+On GitHub, the anchors =ox-md= writes (=<a id="orgXXXXXXX"></a>= before
+a heading, the =fn.N= and =fnr.N= footnote anchors) are rewritten by
+GitHub's sanitizer to =user-content-…= ids; links to them still work
+through GitHub's page script, but not in other renderers that apply the
+same sanitizer. GFM's own footnote syntax (=[^1]=) and GitHub's heading
+slugs are not used, since =ox-gfm= does not use them. In a table with
+=/= column groups, a row has a =|= before a cell only where a group
+starts (the other cells are separated by a space), which GFM reads as
+fewer columns.
 
 ** Markdown from LaTeX
 
