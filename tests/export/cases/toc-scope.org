@@ -1,0 +1,16 @@
+#+OPTIONS: toc:nil
+
+* One
+:PROPERTIES:
+:CUSTOM_ID: one
+:END:
+#+TOC: headlines 1 local
+** One A
+*** One A i
+** One B
+* Two
+#+TOC: headlines :target "#one"
+** Two A
+* Three
+#+TOC: headlines 2 :target *Two
+** Three A

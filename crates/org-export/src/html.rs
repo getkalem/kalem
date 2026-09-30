@@ -280,9 +280,16 @@ impl Html {
         crate::kalem::finish(&ex.data_list(&ids))
     }
 
-    /// `org-html-toc`.
-    pub fn toc(&self, ex: &mut Exporter<'_>, depth: Option<i64>) -> Option<String> {
-        let headlines = collect_headlines(ex, depth);
+    /// `org-html-toc`: the table of contents, of the headlines under
+    /// `scope` when it is given (`#+TOC: headlines local` or `:target`),
+    /// then without its heading and outer element.
+    pub fn toc(
+        &self,
+        ex: &mut Exporter<'_>,
+        depth: Option<i64>,
+        scope: Option<Id>,
+    ) -> Option<String> {
+        let headlines = collect_headlines_in(ex, depth, scope);
         if headlines.is_empty() {
             return None;
         }
@@ -292,14 +299,25 @@ impl Html {
             let text = self.toc_headline(ex, h);
             entries.push((text, level));
         }
-        let outer = if html5_fancy(ex) { "nav" } else { "div" };
-        let mut out = format!(
-            "<{outer} id=\"table-of-contents\" role=\"doc-toc\">\n<h2>{}</h2>\n<div id=\"text-table-of-contents\" role=\"doc-toc\">",
-            ex.translate("Table of Contents", "html")
+        // Tables of contents after the first get numbered ids.
+        let counter = ex.opt("html--toc-counter").int();
+        ex.info.values.insert(
+            "html--toc-counter".into(),
+            Value::Int(counter.unwrap_or(0) + 1),
         );
-        out.push_str(&toc_text(&entries));
-        out.push_str(&format!("</div>\n</{outer}>\n"));
-        Some(out)
+        let suffix = counter.map_or_else(String::new, |n| format!("-{n}"));
+        let toc = format!(
+            "<div id=\"text-table-of-contents{suffix}\" role=\"doc-toc\">{}</div>\n",
+            toc_text(&entries)
+        );
+        if scope.is_some() {
+            return Some(toc);
+        }
+        let outer = if html5_fancy(ex) { "nav" } else { "div" };
+        Some(format!(
+            "<{outer} id=\"table-of-contents{suffix}\" role=\"doc-toc\">\n<h2>{}</h2>\n{toc}</{outer}>\n",
+            ex.translate("Table of Contents", "html")
+        ))
     }
 
     /// `org-html-list-of-tables` and `org-html-list-of-listings`: the
@@ -1328,22 +1346,116 @@ pub(crate) fn cell_borders(ex: &Exporter<'_>, cell: Id) -> (bool, bool) {
 
 /// `org-export-collect-headlines`: headlines up to `depth` levels.
 pub fn collect_headlines(ex: &Exporter<'_>, depth: Option<i64>) -> Vec<Id> {
+    collect_headlines_in(ex, depth, None)
+}
+
+/// `org-export-collect-headlines` with a scope: the headlines under
+/// `scope` when it is a headline, else under the headline that contains
+/// it, else in the whole document; `depth` counts from that headline.
+pub fn collect_headlines_in(ex: &Exporter<'_>, depth: Option<i64>, scope: Option<Id>) -> Vec<Id> {
+    let root = ex.tree.root;
+    let container = scope
+        .and_then(|s| {
+            std::iter::once(s)
+                .chain(ex.tree.ancestors(s))
+                .find(|&a| ex.tree.kind(a) == Some(HEADLINE))
+        })
+        .unwrap_or(root);
     let limit = ex.opt("headline-levels").int().unwrap_or(3);
     let n = match depth {
-        Some(d) => d.min(limit),
+        Some(d) if container == root => d.min(limit),
+        Some(d) => (ex.relative_level(container) + d).min(limit),
         None => limit,
     };
     ex.tree
-        .descendants(ex.tree.root)
+        .descendants(container)
         .into_iter()
         .filter(|&h| {
-            ex.tree.kind(h) == Some(HEADLINE)
+            h != container
+                && ex.tree.kind(h) == Some(HEADLINE)
                 && !ex.footnote_section_p(h)
                 && ex.node_property(h, "UNNUMBERED", false).as_deref() != Some("notoc")
                 && ex.relative_level(h) <= n
                 && reachable(ex, h)
         })
         .collect()
+}
+
+/// A `#+TOC:` value as the back-ends read it, case folded: whether it
+/// asks for headlines, the first number (`\\<[0-9]+\\>`), and its scope.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct TocRequest {
+    /// `headlines` is a word of it.
+    pub headlines: bool,
+    /// The depth.
+    pub depth: Option<i64>,
+    /// `:target LINK`, its quotes removed.
+    pub target: Option<String>,
+    /// `local` is a word of it.
+    pub local: bool,
+}
+
+/// Reads a `#+TOC:` value.
+pub fn toc_request(value: &str) -> TocRequest {
+    let lower = value.to_lowercase();
+    let words: Vec<&str> = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .collect();
+    // `:target +\\(".+?"\\|\\S-+\\)`.
+    let target = value.to_ascii_lowercase().find(":target").and_then(|i| {
+        let rest = &value[i + ":target".len()..];
+        let rest = rest.strip_prefix(' ')?.trim_start_matches(' ');
+        if let Some(q) = rest.strip_prefix('"')
+            && let Some(end) = q.find('"').filter(|&e| e > 0)
+        {
+            return Some(q[..end].to_string());
+        }
+        let t: String = rest.chars().take_while(|c| !c.is_whitespace()).collect();
+        // `org-strip-quotes`.
+        let t = match t.strip_prefix('"').and_then(|x| x.strip_suffix('"')) {
+            Some(inner) => inner.to_string(),
+            None => t,
+        };
+        (!t.is_empty()).then_some(t)
+    });
+    TocRequest {
+        headlines: words.contains(&"headlines"),
+        depth: words.iter().find_map(|w| {
+            w.chars()
+                .all(|c| c.is_ascii_digit())
+                .then(|| w.parse().ok())
+                .flatten()
+        }),
+        target,
+        local: words.contains(&"local"),
+    }
+}
+
+/// The scope of a table of contents asked for by `keyword`
+/// (`org-export-resolve-link` on the target, or the keyword itself when
+/// local); `Err` for a target that resolves to nothing, which Emacs
+/// reports as a broken link.
+pub fn toc_scope(
+    ex: &mut Exporter<'_>,
+    keyword: Id,
+    req: &TocRequest,
+) -> Result<Option<Id>, String> {
+    if let Some(t) = &req.target {
+        let found = if let Some(c) = t.strip_prefix('#') {
+            ex.resolve_id(c)
+        } else if let Some(i) = t.strip_prefix("id:") {
+            ex.resolve_id(i)
+        } else if t.contains(':') && !t.starts_with('*') {
+            None
+        } else {
+            ex.resolve_fuzzy(t)
+        };
+        return found
+            .map(Some)
+            .ok_or_else(|| format!("Unable to resolve link: {t}"));
+    }
+    Ok(req.local.then_some(keyword))
 }
 
 /// Whether `id` is still in the tree (not pruned).
@@ -2334,15 +2446,16 @@ impl Backend for Html {
                 if key == "HTML" {
                     value
                 } else if key == "TOC" {
-                    let lower = value.to_lowercase();
-                    if lower.split_whitespace().any(|w| w == "headlines") {
-                        let depth = value.split_whitespace().find_map(|w| w.parse::<i64>().ok());
-                        return self.toc(ex, depth);
+                    let req = toc_request(&value);
+                    if req.headlines {
+                        let scope = toc_scope(ex, id, &req).ok()?;
+                        return self.toc(ex, req.depth, scope);
                     }
-                    if lower.split_whitespace().any(|w| w == "tables") {
+                    // `string=`: the whole value, as written.
+                    if value == "tables" {
                         return self.list_of(ex, TABLE, "tables", "Tables", "table", "Table %d:");
                     }
-                    if lower.split_whitespace().any(|w| w == "listings") {
+                    if value == "listings" {
                         return self.list_of(
                             ex,
                             SRC_BLOCK,
@@ -2625,8 +2738,8 @@ impl Backend for Html {
     fn inner_template(&self, ex: &mut Exporter<'_>, body: String) -> String {
         let toc = match ex.opt("with-toc") {
             Value::Nil => None,
-            Value::Int(n) => self.toc(ex, Some(n)),
-            _ => self.toc(ex, None),
+            Value::Int(n) => self.toc(ex, Some(n), None),
+            _ => self.toc(ex, None, None),
         };
         let foot = self.footnote_section(ex);
         format!(
