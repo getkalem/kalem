@@ -1029,6 +1029,14 @@ impl Running {
         }
     }
 
+    /// What it does; `None` for a shell command.
+    pub fn kind(&self) -> Option<kalem_fs::OpKind> {
+        match &self.job {
+            Job::Fs(_, kind) => Some(*kind),
+            Job::Shell(..) => None,
+        }
+    }
+
     /// Asks it to stop (a shell command runs to its end).
     pub fn cancel(&self) {
         if let Job::Fs(job, _) = &self.job {
@@ -1050,6 +1058,35 @@ impl Running {
             }
         }
     }
+}
+
+/// What became of an open document's file after an operation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Followed {
+    /// It is at this path now (it, or a folder above it, was moved).
+    Moved(PathBuf),
+    /// It went to the trash or was deleted.
+    Removed,
+}
+
+/// Where `path` went in an operation of `kind` that did `out`: open
+/// documents follow their files (Doom's `SPC f R` and `SPC f D`).
+pub fn follow(kind: kalem_fs::OpKind, out: &kalem_fs::Outcome, path: &Path) -> Option<Followed> {
+    out.done.iter().find_map(|(src, dst)| {
+        let rest = path.strip_prefix(src).ok()?;
+        match kind {
+            kalem_fs::OpKind::Move => {
+                let dst = dst.as_ref()?;
+                Some(Followed::Moved(if rest.as_os_str().is_empty() {
+                    dst.clone()
+                } else {
+                    dst.join(rest)
+                }))
+            }
+            kalem_fs::OpKind::Trash | kalem_fs::OpKind::Delete => Some(Followed::Removed),
+            kalem_fs::OpKind::Copy => None,
+        }
+    })
 }
 
 /// What the preview pane shows for a file (T2.7e.11).
@@ -3971,5 +4008,29 @@ mod tests {
             assert!(d.join("run.sh").is_file());
         }
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn open_documents_follow_their_files() {
+        use kalem_fs::{OpKind, Outcome};
+        let out = Outcome {
+            done: vec![
+                (PathBuf::from("/p/a.org"), Some(PathBuf::from("/p/b.org"))),
+                (PathBuf::from("/p/sub"), Some(PathBuf::from("/q/sub"))),
+            ],
+            ..Outcome::default()
+        };
+        let f = |k, p: &str| follow(k, &out, Path::new(p));
+        assert_eq!(
+            f(OpKind::Move, "/p/a.org"),
+            Some(Followed::Moved(PathBuf::from("/p/b.org")))
+        );
+        assert_eq!(
+            f(OpKind::Move, "/p/sub/c/d.org"),
+            Some(Followed::Moved(PathBuf::from("/q/sub/c/d.org")))
+        );
+        assert_eq!(f(OpKind::Move, "/p/a.org.bak"), None);
+        assert_eq!(f(OpKind::Copy, "/p/a.org"), None);
+        assert_eq!(f(OpKind::Trash, "/p/sub/x"), Some(Followed::Removed));
     }
 }
