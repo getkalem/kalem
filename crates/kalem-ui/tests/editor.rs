@@ -2920,3 +2920,22 @@ fn csv_view_sorted(cx: &mut TestAppContext) {
         vec![0, 1, 2, 3, 4]
     );
 }
+
+#[gpui::test]
+fn latex_sections_fold(cx: &mut TestAppContext) {
+    let text = "\\section{One}\nFirst text.\n\\section{Two}\nSecond text.\n";
+    let (e, cx) = open_named(text, "f.tex", || None, cx);
+    e.update(cx, |e, cx| {
+        e.doc.move_cursor(2, false);
+        e.after_change(cx);
+    });
+    cx.simulate_keystrokes("tab");
+    let second = text.find("Second").unwrap();
+    e.update(cx, |e, cx| {
+        e.doc.move_cursor(second, false);
+        e.after_change(cx);
+    });
+    let lines = e.read_with(cx, |e, _| e.visible.clone());
+    assert!(!lines.contains(&1), "{lines:?}");
+    assert!(lines.contains(&2) && lines.contains(&3), "{lines:?}");
+}

@@ -3242,3 +3242,24 @@ fn csv_view_sorted_by_a_column() {
     let pos = |s: &str| rows.iter().position(|r| r.contains(s)).unwrap();
     assert!(pos("Ada") < pos("Bob") && pos("Bob") < pos("Cem"));
 }
+
+#[test]
+fn latex_sections_fold() {
+    let text =
+        "\\section{One}\nFirst text.\n\\subsection{Sub}\nSub text.\n\\section{Two}\nSecond text.\n";
+    let mut t = with_file(text, "f.tex", Config::default(), (50, 10));
+    t.at(2);
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    t.at(text.find("Second").unwrap());
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        !rows.contains("First text.") && !rows.contains("Sub text."),
+        "{rows}"
+    );
+    assert!(
+        rows.contains("Two") && rows.contains("Second text."),
+        "{rows}"
+    );
+    // The text is unchanged.
+    assert_eq!(t.text(), text);
+}

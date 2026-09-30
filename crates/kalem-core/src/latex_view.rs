@@ -2472,6 +2472,97 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
     if at < len || out.is_empty() {
         out.push(block(BlockKind::Paragraph, at..len, len));
     }
+    with_sections(out, text, &model)
+}
+
+/// `blocks` with each sectioning command's line a heading block, as Org's
+/// headlines are, and the blocks after it under it (their depth and
+/// headline), so that sections fold as Org's subtrees do (T2.7h.14).
+fn with_sections(
+    blocks: Vec<crate::view::Block>,
+    text: &str,
+    model: &latex_model::Model,
+) -> Vec<crate::view::Block> {
+    use crate::view::{Block, BlockKind};
+    // Each section's line, and its level from 1.
+    let mut heads: Vec<(usize, usize, i8)> = model
+        .sections
+        .iter()
+        .filter(|s| s.file == 0 && s.range.start <= text.len())
+        .filter_map(|s| {
+            let ls = text[..s.range.start].rfind('\n').map_or(0, |i| i + 1);
+            text[ls..s.range.start].trim().is_empty().then(|| {
+                let le = text[s.range.start..]
+                    .find('\n')
+                    .map_or(text.len(), |i| s.range.start + i + 1);
+                (ls, le, s.level)
+            })
+        })
+        .collect();
+    if heads.is_empty() {
+        return blocks;
+    }
+    heads.sort_unstable();
+    heads.dedup_by_key(|h| h.0);
+    let top = heads.iter().map(|h| h.2).min().unwrap_or(1);
+    let level = |l: i8| (l - top + 1).max(1) as usize;
+    let mut out = Vec::with_capacity(blocks.len() + heads.len() * 2);
+    let mut under: Option<(usize, usize)> = None;
+    let push = |out: &mut Vec<Block>, mut b: Block, under: Option<(usize, usize)>| {
+        if let Some((d, h)) = under {
+            b.depth = d;
+            b.headline = Some(h);
+        }
+        out.push(b);
+    };
+    let mut hi = 0;
+    for b in blocks {
+        if b.kind != BlockKind::Paragraph {
+            // Sections do not start inside formulas or code.
+            while hi < heads.len() && heads[hi].0 < b.range.start {
+                hi += 1;
+            }
+            push(&mut out, b, under);
+            continue;
+        }
+        let mut at = b.range.start;
+        while hi < heads.len() && heads[hi].0 < b.range.end {
+            let (ls, le, l) = heads[hi];
+            hi += 1;
+            if ls < at {
+                continue;
+            }
+            if ls > at {
+                let piece = Block {
+                    kind: BlockKind::Paragraph,
+                    range: at..ls,
+                    content_end: ls,
+                    depth: 0,
+                    headline: None,
+                };
+                push(&mut out, piece, under);
+            }
+            let d = level(l);
+            let le = le.min(b.range.end.max(le));
+            out.push(Block {
+                kind: BlockKind::Heading { level: d },
+                range: ls..le,
+                content_end: le,
+                depth: d,
+                headline: Some(ls),
+            });
+            under = Some((d, ls));
+            at = le;
+        }
+        if at < b.range.end {
+            let piece = Block {
+                range: at..b.range.end,
+                content_end: b.content_end.max(at),
+                ..b
+            };
+            push(&mut out, piece, under);
+        }
+    }
     out
 }
 

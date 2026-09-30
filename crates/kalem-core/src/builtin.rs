@@ -1270,6 +1270,23 @@ fn latex_commands() -> Vec<Command> {
             }
         }),
         c("latex.list.indent", "Nest Item", &["tab"], |ctx, _| {
+            // On a section's line: fold it, as Tab does on Org's headlines.
+            {
+                let d = ctx.doc()?;
+                let text = d.text();
+                let line = text.line_range(text.line_of(d.selection.head));
+                let on_section = d.latex().is_some_and(|l| {
+                    l.model().sections.iter().any(|s| {
+                        s.file == 0
+                            && line.start <= s.range.start
+                            && s.range.start <= line.end
+                            && text.as_str()[line.start..s.range.start].trim().is_empty()
+                    })
+                });
+                if on_section {
+                    return request(ctx, Request::Fold { global: false });
+                }
+            }
             latex_edit_with(
                 ctx,
                 |t, s, r, _| e::indent_item(t, s.head, r, true),

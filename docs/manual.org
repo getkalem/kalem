@@ -898,7 +898,9 @@ the selection or the word, or take them off. Ctrl+1 to Ctrl+6 make the
 line a heading of that level with the class's commands (=\chapter= first
 in books and reports, =\section= in articles), Ctrl+0 makes it text
 again, and Alt+Shift+Left and Right promote and demote a section with
-its subsections, Alt+Shift+Up and Down move it past its neighbor.
+its subsections, Alt+Shift+Up and Down move it past its neighbor. Tab on
+a section's line folds it as Tab folds an Org heading: its text and
+subsections hidden, then its subsections shown, then everything.
 
 In math, =$= pairs (and steps over the closing =$=), =\(= and =\[= get
 their closing pair and =\left(= its =\right)=, and Tab goes to the next
