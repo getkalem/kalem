@@ -600,6 +600,10 @@ pub fn insert_column(text: &str, d: &Dialect, col: usize) -> Transaction {
         let Some(r) = idx.record(text, i, d) else {
             continue;
         };
+        // A blank line stays blank.
+        if r.range.is_empty() {
+            continue;
+        }
         match r.fields.get(col) {
             Some(f) => {
                 let _ = tx.replace(f.range.start..f.range.start, delim.clone());
@@ -677,7 +681,10 @@ fn compare(a: &str, b: &str, comma_decimal: bool) -> std::cmp::Ordering {
 pub fn sorted_order(text: &str, d: &Dialect, col: usize, reverse: bool) -> Vec<usize> {
     let rows = rows(text, d);
     let first = usize::from(d.header);
-    let mut order: Vec<usize> = (first..rows.len()).collect();
+    // Blank lines go last, in file order, whichever the direction.
+    let blank = |i: usize| rows[i].len() == 1 && rows[i][0].is_empty();
+    let (mut order, blanks): (Vec<usize>, Vec<usize>) =
+        (first..rows.len()).partition(|&i| !blank(i));
     let key = |i: usize| rows[i].get(col).map_or("", String::as_str);
     order.sort_by(|&a, &b| {
         let o = compare(key(a), key(b), d.delimiter == b';');
@@ -685,6 +692,7 @@ pub fn sorted_order(text: &str, d: &Dialect, col: usize, reverse: bool) -> Vec<u
     });
     let mut out: Vec<usize> = (0..first).collect();
     out.extend(order);
+    out.extend(blanks);
     out
 }
 
@@ -700,9 +708,11 @@ pub fn sort_file(text: &str, d: &Dialect, col: usize, reverse: bool) -> Transact
         .map(|&i| &text[recs[i].range.clone()])
         .collect();
     let nl = d.line_ending();
+    // From the first record: a `sep=` line stays.
+    let start = recs.first().map_or(0, |r| r.range.start);
     let end = recs.last().map_or(0, |r| r.range.end);
     let mut tx = Transaction::new("Sort File");
-    tx.replace(0..end, body.join(nl)).expect("one edit");
+    tx.replace(start..end, body.join(nl)).expect("one edit");
     tx
 }
 
@@ -1011,7 +1021,7 @@ pub fn filter_rows(
     let needle = needle.to_lowercase();
     let mut out: Vec<Range<usize>> = Vec::new();
     let (mut matched, mut total) = (0, 0);
-    let mut start = 0;
+    let mut start = sep_line(text).map_or(0, |(_, n)| n);
     let mut row = 0;
     while start < text.len() {
         let rec = scan(text, start, d);
@@ -1021,12 +1031,15 @@ pub fn filter_rows(
             text.len() + 1
         };
         let header = row == 0 && d.header;
+        // Blank lines are not rows of data.
+        let blank = rec.range.is_empty();
         let hit = !header
+            && !blank
             && rec
                 .fields
                 .iter()
                 .any(|f| value(text, f, d).to_lowercase().contains(&needle));
-        if !header {
+        if !header && !blank {
             total += 1;
             matched += usize::from(hit);
         }
@@ -1286,6 +1299,25 @@ mod tests {
             vec![("csv-bare-quote", 3), ("csv-unterminated-quote", 15)]
         );
         assert!(problems("a,b\n\"c\"\"d\",e\n", &d, 10).is_empty());
+    }
+
+    #[test]
+    fn blank_lines() {
+        let d = Dialect {
+            header: true,
+            ..Dialect::default()
+        };
+        let text = "sep=,\nn,v\nb,2\n\na,1\n";
+        // Sorted: blank lines last, the `sep=` line and the header kept.
+        let sorted = sort_file(text, &d, 0, false).apply(text);
+        assert_eq!(sorted, "sep=,\nn,v\na,1\nb,2\n\n");
+        let sorted = sort_file(text, &d, 0, true).apply(text);
+        assert_eq!(sorted, "sep=,\nn,v\nb,2\na,1\n\n");
+        // Not counted by the filter; a new column leaves them blank.
+        let (_, matched, total) = filter_rows(text, &d, "a", 0);
+        assert_eq!((matched, total), (1, 2));
+        let wide = insert_column(text, &d, 2).apply(text);
+        assert_eq!(wide, "sep=,\nn,v,\nb,2,\n\na,1,\n");
     }
 
     #[test]
