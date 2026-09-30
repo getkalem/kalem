@@ -681,12 +681,12 @@ CSV
 - [x] T2.11.72 Import Table (Org) uses a weaker CSV reader (tab, comma or spaces; no `;`, no quoted line breaks) than CSV mode (code or book)
 
 Markdown and plain text
-- [ ] T2.11.73 The Markdown exporters' output is not CommonMark-safe (`> ` at a line start becomes a quote, raw HTML and `[x](y)` pass through), as ox-md; list it as known differences against CommonMark (book)
-- [ ] T2.11.74 GFM export is not GitHub-safe: footnotes as HTML anchors, heading anchors rewritten by GitHub's sanitizer; GFM's `[^1]` footnotes unused; the alignment row's rules to be checked against ox-gfm (code, book)
-- [ ] T2.11.75 The md back-end's description: `[#A]` only with `pri:t`, the table of contents on by default (an empty heading when there are no headlines), quote lines `> `, `README.md` exports to `README.md.md`, headline style and top level fixed (book)
-- [ ] T2.11.76 `kalem export FILE.md` treats Markdown as Org without a warning (code)
-- [ ] T2.11.77 Markdown import uses pandoc's `markdown` reader, not `gfm` or `commonmark_x`; `.gfm` files are not mapped (code)
-- [ ] T2.11.78 Markdown hazards of plain-text editing undocumented (trim trailing whitespace, Sort Lines, Join Lines) (book)
+- [x] T2.11.73 The Markdown exporters' output is not CommonMark-safe (`> ` at a line start becomes a quote, raw HTML and `[x](y)` pass through), as ox-md; list it as known differences against CommonMark (book)
+- [x] T2.11.74 GFM export is not GitHub-safe: footnotes as HTML anchors, heading anchors rewritten by GitHub's sanitizer; GFM's `[^1]` footnotes unused; the alignment row's rules to be checked against ox-gfm (code, book)
+- [x] T2.11.75 The md back-end's description: `[#A]` only with `pri:t`, the table of contents on by default (an empty heading when there are no headlines), quote lines `> `, `README.md` exports to `README.md.md`, headline style and top level fixed (book)
+- [x] T2.11.76 `kalem export FILE.md` treats Markdown as Org without a warning (code)
+- [x] T2.11.77 Markdown import uses pandoc's `markdown` reader, not `gfm` or `commonmark_x`; `.gfm` files are not mapped (code)
+- [x] T2.11.78 Markdown hazards of plain-text editing undocumented (trim trailing whitespace, Sort Lines, Join Lines) (book)
 - [ ] T2.11.79 `.h` and `.m` are highlighted as Objective-C; TOML and INI get no highlighting; TypeScript is highlighted as JavaScript (code)
 
 The manual, commands and settings

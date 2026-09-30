@@ -1,0 +1,85 @@
+- [Top](#org6cc3f58)
+  - [Included heading](#org3187713)
+    - [Deeper](#orgc7843a4)
+- [Code](#org8ed545c)
+- [Lines](#org44d2ff9)
+- [Quote](#org928a28d)
+- [Part of a file](#org45ebb3a)
+- [Levels](#org883f764)
+    - [Included heading](#orgac63fac)
+
+
+
+<a id="org6cc3f58"></a>
+
+# Top
+
+
+<a id="org3187713"></a>
+
+## Included heading
+
+Some text with a note.<sup><a id="fnr.-0-1" class="footref" href="#fn.-0-1" role="doc-backlink">1</a></sup>
+
+
+<a id="orgc7843a4"></a>
+
+### Deeper
+
+A link to ![img](include/pic.png).
+
+
+<a id="org8ed545c"></a>
+
+# Code
+
+```emacs-lisp
+(defun f ()
+  "Doc."
+  1)
+* not a heading
+```
+
+
+<a id="org44d2ff9"></a>
+
+# Lines
+
+```
+two
+three
+```
+
+
+<a id="org928a28d"></a>
+
+# Quote
+
+> one
+
+
+<a id="org45ebb3a"></a>
+
+# Part of a file
+
+A link to ![img](include/pic.png).
+
+
+<a id="org883f764"></a>
+
+# Levels
+
+
+<a id="orgac63fac"></a>
+
+### Included heading
+
+Some text with a note.<sup><a id="fnr.-0-1.1" class="footref" href="#fn.-0-1" role="doc-backlink">1</a></sup>
+
+1.  Deeper
+
+    A link to ![img](include/pic.png).
+
+## Footnotes
+
+<sup><a id="fn.1" class="footnum" href="#fnr.1">1</a></sup> The note.

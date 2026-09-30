@@ -209,6 +209,13 @@ fn markdown() {
     run(&org_export::Markdown, "md", &[]);
 }
 
+/// Against the ox-gfm package (`tools/fetch-ox-gfm.sh`, then
+/// `tools/export-expected.sh`), which is not part of Org.
+#[test]
+fn gfm() {
+    run(&org_export::Gfm, "gfm", &[]);
+}
+
 #[test]
 fn latex() {
     // Emacs refuses to download the remote image of `images` and stops.

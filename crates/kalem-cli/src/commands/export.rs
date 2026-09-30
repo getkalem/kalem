@@ -104,6 +104,26 @@ pub(crate) fn export(
     for file in files {
         let text = read(file)?;
         let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+        // The input is read as Org whatever it is: said when the editors
+        // would open it as something else.
+        let mode = kalem_core::DocumentMode::detect(Some(file), text.as_bytes());
+        if matches!(
+            mode,
+            kalem_core::DocumentMode::Markdown
+                | kalem_core::DocumentMode::Csv
+                | kalem_core::DocumentMode::Latex
+        ) {
+            eprintln!(
+                "{}: warning: read as Org, not as {} (`kalem export` reads Org files{})",
+                file.display(),
+                mode.title(),
+                if mode == kalem_core::DocumentMode::Markdown {
+                    "; `kalem import` converts Markdown to Org"
+                } else {
+                    ""
+                }
+            );
+        }
         let at = match subtree {
             Some(name) => match find_headline(text, name) {
                 Some(at) => Some(at),

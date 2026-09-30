@@ -244,7 +244,9 @@ pub fn import(pandoc: &Path, input: &Path, media: Option<&Path>) -> Result<Strin
         .map(str::to_ascii_lowercase)
         .as_deref()
     {
-        Some("md" | "markdown" | "mdown" | "mkd") => Some("markdown"),
+        // Markdown as Kalem's Markdown mode reads it: CommonMark with
+        // GitHub's extensions, and a YAML metadata block for the title.
+        Some("md" | "markdown" | "mdown" | "mkd" | "gfm") => Some("gfm+yaml_metadata_block"),
         Some("htm" | "html" | "xhtml") => Some("html"),
         Some("docx") => Some("docx"),
         Some("odt") => Some("odt"),

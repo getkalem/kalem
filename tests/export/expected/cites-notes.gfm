@@ -1,0 +1,13 @@
+A footnote with a citation<sup><a id="fnr.1" class="footref" href="#fn.1" role="doc-backlink">1</a></sup>, and a note inside a quote "said,"<sup><a id="fnr.2" class="footref" href="#fn.2" role="doc-backlink">2</a></sup> and after "one";<sup><a id="fnr.3" class="footref" href="#fn.3" role="doc-backlink">3</a></sup> then "two".<sup><a id="fnr.4" class="footref" href="#fn.4" role="doc-backlink">4</a></sup>
+
+## Footnotes
+
+<sup><a id="fn.1" class="footnum" href="#fnr.1">1</a></sup> It cites Zed Z (2011) as a note already, and (van der Berg, Anna, 1999).
+
+-   In a list: hereDonald E. Knuth (1984).
+
+<sup><a id="fn.2" class="footnum" href="#fnr.2">2</a></sup> Donald E. Knuth (1984)
+
+<sup><a id="fn.3" class="footnum" href="#fnr.3">3</a></sup> Zed Z (2011)
+
+<sup><a id="fn.4" class="footnum" href="#fnr.4">4</a></sup> van der Berg, Anna (1999)

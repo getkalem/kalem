@@ -1268,7 +1268,7 @@ pub fn caption_ids(ex: &mut Exporter<'_>, id: Id) -> Vec<Id> {
     out
 }
 
-fn colgroup_starts(ex: &Exporter<'_>, cell: Id) -> bool {
+pub(crate) fn colgroup_starts(ex: &Exporter<'_>, cell: Id) -> bool {
     let row = ex.tree.parent(cell).expect("a row");
     let first = ex
         .tree

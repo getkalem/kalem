@@ -1,0 +1,122 @@
+- [[Bracket] heading with a note<sup><a id="fnr.1" class="footref" href="#fn.1" role="doc-backlink">1</a></sup>](#orgb3336ea)
+  - [Numbered](#org799290e)
+    - [Deeper](#org0af2b60)
+      - [Deepest](#org3028fdc)
+- [Figures](#orgc302278)
+- [Blocks](#org5f46c53)
+- [Links](#org6c7538d)
+
+
+
+<a id="orgb3336ea"></a>
+
+# [Bracket] heading with a note<sup><a id="fnr.1" class="footref" href="#fn.1" role="doc-backlink">1</a></sup>     :tagged:
+
+<p><span class="timestamp-wrapper"><span class="timestamp-kwd">CLOSED:</span> <span class="timestamp">[2026-09-27 Sun 10:00] </span> <span class="timestamp-kwd">SCHEDULED:</span> <span class="timestamp">&lt;2026-09-28 Mon&gt;</span></span></p>
+
+<p>
+<span class="timestamp-wrapper">
+<span class="timestamp-kwd">CLOCK:</span> <span class="timestamp">[2026-09-28 Mon 09:00]--[2026-09-28 Mon 10:30] </span> <span class="timestamp">(1:30)</span>
+</span>
+</p>
+
+&ldquo;Smart&rdquo; &rsquo;quotes&rsquo; and don&rsquo;t.  
+Line one  
+Line two  
+a\_b and a<sup>b</sup>.  
+
+
+<a id="org799290e"></a>
+
+## Numbered
+
+
+<a id="org0af2b60"></a>
+
+### Deeper
+
+
+<a id="org3028fdc"></a>
+
+#### Deepest
+
+-   Beyond H
+
+
+<a id="orgc302278"></a>
+
+# Figures
+
+![img](a.png "Not floating")  
+
+![img](b.jpg "Sideways")  
+
+<c.eps>  
+
+![img](d.png)  
+
+See [5](#orge894a79).  
+
+|    |    |
+|--- |--- |
+| a | b |
+
+|    |    |
+|--- |--- |
+| c | d |
+
+|    |    |
+|--- |--- |
+| e | f |
+
+|    |    |
+|--- |--- |
+| g | h |
+
+
+<a id="org5f46c53"></a>
+
+# Blocks
+
+<div class="org-center">
+<p>
+Middle.<br />
+</p>
+</div>
+
+\begin{align*}
+\label{org4474d60}
+a &= b
+\end{align*}
+
+```sh
+ls
+```
+
+```sh
+
+```
+
+<div class="mybox" id="org71602d6">
+<p>
+No caption.<br />
+</p>
+
+</div>
+
+<a id="orgc95557e">radio</a> target, and <a href="#orgc95557e">radio</a> used here.  
+
+-   [X] **checked:** described
+-   **plain:** term
+
+
+<a id="org6c7538d"></a>
+
+# Links
+
+[desc](https://example.com/a_b?x=1&y=2) and <mailto:a@b.c> and <file:///abs/path.md> and <https://x.y/%20z>.  
+[BROKEN LINK: nowhere]  
+
+## Footnotes
+
+<sup><a id="fn.1" class="footnum" href="#fnr.1">1</a></sup> A note in a title.

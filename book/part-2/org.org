@@ -835,7 +835,7 @@ options, the pruned tree, =org-export-data= and the back-ends.
 |------------+---------------+----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------|
 | HTML       | =html=        | =ox-html=, XHTML strict by default                 | Body byte for byte on every test case and on all 287 Worg files; whole pages on the test cases but =footnotes= and =includes= |
 | Markdown   | =md=          | =ox-md=                                            | Every test case and all 287 Worg files                                                                                        |
-| GFM        | =gfm=         | =ox-md= with the additions of the =ox-gfm= package | No oracle: =ox-gfm= is not part of Org                                                                                        |
+| GFM        | =gfm=         | The =ox-gfm= package (not part of Org), on =ox-md= | Every test case and =ORG-NEWS=, against =ox-gfm= fetched by =tools/fetch-ox-gfm.sh=                                           |
 | LaTeX      | =latex=       | =ox-latex=: article, report, book                  | Every test case and whole document but =images=; the corpus but the attachment example                                        |
 | Plain text | =txt=, =utf8= | =ox-ascii=, ASCII or UTF-8 charset                 | Every test case; whole documents but =images=                                                                                 |
 
