@@ -1609,6 +1609,12 @@ impl App {
                 self.dirty = true;
             }
             Request::FullScreen => self.message(tr!("msg-full-screen-terminal"), false),
+            Request::Terminal(dir) => {
+                if let Err(e) = kalem_core::system::open_terminal(&dir) {
+                    self.message(tr!("msg-no-terminal", error = e), true);
+                }
+            }
+            Request::NewWindow => self.message(tr!("msg-one-window"), false),
             Request::Focus => {
                 self.editor.focus = !self.editor.focus;
                 self.editor.follow = true;

@@ -1052,6 +1052,12 @@ impl Editor {
                 cx.notify();
             }
             Request::FullScreen => window.toggle_fullscreen(),
+            Request::Terminal(dir) => {
+                if let Err(e) = kalem_core::system::open_terminal(&dir) {
+                    self.message(tr!("msg-no-terminal", error = e), true);
+                }
+            }
+            Request::NewWindow => crate::workspace::open_window(None, self.shared.clone(), cx),
             Request::Focus => {
                 self.focus_mode = !self.focus_mode;
                 let m = if self.focus_mode {

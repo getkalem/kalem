@@ -129,6 +129,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
         ("file.rename", object(&[("target", "string", false)])),
+        ("app.terminal", object(&[("project", "boolean", false)])),
         (
             "search.lines",
             object(&[
@@ -533,6 +534,16 @@ fn export_doc(
     extension: &str,
     subtree: bool,
 ) -> CommandResult {
+    export_doc_to(ctx, backend, extension, subtree).map(|_| ())
+}
+
+/// [`export_doc`], returning the file written.
+fn export_doc_to(
+    ctx: &mut EditorContext<'_>,
+    backend: &dyn org_export::Backend,
+    extension: &str,
+    subtree: bool,
+) -> Result<std::path::PathBuf, CommandError> {
     let doc = ctx
         .document
         .as_deref()
@@ -564,7 +575,7 @@ fn export_doc(
                 &target,
             ))));
     }
-    Ok(())
+    Ok(target)
 }
 
 /// The LaTeX back-end, as `ox-latex` writes.
@@ -2144,6 +2155,22 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| export_doc(ctx, &org_export::Html, ".html", true),
         ),
         cmd(
+            "export.htmlBrowser",
+            "Export as HTML and Open",
+            "Export",
+            &[],
+            Some("editorMode == org"),
+            |ctx, _| {
+                let target = export_doc_to(ctx, &org_export::Html, ".html", false)?;
+                if !ctx.config.bool("export.open_after") {
+                    let url = file_url(&target);
+                    ctx.requests
+                        .push(Request::OpenLink(crate::input::LinkAction::Url(url)));
+                }
+                Ok(())
+            },
+        ),
+        cmd(
             "export.markdown",
             "Export as Markdown",
             "Export",
@@ -3513,6 +3540,33 @@ fn plain_commands() -> Vec<Command> {
                 ctx.messages.push(crate::l10n::tr(msg));
                 Ok(())
             },
+        ),
+        cmd(
+            "app.terminal",
+            "Open a Terminal Here",
+            "View",
+            &[],
+            None,
+            |ctx, args| {
+                let doc = ctx.doc()?;
+                let dir = crate::command::folder_of(doc)
+                    .or_else(|| std::env::current_dir().ok())
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-file")))?;
+                let dir = if args.get("project").and_then(Value::as_bool) == Some(true) {
+                    kalem_project::list::detect_root(&dir).unwrap_or(dir)
+                } else {
+                    dir
+                };
+                request(ctx, Request::Terminal(dir))
+            },
+        ),
+        cmd(
+            "app.newWindow",
+            "New Window",
+            "View",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::NewWindow),
         ),
         cmd(
             "view.fullScreen",
@@ -5554,5 +5608,51 @@ mod tests {
         assert!(matches!(&req[..], [Request::SetSetting { value, .. }] if *value == 24));
         let req = run(&mut d, "view.bigText");
         assert!(matches!(&req[..], [Request::SetSetting { value, .. }] if *value == 16));
+    }
+
+    #[test]
+    fn open_keys_in_the_system() {
+        let dir = std::env::temp_dir().join(format!("kalem-open-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join(".git")).unwrap();
+        std::fs::create_dir_all(dir.join("notes")).unwrap();
+        let file = dir.join("notes/a.org");
+        std::fs::write(&file, "* A\nText.\n").unwrap();
+        let mut d = DocumentState::open(
+            &file,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        let (reg, mut clip, config) = (
+            CommandRegistry::with_builtins(),
+            Clipboard::default(),
+            crate::settings::Config::default(),
+        );
+        let mut run = |d: &mut DocumentState, id: &str, args: serde_json::Value| {
+            let mut ctx = EditorContext {
+                document: Some(d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 9, 30).at(9, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            reg.execute(id, &mut ctx, &args).unwrap();
+            ctx.requests
+        };
+        // `SPC o b`: the HTML written beside it and opened.
+        let req = run(&mut d, "export.htmlBrowser", json!({}));
+        assert!(dir.join("notes/a.html").is_file());
+        assert!(
+            matches!(&req[..], [Request::OpenLink(crate::input::LinkAction::Url(u))]
+            if u.ends_with("a.html"))
+        );
+        // `SPC o t` here, `SPC o T` at the project's root.
+        let req = run(&mut d, "app.terminal", json!({}));
+        assert!(matches!(&req[..], [Request::Terminal(p)] if p.ends_with("notes")));
+        let req = run(&mut d, "app.terminal", json!({ "project": true }));
+        assert!(matches!(&req[..], [Request::Terminal(p)] if !p.ends_with("notes")));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

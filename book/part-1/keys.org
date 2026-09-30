@@ -80,6 +80,10 @@ follow:
 | =SPC s d=, =SPC s D= | Search this folder; another folder          |
 | =SPC s P=, =SPC s o= | Search another project; online              |
 | =SPC o o=            | Outline                                     |
+| =SPC o t=, =SPC o T= | The system's terminal here; at the project  |
+| =SPC o b=            | Export as HTML and open it in the browser   |
+| =SPC o l=, =SPC o x= | Open the link at the cursor; scratch        |
+| =SPC o f=            | A new window (graphical editor)             |
 | =SPC t w=            | Soft wrap                                   |
 | =SPC t z=            | Focus mode                                  |
 | =SPC t m=            | Formula preview                             |

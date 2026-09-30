@@ -3705,3 +3705,17 @@ fn read_only_toggle() {
     t.typ(" tF");
     assert!(status(&mut t).contains("terminal"), "{}", status(&mut t));
 }
+
+/// Doom's `SPC o f`: the terminal editor says it has one window
+/// (T2.7i.7).
+#[test]
+fn one_window_in_the_terminal() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, _dir) = project_app(config);
+    t.typ(" of");
+    assert!(
+        status(&mut t).contains("The terminal editor has"),
+        "{}",
+        status(&mut t)
+    );
+}

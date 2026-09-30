@@ -90,6 +90,10 @@ pub enum Request {
     Focus,
     /// The window full screen, or back.
     FullScreen,
+    /// The system's terminal at this folder.
+    Terminal(std::path::PathBuf),
+    /// A new window.
+    NewWindow,
     /// The document's mode changed: views start again.
     ModeChanged,
     /// Wrap long lines, or not.
