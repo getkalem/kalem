@@ -50,7 +50,7 @@ follow:
 | =SPC ,=, =SPC b b=   | Switch Document                             |
 | =SPC b n=, =SPC b p= | Next, previous document                     |
 | =SPC b k=            | Close Document                              |
-| =SPC f f=, =SPC .=   | Open File                                   |
+| =SPC f f=, =SPC .=   | Open a file by path (a new name makes it)   |
 | =SPC f r=            | Recent files                                |
 | =SPC f s=            | Save                                        |
 | =SPC o p=            | Show or hide the open files                 |
@@ -83,6 +83,17 @@ demote and promote headings and indent list items.
 =markdown=, =csv=, =latex=, =text= (plain text, code and BibTeX) and
 =directory= (the file manager); for example =["text"]= for plain text
 only.
+
+* Doom's leader map in Kalem
+
+Every key of Doom Emacs's leader map, and what it does in Kalem or why it
+does not yet: /Planned/ names the task that brings it, and a few keys
+Kalem will not have say why. The table is generated from
+=tests/keys/doom-leader.toml=, which the tests check against the Vim
+keymap, so it cannot drift from the keys. The local leader, =SPC m=, is
+the next step, and the file manager's keys are in its chapter.
+
+#+KALEM_KEYS: doom-leader
 
 * Your own keys
 

@@ -185,12 +185,13 @@ fn code(s: &str) -> String {
 fn with_key_tables(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for line in text.split_inclusive('\n') {
-        match line.trim().strip_prefix("#+KALEM_KEYS:").map(str::trim) {
-            Some("doom-dired") => out.push_str(&kalem_core::key_tables::org_table(
-                &kalem_core::key_tables::doom_dired(),
-                "Doom",
-            )),
-            _ => out.push_str(line),
+        let rows = line
+            .trim()
+            .strip_prefix("#+KALEM_KEYS:")
+            .and_then(|name| kalem_core::key_tables::table(name.trim()));
+        match rows {
+            Some(rows) => out.push_str(&kalem_core::key_tables::org_table(&rows, "Doom")),
+            None => out.push_str(line),
         }
     }
     out

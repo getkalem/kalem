@@ -26,6 +26,20 @@ pub fn doom_dired() -> Vec<KeyRow> {
     parse(include_str!("../../../tests/keys/doom-dired.toml"), "doom")
 }
 
+/// Doom Emacs's leader map (T2.7i.1).
+pub fn doom_leader() -> Vec<KeyRow> {
+    parse(include_str!("../../../tests/keys/doom-leader.toml"), "doom")
+}
+
+/// The table called `name` (`doom-dired`, `doom-leader`).
+pub fn table(name: &str) -> Option<Vec<KeyRow>> {
+    match name {
+        "doom-dired" => Some(doom_dired()),
+        "doom-leader" => Some(doom_leader()),
+        _ => None,
+    }
+}
+
 fn parse(text: &str, theirs: &str) -> Vec<KeyRow> {
     let doc: toml_edit::DocumentMut = text.parse().expect("a key table");
     let Some(rows) = doc.get("key").and_then(|k| k.as_array_of_tables()) else {
@@ -55,7 +69,7 @@ pub fn org_table(rows: &[KeyRow], theirs: &str) -> String {
     for r in rows {
         let kalem = match (&r.command, &r.reason) {
             (Some(c), _) => code(c),
-            (None, Some(why)) => format!("/not yet:/ {}", cell(why)),
+            (None, Some(why)) => format!("/{}/", cell(why)),
             (None, None) => "Vim".to_string(),
         };
         out.push_str(&format!(
@@ -91,6 +105,46 @@ mod tests {
         match m.lookup(&seq, ctx) {
             Lookup::Command { command, .. } => Some(command),
             _ => None,
+        }
+    }
+
+    #[test]
+    fn doom_leader_keys() {
+        let rows = doom_leader();
+        assert!(rows.len() > 250, "{}", rows.len());
+        let reg = CommandRegistry::with_builtins();
+        let (vim, _) = Keymap::build(&reg, Profile::Vim, &[]);
+        // An Org document in a project.
+        let mut ctx = Context::default();
+        ctx.set("editorMode", V::Str("org".into()));
+        ctx.set("textType", V::Str("org".into()));
+        ctx.flag("vimCommand", true);
+        ctx.flag("inProject", true);
+        let mut seen = std::collections::HashSet::new();
+        for r in &rows {
+            let row = &r.theirs;
+            assert!(seen.insert(&r.keys), "{row} twice");
+            assert!(!r.what.is_empty(), "{row}");
+            match (&r.command, &r.reason) {
+                (Some(c), None) => {
+                    assert_eq!(lookup(&vim, &r.keys, &ctx), Some(c.as_str()), "{row}")
+                }
+                (None, Some(why)) => assert!(!why.is_empty(), "{row}"),
+                _ => panic!("{row}: a command or a reason"),
+            }
+        }
+        // Every leader binding of the Vim keymap is in the table.
+        let listed: std::collections::HashSet<String> =
+            rows.iter().map(|r| r.keys.clone()).collect();
+        for b in vim.bindings() {
+            let keys = b.keys.to_string();
+            let directory = b.when.as_ref().is_some_and(|w| w.mentions("editorMode"));
+            if keys.starts_with("space ") && !directory {
+                assert!(
+                    listed.contains(&keys),
+                    "{keys} is bound but not in the table"
+                );
+            }
         }
     }
 

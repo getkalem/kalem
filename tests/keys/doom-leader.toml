@@ -1,0 +1,1586 @@
+# Doom Emacs 3.0's leader map (`SPC` with Evil; modules/config/default)
+# and what each key does in Kalem with Vim keys (T2.7i.1). `keys` is the
+# key in Kalem's notation; `command` the command it runs, or `reason` why
+# it does not: a task of section 2.7i when it is planned, or why Kalem
+# will not have it. The test in `kalem_core::key_tables` checks every row
+# against the Vim keymap in an Org document of a project; the Keys
+# chapter of the Book shows the table. The local leader `SPC m` is
+# T2.7i.16 and T2.7i.17.
+
+
+# Top level.
+[[key]]
+doom = "SPC :"
+keys = "space :"
+what = "Run a command (M-x)"
+command = "view.palette"
+
+[[key]]
+doom = "SPC SPC"
+keys = "space space"
+what = "Find a file in the project"
+command = "project.findFile"
+
+[[key]]
+doom = "SPC ."
+keys = "space ."
+what = "Find a file"
+command = "file.open"
+
+[[key]]
+doom = "SPC ,"
+keys = "space ,"
+what = "Switch document"
+command = "file.switch"
+
+[[key]]
+doom = "SPC <"
+keys = "space <"
+what = "Switch document"
+reason = "Planned: T2.7i.18"
+
+[[key]]
+doom = "SPC `"
+keys = "space `"
+what = "Last document"
+reason = "Planned: T2.7i.18"
+
+[[key]]
+doom = "SPC /"
+keys = "space /"
+what = "Search the project"
+command = "project.search"
+
+[[key]]
+doom = "SPC '"
+keys = "space '"
+what = "Resume the last picker"
+reason = "Planned: T2.7i.18"
+
+[[key]]
+doom = "SPC *"
+keys = "space *"
+what = "Search the project for the word at point"
+reason = "Planned: T2.7i.18"
+
+[[key]]
+doom = "SPC ~"
+keys = "space ~"
+what = "Toggle the last popup"
+reason = "Planned: T2.7i.18"
+
+[[key]]
+doom = "SPC RET"
+keys = "space enter"
+what = "Jump to a bookmark"
+reason = "Planned: T2.7i.18"
+
+[[key]]
+doom = "SPC X"
+keys = "space shift+x"
+what = "Capture"
+reason = "Planned: T2.7i.18"
+
+[[key]]
+doom = "SPC u"
+keys = "space u"
+what = "Universal argument"
+reason = "Planned: T2.7i.18"
+
+[[key]]
+doom = "SPC ;"
+keys = "space ;"
+what = "Evaluate an expression"
+reason = "No Lisp to evaluate; the palette runs commands"
+
+[[key]]
+doom = "SPC x"
+keys = "space x"
+what = "Scratch document"
+reason = "Planned: T2.7i.18"
+
+
+# Buffers =SPC b=.
+[[key]]
+doom = "SPC b b"
+keys = "space b b"
+what = "Switch document"
+command = "file.switch"
+
+[[key]]
+doom = "SPC b B"
+keys = "space b shift+b"
+what = "Switch document across projects"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b c"
+keys = "space b c"
+what = "Clone into a new pane"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b d"
+keys = "space b d"
+what = "Kill document"
+command = "file.close"
+
+[[key]]
+doom = "SPC b k"
+keys = "space b k"
+what = "Kill document"
+command = "file.close"
+
+[[key]]
+doom = "SPC b i"
+keys = "space b i"
+what = "The documents list"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b K"
+keys = "space b shift+k"
+what = "Kill all documents"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b l"
+keys = "space b l"
+what = "Last document"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b m"
+keys = "space b m"
+what = "Set bookmark"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b M"
+keys = "space b shift+m"
+what = "Delete bookmark"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b n"
+keys = "space b n"
+what = "Next document"
+command = "file.next"
+
+[[key]]
+doom = "SPC b ]"
+keys = "space b ]"
+what = "Next document"
+command = "file.next"
+
+[[key]]
+doom = "SPC b N"
+keys = "space b shift+n"
+what = "New empty document"
+command = "file.new"
+
+[[key]]
+doom = "SPC b O"
+keys = "space b shift+o"
+what = "Kill other documents"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b p"
+keys = "space b p"
+what = "Previous document"
+command = "file.previous"
+
+[[key]]
+doom = "SPC b ["
+keys = "space b ["
+what = "Previous document"
+command = "file.previous"
+
+[[key]]
+doom = "SPC b r"
+keys = "space b r"
+what = "Revert document"
+command = "app.revert"
+
+[[key]]
+doom = "SPC b s"
+keys = "space b s"
+what = "Save document"
+command = "app.save"
+
+[[key]]
+doom = "SPC b S"
+keys = "space b shift+s"
+what = "Save all documents"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b x"
+keys = "space b x"
+what = "Scratch document"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b X"
+keys = "space b shift+x"
+what = "Scratch document in the project"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b y"
+keys = "space b y"
+what = "Copy the document"
+reason = "Planned: T2.7i.2"
+
+[[key]]
+doom = "SPC b z"
+keys = "space b z"
+what = "Bury document"
+reason = "Planned: T2.7i.2"
+
+
+# Files =SPC f=.
+[[key]]
+doom = "SPC f c"
+keys = "space f c"
+what = "Open the workspace settings"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f C"
+keys = "space f shift+c"
+what = "Copy this file"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f d"
+keys = "space f d"
+what = "Find a folder"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f D"
+keys = "space f shift+d"
+what = "Delete this file"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f e"
+keys = "space f e"
+what = "Find a file in emacs.d"
+reason = "Kalem has no emacs.d"
+
+[[key]]
+doom = "SPC f E"
+keys = "space f shift+e"
+what = "Browse emacs.d"
+reason = "Kalem has no emacs.d"
+
+[[key]]
+doom = "SPC f f"
+keys = "space f f"
+what = "Find a file"
+command = "file.open"
+
+[[key]]
+doom = "SPC f F"
+keys = "space f shift+f"
+what = "Find a file from here"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f l"
+keys = "space f l"
+what = "Locate a file"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f p"
+keys = "space f p"
+what = "Find a file in the private config"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f P"
+keys = "space f shift+p"
+what = "Browse the private config"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f r"
+keys = "space f r"
+what = "Recent files"
+command = "file.recent"
+
+[[key]]
+doom = "SPC f R"
+keys = "space f shift+r"
+what = "Rename or move this file"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f s"
+keys = "space f s"
+what = "Save"
+command = "app.save"
+
+[[key]]
+doom = "SPC f S"
+keys = "space f shift+s"
+what = "Save as"
+command = "app.saveAs"
+
+[[key]]
+doom = "SPC f u"
+keys = "space f u"
+what = "Sudo find file"
+reason = "No editing as another user"
+
+[[key]]
+doom = "SPC f U"
+keys = "space f shift+u"
+what = "Sudo this file"
+reason = "No editing as another user"
+
+[[key]]
+doom = "SPC f y"
+keys = "space f y"
+what = "Copy the path"
+reason = "Planned: T2.7i.3"
+
+[[key]]
+doom = "SPC f Y"
+keys = "space f shift+y"
+what = "Copy the path from the project"
+reason = "Planned: T2.7i.3"
+
+
+# Search =SPC s=.
+[[key]]
+doom = "SPC s b"
+keys = "space s b"
+what = "Search the document"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s B"
+keys = "space s shift+b"
+what = "Search all open documents"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s d"
+keys = "space s d"
+what = "Search this folder"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s D"
+keys = "space s shift+d"
+what = "Search another folder"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s e"
+keys = "space s e"
+what = "Search emacs.d"
+reason = "Kalem has no emacs.d"
+
+[[key]]
+doom = "SPC s f"
+keys = "space s f"
+what = "Locate a file"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s i"
+keys = "space s i"
+what = "Jump to a symbol or heading"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s I"
+keys = "space s shift+i"
+what = "Jump to a symbol in all documents"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s j"
+keys = "space s j"
+what = "Jump list"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s k"
+keys = "space s k"
+what = "Look up documentation"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s l"
+keys = "space s l"
+what = "Jump to a link"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s L"
+keys = "space s shift+l"
+what = "Open a link"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s m"
+keys = "space s m"
+what = "Jump to a bookmark"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s o"
+keys = "space s o"
+what = "Search online"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s p"
+keys = "space s p"
+what = "Search the project"
+command = "project.search"
+
+[[key]]
+doom = "SPC s P"
+keys = "space s shift+p"
+what = "Search another project"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s r"
+keys = "space s r"
+what = "Jump to a mark"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s s"
+keys = "space s s"
+what = "Search the document"
+command = "find.open"
+
+[[key]]
+doom = "SPC s S"
+keys = "space s shift+s"
+what = "Search for the word at point"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s t"
+keys = "space s t"
+what = "Dictionary"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s T"
+keys = "space s shift+t"
+what = "Thesaurus"
+reason = "Planned: T2.7i.4"
+
+[[key]]
+doom = "SPC s u"
+keys = "space s u"
+what = "Undo history"
+reason = "Planned: T2.7i.4"
+
+
+# Windows =SPC w=.
+[[key]]
+doom = "SPC w v"
+keys = "space w v"
+what = "Split right"
+command = "view.split"
+
+[[key]]
+doom = "SPC w s"
+keys = "space w s"
+what = "Split below"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w h"
+keys = "space w h"
+what = "Focus left"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w j"
+keys = "space w j"
+what = "Focus down"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w k"
+keys = "space w k"
+what = "Focus up"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w l"
+keys = "space w l"
+what = "Focus right"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w H"
+keys = "space w shift+h"
+what = "Move left"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w J"
+keys = "space w shift+j"
+what = "Move down"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w K"
+keys = "space w shift+k"
+what = "Move up"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w L"
+keys = "space w shift+l"
+what = "Move right"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w c"
+keys = "space w c"
+what = "Close pane"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w d"
+keys = "space w d"
+what = "Close pane"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w o"
+keys = "space w o"
+what = "Only this pane"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w m m"
+keys = "space w m m"
+what = "Maximize"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w w"
+keys = "space w w"
+what = "Next pane"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w p"
+keys = "space w p"
+what = "Previous pane"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w ="
+keys = "space w ="
+what = "Balance"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w +"
+keys = "space w +"
+what = "Taller"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w -"
+keys = "space w -"
+what = "Shorter"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w <"
+keys = "space w <"
+what = "Narrower"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w >"
+keys = "space w >"
+what = "Wider"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w x"
+keys = "space w x"
+what = "Swap"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w r"
+keys = "space w r"
+what = "Rotate"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w R"
+keys = "space w shift+r"
+what = "Rotate back"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w u"
+keys = "space w u"
+what = "Undo the layout"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w U"
+keys = "space w shift+u"
+what = "Redo the layout"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w n"
+keys = "space w n"
+what = "New pane"
+reason = "Planned: T2.7i.5"
+
+[[key]]
+doom = "SPC w q"
+keys = "space w q"
+what = "Close pane and document"
+reason = "Planned: T2.7i.5"
+
+
+# Toggles =SPC t=.
+[[key]]
+doom = "SPC t b"
+keys = "space t b"
+what = "Big text"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t c"
+keys = "space t c"
+what = "Fill column indicator"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t f"
+keys = "space t f"
+what = "Diagnostics"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t F"
+keys = "space t shift+f"
+what = "Frame full screen"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t g"
+keys = "space t g"
+what = "Evil goggles"
+reason = "An Evil package with nothing to show here"
+
+[[key]]
+doom = "SPC t i"
+keys = "space t i"
+what = "Indent guides"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t I"
+keys = "space t shift+i"
+what = "Indent style"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t l"
+keys = "space t l"
+what = "Line numbers"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t m"
+keys = "space t m"
+what = "Math preview (Kalem)"
+command = "view.toggleMath"
+
+[[key]]
+doom = "SPC t p"
+keys = "space t p"
+what = "Presentation mode"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t r"
+keys = "space t r"
+what = "Read-only"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t s"
+keys = "space t s"
+what = "Spell checking"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t t"
+keys = "space t t"
+what = "Word wrap by visual line"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t v"
+keys = "space t v"
+what = "Visible mode"
+reason = "Planned: T2.7i.6"
+
+[[key]]
+doom = "SPC t w"
+keys = "space t w"
+what = "Soft line wrapping"
+command = "view.toggleWrap"
+
+[[key]]
+doom = "SPC t z"
+keys = "space t z"
+what = "Zen mode"
+command = "view.focus"
+
+[[key]]
+doom = "SPC t Z"
+keys = "space t shift+z"
+what = "Zen and full screen"
+reason = "Planned: T2.7i.6"
+
+
+# Open =SPC o=.
+[[key]]
+doom = "SPC o -"
+keys = "space o -"
+what = "The file manager"
+command = "dired.jump"
+
+[[key]]
+doom = "SPC o a"
+keys = "space o a"
+what = "Agenda"
+reason = "Planned: T2.7i.7"
+
+[[key]]
+doom = "SPC o A"
+keys = "space o shift+a"
+what = "Agenda"
+reason = "Planned: T2.7i.7"
+
+[[key]]
+doom = "SPC o b"
+keys = "space o b"
+what = "Browser"
+reason = "Planned: T2.7i.7"
+
+[[key]]
+doom = "SPC o d"
+keys = "space o d"
+what = "Debugger"
+reason = "No debugger in Kalem"
+
+[[key]]
+doom = "SPC o e"
+keys = "space o e"
+what = "Eshell"
+reason = "No shell inside Kalem"
+
+[[key]]
+doom = "SPC o E"
+keys = "space o shift+e"
+what = "Eshell here"
+reason = "No shell inside Kalem"
+
+[[key]]
+doom = "SPC o f"
+keys = "space o f"
+what = "New frame"
+reason = "Planned: T2.7i.7"
+
+[[key]]
+doom = "SPC o l"
+keys = "space o l"
+what = "Link at point"
+reason = "Planned: T2.7i.7"
+
+[[key]]
+doom = "SPC o m"
+keys = "space o m"
+what = "Mail"
+reason = "No mail in Kalem"
+
+[[key]]
+doom = "SPC o o"
+keys = "space o o"
+what = "The outline (Kalem)"
+command = "view.outline"
+
+[[key]]
+doom = "SPC o p"
+keys = "space o p"
+what = "Project sidebar"
+command = "view.openFiles"
+
+[[key]]
+doom = "SPC o P"
+keys = "space o shift+p"
+what = "The projects"
+command = "dired.projects"
+
+[[key]]
+doom = "SPC o r"
+keys = "space o r"
+what = "REPL"
+reason = "No REPL in Kalem"
+
+[[key]]
+doom = "SPC o t"
+keys = "space o t"
+what = "Terminal"
+reason = "Planned: T2.7i.7"
+
+[[key]]
+doom = "SPC o T"
+keys = "space o shift+t"
+what = "Terminal here"
+reason = "Planned: T2.7i.7"
+
+[[key]]
+doom = "SPC o x"
+keys = "space o x"
+what = "Scratch"
+reason = "Planned: T2.7i.7"
+
+
+# Projects =SPC p=.
+[[key]]
+doom = "SPC p ."
+keys = "space p ."
+what = "Browse the project"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p >"
+keys = "space p >"
+what = "Browse another project"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p !"
+keys = "space p !"
+what = "Shell command at the root"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p a"
+keys = "space p a"
+what = "Add a project"
+command = "project.add"
+
+[[key]]
+doom = "SPC p b"
+keys = "space p b"
+what = "Switch to a project document"
+command = "project.switchDocument"
+
+[[key]]
+doom = "SPC p c"
+keys = "space p c"
+what = "Compile the project"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p C"
+keys = "space p shift+c"
+what = "Repeat the compile"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p d"
+keys = "space p d"
+what = "Remove a known project"
+command = "project.remove"
+
+[[key]]
+doom = "SPC p D"
+keys = "space p shift+d"
+what = "Project folder in the file manager"
+command = "dired.projectRoot"
+
+[[key]]
+doom = "SPC p e"
+keys = "space p e"
+what = "Edit the project settings"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p f"
+keys = "space p f"
+what = "Find a file in the project"
+command = "project.findFile"
+
+[[key]]
+doom = "SPC p F"
+keys = "space p shift+f"
+what = "Find a file in another project"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p g"
+keys = "space p g"
+what = "Configure the project"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p i"
+keys = "space p i"
+what = "Invalidate the project cache"
+command = "project.refresh"
+
+[[key]]
+doom = "SPC p k"
+keys = "space p k"
+what = "Kill project documents"
+command = "project.closeDocuments"
+
+[[key]]
+doom = "SPC p o"
+keys = "space p o"
+what = "Find the other file"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p p"
+keys = "space p p"
+what = "Switch project"
+command = "project.switch"
+
+[[key]]
+doom = "SPC p r"
+keys = "space p r"
+what = "Recent project files"
+command = "project.recentFiles"
+
+[[key]]
+doom = "SPC p R"
+keys = "space p shift+r"
+what = "Run the project"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p s"
+keys = "space p s"
+what = "Save project documents"
+command = "project.saveDocuments"
+
+[[key]]
+doom = "SPC p t"
+keys = "space p t"
+what = "List the project TODOs"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p T"
+keys = "space p shift+t"
+what = "Test the project"
+reason = "Planned: T2.7i.8"
+
+[[key]]
+doom = "SPC p x"
+keys = "space p x"
+what = "Scratch in the project"
+reason = "Planned: T2.7i.8"
+
+
+# Help =SPC h=.
+[[key]]
+doom = "SPC h '"
+keys = "space h '"
+what = "Describe the character at point"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h a"
+keys = "space h a"
+what = "Apropos"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h b b"
+keys = "space h b b"
+what = "All bindings"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h d"
+keys = "space h d"
+what = "Doom help"
+reason = "Kalem has the Book instead of Doom's help"
+
+[[key]]
+doom = "SPC h e"
+keys = "space h e"
+what = "Messages"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h f"
+keys = "space h f"
+what = "Describe function"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h i"
+keys = "space h i"
+what = "Info"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h k"
+keys = "space h k"
+what = "Describe key"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h m"
+keys = "space h m"
+what = "Describe mode"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h n"
+keys = "space h n"
+what = "News"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h p"
+keys = "space h p"
+what = "Describe package"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h r r"
+keys = "space h r r"
+what = "Reload"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h t"
+keys = "space h t"
+what = "Load theme"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h v"
+keys = "space h v"
+what = "Describe variable"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h w"
+keys = "space h w"
+what = "Where is"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h x"
+keys = "space h x"
+what = "Describe command"
+reason = "Planned: T2.7i.9"
+
+[[key]]
+doom = "SPC h RET"
+keys = "space h enter"
+what = "The manual"
+reason = "Planned: T2.7i.9"
+
+
+# Code =SPC c=.
+[[key]]
+doom = "SPC c a"
+keys = "space c a"
+what = "Code actions"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c c"
+keys = "space c c"
+what = "Compile"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c C"
+keys = "space c shift+c"
+what = "Recompile"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c d"
+keys = "space c d"
+what = "Definition"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c D"
+keys = "space c shift+d"
+what = "References"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c e"
+keys = "space c e"
+what = "Evaluate"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c f"
+keys = "space c f"
+what = "Format"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c i"
+keys = "space c i"
+what = "Implementations"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c j"
+keys = "space c j"
+what = "Symbol in the document"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c J"
+keys = "space c shift+j"
+what = "Symbol in the workspace"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c k"
+keys = "space c k"
+what = "Documentation"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c l"
+keys = "space c l"
+what = "Language server commands"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c r"
+keys = "space c r"
+what = "Rename"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c t"
+keys = "space c t"
+what = "Type definition"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c w"
+keys = "space c w"
+what = "Delete trailing whitespace"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c W"
+keys = "space c shift+w"
+what = "Delete trailing blank lines"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c x"
+keys = "space c x"
+what = "Diagnostics"
+reason = "Planned: T2.7i.10"
+
+[[key]]
+doom = "SPC c X"
+keys = "space c shift+x"
+what = "Project diagnostics"
+reason = "Planned: T2.7i.10"
+
+
+# Git =SPC g=.
+[[key]]
+doom = "SPC g g"
+keys = "space g g"
+what = "Status"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g b"
+keys = "space g b"
+what = "Blame"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g B"
+keys = "space g shift+b"
+what = "Blame this line"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g c c"
+keys = "space g c c"
+what = "Commit"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g S"
+keys = "space g shift+s"
+what = "Stage the file"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g U"
+keys = "space g shift+u"
+what = "Unstage the file"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g R"
+keys = "space g shift+r"
+what = "Revert the file"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g L"
+keys = "space g shift+l"
+what = "Log of the file"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g t"
+keys = "space g t"
+what = "Time machine"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g ["
+keys = "space g ["
+what = "Previous hunk"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g ]"
+keys = "space g ]"
+what = "Next hunk"
+reason = "Planned: T2.7i.11"
+
+[[key]]
+doom = "SPC g o o"
+keys = "space g o o"
+what = "Open on the remote"
+reason = "Planned: T2.7i.11"
+
+
+# Notes =SPC n=.
+[[key]]
+doom = "SPC n a"
+keys = "space n a"
+what = "Agenda"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n A"
+keys = "space n shift+a"
+what = "Agenda"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n c"
+keys = "space n c"
+what = "Capture"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n C"
+keys = "space n shift+c"
+what = "Go to the capture target"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n d"
+keys = "space n d"
+what = "Deft"
+reason = "Deft is not part of Kalem"
+
+[[key]]
+doom = "SPC n l"
+keys = "space n l"
+what = "Store a link"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n m"
+keys = "space n m"
+what = "Tags view"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n n"
+keys = "space n n"
+what = "Capture"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n N"
+keys = "space n shift+n"
+what = "Go to the capture target"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n o"
+keys = "space n o"
+what = "Active clocks"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n r"
+keys = "space n r"
+what = "Roam"
+reason = "Org Roam is not part of Kalem"
+
+[[key]]
+doom = "SPC n s"
+keys = "space n s"
+what = "Search the notes"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n t"
+keys = "space n t"
+what = "TODO list"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n v"
+keys = "space n v"
+what = "Agenda views"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n y"
+keys = "space n y"
+what = "Export to the clipboard"
+reason = "Planned: T2.7i.12"
+
+[[key]]
+doom = "SPC n Y"
+keys = "space n shift+y"
+what = "Export to the clipboard as rich text"
+reason = "Planned: T2.7i.12"
+
+
+# Insert =SPC i=.
+[[key]]
+doom = "SPC i e"
+keys = "space i e"
+what = "Emoji"
+reason = "Planned: T2.7i.13"
+
+[[key]]
+doom = "SPC i f"
+keys = "space i f"
+what = "File name"
+reason = "Planned: T2.7i.13"
+
+[[key]]
+doom = "SPC i F"
+keys = "space i shift+f"
+what = "File path"
+reason = "Planned: T2.7i.13"
+
+[[key]]
+doom = "SPC i r"
+keys = "space i r"
+what = "From a register"
+reason = "Planned: T2.7i.13"
+
+[[key]]
+doom = "SPC i s"
+keys = "space i s"
+what = "Snippet"
+reason = "Planned: T2.7i.13"
+
+[[key]]
+doom = "SPC i u"
+keys = "space i u"
+what = "Unicode character"
+reason = "Planned: T2.7i.13"
+
+[[key]]
+doom = "SPC i y"
+keys = "space i y"
+what = "From the clipboard history"
+reason = "Planned: T2.7i.13"
+
+
+# Quit and sessions =SPC q=.
+[[key]]
+doom = "SPC q f"
+keys = "space q f"
+what = "Close the frame"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q F"
+keys = "space q shift+f"
+what = "Close all frames"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q K"
+keys = "space q shift+k"
+what = "Save the session and quit"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q l"
+keys = "space q l"
+what = "Restore the last session"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q L"
+keys = "space q shift+l"
+what = "Restore a session"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q q"
+keys = "space q q"
+what = "Quit"
+command = "app.quit"
+
+[[key]]
+doom = "SPC q Q"
+keys = "space q shift+q"
+what = "Quit without saving"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q r"
+keys = "space q r"
+what = "Restart and restore"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q R"
+keys = "space q shift+r"
+what = "Restart"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q s"
+keys = "space q s"
+what = "Save the session"
+reason = "Planned: T2.7i.14"
+
+[[key]]
+doom = "SPC q S"
+keys = "space q shift+s"
+what = "Save the session to a file"
+reason = "Planned: T2.7i.14"
+
+
+# Workspaces =SPC TAB=.
+[[key]]
+doom = "SPC TAB TAB"
+keys = "space tab tab"
+what = "List workspaces"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB n"
+keys = "space tab n"
+what = "New workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB N"
+keys = "space tab shift+n"
+what = "New named workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB d"
+keys = "space tab d"
+what = "Delete workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB r"
+keys = "space tab r"
+what = "Rename workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB ["
+keys = "space tab ["
+what = "Previous workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB ]"
+keys = "space tab ]"
+what = "Next workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB 1"
+keys = "space tab 1"
+what = "Workspace 1"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB `"
+keys = "space tab `"
+what = "Last workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB s"
+keys = "space tab s"
+what = "Save the workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB l"
+keys = "space tab l"
+what = "Load a workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB ."
+keys = "space tab ."
+what = "Switch workspace"
+reason = "Planned: T2.7i.15"
+
+[[key]]
+doom = "SPC TAB x"
+keys = "space tab x"
+what = "Delete a saved session"
+reason = "Planned: T2.7i.15"
