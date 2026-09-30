@@ -794,6 +794,7 @@ cmd-latex-list-outdent = Unnest Item
 cmd-latex-nextProblem = Next Problem
 cmd-latex-previousProblem = Previous Problem
 cmd-latex-cancelBuild = Cancel Build
+cmd-latex-problems = Show Problems
 cmd-latex-fix = Quick Fix
 cmd-latex-format-bold = Bold
 cmd-latex-format-italic = Emphasis

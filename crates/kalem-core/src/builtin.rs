@@ -201,6 +201,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("csv.sortFile", object(&[("reverse", "boolean", false)])),
         ("csv.filter", object(&[("text", "string", true)])),
+        ("latex.nextProblem", object(&[("at", "integer", false)])),
         (
             "latex.section.setLevel",
             object(&[("level", "integer", true)]),
@@ -1298,8 +1299,54 @@ fn latex_commands() -> Vec<Command> {
             "latex.nextProblem",
             "Next Problem",
             &["alt+f8"],
-            |ctx, _| goto_problem(ctx, false),
+            |ctx, args| {
+                // `at`: the problem at that offset (the problems list).
+                match args.get("at").and_then(Value::as_u64) {
+                    Some(at) => {
+                        let d = ctx.doc()?;
+                        let at = (at as usize).min(d.text().len());
+                        d.move_cursor(at, false);
+                        if let Some(m) = crate::latex_view::diagnostic_at(d, at) {
+                            ctx.messages.push(m);
+                        }
+                        Ok(())
+                    }
+                    None => goto_problem(ctx, false),
+                }
+            },
         ),
+        c("latex.problems", "Show Problems", &[], |ctx, _| {
+            let d = ctx.doc()?;
+            if d.latex().is_none() {
+                return Err(CommandError::new(crate::tr!("msg-not-latex")));
+            }
+            if d.latex_diagnostics().is_none() {
+                d.update_latex_diagnostics();
+            }
+            let diags = d.latex_diagnostics().cloned().unwrap_or_default();
+            let text = d.text();
+            let items: Vec<crate::palette::PaletteItem> = diags
+                .iter()
+                .map(|x| {
+                    let line = text.line_of(x.range.start.min(text.len())) + 1;
+                    let warning = x.severity == crate::latex_check::Severity::Warning;
+                    crate::palette::PaletteItem {
+                        id: crate::palette::invocation(
+                            "latex.nextProblem",
+                            &serde_json::json!({ "at": x.range.start }),
+                        ),
+                        title: format!("{line}: {} {}", if warning { "⚠" } else { "ⓘ" }, x.message),
+                        category: x.code.to_string(),
+                        keys: String::new(),
+                        also: String::new(),
+                    }
+                })
+                .collect();
+            if items.is_empty() {
+                return Err(CommandError::new(crate::tr!("msg-no-problems")));
+            }
+            request(ctx, Request::Choose(items))
+        }),
         c(
             "latex.previousProblem",
             "Previous Problem",
