@@ -411,6 +411,8 @@ pub enum After {
     Pick(PickKind),
     /// Searching its files.
     Search,
+    /// Its folder in the file manager.
+    Browse,
 }
 
 /// What a picker shows and what choosing an item does.

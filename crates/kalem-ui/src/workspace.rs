@@ -385,7 +385,6 @@ impl Workspace {
         }
     }
 
-    /// The editors of the documents in the project at `root`.
     /// Open documents follow their files after an operation: to where
     /// they were moved; closed when trashed or deleted, unless they have
     /// unsaved changes.
@@ -538,6 +537,7 @@ impl Workspace {
         }
     }
 
+    /// The editors of the documents in the project at `root`.
     fn in_project(&self, root: &Path, cx: &App) -> Vec<Entity<Editor>> {
         self.editors
             .iter()

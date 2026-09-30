@@ -164,6 +164,10 @@ pub enum Request {
     },
     /// Search another project: choose it first.
     SearchOtherProject,
+    /// Choose a project, then do this with it.
+    PickProject(crate::projects::After),
+    /// Search the current project for this text.
+    SearchProjectFor(String),
     /// Act on the open documents (Doom's `SPC b`, T2.7i.2).
     Documents(DocumentsRequest),
     /// Show the file manager.

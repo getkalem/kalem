@@ -131,6 +131,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("file.rename", object(&[("target", "string", false)])),
         ("app.terminal", object(&[("project", "boolean", false)])),
         (
+            "project.shellCommand",
+            object(&[("command", "string", true)]),
+        ),
+        (
             "search.lines",
             object(&[
                 ("all", "boolean", false),
@@ -2073,6 +2077,23 @@ fn url_encode(s: &str) -> String {
     out
 }
 
+/// The counterpart of `path` (Doom's `SPC p o`): the next existing file
+/// beside it with the same name and another of these extensions, after
+/// its own, so repeated use goes round them.
+fn other_file(path: &std::path::Path) -> Option<std::path::PathBuf> {
+    const ORDER: [&str; 9] = [
+        "org", "klm", "md", "tex", "html", "pdf", "docx", "odt", "txt",
+    ];
+    let ext = path.extension()?.to_str()?.to_lowercase();
+    let at = ORDER
+        .iter()
+        .position(|e| *e == ext)
+        .unwrap_or(ORDER.len() - 1);
+    (1..ORDER.len())
+        .map(|i| path.with_extension(ORDER[(at + i) % ORDER.len()]))
+        .find(|p| p.is_file())
+}
+
 /// The active document's file, made absolute.
 fn this_file(ctx: &mut EditorContext<'_>) -> Result<std::path::PathBuf, CommandError> {
     let path = ctx
@@ -3315,6 +3336,91 @@ fn plain_commands() -> Vec<Command> {
                     )));
                 }
                 request(ctx, Request::SearchIn(dir))
+            },
+        ),
+        // Doom's `SPC p` (T2.7i.8).
+        cmd(
+            "project.browseOther",
+            "Browse Another Project",
+            "Project",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::PickProject(crate::projects::After::Browse)),
+        ),
+        cmd(
+            "project.findFileOther",
+            "Find File in Another Project",
+            "Project",
+            &[],
+            None,
+            |ctx, _| {
+                request(
+                    ctx,
+                    Request::PickProject(crate::projects::After::Pick(PickKind::ProjectFiles)),
+                )
+            },
+        ),
+        cmd(
+            "project.shellCommand",
+            "Shell Command at the Project",
+            "Project",
+            &[],
+            None,
+            |ctx, args| {
+                let command = args
+                    .get("command")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| CommandError::new("command"))?
+                    .to_string();
+                let dir = crate::command::folder_of(ctx.doc()?)
+                    .or_else(|| std::env::current_dir().ok())
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-file")))?;
+                let dir = kalem_project::list::detect_root(&dir).unwrap_or(dir);
+                request(
+                    ctx,
+                    Request::Shell(crate::command::ShellOp {
+                        command,
+                        files: Vec::new(),
+                        dir,
+                    }),
+                )
+            },
+        ),
+        cmd(
+            "project.todos",
+            "Project TODOs",
+            "Project",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::SearchProjectFor("TODO".into())),
+        ),
+        cmd(
+            "file.other",
+            "Other File",
+            "File",
+            &[],
+            Some("hasFile"),
+            |ctx, _| {
+                let path = this_file(ctx)?;
+                let other = other_file(&path)
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-other-file")))?;
+                let text = matches!(
+                    other.extension().and_then(|e| e.to_str()),
+                    Some("org" | "klm" | "md" | "tex" | "txt")
+                );
+                if text {
+                    request(
+                        ctx,
+                        Request::Open {
+                            path: Some(other.display().to_string()),
+                        },
+                    )
+                } else {
+                    request(
+                        ctx,
+                        Request::OpenLink(crate::input::LinkAction::System(other)),
+                    )
+                }
             },
         ),
         cmd(
@@ -5653,6 +5759,29 @@ mod tests {
         assert!(matches!(&req[..], [Request::Terminal(p)] if p.ends_with("notes")));
         let req = run(&mut d, "app.terminal", json!({ "project": true }));
         assert!(matches!(&req[..], [Request::Terminal(p)] if !p.ends_with("notes")));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn other_files() {
+        let dir = std::env::temp_dir().join(format!("kalem-other-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for f in ["a.org", "a.html", "a.pdf", "b.org"] {
+            std::fs::write(dir.join(f), "").unwrap();
+        }
+        assert_eq!(
+            super::other_file(&dir.join("a.org")),
+            Some(dir.join("a.html"))
+        );
+        assert_eq!(
+            super::other_file(&dir.join("a.html")),
+            Some(dir.join("a.pdf"))
+        );
+        assert_eq!(
+            super::other_file(&dir.join("a.pdf")),
+            Some(dir.join("a.org"))
+        );
+        assert_eq!(super::other_file(&dir.join("b.org")), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

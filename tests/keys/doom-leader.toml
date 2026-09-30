@@ -873,19 +873,19 @@ command = "file.scratch"
 doom = "SPC p ."
 keys = "space p ."
 what = "Browse the project"
-reason = "Planned: T2.7i.8"
+command = "dired.projectRoot"
 
 [[key]]
 doom = "SPC p >"
 keys = "space p >"
 what = "Browse another project"
-reason = "Planned: T2.7i.8"
+command = "project.browseOther"
 
 [[key]]
 doom = "SPC p !"
 keys = "space p !"
 what = "Shell command at the root"
-reason = "Planned: T2.7i.8"
+command = "project.shellCommand"
 
 [[key]]
 doom = "SPC p a"
@@ -903,13 +903,13 @@ command = "project.switchDocument"
 doom = "SPC p c"
 keys = "space p c"
 what = "Compile the project"
-reason = "Planned: T2.7i.8"
+reason = "Not yet: a build command per project (a setting)"
 
 [[key]]
 doom = "SPC p C"
 keys = "space p shift+c"
 what = "Repeat the compile"
-reason = "Planned: T2.7i.8"
+reason = "Not yet: a build command per project (a setting)"
 
 [[key]]
 doom = "SPC p d"
@@ -927,7 +927,7 @@ command = "dired.projectRoot"
 doom = "SPC p e"
 keys = "space p e"
 what = "Edit the project settings"
-reason = "Planned: T2.7i.8"
+command = "file.openWorkspaceSettings"
 
 [[key]]
 doom = "SPC p f"
@@ -939,13 +939,13 @@ command = "project.findFile"
 doom = "SPC p F"
 keys = "space p shift+f"
 what = "Find a file in another project"
-reason = "Planned: T2.7i.8"
+command = "project.findFileOther"
 
 [[key]]
 doom = "SPC p g"
 keys = "space p g"
 what = "Configure the project"
-reason = "Planned: T2.7i.8"
+command = "file.openWorkspaceSettings"
 
 [[key]]
 doom = "SPC p i"
@@ -963,7 +963,7 @@ command = "project.closeDocuments"
 doom = "SPC p o"
 keys = "space p o"
 what = "Find the other file"
-reason = "Planned: T2.7i.8"
+command = "file.other"
 
 [[key]]
 doom = "SPC p p"
@@ -981,7 +981,7 @@ command = "project.recentFiles"
 doom = "SPC p R"
 keys = "space p shift+r"
 what = "Run the project"
-reason = "Planned: T2.7i.8"
+reason = "Not yet: a run command per project (a setting)"
 
 [[key]]
 doom = "SPC p s"
@@ -993,19 +993,19 @@ command = "project.saveDocuments"
 doom = "SPC p t"
 keys = "space p t"
 what = "List the project TODOs"
-reason = "Planned: T2.7i.8"
+command = "project.todos"
 
 [[key]]
 doom = "SPC p T"
 keys = "space p shift+t"
 what = "Test the project"
-reason = "Planned: T2.7i.8"
+reason = "Waits for the language packs' test commands (3.8)"
 
 [[key]]
 doom = "SPC p x"
 keys = "space p x"
 what = "Scratch in the project"
-reason = "Planned: T2.7i.8"
+command = "file.scratch"
 
 
 # Help =SPC h=.

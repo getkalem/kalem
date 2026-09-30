@@ -1184,6 +1184,22 @@ impl Editor {
                 headings,
                 text,
             }),
+            Request::PickProject(after) => cx.emit(DocEvent::Pick(
+                kalem_core::command::PickKind::Projects,
+                None,
+                after,
+            )),
+            Request::SearchProjectFor(text) => match self.project() {
+                Some(root) => {
+                    self.open_search(&root, cx);
+                    if let Some(p) = self.palette.as_mut().filter(|p| p.search.is_some()) {
+                        p.input = text;
+                        p.back = 0;
+                        p.input_changed();
+                    }
+                }
+                None => self.message(tr!("msg-no-project"), true),
+            },
             Request::SearchOtherProject => cx.emit(DocEvent::Pick(
                 kalem_core::command::PickKind::Projects,
                 None,

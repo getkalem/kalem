@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Doom's `SPC p` keys (T2.7i.8): browse or find a file in another project, a shell command at the project's folder, the project's TODOs, the other file of the same name (`.org` and its `.html` or `.pdf`), the workspace settings and the project's scratch.
 - Doom's `SPC o` keys (T2.7i.7): the system's terminal at the document's folder or the project, Export as HTML and Open, the link at point, the scratch document and a new window.
 - Doom's `SPC t` toggles (T2.7i.6): line numbers, markup characters, big text, read-only documents, full screen and zen mode, in both editors; the toggles that are settings save them.
 - Search Lines (T2.7i.4): a live list of the lines holding every word typed, the cursor following the chosen line (Doom's `SPC s b`), in this document or every open one, or of the headings (`SPC s i`); Search in Folder, Search in Another Project and Search Online (`search.online_url`), with Doom's `SPC s` keys, in both editors.

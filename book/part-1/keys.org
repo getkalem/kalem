@@ -75,6 +75,11 @@ follow:
 | =SPC f c=            | The workspace settings                      |
 | =SPC p k=, =SPC p s= | Close, save the project's documents         |
 | =SPC p i=            | Refresh Project Files                       |
+| =SPC p .=, =SPC p >= | This project's folder; another project's    |
+| =SPC p F=            | Find a file in another project              |
+| =SPC p !=, =SPC p t= | Shell command at the project; its TODOs     |
+| =SPC p o=            | The other file (=.org=, =.html=, =.pdf= …)  |
+| =SPC p e=, =SPC p x= | The workspace settings; the project scratch |
 | =SPC s b=, =SPC s s= | Search lines, the cursor following          |
 | =SPC s B=, =SPC s i= | Lines of all documents; the headings        |
 | =SPC s d=, =SPC s D= | Search this folder; another folder          |
