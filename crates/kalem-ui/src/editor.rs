@@ -1996,6 +1996,8 @@ impl Editor {
                 let mut v =
                     view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
                 v.mono = self.doc.meta.mode != DocumentMode::Org;
+                // LaTeX's source view: the diagnostics flagged too.
+                kalem_core::latex_view::flag_diagnostics(&self.doc, &mut v);
                 v
             }
         }

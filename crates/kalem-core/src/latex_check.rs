@@ -208,6 +208,9 @@ pub struct Live {
     installed: u64,
     /// The builds recorded when the shown ones were worked out.
     builds: u64,
+    /// The shown ones were carried through edits, not worked out for the
+    /// text as it is: a fresh pass is due.
+    mapped: bool,
     pending: Option<(u64, Receiver<Vec<Diagnostic>>)>,
     /// The version last seen changing, and when.
     changed: Option<(u64, Instant)>,
@@ -225,6 +228,11 @@ impl Live {
             .map(|(_, d)| d)
     }
 
+    /// Whether a pass for `version` of the text is still to come.
+    pub fn due(&self, version: u64) -> bool {
+        self.mapped || self.current(version).is_none()
+    }
+
     /// How many times diagnostics were installed: caches of what they
     /// show start again when it changes.
     pub fn generation(&self) -> u64 {
@@ -239,9 +247,14 @@ impl Live {
         if let Some((v, rx)) = &self.pending {
             match rx.try_recv() {
                 Ok(d) => {
-                    shown = *v == version;
-                    self.shown = Some((*v, Arc::new(d)));
-                    self.installed += 1;
+                    // For an older text: the ones carried through the
+                    // edits stay until a pass for this one.
+                    if *v == version {
+                        shown = true;
+                        self.shown = Some((*v, Arc::new(d)));
+                        self.installed += 1;
+                        self.mapped = false;
+                    }
                     self.pending = None;
                 }
                 Err(TryRecvError::Empty) => {}
@@ -254,7 +267,7 @@ impl Live {
             self.builds = builds;
             self.shown = None;
         }
-        let known = self.shown.as_ref().is_some_and(|(v, _)| *v == version);
+        let known = !self.mapped && self.shown.as_ref().is_some_and(|(v, _)| *v == version);
         if known || self.pending.is_some() {
             return shown;
         }
@@ -277,9 +290,40 @@ impl Live {
         shown
     }
 
+    /// Carries the shown diagnostics through edit `tx`, which made
+    /// `version` of the text, so that they stay in place while typing; the
+    /// ones the edit touches go. A fresh pass follows after the pause.
+    pub(crate) fn map(&mut self, tx: &org_edit::Transaction, version: u64) {
+        use org_edit::Assoc;
+        let Some((_, d)) = &self.shown else { return };
+        let touched = |r: &Range<usize>| {
+            tx.edits
+                .iter()
+                .any(|e| e.range.start <= r.end && r.start <= e.range.end)
+        };
+        let carry = |r: &Range<usize>| tx.map(r.start, Assoc::After)..tx.map(r.end, Assoc::Before);
+        let kept: Vec<Diagnostic> = d
+            .iter()
+            .filter(|x| !touched(&x.range))
+            .map(|x| {
+                let mut y = x.clone();
+                y.range = carry(&x.range);
+                y.fix = x
+                    .fix
+                    .as_ref()
+                    .filter(|(r, _)| !touched(r))
+                    .map(|(r, t)| (carry(r), t.clone()));
+                y
+            })
+            .collect();
+        self.shown = Some((version, Arc::new(kept)));
+        self.mapped = true;
+    }
+
     /// Works the diagnostics out now (tests, and batch use).
     pub fn update_now(&mut self, version: u64, path: Option<&Path>, text: &str) {
         self.pending = None;
+        self.mapped = false;
         self.builds = crate::latex_build::recorded();
         self.shown = Some((version, Arc::new(diagnose(path, text))));
         self.installed += 1;
@@ -672,6 +716,33 @@ mod tests {
         assert_eq!(next(&diags, text.len(), false), Some(starts[0]));
         assert_eq!(next(&diags, 0, true), starts.last().copied());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn diagnostics_follow_edits() {
+        let text = "a {\\bf x} b {\\it y}\n";
+        let mut live = Live::default();
+        live.update_now(0, None, text);
+        let at = |live: &Live, v: u64| {
+            live.current(v)
+                .unwrap()
+                .iter()
+                .map(|d| d.range.start)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(at(&live, 0), [3, 13]);
+        // Typing before both: they move.
+        let mut tx = org_edit::Transaction::new("Typing");
+        tx.replace(0..0, "zz").unwrap();
+        live.map(&tx, 1);
+        assert_eq!(at(&live, 1), [5, 15]);
+        // An edit inside the first: it goes, the second stays.
+        let mut tx = org_edit::Transaction::new("Typing");
+        tx.replace(7..7, "x").unwrap();
+        live.map(&tx, 2);
+        assert_eq!(at(&live, 2), [16]);
+        // Still due for a fresh pass.
+        assert!(live.mapped);
     }
 
     #[test]

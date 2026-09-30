@@ -2866,7 +2866,7 @@ impl App {
             t = t.min(Duration::from_millis(20));
         }
         // LaTeX diagnostics behind the text: soon after typing stops.
-        if self.doc.latex().is_some() && self.doc.latex_diagnostics().is_none() {
+        if self.doc.latex_diagnostics_due() {
             t = t.min(Duration::from_millis(100));
         }
         if let Some(d) = self.debouncer.next_due() {

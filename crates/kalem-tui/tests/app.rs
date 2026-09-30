@@ -2920,6 +2920,19 @@ fn latex_diagnostics_in_the_terminal() {
     t.at(0);
     t.key(KeyCode::F(8), KeyModifiers::ALT);
     assert_eq!(t.app.doc.selection.head, 6);
+    // In the source view too.
+    t.app
+        .run_command("view.toggleSource", serde_json::json!({}));
+    let buf = t.draw();
+    let flagged = (0..buf.area.width).any(|x| {
+        buf[(x, 0)]
+            .modifier
+            .contains(ratatui::style::Modifier::UNDERLINED)
+    });
+    assert!(flagged, "flagged in the source view");
+    t.app
+        .run_command("view.toggleSource", serde_json::json!({}));
+    t.at(7);
     // Ctrl+. as terminals can send it.
     t.key(KeyCode::Char('.'), KeyModifiers::ALT);
     let rows = screen(&mut t);
