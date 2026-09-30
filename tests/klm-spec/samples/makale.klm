@@ -9,11 +9,11 @@
 
 \h1[#giris]{Giriş}
 
-Harmonik toplamların karesi, analizde en çok çalışılan dizilerden biridir \cite[euler1740]{}. $n \in \N$ için $H_n^{(2)} = \sum_{k=1}^{n} \frac{1}{k^2}$ yazalım. Amacımız, her $n$ için geçerli ve hesaplanması kolay bir üst sınır vermek.
+Harmonik toplamların karesi, analizde en çok çalışılan dizilerden biridir \cite[euler1740,apostol1976]{}. $n \in \N$ için $H_n^{(2)} = \sum_{k=1}^{n} \frac{1}{k^2}$ yazalım. Amacımız, her $n$ için geçerli ve hesaplanması kolay bir üst sınır vermek. Sonuç, lisans düzeyinde bir alıştırma niteliğindedir.
 
 \h1[#sonuc]{Ana sonuç}
 
-\block[.theorem #thm:sinir title="Üst sınır"]{
+\block[.theorem #thm:sinir title="Teleskopik üst sınır"]{
 Her $n \ge 1$ için
 
 \eq[#eq:sinir]{
@@ -48,13 +48,14 @@ Sınır keskin değildir: Euler'in ünlü sonucu \cite[euler1740]{} limiti verir
   \tr{\td{2} \td{1,2500} \td{1,5000} \td{0,2500}}
   \tr{\td{5} \td{1,4636} \td{1,8000} \td{0,3364}}
   \tr{\td{10} \td{1,5498} \td{1,9000} \td{0,3502}}
+  \tr{\td{20} \td{1,5962} \td{1,9500} \td{0,3538}}
   \formulas{
-D2:D5 = C - B
+D2:D6 = C - B
   }
-  \caption{Toplam, sınır ve aralarındaki fark}
+  \caption{Toplam, sınır ve aralarındaki fark (dört ondalık)}
 }
 
-\figure[#fig:grafik width=70%]{
+\figure[#fig:grafik width=60%]{
   \img[grafik.svg alt="Toplam ve sınırın n'e göre grafiği"]
   \caption{$H_n^{(2)}$ ve $2 - 1/n$, $n \le 50$ için}
 }
