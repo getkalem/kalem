@@ -3424,3 +3424,12 @@ fn enter_in_csv_keeps_no_indentation() {
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), "  x,y\n\n");
 }
+
+#[test]
+fn csv_malformed_field_in_the_status_bar() {
+    let text = "name,note\napple,6\" long\n";
+    let mut t = with_file(text, "d.csv", Config::default(), (100, 8));
+    t.at(text.find("long").unwrap());
+    let s = status(&mut t);
+    assert!(s.contains("quote inside an unquoted value"), "{s}");
+}

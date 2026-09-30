@@ -422,3 +422,24 @@ fn the_book_builds() {
     assert!(index.contains("bib.sortView"));
     let _ = std::fs::remove_dir_all(&site);
 }
+
+#[test]
+fn check_csv() {
+    // A CSV file is checked as CSV: its malformed fields, not Org syntax.
+    let (code, out, _) = kalem(&["check", "--deny-warnings", "tests/fixtures/malformed.csv"]);
+    assert_eq!(code, 1);
+    assert_eq!(
+        out.lines()
+            .map(|l| l.split(": ").next().unwrap_or(""))
+            .collect::<Vec<_>>(),
+        [
+            "tests/fixtures/malformed.csv:2:8",
+            "tests/fixtures/malformed.csv:3:1"
+        ],
+        "{out}"
+    );
+    assert!(
+        out.contains("warning[csv-bare-quote]") && out.contains("warning[csv-unterminated-quote]"),
+        "{out}"
+    );
+}

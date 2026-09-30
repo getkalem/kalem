@@ -786,3 +786,6 @@ cmd-latex-convertToOrg = Org'a Dönüştür (pandoc)
 msg-latex-converted-one-way = Tek yönlü dönüştürüldü: LaTeX dosyası değişmedi ve Org dosyasındaki değişiklikler ona geri gitmez
 cmd-file-newFromTemplate = Şablondan Yeni…
 msg-unknown-template = { $name } diye bir şablon yok
+csv-unterminated-quote = Bu tırnak hiç kapanmıyor: dosyanın geri kalanı tek bir değer
+csv-text-after-quote = Kapanış tırnağından sonra metin (değerin parçası sayılır)
+csv-bare-quote = Tırnaksız bir değerde tırnak (değer tırnağa alınmalı, tırnak ikilenmeli)

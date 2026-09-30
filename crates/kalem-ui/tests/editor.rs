@@ -2631,6 +2631,16 @@ fn csv_typing_quotes_the_field(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn csv_malformed_field_in_the_status_bar(cx: &mut TestAppContext) {
+    let text = "name,note\napple,6\" long\n";
+    let (e, cx) = open_named(text, "d.csv", || None, cx);
+    at(&e, text.find("long").unwrap(), cx);
+    // What the workspace's status bar shows for the table at the cursor.
+    let status = e.read_with(cx, |e, _| kalem_core::formulas::selection_stats(&e.doc));
+    assert!(status.is_some_and(|s| s.contains("quote inside an unquoted value")));
+}
+
+#[gpui::test]
 fn enter_in_csv_keeps_no_indentation(cx: &mut TestAppContext) {
     // Leading tabs are empty fields: Enter does not copy them.
     let text = "\ta\tb\n";
