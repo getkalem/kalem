@@ -30,7 +30,7 @@ mod tables;
 use std::ops::Range;
 
 pub use kind::{LatexLanguage, SyntaxKind};
-pub use rowan::{GreenNode, TextRange, TextSize};
+pub use rowan::{GreenNode, TextRange, TextSize, WalkEvent};
 
 /// A node of the syntax tree.
 pub type SyntaxNode = rowan::SyntaxNode<LatexLanguage>;

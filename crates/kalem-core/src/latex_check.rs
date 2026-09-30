@@ -98,19 +98,42 @@ pub fn quick_fix(
 fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     // Deprecated commands and chktex's rules, in text.
-    for t in root_node
-        .descendants_with_tokens()
-        .filter_map(|e| e.into_token())
-    {
+    // Math and verbatim around a token, counted in one walk (asking each
+    // token's ancestors is quadratic on deep nesting).
+    let is_math_node = |a: &latex_syntax::SyntaxNode| {
+        matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
+            || (a.kind() == K::ENVIRONMENT
+                && latex_syntax::name(a).is_some_and(|n| {
+                    latex_syntax::signatures::is_math(&n)
+                        || latex_syntax::signatures::is_verbatim(&n)
+                }))
+    };
+    let mut math_depth = 0usize;
+    for event in root_node.preorder_with_tokens() {
+        let t = match event {
+            latex_syntax::WalkEvent::Enter(e) => {
+                if let Some(n) = e.as_node() {
+                    if is_math_node(n) {
+                        math_depth += 1;
+                    }
+                    continue;
+                }
+                match e.into_token() {
+                    Some(t) => t,
+                    None => continue,
+                }
+            }
+            latex_syntax::WalkEvent::Leave(e) => {
+                if let Some(n) = e.as_node()
+                    && is_math_node(n)
+                {
+                    math_depth -= 1;
+                }
+                continue;
+            }
+        };
         let range = usize::from(t.text_range().start())..usize::from(t.text_range().end());
-        let in_math = t.parent_ancestors().any(|a| {
-            matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
-                || (a.kind() == K::ENVIRONMENT
-                    && latex_syntax::name(&a).is_some_and(|n| {
-                        latex_syntax::signatures::is_math(&n)
-                            || latex_syntax::signatures::is_verbatim(&n)
-                    }))
-        });
+        let in_math = math_depth > 0;
         let info = |code: &'static str, key: &str| Diagnostic {
             range: range.clone(),
             severity: Severity::Info,
