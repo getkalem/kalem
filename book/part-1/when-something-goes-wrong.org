@@ -1,5 +1,17 @@
-The log is =kalem.log= in the state directory: =$KALEM_STATE_DIR=, or
-=kalem= in =$XDG_STATE_HOME=, =%LOCALAPPDATA%= on Windows, or
-=~/.local/state=. After a crash, a report is in the same directory. Please
-attach both to a bug report, with =kalem tui --detect= for problems in the
-terminal.
+Kalem keeps a log, =kalem.log=, in its state directory: =$KALEM_STATE_DIR=
+when it is set, else =kalem= in =$XDG_STATE_HOME=, in =%LOCALAPPDATA%= on
+Windows, or in =~/.local/state=. Each start begins a new log and keeps
+the two before it as =kalem.log.1= and =kalem.log.2=, so the log of a
+session that went wrong is still there after one restart.
+
+How much goes into the log is the setting =log.level= (=error=, =warn=,
+=info=, the default, =debug= or =trace=). The environment variable
+=KALEM_LOG= overrides it for one run, and can name a level per part of
+Kalem: =KALEM_LOG=debug kalem notes.org=, or
+=KALEM_LOG=kalem_core=debug,info= for more detail from the core only.
+
+When Kalem crashes, it writes the error with its backtrace into the log
+and a report beside it, =crash-DATE.txt=: the version, the platform, the
+settings files and their problems, and the error. Please attach the
+report and the log to a bug report, with the output of =kalem tui
+--detect= for problems in the terminal.
