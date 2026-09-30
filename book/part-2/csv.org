@@ -109,8 +109,11 @@ return followed by a line feed anywhere. It decides the line ending of
 rows Kalem adds and of Sort File. Independently, the file layer decides
 the document's line ending for saving: CR LF only when every line feed
 in the file follows a carriage return (as Emacs chooses between =dos=
-and =unix=), otherwise LF with every carriage return kept in the text as
-it is.
+and =unix=), CR when the file has carriage returns and no line feed
+(Emacs's =mac=: classic Mac OS files), otherwise LF with every carriage
+return kept in the text as it is. A CR file is read with each carriage
+return turned into a line feed and saved with each line feed turned
+back, so its records are lines like any other file's.
 
 ** The delimiter
 
@@ -171,16 +174,16 @@ editing needs the byte range of every field, quotes included
 1. A field starts. If its first byte is the quote, it is a quoted field:
    bytes are consumed up to a quote that is not followed by a second
    quote (a doubled quote is consumed as a pair); then every byte up to
-   the next delimiter, carriage return or line feed is also part of the
-   field. If no closing quote comes, the field runs to the end of the
+   the next delimiter or line ending is also part of the field. If no closing quote comes, the field runs to the end of the
    text.
-2. Otherwise it is an unquoted field: bytes up to the next delimiter,
-   carriage return or line feed.
+2. Otherwise it is an unquoted field: bytes up to the next delimiter
+   or line ending. A line ending is a line feed or a CR LF pair; a
+   carriage return alone is part of the field, as the editor's lines
+   end only at line feeds.
 3. A delimiter after the field starts the next field of the same
    record.
-4. Otherwise the record ends. The next record starts after a CR LF pair,
-   after a lone carriage return or a lone line feed, or at the end of
-   the text.
+4. Otherwise the record ends. The next record starts after the line
+   ending, or at the end of the text.
 
 Every field is kept as its byte range and a flag saying whether it was
 quoted; the record keeps its range without the line ending and the

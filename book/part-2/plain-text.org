@@ -313,10 +313,14 @@ The text keeps its line endings as they are in the file; carriage
 returns are characters of the text. A document's line ending
 (=files::line_ending_of=) is CR LF when the file has at least one line
 feed and every line feed follows a carriage return, as Emacs decides
-between =dos= and =unix=; otherwise LF.
+between =dos= and =unix=; CR when the file has carriage returns and no
+line feed (Emacs's =mac=, the files of classic Mac OS); otherwise LF.
 
-- Lines are separated at line feeds. A lone carriage return (old Mac
-  files) is not a line break: such a file shows as one line.
+- Lines are separated at line feeds. A CR file is the exception to
+  keeping line endings in the text: it is read with every carriage
+  return turned into a line feed, and saved with every line feed turned
+  back into a carriage return, so it has lines and is written as it
+  was. In other files a lone carriage return is not a line break.
 - In a CR LF document, commands and typing insert bare line feeds, and
   saving writes a carriage return before every line feed that lacks one
   (=files::encode=). Pasted text has its CR LF made LF first and, in a

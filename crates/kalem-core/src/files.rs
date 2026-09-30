@@ -125,9 +125,13 @@ pub fn check(path: &Path, known: &DiskState) -> io::Result<DiskChange> {
 }
 
 /// The line endings of `text`: CRLF when every line feed follows a
-/// carriage return, as Emacs decides between `dos` and `unix`.
+/// carriage return, as Emacs decides between `dos` and `unix`; CR when
+/// there is no line feed but a carriage return (`mac`).
 pub fn line_ending_of(text: &str) -> LineEnding {
     let b = text.as_bytes();
+    if !b.contains(&b'\n') && b.contains(&b'\r') {
+        return LineEnding::Cr;
+    }
     let mut lf = b
         .iter()
         .enumerate()
@@ -216,7 +220,16 @@ pub fn decode_with(
         bom: has_bom,
         encoding,
     };
-    Ok((text, meta))
+    Ok((mac_to_lf(text, meta.line_ending), meta))
+}
+
+/// The text of a CR file with its carriage returns as line feeds.
+fn mac_to_lf(text: String, ending: LineEnding) -> String {
+    if ending == LineEnding::Cr {
+        text.replace('\r', "\n")
+    } else {
+        text
+    }
 }
 
 /// A file's bytes read in `encoding` whatever they are (Reopen with
@@ -249,7 +262,7 @@ pub fn decode_as(
         bom: bom || encoding == encoding_rs::UTF_16LE || encoding == encoding_rs::UTF_16BE,
         encoding,
     };
-    (text, meta)
+    (mac_to_lf(text, meta.line_ending), meta)
 }
 
 /// The encoding a status bar names: nothing for UTF-8, else its name
@@ -345,6 +358,7 @@ pub fn encode(text: &str, meta: &Metadata) -> Vec<u8> {
     let mut lines = Vec::with_capacity(text.len() + 3);
     match meta.line_ending {
         LineEnding::Lf => lines.extend_from_slice(text.as_bytes()),
+        LineEnding::Cr => lines.extend(text.bytes().map(|c| if c == b'\n' { b'\r' } else { c })),
         LineEnding::CrLf => {
             let b = text.as_bytes();
             for (i, c) in b.iter().enumerate() {
@@ -681,6 +695,14 @@ mod tests {
         assert_eq!(encode("* A\r\nnew\n", &m), b"\xEF\xBB\xBF* A\r\nnew\r\n");
         assert_eq!(line_ending_of("a\r\nb\n"), LineEnding::Lf);
         assert_eq!(line_ending_of("a"), LineEnding::Lf);
+        assert_eq!(line_ending_of("a\rb\r"), LineEnding::Cr);
+        // A classic Mac file: read with line feeds, written back as it was.
+        let (text, m) = decode(Some(Path::new("t.csv")), b"a,b\rc,d\r".to_vec()).unwrap();
+        assert_eq!(
+            (text.as_str(), m.line_ending),
+            ("a,b\nc,d\n", LineEnding::Cr)
+        );
+        assert_eq!(encode(&text, &m), b"a,b\rc,d\r");
         assert!(matches!(
             decode(None, b"a\0b".to_vec()),
             Err(OpenError::Binary)
