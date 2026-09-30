@@ -19,6 +19,7 @@ cmd-org-link-open = Open Link
 cmd-edit-enter = New Line or Item
 cmd-edit-newline = Line Break
 cmd-view-palette = Command Palette
+cmd-view-menus = Menus
 cmd-find-open = Find
 cmd-find-replace = Find and Replace
 cmd-view-outline = Outline

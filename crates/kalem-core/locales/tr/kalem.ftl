@@ -18,6 +18,7 @@ cmd-org-link-open = Bağlantıyı Aç
 cmd-edit-enter = Yeni Satır veya Öğe
 cmd-edit-newline = Satır Sonu
 cmd-view-palette = Komut Paleti
+cmd-view-menus = Menüler
 cmd-find-open = Bul
 cmd-find-replace = Bul ve Değiştir
 cmd-view-outline = Anahat

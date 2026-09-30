@@ -690,7 +690,7 @@ Markdown and plain text
 - [x] T2.11.79 `.h` and `.m` are highlighted as Objective-C; TOML and INI get no highlighting; TypeScript is highlighted as JavaScript (code)
 
 The manual, commands and settings
-- [ ] T2.11.80 Menus exist only on macOS: gpui's Linux and Windows back-ends store the menus and draw nothing; Kalem has no menu bar of its own there, and the terminal editor has none; the Book and the README send readers to menus (code, book)
+- [x] T2.11.80 Menus exist only on macOS: gpui's Linux and Windows back-ends store the menus and draw nothing; Kalem has no menu bar of its own there, and the terminal editor has none; the Book and the README send readers to menus (code, book)
 - [ ] T2.11.81 Items the Book puts in the File menu are not there: Print, Import as Org, New from Template, Save as Org, Make Kalem Document, and the LaTeX, PDF and text exports; the Org menu is labelled Format (code or book)
 - [ ] T2.11.82 Settings that do nothing: `editor.show_source_markers`, `org.assets_dir` (images use `{stem}_assets`), `export.pdf_engine`, `export.pandoc_path` (implement or remove); `files.modes` has no `latex` and uses `text` where `editor.vim.modes` uses `plain`, which also covers LaTeX, BibTeX and the file manager; `settings::remember_mode` saves only the mode's name, so a chosen language becomes text; the `view.setMode` schema lists four modes (code)
 - [ ] T2.11.83 "After a crash, a report is in the same directory" is false: the panic hook writes to `kalem.log`; `diagnostics_report` is called only from a test; `KALEM_LOG`, `log.level` and the rotated logs are undocumented (code or book)

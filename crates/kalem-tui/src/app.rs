@@ -1477,6 +1477,15 @@ impl App {
             Request::Fold { global } => self.fold(global),
             Request::OpenLink(action) => self.open_link(action),
             Request::Palette => self.open_palette(),
+            Request::Menus => {
+                let ctx = self.context();
+                let items =
+                    kalem_core::palette::menu_items(&self.registry, &self.keymap, &ctx, |k| {
+                        k.to_string()
+                    });
+                self.palette = Some(Palette::new(items));
+                self.dirty = true;
+            }
             Request::Find { replace } => self.open_find(replace),
             Request::Outline => self.toggle_outline(),
             Request::ToggleMath => {

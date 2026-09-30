@@ -47,6 +47,45 @@ pub fn items(
         .collect()
 }
 
+/// The items of the menus (`crate::menus`) that apply in `ctx`, each
+/// titled by its menu and its label, with its first key written by
+/// `show`: the menus of the terminal editor (F10), and a way to reach
+/// every menu item from the keyboard in the graphical one.
+pub fn menu_items(
+    registry: &CommandRegistry,
+    keymap: &Keymap,
+    ctx: &Context,
+    show: impl Fn(&KeySequence) -> String,
+) -> Vec<PaletteItem> {
+    use crate::menus::MenuEntry;
+    let mut out = Vec::new();
+    for m in crate::menus::menus() {
+        for e in m.entries {
+            let (label, id, args) = match e {
+                MenuEntry::Separator => continue,
+                MenuEntry::Command { label, id, args } => (label, id, args),
+                MenuEntry::Open(label) => (label, "file.open", None),
+                MenuEntry::AddProjectFolder(label) => (label, "project.add", None),
+            };
+            if !registry.offered(id, ctx) {
+                continue;
+            }
+            out.push(PaletteItem {
+                id: args.as_ref().map_or(id.to_string(), |a| invocation(id, a)),
+                title: format!("{} › {label}", m.name),
+                category: m.name.clone(),
+                keys: keymap
+                    .keys_for(id)
+                    .first()
+                    .map(|k| show(k))
+                    .unwrap_or_default(),
+                also: id.replace('.', " "),
+            });
+        }
+    }
+    out
+}
+
 /// A fuzzy match of `query` in `text`: every query character in order,
 /// ignoring case. Lower scores are better: early, contiguous matches and
 /// matches at word starts.

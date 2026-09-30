@@ -39,6 +39,7 @@ pub mod lines;
 pub mod links;
 pub mod logging;
 pub mod math;
+pub mod menus;
 pub mod mode;
 pub mod palette;
 pub mod pandoc;

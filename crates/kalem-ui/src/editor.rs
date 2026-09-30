@@ -1021,6 +1021,17 @@ impl Editor {
                 cx.notify();
             }
             Request::Palette => self.open_palette(cx),
+            Request::Menus => {
+                let ctx = self.context();
+                let swap = self.shared.swap_primary;
+                let items = kalem_core::palette::menu_items(
+                    &self.shared.registry,
+                    &self.shared.keymap,
+                    &ctx,
+                    |k| crate::panels::show_keys(k, swap),
+                );
+                self.open_choice(items, cx);
+            }
             Request::Find { replace } => self.open_find(replace, cx),
             Request::Open { path: Some(p) } => {
                 let path = std::path::PathBuf::from(kalem_core::settings::expand_home(&p));

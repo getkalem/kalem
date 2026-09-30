@@ -8,3 +8,12 @@ Ctrl+Shift+P (or F1) opens the command palette: every command that
 applies, with its keys. Type part of a name to find it. Commands that need
 something, such as a heading level, ask for it. In a terminal the palette
 is Ctrl+G, and the status line says so.
+
+The menus hold the commands of the document you are in: a LaTeX file
+has LaTeX's, a CSV file a Table menu. On macOS they are in the menu bar
+at the top of the screen; on Linux and Windows the window has its own
+menu bar above the toolbar (the setting =ui.menu_bar = false= hides
+it). F10 lists every menu item in the palette, titled with its menu
+(/Edit › Select All/), in both editors: it is how the terminal editor,
+which has no menu bar, reaches them. Where this book names a menu item,
+F10 and its name find it.

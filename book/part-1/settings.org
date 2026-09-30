@@ -21,6 +21,7 @@ Windows, or =~/.config=. A project can have its own
 | =editor.vim.modes=                       | =[]=       | Kinds of documents with Vim keys; empty for all                                    |
 | =editor.vim.leader=                      | ="space"=  | The leader of the Vim keys (=SPC p p=)                                             |
 | =ui.open_files=                          | ="left"=   | Open files on the =left=, at the =top=, =hidden=                                   |
+| =ui.menu_bar=                            | =true=     | The window's menu bar on Linux and Windows (macOS has its own)                     |
 | =editor.outline_indent=                  | =true=     | Text under a heading starts at its title (terminal)                                |
 | =projects.auto_add=                      | =true=     | Folders under version control become projects                                      |
 | =org.todo_keywords=                      | TODO, DONE | TODO states of files without =#+TODO=; see below                                   |

@@ -831,6 +831,41 @@ fn tag_completion(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn window_menu_bar(cx: &mut TestAppContext) {
+    // Where the system draws no menus, the window has its own bar.
+    if cfg!(target_os = "macos") {
+        return;
+    }
+    let (e, cx) = open("* A\nText.\n", cx);
+    let none = gpui::Modifiers::default();
+    let b = cx.debug_bounds("menu-Edit").expect("the Edit menu");
+    cx.simulate_click(b.center(), none);
+    cx.run_until_parked();
+    let item = cx
+        .debug_bounds("menu-item-edit.selectAll")
+        .expect("Select All in the Edit menu");
+    cx.simulate_click(item.center(), none);
+    cx.run_until_parked();
+    let s = e.read_with(cx, |e, _| e.doc.selection);
+    assert_eq!((s.anchor.min(s.head), s.anchor.max(s.head)), (0, 10));
+    assert!(
+        cx.debug_bounds("menu-item-edit.selectAll").is_none(),
+        "closed"
+    );
+}
+
+#[gpui::test]
+fn menus_from_the_keyboard(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\nText.\n", cx);
+    cx.simulate_keystrokes("f10");
+    cx.simulate_input("edit select all");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let s = e.read_with(cx, |e, _| e.doc.selection);
+    assert_eq!((s.anchor.min(s.head), s.anchor.max(s.head)), (0, 10));
+}
+
+#[gpui::test]
 fn settings_panel(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\n", cx);
     cx.simulate_keystrokes(&format!("{}-,", primary()));

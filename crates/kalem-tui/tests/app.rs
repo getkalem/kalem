@@ -3445,3 +3445,19 @@ fn csv_malformed_field_in_the_status_bar() {
     let s = status(&mut t);
     assert!(s.contains("quote inside an unquoted value"), "{s}");
 }
+
+#[test]
+fn menus_from_the_keyboard() {
+    // F10 lists the menus' items; choosing one runs its command.
+    let mut t = open("* A\nText.\n");
+    t.key(KeyCode::F(10), KeyModifiers::NONE);
+    t.typ("edit select all");
+    let s = screen(&mut t).join("\n");
+    assert!(s.contains("Edit › Select All"), "{s}");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let sel = t.app.doc.selection;
+    assert_eq!(
+        (sel.anchor.min(sel.head), sel.anchor.max(sel.head)),
+        (0, 10)
+    );
+}
