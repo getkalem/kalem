@@ -1,0 +1,6 @@
+#+MACRO: title A title from a macro
+#+MACRO: email someone@example.org
+#+TITLE: The keyword's title
+#+DATE: <2024-03-05 Tue 14:30>
+
+{{{title}}}; {{{email}}}; {{{date}}}; {{{date(%Y/%m/%d %H:%M)}}}; {{{date( )}}}.
