@@ -121,6 +121,8 @@ pub fn matches<'a>(items: &'a [PaletteItem], input: &str) -> Vec<&'a PaletteItem
             fuzzy(input, &it.title)
                 .or_else(|| fuzzy(input, &hay).map(|s| s + 10))
                 .or_else(|| fuzzy(input, &it.also).map(|s| s + 20))
+                // An ID typed with its dots (`org.todo.cycle`).
+                .or_else(|| fuzzy(&input.replace('.', " "), &it.also).map(|s| s + 20))
                 .map(|s| (s, it))
         })
         .collect();
@@ -158,6 +160,14 @@ mod tests {
         assert!(fuzzy("ctd", "Cycle TODO State").is_some());
         assert!(fuzzy("tc", "Cycle TODO State").is_none());
         assert!(fuzzy("zz", "Save").is_none());
+        let items = [PaletteItem {
+            id: "org.todo.cycle".into(),
+            title: "Cycle TODO State".into(),
+            category: "Org".into(),
+            keys: String::new(),
+            also: "org todo cycle".into(),
+        }];
+        assert_eq!(matches(&items, "org.todo.cycle").len(), 1);
         assert_eq!(fuzzy("", "Save"), Some(0));
     }
 }
