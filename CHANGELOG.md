@@ -218,6 +218,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX tables: a `\multicolumn` is drawn as one cell across its columns, and a rule after a row's `\\` is drawn under the row, in both editors.
 - LaTeX completion offers the commands and environments of the packages the preamble loads with their arguments, and the document's own macros with their number of arguments.
 - LaTeX: Insert Figure asks for the file, its width and its caption in one flow.
+- BibTeX files open as a grid in both editors: an entry a row (key, type, authors, title, year), its source at the cursor; the rows sorted in the view by any column; New Entry and Set Field write the smallest edit.
 ### Changed
 
 - The text column starts at the left edge of the window in both editors; `editor.center_text = true` centers it as before.

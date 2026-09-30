@@ -837,6 +837,13 @@ the bibliography of a CSL style has it (the style closest to biblatex's
 =apa= for =apalike= and natbib's, else =chicago-author-date=). BibTeX
 entries pasted into the document go into its first bibliography file
 (keys it has already are left) and a =\cite= of them is pasted instead.
+A =.bib= file opens as a grid: each entry one row with its key, type,
+authors, title and year, and the entry at the cursor as its source.
+The BibTeX menu (the palette in the terminal) sorts the rows by author,
+year, title or key without changing the file (/File Order/ goes back),
+adds an entry (/New Entry/) and sets a field of the entry at the cursor
+(/Set Field/; an empty value removes the field), writing only what
+changes. The status bar counts the entries.
 =\footnote= shows its raised number before its dimmed text, and =\url=
 and =\href= show as links. /Open Link/ (Ctrl-click, Cmd-click on macOS)
 follows the command at the cursor: a reference to its =\label=, =\url=

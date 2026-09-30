@@ -443,11 +443,13 @@ impl<'a> Layout<'a> {
         let len = doc.text().len();
         // A CSV filter or sort: the rows shown, and their order.
         let shown = (!source)
-            .then(|| kalem_core::csv::shown_lines(doc))
+            .then(|| {
+                kalem_core::csv::shown_lines(doc).or_else(|| kalem_core::bibtex::shown_lines(doc))
+            })
             .flatten();
         let order = shown
             .as_ref()
-            .filter(|_| doc.csv_sort.is_some())
+            .filter(|_| doc.csv_sort.is_some() || doc.bib_sort.is_some())
             .map(|lines| {
                 let at: HashMap<usize, usize> =
                     lines.iter().enumerate().map(|(i, &l)| (l, i)).collect();
@@ -1151,6 +1153,12 @@ impl<'a> Layout<'a> {
                             Some(self.cursor),
                         ),
                     }
+                } else if kalem_core::bibtex::is_bib(self.doc)
+                    && !self.source
+                    && range.len() <= view::LONG_LINE
+                {
+                    // A BibTeX entry as a row of the grid.
+                    kalem_core::bibtex::line_view(self.doc, range.clone(), Some(self.cursor))
                 } else if self.doc.meta.mode == kalem_core::DocumentMode::Csv
                     && !self.source
                     && range.len() <= view::LONG_LINE
@@ -1183,7 +1191,11 @@ impl<'a> Layout<'a> {
                     // the view styles it.
                     self.color_code(&range, &mut lg.glyphs);
                     self.color_inline_code(&range, &mut lg.glyphs);
-                } else {
+                } else if !(kalem_core::bibtex::is_bib(self.doc) && !self.source)
+                    || v.runs.iter().all(|r| r.verbatim)
+                {
+                    // Syntax colors where the line shows its source (not a
+                    // BibTeX grid row).
                     self.plain_colors(line, &range, &mut lg.glyphs);
                 }
                 lg

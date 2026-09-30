@@ -121,6 +121,9 @@ pub struct DocumentState {
     /// A CSV document's view sorted by a column (view state), descending
     /// when `true`: the file keeps its order (`crate::csv::shown_lines`).
     pub csv_sort: Option<(usize, bool)>,
+    /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
+    /// descending; the file keeps its order.
+    pub bib_sort: Option<(usize, bool)>,
 }
 
 /// Why saving failed.
@@ -232,6 +235,7 @@ impl DocumentState {
             dired: None,
             csv_filter: None,
             csv_sort: None,
+            bib_sort: None,
         }
     }
 

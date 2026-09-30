@@ -112,6 +112,10 @@ pub fn selection_stats(doc: &DocumentState) -> Option<String> {
     if doc.meta.mode == crate::DocumentMode::Csv {
         return crate::csv::status(doc);
     }
+    // BibTeX: how many entries, and the sort.
+    if crate::bibtex::is_bib(doc) {
+        return crate::bibtex::status(doc);
+    }
     let sel = doc.selection;
     if sel.anchor == sel.head {
         return None;
