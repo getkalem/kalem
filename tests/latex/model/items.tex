@@ -1,0 +1,32 @@
+\documentclass{article}
+\newcounter{step}[section]
+\newcommand{\nextstep}{\refstepcounter{step}}
+\begin{document}
+\section{A}\label{s1}
+\section{B}\label{s2}
+\begin{enumerate}
+\item one\label{i1}
+\item two\label{i2}
+  \begin{enumerate}
+  \item inner\label{i2a}
+  \item inner two\label{i2b}
+    \begin{enumerate}
+    \item deep\label{i2b1}
+      \begin{enumerate}
+      \item deeper\label{i2b1a}
+      \end{enumerate}
+    \end{enumerate}
+  \end{enumerate}
+\item[x] explicit\label{ix}
+\item three\label{i3}
+  \begin{itemize}
+  \item bullet\label{ib}
+  \end{itemize}
+\end{enumerate}
+After\label{after}
+\refstepcounter{step}\label{st1}
+\refstepcounter{step}\label{st2}
+\stepcounter{step}\label{st3}
+\section{C}\label{s3}
+\refstepcounter{step}\label{st4}
+\end{document}

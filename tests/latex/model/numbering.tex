@@ -1,0 +1,17 @@
+\documentclass{book}
+\usepackage{amsthm,amsmath}
+\newtheorem{thm}{Theorem}[section]
+\numberwithin{equation}{section}
+\begin{document}
+\begin{figure}\caption{F0}\label{f0}\end{figure}
+\begin{equation}x\label{e0}\end{equation}
+\chapter{A}
+\section{S}
+\begin{thm}\label{t1}x\end{thm}
+\begin{equation}y\label{e1}\end{equation}
+\chapter{B}
+\begin{thm}\label{t2}x\end{thm}
+\begin{equation}z\label{e2}\end{equation}
+\begin{figure}\caption{F1}\label{f1}\end{figure}
+\ref{f0} \ref{e0} \ref{t1} \ref{e1} \ref{t2} \ref{e2} \ref{f1}
+\end{document}

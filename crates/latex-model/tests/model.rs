@@ -238,3 +238,55 @@ fn macro_parameters_are_not_keys() {
     assert!(m.labels.is_empty());
     assert!(m.references.is_empty());
 }
+
+#[test]
+fn numbering() {
+    // Resets cascade (`\@stpelt`); book's `\theequation`, `\thefigure`
+    // and `\thetable` leave out chapter 0.
+    check_labels("numbering");
+}
+
+#[test]
+fn classes() {
+    // amsbook: sections, figures and tables without the chapter,
+    // equations through the book; memoir: sections only.
+    check_labels("class-amsbook");
+    check_labels("class-memoir");
+}
+
+#[test]
+fn signatures() {
+    // `\newcounter{name}[within]`, `\footnotemark` stepping the footnote
+    // counter, and commands whose arguments were read wrong.
+    check_labels("signatures");
+}
+
+#[test]
+fn items_and_counters() {
+    // Items of enumerated lists at four levels, `\refstepcounter` and a
+    // counter reset by sections; a definition's body does not run where
+    // it is defined.
+    check_labels("items");
+}
+
+#[test]
+fn redefined_the() {
+    // `\renewcommand{\thesection}{\Roman{section}}` and the like.
+    check_labels("the");
+}
+
+#[test]
+fn subfigures() {
+    // subcaption's `subfigure` and subfig's `\subfloat` print the
+    // float's number before their letter; `\captionof` steps its type.
+    check_labels("subfigures");
+    check_labels("subfig");
+    check_labels("caption-above");
+}
+
+#[test]
+fn minipage_footnotes() {
+    // A minipage numbers its footnotes a, b, … and leaves the main
+    // counter alone.
+    check_labels("minipage");
+}

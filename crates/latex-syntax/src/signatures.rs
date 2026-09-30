@@ -16,9 +16,9 @@ pub fn command(name: &str) -> &'static str {
         | "widehat" | "widetilde" | "overbrace" | "underbrace" | "overrightarrow"
         | "overleftarrow" | "label" | "ref" | "eqref" | "pageref" | "autoref" | "cref" | "Cref"
         | "nameref" | "input" | "include" | "includeonly" | "bibliography"
-        | "bibliographystyle" | "author" | "date" | "thanks" | "phantom" | "hphantom"
-        | "vphantom" | "intertext" | "sout" | "uline" | "enquote" | "appendixname" | "keywords"
-        | "email" | "affiliation" | "address" | "subtitle" | "vref" | "Vref" | "cpageref"
+        | "bibliographystyle" | "date" | "thanks" | "phantom" | "hphantom" | "vphantom"
+        | "intertext" | "sout" | "uline" | "appendixname" | "keywords" | "email"
+        | "affiliation" | "address" | "subtitle" | "vref" | "Vref" | "cpageref"
         | "refstepcounter" | "stepcounter" | "subfile" | "graphicspath" | "IEEEauthorblockN"
         | "IEEEauthorblockA" | "IEEEmembership" | "institution" | "department" | "city"
         | "state" | "country" | "streetaddress" | "postcode" | "orcid" | "institute" | "inst"
@@ -29,19 +29,28 @@ pub fn command(name: &str) -> &'static str {
         "glossary" | "ensuremath" | "indexsee" => "m",
         "ccsdesc" | "ead" | "affil" => "om",
         "frac" | "dfrac" | "tfrac" | "cfrac" | "binom" | "dbinom" | "tbinom" | "stackrel"
-        | "overset" | "underset" | "setlength" | "setcounter" | "addtocounter" | "newcounter"
+        | "overset" | "underset" | "setlength" | "setcounter" | "addtocounter"
         | "texorpdfstring" | "import" | "subimport" => "mm",
         "tag" => "*m",
         "numberwithin" => "omm",
         "counterwithin" | "counterwithout" => "*mm",
         "captionof" => "*mom",
-        "bibitem" | "hyperref" | "includepdf" | "footnotemark" => "om",
+        "subfloat" => "oom",
+        "bibitem" | "hyperref" | "includepdf" => "om",
+        // amsart's `\author[short]{name}`.
+        "author" => "om",
+        "newcounter" => "mo",
+        "footnotemark" => "o",
+        "enquote" => "*m",
+        "hspace" | "vspace" | "operatorname" => "*m",
+        "raisebox" => "moom",
+        "parbox" => "ooomm",
         "title" | "caption" | "footnote" | "footnotetext" | "color" | "usepackage"
         | "RequirePackage" | "documentclass" | "addbibresource" | "xrightarrow" | "xleftarrow"
         | "shortauthor" => "om",
         "sqrt" => "om",
         "textcolor" | "colorbox" => "omm",
-        "hspace" | "vspace" | "operatorname" | "includegraphics" => "*om",
+        "includegraphics" => "*om",
         "cite" | "citep" | "citet" | "parencite" | "textcite" | "autocite" | "footcite"
         | "citeauthor" | "citeyear" | "citealt" | "citealp" | "nocite" | "smartcite" | "Cite"
         | "Citep" | "Citet" | "Parencite" | "Textcite" | "Autocite" => "*oom",
@@ -51,7 +60,7 @@ pub fn command(name: &str) -> &'static str {
         "DeclareMathOperator" => "*mm",
         "item" => "o",
         "\\" => "*o",
-        "makebox" | "framebox" | "parbox" | "raisebox" => "oom",
+        "makebox" | "framebox" => "oom",
         "href" => "mm",
         _ => "",
     }

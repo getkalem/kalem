@@ -200,7 +200,7 @@ pub fn toggle(text: &str, sel: Selection, root: &SyntaxNode, command: &str) -> O
 /// The sectioning commands of a class, from level 1.
 fn levels(class: Option<&str>) -> &'static [&'static str] {
     match class {
-        Some("book" | "report" | "memoir" | "scrbook" | "scrreprt" | "amsbook") => &[
+        Some(c) if latex_model::has_chapters(c) => &[
             "chapter",
             "section",
             "subsection",

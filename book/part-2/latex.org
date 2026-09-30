@@ -20,15 +20,15 @@ codes, the LaTeX 2ε kernel, the standard classes (=article=, =report=,
 =book=), =amsmath=, and the conventions of the common packages. Its
 claims are narrower and each has an oracle.
 
-| Claim                                                                                  | Oracle                                                                                                                                                                                   | State                                                                                                                  |
-|----------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------|
-| The tree's text is the input, byte for byte, whatever the input                        | Byte-exact round trip: property tests on random input and on random edit sequences (=crates/latex-syntax/tests/parse.rs=), fuzz targets =fuzz/fuzz_targets/latex_parse.rs= and =latex_reparse.rs=, and =kalem check=, which fails when the parse does not reproduce the file | Holds on generated input; the arXiv corpus (T2.7h.30) is not yet in the repository                                     |
-| An incremental reparse gives the tree a full parse gives                               | Property tests: incremental reparse equal to a full parse on random edits                                                                                                                | Holds                                                                                                                  |
-| Numbers (sections, equations, floats, theorems, footnotes) are the ones LaTeX prints   | The =.aux= files pdflatex writes for =tests/latex/model/article.tex=, =book.tex= and =tests/latex/project/main.tex=: every =\label= gets the number in the matching =*.labels= file    | Holds on the fixtures                                                                                                  |
-| On the structure it reads, Kalem agrees with pandoc's LaTeX reader                     | =kalem diff-pandoc=, which counts ten categories on both sides (below)                                                                                                                 | All categories agree on the fixtures of =tests/latex= but two deliberate differences, listed in [[file:latex-known-differences.org][Known differences]] |
-| What an editing command generates compiles                                             | Compiling with a TeX engine; every template is compiled with pdflatex in the tests                                                                                                    | Templates compiled; compile-and-compare on a corpus (T2.7h.33) is open                                                 |
-| Formulas are laid out as KaTeX lays them out                                           | org-math renders with RaTeX and the KaTeX fonts; image snapshots in =crates/org-math/tests/render.rs=                                                                                 | 25 formulas; the corpus of a thousand (T2.7h.34) is open                                                               |
-| A stated share of a document's body is rendered rather than shown as source            | The coverage metric of =kalem check --unrendered=                                                                                                                                      | Measured per document; the target and the corpus (T2.7h.1, T2.7h.36) are open                                          |
+| Claim                                                                                | Oracle                                                                                                                                                                                                                                                                       | State                                                                                                             |
+|--------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------|
+| The tree's text is the input, byte for byte, whatever the input                      | Byte-exact round trip: property tests on random input and on random edit sequences (=crates/latex-syntax/tests/parse.rs=), fuzz targets =fuzz/fuzz_targets/latex_parse.rs= and =latex_reparse.rs=, and =kalem check=, which fails when the parse does not reproduce the file | Holds on generated input; the arXiv corpus (T2.7h.30) is not yet in the repository                                |
+| An incremental reparse gives the tree a full parse gives                             | Property tests: incremental reparse equal to a full parse on random edits                                                                                                                                                                                                    | Holds                                                                                                             |
+| Numbers (sections, equations, floats, theorems, footnotes) are the ones LaTeX prints | The =.aux= files pdflatex writes for =tests/latex/model/article.tex=, =book.tex= and =tests/latex/project/main.tex=: every =\label= gets the number in the matching =*.labels= file                                                                                          | Holds on the fixtures                                                                                             |
+| On the structure it reads, Kalem agrees with pandoc's LaTeX reader                   | =kalem diff-pandoc=, which counts ten categories on both sides (below)                                                                                                                                                                                                       | All categories agree on the fixtures of =tests/latex= but two deliberate differences, listed in [[file:latex-known-differences.org][Known differences]] |
+| What an editing command generates compiles                                           | Compiling with a TeX engine; every template is compiled with pdflatex in the tests                                                                                                                                                                                           | Templates compiled; compile-and-compare on a corpus (T2.7h.33) is open                                            |
+| Formulas are laid out as KaTeX lays them out                                         | org-math renders with RaTeX and the KaTeX fonts; image snapshots in =crates/org-math/tests/render.rs=                                                                                                                                                                        | 25 formulas; the corpus of a thousand (T2.7h.34) is open                                                          |
+| A stated share of a document's body is rendered rather than shown as source          | The coverage metric of =kalem check --unrendered=                                                                                                                                                                                                                            | Measured per document; the target and the corpus (T2.7h.1, T2.7h.36) are open                                     |
 
 ** pandoc's reader: =kalem diff-pandoc=
 
@@ -36,18 +36,18 @@ claims are narrower and each has an oracle.
 =pandoc -f latex -t json= on each file (in the file's folder) and counts
 the same things on Kalem's side, over every file the project includes:
 
-| Category         | Kalem counts                                                                                                                       | pandoc counts                                   |
-|------------------+------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------|
-| =headings=       | sectioning commands of the project model                                                                                           | =Header=                                        |
-| =heading-levels= | the levels of those commands, ranked from 1 (LaTeX and pandoc number levels differently)                                          | the levels of =Header=, ranked                  |
-| =inline-math=    | =$…$= and =\(…\)= in each file's body                                                                                              | =InlineMath=                                    |
-| =display-math=   | =$$…$$=, =\[…\]=, and =equation=, =align=, =gather=, =multline=, =eqnarray=, =alignat=, =flalign=, =displaymath= (starred too) not inside another math environment | =DisplayMath=                                   |
-| =citations=      | the keys of every citation command                                                                                                 | the citations of each =Cite=                    |
-| =footnotes=      | =\footnote= commands                                                                                                               | =Note=                                          |
-| =figures=        | floats of kind figure (=figure=, =figure*=, =wrapfigure=)                                                                          | =Figure=                                        |
-| =tables=         | =tabular=, =tabularx=, =longtable= environments                                                                                    | =Table=                                         |
-| =code-blocks=    | verbatim environments other than =comment=                                                                                         | =CodeBlock=                                     |
-| =list-items=     | =\item= commands                                                                                                                   | the items of =BulletList=, =OrderedList=, =DefinitionList= |
+| Category         | Kalem counts                                                                                                                                                       | pandoc counts                                              |
+|------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------------------------------------|
+| =headings=       | sectioning commands of the project model                                                                                                                           | =Header=                                                   |
+| =heading-levels= | the levels of those commands, ranked from 1 (LaTeX and pandoc number levels differently)                                                                           | the levels of =Header=, ranked                             |
+| =inline-math=    | =$…$= and =\(…\)= in each file's body                                                                                                                              | =InlineMath=                                               |
+| =display-math=   | =$$…$$=, =\[…\]=, and =equation=, =align=, =gather=, =multline=, =eqnarray=, =alignat=, =flalign=, =displaymath= (starred too) not inside another math environment | =DisplayMath=                                              |
+| =citations=      | the keys of every citation command                                                                                                                                 | the citations of each =Cite=                               |
+| =footnotes=      | =\footnote= commands                                                                                                                                               | =Note=                                                     |
+| =figures=        | floats of kind figure (=figure=, =figure*=, =wrapfigure=)                                                                                                          | =Figure=                                                   |
+| =tables=         | =tabular=, =tabularx=, =longtable= environments                                                                                                                    | =Table=                                                    |
+| =code-blocks=    | verbatim environments other than =comment=                                                                                                                         | =CodeBlock=                                                |
+| =list-items=     | =\item= commands                                                                                                                                                   | the items of =BulletList=, =OrderedList=, =DefinitionList= |
 
 A file's body is its =document= environment, or the whole file for an
 included file without one. Without =--summary= it prints each
@@ -97,19 +97,19 @@ byte, for any input, balanced or not. It never fails and never panics.
 
 The lexer uses TeX's standard category codes, fixed:
 
-| Characters                     | Token            | Meaning                                                                                    |
-|--------------------------------+------------------+--------------------------------------------------------------------------------------------|
-| =\= and letters                | =CONTROL_WORD=   | a command name: =\= and a run of ASCII letters (and =@= after =\makeatletter=)             |
-| =\= and one other character    | =CONTROL_SYMBOL= | =\\=, =\%=, =\(=, =\,=, =\é=; a line ending after =\= counts as the character              |
-| ={= =}=                        | =L_BRACE= =R_BRACE= | groups and mandatory arguments                                                          |
-| =[= =]=                        | =L_BRACKET= =R_BRACKET= | optional arguments where a signature asks for one; text elsewhere                   |
-| =$=, =$$=                      | =DOLLAR=, =DOUBLE_DOLLAR= | math shifts                                                                       |
-| =&= =#= =^= =_= =~=            | one token each   | alignment tab, parameter, superscript, subscript, tie                                      |
-| =%= to the end of the line     | =COMMENT=        | a comment (the line ending is not part of it)                                              |
-| spaces and tabs                | =WHITESPACE=     |                                                                                            |
-| one line ending                | =NEWLINE=        | LF, CRLF or a lone CR                                                                      |
-| a line ending and blank lines  | =PAR_BREAK=      | a line ending followed by lines of only spaces and tabs: the end of a paragraph            |
-| anything else                  | =TEXT=           | a run of characters with no special meaning                                                |
+| Characters                    | Token                     | Meaning                                                                         |
+|-------------------------------+---------------------------+---------------------------------------------------------------------------------|
+| =\= and letters               | =CONTROL_WORD=            | a command name: =\= and a run of ASCII letters (and =@= after =\makeatletter=)  |
+| =\= and one other character   | =CONTROL_SYMBOL=          | =\\=, =\%=, =\(=, =\,=, =\é=; a line ending after =\= counts as the character   |
+| ={= =}=                       | =L_BRACE= =R_BRACE=       | groups and mandatory arguments                                                  |
+| =[= =]=                       | =L_BRACKET= =R_BRACKET=   | optional arguments where a signature asks for one; text elsewhere               |
+| =$=, =$$=                     | =DOLLAR=, =DOUBLE_DOLLAR= | math shifts                                                                     |
+| =&= =#= =^= =_= =~=           | one token each            | alignment tab, parameter, superscript, subscript, tie                           |
+| =%= to the end of the line    | =COMMENT=                 | a comment (the line ending is not part of it)                                   |
+| spaces and tabs               | =WHITESPACE=              |                                                                                 |
+| one line ending               | =NEWLINE=                 | LF, CRLF or a lone CR                                                           |
+| a line ending and blank lines | =PAR_BREAK=               | a line ending followed by lines of only spaces and tabs: the end of a paragraph |
+| anything else                 | =TEXT=                    | a run of characters with no special meaning                                     |
 
 Two token kinds come from the parser rather than the lexer: =STAR= (the
 star of =\section*= and of a starred environment's argument list) and
@@ -128,10 +128,10 @@ container may contain paragraph breaks.
 
 A command takes the arguments its /signature/ lists, read left to right:
 
-| Letter | Argument          | How it is read                                                                                                                                                                                                                                                  |
-|--------+-------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =*=    | an optional star  | a =*= immediately after what precedes it, with no blank between                                                                                                                                                                                                 |
-| =o=    | an optional argument | after spaces, tabs and at most one line ending: =[= with a matching =]= before the end of the paragraph and before an unmatched =}= (groups and verbatim arguments inside are skipped); otherwise there is no optional argument and the =[= is text          |
+| Letter | Argument             | How it is read                                                                                                                                                                                                                                                                     |
+|--------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =*=    | an optional star     | a =*= immediately after what precedes it, with no blank between                                                                                                                                                                                                                    |
+| =o=    | an optional argument | after spaces, tabs and at most one line ending: =[= with a matching =]= before the end of the paragraph and before an unmatched =}= (groups and verbatim arguments inside are skipped); otherwise there is no optional argument and the =[= is text                                |
 | =m=    | a mandatory argument | after spaces, tabs and at most one line ending: a group; or a single control word (not =\begin=, =\end=, =\verb=, =\lstinline=, =\url=, =\href=, =\makeatletter=, =\makeatother=); or a control symbol; or the first character of a text run. Anything else ends the argument list |
 
 A command not in the signature table takes no arguments. What follows
@@ -147,23 +147,26 @@ in text mode, so =$= inside them starts a formula.
 
 The complete table (=crates/latex-syntax/src/signatures.rs=):
 
-| Signature | Commands |
-|-----------+----------|
-| =*om=     | =\part= =\chapter= =\section= =\subsection= =\subsubsection= =\paragraph= =\subparagraph= =\hspace= =\vspace= =\operatorname= =\includegraphics= |
-| =m=       | =\textbf= =\textit= =\texttt= =\textsc= =\textsf= =\textrm= =\textup= =\textmd= =\textsl= =\textnormal= =\emph= =\underline= =\textsuperscript= =\textsubscript= =\mbox= =\fbox= =\text= =\mathrm= =\mathbf= =\mathit= =\mathcal= =\mathbb= =\mathsf= =\mathtt= =\mathfrak= =\mathscr= =\boldsymbol= =\overline= =\hat= =\bar= =\tilde= =\vec= =\dot= =\ddot= =\check= =\breve= =\acute= =\grave= =\widehat= =\widetilde= =\overbrace= =\underbrace= =\overrightarrow= =\overleftarrow= =\label= =\ref= =\eqref= =\pageref= =\autoref= =\cref= =\Cref= =\nameref= =\vref= =\Vref= =\cpageref= =\input= =\include= =\includeonly= =\subfile= =\bibliography= =\bibliographystyle= =\author= =\date= =\thanks= =\phantom= =\hphantom= =\vphantom= =\intertext= =\sout= =\uline= =\enquote= =\appendixname= =\keywords= =\email= =\affiliation= =\address= =\subtitle= =\refstepcounter= =\stepcounter= =\graphicspath= =\IEEEauthorblockN= =\IEEEauthorblockA= =\IEEEmembership= =\institution= =\department= =\city= =\state= =\country= =\streetaddress= =\postcode= =\orcid= =\institute= =\inst= =\pacs= |
-| =om=      | =\title= =\caption= =\footnote= =\footnotetext= =\footnotemark= =\color= =\usepackage= =\RequirePackage= =\documentclass= =\addbibresource= =\xrightarrow= =\xleftarrow= =\shortauthor= =\sqrt= =\bibitem= =\hyperref= =\includepdf= =\ccsdesc= =\ead= =\affil= |
-| =mm=      | =\frac= =\dfrac= =\tfrac= =\cfrac= =\binom= =\dbinom= =\tbinom= =\stackrel= =\overset= =\underset= =\setlength= =\setcounter= =\addtocounter= =\newcounter= =\texorpdfstring= =\import= =\subimport= =\IEEEPARstart= =\href= (first argument verbatim, below) |
-| =omm=     | =\numberwithin= =\textcolor= =\colorbox= |
-| =*m=      | =\tag= |
-| =*mm=     | =\counterwithin= =\counterwithout= =\DeclareMathOperator= |
-| =*mom=    | =\captionof= |
-| =*oom=    | =\cite= =\citep= =\citet= =\parencite= =\textcite= =\autocite= =\footcite= =\citeauthor= =\citeyear= =\citealt= =\citealp= =\nocite= =\smartcite= =\Cite= =\Citep= =\Citet= =\Parencite= =\Textcite= =\Autocite= |
-| =*moom=   | =\newcommand= =\renewcommand= =\providecommand= |
-| =*moomm=  | =\newenvironment= =\renewenvironment= |
-| =*momo=   | =\newtheorem= |
-| =oom=     | =\makebox= =\framebox= =\parbox= =\raisebox= |
-| =o=       | =\item= |
-| =*o=      | =\\= (the star and the optional argument must follow at once, with no blank) |
+| Signature | Commands                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+|-----------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =*om=     | =\part= =\chapter= =\section= =\subsection= =\subsubsection= =\paragraph= =\subparagraph= =\includegraphics=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| =m=       | =\textbf= =\textit= =\texttt= =\textsc= =\textsf= =\textrm= =\textup= =\textmd= =\textsl= =\textnormal= =\emph= =\underline= =\textsuperscript= =\textsubscript= =\mbox= =\fbox= =\text= =\mathrm= =\mathbf= =\mathit= =\mathcal= =\mathbb= =\mathsf= =\mathtt= =\mathfrak= =\mathscr= =\boldsymbol= =\overline= =\hat= =\bar= =\tilde= =\vec= =\dot= =\ddot= =\check= =\breve= =\acute= =\grave= =\widehat= =\widetilde= =\overbrace= =\underbrace= =\overrightarrow= =\overleftarrow= =\label= =\ref= =\eqref= =\pageref= =\autoref= =\cref= =\Cref= =\nameref= =\input= =\include= =\includeonly= =\bibliography= =\bibliographystyle= =\date= =\thanks= =\phantom= =\hphantom= =\vphantom= =\intertext= =\sout= =\uline= =\appendixname= =\keywords= =\email= =\affiliation= =\address= =\subtitle= =\vref= =\Vref= =\cpageref= =\refstepcounter= =\stepcounter= =\subfile= =\graphicspath= =\IEEEauthorblockN= =\IEEEauthorblockA= =\IEEEmembership= =\institution= =\department= =\city= =\state= =\country= =\streetaddress= =\postcode= =\orcid= =\institute= =\inst= =\pacs= =\glossary= =\ensuremath= =\indexsee= |
+| =mm=      | =\IEEEPARstart= =\frac= =\dfrac= =\tfrac= =\cfrac= =\binom= =\dbinom= =\tbinom= =\stackrel= =\overset= =\underset= =\setlength= =\setcounter= =\addtocounter= =\texorpdfstring= =\import= =\subimport= =\href=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| =om=      | =\index= =\ccsdesc= =\ead= =\affil= =\bibitem= =\hyperref= =\includepdf= =\author= =\title= =\caption= =\footnote= =\footnotetext= =\color= =\usepackage= =\RequirePackage= =\documentclass= =\addbibresource= =\xrightarrow= =\xleftarrow= =\shortauthor= =\sqrt=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| =omm=     | =\nomenclature= =\numberwithin= =\textcolor= =\colorbox=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| =*m=      | =\tag= =\enquote= =\hspace= =\vspace= =\operatorname=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| =*mm=     | =\counterwithin= =\counterwithout= =\DeclareMathOperator=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| =*mom=    | =\captionof=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| =oom=     | =\subfloat= =\makebox= =\framebox=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| =mo=      | =\newcounter=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| =o=       | =\footnotemark= =\item=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| =moom=    | =\raisebox=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| =ooomm=   | =\parbox=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| =*oom=    | =\cite= =\citep= =\citet= =\parencite= =\textcite= =\autocite= =\footcite= =\citeauthor= =\citeyear= =\citealt= =\citealp= =\nocite= =\smartcite= =\Cite= =\Citep= =\Citet= =\Parencite= =\Textcite= =\Autocite=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| =*moom=   | =\newcommand= =\renewcommand= =\providecommand=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| =*moomm=  | =\newenvironment= =\renewenvironment=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| =*momo=   | =\newtheorem=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| =*o=      | =\\= (the star and the optional argument must follow at once, with no blank)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 The =*oom= signature is what makes a command a citation command
 everywhere in Kalem: the model, the view, completion and the insert
@@ -173,13 +176,13 @@ command all ask for it.
 
 The arguments after =\begin{name}=:
 
-| Signature | Environments |
-|-----------+--------------|
-| =om=      | =tabular= =array= =longtable= =subfigure= =subtable= =minipage= =minted= |
-| =mom=     | =tabularx= =tabulary= =tabular*= |
-| =omom=    | =wrapfigure= =wraptable= |
+| Signature | Environments                                                                                                                                                                                    |
+|-----------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =om=      | =tabular= =array= =longtable= =subfigure= =subtable= =minipage= =minted=                                                                                                                        |
+| =mom=     | =tabularx= =tabulary= =tabular*=                                                                                                                                                                |
+| =omom=    | =wrapfigure= =wraptable=                                                                                                                                                                        |
 | =o=       | =figure= =figure*= =table= =table*= =itemize= =enumerate= =description= =theorem= =lemma= =proof= =definition= =corollary= =proposition= =example= =remark= =lstlisting= =Verbatim= =BVerbatim= |
-| =m=       | =thebibliography= =multicols= =multicols*= =alignat= =alignat*= |
+| =m=       | =thebibliography= =multicols= =multicols*= =alignat= =alignat*=                                                                                                                                 |
 
 Other environments take no arguments at =\begin=; a =[note]= after the
 =\begin= of a theorem-like environment the table does not know is read
@@ -187,18 +190,18 @@ by the model all the same (see Theorems).
 
 ** Commands the parser treats specially
 
-| Command                                        | How it is parsed                                                                                                                                                                                                  |
-|------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =\verb=, =\verb*=                              | a =VERB= node: the command, then the delimiter (any character but a space, a tab or =*=), the code and the same delimiter, all on one line, taken as one =VERBATIM= token. Without the closing delimiter on the line: a diagnostic, and the command is an ordinary one |
-| =\lstinline=                                   | as =\verb=, with an optional =[options]= first and a braced form =\lstinline{…}= (braces balanced on the line)                                                                                                    |
-| =\url=                                         | the braces of the address, on the same line, taken whole: the address is one =VERBATIM= token, so =%=, =#= and =_= in it are not special. Without braces on the line: a diagnostic                               |
-| =\href=                                        | the address as for =\url=, then one ordinary mandatory argument, the text                                                                                                                                         |
-| =\begin=, =\end=                               | an environment (below). =\begin= without a name is a diagnostic; =\end{x}= with no open =x= is a diagnostic and an =END= node on its own                                                                        |
-| =\left=, =\right=, =\middle=                   | the next delimiter as their argument: one character, a control symbol or word, =[= or =]=                                                                                                                         |
-| =\def=, =\gdef=, =\edef=, =\xdef=              | every token up to and including the first group (the body); the parameter text (=\def\name#1#2{…}=) is kept as tokens. A paragraph break or a stray =}= ends it                                                    |
-| =\makeatletter=, =\makeatother=                | from here on, =@= is (is not) a letter in control words                                                                                                                                                           |
-| =\(= =\[=                                      | open inline and display math, in text mode only                                                                                                                                                                   |
-| =\\=                                           | a command with signature =*o= read immediately after it                                                                                                                                                           |
+| Command                           | How it is parsed                                                                                                                                                                                                                                                       |
+|-----------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =\verb=, =\verb*=                 | a =VERB= node: the command, then the delimiter (any character but a space, a tab or =*=), the code and the same delimiter, all on one line, taken as one =VERBATIM= token. Without the closing delimiter on the line: a diagnostic, and the command is an ordinary one |
+| =\lstinline=                      | as =\verb=, with an optional =[options]= first and a braced form =\lstinline{…}= (braces balanced on the line)                                                                                                                                                         |
+| =\url=                            | the braces of the address, on the same line, taken whole: the address is one =VERBATIM= token, so =%=, =#= and =_= in it are not special. Without braces on the line: a diagnostic                                                                                     |
+| =\href=                           | the address as for =\url=, then one ordinary mandatory argument, the text                                                                                                                                                                                              |
+| =\begin=, =\end=                  | an environment (below). =\begin= without a name is a diagnostic; =\end{x}= with no open =x= is a diagnostic and an =END= node on its own                                                                                                                               |
+| =\left=, =\right=, =\middle=      | the next delimiter as their argument: one character, a control symbol or word, =[= or =]=                                                                                                                                                                              |
+| =\def=, =\gdef=, =\edef=, =\xdef= | every token up to and including the first group (the body); the parameter text (=\def\name#1#2{…}=) is kept as tokens. A paragraph break or a stray =}= ends it                                                                                                        |
+| =\makeatletter=, =\makeatother=   | from here on, =@= is (is not) a letter in control words                                                                                                                                                                                                                |
+| =\(= =\[=                         | open inline and display math, in text mode only                                                                                                                                                                                                                        |
+| =\\=                              | a command with signature =*o= read immediately after it                                                                                                                                                                                                                |
 
 ** Environments
 
@@ -226,12 +229,12 @@ parsed in text mode.
 
 ** Math
 
-| Delimiters   | Node           | Mode in which it opens |
-|--------------+----------------+------------------------|
-| =$…$=        | =INLINE_MATH=  | text                   |
-| =\(…\)=      | =INLINE_MATH=  | text                   |
-| =$$…$$=      | =DISPLAY_MATH= | text                   |
-| =\[…\]=      | =DISPLAY_MATH= | text                   |
+| Delimiters | Node           | Mode in which it opens |
+|------------+----------------+------------------------|
+| =$…$=      | =INLINE_MATH=  | text                   |
+| =\(…\)=    | =INLINE_MATH=  | text                   |
+| =$$…$$=    | =DISPLAY_MATH= | text                   |
+| =\[…\]=    | =DISPLAY_MATH= | text                   |
 
 Inside math, =$= closes inline math and =$$= closes display math;
 =\(= and =\[= are not special. A formula not closed before the end of
@@ -262,18 +265,18 @@ not follow:
 Unbalanced input is closed where a reader would close it, and each
 closing is reported with its range:
 
-| Situation                               | What the parser does                                                                                                   | Message                                   |
-|-----------------------------------------+------------------------------------------------------------------------------------------------------------------------+-------------------------------------------|
-| ={= with no matching =}=                | the group ends at the end of the paragraph                                                                            | ={ is not closed=                         |
-| =}= with no ={=                         | kept as a token                                                                                                        | =} without {=                             |
-| =\begin{x}= with no =\end{x}=           | the body ends at the next sectioning command (=\part= to =\subparagraph=) after it, or at the end of its container    | =\begin{x} is not closed=                 |
-| =\end{x}= with no open =x=              | an =END= node on its own                                                                                               | =\end{x} without \begin{x}=               |
-| =\begin= without a name                 | an ordinary command                                                                                                    | =\begin without an environment name=      |
-| a formula not closed                    | it ends at the end of the paragraph                                                                                   | =math is not closed=                      |
-| =\)= or =\]= outside math               | kept as a token                                                                                                        | =\) without its opening=, =\] without its opening= |
-| =\verb= or =\lstinline= without delimiter on the line | an ordinary command                                                                                         | =\verb without its closing delimiter=     |
-| =\url= or =\href= without braces on the line | an ordinary command                                                                                               | =\url without its address=                |
-| nesting deeper than 1,000 levels        | deeper groups, commands and formulas stay flat tokens                                                                 | =nested too deeply to be structured=      |
+| Situation                                             | What the parser does                                                                                               | Message                                            |
+|-------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------+----------------------------------------------------|
+| ={= with no matching =}=                              | the group ends at the end of the paragraph                                                                         | ={ is not closed=                                  |
+| =}= with no ={=                                       | kept as a token                                                                                                    | =} without {=                                      |
+| =\begin{x}= with no =\end{x}=                         | the body ends at the next sectioning command (=\part= to =\subparagraph=) after it, or at the end of its container | =\begin{x} is not closed=                          |
+| =\end{x}= with no open =x=                            | an =END= node on its own                                                                                           | =\end{x} without \begin{x}=                        |
+| =\begin= without a name                               | an ordinary command                                                                                                | =\begin without an environment name=               |
+| a formula not closed                                  | it ends at the end of the paragraph                                                                                | =math is not closed=                               |
+| =\)= or =\]= outside math                             | kept as a token                                                                                                    | =\) without its opening=, =\] without its opening= |
+| =\verb= or =\lstinline= without delimiter on the line | an ordinary command                                                                                                | =\verb without its closing delimiter=              |
+| =\url= or =\href= without braces on the line          | an ordinary command                                                                                                | =\url without its address=                         |
+| nesting deeper than 1,000 levels                      | deeper groups, commands and formulas stay flat tokens                                                              | =nested too deeply to be structured=               |
 
 Parsing stays linear on unbalanced input because the pairing of braces
 and environments is computed once, before the tree is built. These
@@ -349,13 +352,13 @@ line.
 
 ** Included files
 
-| Command                 | Where the file is looked for                                                                                  | Folder for the =\input= and =\include= inside it |
-|-------------------------+---------------------------------------------------------------------------------------------------------------+--------------------------------------------------|
-| =\input{name}=          | the current base folder: =name.tex=, then =name= (only =name= when it ends in =.tex=)                         | the same base                                    |
-| =\include{name}=        | the current base folder: =name.tex= only                                                                      | the same base                                    |
-| =\subfile{name}=        | the including file's folder: =name=, then =name.tex=                                                         | the subfile's folder                             |
-| =\import{dir}{name}=    | =dir= relative to the root's folder (or absolute): =name.tex=, then =name=                                    | the imported file's folder                       |
-| =\subimport{dir}{name}= | =dir= relative to the including file's folder: =name.tex=, then =name=                                        | the imported file's folder                       |
+| Command                 | Where the file is looked for                                                          | Folder for the =\input= and =\include= inside it |
+|-------------------------+---------------------------------------------------------------------------------------+--------------------------------------------------|
+| =\input{name}=          | the current base folder: =name.tex=, then =name= (only =name= when it ends in =.tex=) | the same base                                    |
+| =\include{name}=        | the current base folder: =name.tex= only                                              | the same base                                    |
+| =\subfile{name}=        | the including file's folder: =name=, then =name.tex=                                  | the subfile's folder                             |
+| =\import{dir}{name}=    | =dir= relative to the root's folder (or absolute): =name.tex=, then =name=            | the imported file's folder                       |
+| =\subimport{dir}{name}= | =dir= relative to the including file's folder: =name.tex=, then =name=                | the imported file's folder                       |
 
 The base folder starts as the root's folder, as LaTeX runs there. Each
 included file is read in place: its events are numbered where the
@@ -408,28 +411,34 @@ and numbering runs over what they say.
 
 ** Classes
 
-| Class kind | Classes                                             | Chapters | =secnumdepth= default | Counters within =chapter=                   |
-|------------+-----------------------------------------------------+----------+-----------------------+---------------------------------------------|
-| book       | =book= =amsbook= =scrbook= =memoir= =extbook=       | yes      | 2                     | =equation= =figure= =table= =footnote=      |
-| report     | =report= =scrreprt= =extreport=                     | yes      | 2                     | =equation= =figure= =table= =footnote=      |
-| article    | every other class, and a document without =\documentclass= | no | 3                     | none                                        |
+| Class kind | Classes                                                    | Chapters | =secnumdepth= default | Counters within =chapter=                                                                  |
+|------------+------------------------------------------------------------+----------+-----------------------+--------------------------------------------------------------------------------------------|
+| book       | =book= =scrbook= =extbook=                                 | yes      |                     2 | =equation= =figure= =table= =footnote=                                                     |
+| amsbook    | =amsbook=                                                  | yes      |                     3 | =figure= =table= =footnote=, printed without the chapter; =section= printed without it too |
+| memoir     | =memoir=                                                   | yes      |                     1 | =equation= =figure= =table= =footnote=                                                     |
+| report     | =report= =scrreprt= =extreport=                            | yes      |                     2 | =equation= =figure= =table= =footnote=                                                     |
+| article    | every other class, and a document without =\documentclass= | no       |                     3 | none                                                                                       |
 
 In every class =subsection= is within =section=, =subsubsection= within
 =subsection=, =paragraph= within =subsubsection= and =subparagraph=
 within =paragraph=; in chaptered classes =section= is within =chapter=.
-=\part= resets nothing.
+=\part= resets nothing. Resets cascade, as LaTeX's =\@stpelt= steps each
+reset counter from -1: a new chapter resets =section= and, through it,
+=subsection= and a theorem numbered within =section=. In book and report,
+=\theequation=, =\thefigure= and =\thetable= leave the chapter out while
+it is 0 (=Figure 1= before the first chapter, not =0.1=).
 
 ** Sections
 
-| Level | Command          | Numbered when                               | Printed as (=\the…=)                      |
-|-------+------------------+---------------------------------------------+-------------------------------------------|
-| -1    | =\part=          | =secnumdepth= > -2                          | upper-case Roman: =I=, =II=               |
-| 0     | =\chapter=       | =secnumdepth= > -1 and in the main matter   | =1=; in the appendix =A=                  |
-| 1     | =\section=       | =secnumdepth= ≥ 1                           | =1= (article), =1.1= (chaptered); =A= in an article's appendix |
-| 2     | =\subsection=    | =secnumdepth= ≥ 2                           | =1.1=, =1.1.1=                            |
-| 3     | =\subsubsection= | =secnumdepth= ≥ 3                           | parent's number, =.=, its own             |
-| 4     | =\paragraph=     | =secnumdepth= ≥ 4                           | the same                                  |
-| 5     | =\subparagraph=  | =secnumdepth= ≥ 5                           | the same                                  |
+| Level | Command          | Numbered when                             | Printed as (=\the…=)                                           |
+|-------+------------------+-------------------------------------------+----------------------------------------------------------------|
+|    -1 | =\part=          | =secnumdepth= > -2                        | upper-case Roman: =I=, =II=                                    |
+|     0 | =\chapter=       | =secnumdepth= > -1 and in the main matter | =1=; in the appendix =A=                                       |
+|     1 | =\section=       | =secnumdepth= ≥ 1                         | =1= (article), =1.1= (chaptered); =A= in an article's appendix |
+|     2 | =\subsection=    | =secnumdepth= ≥ 2                         | =1.1=, =1.1.1=                                                 |
+|     3 | =\subsubsection= | =secnumdepth= ≥ 3                         | parent's number, =.=, its own                                  |
+|     4 | =\paragraph=     | =secnumdepth= ≥ 4                         | the same                                                       |
+|     5 | =\subparagraph=  | =secnumdepth= ≥ 5                         | the same                                                       |
 
 A starred command is not numbered. =\setcounter{secnumdepth}{n}= and
 =\addtocounter{secnumdepth}{n}= change the depth. =\frontmatter= and
@@ -444,16 +453,24 @@ parent is the nearest section before it with a smaller level.
 =\setcounter{c}{n}= and =\addtocounter{c}{n}= set any counter to an
 integer. =\numberwithin{c}{w}= (amsmath) and =\counterwithin{c}{w}=
 make =c= reset with =w= and print as =w='s number, a dot and its own;
-=\counterwithout{c}{w}= undoes it.
+=\counterwithout{c}{w}= undoes it. =\newcounter{c}[w]= makes =c= reset
+with =w= but print alone. =\stepcounter{c}= steps it, and
+=\refstepcounter{c}= also makes it what a =\label= points at.
+=\renewcommand{\thec}{…}= changes how =c= prints: =\arabic=, =\roman=,
+=\Roman=, =\alph= and =\Alph= of a counter, other =\the…= and text are
+read, other commands print nothing (=\renewcommand{\thesection}{\Roman{section}}=
+gives =II=, and =\thesubsection= built on it =II.a=). A definition's body
+is not read where it is defined: =\newcommand{\step}{\refstepcounter{s}}=
+steps nothing until it is used, and the model does not expand macros.
 
 ** Equations
 
-| Environment                                   | Numbers                                                         |
-|-----------------------------------------------+-----------------------------------------------------------------|
-| =equation=, =multline=                        | one                                                              |
+| Environment                                         | Numbers                                                                                                                                              |
+|-----------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =equation=, =multline=                              | one                                                                                                                                                  |
 | =align=, =gather=, =flalign=, =alignat=, =eqnarray= | one per line: each =\\= ends a line, and so does the end of the environment (so an empty line after a final =\\= is numbered, as amsmath numbers it) |
-| the starred forms                             | none, but a =\tag= still gives its line a number                |
-| =subequations=                                | steps =equation= once; the lines inside number as that number and a letter: =3a=, =3b= |
+| the starred forms                                   | none, but a =\tag= still gives its line a number                                                                                                     |
+| =subequations=                                      | steps =equation= once; the lines inside number as that number and a letter: =3a=, =3b=                                                               |
 
 On a line, =\nonumber= or =\notag= takes the number away and =\tag{x}=
 replaces it with =x=. A =\label= in a line gets that line's number.
@@ -471,11 +488,15 @@ Here =eq:first= is 1, the second line has no number and the third shows
 
 ** Floats and captions
 
-A =\caption= inside =figure=, =wrapfigure= or =subfigure= steps the
-=figure= counter; inside =table=, =wraptable=, =longtable= or =subtable=
-the =table= counter (starred forms too). Inside =subfigure= and
-=subtable= a caption is lettered instead, =a=, =b=, … within its float.
-A caption outside any float is not numbered. The model keeps each
+A =\caption= inside =figure= or =wrapfigure= steps the =figure=
+counter; inside =table=, =wraptable= or =longtable= the =table= counter
+(starred forms too). Inside =subfigure= and =subtable= (subcaption), and
+for subfig's =\subfloat[caption]{…}=, a caption is lettered instead,
+=a=, =b=, … within its float, and =\ref= prints the float's number and
+the letter, =1a=: the number the float's caption has, or the one it is
+about to get when it comes after. =\captionof{figure}{…}= steps
+=figure= outside a float. Any other caption outside a float is not
+numbered. The model keeps each
 float's captions with their short captions.
 
 ** Theorems
@@ -497,13 +518,19 @@ does not give the environment an optional argument.
 
 Each =\footnote= steps the =footnote= counter (within =chapter= in
 chaptered classes, printed without the chapter's number);
-=\footnote[7]{…}= uses =7= as written and steps nothing.
+=\footnote[7]{…}= uses =7= as written and steps nothing. =\footnotemark=
+steps =footnote= too. In a =minipage= footnotes use its own counter,
+printed =a=, =b=, … and started again in each minipage, and the main
+counter is left alone.
 
 ** Labels
 
 A =\label= takes the number and the kind of the last numbered thing in
 scope, as =\refstepcounter= leaves them: a section, an equation (line),
-a float's caption, a theorem or a footnote. An environment is a group:
+a float's caption, a theorem, a footnote, an item of =enumerate= or a
+counter stepped by =\refstepcounter=. An item prints as the standard
+classes print it: =2=, =2a=, =2(b)i=, =2(b)iA= at the four levels;
+=\item[label]= and items of =itemize= and =description= number nothing. An environment is a group:
 at its end, what a =\label= would point at is restored to what it was
 before it. The same holds for a footnote's text. A label with nothing
 numbered before it has no number and the target =None=.
@@ -534,39 +561,39 @@ shows the file as text, highlighted as LaTeX.
 
 Every command the view renders, and how:
 
-| Command(s)                                                                          | Drawn as                                                                                                                                                         |
-|-------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =\part= … =\subparagraph=                                                           | a heading line, its level counted from the document's highest level; the number LaTeX gives it and an em space before the title; command, star, short title and braces hidden. =\paragraph= and =\subparagraph= are run-in: bold text, not a heading line |
-| the formatting commands (next table)                                                | their argument styled; command and braces hidden                                                                                                                 |
-| =\maketitle=                                                                        | the title (title style) and a byline "author · date" from =\title=, =\author= and =\date= written before =\begin{document}=; several =\author= commands are listed; with none of them in the preamble, =\maketitle= stays source |
-| =\item=                                                                             | its bullet, number or label (see Lists)                                                                                                                          |
-| =\caption=                                                                          | in a float, "Figure 3: " or "Table 1: " in bold in place of the command, its short caption and its brace; "(a) " in =subfigure= and =subtable=; the closing brace hidden. Şekil and Tablo with babel's =turkish= |
-| =\includegraphics=                                                                  | the picture, when its file is found (see Pictures); otherwise source                                                                                             |
-| =\centering=                                                                        | hidden; the float's lines centered                                                                                                                               |
-| =\footnote=                                                                         | its number raised (a link) in place of the command and its brace, then its text dimmed; the closing brace hidden                                                  |
-| =\ref= =\eqref= =\pageref= =\autoref= =\cref= =\Cref= =\nameref= =\vref= =\Vref=      | a chip with what the reference resolves to (see References)                                                                                                     |
-| the =*oom= citation commands                                                        | a chip with authors and years (see Citations)                                                                                                                    |
-| =\url{a}=, =\href{a}{t}=                                                            | a link showing =a=, and =t= for =\href=                                                                                                                         |
-| =\verb=, =\lstinline=                                                               | the code in monospace with a background; command, options and delimiters hidden. =\lstinline= is colored in its language (its =language== option, or =\lstset='s) |
-| =\\=                                                                                | ↵, dimmed, in place of the command with its star and optional argument                                                                                          |
-| the word commands (see Characters)                                                  | the character or word they typeset; the blanks after them, or an empty ={}=, eaten as TeX eats them                                                            |
-| the front matter commands (see Front matter)                                        | styled as the class prints them                                                                                                                                  |
-| the =\begin= and =\end= of theorems and =proof=                                     | see Theorems and proofs                                                                                                                                          |
-| =\tableofcontents= (a line of its own)                                              | the live table of contents (see Outline)                                                                                                                         |
-| =\iffalse= … =\fi=                                                                  | everything between them dimmed (other =\if…= inside nest)                                                                                                       |
+| Command(s)                                                                       | Drawn as                                                                                                                                                                                                                                                  |
+|----------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =\part= … =\subparagraph=                                                        | a heading line, its level counted from the document's highest level; the number LaTeX gives it and an em space before the title; command, star, short title and braces hidden. =\paragraph= and =\subparagraph= are run-in: bold text, not a heading line |
+| the formatting commands (next table)                                             | their argument styled; command and braces hidden                                                                                                                                                                                                          |
+| =\maketitle=                                                                     | the title (title style) and a byline "author · date" from =\title=, =\author= and =\date= written before =\begin{document}=; several =\author= commands are listed; with none of them in the preamble, =\maketitle= stays source                          |
+| =\item=                                                                          | its bullet, number or label (see Lists)                                                                                                                                                                                                                   |
+| =\caption=                                                                       | in a float, "Figure 3: " or "Table 1: " in bold in place of the command, its short caption and its brace; "(a) " in =subfigure= and =subtable=; the closing brace hidden. Şekil and Tablo with babel's =turkish=                                          |
+| =\includegraphics=                                                               | the picture, when its file is found (see Pictures); otherwise source                                                                                                                                                                                      |
+| =\centering=                                                                     | hidden; the float's lines centered                                                                                                                                                                                                                        |
+| =\footnote=                                                                      | its number raised (a link) in place of the command and its brace, then its text dimmed; the closing brace hidden                                                                                                                                          |
+| =\ref= =\eqref= =\pageref= =\autoref= =\cref= =\Cref= =\nameref= =\vref= =\Vref= | a chip with what the reference resolves to (see References)                                                                                                                                                                                               |
+| the =*oom= citation commands                                                     | a chip with authors and years (see Citations)                                                                                                                                                                                                             |
+| =\url{a}=, =\href{a}{t}=                                                         | a link showing =a=, and =t= for =\href=                                                                                                                                                                                                                   |
+| =\verb=, =\lstinline=                                                            | the code in monospace with a background; command, options and delimiters hidden. =\lstinline= is colored in its language (its =language== option, or =\lstset='s)                                                                                         |
+| =\\=                                                                             | ↵, dimmed, in place of the command with its star and optional argument                                                                                                                                                                                    |
+| the word commands (see Characters)                                               | the character or word they typeset; the blanks after them, or an empty ={}=, eaten as TeX eats them                                                                                                                                                       |
+| the front matter commands (see Front matter)                                     | styled as the class prints them                                                                                                                                                                                                                           |
+| the =\begin= and =\end= of theorems and =proof=                                  | see Theorems and proofs                                                                                                                                                                                                                                   |
+| =\tableofcontents= (a line of its own)                                           | the live table of contents (see Outline)                                                                                                                                                                                                                  |
+| =\iffalse= … =\fi=                                                               | everything between them dimmed (other =\if…= inside nest)                                                                                                                                                                                                 |
 
 ** Formatting commands
 
-| Command                                                                 | Style of the argument |
-|-------------------------------------------------------------------------+-----------------------|
-| =\emph= =\textit= =\textsl=                                             | italic                |
-| =\textbf=                                                               | bold                  |
-| =\texttt=                                                               | monospace             |
-| =\underline= =\uline=                                                   | underlined            |
-| =\sout=                                                                 | struck through        |
-| =\textsuperscript=                                                      | raised                |
-| =\textsubscript=                                                        | lowered               |
-| =\textsc= =\textsf= =\textrm= =\textup= =\textmd= =\textnormal=         | plain                 |
+| Command                                                         | Style of the argument |
+|-----------------------------------------------------------------+-----------------------|
+| =\emph= =\textit= =\textsl=                                     | italic                |
+| =\textbf=                                                       | bold                  |
+| =\texttt=                                                       | monospace             |
+| =\underline= =\uline=                                           | underlined            |
+| =\sout=                                                         | struck through        |
+| =\textsuperscript=                                              | raised                |
+| =\textsubscript=                                                | lowered               |
+| =\textsc= =\textsf= =\textrm= =\textup= =\textmd= =\textnormal= | plain                 |
 
 Styles nest: =\textbf{a \emph{b}}= shows =b= bold italic.
 
@@ -580,11 +607,11 @@ followed, from where it is to the group's end (=Plain {\bf bold}=); a
 declaration at the top level of a paragraph or an environment changes
 nothing shown. The declarations themselves stay as source, dimmed.
 
-| Command                                       | Shown                                                         |
-|-----------------------------------------------+---------------------------------------------------------------|
+| Command                                          | Shown                                                            |
+|--------------------------------------------------+------------------------------------------------------------------|
 | =\index= =\indexsee= =\glossary= =\nomenclature= | Dimmed with their arguments: they typeset nothing where they are |
-| =\texorpdfstring{TeX}{PDF}=                    | The first argument, the command, braces and second hidden      |
-| =\ensuremath{…}=                               | The formula, outside math                                     |
+| =\texorpdfstring{TeX}{PDF}=                      | The first argument, the command, braces and second hidden        |
+| =\ensuremath{…}=                                 | The formula, outside math                                        |
 
 ** Characters
 
@@ -595,48 +622,48 @@ commands, =\footnote=, =\caption=, =\item=, =\title=, =\author=,
 math, verbatim text, =\begin= and =\end= lines, or the arguments of
 other commands. With the cursor on one of them, it shows as typed.
 
-| Source | Shown |
-|--------+-------|
-| =``=   | “     |
-| =''=   | ”     |
-| =`=    | ‘     |
-| ='=    | ’     |
-| =--=   | –     |
-| =---=  | —     |
+| Source | Shown            |
+|--------+------------------|
+| =``=   | “                |
+| =''=   | ”                |
+| =`=    | ‘                |
+| ='=    | ’                |
+| =--=   | –                |
+| =---=  | —                |
 | =~=    | a no-break space |
 
 Control symbols in text:
 
-| Source          | Shown                 |
-|-----------------+-----------------------|
+| Source                             | Shown         |
+|------------------------------------+---------------|
 | =\&= =\%= =\$= =\#= =\_= =\{= =\}= | the character |
-| =\,=            | a thin space          |
-| =\= and a space | a space               |
-| =\@= =\/=       | nothing               |
+| =\,=                               | a thin space  |
+| =\= and a space                    | a space       |
+| =\@= =\/=                          | nothing       |
 
 Commands without arguments (the =word= table):
 
-| Command(s)                                       | Shown        |
-|--------------------------------------------------+--------------|
-| =\ldots= =\dots= =\textellipsis=                 | …            |
-| =\LaTeX= =\TeX= =\LaTeXe= =\METAFONT=            | LaTeX, TeX, LaTeX2ε, METAFONT |
-| =\textendash= =\textemdash=                      | – —          |
-| =\S= =\textsection= / =\P= =\textpilcrow=        | § / ¶        |
-| =\copyright= =\textcopyright=                    | ©            |
-| =\textregistered= =\texttrademark=               | ® ™          |
-| =\texteuro= =\euro=                              | €            |
-| =\pounds= =\textsterling= =\textyen= =\textcent= | £ ¥ ¢        |
-| =\textdegree= =\textmu= =\textpm= =\texttimes= =\textdiv= | ° µ ± × ÷ |
-| =\textonehalf= =\textonequarter= =\textthreequarters= | ½ ¼ ¾   |
-| =\textasciitilde= =\textasciicircum= =\textbackslash= | ~ ^ \   |
-| =\textbar= =\textless= =\textgreater=            | the vertical bar, < and > |
-| =\textbullet= =\textperiodcentered=              | • ·          |
-| =\textdagger= =\dag= / =\textdaggerdbl= =\ddag=  | † / ‡        |
-| =\textquoteleft= =\textquoteright= =\textquotedblleft= =\textquotedblright= | ‘ ’ “ ” |
-| =\quad= / =\qquad=                               | one / two em spaces |
-| =\hfill= =\hfil= =\enspace= =\enskip=            | an en space  |
-| =\thinspace=                                     | a thin space |
-| =\newline= =\linebreak=                          | ↵            |
+| Command(s)                                                                  | Shown                         |
+|-----------------------------------------------------------------------------+-------------------------------|
+| =\ldots= =\dots= =\textellipsis=                                            | …                             |
+| =\LaTeX= =\TeX= =\LaTeXe= =\METAFONT=                                       | LaTeX, TeX, LaTeX2ε, METAFONT |
+| =\textendash= =\textemdash=                                                 | – —                           |
+| =\S= =\textsection= / =\P= =\textpilcrow=                                   | § / ¶                         |
+| =\copyright= =\textcopyright=                                               | ©                             |
+| =\textregistered= =\texttrademark=                                          | ® ™                           |
+| =\texteuro= =\euro=                                                         | €                             |
+| =\pounds= =\textsterling= =\textyen= =\textcent=                            | £ ¥ ¢                         |
+| =\textdegree= =\textmu= =\textpm= =\texttimes= =\textdiv=                   | ° µ ± × ÷                     |
+| =\textonehalf= =\textonequarter= =\textthreequarters=                       | ½ ¼ ¾                         |
+| =\textasciitilde= =\textasciicircum= =\textbackslash=                       | ~ ^ \                         |
+| =\textbar= =\textless= =\textgreater=                                       | the vertical bar, < and >     |
+| =\textbullet= =\textperiodcentered=                                         | • ·                           |
+| =\textdagger= =\dag= / =\textdaggerdbl= =\ddag=                             | † / ‡                         |
+| =\textquoteleft= =\textquoteright= =\textquotedblleft= =\textquotedblright= | ‘ ’ “ ”                       |
+| =\quad= / =\qquad=                                                          | one / two em spaces           |
+| =\hfill= =\hfil= =\enspace= =\enskip=                                       | an en space                   |
+| =\thinspace=                                                                | a thin space                  |
+| =\newline= =\linebreak=                                                     | ↵                             |
 
 ** Front matter
 
@@ -644,16 +671,16 @@ The journal classes put their front matter in commands of their own.
 Written in the body (as acmart and RevTeX require), these commands show
 their text styled, with the words the class prints before it:
 
-| Command(s)                                                                                                                                                                              | Style            | Words before it  |
-|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------+------------------|
-| =\title=                                                                                                                                                                                | title            |                  |
-| =\author= =\affiliation= =\affil= =\institute= =\address= =\email= =\ead= =\IEEEauthorblockN= =\IEEEauthorblockA= =\institution= =\department= =\city= =\state= =\country= =\streetaddress= =\postcode= =\orcid= =\subtitle= | byline           |                  |
-| =\keywords=                                                                                                                                                                             | byline           | "Keywords: "     |
-| =\ccsdesc=                                                                                                                                                                              | byline           | "CCS: "          |
-| =\pacs=                                                                                                                                                                                 | byline           | "PACS: "         |
-| =\thanks=                                                                                                                                                                               | dimmed           |                  |
-| =\inst=                                                                                                                                                                                 | raised           |                  |
-| =\IEEEPARstart=                                                                                                                                                                         | plain (its two arguments run together) |  |
+| Command(s)                                                                                                                                                                                                                   | Style                                  | Words before it |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+----------------------------------------+-----------------|
+| =\title=                                                                                                                                                                                                                     | title                                  |                 |
+| =\author= =\affiliation= =\affil= =\institute= =\address= =\email= =\ead= =\IEEEauthorblockN= =\IEEEauthorblockA= =\institution= =\department= =\city= =\state= =\country= =\streetaddress= =\postcode= =\orcid= =\subtitle= | byline                                 |                 |
+| =\keywords=                                                                                                                                                                                                                  | byline                                 | "Keywords: "    |
+| =\ccsdesc=                                                                                                                                                                                                                   | byline                                 | "CCS: "         |
+| =\pacs=                                                                                                                                                                                                                      | byline                                 | "PACS: "        |
+| =\thanks=                                                                                                                                                                                                                    | dimmed                                 |                 |
+| =\inst=                                                                                                                                                                                                                      | raised                                 |                 |
+| =\IEEEPARstart=                                                                                                                                                                                                              | plain (its two arguments run together) |                 |
 
 The parts of an address run together in one argument (acmart's
 =\affiliation{\institution{…}\city{…}\country{…}}=) are separated by
@@ -668,20 +695,20 @@ their arguments, and =\and= and =\\= separate the names.
 
 ** Environments
 
-| Environment(s)                                                    | Drawn as                                                                                                                                                  |
-|-------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =document=                                                        | its body; =\begin{document}= ends the folded preamble; the =\end{document}= line lists the footnotes                                                      |
-| =itemize= =enumerate= =description=                               | lists (below); =\begin= and =\end= lines are delimiter lines                                                                                              |
-| =center= =flushleft= =flushright=                                 | their lines centered, left or right aligned; delimiter lines                                                                                              |
-| =quote= =quotation= =verse=                                       | indented as a list level; delimiter lines                                                                                                                 |
-| =abstract=                                                        | indented; its =\begin= line a centered bold "Abstract" ("Özet" with babel's or the class's =turkish= option)                                               |
-| =figure= =figure*= =table= =table*= =wrapfigure= =wraptable= =subfigure= =subtable= | delimiter lines; centered when =\centering= stands directly in the body; captions and pictures as above                                   |
-| the display math environments and =\[…\]=, =$$…$$=                | a typeset formula (see Mathematics)                                                                                                                       |
-| the other math environments (=split=, =aligned=, =cases=, matrices …) | inside a formula; typeset with it                                                                                                                   |
-| the verbatim environments                                         | the body monospace, its =\begin= and =\end= lines delimiters; =comment= dimmed                                                                            |
-| =proof= and the environments =\newtheorem= declares               | see Theorems and proofs                                                                                                                                   |
-| =IEEEkeywords= =keyword= =keywords= =frontmatter=                 | see Front matter                                                                                                                                          |
-| simple tables (=tabular=, =tabular*=, =tabularx=, =tabulary=, =array=, =longtable=) | the grid (see Tables)                                                                                                     |
+| Environment(s)                                                                      | Drawn as                                                                                                     |
+|-------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------|
+| =document=                                                                          | its body; =\begin{document}= ends the folded preamble; the =\end{document}= line lists the footnotes         |
+| =itemize= =enumerate= =description=                                                 | lists (below); =\begin= and =\end= lines are delimiter lines                                                 |
+| =center= =flushleft= =flushright=                                                   | their lines centered, left or right aligned; delimiter lines                                                 |
+| =quote= =quotation= =verse=                                                         | indented as a list level; delimiter lines                                                                    |
+| =abstract=                                                                          | indented; its =\begin= line a centered bold "Abstract" ("Özet" with babel's or the class's =turkish= option) |
+| =figure= =figure*= =table= =table*= =wrapfigure= =wraptable= =subfigure= =subtable= | delimiter lines; centered when =\centering= stands directly in the body; captions and pictures as above      |
+| the display math environments and =\[…\]=, =$$…$$=                                  | a typeset formula (see Mathematics)                                                                          |
+| the other math environments (=split=, =aligned=, =cases=, matrices …)               | inside a formula; typeset with it                                                                            |
+| the verbatim environments                                                           | the body monospace, its =\begin= and =\end= lines delimiters; =comment= dimmed                               |
+| =proof= and the environments =\newtheorem= declares                                 | see Theorems and proofs                                                                                      |
+| =IEEEkeywords= =keyword= =keywords= =frontmatter=                                   | see Front matter                                                                                             |
+| simple tables (=tabular=, =tabular*=, =tabularx=, =tabulary=, =array=, =longtable=) | the grid (see Tables)                                                                                        |
 
 A /delimiter line/ is a =\begin= or =\end= line of its own; the
 frontends draw it discreetly.
@@ -693,12 +720,12 @@ by two em spaces per enclosing list (and per enclosing =quote=,
 =quotation=, =verse= or =abstract=) below the first; continuation lines
 are indented to the item's depth, the source's own indentation hidden.
 
-| List          | Label                                                                                                         |
-|---------------+---------------------------------------------------------------------------------------------------------------|
-| =itemize=     | by its =itemize= depth: •, –, ∗, · (deeper stays ·)                                                          |
-| =enumerate=   | by its =enumerate= depth: =1.=, =(a)=, =i.=, =A.= (deeper stays =A.=)                                           |
-| =description= | nothing                                                                                                       |
-| any           | =\item[label]= shows =label= (bold in =description=) and is not counted by =enumerate=                        |
+| List          | Label                                                                                  |
+|---------------+----------------------------------------------------------------------------------------|
+| =itemize=     | by its =itemize= depth: •, –, ∗, · (deeper stays ·)                                    |
+| =enumerate=   | by its =enumerate= depth: =1.=, =(a)=, =i.=, =A.= (deeper stays =A.=)                  |
+| =description= | nothing                                                                                |
+| any           | =\item[label]= shows =label= (bold in =description=) and is not counted by =enumerate= |
 
 enumitem's options are read from the list's optional argument: =label==
 (=\arabic*=, =\alph*=, =\Alph*=, =\roman*=, =\Roman*= replaced by the
@@ -733,11 +760,11 @@ folder; a name without an extension is tried with =.png=, =.jpg=,
 =.jpeg=, =.pdf=, =.svg= and =.eps=, in that order. The size comes from
 the first of these options present:
 
-| Option                  | Size                                                                                                     |
-|-------------------------+----------------------------------------------------------------------------------------------------------|
-| =width=                 | a share of the line when it ends in =\textwidth=, =\linewidth=, =\columnwidth= or =\hsize= (=0.5\linewidth= is 50%, clamped to 1–1000%); otherwise a length in =cm=, =mm=, =in=, =pt= or =px=, at 96 pixels an inch |
-| =height=                | a length as above; the width follows the picture's proportions                                           |
-| =scale=                 | a share of the picture's own size                                                                        |
+| Option   | Size                                                                                                                                                                                                                |
+|----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =width=  | a share of the line when it ends in =\textwidth=, =\linewidth=, =\columnwidth= or =\hsize= (=0.5\linewidth= is 50%, clamped to 1–1000%); otherwise a length in =cm=, =mm=, =in=, =pt= or =px=, at 96 pixels an inch |
+| =height= | a length as above; the width follows the picture's proportions                                                                                                                                                      |
+| =scale=  | a share of the picture's own size                                                                                                                                                                                   |
 
 The graphical editor draws PNG, JPEG and SVG; a PDF or EPS picture shows
 as its name. The terminal editor draws pictures through the kitty,
@@ -793,16 +820,16 @@ The view gives the editors blocks (=latex_view::blocks=), which fold as
 Org's elements do. Each folds to its first line while the cursor is
 elsewhere.
 
-| Block                                  | When                                                                                                                  | Kind     |
-|----------------------------------------+-----------------------------------------------------------------------------------------------------------------------+----------|
-| the preamble                           | the lines before the line of =\begin{document}=, when there are at least two                                         | drawer   |
-| =\iffalse= … =\fi=                     | alone on its lines, spanning at least three lines                                                                    | drawer   |
-| a =comment= environment                | spanning at least three lines                                                                                        | drawer   |
-| an environment the view does not render | eight line breaks or more (nine lines, counting its =\begin= and =\end= lines), alone on its lines               | drawer   |
-| a simple table                         | its rows                                                                                                             | table    |
-| a displayed formula                    | a display math environment, =\[…\]= or =$$…$$= alone on lines of its own and spanning more than one: one formula on its first line | math |
-| a verbatim environment (not =comment=) | alone on lines of its own                                                                                            | code     |
-| a section                              | each sectioning command at the start of its line is a heading block; the blocks after it, down to the next section of its level or higher, are under it | heading |
+| Block                                   | When                                                                                                                                                    | Kind    |
+|-----------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+---------|
+| the preamble                            | the lines before the line of =\begin{document}=, when there are at least two                                                                            | drawer  |
+| =\iffalse= … =\fi=                      | alone on its lines, spanning at least three lines                                                                                                       | drawer  |
+| a =comment= environment                 | spanning at least three lines                                                                                                                           | drawer  |
+| an environment the view does not render | eight line breaks or more (nine lines, counting its =\begin= and =\end= lines), alone on its lines                                                      | drawer  |
+| a simple table                          | its rows                                                                                                                                                | table   |
+| a displayed formula                     | a display math environment, =\[…\]= or =$$…$$= alone on lines of its own and spanning more than one: one formula on its first line                      | math    |
+| a verbatim environment (not =comment=)  | alone on lines of its own                                                                                                                               | code    |
+| a section                               | each sectioning command at the start of its line is a heading block; the blocks after it, down to the next section of its level or higher, are under it | heading |
 
 Tab on a section's line cycles its folding as Tab does on an Org
 heading: its text and subsections hidden, its subsections shown,
@@ -827,15 +854,15 @@ A reference shows what it resolves to, as a link; with any key unknown,
 that key shows as =??= and the chip is red. Several keys, separated by
 commas, are joined with ", ".
 
-| Command            | Shows                                                                                                                                 |
-|--------------------+---------------------------------------------------------------------------------------------------------------------------------------|
-| =\ref= =\vref= =\Vref= | the label's number                                                                                                                |
-| =\eqref=           | the number in parentheses: =(3)=                                                                                                      |
-| =\pageref=         | the key itself (Kalem does not paginate)                                                                                              |
-| =\nameref=         | the title of the last section before the label in its file, or the number                                                             |
-| =\autoref=         | hyperref's name, a no-break space and the number: "Section 2", "Equation 3", "Figure 1", "Table 1", "Chapter 1", "Part I", "Footnote 2", the theorem's title |
-| =\Cref=            | as =\autoref=, the equation's number in parentheses: "Equation (3)"                                                                   |
-| =\cref=            | cleveref's short names: "section 2", "eq. (3)", "fig. 1", "table 1", "chapter 1", "part I", "footnote 2", the theorem's title in lower case |
+| Command                | Shows                                                                                                                                                        |
+|------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =\ref= =\vref= =\Vref= | the label's number                                                                                                                                           |
+| =\eqref=               | the number in parentheses: =(3)=                                                                                                                             |
+| =\pageref=             | the key itself (Kalem does not paginate)                                                                                                                     |
+| =\nameref=             | the title of the last section before the label in its file, or the number                                                                                    |
+| =\autoref=             | hyperref's name, a no-break space and the number: "Section 2", "Equation 3", "Figure 1", "Table 1", "Chapter 1", "Part I", "Footnote 2", the theorem's title |
+| =\Cref=                | as =\autoref=, the equation's number in parentheses: "Equation (3)"                                                                                          |
+| =\cref=                | cleveref's short names: "section 2", "eq. (3)", "fig. 1", "table 1", "chapter 1", "part I", "footnote 2", the theorem's title in lower case                  |
 
 Every section level from =\section= down is named "Section". =\cpageref=
 is read by the model but not drawn.
@@ -849,13 +876,13 @@ editors) from the entry, "A", "A and B" or "A et al.", and the year
 (=year=, or the first four digits of =date=). Keys are joined with "; ";
 a key the bibliography lacks shows as itself and the chip is red.
 
-| Command(s)                                                  | Shows                           |
-|-------------------------------------------------------------+---------------------------------|
-| =\citet= =\Citet= =\textcite= =\Textcite=                   | Knuth (1984)                    |
-| =\citeauthor=                                               | Knuth                           |
-| =\citeyear=                                                 | 1984                            |
-| =\citep= =\Citep= =\parencite= =\Parencite= =\autocite= =\Autocite= =\footcite= =\citealp= | (Knuth 1984)     |
-| =\cite= =\Cite= =\citealt= =\nocite= =\smartcite=           | [Knuth 1984]                    |
+| Command(s)                                                                                 | Shows        |
+|--------------------------------------------------------------------------------------------+--------------|
+| =\citet= =\Citet= =\textcite= =\Textcite=                                                  | Knuth (1984) |
+| =\citeauthor=                                                                              | Knuth        |
+| =\citeyear=                                                                                | 1984         |
+| =\citep= =\Citep= =\parencite= =\Parencite= =\autocite= =\Autocite= =\footcite= =\citealp= | (Knuth 1984) |
+| =\cite= =\Cite= =\citealt= =\nocite= =\smartcite=                                          | [Knuth 1984] |
 
 With one optional argument it is the postnote, appended after ", "; with
 two, the first is the prenote, put before, and the second the postnote.
@@ -882,12 +909,12 @@ editor:
 The CSL style is chosen from biblatex's =style== option, else
 =\bibliographystyle=:
 
-| Style named                                                                                | CSL style                     |
-|--------------------------------------------------------------------------------------------+-------------------------------|
-| =ieeetr= =ieee= =ieeetran= =unsrt= =numeric= =numeric-comp= =plain= =abbrv= =alpha=        | =ieee=                        |
-| =apalike= =apa= =apacite= =plainnat= =abbrvnat= =unsrtnat=                                 | =apa=                         |
-| =mla=                                                                                      | =modern-language-association= |
-| anything else, or none                                                                     | =chicago-author-date=         |
+| Style named                                                                         | CSL style                     |
+|-------------------------------------------------------------------------------------+-------------------------------|
+| =ieeetr= =ieee= =ieeetran= =unsrt= =numeric= =numeric-comp= =plain= =abbrv= =alpha= | =ieee=                        |
+| =apalike= =apa= =apacite= =plainnat= =abbrvnat= =unsrtnat=                          | =apa=                         |
+| =mla=                                                                               | =modern-language-association= |
+| anything else, or none                                                              | =chicago-author-date=         |
 
 ** Open Link
 
@@ -950,10 +977,10 @@ blank left by the label kept, the tag at the end of the body):
 The package definitions (=PACKAGE_MACROS=), given only when the
 document loads the package:
 
-| Package   | Definitions                                                                                                                                                                                                                                         |
-|-----------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =bm=      | =\bm{x}= as =\boldsymbol{x}=                                                                                                                                                                                                                        |
-| =physics= | =\abs{x}=, =\norm{x}=, =\qty{x}= (=\left(x\right)=), =\dv{f}{x}=, =\pdv{f}{x}=, =\vb{x}= (=\mathbf=), =\va{x}= (=\vec=), =\vu{x}= (=\hat{\mathbf{x}}=), =\bra{x}=, =\ket{x}=, =\braket{a}{b}=, =\expval{x}=, =\order{x}= (=\mathcal{O}\left(x\right)=), =\tr=, =\Tr= (operators) |
+| Package   | Definitions                                                                                                                                                                                                                                                                                          |
+|-----------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =bm=      | =\bm{x}= as =\boldsymbol{x}=                                                                                                                                                                                                                                                                         |
+| =physics= | =\abs{x}=, =\norm{x}=, =\qty{x}= (=\left(x\right)=), =\dv{f}{x}=, =\pdv{f}{x}=, =\vb{x}= (=\mathbf=), =\va{x}= (=\vec=), =\vu{x}= (=\hat{\mathbf{x}}=), =\bra{x}=, =\ket{x}=, =\braket{a}{b}=, =\expval{x}=, =\order{x}= (=\mathcal{O}\left(x\right)=), =\tr=, =\Tr= (operators)                     |
 | =siunitx= | =\SI{n}{u}= (=n\,\mathrm{u}=), =\si{u}=, =\num{n}=, =\qtyunit{n}{u}=; units =\metre= =\meter= =\second= =\kilogram= =\gram= =\kelvin= =\ampere= =\mole= =\newton= =\joule= =\watt= =\volt= =\hertz= =\pascal=; prefixes =\kilo= =\milli= =\micro= =\centi= =\mega=; =\per= (/), =\squared=, =\cubed= |
 
 Only the one-argument forms of these are defined; optional arguments and
@@ -968,12 +995,12 @@ use) when it is /simple/. The definition (=latex_table::simple=):
    =array= or =longtable=, and has its =\end=.
 2. Its column specification is the last mandatory argument of =\begin=,
    and contains only:
-   | Letter                  | Column                                |
-   |-------------------------+---------------------------------------|
-   | =l= =c= =r=             | aligned left, centered, right         |
-   | =p{…}= =m{…}= =b{…}=    | left (the width's braces balanced)    |
-   | =X= =L= =C= =R= =J=     | left                                  |
-   | the vertical bar, spaces, tabs, line endings | nothing (ignored) |
+   | Letter                                       | Column                             |
+   |----------------------------------------------+------------------------------------|
+   | =l= =c= =r=                                  | aligned left, centered, right      |
+   | =p{…}= =m{…}= =b{…}=                         | left (the width's braces balanced) |
+   | =X= =L= =C= =R= =J=                          | left                               |
+   | the vertical bar, spaces, tabs, line endings | nothing (ignored)                  |
    Anything else (=@{}=, =>{…}=, =*{3}{c}=, =S=) makes the table not
    simple.
 3. Nothing but blanks follows the =\begin…= on its line, and the =\end=
@@ -1018,22 +1045,22 @@ to the next and previous cell. A table that is not simple stays source.
 (=latex_check=). Each has a stable code and a severity: /warning/
 (probably wrong, a red wavy line) or /info/ (style, a blue one).
 
-| Code                        | Severity         | When                                                                                                                                         | Fix                                   |
-|-----------------------------+------------------+----------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------|
-| =latex-syntax=              | warning          | what the parser closed or skipped (the messages of Error tolerance)                                                                          |                                       |
-| =latex-duplicate-label=     | warning          | a =\label= of this file whose key is defined more than once in the project                                                                  |                                       |
-| =latex-undefined-reference= | warning          | a key of a reference command of this file that no =\label= of the project defines                                                           |                                       |
-| =cite-unknown-key=          | warning          | a citation key of this file that no bibliography file has (checked when at least one file could be read)                                    |                                       |
-| =bibliography-unreadable=   | warning          | a bibliography file that cannot be read, reported on this file's =\bibliography= or =\addbibresource=                                       |                                       |
-| =cite-unused-entry=         | info             | an entry nothing in the project cites; reported on the root document's bibliography command, only when every file was read and no =\nocite{*}= |                                       |
-| =latex-missing-file=        | warning          | an =\input=, =\include=, =\subfile=, =\import= or =\subimport= of this file that resolves to no readable file (a cycle too)                 |                                       |
-| =latex-missing-picture=     | warning          | an =\includegraphics= whose file is found neither from the file's folder nor from the root's (with =\graphicspath= and LaTeX's extensions)  |                                       |
-| =latex-deprecated=          | info             | =\bf= =\it= =\rm= =\sc= =\sf= =\tt= =\sl= =\cal=                                                                                             | =\bfseries= =\itshape= =\rmfamily= =\scshape= =\sffamily= =\ttfamily= =\slshape=; none for =\cal= |
-| =latex-deprecated=          | info             | =$$…$$=                                                                                                                                      | =\[…\]=                               |
-| =latex-tie=                 | info             | =\ref=, =\eqref=, =\cite=, =\cref=, =\autoref= or =\pageref= after a space that follows text, outside math                                  | =~= for the space                     |
-| =latex-ellipsis=            | info             | =...= in text outside math (the first in each run of text)                                                                                   | =\ldots{}=                            |
-| =latex-quotes=              | info             | ="= in text outside math                                                                                                                     |                                       |
-| =latex-build=               | warning; info for bad boxes | a problem the last build's log reported on a line of this file                                                                   |                                       |
+| Code                        | Severity                    | When                                                                                                                                           | Fix                                                                                               |
+|-----------------------------+-----------------------------+------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------|
+| =latex-syntax=              | warning                     | what the parser closed or skipped (the messages of Error tolerance)                                                                            |                                                                                                   |
+| =latex-duplicate-label=     | warning                     | a =\label= of this file whose key is defined more than once in the project                                                                     |                                                                                                   |
+| =latex-undefined-reference= | warning                     | a key of a reference command of this file that no =\label= of the project defines                                                              |                                                                                                   |
+| =cite-unknown-key=          | warning                     | a citation key of this file that no bibliography file has (checked when at least one file could be read)                                       |                                                                                                   |
+| =bibliography-unreadable=   | warning                     | a bibliography file that cannot be read, reported on this file's =\bibliography= or =\addbibresource=                                          |                                                                                                   |
+| =cite-unused-entry=         | info                        | an entry nothing in the project cites; reported on the root document's bibliography command, only when every file was read and no =\nocite{*}= |                                                                                                   |
+| =latex-missing-file=        | warning                     | an =\input=, =\include=, =\subfile=, =\import= or =\subimport= of this file that resolves to no readable file (a cycle too)                    |                                                                                                   |
+| =latex-missing-picture=     | warning                     | an =\includegraphics= whose file is found neither from the file's folder nor from the root's (with =\graphicspath= and LaTeX's extensions)     |                                                                                                   |
+| =latex-deprecated=          | info                        | =\bf= =\it= =\rm= =\sc= =\sf= =\tt= =\sl= =\cal=                                                                                               | =\bfseries= =\itshape= =\rmfamily= =\scshape= =\sffamily= =\ttfamily= =\slshape=; none for =\cal= |
+| =latex-deprecated=          | info                        | =$$…$$=                                                                                                                                        | =\[…\]=                                                                                           |
+| =latex-tie=                 | info                        | =\ref=, =\eqref=, =\cite=, =\cref=, =\autoref= or =\pageref= after a space that follows text, outside math                                     | =~= for the space                                                                                 |
+| =latex-ellipsis=            | info                        | =...= in text outside math (the first in each run of text)                                                                                     | =\ldots{}=                                                                                        |
+| =latex-quotes=              | info                        | ="= in text outside math                                                                                                                       |                                                                                                   |
+| =latex-build=               | warning; info for bad boxes | a problem the last build's log reported on a line of this file                                                                                 |                                                                                                   |
 
 Outside math means outside formulas, math environments and verbatim
 environments. The project is found as Projects says; the labels and
@@ -1064,22 +1091,22 @@ warning. It does not include the build's problems.
 Every editing command writes conventional LaTeX with the line's own
 indentation and changes only what it must.
 
-| Command                                      | Keys                          | What it does                                                                                                                                                                         |
-|----------------------------------------------+-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| New Line or Item (=latex.enter=)             | Enter                         | on an =\item= line of a list: a new =\item= at the same indentation, the rest of the line going to it; on an empty item (=\item= or =\item[…]= alone), the item goes and the cursor moves to a new line after the list's =\end=. Elsewhere a new line |
-| Nest Item (=latex.list.indent=)              | Tab                           | on a section's line: cycle its folding. On an =\item= line that is not the first of its list: into a list of the same kind under the item before it (joining one that ends on the line before). In math: the next empty ={}= on the line, else the next cell of a matrix or =cases=. In a simple table: the next cell. Otherwise indent |
-| Unnest Item (=latex.list.outdent=)           | Shift+Tab                     | on an =\item= of a nested list: out, after that list, as an item of the list around (the nested list goes when it empties). In a simple table: the previous cell. Otherwise outdent                     |
-| Bold, Emphasis, Typewriter, Underline (=latex.format.bold=, =.italic=, =.code=, =.underline=) | Ctrl+B, Ctrl+I, Ctrl+Shift+K, Ctrl+U | =\textbf=, =\emph=, =\texttt=, =\underline=: taken off when the selection or cursor is in its argument; else put around the selection or the word at the cursor |
-| Heading Level (=latex.section.setLevel=)     | Ctrl+1 … Ctrl+6, Ctrl+0       | the line's sectioning command set to level N of the class (=\chapter= first in =book=, =report=, =memoir=, =scrbook=, =scrreprt=, =amsbook=; =\section= first otherwise; beyond the last, =\subparagraph=); a plain line becomes =\name{line}=; level 0 turns a section back into its title |
-| Promote Section, Demote Section (=latex.section.promote=, =.demote=) | Alt+Shift+Left, Alt+Shift+Right | every sectioning command of the section's subtree one level up or down; not above the document's top (=\section= in a document without chapters, =\part= above chapters), not below =\subparagraph= |
-| Move Section Up, Move Section Down (=latex.section.moveUp=, =.moveDown=) | Alt+Shift+Up, Alt+Shift+Down | the section with its subtree swapped with the previous or next section of the same level; =\end{document}= stays last |
-| Display Math (=latex.math.toggleDisplay=)    |                               | =$x$= (or =\(x\)=) at the cursor to =\[ x \]=, and a displayed formula to =$x$=                                                                                                      |
-| Number Equation (=latex.math.toggleNumbering=) |                             | the star added to or taken from both ends of the =equation=, =align=, =gather=, =multline=, =flalign=, =alignat= or =eqnarray= at the cursor                                        |
-| Insert Figure (=latex.insert.figure=)        |                               | asks for the picture, the width (0.8 of the line offered; a number is a share of =\linewidth=, anything else a length) and the caption, and writes the figure below                  |
-| Insert Table (=latex.insert.table=)          |                               | =columns= (3) and =rows= (2): a =table= with a simple =tabular=, booktabs' rules when the document loads =booktabs=, =\hline= otherwise; the cursor in the caption                    |
-| Insert Equation (=latex.insert.equation=)    |                               | an =equation= with a =\label{eq:}=, the cursor in it                                                                                                                                 |
-| Insert Citation (=latex.insert.citation=)    |                               | without a key, a picker over the bibliography's entries; =\cite{key}= at the cursor, or =,key= added inside the citation the cursor is in                                            |
-| Quick Fix, Next/Previous Problem, Show Problems |                            | see Diagnostics                                                                                                                                                                      |
+| Command                                                                                       | Keys                                 | What it does                                                                                                                                                                                                                                                                                                                            |
+|-----------------------------------------------------------------------------------------------+--------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| New Line or Item (=latex.enter=)                                                              | Enter                                | on an =\item= line of a list: a new =\item= at the same indentation, the rest of the line going to it; on an empty item (=\item= or =\item[…]= alone), the item goes and the cursor moves to a new line after the list's =\end=. Elsewhere a new line                                                                                   |
+| Nest Item (=latex.list.indent=)                                                               | Tab                                  | on a section's line: cycle its folding. On an =\item= line that is not the first of its list: into a list of the same kind under the item before it (joining one that ends on the line before). In math: the next empty ={}= on the line, else the next cell of a matrix or =cases=. In a simple table: the next cell. Otherwise indent |
+| Unnest Item (=latex.list.outdent=)                                                            | Shift+Tab                            | on an =\item= of a nested list: out, after that list, as an item of the list around (the nested list goes when it empties). In a simple table: the previous cell. Otherwise outdent                                                                                                                                                     |
+| Bold, Emphasis, Typewriter, Underline (=latex.format.bold=, =.italic=, =.code=, =.underline=) | Ctrl+B, Ctrl+I, Ctrl+Shift+K, Ctrl+U | =\textbf=, =\emph=, =\texttt=, =\underline=: taken off when the selection or cursor is in its argument; else put around the selection or the word at the cursor                                                                                                                                                                         |
+| Heading Level (=latex.section.setLevel=)                                                      | Ctrl+1 … Ctrl+6, Ctrl+0              | the line's sectioning command set to level N of the class (=\chapter= first in =book=, =report=, =memoir=, =scrbook=, =scrreprt=, =amsbook=; =\section= first otherwise; beyond the last, =\subparagraph=); a plain line becomes =\name{line}=; level 0 turns a section back into its title                                             |
+| Promote Section, Demote Section (=latex.section.promote=, =.demote=)                          | Alt+Shift+Left, Alt+Shift+Right      | every sectioning command of the section's subtree one level up or down; not above the document's top (=\section= in a document without chapters, =\part= above chapters), not below =\subparagraph=                                                                                                                                     |
+| Move Section Up, Move Section Down (=latex.section.moveUp=, =.moveDown=)                      | Alt+Shift+Up, Alt+Shift+Down         | the section with its subtree swapped with the previous or next section of the same level; =\end{document}= stays last                                                                                                                                                                                                                   |
+| Display Math (=latex.math.toggleDisplay=)                                                     |                                      | =$x$= (or =\(x\)=) at the cursor to =\[ x \]=, and a displayed formula to =$x$=                                                                                                                                                                                                                                                         |
+| Number Equation (=latex.math.toggleNumbering=)                                                |                                      | the star added to or taken from both ends of the =equation=, =align=, =gather=, =multline=, =flalign=, =alignat= or =eqnarray= at the cursor                                                                                                                                                                                            |
+| Insert Figure (=latex.insert.figure=)                                                         |                                      | asks for the picture, the width (0.8 of the line offered; a number is a share of =\linewidth=, anything else a length) and the caption, and writes the figure below                                                                                                                                                                     |
+| Insert Table (=latex.insert.table=)                                                           |                                      | =columns= (3) and =rows= (2): a =table= with a simple =tabular=, booktabs' rules when the document loads =booktabs=, =\hline= otherwise; the cursor in the caption                                                                                                                                                                      |
+| Insert Equation (=latex.insert.equation=)                                                     |                                      | an =equation= with a =\label{eq:}=, the cursor in it                                                                                                                                                                                                                                                                                    |
+| Insert Citation (=latex.insert.citation=)                                                     |                                      | without a key, a picker over the bibliography's entries; =\cite{key}= at the cursor, or =,key= added inside the citation the cursor is in                                                                                                                                                                                               |
+| Quick Fix, Next/Previous Problem, Show Problems                                               |                                      | see Diagnostics                                                                                                                                                                                                                                                                                                                         |
 
 An insert goes on the cursor's line when it is empty, otherwise on a new
 line after it. Insert Figure writes:
@@ -1095,16 +1122,16 @@ line after it. Insert Figure writes:
 
 Behaviours while typing:
 
-| Typed                                  | Result                                                                                                                                              |
-|----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| =}= closing =\begin{name}=             | when the parser reports the environment not closed: a line for the body (=\item= in a list) and =\end{name}= below, at the =\begin= line's indentation, the cursor on the body line |
-| a character in an environment's name   | the same edit in the name at the other end, when both ends have the same name                                                                     |
-| =$= in text                            | =$$= with the cursor between; not after an unescaped =\=                                                                                           |
-| =$= before the closing =$= of a formula | steps over it                                                                                                                                     |
-| =(= or =[= after =\=                   | =\(\)=, =\[\]=, the cursor inside                                                                                                                 |
-| =(=, =[=, =.=, the vertical bar after =\left= | the delimiter, a space and the matching =\right= (=\right)=, =\right]=, =\right.=, the bar)                                            |
-| ={= after =\left\=                     | =\left\{ \right\}=                                                                                                                                |
-| ="= in text                            | =``= after a blank, an opening bracket, =~= or at the start, else =''=; typed again right after either, a plain ="=. Not in math, code, comments, or documents whose preamble loads babel with =german=, =dutch=, =danish=, =finnish=, =swedish=, =russian= or =czech= (where ="= is a shorthand) |
+| Typed                                         | Result                                                                                                                                                                                                                                                                                            |
+|-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =}= closing =\begin{name}=                    | when the parser reports the environment not closed: a line for the body (=\item= in a list) and =\end{name}= below, at the =\begin= line's indentation, the cursor on the body line                                                                                                               |
+| a character in an environment's name          | the same edit in the name at the other end, when both ends have the same name                                                                                                                                                                                                                     |
+| =$= in text                                   | =$$= with the cursor between; not after an unescaped =\=                                                                                                                                                                                                                                          |
+| =$= before the closing =$= of a formula       | steps over it                                                                                                                                                                                                                                                                                     |
+| =(= or =[= after =\=                          | =\(\)=, =\[\]=, the cursor inside                                                                                                                                                                                                                                                                 |
+| =(=, =[=, =.=, the vertical bar after =\left= | the delimiter, a space and the matching =\right= (=\right)=, =\right]=, =\right.=, the bar)                                                                                                                                                                                                       |
+| ={= after =\left\=                            | =\left\{ \right\}=                                                                                                                                                                                                                                                                                |
+| ="= in text                                   | =``= after a blank, an opening bracket, =~= or at the start, else =''=; typed again right after either, a plain ="=. Not in math, code, comments, or documents whose preamble loads babel with =german=, =dutch=, =danish=, =finnish=, =swedish=, =russian= or =czech= (where ="= is a shorthand) |
 
 BibTeX pasted into a LaTeX document is appended to its first
 bibliography file (entries whose keys it has are left out) and a
@@ -1129,17 +1156,17 @@ nothing and lists the files that would change.
 
 The LaTeX completer offers, as you type or on request (Alt+/):
 
-| After                                                       | Offered                                                                                                                                                              |
-|-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =\= and letters (a bare =\= only on request)                | 134 built-in command names, the commands of the packages the document loads, and the document's own macros; inserted with one ={}= per mandatory argument (from the signature table, else the package's or macro's count), the cursor in the first. =\sum=, =\prod=, =\coprod=, =\int=, =\iint=, =\oint=, =\bigcup=, =\bigcap= come with =_{}^{}=, =\lim= with =_{}= |
-| =\begin{=                                                   | the built-in environments, those of the loaded packages, the document's =\newenvironment=s and theorems; inserted with =}=, a body line (=\item= in lists) and =\end{name}=; matrices and =cases= as two rows of two cells |
-| =\end{=                                                     | the innermost environment open at the cursor                                                                                                                         |
-| the argument of a citation command                          | the keys of the bibliography files, matched fuzzily on key, authors and title, with the entry as detail                                                              |
-| the argument of =\ref=, =\eqref=, =\pageref=, =\autoref=, =\cref=, =\Cref=, =\nameref=, =\vref=, =\Vref= | the project's labels, with their kind and number ("equation 3")                                             |
-| =\input{=, =\include{=, =\subfile{=                         | =.tex= files (without the extension) and folders, from the document's folder                                                                                        |
-| =\includegraphics{=                                         | pictures (=png=, =jpg=, =jpeg=, =pdf=, =eps=, =svg=) and folders                                                                                                     |
-| =\usepackage{=, =\RequirePackage{=                          | 56 common packages                                                                                                                                             |
-| =\usepackage[= / =\documentclass[=                          | the options of the package named after the cursor (=babel=, =inputenc=, =fontenc=, =geometry=, =hyperref=, =biblatex=, =natbib=, =xcolor=, =graphicx=, =caption=, =cleveref=, =siunitx=), all of them before it is named; the standard class options |
+| After                                                                                                    | Offered                                                                                                                                                                                                                                                                                                                                                              |
+|----------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =\= and letters (a bare =\= only on request)                                                             | 134 built-in command names, the commands of the packages the document loads, and the document's own macros; inserted with one ={}= per mandatory argument (from the signature table, else the package's or macro's count), the cursor in the first. =\sum=, =\prod=, =\coprod=, =\int=, =\iint=, =\oint=, =\bigcup=, =\bigcap= come with =_{}^{}=, =\lim= with =_{}= |
+| =\begin{=                                                                                                | the built-in environments, those of the loaded packages, the document's =\newenvironment=s and theorems; inserted with =}=, a body line (=\item= in lists) and =\end{name}=; matrices and =cases= as two rows of two cells                                                                                                                                           |
+| =\end{=                                                                                                  | the innermost environment open at the cursor                                                                                                                                                                                                                                                                                                                         |
+| the argument of a citation command                                                                       | the keys of the bibliography files, matched fuzzily on key, authors and title, with the entry as detail                                                                                                                                                                                                                                                              |
+| the argument of =\ref=, =\eqref=, =\pageref=, =\autoref=, =\cref=, =\Cref=, =\nameref=, =\vref=, =\Vref= | the project's labels, with their kind and number ("equation 3")                                                                                                                                                                                                                                                                                                      |
+| =\input{=, =\include{=, =\subfile{=                                                                      | =.tex= files (without the extension) and folders, from the document's folder                                                                                                                                                                                                                                                                                         |
+| =\includegraphics{=                                                                                      | pictures (=png=, =jpg=, =jpeg=, =pdf=, =eps=, =svg=) and folders                                                                                                                                                                                                                                                                                                     |
+| =\usepackage{=, =\RequirePackage{=                                                                       | 56 common packages                                                                                                                                                                                                                                                                                                                                                   |
+| =\usepackage[= / =\documentclass[=                                                                       | the options of the package named after the cursor (=babel=, =inputenc=, =fontenc=, =geometry=, =hyperref=, =biblatex=, =natbib=, =xcolor=, =graphicx=, =caption=, =cleveref=, =siunitx=), all of them before it is named; the standard class options                                                                                                                 |
 
 The package commands and environments known cover amsmath, amssymb,
 mathtools, bm, hyperref, url, cleveref, varioref, xcolor, color,
@@ -1178,11 +1205,11 @@ it is =lualatex=, and pdfLaTeX for anything else.
 
 Looked for in =PATH=, in this order:
 
-| Tool                              | When                                   | Command line (in the root's folder)                                                                          |
-|-----------------------------------+----------------------------------------+--------------------------------------------------------------------------------------------------------------|
-| =latexmk=                         | =latexmk= and the engine are installed | =latexmk -pdf -interaction=nonstopmode -file-line-error -halt-on-error -pdflatex= (or =-xelatex=, =-lualatex=) =[-outdir=DIR] FILE= |
-| the engine alone                  | the engine is installed                | =ENGINE -interaction=nonstopmode -file-line-error [-output-directory=DIR] FILE=; then =biber STEM= when the run left =STEM.bcf=, or =bibtex STEM= when =STEM.aux= has =\bibdata{= (looked for beside the engine, then in =PATH=; run in the output folder); then the engine twice more after a bibliography run, once more without |
-| =tectonic=                        | neither is installed                   | =tectonic --keep-logs [--outdir=DIR] FILE= (tectonic's own engine)                                           |
+| Tool             | When                                   | Command line (in the root's folder)                                                                                                                                                                                                                                                                                                |
+|------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =latexmk=        | =latexmk= and the engine are installed | =latexmk -pdf -interaction=nonstopmode -file-line-error -halt-on-error -pdflatex= (or =-xelatex=, =-lualatex=) =[-outdir=DIR] FILE=                                                                                                                                                                                                |
+| the engine alone | the engine is installed                | =ENGINE -interaction=nonstopmode -file-line-error [-output-directory=DIR] FILE=; then =biber STEM= when the run left =STEM.bcf=, or =bibtex STEM= when =STEM.aux= has =\bibdata{= (looked for beside the engine, then in =PATH=; run in the output folder); then the engine twice more after a bibliography run, once more without |
+| =tectonic=       | neither is installed                   | =tectonic --keep-logs [--outdir=DIR] FILE= (tectonic's own engine)                                                                                                                                                                                                                                                                 |
 
 Without any of them, the build fails with "No LaTeX found: install TeX
 Live, MacTeX, MiKTeX or tectonic". =latex.output_directory= (or
@@ -1223,12 +1250,12 @@ error or no PDF.
 
 With pandoc installed:
 
-| Command                                            | pandoc command line (in the root's folder)                                                                            | Output              |
-|----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------+---------------------|
-| Export as HTML (pandoc) (=latex.export.html=)      | =pandoc --from latex --to html5 --standalone --output OUT --mathml [--citeproc] --resource-path DIR ROOT=              | =ROOT.html=         |
-| Export as Markdown (pandoc) (=latex.export.markdown=) | the same with =--to markdown=, without =--mathml=                                                                  | =ROOT.md=           |
-| Export as Word (pandoc) (=latex.export.docx=)      | the same with =--to docx=                                                                                             | =ROOT.docx=         |
-| Convert to Org (pandoc) (=latex.convertToOrg=)     | =pandoc --from latex --to org --standalone --wrap=none --extract-media=STEM_assets FILE=, then Kalem's Org clean-up   | =FILE.org=          |
+| Command                                               | pandoc command line (in the root's folder)                                                                          | Output      |
+|-------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------+-------------|
+| Export as HTML (pandoc) (=latex.export.html=)         | =pandoc --from latex --to html5 --standalone --output OUT --mathml [--citeproc] --resource-path DIR ROOT=           | =ROOT.html= |
+| Export as Markdown (pandoc) (=latex.export.markdown=) | the same with =--to markdown=, without =--mathml=                                                                   | =ROOT.md=   |
+| Export as Word (pandoc) (=latex.export.docx=)         | the same with =--to docx=                                                                                           | =ROOT.docx= |
+| Convert to Org (pandoc) (=latex.convertToOrg=)        | =pandoc --from latex --to org --standalone --wrap=none --extract-media=STEM_assets FILE=, then Kalem's Org clean-up | =FILE.org=  |
 
 The exports write the project's root document beside it, in the
 background, with =--citeproc= when the root's text contains
@@ -1246,25 +1273,25 @@ template as =NAME.tex= beside the current document (=NAME-2.tex= and so
 on when taken) and opens it; the templates themselves never change.
 Each parses without diagnostics and compiles with pdflatex in the tests.
 
-| Name      | Title                   | What it is                                                                                                                   |
-|-----------+-------------------------+------------------------------------------------------------------------------------------------------------------------------|
-| =article= | Article                 | =article=, 11pt A4, inputenc, fontenc, amsmath, amssymb, graphicx, hyperref; title, abstract, a section                      |
-| =report=  | Report                  | =report=, the same packages; title, contents, a chapter                                                                      |
-| =book=    | Book                    | =book=, the same packages; front matter with title and contents, main matter, back matter                                    |
-| =beamer=  | Presentation (beamer)   | =beamer=; a title frame and a frame with a list                                                                              |
-| =letter=  | Letter                  | =letter=, 11pt A4; signature, address, opening and closing                                                                   |
-| =cv=      | Curriculum vitae        | =article= with geometry (2 cm), no page style or indentation; education, experience, skills                                  |
-| =thesis=  | Thesis                  | =report=, 12pt A4 one-sided, 2.5 cm margins, one and a half spacing, amsthm, a theorem within chapters; abstract, contents, two chapters |
-| =tez=     | Tez (YÖK biçimi)        | a Turkish thesis after the Council of Higher Education's guidelines: babel =turkish=, A4 with 3/2.5/3.5/2.5 cm margins, one and a half spacing, a title page, ÖZET and ABSTRACT in the contents, GİRİŞ and SONUÇ |
+| Name      | Title                 | What it is                                                                                                                                                                                                       |
+|-----------+-----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =article= | Article               | =article=, 11pt A4, inputenc, fontenc, amsmath, amssymb, graphicx, hyperref; title, abstract, a section                                                                                                          |
+| =report=  | Report                | =report=, the same packages; title, contents, a chapter                                                                                                                                                          |
+| =book=    | Book                  | =book=, the same packages; front matter with title and contents, main matter, back matter                                                                                                                        |
+| =beamer=  | Presentation (beamer) | =beamer=; a title frame and a frame with a list                                                                                                                                                                  |
+| =letter=  | Letter                | =letter=, 11pt A4; signature, address, opening and closing                                                                                                                                                       |
+| =cv=      | Curriculum vitae      | =article= with geometry (2 cm), no page style or indentation; education, experience, skills                                                                                                                      |
+| =thesis=  | Thesis                | =report=, 12pt A4 one-sided, 2.5 cm margins, one and a half spacing, amsthm, a theorem within chapters; abstract, contents, two chapters                                                                         |
+| =tez=     | Tez (YÖK biçimi)      | a Turkish thesis after the Council of Higher Education's guidelines: babel =turkish=, A4 with 3/2.5/3.5/2.5 cm margins, one and a half spacing, a title page, ÖZET and ABSTRACT in the contents, GİRİŞ and SONUÇ |
 
 * Settings
 
-| Setting                  | Default  | Meaning                                                                                   |
-|--------------------------+----------+-------------------------------------------------------------------------------------------|
-| =latex.engine=           | =auto=   | the TeX engine: =auto=, =pdflatex=, =xelatex= or =lualatex=                               |
-| =latex.build_on_save=    | =false=  | build the PDF each time a LaTeX document is saved                                         |
-| =latex.output_directory= | empty    | where builds go, relative to the root document; empty: beside it                         |
-| =export.open_after=      | =false=  | open the PDF of a build and the files pandoc writes                                       |
+| Setting                  | Default | Meaning                                                          |
+|--------------------------+---------+------------------------------------------------------------------|
+| =latex.engine=           | =auto=  | the TeX engine: =auto=, =pdflatex=, =xelatex= or =lualatex=      |
+| =latex.build_on_save=    | =false= | build the PDF each time a LaTeX document is saved                |
+| =latex.output_directory= | empty   | where builds go, relative to the root document; empty: beside it |
+| =export.open_after=      | =false= | open the PDF of a build and the files pandoc writes              |
 
 * Limits and known gaps
 
@@ -1317,19 +1344,19 @@ differences]].
 
 * Where the code is
 
-| Part                                          | Code                                                        |
-|-----------------------------------------------+-------------------------------------------------------------|
-| lexer, parser, signatures, pairing, reparse   | =crates/latex-syntax/src/= (=lexer.rs=, =parser.rs=, =signatures.rs=, =tables.rs=, =incremental.rs=) |
-| model, numbering, projects                    | =crates/latex-model/src/= (=extract.rs=, =lib.rs=, =project.rs=) |
-| the view, chips, math, blocks                 | =crates/kalem-core/src/latex_view.rs=                       |
-| tables                                        | =crates/kalem-core/src/latex_table.rs=                      |
-| editing                                       | =crates/kalem-core/src/latex_edit.rs=, the =latex.*= commands in =builtin.rs= |
-| formatting                                    | =crates/kalem-core/src/latex_fmt.rs=                        |
-| completion                                    | =crates/kalem-core/src/latex_complete.rs=                   |
-| diagnostics, coverage                         | =crates/kalem-core/src/latex_check.rs=                      |
-| building, log                                 | =crates/kalem-core/src/latex_build.rs=, =pdf.rs=            |
-| citations, CSL cards                          | =crates/kalem-core/src/cite.rs=                             |
-| pandoc                                        | =crates/kalem-core/src/pandoc.rs=                           |
-| templates                                     | =crates/kalem-core/src/latex_templates.rs=                  |
-| table of contents, footnote list              | =crates/kalem-core/src/toc.rs=                              |
-| =kalem diff-pandoc=                           | =crates/kalem-cli/src/commands/diff_pandoc.rs=              |
+| Part                                        | Code                                                                                                 |
+|---------------------------------------------+------------------------------------------------------------------------------------------------------|
+| lexer, parser, signatures, pairing, reparse | =crates/latex-syntax/src/= (=lexer.rs=, =parser.rs=, =signatures.rs=, =tables.rs=, =incremental.rs=) |
+| model, numbering, projects                  | =crates/latex-model/src/= (=extract.rs=, =lib.rs=, =project.rs=)                                     |
+| the view, chips, math, blocks               | =crates/kalem-core/src/latex_view.rs=                                                                |
+| tables                                      | =crates/kalem-core/src/latex_table.rs=                                                               |
+| editing                                     | =crates/kalem-core/src/latex_edit.rs=, the =latex.*= commands in =builtin.rs=                        |
+| formatting                                  | =crates/kalem-core/src/latex_fmt.rs=                                                                 |
+| completion                                  | =crates/kalem-core/src/latex_complete.rs=                                                            |
+| diagnostics, coverage                       | =crates/kalem-core/src/latex_check.rs=                                                               |
+| building, log                               | =crates/kalem-core/src/latex_build.rs=, =pdf.rs=                                                     |
+| citations, CSL cards                        | =crates/kalem-core/src/cite.rs=                                                                      |
+| pandoc                                      | =crates/kalem-core/src/pandoc.rs=                                                                    |
+| templates                                   | =crates/kalem-core/src/latex_templates.rs=                                                           |
+| table of contents, footnote list            | =crates/kalem-core/src/toc.rs=                                                                       |
+| =kalem diff-pandoc=                         | =crates/kalem-cli/src/commands/diff_pandoc.rs=                                                       |

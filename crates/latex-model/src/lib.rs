@@ -93,6 +93,10 @@ pub enum Target {
     Theorem(String),
     /// A footnote.
     Footnote,
+    /// An item of an enumerated list.
+    Item,
+    /// A counter stepped by `\refstepcounter`.
+    Counter(String),
     /// Nothing numbered before it.
     None,
 }
@@ -459,15 +463,31 @@ enum ClassKind {
     Article,
     Report,
     Book,
+    /// amsbook: sections, figures and tables numbered without the
+    /// chapter, equations through the whole book.
+    AmsBook,
+    /// memoir: a book numbering sections only (`secnumdepth` 1).
+    Memoir,
 }
 
 fn class_kind(name: &str) -> ClassKind {
     match name {
-        "book" | "amsbook" | "scrbook" | "memoir" | "extbook" => ClassKind::Book,
+        "book" | "scrbook" | "extbook" => ClassKind::Book,
+        "amsbook" => ClassKind::AmsBook,
+        "memoir" => ClassKind::Memoir,
         "report" | "scrreprt" | "extreport" => ClassKind::Report,
         _ => ClassKind::Article,
     }
 }
+
+/// Whether document class `name` has chapters (`\chapter` above
+/// `\section`).
+pub fn has_chapters(name: &str) -> bool {
+    class_kind(name) != ClassKind::Article
+}
+
+/// The counters of the four levels of `enumerate`.
+const ENUM_COUNTERS: [&str; 4] = ["enumi", "enumii", "enumiii", "enumiv"];
 
 const SECTION_COUNTERS: [&str; 7] = [
     "part",
@@ -563,6 +583,15 @@ struct Numbering<'r> {
     section_stack: Vec<(i8, usize)>,
     floats: Vec<usize>,
     sub_captions: i64,
+    /// Whether the float being read has its caption yet.
+    float_captioned: bool,
+    /// Redefined `\the<counter>` bodies, by counter.
+    formats: HashMap<String, String>,
+    /// Counters reset by another but printed alone (`\newcounter`'s
+    /// optional argument).
+    plain: std::collections::HashSet<String>,
+    /// The lists around, innermost last: whether each is `enumerate`.
+    lists: Vec<bool>,
     saved: Vec<(Option<String>, Target)>,
     /// The file being read.
     file: usize,
@@ -600,6 +629,10 @@ impl<'r> Numbering<'r> {
             section_stack: Vec::new(),
             floats: Vec::new(),
             sub_captions: 0,
+            float_captioned: false,
+            plain: Default::default(),
+            formats: HashMap::new(),
+            lists: Vec::new(),
             saved: Vec::new(),
             file: 0,
             len,
@@ -623,14 +656,17 @@ impl<'r> Numbering<'r> {
         }
         if chaptered {
             for c in ["equation", "figure", "table", "footnote"] {
-                self.within.insert(c.into(), "chapter".into());
+                if !(c == "equation" && kind == ClassKind::AmsBook) {
+                    self.within.insert(c.into(), "chapter".into());
+                }
             }
         }
     }
 
     fn secnumdepth(&self) -> i64 {
         self.secnumdepth.unwrap_or(match self.class {
-            ClassKind::Article => 3,
+            ClassKind::Article | ClassKind::AmsBook => 3,
+            ClassKind::Memoir => 1,
             _ => 2,
         })
     }
@@ -639,28 +675,117 @@ impl<'r> Numbering<'r> {
         self.counters.get(c).copied().unwrap_or(0)
     }
 
-    /// `\stepcounter`: the counter up, the counters within it reset.
+    /// `\stepcounter`: the counter up, the counters within it reset, and
+    /// theirs in turn (`\@stpelt` steps each from -1).
     fn step(&mut self, c: &str) {
         *self.counters.entry(c.to_string()).or_insert(0) += 1;
-        let reset: Vec<String> = self
-            .within
-            .iter()
-            .filter(|(_, w)| *w == c)
-            .map(|(k, _)| k.clone())
-            .collect();
-        for r in reset {
-            self.counters.insert(r, 0);
+        let mut pending = vec![c.to_string()];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(parent) = pending.pop() {
+            if !seen.insert(parent.clone()) {
+                continue;
+            }
+            for (k, w) in &self.within {
+                if *w == parent {
+                    self.counters.insert(k.clone(), 0);
+                    pending.push(k.clone());
+                }
+            }
         }
+    }
+
+    /// What `\ref` prints for an item at enumerate level `depth`:
+    /// `\p@enumN\theenumN` of the standard classes (`2`, `2a`,
+    /// `2(b)i`, `2(b)iA`).
+    fn item_label(&self, depth: usize) -> String {
+        let n = |i: usize| self.get(ENUM_COUNTERS[i]);
+        let (i, ii, iii, iv) = (n(0), n(1), n(2), n(3));
+        match depth {
+            1 => i.to_string(),
+            2 => format!("{i}{}", alph(ii, false)),
+            3 => format!("{i}({}){}", alph(ii, false), roman(iii, false)),
+            _ => format!(
+                "{i}({}){}{}",
+                alph(ii, false),
+                roman(iii, false),
+                alph(iv, true)
+            ),
+        }
+    }
+
+    /// A `\the<counter>` body written by the document: `\arabic`,
+    /// `\roman`, `\Roman`, `\alph`, `\Alph` of a counter, other
+    /// `\the…`, and text; other commands and braces print nothing.
+    fn format(&self, body: &str, depth: usize) -> String {
+        let mut out = String::new();
+        let mut rest = body;
+        while let Some(c) = rest.chars().next() {
+            if c == '\\' {
+                let name: String = rest[1..]
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphabetic() || *c == '@')
+                    .collect();
+                rest = &rest[1 + name.len()..];
+                let arg = || -> Option<(String, usize)> {
+                    let r = rest.trim_start();
+                    let skipped = rest.len() - r.len();
+                    let inner = r.strip_prefix('{')?;
+                    let end = inner.find('}')?;
+                    Some((inner[..end].trim().to_string(), skipped + end + 2))
+                };
+                let styled = |f: &dyn Fn(i64) -> String| {
+                    arg().map(|(counter, used)| (f(self.get(&counter)), used))
+                };
+                let printed = match name.as_str() {
+                    "arabic" => styled(&|n| n.to_string()),
+                    "roman" => styled(&|n| roman(n, false)),
+                    "Roman" => styled(&|n| roman(n, true)),
+                    "alph" => styled(&|n| alph(n, false)),
+                    "Alph" => styled(&|n| alph(n, true)),
+                    t if t.starts_with("the") && t.len() > 3 && depth < 8 => {
+                        Some((self.the_at(&t[3..], depth + 1), 0))
+                    }
+                    _ => None,
+                };
+                if let Some((s, used)) = printed {
+                    out.push_str(&s);
+                    rest = &rest[used..];
+                }
+            } else {
+                if !matches!(c, '{' | '}') {
+                    out.push(c);
+                }
+                rest = &rest[c.len_utf8()..];
+            }
+        }
+        out.trim().to_string()
     }
 
     /// `\the<counter>`.
     fn the(&self, c: &str) -> String {
+        self.the_at(c, 0)
+    }
+
+    fn the_at(&self, c: &str, depth: usize) -> String {
+        if let Some(body) = self.formats.get(c) {
+            return self.format(body, depth);
+        }
         let n = self.get(c);
         match c {
             "part" => roman(n, true),
             "chapter" if self.appendix => alph(n, true),
             "section" if self.appendix && self.class == ClassKind::Article => alph(n, true),
             "footnote" => n.to_string(),
+            _ if self.plain.contains(c) => n.to_string(),
+            "section" | "figure" | "table" if self.class == ClassKind::AmsBook => n.to_string(),
+            // book and report: `\ifnum \c@chapter>\z@ \thechapter.\fi`.
+            "equation" | "figure" | "table"
+                if self.class != ClassKind::Article
+                    && self.within.get(c).map(String::as_str) == Some("chapter")
+                    && self.get("chapter") <= 0 =>
+            {
+                n.to_string()
+            }
             _ => match self.within.get(c) {
                 Some(w) => format!("{}.{n}", self.the(w)),
                 None => n.to_string(),
@@ -820,29 +945,54 @@ impl<'r> Numbering<'r> {
                 range: at(range),
                 file: self.file,
             }),
-            Event::Caption { text, short, range } => {
+            Event::Caption {
+                text,
+                short,
+                range,
+                of,
+                sub,
+            } => {
                 let env = self
                     .envs
                     .iter()
                     .rev()
                     .find(|e| float_kind(e).is_some())
                     .cloned();
-                let kind = env.as_deref().and_then(float_kind);
-                let number = match (kind, env) {
-                    // In `subfigure` (subcaption): (a), (b), … in the float.
-                    (Some(k), Some(env)) if env.starts_with("sub") => {
+                let kind: Option<String> = match of {
+                    Some(k) => float_kind(k).map(str::to_string),
+                    None => env.as_deref().and_then(float_kind).map(str::to_string),
+                };
+                let in_sub = *sub || env.as_deref().is_some_and(|e| e.starts_with("sub"));
+                let number = match kind {
+                    // A sub-caption (subcaption's `subfigure`, subfig's
+                    // `\subfloat`): (a), (b), … in the float; `\ref`
+                    // prints the float's number before it, the one its
+                    // caption has or is about to get.
+                    Some(k) if in_sub && of.is_none() => {
                         self.sub_captions += 1;
                         let n = alph(self.sub_captions, false);
-                        self.current = (Some(n.clone()), Target::Float(k.to_string()));
+                        let float = if self.float_captioned {
+                            self.the(&k)
+                        } else {
+                            let now = self.get(&k);
+                            self.counters.insert(k.clone(), now + 1);
+                            let next = self.the(&k);
+                            self.counters.insert(k.clone(), now);
+                            next
+                        };
+                        self.current = (Some(format!("{float}{n}")), Target::Float(k.clone()));
                         Some(n)
                     }
-                    (Some(k), _) => {
-                        self.step(k);
-                        let n = self.the(k);
-                        self.current = (Some(n.clone()), Target::Float(k.to_string()));
+                    Some(k) => {
+                        self.step(&k);
+                        if of.is_none() {
+                            self.float_captioned = true;
+                        }
+                        let n = self.the(&k);
+                        self.current = (Some(n.clone()), Target::Float(k.clone()));
                         Some(n)
                     }
-                    _ => None,
+                    None => None,
                 };
                 let caption = Caption {
                     text: text.clone(),
@@ -858,6 +1008,11 @@ impl<'r> Numbering<'r> {
             Event::Footnote { explicit, range } => {
                 let number = match explicit {
                     Some(n) => n.clone(),
+                    // In a minipage: its own counter, a, b, … (`mpfootnote`).
+                    None if self.envs.iter().any(|e| e == "minipage") => {
+                        self.step("mpfootnote");
+                        alph(self.get("mpfootnote"), false)
+                    }
                     None => {
                         self.step("footnote");
                         self.the("footnote")
@@ -878,15 +1033,25 @@ impl<'r> Numbering<'r> {
                 default,
                 body,
                 range,
-            } => self.model.macros.push(Macro {
-                name: name.clone(),
-                command: command.clone(),
-                args: *args,
-                default: default.clone(),
-                body: body.clone(),
-                range: at(range),
-                file: self.file,
-            }),
+            } => {
+                // `\renewcommand{\thesection}{\Roman{section}}`: how the
+                // counter prints from here on.
+                if let Some(counter) = name.strip_prefix("\\the")
+                    && *args == 0
+                    && !counter.is_empty()
+                {
+                    self.formats.insert(counter.to_string(), body.clone());
+                }
+                self.model.macros.push(Macro {
+                    name: name.clone(),
+                    command: command.clone(),
+                    args: *args,
+                    default: default.clone(),
+                    body: body.clone(),
+                    range: at(range),
+                    file: self.file,
+                })
+            }
             Event::NewEnvironment {
                 name,
                 args,
@@ -945,14 +1110,17 @@ impl<'r> Numbering<'r> {
                     *v = if *add { *v + value } else { *value };
                 }
             }
-            Event::NumberWithin { counter, within } => match within {
-                Some(w) => {
-                    self.within.insert(counter.clone(), w.clone());
+            Event::NumberWithin { counter, within } => {
+                self.plain.remove(counter);
+                match within {
+                    Some(w) => {
+                        self.within.insert(counter.clone(), w.clone());
+                    }
+                    None => {
+                        self.within.remove(counter);
+                    }
                 }
-                None => {
-                    self.within.remove(counter);
-                }
-            },
+            }
             Event::EnvEnter {
                 name,
                 range,
@@ -965,6 +1133,24 @@ impl<'r> Numbering<'r> {
                 }
             }
             Event::EnvExit => self.exit(),
+            Event::ResetWithin { counter, within } => {
+                self.within.insert(counter.clone(), within.clone());
+                self.plain.insert(counter.clone());
+            }
+            Event::Step { counter, refer } => {
+                self.step(counter);
+                if *refer {
+                    self.current = (Some(self.the(counter)), Target::Counter(counter.clone()));
+                }
+            }
+            Event::Item { explicit } => {
+                let depth = self.lists.iter().filter(|e| **e).count();
+                if !*explicit && self.lists.last() == Some(&true) && (1..=4).contains(&depth) {
+                    let c = ENUM_COUNTERS[depth - 1];
+                    self.step(c);
+                    self.current = (Some(self.item_label(depth)), Target::Item);
+                }
+            }
             Event::Include {
                 command,
                 args,
@@ -1042,6 +1228,17 @@ impl<'r> Numbering<'r> {
         // An environment is a group: what `\label` would point at is
         // restored at its end.
         self.saved.push(self.current.clone());
+        if name == "minipage" {
+            self.counters.insert("mpfootnote".into(), 0);
+        }
+        if matches!(name, "enumerate" | "itemize" | "description") {
+            self.lists.push(name == "enumerate");
+            // `\usecounter`: the level's counter from 0.
+            let depth = self.lists.iter().filter(|e| **e).count();
+            if name == "enumerate" && (1..=4).contains(&depth) {
+                self.counters.insert(ENUM_COUNTERS[depth - 1].into(), 0);
+            }
+        }
         if name == "document" && self.file == 0 {
             self.model.preamble = 0..range.start;
             self.model.body = Some(body.clone());
@@ -1051,6 +1248,7 @@ impl<'r> Numbering<'r> {
         {
             self.floats.push(self.model.floats.len());
             self.sub_captions = 0;
+            self.float_captioned = false;
             self.model.floats.push(Float {
                 kind: kind.to_string(),
                 env: name.to_string(),
@@ -1111,6 +1309,9 @@ impl<'r> Numbering<'r> {
     fn exit(&mut self) {
         let Some(name) = self.envs.pop() else { return };
         let restore = self.saved.pop();
+        if matches!(name.as_str(), "enumerate" | "itemize" | "description") {
+            self.lists.pop();
+        }
         if self.eq.last().is_some_and(|e| e.name == name) {
             let end = self.eq.last().map_or(0, |e| e.body_end);
             self.end_line(end);

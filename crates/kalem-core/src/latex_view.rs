@@ -1901,6 +1901,8 @@ fn target_name(model: &latex_model::Model, target: &latex_model::Target, command
         Target::Float(k) if k == "table" => ("Table", "table"),
         Target::Float(_) => ("Figure", "fig."),
         Target::Footnote => ("Footnote", "footnote"),
+        // hyperref's `\itemautorefname`, cleveref's item names.
+        Target::Item => ("Item", "item"),
         Target::Theorem(env) => {
             let title = model
                 .theorem_kinds
@@ -1913,6 +1915,8 @@ fn target_name(model: &latex_model::Model, target: &latex_model::Target, command
                 title
             };
         }
+        // A counter of the document's own: its name.
+        Target::Counter(c) => return c.clone(),
         Target::None => ("", ""),
     };
     if command == "cref" {

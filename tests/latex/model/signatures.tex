@@ -1,0 +1,15 @@
+\documentclass{article}
+\newcounter{step}[section]
+\newcounter{other}
+\setcounter{other}{4}
+\newcommand{\nextstep}{\refstepcounter{step}}
+\begin{document}
+\section{A}\label{s1}
+Text\footnotemark{} and\footnote{One.\label{fn1}}
+\raisebox{2pt}[0pt][0pt]{up} \parbox[t][3cm][s]{2cm}{box}
+\hspace{1em}\vspace{1ex}$\operatorname{sgn} x$
+\begin{equation}x\label{eq1}\end{equation}
+\section{B}\label{s2}
+\footnote{Two.\label{fn2}}
+\begin{equation}y\label{eq2}\end{equation}
+\end{document}

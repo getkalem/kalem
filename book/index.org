@@ -52,6 +52,7 @@ turns it into this site.
 * Part II. The standard formats
 - [[file:part-2/overview.org][Standard modes and their oracles]]
 - [[file:part-2/org.org][Org]]
+- [[file:part-2/org-syntax.org][Org syntax in detail]]
 - [[file:part-2/org-known-differences.org][Org: known differences from Emacs]]
 - [[file:part-2/latex.org][LaTeX]]
 - [[file:part-2/latex-known-differences.org][LaTeX: known differences]]
