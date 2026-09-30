@@ -174,6 +174,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - File manager: `W` opens the marked files with their applications, Show in System File Manager selects the file in Finder, Explorer or the desktop's file manager, and `!` runs a shell command on the marked files after asking (`*` and `?` as in Dired); in both editors.
 - File manager (graphical): `v` shows a preview pane beside the listing (pictures, the first lines of text files, folders' names), Ctrl+T the listing's pictures as thumbnails, a click going to the picture's line.
 - LaTeX links: Open Link (Ctrl-click, Cmd-click on macOS) follows a reference to its label, `\url` and `\href` to the browser, `\input` and `\include` to their file, `\includegraphics` to its picture and a citation to the bibliography file; in both editors.
+- LaTeX in a terminal without graphics: a formula over several lines shows as its Unicode approximation on one line, with its number.
 - LaTeX: the formula the cursor is in is previewed under it, as in Org documents.
 - LaTeX: the footnotes are listed at the end of the document, on its `\end{document}` line, each leading to its footnote. The titles of tables of contents are translated.
 - LaTeX: textcomp's characters (`\texteuro`, `\textcopyright`, `\textonehalf`, …) and `\hfill` show as what they print, and an empty `{}` or the blanks after such a command are eaten as TeX eats them (`\LaTeX{}` no longer shows its braces).

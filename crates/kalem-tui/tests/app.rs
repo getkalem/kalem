@@ -2697,9 +2697,11 @@ fn latex_formulas_as_images() {
     let text = "Before\n\\begin{equation}\n  E = mc^2\n\\end{equation}\nafter\n";
     let mut t = with_file(text, "i.tex", Config::default(), (60, 12));
     t.at(0);
-    // Without graphics: the source over its lines.
+    // Without graphics: its Unicode approximation on its first line, the
+    // others hidden.
     let s = screen(&mut t);
-    assert!(s.iter().any(|l| l.contains("E = mc^2")), "{s:#?}");
+    assert!(s.iter().any(|l| l.contains("E = mc²")), "{s:#?}");
+    assert!(!s.iter().any(|l| l.contains("\\begin{equation}")), "{s:#?}");
     // With kitty's: the equation as one image on its first line, the
     // others hidden.
     let mut picker = ratatui_image::picker::Picker::halfblocks();
@@ -3152,4 +3154,15 @@ fn latex_formula_preview_at_the_cursor() {
     t.at(text.find("x^2").unwrap() + 1);
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("= x² + y"), "{rows}");
+}
+
+#[test]
+fn latex_display_math_over_lines_in_the_terminal() {
+    let text = "Before.\n\\begin{equation}\n  x^2\n  + y\n\\end{equation}\nAfter.\n";
+    let mut t = with_file(text, "e.tex", Config::default(), (50, 10));
+    t.at(0);
+    let rows = screen(&mut t).join("\n");
+    assert!(!rows.contains("\\begin{equation}"), "{rows}");
+    assert!(rows.contains("x² + y") && rows.contains("(1)"), "{rows}");
+    assert!(rows.contains("After."), "{rows}");
 }
