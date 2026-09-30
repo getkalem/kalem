@@ -2028,6 +2028,21 @@ fn line_commands() {
         std::fs::read_to_string(path).unwrap(),
         "apple\nfig\npear\npear\n"
     );
+    // Not in CSV, where trailing tabs are empty fields, nor in Markdown,
+    // where two trailing spaces break the line.
+    for (name, text) in [("t.tsv", "a\tb\t\n"), ("m.md", "one  \ntwo\n")] {
+        let config = Config::from_layers(&[(
+            Layer::User,
+            None,
+            "editor.trim_trailing_whitespace = true\n",
+        )]);
+        let mut t = with_file(text, name, config, (60, 8));
+        t.at(0);
+        t.typ("x");
+        t.app.run_command("app.save", serde_json::Value::Null);
+        let path = t.app.doc.meta.path.clone().unwrap();
+        assert_eq!(std::fs::read_to_string(path).unwrap(), format!("x{text}"));
+    }
     // Join, and a selection grown and shrunk.
     t.at(0);
     t.app.run_command("lines.join", serde_json::Value::Null);
@@ -3392,4 +3407,20 @@ fn latex_sections_fold() {
     );
     // The text is unchanged.
     assert_eq!(t.text(), text);
+}
+
+#[test]
+fn enter_in_csv_keeps_no_indentation() {
+    // Leading tabs are empty fields and leading blanks are part of a
+    // value: Enter does not copy them into the next record.
+    let text = "\ta\tb\n";
+    let mut t = with_file(text, "d.tsv", Config::default(), (60, 8));
+    t.at(text.find('b').unwrap() + 1);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.text(), "\ta\tb\n\n");
+    let text = "  x,y\n";
+    let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
+    t.at(text.find('y').unwrap() + 1);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.text(), "  x,y\n\n");
 }

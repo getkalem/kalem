@@ -2631,6 +2631,16 @@ fn csv_typing_quotes_the_field(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn enter_in_csv_keeps_no_indentation(cx: &mut TestAppContext) {
+    // Leading tabs are empty fields: Enter does not copy them.
+    let text = "\ta\tb\n";
+    let (e, cx) = open_named(text, "d.tsv", || None, cx);
+    at(&e, 4, cx);
+    cx.simulate_keystrokes("enter");
+    assert_eq!(text_of(&e, cx), "\ta\tb\n\n");
+}
+
+#[gpui::test]
 fn bibtex_grid(cx: &mut TestAppContext) {
     let text = "% refs\n@book{knuth84,\n  author = {Donald E. Knuth},\n  title = {The {\\TeX}book},\n  year = 1984,\n}\n\n@article{lamport,\n  author = {Lamport, Leslie},\n  title = {Paxos},\n  year = {1998}\n}\n";
     let (e, cx) = open_named(text, "refs.bib", || None, cx);

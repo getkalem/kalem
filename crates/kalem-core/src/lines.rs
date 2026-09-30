@@ -311,10 +311,16 @@ impl crate::DocumentState {
     }
 
     /// What saving does first, as the settings say: the blanks at the ends
-    /// of lines removed (`editor.trim_trailing_whitespace`).
+    /// of lines removed (`editor.trim_trailing_whitespace`), except in CSV
+    /// (trailing tabs are empty fields, blanks part of values) and
+    /// Markdown (two trailing spaces are a hard line break).
     pub fn before_save(&mut self, config: &crate::settings::Config, now: std::time::Instant) {
         if config.bool("editor.trim_trailing_whitespace")
             && self.dired.is_none()
+            && !matches!(
+                self.meta.mode,
+                crate::DocumentMode::Csv | crate::DocumentMode::Markdown
+            )
             && let Some(tx) = trim_trailing(self.text().as_str())
         {
             self.apply(&tx, org_edit::ChangeKind::Command, now);

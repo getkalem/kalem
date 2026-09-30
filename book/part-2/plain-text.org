@@ -331,7 +331,9 @@ line feed (Emacs's =mac=, the files of classic Mac OS); otherwise LF.
 
 The setting =editor.trim_trailing_whitespace= (off by default) removes
 spaces and tabs before the end of each line on saving, carriage returns
-excepted.
+excepted. It does nothing in CSV files, where trailing tabs are empty
+fields and blanks belong to values, nor in Markdown files, where two
+trailing spaces are a hard line break.
 
 * Saving
 
