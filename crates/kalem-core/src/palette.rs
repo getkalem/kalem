@@ -47,6 +47,39 @@ pub fn items(
         .collect()
 }
 
+/// Every binding of `keymap` (Doom's `SPC h b b`), keys first, each
+/// running its command; `show` writes the keys.
+pub fn binding_items(
+    registry: &CommandRegistry,
+    keymap: &Keymap,
+    show: impl Fn(&KeySequence) -> String,
+) -> Vec<PaletteItem> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for b in keymap.bindings() {
+        let Some(c) = registry.get(&b.command) else {
+            continue;
+        };
+        let keys = show(&b.keys);
+        let id = if b.args.is_null() {
+            b.command.clone()
+        } else {
+            invocation(&b.command, &b.args)
+        };
+        if !seen.insert((keys.clone(), id.clone())) {
+            continue;
+        }
+        out.push(PaletteItem {
+            title: format!("{keys}  {}", c.display_title()),
+            category: c.display_category(),
+            keys: String::new(),
+            also: format!("{} {} {}", c.id.replace('.', " "), c.title, b.command),
+            id,
+        });
+    }
+    out
+}
+
 /// The items of the menus (`crate::menus`) that apply in `ctx`, each
 /// titled by its menu and its label, with its first key written by
 /// `show`: the menus of the terminal editor (F10), and a way to reach

@@ -99,6 +99,17 @@
   { "keys": "leader t shift+f", "command": "view.fullScreen", "when": "vimCommand" },
   { "keys": "leader t shift+z", "command": "view.zen", "when": "vimCommand" },
   { "keys": "leader w v", "command": "view.split", "when": "vimCommand" },
+  { "keys": "leader h k", "command": "help.describeKey", "when": "vimCommand" },
+  { "keys": "leader h f", "command": "view.palette", "when": "vimCommand" },
+  { "keys": "leader h x", "command": "view.palette", "when": "vimCommand" },
+  { "keys": "leader h w", "command": "view.palette", "when": "vimCommand" },
+  { "keys": "leader h a", "command": "view.palette", "when": "vimCommand" },
+  { "keys": "leader h v", "command": "app.settings", "when": "vimCommand" },
+  { "keys": "leader h m", "command": "help.mode", "when": "vimCommand" },
+  { "keys": "leader h b b", "command": "help.bindings", "when": "vimCommand" },
+  { "keys": "leader h t", "command": "help.theme", "when": "vimCommand" },
+  { "keys": "leader h r r", "command": "help.reload", "when": "vimCommand" },
+  { "keys": "leader h '", "command": "help.char", "when": "vimCommand" },
   { "keys": "leader q q", "command": "app.quit", "when": "vimCommand" },
   // The file manager: `-` (vim-vinegar, Doom) and Doom's `SPC o -` open it
   // at the document's folder and come back, `SPC p D` opens the project's

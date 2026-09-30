@@ -2113,6 +2113,35 @@ fn project_keys(cx: &mut TestAppContext) {
     assert_eq!(input.as_deref(), Some("TODO"));
 }
 
+/// Doom's `SPC h` keys (T2.7i.9): describe a key; every binding listed.
+#[gpui::test]
+fn help_keys(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(true, cx);
+    let status = |cx: &mut VisualTestContext| {
+        ws.read_with(cx, |ws, cx| {
+            ws.editor
+                .read(cx)
+                .status
+                .as_ref()
+                .map(|s| s.0.clone())
+                .unwrap_or_default()
+        })
+    };
+    cx.simulate_keystrokes("space h k");
+    cx.simulate_keystrokes(&format!("{}-s", primary()));
+    cx.run_until_parked();
+    assert!(status(cx).contains("app.save"), "{}", status(cx));
+    cx.simulate_keystrokes("space h m");
+    cx.run_until_parked();
+    assert!(status(cx).contains("org"), "{}", status(cx));
+    cx.simulate_keystrokes("space h b b");
+    cx.run_until_parked();
+    let n = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).palette.as_ref().map(|p| p.len())
+    });
+    assert!(n.unwrap_or(0) > 50, "{n:?}");
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

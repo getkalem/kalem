@@ -31,6 +31,26 @@ cmd-file-open = Dosya Aç
 cmd-file-new = Yeni Belge
 cmd-file-close = Belgeyi Kapat
 cmd-file-next = Sonraki Belge
+cmd-settings-set = Ayar Değiştir
+cmd-help-theme = Tema Seç
+cmd-help-mode = Bu Belgeyi Tanımla
+cmd-help-char = Karakteri Tanımla
+cmd-help-bindings = Tüm Tuş Bağları
+cmd-help-describeKey = Tuşu Tanımla
+cmd-help-reload = Ayarları ve Tuşları Yeniden Oku
+theme-system = Sistemin
+theme-light = Açık
+theme-dark = Koyu
+help-no-file = dosya yok
+help-no-char = İmleçte karakter yok
+help-mode = { $file }: { $mode } kipi, metin türü { $text }{ $kind ->
+    [none] {""}
+   *[other] , { $kind }
+}
+help-press-key = Tanımlanacak tuşlara basın
+help-key = { $keys }: { $title } ({ $id })
+help-key-none = { $keys } burada bir komut çalıştırmıyor
+msg-reloaded-settings = Ayarlar ve tuşlar yeniden okundu
 cmd-project-browseOther = Başka Bir Projeye Göz At
 cmd-project-findFileOther = Başka Bir Projede Dosya Bul
 cmd-project-shellCommand = Projede Kabuk Komutu

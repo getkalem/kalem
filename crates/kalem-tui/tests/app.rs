@@ -3746,3 +3746,29 @@ fn project_keys() {
     }
     assert!(dir.join("proj/made.txt").exists(), "{}", status(&mut t));
 }
+
+/// Doom's `SPC h` keys (T2.7i.9): describe a key, this document and the
+/// character; every binding listed.
+#[test]
+fn help_keys() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, _dir) = project_app(config);
+    t.typ(" hk");
+    t.key(KeyCode::Char('s'), KeyModifiers::CONTROL);
+    assert!(
+        status(&mut t).contains("ctrl+s runs Save"),
+        "{}",
+        status(&mut t)
+    );
+    assert!(!t.app.doc.is_modified());
+    t.typ(" hm");
+    assert!(status(&mut t).contains("org"), "{}", status(&mut t));
+    t.at(0);
+    t.typ(" h'");
+    assert!(status(&mut t).contains("U+002A"), "{}", status(&mut t));
+    t.typ(" hbb");
+    t.typ("save as");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("Save As"), "{shown}");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+}

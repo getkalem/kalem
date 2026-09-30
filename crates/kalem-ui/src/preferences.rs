@@ -130,6 +130,23 @@ impl Editor {
         cx.defer(move |cx| apply(shared, cx));
     }
 
+    /// Reads the settings and the user's keymap again, in every window
+    /// (`SPC h r r`).
+    pub fn reload_settings(&mut self, cx: &mut Context<'_, Self>) {
+        let workspace = self
+            .shared
+            .config
+            .sources()
+            .iter()
+            .find(|(l, _)| *l == Layer::Workspace)
+            .and_then(|(_, p)| p.clone());
+        let path = self.shared.settings_path.clone();
+        let config = Config::load(path.as_deref(), workspace.as_deref());
+        let shared = Rc::new(rebuild(&self.shared, config));
+        self.status = Some((tr("msg-reloaded-settings"), false));
+        cx.defer(move |cx| apply(shared, cx));
+    }
+
     /// The settings panel, when open.
     pub fn settings_view(&self, cx: &mut Context<'_, Self>) -> Option<gpui::AnyElement> {
         let s = self.settings.as_ref()?;
