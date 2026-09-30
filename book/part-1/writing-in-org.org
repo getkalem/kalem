@@ -3,19 +3,16 @@ around bold text is hidden, and appears when the cursor is on it, so you
 can always see and change what is in the file. =editor.show_source_markers=
 shows it =always= or =never= instead.
 
-Kalem writes two kinds of file. A =.org= file is Org as Emacs knows it,
-and Kalem keeps it so: it never writes its own additions into it, so a
-co-author in Emacs never meets a line only Kalem understands. A =.klm=
-file is a /Kalem document/: Org with Kalem's word processor formatting
-(fonts, sizes, colors, alignment, paragraph spacing), all written through
-Org's own extension points, so a =.klm= renamed to =.org= is still an Org
-file Emacs opens (=(add-to-list 'auto-mode-alist '("\\.klm\\'"
-. org-mode))= opens it without renaming). The status bar says which kind
-the document is. Formatting a =.org= file offers a choice: /Make Kalem
-Document/ saves it as =.klm= beside it (links to it in the project follow
-the new name), and /Allow Kalem's Formatting in This File/ adds
-=#+KALEM: markup=yes= to it; the setting =org.allow_kalem_markup= in a
-folder's =.kalem/settings.toml= allows it for all its files.
+An Org file is Org as Emacs knows it, and Kalem keeps it so: it writes
+nothing into it that Org does not define, so a co-author in Emacs never
+meets a line only Kalem understands. Fonts, sizes, colors and the other
+formatting of a word processor are not part of Org, so Kalem does not
+offer them in an Org file; they belong to the Kalem format, which is being
+designed (Part III). A file an earlier Kalem wrote such formatting into
+keeps it byte for byte, and shows it as Emacs does: an =@@kalem:…@@=
+snippet as a snippet, an =#+ATTR_KALEM:= or =#+KALEM:= line as a line of
+the file; =kalem check= lists them. Until the Kalem format is ready, a
+=.klm= file opens as Org.
 
 * Headings
 
@@ -97,9 +94,9 @@ A =#+TBLFM:= line under a table computes fields, as in Emacs: =$4=$2*$3=
 fills the fourth column of every row with the product of the second and
 third, =@>$4=vsum(@2..@-1)= puts a sum in the last row. F9 (=C-c *= in
 the Emacs example keymap) recalculates the table and aligns it. With the
-setting =org.table_auto_recalc = true=, or =#+KALEM: recalc=auto= in the
-document, leaving a field with Tab, Shift+Tab or Enter recalculates too;
-=recalc=manual= keeps a document on F9 whatever the setting says.
+setting =org.table_auto_recalc = true= (in a folder's
+=.kalem/settings.toml= for the files there), leaving a field with Tab,
+Shift+Tab or Enter recalculates too.
 
 Formulas are Emacs Calc formulas and give the results Emacs gives: the
 same references (=$2=, =@3$1=, =@I..@II=, =$-1=, =remote(name, @2$3)=,
@@ -119,42 +116,6 @@ formula, starting with the one it has: ~=$2*$3~ for its column, or
 
 From the command line, =kalem table recalc FILE= recalculates every table
 of a file (=--iterate= until nothing changes, =--check= for CI).
-
-* Fonts, sizes and colors
-
-Kalem formats text as a word processor does, beyond what Org has: the
-font, the size, the text color and a highlight color of any part of a
-paragraph or heading, and the alignment of paragraphs. Select text (or put
-the cursor in a word) and use the toolbar: the font and size menus, A+ and
-A−, the color and highlight swatches, the four alignment buttons, and Clear
-Formatting. The same commands are in the palette and on Word's keys:
-
-| Keys              | Command                                            |
-|-------------------+----------------------------------------------------|
-| Ctrl+] and Ctrl+[ | Grow and shrink the font (also Ctrl+Shift+> and <) |
-| Ctrl+L, Ctrl+E    | Align left, center                                 |
-| Ctrl+R, Ctrl+J    | Align right, justify                               |
-| Ctrl+Space        | Clear formatting                                   |
-
-This is for Kalem documents (=.klm=, see above). The file stays an Org
-file that Emacs opens: a formatted part is written
-between =@@kalem:size=14 color=#c00000@@= and =@@kalem:end@@=, and a
-right-aligned paragraph has =#+ATTR_KALEM: :align right= above it. Kalem
-hides these; the source view (Ctrl+/) shows them. Emacs shows them as they
-are and leaves them out when it exports. Every Org file opens in Kalem as
-in Emacs; a file that uses these additions looks plainer in Emacs.
-
-The whole document's font, size and line spacing are /Document Font/,
-/Document Font Size/ and /Line Spacing/ (also the ↕ menu of the
-toolbar), kept in a =#+KALEM:= line at the top, such as
-=#+KALEM: font="Georgia" size=12 spacing=1.5=. Space before and after a
-paragraph (/Space Before Paragraph/, /Space After Paragraph/, also in the ↕
-menu) is =#+ATTR_KALEM: :before 12 :after 6=, in points; the font menu
-searches the fonts as you type, and the color menus keep the colors used
-lately.
-
-In a terminal, colors and alignment show, fonts and sizes do not; there
-Alt+= and Alt+- grow and shrink the font.
 
 * Formulas in the text
 
@@ -337,8 +298,8 @@ the tags in use; the chosen tag is aligned at the right edge.
 Typing =#+= offers keywords and blocks (=#+begin_src=, =#+title:=), =[[=
 link targets, =[fn:= footnote labels, and a colon after a heading its
 tags. In every file, typing the third letter of a word offers the words
-of the document that start the same way, the nearest first. Alt+/ asks
-for completions at the cursor after a single letter. Up and Down choose,
+of the document that start the same way, the nearest first. Ctrl+Space
+(or Alt+/) asks for completions at the cursor after a single letter. Up and Down choose,
 Tab inserts (Enter too, except for words, where it goes on to a new
 line), Escape closes. Items chosen lately come first.
 

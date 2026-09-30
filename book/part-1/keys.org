@@ -112,8 +112,8 @@ to copy into =keymap.json=.
 Every command serves some types of text: all of them, a list, or all but
 some. The type is the one at the cursor, innermost first: a source
 block's language in an Org document (=python=), =latex= in a formula, the
-file's kind (=org=, or =klm= for a Kalem document, which Org's commands
-serve too), a file's language (=rs=), =markdown=, =csv=, =text=. So
+file's kind (=org=, or =klm= for a =.klm= file, which Org's commands
+serve too), a file's language (=rust=), =markdown=, =csv=, =text=. So
 Ctrl+B makes bold text in Org and does nothing in a Python block, and
 Alt+Up moves lines in code, source blocks included, but moves headings,
 items and rows in Org. A binding can use the type too: ="when":

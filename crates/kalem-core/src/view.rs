@@ -62,7 +62,8 @@ pub struct Style {
     pub expansion: bool,
     /// A statistics cookie.
     pub cookie: bool,
-    /// Kalem's own formatting: font, size, colors (`crate::rich`).
+    /// Font, size and colors the source asks for (LaTeX's `\textcolor`,
+    /// `\large`).
     pub rich: crate::rich::CharFormat,
     /// Under a diagnostic: `Some(true)` for a warning, `Some(false)` for
     /// style; drawn with a wavy underline.
@@ -212,7 +213,8 @@ pub struct LineView {
     pub role: LineRole,
     /// Monospace: code, tables, fixed-width lines.
     pub mono: bool,
-    /// The paragraph's alignment (`#+ATTR_KALEM: :align`, center blocks).
+    /// The paragraph's alignment: centered in a center block; LaTeX's
+    /// `center`, `flushright` and `flushleft`.
     pub align: crate::rich::Align,
 }
 
@@ -487,8 +489,6 @@ struct LineBuilder<'a> {
     reveal_all: bool,
     view: LineView,
     hide_blank: bool,
-    /// Kalem's formatted spans of the line's element.
-    spans: Vec<(Range<usize>, crate::rich::CharFormat)>,
     /// The document, for macro expansions.
     root: &'a SyntaxNode,
 }
@@ -750,7 +750,6 @@ pub fn line_view_with(
             ..LineView::default()
         },
         hide_blank: false,
-        spans: Vec::new(),
         root,
     };
     let len = end(root);
@@ -763,19 +762,11 @@ pub fn line_view_with(
     else {
         return b.view;
     };
-    // Kalem's formatting: the spans and alignment of the line's element.
-    if let Some(el) = tok.parent_ancestors().find(|a| {
-        matches!(
-            a.kind(),
-            PARAGRAPH | HEADLINE | INLINETASK | VERSE_BLOCK | TABLE_ROW
-        )
-    }) {
-        if el.kind() == PARAGRAPH {
-            b.view.align = crate::rich::align(&el);
-        }
-        if el.text().contains_char('@') {
-            b.spans = crate::rich::spans(&el);
-        }
+    // A paragraph in Org's center block is centered.
+    if let Some(el) = tok.parent_ancestors().find(|a| a.kind() == PARAGRAPH)
+        && el.ancestors().any(|a| a.kind() == CENTER_BLOCK)
+    {
+        b.view.align = crate::rich::Align::Center;
     }
     loop {
         let r = tok.text_range();
@@ -877,19 +868,7 @@ impl LineBuilder<'_> {
                 return;
             }
         }
-        // Kalem's formatting snippets never show in the rich view; their
-        // trailing blanks do.
-        if tok
-            .parent_ancestors()
-            .any(|a| !blank_of.contains(&a) && crate::rich::is_marker(&a))
-            && !self.reveal_all
-        {
-            return;
-        }
         let mut style = Style::default();
-        if let Some((_, f)) = self.spans.iter().find(|(r, _)| r.start <= s && s < r.end) {
-            style.rich = *f;
-        }
         let mut shown: Option<String> = None;
         let mut hidden = false;
         for a in tok.parent_ancestors() {
@@ -1669,15 +1648,6 @@ pub fn visible(text: &str, blocks: &[Block], folds: &Folds, cursor: usize) -> Vi
                 }
                 i = j;
                 continue;
-            }
-            // `#+ATTR_KALEM:` lines above a paragraph do not show: they
-            // are its alignment.
-            BlockKind::Paragraph if crate::rich::is_attr_line(text, b.range.start) => {
-                let mut at = b.range.start;
-                while at < b.content_end && crate::rich::is_attr_line(text, at) {
-                    at = text[at..].find('\n').map_or(text.len(), |n| at + n + 1);
-                }
-                push(&mut out.ranges, at.min(b.range.end)..b.range.end);
             }
             _ => push(&mut out.ranges, b.range.clone()),
         }

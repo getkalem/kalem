@@ -1250,14 +1250,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         bar: quote,
         rule: false,
         nowrap: !editor.wrap,
-        spacing: if source {
-            1.
-        } else {
-            editor
-                .doc_defaults()
-                .spacing
-                .map_or(1., |s| f32::from(s) / 10.)
-        },
+        spacing: 1.,
         fit,
     }
 }

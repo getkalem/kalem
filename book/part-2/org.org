@@ -74,7 +74,7 @@ records the source and license of every file.
 | =synthetic/= | Files written for Kalem: CRLF with a byte order mark, CJK, Turkish, malformed input, deep nesting, edge cases |
 | =model/=     | Documents for the model differential: tags, clocks, groups, match strings, statistics                         |
 | =tables/=    | 928 =#+TBLFM= tables, most of them generated at random                                                        |
-| =klm/=       | Every construct the interim =.klm= formatting writes (see below)                                              |
+| =klm/=       | Every construct the interim =.klm= formatting wrote (see below), which Emacs parses as Kalem does            |
 
 =tests/corpus/fetch-extended.sh= clones the whole Org repository at
 =release_9.7.11= and Worg at =22fc0631= into =.cache/=; CI runs the
@@ -98,39 +98,31 @@ as follows.
   document, and only when asked.
 - *No extension.* Kalem writes nothing into a =.org= file that Org does
   not define. Kalem's own settings live in =settings.toml=, not in
-  the file (the interim =#+KALEM:= keyword is the exception described
-  below, and is being retired).
+  the file; a document's word target is an ordinary file property,
+  =#+PROPERTY: WORD_TARGET 80000=.
 - *Unknown constructs stay visible.* Every line of an Org file belongs
   to some element; what Org itself reads as a paragraph (an unterminated
   block, a malformed timestamp, a keyword Org does not know) Kalem reads
   as a paragraph or a keyword too, and shows as its source.
 
-** Strict =.org= and interim =.klm=
+** Strict =.org=
 
-A file named =*.org= (or =*.org_archive=) is strict Org. Decision D24 of
-RFC 0001 (section 3.7) also defined =.klm= as Org plus Kalem's
-word-processor formatting, written through Org's extension points so
-that Emacs still opens the file:
+A file named =*.org= (or =*.org_archive=) is strict Org. RFC 0001
+(section 3.7, decision D24) also defined =.klm= as Org plus Kalem's
+word-processor formatting, written through Org's extension points:
+spans between =@@kalem:…@@= snippets, =#+ATTR_KALEM:= lines for
+alignment and spacing, and a =#+KALEM:= keyword for the document's
+defaults. RFC 0003 made =.klm= a format of its own, specified in Part
+III, and the owner had the interim mechanism removed ahead of it
+(T2.13.13): Kalem no longer writes these additions, and what a format
+cannot express is not offered in it.
 
-| Addition                               | Written as                                                                                |
-|----------------------------------------+-------------------------------------------------------------------------------------------|
-| Font, size, color, highlight of a span | ~@@kalem:font="Georgia" size=14 color=#c00000@@~ ... ~@@kalem:end@@~                      |
-| Paragraph alignment and spacing        | =#+ATTR_KALEM: :align right=, =:before 12 :after 6=                                       |
-| Document defaults and options          | ~#+KALEM: font="Georgia" size=12 spacing=1.5~, also =recalc=, =word_target=, =markup=yes= |
-
-These additions exist in Kalem today. In a =.org= file the formatting
-commands write nothing unless the file opts in with
-=#+KALEM: markup=yes= (or a folder with the setting
-=org.allow_kalem_markup=), and ~kalem check~ reports each addition in
-a =.org= file as =kalem-markup-in-org=. The HTML and LaTeX back-ends
-honor the additions; Emacs's exports drop them.
-
-They are interim. RFC 0002 (=design_doc2.md=, section 12) retires
-section 3.7 and D24: the =@@kalem:…@@=, =#+ATTR_KALEM:= and =#+KALEM:=
-mechanisms are to be removed before the first release, =.org= files
-stay strict Org, and =.klm= becomes a format of its own, specified in
-Part III, not Org with additions. Nothing in this chapter depends on
-them.
+A file that still has them keeps them byte for byte. Kalem shows them
+as Emacs does, as an export snippet for another back-end, an unknown
+affiliated keyword and an unknown keyword, and its exports drop them
+exactly as Emacs's do. ~kalem check~ lists each one as
+=kalem-markup-in-org=. A =.klm= file opens as strict Org until the Kalem
+format's parser takes the extension (T2.13.3).
 
 * The syntax tree
 

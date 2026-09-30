@@ -230,8 +230,6 @@ pub struct Editor {
     pub theme: Theme,
     /// Keys of a sequence typed so far (`space p`, `C-c`).
     pub pending: Vec<KeyChord>,
-    /// The document's own defaults, by version.
-    doc_defaults: RefCell<Option<(u64, kalem_core::rich::DocDefaults)>>,
     /// IME composition in progress.
     pub marked: Option<Range<usize>>,
     /// Lines as last painted, by source line.
@@ -376,7 +374,6 @@ impl Editor {
             folded_blocks: HashSet::new(),
             theme,
             pending: Vec::new(),
-            doc_defaults: RefCell::new(None),
             marked: None,
             painted: Rc::default(),
             status: None,
@@ -840,53 +837,9 @@ impl Editor {
         c
     }
 
-    /// The document's own defaults (`#+KALEM:`), by version.
-    pub fn doc_defaults(&self) -> kalem_core::rich::DocDefaults {
-        let v = self.doc.version();
-        if let Some((cv, d)) = *self.doc_defaults.borrow()
-            && cv == v
-        {
-            return d;
-        }
-        let text = self.doc.text().as_str();
-        let has = text.contains("#+KALEM:") || text.contains("#+kalem:");
-        let d = match (has, self.doc.parse()) {
-            (true, Some((p, _))) => kalem_core::rich::DocDefaults::of(&p.keywords()),
-            _ => Default::default(),
-        };
-        *self.doc_defaults.borrow_mut() = Some((v, d));
-        d
-    }
-
-    /// The theme with the document's own font and size.
+    /// The theme the document is shown in.
     pub fn doc_theme(&self) -> Theme {
-        let mut t = self.theme.clone();
-        let d = self.doc_defaults();
-        if let Some(f) = d.font {
-            t.font = f.family().to_string();
-        }
-        if let Some(s) = d.size {
-            t.size = f32::from(s) / 10.;
-        }
-        t
-    }
-
-    /// Kalem's character formatting at the cursor.
-    pub fn format_at_cursor(&self) -> kalem_core::rich::CharFormat {
-        let Some((p, _)) = self.doc.parse() else {
-            return Default::default();
-        };
-        let root = p.syntax();
-        let pos = self.doc.selection.head;
-        kalem_core::rich::element_at(&root, pos)
-            .map(|el| {
-                kalem_core::rich::format_at(
-                    &el,
-                    pos.saturating_sub(1)
-                        .max(kalem_core::rich::format_start(&el)),
-                )
-            })
-            .unwrap_or_default()
+        self.theme.clone()
     }
 
     /// The folder of the project holding the document.
@@ -3338,34 +3291,15 @@ impl gpui::Render for Editor {
                         // `org-indent-mode`: the line moved right by the
                         // level of its heading, two characters a level.
                         let indent = entity.update(cx, |e, _| e.outline_indent_of(line));
-                        // Kalem's paragraph spacing, around the line.
-                        let (before, after) = {
-                            let e = entity.read(cx);
-                            match e.doc.parse() {
-                                Some((p, true)) if !e.source => {
-                                    let mut r = e.doc.text().line_range(line);
-                                    if e.doc.text().as_str()[r.clone()].ends_with('\r') {
-                                        r.end -= 1;
-                                    }
-                                    kalem_core::rich::line_spacing(&p.syntax(), r)
-                                }
-                                _ => (0, 0),
-                            }
-                        };
                         let element = crate::line::LineElement {
                             editor: entity.clone(),
                             line,
                             other,
                         };
-                        if before == 0 && after == 0 && indent == px(0.) {
+                        if indent == px(0.) {
                             element.into_any_element()
                         } else {
-                            div()
-                                .pt(px(f32::from(before) / 10.))
-                                .pb(px(f32::from(after) / 10.))
-                                .pl(indent)
-                                .child(element)
-                                .into_any_element()
+                            div().pl(indent).child(element).into_any_element()
                         }
                     })
                     .size_full(),

@@ -27,7 +27,8 @@ as the code has it.
 ** Using completion
 
 - The menu opens by itself when a completer's trigger fires as you
-  type, and Alt+/ (the command =edit.complete=) asks for it anywhere.
+  type, and Ctrl+Space or Alt+/ (the command =edit.complete=) asks for
+  it anywhere.
 - Down and Up choose an item; Escape closes the menu.
 - Tab takes the chosen item. Enter takes it too, except for a word from
   the document: then Enter closes the menu and starts a new line, so
@@ -36,7 +37,7 @@ as the code has it.
 - =kalem complete FILE:LINE:COL= prints the items at a place of a file,
   best first, one a line: label, kind and completer, separated by tabs.
   Line and column count from 1, the column in characters. It completes
-  as if asked with Alt+/, and waits up to two seconds for slow
+  as if asked with Ctrl+Space, and waits up to two seconds for slow
   completers.
 
 #+begin_src text
@@ -107,7 +108,7 @@ pub trait Completer: Send + Sync {
 |---------------------+----------------------------------------------------------------------------|
 | =Strings(&[...])=   | One of the strings occurs in the line before the cursor, or on request     |
 | =WordPrefix(n)=     | The word before the cursor has at least =n= characters; on request, one    |
-| =Request=           | Only on request (Alt+/)                                                    |
+| =Request=           | Only on request (Ctrl+Space, Alt+/)                                        |
 
 A word here is letters, digits and =_=. A completer whose trigger
 fires may still return nothing: the Org completer checks the place
@@ -125,7 +126,7 @@ itself and gives items only where a completion belongs.
 | =mode=      | The document's mode (=DocumentMode=)                                                 |
 | =text_type= | The text type at the cursor, the =textType= of when-clauses: =python= in a =.py= file or a Python source block, =markdown=, =latex=, =csv=, =org=, =text= |
 | =path=      | The document's file, if it has one                                                   |
-| =requested= | Whether the user asked (Alt+/) rather than typed a trigger                           |
+| =requested= | Whether the user asked (Ctrl+Space, Alt+/) rather than typed a trigger              |
 
 Its methods: =slice(range)= gives the text of a range of the document
 (within the copy), =line_before()= the text before the cursor on its

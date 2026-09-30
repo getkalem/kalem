@@ -1396,72 +1396,28 @@ fn doom_keys_in_the_terminal() {
 }
 
 #[test]
-fn strict_org_offers_a_kalem_document() {
-    let mut t = open("one two\n");
-    t.at(0);
-    t.app
-        .run_command("format.alignRight", serde_json::Value::Null);
-    // Nothing written; the choice is offered.
-    assert_eq!(t.text(), "one two\n");
-    let shown = screen(&mut t).join("\n");
-    assert!(shown.contains("Make Kalem Document"), "{shown}");
-    assert!(shown.contains("Allow Kalem's Formatting"), "{shown}");
-    t.key(KeyCode::Esc, KeyModifiers::NONE);
-    // Allowing it in this file: a `#+KALEM:` line, then formatting works.
-    t.app
-        .run_command("format.allowMarkup", serde_json::Value::Null);
-    assert_eq!(t.text(), "#+KALEM: markup=yes\none two\n");
-    t.at(t.text().find("one").unwrap());
-    t.app
-        .run_command("format.alignRight", serde_json::Value::Null);
-    assert!(
-        t.text().contains("#+ATTR_KALEM: :align right\none two"),
-        "{}",
-        t.text()
-    );
-    // Making a Kalem document renames the file.
-    let mut t = open("one\n");
-    let old = t.app.doc.meta.path.clone().unwrap();
-    t.app
-        .run_command("file.makeKalemDocument", serde_json::Value::Null);
-    let new = t.app.doc.meta.path.clone().unwrap();
-    assert_eq!(new.extension().unwrap(), "klm");
-    assert!(new.exists() && !old.exists());
-    assert!(status(&mut t).contains("Kalem"), "{}", status(&mut t));
-}
-
-#[test]
-fn word_formatting_in_the_terminal() {
-    let text = "one @@kalem:color=#c00000 bg=#fff2a8@@two@@kalem:end@@ three\n\n#+ATTR_KALEM: :align right\nend\n";
-    let mut t = with_file(text, "t.klm", Config::default(), (60, 10));
-    t.at(0);
+fn old_kalem_formatting_is_plain_org() {
+    // What an earlier Kalem wrote is shown as Org shows it: no colors,
+    // the attribute line as a line of the file (T2.13.13).
+    let text =
+        "one @@kalem:color=#c00000@@two@@kalem:end@@ three\n\n#+ATTR_KALEM: :align right\nend\n";
+    let mut t = with_file(text, "t.org", Config::default(), (60, 10));
+    t.at(text.len());
     let buf = t.draw();
-    let row: String = (0..buf.area.width)
-        .map(|x| buf[(x, 0)].symbol().to_string())
+    let rows: Vec<String> = (0..buf.area.height)
+        .map(|y| {
+            (0..buf.area.width)
+                .map(|x| buf[(x, y)].symbol().to_string())
+                .collect()
+        })
         .collect();
-    // The snippets do not show; the span has its colors.
-    assert!(row.starts_with(" one two three"), "{row:?}");
-    let two = row.find("two").unwrap() as u16;
-    assert_eq!(buf[(two, 0)].fg, Color::Rgb(0xc0, 0, 0));
-    assert_eq!(buf[(two, 0)].bg, Color::Rgb(0xff, 0xf2, 0xa8));
-    // The attribute line hides; its paragraph is at the right.
-    let row2: String = (0..buf.area.width)
-        .map(|x| buf[(x, 2)].symbol().to_string())
-        .collect();
-    assert!(
-        row2.trim_end().ends_with("end") && row2.starts_with("   "),
-        "{row2:?}"
-    );
-    // Ctrl+] grows the word at the cursor (Alt+= in terminals without the
-    // kitty keyboard protocol).
-    t.at(4);
-    t.key(KeyCode::Char(']'), KeyModifiers::CONTROL);
-    assert!(
-        t.text()
-            .starts_with("one @@kalem:size=18 color=#c00000 bg=#fff2a8@@two"),
-        "{}",
-        t.text()
-    );
+    let two = rows[0].find("two").unwrap() as u16;
+    assert_ne!(buf[(two, 0)].fg, Color::Rgb(0xc0, 0, 0));
+    assert!(rows.iter().any(|r| r.contains("ATTR_KALEM")), "{rows:?}");
+    // The formatting commands are gone.
+    t.app
+        .run_command("format.alignRight", serde_json::Value::Null);
+    assert_eq!(t.text(), text);
 }
 
 #[test]

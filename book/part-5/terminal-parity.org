@@ -6,12 +6,6 @@ terminal form and the gap left are recorded here.
 
 | Feature | Graphical editor | Terminal editor | Gap |
 |---------+------------------+-----------------+-----|
-| Font family and size of a span (§3.7) | Drawn in the font and size | Set from the palette; the text shows in the terminal's font | The terminal has one font and one size |
-| Document font, size and line spacing (=#+KALEM:=) | Drawn | Set from the palette | As above; line spacing is one row |
-| Font menu search | Typing in the font menu narrows the list | Font Family asks for a name in the prompt | Kalem cannot list the terminal's fonts, nor show them |
-| Justified paragraphs | Spaces stretched to the wrap width | Spaces widened by whole cells, the leftmost first | Cell resolution |
-| Space before and after paragraphs (=:before=, =:after=) | Drawn in points | Set from the palette; not drawn | Rows are the terminal's only vertical unit; a blank row per paragraph would break vertical motion |
-| Recent colors | A row in the color menus | Text Color and Highlight start with the color used last | None beyond the prompt |
 | Formulas as images | Drawn | Drawn through kitty, iTerm2 or sixel graphics where the terminal has them, else a Unicode approximation, a LaTeX environment on its first line (in Org and LaTeX documents alike) | Terminals without graphics |
 | Tables wider than the window | The row runs past the text column | The row wraps onto the next rows | The columns of the wrapped part do not line up |
 | Citation preview | In the status bar for the citation at the cursor, and in a tooltip under the mouse | In the status line for the citation at the cursor | No tooltip under the mouse: terminals report the pointer only while a button is held, unless all-motion tracking is on, which Kalem leaves off |

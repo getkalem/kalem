@@ -68,6 +68,23 @@ const MODES: &[&str] = &[
 /// besides a language.
 pub const DOCUMENT_MODES: &[&str] = &["org", "markdown", "csv", "latex", "text"];
 
+/// Settings that existed and are gone, with why: a file that still has
+/// one gets a notice, not an error.
+const RETIRED: &[(&str, &str)] = &[
+    (
+        "org.allow_kalem_markup",
+        "Kalem's formatting is no longer written into Org files; it returns with the Kalem format",
+    ),
+    (
+        "format.recent_colors",
+        "the color menus went with Kalem's formatting in Org",
+    ),
+    (
+        "format.recent_highlights",
+        "the color menus went with Kalem's formatting in Org",
+    ),
+];
+
 /// The built-in settings.
 pub const SPECS: &[Spec] = &[
     Spec {
@@ -179,28 +196,10 @@ pub const SPECS: &[Spec] = &[
         description: "The sidebar on the left shows the current project's folders and files below the open files",
     },
     Spec {
-        key: "format.recent_colors",
-        kind: Kind::List(None),
-        default: "[]",
-        description: "Text colors used lately, newest first (the color menus offer them)",
-    },
-    Spec {
-        key: "format.recent_highlights",
-        kind: Kind::List(None),
-        default: "[]",
-        description: "Highlight colors used lately, newest first",
-    },
-    Spec {
-        key: "org.allow_kalem_markup",
-        kind: Kind::Bool,
-        default: "false",
-        description: "Kalem's formatting may be written into .org files too (a workspace's own setting, for a folder shared with no Emacs user); without it .org stays strict Org and .klm files hold Kalem documents",
-    },
-    Spec {
         key: "org.table_auto_recalc",
         kind: Kind::Bool,
         default: "false",
-        description: "Recalculate a table's formulas when Tab, Shift+Tab or Enter leaves a field, as F9 does; a document's `#+KALEM: recalc=auto` or `recalc=manual` wins",
+        description: "Recalculate a table's formulas when Tab, Shift+Tab or Enter leaves a field, as F9 does",
     },
     Spec {
         key: "export.body_only",
@@ -571,7 +570,15 @@ fn validate(
         if prefix == "plugins" && tree[&k].is_object() {
             continue;
         }
-        let is_section = SPECS.iter().any(|s| s.key.starts_with(&format!("{full}.")));
+        if let Some((_, why)) = RETIRED.iter().find(|(r, _)| *r == full) {
+            issues.push(issue(format!("`{full}` was removed: {why}"), false));
+            continue;
+        }
+        let is_section = SPECS
+            .iter()
+            .map(|s| s.key)
+            .chain(RETIRED.iter().map(|(r, _)| *r))
+            .any(|key| key.starts_with(&format!("{full}.")));
         match tree.get_mut(&k) {
             Some(Value::Object(sub)) if is_section => validate(sub, &full, path, issues),
             _ if is_section => {
@@ -1093,6 +1100,22 @@ mod tests {
         )]);
         assert!(good.issues().is_empty());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn retired_settings_get_a_notice() {
+        let c = Config::from_layers(&[(
+            Layer::User,
+            None,
+            "[org]\nallow_kalem_markup = true\n[format]\nrecent_colors = [\"#c00000\"]\n",
+        )]);
+        let issues = c.issues();
+        assert_eq!(issues.len(), 2, "{issues:?}");
+        assert!(
+            issues
+                .iter()
+                .all(|i| !i.error && i.message.contains("was removed"))
+        );
     }
 
     #[test]

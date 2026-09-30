@@ -1094,12 +1094,7 @@ impl DocumentState {
         let range = if s.anchor != s.head {
             s.anchor.min(s.head)..s.anchor.max(s.head)
         } else if s.head > 0 {
-            // The character before a formatting snippet, not the snippet.
-            let head = self.past_markers(s.head, true);
-            if head == 0 {
-                return;
-            }
-            self.grapheme_before(head)..head
+            self.grapheme_before(s.head)..s.head
         } else {
             return;
         };
@@ -1131,11 +1126,7 @@ impl DocumentState {
         let range = if s.anchor != s.head {
             s.anchor.min(s.head)..s.anchor.max(s.head)
         } else if s.head < self.text.len() {
-            let head = self.past_markers(s.head, false);
-            if head >= self.text.len() {
-                return;
-            }
-            head..self.grapheme_after(head)
+            s.head..self.grapheme_after(s.head)
         } else {
             return;
         };
@@ -1144,13 +1135,9 @@ impl DocumentState {
 
     fn delete(&mut self, range: std::ops::Range<usize>, now: Instant) {
         let start = range.start;
-        let parts = self.kalem_deletion(range);
-        let before: usize = parts
-            .iter()
-            .map(|r| r.end.min(start).saturating_sub(r.start))
-            .sum();
+        let parts = vec![range];
         let mut tx = Transaction::new("Delete");
-        let mut caret = start - before;
+        let mut caret = start;
         if let [one] = parts.as_slice()
             && let Some(m) = self.latex_mirror(one.clone())
         {
@@ -1164,45 +1151,6 @@ impl DocumentState {
         }
         let tx = tx.select(Selection::caret(caret));
         self.apply(&tx, ChangeKind::Typing, now);
-    }
-
-    /// What deleting `range` deletes: Kalem's formatting snippets stay
-    /// (see [`crate::rich::deletion`]).
-    fn kalem_deletion(&self, range: std::ops::Range<usize>) -> Vec<std::ops::Range<usize>> {
-        let text = self.text.as_str();
-        let near = &text[range.start.saturating_sub(2)..(range.end + 2).min(text.len())];
-        if self.meta.mode != DocumentMode::Org || !near.contains("@@") {
-            return vec![range];
-        }
-        match self.parse() {
-            Some((p, true)) => crate::rich::deletion(&p.syntax(), text, range),
-            _ => vec![range],
-        }
-    }
-
-    /// `pos` moved out of Kalem's snippets: before them (`back`) or after.
-    fn past_markers(&self, pos: usize, back: bool) -> usize {
-        let text = self.text.as_str();
-        let at_snippet = if back {
-            text[..pos].ends_with("@@")
-        } else {
-            text[pos..].starts_with("@@")
-        };
-        if self.meta.mode != DocumentMode::Org || !at_snippet {
-            return pos;
-        }
-        let Some((p, true)) = self.parse() else {
-            return pos;
-        };
-        let root = p.syntax();
-        let mut pos = pos;
-        loop {
-            let probe = if back { pos.checked_sub(1) } else { Some(pos) };
-            match probe.and_then(|q| crate::rich::marker_at(&root, q)) {
-                Some(m) => pos = if back { m.start } else { m.end },
-                None => return pos,
-            }
-        }
     }
 
     /// Ends the current typing group, so the next typing is a new undo step.

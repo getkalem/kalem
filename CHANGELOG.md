@@ -227,6 +227,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Org export: `#+LATEX_FOOTNOTE_COMMAND`, `#+INFOJS_OPT` (org-info.js), the `html-link-use-abs-url` option with `#+HTML_LINK_HOME`, and `#+LATEX_ENGRAVED_THEME` (read), as Org 9.7 has them.
 
+### Removed
+
+- Kalem's own formatting in Org files (owner, 2026-09-30; T2.13.13): the font, size, color, highlight, alignment, spacing and document-default commands, their toolbar, keys and settings (`org.allow_kalem_markup`, `format.recent_colors`, `format.recent_highlights`; a settings file that still has one gets a notice), Save as Org, Make Kalem Document and the `#+KALEM: markup=yes` opt-in. Only pure Org is written into Org files; word-processor formatting returns with the Kalem format (RFC 0003). A file that has the old additions keeps them, shows them as Emacs does and exports without them, as Emacs exports; `kalem check` lists them in `.org` and `.klm` files. A `.klm` file opens as Org. The document word target is now `#+PROPERTY: WORD_TARGET`, and Complete (`edit.complete`) also takes Ctrl+Space, which Clear Formatting had.
+
 ### Changed
 
 - GitHub Markdown export (`gfm`) is now a port of the `ox-gfm` package and writes exactly what it writes (checked against it on every export case): paragraphs on one line, fenced example blocks, rules of dashes only, a table of contents without heading, footnotes under "## Footnotes".

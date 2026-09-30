@@ -57,8 +57,7 @@ With pandoc installed (https://pandoc.org), /Export as Word/,
 (File menu) turns a Word, OpenDocument, Markdown, HTML, EPUB or RTF file
 into an Org file beside it, its pictures in a =NAME_assets= folder. The
 import is cleaned up: the anchors and =CUSTOM_ID= properties pandoc adds
-and nothing links to go, and tables are aligned. Kalem's own formatting
-(fonts, colors) does not reach Word or OpenDocument yet. For pandoc,
+and nothing links to go, and tables are aligned. For pandoc,
 citations go through its =--citeproc= with the file =#+BIBLIOGRAPHY:=
 names, math environments become displayed formulas, and a link without a
 description to a figure, table, equation or listing gets the label the

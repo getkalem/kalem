@@ -89,7 +89,7 @@ A text type is the type of the text *at the cursor*, innermost first:
 | In an Org source block                     | Its language, in lower case: =python=, =rust=  |
 | In an Org export block                     | Its back-end: =html=, =latex=                   |
 | In a LaTeX fragment or environment in Org  | =latex=                                         |
-| Elsewhere in an Org document               | =org= for =.org= and =.org_archive= files, =klm= otherwise |
+| Elsewhere in an Org document               | =klm= for =.klm= files, =org= otherwise         |
 | In a Markdown, CSV or LaTeX file           | =markdown=, =csv=, =latex=                      |
 | In a plain text file with a language       | That language, in lower case                    |
 | In a plain text file without one           | =text=                                          |
@@ -438,13 +438,13 @@ Building the keymap finds bindings that cannot work:
 | No terminal key          | The terminal cannot send the keys and there is no variant                 |
 
 Unknown commands, shadowed bindings and unknown text types are written
-to the log (=kalem.log= in the state directory) at level =info=. The
-terminal editor also says at startup how many problems the settings and
-the keymap have. The built-in profiles have none; a test keeps it so.
+to the log (=kalem.log= in the state directory) at level =info=. Both
+editors also say at startup how many problems the settings and the
+keymap have. The built-in profiles have none; a test keeps it so.
 
 * Examples that combine the parts
 
-Bold with Ctrl+B only in Kalem documents, and with the sequence
+Bold with Ctrl+B only in =.klm= files, and with the sequence
 Ctrl+Alt+X B in =.org= files:
 
 #+begin_src json

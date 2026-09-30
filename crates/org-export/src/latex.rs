@@ -750,9 +750,8 @@ impl Latex {
             .secondary(id, Secondary::Title)
             .map(<[Id]>::to_vec)
             .unwrap_or_default();
-        let text = finish(&ex.with_backend(&TITLE, |ex| ex.data_list(&title_ids)));
-        let text_no_foot =
-            finish(&ex.with_backend(&TITLE_NO_FOOTNOTES, |ex| ex.data_list(&title_ids)));
+        let text = ex.with_backend(&TITLE, |ex| ex.data_list(&title_ids));
+        let text_no_foot = ex.with_backend(&TITLE_NO_FOOTNOTES, |ex| ex.data_list(&title_ids));
         let todo = self.todo(ex, id);
         let tags = if ex.flag("with-tags") {
             Some(ex.tags(id, &[], false))
@@ -787,7 +786,7 @@ impl Latex {
         // The short title: an alternative title, the title without its
         // tags, or without footnotes.
         let alt_ids = ex.alt_title(id);
-        let alt_text = finish(&ex.with_backend(&TITLE, |ex| ex.data_list(&alt_ids)));
+        let alt_text = ex.with_backend(&TITLE, |ex| ex.data_list(&alt_ids));
         let tags_t = if matches!(ex.opt("with-tags"), Value::T) {
             tags.clone()
         } else {
@@ -1709,7 +1708,7 @@ impl Latex {
         let tabbing = table.is_some_and(|t| {
             attr(&read_attribute(ex, t, "ATTR_LATEX"), ":mode").as_deref() == Some("tabbing")
         });
-        let mut out = finish(&contents.unwrap_or_default());
+        let mut out = contents.unwrap_or_default();
         if ex.next_element(id).is_some() {
             out.push_str(if tabbing { " \\> " } else { " & " });
         }
@@ -2263,13 +2262,9 @@ impl Backend for Latex {
         Some(out)
     }
 
-    fn filter_final_output(&self, _: &mut Exporter<'_>, out: String) -> String {
-        out.replace([OPEN_MARK, crate::kalem::END_MARK], "")
-    }
-
     fn template(&self, ex: &mut Exporter<'_>, body: String) -> String {
         let title_ids = ex.info.parsed.get("title").cloned().unwrap_or_default();
-        let title = finish(&ex.data_list(&title_ids));
+        let title = ex.data_list(&title_ids);
         let mut out = String::new();
         if ex.flag("time-stamp-file")
             && let Some(now) = ex.info.now.clone()
@@ -2284,17 +2279,6 @@ impl Backend for Latex {
             out.push_str(&format!("% Intended LaTeX compiler: {compiler}\n"));
         }
         out.push_str(&preamble(ex, &compiler));
-        // Kalem's formatting: colors, and the document's defaults.
-        let defaults = crate::kalem::defaults(&ex.info.keywords);
-        if uses_kalem_colors(ex) {
-            out.push_str("\\usepackage{xcolor}\n");
-        }
-        if let Some(sp) = &defaults.spacing {
-            out.push_str(&format!("\\usepackage{{setspace}}\n\\setstretch{{{sp}}}\n"));
-        }
-        if let Some(font) = defaults.font.as_ref().filter(|_| unicode_engine(ex)) {
-            out.push_str(&format!("\\setmainfont{{{}}}\n", protect_text(font)));
-        }
         if let Value::Int(n) = ex.opt("section-numbers") {
             out.push_str(&format!("\\setcounter{{secnumdepth}}{{{n}}}\n"));
         }
@@ -2370,13 +2354,6 @@ impl Backend for Latex {
             capitalize(&lang_name)
         ));
         out.push_str("\\begin{document}\n\n");
-        if let Some(size) = defaults.size.as_deref().and_then(|s| s.parse::<f64>().ok()) {
-            out.push_str(&format!(
-                "\\fontsize{{{}pt}}{{{}pt}}\\selectfont\n",
-                lisp_number(size),
-                lisp_number((size * 12.0).round() / 10.0)
-            ));
-        }
         if ex.flag("with-title") && !title.is_empty() {
             out.push_str("\\maketitle\n");
         }
@@ -2455,12 +2432,6 @@ impl Latex {
                 let s: ast::ExportSnippet = Self::cast(ex, id)?;
                 match s.backend().as_str() {
                     "latex" => s.value(),
-                    // Kalem's formatting; a span ends where its container
-                    // does at the latest (`finish`).
-                    "kalem" => match crate::kalem::Format::parse(&s.value()) {
-                        Some(f) => kalem_open(ex, &f),
-                        None => crate::kalem::END_MARK.to_string(),
-                    },
                     _ => return None,
                 }
             }
@@ -2550,10 +2521,7 @@ impl Latex {
                     format!("{}: {v}", p.key())
                 }
             }
-            PARAGRAPH => {
-                let p = clean_invalid_line_breaks(&finish(&remove_blank_lines(&c())));
-                kalem_paragraph(ex, id, p)
-            }
+            PARAGRAPH => clean_invalid_line_breaks(&remove_blank_lines(&c())),
             PLAIN_LIST => {
                 let attrs = read_attribute(ex, id, "ATTR_LATEX");
                 let env = attr(&attrs, ":environment").unwrap_or_else(|| {
@@ -2674,134 +2642,6 @@ fn fragment_inner(v: &str) -> String {
     } else {
         v.to_string()
     }
-}
-
-/// What opens a span of Kalem's formatting until its container is
-/// finished ([`finish`]); [`crate::kalem::END_MARK`] closes one.
-const OPEN_MARK: char = '\u{E001}';
-
-/// Kalem's formatting of a span as LaTeX: a group, or a `\colorbox` for
-/// a highlight, with the size (`\fontsize`), the color (`\color`) and,
-/// for XeLaTeX and LuaLaTeX, the font (`\fontspec`).
-fn kalem_open(ex: &Exporter<'_>, f: &crate::kalem::Format) -> String {
-    let mut cmds = String::new();
-    if let Some(font) = &f.font
-        && unicode_engine(ex)
-    {
-        cmds.push_str(&format!("\\fontspec{{{}}}", protect_text(font)));
-    }
-    if let Some(size) = f.size.as_deref().and_then(|s| s.parse::<f64>().ok()) {
-        cmds.push_str(&format!(
-            "\\fontsize{{{}pt}}{{{}pt}}\\selectfont ",
-            lisp_number(size),
-            lisp_number((size * 12.0).round() / 10.0)
-        ));
-    }
-    if let Some(c) = &f.color {
-        cmds.push_str(&format!(
-            "\\color[HTML]{{{}}}",
-            c.trim_start_matches('#').to_uppercase()
-        ));
-    }
-    match &f.background {
-        Some(bg) => format!(
-            "{OPEN_MARK}\\colorbox[HTML]{{{}}}{{{cmds}",
-            bg.trim_start_matches('#').to_uppercase()
-        ),
-        None => format!("{OPEN_MARK}{{{cmds}"),
-    }
-}
-
-/// Whether the document is for XeLaTeX or LuaLaTeX, which read system
-/// fonts.
-fn unicode_engine(ex: &Exporter<'_>) -> bool {
-    matches!(
-        option_string(ex, "latex-compiler").as_deref(),
-        Some("xelatex" | "lualatex")
-    )
-}
-
-/// A number as written: `14`, `10.5`.
-fn lisp_number(v: f64) -> String {
-    if v.fract() == 0.0 {
-        format!("{}", v as i64)
-    } else {
-        format!("{v}")
-    }
-}
-
-/// `latex` with each span of Kalem's formatting closed, by its end or at
-/// the end of the container (a paragraph, a title, a cell), and ends
-/// without a span left out.
-fn finish(latex: &str) -> String {
-    if !latex.contains([OPEN_MARK, crate::kalem::END_MARK]) {
-        return latex.to_string();
-    }
-    let mut out = String::with_capacity(latex.len());
-    let mut depth = 0usize;
-    for c in latex.chars() {
-        if c == OPEN_MARK {
-            depth += 1;
-        } else if c == crate::kalem::END_MARK {
-            if depth > 0 {
-                depth -= 1;
-                out.push('}');
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    let body = out.trim_end().len();
-    let tail = out.split_off(body);
-    out.push_str(&"}".repeat(depth));
-    out.push_str(&tail);
-    out
-}
-
-/// Whether the document uses Kalem's colors or highlights.
-fn uses_kalem_colors(ex: &Exporter<'_>) -> bool {
-    ex.tree.descendants(ex.tree.root).into_iter().any(|id| {
-        Latex::cast::<ast::ExportSnippet>(ex, id).is_some_and(|s| {
-            s.backend() == "kalem"
-                && crate::kalem::Format::parse(&s.value())
-                    .is_some_and(|f| f.color.is_some() || f.background.is_some())
-        })
-    })
-}
-
-/// A paragraph with Kalem's alignment and spacing
-/// (`#+ATTR_KALEM: :align right :before 12 :after 6`).
-fn kalem_paragraph(ex: &Exporter<'_>, id: Id, text: String) -> String {
-    let attrs = read_attribute(ex, id, "ATTR_KALEM");
-    if attrs.is_empty() {
-        return text;
-    }
-    let get = |key: &str| attr(&attrs, key).map(|v| v.trim().to_ascii_lowercase());
-    let space = |key: &str| {
-        get(key)
-            .map(|v| v.trim_end_matches("pt").to_string())
-            .filter(|v| v.parse::<f64>().is_ok_and(|x| (0.0..=1000.0).contains(&x)))
-    };
-    let mut out = text;
-    let env = match get(":align").as_deref() {
-        Some("right") => Some("flushright"),
-        Some("left") => Some("flushleft"),
-        Some("center") => Some("center"),
-        _ => None,
-    };
-    if let Some(env) = env {
-        out = format!(
-            "\\begin{{{env}}}\n{}\n\\end{{{env}}}",
-            out.trim_end_matches('\n')
-        );
-    }
-    if let Some(b) = space(":before") {
-        out = format!("\\vspace{{{b}pt}}\n{out}");
-    }
-    if let Some(a) = space(":after") {
-        out = format!("{}\n\\vspace{{{a}pt}}", out.trim_end_matches('\n'));
-    }
-    out
 }
 
 /// `\TeX{}` and `\LaTeX{}` for the words `TeX` and `LaTeX`.
@@ -3242,34 +3082,6 @@ mod tests {
             out.contains("%% org:5\n\\begin{quote}\nq\n\\end{quote}"),
             "{out}"
         );
-    }
-
-    #[test]
-    fn kalem_formatting() {
-        let text = "#+KALEM: size=12 spacing=1.5\nSome @@kalem:color=red size=14@@red @@kalem:bg=yellow@@marked@@kalem:end@@ text@@kalem:end@@ and @@kalem:color=blue@@open\n\n#+ATTR_KALEM: :align right :before 6\nRight.\n";
-        let settings = crate::Settings {
-            body_only: false,
-            now: Some("2026-09-28T10:00:00[Europe/Istanbul]".parse().unwrap()),
-            ..Default::default()
-        };
-        let out = crate::export(text, &Latex::default(), &settings).unwrap();
-        assert!(
-            out.contains("Some {\\fontsize{14pt}{16.8pt}\\selectfont \\color[HTML]{C00000}red \\colorbox[HTML]{FFF2A8}{marked} text} and {\\color[HTML]{1F5FBF}open}\n"),
-            "{out}"
-        );
-        assert!(
-            out.contains("\\vspace{6pt}\n\\begin{flushright}\nRight.\n\\end{flushright}"),
-            "{out}"
-        );
-        assert!(
-            out.contains("\\usepackage{xcolor}\n\\usepackage{setspace}\n\\setstretch{1.5}\n"),
-            "{out}"
-        );
-        assert!(
-            out.contains("\\begin{document}\n\n\\fontsize{12pt}{14.4pt}\\selectfont\n"),
-            "{out}"
-        );
-        assert!(!out.contains(OPEN_MARK) && !out.contains(crate::kalem::END_MARK));
     }
 
     #[test]
