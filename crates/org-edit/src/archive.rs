@@ -187,6 +187,20 @@ fn find_sibling(text: &str, b: usize, e: usize, leader: &str) -> Option<usize> {
 /// `target` in the same document: it becomes the target's last child.
 /// The cursor goes to where the subtree was.
 pub fn refile(doc: &Document, point: usize, target: usize) -> Result<Transaction, EditError> {
+    let settings = crate::todo::TodoSettings::default();
+    let now = jiff::civil::DateTime::default();
+    refile_logged(doc, point, target, &settings, now).map(|(t, _)| t)
+}
+
+/// [`refile`], with the log entry `org-log-refile` asks for: written with
+/// the time `now` under the refiled heading, or left for the user's note.
+pub fn refile_logged(
+    doc: &Document,
+    point: usize,
+    target: usize,
+    settings: &crate::todo::TodoSettings,
+    now: jiff::civil::DateTime,
+) -> Result<(Transaction, Option<crate::todo::PendingNote>), EditError> {
     let text = text_of(doc);
     let ctx: &ParseContext = doc.parse().context();
     let limit = ctx.inlinetask_min_level;
@@ -208,6 +222,7 @@ pub fn refile(doc: &Document, point: usize, target: usize) -> Result<Transaction
     if !(buf.point == 0 || buf.text.as_bytes()[buf.point - 1] == b'\n') {
         buf.insert_at_point("\n");
     }
+    let dest = buf.add_marker(buf.point);
     paste_in(&mut buf, &clip, Some(new_level), limit);
     let bol = buf.bol(buf.point);
     if headings(&buf.text, limit).iter().any(|(s, _)| *s == bol) {
@@ -218,7 +233,31 @@ pub fn refile(doc: &Document, point: usize, target: usize) -> Result<Transaction
     let oe = subtree_end(&buf.text, oh, ol, limit);
     buf.point = oe;
     buf.delete(oh, oe);
-    Ok(buf.transaction("Refile"))
+    let mut note = None;
+    if let Some(log) = settings.log_refile {
+        let at = buf.marker(dest);
+        let heading = headings(&buf.text, limit)
+            .iter()
+            .map(|(s, _)| *s)
+            .find(|s| *s >= at);
+        if let Some(heading) = heading {
+            let n = crate::todo::PendingNote {
+                heading,
+                purpose: crate::todo::NotePurpose::Refile,
+                state: None,
+                previous_state: None,
+                time: now,
+            };
+            match log {
+                crate::todo::LogKind::Note => note = Some(n),
+                crate::todo::LogKind::Time => {
+                    let drawer = crate::todo::log_drawer(doc, h, settings);
+                    crate::todo::store_note(&mut buf, &n, None, drawer.as_deref(), settings, ctx);
+                }
+            }
+        }
+    }
+    Ok((buf.transaction("Refile"), note))
 }
 
 #[cfg(test)]

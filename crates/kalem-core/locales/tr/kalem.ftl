@@ -157,6 +157,7 @@ cmd-org-schedule = Zamanla
 cmd-org-deadline = Son Tarih Koy
 cmd-org-schedule-remove = Zamanlamayı Kaldır
 cmd-org-deadline-remove = Son Tarihi Kaldır
+cmd-org-note-add = Not Ekle
 cmd-org-footnote-new = Yeni Dipnot
 cmd-org-footnote-action = Dipnot Tanımına ya da Referansına Git
 cmd-org-footnote-renumber = Dipnotları Yeniden Numarala

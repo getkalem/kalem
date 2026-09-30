@@ -158,6 +158,7 @@ cmd-org-schedule = Schedule
 cmd-org-deadline = Set Deadline
 cmd-org-schedule-remove = Remove Schedule
 cmd-org-deadline-remove = Remove Deadline
+cmd-org-note-add = Add Note
 cmd-org-footnote-new = New Footnote
 cmd-org-footnote-action = Go to Footnote Definition or Reference
 cmd-org-footnote-renumber = Renumber Footnotes

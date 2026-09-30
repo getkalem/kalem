@@ -54,6 +54,7 @@ fn run(
                     Some("local") => None,
                     _ => Some("Footnotes".into()),
                 },
+                ..FootnoteSettings::default()
             };
             match cmd {
                 "fn-new" => new(text, point, &settings),
@@ -89,7 +90,15 @@ fn run(
                 ..TodoSettings::default()
             };
             let doc = org_model::Document::new(org_syntax::parse(text));
-            schedule(&doc, point, kind, &change, &settings).map(|(t, _)| t)
+            schedule(
+                &doc,
+                point,
+                kind,
+                &change,
+                &settings,
+                jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0),
+            )
+            .map(|(t, _, _)| t)
         }
         "drawer" => org_edit::insert::insert_drawer(text, point, mark, args[0].as_str().unwrap()),
         "archive-tag" | "archive-sibling" | "refile" => {

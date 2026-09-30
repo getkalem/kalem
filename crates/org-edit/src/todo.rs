@@ -49,6 +49,13 @@ pub struct TodoSettings {
     pub log_repeat: Option<LogKind>,
     /// `org-log-into-drawer`: the drawer for log entries.
     pub log_into_drawer: Option<String>,
+    /// `org-log-reschedule`: what changing or removing a scheduled date
+    /// records.
+    pub log_reschedule: Option<LogKind>,
+    /// `org-log-redeadline`: what changing or removing a deadline records.
+    pub log_redeadline: Option<LogKind>,
+    /// `org-log-refile`: what refiling an entry records.
+    pub log_refile: Option<LogKind>,
     /// `org-log-states-order-reversed`: newest entries first.
     pub log_states_order_reversed: bool,
     /// `org-closed-keep-when-no-todo`.
@@ -93,6 +100,9 @@ impl Default for TodoSettings {
             log_done: None,
             log_repeat: Some(LogKind::Time),
             log_into_drawer: None,
+            log_reschedule: None,
+            log_redeadline: None,
+            log_refile: None,
             log_states_order_reversed: true,
             closed_keep_when_no_todo: false,
             log_done_with_time: true,
@@ -128,6 +138,15 @@ impl TodoSettings {
             "logrepeat" => self.log_repeat = Some(LogKind::Time),
             "lognoterepeat" => self.log_repeat = Some(LogKind::Note),
             "nologrepeat" => self.log_repeat = None,
+            "logreschedule" => self.log_reschedule = Some(LogKind::Time),
+            "lognotereschedule" => self.log_reschedule = Some(LogKind::Note),
+            "nologreschedule" => self.log_reschedule = None,
+            "logredeadline" => self.log_redeadline = Some(LogKind::Time),
+            "lognoteredeadline" => self.log_redeadline = Some(LogKind::Note),
+            "nologredeadline" => self.log_redeadline = None,
+            "logrefile" => self.log_refile = Some(LogKind::Time),
+            "lognoterefile" => self.log_refile = Some(LogKind::Note),
+            "nologrefile" => self.log_refile = None,
             "logdrawer" => self.log_into_drawer = Some("LOGBOOK".into()),
             "nologdrawer" => self.log_into_drawer = None,
             "logstatesreversed" => self.log_states_order_reversed = true,
@@ -205,6 +224,73 @@ pub enum NotePurpose {
     Done,
     /// `state`: a state change.
     State,
+    /// `reschedule`: a new scheduled date.
+    Reschedule,
+    /// `delschedule`: the scheduled date removed.
+    Delschedule,
+    /// `redeadline`: a new deadline.
+    Redeadline,
+    /// `deldeadline`: the deadline removed.
+    Deldeadline,
+    /// `refile`: the entry refiled.
+    Refile,
+    /// `note`: a note added with `org-add-note`.
+    Note,
+}
+
+impl NotePurpose {
+    /// The key of `org-log-note-headings`.
+    pub fn name(self) -> &'static str {
+        match self {
+            NotePurpose::Done => "done",
+            NotePurpose::State => "state",
+            NotePurpose::Reschedule => "reschedule",
+            NotePurpose::Delschedule => "delschedule",
+            NotePurpose::Redeadline => "redeadline",
+            NotePurpose::Deldeadline => "deldeadline",
+            NotePurpose::Refile => "refile",
+            NotePurpose::Note => "note",
+        }
+    }
+
+    /// The purpose [`NotePurpose::name`] gives `name`.
+    pub fn from_name(name: &str) -> Option<NotePurpose> {
+        [
+            NotePurpose::Done,
+            NotePurpose::State,
+            NotePurpose::Reschedule,
+            NotePurpose::Delschedule,
+            NotePurpose::Redeadline,
+            NotePurpose::Deldeadline,
+            NotePurpose::Refile,
+            NotePurpose::Note,
+        ]
+        .into_iter()
+        .find(|p| p.name() == name)
+    }
+}
+
+/// `org-add-note`: a note `content` in the log of the entry at `point`,
+/// "Note taken on" the time `now`.
+pub fn add_note(
+    doc: &Document,
+    point: usize,
+    content: &str,
+    settings: &TodoSettings,
+    now: DateTime,
+) -> Result<Transaction, EditError> {
+    let text = text_of(doc);
+    let Some(heading) = org_back_to_heading(&text, point, doc.parse().context()) else {
+        return Err(EditError::new("Before first headline at position"));
+    };
+    let note = PendingNote {
+        heading,
+        purpose: NotePurpose::Note,
+        state: None,
+        previous_state: None,
+        time: now,
+    };
+    Ok(store_log_note(doc, point, &note, content, settings))
 }
 
 /// The result of [`todo`].
@@ -383,7 +469,11 @@ fn logging(doc: &Document, heading: usize, settings: &TodoSettings, kw: &Keyword
 
 /// The drawer for log entries of the entry at `heading`
 /// (`org-log-into-drawer`).
-fn log_drawer(doc: &Document, heading: usize, settings: &TodoSettings) -> Option<String> {
+pub(crate) fn log_drawer(
+    doc: &Document,
+    heading: usize,
+    settings: &TodoSettings,
+) -> Option<String> {
     let entry = doc.outline().entry_at(heading);
     match doc
         .entry_get(entry, "LOG_INTO_DRAWER", Inherit::Yes, true)
@@ -1360,14 +1450,17 @@ pub enum PlanningChange {
 /// `org-schedule` and `org-deadline`: sets or removes the entry's
 /// `SCHEDULED:` (`kind` [`Planning::Scheduled`]) or `DEADLINE:`
 /// timestamp; `CLOSED:` goes when one is set. Gives the message Org
-/// shows.
+/// shows, and the log entry that waits for the user's note when
+/// `org-log-reschedule` or `org-log-redeadline` asks for one (a log entry
+/// with only the time `now` is written at once).
 pub fn schedule(
     doc: &Document,
     point: usize,
     kind: Planning,
     change: &PlanningChange,
     settings: &TodoSettings,
-) -> Result<(Transaction, String), EditError> {
+    now: DateTime,
+) -> Result<(Transaction, String, Option<PendingNote>), EditError> {
     let text = text_of(doc);
     let ctx = doc.parse().context();
     let deadline = kind == Planning::Deadline;
@@ -1384,6 +1477,7 @@ pub fn schedule(
             return Ok((
                 Buf::new(&text, point).transaction("Planning"),
                 not_there().into(),
+                None,
             ));
         }
         return Err(EditError::new("Before first headline at position"));
@@ -1399,10 +1493,34 @@ pub fn schedule(
         })
         .flatten();
     let mut buf = Buf::new(&text, point);
+    let log = if deadline {
+        settings.log_redeadline
+    } else {
+        settings.log_reschedule
+    };
+    // `org-add-log-setup` with `findpos`: the entry written after the
+    // change, or left for the note.
+    let logged = |buf: &mut Buf, purpose: NotePurpose| -> Option<PendingNote> {
+        let note = PendingNote {
+            heading: h,
+            purpose,
+            state: None,
+            previous_state: old.clone(),
+            time: now,
+        };
+        match log? {
+            LogKind::Note => Some(note),
+            LogKind::Time => {
+                let drawer = log_drawer(doc, h, settings);
+                store_note(buf, &note, None, drawer.as_deref(), settings, ctx);
+                None
+            }
+        }
+    };
     match change {
         PlanningChange::Remove => {
             if old.is_none() {
-                return Ok((buf.transaction("Planning"), not_there().into()));
+                return Ok((buf.transaction("Planning"), not_there().into(), None));
             }
             remove_timestamp_with_keyword(&mut buf, h, kind.word());
             let msg = if deadline {
@@ -1410,7 +1528,13 @@ pub fn schedule(
             } else {
                 "Entry is no longer scheduled."
             };
-            Ok((buf.transaction("Planning"), msg.into()))
+            let purpose = if deadline {
+                NotePurpose::Deldeadline
+            } else {
+                NotePurpose::Delschedule
+            };
+            let note = logged(&mut buf, purpose);
+            Ok((buf.transaction("Planning"), msg.into(), note))
         }
         PlanningChange::Set(date, with_time, repeater) => {
             let repeater = repeater
@@ -1425,6 +1549,8 @@ pub fn schedule(
                 settings,
             );
             let mut ts = format!("<{}>", time::format(*date, *with_time));
+            // `org-last-inserted-timestamp`, before the repeater goes in.
+            let changed = old.as_deref().is_some_and(|o| o != ts);
             if let Some(r) = repeater {
                 let needle = format!("{} {ts}", kind.word());
                 let limit = next_line(&buf.text, next_line(&buf.text, h));
@@ -1439,7 +1565,17 @@ pub fn schedule(
             } else {
                 format!("Scheduled to {ts}")
             };
-            Ok((buf.transaction("Planning"), msg))
+            let purpose = if deadline {
+                NotePurpose::Redeadline
+            } else {
+                NotePurpose::Reschedule
+            };
+            let note = if changed {
+                logged(&mut buf, purpose)
+            } else {
+                None
+            };
+            Ok((buf.transaction("Planning"), msg, note))
         }
     }
 }
@@ -1830,7 +1966,21 @@ fn skip_over_state_notes(text: &str, p: usize, ctx: &ParseContext) -> usize {
 fn note_heading(note: &PendingNote) -> String {
     let t = format!("[{}]", time::format(note.time, true));
     let quote = |s: &Option<String>| s.as_ref().map_or(String::new(), |s| format!("\"{s}\""));
+    // `%S`: a timestamp as an inactive one.
+    let was = match note.previous_state.as_deref() {
+        None | Some("") => String::new(),
+        Some(s) if s.starts_with('<') && s.ends_with('>') && s.len() > 1 => {
+            format!("\"[{}]\"", &s[1..s.len() - 1])
+        }
+        Some(s) => format!("\"{s}\""),
+    };
     match note.purpose {
+        NotePurpose::Reschedule => format!("Rescheduled from {was} on {t}"),
+        NotePurpose::Delschedule => format!("Not scheduled, was {was} on {t}"),
+        NotePurpose::Redeadline => format!("New deadline from {was} on {t}"),
+        NotePurpose::Deldeadline => format!("Removed deadline, was {was} on {t}"),
+        NotePurpose::Refile => format!("Refiled on {t}"),
+        NotePurpose::Note => format!("Note taken on {t}"),
         NotePurpose::Done => format!("CLOSING NOTE {t}"),
         NotePurpose::State => {
             format!(
@@ -1865,7 +2015,7 @@ pub fn store_log_note(
     buf.transaction("Store note")
 }
 
-fn store_note(
+pub(crate) fn store_note(
     buf: &mut Buf,
     note: &PendingNote,
     content: Option<&str>,

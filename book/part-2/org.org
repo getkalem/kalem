@@ -496,6 +496,18 @@ every headline means.
 | =logrepeat=, =lognoterepeat=, =nologrepeat=                | What completing a repeating task records                |
 | =logdrawer=, =nologdrawer=                                 | Log into the =LOGBOOK= drawer, or not                   |
 | =logstatesreversed=, =nologstatesreversed=                 | Newest log entries first, or not                        |
+| =logreschedule=, =lognotereschedule=, =nologreschedule=    | What changing or removing a scheduled date records      |
+| =logredeadline=, =lognoteredeadline=, =nologredeadline=    | What changing or removing a deadline records            |
+| =logrefile=, =lognoterefile=, =nologrefile=                | What refiling an entry records                          |
+| =fninline=, =nofninline=                                   | New footnotes defined where they are referenced         |
+| =fnlocal=                                                  | Footnote definitions at the end of their section        |
+| =fnauto=, =fnprompt=, =fnplain=, =fnconfirm=, =fnanon=     | A new footnote's label: numbered, asked, offered, none  |
+| =fnadjust=, =nofnadjust=                                   | Renumber and sort after adding or deleting a footnote   |
+
+A log entry that takes a note (=lognotedone=, a keyword's =@=, and the
+=lognote…= values) asks for it after the command, as Emacs opens its
+note buffer; cancelled, nothing is logged. *Add Note* (=org-add-note=)
+writes "Note taken on" with a note into the entry's log.
 
 Other values (=hidestars=, =inlineimages=, =latexpreview=,
 =entitiespretty=, =hideblocks=, =align=, and the rest) are ignored:

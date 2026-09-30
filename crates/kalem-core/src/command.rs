@@ -531,6 +531,13 @@ pub fn argument_default_with(
     doc: &mut crate::document::DocumentState,
     config: &crate::settings::Config,
 ) -> String {
+    // A default the command put in its arguments (`label_default`).
+    if let Some(v) = args
+        .get(format!("{name}_default"))
+        .and_then(serde_json::Value::as_str)
+    {
+        return v.to_string();
+    }
     if (id, name) == ("org.property.set", "value")
         && let Some(key) = args.get("key").and_then(serde_json::Value::as_str)
     {

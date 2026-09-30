@@ -49,6 +49,15 @@ decoding: the carriage returns are not part of any value. Property values
 such as source block code use =\n= line endings. The syntax tree still
 contains every byte of the file.
 
+A file with mixed line endings (some lines ending in =\r\n=, others in
+=\n=) is decoded by Emacs as a Unix file: its carriage returns stay in
+the buffer as characters, so a line holding only =\r= is not blank and
+=para\n\r\nnext= is one paragraph. Kalem ends a line at every =\r\n=,
+so it reads two. The editor keeps a DOS file's =\r\n= in its text and
+its commands insert bare line feeds, so a DOS file is mixed while it is
+edited; reading it as Emacs reads a mixed file would change its meaning
+at the first new line. Saving writes =\r\n= everywhere again.
+
 * Sorting
 
 - Alphabetical sorting (=org-sort-entries= and =org-table-sort-lines=
