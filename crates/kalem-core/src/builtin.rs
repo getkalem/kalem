@@ -130,6 +130,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("file.scratch", object(&[("project", "boolean", false)])),
         ("file.rename", object(&[("target", "string", false)])),
         ("app.terminal", object(&[("project", "boolean", false)])),
+        ("settings.set", object(&[("key", "string", true)])),
         (
             "project.shellCommand",
             object(&[("command", "string", true)]),
@@ -2077,6 +2078,25 @@ fn url_encode(s: &str) -> String {
     out
 }
 
+/// A character as `SPC h '` describes it: itself, its code point and
+/// its UTF-8 bytes.
+fn describe_char(c: char) -> String {
+    let mut buf = [0u8; 4];
+    let bytes: Vec<String> = c
+        .encode_utf8(&mut buf)
+        .bytes()
+        .map(|b| format!("{b:02X}"))
+        .collect();
+    let shown = match c {
+        '\n' => "\\n".to_string(),
+        '\t' => "\\t".to_string(),
+        ' ' => "space".to_string(),
+        c if c.is_control() => "control".to_string(),
+        c => c.to_string(),
+    };
+    format!("{shown}  U+{:04X}  UTF-8 {}", c as u32, bytes.join(" "))
+}
+
 /// The counterpart of `path` (Doom's `SPC p o`): the next existing file
 /// beside it with the same name and another of these extensions, after
 /// its own, so repeated use goes round them.
@@ -3646,6 +3666,121 @@ fn plain_commands() -> Vec<Command> {
                 ctx.messages.push(crate::l10n::tr(msg));
                 Ok(())
             },
+        ),
+        // Doom's `SPC h` (T2.7i.9).
+        cmd(
+            "settings.set",
+            "Set a Setting",
+            "View",
+            &[],
+            None,
+            |ctx, args| {
+                let key = arg_str(args, "key")?.to_string();
+                let value = args.get("value").cloned().unwrap_or(Value::Null);
+                set_setting(ctx, &key, value)
+            },
+        ),
+        cmd(
+            "help.theme",
+            "Choose the Theme",
+            "Help",
+            &[],
+            None,
+            |ctx, _| {
+                let current = ctx.config.str("editor.theme").to_string();
+                let items = ["system", "light", "dark"]
+                    .into_iter()
+                    .map(|t| crate::palette::PaletteItem {
+                        id: crate::palette::invocation(
+                            "settings.set",
+                            &serde_json::json!({ "key": "editor.theme", "value": t }),
+                        ),
+                        title: crate::l10n::tr(&format!("theme-{t}")),
+                        category: String::new(),
+                        keys: if t == current {
+                            "•".into()
+                        } else {
+                            String::new()
+                        },
+                        also: t.into(),
+                    })
+                    .collect();
+                request(ctx, Request::Choose(items))
+            },
+        ),
+        cmd(
+            "help.mode",
+            "Describe This Document",
+            "Help",
+            &[],
+            None,
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let file = doc
+                    .meta
+                    .path
+                    .as_deref()
+                    .and_then(|p| p.file_name())
+                    .map_or_else(
+                        || crate::l10n::tr("help-no-file"),
+                        |n| n.to_string_lossy().into_owned(),
+                    );
+                let kind = crate::kinds::file_kind(doc).unwrap_or("none");
+                let msg = crate::tr!(
+                    "help-mode",
+                    file = file,
+                    mode = doc.meta.mode.name(),
+                    text = doc.text_type(),
+                    kind = kind.to_string()
+                );
+                ctx.messages.push(msg);
+                Ok(())
+            },
+        ),
+        cmd(
+            "help.char",
+            "Describe the Character",
+            "Help",
+            &[],
+            None,
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let text = doc.text();
+                let at = doc.selection.head;
+                let c = text.as_str()[at..]
+                    .chars()
+                    .next()
+                    .ok_or_else(|| CommandError::new(crate::l10n::tr("help-no-char")))?;
+                ctx.messages.push(describe_char(c));
+                Ok(())
+            },
+        ),
+        cmd(
+            "help.bindings",
+            "All Key Bindings",
+            "Help",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::HelpBindings),
+        ),
+        cmd(
+            "help.describeKey",
+            "Describe Key",
+            "Help",
+            &[],
+            None,
+            |ctx, _| {
+                ctx.messages.push(crate::l10n::tr("help-press-key"));
+                request(ctx, Request::DescribeKey)
+            },
+        ),
+        cmd(
+            "help.reload",
+            "Reload Settings and Keys",
+            "Help",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::ReloadSettings),
         ),
         cmd(
             "app.terminal",
@@ -5783,5 +5918,11 @@ mod tests {
         );
         assert_eq!(super::other_file(&dir.join("b.org")), None);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn characters_described() {
+        assert_eq!(super::describe_char('ç'), "ç  U+00E7  UTF-8 C3 A7");
+        assert_eq!(super::describe_char('\n'), "\\n  U+000A  UTF-8 0A");
     }
 }

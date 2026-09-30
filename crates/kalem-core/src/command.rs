@@ -94,6 +94,12 @@ pub enum Request {
     Terminal(std::path::PathBuf),
     /// A new window.
     NewWindow,
+    /// Every key binding, to choose one to run (`SPC h b b`).
+    HelpBindings,
+    /// Say what the next keys run instead of running it (`SPC h k`).
+    DescribeKey,
+    /// Read the settings and the keymap again (`SPC h r r`).
+    ReloadSettings,
     /// The document's mode changed: views start again.
     ModeChanged,
     /// Wrap long lines, or not.

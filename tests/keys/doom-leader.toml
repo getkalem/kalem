@@ -1013,103 +1013,103 @@ command = "file.scratch"
 doom = "SPC h '"
 keys = "space h '"
 what = "Describe the character at point"
-reason = "Planned: T2.7i.9"
+command = "help.char"
 
 [[key]]
 doom = "SPC h a"
 keys = "space h a"
-what = "Apropos"
-reason = "Planned: T2.7i.9"
+what = "Search the commands (the palette)"
+command = "view.palette"
 
 [[key]]
 doom = "SPC h b b"
 keys = "space h b b"
 what = "All bindings"
-reason = "Planned: T2.7i.9"
+command = "help.bindings"
 
 [[key]]
 doom = "SPC h d"
 keys = "space h d"
 what = "Doom help"
-reason = "Kalem has the Book instead of Doom's help"
+reason = "Not yet: the Book inside Kalem; its pages are in the =book= folder"
 
 [[key]]
 doom = "SPC h e"
 keys = "space h e"
 what = "Messages"
-reason = "Planned: T2.7i.9"
+reason = "Waits for the log view (T2.7g.2)"
 
 [[key]]
 doom = "SPC h f"
 keys = "space h f"
-what = "Describe function"
-reason = "Planned: T2.7i.9"
+what = "Describe a command (the palette shows each with its keys)"
+command = "view.palette"
 
 [[key]]
 doom = "SPC h i"
 keys = "space h i"
 what = "Info"
-reason = "Planned: T2.7i.9"
+reason = "Not yet: the Book inside Kalem; its pages are in the =book= folder"
 
 [[key]]
 doom = "SPC h k"
 keys = "space h k"
 what = "Describe key"
-reason = "Planned: T2.7i.9"
+command = "help.describeKey"
 
 [[key]]
 doom = "SPC h m"
 keys = "space h m"
 what = "Describe mode"
-reason = "Planned: T2.7i.9"
+command = "help.mode"
 
 [[key]]
 doom = "SPC h n"
 keys = "space h n"
 what = "News"
-reason = "Planned: T2.7i.9"
+reason = "Not yet: the changelog inside Kalem"
 
 [[key]]
 doom = "SPC h p"
 keys = "space h p"
 what = "Describe package"
-reason = "Planned: T2.7i.9"
+reason = "Waits for plugins (11.10)"
 
 [[key]]
 doom = "SPC h r r"
 keys = "space h r r"
 what = "Reload"
-reason = "Planned: T2.7i.9"
+command = "help.reload"
 
 [[key]]
 doom = "SPC h t"
 keys = "space h t"
 what = "Load theme"
-reason = "Planned: T2.7i.9"
+command = "help.theme"
 
 [[key]]
 doom = "SPC h v"
 keys = "space h v"
-what = "Describe variable"
-reason = "Planned: T2.7i.9"
+what = "Describe a setting (the settings)"
+command = "app.settings"
 
 [[key]]
 doom = "SPC h w"
 keys = "space h w"
-what = "Where is"
-reason = "Planned: T2.7i.9"
+what = "Where is a command bound (the palette shows its keys)"
+command = "view.palette"
 
 [[key]]
 doom = "SPC h x"
 keys = "space h x"
 what = "Describe command"
-reason = "Planned: T2.7i.9"
+command = "view.palette"
 
 [[key]]
 doom = "SPC h RET"
 keys = "space h enter"
 what = "The manual"
-reason = "Planned: T2.7i.9"
+reason = "Not yet: the Book inside Kalem; its pages are in the =book= folder"
 
 
 # Code =SPC c=.

@@ -259,6 +259,8 @@ pub struct Editor {
     pub(crate) goal_x: Option<Pixels>,
     /// The last command run, for commands that act on repeats.
     pub(crate) last_command: Option<String>,
+    /// The next keys are described, not run (`SPC h k`).
+    pub(crate) describing: bool,
     cursor_line: usize,
     /// The first line of the block holding the cursor, drawn differently
     /// while the cursor is inside.
@@ -401,6 +403,7 @@ impl Editor {
             status: None,
             goal_x: None,
             last_command: None,
+            describing: false,
             cursor_line: 0,
             cursor_block: None,
             source: false,
@@ -1058,6 +1061,16 @@ impl Editor {
                 }
             }
             Request::NewWindow => crate::workspace::open_window(None, self.shared.clone(), cx),
+            Request::HelpBindings => {
+                let items = kalem_core::palette::binding_items(
+                    &self.shared.registry,
+                    &self.shared.keymap,
+                    |k| k.to_string(),
+                );
+                self.open_choice(items, cx);
+            }
+            Request::DescribeKey => self.describing = true,
+            Request::ReloadSettings => self.reload_settings(cx),
             Request::Focus => {
                 self.focus_mode = !self.focus_mode;
                 let m = if self.focus_mode {
@@ -1758,7 +1771,10 @@ impl Editor {
             cx.stop_propagation();
             return;
         }
-        if self.pending.is_empty() && !self.listing_key(&chord) && self.vim_key_down(ev, window, cx)
+        if !self.describing
+            && self.pending.is_empty()
+            && !self.listing_key(&chord)
+            && self.vim_key_down(ev, window, cx)
         {
             cx.stop_propagation();
             return;
@@ -1772,6 +1788,34 @@ impl Editor {
         let ctx = self.context();
         let shared = self.shared.clone();
         match shared.keymap.lookup(&seq, &ctx) {
+            Lookup::Command { command, .. } if self.describing => {
+                let title = shared
+                    .registry
+                    .get(command)
+                    .map_or_else(|| command.to_string(), |c| c.display_title());
+                self.pending.clear();
+                self.describing = false;
+                cx.stop_propagation();
+                self.message(
+                    tr!(
+                        "help-key",
+                        keys = seq.to_string(),
+                        title = title,
+                        id = command
+                    ),
+                    false,
+                );
+                cx.notify();
+                return;
+            }
+            Lookup::None if self.describing => {
+                self.pending.clear();
+                self.describing = false;
+                cx.stop_propagation();
+                self.message(tr!("help-key-none", keys = seq.to_string()), false);
+                cx.notify();
+                return;
+            }
             Lookup::Command { command, args } => {
                 self.pending.clear();
                 cx.stop_propagation();

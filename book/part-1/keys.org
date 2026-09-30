@@ -97,6 +97,11 @@ follow:
 | =SPC t r=            | Read-only: edits refused, and back          |
 | =SPC t F=, =SPC t Z= | Full screen; full screen and focus mode     |
 | =SPC w v=            | Split view                                  |
+| =SPC h k=            | What the next keys run                      |
+| =SPC h b b=          | Every key binding, to find and run one      |
+| =SPC h m=, =SPC h '= | This document's mode; the character         |
+| =SPC h t=            | Choose the theme                            |
+| =SPC h r r=          | Read the settings and keys again            |
 | =SPC q q=            | Quit                                        |
 
 The toggles that are settings (line numbers, markup characters, big

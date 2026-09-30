@@ -32,6 +32,26 @@ cmd-file-open = Open File
 cmd-file-new = New Document
 cmd-file-close = Close Document
 cmd-file-next = Next Document
+cmd-settings-set = Set a Setting
+cmd-help-theme = Choose the Theme
+cmd-help-mode = Describe This Document
+cmd-help-char = Describe the Character
+cmd-help-bindings = All Key Bindings
+cmd-help-describeKey = Describe Key
+cmd-help-reload = Reload Settings and Keys
+theme-system = The system's
+theme-light = Light
+theme-dark = Dark
+help-no-file = no file
+help-no-char = No character at the cursor
+help-mode = { $file }: { $mode } mode, text type { $text }{ $kind ->
+    [none] {""}
+   *[other] , { $kind }
+}
+help-press-key = Press the keys to describe
+help-key = { $keys } runs { $title } ({ $id })
+help-key-none = { $keys } runs no command here
+msg-reloaded-settings = Settings and keys read again
 cmd-project-browseOther = Browse Another Project
 cmd-project-findFileOther = Find File in Another Project
 cmd-project-shellCommand = Shell Command at the Project

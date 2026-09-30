@@ -194,6 +194,8 @@ pub struct App {
     last_text: Option<DocumentId>,
     /// The document shown before the active one (`SPC b l`).
     previous: Option<DocumentId>,
+    /// The next keys are described, not run (`SPC h k`).
+    describing: bool,
     /// A file operation asking its questions.
     task: Option<kalem_core::dired::Task>,
     /// File operations running in the background.
@@ -439,6 +441,7 @@ impl App {
             tree_spots: Vec::new(),
             last_text: None,
             previous: None,
+            describing: false,
             task: None,
             jobs: Vec::new(),
             watched_dirs: Vec::new(),
@@ -1625,6 +1628,15 @@ impl App {
                 }
             }
             Request::NewWindow => self.message(tr!("msg-one-window"), false),
+            Request::HelpBindings => {
+                let items = kalem_core::palette::binding_items(&self.registry, &self.keymap, |k| {
+                    k.to_string()
+                });
+                self.completion = None;
+                self.palette = Some(Palette::new(items));
+            }
+            Request::DescribeKey => self.describing = true,
+            Request::ReloadSettings => self.reload_settings(),
             Request::Focus => {
                 self.editor.focus = !self.editor.focus;
                 self.editor.follow = true;
@@ -1668,6 +1680,34 @@ impl App {
                 self.message(tr!(m), false);
             }
         }
+    }
+
+    /// Reads the settings and the user's keymap again (`SPC h r r`).
+    fn reload_settings(&mut self) {
+        let path = settings::config_dir().map(|d| d.join("settings.toml"));
+        let workspace = self
+            .config
+            .sources()
+            .iter()
+            .find(|(l, _)| *l == settings::Layer::Workspace)
+            .and_then(|(_, p)| p.clone());
+        self.config = Config::load(path.as_deref(), workspace.as_deref());
+        self.config.apply_process_settings();
+        let user = settings::config_dir().map(|d| d.join("keymap.json"));
+        let entries = match user.as_deref().map(std::fs::read_to_string) {
+            Some(Ok(text)) => {
+                keymap::parse_keymap_with(&text, keymap::Origin::User, &self.config.vim_leader()).0
+            }
+            _ => Vec::new(),
+        };
+        let (full, _) = Keymap::build_with(
+            &self.registry,
+            self.config.keymap_profile(),
+            &entries,
+            &self.config.vim_leader(),
+        );
+        self.keymap = full.for_terminal(self.caps.kitty_keyboard).0;
+        self.message(tr!("msg-reloaded-settings"), false);
     }
 
     /// Saves `key` in the user's settings and reads the settings again.
@@ -2623,7 +2663,8 @@ impl App {
         if self.completion.is_some() && self.completion_key(&k) {
             return;
         }
-        if self.pending.is_empty() && !self.listing_key(&k) && self.vim_key(&k) {
+        if !self.describing && self.pending.is_empty() && !self.listing_key(&k) && self.vim_key(&k)
+        {
             return;
         }
         if let Some(chord) = input::chord(&k, self.caps.kitty_keyboard) {
@@ -2631,6 +2672,28 @@ impl App {
             let seq = KeySequence(self.pending.clone());
             let ctx = self.context();
             match self.keymap.lookup(&seq, &ctx) {
+                Lookup::Command { command, .. } if self.describing => {
+                    let title = self
+                        .registry
+                        .get(command)
+                        .map_or_else(|| command.to_string(), |c| c.display_title());
+                    let msg = tr!(
+                        "help-key",
+                        keys = seq.to_string(),
+                        title = title,
+                        id = command
+                    );
+                    self.pending.clear();
+                    self.describing = false;
+                    self.message(msg, false);
+                    return;
+                }
+                Lookup::None if self.describing => {
+                    self.pending.clear();
+                    self.describing = false;
+                    self.message(tr!("help-key-none", keys = seq.to_string()), false);
+                    return;
+                }
                 Lookup::Command { command, args } => {
                     let (command, args) = (command.to_string(), args.clone());
                     self.pending.clear();
