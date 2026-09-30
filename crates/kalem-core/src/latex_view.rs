@@ -2197,6 +2197,19 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
     };
     let mut out = Vec::new();
     let mut at = 0;
+    // The preamble, up to the line of `\\begin{document}`: folded to its
+    // first line away from the cursor, as Org folds drawers.
+    if let Some(body) = state.model().body.clone() {
+        let begin = text[..body.start.min(len)]
+            .rfind("\\begin{document}")
+            .map(|b| text[..b].rfind('\n').map_or(0, |n| n + 1));
+        if let Some(end) = begin
+            && text[..end].matches('\n').count() >= 2
+        {
+            out.push(block(BlockKind::Drawer, 0..end, end));
+            at = end;
+        }
+    }
     let root = state.parse().syntax();
     // Where a displayed formula or an environment can start: found in the
     // text, not by walking the whole tree.

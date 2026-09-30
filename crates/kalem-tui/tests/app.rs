@@ -3051,6 +3051,24 @@ fn latex_table_of_contents_in_the_terminal() {
     let mut t = with_file(text, "c.tex", Config::default(), (50, 14));
     t.at(text.len());
     let rows = screen(&mut t).join("\n");
-    assert!(rows.contains("1 One") && rows.contains("1.1 Sub") && rows.contains("2 Two"), "{rows}");
+    assert!(
+        rows.contains("1 One") && rows.contains("1.1 Sub") && rows.contains("2 Two"),
+        "{rows}"
+    );
     assert!(!rows.contains("\\tableofcontents"), "{rows}");
+}
+
+#[test]
+fn latex_preamble_folds_away_from_the_cursor() {
+    let text = "\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{graphicx}\n\\begin{document}\nHello.\n\\end{document}\n";
+    let mut t = with_file(text, "p.tex", Config::default(), (50, 10));
+    t.at(text.find("Hello").unwrap());
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("documentclass"), "{rows}");
+    assert!(!rows.contains("graphicx"), "{rows}");
+    assert!(rows.contains("Hello"), "{rows}");
+    // In the preamble: all of it.
+    t.at(text.find("amsmath").unwrap());
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("graphicx"), "{rows}");
 }

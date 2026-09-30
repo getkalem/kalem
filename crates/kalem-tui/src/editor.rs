@@ -447,7 +447,7 @@ impl<'a> Layout<'a> {
         let (mut visible, folded) = if let Some(f) = filter {
             // A CSV filter: the rows it keeps.
             (f.ranges.clone(), HashSet::new())
-        } else if source || parse.is_none() || blocks.is_empty() {
+        } else if source || (parse.is_none() && doc.latex().is_none()) || blocks.is_empty() {
             (std::iter::once(0..len + 1).collect(), HashSet::new())
         } else {
             let v = view::visible(doc.text().as_str(), blocks, folds, doc.selection.head);
