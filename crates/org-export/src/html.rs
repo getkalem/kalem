@@ -549,6 +549,18 @@ impl Html {
         let raw = info.path.clone();
         let path = if ty == "file" {
             let mut p = file_uri(&raw);
+            // `html-link-use-abs-url`: relative names under
+            // `#+HTML_LINK_HOME`.
+            let home = option_string(ex, "html-link-home")
+                .map(|h| h.trim().to_string())
+                .filter(|h| !h.is_empty());
+            if let Some(home) = home
+                && ex.flag("html-link-use-abs-url")
+                && !(p.starts_with('/') || p.starts_with('~'))
+            {
+                let sep = if home.ends_with('/') { "" } else { "/" };
+                p = format!("{home}{sep}{p}");
+            }
             // `.org` files become `.html`.
             let lower = p.to_lowercase();
             if let Some(stem) = lower
@@ -1912,6 +1924,7 @@ impl Backend for Html {
     }
 
     fn filter_parse_tree(&self, ex: &mut Exporter<'_>) {
+        infojs_install_script(ex);
         // `org-html-image-link-filter`.
         ex.insert_image_links(image_path);
     }
@@ -1968,6 +1981,17 @@ impl Backend for Html {
 
     fn options(&self) -> Vec<crate::export::BackendOption> {
         vec![
+            // `org-html-creator-string`.
+            (
+                "creator",
+                Some("CREATOR"),
+                None,
+                Behavior::First,
+                Value::Str(
+                    "<a href=\"https://www.gnu.org/software/emacs/\">Emacs</a> 30.1 (<a href=\"https://orgmode.org\">Org</a> mode 9.7.11)"
+                        .into(),
+                ),
+            ),
             (
                 "html-doctype",
                 Some("HTML_DOCTYPE"),
@@ -2058,6 +2082,20 @@ impl Backend for Html {
                 None,
                 Behavior::First,
                 Value::Str("content".into()),
+            ),
+            (
+                "infojs-opt",
+                Some("INFOJS_OPT"),
+                None,
+                Behavior::First,
+                Value::Nil,
+            ),
+            (
+                "html-link-use-abs-url",
+                None,
+                Some("html-link-use-abs-url"),
+                Behavior::First,
+                Value::Nil,
             ),
             (
                 "html-link-home",
@@ -2642,6 +2680,120 @@ impl Backend for Html {
 const STYLE: &str = include_str!("html.css");
 
 /// The value of option `prop` as a string, if it has one.
+/// `org-html-infojs-template`.
+const INFOJS_TEMPLATE: &str = "<script src=\"%SCRIPT_PATH\">
+// @license magnet:?xt=urn:btih:1f739d935676111cfff4b4693e3816e664797050&amp;dn=gpl-3.0.txt GPL-v3-or-Later
+// @license-end
+</script>
+
+<script>
+// @license magnet:?xt=urn:btih:1f739d935676111cfff4b4693e3816e664797050&amp;dn=gpl-3.0.txt GPL-v3-or-Later
+%MANAGER_OPTIONS
+org_html_manager.setup();  // activate after the parameters are set
+// @license-end
+</script>";
+
+/// `org-html-infojs-install-script` (`org-html-use-infojs` at its
+/// default, `when-configured`): with a `#+INFOJS_OPT:` line, org-info.js
+/// and its settings go into the page's head, and the table of contents
+/// follows its section depth.
+fn infojs_install_script(ex: &mut Exporter<'_>) {
+    let options = option_string(ex, "infojs-opt").unwrap_or_default();
+    // `\<name:\(\S-+\)`.
+    let find = |name: &str| -> Option<String> {
+        let key = format!("{name}:");
+        options.match_indices(&key).find_map(|(i, _)| {
+            let word_start = options[..i]
+                .chars()
+                .next_back()
+                .is_none_or(|c| !(c.is_alphanumeric() || c == '_'));
+            let val: String = options[i + key.len()..]
+                .chars()
+                .take_while(|c| !c.is_whitespace())
+                .collect();
+            (word_start && !val.is_empty()).then_some(val)
+        })
+    };
+    if ex.info.body_only || options.is_empty() || find("view").as_deref() == Some("nil") {
+        return;
+    }
+    let as_str = |v: Value| match v {
+        Value::T => "1".to_string(),
+        Value::Nil => "0".to_string(),
+        Value::Int(n) => n.to_string(),
+        Value::Str(s) | Value::Sym(s) => s,
+        Value::List(_) => String::new(),
+    };
+    let hlevels = match ex.opt("headline-levels") {
+        Value::Int(n) => n,
+        _ => 3,
+    };
+    let ptoc = ex.opt("with-toc");
+    let mut sdepth = hlevels;
+    let mut tdepth = match ptoc {
+        Value::Int(n) => n.min(hlevels),
+        _ => hlevels,
+    };
+    let mut template = INFOJS_TEMPLATE.to_string();
+    let mut style: Vec<(String, String)> = Vec::new();
+    let table: [(&str, &str, Option<&str>); 11] = [
+        ("path", "PATH", Some("https://orgmode.org/org-info.js")),
+        ("view", "VIEW", Some("info")),
+        ("toc", "TOC", None),
+        ("ftoc", "FIXED_TOC", Some("0")),
+        ("tdepth", "TOC_DEPTH", Some("max")),
+        ("sdepth", "SECTION_DEPTH", Some("max")),
+        ("mouse", "MOUSE_HINT", Some("underline")),
+        ("buttons", "VIEW_BUTTONS", Some("0")),
+        ("ltoc", "LOCAL_TOC", Some("1")),
+        ("up", "LINK_UP", None),
+        ("home", "LINK_HOME", None),
+    ];
+    for (opt, var, default) in table {
+        let default = match (opt, default) {
+            (_, Some(d)) => d.to_string(),
+            ("toc", None) => as_str(ptoc.clone()),
+            ("up", None) => as_str(ex.opt("html-link-up")),
+            _ => as_str(ex.opt("html-link-home")),
+        };
+        let val = find(opt).unwrap_or(default);
+        match opt {
+            "path" => template = template.replace("%SCRIPT_PATH", &val),
+            "sdepth" => {
+                if let Ok(n) = val.parse::<i64>() {
+                    sdepth = sdepth.min(n);
+                }
+            }
+            "tdepth" => {
+                if let Ok(n) = val.parse::<i64>() {
+                    tdepth = tdepth.min(n);
+                }
+            }
+            _ => {
+                let val = match val.as_str() {
+                    "t" => "1".to_string(),
+                    "nil" => "0".to_string(),
+                    _ => val,
+                };
+                style.insert(0, (var.to_string(), val));
+            }
+        }
+    }
+    ex.info.values.insert("with-toc".into(), Value::Int(sdepth));
+    style.insert(0, ("TOC_DEPTH".into(), tdepth.min(sdepth).to_string()));
+    let style = style
+        .iter()
+        .map(|(k, v)| format!("org_html_manager.set(\"{k}\", \"{v}\");"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let script = template.replacen("%MANAGER_OPTIONS", &style, 1);
+    let extra = option_string(ex, "html-head-extra").unwrap_or_default();
+    ex.info.values.insert(
+        "html-head-extra".into(),
+        Value::Str(format!("{extra}\n{script}")),
+    );
+}
+
 fn option_string(ex: &Exporter<'_>, prop: &str) -> Option<String> {
     match ex.opt(prop) {
         Value::Str(s) | Value::Sym(s) => Some(s),

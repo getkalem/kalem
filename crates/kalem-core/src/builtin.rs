@@ -4513,16 +4513,22 @@ fn plain_commands() -> Vec<Command> {
             |ctx, args| {
                 let iterate = arg_bool(args, "iterate");
                 let mut lisp = Vec::new();
+                let mut error = None;
                 let r = ctx.org(|d, p, _| {
                     let r = org_edit::recalc::recalculate(d, p, iterate)?;
                     lisp = r.lisp;
+                    error = r.error;
                     Ok(r.transaction)
                 });
                 if !lisp.is_empty() {
                     ctx.messages
                         .push(crate::tr!("msg-lisp-formulas", lhs = lisp.join(", ")));
                 }
-                r
+                // Emacs's error after the change, the change kept.
+                match error {
+                    Some(e) if r.is_ok() => Err(CommandError::new(e)),
+                    _ => r,
+                }
             },
         ),
         cmd(

@@ -657,7 +657,28 @@ impl Latex {
             String::new()
         };
         let delayed = self.delayed_footnotes(ex, &def);
-        format!("{sep}\\footnote{{{}{def_label}}}{delayed}", trim(&text))
+        // `#+LATEX_FOOTNOTE_COMMAND`, a `format` string of the text and
+        // the label.
+        let command = option_string(ex, "latex-default-footnote-command")
+            .unwrap_or_else(|| "\\footnote{%s%s}".into());
+        let mut args = [trim(&text).to_string(), def_label].into_iter();
+        let mut note = String::new();
+        let mut rest = command.as_str();
+        while let Some(i) = rest.find('%') {
+            note.push_str(&rest[..i]);
+            match rest[i + 1..].chars().next() {
+                Some('s') => note.push_str(&args.next().unwrap_or_default()),
+                Some('%') => note.push('%'),
+                Some(c) => {
+                    note.push('%');
+                    note.push(c);
+                }
+                None => note.push('%'),
+            }
+            rest = rest.get(i + 2..).unwrap_or("");
+        }
+        note.push_str(rest);
+        format!("{sep}{note}{delayed}")
     }
 
     /// `org-latex-format-headline-default-function`.
@@ -934,7 +955,7 @@ impl Latex {
                 } else if words.contains(&"tables") {
                     Some("\\listoftables".into())
                 } else if words.contains(&"listings") {
-                    Some("\\listoffigures".into())
+                    Some("\\lstlistoflistings".into())
                 } else {
                     None
                 }
@@ -1573,8 +1594,10 @@ impl Latex {
         }
         match markup.as_str() {
             "inline" => format!("\\({contents}\\)"),
+            // The container inherits the first table's name, not its
+            // caption (a FIXME in `org-latex--wrap-latex-matrices`).
             "equation" => {
-                let caption = self.caption_label(ex, id, None);
+                let caption = self.full_label(ex, id, false);
                 format!("\\begin{{equation}}\n{contents}{caption}\\end{{equation}}")
             }
             _ => format!("\\[\n{contents}\\]"),
@@ -1948,6 +1971,10 @@ fn wrap_math_blocks(ex: &mut Exporter<'_>, ids: &mut Vec<Id>) {
                 }
                 None => ids.retain(|c| *c == id || !members.contains(c)),
             }
+            // The block's blanks are the last member's; the first
+            // member's own gap stays for the joining.
+            let gap = ex.tree.nodes[id].post_blank;
+            ex.tree.nodes[id].props.insert("math-gap", gap.to_string());
             ex.tree.nodes[id].post_blank = blank;
         }
     }
@@ -2093,6 +2120,18 @@ impl Backend for Latex {
     fn options(&self) -> Vec<crate::export::BackendOption> {
         let opt = |p, k, b, v| (p, Some(k), None, b, v);
         vec![
+            opt(
+                "latex-default-footnote-command",
+                "LATEX_FOOTNOTE_COMMAND",
+                Behavior::First,
+                Value::Str("\\footnote{%s%s}".into()),
+            ),
+            opt(
+                "latex-engraved-theme",
+                "LATEX_ENGRAVED_THEME",
+                Behavior::First,
+                Value::Nil,
+            ),
             opt(
                 "latex-class",
                 "LATEX_CLASS",
@@ -2611,7 +2650,15 @@ impl Latex {
             };
             contents.push_str(&one);
             if i + 1 < ids.len() {
-                contents.push_str(&" ".repeat(ex.tree.nodes[m].post_blank));
+                let gap = match i {
+                    0 => ex.tree.nodes[m]
+                        .props
+                        .get("math-gap")
+                        .and_then(|g| g.parse().ok())
+                        .unwrap_or(ex.tree.nodes[m].post_blank),
+                    _ => ex.tree.nodes[m].post_blank,
+                };
+                contents.push_str(&" ".repeat(gap));
             }
         }
         nw(&contents).then(|| format!("\\({}\\)", trim(&contents)))
@@ -3154,6 +3201,25 @@ mod tests {
         assert_eq!(
             super::table_el_latex(value),
             "\\begin{tabular}{|l|l|}\n\\hline\na & b \\\\\ntwo & \\&$<$ \\\\\n\\hline\n1 & \\\\\n\\hline\n\\end{tabular}"
+        );
+    }
+
+    #[test]
+    fn as_emacs_writes_them() {
+        // Org 9.7.11's output for the same text.
+        let text = "#+TOC: listings\n\n#+CAPTION: Cap\n#+ATTR_LATEX: :mode math\n| a | b |\n\nAn \\alpha\\beta and \\alpha \\beta{} x \\alpha{}\\beta.\n";
+        let out = crate::export(
+            text,
+            &Latex::default(),
+            &crate::Settings {
+                body_only: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            out,
+            "\\lstlistoflistings\n\n\\begin{equation}\n\\begin{tabular}{cc}\n a & b \\\\\n\\end{tabular}\n\\end{equation}\n\nAn \\(\\alpha \\beta\\) and \\(\\alpha\\) \\(\\beta\\) x \\(\\alpha \\beta\\).\n"
         );
     }
 

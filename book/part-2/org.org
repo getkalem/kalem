@@ -685,8 +685,9 @@ Left-hand sides: a column (~$3~, ~$>~, ~$name~), a field (~@2$3~,
 after row, then field formulas, each in the order of their left-hand
 sides, each seeing what the ones before it wrote; a dependency graph
 would give other results. Iterating (=C-u C-u C-c *=, ~kalem table
-recalc --iterate~) repeats at most ten times and reports a table that
-does not settle.
+recalc --iterate~) repeats at most ten times; a table that does not
+settle is left as the tenth pass wrote it, with the error "No
+convergence after 10 iterations", as in Emacs.
 
 References on the right-hand side:
 
@@ -833,11 +834,11 @@ Keywords: =#+TITLE=, =#+DATE=, =#+AUTHOR= (parsed as Org text),
 and =#+HTML:=, =#+LATEX:=, =#+ASCII:= lines for their back-ends. Per
 back-end:
 
-| Back-end | Keywords and options                                                                                                                                                                                                                                                                                |
-|----------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| HTML     | =#+HTML_DOCTYPE=, =#+HTML_HEAD=, =#+HTML_HEAD_EXTRA=, =#+HTML_CONTAINER=, =#+HTML_CONTENT_CLASS=, =#+HTML_LINK_HOME=, =#+HTML_LINK_UP=, =#+HTML_MATHJAX=, =#+HTML_EQUATION_REFERENCE_FORMAT=; options =html-postamble=, =html-preamble=, =html-style=, =html-scripts=, =html5-fancy=; =#+ATTR_HTML= |
-| LaTeX    | =#+LATEX_CLASS=, =#+LATEX_CLASS_OPTIONS=, =#+LATEX_HEADER=, =#+LATEX_HEADER_EXTRA=, =#+LATEX_COMPILER=, =#+INDEX=; =#+ATTR_LATEX= for tables, images, lists and blocks                                                                                                                              |
-| Text     | =#+ATTR_ASCII=                                                                                                                                                                                                                                                                                      |
+| Back-end | Keywords and options                                                                                                                                                                                                                                                                                                                                       |
+|----------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| HTML     | =#+HTML_DOCTYPE=, =#+HTML_HEAD=, =#+HTML_HEAD_EXTRA=, =#+HTML_CONTAINER=, =#+HTML_CONTENT_CLASS=, =#+HTML_LINK_HOME=, =#+HTML_LINK_UP=, =#+HTML_MATHJAX=, =#+HTML_EQUATION_REFERENCE_FORMAT=, =#+INFOJS_OPT= (org-info.js); options =html-postamble=, =html-preamble=, =html-style=, =html-scripts=, =html5-fancy=, =html-link-use-abs-url=; =#+ATTR_HTML= |
+| LaTeX    | =#+LATEX_CLASS=, =#+LATEX_CLASS_OPTIONS=, =#+LATEX_HEADER=, =#+LATEX_HEADER_EXTRA=, =#+LATEX_COMPILER=, =#+LATEX_FOOTNOTE_COMMAND=, =#+INDEX=; =#+ATTR_LATEX= for tables, images, lists and blocks; =#+LATEX_ENGRAVED_THEME= is read and has no effect (code is written as =verbatim=)                                                                     |
+| Text     | =#+ATTR_ASCII=                                                                                                                                                                                                                                                                                                                                             |
 
 Also honored: the =noexport= and =export= tags, =COMMENT= subtrees,
 =EXPORT_= properties in subtree export (~kalem export --subtree~), the

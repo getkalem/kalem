@@ -367,6 +367,41 @@ mod tests {
     }
 
     #[test]
+    fn org_9_7_keywords() {
+        let full = Settings::default();
+        let body = Settings {
+            body_only: true,
+            ..Settings::default()
+        };
+        // `org-html-creator-string`.
+        let out = export("#+OPTIONS: creator:t\nHi\n", &html::Html, &full).unwrap();
+        assert!(out.contains("<p class=\"creator\"><a href=\"https://www.gnu.org/software/emacs/\">Emacs</a> 30.1 (<a href=\"https://orgmode.org\">Org</a> mode 9.7.11)</p>"));
+        // org-info.js with `#+INFOJS_OPT`, not without.
+        let t = "#+INFOJS_OPT: view:showall toc:nil sdepth:2 path:js/o.js\n* A\n** B\n*** C\n";
+        let out = export(t, &html::Html, &full).unwrap();
+        assert!(out.contains("<script src=\"js/o.js\">"));
+        assert!(out.contains("org_html_manager.set(\"TOC_DEPTH\", \"2\");\norg_html_manager.set(\"LINK_HOME\", \"\");"));
+        assert!(
+            !export("* A\n", &html::Html, &full)
+                .unwrap()
+                .contains("org_html_manager")
+        );
+        // `html-link-use-abs-url`.
+        let t = "#+HTML_LINK_HOME: https://ex.org/docs\n#+OPTIONS: html-link-use-abs-url:t\n[[file:a/b.html][x]]\n";
+        assert!(
+            export(t, &html::Html, &body)
+                .unwrap()
+                .contains("href=\"https://ex.org/docs/a/b.html\"")
+        );
+        // `#+LATEX_FOOTNOTE_COMMAND`.
+        let t = "#+LATEX_FOOTNOTE_COMMAND: \\sidenote{%s%s}\nText[fn:1].\n\n[fn:1] One.\n";
+        assert_eq!(
+            export(t, &latex::Latex::default(), &body).unwrap(),
+            "Text\\sidenote{One.}.\n"
+        );
+    }
+
+    #[test]
     fn broken_links() {
         let settings = Settings {
             body_only: true,

@@ -19,6 +19,9 @@ pub struct Report {
     pub lisp: Vec<String>,
     /// Passes made (1 unless iterating).
     pub passes: usize,
+    /// "No convergence after N iterations": the table is the last pass's,
+    /// as Emacs leaves it before its error.
+    pub error: Option<String>,
 }
 
 fn err<T>(msg: impl Into<String>) -> Result<T, Error> {
@@ -312,7 +315,8 @@ pub fn references(
 }
 
 /// Recalculates until the table no longer changes, at most `max` times
-/// (`org-table-iterate`, 10 in Emacs).
+/// (`org-table-iterate`, 10 in Emacs); without convergence, the last
+/// pass's table with the report's error.
 pub fn iterate(
     table: &Table,
     equations: &[Equation],
@@ -330,7 +334,8 @@ pub fn iterate(
         }
         last = next;
     }
-    err(format!("No convergence after {max} iterations"))
+    report.error = Some(format!("No convergence after {max} iterations"));
+    Ok((last, report))
 }
 
 impl Evaluator<'_> {
