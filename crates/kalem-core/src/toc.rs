@@ -163,25 +163,38 @@ pub fn latex_toc(state: &DocumentState, line: Range<usize>) -> Option<Vec<TocEnt
         .class
         .as_ref()
         .is_some_and(|c| latex_model::has_chapters(&c.name));
-    let deepest = if chapters { 2 } else { 3 };
-    let listed: Vec<_> = model
-        .sections
-        .iter()
-        .filter(|s| !s.starred && s.level <= deepest)
-        .collect();
-    let top = listed.iter().map(|s| s.level).min().unwrap_or(1);
+    // `tocdepth`: the document's, else the class's.
+    let deepest = model.toc_depth.unwrap_or(if chapters { 2 } else { 3 });
+    // The sections and the `\addcontentsline` entries, in document order.
+    let mut listed: Vec<(i8, Option<String>, String, usize, usize)> = Vec::new();
+    let mut extra = model.contents_lines.iter().peekable();
+    for (i, s) in model.sections.iter().enumerate() {
+        while let Some(c) = extra.next_if(|c| c.after <= i) {
+            listed.push((c.level, None, c.title.clone(), c.file, c.range.start));
+        }
+        if !s.starred {
+            listed.push((
+                s.level,
+                s.number.clone(),
+                s.short.clone().unwrap_or_else(|| s.title.clone()),
+                s.file,
+                s.range.start,
+            ));
+        }
+    }
+    for c in extra {
+        listed.push((c.level, None, c.title.clone(), c.file, c.range.start));
+    }
+    listed.retain(|e| i64::from(e.0) <= deepest);
+    let top = listed.iter().map(|e| e.0).min().unwrap_or(1);
     Some(
         listed
             .into_iter()
-            .map(|s| TocEntry {
-                depth: (s.level - top + 1).max(1) as usize,
-                number: s.number.clone(),
-                title: s.short.clone().unwrap_or_else(|| s.title.clone()),
-                start: if s.file == 0 {
-                    s.range.start
-                } else {
-                    line.start
-                },
+            .map(|(level, number, title, file, start)| TocEntry {
+                depth: (level - top + 1).max(1) as usize,
+                number,
+                title,
+                start: if file == 0 { start } else { line.start },
             })
             .collect(),
     )
@@ -318,6 +331,31 @@ mod tests {
         // At the cursor, the command itself.
         d.move_cursor(at + 2, false);
         assert!(shown(&mut d, line).is_none());
+    }
+
+    #[test]
+    fn latex_tocdepth_and_contents_lines() {
+        let text = "\\documentclass{article}\n\\setcounter{tocdepth}{1}\n\\begin{document}\n\\tableofcontents\n\\section*{Preface}\n\\addcontentsline{toc}{section}{Preface}\n\\section{One}\n\\subsection{Hidden}\n\\end{document}\n";
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Latex,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+        };
+        let mut d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        let at = text.find("\\tableofcontents").unwrap();
+        let line = at..at + "\\tableofcontents".len();
+        let rows: Vec<String> = shown(&mut d, line)
+            .unwrap()
+            .into_iter()
+            .map(|r| r.0)
+            .collect();
+        assert_eq!(rows, ["Preface", "1 One"]);
     }
 
     #[test]

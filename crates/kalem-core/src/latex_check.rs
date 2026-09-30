@@ -109,6 +109,7 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
                 }))
     };
     let mut math_depth = 0usize;
+    let mut shorthand: Option<bool> = None;
     for event in root_node.preorder_with_tokens() {
         let t = match event {
             latex_syntax::WalkEvent::Enter(e) => {
@@ -208,7 +209,12 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
                     d.fix = Some((d.range.clone(), "\\ldots{}".to_string()));
                     out.push(d);
                 }
-                if s.contains('"') {
+                // Not where babel makes `"` a shorthand (`Stra"se`).
+                if s.contains('"')
+                    && !*shorthand.get_or_insert_with(|| {
+                        crate::latex_edit::quote_shorthand(&root_node.text().to_string())
+                    })
+                {
                     out.push(info("latex-quotes", "latex-quotes"));
                 }
             }
@@ -699,6 +705,24 @@ pub fn coverage_in(text: &str, file: Option<&std::path::Path>) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quotes_are_shorthands_in_german() {
+        let plain = latex_syntax::parse("\\begin{document}\nSay \"hi\".\n\\end{document}\n");
+        assert!(
+            text_diagnostics(&plain)
+                .iter()
+                .any(|d| d.code == "latex-quotes")
+        );
+        let german = latex_syntax::parse(
+            "\\usepackage[ngerman]{babel}\n\\begin{document}\nStra\"se\n\\end{document}\n",
+        );
+        assert!(
+            !text_diagnostics(&german)
+                .iter()
+                .any(|d| d.code == "latex-quotes")
+        );
+    }
 
     #[test]
     fn coverage_uses_the_project() {

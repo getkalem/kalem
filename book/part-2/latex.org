@@ -85,7 +85,7 @@ A file is a LaTeX document when its extension is =.tex=, =.latex= or
 =latex=, =tex= or =ltx= (=% -*- mode: latex -*-=). =.sty=, =.cls= and
 =.bst= files are not documents: they open as plain text. =.bib= files
 open in the BibTeX grid, described in [[file:bibtex.org][BibTeX]]. =kalem check=
-and =kalem fmt= treat =.tex= and =.ltx= files as LaTeX.
+and =kalem fmt= decide the same way.
 
 * Parsing
 
@@ -882,9 +882,11 @@ levels counted from the file's highest level. A =\tableofcontents= line,
 away from the cursor, shows the table of contents LaTeX prints there: the
 unstarred sections down to =\subsubsection= (=\subsection= in the classes
 with chapters: =book=, =report=, =amsbook=, =memoir=, =scrbook=,
-=scrreprt=, =extbook=, =extreport=), with their short
-titles, including those of the project's other files; each entry leads
-to its section. The =\end{document}= line, away from the cursor, lists
+=scrreprt=, =extbook=, =extreport=), or down to the level
+=\setcounter{tocdepth}{n}= names, with their short titles, and the
+entries =\addcontentsline{toc}{level}{title}= adds where it stands,
+including those of the project's other files; each entry leads to its
+section. The =\end{document}= line, away from the cursor, lists
 the file's footnotes, each with its number and text, leading to it.
 
 * References, citations and footnotes

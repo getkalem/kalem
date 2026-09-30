@@ -16,9 +16,9 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
     for path in files {
         let (text, meta, _) =
             kalem_core::files::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let latex = path
-            .extension()
-            .is_some_and(|e| e.eq_ignore_ascii_case("tex") || e.eq_ignore_ascii_case("ltx"));
+        // As the editors decide: `.tex`, `.latex`, `.ltx`, or a mode line.
+        let latex = kalem_core::DocumentMode::detect(Some(path), text.as_bytes())
+            == kalem_core::DocumentMode::Latex;
         let formatted = if latex {
             kalem_core::latex_fmt::format(&text, align)
         } else {
