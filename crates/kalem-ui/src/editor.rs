@@ -1037,6 +1037,36 @@ impl Editor {
                 };
                 cx.emit(DocEvent::Open { path, at: None });
             }
+            Request::PickFile { command, arg } => {
+                let dir = self
+                    .doc
+                    .meta
+                    .path
+                    .as_ref()
+                    .and_then(|p| p.parent())
+                    .map(std::path::Path::to_path_buf);
+                let paths = cx.prompt_for_paths(gpui::PathPromptOptions {
+                    files: true,
+                    directories: false,
+                    multiple: false,
+                    prompt: None,
+                });
+                cx.spawn_in(window, async move |this, cx| {
+                    if let Ok(Ok(Some(paths))) = paths.await
+                        && let Some(p) = paths.into_iter().next()
+                    {
+                        // Relative to the document's folder, as LaTeX reads it.
+                        let rel = dir
+                            .as_deref()
+                            .and_then(|d| kalem_core::kinds::relative(d, &p))
+                            .unwrap_or_else(|| p.to_string_lossy().replace('\\', "/"));
+                        let _ = this.update_in(cx, |e, window, cx| {
+                            e.run_command(&command, serde_json::json!({ arg: rel }), window, cx);
+                        });
+                    }
+                })
+                .detach();
+            }
             Request::Open { path: None } => {
                 let dir = self
                     .doc

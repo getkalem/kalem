@@ -104,6 +104,14 @@ pub enum Request {
         /// The file.
         path: Option<String>,
     },
+    /// Ask for a file (a picture, say) and run `command` again with its
+    /// path, relative to the document's folder, as argument `arg`.
+    PickFile {
+        /// The command.
+        command: String,
+        /// Its argument that takes the path.
+        arg: String,
+    },
     /// A new, empty document.
     New,
     /// Close the active document, asking about unsaved changes.

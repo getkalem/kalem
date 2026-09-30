@@ -1268,6 +1268,22 @@ impl App {
                 };
                 self.open_path(&path, None);
             }
+            Request::PickFile { command, arg } => {
+                let title = self
+                    .registry
+                    .get(&command)
+                    .map_or_else(|| command.clone(), |c| c.display_title());
+                self.ask(
+                    PromptKind::Arg {
+                        command,
+                        args: Value::Object(Default::default()),
+                        name: arg.clone(),
+                        ty: "string".into(),
+                    },
+                    &format!("{title}: {arg}: "),
+                    String::new(),
+                );
+            }
             Request::Open { path: None } => {
                 let dir = kalem_core::command::argument_default("file.open", "path", &mut self.doc);
                 self.ask(
