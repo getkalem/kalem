@@ -239,7 +239,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - CSV: a comma, quote or line break typed in a field of the grid goes into its value, the field quoted (it used to split the field); the source view still types raw. Sorting a column that mixes numbers and text could panic; numbers now sort before text in a total order. Column statistics read `1,234.5`, `1.234,5` and `1,234,567` as spreadsheets write them, and leave NaN and infinities out.
 - BibTeX grid: a malformed field or an unclosed entry no longer swallows the rest of the file into one entry.
 - LaTeX: `\addbibresource{refs.json}` is `refs.json`, not `refs.json.bib`.
-- Org export: table.el tables export to HTML (and Markdown) as Emacs writes them, instead of an empty table.
+- Org export: table.el tables export to HTML (and Markdown) as Emacs writes them, instead of an empty table, and to LaTeX as Emacs's table.el writes them (spanned cells as `\multicolumn`), instead of the raw text.
+- Org export: attachment links (`[[attachment:file]]`) point at the file in the entry's attachment folder; `{{{results(...)}}}` from inline source blocks and calls expands to its value; the `property` macro takes its second argument (the headline to read), gives the special properties (`TODO`, `PRIORITY`, `ITEM`, `TAGS`, `CATEGORY`, `FILE`, planning dates), and before the first headline reads the file's property drawer, as Emacs does.
+- Org tables: Calc formulas now know `sqr`, `inv`, `hypot`, `round` to digits, `nroot`, `rad`, `deg`, hyperbolic functions, `sec`/`csc`/`cot` and `dfact`, checked against Emacs.
+- LaTeX: formulas in `\index`, `\nomenclature` and the PDF string of `\texorpdfstring` are not counted as text by `kalem diff-pandoc`; `\nomenclature`'s arguments are its own.
 - `kalem diff-pandoc` reports a file pandoc cannot read and goes on with the others.
 - The Book's generated appendices show `|` and code from the settings' descriptions correctly, and underscores in the Book no longer turn into subscripts.
 

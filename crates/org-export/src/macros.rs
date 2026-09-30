@@ -238,39 +238,135 @@ fn next_macro(text: &str, from: usize, parsed: &[&str]) -> Option<Found> {
 
 /// The property `name` of the entry around `at` (no inheritance), or of
 /// the file before the first headline.
-fn property_at(text: &str, at: usize, name: &str) -> Option<String> {
+fn property_at(
+    text: &str,
+    at: usize,
+    name: &str,
+    location: Option<&str>,
+    file: Option<&Path>,
+) -> Option<String> {
     let parse = org_syntax::parse(text);
-    property_in(&parse.syntax(), &parse.keywords(), at, name)
+    property_in(&parse.syntax(), &parse.keywords(), at, name, location, file)
 }
 
-/// [`property_at`] in the tree `root`, with its `keywords`.
+/// The headline `location` names, as `org-link-search` finds it for the
+/// `property` macro with `org-link-search-must-match-exact-headline`:
+/// `#ID` by its `CUSTOM_ID`, `*Title` or `Title` by its title.
+fn find_location(root: &SyntaxNode, location: &str) -> Option<ast::Headline> {
+    let loc = location.trim();
+    let headlines = root
+        .descendants()
+        .filter(|n| n.kind() == HEADLINE)
+        .filter_map(<ast::Headline as ast::AstNode>::cast);
+    if let Some(id) = loc.strip_prefix('#') {
+        return headlines.into_iter().find(|h| {
+            h.properties()
+                .iter()
+                .any(|(k, v)| k.eq_ignore_ascii_case("CUSTOM_ID") && v.trim() == id)
+        });
+    }
+    let title = loc.strip_prefix('*').unwrap_or(loc).trim();
+    let squash = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+    headlines
+        .into_iter()
+        .find(|h| squash(&h.raw_value()) == squash(title))
+}
+
+/// [`property_at`] in the tree `root`, with its `keywords`, as
+/// `org-macro--get-property` gives it: at `location` when there is one
+/// (an error message when it names no headline), else at the entry
+/// around `at`; the special properties as `org-entry-properties` gives
+/// them; before the first headline, the file's property drawer.
 fn property_in(
     root: &SyntaxNode,
     keywords: &[(String, String)],
     at: usize,
     name: &str,
+    location: Option<&str>,
+    file: Option<&Path>,
 ) -> Option<String> {
     let len = usize::from(root.text_range().end());
-    let tok = root
-        .token_at_offset(TextSize::from(at.min(len) as u32))
-        .right_biased()?;
-    let headline = tok.parent_ancestors().find(|a| a.kind() == HEADLINE);
-    match headline {
-        Some(h) => {
-            let h: ast::Headline = ast::AstNode::cast(h)?;
-            h.properties()
+    let headline = match location.filter(|l| !l.trim().is_empty()) {
+        Some(l) => Some(find_location(root, l)?),
+        None => {
+            let tok = root
+                .token_at_offset(TextSize::from(at.min(len) as u32))
+                .right_biased()?;
+            tok.parent_ancestors()
+                .find(|a| a.kind() == HEADLINE)
+                .and_then(<ast::Headline as ast::AstNode>::cast)
+        }
+    };
+    let upper = name.to_ascii_uppercase();
+    let Some(h) = headline else {
+        // Before the first headline: the property drawer at the top.
+        return root
+            .children()
+            .find(|c| c.kind() == SECTION)
+            .and_then(|sec| sec.children().find(|c| c.kind() == PROPERTY_DRAWER))
+            .and_then(|d| {
+                d.descendants()
+                    .filter_map(<ast::NodeProperty as ast::AstNode>::cast)
+                    .find(|p| p.key().eq_ignore_ascii_case(name))
+                    .map(|p| p.value().trim().to_string())
+            });
+    };
+    let category = || {
+        keywords
+            .iter()
+            .rev()
+            .find(|(k, _)| k.eq_ignore_ascii_case("CATEGORY"))
+            .map(|(_, v)| v.trim().to_string())
+            .or_else(|| {
+                file.and_then(|f| f.file_stem())
+                    .map(|s| s.to_string_lossy().into_owned())
+            })
+    };
+    match upper.as_str() {
+        "TODO" => h.todo_keyword().map(|t| t.text().to_string()),
+        "PRIORITY" => Some(h.priority().unwrap_or('B').to_string()),
+        "ITEM" => Some(h.raw_value()),
+        "TAGS" => {
+            let t = h.tags();
+            (!t.is_empty()).then(|| format!(":{}:", t.join(":")))
+        }
+        "FILE" => file.map(|f| f.to_string_lossy().into_owned()),
+        "SCHEDULED" => h
+            .planning()
+            .and_then(|p| p.scheduled())
+            .map(|t| ast::AstNode::syntax(&t).text().to_string()),
+        "DEADLINE" => h
+            .planning()
+            .and_then(|p| p.deadline())
+            .map(|t| ast::AstNode::syntax(&t).text().to_string()),
+        "CLOSED" => h
+            .planning()
+            .and_then(|p| p.closed())
+            .map(|t| ast::AstNode::syntax(&t).text().to_string()),
+        _ => {
+            let own = h
+                .properties()
                 .into_iter()
                 .find(|(k, _)| k.eq_ignore_ascii_case(name))
-                .map(|(_, v)| v)
+                .map(|(_, v)| v);
+            match (own, upper.as_str()) {
+                (Some(v), _) => Some(v),
+                // The category is inherited from the headlines above, the
+                // file's `#+CATEGORY`, or its name.
+                (None, "CATEGORY") => ast::AstNode::syntax(&h)
+                    .ancestors()
+                    .skip(1)
+                    .filter_map(<ast::Headline as ast::AstNode>::cast)
+                    .find_map(|a| {
+                        a.properties()
+                            .into_iter()
+                            .find(|(k, _)| k.eq_ignore_ascii_case("CATEGORY"))
+                            .map(|(_, v)| v)
+                    })
+                    .or_else(category),
+                (None, _) => None,
+            }
         }
-        None => keywords
-            .iter()
-            .filter(|(k, _)| k.eq_ignore_ascii_case("PROPERTY"))
-            .filter_map(|(_, v)| {
-                let (k, val) = v.split_once(char::is_whitespace)?;
-                k.eq_ignore_ascii_case(name).then(|| val.trim().to_string())
-            })
-            .next_back(),
     }
 }
 
@@ -283,7 +379,7 @@ fn value_of(
     key: &str,
     args: &[String],
     now: &jiff::Zoned,
-    property: impl FnOnce(&str) -> Option<String>,
+    property: impl FnOnce(&str, Option<&str>) -> Option<String>,
 ) -> Option<String> {
     match templates.get(key) {
         Some(Template::Text(t)) => Some(fill(t, args)),
@@ -316,7 +412,7 @@ fn value_of(
         }
         Some(Template::Property) => {
             let name = args.first().cloned().unwrap_or_default();
-            Some(property(&name).unwrap_or_default())
+            Some(property(&name, args.get(1).map(String::as_str)).unwrap_or_default())
         }
         Some(Template::Time) => Some(format_time(
             args.first().map(String::as_str).unwrap_or(""),
@@ -377,7 +473,7 @@ pub fn expand_tracking(
             &m.key,
             &m.args,
             now,
-            |name| property_at(&text, m.start, name),
+            |name, location| property_at(&text, m.start, name, location, file),
         );
         match value {
             Some(v) => {
@@ -400,6 +496,27 @@ pub fn expand_tracking(
         }
     }
     Ok(text)
+}
+
+/// The `results` macros replaced by their argument, as `org-export-as`
+/// does once Babel has run (`org-macro-replace-all` with `("results" .
+/// "$1")`): the inline results already in the document are exported.
+pub(crate) fn expand_results(text: &str, parsed: &[&str]) -> String {
+    if !text.contains("{{{results(") {
+        return text.to_string();
+    }
+    let mut text = text.to_string();
+    let mut pos = 0;
+    while let Some(m) = next_macro(&text, pos, parsed) {
+        if m.key != "results" {
+            pos = m.end;
+            continue;
+        }
+        let v = fill("$1", &m.args);
+        text.replace_range(m.start..m.end, &v);
+        pos = m.start + v.len();
+    }
+    text
 }
 
 /// What each macro of the document `root` expands to, for showing it:
@@ -437,7 +554,9 @@ pub fn expansions(
         };
         let start = usize::from(n.text_range().start());
         let end = usize::from(n.text_range().end()) - ast::post_blank(&n);
-        let property = |name: &str| property_in(root, &keywords, start, name);
+        let property = |name: &str, location: Option<&str>| {
+            property_in(root, &keywords, start, name, location, None)
+        };
         let mut v = value_of(
             &templates,
             &keywords,
@@ -462,7 +581,7 @@ pub fn expansions(
                     &f.key,
                     &f.args,
                     now,
-                    |name| property_in(root, &keywords, start, name),
+                    |name, location| property_in(root, &keywords, start, name, location, None),
                 )
                 .map(|x| format!("{}{x}{}", &t[..f.start], &t[f.end..])),
                 _ => None,
@@ -476,6 +595,38 @@ pub fn expansions(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn property_as_emacs_gives_it() {
+        let text = ":PROPERTIES:\n:FILEP: fp\n:END:\n#+PROPERTY: A top\nTop\n\
+                    * TODO [#A] Head :t1:\n:PROPERTIES:\n:X: xval\n:END:\nbody\n\
+                    * Other\n:PROPERTIES:\n:X: other\n:CUSTOM_ID: o\n:END:\n";
+        let at = |s: &str| text.find(s).unwrap();
+        let p = |pos, name, loc| property_at(text, pos, name, loc, Some(Path::new("/d/m1.org")));
+        assert_eq!(p(at("Top"), "FILEP", None).as_deref(), Some("fp"));
+        assert_eq!(p(at("Top"), "A", None), None);
+        assert_eq!(p(at("body"), "TODO", None).as_deref(), Some("TODO"));
+        assert_eq!(p(at("body"), "PRIORITY", None).as_deref(), Some("A"));
+        assert_eq!(p(at("body"), "ITEM", None).as_deref(), Some("Head"));
+        assert_eq!(p(at("body"), "TAGS", None).as_deref(), Some(":t1:"));
+        assert_eq!(p(at("body"), "CATEGORY", None).as_deref(), Some("m1"));
+        assert_eq!(p(at("body"), "X", Some("Other")).as_deref(), Some("other"));
+        assert_eq!(p(at("body"), "X", Some("#o")).as_deref(), Some("other"));
+        assert_eq!(p(at("body"), "X", Some("*Head")).as_deref(), Some("xval"));
+        assert_eq!(p(at("body"), "X", Some("Nowhere")), None);
+        assert_eq!(p(at("Other"), "PRIORITY", None).as_deref(), Some("B"));
+    }
+
+    #[test]
+    fn results_expand_to_their_argument() {
+        assert_eq!(
+            expand_results(
+                "A {{{results(=16=)}}} and {{{title}}} {{{results(x\\, y)}}}.",
+                &[]
+            ),
+            "A =16= and {{{title}}} x, y."
+        );
+    }
 
     fn now() -> jiff::Zoned {
         "2026-09-28T10:00:00[UTC]".parse().unwrap()

@@ -1473,11 +1473,33 @@ impl Latex {
         self.decorate_table(ex, output, attrs, &caption, above)
     }
 
-    /// `org-latex--table.el-table`, without `table.el`: the table as it
-    /// is, in a verbatim environment.
+    /// `org-latex--table.el-table`: the table as `table-generate-source`
+    /// writes it for LaTeX, in the table's decoration (caption, float,
+    /// `:rmlines`).
     fn table_el(&self, ex: &mut Exporter<'_>, id: Id) -> String {
-        let raw = ex.tree.source(id);
-        format!("\\begin{{verbatim}}\n{}\n\\end{{verbatim}}", trim(&raw))
+        let value = Self::cast::<ast::Table>(ex, id)
+            .and_then(|t| t.table_el_value())
+            .unwrap_or_default();
+        let mut output = table_el_latex(&value);
+        let attrs = read_attribute(ex, id, "ATTR_LATEX");
+        let caption = self.caption_label(ex, id, None);
+        let above = Self::caption_above(ex, id);
+        if attr(&attrs, ":rmlines").is_some() {
+            // Every `\\hline` but the second (below the heading) out.
+            let mut n = 0;
+            output = output
+                .split_inclusive('\n')
+                .filter(|l| {
+                    if l.trim_end() == "\\hline" {
+                        n += 1;
+                        n == 2
+                    } else {
+                        true
+                    }
+                })
+                .collect();
+        }
+        self.decorate_table(ex, output, &attrs, &caption, above)
     }
 
     /// The rows of a table in math mode (`org-latex--math-table`).
@@ -2996,9 +3018,144 @@ fn guess_polyglossia(ex: &Exporter<'_>, header: &str) -> String {
     format!("{}{out}{}", &header[..start], &header[end..])
 }
 
+/// A table.el table as `table-generate-source` writes it for LaTeX (the
+/// comment it starts with removed, as ox-latex removes it): a `tabular`
+/// with a bar between every column, a row for each line of text, cells
+/// spanning columns as `\\multicolumn`, rules as `\\hline` or, under cells
+/// spanning rows, `\\cline`; the text trimmed, `#$~_^%{}&` escaped with a
+/// backslash, `\\` as `$\\backslash$` and `<>|` in math.
+pub(crate) fn table_el_latex(value: &str) -> String {
+    let text = crate::html::remove_indentation(value);
+    let lines: Vec<Vec<char>> = text.lines().map(|l| l.chars().collect()).collect();
+    let Some(top) = lines.iter().find(|l| l.first() == Some(&'+')) else {
+        return String::new();
+    };
+    let plus: Vec<usize> = top
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| **c == '+')
+        .map(|(i, _)| i)
+        .collect();
+    if plus.len() < 2 {
+        return String::new();
+    }
+    // Where each column's text starts, and where the last one ends.
+    let starts: Vec<usize> = plus[..plus.len() - 1].iter().map(|p| p + 1).collect();
+    let right = plus[plus.len() - 1];
+    let escape = |s: &str| {
+        let mut out = String::new();
+        for c in s.chars() {
+            match c {
+                '#' | '$' | '~' | '_' | '^' | '%' | '{' | '}' | '&' => {
+                    out.push('\\');
+                    out.push(c);
+                }
+                '\\' => out.push_str("$\\backslash$"),
+                '<' | '>' | '|' => {
+                    out.push('$');
+                    out.push(c);
+                    out.push('$');
+                }
+                c => out.push(c),
+            }
+        }
+        out
+    };
+    let at = |l: &Vec<char>, i: usize| l.get(i).copied().unwrap_or(' ');
+    let mut out = format!(
+        "\\begin{{tabular}}{{|{}}}\n\\hline\n",
+        "l|".repeat(starts.len())
+    );
+    let first = lines
+        .iter()
+        .position(|l| l.first() == Some(&'+'))
+        .unwrap_or(0);
+    let last = lines
+        .iter()
+        .rposition(|l| l.first() == Some(&'+'))
+        .unwrap_or(0);
+    for l in &lines[first + 1..last] {
+        if l.first() == Some(&'+') {
+            // A rule: whole, or under the columns it crosses.
+            let horizontal = |c: char| c == '-' || c == '=';
+            let marks: Vec<bool> = starts.iter().map(|&x| horizontal(at(l, x))).collect();
+            if marks.iter().all(|m| *m) {
+                out.push_str("\\hline\n");
+            } else {
+                let mut start: Option<usize> = None;
+                for (i, m) in marks.iter().enumerate() {
+                    if let Some(s) = start
+                        && !m
+                    {
+                        out.push_str(&format!("\\cline{{{}-{i}}}\n", s + 1));
+                        start = None;
+                    }
+                    if start.is_none() && *m {
+                        start = Some(i);
+                    }
+                }
+                if let Some(s) = start {
+                    out.push_str(&format!("\\cline{{{}-{}}}\n", s + 1, marks.len()));
+                }
+            }
+            continue;
+        }
+        // A line of text: its cells, a bar before each column's start
+        // ending the cell before, no bar spanning it.
+        let mut first_cell = true;
+        let mut span = 1;
+        let mut from = starts[0];
+        let cell =
+            |from: usize, to: usize, span: usize, out: &mut String, first_cell: &mut bool| {
+                let t: String = (from..to).map(|i| at(l, i)).collect();
+                let t = escape(t.trim());
+                if !*first_cell {
+                    out.push_str(if out.ends_with(' ') { "& " } else { " & " });
+                }
+                if span > 1 {
+                    out.push_str(&format!(
+                        "\\multicolumn{{{span}}}{{{}l|}}{{{t}}}",
+                        if *first_cell { "|" } else { "" }
+                    ));
+                } else {
+                    out.push_str(&t);
+                }
+                *first_cell = false;
+            };
+        for &x in &starts[1..] {
+            if at(l, x - 1) == '|' {
+                cell(from, x - 1, span, &mut out, &mut first_cell);
+                span = 1;
+                from = x;
+            } else {
+                span += 1;
+            }
+        }
+        cell(from, right, span, &mut out, &mut first_cell);
+        out.push_str(if out.ends_with(' ') {
+            "\\\\\n"
+        } else {
+            " \\\\\n"
+        });
+    }
+    out.push_str("\\hline\n\\end{tabular}");
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn table_el_as_emacs_writes_it() {
+        // `table-generate-source` for LaTeX through ox-latex, Org 9.7.11.
+        let value =
+            "+-----+----+\n| a   | b  |\n| two | &< |\n+-----+----+\n| 1   |    |\n+-----+----+\n";
+        assert_eq!(
+            super::table_el_latex(value),
+            "\\begin{tabular}{|l|l|}\n\\hline\na & b \\\\\ntwo & \\&$<$ \\\\\n\\hline\n1 & \\\\\n\\hline\n\\end{tabular}"
+        );
+    }
 
     #[test]
     fn source_lines() {

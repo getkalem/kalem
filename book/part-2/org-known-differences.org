@@ -169,3 +169,18 @@ Kalem follows them for compatibility:
   headline line, even inside a link in the title.
 - ~org-entry-get~ and ~org-entry-properties~ disagree on duplicate drawer
   keys: the first returns the last value, the second the first.
+
+* The property macro at a missing headline
+
+={{{property(NAME,SEARCH)}}}= whose SEARCH names no headline stops
+Emacs's export with "Macro property failed: cannot find location"; Kalem
+expands it to nothing and exports the rest.
+
+* table.el tables with cells spanning columns
+
+Emacs 30's =table-generate-source=, which =ox-latex= calls for a table.el
+table, drops the rows after a cell that spans columns when the table
+ends with such a cell (and fails on some tables with cells spanning rows
+with "Invalid search bound"). Kalem writes every row, a spanning cell as
+=\multicolumn=, and a rule under cells that span rows as =\cline=; on
+tables without spanning cells the output is Emacs's, byte for byte.

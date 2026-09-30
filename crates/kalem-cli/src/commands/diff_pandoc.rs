@@ -186,6 +186,35 @@ fn kalem_counts(file: &Path) -> Counts {
 
 /// Inline and displayed formulas, code blocks, tables and list items in
 /// `body` of a tree.
+/// Whether `n` is in the text a reader reads: not inside an index,
+/// glossary or nomenclature entry, nor the second argument of
+/// `\texorpdfstring`.
+fn in_the_text(n: &latex_syntax::SyntaxNode) -> bool {
+    let mut child = n.clone();
+    for a in n.ancestors().skip(1) {
+        if a.kind() == K::COMMAND {
+            let name = latex_syntax::name(&a).unwrap_or_default();
+            if matches!(
+                name.as_str(),
+                "index" | "indexsee" | "glossary" | "nomenclature"
+            ) {
+                return false;
+            }
+            if name == "texorpdfstring"
+                && a.children()
+                    .filter(|c| c.kind() == K::GROUP)
+                    .nth(1)
+                    .as_ref()
+                    == Some(&child)
+            {
+                return false;
+            }
+        }
+        child = a;
+    }
+    true
+}
+
 fn syntax_counts(root: &latex_syntax::SyntaxNode, body: &std::ops::Range<usize>) -> [usize; 5] {
     let mut out = [0usize; 5];
     for n in root
@@ -193,6 +222,10 @@ fn syntax_counts(root: &latex_syntax::SyntaxNode, body: &std::ops::Range<usize>)
         .filter(|n| body.contains(&usize::from(n.text_range().start())))
     {
         match n.kind() {
+            // Formulas in commands that typeset nothing where they are
+            // (index and nomenclature entries), or in the PDF string of
+            // `\texorpdfstring`, are not in the text pandoc reads.
+            K::INLINE_MATH if !in_the_text(&n) => {}
             K::INLINE_MATH => out[0] += 1,
             K::DISPLAY_MATH => out[1] += 1,
             K::ENVIRONMENT => {

@@ -3,6 +3,7 @@
 //! HTML, Markdown, plain text and LaTeX the way `ox-html`, `ox-md`,
 //! `ox-ascii` and `ox-latex` write them (design §10, T2.3).
 
+mod attach;
 pub mod babel;
 pub mod cite;
 mod cite_latex;
@@ -128,17 +129,19 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
         }
     };
     let text = macros::expand_tracking(&text, &parsed, file, &now, &mut marks)?;
+    // `org-attach-expand-links`, before parsing.
+    let text = attach::expand(&text, file, &mut marks);
     let whole = parse_document(&text, file);
     let (parse, keywords) = match &region {
         Some(_) => {
-            let body = babel::process(&text[marks[0]..marks[1]]);
+            let body = macros::expand_results(&babel::process(&text[marks[0]..marks[1]]), &parsed);
             (
                 org_syntax::parse_with(&body, whole.context()),
                 whole.keywords(),
             )
         }
         None => {
-            let text = babel::process(&text);
+            let text = macros::expand_results(&babel::process(&text), &parsed);
             let parse = parse_document(&text, file);
             let keywords = parse.keywords();
             (parse, keywords)

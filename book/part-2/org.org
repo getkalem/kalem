@@ -303,9 +303,11 @@ raw text, as =org-element= keeps it. The HTML back-end, and Markdown
 through it, convert it as =ox-html= does with =table.el=
 (=html::table_el_html=: each cell's lines with their blanks as no-break
 spaces, byte for byte as Emacs writes it but for the Emacs version in
-the comment it adds). The plain text back-end writes it as Org does;
-the LaTeX back-end writes it in a =verbatim= environment where
-=ox-latex= converts it to a =tabular= (T2.11.1).
+the comment it adds). The LaTeX back-end converts it as =ox-latex= does
+(=latex::table_el_latex=: a =tabular= with a bar between the columns, a
+row for each line of text, =\multicolumn= and =\cline= for spanning
+cells, the text escaped, and the table's caption and float around it).
+The plain text back-end writes it as Org does.
 
 * Elements
 
@@ -700,7 +702,10 @@ Calc as reproduced:
   implicit multiplication binds tighter than ~/~, as in Calc.
 - Functions: =abs=, =sign=, =floor=, =ceil=, =round=, =trunc=, =sqrt=,
   =exp=, =ln=, =log=, =log10=, =sin=, =cos=, =tan=, =arcsin=, =arccos=,
-  =arctan=, =fact=, =choose=, =gcd=, =lcm=, =idiv=, =fdiv=, =min=,
+  =arctan=, =sinh=, =cosh=, =tanh=, =arcsinh=, =arccosh=, =arctanh=,
+  =sec=, =csc=, =cot=, =rad=, =deg=, =sqr=, =inv=, =hypot=, =nroot=,
+  =round= with a number of places, =fact=, =choose=, =gcd=, =lcm=,
+  =idiv=, =fdiv=, =min=,
   =max=, =if=, =year=, =month=, =day=, =weekday=, and the vector
   functions =vsum=, =vprod=, =vmax=, =vmin=, =vcount=, =vlen=, =vmean=,
   =vmedian=, =vvar=, =vsdev=, =vpvar=, =vpsdev=.
@@ -838,7 +843,7 @@ inline SVG drawn by the editor's math engine.
 Differences in export: macros defined as =(eval ...)= are Lisp and
 expand to nothing; Kalem's own style sheet and MathJax set-up replace
 Org's in whole HTML pages (the comparison skips them); table.el tables
-export to LaTeX as =verbatim= (T2.11.1); the interim Kalem
+spanning columns keep the rows Emacs drops (below); the interim Kalem
 formatting is written by the HTML and LaTeX back-ends.
 
 The expected outputs of the test cases were exported by Emacs 30.1
