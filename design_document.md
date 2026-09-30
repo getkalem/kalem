@@ -98,7 +98,7 @@ A lightweight, fast, single-binary, open source desktop editor that lets people 
 - **Emulating Emacs.** Elisp, the Emacs key language, every agenda setting.
 - **Real-time collaboration and cloud sync.** Git and file sync are considered sufficient.
 - **Mobile platforms.**
-- **A full IDE.** Language servers, debuggers and build integration are not built in. Plain text mode stays an editor; LSP support may come later as an out-of-process plugin (11.1) that registers a completer (11.12).
+- **A full IDE.** Debuggers and build systems are not built in. Language servers arrive through language plugins (11.14; Python and Elixir first, group 3.8), which make Kalem a complete editor for a language on the core's language server client; the core itself knows no language.
 - **100% of Org in the first release.** Scope is split into phases.
 
 ### 1.5 Target users
@@ -190,7 +190,7 @@ macOS 12+, Linux (X11 and Wayland), Windows 10+. Single binary, no installation 
 
 ### 2.6 Other files: a general purpose text editor
 
-Kalem opens any text file. Four document modes decide how:
+Kalem opens any file: a text file in one of the document modes below, every other file through a viewer or editor plugin (11.13). Kalem never converts a file to another format in order to open it (D55). The document modes:
 
 | Mode | Files | View |
 |---|---|---|
@@ -243,7 +243,7 @@ Every mode can switch to its source text ("Open as text"), and the choice is rem
 - **Beyond the grid:** "Open as text"; "Convert to Org table" (for formulas, Org tables and TBLFM are the place to compute, 8); column statistics (count, sum, average) in the status bar; the same grid in the terminal frontend.
 - **Library:** the `csv` crate reads records with byte positions, so edits map back to exact ranges of the file.
 
-**Binary files** are detected (NUL bytes, invalid UTF-8 in the first block) and are not opened for editing; the user is told what the file is.
+**Files that are not text** (detected by NUL bytes or invalid UTF-8 in the first block) open through a viewer or editor plugin when one is installed (11.13; D54): PDF, Word, Excel, PowerPoint, images. Without one, the user is told what the file is and which plugin of `getkalem/plugins` opens it, and may open it with the system application. Kalem never converts a file in order to open it (D55).
 
 **Architecture.** A document has a mode. `kalem-core` defines a `DocumentMode` interface, the same contract plugins use (11.11): Org mode provides the view model, commands and structural editing; Markdown mode provides its own view model on the shared inline editing model; CSV mode provides a grid model; plain text mode provides the text view model and language-specific commands (comment toggling, indentation). Commands declare where they apply through their scope (11.2), a list of text types (`org`, `csv`, `python`), and structural context through when-clauses (`inTable`). Both frontends render every mode. The CLI accepts Markdown for conversion (`kalem export README.md --to org`) and CSV for conversion to an Org table; `kalem check` checks Org files only and refuses others with a clear message.
 
@@ -253,7 +253,7 @@ Kalem has a directory editor modeled on Emacs's Dired: a directory opens as a do
 
 **Listing.** One line per entry with type, permissions, size, modification time and name, like Dired's `ls -l` view, or a compact names-only view. Sorting by name, time, size or extension; directories first or mixed; hidden files toggled. Subdirectories can be inserted inline under their line (Dired's `i`) and collapsed again. The listing refreshes itself through the file watcher (`notify`) and keeps marks and the cursor across refreshes.
 
-**Navigation.** Enter (or a click on a name) opens a file in its document mode (2.6) or descends into a directory; `^` goes to the parent; a filter narrows the listing; "jump to file" from any document opens its directory with the cursor on it (Dired's `dired-jump`). A window has one file manager document, which moves from folder to folder.
+**Navigation.** Enter (or a click on a name) opens a file in its document mode (2.6), a file that is not text in its viewer or editor plugin (11.13), or descends into a directory; `^` goes to the parent; a filter narrows the listing; "jump to file" from any document opens its directory with the cursor on it (Dired's `dired-jump`). A window has one file manager document, which moves from folder to folder.
 
 **Two views.** Besides the normal listing of a folder, the file manager has a projects view (asked by the owner, 2026-09-28): every project of the project list (2.8), and only the projects, listed as if they were all folders in one big folder, with their paths and missing folders marked. Opening a project lists its folder in the normal view; going up from a project's folder shows the projects again. `P` switches between the two views, going back to the folder shown before.
 
@@ -835,7 +835,7 @@ Go/no-go: if 1, 2 and 3 do not work, switch to the **Tauri + ProseMirror** fallb
 - **Default profile, Word-like:** Ctrl+B/I/U, Ctrl+L/E/R/J alignment, Ctrl+] and Ctrl+[ font size, Ctrl+Space clear formatting (3.7), Ctrl+1..6 heading level, Ctrl+Shift+L list, Tab and Shift+Tab for indentation or folding (by context), Ctrl+Enter TODO cycle, Ctrl+K link, Ctrl+Shift+T table, Alt+arrows move subtree.
 - **Vim profile (optional):** modal editing, off by default, with the Word-like keys in insert mode and for chords Vim does not use (Ctrl+S saves). It can be limited to some document modes, for example only plain text files (`editor.vim.modes = ["plain"]`). See 7.3.1.
 - **Emacs keys:** not a built-in profile (the owner chose Vim over Emacs keys, 2026-09-28). `docs/keymaps/emacs.json` gives the Emacs Org keys (`C-c C-t`, `C-x C-s`, `M-RET`, …) as a user keymap to copy into `keymap.json`.
-- **Doom Emacs leader keys (Vim profile):** in normal and visual mode the leader (Space unless `editor.vim.leader` says otherwise) starts Doom's sequences: `SPC p p` switches project, `SPC p f` and `SPC SPC` find a file in the project, `SPC ,` and `SPC b b` switch document, `SPC s p` and `SPC /` search the project, `SPC f f` opens a file, `SPC :` is the command palette. A which-key panel lists what may follow a half-typed sequence. They live in `keymaps/vim.json` like any binding, so `keymap.json` changes or removes them (and can use `leader` in its own keys).
+- **Doom Emacs leader keys (Vim profile):** in normal and visual mode the leader (Space unless `editor.vim.leader` says otherwise) starts Doom's sequences: `SPC p p` switches project, `SPC p f` and `SPC SPC` find a file in the project, `SPC ,` and `SPC b b` switch document, `SPC s p` and `SPC /` search the project, `SPC f f` opens a file, `SPC :` is the command palette. A which-key panel lists what may follow a half-typed sequence. They live in `keymaps/vim.json` like any binding, so `keymap.json` changes or removes them (and can use `leader` in its own keys). The goal is Doom's whole basic leader map, prefix by prefix, with a which-key popup showing the continuations of a prefix, and a published table of the keys Kalem does not bind and why (asked by the owner, 2026-09-30; group 2.7i).
 - **Documents and projects (Word-like keys):** Ctrl+O open, Ctrl+N new, Ctrl+W close, Ctrl+Tab and Ctrl+PageDown next document, Ctrl+Alt+O switch document, Ctrl+Alt+R recent files, Ctrl+P find file in project, Ctrl+Shift+F search in project, Ctrl+Alt+P switch project, Ctrl+Shift+E the list of open files.
 - **Terminals:** keys a terminal cannot send get terminal keys (`terminalKeys`): the command palette is Ctrl+G there (Ctrl+Shift+P arrives as Ctrl+P, and macOS terminals turn Alt+P into a character unless Option is set to send Meta).
 - The keymap is stored in JSON, bound to the command registry, and supports when-clauses (`editorFocus && inTable`, `vimCommand`, `inProject`).
@@ -1006,7 +1006,7 @@ Fragments: `$x$`, `$$...$$`, `\(...\)`, `\[...\]`, `\begin{env}...\end{env}` (eq
 
 - The `org-export` LaTeX backend (ox-latex behavior) produces `.tex`.
 - Compilation: `latexmk` or `xelatex` from the system if available. Otherwise **tectonic** can be downloaded on demand (user consent, network access). Bundling is D5; the recommendation is an optional separate download, because tectonic increases binary size considerably and fetches packages from the network.
-- PDF preview: an external viewer at first; later an embedded panel (pdfium).
+- PDF preview: the `pdf-viewer` plugin (11.13, group 3.7) in a split when it is installed; the system viewer otherwise. No pdfium in the core.
 - Error mapping: line numbers in the LaTeX log are mapped back to Org positions through `%% org:LINE` comments inserted into the generated `.tex`.
 
 ### 9.4 Writing books and papers
@@ -1102,7 +1102,7 @@ Kalem's own optional features are built on the same extension points wherever po
 | Plugin package | A WASM component (D28) written in Rust against the contracts the core itself uses, with a manifest; any language with a WIT binding is accepted, but Kalem ships no runtime for it | Distributable features: modes, completers, block types, link types, views, exporters (11.10 to 11.12) | 3 |
 | Bundled plugins | The same components, embedded in the binary, loaded on first use | Every feature outside the small core (11.0, D29) | 3 |
 | Threads | One component instance per thread; several instances of one plugin for parallel work; messages through the host | Parsers, renderers and completers off the UI thread | 3 |
-| Out-of-process | JSON-RPC over stdio | Language servers, external tools, Python and other integrations | 3 (the language server bridge), 4 |
+| Out-of-process | JSON-RPC over stdio | Language servers through the core's client (11.14), external tools | 3 (group 3.8), 4 |
 | Compiled distribution | Community plugins compiled into a user's own Kalem binary (`kalem build --with`): native speed, full threads, no sandbox, by choice | Power users and servers | 4 |
 
 The API is defined once, in WIT (D6); the Rust bindings are generated from it and published as the `kalem-plugin` crate. **Rust is the plugin language** (owner, 2026-09-28): the contract a plugin implements is the trait the core's own modes and completers implement, so a plugin author reads the same types as a core contributor, the compiler checks the code, and the same crate builds as a bundled plugin inside the binary or as a sandboxed component. Kalem ships no scripting engine and no second language. What that costs, accepted knowingly: no REPL and no instant reload (11.9 shrinks to inspection and reload), a toolchain for plugin authors (hidden by `kalem plugin new` and `kalem plugin build`), a smaller long tail of tiny plugins, and libraries that exist only in other languages (Mermaid, for example) reachable only through a port or a build of that library to WASM inside the plugin. What it buys: native-class speed for parsers and completers, threads by instances, a capability sandbox with fuel and memory limits, one artifact for every platform, and one typed definition that a compiler checks, which matters more as plugin code is written with AI assistance.
@@ -1205,6 +1205,7 @@ pub mod kalem {
     pub mod cli { pub fn register(subcommand: &str, spec: impl CliCommand) -> Disposable; }     // `kalem <subcommand>` in batch mode
     pub mod themes { pub fn register(id: &str, theme: ThemeSpec) -> Disposable; }
     pub mod modes { pub fn register(id: &str, spec: impl DocumentMode) -> Disposable; pub fn register_highlighter(syntax: SyntaxSource) -> Disposable; } // renderers and highlighters (11.11)
+    pub mod viewers { pub fn register(spec: impl DocumentViewer) -> Disposable; }             // files that are not text: PDF, Office, images (11.13); `DocumentEditor` on top where the write-back is faithful
 }
 
 pub mod editor {
@@ -1410,13 +1411,27 @@ Rules:
 
 - **Never blocking.** A completer that misses its budget (11.6) shows nothing for that keystroke and the menu keeps the items of the others; results arrive as they come, as Search in Project does (2.8).
 - **Built-ins on the same contract.** The Org completions of today (`#+` keywords and blocks, `[[` link targets, `[fn:` labels, tags; `kalem_core::input`) become completers, and so do the two every text file gets: the **words of the document** (dabbrev-style, from the first letters, no configuration) and the **dictionary** of the document's language, from the Hunspell word lists the spell checker loads (2.2), with a frequency list where one exists so that common words come first. The language comes from `#+LANGUAGE`, the setting, or detection.
-- **Code.** In a source block or a file of a programming language, a completer may talk to a language server. The LSP bridge is an out-of-process plugin (JSON-RPC over stdio, 11.1) that registers a completer, a hover provider and a diagnostics checker for the languages it serves. Kalem stays an editor, not an IDE (1.4): the bridge is installed by the user, never bundled.
+- **Code.** In a source block or a file of a programming language, the completer is the core's language server client (11.14, D57) fed by a language plugin that declares the server; the plugin is installed by the user from `getkalem/plugins`, never bundled, and the core knows no language.
 - **Models.** A completer may call a model through `kalem.net`, off by default, enabled per workspace through the permission model (11.6) with a visible indicator; document text leaves the machine only after that consent. Phase 4.
 - **Batch.** `kalem complete FILE:LINE:COL` prints the items, for tests and scripts; a completer plugin's conformance suite checks its items on fixture files, its cancellation and its budget.
 
 **The standard way**, as for modes (11.11): the contract in `kalem-core` first, the Org completers and the document-words completer on it in phase 2, the dictionary completer with spell checking in phase 3, then the script binding, a template, the page "Writing a completer", and two reference plugins, a word list (declarative) and the LSP bridge (programmatic) (work breakdown: T2.7a.8, T3.1.9c, T3.3.2, T3.6.1, T4.3.6b).
 
 ---
+
+### 11.13 Files that are not text: viewers and editors from plugins
+
+Kalem's aim is to open every file a click in the file manager lands on (asked by the owner, 2026-09-30). Text files open in a document mode (2.6, 11.11). Every other file opens through a plugin implementing the `document-viewer` contract and, where the plugin can write the format faithfully, the `document-editor` contract on top of it (D54). PDF, Word, Excel, PowerPoint and images are such plugins in `getkalem/plugins` (11.8); none is in the core. The core carries the contract, the two frontends' views of it (pages, grids, slides and images in the GUI; the same as terminal images or as extracted text in the terminal, principle 7) and the fallback when no plugin matches: the file's kind, the plugin that would open it, and the system application.
+
+**The contract.** `detect` (extensions and magic bytes); `open` on a host file handle, read lazily; `structure` (the units: pages, sheets, slides, frames; the outline; labels); `render(unit, scale, theme)` returning a bitmap, a block tree or a display list that the host paints, never drawing itself; `text(unit)` with ranges for search, copy and the terminal; `search`, `links`, `close`. The editor half: `edits(unit)` listing the commands the format allows at a place, `apply(edit)` returning the changed units, `save` as a byte stream the host writes atomically, and a loss report. Decoders are pure Rust compiled to WebAssembly components and sandboxed (D28); C libraries belong to the compile-your-own tier only.
+
+**Opened as itself (D55).** Kalem respects every format and never converts a file to another format in order to open or edit it: a Word file is edited as WordprocessingML, an Excel file as SpreadsheetML, a PDF as PDF, and no dialog asks to convert it to `.klm`. The three rules of the standard modes (2.6; the Book, Part II) apply to packaged and binary formats: *parts, never the package* (an edit rewrites only the part or object it touches; every other entry is copied byte for byte, so open and save without edits is the identity), *no extension* (nothing written that the format's specification does not define), *unknown constructs stay visible* (a placeholder naming what it is, kept in the file). Conversion is an explicit export command, as for every format. The specifications followed are ECMA-376 for the Office formats and ISO 32000-2 for PDF; each plugin has its chapter in Part IV of the Book, in the skeleton every format chapter shares (D53). The work is group 3.7 of the work breakdown.
+
+### 11.14 Language plugins and language servers
+
+A language plugin makes Kalem a complete editor for a programming language (asked by the owner, 2026-09-30; Python and Elixir first, group 3.8) without making it an IDE (1.4): a highlighter (11.11), the language pack hooks (2.6) and the whole of what the language's server offers, from completion with snippets to rename across files, semantic tokens and inlay hints, in both frontends.
+
+**The client is in the core, the language in the plugin (D57).** `kalem-lsp` implements the language server protocol once: process lifecycle, JSON-RPC over stdio, position encoding mapped to Kalem's offsets, incremental synchronization from the transaction stack, workspace edits as one undo step, cancellation, restart on crash, logs. It knows no language. A language plugin declares, in its manifest: file types, the highlighter, comment and indentation rules, the server or servers, how to find one (a project-local install, the PATH, a Kalem-managed install with the user's consent, never a silent download), root markers, settings, a formatter, run and test commands, snippets; optional Rust code covers what a manifest cannot (virtual environments, Mix). A declarative plugin has no code, so the third language costs an afternoon. The features bind to the same contracts every mode uses (completers 11.12, hover, diagnostics, outline, format), so the keys of the Doom `SPC c` map and their Emacs and Word-like equivalents work the same in every language.
 
 ## 12. Babel: source blocks
 
@@ -1554,7 +1569,7 @@ Test corpus files keep their own licenses (for example the Org Manual is GFDL) a
 - `CONTRIBUTING.md`, code of conduct, "good first issue" labels, PR template.
 - An `rfcs/` folder for large decisions; this document is RFC 0001.
 - `CHANGELOG.md`, semver, a regular release rhythm.
-- Documentation: the Book (design_doc2.md, section 10), one source of truth on GitHub Pages: the manual, the standard formats as implemented, the Kalem format's specification, the plugin API and the design; built by Kalem's own exporter, mdBook only as a bridge; written in Org until the Kalem format lands, then in `.klm`.
+- Documentation: the Book (design_doc2.md, section 10), one source of truth on GitHub Pages: the manual, the standard formats as implemented, the Kalem format's specification (Part III, its home from draft 0.2 on), the formats plugins open, the plugin API and the design; every format Kalem opens has its chapter there, in one skeleton, changed with the code in the same pull request (D53); built by Kalem's own exporter, mdBook only as a bridge; written in Org until the Kalem format lands, then in `.klm`.
 - Language: repository, code and documentation in English; the UI in English and Turkish.
 
 ### 18.3 Relationship with the Emacs community
@@ -1680,6 +1695,12 @@ Two tracks run beside the phases below (design_doc2.md, section 11; owner, 2026-
 | D29 | Small core | Everything built in; a small core with bundled plugins | The core: Org, Markdown, CSV and LaTeX (9.5), the Kalem format (RFC 0003), the text engine and view model, the two frontends, the infrastructure that runs before plugins; everything else a plugin, the expected ones bundled as embedded WASM components (11.0) | **Decided (owner, 2026-09-28)**, LaTeX added to the core the same day; new modes and file types live in `getkalem/plugins` (11.8) |
 | D31 to D46 | The Kalem format's syntax and stylesheet decisions | See RFC 0003 | One command syntax, paragraphs by blank lines, `$…$` as the only shortcut, Djot-style attributes, `\props` for planning and properties, spreadsheet-style column formulas, TOML stylesheets, layout in the stylesheet with `\pagesetup` inline | **Decided (owner, 2026-09-30)** in RFC 0003 draft 0.2 |
 | D47 to D52 | The command sigil `\`, implicit paragraphs, the single shortcut, the formula dialect, TOML stylesheets, Typst then LaTeX as PDF engines | See RFC 0003 | As RFC 0003 §4, §8, §9, §13, §17 | **Decided (owner, 2026-09-30)** |
+| D53 | Specifications in the Book | Chapters where convenient; one skeleton for every format chapter, changed with the code | Org, Markdown, CSV and LaTeX as their standards define them and `.klm` as Kalem's own; Part II, Part III (the Kalem format's home from draft 0.2 on, RFC 0003 frozen as the record) and Part IV for the formats plugins open; a chapter changes in the same pull request as the code | **Decided (owner, 2026-09-30)** |
+| D54 | Files that are not text | Refuse them; convert them into a document mode; a viewer and editor contract for plugins | The `document-viewer` and `document-editor` contract (11.13); PDF, Word, Excel, PowerPoint and images as plugins from `getkalem/plugins`, never core; pure-Rust decoders in the sandbox | **Decided (owner, 2026-09-30)** |
+| D55 | Opened as itself | Convert on open, as LibreOffice offers; open and edit every format as its own specification says | No conversion in order to open or edit, no conversion prompt; edits rewrite only the part they touch; conversion only as an explicit export | **Decided (owner, 2026-09-30)** |
+| D56 | PDF rasterizer and spreadsheet formula engine for the plugins | hayro or a pdf-rs based rasterizer; IronCalc or cached values only | Spikes on corpora with pdfium and LibreOffice as oracles | Open (T3.7.3a, T3.7.4a) |
+| D57 | Where the language server client lives | A plugin (the "LSP bridge"); the core as infrastructure with language plugins declaring the servers | The core (`kalem-lsp`, 11.14): protocol plumbing shared by every language, tested once, no language knowledge in it | **Proposed (planning, 2026-09-30)**; the owner may overturn before T3.8.1 |
+| D58 | Default language servers for the first language plugins | Python: basedpyright, pyright, pylsp, ty, jedi; ruff beside it. Elixir: Expert, ElixirLS, Lexical | basedpyright with ruff; Expert with ElixirLS as the fallback | Proposed, confirmed by the CI corpus (T3.8.5, T3.8.6) |
 
 ---
 
