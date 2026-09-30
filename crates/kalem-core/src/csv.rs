@@ -155,6 +155,48 @@ pub fn encode(value: &str, d: &Dialect) -> String {
     }
 }
 
+/// Text typed at `pos` in a field of record `rec`, as the grid types it:
+/// the value gets the characters, so a delimiter, a quote or a line break
+/// typed in a field quotes it (quotes inside doubled), rather than
+/// splitting it. `None` when the text needs no quoting (typed as it is),
+/// or `pos` is outside the field's quotes.
+pub fn typed(
+    text: &str,
+    rec: &Record,
+    pos: usize,
+    typed: &str,
+    d: &Dialect,
+) -> Option<Transaction> {
+    let q = d.quote as char;
+    let qq = format!("{q}{q}");
+    if !(typed.contains(d.delimiter_char()) || typed.contains(q) || typed.contains(['\n', '\r'])) {
+        return None;
+    }
+    let f = rec
+        .fields
+        .iter()
+        .find(|f| f.range.start <= pos && pos <= f.range.end)?;
+    let mut tx = Transaction::new("Typing");
+    let caret = if f.quoted {
+        // Between the quotes: the characters, quotes doubled.
+        if pos <= f.range.start || pos >= f.range.end {
+            return None;
+        }
+        let ins = typed.replace(q, &qq);
+        tx.replace(pos..pos, &ins).ok()?;
+        pos + ins.len()
+    } else {
+        let raw = &text[f.range.clone()];
+        let rel = pos - f.range.start;
+        let before = format!("{}{typed}", &raw[..rel]).replace(q, &qq);
+        let after = raw[rel..].replace(q, &qq);
+        tx.replace(f.range.clone(), format!("{q}{before}{after}{q}"))
+            .ok()?;
+        f.range.start + 1 + before.len()
+    };
+    Some(tx.select(Selection::caret(caret)))
+}
+
 /// Finds the dialect of `text` from its first records: the delimiter that
 /// gives the most records with the same number of fields (more than one),
 /// a header when the first record's values are all text where later ones
@@ -452,11 +494,16 @@ pub fn swap_columns(text: &str, d: &Dialect, a: usize) -> Transaction {
 }
 
 /// How rows compare for sorting by a column: as numbers when both are.
-fn compare(a: &str, b: &str) -> std::cmp::Ordering {
-    let num = |s: &str| s.trim().replace(',', ".").parse::<f64>().ok();
-    match (num(a), num(b)) {
-        (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
-        _ => a.to_lowercase().cmp(&b.to_lowercase()),
+/// The order of two values in a column: numbers (read as the column
+/// statistics read them) before text, numbers by value, text without
+/// case. A total order, as sorting needs, whatever the column mixes.
+fn compare(a: &str, b: &str, comma_decimal: bool) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    match (number(a, comma_decimal), number(b, comma_decimal)) {
+        (Some(x), Some(y)) => x.total_cmp(&y),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => a.to_lowercase().cmp(&b.to_lowercase()),
     }
 }
 
@@ -469,7 +516,7 @@ pub fn sorted_order(text: &str, d: &Dialect, col: usize, reverse: bool) -> Vec<u
     let mut order: Vec<usize> = (first..rows.len()).collect();
     let key = |i: usize| rows[i].get(col).map_or("", String::as_str);
     order.sort_by(|&a, &b| {
-        let o = compare(key(a), key(b));
+        let o = compare(key(a), key(b), d.delimiter == b';');
         if reverse { o.reverse() } else { o }
     });
     let mut out: Vec<usize> = (0..first).collect();
@@ -541,19 +588,50 @@ pub fn to_org_table(text: &str, d: &Dialect) -> String {
 }
 
 /// Numbers of column `col` of the data rows: count, sum, average, min, max.
+/// A number as spreadsheets write it: `1234.5`, `1,234.5` (English),
+/// `1.234,5` (Turkish and most of Europe), `1 234,5`; a comma alone is
+/// the decimal point unless it groups thousands (`1,234,567`, or `1,234`
+/// outside files that `;` delimits, as European spreadsheets write).
+fn number(v: &str, comma_decimal: bool) -> Option<f64> {
+    let v = v.trim().replace(['\u{a0}', '\u{202f}', ' ', '\''], "");
+    if v.is_empty() {
+        return None;
+    }
+    let grouped = |s: &str, sep: char| {
+        let s = s.trim_start_matches(['-', '+']);
+        let mut parts = s.split(sep);
+        let first = parts.next().unwrap_or("");
+        !first.is_empty()
+            && first.len() <= 3
+            && first.bytes().all(|b| b.is_ascii_digit())
+            && parts.clone().count() >= 1
+            && parts.all(|p| p.len() == 3 && p.bytes().all(|b| b.is_ascii_digit()))
+    };
+    let (comma, dot) = (v.rfind(','), v.rfind('.'));
+    let normal = match (comma, dot) {
+        // Both: the last one is the decimal point.
+        (Some(c), Some(d)) if c > d => v.replace('.', "").replace(',', "."),
+        (Some(_), Some(_)) => v.replace(',', ""),
+        (Some(_), None) => {
+            if grouped(&v, ',') && (v.matches(',').count() > 1 || !comma_decimal) {
+                v.replace(',', "")
+            } else {
+                v.replace(',', ".")
+            }
+        }
+        (None, Some(_)) if v.matches('.').count() > 1 && grouped(&v, '.') => v.replace('.', ""),
+        _ => v,
+    };
+    normal.parse::<f64>().ok().filter(|x| x.is_finite())
+}
+
 pub fn column_stats(text: &str, d: &Dialect, col: usize) -> Option<(usize, f64, f64, f64, f64)> {
     let rows = rows(text, d);
     let nums: Vec<f64> = rows
         .iter()
         .skip(usize::from(d.header))
         .filter_map(|r| r.get(col))
-        .filter_map(|v| {
-            let v = v.trim().replace(['\u{a0}', ' '], "");
-            v.parse::<f64>().ok().or_else(|| {
-                // `1.234,5` in Turkish and most European locales.
-                v.replace('.', "").replace(',', ".").parse::<f64>().ok()
-            })
-        })
+        .filter_map(|v| number(v, d.delimiter == b';'))
         .collect();
     if nums.is_empty() {
         return None;
@@ -999,6 +1077,50 @@ pub fn pasted(text: &str, d: &Dialect) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sorting_a_mixed_column_is_a_total_order() {
+        // Numbers and text mixed (and NaN): no panic, numbers first.
+        let mut text = String::from("v\n");
+        for i in 0..2000 {
+            text.push_str(&match i % 4 {
+                0 => format!("{}\n", i % 17),
+                1 => format!("{}a\n", i % 13),
+                2 => "nan\n".to_string(),
+                _ => format!("x{}\n", i % 7),
+            });
+        }
+        let d = detect(&text);
+        let order = sorted_order(&text, &d, 0, false);
+        let rows = rows(&text, &d);
+        let first_text = order
+            .iter()
+            .skip(1)
+            .position(|&i| number(&rows[i][0], false).is_none())
+            .unwrap();
+        assert!(
+            order
+                .iter()
+                .skip(1 + first_text)
+                .all(|&i| number(&rows[i][0], false).is_none())
+        );
+    }
+
+    #[test]
+    fn numbers_as_spreadsheets_write_them() {
+        assert_eq!(number("1,234.5", false), Some(1234.5));
+        assert_eq!(number("1.234,5", false), Some(1234.5));
+        assert_eq!(number("1,5", false), Some(1.5));
+        assert_eq!(number("1,234", false), Some(1234.0));
+        assert_eq!(number("1,234", true), Some(1.234));
+        assert_eq!(number("1,234,567", true), Some(1_234_567.0));
+        assert_eq!(number("1.234.567", false), Some(1_234_567.0));
+        assert_eq!(number("12.5", false), Some(12.5));
+        assert_eq!(number("-3", false), Some(-3.0));
+        assert_eq!(number("1 234,5", true), Some(1234.5));
+        assert_eq!(number("abc", false), None);
+        assert_eq!(number("inf", false), None);
+    }
 
     fn apply(text: &str, tx: Transaction) -> String {
         tx.apply(text)

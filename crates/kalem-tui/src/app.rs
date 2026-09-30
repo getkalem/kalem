@@ -2453,7 +2453,11 @@ impl App {
                 last.as_deref(),
                 Some("table.nextField" | "table.previousField" | "table.nextRow" | "table.align")
             );
-            self.doc.type_text(c.encode_utf8(&mut [0; 4]), blank, now);
+            let typed = c.encode_utf8(&mut [0; 4]).to_string();
+            // In a CSV grid a delimiter or quote goes into the value.
+            if self.editor.source || !self.doc.type_in_grid(&typed, now) {
+                self.doc.type_text(&typed, blank, now);
+            }
             self.editor.viewport.goal_x = None;
             self.after_change(true);
             self.update_completion();

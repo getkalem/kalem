@@ -2788,6 +2788,25 @@ fn latex_tables_as_grids() {
 }
 
 #[test]
+fn csv_typing_quotes_the_field() {
+    let text = "name,note\napple,red\n";
+    let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
+    // A comma typed in a field is part of its value: the field is quoted.
+    t.at(text.find("red").unwrap() + 3);
+    t.typ(", ripe");
+    assert_eq!(t.text(), "name,note\napple,\"red, ripe\"\n");
+    // A quote inside the quotes is doubled.
+    t.typ(" \"x");
+    assert_eq!(t.text(), "name,note\napple,\"red, ripe \"\"x\"\n");
+    // In the source view the comma is a delimiter.
+    t.app
+        .run_command("view.toggleSource", serde_json::json!({}));
+    t.at(t.text().find("apple").unwrap() + 5);
+    t.typ(",");
+    assert!(t.text().contains("apple,,"), "{}", t.text());
+}
+
+#[test]
 fn bibtex_grid() {
     let text = "% refs\n@book{knuth84,\n  author = {Donald E. Knuth},\n  title = {The {\\TeX}book},\n  year = 1984,\n}\n\n@article{lamport,\n  author = {Lamport, Leslie},\n  title = {Paxos},\n  year = {1998}\n}\n";
     let mut t = with_file(text, "refs.bib", Config::default(), (70, 10));

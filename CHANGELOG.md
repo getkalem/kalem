@@ -222,6 +222,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The Kalem Book (`book/`): the manual, the specification of every format as Kalem implements it, extending Kalem, and the design, built into a static site by `kalem book build` (search, light and dark themes) and checked by `kalem book check`; the appendices of commands, settings and the command line are generated from the code. A GitHub Actions workflow publishes it to GitHub Pages.
 - A LaTeX corpus: `tests/corpus/fetch-latex.sh` (21 repositories of books, papers, theses and templates at pinned commits), synthetic edge cases, and the `latex_corpus` example that checks round trips, drawing, diagnostics, completion and incremental parsing after random edits on every file.
 - A test that opens the same files in both editors and compares what each shows, line by line.
+- LaTeX: font declarations in a group (`{\bf …}`, `{\itshape …}`, `{\em …}`) style the rest of the group; `\index` entries are dimmed with their arguments; `\texorpdfstring` shows its TeX text and `\ensuremath` its formula.
 ### Changed
 
 - The text column starts at the left edge of the window in both editors; `editor.center_text = true` centers it as before.
@@ -234,6 +235,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Word counts in the status bars are updated after a pause in typing rather than on every keystroke.
 
 ### Fixed
+
+- CSV: a comma, quote or line break typed in a field of the grid goes into its value, the field quoted (it used to split the field); the source view still types raw. Sorting a column that mixes numbers and text could panic; numbers now sort before text in a total order. Column statistics read `1,234.5`, `1.234,5` and `1,234,567` as spreadsheets write them, and leave NaN and infinities out.
+- BibTeX grid: a malformed field or an unclosed entry no longer swallows the rest of the file into one entry.
+- LaTeX: `\addbibresource{refs.json}` is `refs.json`, not `refs.json.bib`.
+- Org export: table.el tables export to HTML (and Markdown) as Emacs writes them, instead of an empty table.
+- `kalem diff-pandoc` reports a file pandoc cannot read and goes on with the others.
+- The Book's generated appendices show `|` and code from the settings' descriptions correctly, and underscores in the Book no longer turn into subscripts.
 
 - LaTeX: a keystroke in a file of a multi-file project took 43 ms in a 1.8 MB file (the text rebuilt from the tree, every file of the project copied); now 8 ms.
 - The terminal editor wraps a table row wider than the screen instead of cutting it, shows an Org document's LaTeX environment as its Unicode approximation when the terminal has no graphics (as the graphical editor shows it as a formula), and frames a block's delimiter deep in nested blocks.

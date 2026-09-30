@@ -151,6 +151,33 @@ fn js_string(s: &str) -> String {
     serde_json::Value::String(s.to_string()).to_string()
 }
 
+/// Text from the code (descriptions written with Markdown's backticks)
+/// as the text of an Org table cell: `code` as Org code, `|` as a
+/// vertical bar Org does not read as a column.
+fn cell(s: &str) -> String {
+    let mut out = String::new();
+    for (i, part) in s.split('`').enumerate() {
+        if i % 2 == 1 && !part.is_empty() && !part.contains('|') && !part.contains('~') {
+            out.push('~');
+            out.push_str(part);
+            out.push('~');
+        } else {
+            out.push_str(&part.replace('|', "\\vert{}"));
+        }
+    }
+    out
+}
+
+/// A value as code in an Org table cell, unless it holds a `|`, which a
+/// cell cannot hold as code.
+fn code(s: &str) -> String {
+    if s.contains('|') || s.contains('~') {
+        s.replace('|', "\\vert{}")
+    } else {
+        format!("~{s}~")
+    }
+}
+
 /// The Org source of a generated chapter.
 fn generated(name: &str) -> Option<String> {
     Some(match name {
@@ -159,24 +186,28 @@ fn generated(name: &str) -> Option<String> {
             let mut cmds: Vec<_> = reg.commands().collect();
             cmds.sort_by(|a, b| a.id.cmp(&b.id));
             let mut s = String::from(
-                "Every command of Kalem, generated from the command registry when the Book is built. The scope says which types of text a command serves (§11.2 of the design); the keys are the default ones, before a keymap profile or your own keymap changes them.\n\n| Command | Title | Scope | Keys |\n|-\n",
+                "#+OPTIONS: ^:{}\nEvery command of Kalem, generated from the command registry when the Book is built. The scope says which types of text a command serves (§11.2 of the design); the keys are the default ones, before a keymap profile or your own keymap changes them.\n\n| Command | Title | Scope | Keys |\n|-\n",
             );
             for c in cmds {
-                let keys: Vec<String> = c.default_keys.iter().map(|k| format!("~{k}~")).collect();
+                let keys: Vec<String> = c
+                    .default_keys
+                    .iter()
+                    .map(|k| code(&k.to_string()))
+                    .collect();
                 let scope = c.scope.as_ref().map_or_else(String::new, |s| s.describe());
                 s.push_str(&format!(
-                    "| ~{}~ | {} | {} | {} |\n",
-                    c.id,
-                    c.display_title().replace('|', "\\vert{}"),
-                    scope.replace('|', "\\vert{}"),
-                    keys.join(" ").replace('|', "\\vert{}")
+                    "| {} | {} | {} | {} |\n",
+                    code(&c.id),
+                    cell(&c.display_title()),
+                    cell(&scope),
+                    keys.join(" ")
                 ));
             }
             s
         }
         "settings" => {
             let mut s = String::from(
-                "Every setting of Kalem, generated from the settings' definitions when the Book is built. Settings are written in =settings.toml= (your own) or =.kalem/settings.toml= (a workspace's), as the chapter on settings describes.\n\n| Setting | Type | Default | What it does |\n|-\n",
+                "#+OPTIONS: ^:{}\nEvery setting of Kalem, generated from the settings' definitions when the Book is built. Settings are written in =settings.toml= (your own) or =.kalem/settings.toml= (a workspace's), as the chapter on settings describes.\n\n| Setting | Type | Default | What it does |\n|-\n",
             );
             for spec in kalem_core::settings::SPECS {
                 use kalem_core::settings::Kind;
@@ -190,11 +221,11 @@ fn generated(name: &str) -> Option<String> {
                     Kind::Map(v) => format!("a table of names to {}", v.join(", ")),
                 };
                 s.push_str(&format!(
-                    "| ~{}~ | {} | ~{}~ | {} |\n",
-                    spec.key,
-                    kind.replace('|', "\\vert{}"),
-                    spec.default.replace('|', "\\vert{}"),
-                    spec.description.replace('|', "\\vert{}")
+                    "| {} | {} | {} | {} |\n",
+                    code(spec.key),
+                    cell(&kind),
+                    code(spec.default),
+                    cell(spec.description)
                 ));
             }
             s
@@ -239,8 +270,10 @@ fn generated(name: &str) -> Option<String> {
     })
 }
 
-/// The HTML body of Org `text` from `file`.
+/// The HTML body of Org `text` from `file`. Underscores stay underscores
+/// (`design_doc2.md`), as `^:{}` asks, unless the chapter says otherwise.
 fn export_body(text: &str, file: &Path) -> std::result::Result<String, String> {
+    let text = &format!("#+OPTIONS: ^:{{}}\n{text}");
     let settings = org_export::Settings {
         body_only: true,
         input_file: Some(std::path::absolute(file).unwrap_or_else(|_| file.to_path_buf())),

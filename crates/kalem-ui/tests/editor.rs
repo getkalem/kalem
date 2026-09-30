@@ -2621,6 +2621,15 @@ fn latex_tables_as_grids(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn csv_typing_quotes_the_field(cx: &mut TestAppContext) {
+    let text = "name,note\napple,red\n";
+    let (e, cx) = open_named(text, "d.csv", || None, cx);
+    at(&e, text.find("red").unwrap() + 3, cx);
+    cx.simulate_input(", ripe");
+    assert_eq!(text_of(&e, cx), "name,note\napple,\"red, ripe\"\n");
+}
+
+#[gpui::test]
 fn bibtex_grid(cx: &mut TestAppContext) {
     let text = "% refs\n@book{knuth84,\n  author = {Donald E. Knuth},\n  title = {The {\\TeX}book},\n  year = 1984,\n}\n\n@article{lamport,\n  author = {Lamport, Leslie},\n  title = {Paxos},\n  year = {1998}\n}\n";
     let (e, cx) = open_named(text, "refs.bib", || None, cx);

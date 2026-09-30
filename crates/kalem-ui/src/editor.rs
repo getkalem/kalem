@@ -2534,7 +2534,10 @@ impl Editor {
         if range.is_empty() && range.start == self.doc.selection.head && text.chars().count() == 1 {
             // A typed character: Org's typing rules.
             if self.doc.selection.anchor == self.doc.selection.head {
-                self.doc.type_text(text, blank, now);
+                // In a CSV grid a delimiter or quote goes into the value.
+                if self.source || !self.doc.type_in_grid(text, now) {
+                    self.doc.type_text(text, blank, now);
+                }
             } else {
                 self.doc.insert_text(text, now);
             }

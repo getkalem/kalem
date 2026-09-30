@@ -24,6 +24,8 @@ pub fn command(name: &str) -> &'static str {
         | "state" | "country" | "streetaddress" | "postcode" | "orcid" | "institute" | "inst"
         | "pacs" => "m",
         "IEEEPARstart" => "mm",
+        "index" | "nomenclature" => "om",
+        "glossary" | "ensuremath" | "indexsee" => "m",
         "ccsdesc" | "ead" | "affil" => "om",
         "frac" | "dfrac" | "tfrac" | "cfrac" | "binom" | "dbinom" | "tbinom" | "stackrel"
         | "overset" | "underset" | "setlength" | "setcounter" | "addtocounter" | "newcounter"

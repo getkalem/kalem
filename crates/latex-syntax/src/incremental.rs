@@ -114,6 +114,10 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
         .iter()
         .any(|d| d.range.start <= re && d.range.end >= rs)
         || old.toggles.iter().any(|&(p, _)| p >= rs && p < re)
+        // An environment left open (a verbatim one's body runs to where
+        // the parser decides): the pre-scan's `\makeatletter` toggles may
+        // lie inside it, where the parser does not read them.
+        || (old.unclosed_env && !old.toggles.is_empty())
     {
         return None;
     }

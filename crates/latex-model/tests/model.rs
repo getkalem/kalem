@@ -212,3 +212,17 @@ fn cached_across_edits() {
     assert_eq!(m.label("sec:fig").unwrap().number.as_deref(), Some("3"));
     assert_eq!(m.label("thm:two").unwrap().number.as_deref(), Some("3.1"));
 }
+
+#[test]
+fn addbibresource_keeps_its_extension() {
+    let p = latex_syntax::parse(
+        "\\addbibresource{refs.json}\n\\addbibresource{more}\n\\bibliography{a,b.bib}\n",
+    );
+    let m = latex_model::Cache::default().model(&p);
+    let files: Vec<&str> = m
+        .bibliography
+        .iter()
+        .flat_map(|b| b.files.iter().map(String::as_str))
+        .collect();
+    assert_eq!(files, ["refs.json", "more.bib", "a.bib", "b.bib"]);
+}

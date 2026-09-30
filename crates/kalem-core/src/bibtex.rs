@@ -48,11 +48,20 @@ fn skip_ws(b: &[u8], mut i: usize) -> usize {
     i
 }
 
+/// Whether an entry starts at `j`: `@` at the start of a line (where an
+/// unbalanced value is taken to end).
+fn entry_start(b: &[u8], j: usize) -> bool {
+    b[j] == b'@' && j > 0 && b[j - 1] == b'\n'
+}
+
 /// Past a braced group opening at `i`.
 fn skip_braces(b: &[u8], i: usize) -> usize {
     let mut depth = 0usize;
     let mut j = i;
     while j < b.len() {
+        if j > i && entry_start(b, j) {
+            return j;
+        }
         match b[j] {
             b'{' => depth += 1,
             b'}' => {
@@ -74,6 +83,9 @@ fn skip_quoted(b: &[u8], i: usize) -> usize {
     let mut depth = 0usize;
     let mut j = i + 1;
     while j < b.len() {
+        if entry_start(b, j) {
+            return j;
+        }
         match b[j] {
             b'{' => depth += 1,
             b'}' => depth = depth.saturating_sub(1),
@@ -130,6 +142,24 @@ pub fn entries(text: &str) -> Vec<Entry> {
         let key = key_start..j;
         let mut fields = Vec::new();
         let mut end = None;
+        // Past what cannot be read: to the next comma or the entry's end
+        // at the top level.
+        let recover = |mut k: usize| -> usize {
+            let mut depth = 0usize;
+            while k < b.len() {
+                match b[k] {
+                    b'{' => depth += 1,
+                    b'}' if depth > 0 => depth -= 1,
+                    c if depth == 0 && (c == b',' || c == close) => return k,
+                    // A new entry at the start of a line.
+                    b'@' if depth == 0 && (k == 0 || b[k - 1] == b'\n') => return k,
+                    _ => {}
+                }
+                k += 1;
+            }
+            k
+        };
+        let mut next_entry = None;
         loop {
             j = skip_ws(b, j);
             while j < b.len() && b[j] == b',' {
@@ -142,14 +172,21 @@ pub fn entries(text: &str) -> Vec<Entry> {
                 end = Some(j);
                 break;
             }
+            // An entry left open: it ends where the next one starts.
+            if b[j] == b'@' && (j == 0 || b[j - 1] == b'\n') {
+                next_entry = Some(j);
+                break;
+            }
             let n = j..ident_end(b, j);
             if n.is_empty() {
-                // Not a field: give up on this entry here.
-                break;
+                // Not a field: skipped.
+                j = recover(j + 1);
+                continue;
             }
             j = skip_ws(b, n.end);
             if b.get(j) != Some(&b'=') {
-                break;
+                j = recover(j);
+                continue;
             }
             j = skip_ws(b, j + 1);
             let v_start = j;
@@ -179,15 +216,24 @@ pub fn entries(text: &str) -> Vec<Entry> {
             j = v_end;
         }
         let Some(close_at) = end else {
-            // An entry left open: what was read is kept, to the end.
+            // An entry left open: what was read is kept, to the next entry
+            // or the end.
+            let stop = next_entry.unwrap_or(b.len());
+            let last = text[..stop].trim_end().len().max(at + 1);
             out.push(Entry {
-                range: at..b.len(),
+                range: at..last,
                 kind,
                 key,
                 fields,
-                close: b.len(),
+                close: last,
             });
-            break;
+            match next_entry {
+                Some(n) => {
+                    i = n;
+                    continue;
+                }
+                None => break,
+            }
         };
         out.push(Entry {
             range: at..close_at + 1,
@@ -738,6 +784,17 @@ mod tests {
         d.bib_sort = Some((4, true));
         let lines = shown_lines(&d).unwrap();
         assert_eq!(*lines, vec![0, 1, 9, 3]);
+    }
+
+    #[test]
+    fn malformed_entries_do_not_swallow_the_rest() {
+        let bib = "@book{a,\n  author = {A},\n  junk here,\n  year = 2000,\n}\n\n@article{b,\n  title = {Open\n\n@misc{c,\n  title = {C}\n}\n";
+        let es = entries(bib);
+        let keys: Vec<&str> = es.iter().map(|e| &bib[e.key.clone()]).collect();
+        assert_eq!(keys, ["a", "b", "c"]);
+        // The bad field skipped, the good ones read.
+        assert!(es[0].field(bib, "year").is_some());
+        assert_eq!(cells(bib, &es[2])[3], "C");
     }
 
     #[test]
