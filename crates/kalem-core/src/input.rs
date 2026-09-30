@@ -126,7 +126,7 @@ pub fn link_at(doc: &Document, pos: usize) -> Option<LinkAction> {
         .token_at_offset(TextSize::from(pos.min(len - 1) as u32))
         .right_biased()?;
     let node = tok.parent_ancestors().find(|a| a.kind() == LINK)?;
-    let link: org_syntax::ast::Link = org_syntax::ast::AstNode::cast(node)?;
+    let link: org_syntax::ast::Link = org_syntax::ast::AstNode::cast(node.clone())?;
     let info = link.info(doc.parse().context());
     let found = |p: Option<usize>| {
         p.map_or_else(
@@ -137,8 +137,16 @@ pub fn link_at(doc: &Document, pos: usize) -> Option<LinkAction> {
     Some(match info.link_type.as_str() {
         "http" | "https" | "ftp" | "mailto" | "news" => LinkAction::Url(info.raw_link.clone()),
         "doi" => LinkAction::Url(format!("https://doi.org/{}", info.path)),
-        "file" | "attachment" => LinkAction::File {
+        "file" => LinkAction::File {
             path: info.path.clone(),
+            search: info.search_option.clone(),
+        },
+        // In the heading's attachment folder.
+        "attachment" => LinkAction::File {
+            path: match org_export::attach::attachment_dir(&node, None) {
+                Some(d) => format!("{}/{}", d.trim_end_matches('/'), info.path),
+                None => info.path.clone(),
+            },
             search: info.search_option.clone(),
         },
         "fuzzy" => found(doc.link_search(&info.path)),
@@ -715,6 +723,17 @@ mod tests {
             })
         );
         assert_eq!(link_at(&doc, 2), None);
+        // An attachment, in its heading's folder.
+        let doc = Document::new(org_syntax::parse(
+            "* A\n:PROPERTIES:\n:ID: abcd\n:END:\n[[attachment:p.pdf]]\n",
+        ));
+        assert_eq!(
+            link_at(&doc, 35),
+            Some(LinkAction::File {
+                path: "data/ab/cd/p.pdf".into(),
+                search: None
+            })
+        );
         let doc = Document::new(org_syntax::parse("x $a^2$ y\n"));
         assert_eq!(
             formula_at(&doc.parse().syntax(), 4).as_deref(),

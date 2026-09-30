@@ -169,34 +169,6 @@ fn attr_org_width(n: &SyntaxNode) -> Option<ImageWidth> {
         })
 }
 
-/// Where `org-attach` keeps the attachments of the heading holding `n`:
-/// its `DIR` property, else `data/` and its `ID` split after two
-/// characters (`org-attach-id-uuid-folder-format`), relative to the
-/// document's folder.
-pub fn attachment_dir(n: &SyntaxNode) -> Option<String> {
-    for h in n
-        .ancestors()
-        .filter_map(<ast::Headline as ast::AstNode>::cast)
-    {
-        let props = h.properties();
-        let get = |k: &str| {
-            props
-                .iter()
-                .find(|(key, _)| key.eq_ignore_ascii_case(k))
-                .map(|(_, v)| v.trim().to_string())
-                .filter(|v| !v.is_empty())
-        };
-        if let Some(d) = get("DIR").or_else(|| get("ATTACH_DIR")) {
-            return Some(d);
-        }
-        if let Some(id) = get("ID") {
-            let split = id.char_indices().nth(2).map_or(id.len(), |(i, _)| i);
-            return Some(format!("data/{}/{}", &id[..split], &id[split..]));
-        }
-    }
-    None
-}
-
 /// The display text of a widget (the object replacement character).
 pub const PLACEHOLDER: &str = "\u{FFFC}";
 
@@ -493,7 +465,7 @@ fn widget_of(n: &SyntaxNode, ctx: &ParseContext) -> Option<Widget> {
                 return None;
             }
             let path = match info.link_type.as_str() {
-                "attachment" => match attachment_dir(n) {
+                "attachment" => match org_export::attach::attachment_dir(n, None) {
                     Some(d) => format!("{}/{}", d.trim_end_matches('/'), info.path),
                     None => info.path,
                 },

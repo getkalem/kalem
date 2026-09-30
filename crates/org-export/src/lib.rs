@@ -3,7 +3,7 @@
 //! HTML, Markdown, plain text and LaTeX the way `ox-html`, `ox-md`,
 //! `ox-ascii` and `ox-latex` write them (design §10, T2.3).
 
-mod attach;
+pub mod attach;
 pub mod babel;
 pub mod cite;
 mod cite_latex;
