@@ -13,23 +13,23 @@ Harmonik toplamların karesi, analizde en çok çalışılan dizilerden biridir 
 
 \h1[#sonuc]{Ana sonuç}
 
-\block[.theorem #thm:sinir title="Teleskopik üst sınır"]{
-Her $n \ge 1$ için
+\block[#thm:sinir .theorem title="Teleskopik üst sınır"]{
+  Her $n \ge 1$ için
 
-\eq[#eq:sinir]{
+  \eq[#eq:sinir]{
 H_n^{(2)} \le 2 - \frac{1}{n}.
-}
+  }
 }
 
 \block[.proof]{
-$k \ge 2$ için $\frac{1}{k^2} \le \frac{1}{k(k-1)} = \frac{1}{k-1} - \frac{1}{k}$ olduğundan toplam teleskopiktir:
+  $k \ge 2$ için $\frac{1}{k^2} \le \frac{1}{k(k-1)} = \frac{1}{k-1} - \frac{1}{k}$ olduğundan toplam teleskopiktir:
 
-\eq[#eq:teleskop env=align]{
+  \eq[#eq:teleskop env=align]{
 H_n^{(2)} &\le 1 + \sum_{k=2}^{n} \left( \frac{1}{k-1} - \frac{1}{k} \right) \\
 &= 1 + 1 - \frac{1}{n} = 2 - \frac{1}{n}.
-}
+  }
 
-Bu, \ref[eq:sinir] eşitsizliğini verir.
+  Bu, \ref[eq:sinir] eşitsizliğini verir.
 }
 
 Sınır keskin değildir: Euler'in ünlü sonucu \cite[euler1740] limiti verir,
@@ -62,4 +62,4 @@ Sınır keskin değildir: Euler'in ünlü sonucu \cite[euler1740] limiti verir,
 
 Grafik, farkın $n$ büyüdükçe $2 - \pi^2/6 \approx 0{,}355$ değerine yaklaştığını gösterir.\fn{Fark artan bir dizidir; kanıt okuyucuya bırakılmıştır.}
 
-\bibliography[title="Kaynaklar"]
+\bibliography[title=Kaynaklar]

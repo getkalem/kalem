@@ -1,0 +1,20 @@
+{
+  "blocks": [
+    {
+      "p": [
+        {
+          "attrs": [
+            {
+              "flag": "attributes"
+            }
+          ],
+          "cmd": "name",
+          "inline": [
+            "content"
+          ]
+        }
+      ]
+    }
+  ],
+  "version": null
+}

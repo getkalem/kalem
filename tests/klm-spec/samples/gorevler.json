@@ -1,0 +1,611 @@
+{
+  "blocks": [
+    {
+      "attrs": [
+        {
+          "key": "title",
+          "value": "Kalem Görevleri"
+        },
+        {
+          "key": "author",
+          "value": "Mehmet Şekercioğlu"
+        },
+        {
+          "key": "lang",
+          "value": "tr"
+        },
+        {
+          "key": "style",
+          "value": "notes"
+        },
+        {
+          "key": "todo",
+          "value": "TODO NEXT WAIT | DONE CANCELLED"
+        }
+      ],
+      "cmd": "meta"
+    },
+    {
+      "attrs": [
+        {
+          "id": "kalem-0-1"
+        },
+        {
+          "key": "todo",
+          "value": "NEXT"
+        },
+        {
+          "key": "priority",
+          "value": "A"
+        },
+        {
+          "key": "tags",
+          "value": "kalem,release"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Kalem 0.1 sürümü"
+          ]
+        }
+      ],
+      "cmd": "h1"
+    },
+    {
+      "cmd": "props",
+      "lines": [
+        "deadline=<2026-12-20 Sun>",
+        "category=Kalem",
+        "client=getkalem"
+      ]
+    },
+    {
+      "p": [
+        "Sürümün önündeki üç engel: README, imzalı paketler ve on kullanıcı."
+      ]
+    },
+    {
+      "attrs": [
+        {
+          "id": "readme"
+        },
+        {
+          "key": "todo",
+          "value": "DONE"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "README'yi güncelle"
+          ]
+        }
+      ],
+      "cmd": "h2"
+    },
+    {
+      "cmd": "props",
+      "lines": [
+        "closed=<2026-09-29 Tue 18:40>",
+        "effort=2h"
+      ]
+    },
+    {
+      "blocks": [
+        {
+          "attrs": [
+            {
+              "key": "state",
+              "value": "DONE"
+            },
+            {
+              "key": "from",
+              "value": "TODO"
+            },
+            {
+              "key": "at",
+              "value": "<2026-09-29 Tue 18:40>"
+            }
+          ],
+          "blocks": [
+            {
+              "p": [
+                "Durum paragrafı ve GIF eklendi."
+              ]
+            }
+          ],
+          "cmd": "entry"
+        },
+        {
+          "attrs": [
+            {
+              "key": "from",
+              "value": "<2026-09-29 Tue 16:10>"
+            },
+            {
+              "key": "to",
+              "value": "<2026-09-29 Tue 18:40>"
+            }
+          ],
+          "cmd": "clock"
+        }
+      ],
+      "cmd": "log"
+    },
+    {
+      "attrs": [
+        {
+          "id": "gif"
+        },
+        {
+          "key": "todo",
+          "value": "TODO"
+        },
+        {
+          "key": "tags",
+          "value": "release"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "README için GIF kaydı"
+          ]
+        }
+      ],
+      "cmd": "h2"
+    },
+    {
+      "cmd": "props",
+      "lines": [
+        "effort=3h"
+      ]
+    },
+    {
+      "attrs": [
+        {
+          "id": "paketler"
+        },
+        {
+          "key": "todo",
+          "value": "TODO"
+        },
+        {
+          "key": "priority",
+          "value": "B"
+        },
+        {
+          "key": "tags",
+          "value": "release"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Üç platformda imzalı paket"
+          ]
+        }
+      ],
+      "cmd": "h2"
+    },
+    {
+      "cmd": "props",
+      "lines": [
+        "scheduled=<2026-10-07 Tue>",
+        "effort=1d"
+      ]
+    },
+    {
+      "blocks": [
+        {
+          "attrs": [
+            {
+              "key": "from",
+              "value": "<2026-09-30 Wed 09:00>"
+            },
+            {
+              "key": "to",
+              "value": "<2026-09-30 Wed 11:30>"
+            }
+          ],
+          "cmd": "clock"
+        }
+      ],
+      "cmd": "log"
+    },
+    {
+      "blocks": [
+        {
+          "attrs": [
+            {
+              "key": "state",
+              "value": "done"
+            }
+          ],
+          "blocks": [
+            {
+              "p": [
+                "macOS: sertifika alındı"
+              ]
+            }
+          ],
+          "cmd": "li"
+        },
+        {
+          "attrs": [
+            {
+              "key": "state",
+              "value": "done"
+            }
+          ],
+          "blocks": [
+            {
+              "p": [
+                "macOS: notarizasyon"
+              ]
+            }
+          ],
+          "cmd": "li"
+        },
+        {
+          "attrs": [
+            {
+              "key": "state",
+              "value": "todo"
+            }
+          ],
+          "blocks": [
+            {
+              "p": [
+                "Windows: MSI ve imza"
+              ]
+            }
+          ],
+          "cmd": "li"
+        },
+        {
+          "attrs": [
+            {
+              "key": "state",
+              "value": "todo"
+            }
+          ],
+          "blocks": [
+            {
+              "p": [
+                "Linux: Flatpak"
+              ]
+            }
+          ],
+          "cmd": "li"
+        }
+      ],
+      "cmd": "ul"
+    },
+    {
+      "attrs": [
+        {
+          "id": "kullanicilar"
+        },
+        {
+          "key": "todo",
+          "value": "WAIT"
+        },
+        {
+          "key": "tags",
+          "value": "community"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "On kullanıcıdan geri bildirim"
+          ]
+        }
+      ],
+      "cmd": "h2"
+    },
+    {
+      "cmd": "props",
+      "lines": [
+        "scheduled=<2026-10-13 Tue>"
+      ]
+    },
+    {
+      "p": [
+        "Org listesine duyuru (",
+        {
+          "attrs": [
+            {
+              "value": "duyuru"
+            }
+          ],
+          "cmd": "ref"
+        },
+        ") hazır; gönderim paketlerden sonra."
+      ]
+    },
+    {
+      "attrs": [
+        {
+          "id": "duyuru"
+        },
+        {
+          "key": "todo",
+          "value": "TODO"
+        },
+        {
+          "key": "tags",
+          "value": "community"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Duyuru metni"
+          ]
+        }
+      ],
+      "cmd": "h1"
+    },
+    {
+      "p": [
+        "Taslak ",
+        {
+          "attrs": [
+            {
+              "value": "file:docs/announcements/org-mailing-list-draft.md"
+            }
+          ],
+          "cmd": "link",
+          "inline": [
+            "depoda"
+          ]
+        },
+        ". Son okumayı ",
+        {
+          "attrs": [
+            {
+              "value": "<2026-10-08 Wed>"
+            }
+          ],
+          "cmd": "date"
+        },
+        " için planladım."
+      ]
+    },
+    {
+      "attrs": [
+        {
+          "id": "zaman"
+        },
+        {
+          "key": "tags",
+          "value": "admin"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Haftalık saatler"
+          ]
+        }
+      ],
+      "cmd": "h1"
+    },
+    {
+      "attrs": [
+        {
+          "id": "tbl:saatler"
+        },
+        {
+          "key": "cols",
+          "value": "l r r r"
+        },
+        {
+          "key": "header",
+          "value": "1"
+        }
+      ],
+      "blocks": [
+        {
+          "blocks": [
+            {
+              "p": [
+                {
+                  "cmd": "th",
+                  "inline": [
+                    "Hafta"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "th",
+                  "inline": [
+                    "Kod"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "th",
+                  "inline": [
+                    "Belge"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "th",
+                  "inline": [
+                    "Toplam"
+                  ]
+                }
+              ]
+            }
+          ],
+          "cmd": "tr"
+        },
+        {
+          "blocks": [
+            {
+              "p": [
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "39"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "22"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "6"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "28"
+                  ]
+                }
+              ]
+            }
+          ],
+          "cmd": "tr"
+        },
+        {
+          "blocks": [
+            {
+              "p": [
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "40"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "18"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "9"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "27"
+                  ]
+                }
+              ]
+            }
+          ],
+          "cmd": "tr"
+        },
+        {
+          "blocks": [
+            {
+              "p": [
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "41"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "20"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "7"
+                  ]
+                },
+                " ",
+                {
+                  "cmd": "td",
+                  "inline": [
+                    "27"
+                  ]
+                }
+              ]
+            }
+          ],
+          "cmd": "tr"
+        },
+        {
+          "blocks": [
+            {
+              "blocks": [
+                {
+                  "p": [
+                    {
+                      "cmd": "td",
+                      "inline": [
+                        "Toplam"
+                      ]
+                    },
+                    " ",
+                    {
+                      "cmd": "td",
+                      "inline": [
+                        "60"
+                      ]
+                    },
+                    " ",
+                    {
+                      "cmd": "td",
+                      "inline": [
+                        "22"
+                      ]
+                    },
+                    " ",
+                    {
+                      "cmd": "td",
+                      "inline": [
+                        "82"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "cmd": "tr"
+            }
+          ],
+          "cmd": "tfoot"
+        },
+        {
+          "cmd": "formulas",
+          "lines": [
+            "D = B + C",
+            "B@foot = SUM(B)",
+            "C@foot = SUM(C)",
+            "D@foot = SUM(D)"
+          ]
+        }
+      ],
+      "cmd": "table"
+    }
+  ],
+  "version": "1.0"
+}

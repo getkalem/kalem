@@ -1,0 +1,50 @@
+{
+  "blocks": [
+    {
+      "attrs": [
+        {
+          "key": "title",
+          "value": "On the Shape of Notes"
+        },
+        {
+          "key": "author",
+          "value": "Mehmet Şekercioğlu"
+        },
+        {
+          "key": "lang",
+          "value": "tr"
+        },
+        {
+          "key": "style",
+          "value": "article"
+        },
+        {
+          "key": "date",
+          "value": "<2026-10-03 Sat>"
+        }
+      ],
+      "cmd": "meta"
+    },
+    {
+      "attrs": [
+        {
+          "id": "intro"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Introduction"
+          ]
+        }
+      ],
+      "cmd": "h1"
+    },
+    {
+      "p": [
+        "Text."
+      ]
+    }
+  ],
+  "version": "1.0"
+}
