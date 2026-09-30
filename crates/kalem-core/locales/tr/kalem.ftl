@@ -729,6 +729,7 @@ cmd-latex-list-outdent = Öğeyi Dışarı Al
 cmd-latex-nextProblem = Sonraki Sorun
 cmd-latex-previousProblem = Önceki Sorun
 cmd-latex-cancelBuild = Derlemeyi İptal Et
+cmd-latex-problems = Sorunları Göster
 cmd-latex-fix = Hızlı Düzeltme
 cmd-latex-format-bold = Kalın
 cmd-latex-format-italic = Vurgu

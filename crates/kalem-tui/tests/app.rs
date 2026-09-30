@@ -3104,3 +3104,18 @@ fn long_unknown_environment_folds() {
     t.at(text.find("(0,3)").unwrap());
     assert!(screen(&mut t).join("\n").contains("(0,3)"));
 }
+
+#[test]
+fn latex_problems_list() {
+    let text = "One {\\bf x}.\nTwo \\ref{nope}.\n";
+    let mut t = with_file(text, "p.tex", Config::default(), (60, 10));
+    t.app.doc.update_latex_diagnostics();
+    t.at(0);
+    t.app.run_command("latex.problems", serde_json::json!({}));
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("1: ⓘ") && rows.contains("2: ⚠"), "{rows}");
+    // The second item: to the unknown label.
+    t.key(KeyCode::Down, KeyModifiers::NONE);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.selection.head, text.find("\\ref").unwrap());
+}
