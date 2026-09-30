@@ -687,7 +687,7 @@ Markdown and plain text
 - [x] T2.11.76 `kalem export FILE.md` treats Markdown as Org without a warning (code)
 - [x] T2.11.77 Markdown import uses pandoc's `markdown` reader, not `gfm` or `commonmark_x`; `.gfm` files are not mapped (code)
 - [x] T2.11.78 Markdown hazards of plain-text editing undocumented (trim trailing whitespace, Sort Lines, Join Lines) (book)
-- [ ] T2.11.79 `.h` and `.m` are highlighted as Objective-C; TOML and INI get no highlighting; TypeScript is highlighted as JavaScript (code)
+- [x] T2.11.79 `.h` and `.m` are highlighted as Objective-C; TOML and INI get no highlighting; TypeScript is highlighted as JavaScript (code)
 
 The manual, commands and settings
 - [ ] T2.11.80 Menus exist only on macOS: gpui's Linux and Windows back-ends store the menus and draw nothing; Kalem has no menu bar of its own there, and the terminal editor has none; the Book and the README send readers to menus (code, book)

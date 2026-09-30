@@ -24,3 +24,10 @@ its revision and its license.
 Kalem embeds the KaTeX fonts for formulas (SIL Open Font License 1.1),
 and uses the Rust crates
 listed in =Cargo.lock=, each under its own license.
+
+The highlighter embeds Sublime Text syntax definitions: the default set
+that the =syntect= crate ships (from Sublime Text's =Packages=
+repository and others, each under its own license, mostly MIT-style),
+and the further syntaxes of =bat= that the =two-face= crate ships, each
+under the license its source repository gives; =bat='s
+=assets/syntaxes= and its acknowledgements file list them.
