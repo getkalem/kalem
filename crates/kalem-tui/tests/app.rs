@@ -3166,3 +3166,45 @@ fn latex_display_math_over_lines_in_the_terminal() {
     assert!(rows.contains("x² + y") && rows.contains("(1)"), "{rows}");
     assert!(rows.contains("After."), "{rows}");
 }
+
+#[test]
+fn latex_root_found_again_after_a_tex_root_line() {
+    let dir = std::env::temp_dir().join(format!("kalem-tui-magic-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    // A main document without `\documentclass`: found only by the line.
+    std::fs::write(
+        dir.join("main.tex"),
+        "\\section{One}\\label{one}\n\\input{part}\n",
+    )
+    .unwrap();
+    let path = dir.join("part.tex");
+    std::fs::write(&path, "See \\ref{one}.\n").unwrap();
+    let app = App::with_keymap(
+        Some(&path),
+        Config::default(),
+        Caps::full(),
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
+    let term = Terminal::new(TestBackend::new(50, 6)).unwrap();
+    let mut t = T {
+        app,
+        term,
+        dir: Some(dir),
+    };
+    t.app.doc.wait_for_latex_project();
+    t.app.doc.poll();
+    t.at(t.text().len());
+    assert!(screen(&mut t).join("\n").contains("See ??."));
+    // The line added: the root found, the reference resolved.
+    t.at(0);
+    t.typ("% !TEX root = main.tex");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.app.doc.wait_for_latex_project();
+    t.app.doc.poll();
+    t.at(t.text().len());
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("See 1."), "{rows}");
+}

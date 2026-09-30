@@ -41,6 +41,19 @@ pub struct LatexState {
         std::path::PathBuf,
         std::sync::mpsc::Receiver<std::path::PathBuf>,
     )>,
+    /// The file, and its `% !TEX root` line when the root was looked for.
+    file: Option<(std::path::PathBuf, Option<String>)>,
+}
+
+/// The `% !TEX root = …` line among the first lines of `text`, as written.
+fn magic_root_line(text: &str) -> Option<String> {
+    text.lines()
+        .take(20)
+        .find(|l| {
+            let l = l.trim_start();
+            l.starts_with('%') && l.to_ascii_lowercase().contains("tex root")
+        })
+        .map(|l| l.trim().to_string())
 }
 
 /// A document's project: the other files from the disk (read again when
@@ -144,6 +157,7 @@ impl LatexState {
             diagnostics: crate::latex_check::Live::default(),
             project: RefCell::new(None),
             root: None,
+            file: None,
         }
     }
 
@@ -191,6 +205,24 @@ impl LatexState {
             let _ = tx.send(root);
         });
         self.root = Some((path.to_path_buf(), rx));
+        self.file = Some((path.to_path_buf(), magic_root_line(text)));
+    }
+
+    /// After an edit of the text (now `text`) that started at `at`: the
+    /// root looked for again when the `% !TEX root` line changed.
+    pub(crate) fn check_root(&mut self, text: &str, at: usize) {
+        // Only an edit among the first lines can change it.
+        if at > 4096 {
+            return;
+        }
+        let Some((path, magic)) = &self.file else {
+            return;
+        };
+        if magic_root_line(text) != *magic {
+            let path = path.clone();
+            *self.project.borrow_mut() = None;
+            self.find_project(&path, text);
+        }
     }
 
     /// Takes the root document when it is found; `true` then.

@@ -1207,6 +1207,9 @@ impl DocumentState {
         if let Some(l) = &mut self.latex {
             l.edit(text, edit.as_ref());
             l.diagnostics.map(tx, version);
+            if let Some(first) = tx.edits.first() {
+                l.check_root(text, first.range.start);
+            }
         }
         let Some(org) = &mut self.org else { return };
         let current =
