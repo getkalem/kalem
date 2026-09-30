@@ -241,6 +241,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Highlighting knows about two hundred languages (bat's syntax definitions added to syntect's): TOML, INI, TypeScript, Kotlin, Swift, Dockerfile, Nix and others are coloured; `.h` files are C, no longer Objective-C.
 - `kalem export` warns when the file it reads as Org is Markdown, CSV or LaTeX. Markdown import reads the file with pandoc's `gfm` reader (CommonMark with GitHub's extensions, as Kalem's Markdown mode) instead of Pandoc's Markdown, and `.gfm` files can be imported.
 - Import Table decodes the file as the editors do and reads a CSV file with another delimiter than comma or tab, or with line breaks in quoted fields, as CSV mode reads it instead of making one column.
 - Emacs file variables: a `-*-` line on the second line after `#!`, a `Local Variables:` block's `mode:` (which beats the file name, as in Emacs) and `coding:` in either are read; a tab-separated `.txt` file (Excel's "Unicode Text") opens as CSV.

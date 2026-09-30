@@ -274,11 +274,14 @@ open).
 Code is highlighted by =kalem-highlight=, one engine for plain text
 files and for Org source blocks (D16). It uses syntect, which reads
 Sublime Text syntax definitions, with pure Rust regular expressions.
-The syntax definitions are syntect's default set, built into Kalem:
-about seventy languages, among them C, C++, Rust, Go, Java, JavaScript,
-Python, Ruby, Perl, PHP, Haskell, OCaml, Lisp, Clojure, Scala, Erlang,
-Lua, R, MATLAB, SQL, shell, HTML, CSS, XML, YAML, JSON, Markdown, LaTeX,
-Makefiles, DOT and diffs.
+The syntax definitions are syntect's default set with those of =bat=
+added (the =two-face= crate), built into Kalem: about two hundred
+languages, among them C, C++, Rust, Go, Java, Kotlin, Swift, JavaScript,
+TypeScript, Python, Ruby, Perl, PHP, Haskell, OCaml, Lisp, Clojure,
+Scala, Erlang, Elixir, Zig, Nix, Lua, R, MATLAB, SQL, shell, fish, HTML,
+CSS, SCSS, XML, YAML, TOML, INI, JSON, Markdown, LaTeX, Dockerfiles,
+Makefiles, CMake, DOT and diffs; the chapter /Plain text and code/ lists
+them all.
 
 ** Finding the language
 
@@ -286,7 +289,7 @@ A language name is looked up, ignoring case:
 
 1. in a table of Org's source block names that differ from syntect's:
    =sh=, =shell=, =bash= and =zsh= are shell, =elisp= and =emacs-lisp=
-   are Lisp, =js= and =ts= JavaScript, =py= Python, =tex= LaTeX,
+   are Lisp, =js= JavaScript, =ts= TypeScript, =h= C, =py= Python, =tex= LaTeX,
    =sqlite= SQL, =dot= Graphviz, and so on;
 2. then as a syntax's name token;
 3. then as a file extension.

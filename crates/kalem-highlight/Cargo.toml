@@ -10,6 +10,8 @@ authors.workspace = true
 
 [dependencies]
 syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
+# bat's syntaxes on top of syntect's (TOML, INI, TypeScript and others).
+two-face = { version = "0.5", default-features = false, features = ["syntect-fancy"] }
 
 [lints]
 workspace = true

@@ -46,7 +46,9 @@ pub struct Span {
     pub kind: Kind,
 }
 
-static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
+/// syntect's syntaxes with bat's added (`two-face`): TOML, INI,
+/// TypeScript, and others syntect lacks.
+static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(two_face::syntax::extra_newlines);
 
 /// Org's language names (`org-src-lang-modes`) that differ from the syntax
 /// names or extensions.
@@ -62,8 +64,14 @@ const ALIASES: &[(&str, &str)] = &[
     ("clojure", "Clojure"),
     ("js", "JavaScript"),
     ("javascript", "JavaScript"),
-    ("ts", "JavaScript"),
-    ("typescript", "JavaScript"),
+    ("ts", "TypeScript"),
+    ("typescript", "TypeScript"),
+    ("tsx", "TypeScriptReact"),
+    // `c-or-c++-mode` in Emacs; C here.
+    ("h", "C"),
+    ("toml", "TOML"),
+    ("ini", "INI"),
+    ("conf", "INI"),
     ("python", "Python"),
     ("py", "Python"),
     ("rust", "Rust"),
@@ -431,6 +439,28 @@ pub fn highlight(language: Language, text: &str) -> Vec<Vec<Span>> {
 #[cfg(test)]
 mod window_tests {
     use super::*;
+
+    #[test]
+    fn languages_beyond_syntect() {
+        // bat's syntaxes: TOML, INI and TypeScript are their own, `.h` C.
+        let name = |n: &str| Language::find(n).map(Language::name);
+        assert_eq!(name("toml"), Some("TOML"));
+        assert_eq!(name("ini"), Some("INI"));
+        assert_eq!(name("ts"), Some("TypeScript"));
+        assert_eq!(name("h"), Some("C"));
+        assert_eq!(name("m"), Some("Objective-C"));
+        // Their regular expressions work with fancy-regex.
+        let toml = highlight(Language::find("toml").unwrap(), "# c\n[a]\nk = \"v\"\n");
+        assert!(toml[0].iter().any(|s| s.kind == Kind::Comment), "{toml:?}");
+        assert!(toml[2].iter().any(|s| s.kind == Kind::String), "{toml:?}");
+        let ts = highlight(
+            Language::find("ts").unwrap(),
+            "interface P { x: number }\nconst p: P = { x: 1 };\n",
+        );
+        assert!(ts[0].iter().any(|s| s.kind == Kind::Keyword), "{ts:?}");
+        let ini = highlight(Language::find("ini").unwrap(), "; c\n[s]\nk=v\n");
+        assert!(ini[0].iter().any(|s| s.kind == Kind::Comment), "{ini:?}");
+    }
 
     #[test]
     fn windows_of_a_large_text() {
