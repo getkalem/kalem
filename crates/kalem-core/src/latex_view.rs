@@ -2142,6 +2142,178 @@ fn nameref(model: &latex_model::Model, l: &latex_model::Label) -> String {
     }
 }
 
+/// The keys a document cites, in the order of their first citation
+/// (`\nocite` too; `\nocite{*}` adds the rest of the bibliography there).
+fn cited_keys(model: &latex_model::Model, bib: &org_cite::Bibliography) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for c in &model.citations {
+        for k in &c.keys {
+            if k == "*" {
+                for e in bib.entries() {
+                    if seen.insert(e.key.clone()) {
+                        out.push(e.key.clone());
+                    }
+                }
+            } else if seen.insert(k.clone()) {
+                out.push(k.clone());
+            }
+        }
+    }
+    out
+}
+
+/// A citation as the document's `\bibliographystyle` prints it (see
+/// [`crate::bibstyle`]), with natbib's commands when natbib is loaded; `None`
+/// for a style Kalem does not label.
+fn styled_citation(
+    model: &latex_model::Model,
+    bib: &org_cite::Bibliography,
+    command: &str,
+    opts: &[String],
+    keys: &str,
+) -> Option<(String, bool)> {
+    use crate::bibstyle::Kind;
+    let kind = crate::bibstyle::kind(model.bibliography_style.as_deref()?)?;
+    let natbib = model.packages.iter().any(|p| p.name == "natbib");
+    if command == "nocite" {
+        return Some((String::new(), true));
+    }
+    let labels = crate::bibstyle::labels(kind, &cited_keys(model, bib), bib);
+    let keys: Vec<&str> = keys
+        .split(',')
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+        .collect();
+    let all = keys.iter().all(|k| labels.contains_key(*k));
+    let tilde = |s: &str| s.replace('~', "\u{a0}");
+    // natbib: `[pre][post]`; one optional argument is the post note.
+    let (pre, post) = match opts {
+        [post] => (None, Some(tilde(post))),
+        [pre, post, ..] => (Some(tilde(pre)), Some(tilde(post))),
+        [] => (None, None),
+    };
+    let pre = pre.filter(|p| !p.trim().is_empty());
+    let post = post.filter(|p| !p.trim().is_empty());
+    let wrap = |body: String| {
+        let body = match &pre {
+            Some(p) => format!("{p} {body}"),
+            None => body,
+        };
+        match &post {
+            Some(p) => format!("{body}, {p}"),
+            None => body,
+        }
+    };
+    let shown = match kind {
+        Kind::Numeric { .. } | Kind::Alpha => {
+            let marks: Vec<String> = keys
+                .iter()
+                .map(|k| {
+                    labels
+                        .get(*k)
+                        .map_or_else(|| "?".to_string(), |l| l.mark.clone())
+                })
+                .collect();
+            match command {
+                "citet" | "Citet" if natbib => keys
+                    .iter()
+                    .zip(&marks)
+                    .map(|(k, m)| {
+                        let who = labels.get(*k).map_or("?", |l| l.names.as_str());
+                        format!("{who} [{m}]")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                "citeauthor" | "Citeauthor" if natbib => keys
+                    .iter()
+                    .map(|k| labels.get(*k).map_or("?".into(), |l| l.names.clone()))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                "citealt" | "citealp" if natbib => wrap(marks.join(", ")),
+                "citenum" => marks.join(", "),
+                _ => format!("[{}]", wrap(marks.join(", "))),
+            }
+        }
+        Kind::AuthorYear => {
+            let entry = |k: &str| {
+                labels
+                    .get(k)
+                    .map_or(("?".to_string(), "?".to_string()), |l| {
+                        (l.names.clone(), l.year.clone())
+                    })
+            };
+            // Consecutive keys of one author name them once: "Knuth,
+            // 1984a,b", "Knuth, 1984, 1990".
+            let grouped = |sep: &str| -> String {
+                let mut out: Vec<(String, Vec<String>)> = Vec::new();
+                for k in &keys {
+                    let (who, year) = entry(k);
+                    match out.last_mut() {
+                        Some((w, years)) if *w == who && who != "?" => {
+                            let prev = years.last().cloned().unwrap_or_default();
+                            let base = |y: &str| {
+                                y.trim_end_matches(|c: char| c.is_ascii_lowercase())
+                                    .to_string()
+                            };
+                            if base(&prev) == base(&year) && year.len() > base(&year).len() {
+                                years.push(year[base(&year).len()..].to_string());
+                            } else {
+                                years.push(year);
+                            }
+                        }
+                        _ => out.push((who, vec![year])),
+                    }
+                }
+                out.into_iter()
+                    .map(|(w, ys)| format!("{w}{sep}{}", ys.join(",")))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            match command {
+                "citep" | "Citep" => format!("[{}]", wrap(grouped(", "))),
+                "citealp" => wrap(grouped(", ")),
+                "citealt" => wrap(grouped(" ")),
+                "citeauthor" | "Citeauthor" => keys
+                    .iter()
+                    .map(|k| entry(k).0)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                "citeyear" => keys
+                    .iter()
+                    .map(|k| entry(k).1)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                "citeyearpar" => format!(
+                    "[{}]",
+                    wrap(
+                        keys.iter()
+                            .map(|k| entry(k).1)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                ),
+                // `\cite` is `\citet` in author-year mode.
+                _ => {
+                    let items: Vec<String> = keys
+                        .iter()
+                        .map(|k| entry(k))
+                        .map(|(who, year)| {
+                            let year = match (&pre, &post, keys.len()) {
+                                (_, _, 1) => wrap(year),
+                                _ => year,
+                            };
+                            format!("{who} [{year}]")
+                        })
+                        .collect();
+                    items.join(", ")
+                }
+            }
+        }
+    };
+    Some((shown, all))
+}
+
 /// What a reference, a citation or a link shows, and whether it resolved.
 fn chip(
     doc: &crate::DocumentState,
@@ -2196,6 +2368,9 @@ fn chip(
                 .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
                 .collect();
             let bib = crate::cite::load(&files);
+            if let Some(shown) = styled_citation(model, &bib, name, &opts, &first) {
+                return shown;
+            }
             let mut all = true;
             let (pre, post) = match opts.as_slice() {
                 [post] => (None, Some(post.clone())),
@@ -3600,6 +3775,34 @@ mod tests {
         // A missing file stays as its source.
         assert_eq!(shown(&d, 6, end).display(), "\\includegraphics{missing}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn citations_as_bibtex_styles_print_them() {
+        // `tests/latex/citations`: one document per style citing
+        // `refs.bib`, each line after `\clearpage` a citation, and what
+        // pdflatex and bibtex print for it.
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/latex/citations/");
+        let mut wrong = Vec::new();
+        for style in ["plain", "unsrt", "alpha", "abbrv", "ieeetr", "plainnat"] {
+            let text = std::fs::read_to_string(format!("{dir}{style}.tex")).unwrap();
+            let expected = std::fs::read_to_string(format!("{dir}{style}.expected")).unwrap();
+            let mut d = doc(&text);
+            d.meta.path = Some(std::path::PathBuf::from(format!("{dir}{style}.tex")));
+            let first = text[..text.find("\\clearpage").unwrap()].lines().count() + 1;
+            let end = Some(text.len());
+            for (i, want) in expected.lines().enumerate() {
+                let line = first + i;
+                let got = shown(&d, line, end).display().replace('\u{a0}', " ");
+                if got.trim() != want.trim() {
+                    wrong.push(format!(
+                        "{style}: {}: LaTeX {want:?}, Kalem {got:?}",
+                        text.lines().nth(line).unwrap_or("")
+                    ));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
     }
 
     #[test]
