@@ -72,6 +72,38 @@ destination, Kalem asks: overwrite, skip, or keep both (the new one becomes
 back the renames, moves and moves to the trash done in this session, the
 last first; it refuses when a file has been put in the way.
 
+A right click on an entry, on the marked entries or on the empty listing
+opens a menu in the order other file managers use: Open, Open with the
+system's application; Cut, Copy, Paste, Duplicate; Rename, Move to…, Copy
+to…; Move to the Trash, Delete for Good; New File, New Folder; Copy Path,
+Copy Relative Path, Show in System File Manager; Select All, Invert
+Selection; Sort by…, Hidden Files; Properties (kind, size, dates,
+permissions, the target of a link). Items that cannot apply are greyed
+out. Shift+F10 opens the same menu from the keyboard; in the terminal a
+right click (with the mouse on) or Shift+F10 shows it as a list to pick
+from.
+
+The keys every file manager has work in the listing too, with Command in
+place of Ctrl on macOS:
+
+| Keys                    | Command                                            |
+|-------------------------+----------------------------------------------------|
+| Ctrl+C, Ctrl+X          | Copy, cut the marked entries (or the one at point) |
+| Ctrl+V                  | Paste them into the folder listed                  |
+| Ctrl+A                  | Mark all                                           |
+| Ctrl+N, Ctrl+Shift+N    | New file, new folder                               |
+| Shift+Delete            | Delete for good (asks first)                       |
+| Space                   | Preview pane (not with Vim keys)                   |
+| Alt+Enter               | Properties                                         |
+| Ctrl+click, Shift+click | Mark one entry, mark a range                       |
+
+Cut and Copy keep the paths in Kalem's own file clipboard, and put them on
+the system clipboard as text; Paste moves or copies them into the folder
+listed, with the same question when a name is taken. /Duplicate/ copies an
+entry beside itself as =name copy.ext=. Dragging entries, and pasting a
+file list into Finder, Explorer or the desktop's file manager, do not work
+yet.
+
 =e= makes the names editable, as Emacs's wdired does: change them with
 any editing command (a name with a folder in it, such as =old/a.txt=,
 moves the file there), then Ctrl+S renames them all at

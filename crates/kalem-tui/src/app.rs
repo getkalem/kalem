@@ -1802,6 +1802,26 @@ impl App {
                     let on_name = d
                         .name_range(line)
                         .is_some_and(|r| r.start <= col && col <= r.end);
+                    // Ctrl-click marks or unmarks an entry, Shift-click
+                    // marks from the cursor to it.
+                    let ctrl = m.modifiers.contains(KeyModifiers::CONTROL);
+                    if (ctrl || shift) && d.path_at(line).is_some() {
+                        let marked = d.path_at(line).is_some_and(|p| d.marks.contains_key(&p));
+                        if shift {
+                            let at = self.doc.selection.head;
+                            self.doc.move_cursor(at, false);
+                            self.doc.move_cursor(pos, true);
+                            self.run_command("dired.mark", Value::Null);
+                        } else {
+                            self.doc.move_cursor(pos, false);
+                            let id = if marked { "dired.unmark" } else { "dired.mark" };
+                            self.run_command(id, Value::Null);
+                        }
+                        let start = self.doc.text().line_start(line);
+                        self.doc.move_cursor(start, false);
+                        self.after_change(true);
+                        return;
+                    }
                     if !shift && (on_name || double) && d.path_at(line).is_some() {
                         self.doc.move_cursor(pos, false);
                         self.after_change(true);
@@ -1824,6 +1844,25 @@ impl App {
                 }
                 self.editor.viewport.goal_x = None;
                 self.after_change(true);
+            }
+            // A right click in the file manager: its menu, for the entry
+            // under the mouse (the marked ones when it is one of them) or
+            // for the listing (T2.7e.17).
+            MouseEventKind::Down(MouseButton::Right) if self.doc.dired.is_some() => {
+                let hit = self
+                    .editor
+                    .hit(&self.doc, &self.caps, m.column, m.row)
+                    .map(|(pos, _)| pos);
+                let d = self.doc.dired.as_deref().expect("a listing");
+                let path = hit.and_then(|pos| d.path_at(self.doc.text().line_of(pos)));
+                if let (Some(p), Some(pos)) = (&path, hit)
+                    && !d.marks.contains_key(p)
+                {
+                    self.doc.move_cursor(pos, false);
+                    self.after_change(true);
+                }
+                let args = serde_json::json!({ "listing": path.is_none() });
+                self.run_command("dired.contextMenu", args);
             }
             MouseEventKind::Drag(MouseButton::Left) => {
                 if let Some((pos, _)) = self.editor.hit(&self.doc, &self.caps, m.column, m.row) {
