@@ -1,0 +1,30 @@
+\klm[1.0]
+\meta[title="Proje Teklifi" author="Mehmet Şekercioğlu" lang=tr style=letter date=<2026-10-03 Sat>]
+
+\p[.sender]{Kalem Yazılım\br Bağdat Caddesi 12\br Kadıköy, İstanbul}
+
+\p[.recipient]{Sayın Ayşe Yılmaz\br Yılmaz Yayıncılık\br Ankara}
+
+\p[.date]{\date[<2026-10-03 Sat>]}
+
+\p[.salutation]{Sayın Yılmaz,}
+
+Geçen haftaki görüşmemizde \b{iki} konuda anlaştık: teslim tarihi ve bütçe. Bu mektupla ikisini de yazılı hale getiriyorum.
+
+\i{Teslim tarihi} için önerimiz \date[<2026-11-15 Sun>]. Bu tarih düzeltme turunu ve baskı provasını kapsıyor; provadan sonra \q{son okuma} için bir hafta ayırdık.
+
+Bütçe kalemleri şöyle:
+
+\ul{
+  \li{Dizgi ve sayfa düzeni: 25.000 TL}
+  \li{Kapak tasarımı: 8.000 TL}
+  \li{Baskı provası: 7.000 TL}
+}
+
+Toplam \b{40.000 TL}; ödeme iki taksitte, ilki sözleşmeyle, ikincisi teslimle.
+
+\span[.warning]{Kâğıt fiyatları ekim sonunda değişebilir;} bu yüzden baskı kalemi için bir hafta içinde onay rica ediyorum.\fn{Matbaanın yazılı teklifi 15 Ekim'e kadar geçerli.}
+
+Saygılarımla,
+
+\p[.signature]{Mehmet Şekercioğlu\br Kalem Yazılım}
