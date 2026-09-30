@@ -615,10 +615,16 @@ Font declarations style the rest of their group (=latex_view::declaration=):
 =\em= italic; =\tt= and =\ttfamily= monospace; =\upshape= ends italic,
 =\mdseries= bold, =\rmfamily= and =\sffamily= monospace, and
 =\normalfont= and =\rm= all three; =\sc=, =\scshape= and =\sf= are known
-and change nothing shown. Only a declaration inside a group ={…}= is
-followed, from where it is to the group's end (=Plain {\bf bold}=); a
-declaration at the top level of a paragraph or an environment changes
-nothing shown. The declarations themselves stay as source, dimmed.
+and change nothing shown. The sizes =\tiny=, =\scriptsize=,
+=\footnotesize=, =\small=, =\large=, =\Large=, =\LARGE=, =\huge= and
+=\Huge= show the text at the ratio the standard classes give them at
+10pt (5, 7, 8, 9, 12, 14.4, 17.28, 20.74 and 24.88 points) to a 12-point
+text; =\normalsize= ends them. A declaration is followed from where it
+is to the end of its group ={…}= (=Plain {\bf bold}=), of its
+environment's body (an environment is a group), or, at the top level,
+of its paragraph; a declaration in the document's body does not reach
+into the paragraphs after it. The declarations themselves stay as
+source, dimmed.
 
 | Command                                          | Shown                                                            |
 |--------------------------------------------------+------------------------------------------------------------------|
@@ -652,31 +658,46 @@ Control symbols in text:
 | =\&= =\%= =\$= =\#= =\_= =\{= =\}= | the character |
 | =\,=                               | a thin space  |
 | =\= and a space                    | a space       |
-| =\@= =\/=                          | nothing       |
+| =\@= =\/= =\-=                     | nothing       |
 
 Commands without arguments (the =word= table):
 
-| Command(s)                                                                  | Shown                         |
-|-----------------------------------------------------------------------------+-------------------------------|
-| =\ldots= =\dots= =\textellipsis=                                            | …                             |
-| =\LaTeX= =\TeX= =\LaTeXe= =\METAFONT=                                       | LaTeX, TeX, LaTeX2ε, METAFONT |
-| =\textendash= =\textemdash=                                                 | – —                           |
-| =\S= =\textsection= / =\P= =\textpilcrow=                                   | § / ¶                         |
-| =\copyright= =\textcopyright=                                               | ©                             |
-| =\textregistered= =\texttrademark=                                          | ® ™                           |
-| =\texteuro= =\euro=                                                         | €                             |
-| =\pounds= =\textsterling= =\textyen= =\textcent=                            | £ ¥ ¢                         |
-| =\textdegree= =\textmu= =\textpm= =\texttimes= =\textdiv=                   | ° µ ± × ÷                     |
-| =\textonehalf= =\textonequarter= =\textthreequarters=                       | ½ ¼ ¾                         |
-| =\textasciitilde= =\textasciicircum= =\textbackslash=                       | ~ ^ \                         |
-| =\textbar= =\textless= =\textgreater=                                       | the vertical bar, < and >     |
-| =\textbullet= =\textperiodcentered=                                         | • ·                           |
-| =\textdagger= =\dag= / =\textdaggerdbl= =\ddag=                             | † / ‡                         |
-| =\textquoteleft= =\textquoteright= =\textquotedblleft= =\textquotedblright= | ‘ ’ “ ”                       |
-| =\quad= / =\qquad=                                                          | one / two em spaces           |
-| =\hfill= =\hfil= =\enspace= =\enskip=                                       | an en space                   |
-| =\thinspace=                                                                | a thin space                  |
-| =\newline= =\linebreak=                                                     | ↵                             |
+| Command(s)                                                                  | Shown                                                                 |
+|-----------------------------------------------------------------------------+-----------------------------------------------------------------------|
+| =\ldots= =\dots= =\textellipsis=                                            | …                                                                     |
+| =\LaTeX= =\TeX= =\LaTeXe= =\METAFONT=                                       | LaTeX, TeX, LaTeX2ε, METAFONT                                         |
+| =\textendash= =\textemdash=                                                 | – —                                                                   |
+| =\S= =\textsection= / =\P= =\textpilcrow=                                   | § / ¶                                                                 |
+| =\copyright= =\textcopyright=                                               | ©                                                                     |
+| =\textregistered= =\texttrademark=                                          | ® ™                                                                   |
+| =\texteuro= =\euro=                                                         | €                                                                     |
+| =\pounds= =\textsterling= =\textyen= =\textcent=                            | £ ¥ ¢                                                                 |
+| =\textdegree= =\textmu= =\textpm= =\texttimes= =\textdiv=                   | ° µ ± × ÷                                                             |
+| =\textonehalf= =\textonequarter= =\textthreequarters=                       | ½ ¼ ¾                                                                 |
+| =\textasciitilde= =\textasciicircum= =\textbackslash=                       | ~ ^ \                                                                 |
+| =\textbar= =\textless= =\textgreater=                                       | the vertical bar, < and >                                             |
+| =\textbullet= =\textperiodcentered=                                         | • ·                                                                   |
+| =\textdagger= =\dag= / =\textdaggerdbl= =\ddag=                             | † / ‡                                                                 |
+| =\textquoteleft= =\textquoteright= =\textquotedblleft= =\textquotedblright= | ‘ ’ “ ”                                                               |
+| =\quad= / =\qquad=                                                          | one / two em spaces                                                   |
+| =\hfill= =\hfil= =\enspace= =\enskip=                                       | an en space                                                           |
+| =\thinspace=                                                                | a thin space                                                          |
+| =\newline= =\linebreak=                                                     | ↵                                                                     |
+| =\medskip= =\smallskip= =\bigskip= =\vfill= =\par= =\noindent= =\indent=    | nothing                                                               |
+| =\vspace{…}= =\addvspace{…}= / =\hspace{…}= (with their argument)           | nothing / a space                                                     |
+| =\newpage= =\clearpage= =\cleardoublepage= =\pagebreak=                     | ↡                                                                     |
+| =\slash= =\textquotesingle= =\textvisiblespace=                             | / ' ␣                                                                 |
+| =\guillemotleft= =\guillemotright= =\guilsinglleft= =\guilsinglright=       | « » ‹ ›                                                               |
+| =\today=                                                                    | today's date as LaTeX prints it in English: September 30, 2026        |
+| =\listoffigures= =\listoftables= =\printbibliography=                       | the heading LaTeX prints: List of Figures, List of Tables, References |
+| =\ss= =\ae= =\AE= =\oe= =\OE= =\o= =\O= =\aa= =\AA= =\l= =\L= =\i= =\j=     | ß æ Æ œ Œ ø Ø å Å ł Ł ı ȷ                                             |
+| =\th= =\TH= =\dh= =\DH= =\ng= =\NG= =\dj= =\DJ=                             | þ Þ ð Ð ŋ Ŋ đ Đ                                                       |
+
+A text accent and its letter show as one character, composed where
+Unicode has one: =\"o= (and =\"{o}=) ö, =\'e= é, =\`e= è, =\^o= ô, =\~n= ñ,
+=\=a= ā, =\.z= ż, and, with the letter after a blank or in braces, =\u{g}=
+ğ, =\v{s}= š, =\H{o}= ő, =\c{c}= ç, =\k{a}= ą, =\r{a}= å, =\d{a}= ạ, =\b{a}=
+a̱; =\'{\i}= is í. The BibTeX grid shows them the same way.
 
 ** Front matter
 
