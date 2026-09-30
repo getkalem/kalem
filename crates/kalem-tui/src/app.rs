@@ -1674,7 +1674,7 @@ impl App {
         if text.is_empty() {
             return;
         }
-        let text = if self.doc.meta.line_ending == LineEnding::Lf {
+        let text = if self.doc.meta.line_ending != LineEnding::CrLf {
             text.replace("\r\n", "\n")
         } else {
             text.to_string()

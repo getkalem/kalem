@@ -71,6 +71,14 @@ pub struct Record {
     pub next: usize,
 }
 
+/// Whether a record ends at `i`: a line feed, or a carriage return
+/// before one. A carriage return alone is data, as lines split only at
+/// line feeds (a file of carriage returns alone is read with them turned
+/// into line feeds).
+fn line_end(b: &[u8], i: usize) -> bool {
+    b[i] == b'\n' || (b[i] == b'\r' && b.get(i + 1) == Some(&b'\n'))
+}
+
 /// The record starting at `start`.
 pub fn scan(text: &str, start: usize, d: &Dialect) -> Record {
     let b = text.as_bytes();
@@ -93,11 +101,11 @@ pub fn scan(text: &str, start: usize, d: &Dialect) -> Record {
                 i += 1;
             }
             // Anything after the closing quote belongs to the field.
-            while i < b.len() && b[i] != d.delimiter && b[i] != b'\n' && b[i] != b'\r' {
+            while i < b.len() && b[i] != d.delimiter && !line_end(b, i) {
                 i += 1;
             }
         } else {
-            while i < b.len() && b[i] != d.delimiter && b[i] != b'\n' && b[i] != b'\r' {
+            while i < b.len() && b[i] != d.delimiter && !line_end(b, i) {
                 i += 1;
             }
         }
@@ -1164,6 +1172,16 @@ pub fn pasted(text: &str, d: &Dialect) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lone_carriage_return_is_data() {
+        let d = Dialect::default();
+        let text = "a\rb,c\r\nd,e\n";
+        let r = scan(text, 0, &d);
+        assert_eq!(value(text, &r.fields[0], &d), "a\rb");
+        assert_eq!(r.next, 7);
+        assert_eq!(rows(text, &d), vec![vec!["a\rb", "c"], vec!["d", "e"]]);
+    }
 
     #[test]
     fn sorting_a_mixed_column_is_a_total_order() {

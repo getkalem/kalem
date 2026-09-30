@@ -28,6 +28,9 @@ pub enum LineEnding {
     Lf,
     /// `\r\n`
     CrLf,
+    /// `\r` alone (classic Mac OS): the text holds `\n`, each written as
+    /// `\r`, as Emacs decodes the `mac` end-of-line type.
+    Cr,
 }
 
 /// What is known about a document besides its text.
