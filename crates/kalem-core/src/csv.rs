@@ -201,7 +201,41 @@ pub fn typed(
 /// gives the most records with the same number of fields (more than one),
 /// a header when the first record's values are all text where later ones
 /// have numbers, or all different and not empty.
+/// Excel's first line naming the delimiter, `sep=;`: the delimiter and
+/// the line's length with its line ending.
+pub fn sep_line(text: &str) -> Option<(u8, usize)> {
+    let rest = text.strip_prefix("sep=")?;
+    let d = *rest.as_bytes().first()?;
+    let after = &rest[1..];
+    let ending = if after.starts_with("\r\n") {
+        2
+    } else if after.starts_with('\n') {
+        1
+    } else if after.is_empty() {
+        0
+    } else {
+        return None;
+    };
+    Some((d, 4 + 1 + ending))
+}
+
+/// Whether a field reads as a number, with `.` or `,` as the decimal
+/// separator.
+fn numeric(s: &str) -> bool {
+    let s = s.trim();
+    !s.is_empty() && (s.parse::<f64>().is_ok() || s.replace(',', ".").parse::<f64>().is_ok())
+}
+
 pub fn detect(text: &str) -> Dialect {
+    if let Some((delimiter, skip)) = sep_line(text) {
+        let mut d = Dialect {
+            delimiter,
+            crlf: text.contains("\r\n"),
+            ..Dialect::default()
+        };
+        d.header = looks_like_header(&text[skip..], &d);
+        return d;
+    }
     let sample_end = text
         .char_indices()
         .map(|(i, _)| i)
@@ -209,7 +243,11 @@ pub fn detect(text: &str) -> Dialect {
         .unwrap_or(text.len());
     let sample = &text[..sample_end];
     let crlf = sample.contains("\r\n");
-    let mut best = (0usize, b',');
+    // The delimiter that splits the most records into the same number of
+    // fields (more than one), a first line of one field (a title) left
+    // aside; on a tie, the one whose fields read as numbers more often
+    // (`1,5;2,5` splits at `;`), then `,` `;` tab `|` in that order.
+    let mut best = ((0usize, 0usize, std::cmp::Reverse(0usize), 0usize), b',');
     for delim in *b",;\t|" {
         let d = Dialect {
             delimiter: delim,
@@ -231,10 +269,43 @@ pub fn detect(text: &str) -> Dialect {
         let Some(&first) = counts.first() else {
             continue;
         };
-        let same = counts.iter().filter(|&&n| n == first).count();
-        let score = if first > 1 { same * first } else { 0 };
-        if score > best.0 {
-            best = (score, delim);
+        // The most common count among the records.
+        let mut freq: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for &n in &counts {
+            *freq.entry(n).or_insert(0) += 1;
+        }
+        let (modal, same) = freq
+            .iter()
+            .filter(|(n, _)| **n > 1)
+            .max_by_key(|(n, f)| (**f, **n))
+            .map_or((first, 0), |(n, f)| (*n, *f));
+        if modal < 2 {
+            continue;
+        }
+        // Fields that read as numbers, in the first records, and fields
+        // holding another delimiter that are not numbers (`elma;1` split
+        // at the comma).
+        let mut numbers = 0;
+        let mut mixed = 0;
+        let mut at = 0;
+        for _ in 0..counts.len().min(20) {
+            let r = scan(sample, at, &d);
+            if r.next == at {
+                break;
+            }
+            for f in &r.fields {
+                let v = value(sample, f, &d);
+                if numeric(&v) {
+                    numbers += 1;
+                } else if v.bytes().any(|b| b != delim && b",;\t|".contains(&b)) {
+                    mixed += 1;
+                }
+            }
+            at = r.next;
+        }
+        let key = (same, numbers, std::cmp::Reverse(mixed), modal);
+        if key > best.0 {
+            best = (key, delim);
         }
     }
     let mut d = Dialect {
@@ -287,11 +358,13 @@ pub struct Index {
 }
 
 impl Index {
-    /// An index of `text`, nothing scanned yet.
+    /// An index of `text`, nothing scanned yet; Excel's `sep=;` first
+    /// line is not a record.
     pub fn new(text: &str) -> Index {
+        let skip = sep_line(text).map_or(0, |(_, n)| n);
         Index {
-            starts: vec![0],
-            complete: text.is_empty(),
+            starts: vec![skip],
+            complete: skip >= text.len(),
             len: text.len(),
         }
     }
@@ -659,10 +732,14 @@ pub struct Layout {
 const MAX_WIDTH: usize = 40;
 
 impl Layout {
-    /// The layout of `text`.
+    /// The layout of `text`, its dialect detected.
     pub fn new(text: &str) -> Layout {
+        Layout::with(text, detect(text))
+    }
+
+    /// The layout of `text` in `dialect`.
+    pub fn with(text: &str, dialect: Dialect) -> Layout {
         use unicode_width::UnicodeWidthStr;
-        let dialect = detect(text);
         let mut index = Index::new(text);
         let mut widths: Vec<usize> = Vec::new();
         for i in 0..1000 {
@@ -696,7 +773,7 @@ impl Layout {
 }
 
 /// What a memo is for: the text's version and a length or column.
-type Key = (u64, usize);
+type Key = (u64, usize, Dialect);
 
 thread_local! {
     static LAYOUT: std::cell::RefCell<Option<(Key, std::rc::Rc<Layout>)>> =
@@ -705,14 +782,24 @@ thread_local! {
 
 /// The layout of the CSV document `doc`, for its text version.
 pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
-    let key = (doc.version(), doc.text().len());
+    // The dialect is found once and kept: renaming a header cell to a
+    // number or editing the first line does not change it.
+    let dialect = match doc.csv_dialect.get() {
+        Some(d) => d,
+        None => {
+            let d = detect(doc.text().as_str());
+            doc.csv_dialect.set(Some(d));
+            d
+        }
+    };
+    let key = (doc.version(), doc.text().len(), dialect);
     LAYOUT.with(|l| {
         if let Some((k, v)) = &*l.borrow()
             && *k == key
         {
             return v.clone();
         }
-        let v = std::rc::Rc::new(Layout::new(doc.text().as_str()));
+        let v = std::rc::Rc::new(Layout::with(doc.text().as_str(), dialect));
         *l.borrow_mut() = Some((key, v.clone()));
         v
     })
@@ -1019,7 +1106,7 @@ pub fn status(doc: &crate::DocumentState) -> Option<String> {
 
 fn column_status(doc: &crate::DocumentState) -> Option<String> {
     let (layout, _, _, col) = cell_at(doc)?;
-    let key = (doc.version(), col);
+    let key = (doc.version(), col, layout.dialect);
     STATS.with(|s| {
         if let Some((k, v)) = &*s.borrow()
             && *k == key
@@ -1139,6 +1226,23 @@ mod tests {
         // Commas inside numbers do not fool it.
         let d = detect("ürün;fiyat\nelma;1,5\narmut;2,25\n");
         assert_eq!(d.delimiter, b';');
+        // Ties: the delimiter that leaves numbers.
+        assert_eq!(detect("elma;1,5\n").delimiter, b';');
+        assert_eq!(detect("1,5;2,5;3,5\n").delimiter, b';');
+        // A title line of one field does not decide.
+        let d = detect("My data\nname;qty\napple;3\npear;4\n");
+        assert_eq!(d.delimiter, b';');
+        // Excel's `sep=` line: the delimiter, and not a record.
+        let t = "sep=;\nname;qty\napple;3\n";
+        let d = detect(t);
+        assert_eq!((d.delimiter, d.header), (b';', true));
+        assert_eq!(
+            rows(t, &d),
+            [
+                vec!["name".to_string(), "qty".into()],
+                vec!["apple".into(), "3".into()]
+            ]
+        );
     }
 
     #[test]

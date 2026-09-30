@@ -121,6 +121,9 @@ pub struct DocumentState {
     /// A CSV document's view sorted by a column (view state), descending
     /// when `true`: the file keeps its order (`crate::csv::shown_lines`).
     pub csv_sort: Option<(usize, bool)>,
+    /// A CSV document's dialect, detected when it is first laid out and
+    /// kept (edits do not change it), or set by hand.
+    pub csv_dialect: std::cell::Cell<Option<crate::csv::Dialect>>,
     /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
     /// descending; the file keeps its order.
     pub bib_sort: Option<(usize, bool)>,
@@ -235,6 +238,7 @@ impl DocumentState {
             dired: None,
             csv_filter: None,
             csv_sort: None,
+            csv_dialect: std::cell::Cell::new(None),
             bib_sort: None,
         }
     }
