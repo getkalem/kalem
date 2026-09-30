@@ -1122,6 +1122,12 @@ pub struct TableView {
     /// Column alignment as `org-table-align` decides it: `'l'`, `'r'`
     /// (numbers) or `'c'`.
     pub align: Vec<char>,
+    /// Cells spanning columns (LaTeX's `\multicolumn`): the row's index,
+    /// the first column, the columns covered and the alignment.
+    pub spans: Vec<(usize, usize, usize, char)>,
+    /// The rows with a rule under them written on their own line (LaTeX's
+    /// `\\ \hline`).
+    pub ruled: Vec<usize>,
 }
 
 /// The runs of `view` within `range`, cut at its ends.
@@ -1222,6 +1228,8 @@ pub fn table_view(
         range: base..end(&table),
         rows,
         align,
+        spans: Vec::new(),
+        ruled: Vec::new(),
     })
 }
 

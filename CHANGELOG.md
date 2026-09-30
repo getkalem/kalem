@@ -212,6 +212,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `kalem_core::latex_check::text_diagnostics` gives the diagnostics that need no other file, with fixes for deprecated font commands (`\bf` to `\bfseries`), a missing tie before a reference, `...` and `$$…$$`.
 - LaTeX: `pdflang` names the language as Org 9.7 does ("English" for `en-us`).
 
+- LaTeX: the front matter of IEEEtran, acmart, elsarticle, llncs and RevTeX renders (author blocks, affiliations, e-mail, keywords, "Index Terms", `\IEEEPARstart`); written in the body it shows where it is, and `\maketitle` lists several `\author`s without their affiliations and notes.
+- LaTeX: `\lstinline` is colored in its language (`language=` or `\lstset`), which also colors `lstlisting` without options.
+- LaTeX: `comment` environments and `\iffalse` … `\fi` fold to their first line away from the cursor.
+- LaTeX tables: a `\multicolumn` is drawn as one cell across its columns, and a rule after a row's `\\` is drawn under the row, in both editors.
 ### Changed
 
 - The text column starts at the left edge of the window in both editors; `editor.center_text = true` centers it as before.

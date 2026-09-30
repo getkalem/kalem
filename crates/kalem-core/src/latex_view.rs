@@ -337,14 +337,28 @@ impl LatexState {
                 Some("date") => 2,
                 _ => continue,
             };
+            // Written in the body, the command shows itself (acmart and
+            // RevTeX put the front matter after `\begin{document}`).
+            if n.ancestors().any(|a| {
+                a.kind() == K::ENVIRONMENT && latex_syntax::name(&a).as_deref() == Some("document")
+            }) {
+                continue;
+            }
             if let Some(g) = n.children().find(|c| c.kind() == K::GROUP) {
-                let s = group_text(&g).replace("\\\\", "\\and");
-                let parts: Vec<String> = s
-                    .split("\\and")
+                let parts: Vec<String> = front_text(&g)
+                    .split('\u{0}')
                     .map(|p| p.split_whitespace().collect::<Vec<_>>().join(" "))
                     .filter(|p| !p.is_empty())
                     .collect();
-                v[i] = Some(parts.join(", "));
+                if parts.is_empty() {
+                    continue;
+                }
+                let joined = parts.join(", ");
+                // Several `\author`s (llncs, acmart, RevTeX) are listed.
+                v[i] = Some(match (i, v[i].take()) {
+                    (1, Some(before)) => format!("{before}, {joined}"),
+                    _ => joined,
+                });
             }
         }
         let v = Arc::new(v);
@@ -552,6 +566,70 @@ fn same(a: &latex_syntax::GreenNode, b: &latex_syntax::GreenNode) -> bool {
     )
 }
 
+/// The words of a title or an author list: the commands' names, braces
+/// and the notes, affiliations and addresses inside left out; `\and` and
+/// `\\` as NUL, the separator between names.
+fn front_text(g: &SyntaxNode) -> String {
+    let mut out = String::new();
+    let mut skip: Option<Range<usize>> = None;
+    for e in g.descendants_with_tokens() {
+        let r = match (e.as_node(), e.as_token()) {
+            (Some(n), _) => node_span(n),
+            (_, Some(t)) => span(t),
+            _ => continue,
+        };
+        if skip.as_ref().is_some_and(|k| r.start < k.end) {
+            continue;
+        }
+        match (e.as_node(), e.as_token()) {
+            (Some(n), _) => {
+                if n.kind() == K::COMMAND
+                    && latex_syntax::name(n).is_some_and(|name| {
+                        matches!(
+                            name.as_str(),
+                            "thanks"
+                                | "inst"
+                                | "footnote"
+                                | "footnotemark"
+                                | "IEEEauthorblockA"
+                                | "IEEEmembership"
+                                | "affiliation"
+                                | "institute"
+                                | "address"
+                                | "email"
+                                | "orcid"
+                                | "textsuperscript"
+                        )
+                    })
+                {
+                    // Arguments the parser does not know the command
+                    // takes follow it as groups of their own.
+                    let mut end = r.end;
+                    let mut next = n.next_sibling();
+                    while let Some(g) = next.filter(|g| g.kind() == K::GROUP)
+                        && node_span(&g).start == end
+                    {
+                        end = node_span(&g).end;
+                        next = g.next_sibling();
+                    }
+                    skip = Some(r.start..end);
+                }
+            }
+            (_, Some(t)) => match t.kind() {
+                K::TEXT | K::WHITESPACE | K::NEWLINE => out.push_str(t.text()),
+                K::TILDE => out.push(' '),
+                K::CONTROL_SYMBOL if t.text() == "\\\\" => out.push('\u{0}'),
+                K::CONTROL_SYMBOL => out.push_str(symbol(t.text()).unwrap_or("")),
+                K::CONTROL_WORD if t.text() == "\\and" => out.push('\u{0}'),
+                K::CONTROL_WORD => out.push_str(word(&t.text()[1..]).unwrap_or("")),
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+    out
+}
+
 /// The text of an optional argument without its brackets.
 fn group_text_brackets(o: &SyntaxNode) -> String {
     let s = o.text().to_string();
@@ -591,7 +669,61 @@ fn format_style(name: &str) -> Option<Style> {
     Some(s)
 }
 
+/// The front matter commands of the common classes (IEEEtran, acmart,
+/// elsarticle, llncs, RevTeX, amsart) written in the body: the style
+/// their text takes and the words shown before it.
+fn front_style(name: &str) -> Option<(Style, &'static str)> {
+    let mut s = Style::default();
+    let prefix = match name {
+        "title" => {
+            s.title = true;
+            ""
+        }
+        "author" | "affiliation" | "affil" | "institute" | "address" | "email" | "ead"
+        | "IEEEauthorblockN" | "IEEEauthorblockA" | "institution" | "department" | "city"
+        | "state" | "country" | "streetaddress" | "postcode" | "orcid" | "subtitle" => {
+            s.byline = true;
+            ""
+        }
+        "keywords" => {
+            s.byline = true;
+            "Keywords: "
+        }
+        "ccsdesc" => {
+            s.byline = true;
+            "CCS: "
+        }
+        "pacs" => {
+            s.byline = true;
+            "PACS: "
+        }
+        "thanks" => {
+            s.dim = true;
+            ""
+        }
+        "inst" => {
+            s.superscript = true;
+            ""
+        }
+        "IEEEPARstart" => "",
+        _ => return None,
+    };
+    Some((s, prefix))
+}
+
+/// Front matter parts run together in one argument (acmart's
+/// `\affiliation{\institution{…}\city{…}}`), separated when shown.
+fn front_part(name: &str) -> bool {
+    matches!(
+        name,
+        "institution" | "department" | "city" | "state" | "country" | "streetaddress" | "postcode"
+    )
+}
+
 fn merge(a: &mut Style, b: &Style) {
+    a.title |= b.title;
+    a.byline |= b.byline;
+    a.dim |= b.dim;
     a.bold |= b.bold;
     a.italic |= b.italic;
     a.code |= b.code;
@@ -604,6 +736,7 @@ fn merge(a: &mut Style, b: &Style) {
 /// Commands whose arguments are text a reader reads (typography applies).
 fn prose(name: &str) -> bool {
     format_style(name).is_some()
+        || front_style(name).is_some()
         || latex_syntax::signatures::is_sectioning(name)
         || matches!(
             name,
@@ -647,7 +780,8 @@ fn context(t: &SyntaxToken) -> Context {
             K::COMMAND => {
                 let name = latex_syntax::name(&a).unwrap_or_default();
                 let section = latex_syntax::signatures::is_sectioning(&name);
-                let format = format_style(&name);
+                let front = front_style(&name);
+                let format = format_style(&name).or(front.map(|f| f.0));
                 if let Some(s) = &format {
                     merge(&mut c.style, s);
                 }
@@ -681,7 +815,7 @@ fn context(t: &SyntaxToken) -> Context {
                             }
                             (first || last) && t.parent().as_ref() == Some(g)
                         }
-                        Some(o) if o.kind() == K::OPT_ARG => section,
+                        Some(o) if o.kind() == K::OPT_ARG => section || front.is_some(),
                         _ => false,
                     };
                     if marker {
@@ -1000,14 +1134,29 @@ fn unflagged_line_view(
                             | "verse"
                             | "abstract"
                     )
+                    || front_environment(&n).is_some()
             })
             && node_span(d).end >= line.start + text[line.clone()].trim_end().len()
         {
             // An abstract's title, as the article class prints it.
             let ds = node_span(d);
+            let env_name = d.parent().and_then(|e| latex_syntax::name(&e));
+            let front_head = env_name.as_deref().and_then(front_environment);
             if d.kind() == K::BEGIN
-                && d.parent().and_then(|e| latex_syntax::name(&e)).as_deref() == Some("abstract")
+                && let Some(head) = front_head.filter(|h| !h.is_empty())
                 && !near(&ds)
+            {
+                let bold = Style {
+                    bold: true,
+                    ..Style::default()
+                };
+                b.replace(ds.clone(), head, bold);
+                while let Some(n) = &tok
+                    && span(n).start < ds.end
+                {
+                    tok = n.next_token();
+                }
+            } else if d.kind() == K::BEGIN && env_name.as_deref() == Some("abstract") && !near(&ds)
             {
                 let model = state.model();
                 let turkish = model
@@ -1361,6 +1510,22 @@ fn unflagged_line_view(
                 heading_command = Some(cmd.clone());
             }
             if !near(&node_span(cmd)) {
+                // A front matter command's words, or the separator between
+                // the parts of an address.
+                let name = latex_syntax::name(cmd).unwrap_or_default();
+                if t.kind() == K::CONTROL_WORD
+                    && let Some((st, prefix)) = front_style(&name)
+                {
+                    let words = if front_part(&name) && cmd.prev_sibling().is_some() {
+                        ", "
+                    } else {
+                        prefix
+                    };
+                    if !words.is_empty() {
+                        b.replace(r, words, Style { bold: true, ..st });
+                        continue;
+                    }
+                }
                 // The title's number where its brace was.
                 if let Some(sec) = &c.title_open {
                     let model = state.model();
@@ -1427,8 +1592,9 @@ fn unflagged_line_view(
             }
             K::CONTROL_WORD if !c.math && !near(&r) => {
                 let name = &s[1..];
+                let untitled = name == "maketitle" && state.titles().iter().all(Option::is_none);
                 match (name, word(name)) {
-                    ("maketitle", _) => {
+                    ("maketitle", _) if !untitled => {
                         let [title, author, date] = &*state.titles();
                         let title_style = Style {
                             title: true,
@@ -1985,6 +2151,7 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
 /// document leaves as source).
 pub fn renders_command(name: &str) -> bool {
     format_style(name).is_some()
+        || front_style(name).is_some()
         || latex_syntax::signatures::is_sectioning(name)
         || chip_command(name)
         || word(name).is_some()
@@ -2036,7 +2203,19 @@ pub fn renders_environment(name: &str, model: &latex_model::Model) -> bool {
                 | "verse"
                 | "abstract"
         )
+        || front_environment(name).is_some()
         || model.theorem_kinds.iter().any(|k| k.env == name)
+}
+
+/// The front matter environments of the common classes and the heading
+/// each shows on its `\begin` line (none for `frontmatter`, a container).
+fn front_environment(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "IEEEkeywords" => "Index Terms\u{2014}",
+        "keyword" | "keywords" => "Keywords: ",
+        "frontmatter" => "",
+        _ => return None,
+    })
 }
 
 /// What a float is called in its caption.
@@ -2178,7 +2357,12 @@ fn code_language(env: &SyntaxNode) -> Option<String> {
                 })
             }),
         _ => None,
-    }?;
+    }
+    .or_else(|| {
+        (name == "lstlisting")
+            .then(|| lstset_language(env))
+            .flatten()
+    })?;
     Some(
         lang.trim_start_matches('[')
             .split(']')
@@ -2186,6 +2370,77 @@ fn code_language(env: &SyntaxNode) -> Option<String> {
             .unwrap_or(&lang)
             .to_lowercase(),
     )
+}
+
+/// The `language=` of options `opts` (`[language=Python, …]`).
+fn language_option(opts: &str) -> Option<String> {
+    opts.trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(',')
+        .find_map(|p| {
+            let (k, v) = p.split_once('=')?;
+            (k.trim() == "language").then(|| v.trim().trim_matches(['{', '}']).to_string())
+        })
+}
+
+/// The listings language `\lstset{language=…}` sets for the document
+/// holding `n`.
+fn lstset_language(n: &SyntaxNode) -> Option<String> {
+    let root = n.ancestors().last()?;
+    let text = root.text().to_string();
+    let mut found = None;
+    let mut at = 0;
+    while let Some(i) = text[at..].find("\\lstset{") {
+        let start = at + i + "\\lstset{".len();
+        let end = text[start..].find('}').map_or(text.len(), |e| start + e);
+        if let Some(l) = language_option(&text[start..end]) {
+            found = Some(l);
+        }
+        at = start;
+    }
+    found
+}
+
+/// The inline code on `line` with a known language: `\lstinline` with
+/// `language=` in its options or from `\lstset`, as the source range of
+/// its code and the language's name.
+pub fn inline_code(doc: &crate::DocumentState, line: Range<usize>) -> Vec<(Range<usize>, String)> {
+    let Some(state) = doc.latex() else {
+        return Vec::new();
+    };
+    let text = doc.text().as_str();
+    if !text[line.clone()].contains("\\lstinline") {
+        return Vec::new();
+    }
+    let root = state.parse().syntax();
+    let mut out = Vec::new();
+    let mut tok = latex_syntax::token_at(&root, line.start);
+    while let Some(t) = tok {
+        if span(&t).start >= line.end {
+            break;
+        }
+        tok = t.next_token();
+        if t.kind() != K::CONTROL_WORD || t.text() != "\\lstinline" {
+            continue;
+        }
+        let Some(verb) = t.parent().filter(|p| p.kind() == K::VERB) else {
+            continue;
+        };
+        let Some(code) = verb_code(text, &verb) else {
+            continue;
+        };
+        let after = &text[span(&t).end..code.start];
+        let lang = if after.starts_with('[') {
+            language_option(after.split(']').next().unwrap_or(""))
+        } else {
+            None
+        }
+        .or_else(|| lstset_language(&verb));
+        if let Some(l) = lang {
+            out.push((code, l.to_lowercase()));
+        }
+    }
+    out
 }
 
 /// The outermost math around `t`: `$…$`, `\(…\)`, `\[…\]`, `$$…$$` or a
@@ -2418,7 +2673,31 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
                 matches!(a.kind(), K::ENVIRONMENT | K::DISPLAY_MATH) && node_span(a).start == p
             })
     });
-    for n in nodes {
+    // The text between `\iffalse` and its `\fi`, folded as a comment is.
+    let mut items: Vec<(usize, Option<SyntaxNode>)> =
+        nodes.map(|n| (node_span(&n).start, Some(n))).collect();
+    let skipped = state.skipped(text);
+    items.extend(skipped.iter().map(|r| (r.start, None)));
+    items.sort_by_key(|(p, _)| *p);
+    for (p, n) in items {
+        let Some(n) = n else {
+            let Some(r) = skipped.iter().find(|r| r.start == p).cloned() else {
+                continue;
+            };
+            let line_start = text[..r.start].rfind('\n').map_or(0, |i| i + 1);
+            let line_end = text[r.end..].find('\n').map_or(len, |i| r.end + i + 1);
+            let alone = text[line_start..r.start].trim().is_empty()
+                && text[r.end..line_end].trim().is_empty();
+            if !alone || text[r.clone()].matches('\n').count() < 2 || line_start < at {
+                continue;
+            }
+            if line_start > at {
+                out.push(block(BlockKind::Paragraph, at..line_start, line_start));
+            }
+            out.push(block(BlockKind::Drawer, line_start..line_end, r.end));
+            at = line_end;
+            continue;
+        };
         // A simple table's rows: the grid (T2.7h.9).
         if n.kind() == K::ENVIRONMENT
             && let Some(t) = crate::latex_table::simple(text, &n)
@@ -2442,6 +2721,10 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
                     BlockKind::Code {
                         language: code_language(&n),
                     }
+                }
+                // A `comment` environment, dimmed: folded as a drawer.
+                Some(x) if x == "comment" && text[node_span(&n)].matches('\n').count() >= 2 => {
+                    BlockKind::Drawer
                 }
                 // A long environment the view does not render (T2.7h.13):
                 // folded to its `\\begin` line away from the cursor.
@@ -2801,6 +3084,86 @@ mod tests {
         assert_eq!(shown(&d, 4, end).display(), "\u{2003}\u{2003}Said.");
         // An item in a list in a quote: one level for each.
         assert!(shown(&d, 6, end).display().starts_with("\u{2003}\u{2003}•"));
+    }
+
+    #[test]
+    fn inline_code_languages() {
+        let text = "\\lstset{language=Rust}\nSee \\lstinline[language=Python]{x = 1} and \\lstinline|let y|.\n\\begin{lstlisting}\nfn f() {}\n\\end{lstlisting}\n";
+        let d = doc(text);
+        let line = d.text().line_range(1);
+        let found = super::inline_code(&d, line);
+        assert_eq!(found.len(), 2);
+        assert_eq!(&text[found[0].0.clone()], "x = 1");
+        assert_eq!(found[0].1, "python");
+        assert_eq!(&text[found[1].0.clone()], "let y");
+        assert_eq!(found[1].1, "rust");
+        // `\lstset`'s language for a listing without options.
+        let blocks = blocks(&d);
+        assert!(
+            blocks
+                .iter()
+                .any(|b| b.kind.highlight_language() == Some("rust"))
+        );
+    }
+
+    #[test]
+    fn dimmed_parts_fold() {
+        use crate::view::BlockKind;
+        let text = "Text.\n\\iffalse\nold\nolder\n\\fi\nMore.\n\\begin{comment}\na\nb\n\\end{comment}\nEnd.\n";
+        let d = doc(text);
+        let drawers: Vec<_> = blocks(&d)
+            .into_iter()
+            .filter(|b| b.kind == BlockKind::Drawer)
+            .map(|b| &text[b.range])
+            .collect();
+        assert_eq!(
+            drawers,
+            [
+                "\\iffalse\nold\nolder\n\\fi\n",
+                "\\begin{comment}\na\nb\n\\end{comment}\n"
+            ]
+        );
+    }
+
+    #[test]
+    fn class_front_matter() {
+        // IEEEtran: author blocks and the affiliation left out of the byline.
+        let text = "\\documentclass{IEEEtran}\n\\title{A Study}\n\\author{\\IEEEauthorblockN{Ada Lovelace}\n\\IEEEauthorblockA{Analytical Engines\\\\London}\n\\and\n\\IEEEauthorblockN{Bob Byron\\thanks{Funded.}}}\n\\begin{document}\n\\maketitle\n\\begin{IEEEkeywords}\nengines, looms\n\\end{IEEEkeywords}\n\\IEEEPARstart{T}{his} paper.\n\\end{document}\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        let title = shown(&d, 7, end);
+        assert_eq!(title.display(), "A Study\u{2003}Ada Lovelace, Bob Byron");
+        assert_eq!(shown(&d, 8, end).display(), "Index Terms\u{2014}");
+        assert_eq!(shown(&d, 10, end).role, crate::view::LineRole::Delimiter);
+        assert_eq!(shown(&d, 11, end).display(), "This paper.");
+        // acmart: the front matter in the body shows where it is written.
+        let text = "\\documentclass{acmart}\n\\begin{document}\n\\title{Deep Things}\n\\author{Ada}\n\\affiliation{\\institution{Uni}\\city{Paris}\\country{France}}\n\\email{ada@uni.fr}\n\\keywords{a, b}\n\\maketitle\n\\end{document}\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        let t = shown(&d, 2, end);
+        assert_eq!(t.display(), "Deep Things");
+        assert!(t.runs.iter().all(|r| r.style.title));
+        assert_eq!(shown(&d, 3, end).display(), "Ada");
+        assert_eq!(shown(&d, 4, end).display(), "Uni, Paris, France");
+        assert!(shown(&d, 4, end).runs.iter().all(|r| r.style.byline));
+        assert_eq!(shown(&d, 5, end).display(), "ada@uni.fr");
+        assert_eq!(shown(&d, 6, end).display(), "Keywords: a, b");
+        // No title in the preamble: `\maketitle` stays as written.
+        assert_eq!(shown(&d, 7, end).display(), "\\maketitle");
+        // llncs: several authors, `\inst` left out.
+        let text = "\\documentclass{llncs}\n\\title{T}\n\\author{Ada\\inst{1} \\and Bob\\inst{2}}\n\\institute{Uni \\email{a@b}}\n\\begin{document}\n\\maketitle\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 5, Some(text.len())).display(),
+            "T\u{2003}Ada, Bob"
+        );
+        // elsarticle: `frontmatter` a container, `keyword` a heading.
+        let text = "\\documentclass{elsarticle}\n\\begin{document}\n\\begin{frontmatter}\n\\title{E}\n\\begin{keyword}\nx \\sep y\n\\end{keyword}\n\\end{frontmatter}\n\\end{document}\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        assert_eq!(shown(&d, 2, end).role, crate::view::LineRole::Delimiter);
+        assert_eq!(shown(&d, 4, end).display(), "Keywords: ");
+        assert_eq!(shown(&d, 7, end).role, crate::view::LineRole::Delimiter);
     }
 
     #[test]

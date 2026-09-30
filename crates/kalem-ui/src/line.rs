@@ -51,8 +51,9 @@ struct Prepared {
     /// For a heading with content: whether it is folded, and its start.
     fold: Option<(bool, usize)>,
     background: Option<Hsla>,
-    /// Grid lines of a table row: column edges, and whether it is a rule.
-    grid: Option<(Vec<Pixels>, bool)>,
+    /// Grid lines of a table row: column edges, whether it is a rule, and
+    /// whether a rule is drawn under it.
+    grid: Option<(Vec<Pixels>, bool, bool)>,
     /// A bar in the margin (quotes).
     bar: bool,
     /// A horizontal rule across the line.
@@ -127,6 +128,7 @@ fn grid(editor: &Editor, start: usize, fs: Pixels, window: &mut Window) -> Optio
         _ => 0,
     };
     let mut widths = vec![fs; view.align.len()];
+    let mut spanned = Vec::new();
     for (ri, row) in view.rows.iter().enumerate() {
         if let kalem_core::view::TableRow::Data { cells, .. } = row {
             for (i, c) in cells.iter().enumerate() {
@@ -138,15 +140,28 @@ fn grid(editor: &Editor, start: usize, fs: Pixels, window: &mut Window) -> Optio
                     .text_system()
                     .shape_line(text.into(), fs, &runs, None)
                     .width;
-                widths[i] = widths[i].max(w);
+                // A span is fitted once the columns it covers are measured.
+                match view.spans.iter().find(|s| s.0 == ri && s.1 == i) {
+                    Some(&(_, _, n, _)) => spanned.push((i, n, w)),
+                    None => widths[i] = widths[i].max(w),
+                }
             }
+        }
+    }
+    let pad = fs * 0.5;
+    for (i, n, w) in spanned {
+        let last = (i + n).min(widths.len()) - 1;
+        let covered =
+            widths[i..=last].iter().fold(px(0.), |a, w| a + *w) + pad * 2. * (last - i) as f32;
+        if w > covered {
+            widths[last] += w - covered;
         }
     }
     let g = Rc::new(Grid {
         view,
         widths,
         header,
-        pad: fs * 0.5,
+        pad,
     });
     editor.grids.borrow_mut().1.insert(key, g.clone());
     Some(g)
@@ -201,7 +216,18 @@ fn prepare_grid(
         TableRow::Data { line, cells } => {
             let mut at = line.start;
             let mut x = px(0.);
-            for (i, w) in g.widths.iter().enumerate() {
+            let mut i = 0;
+            while i < g.widths.len() {
+                // A span: one cell as wide as the columns it covers.
+                let (n, align) = g
+                    .view
+                    .spans
+                    .iter()
+                    .find(|s| s.0 == ri && s.1 == i)
+                    .map(|&(_, _, n, a)| (n.min(g.widths.len() - i), a))
+                    .unwrap_or((1, g.view.align.get(i).copied().unwrap_or('l')));
+                let w = &(g.widths[i..i + n].iter().fold(px(0.), |a, w| a + *w)
+                    + g.pad * 2. * (n - 1) as f32);
                 let (text_, truns, cell_src) = match cells.get(i) {
                     Some(cell) => {
                         let (t, r) = cell_runs(&cell.runs, ri < g.header, &theme);
@@ -218,9 +244,9 @@ fn prepare_grid(
                         .width
                 };
                 let free = *w - cw;
-                let (left, right) = match g.view.align.get(i) {
-                    Some('r') => (free, px(0.)),
-                    Some('c') => (free / 2., free / 2.),
+                let (left, right) = match align {
+                    'r' => (free, px(0.)),
+                    'c' => (free / 2., free / 2.),
                     _ => (px(0.), free),
                 };
                 // The bar and padding before the cell.
@@ -234,6 +260,11 @@ fn prepare_grid(
                     });
                     at = cell.range.end;
                 }
+                // The empty cells a span covers.
+                if let Some(last) = cells.get(i + n - 1).filter(|_| n > 1) {
+                    at = at.max(last.range.end);
+                }
+                i += n;
                 // The padding after it.
                 runs.push(gap_run(at..at));
                 pieces.push(gap(right + g.pad));
@@ -250,6 +281,7 @@ fn prepare_grid(
         ..LineView::default()
     };
     let rule = matches!(g.view.rows[ri], TableRow::Rule { .. });
+    let under = g.view.ruled.contains(&ri);
     Some(Prepared {
         view: Rc::new(view),
         pieces,
@@ -258,7 +290,7 @@ fn prepare_grid(
         hang_at: None,
         fold: None,
         background: None,
-        grid: Some((edges, rule)),
+        grid: Some((edges, rule, under)),
         bar: false,
         rule: false,
         nowrap: false,
@@ -652,6 +684,32 @@ fn color_code(
     out
 }
 
+/// The syntax colors of LaTeX's inline code on the line `range` covers
+/// (`\lstinline` with a language), as source ranges.
+pub fn inline_code_colors(
+    editor: &Editor,
+    range: std::ops::Range<usize>,
+    theme: &Theme,
+) -> Vec<(std::ops::Range<usize>, Hsla)> {
+    let text = editor.doc.text();
+    let mut out = Vec::new();
+    for (code, lang) in kalem_core::latex_view::inline_code(&editor.doc, range) {
+        let Some(l) = kalem_highlight::Language::find(&lang) else {
+            continue;
+        };
+        let spans = kalem_highlight::highlight(l, &text.as_str()[code.clone()]);
+        for sp in spans.first().into_iter().flatten() {
+            if let Some(color) = theme.code(sp.kind) {
+                out.push((
+                    code.start + sp.range.start..code.start + sp.range.end,
+                    color,
+                ));
+            }
+        }
+    }
+    out
+}
+
 /// A LaTeX environment away from the cursor: the whole environment on its
 /// first line, rendered as a displayed formula (its other lines are
 /// hidden, see `Editor::compute_lines`).
@@ -850,6 +908,12 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
     let mut fit_next: Option<Option<u32>> = None;
     let (mut text, mut runs) = (String::new(), Vec::new());
     let mut at = 0;
+    // LaTeX's inline code of a known language, in its syntax colors.
+    let inline_code = if source {
+        Vec::new()
+    } else {
+        inline_code_colors(editor, view.range.clone(), &theme)
+    };
     for (i, r) in view.runs.iter().enumerate() {
         let paint = match &r.widget {
             Some(Widget::Checkbox(c)) => {
@@ -1003,7 +1067,42 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
             at += r.text.len();
             continue;
         }
-        runs.push(text_run(&r.style, r.text.len(), view.heading, mono, &theme));
+        let base_run = text_run(&r.style, r.text.len(), view.heading, mono, &theme);
+        if r.verbatim
+            && r.text.len() == r.src.len()
+            && inline_code
+                .iter()
+                .any(|(s, _)| s.start < r.src.end && r.src.start < s.end)
+        {
+            // Source shown byte for byte: split at the colored spans.
+            let mut from = r.src.start;
+            for (sp, color) in inline_code
+                .iter()
+                .filter(|(s, _)| s.start < r.src.end && r.src.start < s.end)
+            {
+                let (a, b) = (sp.start.max(r.src.start), sp.end.min(r.src.end));
+                if a > from {
+                    runs.push(TextRun {
+                        len: a - from,
+                        ..base_run.clone()
+                    });
+                }
+                runs.push(TextRun {
+                    len: b - a,
+                    color: *color,
+                    ..base_run.clone()
+                });
+                from = b;
+            }
+            if r.src.end > from {
+                runs.push(TextRun {
+                    len: r.src.end - from,
+                    ..base_run
+                });
+            }
+        } else {
+            runs.push(base_run);
+        }
         text.push_str(&r.text);
         at += r.text.len();
     }
@@ -1428,7 +1527,7 @@ impl gpui::Element for LineElement {
             ));
         }
         // Table grid lines.
-        if let Some((edges, rule)) = &p.grid {
+        if let Some((edges, rule, under)) = &p.grid {
             let top = bounds.origin.y;
             let h = bounds.size.height;
             for x in edges {
@@ -1440,6 +1539,12 @@ impl gpui::Element for LineElement {
             if *rule && let Some(w) = edges.last() {
                 window.paint_quad(fill(
                     Bounds::new(point(bounds.origin.x, top + h / 2.), size(*w, px(1.))),
+                    theme.border,
+                ));
+            }
+            if *under && let Some(w) = edges.last() {
+                window.paint_quad(fill(
+                    Bounds::new(point(bounds.origin.x, top + h - px(1.)), size(*w, px(1.))),
                     theme.border,
                 ));
             }
