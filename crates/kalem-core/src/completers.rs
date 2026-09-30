@@ -123,10 +123,18 @@ pub struct Context {
 
 impl Context {
     /// The text of the document from `a` to `b` (within the copy).
+    /// Ends inside a character move back to its start.
     pub fn slice(&self, r: Range<usize>) -> &str {
-        let a = r.start.saturating_sub(self.base).min(self.text.len());
-        let b = r.end.saturating_sub(self.base).min(self.text.len());
-        &self.text[a..b.max(a)]
+        let t = &*self.text;
+        let back = |mut i: usize| {
+            while !t.is_char_boundary(i) {
+                i -= 1;
+            }
+            i
+        };
+        let a = back(r.start.saturating_sub(self.base).min(t.len()));
+        let b = back(r.end.saturating_sub(self.base).min(t.len()));
+        &t[a..b.max(a)]
     }
 
     /// The text before the cursor on its line.
@@ -679,6 +687,22 @@ impl Menu {
 mod tests {
     use super::*;
     use crate::document::{LineEnding, Metadata};
+
+    #[test]
+    fn slices_end_at_characters() {
+        let ctx = Context {
+            text: Arc::from("aç b"),
+            base: 0,
+            point: 1,
+            mode: DocumentMode::Latex,
+            language: None,
+            path: None,
+            requested: false,
+        };
+        // One byte after `a` is inside `ç`: the slice stops before it.
+        assert_eq!(ctx.slice(1..2), "");
+        assert_eq!(ctx.slice(0..3), "aç");
+    }
 
     fn doc(text: &str, mode: DocumentMode, point: usize) -> DocumentState {
         let mut d = DocumentState::new(
