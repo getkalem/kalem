@@ -648,7 +648,7 @@ The format of `rfcs/0003-kalem-format.md`: one command syntax `\name[attributes]
 
 **K0, specification**
 
-- [ ] T2.13.1 Close the draft decisions of RFC 0003 with prototypes, not chat: the three-document experiment (a letter, a paper with mathematics, a notebook of tasks) written in the draft syntax, edited through realistic sessions, their diffs and one merge conflict reviewed; the unresolved questions of RFC 0003 §21 answered one by one; the RFC accepted or revised by the owner
+- [~] T2.13.1 Close the draft decisions of RFC 0003 with prototypes, not chat (first experiment done 2026-09-30, RFC 0003 appendix A: the three documents in `tests/klm-spec/samples/`, one-line diffs for every edit, a clean merge; draft 0.2 followed: no shortcut beyond `$…$`, outline attributes on the heading line and `\props` for the rest, column formulas and `@foot`, no empty braces, numbers by language, attached blocks, a `.gitattributes` diff driver; still open: questions 1 to 6 of RFC §21): the three-document experiment (a letter, a paper with mathematics, a notebook of tasks) written in the draft syntax, edited through realistic sessions, their diffs and one merge conflict reviewed; the unresolved questions of RFC 0003 §21 answered one by one; the RFC accepted or revised by the owner
 - [ ] T2.13.2 A throwaway parser for the grammar of RFC 0003 §16 that runs every example of the RFC; the grammar fixed where the examples fail; the conformance suite scaffold `tests/klm-spec/` with one file per example, its expected model as JSON, its canonical form and its HTML
 
 **K1, parser, model, editing**
@@ -860,7 +860,7 @@ The format of `rfcs/0003-kalem-format.md`: one command syntax `\name[attributes]
 | D31 to D46 | The Kalem format's syntax and stylesheet decisions (heading marker, emphasis, attributes, blocks, front matter, tasks, table formulas, math, stylesheet language, layout directives, comments, includes, executable blocks, extensions, license, home of the specification) | RFC 0003 §4 to §13, T2.13.1 | Draft-decided in RFC 0003 under the one-syntax rule; closed by the prototypes of T2.13.1 |
 | D47 | The command sigil: `\` | RFC 0003 §4.1, §20 | Draft |
 | D48 | Paragraphs implicit, separated by blank lines; the only non-command structure | RFC 0003 §4.4 | Draft |
-| D49 | One shortcut, `$…$` for inline mathematics in LaTeX notation; no other lightweight marker | RFC 0003 §8, §20 | Draft, owner's leaning; the diff experiment of T2.13.1 decides |
+| D49 | One shortcut, `$…$` for inline mathematics in LaTeX notation; no other lightweight marker | RFC 0003 §8, §20, appendix A | Draft, confirmed by the first experiment: diffs read well without shortcuts |
 | D50 | Table formulas in the spreadsheet dialect (A1, `SUM`), Org's Calc translated on import | RFC 0003 §9.2 | Draft |
 | D51 | Stylesheets as TOML property files, no code, no selectors beyond element and style names | RFC 0003 §13 | Draft |
 | D52 | PDF engines: Typst embedded as the default, LaTeX through tectonic for TeX-exact output | RFC 0003 §8, §17 | Draft |

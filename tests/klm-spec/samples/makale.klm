@@ -9,7 +9,7 @@
 
 \h1[#giris]{Giriş}
 
-Harmonik toplamların karesi, analizde en çok çalışılan dizilerden biridir \cite[euler1740,apostol1976]{}. $n \in \N$ için $H_n^{(2)} = \sum_{k=1}^{n} \frac{1}{k^2}$ yazalım. Amacımız, her $n$ için geçerli ve hesaplanması kolay bir üst sınır vermek. Sonuç, lisans düzeyinde bir alıştırma niteliğindedir.
+Harmonik toplamların karesi, analizde en çok çalışılan dizilerden biridir \cite[euler1740,apostol1976]. $n \in \N$ için $H_n^{(2)} = \sum_{k=1}^{n} \frac{1}{k^2}$ yazalım. Amacımız, her $n$ için geçerli ve hesaplanması kolay bir üst sınır vermek. Sonuç, lisans düzeyinde bir alıştırma niteliğindedir.
 
 \h1[#sonuc]{Ana sonuç}
 
@@ -29,10 +29,10 @@ H_n^{(2)} &\le 1 + \sum_{k=2}^{n} \left( \frac{1}{k-1} - \frac{1}{k} \right) \\
 &= 1 + 1 - \frac{1}{n} = 2 - \frac{1}{n}.
 }
 
-Bu, \ref[eq:sinir]{} eşitsizliğini verir.
+Bu, \ref[eq:sinir] eşitsizliğini verir.
 }
 
-Sınır keskin değildir: Euler'in ünlü sonucu \cite[euler1740]{} limiti verir,
+Sınır keskin değildir: Euler'in ünlü sonucu \cite[euler1740] limiti verir,
 
 \eq[#eq:euler]{
 \lim_{n \to \infty} H_n^{(2)} = \frac{\pi^2}{6} \approx 1{,}6449.
@@ -40,7 +40,7 @@ Sınır keskin değildir: Euler'in ünlü sonucu \cite[euler1740]{} limiti verir
 
 \h1[#sayisal]{Sayısal karşılaştırma}
 
-\ref[tbl:degerler]{} tablosu, küçük $n$ değerleri için toplamı ve sınırı karşılaştırıyor.
+\ref[tbl:degerler] tablosu, küçük $n$ değerleri için toplamı ve sınırı karşılaştırıyor.
 
 \table[#tbl:degerler cols="r r r r" header=1]{
   \tr{\th{$n$} \th{$H_n^{(2)}$} \th{$2 - 1/n$} \th{Fark}}
@@ -50,7 +50,7 @@ Sınır keskin değildir: Euler'in ünlü sonucu \cite[euler1740]{} limiti verir
   \tr{\td{10} \td{1,5498} \td{1,9000} \td{0,3502}}
   \tr{\td{20} \td{1,5962} \td{1,9500} \td{0,3538}}
   \formulas{
-D2:D6 = C - B
+    D = C - B
   }
   \caption{Toplam, sınır ve aralarındaki fark (dört ondalık)}
 }
