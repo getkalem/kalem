@@ -331,6 +331,10 @@ mod tests {
             .arg("turkish.ldf")
             .output()
             .is_ok_and(|o| !o.stdout.is_empty());
+        #[allow(clippy::print_stderr)]
+        if !turkish {
+            eprintln!("the tez template is not compiled: babel's Turkish is not installed");
+        }
         for t in TEMPLATES.iter().filter(|t| turkish || t.name != "tez") {
             let f = dir.join(format!("{}.tex", t.name));
             std::fs::write(&f, t.text).unwrap();

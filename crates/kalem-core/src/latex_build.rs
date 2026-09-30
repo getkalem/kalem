@@ -330,6 +330,8 @@ fn build_command(tool: &Tool, engine: Engine, root: &Path, out_dir: Option<&Path
                 Engine::PdfLatex => "-pdflatex",
                 Engine::XeLatex => "-xelatex",
                 Engine::LuaLatex => "-lualatex",
+                // Not reached: tectonic is run on its own.
+                Engine::Tectonic => "-xelatex",
             });
             if let Some(d) = out_dir {
                 c.arg(format!("-outdir={}", d.display()));

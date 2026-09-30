@@ -432,10 +432,32 @@ impl Model {
 
     /// The definitions of the macros, as written, for the math renderer
     /// (as `#+LATEX_HEADER` lines are for Org).
-    pub fn macro_definitions<'a>(&self, text: &'a str) -> Vec<&'a str> {
+    pub fn macro_definitions(&self) -> Vec<String> {
+        // Written again from what the model read, so that a definition in
+        // another file of the project is the right text.
         self.macros
             .iter()
-            .filter_map(|m| text.get(m.range.clone()))
+            .map(|m| {
+                let cmd = &m.command;
+                match cmd.as_str() {
+                    "def" | "gdef" | "edef" | "xdef" => {
+                        let params: String = (1..=m.args).map(|i| format!("#{i}")).collect();
+                        format!("\\{cmd}{}{params}{{{}}}", m.name, m.body)
+                    }
+                    "newcommand" | "renewcommand" | "providecommand" => {
+                        let mut out = format!("\\{cmd}{{{}}}", m.name);
+                        if m.args > 0 {
+                            out.push_str(&format!("[{}]", m.args));
+                            if let Some(d) = &m.default {
+                                out.push_str(&format!("[{d}]"));
+                            }
+                        }
+                        out.push_str(&format!("{{{}}}", m.body));
+                        out
+                    }
+                    _ => format!("\\{cmd}{{{}}}{{{}}}", m.name, m.body),
+                }
+            })
             .collect()
     }
 }

@@ -198,6 +198,30 @@ impl LatexState {
         &self.parse
     }
 
+    /// The bibliography files the project names, found from the root's
+    /// folder (or the document's, `path`, before the root is known).
+    pub fn bibliography_files(&self, path: Option<&std::path::Path>) -> Vec<std::path::PathBuf> {
+        let root = self.root_dir();
+        let base = root
+            .as_deref()
+            .or_else(|| path.and_then(std::path::Path::parent));
+        self.model()
+            .bibliography
+            .iter()
+            .flat_map(|b| b.files.iter())
+            .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
+            .collect()
+    }
+
+    /// The folder of the project's root document, once it is found: where
+    /// LaTeX runs, so where bibliography files are looked for.
+    pub fn root_dir(&self) -> Option<std::path::PathBuf> {
+        self.project
+            .borrow()
+            .as_ref()
+            .and_then(|p| p.root.parent().map(std::path::Path::to_path_buf))
+    }
+
     /// The document model (numbers, labels, citations, definitions): in
     /// a project of several files, the project's, seen from this file
     /// (its numbers continue the files before it, and labels in the other
@@ -2644,14 +2668,12 @@ fn chip(
             (shown, true)
         }
         _ => {
-            // A citation: author and year from the bibliography.
-            let base = doc.meta.path.as_deref().and_then(std::path::Path::parent);
-            let files: Vec<std::path::PathBuf> = model
-                .bibliography
-                .iter()
-                .flat_map(|b| b.files.iter())
-                .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
-                .collect();
+            // A citation: author and year from the bibliography, whose
+            // files are found from the root's folder, as LaTeX finds them.
+            let files = doc
+                .latex()
+                .map(|l| l.bibliography_files(doc.meta.path.as_deref()))
+                .unwrap_or_default();
             let bib = crate::cite::load(&files);
             if let Some(shown) = styled_citation(model, &bib, name, &opts, &first) {
                 return shown;
@@ -2766,13 +2788,10 @@ pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
         ));
     }
     if latex_syntax::signatures::command(&name) == "*oom" {
-        let base = doc.meta.path.as_deref().and_then(std::path::Path::parent);
-        let files: Vec<std::path::PathBuf> = model
-            .bibliography
-            .iter()
-            .flat_map(|b| b.files.iter())
-            .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
-            .collect();
+        let files = doc
+            .latex()
+            .map(|l| l.bibliography_files(doc.meta.path.as_deref()))
+            .unwrap_or_default();
         let bib = crate::cite::load(&files);
         // The card in the style the document asks for: biblatex's
         // `style=`, else `\bibliographystyle`.
@@ -3371,12 +3390,7 @@ pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
         // With siunitx, `\qty` is its quantity, not physics' parentheses.
         .filter(|d| !(loaded("siunitx") && d.starts_with("\\newcommand{\\qty}[1]")))
         .collect();
-    out.extend(
-        model
-            .macro_definitions(doc.text().as_str())
-            .into_iter()
-            .map(str::to_string),
-    );
+    out.extend(model.macro_definitions());
     out
 }
 

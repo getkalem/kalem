@@ -1753,22 +1753,7 @@ fn latex_insert_citation(ctx: &mut EditorContext<'_>, args: &Value) -> CommandRe
         return Err(CommandError::new(crate::tr!("msg-not-latex")));
     };
     let Some(key) = key else {
-        let model = l.model();
-        let base = d
-            .meta
-            .path
-            .as_deref()
-            .and_then(std::path::Path::parent)
-            .map(std::path::Path::to_path_buf);
-        let files: Vec<std::path::PathBuf> = model
-            .bibliography
-            .iter()
-            .flat_map(|b| b.files.iter())
-            .map(|f| {
-                base.as_ref()
-                    .map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f))
-            })
-            .collect();
+        let files = l.bibliography_files(d.meta.path.as_deref());
         let bib = crate::cite::load(&files);
         let items: Vec<crate::palette::PaletteItem> = bib
             .entries()
