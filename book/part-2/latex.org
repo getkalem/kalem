@@ -764,7 +764,12 @@ are indented to the item's depth, the source's own indentation hidden.
 enumitem's options are read from the list's optional argument: =label==
 (=\arabic*=, =\alph*=, =\Alph*=, =\roman*=, =\Roman*= replaced by the
 item's number; in =itemize= the label as written) and =start==. Other
-options are ignored.
+options are ignored. =\setcounter{enumi}{4}= (or =\addtocounter=, with the
+counter of the list's level) in the list sets the number the next item
+counts on from, as in LaTeX. LaTeX stops at an =\item= outside a list
+and at lists nested more than four of a kind or six in all; Kalem draws
+them as the table says and =kalem check= warns (=latex-item-outside-list=,
+=latex-too-deep=).
 
 ** Theorems and proofs
 
@@ -1043,14 +1048,27 @@ blank left by the label kept, the tag at the end of the body):
 The package definitions (=PACKAGE_MACROS=), given only when the
 document loads the package:
 
-| Package   | Definitions                                                                                                                                                                                                                                                                                          |
-|-----------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =bm=      | =\bm{x}= as =\boldsymbol{x}=                                                                                                                                                                                                                                                                         |
-| =physics= | =\abs{x}=, =\norm{x}=, =\qty{x}= (=\left(x\right)=), =\dv{f}{x}=, =\pdv{f}{x}=, =\vb{x}= (=\mathbf=), =\va{x}= (=\vec=), =\vu{x}= (=\hat{\mathbf{x}}=), =\bra{x}=, =\ket{x}=, =\braket{a}{b}=, =\expval{x}=, =\order{x}= (=\mathcal{O}\left(x\right)=), =\tr=, =\Tr= (operators)                     |
-| =siunitx= | =\SI{n}{u}= (=n\,\mathrm{u}=), =\si{u}=, =\num{n}=, =\qtyunit{n}{u}=; units =\metre= =\meter= =\second= =\kilogram= =\gram= =\kelvin= =\ampere= =\mole= =\newton= =\joule= =\watt= =\volt= =\hertz= =\pascal=; prefixes =\kilo= =\milli= =\micro= =\centi= =\mega=; =\per= (/), =\squared=, =\cubed= |
+| Package   | Definitions                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|-----------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =bm=      | =\bm{x}= as =\boldsymbol{x}=                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| =physics= | =\abs{x}=, =\norm{x}=, =\qty{x}= (=\left(x\right)=), =\dv{f}{x}=, =\pdv{f}{x}=, =\vb{x}= (=\mathbf=), =\va{x}= (=\vec=), =\vu{x}= (=\hat{\mathbf{x}}=), =\bra{x}=, =\ket{x}=, =\braket{a}{b}=, =\expval{x}=, =\order{x}= (=\mathcal{O}\left(x\right)=), =\tr=, =\Tr= (operators)                                                                                                                                                                                             |
+| =siunitx= | =\SI{n}{u}= and =\qty{n}{u}= (=n\,\mathrm{u}=), =\si{u}=, =\unit{u}=, =\num{n}=, =\ang{n}=; units =\metre= =\meter= =\second= =\kilogram= =\gram= =\kelvin= =\ampere= =\mole= =\newton= =\joule= =\watt= =\volt= =\hertz= =\pascal= =\coulomb= =\tesla= =\ohm= =\litre= =\hour= =\electronvolt= =\percent= =\degree=; prefixes =\kilo= =\milli= =\micro= =\centi= =\mega= =\giga= =\nano=; =\per= (/), =\squared=, =\cubed=; with =physics= also loaded, =\qty= is siunitx's |
 
 Only the one-argument forms of these are defined; optional arguments and
 starred variants of =physics= are not.
+
+In running text, siunitx's commands show what version 3 typesets with
+its default options (=crate::siunitx=): =\num{12345.678}= "12 345.678"
+(digits in groups of three, thin spaces, from five digits on),
+=\num{-1.5e3}= "−1.5 × 10³", =\unit{\kilo\gram\per\second\squared}=
+"kg s⁻²" (prefixes and units by their macros, =\per= as a negative
+power, =\square=, =\cubic=, =\squared=, =\cubed=, =\tothe{n}=; a unit
+written out, =m/s=, as it is), =\qty{3}{\metre}= and =\SI= "3 m" (a thin
+space; none before =\degree=, =\arcminute=, =\arcsecond=), =\ang{1;2;3}=
+"1°2′3″", =\numrange= and =\qtyrange= (=\SIrange=) with "to" and the
+unit repeated, =\numlist= with ", " and " and ". siunitx is not in
+the test machine's TeX installation, so these follow its manual, not a
+comparison with its output.
 
 * Tables
 
@@ -1121,6 +1139,8 @@ to the next and previous cell. A table that is not simple stays source.
 | =cite-unused-entry=         | info                        | an entry nothing in the project cites; reported on the root document's bibliography command, only when every file was read and no =\nocite{*}= |                                                                                                   |
 | =latex-missing-file=        | warning                     | an =\input=, =\include=, =\subfile=, =\import= or =\subimport= of this file that resolves to no readable file (a cycle too)                    |                                                                                                   |
 | =latex-missing-picture=     | warning                     | an =\includegraphics= whose file is found neither from the file's folder nor from the root's (with =\graphicspath= and LaTeX's extensions)     |                                                                                                   |
+| =latex-item-outside-list=   | warning                     | an =\item= in the body outside any list (LaTeX's "Lonely \item")                                                                               |                                                                                                   |
+| =latex-too-deep=            | warning                     | the fifth =enumerate= or =itemize= inside lists of its kind, or the seventh list in all ("Too deeply nested")                                  |                                                                                                   |
 | =latex-deprecated=          | info                        | =\bf= =\it= =\rm= =\sc= =\sf= =\tt= =\sl= =\cal=                                                                                               | =\bfseries= =\itshape= =\rmfamily= =\scshape= =\sffamily= =\ttfamily= =\slshape=; none for =\cal= |
 | =latex-deprecated=          | info                        | =$$…$$=                                                                                                                                        | =\[…\]=                                                                                           |
 | =latex-tie=                 | info                        | =\ref=, =\eqref=, =\cite=, =\cref=, =\autoref= or =\pageref= after a space that follows text, outside math                                     | =~= for the space                                                                                 |

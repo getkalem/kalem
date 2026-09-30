@@ -554,6 +554,67 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
     }
     let root_node = parse.syntax();
     let base = path.parent();
+    // `\item` outside a list, and lists more than four deep: LaTeX
+    // stops at both.
+    let body = model.body.clone().unwrap_or(0..text.len());
+    // Four of one kind (`enumerate`, `itemize`), six in all.
+    let mut open: Vec<String> = Vec::new();
+    for event in root_node.preorder() {
+        match event {
+            latex_syntax::WalkEvent::Enter(n) => {
+                let list = (n.kind() == K::ENVIRONMENT)
+                    .then(|| latex_syntax::name(&n))
+                    .flatten()
+                    .filter(|x| crate::latex_view::is_list(x));
+                let depth = open.len();
+                if let Some(kind) = list {
+                    open.push(kind.clone());
+                    let same = open.iter().filter(|k| **k == kind).count();
+                    if (kind != "description" && same == 5) || open.len() == 7 {
+                        let s = usize::from(n.text_range().start());
+                        out.push(Diagnostic {
+                            range: s..s + text[s..].find('}').map_or(0, |i| i + 1),
+                            severity: Severity::Warning,
+                            code: "latex-too-deep",
+                            message: crate::l10n::tr("latex-too-deep"),
+                            fix: None,
+                        });
+                    }
+                }
+                if n.kind() == K::COMMAND
+                    && depth == 0
+                    && open.is_empty()
+                    && body.contains(&usize::from(n.text_range().start()))
+                    && latex_syntax::name(&n).as_deref() == Some("item")
+                    && !n.ancestors().any(|a| {
+                        a.kind() == K::ENVIRONMENT
+                            && latex_syntax::name(&a).is_some_and(|x| {
+                                matches!(
+                                    x.as_str(),
+                                    "thebibliography" | "itemize" | "enumerate" | "description"
+                                ) || x.contains("list")
+                            })
+                    })
+                {
+                    let s = usize::from(n.text_range().start());
+                    out.push(Diagnostic {
+                        range: s..s + 5,
+                        severity: Severity::Warning,
+                        code: "latex-item-outside-list",
+                        message: crate::l10n::tr("latex-item-outside-list"),
+                        fix: None,
+                    });
+                }
+            }
+            latex_syntax::WalkEvent::Leave(n) => {
+                if n.kind() == K::ENVIRONMENT
+                    && latex_syntax::name(&n).is_some_and(|x| crate::latex_view::is_list(&x))
+                {
+                    open.pop();
+                }
+            }
+        }
+    }
     for n in root_node.descendants().filter(|n| n.kind() == K::COMMAND) {
         let range = usize::from(n.text_range().start())..usize::from(n.text_range().end());
         if latex_syntax::name(&n).as_deref() == Some("includegraphics")
@@ -705,6 +766,47 @@ pub fn coverage_in(text: &str, file: Option<&std::path::Path>) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lonely_items_and_deep_lists() {
+        let codes = |t: &str| -> Vec<&'static str> {
+            let p = std::env::temp_dir().join(format!("kalem-lists-{}.tex", std::process::id()));
+            check(&p, t)
+                .into_iter()
+                .map(|d| d.code)
+                .filter(|c| c.starts_with("latex-item") || *c == "latex-too-deep")
+                .collect()
+        };
+        assert_eq!(
+            codes("\\begin{document}\n\\item x\n\\end{document}\n"),
+            ["latex-item-outside-list"]
+        );
+        let nest = |kinds: &[&str]| {
+            let mut t = String::from("\\begin{document}\n");
+            for k in kinds {
+                t.push_str(&format!("\\begin{{{k}}}\\item x\n"));
+            }
+            for k in kinds.iter().rev() {
+                t.push_str(&format!("\\end{{{k}}}\n"));
+            }
+            t.push_str("\\end{document}\n");
+            t
+        };
+        assert!(codes(&nest(&["enumerate"; 4])).is_empty());
+        assert_eq!(codes(&nest(&["enumerate"; 5])), ["latex-too-deep"]);
+        // Mixed kinds: six in all.
+        assert!(
+            codes(&nest(&[
+                "itemize",
+                "itemize",
+                "itemize",
+                "enumerate",
+                "enumerate",
+                "enumerate"
+            ]))
+            .is_empty()
+        );
+    }
 
     #[test]
     fn quotes_are_shorthands_in_german() {
