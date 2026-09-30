@@ -481,23 +481,11 @@ impl Editor {
 
     fn compute_lines(&mut self) -> Vec<usize> {
         let n = self.doc.text().line_count();
-        // A CSV filter: the lines of the rows it keeps.
+        // A CSV filter or sort: the lines of the rows shown, in their order.
         if !self.source
-            && let Some(f) = kalem_core::csv::filtered(&self.doc)
+            && let Some(lines) = kalem_core::csv::shown_lines(&self.doc)
         {
-            let text = self.doc.text();
-            let len = text.len();
-            let mut out = Vec::new();
-            for r in &f.ranges {
-                let last = if r.end > len {
-                    n - 1
-                } else {
-                    text.line_of(r.end.saturating_sub(1))
-                };
-                out.extend(text.line_of(r.start.min(len))..=last);
-            }
-            out.dedup();
-            return out;
+            return lines.to_vec();
         }
         let blocks = self.blocks();
         if self.source || blocks.is_empty() {
@@ -550,6 +538,10 @@ impl Editor {
 
     /// The list item of source line `line`, if it shows.
     pub fn item_of(&self, line: usize) -> Option<usize> {
+        // A CSV view sorted by a column shows its lines out of order.
+        if self.doc.csv_sort.is_some() && self.doc.meta.mode == DocumentMode::Csv {
+            return self.visible.iter().position(|&l| l == line);
+        }
         self.visible.binary_search(&line).ok()
     }
 
@@ -2446,10 +2438,8 @@ impl Editor {
         }
         if self.doc.poll() {
             self.blocks = None;
-            let n = self.visible.len();
             self.visible = self.compute_visible();
             self.list.reset(self.visible.len());
-            let _ = n;
             cx.notify();
         }
     }

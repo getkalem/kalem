@@ -3208,3 +3208,37 @@ fn latex_root_found_again_after_a_tex_root_line() {
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("See 1."), "{rows}");
 }
+
+#[test]
+fn csv_view_sorted_by_a_column() {
+    let text = "name,age\nAda,36\nBob,7\nCem,20\n";
+    let mut t = with_file(text, "s.csv", Config::default(), (50, 8));
+    t.at(text.find("36").unwrap());
+    t.app.run_command("csv.sortView", serde_json::json!({}));
+    let rows = screen(&mut t);
+    let pos = |s: &str| rows.iter().position(|r| r.contains(s)).unwrap();
+    assert!(
+        pos("name") < pos("Bob") && pos("Bob") < pos("Cem") && pos("Cem") < pos("Ada"),
+        "{rows:#?}"
+    );
+    // The file keeps its order.
+    assert_eq!(t.text(), text);
+    // Down goes in the order shown: from Bob's row to Cem's.
+    t.at(text.find("Bob").unwrap());
+    t.key(KeyCode::Down, KeyModifiers::NONE);
+    let line = t.app.doc.text().line_of(t.app.doc.selection.head);
+    assert_eq!(line, 3, "Cem's line");
+    // Again: descending; then the file's order.
+    t.at(text.find("36").unwrap());
+    t.app.run_command("csv.sortView", serde_json::json!({}));
+    let rows = screen(&mut t);
+    let pos = |s: &str| rows.iter().position(|r| r.contains(s)).unwrap();
+    assert!(
+        pos("Ada") < pos("Cem") && pos("Cem") < pos("Bob"),
+        "{rows:#?}"
+    );
+    t.app.run_command("csv.unsortView", serde_json::json!({}));
+    let rows = screen(&mut t);
+    let pos = |s: &str| rows.iter().position(|r| r.contains(s)).unwrap();
+    assert!(pos("Ada") < pos("Bob") && pos("Bob") < pos("Cem"));
+}

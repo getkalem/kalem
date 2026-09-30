@@ -966,7 +966,10 @@ scroll. /Filter Rows/ asks for a text and shows only the rows with a
 field holding it (case ignored), with the header and the row at the
 cursor; the status bar says how many of the rows match, the file does
 not change, and /Show All Rows/ shows them all again. Both are in the
-/Table/ menu. /Open as Plain Text/ shows the text as it is,
+/Table/ menu, as are /Sort View by Column/, which shows the rows in the
+order of the column at the cursor (again: descending) with the file
+unchanged, and /File Order/, which ends it. /Open as Plain Text/ shows
+the text as it is,
 and /Convert to Org Table/ writes the rows as an Org table in a new
 =.org= file beside it and opens it.
 

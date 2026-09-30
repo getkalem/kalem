@@ -174,6 +174,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - File manager: `W` opens the marked files with their applications, Show in System File Manager selects the file in Finder, Explorer or the desktop's file manager, and `!` runs a shell command on the marked files after asking (`*` and `?` as in Dired); in both editors.
 - File manager (graphical): `v` shows a preview pane beside the listing (pictures, the first lines of text files, folders' names), Ctrl+T the listing's pictures as thumbnails, a click going to the picture's line.
 - LaTeX links: Open Link (Ctrl-click, Cmd-click on macOS) follows a reference to its label, `\url` and `\href` to the browser, `\input` and `\include` to their file, `\includegraphics` to its picture and a citation to the bibliography file; in both editors.
+- CSV: Sort View by Column shows the rows in the order of the column at the cursor (again for descending) without changing the file; File Order ends it. It works with Filter Rows.
 - LaTeX: adding or changing a `% !TEX root` line makes the editor find the project again.
 - Fixed: typing `\end{verbatim}` (or another verbatim environment's end) where it closes an environment opened paragraphs before could leave the incremental parse different from a full one.
 - LaTeX: formulas using `physics` (`\dv`, `\pdv`, `\abs`, `\ket`, …), `siunitx` (`\SI`, `\si`, units) and `bm` render when the document loads those packages.

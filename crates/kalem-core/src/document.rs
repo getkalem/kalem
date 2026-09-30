@@ -118,6 +118,9 @@ pub struct DocumentState {
     /// A CSV document's filter (view state): only the rows with a field
     /// holding this text show (`crate::csv::filtered`).
     pub csv_filter: Option<String>,
+    /// A CSV document's view sorted by a column (view state), descending
+    /// when `true`: the file keeps its order (`crate::csv::shown_lines`).
+    pub csv_sort: Option<(usize, bool)>,
 }
 
 /// Why saving failed.
@@ -228,6 +231,7 @@ impl DocumentState {
             changes: Vec::new(),
             dired: None,
             csv_filter: None,
+            csv_sort: None,
         }
     }
 
