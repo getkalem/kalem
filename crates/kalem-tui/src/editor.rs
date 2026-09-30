@@ -159,16 +159,8 @@ impl Images {
     fn latex_math(&mut self, source: &str, doc: &DocumentState) -> ImageKey {
         let version = doc.version();
         if self.macros.as_ref().is_none_or(|(v, _)| *v != version) {
-            let defs: Vec<String> = doc
-                .latex()
-                .map(|l| {
-                    l.model()
-                        .macro_definitions(doc.text().as_str())
-                        .into_iter()
-                        .map(str::to_string)
-                        .collect()
-                })
-                .unwrap_or_default();
+            // The packages' commands the renderer lacks, and the document's.
+            let defs = kalem_core::latex_view::math_definitions(doc);
             self.macros = Some((version, org_math::source::macros(&defs)));
         }
         ImageKey::Math {

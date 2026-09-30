@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc d1e2680d1b5a7192c297a6f5632b69aa8f23f59ae0791445115f5f7383192b18 # shrinks to text = "\\def\\x#1\\makeatletter\n\n\\a@b%", a = 26, len = 0, insert = []
 cc bd0b8669e96b2cdd53710151a4bbb0fda6dad7cb09598a3d12452b98b0e0f86c # shrinks to text = "\\left\\makeatletter\\begin{itemize}\\end{itemize}\n\n", a = 48, len = 0, insert = ["\\a@b"]
+cc 10c07dcbb5a08f0b50a13f902fdfd98968fbdfa3821579d14115722d22a5066e # shrinks to paras = ["\\begin{verbatim}", "\\end{document}$\\makeatletter", "%", "\\makeatletter"], which = 2, a = 1, len = 0, insert = ["\\end{verbatim}"]

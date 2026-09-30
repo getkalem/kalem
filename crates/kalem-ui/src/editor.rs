@@ -2606,18 +2606,12 @@ impl Editor {
             let text = match self.doc.parse() {
                 Some((p, _)) => crate::math::macros(p),
                 // LaTeX: the document's own definitions.
-                None => match self.doc.latex() {
-                    Some(l) => {
-                        let model = l.model();
-                        let defs: Vec<String> = model
-                            .macro_definitions(self.doc.text().as_str())
-                            .into_iter()
-                            .map(str::to_string)
-                            .collect();
-                        org_math::source::macros(&defs)
-                    }
-                    None => String::new(),
-                },
+                // LaTeX: the packages' commands the renderer lacks, and the
+                // document's own definitions.
+                None if self.doc.latex().is_some() => {
+                    org_math::source::macros(&kalem_core::latex_view::math_definitions(&self.doc))
+                }
+                None => String::new(),
             };
             *m = (version, Rc::from(text));
         }

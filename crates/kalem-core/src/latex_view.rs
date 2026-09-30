@@ -2185,6 +2185,85 @@ fn is_display_math(name: &str) -> bool {
     )
 }
 
+/// Definitions of the math commands of `physics`, `siunitx` and `bm`,
+/// for the formula renderer, which does not know them (T2.7h.7).
+const PACKAGE_MACROS: &[(&str, &[&str])] = &[
+    ("bm", &["\\newcommand{\\bm}[1]{\\boldsymbol{#1}}"]),
+    (
+        "physics",
+        &[
+            "\\newcommand{\\abs}[1]{\\left|#1\\right|}",
+            "\\newcommand{\\norm}[1]{\\left\\|#1\\right\\|}",
+            "\\newcommand{\\qty}[1]{\\left(#1\\right)}",
+            "\\newcommand{\\dv}[2]{\\frac{\\mathrm{d}#1}{\\mathrm{d}#2}}",
+            "\\newcommand{\\pdv}[2]{\\frac{\\partial #1}{\\partial #2}}",
+            "\\newcommand{\\vb}[1]{\\mathbf{#1}}",
+            "\\newcommand{\\va}[1]{\\vec{#1}}",
+            "\\newcommand{\\vu}[1]{\\hat{\\mathbf{#1}}}",
+            "\\newcommand{\\bra}[1]{\\left\\langle #1\\right|}",
+            "\\newcommand{\\ket}[1]{\\left|#1\\right\\rangle}",
+            "\\newcommand{\\braket}[2]{\\left\\langle #1\\middle|#2\\right\\rangle}",
+            "\\newcommand{\\expval}[1]{\\left\\langle #1\\right\\rangle}",
+            "\\newcommand{\\order}[1]{\\mathcal{O}\\left(#1\\right)}",
+            "\\newcommand{\\tr}{\\operatorname{tr}}",
+            "\\newcommand{\\Tr}{\\operatorname{Tr}}",
+        ],
+    ),
+    (
+        "siunitx",
+        &[
+            "\\newcommand{\\SI}[2]{#1\\,\\mathrm{#2}}",
+            "\\newcommand{\\si}[1]{\\mathrm{#1}}",
+            "\\newcommand{\\num}[1]{#1}",
+            "\\newcommand{\\qtyunit}[2]{#1\\,\\mathrm{#2}}",
+            "\\newcommand{\\metre}{m}",
+            "\\newcommand{\\meter}{m}",
+            "\\newcommand{\\second}{s}",
+            "\\newcommand{\\kilogram}{kg}",
+            "\\newcommand{\\gram}{g}",
+            "\\newcommand{\\kelvin}{K}",
+            "\\newcommand{\\ampere}{A}",
+            "\\newcommand{\\mole}{mol}",
+            "\\newcommand{\\newton}{N}",
+            "\\newcommand{\\joule}{J}",
+            "\\newcommand{\\watt}{W}",
+            "\\newcommand{\\volt}{V}",
+            "\\newcommand{\\hertz}{Hz}",
+            "\\newcommand{\\pascal}{Pa}",
+            "\\newcommand{\\kilo}{k}",
+            "\\newcommand{\\milli}{m}",
+            "\\newcommand{\\micro}{\\mu}",
+            "\\newcommand{\\centi}{c}",
+            "\\newcommand{\\mega}{M}",
+            "\\newcommand{\\per}{/}",
+            "\\newcommand{\\squared}{^2}",
+            "\\newcommand{\\cubed}{^3}",
+        ],
+    ),
+];
+
+/// The definitions the formula renderer takes for a LaTeX document: those
+/// of the packages it loads that the renderer lacks, then the document's
+/// own `\newcommand`s (which win).
+pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
+    let Some(state) = doc.latex() else {
+        return Vec::new();
+    };
+    let model = state.model();
+    let mut out: Vec<String> = PACKAGE_MACROS
+        .iter()
+        .filter(|(p, _)| model.packages.iter().any(|m| m.name == *p))
+        .flat_map(|(_, defs)| defs.iter().map(|d| d.to_string()))
+        .collect();
+    out.extend(
+        model
+            .macro_definitions(doc.text().as_str())
+            .into_iter()
+            .map(str::to_string),
+    );
+    out
+}
+
 /// The formula the cursor at `pos` is in, as the renderer takes it (the
 /// preview under the cursor, T2.7h.16).
 pub fn formula_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
@@ -2532,6 +2611,39 @@ mod tests {
         let f = formula_at(&d, text.find("frac").unwrap()).unwrap();
         assert!(f.contains("\\frac{a}{b}") && !f.contains("label"), "{f}");
         assert_eq!(formula_at(&d, 1), None);
+    }
+
+    #[test]
+    fn package_math_macros() {
+        let text = "\\usepackage{physics,siunitx}\n\\newcommand{\\abs}[1]{|#1|}\n$\\abs{x}$\n";
+        let d = doc(text);
+        let defs = math_definitions(&d);
+        assert!(defs.iter().any(|x| x.contains("\\pdv")));
+        assert!(defs.iter().any(|x| x.contains("\\SI")));
+        assert!(!defs.iter().any(|x| x.contains("\\bm")));
+        // The document's own definition comes last and wins.
+        assert_eq!(
+            defs.last().map(String::as_str),
+            Some("\\newcommand{\\abs}[1]{|#1|}")
+        );
+        let m = org_math::source::macros(&defs);
+        assert!(m.contains("\\pdv"));
+        // The renderer takes them.
+        use org_math::MathEngine;
+        for f in [
+            "\\pdv{f}{x} + \\dv{g}{t}",
+            "\\abs{x} \\norm{v} \\ket{\\psi}",
+            "\\SI{3}{\\metre\\per\\second}",
+        ] {
+            let r = org_math::Request {
+                latex: org_math::source::prepare(f, &m),
+                display: false,
+                size: 20.,
+                scale: 1.,
+                color: [0, 0, 0, 255],
+            };
+            assert!(org_math::Ratex.render(&r).is_ok(), "{f}");
+        }
     }
 
     #[test]
