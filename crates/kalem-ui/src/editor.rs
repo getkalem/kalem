@@ -848,8 +848,10 @@ impl Editor {
     /// The folder of the project holding the document.
     pub fn project(&self) -> Option<std::path::PathBuf> {
         let projects = self.shared.projects.borrow();
+        // A listing is in the project holding its folder.
+        let listed = self.doc.dired.as_deref().and_then(|s| s.dir());
         projects
-            .containing(self.doc.meta.path.as_deref())
+            .containing(self.doc.meta.path.as_deref().or(listed))
             .map(|p| p.root.clone())
     }
 
@@ -1062,8 +1064,8 @@ impl Editor {
             Request::Find { replace } => self.open_find(replace, cx),
             Request::Open { path: Some(p) } => {
                 let path = std::path::PathBuf::from(kalem_core::settings::expand_home(&p));
-                let path = match (&self.doc.meta.path, path.is_absolute()) {
-                    (Some(doc), false) => doc.parent().map_or(path.clone(), |d| d.join(&path)),
+                let path = match kalem_core::command::folder_of(&self.doc) {
+                    Some(d) if !path.is_absolute() => d.join(&path),
                     _ => path,
                 };
                 cx.emit(DocEvent::Open { path, at: None });

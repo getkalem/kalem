@@ -1,0 +1,421 @@
+# Doom Emacs 3.0's file manager keys (the `dired` module with
+# evil-collection and dirvish) and what each does in Kalem's file manager
+# with Vim keys (T2.7e.18). `keys` is the key in Kalem's notation;
+# `command` the command it runs in a listing, or `vim = true` when Vim's
+# own motion does it, or `reason` why it is not there. `emacs` is the key
+# of the same command in a listing without Vim keys (Dired's own, and the
+# Emacs keymap's). The test in `kalem_core::key_tables` checks every row
+# against the keymaps; the file manager's chapter of the Book shows it.
+
+# Navigation.
+[[key]]
+doom = "j, k"
+keys = "j"
+vim = true
+what = "Next, previous entry"
+
+[[key]]
+doom = "h"
+keys = "h"
+command = "dired.up"
+what = "Parent folder"
+emacs = "^"
+
+[[key]]
+doom = "l"
+keys = "l"
+command = "dired.open"
+what = "Open the entry"
+emacs = "enter"
+
+[[key]]
+doom = "-"
+keys = "-"
+command = "dired.up"
+what = "Parent folder"
+emacs = "-"
+
+[[key]]
+doom = "^"
+keys = "^"
+command = "dired.up"
+what = "Parent folder"
+emacs = "^"
+
+[[key]]
+doom = "gg"
+keys = "g g"
+command = "dired.first"
+what = "First entry"
+
+[[key]]
+doom = "G"
+keys = "shift+g"
+vim = true
+what = "Last entry"
+
+[[key]]
+doom = "gr"
+keys = "g r"
+command = "dired.refresh"
+what = "Read the folder again"
+emacs = "g"
+
+[[key]]
+doom = "q"
+keys = "q"
+command = "dired.close"
+what = "Close the file manager"
+emacs = "q"
+
+[[key]]
+doom = "o"
+keys = "o"
+reason = "Split View shows one document in both panes; opening another document in the other pane is not there yet"
+what = "Open in the other pane"
+
+[[key]]
+doom = "TAB"
+keys = "tab"
+reason = "No subtree expanded in place yet; =I= lists the folder below the listing (Dired's =i=), =$= takes it out"
+what = "Expand a folder in place"
+
+[[key]]
+doom = "i"
+keys = "i"
+vim = true
+what = "Vim's insert, for the editable listing; =I= lists a subfolder below"
+
+[[key]]
+doom = "I"
+keys = "shift+i"
+command = "dired.insertSubdir"
+what = "List a subfolder below"
+emacs = "i"
+
+[[key]]
+doom = "$"
+keys = "$"
+command = "dired.removeSubdir"
+what = "Take a listed subfolder out"
+emacs = "shift+k"
+
+# Marks.
+[[key]]
+doom = "m"
+keys = "m"
+command = "dired.mark"
+what = "Mark"
+emacs = "m"
+
+[[key]]
+doom = "u"
+keys = "u"
+command = "dired.unmark"
+what = "Unmark"
+emacs = "u"
+
+[[key]]
+doom = "U"
+keys = "shift+u"
+command = "dired.unmarkAll"
+what = "Unmark all"
+emacs = "shift+u"
+
+[[key]]
+doom = "t"
+keys = "t"
+command = "dired.toggleMarks"
+what = "Toggle the marks"
+emacs = "t"
+
+[[key]]
+doom = "* ."
+keys = "* ."
+command = "dired.markExtension"
+what = "Mark by extension"
+emacs = "* ."
+
+[[key]]
+doom = "* /"
+keys = "* /"
+command = "dired.markDirectories"
+what = "Mark the folders"
+emacs = "* /"
+
+[[key]]
+doom = "* *"
+keys = "* *"
+command = "dired.markExecutables"
+what = "Mark the executables"
+emacs = "* *"
+
+[[key]]
+doom = "% m"
+keys = "% m"
+command = "dired.markRegexp"
+what = "Mark by regular expression"
+emacs = "% m"
+
+[[key]]
+doom = "d"
+keys = "d"
+command = "dired.flag"
+what = "Flag for deletion"
+emacs = "d"
+
+[[key]]
+doom = "x"
+keys = "x"
+command = "dired.executeFlagged"
+what = "Move the flagged to the trash"
+emacs = "x"
+
+# Operations.
+[[key]]
+doom = "C"
+keys = "shift+c"
+command = "dired.copy"
+what = "Copy"
+emacs = "shift+c"
+
+[[key]]
+doom = "R"
+keys = "shift+r"
+command = "dired.move"
+what = "Rename or move"
+emacs = "shift+r"
+
+[[key]]
+doom = "D"
+keys = "shift+d"
+command = "dired.delete"
+what = "Move to the trash"
+emacs = "shift+d"
+
+[[key]]
+doom = "+"
+keys = "+"
+command = "dired.mkdir"
+what = "New folder"
+emacs = "+"
+
+[[key]]
+doom = "T"
+keys = "shift+t"
+command = "dired.touch"
+what = "Touch"
+emacs = "shift+t"
+
+[[key]]
+doom = "M"
+keys = "shift+m"
+command = "dired.chmod"
+what = "Permissions"
+emacs = "shift+m"
+
+[[key]]
+doom = "S"
+keys = "shift+s"
+command = "dired.symlink"
+what = "Symbolic link"
+emacs = "shift+s"
+
+[[key]]
+doom = "Z"
+keys = "shift+z"
+command = "dired.compress"
+what = "Compress to a zip, or extract an archive"
+emacs = "shift+z"
+
+[[key]]
+doom = "!"
+keys = "!"
+command = "dired.shellCommand"
+what = "Shell command on the files"
+emacs = "!"
+
+[[key]]
+doom = "&"
+keys = "&"
+command = "dired.shellCommand"
+what = "Shell command on the files (Kalem runs both in the background)"
+emacs = "&"
+
+[[key]]
+doom = "A"
+keys = "shift+a"
+command = "dired.searchFiles"
+what = "Search the text of the files under the folder"
+emacs = "shift+a"
+
+[[key]]
+doom = "Q"
+keys = "shift+q"
+reason = "Replacing in several files is not there yet; =A= finds the matches"
+what = "Replace in the marked files"
+
+[[key]]
+doom = "% u"
+keys = "% u"
+command = "dired.upcase"
+what = "Rename to upper case"
+emacs = "% u"
+
+[[key]]
+doom = "% l"
+keys = "% l"
+command = "dired.downcase"
+what = "Rename to lower case"
+emacs = "% l"
+
+[[key]]
+doom = "% R"
+keys = "% shift+r"
+command = "dired.renameRegexp"
+what = "Rename by regular expression"
+emacs = "% shift+r"
+
+[[key]]
+doom = "="
+keys = "="
+reason = "Kalem has no view of the differences between two files yet"
+what = "Compare with the file at point"
+
+[[key]]
+doom = "yy, Y"
+keys = "y y"
+command = "dired.copyPath"
+what = "Copy the paths"
+
+[[key]]
+doom = "Y"
+keys = "shift+y"
+command = "dired.copyPath"
+what = "Copy the paths"
+
+[[key]]
+doom = "yn"
+keys = "y n"
+command = "dired.copyName"
+what = "Copy the names"
+emacs = "w"
+
+[[key]]
+doom = "yr"
+keys = "y r"
+command = "dired.copyRelativePath"
+what = "Copy the paths from the project (or the folder)"
+
+[[key]]
+doom = "w"
+keys = "w"
+vim = true
+what = "Vim's word motion; =yn= copies the names"
+
+# Views.
+[[key]]
+doom = "("
+keys = "("
+command = "dired.toggleDetails"
+what = "Details"
+emacs = "("
+
+[[key]]
+doom = "."
+keys = "."
+command = "dired.toggleHidden"
+what = "Hidden files"
+emacs = "."
+
+[[key]]
+doom = "s"
+keys = "s"
+command = "dired.sort"
+what = "Sort by name, time, size, extension"
+emacs = "s"
+
+[[key]]
+doom = "N"
+keys = "shift+n"
+command = "dired.filter"
+what = "Narrow the listing"
+emacs = "shift+f"
+
+[[key]]
+doom = "v"
+keys = "v"
+command = "dired.togglePreview"
+what = "Preview pane"
+emacs = "v"
+
+[[key]]
+doom = "f"
+keys = "f"
+command = "dired.properties"
+what = "File information"
+emacs = "alt+enter"
+
+[[key]]
+doom = "a"
+keys = "a"
+command = "dired.projects"
+what = "Quick access: the projects"
+emacs = "shift+p"
+
+[[key]]
+doom = "W"
+keys = "shift+w"
+command = "dired.openExternal"
+what = "Open with the system's application"
+emacs = "shift+w"
+
+[[key]]
+doom = "C-x C-q"
+keys = "ctrl+x ctrl+q"
+command = "dired.editNames"
+what = "Edit the names as text"
+emacs = "ctrl+x ctrl+q"
+
+# The leader from a listing.
+[[key]]
+doom = "SPC ."
+keys = "space ."
+command = "file.open"
+what = "Open a file by path, from the listing's folder; a new name makes the file"
+
+[[key]]
+doom = "SPC f f"
+keys = "space f f"
+command = "file.open"
+what = "Open a file by path, from the listing's folder"
+
+[[key]]
+doom = "SPC f D"
+keys = "space f shift+d"
+command = "dired.delete"
+what = "Delete the entry at point"
+
+[[key]]
+doom = "SPC f R"
+keys = "space f shift+r"
+command = "dired.move"
+what = "Rename or move the entry at point"
+
+[[key]]
+doom = "SPC f C"
+keys = "space f shift+c"
+command = "dired.copy"
+what = "Copy the entry at point"
+
+[[key]]
+doom = "SPC o -"
+keys = "space o -"
+command = "dired.jump"
+what = "The file manager, and back"
+
+[[key]]
+doom = "SPC p D"
+keys = "space p shift+d"
+command = "dired.projectRoot"
+what = "The project's folder"

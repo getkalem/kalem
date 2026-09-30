@@ -16,6 +16,7 @@
   {"keys": "ctrl+a", "command": "-dired.markAll"},
   {"keys": "ctrl+n", "command": "-dired.newFile"},
   {"keys": "space", "command": "-dired.togglePreview"},
+  {"keys": "ctrl+x ctrl+q", "command": "dired.editNames"},
   {"keys": "ctrl+n", "command": "-file.new"},
   {"keys": "ctrl+p", "command": "-project.findFile"},
   {"keys": "ctrl+o", "command": "-file.open"},
@@ -82,6 +83,10 @@
   { "keys": "S-TAB", "command": "view.foldAll" },
   { "keys": "RET", "command": "edit.newline" },
   { "keys": "C-j", "command": "edit.newline" },
+  // In the file manager Enter opens, as in Dired: moved after RET above
+  // (a binding already there keeps its place).
+  { "keys": "RET", "command": "-dired.open" },
+  { "keys": "RET", "command": "dired.open" },
   { "keys": "C-/", "command": "edit.undo" },
   { "keys": "C-_", "command": "edit.undo" },
   { "keys": "C-x u", "command": "edit.undo" },

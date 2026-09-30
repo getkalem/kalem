@@ -643,15 +643,10 @@ pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::Documen
             let mut cache = crate::formulas::FormulaCache::default();
             crate::formulas::prompt(cache.get(doc))
         }
-        // The document's folder, to add as a project or open a file from.
+        // The document's folder (a listing's own), to add as a project or
+        // open a file from.
         ("project.add", "path") | ("file.open", "path") => {
-            let dir = doc
-                .meta
-                .path
-                .as_deref()
-                .and_then(|p| std::path::absolute(p).ok())
-                .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
-                .or_else(|| std::env::current_dir().ok());
+            let dir = folder_of(doc).or_else(|| std::env::current_dir().ok());
             dir.map(|d| {
                 let mut s = d.display().to_string();
                 if name == "path" && id == "file.open" && !s.ends_with(std::path::MAIN_SEPARATOR) {
@@ -669,6 +664,19 @@ pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::Documen
             .unwrap_or_default(),
         _ => String::new(),
     }
+}
+
+/// The folder a document's relative paths start from: a file manager
+/// listing's folder, else the folder of the document's file.
+pub fn folder_of(doc: &DocumentState) -> Option<std::path::PathBuf> {
+    if let Some(d) = doc.dired.as_deref().and_then(|s| s.dir()) {
+        return Some(d.to_path_buf());
+    }
+    doc.meta
+        .path
+        .as_deref()
+        .and_then(|p| std::path::absolute(p).ok())
+        .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
 }
 
 /// An argument the user typed, as the JSON type `ty`: numbers for
