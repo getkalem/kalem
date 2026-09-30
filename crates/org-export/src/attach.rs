@@ -6,28 +6,44 @@
 use org_syntax::SyntaxKind::*;
 use org_syntax::ast::{self, AstNode};
 
-/// Where `org-attach` keeps the attachments of the heading holding `n`:
-/// its `DIR` (or `ATTACH_DIR`) property, else `data/` and its `ID` split
-/// after two characters (`org-attach-id-uuid-folder-format`).
-fn attachment_dir(n: &org_syntax::SyntaxNode) -> Option<String> {
-    for h in n.ancestors().filter_map(ast::Headline::cast) {
-        let props = h.properties();
-        let get = |k: &str| {
-            props
-                .iter()
-                .find(|(key, _)| key.eq_ignore_ascii_case(k))
-                .map(|(_, v)| v.trim().to_string())
-                .filter(|v| !v.is_empty())
-        };
-        if let Some(d) = get("DIR").or_else(|| get("ATTACH_DIR")) {
-            return Some(d);
-        }
-        if let Some(id) = get("ID") {
-            let split = id.char_indices().nth(2).map_or(id.len(), |(i, _)| i);
-            return Some(format!("data/{}/{}", &id[..split], &id[split..]));
-        }
+/// Where `org-attach` keeps the attachments of the heading holding `n`
+/// (`org-attach-dir`): the heading's own `DIR` (or `ATTACH_DIR`)
+/// property, else a folder in `data/` from its `ID`. Properties are not
+/// inherited: `org-attach-use-inheritance` is `selective` and
+/// `org-use-property-inheritance` nil. Of the folders the ID functions
+/// give (`org-attach-id-to-path-function-list`: `ab/cdef`, `abcdef/gh`,
+/// `__/a/abcdefgh`), the first that exists under `base`, else the first;
+/// the first when `base` is not known. Relative to the document's folder.
+pub fn attachment_dir(
+    n: &org_syntax::SyntaxNode,
+    base: Option<&std::path::Path>,
+) -> Option<String> {
+    let h = n.ancestors().find_map(ast::Headline::cast)?;
+    let props = h.properties();
+    let get = |k: &str| {
+        props
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(k))
+            .map(|(_, v)| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    if let Some(d) = get("DIR").or_else(|| get("ATTACH_DIR")) {
+        return Some(d);
     }
-    None
+    let id = get("ID")?;
+    // `ab/cdef` for an ID longer than `at` characters.
+    let split = |at: usize| {
+        let i = id.char_indices().nth(at).map(|(i, _)| i)?;
+        Some(format!("{}/{}", &id[..i], &id[i..]))
+    };
+    let first = id.chars().next()?;
+    let candidates: Vec<String> = [split(2), split(6), Some(format!("__/{first}/{id}"))]
+        .into_iter()
+        .flatten()
+        .map(|c| format!("data/{c}"))
+        .collect();
+    let existing = base.and_then(|b| candidates.iter().find(|c| b.join(c).is_dir()));
+    existing.or(candidates.first()).cloned()
 }
 
 /// `text` with its `attachment:` links expanded, as
@@ -59,7 +75,7 @@ pub(crate) fn expand(text: &str, file: Option<&std::path::Path>, marks: &mut [us
             continue;
         }
         let path = info.path;
-        let dir = attachment_dir(&n)
+        let dir = attachment_dir(&n, Some(&base))
             .map(|d| base.join(d))
             .filter(|d| d.is_dir())
             .unwrap_or_else(|| base.clone());
@@ -115,6 +131,37 @@ mod tests {
             "{out}"
         );
         assert_eq!(marks[1], out.len());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn attachment_folders_as_org_attach_finds_them() {
+        let dir = std::env::temp_dir().join(format!("kalem-attach-dirs-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("data/202409/30")).unwrap();
+        let text = "* A\n:PROPERTIES:\n:ID: 20240930\n:END:\n** B\n[[attachment:x]]\n* C\n:PROPERTIES:\n:ID: 20240930\n:END:\n[[attachment:y]]\n* D\n:PROPERTIES:\n:ID: ab\n:DIR: here\n:END:\n[[attachment:z]]\n* E\n:PROPERTIES:\n:ID: ab\n:END:\n[[attachment:w]]\n";
+        let p = org_syntax::parse(text);
+        let links: Vec<_> = p
+            .syntax()
+            .descendants()
+            .filter(|n| n.kind() == LINK)
+            .collect();
+        // Not inherited.
+        assert_eq!(attachment_dir(&links[0], Some(&dir)), None);
+        // The folder that exists, else the first.
+        assert_eq!(
+            attachment_dir(&links[1], Some(&dir)).as_deref(),
+            Some("data/202409/30")
+        );
+        assert_eq!(
+            attachment_dir(&links[1], None).as_deref(),
+            Some("data/20/240930")
+        );
+        assert_eq!(attachment_dir(&links[2], None).as_deref(), Some("here"));
+        // Too short to split: the fallback.
+        assert_eq!(
+            attachment_dir(&links[3], None).as_deref(),
+            Some("data/__/a/ab")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
