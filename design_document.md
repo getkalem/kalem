@@ -1,4 +1,4 @@
-# Kalem: A WYSIWYG Document Editor Built on Org Mode — Design Document
+# Kalem: A Rendered Editor for Plain-Text Documents — Design Document (RFC 0001)
 
 | Field | Value |
 |---|---|
@@ -38,7 +38,9 @@
 
 ## 0. About this document
 
-This document defines what Kalem is, what it is not, how it will be built and in what order. It is updated as decisions change. Unresolved decisions are tracked in section 21 with numbered IDs (D1, D2, ...). When a decision is made it is moved into the relevant section and marked "decided" in section 21.
+This document defines what Kalem is, what it is not, how it will be built and in what order. It is updated as decisions change.
+
+**Scope note (2026-09-30).** This document was written on 2026-09-27 for an editor of Org files. RFC 0002 (`design_doc2.md`, accepted by the owner on 2026-09-30) generalized Kalem into an editor of plain-text formats, each faithful to its standard and checked against a reference implementation (Org, LaTeX, CSV, BibTeX, Markdown, plain text; sections 2.6 and 9.5 and RFC 0002 section 2), with a document format of its own (RFC 0003) and Emacs's file manager and projects (2.7, 2.8). Section 1 states the vision as it now stands. Later sections keep their Org wording where the Org mode is meant; the Book (`book/`) is the reference for every format as implemented. Unresolved decisions are tracked in section 21 with numbered IDs (D1, D2, ...). When a decision is made it is moved into the relevant section and marked "decided" in section 21.
 
 Audience: the project owner, future contributors, plugin authors.
 
@@ -51,7 +53,7 @@ The application is called **Kalem** ("pen" in Turkish). Naming conventions:
 | Product | Kalem |
 | Binary | `kalem` |
 | Application package on crates.io | `kalem-editor` (`kalem` is taken) |
-| GitHub organization | `kalem-editor` |
+| GitHub organization | `getkalem` (`kalem-editor` until 2026-09-28) |
 | Library crates (UI independent, reusable) | `org-*` |
 | Application crates | `kalem-*` |
 | Graphical frontend | `kalem-ui` (gpui) |
@@ -64,14 +66,15 @@ The application is called **Kalem** ("pen" in Turkish). Naming conventions:
 
 ### 1.1 One sentence
 
-A lightweight, fast, single-binary, open source desktop editor that lets people who do not know Emacs write and edit Org files through a Word-like interface. In short: **Typora for Org**. The same editor also runs in the terminal, every document operation is available from the command line, and files that are not Org open as plain text, so Kalem also works as a light, general purpose text editor in the spirit of Sublime Text.
+A fast, single-binary, open source editor that shows plain-text documents the way they read and keeps them plain text: Org, LaTeX, CSV, BibTeX, Markdown and code, each opened as itself, edited in place and written back exactly as its standard defines it, nothing added and nothing dropped; a document format of Kalem's own, `.klm`, for what those formats cannot carry; Emacs's file manager, projects and keys without Emacs; and the same editor in a window and in a terminal, with every document operation available from the command line. (The one sentence of 2026-09-27 was "Typora for Org"; the Org mode remains the first and most complete of the standard modes.)
 
 ### 1.2 Problem
 
-- Org is one of the most mature plain-text formats for documents, outlines, tasks and tables, but in practice it is locked into Emacs.
-- Emacs's learning curve keeps most people who would benefit from the format out.
-- Existing alternatives are incomplete: Organice (web, limited), Orgzly and beorg (mobile, task-focused), Logseq (Org is second-class), VS Code extensions (source view, no WYSIWYG). There is no full WYSIWYG Org editor on the desktop.
-- Office and Electron-based note apps are heavy, not plain text, or use closed formats.
+- Plain-text formats carry most serious writing: Org for notes, outlines and tasks, LaTeX for papers and theses, Markdown for documentation, CSV for data, BibTeX for references. Each has its own tools, and none of the tools shows the file as it reads while leaving the file exactly as it was: editors rewrite spacing and markup (Orgzly, MarkText, Obsidian's front matter), convert the file into their own model to open it (LibreOffice), or show only the source with a preview beside it (VS Code, TeX editors).
+- Org in particular is locked into Emacs, whose learning curve keeps out most people who would benefit from the format; the alternatives are partial (Organice, Orgzly, beorg, Logseq, VS Code extensions), and there is no full rendered Org editor on the desktop.
+- LaTeX is edited as source everywhere; a rendered editor that stays byte-faithful to standard LaTeX does not exist.
+- Office suites and Electron-based note applications are heavy, not plain text, or use closed formats; and no plain-text format covers the whole range of a word processor (styles, page layout, page-quality output) with Org's structure and LaTeX's mathematics.
+- A rendered, lossless editor needs one engine (ranges into the file, never a regenerated tree) and one proof per format (a reference implementation to agree with). Built once, that engine serves every format the same way.
 
 ### 1.3 Goals
 
@@ -110,7 +113,7 @@ A lightweight, fast, single-binary, open source desktop editor that lets people 
 | P3 | Academic, book author | LaTeX output, citations, formulas, long documents, chapter files. |
 | P4 | Former Emacs user | Has years of .org files but has left Emacs. |
 | P5 | Plugin developer | Has written Obsidian or VS Code extensions; writes Rust, or writes it with AI assistance; expects a typed API, a template and a conformance suite. |
-| P6 | Terminal user | Works over SSH or in tmux; wants a friendlier Org editor than Emacs in the terminal, and scriptable export and formatting. |
+| P6 | Terminal user | Works over SSH or in tmux; wants a rendered editor for Org, LaTeX and CSV in the terminal, friendlier than Emacs, and scriptable export and formatting. |
 | P7 | Everyday editor user | Wants one light editor for everything: notes in Org, plus a quick edit of a config file, a CSV or a script, without opening a second application. Some of them want Vim keys. |
 
 ### 1.6 Success criteria
@@ -231,7 +234,7 @@ Every mode can switch to its source text ("Open as text"), and the choice is rem
 
 - **Dialect:** CommonMark with the GitHub extensions (tables, task lists, strikethrough, autolinks, footnotes), YAML or TOML front matter, and `$...$` / `$$...$$` math (rendered with the D4 engine).
 - **Lossless editing, as for Org:** the file is edited as text, never regenerated from a tree. The parser only produces source ranges for the view, so untouched bytes stay as they were.
-- **View:** the inline model of the Org editor (6.3): emphasis, code and link markers hidden away from the cursor, headings by level, clickable task list checkboxes, rendered images and math, code blocks with highlighting (D16), front matter folded.
+- **View:** the inline model of the Org mode (6.3): emphasis, code and link markers hidden away from the cursor, headings by level, clickable task list checkboxes, rendered images and math, code blocks with highlighting (D16), front matter folded.
 - **Editing:** autoformat triggers (`#`, `-`, `1.`, `>`, `` ``` ``), Enter continues lists and quotes, tables edited in the grid shared with Org tables (8), outline sidebar from headings, "Convert to Org" and "Convert from Org" through the exporter (10) or pandoc.
 - **Parser (D19):** a CommonMark parser that reports source offsets (pulldown-cmark's offset iterator is the recommended candidate), reparsed from the enclosing top-level block on each edit.
 
@@ -1029,7 +1032,7 @@ Asked by the owner (2026-09-28): what Kalem does for Org, done for LaTeX. A `.te
 
 **What is rendered.** Sectioning (`\part` to `\subparagraph`, numbered and starred) as headings with the outline; `\emph`, `\textbf`, `\texttt` and their kin with markers hidden away from the cursor; `itemize`, `enumerate`, `description`; math in `$…$`, `\(…\)`, `\[…\]` and the AMS environments through org-math (9.2), typeset in the line and as displayed formulas; `\cite`, `\ref`, `\eqref` and `\label` as chips with hover (the referenced caption, the BibTeX entry); `figure` and `table` with captions and `\includegraphics` shown inline; `tabular` in the shared grid where its columns are simple, as source otherwise; `verbatim` and `lstlisting` with highlighting; comments dimmed; `\input` and `\include` followed as links and in the outline; the preamble folded; `\newcommand` and `\def` read for the math renderer as `#+LATEX_HEADER` is (9.2).
 
-**Editing.** Enter and Tab in lists, `\begin{…}` completed with its `\end`, brackets balanced, citation and label completers (11.12) fed by the BibTeX grid (2.7h.19 of the work breakdown) and by the document's own labels, input rules for environments, the formatting toggles of the Org editor mapped to `\emph` and `\textbf`; the source view and the split view as in Org.
+**Editing.** Enter and Tab in lists, `\begin{…}` completed with its `\end`, brackets balanced, citation and label completers (11.12) fed by the BibTeX grid (2.7h.19 of the work breakdown) and by the document's own labels, input rules for environments, the formatting toggles of the Org mode mapped to `\emph` and `\textbf`; the source view and the split view as in Org.
 
 **Compiling.** The real engines: `latexmk` or `xelatex` when installed, tectonic on demand (9.3), in the background on save or on request, the log's errors mapped to lines and shown in the editor; a PDF panel beside the text (pdfium, 4.3.2 of the work breakdown) with SyncTeX in both directions; Typst as a second target for new documents, never as a translation of `.tex`.
 
@@ -1592,7 +1595,7 @@ Test corpus files keep their own licenses (for example the Org Manual is GFDL) a
 | Single-developer burnout | Medium | High | Small shippable pieces (parser crate first); early community; buffer in the roadmap |
 | Insufficient math rendering quality | Low | Medium | D4 measured on a 100-formula corpus: RaTeX 98/100; the engine sits behind an `org-math` trait so it can be swapped |
 | Table results diverging from Emacs | Medium | Medium | Corpus computed in Emacs; decimal arithmetic; documenting deviations |
-| Low adoption | Medium | High | "Typora for Org" positioning; early access for P1 and P4; announcement to the Emacs community |
+| Low adoption | Medium | High | Positioning by D21: standard formats opened as themselves and never rewritten, a claim no other editor makes and one that is measured; early access for P1, P3 and P4; announcements to the Org, LaTeX and plain-text communities |
 | External tool dependencies (pandoc, TeX) tire users | Medium | Low | Detection and guidance; built-in HTML and Markdown; tectonic as an optional download |
 | Two frontends double the UI work | Medium | Medium | All behavior lives in `kalem-core`; frontends only render and translate input; shared syntax highlighting and widget tree |
 | Plugin security holes | Low | High | Permission model; sandbox; time and memory limits; security policy |

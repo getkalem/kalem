@@ -238,6 +238,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- The README, the contribution guide, the RFC process, the issue and pull request templates, the `kalem --help` about line, the design document's vision (RFC 0001 §0 to §1.2) and the Book's design pages describe Kalem as it is: an editor that opens plain-text formats (Org, LaTeX, CSV, BibTeX, Markdown, code) as themselves and never rewrites them, with the Book's Part II as the specification of every format, the Kalem format as its own, and the same editor in a window and a terminal; "Typora for Org" stays only as history (T2.10.11). Repository links now point at `getkalem/kalem`.
 - GitHub Markdown export (`gfm`) is now a port of the `ox-gfm` package and writes exactly what it writes (checked against it on every export case): paragraphs on one line, fenced example blocks, rules of dashes only, a table of contents without heading, footnotes under "## Footnotes".
 - The text column starts at the left edge of the window in both editors; `editor.center_text = true` centers it as before.
 - The toolbar has no heading buttons any more, since it has font and size menus; headings stay on Ctrl+1 to Ctrl+6, the Format menu and the palette.

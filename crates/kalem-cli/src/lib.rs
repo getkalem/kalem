@@ -13,12 +13,13 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 mod commands;
 
-/// Kalem: a lightweight editor for Org mode files.
+/// Kalem: a fast editor for plain-text documents, shown as they read and
+/// kept byte for byte: Org, LaTeX, CSV, BibTeX and code.
 #[derive(Debug, Parser)]
 #[command(
     name = "kalem",
     version,
-    about = "Kalem: a lightweight editor for Org mode files",
+    about = "Kalem: a fast editor for plain-text documents, shown as they read and kept byte for byte: Org, LaTeX, CSV, BibTeX and code",
     long_about = None,
     // The editors, which `kalem` starts before these commands are read.
     override_usage = "kalem [FILE | FOLDER]      the editor: graphical where there is a display, else in the terminal
