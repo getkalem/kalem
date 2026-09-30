@@ -843,6 +843,82 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
     })
 }
 
+/// What a shown-lines memo is for: the version, the filter, the sort, the
+/// cursor's line.
+type ShownKey = (u64, Option<String>, Option<(usize, bool)>, usize);
+
+thread_local! {
+    static SHOWN: std::cell::RefCell<Option<(ShownKey, std::rc::Rc<Vec<usize>>)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The lines of a CSV document in the order its view shows them, when a
+/// filter or a sort is on (`None` otherwise): the header first, then the
+/// records the filter keeps, in the order of the sorted column; the file
+/// keeps its order.
+pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>> {
+    if doc.meta.mode != crate::DocumentMode::Csv {
+        return None;
+    }
+    let filter = filtered(doc);
+    if filter.is_none() && doc.csv_sort.is_none() {
+        return None;
+    }
+    let t = doc.text();
+    let text = t.as_str();
+    let line = t.line_of(doc.selection.head.min(text.len()));
+    let key = (doc.version(), doc.csv_filter.clone(), doc.csv_sort, line);
+    if let Some(v) = SHOWN.with(|m| {
+        m.borrow()
+            .as_ref()
+            .filter(|(k, _)| *k == key)
+            .map(|(_, v)| v.clone())
+    }) {
+        return Some(v);
+    }
+    let layout = layout(doc);
+    let d = &layout.dialect;
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    let records: Vec<Record> = (0..n).filter_map(|i| idx.record(text, i, d)).collect();
+    let kept = |r: &Record| {
+        filter.as_ref().is_none_or(|f| {
+            f.ranges
+                .iter()
+                .any(|x| x.start <= r.range.start && r.range.start < x.end)
+        })
+    };
+    let order: Vec<usize> = match doc.csv_sort {
+        Some((col, reverse)) => sorted_order(text, d, col, reverse),
+        None => (0..records.len()).collect(),
+    };
+    let mut out = Vec::new();
+    for i in order {
+        let Some(r) = records.get(i) else { continue };
+        if !kept(r) {
+            continue;
+        }
+        let first = t.line_of(r.range.start);
+        let last = t.line_of(r.range.end.max(r.range.start));
+        out.extend(first..=last);
+    }
+    // The empty line after a final line feed, when all rows show.
+    let lines = t.line_count();
+    if filter.is_none()
+        && lines > 0
+        && !out.contains(&(lines - 1))
+        && t.line_range(lines - 1).is_empty()
+    {
+        out.push(lines - 1);
+    }
+    if out.is_empty() {
+        out.push(0);
+    }
+    let v = std::rc::Rc::new(out);
+    SHOWN.with(|m| *m.borrow_mut() = Some((key, v.clone())));
+    Some(v)
+}
+
 /// The status bar's numbers for the column at the cursor of a CSV
 /// document: count, sum, average, smallest and largest; after a filter,
 /// how many rows it keeps.

@@ -201,6 +201,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("csv.sortFile", object(&[("reverse", "boolean", false)])),
         ("csv.filter", object(&[("text", "string", true)])),
+        ("csv.sortView", object(&[("reverse", "boolean", false)])),
         ("latex.nextProblem", object(&[("at", "integer", false)])),
         (
             "latex.section.setLevel",
@@ -1860,6 +1861,21 @@ fn csv_commands() -> Vec<Command> {
                 return Err(CommandError::new(crate::tr!("msg-not-csv")));
             }
             d.csv_filter = (!text.is_empty()).then_some(text);
+            Ok(())
+        }),
+        c("csv.sortView", "Sort View by Column", &[], |ctx, args| {
+            // The rows shown in the order of the column at the cursor (again:
+            // descending); the file keeps its order.
+            let reverse = arg_bool(args, "reverse");
+            let d = ctx.doc()?;
+            let (_, _, _, col) = crate::csv::cell_at(d)
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+            let reverse = reverse || d.csv_sort == Some((col, false));
+            d.csv_sort = Some((col, reverse));
+            Ok(())
+        }),
+        c("csv.unsortView", "File Order", &[], |ctx, _| {
+            ctx.doc()?.csv_sort = None;
             Ok(())
         }),
         c("csv.clearFilter", "Show All Rows", &[], |ctx, _| {

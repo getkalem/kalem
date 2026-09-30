@@ -1959,6 +1959,8 @@ pub fn menus() -> Vec<Menu> {
                 MenuItem::separator(),
                 item("csv.filter"),
                 item("csv.clearFilter"),
+                item("csv.sortView"),
+                item("csv.unsortView"),
                 item("csv.sortFile"),
             ],
         },

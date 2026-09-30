@@ -2897,3 +2897,26 @@ fn latex_preamble_folds(cx: &mut TestAppContext) {
     let lines = e.read_with(cx, |e, _| e.visible.clone());
     assert_eq!(&lines[..3], &[0, 3, 4], "{lines:?}");
 }
+
+#[gpui::test]
+fn csv_view_sorted(cx: &mut TestAppContext) {
+    let text = "name,age\nAda,36\nBob,7\nCem,20\n";
+    let (e, cx) = open_named(text, "s.csv", || None, cx);
+    let at = text.find("36").unwrap();
+    e.update(cx, |e, cx| {
+        e.doc.move_cursor(at, false);
+        e.after_change(cx);
+    });
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.sortView"));
+    let lines = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(lines, vec![0, 2, 3, 1, 4]);
+    assert_eq!(
+        text,
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string())
+    );
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.unsortView"));
+    assert_eq!(
+        e.read_with(cx, |e, _| e.visible.clone()),
+        vec![0, 1, 2, 3, 4]
+    );
+}

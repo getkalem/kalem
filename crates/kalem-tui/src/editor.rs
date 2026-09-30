@@ -333,6 +333,9 @@ struct Shared<'a> {
     outline_indent: bool,
 }
 
+/// Lines in the order shown, and each line's place.
+type Order = (std::rc::Rc<Vec<usize>>, HashMap<usize, usize>);
+
 /// What is needed to lay out lines.
 pub(crate) struct Layout<'a> {
     doc: &'a DocumentState,
@@ -341,6 +344,9 @@ pub(crate) struct Layout<'a> {
     blocks: &'a [Block],
     /// Visible byte ranges, merged.
     visible: Vec<Range<usize>>,
+    /// The lines in the order shown, when it is not the text's (a CSV view
+    /// sorted by a column), with each line's place.
+    order: Option<Order>,
     /// Starts of blocks folded to their first line away from the cursor:
     /// drawers and runs of setting keywords.
     folded: HashSet<usize>,
@@ -435,10 +441,31 @@ impl<'a> Layout<'a> {
         }
         let parse = doc.parse().filter(|(_, current)| *current).map(|(p, _)| p);
         let len = doc.text().len();
-        let filter = (!source).then(|| kalem_core::csv::filtered(doc)).flatten();
-        let (mut visible, folded) = if let Some(f) = filter {
-            // A CSV filter: the rows it keeps.
-            (f.ranges.clone(), HashSet::new())
+        // A CSV filter or sort: the rows shown, and their order.
+        let shown = (!source)
+            .then(|| kalem_core::csv::shown_lines(doc))
+            .flatten();
+        let order = shown
+            .as_ref()
+            .filter(|_| doc.csv_sort.is_some())
+            .map(|lines| {
+                let at: HashMap<usize, usize> =
+                    lines.iter().enumerate().map(|(i, &l)| (l, i)).collect();
+                (lines.clone(), at)
+            });
+        let (mut visible, folded) = if let Some(lines) = &shown {
+            let text = doc.text();
+            let mut sorted: Vec<usize> = lines.to_vec();
+            sorted.sort_unstable();
+            let mut ranges: Vec<Range<usize>> = Vec::new();
+            for l in sorted {
+                let r = text.line_start(l)..(text.line_range(l).end + 1).min(len + 1);
+                match ranges.last_mut() {
+                    Some(last) if last.end >= r.start => last.end = last.end.max(r.end),
+                    _ => ranges.push(r),
+                }
+            }
+            (ranges, HashSet::new())
         } else if source || (parse.is_none() && doc.latex().is_none()) || blocks.is_empty() {
             (std::iter::once(0..len + 1).collect(), HashSet::new())
         } else {
@@ -509,6 +536,7 @@ impl<'a> Layout<'a> {
             folds,
             blocks,
             visible,
+            order,
             folded,
             caps,
             width: std::cell::Cell::new(width),
@@ -1365,6 +1393,9 @@ impl Lines for Layout<'_> {
 
     /// The next visible line after `line`.
     fn next_line(&self, line: usize) -> Option<usize> {
+        if let Some((lines, at)) = &self.order {
+            return at.get(&line).and_then(|&i| lines.get(i + 1)).copied();
+        }
         let n = self.text().line_count();
         let next = line + 1;
         if next >= n {
@@ -1381,6 +1412,13 @@ impl Lines for Layout<'_> {
 
     /// The visible line before `line`.
     fn prev_line(&self, line: usize) -> Option<usize> {
+        if let Some((lines, at)) = &self.order {
+            return at
+                .get(&line)
+                .and_then(|&i| i.checked_sub(1))
+                .and_then(|i| lines.get(i))
+                .copied();
+        }
         let prev = line.checked_sub(1)?;
         if self.is_visible(prev) {
             return Some(prev);
