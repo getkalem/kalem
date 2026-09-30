@@ -462,7 +462,10 @@ impl<'a> Layout<'a> {
         // LaTeX environments drawn as images show on their first line (in
         // Org documents and LaTeX documents).
         let latex = doc.latex().is_some();
-        if (parse.is_some() || latex) && !source && !raw_math && images.borrow().picker.is_some() {
+        // Without images, a LaTeX document's formula shows its Unicode
+        // approximation on its first line all the same.
+        let pictures = images.borrow().picker.is_some();
+        if (parse.is_some() || latex) && !source && !raw_math && (pictures || latex) {
             let text = doc.text();
             let c = doc.selection.head;
             for b in blocks.iter().filter(|b| b.kind == BlockKind::Math) {
@@ -475,17 +478,19 @@ impl<'a> Layout<'a> {
                     continue;
                 }
                 let src = text.as_str()[b.range.start..b.content_end].trim_end();
-                let mut im = images.borrow_mut();
-                let key = match parse {
-                    Some(p) => im.math(src, p, doc.version()),
-                    None => {
-                        let src = kalem_core::latex_view::math_source(doc, b.range.clone())
-                            .unwrap_or_else(|| src.to_string());
-                        im.latex_math(&src, doc)
+                if pictures {
+                    let mut im = images.borrow_mut();
+                    let key = match parse {
+                        Some(p) => im.math(src, p, doc.version()),
+                        None => {
+                            let src = kalem_core::latex_view::math_source(doc, b.range.clone())
+                                .unwrap_or_else(|| src.to_string());
+                            im.latex_math(&src, doc)
+                        }
+                    };
+                    if im.size(&key, width).is_none() && !latex {
+                        continue;
                     }
-                };
-                if im.size(&key, width).is_none() {
-                    continue;
                 }
                 let hide = text.line_start(first + 1)..text.line_range(last).end + 1;
                 visible = visible
@@ -1055,8 +1060,26 @@ impl<'a> Layout<'a> {
                     && !self.source
                     && range.len() <= view::LONG_LINE
                 {
-                    // LaTeX as the document reads.
-                    kalem_core::latex_view::line_view(self.doc, range.clone(), Some(self.cursor))
+                    // LaTeX as the document reads; a formula over several
+                    // lines without its picture, its Unicode approximation.
+                    match self.math_text(&range) {
+                        Some(u) => view::LineView {
+                            range: range.clone(),
+                            runs: vec![view::Run {
+                                src: range.clone(),
+                                text: u,
+                                verbatim: false,
+                                style: view::Style::default(),
+                                widget: None,
+                            }],
+                            ..view::LineView::default()
+                        },
+                        None => kalem_core::latex_view::line_view(
+                            self.doc,
+                            range.clone(),
+                            Some(self.cursor),
+                        ),
+                    }
                 } else if self.doc.meta.mode == kalem_core::DocumentMode::Csv
                     && !self.source
                     && range.len() <= view::LONG_LINE
@@ -1114,6 +1137,51 @@ impl<'a> Layout<'a> {
     }
 
     /// The block holding line start `s`.
+    /// The Unicode approximation of the LaTeX formula over several lines
+    /// that starts on line `range`, shown there when it has no picture and
+    /// the cursor is elsewhere (its other lines are hidden).
+    fn math_text(&self, range: &Range<usize>) -> Option<String> {
+        if self.source || self.raw_math {
+            return None;
+        }
+        let b = self
+            .block_at(range.start)
+            .filter(|b| b.kind == BlockKind::Math && b.range.start == range.start)?;
+        let c = self.cursor;
+        if (b.range.start <= c && c <= b.content_end) || b.content_end <= range.end + 1 {
+            return None;
+        }
+        if self.image(self.text().line_of(range.start)).is_some() {
+            return None;
+        }
+        let src = kalem_core::latex_view::math_source(self.doc, b.range.clone())?;
+        // The body: the environment's `\\begin` and `\\end` out, its number
+        // (a `\\tag`) after it.
+        let mut body = src.trim().to_string();
+        if body.starts_with("\\begin{")
+            && let Some(close) = body.find('}')
+        {
+            body = body[close + 1..].to_string();
+        }
+        if let Some(end) = body.rfind("\\end{") {
+            body.truncate(end);
+        }
+        let mut tags = Vec::new();
+        while let Some(at) = body.find("\\tag{") {
+            let Some(len) = body[at..].find('}') else {
+                break;
+            };
+            tags.push(body[at + 5..at + len].to_string());
+            body.replace_range(at..at + len + 1, "");
+        }
+        let body = body.split_whitespace().collect::<Vec<_>>().join(" ");
+        let mut out = format!("  {}", kalem_core::math::unicode(&body));
+        for t in tags {
+            out.push_str(&format!("   ({t})"));
+        }
+        Some(out)
+    }
+
     fn block_at(&self, s: usize) -> Option<&'a Block> {
         let i = self.blocks.partition_point(|b| b.range.end <= s);
         self.blocks.get(i).filter(|b| b.range.start <= s)
