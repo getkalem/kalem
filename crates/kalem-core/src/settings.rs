@@ -272,6 +272,24 @@ pub const SPECS: &[Spec] = &[
         description: "What marking a task done records (org-log-done)",
     },
     Spec {
+        key: "org.log_reschedule",
+        kind: Kind::Enum(&["none", "time", "note"]),
+        default: r#""none""#,
+        description: "What changing or removing a scheduled date records (org-log-reschedule)",
+    },
+    Spec {
+        key: "org.log_redeadline",
+        kind: Kind::Enum(&["none", "time", "note"]),
+        default: r#""none""#,
+        description: "What changing or removing a deadline records (org-log-redeadline)",
+    },
+    Spec {
+        key: "org.log_refile",
+        kind: Kind::Enum(&["none", "time", "note"]),
+        default: r#""none""#,
+        description: "What refiling an entry records (org-log-refile)",
+    },
+    Spec {
         key: "org.log_into_drawer",
         kind: Kind::Str,
         default: r#""""#,
@@ -771,12 +789,11 @@ impl Config {
     pub fn todo_settings(&self) -> TodoSettings {
         let drawer = self.str("org.log_into_drawer");
         TodoSettings {
-            log_done: match self.str("org.log_done") {
-                "time" => Some(LogKind::Time),
-                "note" => Some(LogKind::Note),
-                _ => None,
-            },
+            log_done: log_kind(self.str("org.log_done")),
             log_into_drawer: (!drawer.is_empty()).then(|| drawer.to_string()),
+            log_reschedule: log_kind(self.str("org.log_reschedule")),
+            log_redeadline: log_kind(self.str("org.log_redeadline")),
+            log_refile: log_kind(self.str("org.log_refile")),
             adapt_indentation: self.bool("org.adapt_indentation"),
             enforce_todo_dependencies: self.bool("org.enforce_todo_dependencies"),
             enforce_todo_checkbox_dependencies: self.bool("org.enforce_todo_checkbox_dependencies"),
@@ -787,6 +804,15 @@ impl Config {
                 .collect(),
             ..TodoSettings::default()
         }
+    }
+}
+
+/// A logging setting's value: `time`, `note`, or nothing.
+fn log_kind(v: &str) -> Option<LogKind> {
+    match v {
+        "time" => Some(LogKind::Time),
+        "note" => Some(LogKind::Note),
+        _ => None,
     }
 }
 

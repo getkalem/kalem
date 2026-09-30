@@ -21,14 +21,129 @@ pub struct FootnoteSettings {
     /// `org-footnote-section`: the heading definitions go under, or none
     /// (each definition at the end of its reference's section).
     pub section: Option<String>,
+    /// `org-footnote-define-inline`: new footnotes defined where they are
+    /// referenced, `[fn:1:]`.
+    pub define_inline: bool,
+    /// `org-footnote-auto-label`: how a new footnote gets its label.
+    pub auto_label: AutoLabel,
+    /// `org-footnote-auto-adjust`: footnotes renumbered and sorted after
+    /// one is added or deleted.
+    pub auto_adjust: bool,
+}
+
+/// `org-footnote-auto-label`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutoLabel {
+    /// `t`: the next free number.
+    Auto,
+    /// `nil` (and `plain`): the user types the label.
+    Prompt,
+    /// `confirm`: the user confirms the next free number or types another.
+    Confirm,
+    /// `random`: a random label.
+    Random,
+    /// `anonymous`: no label, `[fn::]`.
+    Anonymous,
 }
 
 impl Default for FootnoteSettings {
     fn default() -> FootnoteSettings {
         FootnoteSettings {
             section: Some("Footnotes".into()),
+            define_inline: false,
+            auto_label: AutoLabel::Auto,
+            auto_adjust: false,
         }
     }
+}
+
+impl FootnoteSettings {
+    /// These settings with the `#+STARTUP` options of `text` applied
+    /// (`fninline`, `nofninline`, `fnlocal`, `fnauto`, `fnprompt`,
+    /// `fnconfirm`, `fnplain`, `fnanon`, `fnadjust`, `nofnadjust`).
+    pub fn for_text(&self, text: &str) -> FootnoteSettings {
+        let mut s = self.clone();
+        if !text.contains("#+") {
+            return s;
+        }
+        for (k, v) in org_syntax::parse(text).keywords() {
+            if !k.eq_ignore_ascii_case("STARTUP") {
+                continue;
+            }
+            for opt in v.split_whitespace() {
+                match opt.to_ascii_lowercase().as_str() {
+                    "fninline" => s.define_inline = true,
+                    "nofninline" => s.define_inline = false,
+                    "fnlocal" => s.section = None,
+                    "fnauto" => s.auto_label = AutoLabel::Auto,
+                    "fnprompt" | "fnplain" => s.auto_label = AutoLabel::Prompt,
+                    "fnconfirm" => s.auto_label = AutoLabel::Confirm,
+                    "fnanon" => s.auto_label = AutoLabel::Anonymous,
+                    "fnadjust" => s.auto_adjust = true,
+                    "nofnadjust" => s.auto_adjust = false,
+                    _ => {}
+                }
+            }
+        }
+        s
+    }
+
+    /// Whether a new footnote asks for its label.
+    pub fn asks_label(&self) -> bool {
+        matches!(self.auto_label, AutoLabel::Prompt | AutoLabel::Confirm)
+    }
+}
+
+/// The label a new footnote in `text` is offered: the first free number
+/// (`org-footnote-unique-label`).
+pub fn proposed_label(text: &str) -> String {
+    let labels = all_labels(&root(text));
+    (1..)
+        .map(|n: usize| n.to_string())
+        .find(|l| !labels.contains(l))
+        .expect("a free label")
+}
+
+/// `org-footnote-auto-adjust-maybe` after `tx` on `text`: the footnotes
+/// renumbered and sorted when the settings ask for it, in one
+/// transaction.
+fn adjusted(
+    text: &str,
+    point: usize,
+    tx: Transaction,
+    settings: &FootnoteSettings,
+) -> Result<Transaction, EditError> {
+    if !settings.auto_adjust {
+        return Ok(tx);
+    }
+    let label = tx.label.clone();
+    let mut t = tx.apply(text);
+    let mut p = tx.selection_after.map_or(point, |s| s.head);
+    let r = renumber(&t, p)?;
+    p = r.selection_after.map_or(p, |s| s.head);
+    t = r.apply(&t);
+    let at_definition = definition_at(&t, &root(&t), p).map(|(l, _)| l);
+    let so = sort(&t, p, settings)?;
+    p = so.selection_after.map_or(p, |s| s.head);
+    t = so.apply(&t);
+    // Back to the definition point was in, one space after its label.
+    if let Some(label) = at_definition {
+        let head = format!("[fn:{label}]");
+        let found = t
+            .match_indices(&head)
+            .map(|(i, _)| i)
+            .find(|&i| i == 0 || t.as_bytes()[i - 1] == b'\n');
+        if let Some(i) = found {
+            let after = i + head.len();
+            let blanks = t[after..].len() - t[after..].trim_start_matches([' ', '\t']).len();
+            t.replace_range(after..after + blanks, " ");
+            p = after + 1;
+        }
+    }
+    let mut buf = Buf::new(text, point);
+    buf.text = t;
+    buf.point = p;
+    Ok(buf.transaction(&label))
 }
 
 fn root(text: &str) -> SyntaxNode {
@@ -571,20 +686,61 @@ pub fn new(
     point: usize,
     settings: &FootnoteSettings,
 ) -> Result<Transaction, EditError> {
+    new_labeled(text, point, settings, None)
+}
+
+/// [`new`] with the label the user typed when the settings ask for one
+/// (`answer`; empty for an anonymous footnote, `fn:` taken off).
+pub fn new_labeled(
+    text: &str,
+    point: usize,
+    settings: &FootnoteSettings,
+    answer: Option<&str>,
+) -> Result<Transaction, EditError> {
     let root = root(text);
     if !allow_reference(text, &root, point) {
         return Err(EditError::new("Cannot insert a footnote here"));
     }
     let labels = all_labels(&root);
-    let label = (1..)
-        .map(|n: usize| n.to_string())
-        .find(|l| !labels.contains(l))
-        .expect("a free label");
+    let propose = proposed_label(text);
+    let normalize = |l: &str| {
+        let l = l.trim();
+        let l = l.strip_prefix("fn:").unwrap_or(l);
+        (!l.is_empty()).then(|| l.to_string())
+    };
+    let label = match settings.auto_label {
+        AutoLabel::Anonymous => None,
+        AutoLabel::Random => {
+            use std::hash::{BuildHasher, Hasher};
+            let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+            h.write_usize(point);
+            Some(format!("{:x}", h.finish() >> 1))
+        }
+        AutoLabel::Auto => Some(propose),
+        AutoLabel::Prompt | AutoLabel::Confirm => match answer {
+            Some(a) => normalize(a),
+            None => Some(propose),
+        },
+    };
     let mut buf = Buf::new(text, point);
+    let Some(label) = label else {
+        buf.insert_at_point("[fn::]");
+        buf.point -= 1;
+        return Ok(buf.transaction("New Footnote"));
+    };
+    if labels.contains(&label) {
+        buf.insert_at_point(&format!("[fn:{label}]"));
+        return Ok(buf.transaction("New Footnote"));
+    }
+    if settings.define_inline {
+        buf.insert_at_point(&format!("[fn:{label}:]"));
+        buf.point -= 1;
+        return adjusted(text, point, buf.transaction("New Footnote"), settings);
+    }
     buf.insert_at_point(&format!("[fn:{label}]"));
     let at = create_definition(&mut buf, &label, settings);
     buf.point = at + format!("[fn:{label}]").len();
-    Ok(buf.transaction("New Footnote"))
+    adjusted(text, point, buf.transaction("New Footnote"), settings)
 }
 
 /// `org-footnote-renumber-fn:N`: numbered footnotes numbered again in the
@@ -846,6 +1002,16 @@ fn next_reference(text: &str, label: &str, from: usize) -> Option<Range<usize>> 
         .into_iter()
         .filter(|(_, e)| *e > from)
         .find_map(|(_, e)| reference_at(text, &root, e - 1).map(|r| r.1))
+}
+
+/// [`delete`], then the footnotes renumbered and sorted when the
+/// settings ask for it (`org-footnote-auto-adjust`).
+pub fn delete_adjusted(
+    text: &str,
+    point: usize,
+    settings: &FootnoteSettings,
+) -> Result<Transaction, EditError> {
+    adjusted(text, point, delete(text, point)?, settings)
 }
 
 /// `org-footnote-delete`: the footnote at `point`, its references and its

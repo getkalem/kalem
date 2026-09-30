@@ -169,6 +169,8 @@ fn schemas() -> Vec<(&'static str, Value)> {
             s
         }),
         ("file.import", object(&[("file", "string", true)])),
+        ("org.note.add", object(&[("note", "string", false)])),
+        ("org.footnote.new", object(&[("label", "string", false)])),
         ("format.font", object(&[("family", "string", true)])),
         ("format.size", object(&[("size", "string", true)])),
         ("format.color", object(&[("color", "string", true)])),
@@ -261,6 +263,7 @@ fn footnote_settings(config: &crate::settings::Config) -> org_edit::footnote::Fo
     let section = config.str("org.footnote_section").trim().to_string();
     org_edit::footnote::FootnoteSettings {
         section: (!section.is_empty()).then_some(section),
+        ..Default::default()
     }
 }
 
@@ -304,6 +307,7 @@ fn text_of(d: &org_model::Document) -> String {
 fn todo(ctx: &mut EditorContext<'_>, arg: org_edit::todo::TodoArg) -> CommandResult {
     use org_edit::todo::*;
     let (clock, base) = (ctx.clock, ctx.config.todo_settings());
+    let mut pending = None;
     ctx.org(|d, p, _| {
         let settings = base.for_document(d);
         let opts = TodoOptions {
@@ -315,7 +319,79 @@ fn todo(ctx: &mut EditorContext<'_>, arg: org_edit::todo::TodoArg) -> CommandRes
             force_note: false,
             inhibit_note: false,
         };
-        todo(d, p, &opts).map(|o| o.transaction)
+        todo(d, p, &opts).map(|o| {
+            pending = o.note;
+            o.transaction
+        })
+    })?;
+    match pending {
+        Some(n) => ask_note(ctx, &n),
+        None => Ok(()),
+    }
+}
+
+/// Asks for the note a log entry waits for (the `*Org Note*` buffer):
+/// `org.note.add` runs with the answer; cancelled, nothing is logged.
+fn ask_note(ctx: &mut EditorContext<'_>, note: &org_edit::todo::PendingNote) -> CommandResult {
+    request(
+        ctx,
+        Request::Ask {
+            command: "org.note.add".into(),
+            args: serde_json::json!({
+                "heading": note.heading,
+                "purpose": note.purpose.name(),
+                "state": note.state,
+                "previous": note.previous_state,
+                "time": note.time.to_string(),
+            }),
+            arg: "note".into(),
+        },
+    )
+}
+
+/// `org.note.add`: the log entry a command left for its note, or with no
+/// such entry `org-add-note` on the entry at the cursor.
+fn add_note(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    use org_edit::todo::{NotePurpose, PendingNote, add_note, store_log_note};
+    let Some(content) = args.get("note").and_then(Value::as_str) else {
+        return request(
+            ctx,
+            Request::Ask {
+                command: "org.note.add".into(),
+                args: args.clone(),
+                arg: "note".into(),
+            },
+        );
+    };
+    let content = content.to_string();
+    let pending = args
+        .get("purpose")
+        .and_then(Value::as_str)
+        .and_then(NotePurpose::from_name)
+        .map(|purpose| PendingNote {
+            heading: args.get("heading").and_then(Value::as_u64).unwrap_or(0) as usize,
+            purpose,
+            state: args
+                .get("state")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            previous_state: args
+                .get("previous")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            time: args
+                .get("time")
+                .and_then(Value::as_str)
+                .and_then(|t| t.parse().ok())
+                .unwrap_or(ctx.clock),
+        });
+    let (clock, base) = (ctx.clock, ctx.config.todo_settings());
+    ctx.org(|d, p, _| {
+        let settings = base.for_document(d);
+        match &pending {
+            Some(n) => Ok(store_log_note(d, p, n, &content, &settings)),
+            None => add_note(d, p, &content, &settings, clock),
+        }
     })
 }
 
@@ -359,15 +435,20 @@ fn planning(
             .ok_or_else(|| CommandError::new(crate::tr!("msg-not-a-date", input = &input)))?;
         PlanningChange::Set(dt, with_time, repeater)
     };
-    let base = ctx.config.todo_settings();
+    let (clock, base) = (ctx.clock, ctx.config.todo_settings());
     let mut message = String::new();
+    let mut pending = None;
     ctx.org(|d, p, _| {
-        let (t, m) = schedule(d, p, kind, &change, &base.for_document(d))?;
+        let (t, m, n) = schedule(d, p, kind, &change, &base.for_document(d), clock)?;
         message = m;
+        pending = n;
         Ok(t)
     })?;
     ctx.messages.push(message);
-    Ok(())
+    match pending {
+        Some(n) => ask_note(ctx, &n),
+        None => Ok(()),
+    }
 }
 
 fn priority(ctx: &mut EditorContext<'_>, a: org_edit::todo::PriorityAction) -> CommandResult {
@@ -3649,7 +3730,24 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             |ctx, args| {
                 if let Some(target) = args.get("target").and_then(Value::as_u64) {
-                    return ctx.org(|d, p, _| org_edit::archive::refile(d, p, target as usize));
+                    let (clock, base) = (ctx.clock, ctx.config.todo_settings());
+                    let mut pending = None;
+                    ctx.org(|d, p, _| {
+                        let settings = base.for_document(d);
+                        let (t, n) = org_edit::archive::refile_logged(
+                            d,
+                            p,
+                            target as usize,
+                            &settings,
+                            clock,
+                        )?;
+                        pending = n;
+                        Ok(t)
+                    })?;
+                    return match pending {
+                        Some(n) => ask_note(ctx, &n),
+                        None => Ok(()),
+                    };
                 }
                 let doc = ctx.doc()?;
                 let pos = doc.selection.head;
@@ -3675,10 +3773,47 @@ fn plain_commands() -> Vec<Command> {
             "Footnotes",
             &["ctrl+alt+f"],
             Some(ORG),
-            |ctx, _| {
-                let s = footnote_settings(ctx.config);
-                ctx.org(|d, p, _| org_edit::footnote::new(&text_of(d), p, &s))
+            |ctx, args| {
+                let base = footnote_settings(ctx.config);
+                let text = text_of(
+                    ctx.doc()?
+                        .model()
+                        .as_deref()
+                        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-org")))?,
+                );
+                let s = base.for_text(&text);
+                let label = args
+                    .get("label")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                // `fnprompt` and `fnconfirm`: the label asked for, the
+                // next free number offered with `fnconfirm`.
+                if s.asks_label() && label.is_none() {
+                    let mut a = serde_json::json!({});
+                    if s.auto_label == org_edit::footnote::AutoLabel::Confirm {
+                        a["label_default"] = org_edit::footnote::proposed_label(&text).into();
+                    }
+                    return request(
+                        ctx,
+                        Request::Ask {
+                            command: "org.footnote.new".into(),
+                            args: a,
+                            arg: "label".into(),
+                        },
+                    );
+                }
+                ctx.org(|d, p, _| {
+                    org_edit::footnote::new_labeled(&text_of(d), p, &s, label.as_deref())
+                })
             },
+        ),
+        cmd(
+            "org.note.add",
+            "Add Note",
+            "Tasks",
+            &[],
+            Some(ORG),
+            add_note,
         ),
         cmd(
             "org.footnote.action",
@@ -3727,7 +3862,13 @@ fn plain_commands() -> Vec<Command> {
             "Footnotes",
             &[],
             Some(ORG),
-            |ctx, _| ctx.org(|d, p, _| org_edit::footnote::delete(&text_of(d), p)),
+            |ctx, _| {
+                let base = footnote_settings(ctx.config);
+                ctx.org(|d, p, _| {
+                    let text = text_of(d);
+                    org_edit::footnote::delete_adjusted(&text, p, &base.for_text(&text))
+                })
+            },
         ),
         cmd(
             "org.property.delete",
@@ -4751,6 +4892,77 @@ mod tests {
         assert!(md.contains("New * Saved") || md.contains("New"), "{md}");
         reg.execute("export.html", &mut ctx, &json!({})).unwrap();
         assert!(dir.join("n.html").is_file());
+    }
+
+    #[test]
+    fn log_notes_and_footnote_startup() {
+        let reg = CommandRegistry::with_builtins();
+        let config = crate::settings::Config::default();
+        let exec = |d: &mut DocumentState, id: &str, args: Value| {
+            let mut clip = Clipboard::default();
+            let mut ctx = EditorContext {
+                document: Some(d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 9, 28).at(10, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            reg.execute(id, &mut ctx, &args).unwrap();
+            ctx.requests
+        };
+        // A note asked for, then stored with the answer.
+        let mut d = doc("#+STARTUP: lognotedone\n* TODO A\n", 24);
+        let r = exec(&mut d, "org.todo.done", json!({}));
+        let Some(Request::Ask {
+            command,
+            mut args,
+            arg,
+        }) = r.into_iter().next()
+        else {
+            panic!("no note asked for");
+        };
+        assert_eq!((command.as_str(), arg.as_str()), ("org.note.add", "note"));
+        args["note"] = "finished".into();
+        exec(&mut d, &command, args);
+        assert!(
+            d.text()
+                .as_str()
+                .contains("- CLOSING NOTE [2026-09-28 Mon 10:00] \\\\\n  finished"),
+            "{}",
+            d.text().as_str()
+        );
+        // Rescheduling logged at once.
+        let mut d = doc(
+            "#+STARTUP: logreschedule\n* TODO A\nSCHEDULED: <2026-10-01 Thu>\n",
+            26,
+        );
+        assert!(exec(&mut d, "org.schedule", json!({"date": "2026-10-05"})).is_empty());
+        assert!(
+            d.text()
+                .as_str()
+                .contains("- Rescheduled from \"[2026-10-01 Thu]\" on [2026-09-28 Mon 10:00]")
+        );
+        // Add Note on its own.
+        exec(&mut d, "org.note.add", json!({"note": "hi"}));
+        assert!(
+            d.text()
+                .as_str()
+                .contains("- Note taken on [2026-09-28 Mon 10:00] \\\\\n  hi")
+        );
+        // `fnconfirm` offers the next number; `fninline` defines in place.
+        let mut d = doc("#+STARTUP: fnconfirm fninline\nText.\n", 34);
+        let r = exec(&mut d, "org.footnote.new", json!({}));
+        let Some(Request::Ask { args, .. }) = r.into_iter().next() else {
+            panic!("no label asked for");
+        };
+        assert_eq!(args["label_default"], "1");
+        exec(&mut d, "org.footnote.new", json!({"label": "x"}));
+        assert_eq!(
+            d.text().as_str(),
+            "#+STARTUP: fnconfirm fninline\nText[fn:x:].\n"
+        );
     }
 
     #[test]
