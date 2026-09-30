@@ -43,8 +43,10 @@ the first rule that applies wins.
    mode for the file in the workspace settings, in the table
    =files.modes= of the nearest =.kalem/settings.toml= above the file
    (created beside it when there is none), keyed by the file's path
-   relative to that workspace with =/= between names. When the file is
-   opened again, in either editor, this mode replaces the detected one.
+   relative to that workspace with =/= between names. The value is
+   =org=, =markdown=, =csv=, =latex= or =text=, or the language chosen
+   for a text file (=python=). When the file is opened again, in either
+   editor, this mode replaces the detected one.
 3. *A mode line.* On the first line (after a byte order mark), or on
    the second when the first is a =#!= line (as Emacs reads it), the
    text between two =-*-= markers: either =mode: NAME= among
@@ -581,10 +583,6 @@ the file is never opened.
 
 * Known differences and limits
 
-- /Set Document Mode/ remembers the mode's name only: a language chosen
-  for a text file (=python=) is saved as =text= and lost when the file
-  is opened again, and =latex= is not among the values the =files.modes=
-  setting accepts (=org=, =markdown=, =csv=, =text=).
 - A file named only by convention (=Makefile=, =Dockerfile=) gets no
   language.
 - A shebang is looked at only when the file has no extension.

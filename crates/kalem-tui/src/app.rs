@@ -1518,6 +1518,7 @@ impl App {
             .find(|(l, _)| *l == settings::Layer::Workspace)
             .and_then(|(_, p)| p.clone());
         self.config = Config::load(Some(&path), workspace.as_deref());
+        self.config.apply_process_settings();
         if !quiet {
             self.message(tr!("msg-setting-saved", key = key), false);
         }

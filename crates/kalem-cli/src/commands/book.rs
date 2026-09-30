@@ -218,7 +218,7 @@ fn generated(name: &str) -> Option<String> {
                     Kind::Enum(v) => format!("one of {}", v.join(", ")),
                     Kind::List(None) => "a list of text".to_string(),
                     Kind::List(Some(v)) => format!("a list of {}", v.join(", ")),
-                    Kind::Map(v) => format!("a table of names to {}", v.join(", ")),
+                    Kind::Modes(v) => format!("a table of paths to {} or a language", v.join(", ")),
                 };
                 s.push_str(&format!(
                     "| {} | {} | {} | {} |\n",

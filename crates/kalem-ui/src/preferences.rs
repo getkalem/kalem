@@ -320,7 +320,7 @@ impl Editor {
 /// Gives every window the settings of `shared`: the language, commands
 /// and keys, and the theme; the menus follow.
 pub fn apply(shared: Rc<Shared>, cx: &mut gpui::App) {
-    kalem_core::l10n::set_language(shared.config.str("ui.language"));
+    shared.config.apply_process_settings();
     cx.set_menus(crate::workspace::menus());
     crate::workspace::refresh_menus();
     cx.clear_key_bindings();

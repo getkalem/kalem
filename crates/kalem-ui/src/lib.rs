@@ -70,7 +70,7 @@ pub fn run(path: Option<PathBuf>) {
         editor::prefetch(p, config.parse_base());
     }
     let _ = kalem_core::logging::init(&kalem_core::logging::LogOptions::standard(&config, false));
-    kalem_core::l10n::set_language(config.str("ui.language"));
+    config.apply_process_settings();
     let shared = Rc::new(shared(config));
     // Files the system opens with Kalem (Finder, `open -a Kalem`) arrive as
     // URLs, outside the application's context: queued, opened by a task.

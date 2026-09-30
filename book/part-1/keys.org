@@ -62,8 +62,10 @@ keys. Keys with Control or Alt that Vim does not use, such as Ctrl+S, keep
 their Word-like meaning in every mode. In Org documents, =>>= and =<<=
 demote and promote headings and indent list items.
 
-=editor.vim.modes= limits Vim keys to some kinds of documents, for example
-=["plain"]= for plain text only.
+=editor.vim.modes= limits Vim keys to some kinds of documents: =org=,
+=markdown=, =csv=, =latex=, =text= (plain text, code and BibTeX) and
+=directory= (the file manager); for example =["text"]= for plain text
+only.
 
 * Your own keys
 
