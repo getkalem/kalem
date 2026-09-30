@@ -3072,3 +3072,22 @@ fn latex_preamble_folds_away_from_the_cursor() {
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("graphicx"), "{rows}");
 }
+
+#[test]
+fn long_unknown_environment_folds() {
+    let mut text = String::from("Before.\n\\begin{tikzpicture}\n");
+    for i in 0..10 {
+        text.push_str(&format!("  \\draw (0,{i}) -- (1,{i});\n"));
+    }
+    text.push_str("\\end{tikzpicture}\nAfter.\n");
+    let mut t = with_file(&text, "k.tex", Config::default(), (50, 10));
+    t.at(0);
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        rows.contains("tikzpicture") && rows.contains("After."),
+        "{rows}"
+    );
+    assert!(!rows.contains("(0,3)"), "{rows}");
+    t.at(text.find("(0,3)").unwrap());
+    assert!(screen(&mut t).join("\n").contains("(0,3)"));
+}

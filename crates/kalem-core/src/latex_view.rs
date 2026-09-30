@@ -357,6 +357,9 @@ fn verb_code(text: &str, verb: &SyntaxNode) -> Option<Range<usize>> {
     Some(r.start + body..r.start + end)
 }
 
+/// The lines from which an environment the view does not render folds.
+const LONG_UNKNOWN: usize = 8;
+
 /// The environments around `n` that indent their text, as lists do:
 /// `quote`, `quotation`, `verse` and `abstract`.
 fn quotes_around(n: &SyntaxNode) -> usize {
@@ -2211,6 +2214,7 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
         }
     }
     let root = state.parse().syntax();
+    let model = state.model();
     // Where a displayed formula or an environment can start: found in the
     // text, not by walking the whole tree.
     let mut starts: Vec<usize> = text
@@ -2252,6 +2256,14 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
                     BlockKind::Code {
                         language: code_language(&n),
                     }
+                }
+                // A long environment the view does not render (T2.7h.13):
+                // folded to its `\\begin` line away from the cursor.
+                Some(x)
+                    if !renders_environment(&x, &model)
+                        && text[node_span(&n)].matches('\n').count() >= LONG_UNKNOWN =>
+                {
+                    BlockKind::Drawer
                 }
                 _ => continue,
             },
