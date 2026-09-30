@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 
 use num_bigint::BigInt;
 use num_integer::Integer;
-use num_traits::{One, Signed, ToPrimitive, Zero};
+use num_traits::{FromPrimitive, One, Signed, ToPrimitive, Zero};
 
 use super::algebra::{
     self, Cmp, add, compare, div, inf, infinity, is_constant, is_nan, is_vec, is_zero, looks_neg,
@@ -269,6 +269,8 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         {
             inf()
         }
+        // `ln(e)` is 1, as Calc simplifies it.
+        ("ln", 1) if matches!(&args[0], Expr::Var(v) if v == "e") => Expr::int(1),
         ("ln", 1) => map1(f, args, env, false, |a, e| {
             if a.is_zero() || a.is_negative() {
                 return None;
@@ -291,6 +293,96 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
                 _ => Err(Reject::Range),
             }
         }),
+        // `calcFunc-sqr`, `calcFunc-inv`, `calcFunc-hypot`.
+        ("sqr", 1) => mul(&args[0], &args[0], env),
+        ("inv", 1) => div(&Expr::int(1), &args[0], env),
+        ("hypot", 2) => {
+            let s = add(
+                &mul(&args[0], &args[0], env),
+                &mul(&args[1], &args[1], env),
+                env,
+            );
+            apply("sqrt", vec![s], env)
+        }
+        // `round(x, n)`: to `n` decimal places (tens with `n` negative).
+        ("round", 2) => match integer(&args[1]).and_then(|n| n.to_i64()) {
+            Some(n) if (-100..=100).contains(&n) && matches!(args[0], Expr::Num(_)) => {
+                let p = Expr::Num(Num::Int(BigInt::from(10).pow(n.unsigned_abs() as u32)));
+                if n >= 0 {
+                    let r = apply("round", vec![mul(&args[0], &p, env)], env);
+                    div(&r, &p, env)
+                } else {
+                    let r = apply("round", vec![div(&args[0], &p, env)], env);
+                    mul(&r, &p, env)
+                }
+            }
+            _ => keep(f, args),
+        },
+        // `calcFunc-nroot`: an integer root when there is one.
+        ("nroot", 2) => match (&args[0], integer(&args[1]).and_then(|n| n.to_i64())) {
+            (Expr::Num(a), Some(n)) if n > 0 && !a.is_negative() => {
+                if let Some(ai) = integer(&args[0]) {
+                    let guess = ai.to_f64().unwrap_or(0.0).powf(1.0 / n as f64).round();
+                    if let Some(r) = BigInt::from_f64(guess)
+                        && r.pow(n as u32) == ai
+                    {
+                        return Expr::Num(Num::Int(r));
+                    }
+                }
+                match from_f64(a.to_f64().powf(1.0 / n as f64), env) {
+                    Some(r) => Expr::Num(num::renormalize(r, &env.prec)),
+                    None => keep(f, args),
+                }
+            }
+            _ => keep(f, args),
+        },
+        // Degrees and radians.
+        ("rad", 1) => map1(f, args, env, false, |a, e| {
+            from_f64(a.to_f64().to_radians(), e)
+        }),
+        ("deg", 1) => map1(f, args, env, false, |a, e| {
+            from_f64(a.to_f64().to_degrees(), e)
+        }),
+        // Hyperbolic functions, exact at zero.
+        ("sinh", 1) | ("tanh", 1) | ("arcsinh", 1) | ("arctanh", 1) if matches!(&args[0], Expr::Num(a) if a.is_zero()) => {
+            args[0].clone()
+        }
+        ("cosh", 1) if matches!(&args[0], Expr::Num(a) if a.is_zero()) => Expr::int(1),
+        ("sinh", 1) => map1(f, args, env, false, |a, e| from_f64(a.to_f64().sinh(), e)),
+        ("cosh", 1) => map1(f, args, env, false, |a, e| from_f64(a.to_f64().cosh(), e)),
+        ("tanh", 1) => map1(f, args, env, false, |a, e| from_f64(a.to_f64().tanh(), e)),
+        ("arcsinh", 1) => map1(f, args, env, false, |a, e| from_f64(a.to_f64().asinh(), e)),
+        ("arccosh", 1) => map1(f, args, env, false, |a, e| {
+            let x = a.to_f64();
+            if x < 1.0 {
+                None
+            } else {
+                from_f64(x.acosh(), e)
+            }
+        }),
+        ("arctanh", 1) => map1(f, args, env, false, |a, e| {
+            let x = a.to_f64();
+            if x.abs() >= 1.0 {
+                None
+            } else {
+                from_f64(x.atanh(), e)
+            }
+        }),
+        // Secant, cosecant, cotangent: the reciprocals, in the angle mode.
+        ("sec", 1) => div(&Expr::int(1), &apply("cos", args.clone(), env), env),
+        ("csc", 1) => div(&Expr::int(1), &apply("sin", args.clone(), env), env),
+        ("cot", 1) => div(&Expr::int(1), &apply("tan", args.clone(), env), env),
+        // `n!!`, the double factorial.
+        ("dfact", 1) => match integer(&args[0]).and_then(|n| n.to_i64()) {
+            Some(k) if (-1..=10_000).contains(&k) => {
+                let r = (1..=k.max(0))
+                    .rev()
+                    .step_by(2)
+                    .fold(BigInt::one(), |acc, i| acc * i);
+                Expr::Num(Num::Int(r))
+            }
+            _ => keep(f, args),
+        },
         ("sin", 1) => map1(f, args, env, false, |a, e| trig(a, e, Trig::Sin)),
         ("cos", 1) => map1(f, args, env, false, |a, e| trig(a, e, Trig::Cos)),
         ("tan", 1) => map1(f, args, env, false, |a, e| trig(a, e, Trig::Tan)),
