@@ -1029,7 +1029,15 @@ impl Editor {
                 };
                 cx.emit(DocEvent::Open { path, at: None });
             }
-            Request::PickFile { command, arg } => {
+            Request::Ask { command, args, arg } => {
+                let title = self
+                    .shared
+                    .registry
+                    .get(&command)
+                    .map_or_else(|| command.clone(), |c| c.display_title());
+                self.ask_argument(&command, &title, args, arg, "string".into(), cx);
+            }
+            Request::PickFile { command, arg, args } => {
                 let dir = self
                     .doc
                     .meta
@@ -1052,8 +1060,9 @@ impl Editor {
                             .as_deref()
                             .and_then(|d| kalem_core::kinds::relative(d, &p))
                             .unwrap_or_else(|| p.to_string_lossy().replace('\\', "/"));
+                        let args = kalem_core::command::with_argument(args, &arg, rel.into());
                         let _ = this.update_in(cx, |e, window, cx| {
-                            e.run_command(&command, serde_json::json!({ arg: rel }), window, cx);
+                            e.run_command(&command, args, window, cx);
                         });
                     }
                 })

@@ -2437,6 +2437,40 @@ fn latex_class_front_matter(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn latex_figure_dialog(cx: &mut TestAppContext) {
+    let text = "\\begin{document}\n\n\\end{document}\n";
+    let (e, cx) = open_named(text, "f.tex", || None, cx);
+    at(&e, 17, cx);
+    // After the picture (the system's dialog), its width and caption.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "latex.insert.figure",
+            serde_json::json!({ "path": "cat.png", "ask": true }),
+            window,
+            cx,
+        )
+    });
+    let label = |e: &Entity<Editor>, cx: &mut gpui::VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            e.palette
+                .as_ref()
+                .and_then(|p| p.arg.as_ref().map(|a| a.label.clone()))
+        })
+    };
+    assert_eq!(label(&e, cx).as_deref(), Some("Insert Figure: width"));
+    cx.simulate_keystrokes("enter");
+    assert_eq!(label(&e, cx).as_deref(), Some("Insert Figure: caption"));
+    cx.simulate_input("A cat");
+    cx.simulate_keystrokes("enter");
+    let t = text_of(&e, cx);
+    assert!(
+        t.contains("\\includegraphics[width=0.8\\linewidth]{cat.png}"),
+        "{t}"
+    );
+    assert!(t.contains("\\caption{A cat}"), "{t}");
+}
+
+#[gpui::test]
 fn latex_build_command(cx: &mut TestAppContext) {
     let (e, cx) = open_named("\\documentclass{article}\n", "b.tex", || None, cx);
     e.update(cx, |e, _| e.doc.meta.path = None);

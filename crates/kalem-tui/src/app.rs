@@ -1268,20 +1268,27 @@ impl App {
                 };
                 self.open_path(&path, None);
             }
-            Request::PickFile { command, arg } => {
+            Request::PickFile { command, arg, args } | Request::Ask { command, arg, args } => {
                 let title = self
                     .registry
                     .get(&command)
                     .map_or_else(|| command.clone(), |c| c.display_title());
+                let default = kalem_core::command::argument_default_with(
+                    &command,
+                    &arg,
+                    &args,
+                    &mut self.doc,
+                    &self.config,
+                );
                 self.ask(
                     PromptKind::Arg {
                         command,
-                        args: Value::Object(Default::default()),
+                        args,
                         name: arg.clone(),
                         ty: "string".into(),
                     },
                     &format!("{title}: {arg}: "),
-                    String::new(),
+                    default,
                 );
             }
             Request::Open { path: None } => {

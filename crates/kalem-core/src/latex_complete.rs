@@ -457,6 +457,290 @@ fn options(ctx: &Context, line: &str) -> Option<Vec<Item>> {
     Some(out)
 }
 
+/// The commands of common packages with their arguments (`m` a group,
+/// `o` an optional argument, as in `latex_syntax::signatures`), offered
+/// when the preamble loads the package.
+const PACKAGE_COMMANDS: &[(&str, &[(&str, &str)])] = &[
+    (
+        "amsmath",
+        &[
+            ("text", "m"),
+            ("dfrac", "mm"),
+            ("tfrac", "mm"),
+            ("binom", "mm"),
+            ("operatorname", "m"),
+            ("tag", "m"),
+            ("intertext", "m"),
+            ("boxed", "m"),
+            ("overset", "mm"),
+            ("underset", "mm"),
+            ("xrightarrow", "m"),
+            ("numberwithin", "mm"),
+            ("DeclareMathOperator", "mm"),
+        ],
+    ),
+    ("amssymb", &[("mathbb", "m"), ("mathfrak", "m")]),
+    (
+        "mathtools",
+        &[
+            ("coloneqq", ""),
+            ("mathclap", "m"),
+            ("DeclarePairedDelimiter", "mmm"),
+        ],
+    ),
+    ("bm", &[("bm", "m")]),
+    (
+        "hyperref",
+        &[
+            ("href", "mm"),
+            ("url", "m"),
+            ("autoref", "m"),
+            ("nameref", "m"),
+            ("hypersetup", "m"),
+        ],
+    ),
+    ("url", &[("url", "m")]),
+    (
+        "cleveref",
+        &[
+            ("cref", "m"),
+            ("Cref", "m"),
+            ("crefrange", "mm"),
+            ("crefname", "mmm"),
+        ],
+    ),
+    ("varioref", &[("vref", "m"), ("Vref", "m")]),
+    (
+        "xcolor",
+        &[
+            ("textcolor", "mm"),
+            ("color", "m"),
+            ("colorbox", "mm"),
+            ("definecolor", "mmm"),
+        ],
+    ),
+    ("color", &[("textcolor", "mm"), ("color", "m")]),
+    (
+        "graphicx",
+        &[
+            ("includegraphics", "om"),
+            ("graphicspath", "m"),
+            ("rotatebox", "mm"),
+            ("scalebox", "mm"),
+        ],
+    ),
+    (
+        "siunitx",
+        &[
+            ("SI", "mm"),
+            ("si", "m"),
+            ("num", "m"),
+            ("qty", "mm"),
+            ("unit", "m"),
+            ("ang", "m"),
+            ("sisetup", "m"),
+        ],
+    ),
+    (
+        "physics",
+        &[
+            ("abs", "m"),
+            ("norm", "m"),
+            ("dv", "mm"),
+            ("pdv", "mm"),
+            ("bra", "m"),
+            ("ket", "m"),
+            ("braket", "mm"),
+            ("qty", "m"),
+        ],
+    ),
+    (
+        "booktabs",
+        &[
+            ("toprule", ""),
+            ("midrule", ""),
+            ("bottomrule", ""),
+            ("cmidrule", "m"),
+            ("addlinespace", ""),
+        ],
+    ),
+    ("multirow", &[("multirow", "mmm")]),
+    (
+        "natbib",
+        &[
+            ("citep", "m"),
+            ("citet", "m"),
+            ("citeauthor", "m"),
+            ("citeyear", "m"),
+            ("citealp", "m"),
+        ],
+    ),
+    (
+        "biblatex",
+        &[
+            ("parencite", "m"),
+            ("textcite", "m"),
+            ("autocite", "m"),
+            ("footcite", "m"),
+            ("printbibliography", ""),
+            ("addbibresource", "m"),
+        ],
+    ),
+    ("csquotes", &[("enquote", "m"), ("textquote", "m")]),
+    ("ulem", &[("uline", "m"), ("sout", "m"), ("uwave", "m")]),
+    ("soul", &[("hl", "m"), ("st", "m"), ("ul", "m")]),
+    (
+        "todonotes",
+        &[("todo", "m"), ("missingfigure", "m"), ("listoftodos", "")],
+    ),
+    (
+        "listings",
+        &[
+            ("lstinline", "m"),
+            ("lstset", "m"),
+            ("lstinputlisting", "m"),
+        ],
+    ),
+    (
+        "minted",
+        &[
+            ("mintinline", "mm"),
+            ("inputminted", "mm"),
+            ("setminted", "m"),
+        ],
+    ),
+    (
+        "subcaption",
+        &[("subcaption", "m"), ("subcaptionbox", "mm")],
+    ),
+    ("caption", &[("captionof", "mm"), ("captionsetup", "m")]),
+    (
+        "geometry",
+        &[
+            ("geometry", "m"),
+            ("newgeometry", "m"),
+            ("restoregeometry", ""),
+        ],
+    ),
+    (
+        "fancyhdr",
+        &[("fancyhead", "m"), ("fancyfoot", "m"), ("pagestyle", "m")],
+    ),
+    (
+        "tikz",
+        &[
+            ("tikz", "m"),
+            ("usetikzlibrary", "m"),
+            ("draw", ""),
+            ("node", ""),
+            ("tikzset", "m"),
+        ],
+    ),
+    (
+        "algpseudocode",
+        &[
+            ("State", ""),
+            ("If", "m"),
+            ("EndIf", ""),
+            ("For", "m"),
+            ("EndFor", ""),
+            ("While", "m"),
+            ("EndWhile", ""),
+            ("Return", ""),
+            ("Procedure", "mm"),
+            ("EndProcedure", ""),
+        ],
+    ),
+    ("enumitem", &[("setlist", "m"), ("newlist", "mmm")]),
+    ("footmisc", &[("footref", "m")]),
+    (
+        "acro",
+        &[
+            ("ac", "m"),
+            ("acs", "m"),
+            ("acl", "m"),
+            ("DeclareAcronym", "mm"),
+        ],
+    ),
+    (
+        "glossaries",
+        &[
+            ("gls", "m"),
+            ("Gls", "m"),
+            ("glspl", "m"),
+            ("newglossaryentry", "mm"),
+            ("newacronym", "mmm"),
+            ("printglossaries", ""),
+        ],
+    ),
+    (
+        "babel",
+        &[("selectlanguage", "m"), ("foreignlanguage", "mm")],
+    ),
+    (
+        "fontspec",
+        &[
+            ("setmainfont", "m"),
+            ("setsansfont", "m"),
+            ("setmonofont", "m"),
+            ("fontspec", "m"),
+        ],
+    ),
+];
+
+/// The environments of common packages, offered when the preamble loads
+/// the package.
+const PACKAGE_ENVIRONMENTS: &[(&str, &[&str])] = &[
+    (
+        "amsmath",
+        &[
+            "align",
+            "align*",
+            "gather",
+            "gather*",
+            "multline",
+            "multline*",
+            "split",
+            "cases",
+            "pmatrix",
+            "bmatrix",
+            "vmatrix",
+            "matrix",
+            "aligned",
+            "subequations",
+        ],
+    ),
+    ("tikz", &["tikzpicture", "scope"]),
+    ("algorithm", &["algorithm"]),
+    ("algpseudocode", &["algorithmic"]),
+    ("algorithm2e", &["algorithm"]),
+    ("listings", &["lstlisting"]),
+    ("minted", &["minted"]),
+    ("subcaption", &["subfigure", "subtable"]),
+    ("wrapfig", &["wrapfigure", "wraptable"]),
+    ("longtable", &["longtable"]),
+    ("tabularx", &["tabularx"]),
+    ("multicol", &["multicols"]),
+    ("comment", &["comment"]),
+    ("frame", &["framed"]),
+    ("framed", &["framed", "shaded"]),
+    ("tcolorbox", &["tcolorbox"]),
+    ("mdframed", &["mdframed"]),
+    ("enumitem", &["itemize", "enumerate", "description"]),
+    ("pgfplots", &["axis"]),
+    ("forest", &["forest"]),
+];
+
+/// The commands the packages the document loads define, with their
+/// argument signatures.
+fn package_commands(model: &latex_model::Model) -> Vec<(&'static str, &'static str)> {
+    PACKAGE_COMMANDS
+        .iter()
+        .filter(|(p, _)| model.packages.iter().any(|q| q.name == *p))
+        .flat_map(|(_, cs)| cs.iter().copied())
+        .collect()
+}
+
 /// LaTeX's completer.
 pub(crate) struct LatexCompleter;
 
@@ -469,9 +753,20 @@ impl LatexCompleter {
         start: usize,
     ) -> Vec<Item> {
         let mut names: Vec<String> = COMMANDS.iter().map(|s| s.to_string()).collect();
+        // Signatures the parser does not know: the packages' and the
+        // document's own macros' (their number of arguments).
+        let mut known: std::collections::HashMap<String, usize> = Default::default();
         if let Some(l) = doc.and_then(DocumentState::latex) {
-            for m in &l.model().macros {
-                names.push(m.name.trim_start_matches('\\').to_string());
+            let model = l.model();
+            for (n, sig) in package_commands(&model) {
+                names.push(n.to_string());
+                known.insert(n.to_string(), sig.matches('m').count());
+            }
+            for m in &model.macros {
+                let n = m.name.trim_start_matches('\\').to_string();
+                let optional = usize::from(m.default.is_some());
+                known.insert(n.clone(), m.args.saturating_sub(optional));
+                names.push(n);
             }
         }
         names.sort();
@@ -481,7 +776,10 @@ impl LatexCompleter {
             .filter(|n| n.starts_with(prefix) && n != prefix)
             .map(|n| {
                 let sig = latex_syntax::signatures::command(&n);
-                let braces = sig.matches('m').count();
+                let braces = match known.get(&n) {
+                    Some(b) if sig.is_empty() => *b,
+                    _ => sig.matches('m').count(),
+                };
                 // A big operator with its limits, Tab going from one to
                 // the other.
                 let limits = match n.as_str() {
@@ -545,6 +843,11 @@ impl LatexCompleter {
             let m = l.model();
             names.extend(m.environments.iter().map(|e| e.name.clone()));
             names.extend(m.theorem_kinds.iter().map(|k| k.env.clone()));
+            for (p, envs) in PACKAGE_ENVIRONMENTS {
+                if m.packages.iter().any(|q| q.name == *p) {
+                    names.extend(envs.iter().map(|e| e.to_string()));
+                }
+            }
         }
         names.sort();
         names.dedup();
@@ -811,6 +1114,26 @@ mod tests {
             .filter(|i| i.source == "latex")
             .map(|i| (i.label, i.insert))
             .collect()
+    }
+
+    #[test]
+    fn package_signatures() {
+        let dir = std::env::temp_dir();
+        let pre = "\\documentclass{article}\n\\usepackage{siunitx}\n\\usepackage{tikz}\n\\newcommand{\\pair}[2]{(#1,#2)}\n\\begin{document}\n";
+        // A package's command with its arguments, only when it is loaded.
+        let got = labels_at(&format!("{pre}\\S"), &dir);
+        assert!(got.contains(&("\\SI".into(), "SI{}{}".into())), "{got:?}");
+        let got = labels_at("\\begin{document}\n\\S", &dir);
+        assert!(!got.iter().any(|(l, _)| l == "\\SI"), "{got:?}");
+        // The document's macros with their number of arguments.
+        let got = labels_at(&format!("{pre}\\pai"), &dir);
+        assert!(
+            got.contains(&("\\pair".into(), "pair{}{}".into())),
+            "{got:?}"
+        );
+        // A package's environment.
+        let got = labels_at(&format!("{pre}\\begin{{tikzp"), &dir);
+        assert!(got.iter().any(|(l, _)| l == "tikzpicture"), "{got:?}");
     }
 
     #[test]

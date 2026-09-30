@@ -216,6 +216,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX: `\lstinline` is colored in its language (`language=` or `\lstset`), which also colors `lstlisting` without options.
 - LaTeX: `comment` environments and `\iffalse` … `\fi` fold to their first line away from the cursor.
 - LaTeX tables: a `\multicolumn` is drawn as one cell across its columns, and a rule after a row's `\\` is drawn under the row, in both editors.
+- LaTeX completion offers the commands and environments of the packages the preamble loads with their arguments, and the document's own macros with their number of arguments.
+- LaTeX: Insert Figure asks for the file, its width and its caption in one flow.
 ### Changed
 
 - The text column starts at the left edge of the window in both editors; `editor.center_text = true` centers it as before.
