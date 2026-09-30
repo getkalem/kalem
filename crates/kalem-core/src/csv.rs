@@ -334,6 +334,61 @@ pub fn detect(text: &str) -> Dialect {
         .unwrap_or(text.len());
     let sample = &text[..sample_end];
     let crlf = sample.contains("\r\n");
+    // Double quotes, unless fields are quoted with single quotes and none
+    // with double ones (`'a, b','c'`).
+    let (key, delimiter) = best_delimiter(sample, crlf, b'"');
+    let mut quote = b'"';
+    if quoted_fields(sample, crlf, delimiter, b'"') == 0 {
+        let (key1, delimiter1) = best_delimiter(sample, crlf, b'\'');
+        if key1.0 >= key.0 && quoted_fields(sample, crlf, delimiter1, b'\'') > 0 {
+            quote = b'\'';
+            let mut d = Dialect {
+                delimiter: delimiter1,
+                quote,
+                crlf,
+                ..Dialect::default()
+            };
+            d.header = looks_like_header(sample, &d);
+            return d;
+        }
+    }
+    let mut d = Dialect {
+        delimiter,
+        quote,
+        crlf,
+        ..Dialect::default()
+    };
+    d.header = looks_like_header(sample, &d);
+    d
+}
+
+/// How many of the first records' fields are quoted with `quote` in
+/// `sample` read with `delimiter`.
+fn quoted_fields(sample: &str, crlf: bool, delimiter: u8, quote: u8) -> usize {
+    let d = Dialect {
+        delimiter,
+        quote,
+        crlf,
+        ..Dialect::default()
+    };
+    let mut n = 0;
+    let mut at = 0;
+    for _ in 0..50 {
+        let r = scan(sample, at, &d);
+        if r.next == at {
+            break;
+        }
+        n += r.fields.iter().filter(|f| f.quoted).count();
+        at = r.next;
+    }
+    n
+}
+
+type DelimiterKey = (usize, usize, std::cmp::Reverse<usize>, usize);
+
+/// The delimiter for `sample` with `quote` as its quote, and how well it
+/// splits it.
+fn best_delimiter(sample: &str, crlf: bool, quote: u8) -> (DelimiterKey, u8) {
     // The delimiter that splits the most records into the same number of
     // fields (more than one), a first line of one field (a title) left
     // aside; on a tie, the one whose fields read as numbers more often
@@ -342,6 +397,7 @@ pub fn detect(text: &str) -> Dialect {
     for delim in *b",;\t|" {
         let d = Dialect {
             delimiter: delim,
+            quote,
             crlf,
             ..Dialect::default()
         };
@@ -399,13 +455,7 @@ pub fn detect(text: &str) -> Dialect {
             best = (key, delim);
         }
     }
-    let mut d = Dialect {
-        delimiter: best.1,
-        crlf,
-        ..Dialect::default()
-    };
-    d.header = looks_like_header(sample, &d);
-    d
+    best
 }
 
 fn looks_like_header(text: &str, d: &Dialect) -> bool {
@@ -1274,6 +1324,15 @@ pub fn pasted(text: &str, d: &Dialect) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quote_character_detected() {
+        let d = detect("'name','note'\n'Ali','a, b'\n'Ayşe','c'\n");
+        assert_eq!((d.quote, d.delimiter), (b'\'', b','));
+        // Double quotes when both occur, and when none does.
+        assert_eq!(detect("\"a\",'b'\n\"c\",'d'\n").quote, b'"');
+        assert_eq!(detect("it's,x\nno,y\n").quote, b'"');
+    }
 
     #[test]
     fn malformed_fields() {

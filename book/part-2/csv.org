@@ -154,6 +154,16 @@ fields =ürün;fiyat= and =elma;1= hold a semicolon and =5= is the only
 number, while under =;= the field =1,5= is a number. Likewise
 =1,5;2,5;3,5= splits at =;= into three numbers.
 
+** The quote character
+
+The quote is ="=. It is ='= only when no field of the first 50
+records, read with the delimiter found for ="=, is quoted with ="=,
+some field is quoted with ='= when the file is read with ='= and the
+delimiter found for it, and that reading splits at least as many
+records into the same number of fields. So ='name','note'= followed by
+='Ali','a, b'= is read with ='=, and a file where both quotes occur, or
+neither, keeps ="=. /Set Quote Character/ chooses another by hand.
+
 ** The header row
 
 The first record is taken for a header (=looks_like_header=) as
@@ -257,8 +267,8 @@ integration test =large_files_lay_out_lazily= check this.
 
 Constructs of CSV dialects outside the RFC that Kalem does not
 recognize, and therefore shows and keeps as ordinary data: comment lines, backslash escapes, a quote character
-other than ="=, and blanks after a delimiter as in Python's
-=skipinitialspace=.
+other than ="= and ='= unless set by hand, and blanks after a delimiter
+as in Python's =skipinitialspace=.
 
 ** Quoting on write
 
@@ -588,7 +598,8 @@ Saving is atomic, as for every file.
 
 * Known differences and limits
 
-- The quote character is not detected: it is ="= unless set by hand.
+- Of quote characters only ="= and ='= are detected; another is set by
+  hand.
 - Only four delimiters are detected: =,= =;= tab and vertical bar;
   others can be set by hand or with a =sep== line.
 - Column widths are measured on the source text, quotes included, from
