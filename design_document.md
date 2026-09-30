@@ -1118,13 +1118,13 @@ pub struct Command {
     pub default_keys: Vec<KeyChord>,
     pub scope: Scope,                // "all", or text types with exceptions (Scope, below)
     pub when: Option<WhenClause>,    // structural context: "inTable", "hasSelection"
-    pub handler: CommandHandler,     // Rust fn or script callback
+    pub handler: CommandHandler,     // Rust fn or a plugin's export
     pub args_schema: Option<JsonSchema>,
 }
 
 pub enum CommandHandler {
     Native(fn(&mut EditorContext, serde_json::Value) -> CommandResult),
-    Script(ScriptCallbackId),
+    Plugin(PluginExportId),          // a WASM component's function (D28)
 }
 ```
 
@@ -1133,7 +1133,7 @@ pub enum CommandHandler {
 - **Offered only where they work (owner, 2026-09-29).** A menu item, toolbar button or palette entry whose command cannot run in the document is not shown, not merely greyed out: Italic is absent from a LaTeX document's menus and toolbar. Menus and toolbars ask with the document's keys alone (`DocumentState::document_context`: its mode, file kind and type) and keep a command whose `when` could still hold, so they do not change as the cursor moves; the palette evaluates the full clause at the cursor. Separators and menus left empty go too. Conversely every mode fills the same places with its own commands: Format, Insert and the toolbar hold LaTeX's formatting, sections and insertions in a `.tex` file where they hold Org's in an Org document, a CSV file gets a Table menu, code files the comment and line commands. New menus, toolbars and context menus follow the same rule, and a new mode adds its commands to them.
 - ID convention: `area.action`; plugins use `pluginId.action`.
 
-**Scope (decided by the owner, 2026-09-28).** Every command, built in or from a plugin, says where it applies. `scope` is `"all"` or a list of **text types**, with an optional `except` list; `when` stays for structural context (`inTable`, `hasSelection`, `inHeading`) and fine conditions. A text type is the type of the text at the cursor: the file's type (`org`, `klm`, `markdown`, `csv`, or the language of a plain text file such as `python`, `html`, `json`, from the one vocabulary that `DocumentMode::detect` and `kalem-highlight` share and that plugin modes and highlighters extend), or, inside nested content, the innermost type: a source block or code fence (its language), a LaTeX fragment (`latex`), an export block (its back-end's language), front matter (`yaml`, `toml`), to any depth. Subtypes: `klm` is a subtype of `org`, so `["org"]` applies in `.klm` files too and `["klm"]` only there. Nothing else is an axis: a type's mode (rich view, grid, plain text) follows from the type, so a command never names a mode, and the file kind is the type. Rules: registration refuses a command without a scope, and "everywhere" is spelled `"all"`; the scope compiles to the when-clause key `textType` and joins `when`, so the palette, menus, keymaps, `kalem run` and the documentation evaluate one expression; the palette shows only the commands in scope, the manual and the plugin documentation list commands by type, `kalem commands --type csv` prints them, and the report of bindings that never apply lists unknown types. Completers (11.12) use the same key.
+**Scope (decided by the owner, 2026-09-28).** Every command, built in or from a plugin, says where it applies. `scope` is `"all"` or a list of **text types**, with an optional `except` list; `when` stays for structural context (`inTable`, `hasSelection`, `inHeading`) and fine conditions. A text type is the type of the text at the cursor: the file's type (`org`, `klm`, `markdown`, `csv`, or the language of a plain text file such as `python`, `html`, `json`, from the one vocabulary that `DocumentMode::detect` and `kalem-highlight` share and that plugin modes and highlighters extend), or, inside nested content, the innermost type: a source block or code fence (its language), a LaTeX fragment (`latex`), an export block (its back-end's language), front matter (`yaml`, `toml`), to any depth. Subtypes: `klm` is a subtype of `org`, so `["org"]` applies in `.klm` files too and `["klm"]` only there. Nothing else is an axis: a type's mode (rich view, grid, plain text) follows from the type, so a command never names a mode, and the file kind is the type. Rules: registration refuses a command without a scope, and "everywhere" is spelled `"all"`; the scope compiles to the when-clause key `textType` and joins `when`, so the palette, menus, keymaps, batch mode (`kalem run`, T3.1.16, not built yet) and the documentation evaluate one expression; the palette shows only the commands in scope, the manual and the plugin documentation list commands by type, `kalem commands --type csv` prints them, and the report of bindings that never apply lists unknown types. Completers (11.12) use the same key.
 
 ```ts
 scope: "all"
@@ -1273,9 +1273,9 @@ Manifest `plugin.json`:
 
 - Location: `plugins/<id>/` under the platform's standard configuration directory.
 - Activation events: `onStartup`, `onCommand:<id>`, `onLanguage:<babel-language>`, `onDocument`.
-- Lifecycle: `export function activate(ctx)` and `deactivate()`. Disposables are collected in `ctx.subscriptions`.
-- Module system: ES modules. `import` only resolves inside the plugin folder. Bundling into a single file with esbuild is recommended; a template repository is provided.
-- Plugins run unchanged in the graphical frontend, the terminal frontend and batch mode (`kalem run`). UI calls degrade gracefully in batch mode (prompts return defaults, notifications go to stderr).
+- Lifecycle: the component exports `activate(ctx)` and `deactivate()`, written in Rust against the `kalem-plugin` crate (`pub fn activate(ctx: &mut PluginContext)`). Disposables are collected in `ctx.subscriptions`.
+- Build: one `.wasm` component per plugin, built with `kalem plugin build` (Cargo for the `wasm32-wasip2` target) from the template repository that `kalem plugin new` copies; its imports resolve only against the WIT interfaces the manifest's permissions grant.
+- Plugins run unchanged in the graphical frontend, the terminal frontend and batch mode (`kalem run`, T3.1.16). UI calls degrade gracefully in batch mode (prompts return defaults, notifications go to stderr).
 - A plugin is a WASM component, not a program with an operating system: no file system, network, clock or threads of its own beyond what the API grants. This is stated on the first page of the plugin documentation.
 
 ### 11.6 Security and resource limits
@@ -1293,7 +1293,7 @@ Manifest `plugin.json`:
 |---|---|
 | `settings.toml` | Static settings |
 | `keymap.json` | Keymap overrides |
-| `plugins.toml` | Enabled plugins and permission decisions |
+| `plugins.toml` | Permission decisions; the enabled plugins are the setting `plugins.enabled` in `settings.toml` |
 | `themes/*.toml` | User themes |
 
 ### 11.8 Distribution
@@ -1309,7 +1309,7 @@ Emacs's "reach into the running program and change it" experience is provided in
 - **Inspection panel:** the loaded plugins with their permissions, budgets and recent errors, the command registry, and the durations of recent operations, in both frontends.
 - **Hot reloading:** a plugin's component is reloaded without a restart when its file changes (the plugin folder is watched during development); old Disposables are cleaned up.
 - **Debug socket:** `kalem --debug-socket` exposes the inspection commands and the test driver over a local Unix socket or TCP. Localhost only, off by default.
-- **Inspection commands:** `kalem.inspect.tree(offset)` dumps the CST, `kalem.inspect.commands()` the command registry, `kalem.inspect.timings()` the durations of recent operations.
+- **Inspection commands:** `kalem::inspect::tree(offset)` dumps the CST, `kalem::inspect::commands()` the command registry, `kalem::inspect::timings()` the durations of recent operations.
 - **Test hook:** end-to-end tests drive the running application through the same socket (open, edit, save, verify).
 
 ### 11.10 Extension points
@@ -1367,15 +1367,15 @@ pub fn activate(ctx: &mut PluginContext) {
 
 **Example: a diagram block.** It registers a renderer for `#+BEGIN_SRC mermaid` that returns an SVG. The GUI draws the SVG; the terminal draws it through a graphics protocol or falls back to the source; the HTML exporter embeds the SVG.
 
-**Limits.** Plugins cannot change the parser grammar, cannot draw arbitrary pixels outside the widget tree and SVG, and cannot block the UI thread beyond the time budget (11.6). Heavy features (layout engines, large computations) go into worker plugins or, from phase 4, WASM plugins.
+**Limits.** Plugins cannot change the parser grammar, cannot draw arbitrary pixels outside the widget tree and SVG, and cannot block the UI thread beyond the time budget (11.6). Heavy features (layout engines, large computations) run in further instances of the plugin on other threads (11.1).
 
 ### 11.11 Document modes and highlighters from plugins
 
-Kalem ships highlighters (D16, Sublime syntax definitions in `kalem-highlight`) and renderers for a fixed set of formats (2.6; group 2.7g of the work breakdown). A user must be able to add both for any other text format with a plugin, in the scripting language, through one standard way (asked by the owner, 2026-09-28). The rule: **the contract built-in modes use is the contract plugins use.** Markdown (2.6.1) and CSV (2.6.2) are written against it, so a plugin can do everything a built-in mode does, and the contract is proven before the script binding exists.
+Kalem ships highlighters (D16, Sublime syntax definitions in `kalem-highlight`) and renderers for a fixed set of formats (2.6; group 2.7g of the work breakdown). A user must be able to add both for any other text format with a plugin, through one standard way (asked by the owner, 2026-09-28). The rule: **the contract built-in modes use is the contract plugins use.** Markdown (2.6.1) and CSV (2.6.2) are written against it, so a plugin can do everything a built-in mode does, and the contract is proven before the WIT binding exists.
 
-**Highlighters.** `kalem.modes.registerHighlighter` loads a Sublime syntax definition from the plugin folder into `kalem-highlight`, with comment tokens and indentation rules; the file opens in plain text mode with the plugin's colors, in both frontends. No code is needed.
+**Highlighters.** `kalem::modes::register_highlighter` loads a Sublime syntax definition from the plugin folder into `kalem-highlight`, with comment tokens and indentation rules; the file opens in plain text mode with the plugin's colors, in both frontends. No code is needed.
 
-**Modes with a renderer.** `kalem.modes.register(id, spec)` adds a document mode (2.6). The spec:
+**Modes with a renderer.** `kalem::modes::register(id, spec)` adds a document mode (2.6). The spec:
 
 | Part | What the plugin gives | What the core does |
 |---|---|---|
@@ -1390,7 +1390,7 @@ Rules:
 
 - **Ranges, never text.** `parse` returns ranges into the text and never regenerates it, so a mode cannot break the round-trip guarantee (3.3). The tree is plain data and crosses the component boundary as flat arrays of kinds and ranges, never as objects, so a parse per keystroke stays cheap.
 - **Incremental.** `parse` receives the edit and the previous tree and reparses from the enclosing top-level block, as Markdown mode does (2.6.1); a mode without incremental parsing is reparsed whole and must fit the budget.
-- **Budget.** The time and memory limits of 11.6 apply to each parse. A mode that exceeds them or throws drops the file to plain text with the plugin's highlighter, tells the user, and is disabled after repeated failures. Heavy parsers go into worker plugins or, from phase 4, WASM.
+- **Budget.** The time and memory limits of 11.6 apply to each parse. A mode that exceeds them or traps drops the file to plain text with the plugin's highlighter, tells the user, and is disabled after repeated failures. Heavy parsers run in further instances on other threads (11.1).
 - **Two levels.** Declarative: a syntax definition plus a mapping from its scopes to view kinds, no code; enough for gemtext, todo.txt or Fountain. Programmatic: a parser in Rust against the generated bindings; needed for AsciiDoc or Djot.
 - **Batch.** `kalem check`, `kalem fmt` and `kalem export` call the mode's hooks, so a plugin mode works from the command line and in CI.
 
@@ -1398,12 +1398,12 @@ Rules:
 
 ### 11.12 Completers
 
-The third thing a plugin adds for a file type, next to a highlighter and a renderer (11.11), is a **completer** (asked by the owner, 2026-09-28). One contract serves very different sources: the words of the document and of a dictionary in prose, a language server in code, later a model. `kalem.completers.register(spec)`:
+The third thing a plugin adds for a file type, next to a highlighter and a renderer (11.11), is a **completer** (asked by the owner, 2026-09-28). One contract serves very different sources: the words of the document and of a dictionary in prose, a language server in code, later a model. `kalem::completers::register(spec)`:
 
 | Part | What the completer gives | What the core does |
 |---|---|---|
 | `when` | A scope as commands have (11.2): the text types it serves (`python` in a file or in a source block, `org`, `all`), and a when-clause for the rest: the document's language (`docLanguage == tr`), inside or outside prose | Runs only the completers that apply where the cursor is |
-| `triggers` | Trigger characters (`[[`, `#+`, `@`), a word prefix of N letters, or on request only (Ctrl+Space, Tab) | Opens the menu, keeps it updated as the user types, closes it on Escape or a key that matches nothing |
+| `triggers` | Trigger characters (`[[`, `#+`, `@`), a word prefix of N letters, or on request only (Complete: Alt+/, and Ctrl+Space once the formatting commands leave Org, T2.13.13) | Opens the menu, keeps it updated as the user types, closes it on Escape or a key that matches nothing |
 | `complete(ctx)` | Items, asynchronously and cancellable, from `ctx`: the prefix, the text before the cursor in the line and in the paragraph, the syntax node at the cursor from the mode's tree (in a link, in a table cell, in a source block of a language), the document's language and path | Merges the items of every completer that applies, ranks them (exact prefix first, then recently accepted, then the completer's priority), removes duplicates, shows one menu in both frontends |
 | Items | A label, what to insert (text, or edits with ranges, with the cursor's place), a kind (word, keyword, link, tag, symbol, snippet), a detail line, an optional `resolve` for documentation fetched lazily | Applies the insertion as one undo step; shows the detail and the resolved documentation |
 | `hover` (optional) | Text for the thing under the cursor | The hover card of both frontends |
@@ -1413,10 +1413,10 @@ Rules:
 - **Never blocking.** A completer that misses its budget (11.6) shows nothing for that keystroke and the menu keeps the items of the others; results arrive as they come, as Search in Project does (2.8).
 - **Built-ins on the same contract.** The Org completions of today (`#+` keywords and blocks, `[[` link targets, `[fn:` labels, tags; `kalem_core::input`) become completers, and so do the two every text file gets: the **words of the document** (dabbrev-style, from the first letters, no configuration) and the **dictionary** of the document's language, from the Hunspell word lists the spell checker loads (2.2), with a frequency list where one exists so that common words come first. The language comes from `#+LANGUAGE`, the setting, or detection.
 - **Code.** In a source block or a file of a programming language, the completer is the core's language server client (11.14, D57) fed by a language plugin that declares the server; the plugin is installed by the user from `getkalem/plugins`, never bundled, and the core knows no language.
-- **Models.** A completer may call a model through `kalem.net`, off by default, enabled per workspace through the permission model (11.6) with a visible indicator; document text leaves the machine only after that consent. Phase 4.
+- **Models.** A completer may call a model through `kalem::net`, off by default, enabled per workspace through the permission model (11.6) with a visible indicator; document text leaves the machine only after that consent. Phase 4.
 - **Batch.** `kalem complete FILE:LINE:COL` prints the items, for tests and scripts; a completer plugin's conformance suite checks its items on fixture files, its cancellation and its budget.
 
-**The standard way**, as for modes (11.11): the contract in `kalem-core` first, the Org completers and the document-words completer on it in phase 2, the dictionary completer with spell checking in phase 3, then the script binding, a template, the page "Writing a completer", and two reference plugins, a word list (declarative) and the LSP bridge (programmatic) (work breakdown: T2.7a.8, T3.1.9c, T3.3.2, T3.6.1, T4.3.6b).
+**The standard way**, as for modes (11.11): the contract in `kalem-core` first, the Org completers and the document-words completer on it in phase 2, the dictionary completer with spell checking in phase 3, then the WIT binding, a template, the page "Writing a completer", and two reference plugins, a word list (declarative) and the LSP bridge (programmatic) (work breakdown: T2.7a.8, T3.1.9c, T3.3.2, T3.6.1, T4.3.6b).
 
 ---
 
@@ -1438,7 +1438,7 @@ A language plugin makes Kalem a complete editor for a programming language (aske
 
 - **Syntax:** `#+BEGIN_SRC lang :header args`, `#+CALL:`, `src_lang{...}`, `#+RESULTS:` blocks.
 - **Header arguments:** `:results` (output, value; raw, table, list, verbatim, file, drawer; replace, append, prepend, silent), `:exports` (code, results, both, none), `:var`, `:dir`, `:cache`, `:tangle`, `:file`; `:session` and `:noweb` in phase 4.
-- **Executors:** shell (sh, bash, zsh), python, javascript (node), R, gnuplot, sqlite, org, simple calc-like arithmetic. Plugins add languages with `kalem.babel.registerLanguage`.
+- **Executors:** shell (sh, bash, zsh), python, javascript (node), R, gnuplot, sqlite, org, simple calc-like arithmetic. Plugins add languages with `kalem::babel::register_language`.
 - **Trust model:** consent on the first "run" request in a document; a "trust this document" decision is bound to the document path and content hash; no code runs automatically on open, not even through `#+STARTUP`.
 - **Result insertion:** `#+RESULTS:` placement per Org rules, matching through `#+NAME`, replacement of old results.
 - **Tangling:** writes to files, with a confirmation list for each write.
@@ -1528,7 +1528,7 @@ Strategy: contiguous text with an incremental line index for Org documents (the 
 | org-export | Snapshots per backend; comparison corpus against ox.el output |
 | org-babel | Unit tests with fake executors; integration with real interpreters (optional in CI) |
 | kalem-core | Unit tests for the command registry, keymap and when-clauses |
-| kalem-script | API contract tests; consistency of d.ts with the real bindings; time and memory limits |
+| kalem-script | API contract tests; the published Rust bindings against the WIT world; time and memory limits |
 | kalem-ui | Widget tests with the gpui test harness; manual release checklist |
 | kalem-tui | Rendering snapshots with ratatui's test backend; capability fallback tests |
 | kalem-cli | Golden tests for every subcommand's output and exit code |

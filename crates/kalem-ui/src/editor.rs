@@ -86,6 +86,9 @@ pub struct Shared {
     pub jobs: Rc<RefCell<Vec<kalem_core::dired::Running>>>,
     /// The completers (built-ins, and plugins').
     pub completers: kalem_core::completers::Registry,
+    /// Problems in the settings and keymap files, told once in the first
+    /// window.
+    pub problems: std::cell::Cell<usize>,
     /// The event bus (design §11.3), shared by the windows: events to
     /// plugins and the frontend's listeners, as the terminal editor sends
     /// them.
@@ -431,6 +434,10 @@ impl Editor {
                 path: e.doc.meta.path.clone(),
             });
         e.wrap = e.shared.config.bool("editor.soft_wrap");
+        let problems = e.shared.problems.take();
+        if problems > 0 {
+            e.message(tr!("msg-config-problems", count = problems), true);
+        }
         e.startup_folds();
         e.visible = e.compute_visible();
         e.line_count = e.doc.text().line_count();

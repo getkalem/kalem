@@ -1434,7 +1434,9 @@ impl DocumentState {
         use org_syntax::SyntaxKind as K;
         match &self.meta.mode {
             DocumentMode::Org => {}
-            DocumentMode::Text { language: Some(l) } => return l.to_lowercase(),
+            DocumentMode::Text { language: Some(l) } => {
+                return crate::command::canonical_type(l);
+            }
             m => return m.name().to_string(),
         }
         let base = crate::kinds::file_kind(self).unwrap_or("org").to_string();
@@ -1469,7 +1471,10 @@ impl DocumentState {
                         return base;
                     }
                     let head = &text[s..first];
-                    let word = head.split_whitespace().nth(1).map(|w| w.to_lowercase());
+                    let word = head
+                        .split_whitespace()
+                        .nth(1)
+                        .map(crate::command::canonical_type);
                     return word.unwrap_or(base);
                 }
                 _ => {}

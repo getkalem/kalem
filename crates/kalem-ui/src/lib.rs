@@ -51,6 +51,7 @@ pub fn shared(config: Config) -> editor::Shared {
         jobs: Rc::default(),
         completers: kalem_core::completers::Registry::with_builtins(),
         bus: Rc::default(),
+        problems: std::cell::Cell::new(0),
         config,
         registry,
         keymap,
@@ -72,7 +73,13 @@ pub fn run(path: Option<PathBuf>) {
     }
     let _ = kalem_core::logging::init(&kalem_core::logging::LogOptions::standard(&config, false));
     config.apply_process_settings();
-    let shared = Rc::new(shared(config));
+    let shared = shared(config);
+    shared.problems.set(settings::report_problems(
+        &shared.config,
+        &shared.issues,
+        false,
+    ));
+    let shared = Rc::new(shared);
     // Files the system opens with Kalem (Finder, `open -a Kalem`) arrive as
     // URLs, outside the application's context: queued, opened by a task.
     let opened: Rc<RefCell<Vec<PathBuf>>> = Rc::default();

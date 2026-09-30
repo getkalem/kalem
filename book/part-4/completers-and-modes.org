@@ -70,20 +70,25 @@ A completer implements this trait:
 pub trait Completer: Send + Sync {
     fn id(&self) -> &'static str;                 // "org", "words"
     fn priority(&self) -> i32 { 0 }               // higher first among equals
-    fn applies(&self, ctx: &Context) -> bool;     // where it applies
+    fn scope(&self) -> Scope { Scope::all() }     // the text types it serves
+    fn applies(&self, ctx: &Context) -> bool;     // where else it applies
     fn trigger(&self) -> Trigger;                 // what opens its menu
     fn slow(&self) -> bool { false }              // run on another thread
+    fn budget(&self) -> Duration { DEFAULT_BUDGET } // a slow one's time: 100 ms
     fn complete(&self, ctx: &Context, doc: Option<&DocumentState>,
                 cancel: &Cancel) -> Vec<Item>;
     fn resolve(&self, _item: &Item) -> Option<String> { None }
+    fn hover(&self, _ctx: &Context, _doc: Option<&DocumentState>) -> Option<String> { None }
 }
 #+end_src
 
 - =id= names the completer in the menu's items and in =kalem complete=.
-- =applies= decides where the completer runs, from the context below:
-  the mode, the language at the cursor, the path. It is the completer's
-  when-clause, written as Rust code; the design's scope and when-clause
-  for completers are not wired to it yet.
+- =scope= gives the text types the completer serves, as a command's
+  scope does (=Scope::only(&["org"])=, =Scope::except(&["directory"])=):
+  the type at the cursor, so a completer for =python= also runs in a
+  Python source block of an Org document. =applies= decides the rest,
+  from the context below (the mode, the path, the text before the
+  cursor): the completer's when-clause, written as Rust code.
 - =trigger= says what opens the menu (below).
 - =complete= returns the items. A fast completer gets the document
   (=doc= is =Some=), with its parse and model, and runs on the editor's
@@ -92,6 +97,9 @@ pub trait Completer: Send + Sync {
   work checks =cancel.cancelled()= and stops when it is set.
 - =resolve= gives documentation for an item, fetched only when the item
   is chosen.
+- =hover= gives text about the thing under the cursor;
+  =Registry::hover= asks the completers in scope in turn. No editor
+  shows a hover card yet.
 
 ** Triggers
 
@@ -115,7 +123,7 @@ itself and gives items only where a completion belongs.
 | =base=      | Where =text= starts in the document, in bytes                                        |
 | =point=     | The cursor, in bytes from the start of the document                                  |
 | =mode=      | The document's mode (=DocumentMode=)                                                 |
-| =language=  | The language at the cursor: a plain text file's, =md= in Markdown, =latex= in LaTeX, a source block's in Org, else =org=; none in CSV |
+| =text_type= | The text type at the cursor, the =textType= of when-clauses: =python= in a =.py= file or a Python source block, =markdown=, =latex=, =csv=, =org=, =text= |
 | =path=      | The document's file, if it has one                                                   |
 | =requested= | Whether the user asked (Alt+/) rather than typed a trigger                           |
 
@@ -166,9 +174,10 @@ the same range count once. The list is ordered by:
 Items that tie keep their order: the completers' order in the registry,
 and each completer's own order.
 
-A per-completer time budget, after which a completer shows nothing for
-that keystroke, is part of the design (§11.6, §11.12) and of the plugin
-limits (T3.1.11); today only =kalem complete= bounds the wait, to two
+A slow completer has a time budget (=budget=, 100 ms unless it says
+otherwise, §11.6): when it runs out, the completion stops waiting for
+it, its thread is told to stop, and whatever it sends later is dropped;
+the menu keeps the others' items. =kalem complete= waits up to two
 seconds.
 
 ** Writing a completer today
@@ -179,14 +188,16 @@ completer in =latex_complete.rs= is a complete example). A sketch that
 completes a fixed list of words in Markdown after two letters:
 
 #+begin_src rust
+use kalem_core::command::Scope;
 use kalem_core::completers::{Cancel, Completer, Context, Item, Kind, Trigger};
-use kalem_core::{DocumentMode, DocumentState};
+use kalem_core::DocumentState;
 
 struct Glossary;
 
 impl Completer for Glossary {
     fn id(&self) -> &'static str { "glossary" }
-    fn applies(&self, ctx: &Context) -> bool { ctx.mode == DocumentMode::Markdown }
+    fn scope(&self) -> Scope { Scope::only(&["markdown"]) }
+    fn applies(&self, _ctx: &Context) -> bool { true }
     fn trigger(&self) -> Trigger { Trigger::WordPrefix(2) }
     fn complete(&self, ctx: &Context, _doc: Option<&DocumentState>, _c: &Cancel) -> Vec<Item> {
         let (start, prefix) = ctx.word_prefix();

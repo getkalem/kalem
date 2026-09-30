@@ -343,6 +343,45 @@ pub struct Command {
     pub scope: Option<Scope>,
 }
 
+/// The text type a language name stands for (§11.2): one name for each
+/// language, whatever the extension or source block says (`py` and
+/// `python` are `python`), lower case.
+pub fn canonical_type(name: &str) -> String {
+    let n = name.trim().to_ascii_lowercase();
+    let canonical = match n.as_str() {
+        "py" | "pyw" | "python3" => "python",
+        "js" | "mjs" | "cjs" | "node" => "javascript",
+        "ts" | "mts" | "cts" => "typescript",
+        "rs" => "rust",
+        "rb" => "ruby",
+        "pl" | "pm" => "perl",
+        "sh" | "bash" | "zsh" | "ksh" => "shell",
+        "elisp" | "el" => "emacs-lisp",
+        "md" | "mdown" | "mkd" | "gfm" => "markdown",
+        "yml" => "yaml",
+        "htm" | "xhtml" => "html",
+        "tex" | "ltx" => "latex",
+        "c++" | "cc" | "cxx" | "hpp" | "hh" | "hxx" => "cpp",
+        "h" => "c",
+        "cs" => "csharp",
+        "kt" | "kts" => "kotlin",
+        "hs" => "haskell",
+        "ml" | "mli" => "ocaml",
+        "jl" => "julia",
+        "golang" => "go",
+        "ps1" => "powershell",
+        "bat" | "cmd" => "batch",
+        "clj" | "cljs" => "clojure",
+        "ex" | "exs" => "elixir",
+        "erl" => "erlang",
+        "scm" | "ss" => "scheme",
+        "tsv" | "tab" => "csv",
+        "txt" => "text",
+        other => other,
+    };
+    canonical.to_string()
+}
+
 /// Whether `t` names a text type Kalem knows: its modes, `latex` and the
 /// back-ends of export blocks, and the languages of files and source
 /// blocks it has comment markers for, or common data formats.
@@ -485,7 +524,8 @@ pub enum CommandSource {
     Builtin,
     /// A plugin, by ID.
     Plugin(String),
-    /// The user's `init.js`.
+    /// The user's own definitions (a macro recorded or a command
+    /// defined in settings; there is no script file, D9, D28).
     User,
 }
 
@@ -787,5 +827,26 @@ impl EditorContext<'_> {
     ) -> CommandResult {
         let now = self.now;
         self.doc()?.run(now, command).map_err(CommandError::from)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn one_name_for_each_language() {
+        for (name, t) in [
+            ("py", "python"),
+            ("Python", "python"),
+            ("js", "javascript"),
+            ("sh", "shell"),
+            ("md", "markdown"),
+            ("h", "c"),
+            ("go", "go"),
+        ] {
+            assert_eq!(canonical_type(name), t, "{name}");
+            assert!(known_text_type(t), "{t}");
+        }
     }
 }
