@@ -775,19 +775,19 @@ command = "dired.jump"
 doom = "SPC o a"
 keys = "space o a"
 what = "Agenda"
-reason = "Planned: T2.7i.7"
+reason = "Waits for the agenda (3.5); =kalem query= lists a project's tasks until then"
 
 [[key]]
 doom = "SPC o A"
 keys = "space o shift+a"
 what = "Agenda"
-reason = "Planned: T2.7i.7"
+reason = "Waits for the agenda (3.5)"
 
 [[key]]
 doom = "SPC o b"
 keys = "space o b"
-what = "Browser"
-reason = "Planned: T2.7i.7"
+what = "Export as HTML and open it in the browser"
+command = "export.htmlBrowser"
 
 [[key]]
 doom = "SPC o d"
@@ -811,13 +811,13 @@ reason = "No shell inside Kalem"
 doom = "SPC o f"
 keys = "space o f"
 what = "New frame"
-reason = "Planned: T2.7i.7"
+command = "app.newWindow"
 
 [[key]]
 doom = "SPC o l"
 keys = "space o l"
 what = "Link at point"
-reason = "Planned: T2.7i.7"
+command = "org.link.open"
 
 [[key]]
 doom = "SPC o m"
@@ -852,20 +852,20 @@ reason = "No REPL in Kalem"
 [[key]]
 doom = "SPC o t"
 keys = "space o t"
-what = "Terminal"
-reason = "Planned: T2.7i.7"
+what = "The system's terminal here (Kalem has none of its own)"
+command = "app.terminal"
 
 [[key]]
 doom = "SPC o T"
 keys = "space o shift+t"
-what = "Terminal here"
-reason = "Planned: T2.7i.7"
+what = "The system's terminal at the project"
+command = "app.terminal"
 
 [[key]]
 doom = "SPC o x"
 keys = "space o x"
 what = "Scratch"
-reason = "Planned: T2.7i.7"
+command = "file.scratch"
 
 
 # Projects =SPC p=.

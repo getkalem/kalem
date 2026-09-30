@@ -2075,6 +2075,16 @@ fn toggles(cx: &mut TestAppContext) {
     assert!(saved.contains("line_numbers"), "{saved}");
 }
 
+/// Doom's `SPC o f` opens a new window (T2.7i.7).
+#[gpui::test]
+fn new_window_key(cx: &mut TestAppContext) {
+    let (_ws, _dir, cx) = open_project(true, cx);
+    let before = cx.windows().len();
+    cx.simulate_keystrokes("space o f");
+    cx.run_until_parked();
+    assert_eq!(cx.windows().len(), before + 1);
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

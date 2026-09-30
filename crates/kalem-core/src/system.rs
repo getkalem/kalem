@@ -77,6 +77,67 @@ fn file_url(path: &Path) -> String {
     s
 }
 
+/// The terminals to try, in order, for a window at `dir` on `os`;
+/// `terminal` is `$TERMINAL`. Each starts in `dir` (its working folder is
+/// set too, for those without an option).
+pub fn terminal_plans(dir: &Path, os: &str, terminal: Option<&str>) -> Vec<Plan> {
+    let d = dir.display().to_string();
+    match os {
+        "macos" => vec![plan("open", vec!["-a".into(), "Terminal".into(), d])],
+        "windows" => vec![
+            plan("wt", vec!["-d".into(), d.clone()]),
+            plan(
+                "cmd",
+                vec![
+                    "/c".into(),
+                    "start".into(),
+                    "cmd".into(),
+                    "/K".into(),
+                    format!("cd /d {}", quote(&d, os)),
+                ],
+            ),
+        ],
+        _ => {
+            let mut v: Vec<Plan> = terminal
+                .filter(|t| !t.trim().is_empty())
+                .map(|t| plan(t.trim(), Vec::new()))
+                .into_iter()
+                .collect();
+            v.extend([
+                plan("x-terminal-emulator", Vec::new()),
+                plan("gnome-terminal", vec![format!("--working-directory={d}")]),
+                plan("konsole", vec!["--workdir".into(), d.clone()]),
+                plan("xfce4-terminal", vec![format!("--working-directory={d}")]),
+                plan("kitty", vec!["--directory".into(), d.clone()]),
+                plan("alacritty", vec!["--working-directory".into(), d.clone()]),
+                plan("xterm", Vec::new()),
+            ]);
+            v
+        }
+    }
+}
+
+/// Opens the system's terminal at `dir` (Doom's `SPC o t`; Kalem has no
+/// terminal of its own).
+pub fn open_terminal(dir: &Path) -> Result<(), String> {
+    let terminal = std::env::var("TERMINAL").ok();
+    let mut last = String::from("no terminal");
+    for p in terminal_plans(dir, std::env::consts::OS, terminal.as_deref()) {
+        let started = std::process::Command::new(&p.program)
+            .args(&p.args)
+            .current_dir(dir)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+        match started {
+            Ok(_) => return Ok(()),
+            Err(e) => last = format!("{}: {e}", p.program),
+        }
+    }
+    Err(last)
+}
+
 /// Starts `plan`, not waiting for it.
 pub fn spawn(plan: &Plan) -> Result<(), String> {
     std::process::Command::new(&plan.program)
@@ -263,5 +324,16 @@ mod tests {
         let (msg, error) = run_shell(&bad);
         assert!(error && msg.contains('3'), "{msg}");
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn terminals() {
+        let d = Path::new("/w/notes");
+        let mac = terminal_plans(d, "macos", None);
+        assert_eq!(mac[0].args, ["-a", "Terminal", "/w/notes"]);
+        let linux = terminal_plans(d, "linux", Some("foot"));
+        assert_eq!(linux[0].program, "foot");
+        assert!(linux.iter().any(|p| p.program == "gnome-terminal"));
+        assert_eq!(terminal_plans(d, "windows", None)[0].program, "wt");
     }
 }

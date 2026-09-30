@@ -74,6 +74,12 @@
   // Open, toggle, windows, quit.
   { "keys": "leader o p", "command": "view.openFiles", "when": "vimCommand" },
   { "keys": "leader o o", "command": "view.outline", "when": "vimCommand" },
+  { "keys": "leader o t", "command": "app.terminal", "when": "vimCommand" },
+  { "keys": "leader o shift+t", "command": "app.terminal", "args": { "project": true }, "when": "vimCommand" },
+  { "keys": "leader o b", "command": "export.htmlBrowser", "when": "vimCommand" },
+  { "keys": "leader o l", "command": "org.link.open", "when": "vimCommand" },
+  { "keys": "leader o x", "command": "file.scratch", "when": "vimCommand" },
+  { "keys": "leader o f", "command": "app.newWindow", "when": "vimCommand" },
   { "keys": "leader t w", "command": "view.toggleWrap", "when": "vimCommand" },
   { "keys": "leader t z", "command": "view.focus", "when": "vimCommand" },
   { "keys": "leader t m", "command": "view.toggleMath", "when": "vimCommand" },
