@@ -2884,3 +2884,16 @@ fn latex_view_with_replaced_text(cx: &mut TestAppContext) {
         }
     }
 }
+
+#[gpui::test]
+fn latex_preamble_folds(cx: &mut TestAppContext) {
+    let text = "\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{graphicx}\n\\begin{document}\nHello.\n\\end{document}\n";
+    let (e, cx) = open_named(text, "p.tex", || None, cx);
+    let at = text.find("Hello").unwrap();
+    e.update(cx, |e, cx| {
+        e.doc.move_cursor(at, false);
+        e.after_change(cx);
+    });
+    let lines = e.read_with(cx, |e, _| e.visible.clone());
+    assert_eq!(&lines[..3], &[0, 3, 4], "{lines:?}");
+}
