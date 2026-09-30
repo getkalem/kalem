@@ -108,9 +108,37 @@ pub(crate) fn parse(file: &Path) -> Result<ExitCode> {
 
 /// 1-based line and column (in characters) of a byte offset.
 pub(crate) fn line_col(text: &str, offset: usize) -> (usize, usize) {
-    let before = &text[..offset.min(text.len())];
-    let line = before.matches('\n').count() + 1;
-    let col = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+    // The line starts of the text last asked about, so that reporting
+    // many diagnostics is not quadratic.
+    thread_local! {
+        static STARTS: std::cell::RefCell<(usize, usize, Vec<usize>)> =
+            const { std::cell::RefCell::new((0, 0, Vec::new())) };
+    }
+    let offset = offset.min(text.len());
+    let start = STARTS.with(|c| {
+        let mut c = c.borrow_mut();
+        if (c.0, c.1) != (text.as_ptr() as usize, text.len()) {
+            let mut v = vec![0];
+            v.extend(text.match_indices('\n').map(|(i, _)| i + 1));
+            *c = (text.as_ptr() as usize, text.len(), v);
+        }
+        let i = c.2.partition_point(|&s| s <= offset);
+        (i, c.2[i - 1])
+    });
+    let (line, bol) = start;
+    // Counted on from the last column asked for on the same line.
+    thread_local! {
+        static LAST: std::cell::Cell<(usize, usize, usize, usize)> =
+            const { std::cell::Cell::new((usize::MAX, 0, 0, 0)) };
+    }
+    let key = text.as_ptr() as usize ^ text.len();
+    let (k, lbol, loff, lcol) = LAST.get();
+    let col = if k == key && lbol == bol && loff <= offset {
+        lcol + text[loff..offset].chars().count()
+    } else {
+        text[bol..offset].chars().count() + 1
+    };
+    LAST.set((key, bol, offset, col));
     (line, col)
 }
 

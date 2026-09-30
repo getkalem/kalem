@@ -50,6 +50,11 @@ pub(crate) struct Parser<'a> {
     builder: GreenNodeBuilder<'static>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) unclosed_env: bool,
+    /// The last search for a `]` that failed: from, where it stopped,
+    /// and its limit. A later search from inside that stretch, with the
+    /// same limit, fails too (it is at the same group level), so
+    /// unmatched `[` are not scanned again and again.
+    opt_miss: std::cell::Cell<Option<(usize, usize, usize)>>,
 }
 
 fn kind(t: Tok) -> SyntaxKind {
@@ -87,6 +92,7 @@ impl<'a> Parser<'a> {
             builder: GreenNodeBuilder::new(),
             diagnostics: Vec::new(),
             unclosed_env: false,
+            opt_miss: std::cell::Cell::new(None),
         }
     }
 
@@ -315,18 +321,29 @@ impl<'a> Parser<'a> {
     /// Where the optional argument starting after `[` at `from - 1` ends:
     /// the first `]` outside groups, before the paragraph ends.
     fn opt_close(&self, from: usize, limit: usize) -> Option<usize> {
+        if let Some((a, b, l)) = self.opt_miss.get()
+            && l == limit
+            && a <= from
+            && from <= b
+        {
+            return None;
+        }
+        let miss = |at: usize| {
+            self.opt_miss.set(Some((from, at, limit)));
+            None
+        };
         let mut i = from;
         while i < limit {
             let (tok, e) = lexer::next(self.src, i, limit, self.at_letter);
             match tok {
                 Tok::RBracket => return Some(i),
-                Tok::ParBreak | Tok::RBrace => return None,
+                Tok::ParBreak | Tok::RBrace => return miss(i),
                 Tok::LBrace => match self.tables.braces.get(&i) {
                     Some(&c) if c < limit => {
                         i = c + 1;
                         continue;
                     }
-                    _ => return None,
+                    _ => return miss(i),
                 },
                 Tok::ControlWord => {
                     if let Some(skip) = self.raw_skip(i, e, limit) {
@@ -338,7 +355,7 @@ impl<'a> Parser<'a> {
             }
             i = e;
         }
-        None
+        miss(limit)
     }
 
     /// Where the tables pass skipped text after the control word at
