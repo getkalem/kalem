@@ -232,7 +232,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [~] T1.8.7 README status: replace "pre-alpha, phase 0, nothing to use yet" with the real state (phase 1 done, phase 2 half done), a screenshot or GIF of both editors at the top, and a short "works today / not yet" list (review, 2026-09-28: the README contradicts the changelog and is the first thing a visitor reads) (done: the status, a works-today and not-yet list, the real command line, the crates and the build; open: the screenshot or GIF, which needs a desktop to record)
 - [ ] T1.8.8 Make the repository public: issues on, "good first issue" and "help wanted" labels, the contact address of T0.1.9 in place first; the five dependabot pull requests merged or closed (owner)
 - [ ] T1.8.9 Launch beyond the Org list (T1.8.5): Show HN, r/emacs, r/orgmode, r/rust and Turkish developer communities, one post each, only after signed binaries (T2.8.1, T2.8.2) and the GIF of T1.8.7 exist; the framing stays "not a replacement for Emacs, for the people around you" (review, 2026-09-28: one launch brings most of a first year's users; comparable projects sit at 2.6k (organice) and 2.8k (Orgzly) stars, Markdown editors at 13k (Zettlr) to 61k (MarkText))
-- [ ] T1.8.10 One-page site at the domain of D7, exported from `docs/manual.org` with Kalem's own HTML back-end (§18.2 dogfooding): what it is, a GIF, download links, the manual
+- [ ] T1.8.10 One-page site at the domain of D7, exported from `docs/manual.org` with Kalem's own HTML back-end (§18.2 dogfooding): what it is, a GIF, download links, the manual (the landing page of the Book, 2.10)
 
 ### Phase 1 exit criteria
 
@@ -359,6 +359,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 - [ ] T2.7c.8 Both frontends; snapshot tests; byte-exact round trip of untouched text
 - [ ] T2.7c.9 What Obsidian and Logseq users expect in Markdown files: wiki links `[[Page]]` resolved and completed within the project (T2.7f), front matter edited as a form, "copy as HTML" and "copy as rich text" (T2.6.1) (review, 2026-09-28)
 - [ ] T2.7c.10 Markdown, CSV and LaTeX modes written against the document mode contract of §11.11, defined in `kalem-core` in phase 2 (`DocumentModeSpec`: detect, parse to ranges with the fixed kind vocabulary, grid, edit hooks, the language pack hooks, export); the script binding (T3.1.9g) wraps the same contract, so a plugin mode can do everything Markdown mode does (asked by the owner, 2026-09-28)
+- [ ] T2.7c.11 Conformance against the specifications (design_doc2.md §2): every example of the CommonMark and GFM specification suites as a test, the tree rendered to HTML by a minimal transcoder and compared with the specification's expected output, `cmark-gfm` as the reference implementation where the suites are silent; the byte-exact round trip on a corpus of real READMEs and note vaults; `docs/known-differences-markdown.org`; the agreement counts only go up
 
 ### 2.7d CSV mode (§2.6.2)
 
@@ -517,6 +518,19 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] T2.9.10 Cutover: the new frontend behind a Cargo feature (`gui-next`) beside `gui` until the release checklist passes on macOS, Linux X11 and Wayland, and Windows; then gpui, `gpui-rich-text` and the git pin removed, `cargo tree` free of gpui and Zed, the apt list in CI and CONTRIBUTING updated, D3 marked as superseded by D23, a CHANGELOG entry
 - [ ] T2.9.11 Exit: no gpui or Zed source in the dependency graph, every §15 target met, the release checklist green on the four window systems, the binary under 40 MB
 
+### 2.10 The Book (design_doc2.md §10; decided by the owner, 2026-09-30)
+
+One source of truth for the application, published as a book on GitHub Pages: the manual, the specification of every supported format as Kalem implements it, and later the Kalem format's specification (Part III waits for the decision on the format). Started now from today's documents; built by Kalem itself as soon as the exporter can carry it.
+
+- [ ] T2.10.1 `book/` in `getkalem/kalem` with the five parts and the appendices as folders: Part I, Kalem, from `docs/manual.org`; Part II, the standard formats as implemented, from `docs/known-differences.org`, the LaTeX known-differences and unrendered reports and the mode notes, with the oracle named for each format; Part IV, extending Kalem, from §11 of the design document and the plugin repository's README; Part V, design, from `design_document.md`, `design_doc2.md`, `docs/decisions/`, `docs/performance.md` and `docs/terminal-parity.org`; appendices for keymaps, settings, the CLI and the glossary; every moved document leaves a pointer behind; chapters stay in Org until the format decision
+- [ ] T2.10.2 Published by CI: on every merge to `main` a GitHub Actions job builds the Book and publishes it to GitHub Pages at `getkalem.github.io/kalem` (a custom domain later, D7); mdBook as the bridge, fed by `kalem export` so Kalem's exporter is in the loop from the first build; the manual's examples checked by `kalem check` and `kalem fmt --check` as today
+- [ ] T2.10.3 Built by Kalem: `kalem book build` exports the chapters with the HTML back-end into a small static template (navigation, search, light and dark themes, the editor's fonts), replacing mdBook; the template lives in `book/theme/`
+- [ ] T2.10.4 Examples are tests: Part II's examples generated from the corpus and known-differences tests so that the reference cannot drift from the code; the same rule prepared for Part III
+- [ ] T2.10.5 Versioning: the Book at `main` describes `main`; releases tag the Book and a version switcher shows them; normative and informative text marked (RFC 2119 words) where a part specifies
+- [ ] T2.10.6 The Book replaces `docs/` as the reference: README, CONTRIBUTING, the manual and the plugin repository point at it; `docs/` keeps only what the repository needs at build time (decision records may stay as sources of Part V)
+- [ ] T2.10.7 Turkish translation of Part I once the manual settles, as separate source files, English canonical
+
+
 ### Phase 2 exit criteria
 
 - [ ] A book chapter exports to LaTeX and PDF without errors
@@ -655,7 +669,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] TS.3 Benchmark regressions block PRs in CI
 - [ ] TS.4 Grow the corpus and keep the license register
 - [ ] TS.5 Keep the known differences document current; report Org Syntax ambiguities upstream
-- [ ] TS.6 User manual and plugin API docs (mdBook, Org sources, exported with Kalem)
+- [ ] TS.6 The Book (2.10): the manual, the format references and the plugin API, kept current in every pull request that changes behavior; Org sources exported with Kalem, published on GitHub Pages
 - [ ] TS.7 Dependency updates; track gpui, ratatui and the WASM engine versions
 - [ ] TS.8 Community: good first issues, PR reviews, release notes
 - [ ] TS.9 Ecosystem components (§4.7): review spin-out readiness at every release; prefer upstream contributions
@@ -663,6 +677,7 @@ Runs only after T2.8.7 says go; it does not gate the phase 2 exit. Cost: about t
 - [ ] TS.11 Users before features: no phase starts before the previous phase's user criterion is met (phase 1 asks for ten external users, none so far, while phase 2 is half done); the remaining phase 2 items are ranked by what those users ask for, and Emacs-flavored extras (Dired, Projectile, Doom keys) wait behind them (review, 2026-09-28: the design's own scope creep risk, §19)
 - [ ] TS.12 From the first public release on, commits stay small and are not squashed, so contributors can bisect and read why a change was made (review, 2026-09-28: the history holds two commits today)
 - [ ] TS.13 Terminal parity (§4.1, principle 7; asked by the owner, 2026-09-28): every feature covers both frontends in the same change, or its terminal form and the remaining gap are recorded in `docs/terminal-parity.org` (fonts, sizes, pixel layout and the like); the pull request template asks; the terminal section of the release checklist walks the list; a review at every release of what the graphics protocols, OSC 8 and OSC 52 now make possible
+- [ ] TS.14 Standard modes are never extended (design_doc2.md §2; owner, 2026-09-30): Kalem writes nothing into an Org, Markdown, CSV or LaTeX file that its standard does not define; per mode, a test that every construct an editing command generates is one the mode's oracle accepts (org-element, the CommonMark suite, RFC 4180, a LaTeX compile); unknown constructs stay visible as source; the formatting toolbar in a standard file offers only what that format has
 
 ---
 
