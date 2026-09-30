@@ -4,8 +4,10 @@
 //! The level comes from `KALEM_LOG` (`debug`, or per module:
 //! `kalem_core=debug,info`), else the `log.level` setting. Each session
 //! starts a new `kalem.log` and keeps the two before it as `kalem.log.1`
-//! and `kalem.log.2`. The terminal frontend must not log to stderr, which
-//! would draw over the screen; the others may.
+//! and `kalem.log.2`. A panic is logged with its backtrace and written,
+//! with the diagnostics report, to `crash-DATE.txt` beside the log. The
+//! terminal frontend must not log to stderr, which would draw over the
+//! screen; the others may.
 
 use std::fs::File;
 use std::io;
@@ -67,6 +69,9 @@ pub struct LogOptions {
     pub stderr: bool,
     /// The filter (`KALEM_LOG` syntax); `info` if `None`.
     pub filter: Option<String>,
+    /// The start of a crash report (version, platform, settings), written
+    /// with the panic beside the log file; no report if `None`.
+    pub crash_report: Option<String>,
 }
 
 impl LogOptions {
@@ -80,6 +85,7 @@ impl LogOptions {
                 .ok()
                 .filter(|f| !f.is_empty())
                 .or_else(|| Some(config.str("log.level").to_string())),
+            crash_report: Some(diagnostics_report(config, None, &[])),
         }
     }
 }
@@ -142,6 +148,11 @@ pub fn init(options: &LogOptions) -> Result<(), LogError> {
     let s = subscriber(options)?;
     tracing::subscriber::set_global_default(s).map_err(|_| LogError::AlreadyStarted)?;
     install_panic_hook();
+    if let (Some(file), Some(report)) = (&options.file, &options.crash_report)
+        && let Some(dir) = file.parent()
+    {
+        install_crash_report(dir.to_path_buf(), report.clone(), file.clone());
+    }
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "Kalem started");
     Ok(())
 }
@@ -155,6 +166,32 @@ pub fn install_panic_hook() {
         tracing::error!(target: "panic", "{info}\n{backtrace}");
         previous(info);
     }));
+}
+
+/// Writes a crash report to `dir` when the process panics: `report`, the
+/// panic with its backtrace, and where the log is.
+fn install_crash_report(dir: PathBuf, report: String, log: PathBuf) {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let backtrace = std::backtrace::Backtrace::force_capture();
+        let _ = write_crash_report(&dir, &report, &format!("{info}\n{backtrace}"), &log);
+        previous(info);
+    }));
+}
+
+/// Writes `crash-DATE.txt` in `dir` and gives its path.
+pub fn write_crash_report(
+    dir: &Path,
+    report: &str,
+    panic: &str,
+    log: &Path,
+) -> io::Result<PathBuf> {
+    let stamp = jiff::Zoned::now().strftime("%Y%m%d-%H%M%S").to_string();
+    let path = dir.join(format!("crash-{stamp}.txt"));
+    std::fs::create_dir_all(dir)?;
+    let text = format!("{report}Log: {}\n--- panic ---\n{panic}\n", log.display());
+    std::fs::write(&path, text)?;
+    Ok(path)
 }
 
 /// A report for bug reports: version, platform, settings files and their
@@ -215,6 +252,7 @@ mod tests {
                 file: Some(path.clone()),
                 stderr: false,
                 filter: Some("kalem_core=debug,warn".into()),
+                crash_report: None,
             };
             let s = subscriber(&options).unwrap();
             tracing::subscriber::with_default(s, || {
@@ -246,6 +284,14 @@ mod tests {
             }),
             Err(LogError::Filter(_))
         ));
+        let crash = write_crash_report(&dir, &report, "boom at x.rs:1", &path).unwrap();
+        let name = crash.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(
+            name.starts_with("crash-") && name.ends_with(".txt"),
+            "{name}"
+        );
+        let text = std::fs::read_to_string(&crash).unwrap();
+        assert!(text.starts_with("Kalem ") && text.contains("--- panic ---\nboom"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
