@@ -436,8 +436,10 @@ pub fn unencodable(text: &str, encoding: &'static encoding_rs::Encoding) -> Opti
 
 /// The bytes to save: the text in the file's encoding, the byte order mark
 /// if the file had one, and in CRLF files a carriage return before line
-/// feeds that lack one (commands insert bare line feeds). Characters the
-/// encoding cannot write (see [`unencodable`]) become `&#N;`.
+/// feeds that lack one (commands insert bare line feeds). Saving checks
+/// first that the encoding can write every character ([`unencodable`])
+/// and refuses otherwise; should one slip through here, `encoding_rs`
+/// writes it as `&#N;`.
 pub fn encode(text: &str, meta: &Metadata) -> Vec<u8> {
     use encoding_rs::{UTF_8, UTF_16BE, UTF_16LE};
     let mut lines = Vec::with_capacity(text.len() + 3);
