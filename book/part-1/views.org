@@ -20,10 +20,12 @@
   words and targets; choosing one goes there. /Go to Line/ moves to a
   line by its number.
 
-In the terminal, headings move right by level, and the text under a
-heading starts where its title does, as with Emacs's =org-indent-mode=;
-=editor.outline_indent = false=, or =#+STARTUP: noindent= in a file, keeps
-all text at the left edge.
+Headings move right by level, and the text under a heading starts where
+its title does, as with Emacs's =org-indent-mode=: in the window, two
+characters a level from the second on; in the terminal, where a sign
+marks each heading, after that sign. =editor.outline_indent = false=, or
+=#+STARTUP: noindent= in a file, keeps all text at the left edge (in the
+terminal, headings still move right by level).
 
 The text column is 80 characters wide and starts at the left edge of the
 window; the setting =editor.line_width= changes its width (0 for the whole

@@ -50,6 +50,7 @@ pub fn shared(config: Config) -> editor::Shared {
         )),
         jobs: Rc::default(),
         completers: kalem_core::completers::Registry::with_builtins(),
+        bus: Rc::default(),
         config,
         registry,
         keymap,
@@ -94,6 +95,10 @@ pub fn run(path: Option<PathBuf>) {
         let started_with_file = path.is_some() || !bundle;
         if started_with_file {
             workspace::open_window(path, shared.clone(), cx);
+            shared
+                .bus
+                .borrow_mut()
+                .emit(&kalem_core::events::Event::AppReady);
         }
         cx.activate(true);
         cx.spawn(async move |cx| {
@@ -108,6 +113,7 @@ pub fn run(path: Option<PathBuf>) {
                     .await;
                 let paths: Vec<PathBuf> = opened.borrow_mut().drain(..).collect();
                 let open_empty = first && paths.is_empty();
+                let ready = first;
                 first = false;
                 let shared = shared.clone();
                 cx.update(|cx| {
@@ -115,7 +121,13 @@ pub fn run(path: Option<PathBuf>) {
                         workspace::open_path(p, shared.clone(), cx);
                     }
                     if open_empty {
-                        workspace::open_window(None, shared, cx);
+                        workspace::open_window(None, shared.clone(), cx);
+                    }
+                    if ready {
+                        shared
+                            .bus
+                            .borrow_mut()
+                            .emit(&kalem_core::events::Event::AppReady);
                     }
                 });
             }

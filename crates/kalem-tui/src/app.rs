@@ -480,6 +480,9 @@ impl App {
         let Some((p, true)) = self.doc.parse() else {
             return;
         };
+        // `org-indent-mode` for this document, or not.
+        self.editor.outline_indent =
+            kalem_core::view::outline_indent(&p.keywords(), self.editor.outline_indent);
         let mut option = None;
         for (k, v) in p.keywords() {
             if k.eq_ignore_ascii_case("STARTUP") {
@@ -489,12 +492,6 @@ impl App {
                         "overview" | "fold" | "content" | "showall" | "showeverything"
                     ) {
                         option = Some(w.to_string());
-                    }
-                    // `org-indent-mode` for this document, or not.
-                    match w {
-                        "indent" => self.editor.outline_indent = true,
-                        "noindent" => self.editor.outline_indent = false,
-                        _ => {}
                     }
                 }
             }
