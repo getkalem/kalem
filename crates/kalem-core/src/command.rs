@@ -146,6 +146,18 @@ pub enum Request {
     OpenFiles,
     /// Change the project list, or act on the project's documents.
     Project(ProjectRequest),
+    /// The live search of lines ([`crate::line_search`]): this document's,
+    /// or every open one's; headings only; with this text typed.
+    SearchLines {
+        /// Every open document.
+        all: bool,
+        /// Headings only.
+        headings: bool,
+        /// The query to start with.
+        text: String,
+    },
+    /// Search another project: choose it first.
+    SearchOtherProject,
     /// Act on the open documents (Doom's `SPC b`, T2.7i.2).
     Documents(DocumentsRequest),
     /// Show the file manager.

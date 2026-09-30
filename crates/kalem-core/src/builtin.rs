@@ -129,6 +129,18 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
         ("file.rename", object(&[("target", "string", false)])),
+        (
+            "search.lines",
+            object(&[
+                ("all", "boolean", false),
+                ("headings", "boolean", false),
+                ("word", "boolean", false),
+            ]),
+        ),
+        (
+            "search.folder",
+            object(&[("path", "string", false), ("ask", "boolean", false)]),
+        ),
         ("file.copy", object(&[("target", "string", false)])),
         ("org.property.delete", object(&[("key", "string", true)])),
         ("org.cite.insert", object(&[("key", "string", false)])),
@@ -2005,6 +2017,34 @@ fn csv_commands() -> Vec<Command> {
     ]
 }
 
+/// The selection on one line, else the word at the cursor, else nothing.
+fn word_or_selection(ctx: &mut EditorContext<'_>) -> Result<String, CommandError> {
+    let doc = ctx.doc()?;
+    if let Some(t) = doc.selected_text().filter(|t| !t.contains('\n')) {
+        return Ok(t.to_string());
+    }
+    let text = doc.text();
+    Ok(crate::lines::word_at(text.as_str(), doc.selection.head)
+        .map(|r| text.as_str()[r].to_string())
+        .unwrap_or_default())
+}
+
+/// `s` for a URL's query: unreserved characters kept, the rest as
+/// `%XX`, spaces as `+`.
+fn url_encode(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
+            b' ' => out.push('+'),
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
 /// The active document's file, made absolute.
 fn this_file(ctx: &mut EditorContext<'_>) -> Result<std::path::PathBuf, CommandError> {
     let path = ctx
@@ -3176,6 +3216,88 @@ fn plain_commands() -> Vec<Command> {
             &["ctrl+shift+f"],
             None,
             |ctx, _| request(ctx, Request::SearchProject),
+        ),
+        // Doom's `SPC s` (T2.7i.4).
+        cmd(
+            "search.lines",
+            "Search Lines",
+            "Search",
+            &[],
+            None,
+            |ctx, args| {
+                let flag = |k: &str| args.get(k).and_then(Value::as_bool) == Some(true);
+                let text = if flag("word") {
+                    word_or_selection(ctx)?
+                } else {
+                    String::new()
+                };
+                request(
+                    ctx,
+                    Request::SearchLines {
+                        all: flag("all"),
+                        headings: flag("headings"),
+                        text,
+                    },
+                )
+            },
+        ),
+        cmd(
+            "search.folder",
+            "Search in Folder",
+            "Search",
+            &[],
+            None,
+            |ctx, args| {
+                let dir = match args.get("path").and_then(Value::as_str) {
+                    Some(p) => std::path::PathBuf::from(crate::settings::expand_home(p)),
+                    None if args.get("ask").and_then(Value::as_bool) == Some(true) => {
+                        return request(
+                            ctx,
+                            Request::Ask {
+                                command: "search.folder".into(),
+                                args: serde_json::json!({}),
+                                arg: "path".into(),
+                            },
+                        );
+                    }
+                    None => crate::command::folder_of(ctx.doc()?)
+                        .or_else(|| std::env::current_dir().ok())
+                        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-file")))?,
+                };
+                if !dir.is_dir() {
+                    return Err(CommandError::new(crate::tr!(
+                        "msg-not-a-folder",
+                        path = dir.display().to_string()
+                    )));
+                }
+                request(ctx, Request::SearchIn(dir))
+            },
+        ),
+        cmd(
+            "project.searchOther",
+            "Search in Another Project",
+            "Project",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::SearchOtherProject),
+        ),
+        cmd(
+            "search.online",
+            "Search Online",
+            "Search",
+            &[],
+            None,
+            |ctx, _| {
+                let words = word_or_selection(ctx)?;
+                if words.trim().is_empty() {
+                    return Err(CommandError::new(crate::l10n::tr("msg-nothing-selected")));
+                }
+                let url = ctx
+                    .config
+                    .str("search.online_url")
+                    .replace("%s", &url_encode(words.trim()));
+                request(ctx, Request::OpenLink(crate::input::LinkAction::Url(url)))
+            },
         ),
         cmd(
             "project.recentFiles",
@@ -5296,5 +5418,10 @@ mod tests {
         assert!(reg.register(c.clone()).is_err());
         c.id = "myPlugin.doThing".into();
         assert!(reg.register(c).is_ok());
+    }
+
+    #[test]
+    fn online_search_addresses() {
+        assert_eq!(super::url_encode("org mode ç&x"), "org+mode+%C3%A7%26x");
     }
 }

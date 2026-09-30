@@ -184,6 +184,12 @@ pub const SPECS: &[Spec] = &[
         description: "The leader key of the Vim profile's Doom Emacs style bindings (`leader p p` switches project)",
     },
     Spec {
+        key: "search.online_url",
+        kind: Kind::Str,
+        default: r#""https://duckduckgo.com/?q=%s""#,
+        description: "The address Search Online opens (`SPC s o`), `%s` standing for the words searched",
+    },
+    Spec {
         key: "ui.open_files",
         kind: Kind::Enum(&["left", "top", "hidden"]),
         default: r#""left""#,

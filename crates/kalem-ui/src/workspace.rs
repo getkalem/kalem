@@ -423,6 +423,41 @@ impl Workspace {
         self.set_title(window, cx);
     }
 
+    /// Opens the live search of lines in the active editor: its
+    /// document's, or every open one's (T2.7i.4).
+    fn search_lines(&mut self, all: bool, headings: bool, text: &str, cx: &mut Context<'_, Self>) {
+        use kalem_core::line_search::{LineSearch, Lines, Source};
+        let files = self.open_files(cx);
+        let mut sources = Vec::new();
+        let mut here = 0;
+        for (i, e) in self.editors.iter().enumerate() {
+            let active = *e == self.editor;
+            let doc = &e.read(cx).doc;
+            if doc.dired.is_some() || (!all && !active) {
+                continue;
+            }
+            if active {
+                here = sources.len();
+            }
+            sources.push(Source {
+                doc: i,
+                name: files.get(i).map(|f| f.title.clone()).unwrap_or_default(),
+                text: doc.text().as_str().into(),
+            });
+        }
+        if sources.is_empty() {
+            return;
+        }
+        let lines = if headings {
+            Lines::Headings
+        } else {
+            Lines::All
+        };
+        let search = LineSearch::new(sources, lines, text);
+        self.editor
+            .update(cx, |e, cx| e.open_line_search(search, here, cx));
+    }
+
     /// Doom's `SPC b` commands on the open documents (T2.7i.2).
     fn documents(
         &mut self,
@@ -653,6 +688,20 @@ impl Workspace {
                 }
             }
             DocEvent::Documents(r) => self.documents(r, window, cx),
+            DocEvent::SearchLines {
+                all,
+                headings,
+                text,
+            } => self.search_lines(all, headings, &text, cx),
+            DocEvent::Jump { doc, at } => {
+                if let Some(e) = self.editors.get(doc).cloned() {
+                    self.activate(e.clone(), window, cx);
+                    e.update(cx, |e, cx| {
+                        e.doc.move_cursor(at, false);
+                        e.after_change(cx);
+                    });
+                }
+            }
             DocEvent::Quit => self.quit(window, cx),
             DocEvent::FileManager { place, select } => self.file_manager(place, select, window, cx),
             DocEvent::LeaveFileManager => self.leave_file_manager(window, cx),

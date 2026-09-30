@@ -50,9 +50,29 @@ pub struct Palette {
     pub pick: Option<Picker>,
     /// Searching a project's files instead.
     pub search: Option<ProjectSearch>,
+    /// Searching the lines of open documents instead (`SPC s b`).
+    pub lines: Option<kalem_core::line_search::LineSearch>,
+    /// Where the cursor was when the line search opened: its source in
+    /// the search, and the selection's anchor and head, to go back to.
+    pub origin: Option<(usize, usize, usize)>,
 }
 
 impl Palette {
+    /// The typed text changed: the searches follow it, and the list
+    /// starts at its top (a line search at the cursor's line).
+    pub fn input_changed(&mut self) {
+        self.selected = 0;
+        if let Some(s) = &mut self.search {
+            s.set_text(&self.input);
+        }
+        if let Some(l) = &mut self.lines {
+            l.set_text(&self.input);
+            if let Some((source, _, head)) = self.origin {
+                self.selected = l.nearest(source, head);
+            }
+        }
+    }
+
     fn new(input: String) -> Palette {
         Palette {
             input,
@@ -62,12 +82,14 @@ impl Palette {
             arg: None,
             pick: None,
             search: None,
+            lines: None,
+            origin: None,
         }
     }
 
     /// The commands (or the list's items) matching the input, best first.
     pub fn matches(&self) -> Vec<&PaletteItem> {
-        if self.arg.is_some() || self.search.is_some() {
+        if self.arg.is_some() || self.search.is_some() || self.lines.is_some() {
             return Vec::new();
         }
         match &self.pick {
@@ -78,9 +100,10 @@ impl Palette {
 
     /// How many lines can be chosen.
     pub fn len(&self) -> usize {
-        match &self.search {
-            Some(s) => s.hits.len(),
-            None => self.matches().len(),
+        match (&self.search, &self.lines) {
+            (Some(s), _) => s.hits.len(),
+            (_, Some(l)) => l.hits.len(),
+            _ => self.matches().len(),
         }
     }
 
@@ -323,7 +346,65 @@ impl Editor {
     }
 
     /// Runs the command on palette line `n`.
+    /// Opens the live search of lines ([`kalem_core::line_search`]);
+    /// `here` is this document's source in it.
+    pub fn open_line_search(
+        &mut self,
+        search: kalem_core::line_search::LineSearch,
+        here: usize,
+        cx: &mut Context<'_, Self>,
+    ) {
+        let sel = self.doc.selection;
+        let mut p = Palette::new(search.text().to_string());
+        p.lines = Some(search);
+        p.origin = Some((here, sel.anchor, sel.head));
+        p.input_changed();
+        self.completion = None;
+        self.palette = Some(p);
+        self.preview_line(cx);
+        cx.notify();
+    }
+
+    /// The cursor follows the chosen line while it is in this document.
+    fn preview_line(&mut self, cx: &mut Context<'_, Self>) {
+        let Some(p) = &self.palette else { return };
+        let (Some(l), Some((here, ..))) = (&p.lines, p.origin) else {
+            return;
+        };
+        if let Some(h) = l.hits.get(p.selected).filter(|h| h.source == here) {
+            let at = h.at;
+            self.doc.move_cursor(at, false);
+            self.after_change(cx);
+        }
+    }
+
+    /// Ends the line search: at line `n` of the list (another document's
+    /// through the workspace), or back where it began.
+    fn end_line_search(&mut self, n: Option<usize>, cx: &mut Context<'_, Self>) {
+        let Some(p) = self.palette.take() else { return };
+        let (Some(l), Some((here, anchor, head))) = (p.lines, p.origin) else {
+            return;
+        };
+        match n.and_then(|n| l.hits.get(n)) {
+            Some(h) if h.source == here => self.doc.move_cursor(h.at, false),
+            Some(h) => cx.emit(DocEvent::Jump {
+                doc: l.sources[h.source].doc,
+                at: h.at,
+            }),
+            None => {
+                self.doc.move_cursor(anchor, false);
+                self.doc.move_cursor(head, true);
+            }
+        }
+        self.after_change(cx);
+        cx.notify();
+    }
+
     fn run_palette_line(&mut self, n: usize, window: &mut Window, cx: &mut Context<'_, Self>) {
+        if self.palette.as_ref().is_some_and(|p| p.lines.is_some()) {
+            self.end_line_search(Some(n), cx);
+            return;
+        }
         let Some(mut p) = self.palette.take() else {
             return;
         };
@@ -386,15 +467,18 @@ impl Editor {
             kalem_core::line_edit::from_key(&k.key, word, mac && k.modifiers.platform)
         {
             if kalem_core::line_edit::apply(&mut p.input, &mut p.back, edit) {
-                p.selected = 0;
-                if let Some(s) = &mut p.search {
-                    s.set_text(&p.input);
-                }
+                p.input_changed();
             }
+            self.preview_line(cx);
             cx.notify();
             return true;
         }
         match k.key.as_str() {
+            "escape" if p.lines.is_some() => self.end_line_search(None, cx),
+            "enter" if p.lines.is_some() => {
+                let n = p.selected;
+                self.end_line_search(Some(n), cx);
+            }
             "escape" => {
                 if let Some(s) = &mut p.search {
                     s.cancel();
@@ -424,6 +508,7 @@ impl Editor {
             "pageup" => p.selected = p.selected.saturating_sub(10),
             _ => return false,
         }
+        self.preview_line(cx);
         cx.notify();
         true
     }
@@ -435,10 +520,8 @@ impl Editor {
         }
         if let Some(p) = &mut self.palette {
             kalem_core::line_edit::insert(&mut p.input, p.back, text);
-            p.selected = 0;
-            if let Some(s) = &mut p.search {
-                s.set_text(&p.input);
-            }
+            p.input_changed();
+            self.preview_line(cx);
             cx.notify();
             return true;
         }
@@ -621,6 +704,11 @@ impl Editor {
         let (before, after) = kalem_core::line_edit::split(&p.input, p.back);
         let typed = format!("{before}▏{after}");
         let prompt = match (&p.arg, &p.pick, &p.search) {
+            _ if p.lines.is_some() => {
+                let n = p.lines.as_ref().map_or(0, |l| l.hits.len());
+                note = kalem_core::tr!("search-lines-count", count = n);
+                format!("{}: {typed}", kalem_core::l10n::tr("search-lines"))
+            }
             (Some(a), _, _) => format!("{}  {typed}", a.label),
             (_, Some(k), _) => {
                 if k.partial {
@@ -648,6 +736,16 @@ impl Editor {
         };
         // Lines: a title, a detail and keys (or a mark).
         let lines: Vec<(String, String, String)> = match &p.search {
+            None if p.lines.is_some() => {
+                let l = p.lines.as_ref().expect("a line search");
+                l.hits
+                    .iter()
+                    .map(|h| {
+                        let (text, place) = l.row(h);
+                        (text, place, String::new())
+                    })
+                    .collect()
+            }
             Some(s) => s
                 .hits
                 .iter()

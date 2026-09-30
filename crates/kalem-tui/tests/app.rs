@@ -3644,3 +3644,40 @@ fn this_file_keys() {
     assert!(!dir.join("proj/copy.org").exists());
     assert!(t.app.open_files().iter().all(|f| f.title != "copy.org"));
 }
+
+/// Doom's `SPC s b`: the live list of matching lines; the cursor follows
+/// the chosen line, Escape goes back, Enter stays; `SPC s B` in every
+/// open document, `SPC s i` the headings (T2.7i.4).
+#[test]
+fn live_line_search() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, dir) = project_app(config);
+    // a.org is "* A\nalpha\n".
+    t.at(0);
+    t.typ(" sb");
+    t.typ("alp");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("alpha"), "{shown}");
+    assert_eq!(t.app.doc.selection.head, 4);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.selection.head, 0);
+    t.typ(" sb");
+    t.typ("alp");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.selection.head, 4);
+    // Across the open documents: b.org's "the needle here".
+    t.app.open_path(&dir.join("proj/sub/b.org"), None);
+    t.app.open_path(&dir.join("proj/a.org"), None);
+    t.typ(" sB");
+    t.typ("needle");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("b.org:3"), "{shown}");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(title(&t), "b.org");
+    assert_eq!(t.app.doc.text().line_of(t.app.doc.selection.head), 2);
+    // The headings.
+    t.typ(" si");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("* B"), "{shown}");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+}

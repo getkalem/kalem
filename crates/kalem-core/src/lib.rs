@@ -37,6 +37,7 @@ pub mod latex_table;
 pub mod latex_templates;
 pub mod latex_view;
 pub mod line_edit;
+pub mod line_search;
 pub mod lines;
 pub mod links;
 pub mod logging;
