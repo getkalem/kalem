@@ -2511,8 +2511,12 @@ fn plain_commands() -> Vec<Command> {
                 }
                 doc.reopen_with(enc, now)
                     .map_err(|e| CommandError::new(e.to_string()))?;
-                ctx.messages
-                    .push(crate::tr!("msg-reopened", encoding = enc.name()));
+                let lossy = doc.meta.lossy;
+                ctx.messages.push(if lossy {
+                    crate::tr!("msg-opened-lossy", encoding = enc.name())
+                } else {
+                    crate::tr!("msg-reopened", encoding = enc.name())
+                });
                 Ok(())
             },
         ),
@@ -2538,6 +2542,7 @@ fn plain_commands() -> Vec<Command> {
                 let utf16 = enc == encoding_rs::UTF_16LE || enc == encoding_rs::UTF_16BE;
                 doc.meta.bom = utf16 || (enc == encoding_rs::UTF_8 && doc.meta.bom);
                 doc.meta.encoding = enc;
+                doc.meta.lossy = false;
                 // Saved as the Save command saves (a file name asked for if
                 // there is none).
                 request(ctx, Request::Save)
@@ -4878,6 +4883,7 @@ mod tests {
             line_ending: LineEnding::Lf,
             bom: false,
             encoding: encoding_rs::UTF_8,
+            lossy: false,
         };
         let mut d = DocumentState::new(text, meta, Arc::new(org_model::Settings::default()));
         d.selection = org_edit::Selection::caret(point);
@@ -5632,6 +5638,7 @@ mod tests {
             line_ending: LineEnding::Lf,
             bom: false,
             encoding: encoding_rs::UTF_8,
+            lossy: false,
         };
         let mut d = DocumentState::with_base(
             "* A\n",

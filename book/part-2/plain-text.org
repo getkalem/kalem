@@ -32,8 +32,8 @@ text with an optional language, binary (not opened) or a folder (the
 file manager). When a file is opened, the mode is decided in this order;
 the first rule that applies wins.
 
-1. *Binary.* Unless the file starts with a byte order mark, its first
-   8,192 bytes are checked (=looks_binary=): a NUL byte, or bytes that
+1. *Binary.* Unless the file starts with a UTF-16 byte order mark, its
+   first 8,192 bytes (after a UTF-8 byte order mark) are checked (=looks_binary=): a NUL byte, or bytes that
    are not UTF-8 (not merely a character cut at the end of the sample)
    with control characters making up more than a twentieth of the
    sample, make it binary. Text in a legacy encoding such as
@@ -277,15 +277,33 @@ re-indents lines it did not touch.
 
 A file's bytes are decoded as follows (=files::decode_with=):
 
-1. A UTF-8 byte order mark: the rest must be valid UTF-8, or the file
+1. A UTF-32 byte order mark (=FF FE 00 00= or =00 00 FE FF=): the file
+   is not opened ("The file is in UTF-32, which Kalem cannot read"), as
+   neither decoding nor saving supports it; it is not mistaken for
+   UTF-16.
+2. A UTF-8 byte order mark: the rest goes through the binary check (see
+   [[*Which mode a file gets][Which mode a file gets]]) and must be valid UTF-8, or the file
    is not opened ("The file is not UTF-8 (invalid byte at offset /n/)");
    the mark is removed from the text and remembered.
-2. A UTF-16 LE or BE byte order mark: the rest is decoded as UTF-16; the
+3. A UTF-16 LE or BE byte order mark: the rest is decoded as UTF-16; the
    mark is remembered.
-3. Otherwise, after the binary check: valid UTF-8 is UTF-8.
-4. Otherwise the encoding is guessed from the bytes with =chardetng=,
+4. Otherwise, after the binary check: valid UTF-8 is UTF-8.
+5. Otherwise the encoding is guessed from the bytes with =chardetng=,
    the way Emacs guesses a coding system, and the status bar says
-   "opened as" that encoding.
+   "opened as" that encoding. The guess takes the system locale's
+   region as a hint (=tr_TR= gives =tr=), or, with no region, its
+   language or the interface language (=tr=, =ja= as =jp=, =el= as
+   =gr=...); so a short Turkish text reads as Windows-1254 on a Turkish
+   system rather than as Windows-1252, which it also fits. When the
+   guessed encoding cannot read every byte, the file is read as
+   Windows-1252, which reads each byte as a character and writes it
+   back as the same byte.
+
+When decoding meets bytes the encoding cannot read (a UTF-16 file with a
+lone surrogate, or /Reopen with Encoding/ in an encoding that does not
+fit), they become U+FFFD and the editor says so on opening: saving
+writes U+FFFD in their place, so such a file does not survive a save
+unchanged. /Save with Encoding/ accepts that.
 
 The status bar names the encoding when it is not UTF-8. /Reopen with
 Encoding/ (=file.reopenWithEncoding=) reads the file again in the
@@ -298,7 +316,11 @@ the mark if the file had one, other encodings have none. Both offer
 UTF-8, UTF-16LE, UTF-16BE, windows-1252, ISO-8859-1, windows-1254,
 ISO-8859-9, ISO-8859-15, windows-1250, windows-1251, KOI8-R, Shift_JIS,
 EUC-JP, GBK, gb18030, Big5 and EUC-KR, and accept any label the WHATWG
-Encoding Standard knows (=latin1=, =utf-16le=...). When a file is
+Encoding Standard knows (=latin1=, =utf-16le=...). As in that standard
+(and in web browsers), ISO-8859-1 is Windows-1252 and ISO-8859-9 is
+Windows-1254: the status bar names them so, and bytes 0x80–0x9F are the
+Windows characters (=€=, curly quotes) rather than control codes, which
+text files do not use. When a file is
 reloaded after another program changed it, the document's encoding is
 used again unless a byte order mark names another.
 

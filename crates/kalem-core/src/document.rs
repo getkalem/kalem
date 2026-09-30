@@ -47,6 +47,9 @@ pub struct Metadata {
     /// The file's character encoding, kept on save: UTF-8, UTF-16 (with a
     /// byte order mark) or a legacy encoding such as Windows-1254.
     pub encoding: &'static encoding_rs::Encoding,
+    /// Some bytes could not be read in the encoding and became U+FFFD:
+    /// saving writes U+FFFD in their place.
+    pub lossy: bool,
 }
 
 /// Starts a full parse of `text` (version `version`) in the background,
@@ -263,6 +266,7 @@ impl DocumentState {
             line_ending: LineEnding::Lf,
             bom: false,
             encoding: encoding_rs::UTF_8,
+            lossy: false,
         };
         let mut d = DocumentState::new("", meta, settings);
         let mut state = crate::dired::DirState::new(place, options, details);
@@ -532,6 +536,7 @@ impl DocumentState {
         self.meta.line_ending = meta.line_ending;
         self.meta.bom = meta.bom;
         self.meta.encoding = meta.encoding;
+        self.meta.lossy = meta.lossy;
         self.disk = Some(disk);
         self.mark_saved();
     }
@@ -1637,6 +1642,7 @@ mod tests {
             line_ending: LineEnding::Lf,
             bom: false,
             encoding: encoding_rs::UTF_8,
+            lossy: false,
         };
         let now = Instant::now();
         let mut d = DocumentState::new("a\n  b\nc\n", meta("py"), Arc::new(Settings::default()));
@@ -1773,6 +1779,7 @@ mod tests {
             line_ending: LineEnding::Lf,
             bom: false,
             encoding: encoding_rs::UTF_8,
+            lossy: false,
         };
         let mut d = DocumentState::new(text, meta, Arc::new(Settings::default()));
         d.wait_for_parse();
@@ -1808,6 +1815,7 @@ mod tests {
             line_ending: LineEnding::Lf,
             bom: false,
             encoding: encoding_rs::UTF_8,
+            lossy: false,
         };
         DocumentState::new(text, meta, Arc::new(Settings::default()))
     }

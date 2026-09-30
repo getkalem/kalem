@@ -256,6 +256,7 @@ fn edit_all(
         line_ending: kalem_core::LineEnding::Lf,
         bom: false,
         encoding: kalem_core::encoding_rs::UTF_8,
+        lossy: false,
     };
     let mut d = kalem_core::DocumentState::new(
         text.clone(),

@@ -298,6 +298,7 @@ msg-reopen-modified = Save or undo the changes first: reopening reads the file a
 msg-reopened = Reopened as { $encoding }
 msg-unencodable = “{ $ch }” cannot be written in { $encoding }: Save with Encoding UTF-8 keeps it
 msg-opened-as = Not UTF-8: opened as { $encoding } (Reopen with Encoding chooses another)
+msg-opened-lossy = Some bytes are not { $encoding }: they show as � and saving writes � in their place (Reopen with Encoding chooses another)
 msg-bad-line = Not a line number
 msg-no-headings = The document has no headings
 msg-bad-word-target = Not a word count: write 80000, 80,000 or 80k

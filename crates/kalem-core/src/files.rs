@@ -35,6 +35,8 @@ pub enum OpenError {
     },
     /// No encoding of that name.
     UnknownEncoding(String),
+    /// An encoding Kalem cannot read or write (UTF-32).
+    UnsupportedEncoding(String),
 }
 
 impl fmt::Display for OpenError {
@@ -46,6 +48,9 @@ impl fmt::Display for OpenError {
                 write!(f, "The file is not UTF-8 (invalid byte at offset {at})")
             }
             OpenError::UnknownEncoding(name) => write!(f, "Unknown encoding: {name}"),
+            OpenError::UnsupportedEncoding(name) => {
+                write!(f, "The file is in {name}, which Kalem cannot read")
+            }
         }
     }
 }
@@ -164,40 +169,51 @@ pub fn decode_with(
     wanted: Option<&'static encoding_rs::Encoding>,
 ) -> Result<(String, Metadata), OpenError> {
     use encoding_rs::{UTF_8, UTF_16BE, UTF_16LE};
+    if utf32_bom(&bytes) {
+        return Err(OpenError::UnsupportedEncoding("UTF-32".into()));
+    }
+    let binary =
+        |b: &[u8]| DocumentMode::detect(path, &b[..b.len().min(8192)]) == DocumentMode::Binary;
     let bom = encoding_rs::Encoding::for_bom(&bytes);
-    let (text, encoding, has_bom) = match bom {
+    let (text, encoding, has_bom, lossy) = match bom {
         Some((enc, len)) if enc == UTF_16LE || enc == UTF_16BE => {
-            let (t, _) = enc.decode_without_bom_handling(&bytes[len..]);
-            (t.into_owned(), enc, true)
+            let (t, lossy) = enc.decode_without_bom_handling(&bytes[len..]);
+            (t.into_owned(), enc, true, lossy)
         }
         Some((_, len)) => {
+            if binary(&bytes[len..]) {
+                return Err(OpenError::Binary);
+            }
             let mut text = String::from_utf8(bytes).map_err(|e| OpenError::NotUtf8 {
                 at: e.utf8_error().valid_up_to(),
             })?;
             text.drain(..len);
-            (text, UTF_8, true)
+            (text, UTF_8, true, false)
         }
         None => {
-            let mode = DocumentMode::detect(path, &bytes[..bytes.len().min(8192)]);
-            if mode == DocumentMode::Binary {
+            if binary(&bytes) {
                 return Err(OpenError::Binary);
             }
             match wanted.filter(|e| *e != UTF_8) {
-                Some(enc) if enc == UTF_16LE || enc == UTF_16BE => {
-                    let (t, _) = enc.decode_without_bom_handling(&bytes);
-                    (t.into_owned(), enc, false)
-                }
                 Some(enc) => {
-                    let (t, _) = enc.decode_without_bom_handling(&bytes);
-                    (t.into_owned(), enc, false)
+                    let (t, lossy) = enc.decode_without_bom_handling(&bytes);
+                    (t.into_owned(), enc, false, lossy)
                 }
                 None => match String::from_utf8(bytes) {
-                    Ok(t) => (t, UTF_8, false),
+                    Ok(t) => (t, UTF_8, false, false),
                     Err(e) => {
                         let bytes = e.into_bytes();
                         let enc = guess(&bytes);
-                        let (t, _) = enc.decode_without_bom_handling(&bytes);
-                        (t.into_owned(), enc, false)
+                        match enc.decode_without_bom_handling(&bytes) {
+                            (t, false) => (t.into_owned(), enc, false, false),
+                            // Bytes the guess cannot read: Windows-1252
+                            // reads every byte, and writes each back.
+                            _ => {
+                                let enc = encoding_rs::WINDOWS_1252;
+                                let (t, _) = enc.decode_without_bom_handling(&bytes);
+                                (t.into_owned(), enc, false, false)
+                            }
+                        }
                     }
                 },
             }
@@ -219,6 +235,7 @@ pub fn decode_with(
         line_ending: line_ending_of(&text),
         bom: has_bom,
         encoding,
+        lossy,
     };
     Ok((mac_to_lf(text, meta.line_ending), meta))
 }
@@ -244,7 +261,7 @@ pub fn decode_as(
         Some((e, len)) if e == encoding => (true, &bytes[len..]),
         _ => (false, bytes),
     };
-    let (text, _) = encoding.decode_without_bom_handling(rest);
+    let (text, lossy) = encoding.decode_without_bom_handling(rest);
     let text = text.into_owned();
     let head = &text.as_bytes()[..text.len().min(8192)];
     let head = &head[..(0..=head.len())
@@ -261,6 +278,7 @@ pub fn decode_as(
         line_ending: line_ending_of(&text),
         bom: bom || encoding == encoding_rs::UTF_16LE || encoding == encoding_rs::UTF_16BE,
         encoding,
+        lossy,
     };
     (mac_to_lf(text, meta.line_ending), meta)
 }
@@ -272,8 +290,15 @@ pub fn encoding_label(meta: &Metadata) -> Option<&'static str> {
 }
 
 /// What to tell when a file was opened in an encoding guessed from its
-/// bytes: a legacy encoding without a byte order mark.
+/// bytes (a legacy encoding without a byte order mark), or with bytes the
+/// encoding could not read.
 pub fn guessed_message(meta: &Metadata) -> Option<String> {
+    if meta.lossy {
+        return Some(crate::tr!(
+            "msg-opened-lossy",
+            encoding = meta.encoding.name()
+        ));
+    }
     let utf = [
         encoding_rs::UTF_8,
         encoding_rs::UTF_16LE,
@@ -283,11 +308,52 @@ pub fn guessed_message(meta: &Metadata) -> Option<String> {
         .then(|| crate::tr!("msg-opened-as", encoding = meta.encoding.name()))
 }
 
-/// The legacy encoding bytes that are not UTF-8 are most likely in.
+/// The legacy encoding bytes that are not UTF-8 are most likely in, the
+/// system's region or the interface language taken as a hint (a short
+/// Turkish text reads as Windows-1254 on a Turkish system, not as
+/// Windows-1252).
 pub fn guess(bytes: &[u8]) -> &'static encoding_rs::Encoding {
+    guess_in(bytes, locale_hint().as_deref())
+}
+
+/// [`guess`] with a top-level domain as the hint (`tr`, `jp`, `ru`).
+pub fn guess_in(bytes: &[u8], tld: Option<&str>) -> &'static encoding_rs::Encoding {
     let mut d = chardetng::EncodingDetector::new();
     d.feed(bytes, true);
-    d.guess(None, true)
+    d.guess(tld.map(str::as_bytes), true)
+}
+
+/// The top-level domain of the system locale's region (`tr-TR` gives
+/// `tr`), else of the interface language.
+fn locale_hint() -> Option<String> {
+    let from_language = |l: &str| {
+        Some(
+            match l {
+                "en" | "" => return None,
+                "ja" => "jp",
+                "el" => "gr",
+                "zh" => "cn",
+                "ko" => "kr",
+                "cs" => "cz",
+                "uk" => "ua",
+                "he" => "il",
+                l => l,
+            }
+            .to_string(),
+        )
+    };
+    let locale = sys_locale::get_locale().unwrap_or_default();
+    let mut parts = locale.split(['-', '_', '.']);
+    let language = parts.next().unwrap_or("").to_ascii_lowercase();
+    match parts.find(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_alphabetic())) {
+        Some(region) => Some(region.to_ascii_lowercase()),
+        None => from_language(&language).or_else(|| from_language(&crate::l10n::language())),
+    }
+}
+
+/// A UTF-32 byte order mark, which starts like UTF-16LE's.
+fn utf32_bom(bytes: &[u8]) -> bool {
+    bytes.starts_with(&[0xFF, 0xFE, 0, 0]) || bytes.starts_with(&[0, 0, 0xFE, 0xFF])
 }
 
 /// The encoding a name or label gives (`utf-8`, `latin1`, `windows-1254`,
@@ -696,6 +762,24 @@ mod tests {
         assert_eq!(line_ending_of("a\r\nb\n"), LineEnding::Lf);
         assert_eq!(line_ending_of("a"), LineEnding::Lf);
         assert_eq!(line_ending_of("a\rb\r"), LineEnding::Cr);
+        // Short Turkish text reads as Windows-1254 with a Turkish hint.
+        let (b, _, _) = encoding_rs::WINDOWS_1254.encode("ağaç");
+        assert_eq!(guess_in(&b, Some("tr")), encoding_rs::WINDOWS_1254);
+        // UTF-32 is refused, not read as UTF-16.
+        let e = decode(None, b"\xFF\xFE\0\0a\0\0\0".to_vec()).unwrap_err();
+        assert!(matches!(e, OpenError::UnsupportedEncoding(_)), "{e}");
+        // A byte order mark does not make binary data text.
+        let e = decode(None, b"\xEF\xBB\xBFab\0\0\0cd".to_vec()).unwrap_err();
+        assert!(matches!(e, OpenError::Binary), "{e}");
+        // UTF-16 with a lone surrogate: read with U+FFFD, and said so.
+        let (_, m) = decode(None, b"\xFF\xFEa\0\x00\xD8b\0".to_vec()).unwrap();
+        assert!(m.lossy && guessed_message(&m).is_some());
+        // Bytes Shift_JIS cannot read are read as Windows-1252, which
+        // writes them back unchanged.
+        let bytes = b"caf\xE9 d\x81j\xFF vu, na\xEFve\n".to_vec();
+        let (t, m) = decode(None, bytes.clone()).unwrap();
+        assert!(!m.lossy);
+        assert_eq!(encode(&t, &m), bytes);
         // A classic Mac file: read with line feeds, written back as it was.
         let (text, m) = decode(Some(Path::new("t.csv")), b"a,b\rc,d\r".to_vec()).unwrap();
         assert_eq!(

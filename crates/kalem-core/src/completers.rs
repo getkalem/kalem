@@ -713,6 +713,7 @@ mod tests {
                 line_ending: LineEnding::Lf,
                 bom: false,
                 encoding: encoding_rs::UTF_8,
+                lossy: false,
             },
             Arc::new(org_model::Settings::default()),
         );

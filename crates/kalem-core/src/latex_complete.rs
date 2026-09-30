@@ -1097,6 +1097,7 @@ mod tests {
             line_ending: crate::LineEnding::Lf,
             bom: false,
             encoding: encoding_rs::UTF_8,
+            lossy: false,
         };
         let mut d = DocumentState::new(
             text,
