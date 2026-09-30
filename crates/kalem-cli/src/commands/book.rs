@@ -233,6 +233,8 @@ fn generated(name: &str) -> Option<String> {
         "cli" => {
             use clap::CommandFactory;
             let mut cmd = crate::Cli::command();
+            // Subcommands' usage lines with `kalem` in front.
+            cmd.build();
             let mut s = String::from(
                 "The command line's own help, generated when the Book is built: =kalem --help=, then each subcommand's.\n\n",
             );

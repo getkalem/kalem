@@ -252,6 +252,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Recalculating a table with the cursor on a later `#+TBLFM` line applies that line's formulas, as `C-c C-c` there does in Emacs.
 - The palette finds a command by its ID typed with its dots (`org.todo.cycle`).
 - Parity: the graphical editor indents the outline as the terminal one does (`editor.outline_indent`, `#+STARTUP: indent`), and sends the event bus's events (`app:ready`, `document:open`, `document:close`, `selection:changed`, `document:changed`, `document:before-save` with its veto, `document:after-save`, `workspace:file-changed`).
+- `kalem --help` and the Book's command-line appendix show how to start the editors (`kalem FILE`, `kalem gui`, `kalem tui`, `kalem -t`), and each subcommand's usage line starts with `kalem`.
 - Highlighting knows about two hundred languages (bat's syntax definitions added to syntect's): TOML, INI, TypeScript, Kotlin, Swift, Dockerfile, Nix and others are coloured; `.h` files are C, no longer Objective-C.
 - `kalem export` warns when the file it reads as Org is Markdown, CSV or LaTeX. Markdown import reads the file with pandoc's `gfm` reader (CommonMark with GitHub's extensions, as Kalem's Markdown mode) instead of Pandoc's Markdown, and `.gfm` files can be imported.
 - Import Table decodes the file as the editors do and reads a CSV file with another delimiter than comma or tab, or with line breaks in quoted fields, as CSV mode reads it instead of making one column.

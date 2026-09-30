@@ -15,7 +15,18 @@ mod commands;
 
 /// Kalem: a lightweight editor for Org mode files.
 #[derive(Debug, Parser)]
-#[command(name = "kalem", version, about = "Kalem: a lightweight editor for Org mode files", long_about = None)]
+#[command(
+    name = "kalem",
+    version,
+    about = "Kalem: a lightweight editor for Org mode files",
+    long_about = None,
+    // The editors, which `kalem` starts before these commands are read.
+    override_usage = "kalem [FILE | FOLDER]      the editor: graphical where there is a display, else in the terminal
+       kalem gui [FILE]           the graphical editor
+       kalem tui [FILE]           the terminal editor (also kalem -t [FILE])
+       kalem tui --detect         what the terminal can do
+       kalem <COMMAND>            a command-line tool"
+)]
 pub struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -427,5 +438,32 @@ where
             eprintln!("kalem: {e}");
             ExitCode::from(2)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::CommandFactory;
+
+    #[test]
+    fn help_names_the_editors_and_the_program() {
+        let mut cmd = super::Cli::command();
+        let help = cmd.render_long_help().to_string();
+        for usage in [
+            "kalem [FILE | FOLDER]",
+            "kalem gui",
+            "kalem tui",
+            "kalem -t",
+        ] {
+            assert!(help.contains(usage), "{usage}");
+        }
+        cmd.build();
+        let parse = cmd.find_subcommand_mut("parse").expect("parse");
+        assert!(
+            parse
+                .render_long_help()
+                .to_string()
+                .contains("Usage: kalem parse")
+        );
     }
 }
