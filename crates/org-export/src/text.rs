@@ -341,10 +341,10 @@ impl Text {
         ex: &mut Exporter<'_>,
         n: Option<i64>,
         keyword: Option<Id>,
-        local: bool,
+        scope: Option<Id>,
     ) -> String {
         let mut out = String::new();
-        if !local {
+        if scope.is_none() {
             let title = ex.translate("Table of Contents", self.charset());
             out.push_str(&format!(
                 "{title}\n{}\n\n",
@@ -355,23 +355,7 @@ impl Text {
             Some(k) => self.text_width(ex, k),
             None => TEXT_WIDTH,
         };
-        let mut heads = html::collect_headlines(ex, n);
-        if local && let Some(k) = keyword {
-            let parent = ex
-                .tree
-                .ancestors(k)
-                .find(|a| ex.tree.kind(*a) == Some(HEADLINE));
-            if let Some(p) = parent {
-                let base = ex.relative_level(p);
-                let limit = n.map_or(i64::MAX, |n| base + n);
-                heads = html::collect_headlines(ex, None)
-                    .into_iter()
-                    .filter(|&h| {
-                        ex.tree.ancestors(h).any(|a| a == p) && ex.relative_level(h) <= limit
-                    })
-                    .collect();
-            }
-        }
+        let heads = html::collect_headlines_in(ex, n, scope);
         let notags = !ex.flag("with-tags") || ex.opt("with-tags").sym() == Some("not-in-toc");
         let mut lines = Vec::new();
         for h in heads {
@@ -1057,9 +1041,9 @@ impl Text {
                     .filter(|w| !w.is_empty())
                     .collect();
                 if words.contains(&"headlines") {
-                    let n = words.iter().find_map(|w| w.parse::<i64>().ok());
-                    let local = words.contains(&"local");
-                    self.build_toc(ex, n, Some(id), local)
+                    let req = html::toc_request(&value);
+                    let scope = html::toc_scope(ex, id, &req).ok()?;
+                    self.build_toc(ex, req.depth, Some(id), scope)
                 } else if words.contains(&"tables") {
                     self.list_of(ex, id, TABLE)
                 } else if words.contains(&"listings") {
@@ -1554,7 +1538,7 @@ impl Backend for Text {
         match ex.opt("with-toc") {
             Value::Nil => {}
             v => {
-                out.push_str(&self.build_toc(ex, v.int(), None, false));
+                out.push_str(&self.build_toc(ex, v.int(), None, None));
                 out.push_str("\n\n\n");
             }
         }

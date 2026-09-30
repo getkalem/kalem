@@ -120,30 +120,12 @@ impl Markdown {
                 if kw.key() != "TOC" {
                     continue;
                 }
-                let value = kw.value().to_lowercase();
-                let words: Vec<&str> = value
-                    .split(|c: char| !c.is_alphanumeric())
-                    .filter(|w| !w.is_empty())
-                    .collect();
-                if !words.contains(&"headlines") {
+                let req = html::toc_request(&kw.value());
+                if !req.headlines {
                     continue;
                 }
-                let n = words.iter().find_map(|w| w.parse::<i64>().ok());
-                let local = words.contains(&"local");
-                let listed = html::collect_headlines(
-                    ex,
-                    n.map(|n| {
-                        if local && ex.tree.kind(a) == Some(HEADLINE) {
-                            n + ex.relative_level(a)
-                        } else {
-                            n
-                        }
-                    }),
-                );
-                let in_scope = !local
-                    || ex.tree.kind(a) != Some(HEADLINE)
-                    || ex.tree.ancestors(id).any(|x| x == a);
-                if in_scope && listed.contains(&id) {
+                let listed = html::collect_headlines_in(ex, req.depth, req.local.then_some(k));
+                if listed.contains(&id) {
                     return true;
                 }
             }
@@ -174,10 +156,13 @@ impl Markdown {
         false
     }
 
-    fn build_toc(&self, ex: &mut Exporter<'_>, depth: Option<i64>) -> String {
-        let title = ex.translate("Table of Contents", "html");
-        let mut out = headline_title(1, &title, None, "");
-        let heads = html::collect_headlines(ex, depth);
+    fn build_toc(&self, ex: &mut Exporter<'_>, depth: Option<i64>, scope: Option<Id>) -> String {
+        let mut out = String::new();
+        if scope.is_none() {
+            let title = ex.translate("Table of Contents", "html");
+            out = headline_title(1, &title, None, "");
+        }
+        let heads = html::collect_headlines_in(ex, depth, scope);
         let mut lines = Vec::new();
         for h in heads {
             let indent = " ".repeat((4 * (ex.relative_level(h) - 1)).max(0) as usize);
@@ -695,18 +680,12 @@ impl Backend for Markdown {
                 match k.key().as_str() {
                     "MARKDOWN" | "MD" => k.value(),
                     "TOC" => {
-                        let value = k.value();
-                        if value
-                            .to_lowercase()
-                            .split_whitespace()
-                            .any(|w| w == "headlines")
-                        {
-                            let depth =
-                                value.split_whitespace().find_map(|w| w.parse::<i64>().ok());
-                            html::remove_indentation(&self.build_toc(ex, depth))
-                        } else {
+                        let req = html::toc_request(&k.value());
+                        if !req.headlines {
                             return None;
                         }
+                        let scope = html::toc_scope(ex, id, &req).ok()?;
+                        html::remove_indentation(&self.build_toc(ex, req.depth, scope))
                     }
                     _ => return Html.transcode(ex, id, contents),
                 }
@@ -779,8 +758,8 @@ impl Backend for Markdown {
     fn inner_template(&self, ex: &mut Exporter<'_>, body: String) -> String {
         let toc = match ex.opt("with-toc") {
             Value::Nil => String::new(),
-            Value::Int(n) => format!("{}\n", self.build_toc(ex, Some(n))),
-            _ => format!("{}\n", self.build_toc(ex, None)),
+            Value::Int(n) => format!("{}\n", self.build_toc(ex, Some(n), None)),
+            _ => format!("{}\n", self.build_toc(ex, None, None)),
         };
         let foot = self.footnote_section(ex);
         format!("{toc}{body}\n{foot}")
