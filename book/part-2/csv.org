@@ -55,8 +55,10 @@ planned.
 * Which files are CSV
 
 A file opens in CSV mode when its extension is =csv=, =tsv= or =tab=
-(in any letter case), when its first line carries an Emacs mode line
-naming =csv= (=-*- mode: csv -*-= or =-*- csv -*-=), or when the user
+(in any letter case), when an Emacs mode line or =Local Variables:=
+block names =csv= (=-*- mode: csv -*-= or =-*- csv -*-=), when a =.txt=
+file's first lines hold the same number of tabs (Excel's "Unicode Text"
+export, UTF-16 and tab-separated), or when the user
 chose CSV for it with /Set Document Mode/ (=view.setMode= with
 =mode: csv=), which is remembered in the workspace settings under
 =files.modes=. The order of these checks is given in the chapter

@@ -45,8 +45,9 @@ the first rule that applies wins.
    (created beside it when there is none), keyed by the file's path
    relative to that workspace with =/= between names. When the file is
    opened again, in either editor, this mode replaces the detected one.
-3. *A mode line.* On the first line (after a byte order mark), the text
-   between two =-*-= markers: either =mode: NAME= among
+3. *A mode line.* On the first line (after a byte order mark), or on
+   the second when the first is a =#!= line (as Emacs reads it), the
+   text between two =-*-= markers: either =mode: NAME= among
    =;=-separated =key: value= pairs, or a bare =NAME= when there is no
    colon. The name is lower-cased. With a trailing =-mode= removed, a
    name of one of the modes below selects that mode (=org-mode=,
@@ -54,7 +55,14 @@ the first rule that applies wins.
    language of a text file, as written (so =-*- python -*-= highlights
    Python, while =-*- mode: python-mode -*-= names the unknown language
    =python-mode=).
-4. *The extension.* The file name's last extension, lower-cased:
+4. *A =Local Variables:= block.* In the last 3,000 characters of the
+   file, a line holding =Local Variables:= starts a block that ends at
+   a line holding =End:=; the text before =Local Variables:= on its line
+   is a prefix, and the text after it a suffix, removed from each line
+   of the block (so =# mode: org= and =/* mode: org */= both work). A
+   =mode: NAME= line there names the mode as a mode line does. As in
+   Emacs's =set-auto-mode=, it comes before the file name.
+5. *The extension.* The file name's last extension, lower-cased:
 
    | Extensions                              | Mode                                |
    |-----------------------------------------+-------------------------------------|
@@ -66,13 +74,17 @@ the first rule that applies wins.
 
    Any extension decides, so a script named =run.sh= is shell by its
    extension whatever its first line says, and =notes.txt= is text with
-   the language =txt=.
-5. *A shebang.* Only for a file without an extension: a first line
+   the language =txt=. One exception: a =.txt= file whose first lines
+   (up to twenty non-empty ones, at least two) all hold the same number
+   of tabs, at least one, with a value before the first tab in most of
+   them, is CSV: this is Excel's "Unicode Text" export (UTF-16 with a
+   byte order mark, tab-separated).
+6. *A shebang.* Only for a file without an extension: a first line
    starting with =#!=. The program is its first word, or the word after
    it when the first word ends in =/env=; its last path component with
    trailing digits and dots removed is the language
    (=#!/usr/bin/env python3= gives =python=, =#!/bin/sh= gives =sh=).
-6. *Plain text*, without a language.
+7. *Plain text*, without a language.
 
 A file that does not exist yet (opened by name to be created) gets its
 mode from its name alone, UTF-8 without a byte order mark, and LF line
@@ -287,8 +299,14 @@ A file's bytes are decoded as follows (=files::decode_with=):
    the mark is removed from the text and remembered.
 3. A UTF-16 LE or BE byte order mark: the rest is decoded as UTF-16; the
    mark is remembered.
-4. Otherwise, after the binary check: valid UTF-8 is UTF-8.
-5. Otherwise the encoding is guessed from the bytes with =chardetng=,
+4. Otherwise, after the binary check: valid UTF-8 is UTF-8, unless a
+   =coding:= file variable (rule 5) names another encoding.
+5. Otherwise, when the file names its encoding in a =coding:= file
+   variable (in the =-*-= line, =-*- coding: latin-5 -*-=, or in the
+   =Local Variables:= block), that encoding: Emacs's names (=latin-1=,
+   =iso-latin-5=, =turkish-iso-8bit=, =utf-8-unix=, =cp1254=) or any
+   WHATWG label, the =-unix=, =-dos= and =-mac= suffixes ignored.
+6. Otherwise the encoding is guessed from the bytes with =chardetng=,
    the way Emacs guesses a coding system, and the status bar says
    "opened as" that encoding. The guess takes the system locale's
    region as a hint (=tr_TR= gives =tr=), or, with no region, its
@@ -374,7 +392,7 @@ without unsaved changes reloads when another program changes its file.
 
 * Files that are not text
 
-A file found binary (rule 1 above) is not opened; opening it fails with
+A file found binary (rule 1 of the modes above) is not opened; opening it fails with
 "The file is not a text file". The graphical editor shows the reason in
 its status bar (a window opened on such a file shows an empty document
 with the reason); the terminal editor shows "Cannot open /path/: The

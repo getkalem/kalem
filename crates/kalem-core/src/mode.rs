@@ -26,6 +26,84 @@ pub enum DocumentMode {
     Directory,
 }
 
+/// The line Emacs reads a `-*-` line from: the first, or the second
+/// when the first is a `#!` line.
+fn mode_line_of(text: &str) -> &str {
+    let mut lines = text.lines();
+    let first = lines.next().unwrap_or("");
+    if first.starts_with("#!") {
+        let second = lines.next().unwrap_or("");
+        if second.contains("-*-") {
+            return second;
+        }
+    }
+    first
+}
+
+/// A variable of the `-*-` line (`-*- mode: org; coding: utf-8 -*-`).
+pub fn mode_line_variable(text: &str, name: &str) -> Option<String> {
+    let line = mode_line_of(text);
+    let start = line.find("-*-")? + 3;
+    let end = start + line[start..].find("-*-")?;
+    line[start..end].split(';').find_map(|part| {
+        let (k, v) = part.split_once(':')?;
+        k.trim()
+            .eq_ignore_ascii_case(name)
+            .then(|| v.trim().to_string())
+    })
+}
+
+/// A variable of the `Local Variables:` block at the end of a file (its
+/// last 3,000 characters, as Emacs looks): each line between
+/// `PREFIX Local Variables: SUFFIX` and `PREFIX End: SUFFIX` is
+/// `PREFIX NAME: VALUE SUFFIX`.
+pub fn local_variable(text: &str, name: &str) -> Option<String> {
+    let mut from = text.len().saturating_sub(3000);
+    while !text.is_char_boundary(from) {
+        from += 1;
+    }
+    let tail = &text[from..];
+    let at = tail.rfind("Local Variables:")?;
+    let line_start = tail[..at].rfind('\n').map_or(0, |i| i + 1);
+    let prefix = &tail[line_start..at];
+    let line_end = tail[at..].find('\n').map_or(tail.len(), |i| at + i);
+    let suffix = tail[at + "Local Variables:".len()..line_end].trim_end_matches('\r');
+    let body = tail.get(line_end + 1..)?;
+    for line in body.lines() {
+        let line = line.trim_end_matches('\r');
+        let line = line.strip_prefix(prefix).unwrap_or(line);
+        let line = line.strip_suffix(suffix).unwrap_or(line).trim();
+        if line == "End:" {
+            break;
+        }
+        if let Some((k, v)) = line.split_once(':')
+            && k.trim().eq_ignore_ascii_case(name)
+        {
+            return Some(v.trim().to_string());
+        }
+    }
+    None
+}
+
+/// Whether text in a `.txt` file is tab-separated values (Excel's "Unicode
+/// Text" export): at least two lines, each with the same number of tabs,
+/// at least one, and some field before the first tab.
+fn looks_like_tsv(text: &str) -> bool {
+    let lines: Vec<&str> = text
+        .lines()
+        .map(|l| l.trim_end_matches('\r'))
+        .filter(|l| !l.is_empty())
+        .take(20)
+        .collect();
+    if lines.len() < 2 {
+        return false;
+    }
+    let tabs = lines[0].matches('\t').count();
+    tabs >= 1
+        && lines.iter().all(|l| l.matches('\t').count() == tabs)
+        && lines.iter().filter(|l| !l.starts_with('\t')).count() * 2 > lines.len()
+}
+
 /// `-*- mode: NAME -*-` or `-*- NAME -*-` on the first line.
 fn mode_line(first_line: &str) -> Option<String> {
     let start = first_line.find("-*-")? + 3;
@@ -119,6 +197,29 @@ impl DocumentMode {
         }
     }
 
+    /// The mode for a whole decoded text: [`DocumentMode::detect`] on its
+    /// first 8 KiB, and its `Local Variables:` block, which is at the end.
+    pub fn detect_text(path: Option<&Path>, text: &str) -> DocumentMode {
+        let mut cut = text.len().min(8192);
+        while !text.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        let head = &text[..cut];
+        let mode = DocumentMode::detect(path, head.as_bytes());
+        if mode == DocumentMode::Binary {
+            return DocumentMode::detect(path, b"");
+        }
+        if cut < text.len()
+            && mode_line(mode_line_of(head.strip_prefix('\u{feff}').unwrap_or(head))).is_none()
+            && let Some(m) = local_variable(text, "mode").map(|m| m.to_lowercase())
+            && !m.is_empty()
+        {
+            return by_name(m.trim_end_matches("-mode"))
+                .unwrap_or(DocumentMode::Text { language: Some(m) });
+        }
+        mode
+    }
+
     /// The mode for a file, from its start (the first few kilobytes are
     /// enough), in the order of §2.6: a mode line, the extension, a shebang
     /// line, plain text. An explicit choice by the user is applied by the
@@ -130,7 +231,15 @@ impl DocumentMode {
         let text = String::from_utf8_lossy(start);
         let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
         let first = text.lines().next().unwrap_or("");
-        if let Some(m) = mode_line(first) {
+        // As Emacs's `set-auto-mode`: the `-*-` line (the second after a
+        // `#!` line), then the `Local Variables:` block, then the file
+        // name, then the interpreter.
+        let named = mode_line(mode_line_of(text)).or_else(|| {
+            local_variable(text, "mode")
+                .map(|m| m.to_lowercase())
+                .filter(|m| !m.is_empty())
+        });
+        if let Some(m) = named {
             return by_name(m.trim_end_matches("-mode"))
                 .unwrap_or(DocumentMode::Text { language: Some(m) });
         }
@@ -138,6 +247,9 @@ impl DocumentMode {
             .and_then(|p| p.extension())
             .and_then(|e| e.to_str())
             .map(str::to_lowercase);
+        if ext.as_deref() == Some("txt") && looks_like_tsv(text) {
+            return DocumentMode::Csv;
+        }
         if let Some(e) = &ext {
             return by_name(e).unwrap_or_else(|| DocumentMode::Text {
                 language: Some(e.clone()),
@@ -212,5 +324,35 @@ mod tests {
             Some("python".to_string())
         );
         assert_eq!(DocumentMode::Csv.name(), "csv");
+    }
+
+    #[test]
+    fn file_variables() {
+        // A `-*-` line on the second line after `#!`.
+        assert_eq!(
+            detect("run", "#!/bin/sh\n# -*- mode: org -*-\n"),
+            DocumentMode::Org
+        );
+        // A `Local Variables:` block beats the file name.
+        let text = "text\n\n# Local Variables:\n# fill-column: 70\n# mode: org\n# End:\n";
+        assert_eq!(detect("notes.txt", text), DocumentMode::Org);
+        assert_eq!(local_variable(text, "fill-column").as_deref(), Some("70"));
+        let text = "x\n/* Local Variables: */\n/* mode: markdown */\n/* End: */\n";
+        assert_eq!(detect("a.c", text), DocumentMode::Markdown);
+        assert_eq!(
+            mode_line_variable("-*- mode: org; coding: latin-1 -*-\n", "coding").as_deref(),
+            Some("latin-1")
+        );
+        // Tab-separated text saved as `.txt`.
+        assert_eq!(
+            detect("export.txt", "Ad\tYaş\r\nAyşe\t30\r\n"),
+            DocumentMode::Csv
+        );
+        assert_eq!(
+            detect("notes.txt", "\tindented\n\tagain\n"),
+            DocumentMode::Text {
+                language: Some("txt".into())
+            }
+        );
     }
 }
