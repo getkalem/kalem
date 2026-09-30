@@ -1,0 +1,16 @@
+\figure[#fig:shape width=60% placement=top]{
+  \img[shape.png alt="The shape of a note"]
+  \caption{The shape of a note}
+}
+
+\figure[#fig:pair layout=2]{
+  \figure[#fig:a]{
+    \img[a.png]
+    \caption{Left}
+  }
+  \figure[#fig:b]{
+    \img[b.png]
+    \caption{Right}
+  }
+  \caption{Two shapes}
+}

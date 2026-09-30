@@ -1,0 +1,6 @@
+\code[lang=rust name=hello exec results=output]{
+fn main() { println!("hello"); }
+}
+\results[for=hello]{
+hello
+}

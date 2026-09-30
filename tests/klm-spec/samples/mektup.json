@@ -1,0 +1,267 @@
+{
+  "blocks": [
+    {
+      "attrs": [
+        {
+          "key": "title",
+          "value": "Proje Teklifi"
+        },
+        {
+          "key": "author",
+          "value": "Mehmet Şekercioğlu"
+        },
+        {
+          "key": "lang",
+          "value": "tr"
+        },
+        {
+          "key": "style",
+          "value": "letter"
+        },
+        {
+          "key": "date",
+          "value": "<2026-10-03 Sat>"
+        }
+      ],
+      "cmd": "meta"
+    },
+    {
+      "attrs": [
+        {
+          "style": "sender"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Kalem Yazılım",
+            {
+              "cmd": "br"
+            },
+            " Bağdat Caddesi 12",
+            {
+              "cmd": "br"
+            },
+            " Kadıköy, İstanbul"
+          ]
+        }
+      ],
+      "cmd": "p"
+    },
+    {
+      "attrs": [
+        {
+          "style": "recipient"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Sayın Ayşe Yılmaz",
+            {
+              "cmd": "br"
+            },
+            " Yılmaz Yayıncılık",
+            {
+              "cmd": "br"
+            },
+            " Ankara"
+          ]
+        }
+      ],
+      "cmd": "p"
+    },
+    {
+      "attrs": [
+        {
+          "style": "date"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            {
+              "attrs": [
+                {
+                  "value": "<2026-10-03 Sat>"
+                }
+              ],
+              "cmd": "date"
+            }
+          ]
+        }
+      ],
+      "cmd": "p"
+    },
+    {
+      "attrs": [
+        {
+          "style": "salutation"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Sayın Yılmaz,"
+          ]
+        }
+      ],
+      "cmd": "p"
+    },
+    {
+      "p": [
+        "Geçen haftaki görüşmemizde ",
+        {
+          "cmd": "b",
+          "inline": [
+            "üç"
+          ]
+        },
+        " konuda anlaştık: teslim tarihi, bütçe ve kapak. Bu mektupla ikisini de yazılı hale getiriyorum."
+      ]
+    },
+    {
+      "p": [
+        {
+          "cmd": "i",
+          "inline": [
+            "Teslim tarihi"
+          ]
+        },
+        " için önerimiz ",
+        {
+          "attrs": [
+            {
+              "value": "<2026-11-22 Sun>"
+            }
+          ],
+          "cmd": "date"
+        },
+        ". Bu tarih düzeltme turunu ve baskı provasını kapsıyor; provadan sonra ",
+        {
+          "cmd": "q",
+          "inline": [
+            "son okuma"
+          ]
+        },
+        " için bir hafta ayırdık."
+      ]
+    },
+    {
+      "p": [
+        "Bütçe kalemleri şöyle:"
+      ]
+    },
+    {
+      "blocks": [
+        {
+          "blocks": [
+            {
+              "p": [
+                "Dizgi ve sayfa düzeni: 25.000 TL"
+              ]
+            }
+          ],
+          "cmd": "li"
+        },
+        {
+          "blocks": [
+            {
+              "p": [
+                "Kapak tasarımı: 8.000 TL"
+              ]
+            }
+          ],
+          "cmd": "li"
+        },
+        {
+          "blocks": [
+            {
+              "p": [
+                "Baskı provası: 7.000 TL"
+              ]
+            }
+          ],
+          "cmd": "li"
+        },
+        {
+          "blocks": [
+            {
+              "p": [
+                "Düzelti okuması: 5.000 TL"
+              ]
+            }
+          ],
+          "cmd": "li"
+        }
+      ],
+      "cmd": "ul"
+    },
+    {
+      "p": [
+        "Toplam ",
+        {
+          "cmd": "b",
+          "inline": [
+            "45.000 TL"
+          ]
+        },
+        "; ödeme iki taksitte, ilki sözleşmeyle, ikincisi teslimle."
+      ]
+    },
+    {
+      "p": [
+        {
+          "attrs": [
+            {
+              "style": "warning"
+            }
+          ],
+          "cmd": "span",
+          "inline": [
+            "Kâğıt fiyatları ekim sonunda değişebilir;"
+          ]
+        },
+        " bu yüzden baskı kalemi için ",
+        {
+          "cmd": "b",
+          "inline": [
+            "bir hafta içinde"
+          ]
+        },
+        " onay rica ediyorum.",
+        {
+          "cmd": "fn",
+          "inline": [
+            "Matbaanın yazılı teklifi 15 Ekim'e kadar geçerli."
+          ]
+        }
+      ]
+    },
+    {
+      "p": [
+        "Saygılarımla,"
+      ]
+    },
+    {
+      "attrs": [
+        {
+          "style": "signature"
+        }
+      ],
+      "blocks": [
+        {
+          "p": [
+            "Mehmet Şekercioğlu",
+            {
+              "cmd": "br"
+            },
+            " Kalem Yazılım"
+          ]
+        }
+      ],
+      "cmd": "p"
+    }
+  ],
+  "version": "1.0"
+}

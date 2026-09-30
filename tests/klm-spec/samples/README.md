@@ -1,6 +1,6 @@
 # Samples of the Kalem format
 
-Hand-written documents in the draft syntax of `rfcs/0003-kalem-format.md`, in canonical form. They are the material of the first experiment (T2.13.1) and the seed of the conformance suite.
+Hand-written documents in the draft syntax of `rfcs/0003-kalem-format.md`, in canonical form (the paper made canonical by the parser spike, RFC appendix B). They are the material of the first experiment (T2.13.1) and the seed of the conformance suite.
 
 | File | Use case | Exercises |
 |---|---|---|
@@ -14,6 +14,12 @@ Commit `278cc55` holds the documents before a session of edits in draft 0.1, `43
 
 Two branches from `278cc55`, one changing the first paragraph of the letter and one adding a list item and changing the total, merged without conflict.
 
-## Not yet
+## The suite
 
-There is no parser for the format; these files are read by people. When `klm-syntax` lands (T2.13.3), each file gets its expected model, canonical form and HTML beside it, and the suite runs them.
+Beside each sample are its model (`.json`) and a plain HTML (`.html`),
+written by the parser spike of T2.13.2 (`spikes/klm-parser`); the samples
+are in canonical form, so they are their own canonical files. The RFC's
+examples are in `../rfc/`, one file per example named by its line in the
+RFC, each with its model, its canonical form and its HTML. When
+`klm-syntax` lands (T2.13.3), it is tested against these files, and the
+HTML files are replaced by `klm-export`'s.

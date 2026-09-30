@@ -1,0 +1,6 @@
+\h2[#write-section todo=TODO priority=A tags=writing,urgent]{Write the second section}
+\props{
+  scheduled=<2026-10-03 Sat>
+  effort=2h
+  client=getkalem
+}

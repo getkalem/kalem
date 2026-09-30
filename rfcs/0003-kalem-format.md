@@ -118,11 +118,11 @@ A positional value contains no whitespace: several citation keys are separated b
 
 Attribute keys are ASCII names. A key the specification does not define for a command is a **user property**: kept, shown in the properties panel, exported to the formats that have a place for it. A key with a namespace prefix (`plugin.key`) belongs to that plugin.
 
-Values with meaning across the format: lengths (`12pt`, `2cm`, `60%`, `1.5em`), colors (`#c00000`, `red`), timestamps in Org's grammar (`<2026-10-03 Sat 10:00 +1w -2d>`, `[2026-10-03 Sat]`), durations (`2h`, `1d`), lists (`tags=writing,urgent`).
+Values with meaning across the format: lengths (`12pt`, `2cm`, `60%`, `1.5em`), colors (`#c00000`, `red`), timestamps in Org's grammar (`<2026-10-03 Sat 10:00 +1w -2d>`, `[2026-10-03 Sat]`), durations (`2h`, `1d`), lists (`tags=writing,urgent`). A value that starts with `<` or `[` is one value up to its matching `>` or `]`, spaces included, so a timestamp is written without quotes: `date=<2026-10-03 Sat>`, `\date[[2026-10-03 Sat]]` (appendix B).
 
 ### 4.3 Text, escapes, verbatim
 
-Text is UTF-8. Four escapes and no more: `\\`, `\{`, `\}`, `\$`. `[` and `]` need no escape: they are special only immediately after a command name.
+Text is UTF-8. Four escapes and no more: `\\`, `\{`, `\}`, `\$`. `[` and `]` need no escape: they are special only immediately after a command name. A command name ends at the first character that is not a lowercase letter or a digit; where the text after a command without content starts with a letter, a digit or `[`, the command is written with empty braces, `hyphen\shy{}ation`, `see\br{}[1]` (14.4). A backslash that starts neither an escape nor a command is an error, recovered as a literal backslash (15).
 
 **Verbatim commands** (`code`, `raw`, `comment`, `eq`, and `$…$`) take their content as written: braces inside them nest and end the content only when unbalanced; the escapes `\{`, `\}` and `\\` are the only escapes recognized, and only for an unbalanced brace or a trailing backslash. Nothing else is interpreted.
 
@@ -211,9 +211,11 @@ Typographic replacements (straight to curly quotes, `--` to dashes) are **not** 
     }
   }
 }
+
 \ol[start=3 type=a]{
   \li{…}
 }
+
 \dl{
   \dt{Term}
   \dd{Definition}
@@ -247,9 +249,16 @@ Typographic replacements (straight to curly quotes, `--` to dashes) are **not** 
   \img[shape.png alt="The shape of a note"]
   \caption{The shape of a note}
 }
+
 \figure[#fig:pair layout=2]{
-  \figure[#fig:a]{\img[a.png] \caption{Left}}
-  \figure[#fig:b]{\img[b.png] \caption{Right}}
+  \figure[#fig:a]{
+    \img[a.png]
+    \caption{Left}
+  }
+  \figure[#fig:b]{
+    \img[b.png]
+    \caption{Right}
+  }
   \caption{Two shapes}
 }
 ```
@@ -442,7 +451,7 @@ The specification defines the bytes the editor writes. `kalem fmt` produces them
 1. UTF-8, no byte order mark, LF line endings, one trailing newline.
 2. `\klm[…]` on line 1, `\meta` on line 2 when present, one blank line, then the body.
 3. **Block commands** start at the line's indentation, `{` ends the opening line, content is indented two spaces per nesting level, `}` stands alone on its own line at the parent's indentation. Consecutive blocks are separated by one blank line at level zero and by no blank line inside a container, except paragraphs, which are always separated by one blank line. **Attached blocks** (`\props`, `\log`, `\results`, `\formulas`, `\caption`, `\tfoot`) follow their owner with no blank line.
-4. **Inline commands** are written inline with no spaces inside the delimiters. A command whose content is optional and empty is written **without braces**: `\ref[eq:euler]`, `\cite[knuth1984]`, `\img[a.png]`, `\toc`.
+4. **Inline commands** are written inline with no spaces inside the delimiters. A command whose content is optional and empty is written **without braces**: `\ref[eq:euler]`, `\cite[knuth1984]`, `\img[a.png]`, `\toc`; with empty braces only where the next character would otherwise be read as part of its name or as its attributes (4.3). A command whose content is not optional keeps its braces when the content is empty: `\td{}`, an empty cell.
 5. **Paragraph text is one line.** No hard wrapping. A setting `format.lines = sentence` breaks after sentence ends instead, for projects that prefer sentence-per-line diffs; both are canonical for the project that chose them, recorded in `\meta[format=…]`.
 6. **Attributes:** always on the command's line: `#id` first, then `.style`s in the order applied, then keys in the order the specification lists them for that command, then user properties alphabetically; one space between items; quotes only when the value needs them; booleans as bare keys; no trailing spaces. Long lists do not wrap: what would make a heading long belongs in `\props` (7.1), where each property has its own line.
 7. **Verbatim content** is written as it is, with the closing brace on its own line for blocks.
@@ -467,7 +476,7 @@ The specification defines the bytes the editor writes. `kalem fmt` produces them
 **Files from elsewhere** (the source view, other editors, merges) can be ill-formed. The parser recovers deterministically, and `kalem check` reports every recovery:
 
 - An unclosed **inline** command ends at the end of its paragraph.
-- An unclosed **block** command ends before the next block command at the same or a lower indentation that starts at line start, or at the end of the enclosing block or file.
+- An unclosed **block** command ends before the next block command at the same or a lower indentation that starts at line start, or at the end of the enclosing block or file. Braces decide first: indentation is looked at only for a block whose closing brace never comes, so a well-formed file whose content is not indented parses as its braces say.
 - An unclosed `$` ends at the end of the paragraph; an unclosed verbatim block ends at the end of the file.
 - A stray `}` is text.
 - An unknown command is a generic block or span with its content rendered.
@@ -500,15 +509,19 @@ text         = character - ( "\" | "{" | "}" | "$" ) , { … } ;
 
 attributes   = "[" , [ attribute , { ws , attribute } ] , "]" ;
 attribute    = "#" , id | "." , name | key , "=" , value | key | value ;
-value        = bare | quoted ;
-bare         = ( character - ( ws | "]" | "\"" | "=" ) ) , { … } ;
+value        = bare | quoted | bracketed ;
+bare         = ( character - ( ws | "]" | "\"" | "=" | "<" | "[" ) ) , { character - ( ws | "]" | "\"" | "=" ) } ;
+bracketed    = "<" , { character - ">" } , ">"          (* a timestamp, spaces included *)
+             | "[" , { character - "]" } , "]" ;
 quoted       = "\"" , { character - "\"" | "\\\"" | "\\\\" } , "\"" ;
 name         = letter , { letter | digit } ;
 key          = name , { "." , name } ;
 id           = ( letter | digit ) , { letter | digit | "-" | "_" | ":" | "." } ;
 ```
 
-Verbatim content: braces balanced, `\{`, `\}` and `\\` as the only escapes. Parsing is linear and local: no construct depends on text after its end, except references, which resolve in the model.
+Verbatim content: braces balanced, `\{`, `\}` and `\\` as the only escapes. Parsing is linear and local: no construct depends on text after its end, except references, which resolve in the model; an unclosed block is the one place the parser looks back, to cut it where 15 says (appendix B).
+
+Which commands are blocks and how their content is read is fixed by their definition (sections 5 to 12), in five kinds: **containers** holding blocks (`\meta`, `\ul`, `\ol`, `\dl`, `\table`, `\tfoot`, `\figure`, `\block`, `\box`, `\columns`, `\log`); **line blocks** holding inline content on their line (`\part`, `\h1`…`\h6`, `\p`, `\li`, `\dt`, `\dd`, `\caption`, `\tr`, `\entry`, `\abstract`; `\li` also blocks after a blank line or a nested list); **bare blocks** without content (`\toc`, `\hr`, `\include`, `\bibliography`, `\pagebreak`, `\pagesetup`, `\clock`, …); **verbatim** commands (`\code`, `\raw`, `\comment`, `\eq`, `\macros`, `\results`); and **record blocks** holding one `key=value` or formula a line, re-indented by the serializer (`\props`, `\formulas`). `\img` alone on its line is a block. An unknown command at line start is a block when `{` ends its line or nothing follows it, a span otherwise.
 
 ---
 
@@ -567,6 +580,8 @@ Every construct has a defined rendering in each target; the table names the mapp
 4. Slides: a `slides` stylesheet with `\h2` as a slide, or a `\slide` command.
 5. Forms and protected regions (Word's content controls): not in 1.0.
 6. The stylesheet's limit: which InDesign-grade controls (baseline grid, optical alignment per glyph) are in 1.0 and which wait for engine support.
+7. Verbatim content inside an indented block (appendix B): written as it is (14.7), a formula in a theorem block has its lines at the left edge and its braces indented. Whether the serializer should indent verbatim lines with their block, and strip that indentation when reading, is open.
+8. The order of keys "the specification lists for that command" (14.6) needs a table per command; until it exists, keys keep the order written.
 
 Closed by the first experiment (appendix A): no inline shortcut beyond `$…$` is needed; headings keep their outline attributes on one line and everything else in `\props`.
 
@@ -601,3 +616,23 @@ What it showed, and what draft 0.2 changed:
 5. **Turkish numbers** in table cells (`1,4636`) need the engine to know the decimal separator; the number format follows the document language, with `numbers=` to override (9.2).
 6. **Attached blocks** (`\log`, `\props`, `\formulas`, `\caption`) follow their owner without a blank line; the rule is now written (14.3).
 7. **Long paragraphs** are one line, so a changed word shows as one changed line; reading the change inside the line needs `--word-diff`, hence the `.gitattributes` and `kalem diff` of 14.10. The sentence-per-line option remains for projects that prefer it.
+
+---
+
+## Appendix B. The parser spike (T2.13.2, 2026-09-30)
+
+A throwaway parser for this grammar, `spikes/klm-parser`, parses every example of this document and the three samples, writes the canonical form back and checks `fmt(fmt(x)) = fmt(x)` and `parse(fmt(x)) = parse(x)` on the model; it runs each recovery rule of 15 and each known ambiguity on a malformed or tricky input (its `tests/spec.rs`). What it found, and what changed:
+
+| Finding | Change |
+|---|---|
+| `date=<2026-10-03 Sat>` in the samples: the grammar's bare value stops at the space, so the timestamp split into a value and a stray attribute | A value starting with `<` or `[` runs to its matching `>` or `]` (4.2, 16) |
+| `\date[[2026-10-03 Sat]]`: an inactive timestamp inside an attribute list | The same rule; the list's own `]` is the one after the timestamp's |
+| `hyphen\shyation` reads as the command `shyation`; `\br` followed by the text `[1]` reads as attributes | The serializer writes empty braces there, `hyphen\shy{}ation`, `\br{}[1]` (4.3, 14.4) |
+| `\td{}` in the table example against 14.4's "empty content without braces" | Only commands whose content is optional drop empty braces; a cell keeps them (14.4) |
+| Recovery by indentation would close a well-formed block whose content is not indented (the paper's theorem block, as first written) | Braces decide first; indentation cuts only a block whose brace never comes (15) |
+| The grammar did not say which commands are blocks, or how `\props` and `\formulas` are read | The five kinds, listed in 16 |
+| Not canonical by 14: the paper's theorem and proof blocks (content not indented, `.theorem` before `#thm:sinir`, `title="Kaynaklar"` quoted), the list example (no blank lines between top-level blocks), the figure example (subfigures on one line) | The paper sample and the two examples rewritten in canonical form; the letter and the notebook were canonical already |
+| Verbatim lines keep their written indentation inside an indented block | Open: question 7 of 21 |
+| Key order per command is not tabulated | Open: question 8 of 21; keys keep the order written |
+
+The spike needs no backtracking except for an unclosed block, reads each construct once, and its model is what `klm-syntax` (T2.13.3) will be tested against: the conformance suite's first files, one per example, with the model as JSON, the canonical form and a plain HTML, come from `klm-parser-spike examples`.
