@@ -86,6 +86,7 @@ turns it into this site.
 
 * Appendices
 - [[generated:commands][Commands and keys]]
+- [[generated:keymaps][Keymaps]]
 - [[generated:settings][Settings]]
 - [[generated:cli][The command line]]
 - [[file:appendices/glossary.org][Glossary]]
