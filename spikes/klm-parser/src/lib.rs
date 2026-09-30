@@ -1392,6 +1392,33 @@ fn html_inlines(inl: &[Inline], out: &mut String) {
 // ---------------------------------------------------------------------
 // The examples of the RFC.
 
+/// The examples of an Org chapter written in the Kalem format: its `klm`
+/// source blocks (Part III of the Book).
+pub fn org_examples(org: &str) -> Vec<(usize, String)> {
+    let mut out = Vec::new();
+    let mut lines = org.lines().enumerate();
+    while let Some((n, l)) = lines.next() {
+        if !l.trim().eq_ignore_ascii_case("#+begin_src klm") {
+            continue;
+        }
+        let mut body = String::new();
+        for (_, l) in lines.by_ref() {
+            if l.trim().eq_ignore_ascii_case("#+end_src") {
+                break;
+            }
+            // Org's escape of lines that would read as its own syntax.
+            let l = l
+                .strip_prefix(',')
+                .filter(|r| r.starts_with(['*', '#']))
+                .unwrap_or(l);
+            body.push_str(l);
+            body.push('\n');
+        }
+        out.push((n + 1, body));
+    }
+    out
+}
+
 /// The examples of a Markdown file written in the Kalem format: the
 /// fenced blocks without a language (or `klm`) that hold a command.
 pub fn examples(markdown: &str) -> Vec<(usize, String)> {

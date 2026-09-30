@@ -1,0 +1,39 @@
+* 4.1 Commands
+#+begin_src klm
+\name[attributes]{content}
+#+end_src
+
+- =name=: one or more ASCII lowercase letters or digits, starting with a letter: =h1=, =b=, =figure=, =pagesetup=.
+- =[attributes]=: optional. Missing means no attributes. An empty list =[]= is not written in canonical form.
+- ={content}=: optional for commands that take none (=\pagebreak=, =\toc=, =\ref[…]=). Content is Kalem text: paragraphs, other commands, mathematics.
+
+Commands are *inline* or *block* by their definition (sections 6 to 12 say which). An inline command's content holds inline content only; a block command's content holds blocks (paragraphs, block commands) and, for a few, inline content directly (headings, captions, list items). A command outside the core must be *declared* by the stylesheet (=[block.KIND]=, =[span.KIND]=) or by a plugin; an undeclared command parses as a generic block or span, renders its content, and is reported by =kalem check=.
+
+* 4.2 Attributes
+#+begin_example
+[#eq:euler .warning width=60% title="Pythagoras' theorem" numbered]
+#+end_example
+
+Items separated by whitespace:
+
+| Form        | Meaning                                                                                                                          |
+|-------------+----------------------------------------------------------------------------------------------------------------------------------|
+| =#id=       | The element's identifier, unique in the document, the target of =\ref= and of links. Letters, digits, =-=, =_=, =:=, =.=.        |
+| =.style=    | A named style (13) applied to the element; several allowed.                                                                      |
+| ~key=value~ | A named attribute. =value= is a bare token (no whitespace, =]=, ="= or ~=~) or a quoted string ="…"= with =\"= and =\\= escapes. |
+| =key=       | A boolean attribute set to true.                                                                                                 |
+| =value=     | A positional value, at most one, meaning defined by the command (=\link[URL]=, =\ref[TARGET]=, =\cite[KEYS]=, =\img[SRC]=).      |
+
+A positional value contains no whitespace: several citation keys are separated by commas, =\cite[euler1740,apostol1976]=. A reference names an identifier bare, without =#=: =\ref[eq:euler]= refers to the element declared with =#eq:euler=; the =#= in an attribute list always declares, never refers.
+
+Attribute keys are ASCII names. A key the specification does not define for a command is a *user property*: kept, shown in the properties panel, exported to the formats that have a place for it. A key with a namespace prefix (=plugin.key=) belongs to that plugin.
+
+Values with meaning across the format: lengths (=12pt=, =2cm=, =60%=, =1.5em=), colors (=#c00000=, =red=), timestamps in Org's grammar (=<2026-10-03 Sat 10:00 +1w -2d>=, =[2026-10-03 Sat]=), durations (=2h=, =1d=), lists (~tags=writing,urgent~). A value that starts with =<= or =[= is one value up to its matching =>= or =]=, spaces included, so a timestamp is written without quotes: ~date=<2026-10-03 Sat>~, =\date[[2026-10-03 Sat]]= (RFC 0003, appendix B).
+
+* 4.3 Text, escapes, verbatim
+Text is UTF-8. Four escapes and no more: =\\=, =\{=, =\}=, =\$=. =[= and =]= need no escape: they are special only immediately after a command name. A command name ends at the first character that is not a lowercase letter or a digit; where the text after a command without content starts with a letter, a digit or =[=, the command is written with empty braces, =hyphen\shy{}ation=, =see\br{}[1]= (14.4). A backslash that starts neither an escape nor a command is an error, recovered as a literal backslash (15).
+
+*Verbatim commands* (=code=, =raw=, =comment=, =eq=, and =$…$=) take their content as written: braces inside them nest and end the content only when unbalanced; the escapes =\{=, =\}= and =\\= are the only escapes recognized, and only for an unbalanced brace or a trailing backslash. Nothing else is interpreted.
+
+* 4.4 Paragraphs
+A paragraph is a run of inline content ended by a blank line, by the start of a block command at line start, or by the closing brace of the enclosing block. Paragraphs are implicit: =\p= exists only to carry attributes (=\p[.center]{…}=). This is the one structural rule that is not a command, kept because every text format shares it and because blank lines are the natural unit of a diff.

@@ -1,0 +1,14 @@
+#+begin_src klm
+\klm[1.0]
+\meta[title="On the Shape of Notes" author="Mehmet Şekercioğlu" lang=tr style=article date=<2026-10-03 Sat>]
+
+\h1[#intro]{Introduction}
+
+Text.
+#+end_src
+
+- *=\klm[VERSION]=* is the first line of every document. The version is the specification's (19).
+- *=\meta[…]=* holds the document's properties: =title=, =subtitle=, =author= (repeatable as ~author="A" author="B"~), =date=, =lang=, =style= (the stylesheet, by name in the styles directory or by path), =keywords=, =abstract= (a command form =\meta{\abstract{…}}= for long values), =bibliography= (a =.bib= path, repeatable), =cite-style= (a CSL name), =numbering= (=sections=, =figures=, =equations= on or off), =toc= depth, =class= (a hint for LaTeX export: =article=, =book=, =beamer=), and user properties. Every key is a field (11).
+- The body follows: blocks at nesting level zero. A *=\part{…}=* groups =\h1= sections in books; =\h1= to =\h6= form the outline (7).
+- *=\include[path]=* at block level inserts another =.klm= file's body at that point at render time; with ~section=#id~ only that section; the included file keeps its own =\klm= line, which is ignored on inclusion. Paths are relative to the including file and confined to the project (19).
+- *=\bibliography[…]=*, *=\toc=*, *=\lof=*, *=\lot=*, *=\printindex=* are block commands placed where their generated content goes (11).

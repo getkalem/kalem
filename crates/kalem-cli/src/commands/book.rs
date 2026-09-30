@@ -462,6 +462,19 @@ fn pages(dir: &Path, c: &Contents) -> (Vec<Page>, Vec<String>) {
                     }
                 }
             };
+            // The Kalem format's examples are cases of its suite.
+            if ch.source.starts_with("part-3/") {
+                let suite = klm_suite(dir);
+                for ex in klm_examples(&text) {
+                    if !suite.contains(&ex) {
+                        let first = ex.lines().next().unwrap_or_default();
+                        problems.push(format!(
+                            "{}: an example not in tests/klm-spec/: {first}",
+                            ch.source
+                        ));
+                    }
+                }
+            }
             match export_body(&text, &file) {
                 Ok(body) => out.push(Page {
                     path: ch.page(),
@@ -481,8 +494,45 @@ fn pages(dir: &Path, c: &Contents) -> (Vec<Page>, Vec<String>) {
     (out, problems)
 }
 
+/// The examples written in the Kalem format in an Org text: its `klm`
+/// source blocks.
+fn klm_examples(text: &str) -> Vec<String> {
+    use org_syntax::ast::{AstNode, SrcBlock};
+    org_syntax::parse(text)
+        .syntax()
+        .descendants()
+        .filter_map(SrcBlock::cast)
+        .filter(|b| b.language().as_deref() == Some("klm"))
+        .map(|b| b.value())
+        .collect()
+}
+
+/// The texts of the conformance suite's `.klm` files, beside the Book
+/// (`tests/klm-spec/`).
+fn klm_suite(dir: &Path) -> std::collections::HashSet<String> {
+    let mut out = std::collections::HashSet::new();
+    let mut stack = vec![dir.join("../tests/klm-spec")];
+    while let Some(d) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p.extension().is_some_and(|x| x == "klm")
+                && let Ok(t) = std::fs::read_to_string(&p)
+            {
+                out.insert(t);
+            }
+        }
+    }
+    out
+}
+
 /// `kalem book check DIR`: every chapter exports, every link inside the
-/// Book leads to a page of it.
+/// Book leads to a page of it, every example of Part III is a case of
+/// the conformance suite.
 pub(crate) fn check(dir: &Path) -> Result<ExitCode> {
     let index = std::fs::read_to_string(dir.join("index.org"))
         .map_err(|e| format!("{}: {e}", dir.join("index.org").display()))?;
@@ -643,6 +693,23 @@ mod tests {
             plain_text("<p>A &amp; <b>B</b></p><svg><text>x</text></svg>ç"),
             "A & B ç"
         );
+    }
+
+    #[test]
+    fn kalem_format_examples() {
+        let text =
+            "Text.\n\n#+begin_src klm\n\\h1{A}\n#+end_src\n\n#+begin_src toml\nx = 1\n#+end_src\n";
+        assert_eq!(klm_examples(text), vec!["\\h1{A}\n".to_string()]);
+        // Part III's examples are all in the suite.
+        let book = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../book");
+        let suite = klm_suite(&book);
+        assert!(!suite.is_empty());
+        for f in std::fs::read_dir(book.join("part-3")).unwrap() {
+            let text = std::fs::read_to_string(f.unwrap().path()).unwrap();
+            for ex in klm_examples(&text) {
+                assert!(suite.contains(&ex), "{ex}");
+            }
+        }
     }
 
     #[test]

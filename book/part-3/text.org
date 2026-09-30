@@ -1,0 +1,22 @@
+Inline commands. Content is inline content unless said otherwise.
+
+| Command                               | Meaning                                                                             | Notes                                                                                        |
+|---------------------------------------+-------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------|
+| =\b{…}= =\i{…}= =\u{…}=               | Strong, emphasis, underline                                                         | Semantic names: =b= renders bold by default, the stylesheet may change it                    |
+| =\del{…}= =\ins{…}=                   | Deleted, inserted text                                                              | Also the review marks of section 12 when they carry ~by=~                                    |
+| =\hl{…}=                              | Highlight                                                                           |                                                                                              |
+| =\sup{…}= =\sub{…}=                   | Superscript, subscript                                                              |                                                                                              |
+| =\sc{…}=                              | Small capitals                                                                      |                                                                                              |
+| =\code{…}=                            | Inline code, verbatim                                                               | ~lang=~ optional                                                                             |
+| =\span[.style …]{…}=                  | Generic inline container                                                            | The home of direct formatting: ~font=~, ~size=~, ~color=~, ~bg=~, ~weight=~, ~tracking=~     |
+| =\lang[tr]{…}=                        | Language of a span                                                                  | Spelling, hyphenation, quotes and dashes follow it; the document language is ~\meta[lang=…]~ |
+| =\q{…}=                               | Quotation marks by language                                                         | Turkish =“…”=, German =„…“=, French =« … »=; nested =\q= alternates                          |
+| =\br=                                 | Line break inside a paragraph                                                       |                                                                                              |
+| =\nbsp= =\shy= =\thinsp= =\zwsp=      | Non-breaking space, soft hyphen, thin space, zero-width space                       | Written as commands so that they are visible in diffs                                        |
+| =\date[<…>]=                          | A timestamp shown in the document's format                                          | Org's grammar for the value; active and inactive; ranges                                     |
+| =\var[key]=                           | The value of a =\meta= key or a stylesheet variable                                 | A field (11)                                                                                 |
+| =\sym[name]=                          | A named symbol when the character is hard to type: =\sym[ellipsis]=, =\sym[emdash]= | Unicode written directly is always allowed and canonical                                     |
+| =\index[term]= ~\index[term sub="…"]~ | An index entry at this point; renders nothing                                       | See =\printindex=                                                                            |
+| =\gloss[term]{…}=                     | A glossary term with its definition at first use                                    | Renders the term; the glossary block lists them                                              |
+
+Typographic replacements (straight to curly quotes, =--= to dashes) are *not* performed on the text: the editor inserts the right characters as the user types, by the span's language, so the file holds what the reader sees.

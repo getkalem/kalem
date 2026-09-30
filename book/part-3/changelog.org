@@ -1,0 +1,30 @@
+The changes to the Kalem format, newest first. A syntax change is
+recorded here, in the chapter it changes and in the conformance suite at
+the same time.
+
+* Draft 0.2, with the parser spike's clarifications (2026-09-30)
+
+- A value that starts with =<= or =[= is one value up to its matching
+  =>= or =]=, so timestamps are written without quotes (4.2, 16).
+- A command without content is written with empty braces where the next
+  character would be read as part of its name or as its attributes:
+  =hyphen\shy{}ation=, =\br{}[1]= (4.3, 14.4). A command whose content
+  is not optional keeps its braces when the content is empty: =\td{}=.
+- Braces decide before indentation: an unclosed block is cut by
+  indentation only when its closing brace never comes (15).
+- The five kinds of command (containers, line blocks, bare blocks,
+  verbatim, record blocks) are listed in the grammar (16).
+
+* Draft 0.2 (2026-09-30)
+
+Accepted by the owner as the working specification after the first
+experiment (RFC 0003, appendix A): no shortcut beyond =$…$=, the outline
+attributes on the heading line and the rest in an attached =\props=,
+column formulas and =@foot=, no empty braces after references, numbers
+by the document's language, attached blocks without blank lines, a
+=.gitattributes= diff driver.
+
+* Draft 0.1 (2026-09-30)
+
+The first draft, written from the owner's decisions and a survey of
+writing and typesetting formats.

@@ -1,0 +1,65 @@
+* 9.1 Figures and images
+#+begin_src klm
+\figure[#fig:shape width=60% placement=top]{
+  \img[shape.png alt="The shape of a note"]
+  \caption{The shape of a note}
+}
+
+\figure[#fig:pair layout=2]{
+  \figure[#fig:a]{
+    \img[a.png]
+    \caption{Left}
+  }
+  \figure[#fig:b]{
+    \img[b.png]
+    \caption{Right}
+  }
+  \caption{Two shapes}
+}
+#+end_src
+
+- ~\img[SRC alt= width= height= scale=]~: inline when inside a paragraph, a block when alone. Formats: PNG, JPEG, SVG, PDF (first page), WebP.
+- =\figure= is a block: content, an optional =\caption=, nested figures for subfigures (~layout=N~ columns).
+- ~placement=here|top|bottom|page|inline~ steers floats in paged output; HTML ignores it.
+- ~\caption[short="…"]{…}~: the short form goes to the list of figures.
+
+* 9.2 Tables
+#+begin_src klm
+\table[#tbl:costs cols="l r r r" header=1 caption-position=top]{
+  \tr{\th{Item} \th{Qty} \th{Price} \th{Total}}
+  \tr{\td{Paper} \td{3} \td{4.50} \td{}}
+  \tr{\td{Ink} \td{1} \td{12.00} \td{}}
+  \tfoot{
+    \tr{\td{Total} \td{} \td{} \td{}}
+  }
+  \formulas{
+    D = B * C
+    D@foot = SUM(D)
+  }
+  \caption{Costs}
+}
+#+end_src
+
+- =cols=: one letter per column, =l=, =c=, =r=, =p= (paragraph), with optional widths in the stylesheet or ~cols="l r{3cm}"~; ~numbers=~ for the number format (see formulas).
+- ~header=N~ rows are header rows; =\th= marks header cells; ~\td[colspan= rowspan= align=]~.
+- *Formulas* (=\formulas=, one formula per line, indented canonically): the spreadsheet dialect, =A1= references, ranges, =$= for absolute references, the common functions (=SUM=, =AVERAGE=, =MIN=, =MAX=, =COUNT=, =IF=, =ROUND=, =ABS=, =SQRT=, =MOD=, =CONCAT=, dates and durations), remote tables (=@tbl:other!B2=), Org's evaluation order and iteration limit. *Column formulas* are the rule: ~D = B * C~ applies to every data row, and a bare column in a function (=SUM(D)=) covers the data rows, so inserting a row changes no formula (RFC 0003, appendix A). Data rows are the rows that are neither header rows (~header=N~) nor footer rows (=\tfoot=); footer cells are addressed with =@foot= (=D@foot=, =D@foot2= for a second footer row). Explicit ranges (=D2:D4=) remain for partial ranges. *Numbers* follow the document language for decimal and group separators (=1,4636= in Turkish) unless ~numbers=en~ or another tag is set on the table; the engine reads and writes cells in that format. The engine is =org-table='s with a second front-end grammar; results are written into the cells, as Org does, so the file reads without a calculator.
+- =\caption= and =caption-position=; =\tfoot= for footer rows; =longtable= behavior in paged output through the stylesheet.
+
+* 9.3 Code and results
+#+begin_src klm
+\code[lang=rust name=hello exec results=output]{
+fn main() { println!("hello"); }
+}
+\results[for=hello]{
+hello
+}
+#+end_src
+
+- =\code= is verbatim; ~lang=~, =linenos=, ~highlight=3-5~, ~name=~.
+- *Execution* (Org Babel's semantics): =exec= marks the block runnable; ~results=output|value|replace|append|silent~, ~session=~, ~dir=~, ~tangle=PATH~, ~var=~, =noweb= references =\noweb[name]= inside code; ~\results[for=NAME]~ holds the output block the editor writes. Never automatic: the trust model of RFC 0001 section 12.
+- ~\raw[format=html|latex|typst]{…}~: passed through to that export target only, verbatim.
+
+* 9.4 Generic and predefined blocks
+- =\block[.kind …]{…}=: the generic block. Predefined kinds with default rendering: =note=, =tip=, =warning=, =important=, =caution= (admonitions), =theorem= family (8), =abstract=, =aside=, =example=, =quote= (with ~by=~), =verse= (line breaks kept), =center=, =epigraph=, =dedication=, =glossary=, =sample= (a section marked as a preview sample, Markua's lesson).
+- =\box[.sidebar …]{…}=: a text box placed by the stylesheet (margin, float, full width).
+- =\hr=: a thematic break.
