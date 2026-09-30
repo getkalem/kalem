@@ -954,20 +954,30 @@ impl Workspace {
             .bg(theme.bar)
             .border_b_1()
             .border_color(theme.border);
-        // The file manager and the projects, one click away.
+        // The file manager and the projects, one click away; the button of
+        // the view shown is pressed, and pressing it again keeps it.
+        let place = self
+            .editor
+            .read(cx)
+            .doc
+            .dired
+            .as_deref()
+            .map(|d| d.place == kalem_core::dired::Place::Projects);
         bar = bar
             .child(self.command_button(
                 "tool-files",
                 kalem_core::l10n::tr("menu-file-manager").into(),
                 "dired.jump",
-                "",
+                r#"{"show":true}"#,
+                place == Some(false),
                 cx,
             ))
             .child(self.command_button(
                 "tool-projects",
                 kalem_core::l10n::tr("menu-projects-view").into(),
                 "dired.projects",
-                "",
+                r#"{"show":true}"#,
+                place == Some(true),
                 cx,
             ))
             .child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
@@ -1019,12 +1029,15 @@ impl Workspace {
         cx.notify();
     }
 
+    /// A toolbar button that runs `id` with `args`, drawn pressed when
+    /// `pressed`.
     fn command_button(
         &self,
         name: &'static str,
         label: SharedString,
         id: &'static str,
         args: &'static str,
+        pressed: bool,
         cx: &mut Context<'_, Self>,
     ) -> impl IntoElement {
         div()
@@ -1034,6 +1047,7 @@ impl Workspace {
             .py(px(2.))
             .rounded(px(4.))
             .cursor_pointer()
+            .when(pressed, |d| d.bg(gpui::hsla(0., 0., 0.5, 0.25)))
             .hover(|s| s.bg(gpui::hsla(0., 0., 0.5, 0.15)))
             .child(label)
             .on_click(cx.listener(move |ws, _, window, cx| {

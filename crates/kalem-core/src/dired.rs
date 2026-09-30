@@ -1599,8 +1599,16 @@ fn step(ctx: &mut EditorContext<'_>, by: isize) -> CommandResult {
     Ok(())
 }
 
+/// The home folder (the current folder where there is none).
+fn home_dir() -> PathBuf {
+    PathBuf::from(crate::settings::expand_home("~"))
+        .canonicalize()
+        .or_else(|_| std::env::current_dir())
+        .unwrap_or_default()
+}
+
 /// The parent folder; from a project opened in the projects view, the
-/// projects.
+/// projects; from the projects view, the folder above a project.
 fn up(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
     let doc = listing(ctx)?;
     let s = state(doc);
@@ -1619,6 +1627,20 @@ fn up(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
         return Ok(());
     }
     let Place::Dir(d) = s.place.clone() else {
+        // In the projects view: the folder above the project at the
+        // cursor (the first one), else the home folder, so there is
+        // always a way up.
+        let at = s
+            .path_at(cursor_line(doc))
+            .or_else(|| s.projects.first().map(|p| p.root.clone()));
+        let (dir, select) = match &at {
+            Some(p) => (
+                p.parent().map_or_else(|| p.clone(), Path::to_path_buf),
+                Some(p.as_path()),
+            ),
+            None => (home_dir(), None),
+        };
+        doc.visit(Place::Dir(dir), select);
         return Ok(());
     };
     if s.via_projects.as_deref() == Some(d.as_path()) {
@@ -1746,7 +1768,13 @@ pub(crate) fn schemas() -> Vec<(&'static str, Value)> {
             "required": [name],
         })
     };
+    let show = serde_json::json!({
+        "type": "object",
+        "properties": { "show": { "type": "boolean" } },
+    });
     vec![
+        ("dired.jump", show.clone()),
+        ("dired.projects", show),
         ("dired.copy", one("target")),
         ("dired.move", one("target")),
         ("dired.mkdir", one("name")),
@@ -1802,15 +1830,32 @@ pub(crate) fn commands() -> Vec<Command> {
             "File Manager",
             &["ctrl+alt+d"],
             None,
-            |ctx, _| {
-                // From the file manager, the same key goes back to the
-                // document.
-                let listing = ctx.document.as_deref().is_some_and(|d| d.dired.is_some());
-                ctx.requests.push(Request::FileManager(if listing {
-                    FileManagerRequest::Leave
-                } else {
-                    FileManagerRequest::Dir { dir: None }
-                }));
+            |ctx, args| {
+                // `show` (the toolbar's button): always a folder, never
+                // back to the document.
+                let show = args.get("show").and_then(Value::as_bool) == Some(true);
+                if let Some(doc) = ctx.document.as_deref_mut()
+                    && let Some(s) = doc.dired.as_deref()
+                {
+                    match s.place {
+                        // From the projects view: the folder shown before
+                        // it, else the home folder; never the projects.
+                        Place::Projects => {
+                            let back = s.before_projects.clone().unwrap_or_else(home_dir);
+                            doc.visit(Place::Dir(back), None);
+                        }
+                        // The key goes back to the document; the button
+                        // stays.
+                        Place::Dir(_) if !show => {
+                            ctx.requests
+                                .push(Request::FileManager(FileManagerRequest::Leave));
+                        }
+                        Place::Dir(_) => {}
+                    }
+                    return Ok(());
+                }
+                ctx.requests
+                    .push(Request::FileManager(FileManagerRequest::Dir { dir: None }));
                 Ok(())
             },
         ),
@@ -1830,13 +1875,15 @@ pub(crate) fn commands() -> Vec<Command> {
             "Projects View",
             &["ctrl+alt+shift+d"],
             None,
-            |ctx, _| {
-                // In the projects view: back to the folder shown before.
+            |ctx, args| {
+                // In the projects view the key goes back to the folder
+                // shown before; the button (`show`) stays.
+                let show = args.get("show").and_then(Value::as_bool) == Some(true);
                 if let Some(doc) = ctx.document.as_deref_mut()
                     && let Some(s) = doc.dired.as_deref()
                     && s.place == Place::Projects
                 {
-                    if let Some(back) = s.before_projects.clone() {
+                    if let Some(back) = s.before_projects.clone().filter(|_| !show) {
                         doc.visit(Place::Dir(back), None);
                     }
                     return Ok(());
@@ -3097,5 +3144,87 @@ mod tests {
         // The projects view toggles back to the folder shown before.
         run(&mut doc, "dired.projects", json!({})).0.unwrap();
         assert_eq!(doc.meta.path.as_deref(), Some(d.join("two").as_path()));
+    }
+
+    /// The owner's two symptoms (T2.7e.19): the File Manager showing the
+    /// projects, and no way up from them.
+    #[test]
+    fn file_manager_and_projects_do_not_mix() {
+        let d = tree("fm-projects", &["one/sub/x.org", "two/y.org"]);
+        let rows = vec![
+            ProjectRow {
+                name: "one".into(),
+                root: d.join("one"),
+                used: 1,
+                exists: true,
+            },
+            ProjectRow {
+                name: "two".into(),
+                root: d.join("two"),
+                used: 2,
+                exists: true,
+            },
+        ];
+        let mut doc = DocumentState::open(
+            &d.join("two"),
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        let place = |doc: &DocumentState| doc.dired.as_deref().unwrap().place.clone();
+        // Projects → a project → up → the projects → up → the project's
+        // parent folder → up → further up.
+        show_projects(&mut doc, rows.clone(), None);
+        goto(&mut doc, "one");
+        run(&mut doc, "dired.open", json!({})).0.unwrap();
+        assert_eq!(place(&doc), Place::Dir(d.join("one")));
+        let (_, req) = run(&mut doc, "dired.up", json!({}));
+        assert!(matches!(
+            req.as_slice(),
+            [Request::FileManager(
+                crate::command::FileManagerRequest::Projects { .. }
+            )]
+        ));
+        show_projects(&mut doc, rows.clone(), Some(&d.join("one")));
+        run(&mut doc, "dired.up", json!({})).0.unwrap();
+        assert_eq!(place(&doc), Place::Dir(d.clone()));
+        assert!(line(&doc).contains("one"), "{}", line(&doc));
+        run(&mut doc, "dired.up", json!({})).0.unwrap();
+        assert_eq!(place(&doc), Place::Dir(d.parent().unwrap().to_path_buf()));
+        // A project's root remembers the projects for one step: into a
+        // folder and back, up is the real parent.
+        show_projects(&mut doc, rows.clone(), None);
+        goto(&mut doc, "one");
+        run(&mut doc, "dired.open", json!({})).0.unwrap();
+        goto(&mut doc, "sub");
+        run(&mut doc, "dired.open", json!({})).0.unwrap();
+        run(&mut doc, "dired.up", json!({})).0.unwrap();
+        assert_eq!(place(&doc), Place::Dir(d.join("one")));
+        let (_, req) = run(&mut doc, "dired.up", json!({}));
+        assert!(req.is_empty(), "{req:?}");
+        assert_eq!(place(&doc), Place::Dir(d.clone()));
+        // The File Manager from the projects: a real folder, never the
+        // projects; the button stays in a folder, the key goes back.
+        show_projects(&mut doc, rows.clone(), None);
+        run(&mut doc, "dired.jump", json!({ "show": true }))
+            .0
+            .unwrap();
+        assert_eq!(place(&doc), Place::Dir(d.clone()));
+        let (_, req) = run(&mut doc, "dired.jump", json!({ "show": true }));
+        assert!(req.is_empty());
+        assert_eq!(place(&doc), Place::Dir(d.clone()));
+        let (_, req) = run(&mut doc, "dired.jump", json!({}));
+        assert_eq!(
+            req,
+            vec![Request::FileManager(
+                crate::command::FileManagerRequest::Leave
+            )]
+        );
+        // The Projects button shows the projects, pressed again too.
+        show_projects(&mut doc, rows, None);
+        run(&mut doc, "dired.projects", json!({ "show": true }))
+            .0
+            .unwrap();
+        assert_eq!(place(&doc), Place::Projects);
     }
 }

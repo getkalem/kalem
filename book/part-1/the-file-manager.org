@@ -11,9 +11,22 @@ of open files calls it /File Manager/.
 It has two views. The normal view lists a folder: permissions, size,
 modification time and name, folders first. The projects view
 (Ctrl+Alt+Shift+D, or /Projects/ in the Project menu) lists every project,
-and only the projects, as if they were all in one folder. Opening a project
-lists its folder; going up from there shows the projects again. =P=
-switches between the two views.
+and only the projects, as if they were all in one folder. =P= switches
+between the two views. The rules:
+
+- The /File Manager/ button always shows a folder, never the projects:
+  from the projects, the folder shown before them, else the home folder;
+  pressed again, it stays. Ctrl+Alt+D does the same from the projects, and
+  from a folder goes back to the document.
+- The /Projects/ button always shows the projects; pressed again, it
+  stays. The button of the view shown is drawn pressed, and the terminal's
+  status line names the view.
+- Opening a project lists its folder, and going up from that folder, as
+  the first step, shows the projects again. Any other step forgets this:
+  after going into a subfolder and back, up is the real parent folder.
+- In the projects, up (=^=, =-=, Backspace) goes to the folder above the
+  project at the cursor, so there is always a way up to the root of the
+  file system.
 
 The listing is read-only text: the arrow keys, search, and with Vim keys
 =j k gg G= and =/= work as in any document. A click on a name opens it.

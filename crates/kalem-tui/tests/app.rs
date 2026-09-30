@@ -1646,6 +1646,23 @@ fn switching_to_the_file_manager_and_back() {
     t.draw();
     assert_eq!(t.app.doc.meta.path, None);
     assert!(t.text().contains("proj"));
+    // The status line names the view; Ctrl+Alt+D there shows a folder,
+    // never the projects again, and up from the projects is a folder
+    // (T2.7e.19).
+    assert!(status(&mut t).contains("Projects"), "{}", status(&mut t));
+    t.key(
+        KeyCode::Char('d'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    assert_eq!(title(&t), "proj/");
+    assert!(
+        status(&mut t).contains("File Manager"),
+        "{}",
+        status(&mut t)
+    );
+    t.app.run_command("dired.projects", serde_json::Value::Null);
+    t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    assert!(t.app.doc.meta.path.is_some());
     let _ = dir;
 }
 
