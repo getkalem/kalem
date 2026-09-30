@@ -110,6 +110,11 @@
   { "keys": "leader h t", "command": "help.theme", "when": "vimCommand" },
   { "keys": "leader h r r", "command": "help.reload", "when": "vimCommand" },
   { "keys": "leader h '", "command": "help.char", "when": "vimCommand" },
+  { "keys": "leader c w", "command": "edit.trimTrailingWhitespace", "when": "vimCommand" },
+  { "keys": "leader c shift+w", "command": "edit.trimTrailingBlankLines", "when": "vimCommand" },
+  { "keys": "leader c f", "command": "edit.formatDocument", "when": "vimCommand" },
+  { "keys": "leader c j", "command": "search.lines", "args": { "headings": true }, "when": "vimCommand" },
+  { "keys": "leader c e", "command": "table.recalculate", "when": "vimCommand && inTable" },
   { "keys": "leader q q", "command": "app.quit", "when": "vimCommand" },
   // The file manager: `-` (vim-vinegar, Doom) and Doom's `SPC o -` open it
   // at the document's folder and come back, `SPC p D` opens the project's
@@ -142,7 +147,7 @@
   { "keys": "l", "command": "dired.open" },
   { "keys": "$", "command": "dired.removeSubdir" },
   { "keys": "f", "command": "dired.properties" },
-  { "keys": "a", "command": "dired.projects" },
+  { "keys": "a", "command": "dired.projects", "when": "editorMode == directory" },
   { "keys": "shift+n", "command": "dired.filter" },
   { "keys": "y y", "command": "dired.copyPath" },
   { "keys": "y n", "command": "dired.copyName" },

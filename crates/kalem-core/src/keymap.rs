@@ -698,6 +698,46 @@ mod tests {
         }
     }
 
+    /// Typing text never runs a command: no binding of a printable key
+    /// without Control, Alt or Command applies in a document, outside
+    /// Vim's normal mode (file manager keys are for listings only).
+    #[test]
+    fn typed_characters_are_text() {
+        let reg = CommandRegistry::with_builtins();
+        let emacs = parse_keymap(
+            include_str!("../../../docs/keymaps/emacs.json"),
+            Origin::User,
+        )
+        .0;
+        for (name, profile, user) in [
+            ("word", Profile::Word, Vec::new()),
+            ("vim", Profile::Vim, Vec::new()),
+            ("emacs", Profile::Word, emacs),
+        ] {
+            let (m, _) = Keymap::build(&reg, profile, &user);
+            for mode in ["org", "markdown", "latex", "text", "csv"] {
+                let mut ctx = org_ctx(&["hasFile", "inProject"]);
+                ctx.set("editorMode", V::Str(mode.into()));
+                ctx.set("textType", V::Str(mode.into()));
+                ctx.set("vimMode", V::Str("insert".into()));
+                for b in m.bindings() {
+                    let first = &b.keys.0[0];
+                    let plain = !first.mods.ctrl && !first.mods.alt && !first.mods.cmd;
+                    if !plain || first.key.chars().count() != 1 {
+                        continue;
+                    }
+                    let seq = KeySequence(vec![first.clone()]);
+                    assert!(
+                        matches!(m.lookup(&seq, &ctx), Lookup::None),
+                        "{name}, {mode}: typing {} runs {:?}",
+                        seq,
+                        m.lookup(&seq, &ctx)
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn word_profile() {
         let reg = CommandRegistry::with_builtins();

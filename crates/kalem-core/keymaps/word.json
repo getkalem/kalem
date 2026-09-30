@@ -56,7 +56,7 @@
   { "keys": "n", "command": "dired.next" },
   { "keys": "p", "command": "dired.previous" },
   { "keys": "g", "command": "dired.refresh" },
-  { "keys": "shift+p", "command": "dired.projects" },
+  { "keys": "shift+p", "command": "dired.projects", "when": "editorMode == directory" },
   { "keys": "(", "command": "dired.toggleDetails" },
   { "keys": ".", "command": "dired.toggleHidden" },
   { "keys": "s", "command": "dired.sort" },

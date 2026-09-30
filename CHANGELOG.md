@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Format Document (`SPC c f`, as `kalem fmt` does for Org and LaTeX) and Delete Trailing Blank Lines (`SPC c W`), with Doom's other `SPC c` keys that need no language pack (T2.7i.10).
 - Doom's `SPC h` keys (T2.7i.9): Describe Key, All Key Bindings, Describe This Document, Describe the Character, Choose the Theme and Reload Settings and Keys, in both editors, and Set a Setting for keymaps and lists.
 - Doom's `SPC p` keys (T2.7i.8): browse or find a file in another project, a shell command at the project's folder, the project's TODOs, the other file of the same name (`.org` and its `.html` or `.pdf`), the workspace settings and the project's scratch.
 - Doom's `SPC o` keys (T2.7i.7): the system's terminal at the document's folder or the project, Export as HTML and Open, the link at point, the scratch document and a new window.
@@ -258,6 +259,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Typing a capital P in a document with the Word-like keys, or `a` in Vim's insert mode, opened the projects view: those file manager keys now apply only in a listing, and a test keeps typed characters from running commands.
 - In the Emacs keymap Enter in the file manager ran Newline instead of opening the entry; `SPC p D` and other project commands did not apply in a file manager listing.
 - The palette and the questions Kalem asks (a rename, a file name) take the arrows, Home, End and Delete, and move and delete by words, in both editors; before, typing only added or removed at the end.
 - Menus on Linux and Windows: the graphical editor draws its own menu bar there (gpui draws none; `ui.menu_bar = false` hides it). F10 (`view.menus`) lists every menu item in the palette in both editors, the terminal editor's way to its menus. The menus are defined once, in `kalem_core::menus`.
