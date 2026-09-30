@@ -323,3 +323,10 @@ fn more_citation_commands() {
         .collect();
     assert_eq!(keys, ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]);
 }
+
+#[test]
+fn input_without_braces() {
+    let m = latex_model::Model::new(&parse("\\input chapter1 more\n\\input{two}\n"));
+    let files: Vec<&str> = m.includes.iter().map(|i| i.target.as_str()).collect();
+    assert_eq!(files, ["chapter1", "two"]);
+}

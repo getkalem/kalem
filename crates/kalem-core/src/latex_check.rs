@@ -561,8 +561,30 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
 /// most frequent first (`\foo`, `\begin{bar}`). Formulas are the math
 /// renderer's and do not count.
 pub fn unrendered(text: &str) -> Vec<(String, usize)> {
+    unrendered_in(text, None)
+}
+
+/// The model the view renders `text` with: its project's, when the file
+/// is known (theorems and environments declared in an `\input` preamble
+/// count), else the text's own.
+fn view_model(parse: &latex_syntax::Parse, file: Option<&std::path::Path>) -> latex_model::Model {
+    match file {
+        Some(f) => {
+            let disk = latex_model::project::Disk;
+            let project = latex_model::project::ProjectCache::default().load(f, &disk);
+            let mut m = (*project.model).clone();
+            // The body is this file's.
+            m.body = latex_model::Model::new(parse).body;
+            m
+        }
+        None => latex_model::Model::new(parse),
+    }
+}
+
+/// [`unrendered`] with the project of `file`.
+pub fn unrendered_in(text: &str, file: Option<&std::path::Path>) -> Vec<(String, usize)> {
     let parse = latex_syntax::parse(text);
-    let model = latex_model::Model::new(&parse);
+    let model = view_model(&parse, file);
     let body = model.body.clone().unwrap_or(0..text.len());
     let mut counts: HashMap<String, usize> = HashMap::new();
     for n in parse.syntax().descendants() {
@@ -607,8 +629,13 @@ pub fn unrendered(text: &str) -> Vec<(String, usize)> {
 /// the view renders rather than shows as source (T2.7h.36): the
 /// commands and environments it does not render count as source, whole.
 pub fn coverage(text: &str) -> f64 {
+    coverage_in(text, None)
+}
+
+/// [`coverage`] with the project of `file`.
+pub fn coverage_in(text: &str, file: Option<&std::path::Path>) -> f64 {
     let parse = latex_syntax::parse(text);
-    let model = latex_model::Model::new(&parse);
+    let model = view_model(&parse, file);
     let body = model.body.clone().unwrap_or(0..text.len());
     let solid = |r: std::ops::Range<usize>| text[r].chars().filter(|c| !c.is_whitespace()).count();
     let total = solid(body.clone());
@@ -649,6 +676,25 @@ pub fn coverage(text: &str) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn coverage_uses_the_project() {
+        // A theorem declared in an `\input` preamble renders.
+        let dir = std::env::temp_dir().join(format!("kalem-latex-cover-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("defs.tex"), "\\newtheorem{lemma}{Lemma}\n").unwrap();
+        let text = "\\documentclass{article}\n\\input{defs}\n\\begin{document}\n\\begin{lemma}\nTrue.\n\\end{lemma}\n\\end{document}\n";
+        let path = dir.join("main.tex");
+        std::fs::write(&path, text).unwrap();
+        assert!(unrendered(text).iter().any(|(n, _)| n == "\\begin{lemma}"));
+        assert!(
+            unrendered_in(text, Some(&path)).is_empty(),
+            "{:?}",
+            unrendered_in(text, Some(&path))
+        );
+        assert_eq!(coverage_in(text, Some(&path)), 1.0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn diagnostics() {

@@ -125,6 +125,16 @@ pub fn find_root(
     setting: Option<&Path>,
     top: Option<&Path>,
 ) -> PathBuf {
+    // A relative path is searched from the current folder upwards, and
+    // what is found under it given back relative.
+    if file.is_relative()
+        && let Ok(cwd) = std::env::current_dir()
+    {
+        let root = find_root(&cwd.join(file), text, files, setting, top);
+        return root
+            .strip_prefix(&cwd)
+            .map_or(root.clone(), Path::to_path_buf);
+    }
     let dir = file.parent().unwrap_or(Path::new("")).to_path_buf();
     for name in magic_root(text).into_iter().chain(subfiles_main(text)) {
         if let Some(p) = with_tex(&dir, &name)

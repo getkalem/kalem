@@ -288,6 +288,16 @@ impl<'a> Parser<'a> {
                     newline = true;
                     i = e;
                 }
+                // TeX skips a comment and the line ending it:
+                // `\section%⏎{Title}`.
+                (Tok::Comment, e) => {
+                    i = e;
+                    if i < limit
+                        && let (Tok::Newline, e) = lexer::next(self.src, i, limit, self.at_letter)
+                    {
+                        i = e;
+                    }
+                }
                 _ => break,
             }
         }

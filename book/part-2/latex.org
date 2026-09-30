@@ -1209,7 +1209,9 @@ document's own step, the most common indentation the first line of an
 environment adds to its =\begin= line (a document that does not indent
 its environments keeps its indentation); runs of blank lines made one;
 blanks at line ends removed; one line ending at the end. Verbatim text
-(verbatim environment bodies and verbatim arguments) is not touched.
+(verbatim environment bodies and verbatim arguments, and the bodies of
+=alltt= and of the environments =\lstnewenvironment= declares) is not
+touched.
 =--align= lines up the top-level =&= of the rows of =tabular=,
 =tabularx=, =longtable=, =array=, =align=, =alignat=, =flalign=,
 =eqnarray=, the matrices and =cases= written one row a line

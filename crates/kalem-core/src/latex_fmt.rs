@@ -10,13 +10,37 @@ use std::ops::Range;
 
 use latex_syntax::{SyntaxKind as K, SyntaxNode};
 
-/// Verbatim text: environments' bodies and verbatim arguments.
+/// Verbatim text: environments' bodies and verbatim arguments, and the
+/// bodies of `alltt` and of the listings `\lstnewenvironment` declares,
+/// which the parser reads as LaTeX but LaTeX typesets line by line.
 fn protected(root: &SyntaxNode) -> Vec<Range<usize>> {
-    root.descendants_with_tokens()
+    let mut keep: Vec<Range<usize>> = root
+        .descendants_with_tokens()
         .filter_map(|e| e.into_token())
         .filter(|t| t.kind() == K::VERBATIM)
         .map(|t| usize::from(t.text_range().start())..usize::from(t.text_range().end()))
-        .collect()
+        .collect();
+    let text = root.text().to_string();
+    let mut lines_kept = vec!["alltt".to_string()];
+    let mut rest = text.as_str();
+    while let Some(i) = rest.find("\\lstnewenvironment") {
+        rest = &rest[i + "\\lstnewenvironment".len()..];
+        let r = rest.trim_start();
+        if let Some(inner) = r.strip_prefix('{')
+            && let Some(close) = inner.find('}')
+        {
+            lines_kept.push(inner[..close].trim().to_string());
+        }
+    }
+    for env in root.descendants().filter(|n| n.kind() == K::ENVIRONMENT) {
+        let name = latex_syntax::name(&env).unwrap_or_default();
+        if lines_kept.contains(&name)
+            && let Some(body) = env.children().find(|c| c.kind() == K::BODY)
+        {
+            keep.push(usize::from(body.text_range().start())..usize::from(body.text_range().end()));
+        }
+    }
+    keep
 }
 
 /// How many environments (not `document`) hold the line starting its
@@ -263,6 +287,12 @@ fn align_ampersands(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn listing_bodies_kept() {
+        let text = "\\lstnewenvironment{code}{}{}\n\\begin{alltt}\na\n\n\n  b\n\\end{alltt}\n\\begin{code}\nx\n\n\n    y\n\\end{code}\n";
+        assert_eq!(format(text, false), text);
+    }
 
     #[test]
     fn indentation_blank_lines_verbatim() {

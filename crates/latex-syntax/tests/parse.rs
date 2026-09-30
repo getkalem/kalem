@@ -439,3 +439,20 @@ fn tokens_of_an_empty_text() {
     assert!(latex_syntax::token_before(&root, 0).is_some());
     assert!(latex_syntax::token_at(&root, 9).is_some());
 }
+
+#[test]
+fn comment_before_an_argument() {
+    // TeX skips a comment and its line ending between a command and its
+    // argument.
+    let p = parse("\\section% the title\n  {Title} after\n");
+    let cmd = p
+        .syntax()
+        .descendants()
+        .find(|n| n.kind() == SyntaxKind::COMMAND)
+        .unwrap();
+    assert_eq!(cmd.text().to_string(), "\\section% the title\n  {Title}");
+    assert_eq!(
+        p.syntax().text().to_string(),
+        "\\section% the title\n  {Title} after\n"
+    );
+}

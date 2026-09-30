@@ -383,10 +383,12 @@ fn run_file(path: &Path, seed: u64, edits: usize, report: &mut Report) {
         )),
     }
     if let Some(text) = &text {
-        let c =
-            std::panic::catch_unwind(|| kalem_core::latex_check::coverage(text)).unwrap_or(-1.0);
+        let c = std::panic::catch_unwind(|| kalem_core::latex_check::coverage_in(text, Some(path)))
+            .unwrap_or(-1.0);
         report.coverage.push((c, name.clone()));
-        if let Ok(u) = std::panic::catch_unwind(|| kalem_core::latex_check::unrendered(text)) {
+        if let Ok(u) =
+            std::panic::catch_unwind(|| kalem_core::latex_check::unrendered_in(text, Some(path)))
+        {
             for (k, n) in u {
                 *report.unrendered.entry(k).or_default() += n;
             }
