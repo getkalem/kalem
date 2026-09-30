@@ -4,6 +4,7 @@
 //! Frontends read documents and change them only through this crate.
 
 pub mod affiliated;
+pub mod bibstyle;
 pub mod bibtex;
 mod builtin;
 pub mod cite;

@@ -1,0 +1,25 @@
+\documentclass{article}
+\usepackage{natbib}
+\begin{document}
+Body \cite{lamport94} \cite{many} \nocite{vdberg} \cite{knuth84,ll90} \cite{knuth84b} \cite{noauthor} \cite{lamport86} \cite{three}.
+\bibliographystyle{plainnat}
+\bibliography{refs}
+\clearpage
+\cite{knuth84}
+\citet{knuth84}
+\citep{knuth84}
+\citet{ll90}
+\citep{many}
+\citet{three}
+\citealt{knuth84}
+\citealp{knuth84}
+\citeauthor{ll90}
+\citeyear{ll90}
+\citep[see][p.~2]{lamport94}
+\citep[p.~2]{lamport94}
+\citep{knuth84,lamport86}
+\citet{knuth84,lamport86}
+\citep{knuth84,knuth84b}
+\citet{vdberg}
+\citep{noauthor}
+\end{document}

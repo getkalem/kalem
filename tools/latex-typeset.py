@@ -22,9 +22,18 @@ doc = (head.replace('\\begin{document}', defs + '\\begin{document}') + '\\clearp
 tmp = tempfile.mkdtemp()
 with open(os.path.join(tmp, 'p.tex'), 'w') as f:
     f.write(doc)
+# The bibliography files beside the document, for bibtex.
+here = os.path.dirname(os.path.abspath(src))
+for name in os.listdir(here):
+    if name.endswith('.bib'):
+        shutil.copy(os.path.join(here, name), tmp)
+run = lambda *cmd: subprocess.run(list(cmd), cwd=tmp, stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL)
+run('pdflatex', '-interaction=nonstopmode', 'p.tex')
+if '\\bibliography{' in doc:
+    run('bibtex', 'p')
 for _ in range(2):
-    subprocess.run(['pdflatex', '-interaction=nonstopmode', 'p.tex'], cwd=tmp,
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    run('pdflatex', '-interaction=nonstopmode', 'p.tex')
 log = open(os.path.join(tmp, 'p.log'), encoding='latin-1').read()
 shutil.rmtree(tmp)
 out = []

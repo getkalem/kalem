@@ -310,3 +310,16 @@ fn thmtools() {
     // `numbered=no`.
     check_labels("thmtools");
 }
+
+#[test]
+fn more_citation_commands() {
+    // natbib's and biblatex's other citation commands cite their keys.
+    let text = "\\citeyearpar{a} \\citenum{b} \\Citeauthor{c} \\citetitle{d} \\fullcite{e} \\supercite{f} \\cites{g} \\parencites{h} \\textcites{i} \\footcitetext{j}\n";
+    let m = latex_model::Model::new(&parse(text));
+    let keys: Vec<&str> = m
+        .citations
+        .iter()
+        .flat_map(|c| c.keys.iter().map(String::as_str))
+        .collect();
+    assert_eq!(keys, ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]);
+}

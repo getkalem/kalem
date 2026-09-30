@@ -54,7 +54,10 @@ pub fn command(name: &str) -> &'static str {
         "includegraphics" => "*om",
         "cite" | "citep" | "citet" | "parencite" | "textcite" | "autocite" | "footcite"
         | "citeauthor" | "citeyear" | "citealt" | "citealp" | "nocite" | "smartcite" | "Cite"
-        | "Citep" | "Citet" | "Parencite" | "Textcite" | "Autocite" => "*oom",
+        | "Citep" | "Citet" | "Parencite" | "Textcite" | "Autocite" | "citeyearpar" | "citenum"
+        | "Citeauthor" | "citetitle" | "fullcite" | "supercite" | "footcitetext" | "cites"
+        | "parencites" | "textcites" | "autocites" | "footcites" | "Cites" | "Parencites"
+        | "Textcites" | "Autocites" | "citealt*" | "Citealt" | "Citealp" => "*oom",
         "newcommand" | "renewcommand" | "providecommand" => "*moom",
         "newenvironment" | "renewenvironment" => "*moomm",
         "newtheorem" => "*momo",
