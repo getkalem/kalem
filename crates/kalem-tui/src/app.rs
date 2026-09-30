@@ -3194,7 +3194,11 @@ impl App {
             DocumentMode::Csv => "CSV".into(),
             DocumentMode::Latex => "LaTeX".into(),
             DocumentMode::Text { language: Some(l) } => l.clone(),
-            DocumentMode::Directory => tr!("mode-directory"),
+            // The view: the file manager, or the projects.
+            DocumentMode::Directory => match self.doc.dired.as_deref() {
+                Some(d) => d.list_title(),
+                None => tr!("mode-directory"),
+            },
             _ => tr!("mode-text"),
         };
         let view = if self.editor.source { " source" } else { "" };

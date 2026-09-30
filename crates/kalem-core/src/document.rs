@@ -347,10 +347,11 @@ impl DocumentState {
         let Some(s) = self.dired.as_mut() else {
             return;
         };
-        if let crate::dired::Place::Dir(d) = &place
-            && s.via_projects
-                .as_ref()
-                .is_some_and(|root| !d.starts_with(root))
+        // A project's root remembers the projects view for one step only:
+        // any other place forgets it (T2.7e.19).
+        if s.via_projects
+            .as_ref()
+            .is_some_and(|root| place != crate::dired::Place::Dir(root.clone()))
         {
             s.via_projects = None;
         }

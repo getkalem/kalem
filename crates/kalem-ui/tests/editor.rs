@@ -1690,6 +1690,45 @@ fn settle_jobs(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
     cx.run_until_parked();
 }
 
+/// The toolbar's two buttons, each pressed twice, in either order
+/// (T2.7e.19): File Manager always shows a folder, Projects the projects.
+#[gpui::test]
+fn file_manager_and_projects_buttons(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(false, cx);
+    let click = |name: &'static str, cx: &mut VisualTestContext| {
+        cx.run_until_parked();
+        let b = cx.debug_bounds(name).expect("the button");
+        cx.simulate_click(b.center(), gpui::Modifiers::default());
+        cx.run_until_parked();
+    };
+    let projects = |ws: &Entity<Workspace>, cx: &mut VisualTestContext| {
+        ws.read_with(cx, |ws, cx| {
+            ws.editor
+                .read(cx)
+                .doc
+                .dired
+                .as_deref()
+                .map(|d| d.place == kalem_core::dired::Place::Projects)
+        })
+    };
+    for order in [
+        ["tool-files", "tool-projects"],
+        ["tool-projects", "tool-files"],
+    ] {
+        for name in order {
+            for _ in 0..2 {
+                click(name, cx);
+                let want = name == "tool-projects";
+                assert_eq!(projects(&ws, cx), Some(want), "{name}");
+            }
+        }
+    }
+    // From the projects, up leads to a folder.
+    click("tool-projects", cx);
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(projects(&ws, cx), Some(false));
+}
+
 #[gpui::test]
 fn file_manager_and_projects_view(cx: &mut TestAppContext) {
     let (ws, dir, cx) = open_project(false, cx);
@@ -1845,16 +1884,19 @@ fn file_manager_from_the_toolbar_and_the_list(cx: &mut TestAppContext) {
         cx.simulate_click(b.center(), gpui::Modifiers::none());
         cx.run_until_parked();
     }
-    // The toolbar's File Manager, and again to come back.
+    // The toolbar's File Manager: a folder, and pressed again the same
+    // folder (T2.7e.19).
     click("tool-files", cx);
     assert_eq!(active_title(&ws, cx), "proj/");
     click("tool-files", cx);
-    assert_eq!(active_title(&ws, cx), "a.org");
+    assert_eq!(active_title(&ws, cx), "proj/");
     // The list of open files: the projects.
     click("files-projects", cx);
     let path = ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.meta.path.clone());
     assert_eq!(path, None);
-    // The key, back to the document.
+    // The key: from the projects a folder, from a folder the document.
+    cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
+    assert_eq!(active_title(&ws, cx), "proj/");
     cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
     assert_eq!(active_title(&ws, cx), "a.org");
 }
