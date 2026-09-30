@@ -1,34 +1,35 @@
 \klm[1.0]
 \meta[title="Kalem Görevleri" author="Mehmet Şekercioğlu" lang=tr style=notes todo="TODO NEXT WAIT | DONE CANCELLED"]
 
-\h1[
-  #kalem-0-1
-  todo=NEXT
-  priority=A
-  tags=kalem,release
+\h1[#kalem-0-1 todo=NEXT priority=A tags=kalem,release]{Kalem 0.1 sürümü}
+\props{
   deadline=<2026-12-20 Sun>
   category=Kalem
   client=getkalem
-]{Kalem 0.1 sürümü}
+}
 
 Sürümün önündeki üç engel: README, imzalı paketler ve on kullanıcı.
 
-\h2[#readme todo=DONE closed=<2026-09-29 Tue 18:40> effort=2h]{README'yi güncelle}
+\h2[#readme todo=DONE]{README'yi güncelle}
+\props{
+  closed=<2026-09-29 Tue 18:40>
+  effort=2h
+}
 \log{
   \entry[state=DONE from=TODO at=<2026-09-29 Tue 18:40>]{Durum paragrafı ve GIF eklendi.}
   \clock[from=<2026-09-29 Tue 16:10> to=<2026-09-29 Tue 18:40>]
 }
 
-\h2[#gif todo=TODO tags=release effort=3h]{README için GIF kaydı}
+\h2[#gif todo=TODO tags=release]{README için GIF kaydı}
+\props{
+  effort=3h
+}
 
-\h2[
-  #paketler
-  todo=TODO
-  priority=B
-  tags=release
+\h2[#paketler todo=TODO priority=B tags=release]{Üç platformda imzalı paket}
+\props{
   scheduled=<2026-10-07 Tue>
   effort=1d
-]{Üç platformda imzalı paket}
+}
 \log{
   \clock[from=<2026-09-30 Wed 09:00> to=<2026-09-30 Wed 11:30>]
 }
@@ -40,9 +41,12 @@ Sürümün önündeki üç engel: README, imzalı paketler ve on kullanıcı.
   \li[state=todo]{Linux: Flatpak}
 }
 
-\h2[#kullanicilar todo=WAIT tags=community scheduled=<2026-10-13 Tue>]{On kullanıcıdan geri bildirim}
+\h2[#kullanicilar todo=WAIT tags=community]{On kullanıcıdan geri bildirim}
+\props{
+  scheduled=<2026-10-13 Tue>
+}
 
-Org listesine duyuru (\ref[duyuru]{}) hazır; gönderim paketlerden sonra.
+Org listesine duyuru (\ref[duyuru]) hazır; gönderim paketlerden sonra.
 
 \h1[#duyuru todo=TODO tags=community]{Duyuru metni}
 
@@ -55,9 +59,13 @@ Taslak \link[file:docs/announcements/org-mailing-list-draft.md]{depoda}. Son oku
   \tr{\td{39} \td{22} \td{6} \td{28}}
   \tr{\td{40} \td{18} \td{9} \td{27}}
   \tr{\td{41} \td{20} \td{7} \td{27}}
-  \tr{\td{Toplam} \td{60} \td{22} \td{82}}
+  \tfoot{
+    \tr{\td{Toplam} \td{60} \td{22} \td{82}}
+  }
   \formulas{
-D2:D4 = B + C
-B5:D5 = SUM(B2:B4)
+    D = B + C
+    B@foot = SUM(B)
+    C@foot = SUM(C)
+    D@foot = SUM(D)
   }
 }
