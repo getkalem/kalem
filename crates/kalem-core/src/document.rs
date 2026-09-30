@@ -90,6 +90,8 @@ struct OrgState {
 /// An open document.
 #[derive(Debug)]
 pub struct DocumentState {
+    /// Edits are refused (Doom's `SPC t r`); the cursor still moves.
+    pub read_only: bool,
     text: Text,
     /// Incremented by every change.
     version: u64,
@@ -227,6 +229,7 @@ impl DocumentState {
             l
         });
         DocumentState {
+            read_only: false,
             text,
             version: 0,
             saved_version: 0,
@@ -590,6 +593,14 @@ impl DocumentState {
         // selection an edit would leave is not taken either: it may be past
         // the text the edit did not make.
         if self.dired.as_ref().is_some_and(|d| d.wdired.is_none()) {
+            return;
+        }
+        if self.read_only {
+            if tx.is_empty()
+                && let Some(sel) = tx.selection_after
+            {
+                self.selection = sel;
+            }
             return;
         }
         let before = self.selection;
@@ -1161,6 +1172,9 @@ impl DocumentState {
 
     /// Undoes the last step; returns its label.
     pub fn undo(&mut self) -> Option<String> {
+        if self.read_only {
+            return None;
+        }
         let replay = self.history.undo()?;
         for t in &replay.transactions {
             self.apply_raw(t);
@@ -1172,6 +1186,9 @@ impl DocumentState {
 
     /// Redoes the last undone step; returns its label.
     pub fn redo(&mut self) -> Option<String> {
+        if self.read_only {
+            return None;
+        }
         let replay = self.history.redo()?;
         for t in &replay.transactions {
             self.apply_raw(t);
@@ -1538,6 +1555,7 @@ impl DocumentState {
         c.flag("narrowed", self.narrowing.is_some());
         c.flag("modified", self.is_modified());
         c.flag("hasFile", self.meta.path.is_some());
+        c.flag("readOnly", self.read_only);
         c.set("textType", Value::Str(self.text_type()));
         let Some((parse, _)) = self.parse() else {
             return c;

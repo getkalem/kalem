@@ -1051,6 +1051,7 @@ impl Editor {
                 self.relayout();
                 cx.notify();
             }
+            Request::FullScreen => window.toggle_fullscreen(),
             Request::Focus => {
                 self.focus_mode = !self.focus_mode;
                 let m = if self.focus_mode {

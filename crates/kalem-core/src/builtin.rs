@@ -2017,6 +2017,23 @@ fn csv_commands() -> Vec<Command> {
     ]
 }
 
+thread_local! {
+    /// The font size before Big Text, to go back to.
+    static BIG_FROM: std::cell::Cell<Option<i64>> = const { std::cell::Cell::new(None) };
+}
+
+/// Saves setting `key` as `value` in the user's settings.
+fn set_setting(ctx: &mut EditorContext<'_>, key: &str, value: Value) -> CommandResult {
+    request(
+        ctx,
+        Request::SetSetting {
+            key: key.into(),
+            value,
+            quiet: false,
+        },
+    )
+}
+
 /// The selection on one line, else the word at the cursor, else nothing.
 fn word_or_selection(ctx: &mut EditorContext<'_>) -> Result<String, CommandError> {
     let doc = ctx.doc()?;
@@ -3436,6 +3453,79 @@ fn plain_commands() -> Vec<Command> {
                 Ok(())
             },
         ),
+        // Doom's `SPC t` (T2.7i.6): each a setting, so the key and the
+        // settings file agree.
+        cmd(
+            "view.toggleLineNumbers",
+            "Toggle Line Numbers",
+            "View",
+            &[],
+            None,
+            |ctx, _| {
+                let on = ctx.config.bool("editor.line_numbers");
+                set_setting(ctx, "editor.line_numbers", Value::Bool(!on))
+            },
+        ),
+        cmd(
+            "view.toggleSourceMarkers",
+            "Toggle Markup Characters",
+            "View",
+            &[],
+            None,
+            |ctx, _| {
+                let always = ctx.config.str("editor.show_source_markers") == "always";
+                let to = if always { "cursor" } else { "always" };
+                set_setting(ctx, "editor.show_source_markers", Value::from(to))
+            },
+        ),
+        cmd(
+            "view.bigText",
+            "Toggle Big Text",
+            "View",
+            &[],
+            None,
+            |ctx, _| {
+                let size = ctx.config.int("editor.font_size");
+                let to = BIG_FROM.with(|b| match b.take() {
+                    Some(before) => before,
+                    None => {
+                        b.set(Some(size));
+                        (size * 3 / 2).min(72)
+                    }
+                });
+                set_setting(ctx, "editor.font_size", Value::from(to))
+            },
+        ),
+        cmd(
+            "view.toggleReadOnly",
+            "Toggle Read-Only",
+            "View",
+            &[],
+            None,
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                doc.read_only = !doc.read_only;
+                let msg = if doc.read_only {
+                    "msg-read-only-on"
+                } else {
+                    "msg-read-only-off"
+                };
+                ctx.messages.push(crate::l10n::tr(msg));
+                Ok(())
+            },
+        ),
+        cmd(
+            "view.fullScreen",
+            "Toggle Full Screen",
+            "View",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::FullScreen),
+        ),
+        cmd("view.zen", "Zen Mode", "View", &[], None, |ctx, _| {
+            ctx.requests.push(Request::Focus);
+            request(ctx, Request::FullScreen)
+        }),
         cmd(
             "view.toggleWrap",
             "Toggle Soft Wrap",
@@ -5423,5 +5513,46 @@ mod tests {
     #[test]
     fn online_search_addresses() {
         assert_eq!(super::url_encode("org mode ç&x"), "org+mode+%C3%A7%26x");
+    }
+
+    #[test]
+    fn read_only_documents() {
+        let mut d = doc("one two\n", 0);
+        let (reg, mut clip, config) = (
+            CommandRegistry::with_builtins(),
+            crate::command::Clipboard::default(),
+            crate::settings::Config::default(),
+        );
+        let mut run = |d: &mut DocumentState, id: &str| {
+            let mut ctx = EditorContext {
+                document: Some(d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 9, 30).at(9, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            reg.execute(id, &mut ctx, &serde_json::Value::Null).unwrap();
+            ctx.requests
+        };
+        run(&mut d, "view.toggleReadOnly");
+        assert!(d.read_only);
+        d.insert_text("x", Instant::now());
+        assert_eq!(d.text().as_str(), "one two\n");
+        d.move_cursor(4, false);
+        assert_eq!(d.selection.head, 4);
+        assert!(d.undo().is_none());
+        run(&mut d, "view.toggleReadOnly");
+        d.insert_text("x", Instant::now());
+        assert_eq!(d.text().as_str(), "one xtwo\n");
+        // The toggles are settings.
+        let req = run(&mut d, "view.toggleLineNumbers");
+        assert!(matches!(&req[..], [Request::SetSetting { key, value, .. }]
+            if key == "editor.line_numbers" && *value == serde_json::Value::Bool(false)));
+        let req = run(&mut d, "view.bigText");
+        assert!(matches!(&req[..], [Request::SetSetting { value, .. }] if *value == 24));
+        let req = run(&mut d, "view.bigText");
+        assert!(matches!(&req[..], [Request::SetSetting { value, .. }] if *value == 16));
     }
 }

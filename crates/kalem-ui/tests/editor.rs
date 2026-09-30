@@ -2044,6 +2044,37 @@ fn live_line_search(cx: &mut TestAppContext) {
     assert_eq!(line, 2);
 }
 
+/// Doom's `SPC t` toggles (T2.7i.6): read-only refuses edits; line
+/// numbers are a setting, saved.
+#[gpui::test]
+fn toggles(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(true, cx);
+    let text = |cx: &mut VisualTestContext| {
+        ws.read_with(cx, |ws, cx| {
+            ws.editor.read(cx).doc.text().as_str().to_string()
+        })
+    };
+    let before = text(cx);
+    cx.simulate_keystrokes("space t r i");
+    cx.simulate_input("xyz");
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert_eq!(text(cx), before);
+    cx.simulate_keystrokes("space t r i");
+    cx.simulate_input("xyz");
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert_ne!(text(cx), before);
+    cx.simulate_keystrokes("space t l");
+    cx.run_until_parked();
+    let on = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).shared.config.bool("editor.line_numbers")
+    });
+    assert!(!on);
+    let saved = std::fs::read_to_string(dir.join("settings.toml")).unwrap_or_default();
+    assert!(saved.contains("line_numbers"), "{saved}");
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

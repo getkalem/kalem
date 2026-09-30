@@ -1608,6 +1608,7 @@ impl App {
                 self.refresh_vim();
                 self.dirty = true;
             }
+            Request::FullScreen => self.message(tr!("msg-full-screen-terminal"), false),
             Request::Focus => {
                 self.editor.focus = !self.editor.focus;
                 self.editor.follow = true;

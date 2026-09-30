@@ -83,8 +83,15 @@ follow:
 | =SPC t w=            | Soft wrap                                   |
 | =SPC t z=            | Focus mode                                  |
 | =SPC t m=            | Formula preview                             |
+| =SPC t l=, =SPC t v= | Line numbers; markup characters shown       |
+| =SPC t b=            | Big text, and back                          |
+| =SPC t r=            | Read-only: edits refused, and back          |
+| =SPC t F=, =SPC t Z= | Full screen; full screen and focus mode     |
 | =SPC w v=            | Split view                                  |
 | =SPC q q=            | Quit                                        |
+
+The toggles that are settings (line numbers, markup characters, big
+text) save the setting, so the settings file and the key agree.
 
 A document follows its file when the file is renamed or moved, from
 here or from the file manager, and closes when the file goes to the

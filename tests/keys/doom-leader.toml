@@ -665,25 +665,25 @@ reason = "Planned: T2.7i.5"
 doom = "SPC t b"
 keys = "space t b"
 what = "Big text"
-reason = "Planned: T2.7i.6"
+command = "view.bigText"
 
 [[key]]
 doom = "SPC t c"
 keys = "space t c"
 what = "Fill column indicator"
-reason = "Planned: T2.7i.6"
+reason = "Not yet: a line at the fill column or the word target"
 
 [[key]]
 doom = "SPC t f"
 keys = "space t f"
 what = "Diagnostics"
-reason = "Planned: T2.7i.6"
+reason = "Not yet: the checks of =kalem check= shown in the editor (3.8 for code)"
 
 [[key]]
 doom = "SPC t F"
 keys = "space t shift+f"
 what = "Frame full screen"
-reason = "Planned: T2.7i.6"
+command = "view.fullScreen"
 
 [[key]]
 doom = "SPC t g"
@@ -695,19 +695,19 @@ reason = "An Evil package with nothing to show here"
 doom = "SPC t i"
 keys = "space t i"
 what = "Indent guides"
-reason = "Planned: T2.7i.6"
+reason = "Not yet: indentation guides"
 
 [[key]]
 doom = "SPC t I"
 keys = "space t shift+i"
 what = "Indent style"
-reason = "Planned: T2.7i.6"
+reason = "Not yet: the indentation style as a toggle"
 
 [[key]]
 doom = "SPC t l"
 keys = "space t l"
 what = "Line numbers"
-reason = "Planned: T2.7i.6"
+command = "view.toggleLineNumbers"
 
 [[key]]
 doom = "SPC t m"
@@ -719,31 +719,31 @@ command = "view.toggleMath"
 doom = "SPC t p"
 keys = "space t p"
 what = "Presentation mode"
-reason = "Planned: T2.7i.6"
+reason = "Waits for the slide show (3.7)"
 
 [[key]]
 doom = "SPC t r"
 keys = "space t r"
 what = "Read-only"
-reason = "Planned: T2.7i.6"
+command = "view.toggleReadOnly"
 
 [[key]]
 doom = "SPC t s"
 keys = "space t s"
 what = "Spell checking"
-reason = "Planned: T2.7i.6"
+reason = "Waits for the spell checker (3.6)"
 
 [[key]]
 doom = "SPC t t"
 keys = "space t t"
 what = "Word wrap by visual line"
-reason = "Planned: T2.7i.6"
+reason = "Kalem wraps by visual line already; =SPC t w= toggles wrapping"
 
 [[key]]
 doom = "SPC t v"
 keys = "space t v"
 what = "Visible mode"
-reason = "Planned: T2.7i.6"
+command = "view.toggleSourceMarkers"
 
 [[key]]
 doom = "SPC t w"
@@ -761,7 +761,7 @@ command = "view.focus"
 doom = "SPC t Z"
 keys = "space t shift+z"
 what = "Zen and full screen"
-reason = "Planned: T2.7i.6"
+command = "view.zen"
 
 
 # Open =SPC o=.

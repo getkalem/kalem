@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Doom's `SPC t` toggles (T2.7i.6): line numbers, markup characters, big text, read-only documents, full screen and zen mode, in both editors; the toggles that are settings save them.
 - Search Lines (T2.7i.4): a live list of the lines holding every word typed, the cursor following the chosen line (Doom's `SPC s b`), in this document or every open one, or of the headings (`SPC s i`); Search in Folder, Search in Another Project and Search Online (`search.online_url`), with Doom's `SPC s` keys, in both editors.
 - Doom's `SPC f` keys (T2.7i.3) in both editors: delete, rename or move and copy this file, copy its path (absolute or from the project), open the settings folder, your keymap and the workspace settings. An open document now follows its file when the file or a folder above it is moved, and closes when it goes to the trash (unless it has unsaved changes).
 - Doom's `SPC b` keys (T2.7i.2) and their commands in both editors: Save All, Close Other Documents, Close All Documents, Last Document (`SPC b l`, `` SPC ` ``), Move Document to the End, Scratch Document (`SPC b x`, `SPC x`; `SPC b X` the project's, kept in the state directory) and Copy the Whole Document.
