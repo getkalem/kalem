@@ -677,7 +677,7 @@ CSV
 - [x] T2.11.68 Malformed CSV has no diagnostic: a stray opening quote swallows the rest of the file; `value()` and `scan()` disagree on `"a"b"c` (code)
 - [x] T2.11.69 Blank lines are data records: Sort File moves them to the top; the filter counts them (book, maybe code)
 - [x] T2.11.70 The CSV oracle is overstated: the Excel and LibreOffice fixtures are hand-written (Excel does not quote numbers); relabel them synthetic or replace them with real exports (book, tests)
-- [ ] T2.11.71 Emacs file variables: only the first line's `mode:` is read; `coding:`, a mode line on line two after `#!`, and `Local Variables:` blocks are not; content sniffing for TSV saved as `.txt` (Excel's "Unicode Text") is missing (code, book)
+- [x] T2.11.71 Emacs file variables: only the first line's `mode:` is read; `coding:`, a mode line on line two after `#!`, and `Local Variables:` blocks are not; content sniffing for TSV saved as `.txt` (Excel's "Unicode Text") is missing (code, book)
 - [ ] T2.11.72 Import Table (Org) uses a weaker CSV reader (tab, comma or spaces; no `;`, no quoted line breaks) than CSV mode (code or book)
 
 Markdown and plain text

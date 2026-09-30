@@ -194,7 +194,12 @@ pub fn decode_with(
             if binary(&bytes) {
                 return Err(OpenError::Binary);
             }
-            match wanted.filter(|e| *e != UTF_8) {
+            // Else the file's own `coding:` (a `-*-` line or a `Local
+            // Variables:` block), as Emacs reads it.
+            match wanted
+                .or_else(|| file_coding(&bytes))
+                .filter(|e| *e != UTF_8)
+            {
                 Some(enc) => {
                     let (t, lossy) = enc.decode_without_bom_handling(&bytes);
                     (t.into_owned(), enc, false, lossy)
@@ -219,19 +224,9 @@ pub fn decode_with(
             }
         }
     };
-    let head = &text.as_bytes()[..text.len().min(8192)];
-    let head = &head[..(0..=head.len())
-        .rev()
-        .find(|&i| text.is_char_boundary(i))
-        .unwrap_or(0)];
-    let mode = DocumentMode::detect(path, head);
     let meta = Metadata {
         path: path.map(Path::to_path_buf),
-        mode: if mode == DocumentMode::Binary {
-            DocumentMode::detect(path, b"")
-        } else {
-            mode
-        },
+        mode: DocumentMode::detect_text(path, &text),
         line_ending: line_ending_of(&text),
         bom: has_bom,
         encoding,
@@ -263,18 +258,9 @@ pub fn decode_as(
     };
     let (text, lossy) = encoding.decode_without_bom_handling(rest);
     let text = text.into_owned();
-    let head = &text.as_bytes()[..text.len().min(8192)];
-    let head = &head[..(0..=head.len())
-        .rev()
-        .find(|&i| text.is_char_boundary(i))
-        .unwrap_or(0)];
-    let mode = match DocumentMode::detect(path, head) {
-        DocumentMode::Binary => DocumentMode::detect(path, b""),
-        m => m,
-    };
     let meta = Metadata {
         path: path.map(Path::to_path_buf),
-        mode,
+        mode: DocumentMode::detect_text(path, &text),
         line_ending: line_ending_of(&text),
         bom: bom || encoding == encoding_rs::UTF_16LE || encoding == encoding_rs::UTF_16BE,
         encoding,
@@ -349,6 +335,39 @@ fn locale_hint() -> Option<String> {
         Some(region) => Some(region.to_ascii_lowercase()),
         None => from_language(&language).or_else(|| from_language(&crate::l10n::language())),
     }
+}
+
+/// The encoding a file names in a `coding:` file variable: Emacs's names
+/// (`latin-1`, `iso-latin-5`, `utf-8-unix`, `cp1254`) or any WHATWG label.
+pub fn file_coding(bytes: &[u8]) -> Option<&'static encoding_rs::Encoding> {
+    let head = String::from_utf8_lossy(&bytes[..bytes.len().min(8192)]);
+    let tail = String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(3000)..]);
+    let name = crate::mode::mode_line_variable(&head, "coding")
+        .or_else(|| crate::mode::local_variable(&tail, "coding"))?;
+    emacs_coding(&name)
+}
+
+/// The encoding of an Emacs coding system's name.
+fn emacs_coding(name: &str) -> Option<&'static encoding_rs::Encoding> {
+    let name = name.trim().to_ascii_lowercase();
+    let name = ["-unix", "-dos", "-mac"]
+        .iter()
+        .find_map(|s| name.strip_suffix(s))
+        .unwrap_or(&name);
+    let name = match name {
+        "utf-8-with-signature" | "utf-8-emacs" | "prefer-utf-8" | "mule-utf-8" => "utf-8",
+        "turkish-iso-8bit" => "iso-8859-9",
+        "undecided" | "raw-text" | "no-conversion" | "binary" => return None,
+        n => n,
+    };
+    let label = match name
+        .strip_prefix("iso-latin-")
+        .or_else(|| name.strip_prefix("latin-"))
+    {
+        Some(n) => format!("latin{n}"),
+        None => name.to_string(),
+    };
+    encoding_for(&label)
 }
 
 /// A UTF-32 byte order mark, which starts like UTF-16LE's.
@@ -762,6 +781,21 @@ mod tests {
         assert_eq!(line_ending_of("a\r\nb\n"), LineEnding::Lf);
         assert_eq!(line_ending_of("a"), LineEnding::Lf);
         assert_eq!(line_ending_of("a\rb\r"), LineEnding::Cr);
+        // The file's `coding:` names its encoding, as Emacs reads it.
+        let mut bytes = b"# -*- coding: iso-latin-5 -*-\n".to_vec();
+        bytes.extend_from_slice(b"\xfd\xfe\n");
+        let (t, m) = decode(Some(Path::new("t.txt")), bytes).unwrap();
+        assert_eq!(
+            (m.encoding, t.lines().nth(1)),
+            (encoding_rs::WINDOWS_1254, Some("ış"))
+        );
+        let mut bytes = vec![b'x'; 9000];
+        bytes.extend_from_slice(b"\nLocal Variables:\ncoding: cp1251\nmode: org\nEnd:\n\xe0");
+        let (_, m) = decode(Some(Path::new("t.txt")), bytes).unwrap();
+        assert_eq!(
+            (m.encoding, &m.mode),
+            (encoding_rs::WINDOWS_1251, &DocumentMode::Org)
+        );
         // Short Turkish text reads as Windows-1254 with a Turkish hint.
         let (b, _, _) = encoding_rs::WINDOWS_1254.encode("ağaç");
         assert_eq!(guess_in(&b, Some("tr")), encoding_rs::WINDOWS_1254);

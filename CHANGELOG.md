@@ -240,6 +240,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Emacs file variables: a `-*-` line on the second line after `#!`, a `Local Variables:` block's `mode:` (which beats the file name, as in Emacs) and `coding:` in either are read; a tab-separated `.txt` file (Excel's "Unicode Text") opens as CSV.
 - CSV: blank lines are not data: Sort File and Sort View keep them after the other rows, Filter Rows neither counts nor matches them, and Insert Column leaves them blank. Sort File and Filter Rows keep and skip an Excel `sep=` line.
 - CSV: a quote that is never closed, text after a closing quote and a quote inside an unquoted value are reported in the status bar at the record and by `kalem check` (which no longer checks a CSV file as Org); a quoted field's value ends at the first undoubled quote, as the scanner reads it.
 - CSV: the delimiter and header are detected once and kept while the file is open (renaming a header cell to a number no longer drops the header); detection prefers the delimiter that reads fields as numbers (`elma;1,5` and `1,5;2,5` split at `;`) and is not decided by a one-field title line; Excel's `sep=;` first line sets the delimiter and is not taken for the header. New commands set the delimiter, the quote character and the header by hand, and detect them again.
