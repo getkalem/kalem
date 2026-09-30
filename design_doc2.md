@@ -43,7 +43,7 @@ The rest of this document turns those three sentences into a plan.
 | Org | The Org Syntax document as `org-element.el` implements it, Org 9.7 | Differential tests against Emacs on the corpus and on mutated inputs; editing commands against Emacs; exporters byte for byte against `ox.el` | Parser, model, editing, tables, HTML and Markdown export at 100% |
 | Markdown | CommonMark plus the GitHub extensions | The CommonMark and GFM specification test suites (every example in the specs is a test), and `cmark-gfm` as the reference implementation | Planned, 2.7c |
 | CSV | RFC 4180 and the dialects in the wild | Round trip on a corpus of files written by Excel, LibreOffice Calc and Google Sheets in several locales; RFC 4180 edge cases | Done, 2.7d (the Book, Part II, "CSV") |
-| LaTeX | Standard LaTeX as the engines accept it | Byte-exact round trip; structural agreement with pandoc's LaTeX reader on an arXiv corpus; compile-and-compare with tectonic; KaTeX for math | In progress, 2.7h |
+| LaTeX | Standard LaTeX as the engines accept it | Byte-exact round trip; structural agreement with pandoc's LaTeX reader on an arXiv corpus; compile-and-compare with tectonic; KaTeX for math; the PDF the authors published as the ground truth for numbering, references, citations and the typeset formulas, on thousands of documents (T2.7h.34a, owner, 2026-09-30) | In progress, 2.7h |
 
 Three rules bind every standard mode, and they already hold for Org:
 
