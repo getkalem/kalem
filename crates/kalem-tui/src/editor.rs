@@ -848,23 +848,31 @@ impl<'a> Layout<'a> {
     /// The table of contents a `#+TOC:` line shows away from the cursor:
     /// a title row, then a row a heading, each leading to it.
     fn toc_rows(&self, range: &Range<usize>) -> Option<Vec<Vec<Glyph>>> {
-        let p = self.parse.filter(|_| !self.source)?;
-        if !kalem_core::toc::wanted(self.text().as_str(), self.cursor, range) {
+        if self.source {
             return None;
         }
-        let version = self.doc.version();
-        let doc = {
-            let mut c = self.toc.0.borrow_mut();
-            match &*c {
-                Some((v, d)) if *v == version => d.clone(),
-                _ => {
-                    let d = Arc::new(org_model::Document::new(p.clone()));
-                    *c = Some((version, d.clone()));
-                    d
-                }
+        let entries = if self.doc.latex().is_some() {
+            // `\tableofcontents` in LaTeX.
+            kalem_core::toc::latex_toc(self.doc, range.clone())?
+        } else {
+            let p = self.parse?;
+            if !kalem_core::toc::wanted(self.text().as_str(), self.cursor, range) {
+                return None;
             }
+            let version = self.doc.version();
+            let doc = {
+                let mut c = self.toc.0.borrow_mut();
+                match &*c {
+                    Some((v, d)) if *v == version => d.clone(),
+                    _ => {
+                        let d = Arc::new(org_model::Document::new(p.clone()));
+                        *c = Some((version, d.clone()));
+                        d
+                    }
+                }
+            };
+            kalem_core::toc::toc_at(&doc, range.clone())?
         };
-        let entries = kalem_core::toc::toc_at(&doc, range.clone())?;
         let style = |s: view::Style| render::style_base(&s, 0, self.caps);
         let dim = style(view::Style {
             dim: true,

@@ -174,6 +174,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - File manager: `W` opens the marked files with their applications, Show in System File Manager selects the file in Finder, Explorer or the desktop's file manager, and `!` runs a shell command on the marked files after asking (`*` and `?` as in Dired); in both editors.
 - File manager (graphical): `v` shows a preview pane beside the listing (pictures, the first lines of text files, folders' names), Ctrl+T the listing's pictures as thumbnails, a click going to the picture's line.
 - LaTeX links: Open Link (Ctrl-click, Cmd-click on macOS) follows a reference to its label, `\url` and `\href` to the browser, `\input` and `\include` to their file, `\includegraphics` to its picture and a citation to the bibliography file; in both editors.
+- LaTeX: `\tableofcontents` shows the document's table of contents, numbered, each entry leading to its section.
 - LaTeX: Insert Figure asks for the picture (the system's file dialog in the graphical editor) and takes a width.
 - Fixed: the graphical editor could crash on LaTeX lines with `\\` (shown as ↵) and other replaced text: the source's syntax colors were laid over the rendered text and cut a character. They now color only lines shown as their source, and the runs of a line are kept on character boundaries.
 - Fixed: typing `"` in a long LaTeX document without `\begin{document}` could crash when a letter of two bytes fell at 8 KiB.

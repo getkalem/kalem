@@ -3044,3 +3044,13 @@ fn inserted_latex_table_is_a_grid() {
     let rows = screen(&mut t).join("\n");
     assert!(!rows.contains(" & "), "{rows}");
 }
+
+#[test]
+fn latex_table_of_contents_in_the_terminal() {
+    let text = "\\documentclass{article}\n\\begin{document}\n\\tableofcontents\n\\section{One}\n\\subsection{Sub}\n\\section{Two}\n\\end{document}\n";
+    let mut t = with_file(text, "c.tex", Config::default(), (50, 14));
+    t.at(text.len());
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("1 One") && rows.contains("1.1 Sub") && rows.contains("2 Two"), "{rows}");
+    assert!(!rows.contains("\\tableofcontents"), "{rows}");
+}
