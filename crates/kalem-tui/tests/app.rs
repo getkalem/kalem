@@ -3482,3 +3482,37 @@ fn file_manager_right_click() {
     );
     assert_eq!(marks(&t), 1);
 }
+
+/// The arrows, Home, End and Delete edit a prompt's text: Shift+R in the
+/// file manager, the cursor moved into the name (reported by the owner,
+/// 2026-09-30).
+#[test]
+fn editing_a_prompt_with_the_arrows() {
+    let (mut t, dir) = project_app(Config::default());
+    t.key(
+        KeyCode::Char('d'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    let at = t.text().find(" a.org").unwrap() + 1;
+    t.at(at);
+    t.key(KeyCode::Char('R'), KeyModifiers::SHIFT);
+    for _ in 0..4 {
+        t.key(KeyCode::Left, KeyModifiers::NONE);
+    }
+    t.typ("x");
+    t.key(KeyCode::Right, KeyModifiers::NONE);
+    t.key(KeyCode::Delete, KeyModifiers::NONE);
+    t.key(KeyCode::Home, KeyModifiers::NONE);
+    t.key(KeyCode::End, KeyModifiers::NONE);
+    t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    settle(&mut t);
+    assert!(dir.join("proj/ax.r").exists(), "{}", status(&mut t));
+    // The palette's text too: Ctrl+Left goes a word back.
+    t.app.run_command("view.palette", serde_json::Value::Null);
+    t.typ("save as");
+    t.key(KeyCode::Left, KeyModifiers::CONTROL);
+    t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("> saveas"), "{shown}");
+}
