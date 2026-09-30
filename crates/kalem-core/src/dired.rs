@@ -1774,6 +1774,13 @@ pub(crate) fn schemas() -> Vec<(&'static str, Value)> {
     });
     vec![
         ("dired.jump", show.clone()),
+        (
+            "dired.contextMenu",
+            serde_json::json!({
+                "type": "object",
+                "properties": { "listing": { "type": "boolean" } },
+            }),
+        ),
         ("dired.projects", show),
         ("dired.copy", one("target")),
         ("dired.move", one("target")),
@@ -2470,7 +2477,366 @@ pub(crate) fn commands() -> Vec<Command> {
                 Ok(())
             },
         ),
+        // The keys everyone knows (T2.7e.17).
+        cmd(
+            "dired.copyFiles",
+            "Copy Files",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| clip_files(ctx, false),
+        ),
+        cmd(
+            "dired.cutFiles",
+            "Cut Files",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| clip_files(ctx, true),
+        ),
+        cmd(
+            "dired.paste",
+            "Paste Files",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let dir = the_dir(doc)?;
+                let Some((paths, cut)) = FILE_CLIPBOARD.lock().ok().and_then(|c| c.clone()) else {
+                    return Err(CommandError::new(tr("fm-clipboard-empty")));
+                };
+                if cut && let Ok(mut c) = FILE_CLIPBOARD.lock() {
+                    // Moved once; the clipboard is spent.
+                    *c = None;
+                }
+                let kind = if cut {
+                    kalem_fs::OpKind::Move
+                } else {
+                    kalem_fs::OpKind::Copy
+                };
+                file_op(ctx, kind, paths, Some(dir))
+            },
+        ),
+        cmd(
+            "dired.duplicate",
+            "Duplicate",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let sources = state(doc).targets(cursor_line(doc));
+                // One entry: beside it as `name copy.ext`; several: into
+                // their folder, where the conflict dialog offers Keep Both.
+                let target = match sources.as_slice() {
+                    [one] => Some(copy_name(one)),
+                    _ => Some(the_dir(doc)?),
+                };
+                file_op(ctx, kalem_fs::OpKind::Copy, sources, target)
+            },
+        ),
+        cmd(
+            "dired.markAll",
+            "Select All",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let s = state_mut(doc);
+                let paths: Vec<PathBuf> = s.entries.iter().map(|e| e.path.clone()).collect();
+                for p in paths {
+                    s.marks.insert(p, Mark::Marked);
+                }
+                doc.show_listing(None);
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.copyRelativePath",
+            "Copy Relative Paths",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let dir = the_dir(doc)?;
+                // From the project's root when there is one, else from
+                // the folder listed.
+                let base = kalem_project::list::detect_root(&dir).unwrap_or(dir);
+                let text = state(doc)
+                    .targets(cursor_line(doc))
+                    .iter()
+                    .map(|p| {
+                        crate::kinds::relative(&base, p).unwrap_or_else(|| p.display().to_string())
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                ctx.messages.push(text.clone());
+                ctx.requests.push(Request::CopyText(text));
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.contextMenu",
+            "File Menu",
+            &["shift+f10"],
+            Some(IN_LISTING),
+            |ctx, args| {
+                let doc = listing(ctx)?;
+                // On an entry unless asked for the listing itself.
+                let on_entry = args.get("listing").and_then(Value::as_bool) != Some(true)
+                    && state(doc).path_at(cursor_line(doc)).is_some();
+                let items = context_menu(doc, on_entry)
+                    .into_iter()
+                    .filter_map(|i| match i {
+                        ContextItem::Command {
+                            label,
+                            id,
+                            args,
+                            enabled: true,
+                        } => Some(crate::palette::PaletteItem {
+                            id: if args.is_null() {
+                                id.to_string()
+                            } else {
+                                crate::palette::invocation(id, &args)
+                            },
+                            title: label,
+                            category: tr("fm-menu"),
+                            keys: String::new(),
+                            also: id.replace('.', " "),
+                        }),
+                        _ => None,
+                    })
+                    .collect();
+                ctx.requests.push(Request::Choose(items));
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.properties",
+            "Properties",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let s = state(doc);
+                let e = s
+                    .entry(cursor_line(doc))
+                    .cloned()
+                    .ok_or_else(|| CommandError::new(tr("fm-nothing")))?;
+                let items = properties(&e)
+                    .into_iter()
+                    .map(|(k, v)| crate::palette::PaletteItem {
+                        id: "dired.copyPath".into(),
+                        title: v,
+                        category: k,
+                        keys: String::new(),
+                        also: String::new(),
+                    })
+                    .collect();
+                ctx.requests.push(Request::Choose(items));
+                Ok(())
+            },
+        ),
     ]
+}
+
+/// Files copied or cut in the file manager, and whether they were cut:
+/// pasted into a folder as a copy or a move.
+static FILE_CLIPBOARD: std::sync::Mutex<Option<(Vec<PathBuf>, bool)>> = std::sync::Mutex::new(None);
+
+/// Puts the targets on the file clipboard (`cut` to move them when
+/// pasted), and their paths on the system clipboard as text.
+fn clip_files(ctx: &mut EditorContext<'_>, cut: bool) -> CommandResult {
+    let doc = listing(ctx)?;
+    let paths = state(doc).targets(cursor_line(doc));
+    if paths.is_empty() {
+        return Err(CommandError::new(tr("fm-nothing")));
+    }
+    let text = paths
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let n = paths.len();
+    if let Ok(mut c) = FILE_CLIPBOARD.lock() {
+        *c = Some((paths, cut));
+    }
+    ctx.requests.push(Request::CopyText(text));
+    ctx.messages.push(crate::tr!(
+        if cut { "fm-clip-cut" } else { "fm-clip-copied" },
+        count = n
+    ));
+    Ok(())
+}
+
+/// Whether files wait on the file clipboard.
+pub fn file_clipboard_full() -> bool {
+    FILE_CLIPBOARD.lock().is_ok_and(|c| c.is_some())
+}
+
+/// `notes copy.org` beside `notes.org` (`notes copy 2.org` when that
+/// exists).
+fn copy_name(p: &Path) -> PathBuf {
+    let dir = p.parent().unwrap_or(Path::new(""));
+    let stem = p
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let ext = p
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+    let copy = tr("fm-copy-suffix");
+    (1..)
+        .map(|n| {
+            let name = if n == 1 {
+                format!("{stem} {copy}{ext}")
+            } else {
+                format!("{stem} {copy} {n}{ext}")
+            };
+            dir.join(name)
+        })
+        .find(|c| !c.exists())
+        .expect("a free name")
+}
+
+/// What Properties shows for an entry: its kind, size, dates, permissions
+/// and the target of a link.
+fn properties(e: &Entry) -> Vec<(String, String)> {
+    let mut out = vec![(tr("fm-prop-path"), e.path.display().to_string())];
+    let meta = std::fs::symlink_metadata(&e.path).ok();
+    let kind = match &meta {
+        Some(m) if m.file_type().is_symlink() => tr("fm-prop-link"),
+        Some(m) if m.is_dir() => tr("fm-prop-folder"),
+        _ => tr("fm-prop-file"),
+    };
+    out.push((tr("fm-prop-kind"), kind));
+    if let Some(m) = &meta {
+        out.push((tr("fm-prop-size"), crate::l10n::number(m.len() as usize)));
+        let when = |t: std::io::Result<std::time::SystemTime>| {
+            t.ok()
+                .and_then(|t| jiff::Timestamp::try_from(t).ok())
+                .map(|t| {
+                    t.to_zoned(jiff::tz::TimeZone::system())
+                        .strftime("%Y-%m-%d %H:%M")
+                        .to_string()
+                })
+        };
+        if let Some(t) = when(m.modified()) {
+            out.push((tr("fm-prop-modified"), t));
+        }
+        if let Some(t) = when(m.created()) {
+            out.push((tr("fm-prop-created"), t));
+        }
+        out.push((tr("fm-prop-mode"), format!("{:o}", e.mode & 0o7777)));
+        if m.file_type().is_symlink()
+            && let Ok(t) = std::fs::read_link(&e.path)
+        {
+            out.push((tr("fm-prop-target"), t.display().to_string()));
+        }
+    }
+    out
+}
+
+/// An item of the file manager's context menu.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ContextItem {
+    /// A line between groups.
+    Separator,
+    /// A command with its arguments; `enabled` when it can run here.
+    Command {
+        /// What the menu shows.
+        label: String,
+        /// The command.
+        id: &'static str,
+        /// Its arguments.
+        args: Value,
+        /// Whether it can run on what the menu is for.
+        enabled: bool,
+    },
+}
+
+/// The context menu of the file manager `doc` (T2.7e.17), for the entry
+/// at the cursor (or the marked entries), or for the listing itself when
+/// `on_entry` is false: in the order file managers use.
+pub fn context_menu(doc: &DocumentState, on_entry: bool) -> Vec<ContextItem> {
+    use crate::l10n::command_key;
+    let Some(s) = doc.dired.as_deref() else {
+        return Vec::new();
+    };
+    let in_dir = matches!(s.place, Place::Dir(_));
+    let targets = if on_entry {
+        s.targets(cursor_line(doc))
+    } else {
+        Vec::new()
+    };
+    let has = !targets.is_empty() && in_dir;
+    let one = targets.len() == 1 && in_dir;
+    let item = |label: String, id: &'static str, enabled: bool| ContextItem::Command {
+        label,
+        id,
+        args: Value::Null,
+        enabled,
+    };
+    let titled = |id: &'static str, enabled: bool| item(tr(&command_key(id)), id, enabled);
+    let sep = ContextItem::Separator;
+    let mut out = Vec::new();
+    if on_entry {
+        out.extend([
+            item(
+                tr("fm-menu-open"),
+                "dired.open",
+                one || s.place == Place::Projects,
+            ),
+            item(tr("fm-menu-open-system"), "dired.openExternal", has),
+            sep.clone(),
+            item(tr("fm-menu-cut"), "dired.cutFiles", has),
+            item(tr("fm-menu-copy"), "dired.copyFiles", has),
+        ]);
+    }
+    out.push(item(
+        tr("fm-menu-paste"),
+        "dired.paste",
+        in_dir && file_clipboard_full(),
+    ));
+    if on_entry {
+        out.extend([
+            titled("dired.duplicate", has),
+            sep.clone(),
+            item(tr("fm-menu-rename"), "dired.move", one),
+            item(tr("fm-menu-move-to"), "dired.move", has),
+            item(tr("fm-menu-copy-to"), "dired.copy", has),
+            sep.clone(),
+            item(tr("fm-menu-delete"), "dired.delete", has),
+            item(
+                tr("fm-menu-delete-permanently"),
+                "dired.deletePermanently",
+                has,
+            ),
+        ]);
+    }
+    out.extend([
+        sep.clone(),
+        item(tr("fm-menu-new-file"), "dired.newFile", in_dir),
+        item(tr("fm-menu-new-folder"), "dired.mkdir", in_dir),
+    ]);
+    if on_entry {
+        out.extend([
+            sep.clone(),
+            titled("dired.copyPath", has),
+            titled("dired.copyRelativePath", has),
+            titled("dired.reveal", has),
+        ]);
+    }
+    out.extend([
+        sep.clone(),
+        titled("dired.markAll", in_dir),
+        item(tr("fm-menu-invert"), "dired.toggleMarks", in_dir),
+        sep.clone(),
+        item(tr("fm-menu-sort"), "dired.sort", true),
+        titled("dired.toggleHidden", in_dir),
+    ]);
+    if on_entry {
+        out.extend([sep, titled("dired.properties", one)]);
+    }
+    out
 }
 
 #[cfg(test)]
@@ -3144,6 +3510,101 @@ mod tests {
         // The projects view toggles back to the folder shown before.
         run(&mut doc, "dired.projects", json!({})).0.unwrap();
         assert_eq!(doc.meta.path.as_deref(), Some(d.join("two").as_path()));
+    }
+
+    /// The keys and the menu everyone knows (T2.7e.17).
+    #[test]
+    fn familiar_keys_and_the_context_menu() {
+        let d = tree("familiar", &["a.org", "b.txt", "sub/c.org"]);
+        let mut doc = DocumentState::open(
+            &d,
+            Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        crate::l10n::set_language("en");
+        // Copy a.org, paste it into sub: a copy operation into the folder.
+        goto(&mut doc, "a.org");
+        let (r, req) = run(&mut doc, "dired.copyFiles", json!({}));
+        r.unwrap();
+        assert_eq!(
+            req,
+            vec![Request::CopyText(d.join("a.org").display().to_string())]
+        );
+        assert!(file_clipboard_full());
+        goto(&mut doc, "sub");
+        run(&mut doc, "dired.open", json!({})).0.unwrap();
+        let (_, req) = run(&mut doc, "dired.paste", json!({}));
+        assert_eq!(
+            req,
+            vec![Request::FileOp(FileOp {
+                kind: kalem_fs::OpKind::Copy,
+                sources: vec![d.join("a.org")],
+                target: Some(d.join("sub")),
+            })]
+        );
+        // Cut, then paste: a move, once.
+        run(&mut doc, "dired.up", json!({})).0.unwrap();
+        goto(&mut doc, "b.txt");
+        run(&mut doc, "dired.cutFiles", json!({})).0.unwrap();
+        let (_, req) = run(&mut doc, "dired.paste", json!({}));
+        assert!(matches!(
+            req.as_slice(),
+            [Request::FileOp(FileOp {
+                kind: kalem_fs::OpKind::Move,
+                ..
+            })]
+        ));
+        assert!(!file_clipboard_full());
+        // Duplicate: `a copy.org` beside it.
+        goto(&mut doc, "a.org");
+        let (_, req) = run(&mut doc, "dired.duplicate", json!({}));
+        assert!(matches!(
+            req.as_slice(),
+            [Request::FileOp(FileOp { target: Some(t), .. })] if t == &d.join("a copy.org")
+        ));
+        // Select all marks every entry.
+        run(&mut doc, "dired.markAll", json!({})).0.unwrap();
+        assert_eq!(doc.dired.as_deref().unwrap().marks.len(), 3);
+        run(&mut doc, "dired.unmarkAll", json!({})).0.unwrap();
+        // Properties list the entry's facts.
+        goto(&mut doc, "a.org");
+        let (_, req) = run(&mut doc, "dired.properties", json!({}));
+        let Request::Choose(items) = &req[0] else {
+            panic!("{req:?}")
+        };
+        assert!(
+            items
+                .iter()
+                .any(|i| i.category == "Kind" && i.title == "File")
+        );
+        // The menu on an entry and on the listing, in the usual order.
+        let labels = |on: bool, doc: &DocumentState| -> Vec<(String, bool)> {
+            context_menu(doc, on)
+                .into_iter()
+                .filter_map(|i| match i {
+                    ContextItem::Command { label, enabled, .. } => Some((label, enabled)),
+                    ContextItem::Separator => None,
+                })
+                .collect()
+        };
+        let on = labels(true, &doc);
+        let names: Vec<&str> = on.iter().map(|(l, _)| l.as_str()).collect();
+        assert_eq!(
+            &names[..6],
+            [
+                "Open",
+                "Open with System Application",
+                "Cut",
+                "Copy",
+                "Paste",
+                "Duplicate"
+            ]
+        );
+        assert!(on.iter().all(|(l, e)| *e || l == "Paste"), "{on:?}");
+        let off = labels(false, &doc);
+        assert!(!off.iter().any(|(l, _)| l == "Open" || l == "Rename"));
+        assert!(off.iter().any(|(l, e)| l == "New Folder…" && *e));
     }
 
     /// The owner's two symptoms (T2.7e.19): the File Manager showing the

@@ -1690,6 +1690,71 @@ fn settle_jobs(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
     cx.run_until_parked();
 }
 
+/// The file manager's context menu and click marks (T2.7e.17).
+#[gpui::test]
+fn file_manager_context_menu(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(false, cx);
+    cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let line_of = |name: &str, cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let t = e.doc.text();
+            t.line_of(t.as_str().find(&format!(" {name}")).unwrap())
+        })
+    };
+    let center = |line: usize, cx: &mut VisualTestContext| {
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        e.read_with(cx, |e, _| {
+            e.painted.borrow().get(&line).map(|p| p.bounds.center())
+        })
+        .expect("painted")
+    };
+    // A right click on a.org: the menu for it, Open first.
+    let at = center(line_of("a.org", cx), cx);
+    cx.simulate_event(gpui::MouseDownEvent {
+        button: gpui::MouseButton::Right,
+        position: at,
+        modifiers: gpui::Modifiers::default(),
+        click_count: 1,
+        first_mouse: false,
+    });
+    cx.run_until_parked();
+    let first = e.read_with(cx, |e, _| {
+        e.context_menu
+            .as_ref()
+            .and_then(|(_, items)| match items.first() {
+                Some(kalem_core::dired::ContextItem::Command { label, .. }) => Some(label.clone()),
+                _ => None,
+            })
+    });
+    assert_eq!(first.as_deref(), Some("Open"));
+    // Its Copy item puts the file on the file clipboard.
+    let copy = cx.debug_bounds("context-3").expect("Copy");
+    cx.simulate_click(copy.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.context_menu.is_none()));
+    assert!(kalem_core::dired::file_clipboard_full());
+    // Control-click (Command on macOS) marks an entry, again unmarks it.
+    let mods = if cfg!(target_os = "macos") {
+        gpui::Modifiers::command()
+    } else {
+        gpui::Modifiers::control()
+    };
+    let marks = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| e.doc.dired.as_deref().unwrap().marks.len())
+    };
+    let sub = center(line_of("sub", cx), cx);
+    cx.simulate_click(sub, mods);
+    cx.run_until_parked();
+    assert_eq!(marks(cx), 1);
+    let sub = center(line_of("sub", cx), cx);
+    cx.simulate_click(sub, mods);
+    cx.run_until_parked();
+    assert_eq!(marks(cx), 0);
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

@@ -3434,3 +3434,51 @@ fn menus_from_the_keyboard() {
         (0, 10)
     );
 }
+
+/// A right click in the file manager opens its menu for the entry under
+/// the mouse; Control-click marks (T2.7e.17).
+#[test]
+fn file_manager_right_click() {
+    let (mut t, _dir) = project_app(Config::default());
+    t.key(
+        KeyCode::Char('d'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    assert_eq!(title(&t), "proj/");
+    let rows = screen(&mut t);
+    let row = rows
+        .iter()
+        .position(|r| r.split_once('│').is_some_and(|(_, l)| l.contains(" a.org")))
+        .unwrap_or_else(|| panic!("{rows:?}"));
+    // Columns, not bytes: the side bar's border is one cell.
+    let col = rows[row].chars().position(|c| c == '│').unwrap()
+        + rows[row]
+            .split_once('│')
+            .unwrap()
+            .1
+            .chars()
+            .take_while(|c| *c != 'a')
+            .count()
+        + 1;
+    let col = col as u16;
+    mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Right),
+        col,
+        row as u16,
+        KeyModifiers::NONE,
+    );
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("Copy Relative Paths"), "{shown}");
+    assert!(shown.contains("Duplicate"), "{shown}");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    let marks = |t: &T| t.app.doc.dired.as_deref().unwrap().marks.len();
+    mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Left),
+        col,
+        row as u16,
+        KeyModifiers::CONTROL,
+    );
+    assert_eq!(marks(&t), 1);
+}

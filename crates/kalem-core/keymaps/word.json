@@ -92,5 +92,16 @@
   { "keys": "shift+m", "command": "dired.chmod" },
   { "keys": "shift+t", "command": "dired.touch" },
   { "keys": "w", "command": "dired.copyName" },
-  { "keys": "q", "command": "dired.close" }
+  { "keys": "q", "command": "dired.close" },
+  // The keys every file manager has (T2.7e.17): Ctrl on Linux and
+  // Windows, Command on macOS through the primary modifier.
+  { "keys": "ctrl+c", "command": "dired.copyFiles" },
+  { "keys": "ctrl+x", "command": "dired.cutFiles" },
+  { "keys": "ctrl+v", "command": "dired.paste" },
+  { "keys": "ctrl+a", "command": "dired.markAll" },
+  { "keys": "ctrl+n", "command": "dired.newFile" },
+  { "keys": "ctrl+shift+n", "command": "dired.mkdir" },
+  { "keys": "shift+delete", "command": "dired.deletePermanently" },
+  { "keys": "space", "command": "dired.togglePreview", "when": "!vimCommand" },
+  { "keys": "alt+enter", "command": "dired.properties" }
 ]

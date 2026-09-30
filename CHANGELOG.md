@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The file manager's context menu (T2.7e.17): a right click on an entry, on the marks or on the empty listing, or Shift+F10, opens Open, Cut, Copy, Paste, Duplicate, Rename, Move to, Copy to, Delete, New File and Folder, Copy Path and Relative Path, Select All, Sort and Properties, in both editors. The keys every file manager has (Ctrl+C, X, V, A, N, Shift+N, Shift+Delete, Space, Alt+Enter) and Ctrl-click and Shift-click marks work in the listing; cut and copy keep paths in an in-app file clipboard.
 - Part III of the Book is the specification of the Kalem format: seventeen chapters from RFC 0003 (now its frozen design record), a status page and the format's changelog. Every example in it is a file of the conformance suite, which `kalem book check` enforces.
 - The Kalem format's parser spike (`spikes/klm-parser`, T2.13.2): RFC 0003's examples and samples parse, format canonically and round-trip; §15's recovery rules and the known ambiguities are tested; the grammar gained what the spike found (RFC appendix B), and `tests/klm-spec/` its first conformance files.
 - Design document and work breakdown.

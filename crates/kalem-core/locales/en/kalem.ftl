@@ -812,3 +812,46 @@ msg-unknown-template = No template { $name }
 csv-unterminated-quote = This quote is never closed: the rest of the file is one value
 csv-text-after-quote = Text after the closing quote (kept as part of the value)
 csv-bare-quote = A quote inside an unquoted value (the value should be quoted and the quote doubled)
+cmd-dired-copyFiles = Copy Files
+cmd-dired-cutFiles = Cut Files
+cmd-dired-paste = Paste Files
+cmd-dired-duplicate = Duplicate
+cmd-dired-markAll = Select All
+cmd-dired-copyRelativePath = Copy Relative Paths
+cmd-dired-properties = Properties
+fm-clipboard-empty = No files copied or cut yet
+fm-clip-copied = { $count ->
+    [one] 1 file copied; paste it in a folder with Ctrl+V
+   *[other] { $count } files copied; paste them in a folder with Ctrl+V
+}
+fm-clip-cut = { $count ->
+    [one] 1 file cut; paste it in a folder with Ctrl+V to move it
+   *[other] { $count } files cut; paste them in a folder with Ctrl+V to move them
+}
+fm-copy-suffix = copy
+fm-prop-path = Path
+fm-prop-kind = Kind
+fm-prop-link = Symbolic link
+fm-prop-folder = Folder
+fm-prop-file = File
+fm-prop-size = Size (bytes)
+fm-prop-modified = Modified
+fm-prop-created = Created
+fm-prop-mode = Permissions
+fm-prop-target = Link target
+fm-menu-open = Open
+fm-menu-open-system = Open with System Application
+fm-menu-cut = Cut
+fm-menu-copy = Copy
+fm-menu-paste = Paste
+fm-menu-rename = Rename
+fm-menu-move-to = Move to…
+fm-menu-copy-to = Copy to…
+fm-menu-delete = Move to Trash
+fm-menu-delete-permanently = Delete Permanently…
+fm-menu-new-file = New File…
+fm-menu-new-folder = New Folder…
+fm-menu-invert = Invert Selection
+fm-menu-sort = Sort By…
+cmd-dired-contextMenu = File Menu
+fm-menu = File

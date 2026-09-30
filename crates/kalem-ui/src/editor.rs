@@ -286,6 +286,8 @@ pub struct Editor {
     pub cite_preview: kalem_core::cite::Preview,
     /// The entry cited under the mouse, and where the mouse is.
     pub cite_hover: Option<(Point<Pixels>, String)>,
+    /// The file manager's context menu, where it opened (T2.7e.17).
+    pub context_menu: Option<(Point<Pixels>, Vec<kalem_core::dired::ContextItem>)>,
     /// Formulas drawn rendered (else as their source).
     pub math: bool,
     /// The document's `\newcommand`s for formulas, for a text version.
@@ -403,6 +405,7 @@ impl Editor {
             formula_refs: Vec::new(),
             cite_preview: Default::default(),
             cite_hover: None,
+            context_menu: None,
             math: true,
             math_macros: RefCell::new((u64::MAX, Rc::from(""))),
             focus_mode: false,
@@ -1662,6 +1665,15 @@ impl Editor {
         if self.marked.is_some() {
             return;
         }
+        // Escape closes the context menu.
+        if self.context_menu.is_some() {
+            self.context_menu = None;
+            cx.notify();
+            if ev.keystroke.key == "escape" {
+                cx.stop_propagation();
+                return;
+            }
+        }
         // The palette and the date picker take every key; the focused find
         // bar its own.
         if self.date_picker.is_some() {
@@ -2216,6 +2228,7 @@ impl Editor {
         self.palette = None;
         self.date_picker = None;
         self.settings = None;
+        self.context_menu = None;
         if let Some(f) = &mut self.find {
             f.focused = false;
         }
@@ -2239,6 +2252,35 @@ impl Editor {
         }
         if let Some(start) = fold {
             self.toggle_fold(start, cx);
+            return;
+        }
+        // The file manager: Command-click (Control-click elsewhere) marks
+        // or unmarks an entry, Shift-click marks the entries from the
+        // cursor to it.
+        let toggle = if cfg!(target_os = "macos") {
+            ev.modifiers.platform
+        } else {
+            ev.modifiers.control
+        };
+        if let Some(d) = self.doc.dired.as_deref()
+            && (toggle || ev.modifiers.shift)
+            && d.path_at(self.doc.text().line_of(pos)).is_some()
+        {
+            let line = self.doc.text().line_of(pos);
+            let marked = d.path_at(line).is_some_and(|p| d.marks.contains_key(&p));
+            let at = self.doc.selection.head;
+            if ev.modifiers.shift {
+                self.doc.move_cursor(at, false);
+                self.doc.move_cursor(pos, true);
+                self.run_command("dired.mark", Value::Null, window, cx);
+            } else {
+                self.doc.move_cursor(pos, false);
+                let id = if marked { "dired.unmark" } else { "dired.mark" };
+                self.run_command(id, Value::Null, window, cx);
+            }
+            let line_start = self.doc.text().line_start(line);
+            self.doc.move_cursor(line_start, false);
+            self.after_change(cx);
             return;
         }
         // Command-click (Control-click elsewhere) opens a link.
@@ -2315,6 +2357,108 @@ impl Editor {
         self.dragging = true;
         self.goal_x = None;
         self.after_change(cx);
+    }
+
+    /// A right click in the file manager: the context menu for the entry
+    /// under the mouse (the marked entries when it is one of them), or for
+    /// the listing (T2.7e.17).
+    pub fn right_mouse_down(
+        &mut self,
+        ev: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        window.focus(&self.focus, cx);
+        let Some(d) = self.doc.dired.as_deref() else {
+            return;
+        };
+        let at = self.hit(ev.position).map(|h| h.pos);
+        let path = at.and_then(|p| d.path_at(self.doc.text().line_of(p)));
+        let on_entry = path.is_some();
+        // A right click on an unmarked entry acts on it alone.
+        if let (Some(p), Some(pos)) = (&path, at)
+            && !d.marks.contains_key(p)
+        {
+            self.doc.move_cursor(pos, false);
+            self.after_change(cx);
+        }
+        let items = kalem_core::dired::context_menu(&self.doc, on_entry);
+        self.context_menu = Some((ev.position, items));
+        cx.notify();
+    }
+
+    /// The context menu, when open.
+    fn context_menu_view(&self, cx: &mut Context<'_, Self>) -> Option<gpui::AnyElement> {
+        use gpui::{
+            InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled, div,
+        };
+        let (at, items) = self.context_menu.clone()?;
+        let theme = self.theme.clone();
+        let hover = gpui::hsla(0., 0., 0.5, 0.15);
+        let mut list = div()
+            .id("context-menu")
+            .occlude()
+            .min_w(px(220.))
+            .py(px(4.))
+            .rounded(px(6.))
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.bar)
+            .text_size(px(theme.size * 0.85));
+        for (n, it) in items.into_iter().enumerate() {
+            match it {
+                kalem_core::dired::ContextItem::Separator => {
+                    list = list.child(div().h(px(1.)).my(px(3.)).bg(theme.border));
+                }
+                kalem_core::dired::ContextItem::Command {
+                    label,
+                    id,
+                    args,
+                    enabled,
+                } => {
+                    let keys = self
+                        .shared
+                        .keymap
+                        .keys_for(id)
+                        .first()
+                        .map(|k| crate::panels::show_keys(k, self.shared.swap_primary))
+                        .unwrap_or_default();
+                    let mut row = div()
+                        .id(("context-item", n))
+                        .debug_selector(move || format!("context-{n}"))
+                        .flex()
+                        .flex_row()
+                        .justify_between()
+                        .gap(px(24.))
+                        .px(px(10.))
+                        .py(px(2.))
+                        .child(label)
+                        .child(div().text_color(theme.muted).child(keys));
+                    if enabled {
+                        row =
+                            row.cursor_pointer()
+                                .hover(move |s| s.bg(hover))
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    this.context_menu = None;
+                                    this.run_command(id, args.clone(), window, cx);
+                                }));
+                    } else {
+                        row = row.text_color(theme.muted);
+                    }
+                    list = list.child(row);
+                }
+            }
+        }
+        Some(
+            gpui::deferred(gpui::anchored().position(at).child(list.on_mouse_down_out(
+                cx.listener(|this, _, _, cx| {
+                    this.context_menu = None;
+                    cx.notify();
+                }),
+            )))
+            .with_priority(2)
+            .into_any_element(),
+        )
     }
 
     /// Copies the content of the block starting at `start`.
@@ -3324,7 +3468,8 @@ impl gpui::Render for Editor {
             )
         };
         let active = pane(self.list.clone(), self.visible.clone(), false)
-            .on_mouse_down(MouseButton::Left, cx.listener(Self::mouse_down));
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::mouse_down))
+            .on_mouse_down(MouseButton::Right, cx.listener(Self::right_mouse_down));
         let other = self.other.as_ref().map(|o| {
             pane(o.list.clone(), o.visible.clone(), true).on_mouse_down(
                 MouseButton::Left,
@@ -3415,6 +3560,7 @@ impl gpui::Render for Editor {
             .children(self.palette_view(cx))
             .children(self.date_picker_view(cx))
             .children(self.settings_view(cx))
+            .children(self.context_menu_view(cx))
     }
 }
 
