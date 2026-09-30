@@ -868,7 +868,8 @@ the other files resolve (the other files are read from the disk, again
 when they change). The outline panel
 (Ctrl+Shift+O) lists the document's sections with their numbers. A
 =\tableofcontents= line shows the table of contents LaTeX will print
-there, each entry leading to its section.
+there, each entry leading to its section. The =\end{document}= line lists the
+document's footnotes, each leading to its =\footnote=.
 
 What =kalem check= reports shows in the text a moment after typing
 stops: a red wavy line under problems (a group or environment left open,

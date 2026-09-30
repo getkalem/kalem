@@ -189,6 +189,79 @@ pub fn latex_toc(state: &DocumentState, line: Range<usize>) -> Option<Vec<TocEnt
     )
 }
 
+/// A list shown in place of a line: a table of contents, or a LaTeX
+/// document's footnotes; rows of text, each leading to where it starts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Listing {
+    /// Its title.
+    pub title: String,
+    /// Its rows, with where each leads.
+    pub rows: Vec<(String, usize)>,
+}
+
+/// A table of contents as a listing, titled.
+pub fn contents(entries: &[TocEntry]) -> Listing {
+    Listing {
+        title: crate::l10n::tr(if entries.is_empty() {
+            "toc-empty"
+        } else {
+            "toc-title"
+        }),
+        rows: lines(entries),
+    }
+}
+
+/// What line `line` of `state` shows in its place, away from the cursor:
+/// a table of contents (`#+TOC:`, `\tableofcontents`), or a LaTeX
+/// document's footnotes on its `\end{document}` line.
+pub fn listing(state: &mut DocumentState, line: Range<usize>) -> Option<Listing> {
+    if state.latex().is_some() {
+        return latex_listing(state, line);
+    }
+    if !wanted(state.text().as_str(), state.selection.head, &line) {
+        return None;
+    }
+    let doc = state.model()?;
+    toc_at(&doc, line).map(|e| contents(&e))
+}
+
+/// [`listing`] for a LaTeX document.
+pub fn latex_listing(state: &DocumentState, line: Range<usize>) -> Option<Listing> {
+    latex_toc(state, line.clone())
+        .map(|e| contents(&e))
+        .or_else(|| latex_notes(state, line))
+}
+
+/// The footnotes of a LaTeX document, listed on its `\end{document}` line
+/// away from the cursor (T2.7h.10): each mark with its text, leading to
+/// the footnote.
+pub fn latex_notes(state: &DocumentState, line: Range<usize>) -> Option<Listing> {
+    let text = state.text().as_str();
+    let cursor = state.selection.head;
+    if text.get(line.clone())?.trim() != "\\end{document}"
+        || (line.start <= cursor && cursor <= line.end)
+    {
+        return None;
+    }
+    let model = state.latex()?.model();
+    let rows: Vec<(String, usize)> = model
+        .footnotes
+        .iter()
+        .filter(|f| f.file == 0)
+        .filter_map(|f| {
+            let src = text.get(f.range.clone())?;
+            let open = src.find('{')?;
+            let body = src[open + 1..].strip_suffix('}')?;
+            let body: String = body.split_whitespace().collect::<Vec<_>>().join(" ");
+            Some((format!("{} {body}", f.number), f.range.start))
+        })
+        .collect();
+    (!rows.is_empty()).then(|| Listing {
+        title: crate::l10n::tr("footnotes-title"),
+        rows,
+    })
+}
+
 /// Whether the source line `line` of `text` may show a table of contents:
 /// it starts with `#+TOC:` and the cursor is elsewhere.
 pub fn wanted(text: &str, cursor: usize, line: &Range<usize>) -> bool {

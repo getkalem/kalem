@@ -759,7 +759,8 @@ fn prepare_toc(
         return None;
     }
     let range = editor.doc.text().line_range(line);
-    let rows = kalem_core::toc::shown(&mut editor.doc, range.clone())?;
+    let listing = kalem_core::toc::listing(&mut editor.doc, range.clone())?;
+    let rows = listing.rows;
     let theme = editor.theme.clone();
     let shape = |t: String, color: Hsla, window: &mut Window| {
         let mut run = text_run(
@@ -776,12 +777,7 @@ fn prepare_toc(
                 .shape_line(t.into(), base, &[run], None),
         )
     };
-    let title = if rows.is_empty() {
-        "Contents: no headings"
-    } else {
-        "Contents"
-    };
-    let title = shape(title.to_string(), theme.muted, window);
+    let title = shape(listing.title, theme.muted, window);
     let rows: Vec<_> = rows
         .into_iter()
         .map(|(t, start)| (shape(t, theme.link, window), start))

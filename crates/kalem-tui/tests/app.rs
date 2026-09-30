@@ -3131,3 +3131,13 @@ fn latex_table_with_spans_is_a_grid() {
         "{rows}"
     );
 }
+
+#[test]
+fn latex_footnotes_listed_at_the_end() {
+    let text = "\\documentclass{article}\n\\begin{document}\nText.\\footnote{A first note.} More.\\footnote{And a\n  second.}\n\\end{document}\n";
+    let mut t = with_file(text, "n.tex", Config::default(), (60, 14));
+    t.at(text.find("Text").unwrap());
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("Notes"), "{rows}");
+    assert!(rows.contains("1 A first note.") && rows.contains("2 And a second."), "{rows}");
+}

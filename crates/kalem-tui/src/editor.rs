@@ -851,9 +851,9 @@ impl<'a> Layout<'a> {
         if self.source {
             return None;
         }
-        let entries = if self.doc.latex().is_some() {
-            // `\tableofcontents` in LaTeX.
-            kalem_core::toc::latex_toc(self.doc, range.clone())?
+        let listing = if self.doc.latex().is_some() {
+            // `\tableofcontents` and the footnotes in LaTeX.
+            kalem_core::toc::latex_listing(self.doc, range.clone())?
         } else {
             let p = self.parse?;
             if !kalem_core::toc::wanted(self.text().as_str(), self.cursor, range) {
@@ -871,7 +871,7 @@ impl<'a> Layout<'a> {
                     }
                 }
             };
-            kalem_core::toc::toc_at(&doc, range.clone())?
+            kalem_core::toc::contents(&kalem_core::toc::toc_at(&doc, range.clone())?)
         };
         let style = |s: view::Style| render::style_base(&s, 0, self.caps);
         let dim = style(view::Style {
@@ -882,11 +882,7 @@ impl<'a> Layout<'a> {
             link: true,
             ..Default::default()
         });
-        let title = if entries.is_empty() {
-            "Contents: no headings"
-        } else {
-            "Contents"
-        };
+        let title = listing.title.as_str();
         let glyphs = |t: &str, st, data: Option<WidgetAt>| -> Vec<Glyph> {
             use unicode_segmentation::UnicodeSegmentation;
             t.graphemes(true)
@@ -898,7 +894,7 @@ impl<'a> Layout<'a> {
         };
         let width = self.width.get();
         let mut rows = tui_rich_text::wrap(glyphs(title, dim, None), 0, width);
-        for (text, start) in kalem_core::toc::lines(&entries) {
+        for (text, start) in listing.rows.clone() {
             let data = (view::Widget::TocRow { start }, range.start, range.end);
             let hang = (text.len() - text.trim_start().len()) as u16;
             rows.extend(tui_rich_text::wrap(
