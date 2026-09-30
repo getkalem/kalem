@@ -1,0 +1,717 @@
+#+TITLE: Org syntax in detail
+
+This chapter completes [[file:org.org][Org]] with the details of the
+syntax: who owns blank lines, how lists, footnotes, blocks and clocks
+are written, the exact form of every object and timestamp, the
+properties the parser gives each element and object, and the special
+properties, macros and keywords that change what a document does. It
+describes Org as =org-element.el= of Org 9.7.11 reads it. Worg's /Org
+Syntax/ (=tests/corpus/worg/org-syntax.org=) says the same in most
+places; where the two disagree, Kalem follows =org-element=, and the
+last section lists those places.
+
+The parser's behavior described here was compared with Emacs's by
+~kalem diff-emacs~ on files holding the examples of this chapter, and
+agrees with it. Where Kalem's
+commands or exporters differ from Emacs, the text says so; the
+deliberate differences are listed in
+[[file:org-known-differences.org][Known differences from Emacs]], and
+any other difference is a bug.
+
+* Blank lines and indentation
+
+** Who owns blank lines
+
+A blank line is a line of spaces and tabs only. Blank lines are not an
+element: each one belongs to an element before it, counted in that
+element's =:post-blank= (or =:pre-blank=). The rule is the narrowest
+element that ends there, with these exceptions:
+
+| Where                                                  | Owner                                                                                                           |
+|--------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------|
+| Before the first element of the document               | The document only; the zeroth section starts at the first non-blank line                                        |
+| After a headline line, before its contents             | The headline, as =:pre-blank=; the section starts at the first non-blank line                                   |
+| After a headline with no contents                      | The headline, as =:post-blank=                                                                                  |
+| At the end of a section                                | The last element of the section; a section, the document and a headline with contents have a =:post-blank= of 0 |
+| After an item, before the next item                    | The item, not the last element inside it                                                                        |
+| After the last item of a list                          | The list                                                                                                        |
+| At the end of a footnote definition                    | The footnote definition, not the last element inside it                                                         |
+| After the first line of an item or footnote definition | The item or definition, as =:pre-blank=                                                                         |
+| After any other element                                | That element                                                                                                    |
+
+#+begin_src org
+,* Heading
+
+Text.
+
+- a
+
+- b
+
+
+After the list.
+#+end_src
+
+Here the headline has a =:pre-blank= of 1, the paragraph =Text.= a
+=:post-blank= of 1, the first item a =:post-blank= of 1 (its paragraph
+0), and the list a =:post-blank= of 2. Two blank lines end a list, and
+also a footnote definition, so they are part of those elements' syntax.
+
+For an item or a footnote definition, =:pre-blank= is 0 when the
+contents start on the first line; otherwise it counts the lines from
+the first line to the contents, the first line included. For a headline
+it counts only the blank lines.
+
+** Indentation
+
+Indentation is the spaces and tabs at the start of a line. Headlines,
+inlinetasks, footnote definitions and diary sexps must start at column
+0; every other element may be indented. Indentation has a meaning only
+in plain lists, where it is measured with spaces as one column and tabs
+as eight.
+
+The tree keeps indentation as text. It is removed when the contents are
+used, as Emacs removes it:
+
+- Exporting a paragraph or a verse block removes the smallest
+  indentation of its lines (=org-element-normalize-contents=). For the
+  first paragraph of an item or a footnote definition that starts on
+  the first line, the first line is left out when that smallest
+  indentation is computed.
+- The code of a source or example block loses its common indentation
+  (=org-remove-indentation=) unless the block has the =-i= switch or
+  =org-src-preserve-indentation= is set (it is not, by default). Lines
+  keep the indentation beyond the common part.
+- Export blocks, LaTeX environments and table.el tables lose their
+  common indentation when exported.
+
+* Headlines
+
+A headline is a line of stars at column 0 followed by a space (a tab
+does not do). Its parts, in order:
+
+| Part     | Syntax                                                          | Notes                                                                                                              |
+|----------+-----------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------|
+| Stars    | One or more =*= then a space                                    | Fewer than =org-inlinetask-min-level= (15); more make an inlinetask                                                |
+| Keyword  | A TODO keyword of the document, then a space or the end of line | Case-sensitive: with the default keywords, =todo= is part of the title                                             |
+| Priority | =[#X]= with exactly one character X                             | Any character: =[#A]=, =[#1]=, =[#ä]=; =:priority= is its character code; =[#AB]= is title text                    |
+| Comment  | =COMMENT=, then a space or the end of line                      | Case-sensitive; =COMMENTED= is title text                                                                          |
+| Title    | Anything up to the tags                                         | Parsed for objects, without line breaks                                                                            |
+| Tags     | =:a:b:= at the end of the line, blanks after allowed            | Tag characters are letters, digits, =_=, =@=, =#= and =%=; =:a-b:= is title text, since =-= is not a tag character |
+
+The headline is /commented/ when =COMMENT= is present, /archived/ when
+=ARCHIVE= is one of its tags (case-sensitive), and the /footnote
+section/ when its title is exactly =org-footnote-section= (=Footnotes=,
+case-sensitive).
+
+#+begin_src org
+,#+TODO: TODO NEXT | DONE
+,* NEXT [#1] COMMENT Call the printer :work:a@b:
+,* next is not a keyword here
+#+end_src
+
+Which priorities the priority commands accept (=#+PRIORITIES=, A to C
+by default) is a matter of the document model; the parser takes any
+single character.
+
+* Plain lists and items
+
+An item is:
+
+#+begin_example
+BULLET [@COUNTER] [CHECKBOX] TAG :: CONTENTS
+#+end_example
+
+** Bullets
+
+| Bullet       | Form                                             | Notes                                                                   |
+|--------------+--------------------------------------------------+-------------------------------------------------------------------------|
+| =-= or =+=   | The character, then a blank or the end of line   |                                                                         |
+| =*=          | The same, but only when indented                 | At column 0, =*= and a space start a headline                           |
+| =1.= or =1)= | Digits, then =.= or =)=, then a blank or the end | =org-plain-list-ordered-item-terminator= is =t=: both terminators count |
+| =a.= or =A)= | One letter instead of the digits                 | Only with =org-list-allow-alphabetical=, which is off by default        |
+
+With the default settings, =a. text= is a paragraph, not an item. Kalem
+uses the default, and no setting of Kalem turns alphabetical bullets on.
+
+** Counters
+
+=[@N]= after the bullet sets the item's number, =:counter=. The forms
+=[@start:N]= and =[@c]= (a letter, counted from A = 1) are read too,
+whatever the alphabetical setting; =- [@c] x= has counter 3. A counter
+may follow any bullet, also =-=.
+
+** Checkboxes
+
+=[ ]= is off, =[X]= on and =[-]= partial (=:checkbox= =off=, =on=,
+=trans=). The =X= must be upper case: =[x]= is still taken as the
+checkbox part of the line, so it is not in the item's text, but the item
+has no checkbox.
+
+** Tags
+
+In an item whose bullet is =-=, =+= or =*=, the text before the last
+=::= of the first line (with a blank before it, and a blank or the end
+of line after it) is the item's tag, parsed for objects without line
+breaks. In an ordered item, =::= is ordinary text.
+
+** Lists
+
+A plain list is a run of items at the same indentation; a sub-list is a
+list inside an item. The list's =:type= is decided by its first item
+only: =ordered= when the first bullet is a number (or letter),
+=descriptive= when the first item has a tag, else =unordered=. Items of
+different bullet kinds may share one list.
+
+** Where items and lists end
+
+An item ends at the next item of the same or smaller indentation, and
+at the first non-blank line indented no more than the item's bullet.
+Lines inside blocks (any =#+BEGIN_= or =#+BEGIN:= line up to its end
+line) and drawers do not count for this. Inlinetasks inside a list are
+skipped. A list ends:
+
+- at two consecutive blank lines;
+- at a line indented no more than its first item that is not an item;
+- at a headline, or the end of the element that holds it.
+
+#+begin_src org
+- first
+  continued inside the item
+
+  - sub-item
+- second
+Not in the list: back at the list's indentation.
+#+end_src
+
+* Footnotes
+
+** Definitions
+
+A footnote definition starts with =[fn:LABEL]= at column 0. The label
+is letters, digits, =-= and =_=. The contents run to the next footnote
+definition, the next headline, or two consecutive blank lines; one blank
+line does not end it. Affiliated keywords right before the next
+definition belong to that one.
+
+#+begin_src org
+[fn:1] A short note.
+
+It goes on after one blank line.
+
+
+This paragraph is outside the note.
+#+end_src
+
+The same text indented is not a definition: an indented =[fn:1]= is a
+reference inside a paragraph.
+
+** References
+
+| Form              | =:type=    | Meaning                                  |
+|-------------------+------------+------------------------------------------|
+| =[fn:LABEL]=      | =standard= | Refers to the definition with that label |
+| =[fn:LABEL:TEXT]= | =inline=   | Defines the note in place, with a label  |
+| =[fn::TEXT]=      | =inline=   | Anonymous note, defined in place         |
+
+=TEXT= is parsed for objects and may contain square brackets as long
+as they are balanced.
+
+* Greater blocks, drawers and dynamic blocks
+
+** Greater blocks
+
+=#+begin_NAME PARAMETERS= ... =#+end_NAME=, with any non-blank =NAME=
+that is not =comment=, =example=, =export=, =src= or =verse=. =center=
+makes a center block, =quote= a quote block, any other name a special
+block with =:type= =NAME= (as written) and =:parameters= the rest of
+the line, trimmed. Names are case-insensitive. The contents are
+elements. Without its end line the block is paragraph text.
+
+** Drawers
+
+=:NAME:= alone on a line, where =NAME= is letters, digits, =-= and =_=,
+up to the first =:END:= line (case-insensitive). A drawer cannot hold
+another drawer, since the first =:END:= closes it. Without an =:END:=
+line, the opening line is paragraph text.
+
+** Property drawers
+
+A drawer named =PROPERTIES= is a property drawer only right after a
+headline or inlinetask, or after its planning line, or at the start of
+the document (after blank lines and comment lines). Anywhere else it is
+an ordinary drawer named =PROPERTIES=, and its lines are paragraph
+text. Each line of a property drawer is a node property:
+
+#+begin_example
+:NAME: VALUE
+:NAME+: VALUE
+#+end_example
+
+=NAME= is any non-blank text; =:NAME+:= appends to the value. The
+headline gets each property as =:NAME= in upper case.
+
+** Dynamic blocks
+
+#+begin_example
+#+BEGIN: NAME PARAMETERS
+...
+#+END:
+#+end_example
+
+=NAME= is letters and digits only, and the parameters
+must be separated from it by a blank: in =#+BEGIN: a-b c= the name is
+=a= and there are no parameters. The end line is =#+END:= or =#+END=.
+Kalem shows dynamic blocks and never updates them.
+
+* Blocks
+
+** Source and example block switches
+
+#+begin_example
+#+begin_src LANGUAGE SWITCHES HEADER-ARGUMENTS
+#+begin_example SWITCHES
+#+end_example
+
+In a source block the switches come right after the language and are
+any sequence of =-l "FORMAT"=, =-i=, =-k=, =-r=, =-n N=, =+n N= (the
+number optional); the rest of the line is the header arguments
+(=:parameters=). An example block takes the whole rest of its line as
+switches.
+
+| Switch       | Property           | Effect                                                                                            |
+|--------------+--------------------+---------------------------------------------------------------------------------------------------|
+| =-n=, =-n N= | =:number-lines=    | Number the lines; the first is N (default 1)                                                      |
+| =+n=, =+n N= | =:number-lines=    | Continue from the previous numbered block: the first line is its last number plus N (default 1)   |
+| =-r=         | =:retain-labels=   | Nil: remove code reference labels such as =(ref:x)= from the code, unless =-n= and =-k= are given |
+| =-k=         | =:use-labels=      | Nil: references to labels give line numbers                                                       |
+| =-i=         | =:preserve-indent= | Keep the code's indentation                                                                       |
+| =-l "FMT"=   | =:label-fmt=       | The format of a label, with =%s= for its name (default =(ref:%s)=)                                |
+
+References give the label itself only when the labels stay in the code
+and =-k= is absent. So =-r= alone removes the labels and references
+give line numbers; =-n -r -k= keeps the labels and references still
+give line numbers.
+
+The number may be written with or without a space (=-n 5= or =-n5=).
+Kalem's exporters currently recognize only the form with a space and
+ignore =-n5=; Emacs numbers from 5. This is a bug.
+
+** Comma quoting
+
+In source, example and export blocks, a line whose first non-blank
+characters are commas followed by =*= or =#+= loses one comma in the
+block's value: =,* x= gives =* x=, =,,* x= gives =,* x=, =,#+x= gives
+=#+x=. This protects lines that would otherwise be headlines or end the
+block. Comment blocks and verse blocks are not unquoted: their commas
+stay.
+
+#+begin_src org
+,#+begin_src org
+,,* A headline inside the code
+,#+end_src
+#+end_src
+
+* Clocks
+
+A clock line is =CLOCK:= (any case) with one of three forms:
+
+| Form                            | =:status= | Notes                                          |
+|---------------------------------+-----------+------------------------------------------------|
+| ~CLOCK: [2026-10-01 Thu 09:00]~ | =running= | A clock that has not been stopped              |
+| ~CLOCK: [...]--[...] =>  1:30~  | =closed=  | =:duration= is =1:30=                          |
+| ~CLOCK: => 1:30~                | =closed=  | A duration without timestamps; =:value= is nil |
+
+The timestamps must be inactive, and the duration is =H:MM= with any
+number of hours, after ~=>~ surrounded by blanks. Clock sums count the
+closed clocks of both kinds and not running ones, as =org-clock-sum=
+does.
+
+* Objects
+
+** Emphasis
+
+#+begin_example
+PRE MARKER CONTENTS MARKER POST
+#+end_example
+
+| Part     | Allowed                                                                                  |
+|----------+------------------------------------------------------------------------------------------|
+| PRE      | Start of line, whitespace, =-=, =(=, ={=, ='=, ="=                                       |
+| MARKER   | =*= bold, =/= italic, =_= underline, =+= strike-through, ~=~ verbatim, =~= code          |
+| CONTENTS | Not starting or ending with whitespace; may span lines of one paragraph                  |
+| POST     | End of line, whitespace, =-=, =.=, =,=, =;=, =:=, =!=, =?=, ='=, ="=, =)=, =}=, =\=, =[= |
+
+So =x*b*y= is plain text and =(*b*)= is bold. Code and verbatim contents
+are not parsed; the other four contain objects. Where =_= could open an
+underline or a subscript, as in =(_u_)=, the underline wins.
+
+** Entities
+
+| Form          | Example           | Notes                                                            |
+|---------------+-------------------+------------------------------------------------------------------|
+| =\NAME=       | =\alpha=          | Followed by the end of line or a character that is not a letter  |
+| =\NAME{}=     | =\alpha{}=        | =:use-brackets-p= is t; lets a letter follow: =\alpha{}beta=     |
+| =\_= + spaces | =\_= and 3 spaces | A space of that width: one to twenty spaces make the entity name |
+
+=NAME= is a name of =org-entities=: letters only, or one of the names
+with digits, =there4=, =sup1= to =sup3=, =frac12=, =frac14= and
+=frac34=. =\alpha1= is the entity =alpha= followed by =1=; =\alphax= is not
+an entity, and is read as a LaTeX fragment.
+
+** LaTeX fragments
+
+| Form      | Rule                                                                                                                               |
+|-----------+------------------------------------------------------------------------------------------------------------------------------------|
+| =\NAME=   | Letters and an optional =*=, not an entity name, then any number of =[...]= and ={...}= groups (no nesting, no line breaks inside) |
+| =\(...\)= | Up to the first =\)=                                                                                                               |
+| =\[...\]= | Up to the first =\]=                                                                                                               |
+| =$$...$$= | Up to the next =$$=                                                                                                                |
+| =$...$=   | See below                                                                                                                          |
+
+A single-dollar fragment needs: no =$= just before the opening one; a
+first character that is not a blank, =,=, =.= or =;=; a last
+character (before the closing =$=) that is not a blank, =,= or =.=; and
+after the closing =$= punctuation, a blank, a bracket, a quote or the
+end of the line. So =$x$= and =$?$= are fragments, =$x$y=, =$ x$= and
+=$x $= are not. =\foo[a]{b}{c}= is one fragment.
+
+** Export snippets
+
+=@@BACKEND:VALUE@@=. =BACKEND= is letters, digits and =-=; =VALUE= runs
+to the next =@@= and may be empty. =@@my_backend:x@@= is not a snippet
+(=_= is not allowed).
+
+** Line breaks
+
+=\\= at the end of a line, blanks after it allowed, and not preceded by
+another backslash. It is a line break also when it is alone on its
+line.
+
+** Macros
+
+={{{NAME}}}= or ={{{NAME(ARGS)}}}=. =NAME= starts with a letter and goes
+on with letters, digits, =-= and =_=; it is case-insensitive (=:key= is
+lower case). Arguments are separated by commas; =\,= is a literal
+comma. Runs of blanks and newlines inside the arguments become one
+space, and blanks after a comma are kept: ={{{m(a, b\, c)}}}= has the
+arguments =a= and =b, c= with a leading space. The arguments may span lines of a paragraph.
+
+** Targets and radio targets
+
+=<<TARGET>>=: the text is anything but =<=, =>= and newlines, and does
+not start or end with a blank. =<<<RADIO>>>= has the same rule and may
+contain the minimal objects (emphasis, entities, LaTeX fragments, sub-
+and superscripts). Every occurrence of a radio target's text elsewhere
+becomes a link to it, when the characters around it are not letters or
+digits (or are characters after which a line may break, as in Chinese
+text). Blanks in the target match any run of whitespace.
+
+** Statistics cookies
+
+=[N/M]= or =[N%]=, the numbers optional: =[/]=, =[%]=, =[1/]= are cookies
+too. The commands fill them in.
+
+** Sub- and superscripts
+
+=_= or =^= right after a non-blank character, followed by one of:
+
+- =*=, as in =a^*=;
+- braces ={...}= or parentheses =(...)=, nesting three levels deep at
+  most, contents parsed for objects (=:use-brackets-p= is t for braces);
+- an optional sign, then letters, digits, =,=, =\= and =.=, ending with
+  a letter or digit: =x^-2=, =A_i,j=, =x_1.5=.
+
+=a^+= is not a superscript. The export options =^:{}= and =^:nil=
+change how they export, not the tree.
+
+** Citations
+
+#+begin_example
+[cite/STYLE/VARIANT:GLOBAL-PREFIX; REFERENCES; GLOBAL-SUFFIX]
+#+end_example
+
+=:style= is the whole text after =cite/=, =t/f= for =[cite/t/f:...]=:
+letters, digits, =-=, =_= and =/=. A reference is =PREFIX @KEY SUFFIX=,
+the references separated by =;=. A key is word characters and any of
+=-.:?!`'/*@+|(){}<>&_^$#%~=. The global prefix is the text before the
+=;= that precedes the first key, and the global suffix the text after
+the last =;= when no key follows it. Blanks after the colon and before
+the closing bracket do not matter. Prefixes and suffixes may contain
+objects, but not line breaks, citations, footnote references or links.
+
+** Links
+
+| Kind    | Syntax                              | Rules                                                                                                                                                                                                                             |
+|---------+-------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Plain   | =TYPE:PATH=                         | =TYPE= a registered link type, not preceded by a word character; =PATH= without blanks or brackets but for bracketed groups nested two deep, ending with a character that is not punctuation, with =/=, or with a bracketed group |
+| Angle   | =<TYPE:PATH>=                       | =PATH= anything but =>=; a line break and the indentation after it are removed from the path                                                                                                                                      |
+| Bracket | =[[PATH]]=, =[[PATH][DESCRIPTION]]= | Brackets in =PATH= escaped with =\=; a line break and the blanks around it read as one space                                                                                                                                      |
+| Radio   | The text of a radio target          | See above                                                                                                                                                                                                                         |
+
+So =https://orgmode.org.= links to =https://orgmode.org=, without the
+period, and =https://x.org/a_(b)= keeps its parentheses. A word such as
+=foo:bar= is not a link unless =foo= is a registered type.
+
+A bracket link's =PATH= is, in this order: a file when it is absolute or
+starts with =./= or =../=; =TYPE:PATH= when =TYPE= is registered;
+=(REF)=, a code reference; =#ID=, a custom ID; anything else a /fuzzy/
+link. For file links, =file+APP:= sets =:application=, and =::SEARCH=
+after the path sets =:search-option=. Abbreviations from =#+LINK= are
+expanded before this. The description may contain the minimal objects,
+export snippets, inline calls, inline source blocks, macros and
+statistics cookies, but no other link.
+
+** Inline calls and inline source blocks
+
+=call_NAME(ARGS)=, with optional =[HEADER]= before and after the
+arguments, and =src_LANG{CODE}= or =src_LANG[HEADERS]{CODE}=. Both must
+start a word (=xcall_f(1)= is not a call) and are case-sensitive. The
+parentheses of a call are required; brackets, parentheses and braces
+must balance inside their parts.
+
+* Timestamps
+
+| Form                                      | =:type=          | =:range-type= |
+|-------------------------------------------+------------------+---------------|
+| =<2026-10-01 Thu>=, with an optional time | =active=         | nil           |
+| =[2026-10-01 Thu 09:00]=                  | =inactive=       | nil           |
+| =<2026-10-01 Thu 10:00-11:30>=            | =active-range=   | =timerange=   |
+| =[2026-10-01 Thu 10:00-11:30]=            | =inactive-range= | =timerange=   |
+| =<2026-10-01 Thu>--<2026-10-03 Sat>=      | =active-range=   | =daterange=   |
+| =[2026-10-01 Thu]--[2026-10-03 Sat]=      | =inactive-range= | =daterange=   |
+| =<%%(diary-float t 4 2)>=                 | =diary=          | nil           |
+| =<%%(diary-float t 4 2) 12:00>=           | =diary=          | nil           |
+| =<%%(diary-float t 4 2) 12:00-14:00>=     | =diary=          | =timerange=   |
+
+- The date is =YYYY-MM-DD=; the day name is optional and may be any word
+  without digits, blanks, =+=, =-=, =]= or =>=, in any language. The
+  time is =H:MM= or =HH:MM=.
+- A diary timestamp has a sexp in parentheses and may be followed by a
+  time or a time range, which set =:hour-start= and =:minute-start= (and
+  the end fields for a range). The sexp is not evaluated by Kalem.
+- A repeater (=+1w=, =++1w=, =.+1w=, optionally with a habit deadline
+  =/3d=) and a warning delay (=-3d=, =--3d=) may both be present, in
+  either order: =<2026-10-01 Thu +1w -3d>= and =<2026-10-01 Thu -3d +1w>=
+  mean the same. Units are =h=, =d=, =w=, =m=, =y=, lower case.
+- In a date range, the repeater and warning are read from the first
+  match in the whole text; Org writes them in both timestamps.
+- For a timestamp without a range, the end fields equal the start
+  fields; a diary timestamp without a time range has no end time.
+
+* Properties of each type
+
+Every element has =:begin=, =:end=, =:post-blank= and
+=:post-affiliated=; those with contents have =:contents-begin= and
+=:contents-end=. Elements that take affiliated keywords have =:name=,
+=:caption=, =:header=, =:plot=, =:results= and =:attr_BACKEND= when
+the keywords are present. The other properties, as =org-element= gives
+them:
+
+| Type                                                                                                       | Properties                                                                                                                                                                                                                                             |
+|------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =org-data=                                                                                                 | =:path=, and the properties of the top property drawer (=:CATEGORY= always)                                                                                                                                                                            |
+| =headline=                                                                                                 | =:raw-value=, =:title=, =:level=, =:true-level=, =:pre-blank=, =:todo-keyword=, =:todo-type=, =:priority=, =:tags=, =:commentedp=, =:archivedp=, =:footnote-section-p=, =:scheduled=, =:deadline=, =:closed=, drawer properties                        |
+| =inlinetask=                                                                                               | As =headline=, without =:true-level= and =:footnote-section-p=; planning and properties only when it has an =END= line                                                                                                                                 |
+| =section=, =paragraph=, =center-block=, =quote-block=, =verse-block=, =property-drawer=, =horizontal-rule= | None                                                                                                                                                                                                                                                   |
+| =plain-list=                                                                                               | =:type= (=ordered=, =unordered=, =descriptive=), =:structure=                                                                                                                                                                                          |
+| =item=                                                                                                     | =:bullet=, =:counter=, =:checkbox= (=on=, =off=, =trans=), =:tag=, =:pre-blank=, =:structure=                                                                                                                                                          |
+| =footnote-definition=                                                                                      | =:label=, =:pre-blank=                                                                                                                                                                                                                                 |
+| =drawer=                                                                                                   | =:drawer-name=                                                                                                                                                                                                                                         |
+| =dynamic-block=                                                                                            | =:block-name=, =:arguments=                                                                                                                                                                                                                            |
+| =special-block=                                                                                            | =:type=, =:parameters=                                                                                                                                                                                                                                 |
+| =node-property=                                                                                            | =:key=, =:value=                                                                                                                                                                                                                                       |
+| =planning=                                                                                                 | =:scheduled=, =:deadline=, =:closed= (timestamps)                                                                                                                                                                                                      |
+| =table=                                                                                                    | =:type= (=org=, =table.el=), =:tblfm= (the lines, last first), =:value= (table.el only)                                                                                                                                                                |
+| =table-row=                                                                                                | =:type= (=standard=, =rule=)                                                                                                                                                                                                                           |
+| =src-block=                                                                                                | =:language=, =:switches=, =:parameters=, =:value=, =:number-lines=, =:preserve-indent=, =:retain-labels=, =:use-labels=, =:label-fmt=                                                                                                                  |
+| =example-block=                                                                                            | =:switches=, =:value=, and the same switch properties                                                                                                                                                                                                  |
+| =export-block=                                                                                             | =:type= (upper case), =:value=                                                                                                                                                                                                                         |
+| =comment-block=, =comment=, =fixed-width=, =diary-sexp=, =latex-environment=                               | =:value=                                                                                                                                                                                                                                               |
+| =keyword=                                                                                                  | =:key= (upper case), =:value=                                                                                                                                                                                                                          |
+| =babel-call=, =inline-babel-call=                                                                          | =:call=, =:inside-header=, =:arguments=, =:end-header=, =:value=                                                                                                                                                                                       |
+| =clock=                                                                                                    | =:status= (=running=, =closed=), =:value= (the timestamp), =:duration=                                                                                                                                                                                 |
+| =bold=, =italic=, =underline=, =strike-through=, =line-break=, =table-cell=                                | None                                                                                                                                                                                                                                                   |
+| =code=, =verbatim=, =latex-fragment=, =target=, =radio-target=, =statistics-cookie=                        | =:value=                                                                                                                                                                                                                                               |
+| =entity=                                                                                                   | =:name=, =:use-brackets-p=, =:latex=, =:latex-math-p=, =:html=, =:ascii=, =:latin1=, =:utf-8=                                                                                                                                                          |
+| =export-snippet=                                                                                           | =:back-end=, =:value=                                                                                                                                                                                                                                  |
+| =footnote-reference=                                                                                       | =:label=, =:type= (=standard=, =inline=)                                                                                                                                                                                                               |
+| =inline-src-block=                                                                                         | =:language=, =:parameters=, =:value=                                                                                                                                                                                                                   |
+| =link=                                                                                                     | =:type=, =:type-explicit-p=, =:path=, =:format= (=plain=, =angle=, =bracket=), =:raw-link=, =:application=, =:search-option=                                                                                                                           |
+| =macro=                                                                                                    | =:key= (lower case), =:args=, =:value=                                                                                                                                                                                                                 |
+| =subscript=, =superscript=                                                                                 | =:use-brackets-p=                                                                                                                                                                                                                                      |
+| =citation=                                                                                                 | =:style=, =:prefix=, =:suffix=                                                                                                                                                                                                                         |
+| =citation-reference=                                                                                       | =:key=, =:prefix=, =:suffix=                                                                                                                                                                                                                           |
+| =timestamp=                                                                                                | =:type=, =:range-type=, =:raw-value=, =:year-start= ... =:minute-end=, =:repeater-type=, =:repeater-value=, =:repeater-unit=, =:repeater-deadline-value=, =:repeater-deadline-unit=, =:warning-type=, =:warning-value=, =:warning-unit=, =:diary-sexp= |
+
+~kalem diff-emacs~ compares the positions of every node and the
+properties =tests/emacs/dump.el= lists: the main property of each type
+above, but not the switch analysis of blocks, the renderings of
+entities, the numeric fields of timestamps or the planning of
+headlines. Kalem's typed wrappers (=org_syntax::ast=) compute those
+from the same text; the switch analysis is done by the exporters.
+
+* Special properties
+
+Some node properties change what Org does. Kalem honors them as follows:
+
+| Property               | Effect in Org                                                                                                           | In Kalem                                                                                   |
+|------------------------+-------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------|
+| =COOKIE_DATA=          | Words =todo= (cookies count child tasks, not checkboxes), =checkbox= (not child tasks), =recursive= (the whole subtree) | Honored by the statistics and by the commands that update cookies                          |
+| =LOG_INTO_DRAWER=      | Inherited: =t= logs into =LOGBOOK=, =nil= not into a drawer, any other value names the drawer                           | Honored                                                                                    |
+| =NOBLOCKING=           | Any value turns off TODO dependency blocking for the entry                                                              | Honored                                                                                    |
+| =REPEAT_TO_STATE=      | The state a repeating task returns to (inherited as =org-use-property-inheritance= says)                                | Honored                                                                                    |
+| =LAST_REPEAT=          | Written when a repeating task is done, if repeats are logged (the default) or the entry has clock lines                 | Written as Org writes it                                                                   |
+| =ARCHIVE=              | The archive location for =org-archive-subtree=                                                                          | Not used: archiving to another file is not implemented. =#+ARCHIVE= is read into the model |
+| =DIR=, =ATTACH_DIR=    | The entry's attachment folder (=ATTACH_DIR= is the old name)                                                            | Used for =attachment:= links in export and for images in the editor                        |
+| =ID=                   | The entry's identifier: =id:= links, and the attachment folder (=data/AB/CDEF...=) when there is no =DIR=               | =id:= links to entries of the same document; attachment folders in the uuid form           |
+| =EXPORT_*=             | In a subtree export: =EXPORT_OPTIONS=, =EXPORT_TITLE=, =EXPORT_FILE_NAME= and =EXPORT_= plus any option keyword         | Honored in ~kalem export --subtree~                                                        |
+| =HTML_CONTAINER_CLASS= | An extra class on the headline's container =div= in HTML                                                                | Honored, as are =HTML_CONTAINER= and =HTML_HEADLINE_CLASS=                                 |
+
+=ORDERED=, =LOGGING=, =CUSTOM_ID=, =CATEGORY=, =UNNUMBERED= and
+=ALT_TITLE= are described in the [[file:org.org][Org]] chapter.
+
+Emacs looks for =DIR= and =ID= on the entry itself only (with
+=org-attach-use-inheritance= at its default, =selective=, and
+=org-use-property-inheritance= nil). Kalem also takes them from the
+entry's ancestors, and uses only the first of Org's three ways to turn
+an =ID= into a folder. Both are differences not yet listed.
+
+* Built-in macros
+
+| Macro                                                  | Expands to                                                                                                     |
+|--------------------------------------------------------+----------------------------------------------------------------------------------------------------------------|
+| ~{{{title}}}~                                          | The =#+TITLE= values, joined by spaces                                                                         |
+| ~{{{author}}}~                                         | The =#+AUTHOR= values, joined by spaces                                                                        |
+| ~{{{email}}}~                                          | The first =#+EMAIL=                                                                                            |
+| ~{{{date}}}~, ~{{{date(FORMAT)}}}~                     | The first =#+DATE=; when that is a single timestamp, formatted with =FORMAT= if one is given                   |
+| ~{{{time(FORMAT)}}}~                                   | The current time, formatted by =format-time-string=                                                            |
+| ~{{{modification-time(FORMAT, VC)}}}~                  | The file's modification time; with a non-empty second argument, the version control time if there is one       |
+| ~{{{input-file}}}~                                     | The file's name without its folder                                                                             |
+| ~{{{property(NAME)}}}~, ~{{{property(NAME, SEARCH)}}}~ | The entry's property =NAME=, or that of the entry =SEARCH= finds                                               |
+| ~{{{keyword(NAME)}}}~                                  | The values of =#+NAME= keywords, joined by spaces                                                              |
+| ~{{{n}}}~, ~{{{n(NAME)}}}~, ~{{{n(NAME, ACTION)}}}~    | A counter: one more each time; =ACTION= =-= repeats the value, a number sets it, any other text resets it to 1 |
+| ~{{{results(TEXT)}}}~                                  | =TEXT=: the form Babel writes inline results in                                                                |
+
+=input-file= and =modification-time= exist only for a document saved in
+a file. A =#+MACRO: NAME TEMPLATE= line defines a macro with =$1=,
+=$2=... for its arguments; missing arguments expand to nothing. When a
+name is defined twice, the first definition counts. An undefined macro
+stops the export with "Undefined Org macro".
+
+In Emacs, =title=, =author=, =email= and =date= replace a =#+MACRO= of
+the same name when the keyword is present. Kalem currently lets the
+=#+MACRO= win, ignores the format of ~{{{date(FORMAT)}}}~ (it writes the
+=#+DATE= value as it is), and ignores the second argument of
+=modification-time=. These are bugs.
+
+* The =#+TOC= keyword
+
+=#+TOC:= places a table of contents or a list where it stands:
+
+| Value                    | Places                                                         |
+|--------------------------+----------------------------------------------------------------|
+| =headlines=              | The table of contents                                          |
+| =headlines N=            | The same, N levels deep                                        |
+| =headlines N local=      | The contents of the enclosing headline only                    |
+| =headlines :target LINK= | The contents of the headline the link points to (not in LaTeX) |
+| =tables=                 | A list of the tables that have a caption                       |
+| =listings=               | A list of the source blocks that have a caption                |
+
+The words are case-insensitive. The =toc:= option of =#+OPTIONS=
+controls the table of contents at the top, independently.
+
+Kalem's LaTeX and plain text back-ends honor =local=; its HTML and
+Markdown back-ends ignore it and place the whole table of contents,
+where Emacs places only the local part. No back-end of Kalem honors
+=:target=, which Emacs's HTML, Markdown and plain text back-ends
+honor. Both are bugs. The Markdown back-end places no list of tables
+or listings, as =ox-md= does not.
+
+* Tables: alignment and formula lines
+
+** Alignment by number fraction
+
+=org-table-align= aligns a column by the first field that is an
+alignment cookie (=<l>=, =<c>=, =<r>=, with an optional width); without
+one, the column is aligned right when at least half of its non-empty
+fields (=org-table-number-fraction=, 0.5) look like numbers, and left
+otherwise. Every row counts, the header too. A field looks like a
+number when it matches =org-table-number-regexp=:
+
+- digits with signs, dots, =^=, =e=, =d=, =x=, parentheses, =%= and
+  =:= around them, optionally after =<= or =>= (=12=, =-3.5=,
+  =2.4e-08=, =2x10^12=, =4.034+-0.02=, =12:30=, =50%=);
+- a hexadecimal number =0x1F=, or a number in a base, =16#FF=;
+- =nan=, =inf=, =-inf=, =uinf=.
+
+A column with no non-empty field is aligned right.
+
+** Several =#+TBLFM= lines
+
+A table may be followed by several =#+TBLFM:= lines; the parser keeps
+them all (=:tblfm=). Only the first is in force: recalculating the
+table applies it. In Emacs, =C-c C-c= on a later line applies that
+line's formulas once, leaving the first line as it is
+(=org-table-calc-current-TBLFM=), a way to keep alternative formulas.
+Kalem keeps the other lines but always applies the first; applying a
+later line is not implemented.
+
+#+begin_src org
+| x | y |
+|---+---|
+| 1 |   |
+,#+TBLFM: $2=$1*2
+,#+TBLFM: $2=$1*3
+#+end_src
+
+* The date prompt
+
+The date picker and the date argument of Schedule, Deadline and Insert
+Date read a subset of what =org-read-date= accepts
+(=kalem-core/src/dates.rs=). The input is words separated by blanks: at
+most one date word and at most one time word, in any order.
+
+| Input                             | Date                                                                                     |
+|-----------------------------------+------------------------------------------------------------------------------------------|
+| Nothing, =.=, =today=             | Today                                                                                    |
+| =tomorrow=, =yesterday=           | Tomorrow, yesterday                                                                      |
+| =+N=, =-N=, =+Nd=                 | N days from today                                                                        |
+| =+Nw=, =+Nm=, =+Ny= (or with =-=) | N weeks, months or years from today                                                      |
+| A day name, =fri=, =friday=       | That weekday, today or the next one; three letters or more of the English name, any case |
+| =YYYY-MM-DD=                      | That date; an impossible date is refused                                                 |
+| =MM-DD=                           | This year's, or next year's when the day has passed (=org-read-date-prefer-future=)      |
+| =H:MM=, =HH:MM=                   | A time; alone, today at that time                                                        |
+
+For Schedule and Deadline, up to two repeater and warning words at the
+end (=+1w=, =.+2d=, =-3d=) are kept in the new timestamp:
+=friday 9:00 +1w= schedules next Friday at 9:00, repeating weekly.
+
+=org-read-date= also accepts forms Kalem does not: American (=5/30=)
+and dotted European (=30.5.=) dates, ISO weeks (=w12=), times with
+=am= and =pm= or =9h30=, month names, a day of the month alone, time
+ranges, hour offsets (=+2h=) and =++= relative to the default date.
+
+* Where org-element and Worg's Org Syntax disagree
+
+Kalem follows =org-element.el=. The document =org-syntax.org= says
+otherwise in these places:
+
+| Topic                            | Worg's Org Syntax                                                  | =org-element= (and Kalem)                                                                                  |
+|----------------------------------+--------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------|
+| Priority cookie                  | =A= to =Z=, or an integer from 0 to 64                             | Any one character; =[#10]= is not a priority                                                               |
+| Item counters and letter bullets | A counter may be a letter                                          | Letter bullets need =org-list-allow-alphabetical= (off); =[@c]= counters are read anyway                   |
+| Descriptive items                | An item with a tag makes a descriptive list                        | Only =-=, =+= and =*= items have tags; the first item decides the list's type                              |
+| Where an item ends               | Lines inside any non-paragraph element do not end it               | Only lines inside blocks and drawers are skipped                                                           |
+| Dynamic block name               | Any non-blank characters                                           | Letters and digits only; =#+BEGIN: a-b c= is named =a=, without parameters                                 |
+| Comma quoting                    | The parser removes all the commas of =,*= and =,#+= lines          | One comma per line is removed; comment and verse blocks keep theirs                                        |
+| Affiliated keywords that repeat  | Dual keywords (=CAPTION=, =RESULTS=) and =ATTR_= values accumulate | =CAPTION=, =HEADER= and =ATTR_= accumulate; for =RESULTS= and =NAME= the last one counts                   |
+| Affiliated keyword names         | =CAPTION=, =DATA=, =HEADER=, =NAME=, =PLOT=, =RESULTS=             | Also =HEADERS=, =LABEL=, =RESNAME=, =RESULT=, =SOURCE=, =SRCNAME=, =TBLNAME=, translated to the main names |
+| Single-dollar LaTeX fragments    | The character inside =$c$= may not be =?= or ="=                   | =$?$= is a fragment                                                                                        |
+| LaTeX fragment brackets          | One optional =[...]= or ={...}= group                              | Any number of groups: =\foo[a]{b}{c}=                                                                      |
+| Citation prefixes and suffixes   | Global ones: the standard set; per reference: the minimal set      | Both: the standard set without line breaks, citations, footnote references and links                       |
+| Table.el tables                  | Any line starting with =+-= and plus and minus signs               | Must start and end with a full rule line and have more than one line                                       |
+| Inline calls and source blocks   | No condition before =call_= or =src_=                              | Must start a word                                                                                          |
+
+Worg is silent on two forms =org-element= reads: the =[x]= checkbox
+(consumed, but no checkbox) and =[@start:N]= counters.

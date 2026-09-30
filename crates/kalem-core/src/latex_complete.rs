@@ -943,6 +943,8 @@ impl LatexCompleter {
                     latex_model::Target::Float(k) => k.as_str(),
                     latex_model::Target::Theorem(t) => t.as_str(),
                     latex_model::Target::Footnote => "footnote",
+                    latex_model::Target::Item => "item",
+                    latex_model::Target::Counter(c) => c.as_str(),
                     latex_model::Target::None => "",
                 };
                 it.detail = format!("{what} {}", lab.number.clone().unwrap_or_default())

@@ -159,12 +159,10 @@ pub fn latex_toc(state: &DocumentState, line: Range<usize>) -> Option<Vec<TocEnt
         return None;
     }
     let model = state.latex()?.model();
-    let chapters = model.class.as_ref().is_some_and(|c| {
-        matches!(
-            c.name.as_str(),
-            "book" | "report" | "memoir" | "scrbook" | "scrreprt"
-        )
-    });
+    let chapters = model
+        .class
+        .as_ref()
+        .is_some_and(|c| latex_model::has_chapters(&c.name));
     let deepest = if chapters { 2 } else { 3 };
     let listed: Vec<_> = model
         .sections

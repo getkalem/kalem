@@ -6,6 +6,10 @@ exporters produce. It is a reference, and it is informative: the
 standard is Org itself, and where this chapter and Emacs disagree, Emacs
 is right and Kalem has a bug, unless the difference is listed in
 [[file:org-known-differences.org][Known differences from Emacs]].
+The details of the syntax (blank lines, lists, footnotes, block
+switches, every object, the properties of each type, special
+properties, macros and the date prompt) are in
+[[file:org-syntax.org][Org syntax in detail]].
 
 * The standard and the oracle
 

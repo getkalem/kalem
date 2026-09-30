@@ -61,6 +61,10 @@ pub(crate) enum Event {
         text: String,
         short: Option<String>,
         range: Range<usize>,
+        /// `\captionof{figure}`: the float type outside a float.
+        of: Option<String>,
+        /// `\subfloat[caption]` (subfig): a sub-caption.
+        sub: bool,
     },
     Footnote {
         explicit: Option<String>,
@@ -111,6 +115,22 @@ pub(crate) enum Event {
         note: Option<String>,
     },
     FootnoteEnd,
+    /// `\newcounter{counter}[within]`: reset by `within`, printed alone.
+    ResetWithin {
+        counter: String,
+        within: String,
+    },
+    /// `\stepcounter`, or `\refstepcounter` (`refer`), which `\label`
+    /// then points at.
+    Step {
+        counter: String,
+        refer: bool,
+    },
+    /// `\item`, with a label of its own (`explicit`) or numbered by its
+    /// list.
+    Item {
+        explicit: bool,
+    },
     Include {
         command: String,
         args: Vec<String>,
@@ -377,6 +397,27 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             text: m.first().unwrap_or(&"").to_string(),
             short: o.first().map(|s| s.to_string()),
             range,
+            of: None,
+            sub: false,
+        }),
+        "captionof" => {
+            if let Some(kind) = m.first() {
+                push(Event::Caption {
+                    text: m.get(1).unwrap_or(&"").to_string(),
+                    short: o.first().map(|s| s.to_string()),
+                    range,
+                    of: Some(kind.trim().to_string()),
+                    sub: false,
+                });
+            }
+        }
+        // subfig's `\subfloat[list][caption]{body}`, before its body.
+        "subfloat" => push(Event::Caption {
+            text: o.last().unwrap_or(&"").to_string(),
+            short: (o.len() > 1).then(|| o[0].to_string()),
+            range,
+            of: None,
+            sub: true,
         }),
         "footnote" => push(Event::Footnote {
             explicit: o.first().map(|s| s.trim().to_string()),
@@ -510,6 +551,39 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                 });
             }
         }
+        // `\newcounter{name}[within]`: reset by `within`.
+        "newcounter" => {
+            if let Some(c) = m.first() {
+                push(Event::SetCounter {
+                    counter: c.trim().to_string(),
+                    value: 0,
+                    add: false,
+                });
+                if let Some(w) = o.first() {
+                    push(Event::ResetWithin {
+                        counter: c.trim().to_string(),
+                        within: w.trim().to_string(),
+                    });
+                }
+            }
+        }
+        // `\footnotemark` steps the footnote counter; with a number, not.
+        "footnotemark" if o.is_empty() => push(Event::SetCounter {
+            counter: "footnote".into(),
+            value: 1,
+            add: true,
+        }),
+        "stepcounter" | "refstepcounter" => {
+            if let Some(c) = m.first() {
+                push(Event::Step {
+                    counter: c.trim().to_string(),
+                    refer: name == "refstepcounter",
+                });
+            }
+        }
+        "item" => push(Event::Item {
+            explicit: !o.is_empty(),
+        }),
         "numberwithin" | "counterwithin" | "counterwithout" => {
             if let (Some(c), Some(w)) = (m.first(), m.get(1)) {
                 push(Event::NumberWithin {
@@ -576,7 +650,22 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             }
         }
     }
-    true
+    // A definition's body runs where the macro is used, not here.
+    !matches!(
+        name.as_str(),
+        "newcommand"
+            | "renewcommand"
+            | "providecommand"
+            | "newenvironment"
+            | "renewenvironment"
+            | "DeclareRobustCommand"
+            | "NewDocumentCommand"
+            | "RenewDocumentCommand"
+            | "ProvideDocumentCommand"
+            | "DeclareDocumentCommand"
+            | "NewDocumentEnvironment"
+            | "RenewDocumentEnvironment"
+    )
 }
 
 /// `[note]` at the start of a body (theorems declared by `\newtheorem`

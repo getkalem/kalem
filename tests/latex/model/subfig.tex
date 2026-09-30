@@ -1,0 +1,17 @@
+\documentclass{article}
+\usepackage{subfig}
+\usepackage{capt-of}
+\begin{document}
+\section{S}
+\begin{figure}
+\subfloat[Left]{\label{fa}x}
+\subfloat[Right]{\label{fb}x}
+\caption{Both}\label{f1}
+\end{figure}
+\begin{center}\captionof{figure}{Loose}\label{f2}\end{center}
+\begin{figure}\caption{Third}\label{f3}\end{figure}
+\begin{table}
+\subfloat[T]{\label{ta}x}
+\caption{Tab}\label{t1}
+\end{table}
+\end{document}
