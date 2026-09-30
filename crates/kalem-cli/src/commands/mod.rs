@@ -225,11 +225,30 @@ pub(crate) fn check(
             results.extend(result);
             continue;
         }
+        let mode = kalem_core::DocumentMode::detect(Some(f), text.as_bytes());
         let parse = org_syntax::parse_file(&text, f);
-        let roundtrip = parse.syntax().to_string() == text;
-        let mut diags = parse.diagnostics();
+        let (roundtrip, mut diags) = if mode == kalem_core::DocumentMode::Csv {
+            // CSV: its malformed fields, not an Org parse.
+            let d = kalem_core::csv::detect(&text);
+            let diags = kalem_core::csv::problems(&text, &d, usize::MAX)
+                .into_iter()
+                .map(|p| org_syntax::Diagnostic {
+                    range: org_syntax::TextRange::new(
+                        org_syntax::TextSize::from(p.range.start as u32),
+                        org_syntax::TextSize::from(p.range.end as u32),
+                    ),
+                    severity: org_syntax::Severity::Warning,
+                    code: p.code,
+                    message: p.message,
+                })
+                .collect();
+            (true, diags)
+        } else {
+            (parse.syntax().to_string() == text, parse.diagnostics())
+        };
         // Kalem's additions in a strict `.org` file (design §3.7).
-        let org = f.extension().is_some_and(|e| e.eq_ignore_ascii_case("org"));
+        let org = mode != kalem_core::DocumentMode::Csv
+            && f.extension().is_some_and(|e| e.eq_ignore_ascii_case("org"));
         let opted_in = kalem_core::rich::kalem_option(&parse.keywords(), "markup")
             .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         if org && !opted_in {
@@ -247,7 +266,9 @@ pub(crate) fn check(
             diags.sort_by_key(|d| d.range.start());
         }
         // Citations: the bibliography files, and keys none of them has.
-        diags.extend(citation_diagnostics(&text, f));
+        if mode != kalem_core::DocumentMode::Csv {
+            diags.extend(citation_diagnostics(&text, f));
+        }
         diags.sort_by_key(|d| d.range.start());
         if !roundtrip {
             failed = true;

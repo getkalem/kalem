@@ -240,6 +240,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- CSV: a quote that is never closed, text after a closing quote and a quote inside an unquoted value are reported in the status bar at the record and by `kalem check` (which no longer checks a CSV file as Org); a quoted field's value ends at the first undoubled quote, as the scanner reads it.
 - CSV: the delimiter and header are detected once and kept while the file is open (renaming a header cell to a number no longer drops the header); detection prefers the delimiter that reads fields as numbers (`elma;1,5` and `1,5;2,5` split at `;`) and is not decided by a one-field title line; Excel's `sep=;` first line sets the delimiter and is not taken for the header. New commands set the delimiter, the quote character and the header by hand, and detect them again.
 - Files with classic Mac line endings (carriage returns alone) are read with lines, as Emacs reads its `mac` files, and saved with carriage returns again; in CSV a stray carriage return inside a line is data, so the grid no longer hides the rest of the line.
 - CSV: Enter no longer copies a row's leading tabs or blanks into the new record. `editor.trim_trailing_whitespace` leaves CSV files (trailing tabs are empty fields) and Markdown files (two trailing spaces are a hard line break) alone.

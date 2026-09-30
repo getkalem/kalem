@@ -851,3 +851,6 @@ cmd-latex-convertToOrg = Convert to Org (pandoc)
 msg-latex-converted-one-way = Converted one way: the LaTeX file is unchanged, and edits to the Org file do not go back to it
 cmd-file-newFromTemplate = New from Template…
 msg-unknown-template = No template { $name }
+csv-unterminated-quote = This quote is never closed: the rest of the file is one value
+csv-text-after-quote = Text after the closing quote (kept as part of the value)
+csv-bare-quote = A quote inside an unquoted value (the value should be quoted and the quote doubled)

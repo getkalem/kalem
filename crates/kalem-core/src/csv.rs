@@ -141,10 +141,93 @@ pub fn value<'a>(text: &'a str, f: &Field, d: &Dialect) -> Cow<'a, str> {
     }
     let q = d.quote as char;
     let inner = s.strip_prefix(q).unwrap_or(s);
-    let close = inner.rfind(q).unwrap_or(inner.len());
+    // The closing quote is the first one not doubled, as the scanner reads
+    // it; what follows is kept as written (`"a"b"c` is `ab"c`).
+    let close = closing_quote(inner.as_bytes(), d.quote).unwrap_or(inner.len());
     let (body, rest) = (&inner[..close], &inner[(close + 1).min(inner.len())..]);
     let dq = format!("{q}{q}");
     Cow::Owned(format!("{}{rest}", body.replace(&dq, &q.to_string())))
+}
+
+/// The offset of the quote closing a quoted field's contents `b` (after
+/// its opening quote): the first quote not followed by another.
+fn closing_quote(b: &[u8], quote: u8) -> Option<usize> {
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == quote {
+            if b.get(i + 1) == Some(&quote) {
+                i += 2;
+                continue;
+            }
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
+}
+
+/// The problems of one record (see [`problems`]).
+pub fn record_problems(text: &str, r: &Record, d: &Dialect) -> Vec<Problem> {
+    let b = text.as_bytes();
+    let mut out = Vec::new();
+    for f in &r.fields {
+        let bytes = &b[f.range.clone()];
+        if f.quoted {
+            match closing_quote(&bytes[1..], d.quote) {
+                None => out.push(Problem {
+                    range: f.range.start..f.range.start + 1,
+                    code: "csv-unterminated-quote",
+                    message: crate::l10n::tr("csv-unterminated-quote"),
+                }),
+                Some(c) if c + 2 < bytes.len() => out.push(Problem {
+                    range: f.range.start + c + 2..f.range.end,
+                    code: "csv-text-after-quote",
+                    message: crate::l10n::tr("csv-text-after-quote"),
+                }),
+                Some(_) => {}
+            }
+        } else if let Some(i) = bytes.iter().position(|&c| c == d.quote) {
+            out.push(Problem {
+                range: f.range.start + i..f.range.start + i + 1,
+                code: "csv-bare-quote",
+                message: crate::l10n::tr("csv-bare-quote"),
+            });
+        }
+    }
+    out
+}
+
+/// What is wrong with a CSV file, read leniently by [`scan`]: its byte
+/// range, a code and a message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Problem {
+    /// Where.
+    pub range: Range<usize>,
+    /// `csv-unterminated-quote`, `csv-text-after-quote` or `csv-bare-quote`.
+    pub code: &'static str,
+    /// What, in the interface language.
+    pub message: String,
+}
+
+/// The malformed fields of `text`: a quoted field with no closing quote
+/// (it runs to the end of the file), text after a closing quote, and a
+/// quote inside an unquoted field. At most `limit` problems.
+pub fn problems(text: &str, d: &Dialect, limit: usize) -> Vec<Problem> {
+    let mut out = Vec::new();
+    let mut at = match sep_line(text) {
+        Some((_, skip)) => skip,
+        None => 0,
+    };
+    while at < text.len() && out.len() < limit {
+        let r = scan(text, at, d);
+        out.extend(record_problems(text, &r, d));
+        if r.next <= at {
+            break;
+        }
+        at = r.next;
+    }
+    out.truncate(limit);
+    out
 }
 
 /// `value` as a field: quoted when it has the delimiter, the quote or a
@@ -1096,6 +1179,12 @@ pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>
 /// document: count, sum, average, smallest and largest; after a filter,
 /// how many rows it keeps.
 pub fn status(doc: &crate::DocumentState) -> Option<String> {
+    // A malformed field in the cursor's record comes first.
+    if let Some((layout, _, rec, _)) = cell_at(doc)
+        && let Some(p) = record_problems(doc.text().as_str(), &rec, &layout.dialect).first()
+    {
+        return Some(p.message.clone());
+    }
     let numbers = column_status(doc);
     let Some(f) = filtered(doc) else {
         return numbers;
@@ -1172,6 +1261,32 @@ pub fn pasted(text: &str, d: &Dialect) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn malformed_fields() {
+        let d = Dialect::default();
+        // The value as the scanner reads the field: up to the first
+        // undoubled quote, the rest as written.
+        let text = "\"a\"b\"c,d\n";
+        let r = scan(text, 0, &d);
+        assert_eq!(value(text, &r.fields[0], &d), "ab\"c");
+        let p = problems(text, &d, 10);
+        assert_eq!(p.len(), 1);
+        assert_eq!(
+            (p[0].code, p[0].range.clone()),
+            ("csv-text-after-quote", 3..6)
+        );
+        let text = "a,b\"c\n\"x\"\"y\",z\n\"open,1\n2,3\n";
+        let codes: Vec<_> = problems(text, &d, 10)
+            .into_iter()
+            .map(|p| (p.code, p.range.start))
+            .collect();
+        assert_eq!(
+            codes,
+            vec![("csv-bare-quote", 3), ("csv-unterminated-quote", 15)]
+        );
+        assert!(problems("a,b\n\"c\"\"d\",e\n", &d, 10).is_empty());
+    }
 
     #[test]
     fn a_lone_carriage_return_is_data() {

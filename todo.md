@@ -670,7 +670,7 @@ CSV
 - [x] T2.11.65 Enter in a TSV row copies the leading tabs as indentation, creating empty fields; in CSV it copies leading blanks into the next record (code)
 - [x] T2.11.66 `editor.trim_trailing_whitespace` removes trailing empty TSV fields, blanks inside quoted values, and Markdown's hard line breaks; off for CSV and Markdown, or documented (code)
 - [x] T2.11.67 Encoding guessing reads short Turkish Windows-1254 files as Windows-1252 (`files::guess` passes no hint to chardetng); ISO-8859-1 and ISO-8859-9 are Windows-1252 and -1254 under their WHATWG labels; a UTF-32 byte order mark opens as UTF-16; lossy decoding changes untouched bytes on save; binary detection skipped after a byte order mark (code, book)
-- [ ] T2.11.68 Malformed CSV has no diagnostic: a stray opening quote swallows the rest of the file; `value()` and `scan()` disagree on `"a"b"c` (code)
+- [x] T2.11.68 Malformed CSV has no diagnostic: a stray opening quote swallows the rest of the file; `value()` and `scan()` disagree on `"a"b"c` (code)
 - [ ] T2.11.69 Blank lines are data records: Sort File moves them to the top; the filter counts them (book, maybe code)
 - [ ] T2.11.70 The CSV oracle is overstated: the Excel and LibreOffice fixtures are hand-written (Excel does not quote numbers); relabel them synthetic or replace them with real exports (book, tests)
 - [ ] T2.11.71 Emacs file variables: only the first line's `mode:` is read; `coding:`, a mode line on line two after `#!`, and `Local Variables:` blocks are not; content sniffing for TSV saved as `.txt` (Excel's "Unicode Text") is missing (code, book)

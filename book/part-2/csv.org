@@ -191,11 +191,29 @@ offset of the next record. A blank line is a record with one empty
 field. A final line feed does not start an empty record (=Index=).
 
 The value of a field (=csv::value=) is its text as written when it is
-unquoted. When it is quoted: the opening quote is dropped, the last
-quote in the rest is taken as the closing one, doubled quotes before it
-become single quotes, and whatever follows the closing quote is
-appended. So ="ab"c= reads as =abc= and an unterminated ="abc= as
+unquoted. When it is quoted: the opening quote is dropped, the closing
+one is the first quote not doubled (as the scanner finds it), doubled
+quotes before it become single quotes, and whatever follows the closing
+quote is appended as written. So ="ab"c= reads as =abc=, ="a"b"c= as
+=ab"c= (as Python's =csv= module reads it) and an unterminated ="abc= as
 =abc=.
+
+** Malformed fields
+
+The lenient reading keeps every byte, but three things are reported
+(=csv::problems=), each as a warning with a code:
+
+| Code                     | Where                            | What                                                              |
+|--------------------------+----------------------------------+-------------------------------------------------------------------|
+| =csv-unterminated-quote= | The opening quote                | A quoted field is never closed: the rest of the file is its value |
+| =csv-text-after-quote=   | The text after the closing quote | Text after the closing quote                                      |
+| =csv-bare-quote=         | The first quote                  | A quote inside an unquoted value                                  |
+
+In both editors the status bar shows the first problem of the record at
+the cursor in place of the column's numbers. =kalem check= reports them
+all for a CSV file (as =FILE:LINE:COLUMN: warning[CODE]: MESSAGE=, or in
+JSON), and =--deny-warnings= makes them fail; a CSV file is not checked
+as Org.
 
 ** A lazy index
 
@@ -563,4 +581,5 @@ Saving is atomic, as for every file.
 - The filter and the column operations scan the whole file each time
   the text changes.
 - Lenient reading: text after a closing quote, unterminated quotes and
-  bare quotes are accepted, not reported.
+  bare quotes are accepted, and reported (see [[*Malformed fields][Malformed fields]]) rather
+  than refused.
