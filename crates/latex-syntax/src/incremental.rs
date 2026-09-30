@@ -130,6 +130,13 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
         return None;
     }
     let new_re = (re as isize + delta) as usize;
+    // A verbatim environment's `\\begin` or `\\end` in the region, before or
+    // after the edit, can end or start one elsewhere (inside it `%` is no
+    // comment): only a full parse knows.
+    let old_region: String = kids[i..=j].iter().map(|k| k.to_string()).collect();
+    if verbatim_edge(&old_region) || verbatim_edge(&new_text[rs..new_re]) {
+        return None;
+    }
     // A comment or a verbatim argument on the last line could reach past
     // the end of an environment's body in a full parse.
     if !ends_with_break && !is_root {
@@ -194,5 +201,16 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
         diagnostics,
         toggles,
         unclosed_env: old.unclosed_env,
+    })
+}
+
+/// Whether `s` holds the `\\begin` or `\\end` of a verbatim environment.
+fn verbatim_edge(s: &str) -> bool {
+    ["\\begin{", "\\end{"].iter().any(|pat| {
+        s.match_indices(pat).any(|(i, _)| {
+            let rest = &s[i + pat.len()..];
+            rest.find('}')
+                .is_some_and(|close| signatures::is_verbatim(rest[..close].trim()))
+        })
     })
 }
