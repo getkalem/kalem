@@ -170,6 +170,15 @@ Kalem follows them for compatibility:
 - ~org-entry-get~ and ~org-entry-properties~ disagree on duplicate drawer
   keys: the first returns the last value, the second the first.
 
+* Broken links on export
+
+Emacs's default for =org-export-with-broken-links= is =nil=: a link that
+resolves to nothing stops the export with "Unable to resolve link".
+Kalem's default is =mark=, so an export from the editor always
+finishes, the link written as =[BROKEN LINK: path]= where it was. With
+=#+OPTIONS: broken-links:nil= Kalem stops as Emacs does, and with
+=broken-links:t= it leaves the link out.
+
 * The property macro at a missing headline
 
 ={{{property(NAME,SEARCH)}}}= whose SEARCH names no headline stops

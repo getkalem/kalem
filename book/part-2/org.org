@@ -834,7 +834,9 @@ document's language (=':t=), the =org-export-dictionary= translations,
 and Babel as when evaluation is refused (=:eval never-export=):
 =:exports code= (the default) writes the block and removes its results,
 =both= keeps them, =results= keeps only the results, =none= neither;
-=#+CALL:= lines and inline calls go, Noweb references expand with
+=#+CALL:= lines and inline calls go (a call to a block the document
+does not name stops the export, "Unknown Babel reference", as in
+Emacs), Noweb references expand with
 =:noweb yes=. Timestamps are written without custom formats. HTML
 formulas go to MathJax, or, with =tex:svg= (and the image types
 =dvisvgm=, =dvipng= and =imagemagick=, which need LaTeX in Emacs), to

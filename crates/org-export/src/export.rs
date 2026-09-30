@@ -131,6 +131,8 @@ pub struct Exporter<'b> {
     tables: std::cell::RefCell<HashMap<Id, std::rc::Rc<TableInfo>>>,
     /// The plain text being transcoded, for smart quotes.
     pub current_text: Option<Id>,
+    /// The first error that stops the export, as Emacs's `user-error`.
+    pub error: Option<String>,
 }
 
 /// `expand-file-name`: `file` from folder `dir`, `~` for the home
@@ -372,6 +374,7 @@ impl<'b> Exporter<'b> {
             footnote_defs: None,
             tables: std::cell::RefCell::new(HashMap::new()),
             current_text: None,
+            error: None,
         }
     }
 
@@ -1316,7 +1319,13 @@ impl<'b> Exporter<'b> {
                     let t = self.tree.text_node(format!("[BROKEN LINK: {path}]"), None);
                     Some(self.data(t))
                 }
-                _ => None,
+                Value::T => None,
+                // `nil`: Emacs stops the export.
+                _ => {
+                    self.error
+                        .get_or_insert_with(|| format!("Org export aborted: unable to resolve link {path:?} (see broken-links in #+OPTIONS)"));
+                    None
+                }
             };
         }
         r
