@@ -265,10 +265,13 @@ pub fn plain(value: &str) -> String {
             '~' => out.push(' '),
             '\\' => {
                 let Some(&n) = chars.peek() else { break };
-                if matches!(
-                    n,
-                    '"' | '\'' | '`' | '^' | '~' | 'c' | '=' | '.' | 'u' | 'v' | 'H'
-                ) {
+                if crate::latex_view::accent_mark(&n.to_string()).is_some()
+                    && !(n.is_ascii_alphabetic()
+                        && chars
+                            .clone()
+                            .nth(1)
+                            .is_some_and(|c| c.is_ascii_alphabetic()))
+                {
                     chars.next();
                     // `\c c`, `\c{c}`: the letter after blanks or a brace.
                     while chars
@@ -277,7 +280,12 @@ pub fn plain(value: &str) -> String {
                     {
                         chars.next();
                     }
-                    let Some(l) = chars.next() else { break };
+                    let Some(mut l) = chars.next() else { break };
+                    // `\'{\i}`: the dotless i carries the accent.
+                    if l == '\\' && chars.peek() == Some(&'i') {
+                        chars.next();
+                        l = 'i';
+                    }
                     out.push(accent(n, l).unwrap_or(l));
                 } else if n.is_ascii_alphabetic() {
                     // A command: its name is dropped (`\textit`), the
@@ -287,16 +295,12 @@ pub fn plain(value: &str) -> String {
                         name.push(chars.next().unwrap_or(' '));
                     }
                     match name.as_str() {
-                        "ss" => out.push('ß'),
-                        "i" => out.push('ı'),
-                        "o" => out.push('ø'),
-                        "O" => out.push('Ø'),
-                        "ae" => out.push('æ'),
-                        "aa" => out.push('å'),
-                        "l" => out.push('ł'),
-                        "L" => out.push('Ł'),
                         "TeX" | "LaTeX" | "BibTeX" | "LaTeXe" => out.push_str(&name),
-                        _ => {}
+                        n => {
+                            if let Some(w) = crate::latex_view::word(n) {
+                                out.push_str(w);
+                            }
+                        }
                     }
                 } else {
                     chars.next();
@@ -310,21 +314,12 @@ pub fn plain(value: &str) -> String {
 }
 
 fn accent(mark: char, letter: char) -> Option<char> {
-    let table: &[(char, &str, &str)] = &[
-        ('"', "aeiouyAEIOU", "äëïöüÿÄËÏÖÜ"),
-        ('\'', "aeiouycnszAEIOUCNSZ", "áéíóúýćńśźÁÉÍÓÚĆŃŚŹ"),
-        ('`', "aeiouAEIOU", "àèìòùÀÈÌÒÙ"),
-        ('^', "aeiouAEIOU", "âêîôûÂÊÎÔÛ"),
-        ('~', "anoANO", "ãñõÃÑÕ"),
-        ('c', "csCS", "çşÇŞ"),
-        ('u', "gG", "ğĞ"),
-        ('v', "csznrCSZNR", "čšžňřČŠŽŇŘ"),
-        ('.', "zIZ", "żİŻ"),
-        ('H', "ouOU", "őűŐŰ"),
-    ];
-    let (_, from, to) = table.iter().find(|(m, _, _)| *m == mark)?;
-    let i = from.chars().position(|c| c == letter)?;
-    to.chars().nth(i)
+    use unicode_normalization::UnicodeNormalization;
+    let m = crate::latex_view::accent_mark(&mark.to_string())?;
+    let composed: String = [letter, m].iter().collect::<String>().nfc().collect();
+    let mut chars = composed.chars();
+    let c = chars.next()?;
+    chars.next().is_none().then_some(c)
 }
 
 /// The authors as a grid shows them: last names, "and" between two, "et

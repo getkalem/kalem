@@ -439,9 +439,57 @@ fn declaration(name: &str, style: &mut Style) -> bool {
             style.code = false;
         }
         "sc" | "scshape" | "sf" => {}
-        _ => return false,
+        // Sizes, as the standard classes set them at 10pt, shown at the
+        // same ratio to a 12-point text.
+        "normalsize" => style.rich.size = None,
+        size => {
+            let points = match size {
+                "tiny" => 5.0,
+                "scriptsize" => 7.0,
+                "footnotesize" => 8.0,
+                "small" => 9.0,
+                "large" => 12.0,
+                "Large" => 14.4,
+                "LARGE" => 17.28,
+                "huge" => 20.74,
+                "Huge" => 24.88,
+                _ => return false,
+            };
+            style.rich.size = Some((points * 12.0) as u16);
+        }
     }
     true
+}
+
+/// The declarations among `node`'s children before `at` (and, in an
+/// environment's body, those of its earlier paragraphs), as a style.
+fn declared_before(node: &SyntaxNode, at: usize) -> Option<Style> {
+    let mut declared = Style::default();
+    let mut any = false;
+    let mut scan = |n: &SyntaxNode, any: &mut bool| {
+        for e in n.children() {
+            if usize::from(e.text_range().start()) >= at {
+                break;
+            }
+            if e.kind() == K::COMMAND
+                && let Some(name) = latex_syntax::name(&e)
+                && declaration(&name, &mut declared)
+            {
+                *any = true;
+            }
+        }
+    };
+    if node.kind() == K::BODY {
+        for p in node.children() {
+            if usize::from(p.text_range().start()) >= at {
+                break;
+            }
+            scan(&p, &mut any);
+        }
+    } else {
+        scan(node, &mut any);
+    }
+    any.then_some(declared)
 }
 
 /// Whether token `t` is inside math.
@@ -777,6 +825,10 @@ fn merge(a: &mut Style, b: &Style) {
     a.strike |= b.strike;
     a.superscript |= b.superscript;
     a.subscript |= b.subscript;
+    // The innermost size wins.
+    if a.rich.size.is_none() {
+        a.rich.size = b.rich.size;
+    }
 }
 
 /// Commands whose arguments are text a reader reads (typography applies).
@@ -875,27 +927,29 @@ fn context(t: &SyntaxToken) -> Context {
             }
             // `{\\bf …}`, `{\\itshape …}`: the declarations before the token
             // in its group style it to the group's end.
-            K::GROUP => {
+            // So do those earlier in a paragraph, and in an environment's
+            // body (the environment is a group); not the whole document's.
+            K::GROUP | K::PARAGRAPH => {
                 let at = child.as_ref().map_or_else(
                     || usize::from(t.text_range().start()),
                     |c| usize::from(c.text_range().start()),
                 );
-                let mut declared = Style::default();
-                let mut any = false;
-                for e in a.children() {
-                    if usize::from(e.text_range().start()) >= at {
-                        break;
-                    }
-                    if e.kind() == K::COMMAND
-                        && let Some(n) = latex_syntax::name(&e)
-                        && declaration(&n, &mut declared)
-                    {
-                        any = true;
-                    }
-                }
-                if any {
+                if let Some(declared) = declared_before(&a, at) {
                     // The innermost group's declarations come first; an
                     // outer group only adds.
+                    merge(&mut c.style, &declared);
+                }
+            }
+            K::BODY
+                if a.parent()
+                    .and_then(|e| latex_syntax::name(&e))
+                    .is_some_and(|n| n != "document") =>
+            {
+                let at = child.as_ref().map_or_else(
+                    || usize::from(t.text_range().start()),
+                    |c| usize::from(c.text_range().start()),
+                );
+                if let Some(declared) = declared_before(&a, at) {
                     merge(&mut c.style, &declared);
                 }
             }
@@ -945,6 +999,76 @@ fn typography(s: &str) -> Vec<(Range<usize>, &'static str)> {
     out
 }
 
+/// The combining mark of a text accent command (`"` for `\"`).
+pub(crate) fn accent_mark(name: &str) -> Option<char> {
+    Some(match name {
+        "\"" => '\u{308}',
+        "'" => '\u{301}',
+        "`" => '\u{300}',
+        "^" => '\u{302}',
+        "~" => '\u{303}',
+        "=" => '\u{304}',
+        "." => '\u{307}',
+        "u" => '\u{306}',
+        "v" => '\u{30c}',
+        "H" => '\u{30b}',
+        "c" => '\u{327}',
+        "k" => '\u{328}',
+        "r" => '\u{30a}',
+        "d" => '\u{323}',
+        "b" => '\u{331}',
+        _ => return None,
+    })
+}
+
+/// The accent command `name` (ending at `at`) applied to the letter after
+/// it: `\"o`, `\"{o}`, `\c c`, `\u{g}`, `\'{\i}`. Gives where the letter
+/// ends and the character, composed where Unicode has one.
+fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, String)> {
+    use unicode_normalization::UnicodeNormalization;
+    let mark = accent_mark(name)?;
+    let word = name.chars().all(|c| c.is_ascii_alphabetic());
+    let mut p = at;
+    let rest = &text[p..limit.max(p)];
+    // A word accent takes the letter after blanks; a symbol one at once.
+    if word {
+        let blanks = rest.len() - rest.trim_start_matches([' ', '\t']).len();
+        if blanks == 0 && !rest.starts_with('{') {
+            return None;
+        }
+        p += blanks;
+    }
+    let rest = &text[p..limit.max(p)];
+    let (letter, end) = if let Some(inner) = rest.strip_prefix('{') {
+        let close = inner.find('}')?;
+        let body = inner[..close].trim();
+        let l = match body {
+            "\\i" => 'ı',
+            "\\j" => 'ȷ',
+            b if b.chars().count() == 1 => b.chars().next()?,
+            // `\"{}`: nothing to accent.
+            _ => return None,
+        };
+        (l, p + 1 + close + 1)
+    } else if let Some(r) = rest
+        .strip_prefix("\\i")
+        .filter(|r| !r.starts_with(|c: char| c.is_ascii_alphabetic()))
+    {
+        ('ı', limit - r.len())
+    } else {
+        let l = rest.chars().next().filter(|c| c.is_alphabetic())?;
+        (l, p + l.len_utf8())
+    };
+    // `\i` and `\j` are dotless to carry the accent: `\'{\i}` is í.
+    let letter = match letter {
+        'ı' => 'i',
+        'ȷ' => 'j',
+        l => l,
+    };
+    let composed: String = [letter, mark].iter().collect::<String>().nfc().collect();
+    Some((end, composed))
+}
+
 /// What a control symbol typesets in text.
 fn symbol(s: &str) -> Option<&'static str> {
     Some(match s {
@@ -959,14 +1083,52 @@ fn symbol(s: &str) -> Option<&'static str> {
         "\\ " => " ",
         "\\@" => "",
         "\\/" => "",
+        "\\-" => "",
         _ => return None,
     })
 }
 
 /// What a command without arguments typesets.
-fn word(name: &str) -> Option<&'static str> {
+pub(crate) fn word(name: &str) -> Option<&'static str> {
     Some(match name {
         "ldots" | "dots" | "textellipsis" => "\u{2026}",
+        // Vertical space and a discretionary hyphen typeset nothing here.
+        "medskip" | "smallskip" | "bigskip" | "vfill" | "par" | "noindent" | "indent" => "",
+        // A page break: a mark, dimmed like the line break's.
+        "newpage" | "clearpage" | "cleardoublepage" | "pagebreak" => "\u{21a1}",
+        "slash" => "/",
+        "textquotesingle" => "'",
+        "textvisiblespace" => "\u{2423}",
+        "guillemotleft" | "guillemetleft" => "«",
+        "guillemotright" | "guillemetright" => "»",
+        "guilsinglleft" => "‹",
+        "guilsinglright" => "›",
+        // The headings LaTeX prints for these lists.
+        "listoffigures" => "List of Figures",
+        "listoftables" => "List of Tables",
+        "printbibliography" => "References",
+        // Special letters.
+        "ss" => "ß",
+        "ae" => "æ",
+        "AE" => "Æ",
+        "oe" => "œ",
+        "OE" => "Œ",
+        "o" => "ø",
+        "O" => "Ø",
+        "aa" => "å",
+        "AA" => "Å",
+        "l" => "ł",
+        "L" => "Ł",
+        "i" => "ı",
+        "j" => "ȷ",
+        "th" => "þ",
+        "TH" => "Þ",
+        "dh" => "ð",
+        "DH" => "Ð",
+        "ng" => "ŋ",
+        "NG" => "Ŋ",
+        "dj" => "đ",
+        "DJ" => "Đ",
         "LaTeX" => "LaTeX",
         "TeX" => "TeX",
         "textendash" => "\u{2013}",
@@ -1698,6 +1860,24 @@ fn unflagged_line_view(
                 }
                 b.verbatim(at..r.end, c.style);
             }
+            // An accent and its letter as one character: `\"o` ö, `\c{c}` ç.
+            K::CONTROL_SYMBOL | K::CONTROL_WORD
+                if !c.math
+                    && !near(&r)
+                    && let Some((end, ch)) = accented(text, &s[1..], r.end, line.end) =>
+            {
+                b.replace(r.start..end, &ch, c.style);
+                while let Some(n) = tok.clone()
+                    && span(&n).start < end
+                {
+                    let ns = span(&n);
+                    if ns.end > end {
+                        // The rest of a word the letter began.
+                        b.verbatim(end..ns.end.min(line.end), c.style);
+                    }
+                    tok = n.next_token();
+                }
+            }
             K::CONTROL_SYMBOL if !c.math && !near(&r) => {
                 let is_break = s == "\\\\";
                 match symbol(s) {
@@ -1725,6 +1905,45 @@ fn unflagged_line_view(
                 let name = &s[1..];
                 let untitled = name == "maketitle" && state.titles().iter().all(Option::is_none);
                 match (name, word(name)) {
+                    // `\vspace{…}` typesets nothing here, `\hspace{…}` a
+                    // space: the command and its argument hidden.
+                    ("vspace" | "hspace" | "addvspace" | "vskip" | "hskip", _)
+                        if let Some(cmd) = t.parent().filter(|p| p.kind() == K::COMMAND)
+                            && node_span(&cmd).end <= line.end
+                            && !near(&node_span(&cmd)) =>
+                    {
+                        let end = node_span(&cmd).end;
+                        let rep = if name.starts_with('h') { " " } else { "" };
+                        b.replace(r.start..end, rep, c.style);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
+                    // `\today`: the date LaTeX prints, in English.
+                    ("today", _) => {
+                        let today = jiff::Zoned::now().date();
+                        let month = [
+                            "January",
+                            "February",
+                            "March",
+                            "April",
+                            "May",
+                            "June",
+                            "July",
+                            "August",
+                            "September",
+                            "October",
+                            "November",
+                            "December",
+                        ][usize::from(today.month().unsigned_abs()) - 1];
+                        b.replace(
+                            r,
+                            &format!("{month} {}, {}", today.day(), today.year()),
+                            c.style,
+                        );
+                    }
                     ("maketitle", _) if !untitled => {
                         let [title, author, date] = &*state.titles();
                         let title_style = Style {
@@ -3878,6 +4097,47 @@ mod tests {
         );
         assert!(note_at(&d, at("\\footnote")).unwrap().contains("A note."));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accents_and_special_letters() {
+        let text = "G\\\"odel, \\c{c}a, \\u{g}, \\'{\\i}, \\ss{} and \\AE, \\\"{U}ber, \\v s, \\H{o}, \\k{a}, \\r{a}, \\=a, \\.z, \\~n, \\^o, \\`e, \\o, \\l\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 0, Some(text.len())).display(),
+            "Gödel, ça, ğ, í, ß and Æ, Über, š, ő, ą, å, ā, ż, ñ, ô, è, ø, ł"
+        );
+    }
+
+    #[test]
+    fn spacing_and_page_commands() {
+        let text = "A \\medskip B \\vspace{1em}C \\hspace{2pt}D \\newpage E \\slash{} F\\-G \\guillemotleft x\\guillemotright{} \\listoffigures\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 0, Some(text.len())).display(),
+            "A B C  D \u{21a1}E / FG «x» List of Figures"
+        );
+    }
+
+    #[test]
+    fn declarations_and_sizes() {
+        let text = "Plain \\bfseries bold here.\n\n\\begin{center}\n\\itshape\nSlanted.\n\\end{center}\n\n{\\Large big} and {\\small\\bf tiny}.\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        let style_of = |line: usize, word: &str| {
+            let v = shown(&d, line, end);
+            v.runs
+                .iter()
+                .find(|r| r.text.contains(word) && !r.text.contains('\\'))
+                .map(|r| r.style)
+                .unwrap_or_else(|| panic!("{word}: {:?}", v.runs))
+        };
+        assert!(style_of(0, "bold").bold && !style_of(0, "Plain").bold);
+        assert!(style_of(4, "Slanted").italic);
+        assert_eq!(style_of(7, "big").rich.size, Some(172));
+        let small = style_of(7, "tiny");
+        assert!(small.bold && small.rich.size == Some(108), "{small:?}");
+        assert_eq!(style_of(7, "and").rich.size, None);
     }
 
     #[test]
