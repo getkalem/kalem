@@ -307,6 +307,7 @@ fn new_document(path: Option<&Path>, config: &Config) -> Result<DocumentState, O
                 },
                 bom: false,
                 encoding: kalem_core::encoding_rs::UTF_8,
+                lossy: false,
             };
             DocumentState::with_base("", meta, settings, &base)
         }

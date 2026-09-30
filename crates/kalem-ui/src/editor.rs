@@ -2876,6 +2876,7 @@ pub fn open(
                 },
                 bom: false,
                 encoding: kalem_core::encoding_rs::UTF_8,
+                lossy: false,
             };
             DocumentState::with_base("", meta, settings, &base)
         }

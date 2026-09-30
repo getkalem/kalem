@@ -33,6 +33,7 @@ fn main() {
         line_ending: kalem_core::LineEnding::Lf,
         bom: false,
         encoding: kalem_core::encoding_rs::UTF_8,
+        lossy: false,
     };
     let t = Instant::now();
     let mut d =

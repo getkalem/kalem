@@ -290,6 +290,7 @@ msg-reopen-modified = Önce değişiklikleri kaydedin ya da geri alın: yeniden 
 msg-reopened = { $encoding } olarak yeniden açıldı
 msg-unencodable = “{ $ch }” { $encoding } ile yazılamıyor: Kodlamayla Kaydet → UTF-8 onu korur
 msg-opened-as = UTF-8 değil: { $encoding } olarak açıldı (Kodlamayla Yeniden Aç başka birini seçer)
+msg-opened-lossy = Bazı baytlar { $encoding } değil: � olarak görünür ve kaydetmek yerlerine � yazar (Kodlamayla Yeniden Aç başka birini seçer)
 msg-bad-line = Satır numarası değil
 msg-no-headings = Belgede başlık yok
 msg-bad-word-target = Kelime sayısı değil: 80000, 80.000 ya da 80k yazın

@@ -374,6 +374,7 @@ mod tests {
                 line_ending: LineEnding::Lf,
                 bom: false,
                 encoding: encoding_rs::UTF_8,
+                lossy: false,
             },
             std::sync::Arc::new(org_model::Settings::default()),
         )

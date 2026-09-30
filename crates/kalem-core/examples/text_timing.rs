@@ -56,6 +56,7 @@ fn main() {
         line_ending: LineEnding::Lf,
         bom: false,
         encoding: kalem_core::encoding_rs::UTF_8,
+        lossy: false,
     };
     let mut d = DocumentState::new(text, meta, Arc::new(org_model::Settings::default()));
     let mut times = Vec::new();
