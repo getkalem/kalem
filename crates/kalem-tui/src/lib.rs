@@ -32,7 +32,7 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
     {
         let _ = std::io::Write::write_fmt(&mut io::stderr(), format_args!("kalem: {e}\n"));
     }
-    kalem_core::l10n::set_language(config.str("ui.language"));
+    config.apply_process_settings();
     terminal::raw_mode()?;
     let mut caps = caps::query(Duration::from_millis(500));
     // Theme colors where the terminal shows them; its light or dark

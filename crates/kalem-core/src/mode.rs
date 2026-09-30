@@ -166,8 +166,18 @@ impl DocumentMode {
         }
     }
 
-    /// The mode a user names: `org`, `markdown`, `csv` or `text` (also
-    /// `plain`), or a language, which is text with that highlighting.
+    /// The name `files.modes` keeps for the mode: [`DocumentMode::name`],
+    /// or the language of a text file that has one.
+    pub fn setting_name(&self) -> String {
+        match self {
+            DocumentMode::Text { language: Some(l) } => l.clone(),
+            m => m.name().to_string(),
+        }
+    }
+
+    /// The mode a user names: `org`, `markdown`, `csv`, `latex` or `text`
+    /// (also `plain`), or a language, which is text with that
+    /// highlighting.
     pub fn from_name(name: &str) -> Option<DocumentMode> {
         let name = name.trim().to_lowercase();
         if name.is_empty() || name == "binary" {
@@ -282,6 +292,21 @@ mod tests {
 
     fn detect(path: &str, text: &str) -> DocumentMode {
         DocumentMode::detect(Some(Path::new(path)), text.as_bytes())
+    }
+
+    #[test]
+    fn setting_names_round_trip() {
+        for m in [
+            DocumentMode::Org,
+            DocumentMode::Latex,
+            DocumentMode::Csv,
+            DocumentMode::Text { language: None },
+            DocumentMode::Text {
+                language: Some("python".into()),
+            },
+        ] {
+            assert_eq!(DocumentMode::from_name(&m.setting_name()), Some(m));
+        }
     }
 
     #[test]

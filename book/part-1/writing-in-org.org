@@ -1,6 +1,7 @@
 The editor shows the document as it will read: markup such as the stars
 around bold text is hidden, and appears when the cursor is on it, so you
-can always see and change what is in the file.
+can always see and change what is in the file. =editor.show_source_markers=
+shows it =always= or =never= instead.
 
 Kalem writes two kinds of file. A =.org= file is Org as Emacs knows it,
 and Kalem keeps it so: it never writes its own additions into it, so a
@@ -218,8 +219,8 @@ attachment folder as =org-attach= keeps it: the =DIR= property, else
 
 A picture pasted from the clipboard (a screenshot), or picture files
 pasted or dropped on a saved document, are copied into a folder beside
-it, =NAME_assets= for =NAME.org=, and linked where the cursor or the
-mouse is; pictures already in the document's folder are linked where
+it, =NAME_assets= for =NAME.org= (=org.assets_dir= names another), and
+linked where the cursor or the mouse is; pictures already in the document's folder are linked where
 they are. The terminal editor draws pictures that are alone on their
 line where the terminal draws images, and a file dropped on the terminal
 is linked the same way.

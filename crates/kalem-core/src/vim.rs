@@ -909,12 +909,10 @@ impl Vim {
     /// `editor.vim.modes` setting `modes` (empty for all).
     pub fn applies(modes: &[&str], mode: &DocumentMode) -> bool {
         let name = match mode {
-            DocumentMode::Org => "org",
-            DocumentMode::Markdown => "markdown",
-            DocumentMode::Csv => "csv",
-            _ => "plain",
+            DocumentMode::Binary => "text",
+            m => m.name(),
         };
-        modes.is_empty() || modes.contains(&name)
+        modes.is_empty() || modes.contains(&name) || (name == "text" && modes.contains(&"plain"))
     }
 
     /// The status bar's text: the mode, or the command line being typed.
@@ -2535,6 +2533,21 @@ impl Vim {
 mod tests {
     use super::*;
     use crate::{LineEnding, Metadata};
+
+    #[test]
+    fn modes_it_applies_to() {
+        let text = DocumentMode::Text { language: None };
+        let bib = DocumentMode::Text {
+            language: Some("bib".into()),
+        };
+        assert!(Vim::applies(&[], &DocumentMode::Latex));
+        assert!(Vim::applies(&["latex"], &DocumentMode::Latex));
+        assert!(!Vim::applies(&["plain"], &DocumentMode::Latex));
+        assert!(Vim::applies(&["plain"], &text));
+        assert!(Vim::applies(&["text"], &bib));
+        assert!(!Vim::applies(&["text"], &DocumentMode::Directory));
+        assert!(Vim::applies(&["directory"], &DocumentMode::Directory));
+    }
 
     #[derive(Default)]
     struct TestHost {

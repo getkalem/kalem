@@ -33,15 +33,32 @@ pub fn resolve(path: &str, base: Option<&Path>) -> PathBuf {
     }
 }
 
-/// The folder pictures of `document` go into: `NAME_assets` beside it.
+static ASSETS_DIR: std::sync::RwLock<String> = std::sync::RwLock::new(String::new());
+
+/// Sets where pictures go, from `org.assets_dir`: a folder name in which
+/// `{name}` is the document's name, relative to the document's folder.
+pub fn set_assets_dir(pattern: &str) {
+    if let Ok(mut p) = ASSETS_DIR.write() {
+        *p = pattern.to_string();
+    }
+}
+
+/// The folder pictures of `document` go into: `org.assets_dir` beside it,
+/// `NAME_assets` by default.
 pub fn assets_dir(document: &Path) -> Option<PathBuf> {
+    let pattern = ASSETS_DIR.read().map(|p| p.clone()).unwrap_or_default();
+    assets_dir_with(document, &pattern)
+}
+
+fn assets_dir_with(document: &Path, pattern: &str) -> Option<PathBuf> {
     let stem = document.file_stem()?.to_string_lossy().into_owned();
-    Some(
-        document
-            .parent()
-            .unwrap_or(Path::new(""))
-            .join(format!("{stem}_assets")),
-    )
+    let pattern = if pattern.trim().is_empty() {
+        "{name}_assets"
+    } else {
+        pattern.trim()
+    };
+    let dir = document.parent().unwrap_or(Path::new(""));
+    Some(dir.join(pattern.replace("{name}", &stem)))
 }
 
 /// A name in `dir` like `name` that no file has yet (`a.png`, `a-2.png`…).
@@ -195,6 +212,20 @@ pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn assets_dir_setting() {
+        let doc = Path::new("/w/notes.org");
+        assert_eq!(
+            assets_dir_with(doc, ""),
+            Some(PathBuf::from("/w/notes_assets"))
+        );
+        assert_eq!(
+            assets_dir_with(doc, "img/{name}"),
+            Some(PathBuf::from("/w/img/notes"))
+        );
+        assert_eq!(assets_dir_with(doc, "/pics"), Some(PathBuf::from("/pics")));
+    }
 
     #[test]
     fn importing_pictures() {

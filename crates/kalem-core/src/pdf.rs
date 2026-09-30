@@ -83,6 +83,19 @@ pub fn detect(engine: Engine, path: &std::ffi::OsStr) -> Option<Tool> {
     find("tectonic", path).map(Tool::Tectonic)
 }
 
+/// [`detect`], with the tool `export.pdf_engine` names (`latexmk` or
+/// `tectonic`) tried first; `auto` is [`detect`].
+pub fn detect_preferring(engine: Engine, path: &std::ffi::OsStr, preference: &str) -> Option<Tool> {
+    let preferred = match preference {
+        "latexmk" if engine != Engine::Tectonic => find("latexmk", path)
+            .filter(|_| find(engine.program(), path).is_some())
+            .map(Tool::Latexmk),
+        "tectonic" => find("tectonic", path).map(Tool::Tectonic),
+        _ => None,
+    };
+    preferred.or_else(|| detect(engine, path))
+}
+
 /// A problem LaTeX reported.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Problem {
@@ -389,6 +402,19 @@ LaTeX Warning: There were undefined references.\n";
         let tool = detect(Engine::PdfLatex, &path).unwrap();
         assert_eq!(tool, Tool::Engine(engine.clone()));
         assert_eq!(detect(Engine::XeLatex, &path), None);
+        // `export.pdf_engine`: tectonic first when installed.
+        let tectonic = bin.join("tectonic");
+        std::fs::write(&tectonic, "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&tectonic, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(
+            detect_preferring(Engine::PdfLatex, &path, "tectonic"),
+            Some(Tool::Tectonic(tectonic.clone()))
+        );
+        assert_eq!(
+            detect_preferring(Engine::PdfLatex, &path, "latexmk"),
+            Some(Tool::Engine(engine.clone()))
+        );
+        std::fs::remove_file(&tectonic).unwrap();
         let tex = dir.join("doc.tex");
         std::fs::write(&tex, "\\begin{document}\n%% org:5\n\\foo\n").unwrap();
         let out = compile(&tool, Engine::PdfLatex, &tex).unwrap();

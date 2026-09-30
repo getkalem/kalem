@@ -61,6 +61,20 @@ pub fn find(path: &std::ffi::OsStr) -> Option<PathBuf> {
     crate::pdf::find("pandoc", path)
 }
 
+/// pandoc as `export.pandoc_path` gives it (a path, or a program name
+/// looked for in `path`), else [`find`].
+pub fn find_with(setting: &str, path: &std::ffi::OsStr) -> Option<PathBuf> {
+    let setting = setting.trim();
+    if setting.is_empty() {
+        return find(path);
+    }
+    let p = PathBuf::from(setting);
+    if p.components().count() > 1 {
+        return p.is_file().then_some(p);
+    }
+    crate::pdf::find(setting, path)
+}
+
 /// The document as pandoc should read it: `#+INCLUDE` and macros expanded
 /// as Org's exporter expands them, and Kalem's formatting taken out, which
 /// pandoc's Org reader does not know.
@@ -395,6 +409,18 @@ fn clean_line(l: &str, linked: &dyn Fn(&str) -> bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pandoc_path_setting() {
+        let empty = std::ffi::OsString::new();
+        assert_eq!(find_with("", &empty), None);
+        assert_eq!(find_with("/no/such/pandoc", &empty), None);
+        let me = std::env::current_exe().unwrap();
+        assert_eq!(find_with(me.to_str().unwrap(), &empty), Some(me.clone()));
+        let dir = me.parent().unwrap().as_os_str().to_owned();
+        let name = me.file_name().unwrap().to_str().unwrap();
+        assert_eq!(find_with(name, &dir), Some(me.clone()));
+    }
 
     #[test]
     fn cleaning_up() {

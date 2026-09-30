@@ -242,7 +242,11 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("view.setMode", {
             let mut s = object(&[("mode", "string", true)]);
-            s["properties"]["mode"]["enum"] = serde_json::json!(["org", "markdown", "csv", "text"]);
+            // A mode, or a language (text with its highlighting).
+            s["properties"]["mode"]["examples"] =
+                serde_json::json!(crate::settings::DOCUMENT_MODES);
+            s["properties"]["mode"]["description"] =
+                Value::from("org, markdown, csv, latex, text, or a language such as python");
             s
         }),
         ("org.insert.date", {
@@ -840,7 +844,7 @@ fn pdf_then(ctx: &mut EditorContext<'_>, subtree: bool, print: bool) -> CommandR
             .map(|(_, v)| v.as_str()),
     );
     let search = std::env::var_os("PATH").unwrap_or_default();
-    let tool = crate::pdf::detect(engine, &search)
+    let tool = crate::pdf::detect_preferring(engine, &search, ctx.config.str("export.pdf_engine"))
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-latex")))?;
     let subtree = subtree.then_some(doc.selection.head);
     let settings = org_export::Settings {
@@ -936,7 +940,7 @@ fn export_pandoc(ctx: &mut EditorContext<'_>, format: crate::pandoc::Format) -> 
     let path = std::path::absolute(&path).unwrap_or(path);
     let text = doc.text().as_str().to_string();
     let search = std::env::var_os("PATH").unwrap_or_default();
-    let pandoc = crate::pandoc::find(&search)
+    let pandoc = crate::pandoc::find_with(ctx.config.str("export.pandoc_path"), &search)
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-pandoc")))?;
     let target = org_export::output_file_name_for(&text, &path, format.extension(), None);
     let open_after = ctx.config.bool("export.open_after");
@@ -973,7 +977,7 @@ fn import_file(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
         _ => file,
     };
     let search = std::env::var_os("PATH").unwrap_or_default();
-    let pandoc = crate::pandoc::find(&search)
+    let pandoc = crate::pandoc::find_with(ctx.config.str("export.pandoc_path"), &search)
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-pandoc")))?;
     let target = file.with_extension("org");
     if target.exists() {
@@ -1722,7 +1726,7 @@ fn latex_pandoc(ctx: &mut EditorContext<'_>, to: &'static str, ext: &'static str
     let root =
         latex_model::project::find_root(&path, &text, &latex_model::project::Disk, None, None);
     let search = std::env::var_os("PATH").unwrap_or_default();
-    let pandoc = crate::pandoc::find(&search)
+    let pandoc = crate::pandoc::find_with(ctx.config.str("export.pandoc_path"), &search)
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-pandoc")))?;
     let out = root.with_extension(ext);
     let open_after = ctx.config.bool("export.open_after");
@@ -3323,7 +3327,7 @@ fn plain_commands() -> Vec<Command> {
                 doc.set_mode(mode.clone(), &base);
                 // Remembered for the file in its workspace (§2.6).
                 if let Some(p) = doc.meta.path.clone()
-                    && let Err(e) = crate::settings::remember_mode(&p, mode.name())
+                    && let Err(e) = crate::settings::remember_mode(&p, &mode.setting_name())
                 {
                     ctx.messages.push(e);
                 }

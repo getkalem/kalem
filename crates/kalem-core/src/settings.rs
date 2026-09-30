@@ -34,8 +34,9 @@ pub enum Kind {
     Enum(&'static [&'static str]),
     /// A list of strings, each one of these if given.
     List(Option<&'static [&'static str]>),
-    /// A table from names to one of these strings.
-    Map(&'static [&'static str]),
+    /// A table from paths to document modes: one of these names, or a
+    /// language (text with that highlighting).
+    Modes(&'static [&'static str]),
 }
 
 /// A known setting.
@@ -51,7 +52,21 @@ pub struct Spec {
     pub description: &'static str,
 }
 
-const MODES: &[&str] = &["org", "markdown", "csv", "plain"];
+/// The modes of `editor.vim.modes` (`plain` is `text`, kept for older
+/// settings files).
+const MODES: &[&str] = &[
+    "org",
+    "markdown",
+    "csv",
+    "latex",
+    "text",
+    "directory",
+    "plain",
+];
+
+/// The modes a file can be set to (`files.modes`, `view.setMode`),
+/// besides a language.
+pub const DOCUMENT_MODES: &[&str] = &["org", "markdown", "csv", "latex", "text"];
 
 /// The built-in settings.
 pub const SPECS: &[Spec] = &[
@@ -137,13 +152,13 @@ pub const SPECS: &[Spec] = &[
         key: "editor.show_source_markers",
         kind: Kind::Enum(&["cursor", "always", "never"]),
         default: r#""cursor""#,
-        description: "When Org markup such as `*` around bold text is shown",
+        description: "When Org markup such as `*` around bold text is shown: while the cursor is in it, always, or never",
     },
     Spec {
         key: "editor.vim.modes",
         kind: Kind::List(Some(MODES)),
         default: "[]",
-        description: "Document modes where the Vim profile applies (org, markdown, csv, plain); empty for all",
+        description: "Document modes where the Vim profile applies: org, markdown, csv, latex, text (plain text, code and BibTeX; plain is the same) and directory (the file manager); empty for all",
     },
     Spec {
         key: "editor.vim.leader",
@@ -329,7 +344,7 @@ pub const SPECS: &[Spec] = &[
         key: "org.assets_dir",
         kind: Kind::Str,
         default: r#""{name}_assets""#,
-        description: "Where pasted images go; {name} is the document's name",
+        description: "The folder pasted and dropped pictures go into, relative to the document's folder; {name} is the document's name",
     },
     Spec {
         key: "files.backup",
@@ -339,7 +354,7 @@ pub const SPECS: &[Spec] = &[
     },
     Spec {
         key: "files.modes",
-        kind: Kind::Map(&["org", "markdown", "csv", "text"]),
+        kind: Kind::Modes(DOCUMENT_MODES),
         default: "{}",
         description: "Document modes chosen with Set Document Mode, by path relative to the workspace",
     },
@@ -353,13 +368,13 @@ pub const SPECS: &[Spec] = &[
         key: "export.pdf_engine",
         kind: Kind::Enum(&["auto", "latexmk", "tectonic"]),
         default: r#""auto""#,
-        description: "LaTeX engine for PDF export",
+        description: "The tool that makes an Org document's PDF, tried first: auto (latexmk with the TeX engine, else the engine, else tectonic), latexmk or tectonic",
     },
     Spec {
         key: "export.pandoc_path",
         kind: Kind::Str,
         default: r#""""#,
-        description: "The pandoc program; empty to search PATH",
+        description: "The pandoc program, as a path or a name looked for in PATH; empty for pandoc in PATH",
     },
     Spec {
         key: "plugins.enabled",
@@ -463,15 +478,24 @@ fn check(kind: Kind, v: &Value) -> Result<(), String> {
             _ => Err(format!("must be one of {}", options.join(", "))),
         },
         Kind::List(allowed) => list(allowed),
-        Kind::Map(options) => {
+        Kind::Modes(options) => {
             let Some(t) = v.as_object() else {
                 return Err("must be a table".into());
             };
-            match t
-                .values()
-                .find(|x| x.as_str().is_none_or(|s| !options.contains(&s)))
-            {
-                Some(bad) => Err(format!("has {bad}, not one of {}", options.join(", "))),
+            let valid = |x: &Value| {
+                x.as_str().is_some_and(|s| {
+                    options.contains(&s)
+                        || matches!(
+                            crate::DocumentMode::from_name(s),
+                            Some(crate::DocumentMode::Text { language: Some(_) })
+                        )
+                })
+            };
+            match t.values().find(|x| !valid(x)) {
+                Some(bad) => Err(format!(
+                    "has {bad}, not one of {} or a language",
+                    options.join(", ")
+                )),
                 None => Ok(()),
             }
         }
@@ -599,6 +623,15 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Applies the settings the whole process shares: the interface
+    /// language, when source markers show, where pictures go. Called when
+    /// the settings are loaded and whenever they change.
+    pub fn apply_process_settings(&self) {
+        crate::l10n::set_language(self.str("ui.language"));
+        crate::view::set_source_markers(self.str("editor.show_source_markers"));
+        crate::images::set_assets_dir(self.str("org.assets_dir"));
+    }
+
     /// Settings from the texts of settings files, in layer order.
     pub fn from_layers(layers: &[(Layer, Option<&Path>, &str)]) -> Config {
         let mut merged = Map::new();
@@ -1017,8 +1050,16 @@ mod tests {
             remembered_mode(&c, &dir.join("sub").join("other.txt")),
             None
         );
-        let bad = Config::from_layers(&[(Layer::User, None, "[files.modes]\n\"a\" = \"word\"\n")]);
+        let bad = Config::from_layers(&[(Layer::User, None, "[files.modes]\n\"a\" = 3\n")]);
         assert_eq!(bad.issues().len(), 1);
+        let bad = Config::from_layers(&[(Layer::User, None, "[files.modes]\n\"a\" = \"\"\n")]);
+        assert_eq!(bad.issues().len(), 1);
+        let good = Config::from_layers(&[(
+            Layer::User,
+            None,
+            "[files.modes]\n\"a\" = \"latex\"\n\"b\" = \"python\"\n",
+        )]);
+        assert!(good.issues().is_empty());
         let _ = std::fs::remove_dir_all(dir);
     }
 

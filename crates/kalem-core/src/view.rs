@@ -370,8 +370,52 @@ fn reveal_range(n: &SyntaxNode) -> Range<usize> {
 }
 
 fn revealed(n: &SyntaxNode, cursor: Option<usize>) -> bool {
-    let r = reveal_range(n);
-    cursor.is_some_and(|c| r.start <= c && c <= r.end)
+    revealed_by(source_markers(), n, cursor)
+}
+
+fn revealed_by(markers: Markers, n: &SyntaxNode, cursor: Option<usize>) -> bool {
+    match markers {
+        Markers::Always => true,
+        Markers::Never => false,
+        Markers::Cursor => {
+            let r = reveal_range(n);
+            cursor.is_some_and(|c| r.start <= c && c <= r.end)
+        }
+    }
+}
+
+/// When the markers of emphasis, links and the other hidable objects show
+/// (`editor.show_source_markers`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Markers {
+    /// While the cursor is inside the object (the reveal rule).
+    Cursor,
+    /// Always, the objects keeping their styles.
+    Always,
+    /// Never; Show Source shows them.
+    Never,
+}
+
+static MARKERS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Sets when markers show, from `editor.show_source_markers`
+/// (`cursor`, `always` or `never`).
+pub fn set_source_markers(setting: &str) {
+    let m = match setting {
+        "always" => 1,
+        "never" => 2,
+        _ => 0,
+    };
+    MARKERS.store(m, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// When markers show.
+pub fn source_markers() -> Markers {
+    match MARKERS.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => Markers::Always,
+        2 => Markers::Never,
+        _ => Markers::Cursor,
+    }
 }
 
 /// Objects whose markers hide away from the cursor.
@@ -1837,6 +1881,17 @@ impl Folds {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn source_markers_setting() {
+        use super::*;
+        let p = org_syntax::parse("a *b* c\n");
+        let bold = p.syntax().descendants().find(|n| n.kind() == BOLD).unwrap();
+        assert!(revealed_by(Markers::Cursor, &bold, Some(3)));
+        assert!(!revealed_by(Markers::Cursor, &bold, Some(0)));
+        assert!(revealed_by(Markers::Always, &bold, None));
+        assert!(!revealed_by(Markers::Never, &bold, Some(3)));
+    }
 
     #[test]
     fn export_and_comment_blocks() {
