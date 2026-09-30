@@ -5,6 +5,19 @@ window and are saved in =settings.toml=, in the settings directory:
 Windows, or =~/.config=. A project can have its own
 =.kalem/settings.toml=, which applies over yours.
 
+The terminal editor has no settings panel: /Settings/ (Ctrl+,, or Alt+,
+where the terminal cannot send it) shows the path of =settings.toml= in
+the status line. Open the file and edit it there, or use the commands
+that change a setting, such as /Toggle Folder Tree/.
+
+Kalem reads its settings files when it starts. After editing one by
+hand, in either editor, restart Kalem; a change made in the settings
+panel or by such a command reads your =settings.toml= again at once.
+
+The table lists the settings you are most likely to change;
+[[file:../appendices/settings.org][the Settings appendix]] lists every
+one, generated from the code.
+
 | Setting                                  | Default    | What it does                                                                       |
 |------------------------------------------+------------+------------------------------------------------------------------------------------|
 | =ui.language=                            | ="auto"=   | =auto= (the system's), =en= or =tr=                                                |
@@ -22,6 +35,7 @@ Windows, or =~/.config=. A project can have its own
 | =editor.vim.leader=                      | ="space"=  | The leader of the Vim keys (=SPC p p=)                                             |
 | =ui.open_files=                          | ="left"=   | Open files on the =left=, at the =top=, =hidden=                                   |
 | =ui.menu_bar=                            | =true=     | The window's menu bar on Linux and Windows (macOS has its own)                     |
+| =ui.folder_tree=                         | =true=     | The project's folders and files below the open files on the left                   |
 | =editor.outline_indent=                  | =true=     | Text under a heading starts at its title (terminal)                                |
 | =projects.auto_add=                      | =true=     | Folders under version control become projects                                      |
 | =org.todo_keywords=                      | TODO, DONE | TODO states of files without =#+TODO=; see below                                   |
@@ -43,6 +57,16 @@ states after the bar are done states.
 
 Light and dark themes follow the system unless =editor.theme= says
 otherwise; the terminal editor asks the terminal for its background. To
-change colors, copy =crates/kalem-core/themes/light.toml= or =dark.toml=
-to =themes/= in the settings directory and edit it; colors you leave out
-keep their values.
+change colors, write =themes/light.toml= or =themes/dark.toml= in the
+settings directory with a =[colors]= table holding the colors to change,
+as =#rrggbb= or =#rrggbbaa=; colors you leave out keep their values:
+
+#+begin_src toml
+[colors]
+background = "#fdf6e3"
+link = "#268bd2"
+#+end_src
+
+The built-in themes, with every color's name and a comment on what it
+colors, are =crates/kalem-core/themes/light.toml= and =dark.toml= in
+Kalem's source.

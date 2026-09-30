@@ -1,6 +1,8 @@
 | Command              | What it does                                                                 |
 |----------------------+------------------------------------------------------------------------------|
+| =kalem=              | An empty Org document, in the graphical editor or the terminal               |
 | =kalem FILE=         | Opens the file in the graphical editor, or in the terminal without a display |
+| =kalem FOLDER=       | Lists the folder in the file manager                                         |
 | =kalem gui FILE=     | The graphical editor                                                         |
 | =kalem tui FILE=     | The terminal editor (also =kalem -t FILE=)                                   |
 | =kalem tui --detect= | What the terminal can do: colors, images, keyboard                           |
@@ -9,3 +11,7 @@
 A file that does not exist yet is created when you save. A new file needs
 an extension, such as =notes.org=; a bare word is taken for a mistyped
 command.
+
+The editors open one file at a time: =kalem a.org b.org= stops with "one
+file at a time". Open the others from the editor (Ctrl+O, the file
+manager), where they are listed beside the first.

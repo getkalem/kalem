@@ -219,9 +219,15 @@ are a fixed set in the core (=DocumentMode= in =mode.rs=):
 | Markdown    | =markdown=                        | =.md=, =.markdown=, =.mdown=, =.mkd=, =.gfm= |
 | CSV         | =csv=                             | =.csv=, =.tsv=, =.tab=                       |
 | LaTeX       | =latex=                           | =.tex=, =.latex=, =.ltx=                     |
+| BibTeX      | =text=, language =bib=            | =.bib=, shown as a grid of entries           |
 | Plain text  | =text=                            | Everything else that is text, with a language for highlighting |
 | Binary      | =binary=                          | Not opened for editing                       |
 | File manager | =directory=                      | Folders                                      |
+
+BibTeX is not a mode of its own: a =.bib= file is plain text whose
+language is =bib=, which the editors show as a grid of entries (see
+[[file:../part-2/bibtex.org][BibTeX]]); its commands serve the text type
+=bib=.
 
 ** How a mode is chosen
 

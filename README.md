@@ -12,8 +12,8 @@ In short: **Typora for Org.**
 
 ### Works today
 
-- **Two editors, one behavior.** A graphical editor (gpui) and a terminal editor (ratatui) with the same commands, keys, settings and menus; Word-like keys by default, Vim keys as an option.
-- **Org as a document.** Headings, emphasis, lists and checkboxes, links, footnotes, images (terminal), LaTeX formulas drawn inline, source blocks with highlighting, folding, the outline, and a source view to switch to at any time.
+- **Two editors, one behavior.** A graphical editor (gpui) and a terminal editor (ratatui) with the same commands, keys, settings and menus; Word-like keys by default, Vim keys as an option. Menus are in the macOS menu bar and in the window's own menu bar on Linux and Windows; F10 lists every menu item in both editors. The File menu holds New from Template, Print, Import as Org and every export.
+- **Org as a document.** Headings, emphasis, lists and checkboxes, links, footnotes, citations with a picker, pictures (in the terminal too, where it draws images), LaTeX formulas drawn inline, source blocks with highlighting, folding, the outline, and a source view to switch to at any time.
 - **Byte-for-byte Org.** The parser agrees with Emacs's `org-element` on the Org manual, Org's own tests and all of Worg; a file saved by Kalem changes only where you edited it.
 - **Tasks.** TODO states, priorities, tags, properties, scheduling with a date picker, state logging, repeaters, TODO dependencies, and match strings (`kalem query`), each command identical to Emacs on thousands of cases.
 - **Tables and formulas.** Automatic alignment, a grid editor, `#+TBLFM` formulas with Calc's functions, durations and dates, a formula bar, recalculation, import and export (CSV, TSV).
@@ -23,7 +23,6 @@ In short: **Typora for Org.**
 
 ### Not yet
 
-- A citation picker
 - Markdown as a document (today it opens as text)
 - The agenda, capture, clocking reports, Babel (running source blocks)
 - Plugins (planned as WebAssembly components), spell checking
@@ -52,12 +51,13 @@ kalem notes.org                       # open in the graphical editor
 kalem tui notes.org                   # open in the terminal editor
 kalem check notes.org                 # syntax diagnostics, round-trip check
 kalem fmt notes.org                   # align tables and tags, normalize spacing
-kalem export notes.org --to html      # export: html, md, gfm, org
+kalem export notes.org --to html      # also md, gfm, org, latex, txt, utf8, pdf,
+                                      # and docx, odt, epub, rtf (pandoc)
 kalem table recalc budget.org         # recompute #+TBLFM formulas
 kalem query notes.org 'TODO="NEXT"'   # headlines matching an Org match string
 ```
 
-Planned: `kalem export --to pdf`, `kalem agenda`, and `kalem run` for a plugin's command in batch, like `emacs --batch`.
+Planned: `kalem agenda`, and `kalem run` for a plugin's command in batch, like `emacs --batch`.
 
 ## Repository layout
 
@@ -67,7 +67,10 @@ Planned: `kalem export --to pdf`, `kalem agenda`, and `kalem run` for a plugin's
 | `crates/org-model` | Document model: outline, TODO states, tags, properties, match strings, links, statistics, clocks |
 | `crates/org-edit` | Org editing commands with undo, identical to Emacs's |
 | `crates/org-table` | Tables and `#+TBLFM` formulas |
-| `crates/org-export` | Exporters: HTML, Markdown, GitHub Markdown (a port of `ox.el`) |
+| `crates/org-export` | Exporters: HTML, Markdown, GitHub Markdown, LaTeX, plain text and Org, with citations (a port of `ox.el`) |
+| `crates/org-cite` | Citations: BibTeX and CSL-JSON bibliographies, Org's `basic` processor and CSL styles |
+| `crates/latex-syntax` | Lossless, incremental LaTeX parser |
+| `crates/latex-model` | The document model of LaTeX files: structure, numbering, labels, citations and definitions |
 | `crates/org-math` | LaTeX formulas drawn natively |
 | `crates/kalem-core` | The editor's model, shared by both frontends: documents, commands, keymaps, settings |
 | `crates/kalem-ui`, `crates/gpui-rich-text` | The graphical editor |
@@ -77,7 +80,9 @@ Planned: `kalem export --to pdf`, `kalem agenda`, and `kalem run` for a plugin's
 | `crates/kalem` | The `kalem` binary (published as `kalem-editor`) |
 | `tests/corpus` | Real-world Org files used for testing |
 | `tests/emacs` | Scripts that compare Kalem's parser, commands and exporters with Emacs |
+| `book/` | The Kalem Book, in Org: the manual, the formats, extending Kalem, the design |
 | `design_document.md` | The design document (RFC 0001) |
+| `design_doc2.md` | The second design document (RFC 0002): standard modes, the Kalem format, the Book |
 | `todo.md` | The work breakdown |
 
 ## Building

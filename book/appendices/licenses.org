@@ -9,7 +9,7 @@ repository). Contributions are accepted under the same terms.
 The text of this book is part of the repository and is under the same
 licenses as the code. When the Kalem format's specification is written,
 its text is proposed to be under CC BY 4.0 and its conformance suite
-under MIT or Apache-2.0 (decision D45, open).
+under MIT or Apache-2.0 (decision D45).
 
 * Test corpus
 
@@ -25,9 +25,28 @@ Kalem embeds the KaTeX fonts for formulas (SIL Open Font License 1.1),
 and uses the Rust crates
 listed in =Cargo.lock=, each under its own license.
 
-The highlighter embeds Sublime Text syntax definitions: the default set
-that the =syntect= crate ships (from Sublime Text's =Packages=
-repository and others, each under its own license, mostly MIT-style),
-and the further syntaxes of =bat= that the =two-face= crate ships, each
-under the license its source repository gives; =bat='s
-=assets/syntaxes= and its acknowledgements file list them.
+The highlighter embeds Sublime Text syntax definitions through the
+=two-face= crate (MIT or Apache-2.0): the default set that the =syntect=
+crate (MIT) ships, from Sublime Text's =Packages= repository under its
+MIT-style license, and the further syntaxes of =bat=, each under the
+license its source repository gives: MIT for most, Apache-2.0 or a BSD
+license for some. =bat='s =assets/syntaxes= and =two-face='s
+acknowledgements (its =acknowledgement= module) list each one with its
+license.
+
+The citation styles Kalem ships for =#+CITE_EXPORT: csl= (=apa=, =ieee=,
+=chicago-author-date= and the others) and their locales are Citation
+Style Language styles from the CSL project, under the Creative Commons
+Attribution-ShareAlike 3.0 license (CC BY-SA 3.0). They come embedded in
+the =hayagriva= crate (MIT or Apache-2.0), whose archive records each
+style's authors.
+
+The table of Org's entities (=\alpha=, =\nbsp=: 414 names with their
+LaTeX, HTML, ASCII, Latin-1 and UTF-8 renderings), in
+=crates/org-syntax/src/tables/entities.rs=, is generated from
+Emacs's =org-entities.el=, which is part of GNU Emacs under the GPL,
+version 3 or later. Whether a permissively licensed crate may carry it
+is decision D18, open; see
+[[file:../part-5/decisions/D18-entity-table-provenance.org][D18: Entity
+table provenance]]. Until it is decided, =org-syntax= is not published
+on crates.io.

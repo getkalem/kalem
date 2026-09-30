@@ -28,6 +28,18 @@ subtree past its neighbors.
 Tab on a heading folds and unfolds it; Shift+Tab on a heading cycles the
 whole document between overview, contents and everything.
 
+/Cut Subtree/ and /Copy Subtree/ put the heading at the cursor, with
+everything under it, on the clipboard; /Paste Subtree/ pastes one,
+changing its level to fit where it goes, as Emacs's =org-paste-subtree=
+does. /Sort Entries/ sorts the selected headings, else those under the
+one at the cursor, else the top-level ones, and asks how, with the
+letters of Emacs's =org-sort-entries=: =a= by title, =n= by number, =t=
+by time, =c= by creation time, =s= by scheduled date, =d= by deadline,
+=p= by priority, =o= by TODO state and =k= by clocked time; a capital
+letter sorts in reverse. (=r=, by a property, needs the property's name,
+which the palette does not ask for; a key binding can give it with
+="args": {"by": "r", "property": "EFFORT"}=.)
+
 * Text formatting
 
 | Keys         | Formatting     | In the file   |
@@ -38,7 +50,8 @@ whole document between overview, contents and everything.
 | Ctrl+Shift+X | Strike-through | =+gone+=      |
 | Ctrl+Shift+K | Code           | =~code~=      |
 
-With a selection, the keys format it, or remove the formatting when it is
+/Verbatim/ (~=verbatim=~) has no key; it is in the palette. With a
+selection, the keys format it, or remove the formatting when it is
 already there. Deleting a marker character turns the formatting into
 plain text, and the status bar says so.
 
@@ -50,6 +63,9 @@ indent and outdent an item, Alt+Enter inserts one, Ctrl+Shift+L cycles the
 bullet style. Ctrl+Shift+C adds, checks and unchecks a checkbox =[ ]=, and
 a click on a checkbox toggles it. Statistics cookies such as =[1/3]= are
 kept up to date.
+/Repair List/ fixes the list at the cursor as Emacs's
+=org-list-repair= does: the items' indentation, bullets and numbers
+made consistent.
 
 * Tables
 
@@ -61,6 +77,19 @@ Right inserts a column, Left deletes one. Away from the cursor, a table is
 drawn as a grid.
 
 Pasting cells from a spreadsheet makes a table.
+
+These table commands have no keys; the palette has them:
+
+- /Align Table/ :: aligns the columns (typing does it too).
+- /Insert Horizontal Rule/ :: a rule, =|---+---|=, below the row.
+- /Sort Rows/ :: sorts the rows between the rules around the cursor by
+  the cursor's column, and asks how: =a= alphabetically, =n= by number,
+  =t= by time; a capital letter sorts in reverse. It is Emacs's
+  =org-table-sort-lines=.
+- /Export Table…/ :: writes the table at the cursor to a file: CSV when
+  its name ends with =.csv=, tab-separated values otherwise.
+- /Import Table…/ :: reads a CSV or tab-separated file into a table at
+  the cursor.
 
 ** Formulas
 
@@ -79,6 +108,14 @@ the same functions (=vsum=, =vmean=, =vmedian=, =round=, =if=…), the
 same flags (=;%.2f=, =;N=, =;E=, =;T= for durations such as =8:30=), and
 dates: =$2-$1= between two timestamps is a number of days. Emacs Lisp
 formulas (='(...)=) are kept but not computed; Kalem says which ones.
+
+With the cursor in a field that a formula fills, the status bar is the
+formula bar: it shows the formula, such as =$4 = $2*$3=, and why the
+field shows =#ERROR= when it does, and the fields the formula reads
+are highlighted in the table. /Edit Formula/ (F2) asks for the field's
+formula, starting with the one it has: ~=$2*$3~ for its column, or
+~:=$2*$3~ for this field alone, as typed in a field in Emacs. The
+=#+TBLFM:= line is written, and the table recalculated.
 
 From the command line, =kalem table recalc FILE= recalculates every table
 of a file (=--iterate= until nothing changes, =--check= for CI).
@@ -139,6 +176,7 @@ show displayed formulas and environments typeset.
 Ctrl+K inserts a link. Typing =[[= offers the document's headings and
 targets. Ctrl-click (Cmd-click on macOS) opens a link: web links in the
 browser, file links in Kalem or their application, internal links jump.
+/Open Link/ (the palette) opens the link at the cursor the same way.
 
 /Store Link/ (the palette) keeps a link to what is at the cursor: in the
 file manager the marked files (or the one at the cursor), in a document its
@@ -180,6 +218,12 @@ centered. Drawers fold to their first line with =…= and open when the
 cursor enters them. /Insert Drawer/ (Insert > Drawer) asks for a name and
 writes an empty drawer at the cursor, or around the selected lines, as
 Emacs's =org-insert-drawer= does.
+/Insert Block/ asks for a kind (=src=, =quote=, =example=, =center=,
+=verse=, =comment=, or another) and writes =#+begin_KIND= and
+=#+end_KIND= around the selected lines, or an empty block at the cursor,
+as Emacs's =org-insert-structure-template= does. /Insert Horizontal
+Rule/ writes a rule, =-----=, on the line if it is blank, else on a new
+line after it.
 
 * Table of contents
 
@@ -230,6 +274,19 @@ is linked the same way.
 Ctrl+Enter cycles a heading through its TODO states (=TODO=, =DONE=, or
 the states of the document's =#+TODO= line); Shift+Left and Shift+Right
 step through them, Shift+Up and Shift+Down change the priority.
+
+Without keys, in the palette: /Set TODO State/ asks for the state,
+/Mark Done/ marks the heading done, and /Next Keyword Set/ and
+/Previous Keyword Set/ go to the first state of another sequence when
+=#+TODO= lines give several. /Set Priority/ asks for the priority's
+letter and /Remove Priority/ takes it off. /Set Tags/ asks for the
+heading's tags, words separated by blanks or colons (nothing removes
+them), /Toggle Tag/ adds or removes one tag, and /Align All Tags/ moves
+every heading's tags to the right edge. /Set Property/ and /Delete
+Property/ ask for a property's name (and value), as /Edit Properties/
+below does in one list. /Add Note/ asks for a note and writes it under
+the heading as Emacs's =org-add-note= does, in the drawer
+=org.log_into_drawer= names (such as =LOGBOOK=) when it names one.
 
 /Schedule/ (Ctrl+Alt+S) and /Set Deadline/ ask for a date (a calendar in
 the graphical editor; =today=, =+3d=, =friday=, =2026-10-05 14:30= and
@@ -314,5 +371,6 @@ selection; /Select All Occurrences/ selects every one at once.
 Ctrl+Alt+Shift+Down and Up make a column selection: the same columns on
 each line. Typing, Backspace, Delete and the arrow keys then act at every
 cursor, as one undo step; Copy takes each selection, one a line, and
-pasting as many lines as there are cursors puts one at each. Escape, or
-a click, leaves one cursor.
+pasting as many lines as there are cursors puts one at each. Escape, a
+click, or /Single Cursor/ leaves one cursor. /Select Word/ selects the
+word at the cursor, without looking for the next one.
