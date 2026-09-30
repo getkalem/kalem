@@ -800,6 +800,14 @@ pub fn line_view(
     v
 }
 
+/// Flags the text of line view `v` (the source view's, say) under the
+/// diagnostics of the LaTeX document `doc`.
+pub fn flag_diagnostics(doc: &crate::DocumentState, v: &mut LineView) {
+    if let Some(diags) = doc.latex_diagnostics() {
+        flag(v, diags);
+    }
+}
+
 /// Flags the runs of `v` under `diags`: a run of source text split where a
 /// diagnostic starts or ends, a run standing for other text flagged whole.
 fn flag(v: &mut LineView, diags: &[crate::latex_check::Diagnostic]) {

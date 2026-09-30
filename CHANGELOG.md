@@ -174,6 +174,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - File manager: `W` opens the marked files with their applications, Show in System File Manager selects the file in Finder, Explorer or the desktop's file manager, and `!` runs a shell command on the marked files after asking (`*` and `?` as in Dired); in both editors.
 - File manager (graphical): `v` shows a preview pane beside the listing (pictures, the first lines of text files, folders' names), Ctrl+T the listing's pictures as thumbnails, a click going to the picture's line.
 - LaTeX links: Open Link (Ctrl-click, Cmd-click on macOS) follows a reference to its label, `\url` and `\href` to the browser, `\input` and `\include` to their file, `\includegraphics` to its picture and a citation to the bibliography file; in both editors.
+- LaTeX: diagnostics stay in place while you type (moving with the text) instead of disappearing until the next pass, and show in the source view too.
 - LaTeX: a long environment Kalem does not render (a `tikzpicture`, say) folds to its first line while the cursor is elsewhere.
 - LaTeX: the preamble folds to its first line while the cursor is elsewhere, as Org folds drawers.
 - LaTeX: `\tableofcontents` shows the document's table of contents, numbered, each entry leading to its section.

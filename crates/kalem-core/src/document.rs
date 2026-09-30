@@ -1206,6 +1206,7 @@ impl DocumentState {
         let text = self.text.as_str();
         if let Some(l) = &mut self.latex {
             l.edit(text, edit.as_ref());
+            l.diagnostics.map(tx, version);
         }
         let Some(org) = &mut self.org else { return };
         let current =
@@ -1250,6 +1251,14 @@ impl DocumentState {
     /// (they are worked out after a pause in typing).
     pub fn latex_diagnostics(&self) -> Option<&Arc<Vec<crate::latex_check::Diagnostic>>> {
         self.latex.as_ref()?.diagnostics.current(self.version)
+    }
+
+    /// Whether a LaTeX document's diagnostics are to be worked out again
+    /// (frontends poll sooner meanwhile).
+    pub fn latex_diagnostics_due(&self) -> bool {
+        self.latex
+            .as_ref()
+            .is_some_and(|l| l.diagnostics.due(self.version))
     }
 
     /// Waits for a LaTeX document's project to be found (tests).

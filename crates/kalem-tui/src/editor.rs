@@ -1069,7 +1069,14 @@ impl<'a> Layout<'a> {
                     let layout = kalem_core::csv::layout(self.doc);
                     kalem_core::csv::line_view(&layout, self.text().as_str(), range.clone())
                 } else {
-                    view::plain_line_view(self.text().as_str(), range.clone(), Some(self.cursor))
+                    let mut v = view::plain_line_view(
+                        self.text().as_str(),
+                        range.clone(),
+                        Some(self.cursor),
+                    );
+                    // LaTeX's source view: the diagnostics flagged too.
+                    kalem_core::latex_view::flag_diagnostics(self.doc, &mut v);
+                    v
                 };
                 let empty = org_syntax::parse("");
                 let mut lg = render::glyphs(
