@@ -2693,6 +2693,39 @@ fn latex_code_colored_by_its_language() {
 }
 
 #[test]
+fn latex_inline_code_colored() {
+    let text = "plain words\nSee \\lstinline[language=Rust]{fn main} here.\n";
+    let mut t = with_file(text, "c.tex", Config::default(), (60, 8));
+    t.at(0);
+    let buf = t.draw();
+    let row = (0..buf.area.height)
+        .find(|&y| {
+            (0..buf.area.width)
+                .map(|x| buf[(x, y)].symbol().to_string())
+                .collect::<String>()
+                .contains("See fn main here.")
+        })
+        .expect("the code shows without its command");
+    let line: String = (0..buf.area.width)
+        .map(|x| buf[(x, row)].symbol().to_string())
+        .collect();
+    let col = line.find("fn main").unwrap() as u16;
+    let see = line.find("See").unwrap() as u16;
+    // `fn` in Rust's keyword color, the text around it as it is.
+    assert_ne!(buf[(col, row)].fg, buf[(see, row)].fg);
+}
+
+#[test]
+fn latex_class_front_matter() {
+    let text = "\\documentclass{acmart}\n\\begin{document}\n\\title{Deep}\n\\keywords{a, b}\n\\end{document}\n";
+    let mut t = with_file(text, "a.tex", Config::default(), (60, 8));
+    t.at(0);
+    let s = screen(&mut t);
+    assert!(s.iter().any(|l| l.trim_end().ends_with(" Deep")), "{s:#?}");
+    assert!(s.iter().any(|l| l.contains("Keywords: a, b")), "{s:#?}");
+}
+
+#[test]
 fn latex_formulas_as_images() {
     let text = "Before\n\\begin{equation}\n  E = mc^2\n\\end{equation}\nafter\n";
     let mut t = with_file(text, "i.tex", Config::default(), (60, 12));
@@ -2751,6 +2784,30 @@ fn latex_tables_as_grids() {
     t.key(KeyCode::BackTab, KeyModifiers::SHIFT);
     assert_eq!(t.app.doc.selection.head, text.find("Qty").unwrap());
     assert_eq!(t.text(), text);
+}
+
+#[test]
+fn latex_table_spans() {
+    let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & z \\\\ \\hline\nalpha & beta & gamma \\\\\n\\end{tabular}\n\nafter\n";
+    let mut t = with_file(text, "t.tex", Config::default(), (50, 8));
+    t.at(text.len());
+    let rows: Vec<String> = (0..3)
+        .map(|y| {
+            t.row(y)
+                .trim_start_matches(|c: char| c.is_ascii_digit() || c == ' ')
+                .trim_end()
+                .to_string()
+        })
+        .collect();
+    // The span one cell over two columns, centered.
+    assert_eq!(rows[1], "│     Head     │ z     │", "{rows:#?}");
+    assert_eq!(rows[2], "│ alpha │ beta │ gamma │", "{rows:#?}");
+    // The rule after the row's `\\\\`: the row underlined.
+    let buf = t.draw();
+    let full = t.row(1);
+    let col = full[..full.find("Head").unwrap()].chars().count() as u16;
+    assert!(buf[(col, 1)].modifier.contains(Modifier::UNDERLINED));
+    assert!(!buf[(col, 2)].modifier.contains(Modifier::UNDERLINED));
 }
 
 #[test]

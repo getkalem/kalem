@@ -19,7 +19,12 @@ pub fn command(name: &str) -> &'static str {
         | "bibliographystyle" | "author" | "date" | "thanks" | "phantom" | "hphantom"
         | "vphantom" | "intertext" | "sout" | "uline" | "enquote" | "appendixname" | "keywords"
         | "email" | "affiliation" | "address" | "subtitle" | "vref" | "Vref" | "cpageref"
-        | "refstepcounter" | "stepcounter" | "subfile" | "graphicspath" => "m",
+        | "refstepcounter" | "stepcounter" | "subfile" | "graphicspath" | "IEEEauthorblockN"
+        | "IEEEauthorblockA" | "IEEEmembership" | "institution" | "department" | "city"
+        | "state" | "country" | "streetaddress" | "postcode" | "orcid" | "institute" | "inst"
+        | "pacs" => "m",
+        "IEEEPARstart" => "mm",
+        "ccsdesc" | "ead" | "affil" => "om",
         "frac" | "dfrac" | "tfrac" | "cfrac" | "binom" | "dbinom" | "tbinom" | "stackrel"
         | "overset" | "underset" | "setlength" | "setcounter" | "addtocounter" | "newcounter"
         | "texorpdfstring" | "import" | "subimport" => "mm",

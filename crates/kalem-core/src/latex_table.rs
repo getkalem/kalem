@@ -42,8 +42,14 @@ fn span(n: &SyntaxNode) -> Range<usize> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Row {
     Rule(Range<usize>),
-    Data(Range<usize>, Vec<Range<usize>>),
+    /// The line, its cells, its spans (the column, the columns covered and
+    /// the span's alignment), and whether a rule follows its `\\\\`.
+    Data(Range<usize>, Vec<Range<usize>>, Vec<Span>, bool),
 }
+
+/// A `\\multicolumn` in a row: its first column, the columns it covers,
+/// and its alignment.
+pub(crate) type Span = (usize, usize, char);
 
 /// A simple table: one row a line, the rule lines between.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,15 +157,18 @@ fn row(text: &str, line: Range<usize>, columns: usize, open: &mut bool) -> Optio
     let mut cell = line.start;
     let mut raw = Vec::new();
     let mut ended = false;
+    let mut rule_after = false;
     while i < line.end {
         match b[i] {
             b'\\' if b.get(i + 1) == Some(&b'\\') && depth == 0 => {
                 raw.push(cell..i);
                 let j = skip_blanks(b, i + 2, line.end);
                 let j = skip_group(b, j, line.end, b'[', b']')?;
-                if skip_rules(text, j, line.end)?.0 != line.end {
+                let (k, any) = skip_rules(text, j, line.end)?;
+                if k != line.end {
                     return None;
                 }
+                rule_after = any;
                 ended = true;
                 break;
             }
@@ -196,6 +205,7 @@ fn row(text: &str, line: Range<usize>, columns: usize, open: &mut bool) -> Optio
         *open = true;
     }
     let mut cells = Vec::new();
+    let mut spans = Vec::new();
     for r in raw {
         let t = &text[r.clone()];
         let lead = t.len() - t.trim_start().len();
@@ -210,7 +220,10 @@ fn row(text: &str, line: Range<usize>, columns: usize, open: &mut bool) -> Optio
         // A span: its text in its first column, the columns it covers
         // after it empty (the grid has no spans).
         match span_cell(text, r.clone()) {
-            Some((content, columns)) => {
+            Some((content, columns, align)) => {
+                if columns > 1 {
+                    spans.push((cells.len(), columns, align));
+                }
                 cells.push(content);
                 for _ in 1..columns {
                     cells.push(r.end..r.end);
@@ -227,13 +240,14 @@ fn row(text: &str, line: Range<usize>, columns: usize, open: &mut bool) -> Optio
     if cells.len() > columns {
         return None;
     }
-    Some(Row::Data(line, cells))
+    Some(Row::Data(line, cells, spans, rule_after))
 }
 
 /// A cell that is all a `\\multicolumn{n}{spec}{text}` or a
 /// `\\multirow{n}[…]{width}{text}`: its text's range and the columns it
-/// covers.
-fn span_cell(text: &str, cell: Range<usize>) -> Option<(Range<usize>, usize)> {
+/// covers, and the alignment its specification gives (`l` for a
+/// `\\multirow`).
+fn span_cell(text: &str, cell: Range<usize>) -> Option<(Range<usize>, usize, char)> {
     let b = text.as_bytes();
     let s = &text[cell.clone()];
     // The groups `{…}` from `i`, balanced, with their inner ranges.
@@ -275,17 +289,24 @@ fn span_cell(text: &str, cell: Range<usize>) -> Option<(Range<usize>, usize)> {
     };
     // The specification or width: a group, or `*` for `\\multirow`.
     let w = skip_blanks(b, at, cell.end);
+    let mut align = 'l';
     let at = if !multi && b.get(w) == Some(&b'*') {
         w + 1
     } else {
-        group(at)?.1
+        let (inner, after) = group(at)?;
+        if multi {
+            align = spec(&text[inner])
+                .and_then(|a| a.first().copied())
+                .unwrap_or('l');
+        }
+        after
     };
     let (content, end) = group(at)?;
     if end != cell.end {
         return None;
     }
     let columns = if multi { count.max(1) } else { 1 };
-    Some((content, columns))
+    Some((content, columns, align))
 }
 
 /// `env` as a simple table: its specification plain and every line of
@@ -353,12 +374,22 @@ pub fn table_view(doc: &crate::DocumentState, start: usize) -> Option<TableView>
     if t.body.start != start {
         return None;
     }
+    let mut spans = Vec::new();
+    let mut ruled = Vec::new();
+    for (i, r) in t.rows.iter().enumerate() {
+        if let Row::Data(_, _, sp, rule) = r {
+            spans.extend(sp.iter().map(|&(c, n, a)| (i, c, n, a)));
+            if *rule {
+                ruled.push(i);
+            }
+        }
+    }
     let rows = t
         .rows
         .into_iter()
         .map(|r| match r {
             Row::Rule(line) => TableRow::Rule { line },
-            Row::Data(line, cells) => {
+            Row::Data(line, cells, ..) => {
                 let view = crate::latex_view::line_view(doc, line.clone(), None);
                 let cells = cells
                     .into_iter()
@@ -375,6 +406,8 @@ pub fn table_view(doc: &crate::DocumentState, start: usize) -> Option<TableView>
         range: t.body,
         rows,
         align: t.align,
+        spans,
+        ruled,
     })
 }
 
@@ -389,7 +422,7 @@ pub fn next_cell(text: &str, pos: usize, root: &SyntaxNode, back: bool) -> Optio
         .rows
         .iter()
         .flat_map(|r| match r {
-            Row::Data(_, cells) => cells.iter().map(|c| c.start).collect(),
+            Row::Data(_, cells, ..) => cells.iter().map(|c| c.start).collect(),
             Row::Rule(_) => Vec::new(),
         })
         .collect();
@@ -423,17 +456,17 @@ mod tests {
         assert_eq!(t.align, vec!['l', 'c', 'l']);
         assert_eq!(t.rows.len(), 6);
         assert!(matches!(t.rows[0], Row::Rule(_)));
-        let Row::Data(_, cells) = &t.rows[1] else {
+        let Row::Data(_, cells, ..) = &t.rows[1] else {
             panic!()
         };
         let got: Vec<&str> = cells.iter().map(|c| &text[c.clone()]).collect();
         assert_eq!(got, ["A", "B", "C"]);
-        let Row::Data(_, cells) = &t.rows[3] else {
+        let Row::Data(_, cells, ..) = &t.rows[3] else {
             panic!()
         };
         let got: Vec<&str> = cells.iter().map(|c| &text[c.clone()]).collect();
         assert_eq!(got, ["1", "", "\\textbf{3}"]);
-        let Row::Data(_, cells) = &t.rows[4] else {
+        let Row::Data(_, cells, ..) = &t.rows[4] else {
             panic!()
         };
         assert_eq!(cells.len(), 2);
@@ -449,17 +482,37 @@ mod tests {
         let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & c \\\\\n\\multirow{2}*{A} & b & c \\\\\n\\multirow{2}{3cm}{B} & e & f \\\\\n\\end{tabular}\n";
         let (_p, e) = env(text);
         let t = simple(text, &e).expect("simple with spans");
-        let Row::Data(_, cells) = &t.rows[0] else {
+        let Row::Data(_, cells, ..) = &t.rows[0] else {
             panic!()
         };
         assert_eq!(cells.len(), 3);
         assert_eq!(&text[cells[0].clone()], "Head");
         assert!(cells[1].is_empty());
         assert_eq!(&text[cells[2].clone()], "c");
-        let Row::Data(_, cells) = &t.rows[2] else {
+        let Row::Data(_, cells, ..) = &t.rows[2] else {
             panic!()
         };
         assert_eq!(&text[cells[0].clone()], "B");
+    }
+
+    #[test]
+    fn spans_and_rules_after_rows() {
+        let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & c \\\\ \\hline\na & b & c \\\\\n\\end{tabular}\n";
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Latex,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+        };
+        let d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        let tv = table_view(&d, text.find("\\multicolumn").unwrap()).unwrap();
+        assert_eq!(tv.spans, vec![(0, 0, 2, 'c')]);
+        assert_eq!(tv.ruled, vec![0]);
     }
 
     #[test]

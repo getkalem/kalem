@@ -2407,6 +2407,36 @@ fn latex_theorems_and_code(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn latex_inline_code_colored(cx: &mut TestAppContext) {
+    let text = "See \\lstinline[language=Rust]{fn main} here.\n";
+    let (e, cx) = open_named(text, "t.tex", || None, cx);
+    at(&e, text.len(), cx);
+    // The code shown as it is, its keyword in a syntax color.
+    assert_eq!(
+        e.read_with(cx, |e, _| e.line_view(0).display()),
+        "See fn main here."
+    );
+    let colors = e.read_with(cx, |e, _| {
+        let theme = e.doc_theme();
+        kalem_ui::line::inline_code_colors(e, 0..text.len() - 1, &theme)
+    });
+    let fn_at = text.find("fn main").unwrap();
+    assert!(colors.iter().any(|(r, _)| r.start == fn_at), "{colors:?}");
+}
+
+#[gpui::test]
+fn latex_class_front_matter(cx: &mut TestAppContext) {
+    let text = "\\documentclass{acmart}\n\\begin{document}\n\\title{Deep}\n\\keywords{a, b}\n\\end{document}\n";
+    let (e, cx) = open_named(text, "a.tex", || None, cx);
+    at(&e, 0, cx);
+    assert_eq!(e.read_with(cx, |e, _| e.line_view(2).display()), "Deep");
+    assert_eq!(
+        e.read_with(cx, |e, _| e.line_view(3).display()),
+        "Keywords: a, b"
+    );
+}
+
+#[gpui::test]
 fn latex_build_command(cx: &mut TestAppContext) {
     let (e, cx) = open_named("\\documentclass{article}\n", "b.tex", || None, cx);
     e.update(cx, |e, _| e.doc.meta.path = None);
@@ -2554,6 +2584,31 @@ fn latex_tables_as_grids(cx: &mut TestAppContext) {
         e.read_with(cx, |e, _| e.doc.selection.head),
         text.find("Qty").unwrap()
     );
+}
+
+#[gpui::test]
+fn latex_table_spans(cx: &mut TestAppContext) {
+    let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & z \\\\ \\hline\nalpha & beta & gamma \\\\\n\\end{tabular}\n\nafter\n";
+    let (e, cx) = open_named(text, "t.tex", || None, cx);
+    at(&e, text.len(), cx);
+    let x = |e: &Editor, line: usize, src: usize| {
+        let p = e.painted.borrow().get(&line).cloned().expect("painted");
+        p.layout.caret(p.view.display_offset(src)).origin.x
+    };
+    let (head, alpha, beta, z, gamma) = e.read_with(cx, |e, _| {
+        (
+            x(e, 1, text.find("Head").unwrap()),
+            x(e, 2, text.find("alpha").unwrap()),
+            x(e, 2, text.find("beta").unwrap()),
+            x(e, 1, text.find("z \\").unwrap()),
+            x(e, 2, text.find("gamma").unwrap()),
+        )
+    });
+    // The span centered across the two columns it covers; the column
+    // after it where the next row's third column is.
+    assert!(head > alpha && head < beta, "{head:?} {alpha:?} {beta:?}");
+    let near = |a: gpui::Pixels, b: gpui::Pixels| (f32::from(a) - f32::from(b)).abs() < 0.01;
+    assert!(near(z, gamma), "{z:?} {gamma:?}");
 }
 
 #[gpui::test]

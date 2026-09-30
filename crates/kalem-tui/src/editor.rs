@@ -716,6 +716,27 @@ impl<'a> Layout<'a> {
         }
     }
 
+    /// Colors LaTeX's inline code of a known language (`\lstinline`).
+    fn color_inline_code(&self, line: &Range<usize>, glyphs: &mut [Glyph]) {
+        let text = self.text();
+        for (code, lang) in kalem_core::latex_view::inline_code(self.doc, line.clone()) {
+            let Some(l) = kalem_highlight::Language::find(&lang) else {
+                continue;
+            };
+            let spans = kalem_highlight::highlight(l, &text.as_str()[code.clone()]);
+            let Some(spans) = spans.first() else { continue };
+            for g in glyphs.iter_mut() {
+                if g.src_end <= g.src || g.src < code.start || g.src >= code.end {
+                    continue;
+                }
+                let rel = g.src - code.start;
+                if let Some(sp) = spans.iter().find(|s| s.range.contains(&rel)) {
+                    g.style = render::code_style(sp.kind, g.style, self.caps);
+                }
+            }
+        }
+    }
+
     /// The table block holding line start `s`, if any.
     fn table_block(&self, s: usize) -> Option<&'a Block> {
         let i = self.blocks.partition_point(|b| b.range.end <= s);
@@ -747,7 +768,9 @@ impl<'a> Layout<'a> {
         let n = view.align.len();
         let mut widths = vec![1u16; n];
         let mut cells = Vec::new();
-        for row in &view.rows {
+        // Spans are fitted once the columns they cover are measured.
+        let mut spanned = Vec::new();
+        for (ri, row) in view.rows.iter().enumerate() {
             let mut glyph_row = Vec::new();
             if let TableRow::Data { cells: cs, .. } = row {
                 for (i, c) in cs.iter().enumerate() {
@@ -767,11 +790,21 @@ impl<'a> Layout<'a> {
                     )
                     .glyphs;
                     let w: u16 = g.iter().map(|g| g.width).sum();
-                    widths[i] = widths[i].max(w);
+                    match view.spans.iter().find(|s| s.0 == ri && s.1 == i) {
+                        Some(&(_, _, n, _)) => spanned.push((i, n, w)),
+                        None => widths[i] = widths[i].max(w),
+                    }
                     glyph_row.push(g);
                 }
             }
             cells.push(glyph_row);
+        }
+        for (i, n, w) in spanned {
+            let last = (i + n).min(widths.len()) - 1;
+            let covered: u16 = widths[i..=last].iter().sum::<u16>() + 3 * (last - i) as u16;
+            if w > covered {
+                widths[last] += w - covered;
+            }
         }
         let g = Arc::new(Grid {
             view,
@@ -829,15 +862,27 @@ impl<'a> Layout<'a> {
             TableRow::Data { cells, .. } => {
                 let bar = if ascii { "|" } else { "│" };
                 out.push(deco(bar, line.start, dim));
-                for (i, w) in grid.widths.iter().enumerate() {
+                let mut i = 0;
+                while i < grid.widths.len() {
+                    // A span: one cell as wide as the columns it covers.
+                    let span = grid
+                        .view
+                        .spans
+                        .iter()
+                        .find(|s| s.0 == ri && s.1 == i)
+                        .map(|&(_, _, n, a)| (n.min(grid.widths.len() - i), a));
+                    let (n, align) =
+                        span.unwrap_or((1, grid.view.align.get(i).copied().unwrap_or('l')));
+                    let w = grid.widths[i..i + n].iter().sum::<u16>() + 3 * (n as u16 - 1);
                     let glyphs = grid.cells[ri].get(i).cloned().unwrap_or_default();
                     let at = cells.get(i).map_or(line.end, |c| c.range.start);
-                    let end = cells.get(i).map_or(line.end, |c| c.range.end);
+                    let end = cells.get(i + n - 1).map_or(line.end, |c| c.range.end);
                     let cw: u16 = glyphs.iter().map(|g| g.width).sum();
                     let pad = w.saturating_sub(cw);
-                    let (left, right) = match grid.view.align.get(i) {
-                        Some('r') => (pad, 0),
-                        Some('c') => (pad / 2, pad - pad / 2),
+                    i += n;
+                    let (left, right) = match align {
+                        'r' => (pad, 0),
+                        'c' => (pad / 2, pad - pad / 2),
                         _ => (0, pad),
                     };
                     out.push(deco(" ", at, ratatui::style::Style::default()));
@@ -849,6 +894,12 @@ impl<'a> Layout<'a> {
                         out.push(deco(" ", end, ratatui::style::Style::default()));
                     }
                     out.push(deco(bar, end, dim));
+                }
+                // A rule written after the row's `\\\\`: under the row.
+                if grid.view.ruled.contains(&ri) {
+                    for g in &mut out {
+                        g.style = g.style.add_modifier(Modifier::UNDERLINED);
+                    }
                 }
             }
         }
@@ -1131,6 +1182,7 @@ impl<'a> Layout<'a> {
                     // LaTeX as it reads: code in its language, the rest as
                     // the view styles it.
                     self.color_code(&range, &mut lg.glyphs);
+                    self.color_inline_code(&range, &mut lg.glyphs);
                 } else {
                     self.plain_colors(line, &range, &mut lg.glyphs);
                 }
