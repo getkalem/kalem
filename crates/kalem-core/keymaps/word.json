@@ -93,6 +93,12 @@
   { "keys": "shift+t", "command": "dired.touch" },
   { "keys": "w", "command": "dired.copyName" },
   { "keys": "q", "command": "dired.close" },
+  { "keys": "* *", "command": "dired.markExecutables" },
+  { "keys": "% u", "command": "dired.upcase" },
+  { "keys": "% l", "command": "dired.downcase" },
+  { "keys": "% shift+r", "command": "dired.renameRegexp" },
+  { "keys": "shift+z", "command": "dired.compress" },
+  { "keys": "&", "command": "dired.shellCommand" },
   // The keys every file manager has (T2.7e.17): Ctrl on Linux and
   // Windows, Command on macOS through the primary modifier.
   { "keys": "ctrl+c", "command": "dired.copyFiles" },

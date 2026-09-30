@@ -143,11 +143,29 @@ file, or a folder's names. Ctrl+T shows the listing's pictures (the marked
 ones, or all) as thumbnails there instead; a click on one goes to its line.
 The same key hides the pane.
 
-With Vim keys the file manager's keys come first, except =n=, =p=, =w= and
-Backspace, which Vim keeps; =g r= reads the folder again, =g g= goes to the
-first entry, =Y= copies names and =I= lists a folder below (=i= is
-Vim's insert). From a document, =-= opens the file
-manager (as vim-vinegar and Doom do; in the file manager it goes up), and
-so do =:Ex=, =:Explore= and =:E=; =:Projects= shows the projects. =SPC o -=
-opens the file manager and comes back, =SPC o P= shows the projects and
-=SPC p D= the project's folder.
+With Vim keys the file manager's keys come first, except =n=, =p=, =w=
+and Backspace, which Vim keeps; =j=, =k=, =G= and searching are Vim's
+too. From a document, =-= opens the file manager (as vim-vinegar and
+Doom do; in the file manager it goes up), and so do =:Ex=, =:Explore=
+and =:E=; =:Projects= shows the projects. =SPC o -= opens the file
+manager and comes back, =SPC o P= shows the projects and =SPC p D= the
+project's folder.
+
+The keys are Doom Emacs's (its =dired= module with evil-collection and
+dirvish): =h= goes up and =l= opens, =g r= reads the folder again, =g g=
+goes to the first entry, =I= lists a folder below and =$= takes it out,
+=y y= and =Y= copy the paths, =y n= the names and =y r= the relative
+paths, =f= shows a file's properties, =a= the projects, =N= narrows the
+listing, and =C-x C-q= edits the names. =SPC .= asks for a path starting
+in the listed folder and opens it, making the file when the name is new;
+=SPC f D=, =SPC f R= and =SPC f C= delete, rename and copy the entry at
+point. Dired's =* *= (executables), =% u= and =% l= (rename to upper and
+lower case), =% R= (rename by a regular expression; =$1= or =${1}= in the
+replacement), =Z= (compress to a zip, or extract an archive, with the
+system's =zip=, =unzip= and =tar=) and =&= work with either keymap.
+
+Every Doom key, and what it does here or why it does not yet (generated
+from =tests/keys/doom-dired.toml=, which the tests check against the
+keymaps):
+
+#+KALEM_KEYS: doom-dired

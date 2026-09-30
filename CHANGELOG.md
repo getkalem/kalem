@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Doom Emacs's file manager keys (T2.7e.18) with Vim keys: `h`, `l`, `y y`, `y n`, `y r`, `Y`, `f`, `a`, `N`, `$`, `C-x C-q`, `SPC .` (a typed path from the listed folder; a new name makes the file) and `SPC f D`, `SPC f R`, `SPC f C`; Dired's `* *`, `% u`, `% l`, `% R`, `Z` (compress or extract) and `&` with either keymap. `tests/keys/doom-dired.toml` gives each Doom key a command or a reason; the file manager's chapter shows it.
 - The file manager's context menu (T2.7e.17): a right click on an entry, on the marks or on the empty listing, or Shift+F10, opens Open, Cut, Copy, Paste, Duplicate, Rename, Move to, Copy to, Delete, New File and Folder, Copy Path and Relative Path, Select All, Sort and Properties, in both editors. The keys every file manager has (Ctrl+C, X, V, A, N, Shift+N, Shift+Delete, Space, Alt+Enter) and Ctrl-click and Shift-click marks work in the listing; cut and copy keep paths in an in-app file clipboard.
 - Part III of the Book is the specification of the Kalem format: seventeen chapters from RFC 0003 (now its frozen design record), a status page and the format's changelog. Every example in it is a file of the conformance suite, which `kalem book check` enforces.
 - The Kalem format's parser spike (`spikes/klm-parser`, T2.13.2): RFC 0003's examples and samples parse, format canonically and round-trip; §15's recovery rules and the known ambiguities are tested; the grammar gained what the spike found (RFC appendix B), and `tests/klm-spec/` its first conformance files.
@@ -249,6 +250,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- In the Emacs keymap Enter in the file manager ran Newline instead of opening the entry; `SPC p D` and other project commands did not apply in a file manager listing.
 - The palette and the questions Kalem asks (a rename, a file name) take the arrows, Home, End and Delete, and move and delete by words, in both editors; before, typing only added or removed at the end.
 - Menus on Linux and Windows: the graphical editor draws its own menu bar there (gpui draws none; `ui.menu_bar = false` hides it). F10 (`view.menus`) lists every menu item in the palette in both editors, the terminal editor's way to its menus. The menus are defined once, in `kalem_core::menus`.
 - The File menu has what the Book puts there: New from Template, Print, Import as Org, and the LaTeX, PDF, Word, OpenDocument, EPUB, RTF and text exports. The Book calls the menu with the Org commands the Format menu, its name.
