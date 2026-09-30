@@ -1735,6 +1735,143 @@ fn transfer(ctx: &mut EditorContext<'_>, args: &Value, kind: kalem_fs::OpKind) -
 }
 
 /// After a change made here: the listing again, the cursor on `select`.
+/// Renames each target to what `f` makes of its name (`None` keeps it),
+/// all at once and undoable, as edited names are.
+fn rename_names(ctx: &mut EditorContext<'_>, f: &dyn Fn(&str) -> Option<String>) -> CommandResult {
+    let doc = listing(ctx)?;
+    let targets = state(doc).targets(cursor_line(doc));
+    if targets.is_empty() {
+        return Err(CommandError::new(tr("fm-nothing")));
+    }
+    let mut plan = Vec::new();
+    for from in &targets {
+        let name = name_of(from);
+        match f(&name) {
+            Some(new) if new.trim().is_empty() => {
+                return Err(CommandError::new(crate::tr!(
+                    "fm-wdired-empty",
+                    name = name
+                )));
+            }
+            Some(new) if new != name => plan.push((from.clone(), from.with_file_name(new))),
+            _ => {}
+        }
+    }
+    let sources: std::collections::HashSet<&PathBuf> = plan.iter().map(|(s, _)| s).collect();
+    let mut seen = std::collections::HashSet::new();
+    for (from, to) in &plan {
+        if !seen.insert(to) {
+            return Err(CommandError::new(crate::tr!(
+                "fm-wdired-duplicate",
+                name = name_of(to)
+            )));
+        }
+        // A file system that ignores case finds the file itself there.
+        let itself = std::fs::canonicalize(to).ok() == std::fs::canonicalize(from).ok();
+        if std::fs::symlink_metadata(to).is_ok() && !sources.contains(to) && !itself {
+            return Err(CommandError::new(crate::tr!(
+                "fm-exists",
+                name = to.display().to_string()
+            )));
+        }
+    }
+    let (done, error) = rename_all(&plan);
+    let n = done.len();
+    let first = done.first().map(|(_, to)| to.clone());
+    if !done.is_empty() {
+        HISTORY.with(|h| h.borrow_mut().push(Undo::Moved(done)));
+    }
+    changed(doc, first.as_deref());
+    ctx.messages.push(crate::tr!("fm-renamed", count = n));
+    match error {
+        Some(e) => Err(CommandError::new(e)),
+        None => Ok(()),
+    }
+}
+
+/// Whether `name` is an archive [`compress`] extracts.
+fn is_archive(name: &str) -> bool {
+    let n = name.to_lowercase();
+    [
+        ".zip", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz", ".tar.zst",
+        ".gz",
+    ]
+    .iter()
+    .any(|e| n.ends_with(e))
+}
+
+/// Dired's `Z`: one archive is extracted in `dir`; otherwise the targets
+/// go into a new zip archive there, named after the only one or after the
+/// folder. Uses `zip` and `unzip`, else `tar` (bsdtar on macOS and
+/// Windows reads and writes zip too), as Emacs does. The archive made.
+fn compress(dir: &Path, targets: &[PathBuf]) -> Result<Option<PathBuf>, String> {
+    use std::process::Command;
+    if targets.is_empty() {
+        return Err(tr("fm-nothing"));
+    }
+    let run = |c: &mut Command| -> Result<(), String> {
+        match c.current_dir(dir).output() {
+            Ok(o) if o.status.success() => Ok(()),
+            Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+            Err(e) => Err(e.to_string()),
+        }
+    };
+    let either =
+        |a: &mut Command, b: &mut Command| run(a).or_else(|first| run(b).map_err(|_| first));
+    if let [one] = targets
+        && one.is_file()
+        && is_archive(&name_of(one))
+    {
+        let name = name_of(one).to_lowercase();
+        if name.ends_with(".zip") {
+            either(
+                Command::new("unzip")
+                    .args(["-n", "-q"])
+                    .arg(one)
+                    .arg("-d")
+                    .arg(dir),
+                Command::new("tar").arg("-xf").arg(one).arg("-C").arg(dir),
+            )?;
+        } else if name.ends_with(".gz") && !name.ends_with(".tar.gz") {
+            run(Command::new("gzip").args(["-d", "-k"]).arg(one))?;
+        } else {
+            run(Command::new("tar").arg("-xf").arg(one).arg("-C").arg(dir))?;
+        }
+        return Ok(None);
+    }
+    let stem = match targets {
+        [one] => one
+            .file_stem()
+            .map_or_else(|| name_of(one), |s| s.to_string_lossy().into_owned()),
+        _ => name_of(dir),
+    };
+    let mut archive = dir.join(format!("{stem}.zip"));
+    let mut n = 2;
+    while archive.exists() {
+        archive = dir.join(format!("{stem} ({n}).zip"));
+        n += 1;
+    }
+    let rel: Vec<PathBuf> = targets
+        .iter()
+        .map(|p| {
+            p.strip_prefix(dir)
+                .map(Path::to_path_buf)
+                .unwrap_or(p.clone())
+        })
+        .collect();
+    either(
+        Command::new("zip")
+            .args(["-r", "-q"])
+            .arg(&archive)
+            .args(&rel),
+        Command::new("tar")
+            .args(["-a", "-cf"])
+            .arg(&archive)
+            .args(&rel),
+    )?;
+    Ok(Some(archive))
+}
+
 fn changed(doc: &mut DocumentState, select: Option<&Path>) {
     if let Some(s) = doc.dired.as_mut() {
         s.load();
@@ -1794,6 +1931,17 @@ pub(crate) fn schemas() -> Vec<(&'static str, Value)> {
         ("dired.filter", one("text")),
         ("dired.findName", one("pattern")),
         ("dired.shellCommand", one("command")),
+        (
+            "dired.renameRegexp",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "regexp": { "type": "string" },
+                    "replacement": { "type": "string" },
+                },
+                "required": ["regexp", "replacement"],
+            }),
+        ),
     ]
 }
 
@@ -2166,6 +2314,13 @@ pub(crate) fn commands() -> Vec<Command> {
             |ctx, _| mark_where(ctx, &|e: &Entry| e.is_dir()),
         ),
         cmd(
+            "dired.markExecutables",
+            "Mark Executables",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| mark_where(ctx, &|e: &Entry| !e.is_dir() && e.executable),
+        ),
+        cmd(
             "dired.markExtension",
             "Mark by Extension",
             &[],
@@ -2440,6 +2595,57 @@ pub(crate) fn commands() -> Vec<Command> {
                     kalem_fs::chmod(&p, mode).map_err(|e| CommandError::new(e.to_string()))?;
                 }
                 changed(doc, None);
+                Ok(())
+            },
+        ),
+        cmd(
+            "dired.upcase",
+            "Rename to Upper Case",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| rename_names(ctx, &|n: &str| Some(n.to_uppercase())),
+        ),
+        cmd(
+            "dired.downcase",
+            "Rename to Lower Case",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| rename_names(ctx, &|n: &str| Some(n.to_lowercase())),
+        ),
+        cmd(
+            "dired.renameRegexp",
+            "Rename by Regular Expression",
+            &[],
+            Some(IN_LISTING),
+            |ctx, args| {
+                let re = regex::Regex::new(arg(args, "regexp")?)
+                    .map_err(|e| CommandError::new(e.to_string()))?;
+                let with = args
+                    .get("replacement")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string();
+                rename_names(ctx, &|n: &str| {
+                    re.is_match(n)
+                        .then(|| re.replace_all(n, with.as_str()).into_owned())
+                })
+            },
+        ),
+        cmd(
+            "dired.compress",
+            "Compress or Extract",
+            &[],
+            Some(IN_LISTING),
+            |ctx, _| {
+                let doc = listing(ctx)?;
+                let dir = the_dir(doc)?;
+                let targets = state(doc).targets(cursor_line(doc));
+                let made = compress(&dir, &targets).map_err(CommandError::new)?;
+                changed(doc, made.as_deref());
+                ctx.messages.push(match made {
+                    Some(p) => crate::tr!("fm-compressed", name = name_of(&p)),
+                    None => tr("fm-extracted"),
+                });
                 Ok(())
             },
         ),
@@ -3687,5 +3893,83 @@ mod tests {
             .0
             .unwrap();
         assert_eq!(place(&doc), Place::Projects);
+    }
+
+    #[test]
+    fn doom_renames_marks_and_archives() {
+        let d = tree("doom", &["Notes.org", "b.txt", "c.txt", "run.sh"]);
+        let open = |d: &Path| {
+            DocumentState::open(
+                d,
+                Arc::new(org_model::Settings::default()),
+                &Default::default(),
+            )
+            .unwrap()
+        };
+        let mut doc = open(&d);
+        // `% l` and `% u`: case, undoable at once.
+        goto(&mut doc, "Notes.org");
+        run(&mut doc, "dired.downcase", json!({})).0.unwrap();
+        assert!(line(&doc).ends_with("notes.org"), "{}", line(&doc));
+        run(&mut doc, "dired.upcase", json!({})).0.unwrap();
+        assert!(line(&doc).ends_with("NOTES.ORG"), "{}", line(&doc));
+        run(&mut doc, "dired.undo", json!({})).0.unwrap();
+        assert!(d.join("notes.org").exists() || d.join("Notes.org").exists());
+        // `% R` on the marked entries, groups in the replacement.
+        run(
+            &mut doc,
+            "dired.markExtension",
+            json!({ "extension": "txt" }),
+        )
+        .0
+        .unwrap();
+        run(
+            &mut doc,
+            "dired.renameRegexp",
+            json!({ "regexp": "^(.)\\.txt$", "replacement": "${1}-1.md" }),
+        )
+        .0
+        .unwrap();
+        assert!(d.join("b-1.md").exists() && d.join("c-1.md").exists());
+        // Two names made the same: nothing renamed.
+        run(
+            &mut doc,
+            "dired.markExtension",
+            json!({ "extension": "md" }),
+        )
+        .0
+        .unwrap();
+        let r = run(
+            &mut doc,
+            "dired.renameRegexp",
+            json!({ "regexp": ".*", "replacement": "same" }),
+        );
+        assert!(r.0.is_err());
+        assert!(d.join("b-1.md").exists());
+        run(&mut doc, "dired.unmarkAll", json!({})).0.unwrap();
+        // `* *`: the executables.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(d.join("run.sh"), std::fs::Permissions::from_mode(0o755))
+                .unwrap();
+            run(&mut doc, "dired.refresh", json!({})).0.unwrap();
+            run(&mut doc, "dired.markExecutables", json!({})).0.unwrap();
+            let marked: Vec<_> = state(&doc).marks.keys().cloned().collect();
+            assert_eq!(marked, vec![d.join("run.sh")]);
+            run(&mut doc, "dired.unmarkAll", json!({})).0.unwrap();
+        }
+        // `Z`: a zip of the file, then extracted again.
+        let tools = |t: &str| std::process::Command::new(t).arg("-v").output().is_ok();
+        if tools("zip") && tools("unzip") {
+            goto(&mut doc, "run.sh");
+            run(&mut doc, "dired.compress", json!({})).0.unwrap();
+            assert!(d.join("run.zip").is_file());
+            assert!(line(&doc).ends_with("run.zip"), "{}", line(&doc));
+            std::fs::remove_file(d.join("run.sh")).unwrap();
+            run(&mut doc, "dired.compress", json!({})).0.unwrap();
+            assert!(d.join("run.sh").is_file());
+        }
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

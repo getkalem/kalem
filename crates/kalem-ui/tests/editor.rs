@@ -1794,6 +1794,77 @@ fn editing_an_argument_with_the_arrows(cx: &mut TestAppContext) {
     }
 }
 
+/// Doom's file manager keys (T2.7e.18): `SPC .` from a listing asks for
+/// a path from its folder and opens a new file; `R` moves the marked
+/// entries; `h` goes up and `l` opens.
+#[gpui::test]
+fn doom_keys_in_the_file_manager(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(true, cx);
+    cx.simulate_keystrokes("-");
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let title = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| e.doc.dired.as_deref().map(|d| d.title()))
+    };
+    assert_eq!(title(cx).as_deref(), Some("proj/"));
+    cx.simulate_keystrokes("space .");
+    cx.simulate_input("new.org");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let e2 = ws.read_with(cx, |ws, _| ws.editor.clone());
+    assert_eq!(
+        e2.read_with(cx, |e, _| e.doc.meta.path.clone()),
+        Some(dir.join("proj/new.org"))
+    );
+    cx.simulate_keystrokes("-");
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.dired.as_deref().map(|d| d.title())),
+        Some("proj/".to_string())
+    );
+    // Mark a.org, `R`, its name replaced by `sub`: moved there.
+    e.update(cx, |e, _| {
+        let t = e.doc.text();
+        let at = t.as_str().find(" a.org").unwrap() + 1;
+        e.doc.move_cursor(at, false);
+    });
+    cx.simulate_keystrokes("m shift-r");
+    for _ in 0.."a.org".len() {
+        cx.simulate_keystrokes("backspace");
+    }
+    cx.simulate_input("sub");
+    cx.simulate_keystrokes("enter");
+    for _ in 0..200 {
+        cx.run_until_parked();
+        if dir.join("proj/sub/a.org").exists() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(dir.join("proj/sub/a.org").exists());
+    // `l` opens sub, `h` comes back.
+    e.update(cx, |e, _| {
+        let t = e.doc.text();
+        let at = t.as_str().find(" sub").unwrap() + 1;
+        e.doc.move_cursor(at, false);
+    });
+    cx.simulate_keystrokes("l");
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.dired.as_deref().map(|d| d.title())),
+        Some("sub/".to_string())
+    );
+    cx.simulate_keystrokes("h");
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.dired.as_deref().map(|d| d.title())),
+        Some("proj/".to_string())
+    );
+    let _ = title;
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

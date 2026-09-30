@@ -3516,3 +3516,50 @@ fn editing_a_prompt_with_the_arrows() {
     let shown = screen(&mut t).join("\n");
     assert!(shown.contains("> saveas"), "{shown}");
 }
+
+/// Doom's file manager keys (T2.7e.18): `SPC .` from a listing opens a
+/// new file in its folder; `R` moves the marked entries; `y y` copies
+/// the path; `h` goes up and `l` opens.
+#[test]
+fn doom_keys_in_the_file_manager() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, dir) = project_app(config);
+    t.typ("-");
+    assert_eq!(title(&t), "proj/");
+    t.typ(" .");
+    t.typ("new.org");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        t.app.doc.meta.path.as_deref(),
+        Some(dir.join("proj/new.org").as_path())
+    );
+    t.typ("-");
+    assert_eq!(title(&t), "proj/");
+    // `SPC p D` works from the listing, which is in the project.
+    t.typ(" pD");
+    assert_eq!(title(&t), "proj/");
+    // Mark a.org, `R`, the folder `sub`: moved there.
+    let at = t.text().find(" a.org").unwrap() + 1;
+    t.at(at);
+    t.typ("m");
+    t.typ("R");
+    // The prompt holds the entry's path: its name replaced by `sub`.
+    for _ in 0.."a.org".len() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("sub");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    settle(&mut t);
+    assert!(dir.join("proj/sub/a.org").exists(), "{}", status(&mut t));
+    // `l` opens sub, `h` comes back, `y y` copies the path.
+    let at = t.text().find(" sub").unwrap() + 1;
+    t.at(at);
+    t.typ("l");
+    assert_eq!(title(&t), "sub/");
+    t.typ("h");
+    assert_eq!(title(&t), "proj/");
+    t.app.take_output();
+    t.typ("yy");
+    let out = t.app.take_output();
+    assert!(out.iter().any(|o| o.starts_with("\x1b]52;c;")), "{out:?}");
+}

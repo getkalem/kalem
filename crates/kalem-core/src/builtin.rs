@@ -123,7 +123,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "table.sortRows",
             object(&[("by", "string", true), ("withCase", "boolean", false)]),
         ),
-        ("file.open", object(&[("path", "string", false)])),
+        (
+            "file.open",
+            object(&[("path", "string", false), ("prompt", "boolean", false)]),
+        ),
         ("org.property.delete", object(&[("key", "string", true)])),
         ("org.cite.insert", object(&[("key", "string", false)])),
         ("org.insert.drawer", object(&[("name", "string", true)])),
@@ -2769,6 +2772,18 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, args| {
                 let path = args.get("path").and_then(Value::as_str).map(str::to_string);
+                // A typed path, from the document's folder, instead of the
+                // system's dialog (Doom's `SPC .`): a new name makes a file.
+                if path.is_none() && args.get("prompt").and_then(Value::as_bool) == Some(true) {
+                    return request(
+                        ctx,
+                        Request::Ask {
+                            command: "file.open".into(),
+                            args: serde_json::json!({}),
+                            arg: "path".into(),
+                        },
+                    );
+                }
                 request(ctx, Request::Open { path })
             },
         ),
