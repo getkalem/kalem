@@ -61,7 +61,16 @@
   { "keys": "leader p i", "command": "project.refresh", "when": "vimCommand" },
   // Search.
   { "keys": "leader s p", "command": "project.search", "when": "vimCommand" },
-  { "keys": "leader s s", "command": "find.open", "when": "vimCommand" },
+  { "keys": "leader s s", "command": "search.lines", "when": "vimCommand" },
+  { "keys": "leader s b", "command": "search.lines", "when": "vimCommand" },
+  { "keys": "leader s shift+b", "command": "search.lines", "args": { "all": true }, "when": "vimCommand" },
+  { "keys": "leader s i", "command": "search.lines", "args": { "headings": true }, "when": "vimCommand" },
+  { "keys": "leader s shift+i", "command": "search.lines", "args": { "headings": true, "all": true }, "when": "vimCommand" },
+  { "keys": "leader s shift+s", "command": "search.lines", "args": { "word": true }, "when": "vimCommand" },
+  { "keys": "leader s d", "command": "search.folder", "when": "vimCommand" },
+  { "keys": "leader s shift+d", "command": "search.folder", "args": { "ask": true }, "when": "vimCommand" },
+  { "keys": "leader s shift+p", "command": "project.searchOther", "when": "vimCommand" },
+  { "keys": "leader s o", "command": "search.online", "when": "vimCommand" },
   // Open, toggle, windows, quit.
   { "keys": "leader o p", "command": "view.openFiles", "when": "vimCommand" },
   { "keys": "leader o o", "command": "view.outline", "when": "vimCommand" },

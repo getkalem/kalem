@@ -2000,6 +2000,50 @@ fn this_file_keys(cx: &mut TestAppContext) {
     assert!(!open.contains(&Some(copy)), "{open:?}");
 }
 
+/// Doom's `SPC s b`: the live list of matching lines; the cursor follows
+/// the chosen line, Escape goes back, Enter stays; `SPC s B` in every
+/// open document (T2.7i.4).
+#[gpui::test]
+fn live_line_search(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(true, cx);
+    let head = |cx: &mut VisualTestContext| {
+        ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.selection.head)
+    };
+    // a.org is "* A\nalpha\n".
+    cx.simulate_keystrokes("space s b");
+    cx.simulate_input("alp");
+    cx.run_until_parked();
+    assert_eq!(head(cx), 4);
+    let shown = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).palette.as_ref().map(|p| p.len())
+    });
+    assert_eq!(shown, Some(1));
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert_eq!(head(cx), 0);
+    cx.simulate_keystrokes("space s b");
+    cx.simulate_input("alp");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert_eq!(head(cx), 4);
+    // Across the open documents: b.org's third line.
+    let b = dir.join("proj/sub/b.org");
+    ws.update_in(cx, |ws, window, cx| ws.open(&b, None, window, cx));
+    let a = dir.join("proj/a.org");
+    ws.update_in(cx, |ws, window, cx| ws.open(&a, None, window, cx));
+    cx.run_until_parked();
+    cx.simulate_keystrokes("space s shift-b");
+    cx.simulate_input("needle");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let (path, line) = ws.read_with(cx, |ws, cx| {
+        let d = &ws.editor.read(cx).doc;
+        (d.meta.path.clone(), d.text().line_of(d.selection.head))
+    });
+    assert_eq!(path, Some(b));
+    assert_eq!(line, 2);
+}
+
 /// The toolbar's two buttons, each pressed twice, in either order
 /// (T2.7e.19): File Manager always shows a folder, Projects the projects.
 #[gpui::test]

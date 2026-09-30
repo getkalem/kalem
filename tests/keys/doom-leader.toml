@@ -361,25 +361,25 @@ command = "file.copyRelativePath"
 doom = "SPC s b"
 keys = "space s b"
 what = "Search the document"
-reason = "Planned: T2.7i.4"
+command = "search.lines"
 
 [[key]]
 doom = "SPC s B"
 keys = "space s shift+b"
 what = "Search all open documents"
-reason = "Planned: T2.7i.4"
+command = "search.lines"
 
 [[key]]
 doom = "SPC s d"
 keys = "space s d"
 what = "Search this folder"
-reason = "Planned: T2.7i.4"
+command = "search.folder"
 
 [[key]]
 doom = "SPC s D"
 keys = "space s shift+d"
 what = "Search another folder"
-reason = "Planned: T2.7i.4"
+command = "search.folder"
 
 [[key]]
 doom = "SPC s e"
@@ -391,55 +391,55 @@ reason = "Kalem has no emacs.d"
 doom = "SPC s f"
 keys = "space s f"
 what = "Locate a file"
-reason = "Planned: T2.7i.4"
+reason = "Not yet: a file by name across every project; =SPC p f= finds one in a project"
 
 [[key]]
 doom = "SPC s i"
 keys = "space s i"
 what = "Jump to a symbol or heading"
-reason = "Planned: T2.7i.4"
+command = "search.lines"
 
 [[key]]
 doom = "SPC s I"
 keys = "space s shift+i"
 what = "Jump to a symbol in all documents"
-reason = "Planned: T2.7i.4"
+command = "search.lines"
 
 [[key]]
 doom = "SPC s j"
 keys = "space s j"
 what = "Jump list"
-reason = "Planned: T2.7i.4"
+reason = "Not yet: a jump list shared by both keymaps; Vim's =C-o= and =C-i= where the Vim layer has them"
 
 [[key]]
 doom = "SPC s k"
 keys = "space s k"
 what = "Look up documentation"
-reason = "Planned: T2.7i.4"
+reason = "Waits for looking things up in the Book, and for hover in code (3.8)"
 
 [[key]]
 doom = "SPC s l"
 keys = "space s l"
 what = "Jump to a link"
-reason = "Planned: T2.7i.4"
+reason = "Not yet: jumping to a link on screen by letter"
 
 [[key]]
 doom = "SPC s L"
 keys = "space s shift+l"
 what = "Open a link"
-reason = "Planned: T2.7i.4"
+reason = "Not yet: a list of the document's links; =SPC s b= with part of the link finds its line"
 
 [[key]]
 doom = "SPC s m"
 keys = "space s m"
 what = "Jump to a bookmark"
-reason = "Planned: T2.7i.4"
+reason = "Kalem has no bookmarks yet"
 
 [[key]]
 doom = "SPC s o"
 keys = "space s o"
 what = "Search online"
-reason = "Planned: T2.7i.4"
+command = "search.online"
 
 [[key]]
 doom = "SPC s p"
@@ -451,43 +451,43 @@ command = "project.search"
 doom = "SPC s P"
 keys = "space s shift+p"
 what = "Search another project"
-reason = "Planned: T2.7i.4"
+command = "project.searchOther"
 
 [[key]]
 doom = "SPC s r"
 keys = "space s r"
 what = "Jump to a mark"
-reason = "Planned: T2.7i.4"
+reason = "Not yet: a list of the Vim marks"
 
 [[key]]
 doom = "SPC s s"
 keys = "space s s"
 what = "Search the document"
-command = "find.open"
+command = "search.lines"
 
 [[key]]
 doom = "SPC s S"
 keys = "space s shift+s"
 what = "Search for the word at point"
-reason = "Planned: T2.7i.4"
+command = "search.lines"
 
 [[key]]
 doom = "SPC s t"
 keys = "space s t"
 what = "Dictionary"
-reason = "Planned: T2.7i.4"
+reason = "Waits for the spell checker's dictionary (3.6)"
 
 [[key]]
 doom = "SPC s T"
 keys = "space s shift+t"
 what = "Thesaurus"
-reason = "Planned: T2.7i.4"
+reason = "Waits for the spell checker's dictionary (3.6)"
 
 [[key]]
 doom = "SPC s u"
 keys = "space s u"
 what = "Undo history"
-reason = "Planned: T2.7i.4"
+reason = "Not yet: the undo history as a list"
 
 
 # Windows =SPC w=.

@@ -32,6 +32,16 @@ cmd-file-open = Open File
 cmd-file-new = New Document
 cmd-file-close = Close Document
 cmd-file-next = Next Document
+cmd-search-lines = Search Lines
+search-lines = Lines
+search-lines-count = { $count ->
+    [one] 1 line
+   *[other] { $count } lines
+}
+cmd-search-folder = Search in Folder
+cmd-search-online = Search Online
+cmd-project-searchOther = Search in Another Project
+msg-not-a-folder = Not a folder: { $path }
 cmd-file-delete = Delete This File
 cmd-file-rename = Rename or Move This File
 cmd-file-copy = Copy This File To

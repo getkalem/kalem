@@ -1466,6 +1466,12 @@ impl App {
             Request::Cycle { back } => self.cycle(back),
             Request::Pick(kind) => self.pick(kind, None, After::Open),
             Request::SearchProject => self.search_project(None),
+            Request::SearchLines {
+                all,
+                headings,
+                text,
+            } => self.search_lines(all, headings, &text),
+            Request::SearchOtherProject => self.pick(PickKind::Projects, None, After::Search),
             Request::SearchIn(dir) => {
                 // The project's search when the folder is one, else the
                 // folder's.
@@ -2090,6 +2096,105 @@ impl App {
     }
 
     fn palette_key(&mut self, k: &KeyEvent) {
+        if self.palette.as_ref().is_some_and(|p| p.lines.is_some()) {
+            match k.code {
+                KeyCode::Esc => self.end_line_search(false),
+                KeyCode::Enter => self.end_line_search(true),
+                _ => {
+                    self.palette_key_inner(k);
+                    self.preview_line();
+                }
+            }
+            return;
+        }
+        self.palette_key_inner(k);
+    }
+
+    /// Opens the live search of lines: this document's, or every open
+    /// one's (T2.7i.4).
+    fn search_lines(&mut self, all: bool, headings: bool, text: &str) {
+        use kalem_core::line_search::{LineSearch, Lines, Source};
+        let mut sources = Vec::new();
+        let mut here = 0;
+        let files = self.open_files();
+        for (i, b) in self.docs.iter().enumerate() {
+            let doc = match b {
+                Some(b) => &b.doc,
+                None => &self.doc,
+            };
+            if doc.dired.is_some() || (!all && i != self.active) {
+                continue;
+            }
+            if i == self.active {
+                here = sources.len();
+            }
+            sources.push(Source {
+                doc: i,
+                name: files.get(i).map(|f| f.title.clone()).unwrap_or_default(),
+                text: doc.text().as_str().into(),
+            });
+        }
+        if sources.is_empty() {
+            return;
+        }
+        let lines = if headings {
+            Lines::Headings
+        } else {
+            Lines::All
+        };
+        let sel = self.doc.selection;
+        let search = LineSearch::new(sources, lines, text);
+        self.completion = None;
+        self.palette = Some(Palette::searching_lines(
+            search,
+            (self.active, here, sel.anchor, sel.head),
+        ));
+        self.preview_line();
+        self.dirty = true;
+    }
+
+    /// The cursor follows the chosen line while it is in this document.
+    fn preview_line(&mut self) {
+        let Some(p) = &self.palette else { return };
+        let Some(l) = &p.lines else { return };
+        let Some(h) = l.hits.get(p.selected) else {
+            return;
+        };
+        if l.sources[h.source].doc == self.active {
+            let at = h.at;
+            self.doc.move_cursor(at, false);
+            self.editor.follow = true;
+            self.dirty = true;
+        }
+    }
+
+    /// Ends the line search: at the chosen line, or back where it began.
+    fn end_line_search(&mut self, jump: bool) {
+        let Some(p) = self.palette.take() else { return };
+        let (Some(l), Some((doc, _, anchor, head))) = (p.lines, p.origin) else {
+            return;
+        };
+        match l.hits.get(p.selected).filter(|_| jump) {
+            Some(h) => {
+                let target = l.sources[h.source].doc;
+                if target != self.active {
+                    self.activate(target);
+                }
+                self.doc.move_cursor(h.at, false);
+            }
+            None => {
+                if doc == self.active {
+                    self.doc.move_cursor(anchor, false);
+                    self.doc.move_cursor(head, true);
+                }
+            }
+        }
+        self.editor.follow = true;
+        self.after_change(false);
+        self.dirty = true;
+    }
+
+    fn palette_key_inner(&mut self, k: &KeyEvent) {
         let Some(p) = &mut self.palette else { return };
         self.dirty = true;
         let n = p.len();
@@ -2104,10 +2209,7 @@ impl App {
         // The arrows, Home, End and the deletions edit the typed text.
         if let Some(edit) = line_key(k) {
             if kalem_core::line_edit::apply(&mut p.input, &mut p.back, edit) {
-                p.selected = 0;
-                if let Some(s) = &mut p.search {
-                    s.set_text(&p.input);
-                }
+                p.input_changed();
             }
             return;
         }
@@ -2149,10 +2251,7 @@ impl App {
             _ => {
                 if let Some(c) = input::text(k) {
                     kalem_core::line_edit::insert(&mut p.input, p.back, c.encode_utf8(&mut [0; 4]));
-                    p.selected = 0;
-                    if let Some(s) = &mut p.search {
-                        s.set_text(&p.input);
-                    }
+                    p.input_changed();
                 }
             }
         }

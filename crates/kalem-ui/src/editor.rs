@@ -133,6 +133,22 @@ pub enum DocEvent {
     SaveProject(std::path::PathBuf),
     /// Close the documents of the project at this folder.
     CloseProject(std::path::PathBuf),
+    /// The live search of lines: this document's or every open one's.
+    SearchLines {
+        /// Every open document.
+        all: bool,
+        /// Headings only.
+        headings: bool,
+        /// The query to start with.
+        text: String,
+    },
+    /// Show open document `doc` (an index), the cursor at byte `at`.
+    Jump {
+        /// The document's index.
+        doc: usize,
+        /// Where the cursor goes.
+        at: usize,
+    },
     /// Act on the open documents (Doom's `SPC b`).
     Documents(kalem_core::command::DocumentsRequest),
     /// Quit, asking about every unsaved document.
@@ -1152,6 +1168,20 @@ impl Editor {
             Request::OpenFiles => cx.emit(DocEvent::ToggleFiles),
             Request::Project(r) => self.project_request(r, cx),
             Request::Documents(r) => cx.emit(DocEvent::Documents(r)),
+            Request::SearchLines {
+                all,
+                headings,
+                text,
+            } => cx.emit(DocEvent::SearchLines {
+                all,
+                headings,
+                text,
+            }),
+            Request::SearchOtherProject => cx.emit(DocEvent::Pick(
+                kalem_core::command::PickKind::Projects,
+                None,
+                kalem_core::projects::After::Search,
+            )),
             Request::FileManager(r) => self.file_manager_request(r, cx),
             Request::FileOp(op) => match kalem_core::dired::Task::new(&op) {
                 Ok(t) => self.ask_task(t, window, cx),

@@ -10,6 +10,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::caps::Caps;
 
 use kalem_core::command::PickKind;
+use kalem_core::line_search::LineSearch;
 pub use kalem_core::palette::{PaletteItem, fuzzy};
 use kalem_core::projects::{Entry, OpenFile, Picker, ProjectSearch};
 
@@ -45,6 +46,12 @@ pub struct Palette {
     pub pick: Option<Picker>,
     /// Searching a project's files instead.
     pub search: Option<ProjectSearch>,
+    /// Searching the lines of open documents instead (`SPC s b`).
+    pub lines: Option<LineSearch>,
+    /// Where the cursor was when the line search opened: the document's
+    /// index, its source in the search, and the selection's anchor and
+    /// head, to go back to.
+    pub origin: Option<(usize, usize, usize, usize)>,
 }
 
 impl Palette {
@@ -57,6 +64,35 @@ impl Palette {
             items,
             pick: None,
             search: None,
+            lines: None,
+            origin: None,
+        }
+    }
+
+    /// A live search of lines, from the cursor at `origin`.
+    pub fn searching_lines(lines: LineSearch, origin: (usize, usize, usize, usize)) -> Palette {
+        let mut p = Palette {
+            input: lines.text().to_string(),
+            lines: Some(lines),
+            origin: Some(origin),
+            ..Palette::new(Vec::new())
+        };
+        p.input_changed();
+        p
+    }
+
+    /// The typed text changed: the searches follow it, and the list
+    /// starts at its top (a line search at the cursor's line).
+    pub fn input_changed(&mut self) {
+        self.selected = 0;
+        if let Some(s) = &mut self.search {
+            s.set_text(&self.input);
+        }
+        if let Some(l) = &mut self.lines {
+            l.set_text(&self.input);
+            if let Some((_, source, _, head)) = self.origin {
+                self.selected = l.nearest(source, head);
+            }
         }
     }
 
@@ -79,7 +115,7 @@ impl Palette {
 
     /// The items matching the input, best first.
     pub fn matches(&self) -> Vec<&PaletteItem> {
-        if self.search.is_some() {
+        if self.search.is_some() || self.lines.is_some() {
             return Vec::new();
         }
         match &self.pick {
@@ -90,9 +126,10 @@ impl Palette {
 
     /// How many lines can be chosen.
     pub fn len(&self) -> usize {
-        match &self.search {
-            Some(s) => s.hits.len(),
-            None => self.matches().len(),
+        match (&self.search, &self.lines) {
+            (Some(s), _) => s.hits.len(),
+            (_, Some(l)) => l.hits.len(),
+            _ => self.matches().len(),
         }
     }
 
@@ -108,12 +145,20 @@ impl Palette {
 
     /// Draws the palette near the top of `area`.
     pub fn draw(&self, buf: &mut Buffer, area: Rect, caps: &Caps) {
-        let wide = self.pick.is_some() || self.search.is_some();
+        let wide = self.pick.is_some() || self.search.is_some() || self.lines.is_some();
         let w = area.width.saturating_sub(4).min(if wide { 90 } else { 70 });
         let x = area.x + (area.width - w) / 2;
         // Lines: a title, a detail and keys (or a mark).
-        let lines: Vec<(String, String, String)> = match (&self.search, &self.pick) {
-            (Some(s), _) => s
+        let lines: Vec<(String, String, String)> = match (&self.search, &self.pick, &self.lines) {
+            (_, _, Some(l)) => l
+                .hits
+                .iter()
+                .map(|h| {
+                    let (text, place) = l.row(h);
+                    (place, text, String::new())
+                })
+                .collect(),
+            (Some(s), _, _) => s
                 .hits
                 .iter()
                 .map(|h| {
@@ -121,12 +166,12 @@ impl Palette {
                     (at, text, String::new())
                 })
                 .collect(),
-            (None, Some(_)) => self
+            (None, Some(_), _) => self
                 .matches()
                 .iter()
                 .map(|it| (it.title.clone(), it.category.clone(), it.keys.clone()))
                 .collect(),
-            (None, None) => self
+            (None, None, _) => self
                 .matches()
                 .iter()
                 .map(|it| {
@@ -150,6 +195,13 @@ impl Palette {
             }
         }
         let (prompt, note) = match (&self.search, &self.pick) {
+            _ if self.lines.is_some() => {
+                let n = self.lines.as_ref().map_or(0, |l| l.hits.len());
+                (
+                    format!("{}: ", kalem_core::l10n::tr("search-lines")),
+                    kalem_core::tr!("search-lines-count", count = n),
+                )
+            }
             (Some(s), _) => {
                 let switches: Vec<String> = s
                     .switches()

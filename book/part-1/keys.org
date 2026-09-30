@@ -75,7 +75,10 @@ follow:
 | =SPC f c=            | The workspace settings                      |
 | =SPC p k=, =SPC p s= | Close, save the project's documents         |
 | =SPC p i=            | Refresh Project Files                       |
-| =SPC s s=            | Find                                        |
+| =SPC s b=, =SPC s s= | Search lines, the cursor following          |
+| =SPC s B=, =SPC s i= | Lines of all documents; the headings        |
+| =SPC s d=, =SPC s D= | Search this folder; another folder          |
+| =SPC s P=, =SPC s o= | Search another project; online              |
 | =SPC o o=            | Outline                                     |
 | =SPC t w=            | Soft wrap                                   |
 | =SPC t z=            | Focus mode                                  |

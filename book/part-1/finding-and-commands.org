@@ -13,6 +13,17 @@ in any question Kalem asks, is edited as a line: the left and right
 arrows, Home, End, Backspace and Delete, by words with Ctrl (Option on
 macOS). In a terminal the palette is Ctrl+G, and the status line says so.
 
+/Search Lines/ (=SPC s b= with Vim keys, and =SPC s s=) lists the lines
+of the document that hold every word typed, in any order, and the
+cursor goes to the chosen one as you move through the list: Enter stays
+there, Escape goes back. Lower-case words match either case; a word
+with a capital matches exactly. =SPC s B= searches every open document,
+=SPC s i= lists the headings (=SPC s I= of every open document), and
+=SPC s S= starts with the word at the cursor. =SPC s d= searches the
+files under the document's folder, =SPC s D= another folder, =SPC s P=
+another project, and =SPC s o= looks the word or the selection up
+online (the setting =search.online_url= says where).
+
 The menus hold the commands of the document you are in: a LaTeX file
 has LaTeX's, a CSV file a Table menu. On macOS they are in the menu bar
 at the top of the screen; on Linux and Windows the window has its own
