@@ -63,6 +63,11 @@ pub(crate) fn recalc(files: &[PathBuf], iterate: bool, check: bool) -> Result<Ex
                             r.lisp.join(", ")
                         );
                     }
+                    if let Some(e) = &r.error {
+                        let (line, _) = line_col(&current, start);
+                        let _ = writeln!(err, "{}:{line}: {e}", path.display());
+                        failed = true;
+                    }
                     current = r.transaction.apply(&current);
                 }
                 Err(e) => {

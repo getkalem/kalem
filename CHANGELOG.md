@@ -225,6 +225,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - LaTeX: font declarations in a group (`{\bf …}`, `{\itshape …}`, `{\em …}`) style the rest of the group; `\index` entries are dimmed with their arguments; `\texorpdfstring` shows its TeX text and `\ensuremath` its formula.
 - Org: `#+STARTUP` logging for rescheduling, new deadlines and refiling (`logreschedule`, `logredeadline`, `logrefile` and their `lognote…` and `nolog…` forms, and the settings `org.log_reschedule`, `org.log_redeadline`, `org.log_refile`), written as Emacs writes them; the footnote options `fninline`, `fnlocal`, `fnauto`, `fnprompt`, `fnplain`, `fnconfirm`, `fnanon`, `fnadjust` and `nofnadjust`; Add Note (`org-add-note`).
 
+- Org export: `#+LATEX_FOOTNOTE_COMMAND`, `#+INFOJS_OPT` (org-info.js), the `html-link-use-abs-url` option with `#+HTML_LINK_HOME`, and `#+LATEX_ENGRAVED_THEME` (read), as Org 9.7 has them.
+
 ### Changed
 
 - The text column starts at the left edge of the window in both editors; `editor.center_text = true` centers it as before.
@@ -247,6 +249,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Org tables: Calc formulas now know `sqr`, `inv`, `hypot`, `round` to digits, `nroot`, `rad`, `deg`, hyperbolic functions, `sec`/`csc`/`cot` and `dfact`, checked against Emacs.
 - LaTeX: formulas in `\index`, `\nomenclature` and the PDF string of `\texorpdfstring` are not counted as text by `kalem diff-pandoc`; `\nomenclature`'s arguments are its own.
 - Org: a log entry that takes a note (`#+STARTUP: lognotedone`, a keyword with `@`) now asks for the note after the command; both editors dropped it.
+- Org tables: an iteration that does not converge leaves the table at its tenth pass with the error, as Emacs does, instead of unchanged.
+- Org export: HTML's creator line links to Emacs and Org as ox-html's does; LaTeX `#+TOC: listings` is `\lstlistoflistings`; the equation of a captioned math table carries only its label; `\alpha{}\beta` keeps the space between the entities (`\(\alpha \beta\)`).
 - Org export: a Babel call (`#+CALL:`, `call_name()`) to a block the document does not name stops the export with "Unknown Babel reference", as Emacs does, instead of disappearing.
 - Org export: `#+OPTIONS: broken-links:nil` stops the export at a link that resolves to nothing, as Emacs does (it used to leave the link out as `broken-links:t` does); the default stays `mark`.
 - `kalem diff-pandoc` reports a file pandoc cannot read and goes on with the others.

@@ -18,6 +18,9 @@ pub struct Recalculated {
     pub transaction: Transaction,
     /// Left-hand sides of Emacs Lisp formulas, kept but not evaluated.
     pub lisp: Vec<String>,
+    /// The error Emacs gives after changing the table ("No convergence
+    /// after 10 iterations"): the transaction still holds the change.
+    pub error: Option<String>,
 }
 
 fn range(n: &SyntaxNode) -> std::ops::Range<usize> {
@@ -175,6 +178,7 @@ pub fn recalculate(doc: &Document, point: usize, iterate: bool) -> Result<Recalc
     Ok(Recalculated {
         transaction: tx.select(Selection::caret(caret)),
         lisp: report.lisp,
+        error: report.error,
     })
 }
 
@@ -496,6 +500,7 @@ pub fn set_formula(
     Ok(Recalculated {
         transaction: tx.select(Selection::caret(point.min(final_text.len()))),
         lisp,
+        error: None,
     })
 }
 
@@ -509,6 +514,21 @@ mod tests {
             .unwrap()
             .transaction
             .apply(t)
+    }
+
+    #[test]
+    fn iteration_without_convergence() {
+        // Emacs leaves the table at its tenth pass, then gives the error.
+        let t = "| 1 |\n| 0 |\n#+TBLFM: @1$1=@1$1+1\n";
+        let r = recalculate(&Document::new(org_syntax::parse(t)), 2, true).unwrap();
+        assert_eq!(
+            r.error.as_deref(),
+            Some("No convergence after 10 iterations")
+        );
+        assert_eq!(
+            r.transaction.apply(t),
+            "| 11 |\n|  0 |\n#+TBLFM: @1$1=@1$1+1\n"
+        );
     }
 
     #[test]
