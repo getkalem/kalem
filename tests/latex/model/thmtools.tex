@@ -1,0 +1,18 @@
+\documentclass{article}
+\usepackage{amsthm,thmtools}
+\declaretheorem[numberwithin=section]{theorem}
+\declaretheorem[sibling=theorem]{lemma}
+\declaretheorem[name=Definition, style=definition]{defn}
+\declaretheorem[numbered=no, name=Remark]{remark}
+\declaretheorem[within=section,name=Claim]{claim}
+\begin{document}
+\section{S}
+\begin{theorem}\label{t1}x\end{theorem}
+\begin{lemma}\label{l1}x\end{lemma}
+\begin{defn}\label{d1}x\end{defn}
+\begin{remark}\label{r1}x\end{remark}
+\begin{claim}\label{c1}x\end{claim}
+\section{T}
+\begin{lemma}\label{l2}x\end{lemma}
+\begin{defn}\label{d2}x\end{defn}
+\end{document}

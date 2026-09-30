@@ -1379,10 +1379,23 @@ fn unflagged_line_view(
                                 .map(|o| group_text_brackets(&o)),
                         ),
                     };
+                    // amsthm's proof with a note prints the note instead
+                    // of "Proof" (`\begin{proof}[Sketch]` is "Sketch.").
+                    let (title, note) = match (proof, note) {
+                        (true, Some(n)) => (n, None),
+                        (_, note) => (title, note),
+                    };
                     let head = match number {
                         Some(n) => format!("{title} {n}"),
                         None => title,
                     };
+                    // amsthm (loaded by the AMS classes) ends a head with
+                    // a period; LaTeX's own `\newtheorem` does not.
+                    let amsthm = proof
+                        || model.packages.iter().any(|p| p.name == "amsthm")
+                        || model.class.as_ref().is_some_and(|c| {
+                            matches!(c.name.as_str(), "amsart" | "amsbook" | "amsproc")
+                        });
                     b.replace(es.start..es.start, &head, bold);
                     // The note: an optional argument, or `[…]` right after.
                     let mut end = es.end;
@@ -1393,9 +1406,10 @@ fn unflagged_line_view(
                     {
                         end = es.end + close + 1;
                     }
+                    let stop = if amsthm { "." } else { "" };
                     let tail = match &note {
-                        Some(n) => format!(" ({n}). "),
-                        None => ". ".to_string(),
+                        Some(n) => format!(" ({n}){stop} "),
+                        None => format!("{stop} "),
                     };
                     let plain = Style {
                         italic: proof,
@@ -1890,39 +1904,241 @@ fn arguments(cmd: &SyntaxNode) -> (Vec<String>, Vec<String>) {
     (opts, mands)
 }
 
-/// What a reference names its target by (`\autoref`, `\cref`, `\Cref`).
-fn target_name(model: &latex_model::Model, target: &latex_model::Target, command: &str) -> String {
+/// What a reference names its target by: hyperref's `\autoref` names
+/// ("section 1", "Equation 3", "Appendix A"; a theorem by its counter, a
+/// counter without a name by its number alone), cleveref's `\cref` and
+/// `\Cref` names ("eq. (3)", "appendix A.1", a theorem by its title).
+/// The document's own `\<counter>autorefname` wins for `\autoref`.
+fn target_name(
+    model: &latex_model::Model,
+    target: &latex_model::Target,
+    number: &str,
+    command: &str,
+) -> String {
     use latex_model::Target;
-    let (long, short) = match target {
-        Target::Section(-1) => ("Part", "part"),
-        Target::Section(0) => ("Chapter", "chapter"),
-        Target::Section(_) => ("Section", "section"),
-        Target::Equation => ("Equation", "eq."),
-        Target::Float(k) if k == "table" => ("Table", "table"),
-        Target::Float(_) => ("Figure", "fig."),
-        Target::Footnote => ("Footnote", "footnote"),
-        // hyperref's `\itemautorefname`, cleveref's item names.
-        Target::Item => ("Item", "item"),
-        Target::Theorem(env) => {
-            let title = model
+    let appendix = number
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_uppercase());
+    if command == "autoref" {
+        let counter: Option<String> = match target {
+            Target::Section(-1) => Some("part".into()),
+            Target::Section(0) if appendix => Some("appendix".into()),
+            Target::Section(l) => {
+                let names = [
+                    "chapter",
+                    "section",
+                    "subsection",
+                    "subsubsection",
+                    "paragraph",
+                    "subparagraph",
+                ];
+                names.get((*l).max(0) as usize).map(|s| s.to_string())
+            }
+            Target::Equation => Some("equation".into()),
+            Target::Float(k) => Some(k.clone()),
+            Target::Footnote => Some("footnote".into()),
+            Target::Item => Some("item".into()),
+            Target::Theorem(env) => model
                 .theorem_kinds
                 .iter()
                 .find(|k| k.env == *env)
-                .map_or_else(|| env.clone(), |k| k.title.clone());
-            return if command == "cref" {
-                title.to_lowercase()
-            } else {
-                title
-            };
+                .map(|k| k.counter.clone()),
+            Target::Counter(c) => Some(c.clone()),
+            Target::None => None,
+        };
+        let Some(counter) = counter else {
+            return String::new();
+        };
+        if let Some(m) = model
+            .macros
+            .iter()
+            .rev()
+            .find(|m| m.name == format!("\\{counter}autorefname"))
+        {
+            return m.body.trim().to_string();
         }
-        // A counter of the document's own: its name.
-        Target::Counter(c) => return c.clone(),
-        Target::None => ("", ""),
+        return match counter.as_str() {
+            "part" => "Part",
+            "appendix" => "Appendix",
+            "chapter" => "chapter",
+            "section" => "section",
+            "subsection" => "subsection",
+            "subsubsection" => "subsubsection",
+            "paragraph" => "paragraph",
+            "subparagraph" => "subparagraph",
+            "equation" => "Equation",
+            "figure" => "Figure",
+            "table" => "Table",
+            "footnote" => "footnote",
+            "item" => "item",
+            "theorem" => "Theorem",
+            _ => "",
+        }
+        .to_string();
+    }
+    let short = match target {
+        Target::Section(-1) => "part".to_string(),
+        Target::Section(_) if appendix => "appendix".to_string(),
+        Target::Section(0) => "chapter".to_string(),
+        Target::Section(_) => "section".to_string(),
+        Target::Equation => "eq.".to_string(),
+        Target::Float(k) if k == "table" => "table".to_string(),
+        Target::Float(_) => "fig.".to_string(),
+        Target::Footnote => "footnote".to_string(),
+        Target::Item => "item".to_string(),
+        Target::Theorem(env) => model
+            .theorem_kinds
+            .iter()
+            .find(|k| k.env == *env)
+            .map_or_else(|| env.clone(), |k| k.title.to_lowercase()),
+        Target::Counter(c) => c.clone(),
+        Target::None => String::new(),
     };
-    if command == "cref" {
-        short.to_string()
+    if command == "Cref" {
+        capital(&match short.as_str() {
+            "eq." => "equation".to_string(),
+            "fig." => "figure".to_string(),
+            _ => short,
+        })
     } else {
-        long.to_string()
+        short
+    }
+}
+
+/// `s` with a capital first letter.
+fn capital(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+        .unwrap_or_default()
+}
+
+/// cleveref's plural of a name: "eqs.", "figs.", "appendices".
+fn plural(name: &str) -> String {
+    match name {
+        "eq." => "eqs.".into(),
+        "fig." => "figs.".into(),
+        "appendix" => "appendices".into(),
+        "Appendix" => "Appendices".into(),
+        n => format!("{n}s"),
+    }
+}
+
+/// `\cref{a,b,c}` as cleveref prints it: the keys grouped by kind in the
+/// order they come, each group sorted, runs of three or more consecutive
+/// numbers compressed to "1 to 3", "and" between two, commas and a final
+/// "and" in a group, ", and" before the last of three or more groups.
+fn cref_list(model: &latex_model::Model, keys: &[&str], command: &str) -> (String, bool) {
+    let mut all = true;
+    let mut groups: Vec<(String, Vec<String>)> = Vec::new();
+    for k in keys {
+        let Some(l) = model.label(k) else {
+            all = false;
+            groups.push((String::new(), vec!["??".into()]));
+            continue;
+        };
+        let n = l.number.clone().unwrap_or_default();
+        let name = target_name(model, &l.target, &n, command);
+        let n = if l.target == latex_model::Target::Equation {
+            format!("({n})")
+        } else {
+            n
+        };
+        match groups.iter_mut().find(|g| g.0 == name && !name.is_empty()) {
+            Some(g) => g.1.push(n),
+            None => groups.push((name, vec![n])),
+        }
+    }
+    // The number's parts: a prefix and a last integer, for sorting and
+    // runs.
+    let parts = |n: &str| -> Option<(String, i64)> {
+        let t = n.trim_start_matches('(').trim_end_matches(')');
+        let cut = t.rfind(|c: char| !c.is_ascii_digit()).map_or(0, |i| i + 1);
+        t[cut..].parse().ok().map(|v| (t[..cut].to_string(), v))
+    };
+    let texts: Vec<String> = groups
+        .into_iter()
+        .map(|(name, mut ns)| {
+            if ns.iter().all(|n| parts(n).is_some()) {
+                ns.sort_by_key(|n| parts(n));
+                ns.dedup();
+            }
+            // Runs of consecutive numbers.
+            let mut items: Vec<String> = Vec::new();
+            let mut i = 0;
+            while i < ns.len() {
+                let mut j = i;
+                while j + 1 < ns.len()
+                    && matches!((parts(&ns[j]), parts(&ns[j + 1])),
+                        (Some((p, a)), Some((q, b))) if p == q && b == a + 1)
+                {
+                    j += 1;
+                }
+                if j >= i + 2 {
+                    items.push(format!("{} to {}", ns[i], ns[j]));
+                    i = j + 1;
+                } else {
+                    items.push(ns[i].clone());
+                    i += 1;
+                }
+            }
+            let many = ns.len() > 1;
+            let list = match items.len() {
+                1 => items[0].clone(),
+                n => format!("{} and {}", items[..n - 1].join(", "), items[n - 1]),
+            };
+            match (name.is_empty(), many) {
+                (true, _) => list,
+                (false, true) => format!("{}\u{a0}{list}", plural(&name)),
+                (false, false) => format!("{name}\u{a0}{list}"),
+            }
+        })
+        .collect();
+    let text = match texts.len() {
+        0 => String::new(),
+        1 => texts[0].clone(),
+        2 => format!("{} and {}", texts[0], texts[1]),
+        n => format!("{}, and {}", texts[..n - 1].join(", "), texts[n - 1]),
+    };
+    (text, all)
+}
+
+/// What `\nameref` prints: a float's caption, a theorem's note, else the
+/// title of the section the label is in.
+fn nameref(model: &latex_model::Model, l: &latex_model::Label) -> String {
+    use latex_model::Target;
+    let around = |r: &std::ops::Range<usize>, file: usize| {
+        file == l.file && r.start <= l.range.start && l.range.end <= r.end
+    };
+    match &l.target {
+        Target::Float(_) => model
+            .floats
+            .iter()
+            .rev()
+            .find(|f| around(&f.range, f.file))
+            .and_then(|f| {
+                f.captions
+                    .iter()
+                    .rev()
+                    .find(|c| c.range.start <= l.range.start)
+                    .or(f.captions.first())
+            })
+            .map(|c| c.text.clone())
+            .unwrap_or_default(),
+        Target::Theorem(_) => model
+            .theorems
+            .iter()
+            .rev()
+            .find(|t| around(&t.range, t.file))
+            .and_then(|t| t.note.clone())
+            .unwrap_or_default(),
+        _ => model
+            .sections
+            .iter()
+            .rev()
+            .find(|s| s.range.start <= l.range.start && s.file == l.file)
+            .map_or_else(|| l.number.clone().unwrap_or_default(), |s| s.title.clone()),
     }
 }
 
@@ -1938,46 +2154,37 @@ fn chip(
     match name {
         "url" => (first, true),
         "href" => (mands.get(1).cloned().unwrap_or(first), true),
-        "ref" | "eqref" | "pageref" | "autoref" | "cref" | "Cref" | "nameref" | "vref" | "Vref" => {
-            let mut all = true;
-            let parts: Vec<String> = first
+        // cleveref takes a list of keys.
+        "cref" | "Cref" => {
+            let keys: Vec<&str> = first
                 .split(',')
                 .map(str::trim)
                 .filter(|k| !k.is_empty())
-                .map(|k| {
-                    let Some(l) = model.label(k) else {
-                        all = false;
-                        return "??".to_string();
-                    };
-                    let n = l.number.clone().unwrap_or_default();
-                    match name {
-                        "eqref" => format!("({n})"),
-                        "pageref" => k.to_string(),
-                        "nameref" => model
-                            .sections
-                            .iter()
-                            .rev()
-                            .find(|s| s.range.start <= l.range.start && s.file == l.file)
-                            .map_or(n, |s| s.title.clone()),
-                        "autoref" | "cref" | "Cref" => {
-                            let what = target_name(model, &l.target, name);
-                            let n =
-                                if l.target == latex_model::Target::Equation && name != "autoref" {
-                                    format!("({n})")
-                                } else {
-                                    n
-                                };
-                            if what.is_empty() {
-                                n
-                            } else {
-                                format!("{what}\u{a0}{n}")
-                            }
-                        }
-                        _ => n,
-                    }
-                })
                 .collect();
-            (parts.join(", "), all)
+            cref_list(model, &keys, name)
+        }
+        // The others take one key: `\ref{a,b}` is the label `a,b`.
+        "ref" | "eqref" | "pageref" | "autoref" | "nameref" | "vref" | "Vref" => {
+            let k = first.trim();
+            let Some(l) = model.label(k) else {
+                return ("??".to_string(), false);
+            };
+            let n = l.number.clone().unwrap_or_default();
+            let shown = match name {
+                "eqref" => format!("({n})"),
+                "pageref" => k.to_string(),
+                "nameref" => nameref(model, l),
+                "autoref" => {
+                    let what = target_name(model, &l.target, &n, name);
+                    if what.is_empty() {
+                        n
+                    } else {
+                        format!("{what}\u{a0}{n}")
+                    }
+                }
+                _ => n,
+            };
+            (shown, true)
         }
         _ => {
             // A citation: author and year from the bibliography.
@@ -2136,8 +2343,8 @@ pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
         .iter()
         .map(|k| match model.label(k) {
             Some(l) => {
-                let what = target_name(&model, &l.target, "Cref");
                 let n = l.number.clone().unwrap_or_default();
+                let what = target_name(&model, &l.target, &n, "Cref");
                 let title = model
                     .sections
                     .iter()
@@ -3396,6 +3603,31 @@ mod tests {
     }
 
     #[test]
+    fn references_as_latex_prints_them() {
+        // `tests/latex/references`: each line after `\clearpage` a
+        // reference, and what pdflatex typesets for it with hyperref and
+        // cleveref (read from `\showbox`).
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/latex/references/");
+        let text = std::fs::read_to_string(format!("{dir}references.tex")).unwrap();
+        let expected = std::fs::read_to_string(format!("{dir}references.expected")).unwrap();
+        let d = doc(&text);
+        let first = text[..text.find("\\clearpage").unwrap()].lines().count() + 1;
+        let end = Some(text.len());
+        let mut wrong = Vec::new();
+        for (i, want) in expected.lines().enumerate() {
+            let line = first + i;
+            let got = shown(&d, line, end).display().replace('\u{a0}', " ");
+            if got.trim() != want.trim() {
+                wrong.push(format!(
+                    "{}: LaTeX {want:?}, Kalem {got:?}",
+                    text.lines().nth(line).unwrap_or("")
+                ));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
+    #[test]
     fn references_and_citations() {
         let dir = std::env::temp_dir().join(format!("kalem-latex-cite-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -3407,7 +3639,7 @@ mod tests {
         let refs = shown(&d, 2, end);
         assert_eq!(
             refs.display(),
-            "See 1, (1), eq.\u{a0}(1), Section\u{a0}1, ??."
+            "See 1, (1), eq.\u{a0}(1), section\u{a0}1, ??."
         );
         assert!(
             refs.runs
@@ -3450,13 +3682,20 @@ mod tests {
         let text = "\\newtheorem{thm}{Theorem}[section]\n\\section{A}\n\\begin{thm}[Pythagoras]\nText.\n\\end{thm}\n\\begin{proof}\nEasy.\n\\end{proof}\n\\paragraph{Run} in.\n";
         let d = doc(text);
         let end = Some(text.len());
-        assert_eq!(shown(&d, 2, end).display(), "Theorem 1.1 (Pythagoras). ");
+        // LaTeX's own `\newtheorem`: no period after the head.
+        assert_eq!(shown(&d, 2, end).display(), "Theorem 1.1 (Pythagoras) ");
         assert_eq!(shown(&d, 4, end).role, crate::view::LineRole::Delimiter);
         assert_eq!(shown(&d, 5, end).display(), "Proof. ");
         assert_eq!(shown(&d, 7, end).display(), "\u{220e}");
         let run = shown(&d, 8, end);
         assert_eq!((run.display().as_str(), run.heading), ("Run in.", 0));
         assert!(run.runs[0].style.bold);
+        // amsthm: a period; a proof's note replaces "Proof".
+        let text = "\\usepackage{amsthm}\n\\newtheorem{thm}{Theorem}\n\\begin{thm}[P]\nT.\n\\end{thm}\n\\begin{proof}[Sketch]\nE.\n\\end{proof}\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        assert_eq!(shown(&d, 2, end).display(), "Theorem 1 (P). ");
+        assert_eq!(shown(&d, 5, end).display(), "Sketch. ");
     }
 
     #[test]

@@ -290,3 +290,23 @@ fn minipage_footnotes() {
     // counter alone.
     check_labels("minipage");
 }
+
+#[test]
+fn display_math_tags() {
+    // `\tag` in `\[…\]` and `displaymath` numbers them; in `$$…$$` not.
+    check_labels("display");
+}
+
+#[test]
+fn math_environments() {
+    // xalignat, breqn's dmath, empheq by its argument, and environments
+    // inside equations that number nothing (CD, multlined, rcases).
+    check_labels("mathenvs");
+}
+
+#[test]
+fn thmtools() {
+    // `\declaretheorem` with `numberwithin`, `sibling`, `name` and
+    // `numbered=no`.
+    check_labels("thmtools");
+}

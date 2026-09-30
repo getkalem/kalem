@@ -2395,7 +2395,8 @@ fn latex_theorems_and_code(cx: &mut TestAppContext) {
     at(&e, text.len(), cx);
     assert_eq!(
         e.read_with(cx, |e, _| e.line_view(1).display()),
-        "Theorem 1 (Main). "
+        // Without amsthm, LaTeX puts no period after the head.
+        "Theorem 1 (Main) "
     );
     // The listing's lines are code, colored as Rust.
     let colored = e.update(cx, |e, _| {

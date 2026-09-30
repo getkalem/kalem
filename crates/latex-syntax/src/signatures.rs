@@ -35,6 +35,7 @@ pub fn command(name: &str) -> &'static str {
         "numberwithin" => "omm",
         "counterwithin" | "counterwithout" => "*mm",
         "captionof" => "*mom",
+        "declaretheorem" => "omo",
         "subfloat" => "oom",
         "bibitem" | "hyperref" | "includepdf" => "om",
         // amsart's `\author[short]{name}`.
@@ -77,7 +78,11 @@ pub fn environment(name: &str) -> &'static str {
         | "theorem" | "lemma" | "proof" | "definition" | "corollary" | "proposition"
         | "example" | "remark" | "lstlisting" | "Verbatim" | "BVerbatim" => "o",
         "minted" => "om",
-        "thebibliography" | "multicols" | "multicols*" | "alignat" | "alignat*" => "m",
+        "thebibliography" | "multicols" | "multicols*" | "alignat" | "alignat*" | "xalignat"
+        | "xxalignat" => "m",
+        "IEEEeqnarray" | "IEEEeqnarray*" | "empheq" => "om",
+        "dmath" | "dmath*" => "o",
+        "multlined" => "oo",
         _ => "",
     }
 }
@@ -116,6 +121,19 @@ pub fn is_math(name: &str) -> bool {
             | "aligned"
             | "gathered"
             | "alignedat"
+            | "xalignat"
+            | "xxalignat"
+            | "IEEEeqnarray"
+            | "IEEEeqnarraybox"
+            | "dmath"
+            | "dseries"
+            | "dgroup"
+            | "darray"
+            | "empheq"
+            | "multlined"
+            | "rcases"
+            | "drcases"
+            | "CD"
             | "cases"
             | "dcases"
             | "matrix"
