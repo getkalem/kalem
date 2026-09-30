@@ -98,7 +98,7 @@ A lightweight, fast, single-binary, open source desktop editor that lets people 
 - **Emulating Emacs.** Elisp, the Emacs key language, every agenda setting.
 - **Real-time collaboration and cloud sync.** Git and file sync are considered sufficient.
 - **Mobile platforms.**
-- **A full IDE.** Debuggers and build systems are not built in. Language servers arrive through language plugins (11.14; Python and Elixir first, group 3.8), which make Kalem a complete editor for a language on the core's language server client; the core itself knows no language.
+- **A full IDE.** Debuggers and build systems are not built in. Language servers arrive through language plugins (11.14; Python, Elixir and the web languages first, group 3.8), which make Kalem a complete editor for a language on the core's language server client; the core itself knows no language.
 - **100% of Org in the first release.** Scope is split into phases.
 
 ### 1.5 Target users
@@ -1429,7 +1429,7 @@ Kalem's aim is to open every file a click in the file manager lands on (asked by
 
 ### 11.14 Language plugins and language servers
 
-A language plugin makes Kalem a complete editor for a programming language (asked by the owner, 2026-09-30; Python and Elixir first, group 3.8) without making it an IDE (1.4): a highlighter (11.11), the language pack hooks (2.6) and the whole of what the language's server offers, from completion with snippets to rename across files, semantic tokens and inlay hints, in both frontends.
+A language plugin makes Kalem a complete editor for a programming language (asked by the owner, 2026-09-30; Python, Elixir and one plugin for HTML, CSS and JavaScript first, group 3.8) without making it an IDE (1.4): a highlighter (11.11), the language pack hooks (2.6) and the whole of what the language's server offers, from completion with snippets to rename across files, semantic tokens and inlay hints, in both frontends.
 
 **The client is in the core, the language in the plugin (D57).** `kalem-lsp` implements the language server protocol once: process lifecycle, JSON-RPC over stdio, position encoding mapped to Kalem's offsets, incremental synchronization from the transaction stack, workspace edits as one undo step, cancellation, restart on crash, logs. It knows no language. A language plugin declares, in its manifest: file types, the highlighter, comment and indentation rules, the server or servers, how to find one (a project-local install, the PATH, a Kalem-managed install with the user's consent, never a silent download), root markers, settings, a formatter, run and test commands, snippets; optional Rust code covers what a manifest cannot (virtual environments, Mix). A declarative plugin has no code, so the third language costs an afternoon. The features bind to the same contracts every mode uses (completers 11.12, hover, diagnostics, outline, format), so the keys of the Doom `SPC c` map and their Emacs and Word-like equivalents work the same in every language.
 
@@ -1700,7 +1700,7 @@ Two tracks run beside the phases below (design_doc2.md, section 11; owner, 2026-
 | D55 | Opened as itself | Convert on open, as LibreOffice offers; open and edit every format as its own specification says | No conversion in order to open or edit, no conversion prompt; edits rewrite only the part they touch; conversion only as an explicit export | **Decided (owner, 2026-09-30)** |
 | D56 | PDF rasterizer and spreadsheet formula engine for the plugins | hayro or a pdf-rs based rasterizer; IronCalc or cached values only | Spikes on corpora with pdfium and LibreOffice as oracles | Open (T3.7.3a, T3.7.4a) |
 | D57 | Where the language server client lives | A plugin (the "LSP bridge"); the core as infrastructure with language plugins declaring the servers | The core (`kalem-lsp`, 11.14): protocol plumbing shared by every language, tested once, no language knowledge in it | **Proposed (planning, 2026-09-30)**; the owner may overturn before T3.8.1 |
-| D58 | Default language servers for the first language plugins | Python: basedpyright, pyright, pylsp, ty, jedi; ruff beside it. Elixir: Expert, ElixirLS, Lexical | basedpyright with ruff; Expert with ElixirLS as the fallback | Proposed, confirmed by the CI corpus (T3.8.5, T3.8.6) |
+| D58 | Default language servers for the first language plugins | Python: basedpyright, pyright, pylsp, ty, jedi; ruff beside it. Elixir: Expert, ElixirLS, Lexical. Web: `vscode-langservers-extracted` and `typescript-language-server` with ESLint; Biome; Deno | basedpyright with ruff; Expert with ElixirLS as the fallback; the VS Code servers and typescript-language-server with ESLint, HTML, CSS and JavaScript in one `web` plugin | Proposed, confirmed by the CI corpus (T3.8.5, T3.8.6, T3.8.6a) |
 
 ---
 
