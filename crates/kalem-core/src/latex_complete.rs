@@ -901,13 +901,7 @@ impl LatexCompleter {
         };
         let model = l.model();
         if latex_syntax::signatures::command(command) == "*oom" {
-            let base = ctx.path.as_deref().and_then(Path::parent);
-            let files: Vec<std::path::PathBuf> = model
-                .bibliography
-                .iter()
-                .flat_map(|b| b.files.iter())
-                .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
-                .collect();
+            let files = l.bibliography_files(ctx.path.as_deref());
             let bib = crate::cite::load(&files);
             return bib
                 .entries()

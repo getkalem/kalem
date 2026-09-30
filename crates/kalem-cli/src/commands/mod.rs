@@ -404,7 +404,11 @@ pub(crate) fn latex_build(
     let root = latex_model::project::find_root(&file, &text, &disk, None, None);
     let project = latex_model::project::ProjectCache::default().load(&root, &disk);
     let root_text = std::fs::read_to_string(&root).map_err(|e| e.to_string())?;
-    let engine = latex_build::engine(&root_text, &project.model, engine.unwrap_or("auto"));
+    // `--engine` wins over `% !TEX program`, which wins over the packages.
+    let engine = match engine.filter(|e| *e != "auto") {
+        Some(e) => kalem_core::pdf::Engine::from_keyword(Some(e)),
+        None => latex_build::engine(&root_text, &project.model, "auto"),
+    };
     let built = latex_build::build(&root, engine, outdir)?;
     let failed =
         built.problems.iter().any(|p| p.severity == Severity::Error) || built.pdf.is_none();

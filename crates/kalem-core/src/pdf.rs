@@ -15,6 +15,8 @@ pub enum Engine {
     XeLatex,
     /// LuaLaTeX.
     LuaLatex,
+    /// Tectonic, which runs XeTeX and fetches the packages it needs.
+    Tectonic,
 }
 
 impl Engine {
@@ -23,6 +25,7 @@ impl Engine {
         match value.map(|v| v.trim().to_ascii_lowercase()).as_deref() {
             Some("xelatex") => Engine::XeLatex,
             Some("lualatex") => Engine::LuaLatex,
+            Some("tectonic") => Engine::Tectonic,
             _ => Engine::PdfLatex,
         }
     }
@@ -32,6 +35,7 @@ impl Engine {
             Engine::PdfLatex => "pdflatex",
             Engine::XeLatex => "xelatex",
             Engine::LuaLatex => "lualatex",
+            Engine::Tectonic => "tectonic",
         }
     }
 }
@@ -65,6 +69,10 @@ pub fn find(program: &str, path: &std::ffi::OsStr) -> Option<PathBuf> {
 /// The tool for `engine`, looked for in `path`: `latexmk` with the
 /// engine, else the engine, else `tectonic`.
 pub fn detect(engine: Engine, path: &std::ffi::OsStr) -> Option<Tool> {
+    // Tectonic asked for: it alone.
+    if engine == Engine::Tectonic {
+        return find("tectonic", path).map(Tool::Tectonic);
+    }
     let program = find(engine.program(), path);
     if let (Some(mk), Some(_)) = (find("latexmk", path), &program) {
         return Some(Tool::Latexmk(mk));

@@ -115,7 +115,8 @@ fn has_class(text: &str) -> bool {
 
 /// The root document of `file` (whose text is `text`): `% !TEX root`,
 /// the main document of a subfile, a `NAME.tex.latexmain` marker in its
-/// folder or above, the workspace's setting (`setting`), the file itself
+/// folder or above, a root the caller names (`setting`; no setting
+/// supplies one yet, T2.7h.4), the file itself
 /// when it has a `\documentclass`, or the first document with one in its
 /// folder or above (up to `top`) that includes it.
 pub fn find_root(

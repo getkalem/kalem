@@ -330,3 +330,18 @@ fn input_without_braces() {
     let files: Vec<&str> = m.includes.iter().map(|i| i.target.as_str()).collect();
     assert_eq!(files, ["chapter1", "two"]);
 }
+
+#[test]
+fn macro_definitions_written_again() {
+    let text = "\\newcommand{\\R}{\\mathbb{R}}\n\\newcommand{\\norm}[2][2]{\\lVert #2 \\rVert_{#1}}\n\\def\\half#1{#1/2}\n\\DeclareMathOperator{\\tr}{tr}\n";
+    let m = Model::new(&parse(text));
+    assert_eq!(
+        m.macro_definitions(),
+        [
+            "\\newcommand{\\R}{\\mathbb{R}}",
+            "\\newcommand{\\norm}[2][2]{\\lVert #2 \\rVert_{#1}}",
+            "\\def\\half#1{#1/2}",
+            "\\DeclareMathOperator{\\tr}{tr}",
+        ]
+    );
+}
