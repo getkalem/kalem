@@ -6,8 +6,9 @@
 //! chapters (`[[file:part-1/installing.org][Installing]]`). A link to
 //! `generated:NAME` is a chapter written at build time from the code, so
 //! that it cannot drift from it: `generated:commands` (every command, its
-//! scope and keys), `generated:settings` (every setting) and
-//! `generated:cli` (the command line's help). Each chapter is exported
+//! scope and keys), `generated:keymaps` (the keymap files),
+//! `generated:settings` (every setting) and `generated:cli` (the command
+//! line's help). Each chapter is exported
 //! with the HTML back-end, formulas as SVG, into the page template
 //! `book/theme/page.html`; the theme's other files are copied beside the
 //! pages, and `search-index.js` holds the text of every page for the
@@ -186,7 +187,7 @@ fn generated(name: &str) -> Option<String> {
             let mut cmds: Vec<_> = reg.commands().collect();
             cmds.sort_by(|a, b| a.id.cmp(&b.id));
             let mut s = String::from(
-                "#+OPTIONS: ^:{}\nEvery command of Kalem, generated from the command registry when the Book is built. The scope says which types of text a command serves (§11.2 of the design); the keys are the default ones, before a keymap profile or your own keymap changes them.\n\n| Command | Title | Scope | Keys |\n|-\n",
+                "#+OPTIONS: ^:{}\nEvery command of Kalem, generated from the command registry when the Book is built. The scope says which types of text a command serves (§11.2 of the design); the keys are the default ones, before a keymap profile or your own keymap changes them (the Keymaps appendix lists the profiles' bindings).\n\n| Command | Title | Scope | Keys |\n|-\n",
             );
             for c in cmds {
                 let keys: Vec<String> = c
@@ -227,6 +228,64 @@ fn generated(name: &str) -> Option<String> {
                     code(spec.default),
                     cell(spec.description)
                 ));
+            }
+            s
+        }
+        "keymaps" => {
+            let reg = kalem_core::CommandRegistry::with_builtins();
+            let files = [
+                (
+                    "The Word-like profile",
+                    "=crates/kalem-core/keymaps/word.json=: the default profile's bindings on top of the commands' default keys (the Commands appendix): heading levels, the file manager's keys, the keys of each kind of document.",
+                    include_str!("../../../kalem-core/keymaps/word.json"),
+                ),
+                (
+                    "The Vim profile",
+                    "=crates/kalem-core/keymaps/vim.json=: added to the Word-like bindings when =editor.keymap_profile= is =vim=. =leader= is the key of =editor.vim.leader=, Space unless changed.",
+                    include_str!("../../../kalem-core/keymaps/vim.json"),
+                ),
+                (
+                    "Emacs keys",
+                    "=docs/keymaps/emacs.json=: a user keymap with Emacs Org mode's keys, to copy to =keymap.json= in the settings directory. An entry whose command starts with =-= removes that command's binding.",
+                    include_str!("../../../../docs/keymaps/emacs.json"),
+                ),
+            ];
+            let mut s = String::from(
+                "#+OPTIONS: ^:{}\nThe keymap files that come with Kalem, generated from them when the Book is built. A binding applies where its when-clause holds (the command's own when-clause too); where several apply, the later one wins. /Terminal/ gives the keys used in terminals that cannot send the first ones.\n",
+            );
+            for (title, intro, text) in files {
+                s.push_str(&format!(
+                    "\n* {title}\n\n{intro}\n\n| Keys | Command | When | Terminal |\n|-\n"
+                ));
+                let items: Vec<serde_json::Value> =
+                    serde_json::from_str(&kalem_core::keymap::strip_comments(text))
+                        .unwrap_or_default();
+                for item in items {
+                    let field = |k: &str| item.get(k).and_then(|v| v.as_str()).unwrap_or("");
+                    let command = field("command");
+                    let (removes, id) = match command.strip_prefix('-') {
+                        Some(id) => (true, id),
+                        None => (false, command),
+                    };
+                    let title = reg.get(id).map_or_else(String::new, |c| c.display_title());
+                    let args = item
+                        .get("args")
+                        .filter(|a| !a.is_null())
+                        .map_or_else(String::new, |a| format!(" {}", code(&a.to_string())));
+                    let what = if removes {
+                        format!("removes {}", code(id))
+                    } else {
+                        format!("{} {}{args}", cell(&title), code(id))
+                    };
+                    let optional = |v: &str| if v.is_empty() { String::new() } else { code(v) };
+                    s.push_str(&format!(
+                        "| {} | {} | {} | {} |\n",
+                        code(field("keys")),
+                        what,
+                        optional(field("when")),
+                        optional(field("terminalKeys")),
+                    ));
+                }
             }
             s
         }
@@ -588,11 +647,15 @@ mod tests {
 
     #[test]
     fn generated_chapters() {
-        for name in ["commands", "settings", "cli"] {
+        for name in ["commands", "settings", "cli", "keymaps"] {
             let org = generated(name).unwrap();
             let html = export_body(&org, Path::new("appendices/x.org")).unwrap();
             assert!(html.len() > 1000, "{name}");
         }
         assert!(generated("commands").unwrap().contains("~bib.sortView~"));
+        let keymaps = generated("keymaps").unwrap();
+        for bound in ["~ctrl+1~", "~leader f f~", "removes ~app.save~", "~dired."] {
+            assert!(keymaps.contains(bound), "{bound}");
+        }
     }
 }

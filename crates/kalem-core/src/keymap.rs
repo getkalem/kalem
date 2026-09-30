@@ -156,8 +156,9 @@ impl fmt::Display for KeymapIssue {
     }
 }
 
-/// Removes `//` and `/* */` comments outside strings.
-fn strip_comments(text: &str) -> String {
+/// Removes `//` and `/* */` comments outside strings (keymap files are
+/// JSON with comments).
+pub fn strip_comments(text: &str) -> String {
     let b = text.as_bytes();
     let mut out = String::with_capacity(text.len());
     let (mut i, mut start) = (0, 0);
