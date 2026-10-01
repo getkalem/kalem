@@ -636,6 +636,112 @@ fn code_lines(md: &Md, line: Range<usize>) -> Vec<(Range<usize>, String)> {
         .unwrap_or_default()
 }
 
+/// A list item's or quote's prefix on a line: its indentation, `>`
+/// markers, bullet or number and checkbox, and the length it covers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Prefix {
+    /// What the next line starts with.
+    next: String,
+    /// The bytes of the line the prefix covers.
+    len: usize,
+}
+
+fn prefix(line: &str) -> Option<Prefix> {
+    let b = line.as_bytes();
+    let mut i = 0;
+    let mut next = String::new();
+    let mut any = false;
+    // Indentation and `>` markers.
+    loop {
+        let start = i;
+        while i < b.len() && (b[i] == b' ' || b[i] == b'\t') {
+            i += 1;
+        }
+        if i < b.len() && b[i] == b'>' {
+            i += 1;
+            if i < b.len() && b[i] == b' ' {
+                i += 1;
+            }
+            next.push_str(&line[start..i]);
+            any = true;
+            continue;
+        }
+        next.push_str(&line[start..i]);
+        break;
+    }
+    // A bullet or a number.
+    let rest = &line[i..];
+    let bullet = rest.as_bytes().first().copied();
+    if matches!(bullet, Some(b'-' | b'*' | b'+')) && rest.as_bytes().get(1) == Some(&b' ') {
+        next.push_str(&rest[..2]);
+        i += 2;
+        any = true;
+    } else {
+        let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
+        let delim = rest.as_bytes().get(digits).copied();
+        if (1..=9).contains(&digits)
+            && matches!(delim, Some(b'.' | b')'))
+            && rest.as_bytes().get(digits + 1) == Some(&b' ')
+        {
+            let n: u64 = rest[..digits].parse().ok()?;
+            next.push_str(&format!("{}{} ", n + 1, delim? as char));
+            i += digits + 2;
+            any = true;
+        }
+    }
+    // A checkbox: the next item gets an empty one.
+    let rest = &line[i..];
+    if rest.len() >= 4
+        && rest.starts_with('[')
+        && matches!(rest.as_bytes()[1], b' ' | b'x' | b'X')
+        && rest[2..].starts_with("] ")
+    {
+        next.push_str("[ ] ");
+        i += 4;
+    }
+    any.then_some(Prefix { next, len: i })
+}
+
+/// Enter in a list item or a quote (T2.7c.5): a new item or quoted line
+/// with the same markers, the number one higher, an empty checkbox; on an
+/// item or quoted line holding nothing but its markers, the markers go,
+/// which ends the list. `None` elsewhere (a code block, a paragraph):
+/// Enter is then a plain new line.
+pub fn newline(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
+    let idx = md.line_of(at);
+    let in_code = md.on_line(idx).any(|n| {
+        matches!(
+            n.kind,
+            MdKind::CodeBlock { .. } | MdKind::HtmlBlock | MdKind::Table
+        )
+    });
+    let listed = md.on_line(idx).any(|n| {
+        matches!(
+            n.kind,
+            MdKind::Item | MdKind::TaskItem { .. } | MdKind::Quote
+        )
+    });
+    if in_code || !listed {
+        return None;
+    }
+    let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+    let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+    let line = &text[start..end];
+    let p = prefix(line)?;
+    if at < start + p.len {
+        return None;
+    }
+    let mut tx = org_edit::Transaction::new("New Line");
+    if line[p.len..].trim().is_empty() {
+        // Only markers: they go, and the list ends here.
+        tx.replace(start..end, "").ok()?;
+        return Some(tx.select(org_edit::Selection::caret(start)));
+    }
+    let insert = format!("\n{}", p.next);
+    tx.replace(at..at, &insert).ok()?;
+    Some(tx.select(org_edit::Selection::caret(at + insert.len())))
+}
+
 /// Toggles the box of the task list item whose line holds `at`: `[ ]`
 /// becomes `[x]`, `[x]` or `[X]` becomes `[ ]`; one character changes.
 pub fn toggle_checkbox(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
@@ -834,6 +940,34 @@ mod tests {
         );
         assert!(code_lines(&md, l[0].clone()).is_empty());
         assert!(code_lines(&md, l[4].clone()).is_empty());
+    }
+
+    #[test]
+    fn enter_continues_lists_and_quotes() {
+        let run = |t: &str, at: usize| {
+            let md = Md::parse(t);
+            let tx = newline(&md, t, at)?;
+            let mut s = t.to_string();
+            for e in tx.edits.iter().rev() {
+                s.replace_range(e.range.clone(), &e.insert);
+            }
+            Some((s, tx.selection_after.unwrap().head))
+        };
+        assert_eq!(run("- one\n", 5).unwrap(), ("- one\n- \n".to_string(), 8));
+        assert_eq!(run("9. nine\n", 7).unwrap().0, "9. nine\n10. \n");
+        assert_eq!(run("1) a\n", 4).unwrap().0, "1) a\n2) \n");
+        assert_eq!(run("- [x] done\n", 10).unwrap().0, "- [x] done\n- [ ] \n");
+        assert_eq!(run("  * nested\n", 10).unwrap().0, "  * nested\n  * \n");
+        assert_eq!(run("> quote\n", 7).unwrap().0, "> quote\n> \n");
+        assert_eq!(run("> - in quote\n", 12).unwrap().0, "> - in quote\n> - \n");
+        // Splitting an item at the cursor.
+        assert_eq!(run("- onetwo\n", 5).unwrap().0, "- one\n- two\n");
+        // An empty item ends the list.
+        assert_eq!(run("- a\n- \n", 6).unwrap(), ("- a\n\n".to_string(), 4));
+        // Not in a paragraph or a code block, nor before the bullet.
+        assert!(run("text\n", 4).is_none());
+        assert!(run("```\n- x\n```\n", 7).is_none());
+        assert!(run("- one\n", 0).is_none());
     }
 
     #[test]

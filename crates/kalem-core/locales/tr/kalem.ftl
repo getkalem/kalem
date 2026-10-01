@@ -759,6 +759,7 @@ cmd-csv-copyAsTsv = Sekmeyle Ayrılmış Değerler Olarak Kopyala
 cmd-csv-openAsText = Düz Metin Olarak Aç
 cmd-csv-convertToOrg = Org Tablosuna Dönüştür
 cmd-markdown-toggleCheckbox = Onay Kutusunu Değiştir
+cmd-markdown-newline = Yeni Madde
 cmd-markdown-table-nextField = Sonraki Alan
 cmd-markdown-table-previousField = Önceki Alan
 cmd-markdown-table-align = Tabloyu Hizala
