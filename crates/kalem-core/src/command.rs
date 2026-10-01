@@ -21,6 +21,42 @@ use crate::when::WhenClause;
 pub struct Clipboard {
     /// The text.
     pub text: String,
+    /// The Vim registers with text, by name (`"` for the unnamed one),
+    /// as the frontend last saw them (`SPC i r`).
+    pub registers: Vec<(char, String)>,
+}
+
+/// The texts copied and cut, the newest first, every window's
+/// (`SPC i y`).
+static HISTORY: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// How many copies the history keeps.
+const HISTORY_LEN: usize = 30;
+
+impl Clipboard {
+    /// `text` copied: the clipboard's text, and the newest of the history.
+    pub fn record(&mut self, text: String) {
+        record_history(&text);
+        self.text = text;
+    }
+}
+
+/// `text` added to the clipboard history (once: an older copy of it moves
+/// to the front).
+pub fn record_history(text: &str) {
+    if text.trim().is_empty() {
+        return;
+    }
+    if let Ok(mut h) = HISTORY.lock() {
+        h.retain(|t| t != text);
+        h.insert(0, text.to_string());
+        h.truncate(HISTORY_LEN);
+    }
+}
+
+/// The clipboard history, the newest first.
+pub fn clipboard_history() -> Vec<String> {
+    HISTORY.lock().map(|h| h.clone()).unwrap_or_default()
 }
 
 /// What a command works with.

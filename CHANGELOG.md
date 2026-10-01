@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `SPC i`: a character by its Unicode name, an emoji, the file's name or path, a text from the clipboard history or a Vim register; `SPC n`: Search Notes (`notes.directory`), Store Link, Copy as HTML and as Rich Text (T2.7i.12, T2.7i.13).
 - The local leader `SPC m` for Org, LaTeX and Markdown as Doom has it, each key's command or reason in the Book; Markdown's Bold, Italic, Code and Insert Link (Ctrl+B, Ctrl+I, Ctrl+K) (T2.7i.16, T2.7i.17).
 - Markdown: the front matter folds to its first line while the cursor is away from it, in both editors (T2.7c.3).
 - Markdown tables: Org's table keys move, insert and delete rows and columns, and Sort Rows by Column sorts the body (T2.7c.4).

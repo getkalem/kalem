@@ -130,6 +130,12 @@ pub const SPECS: &[Spec] = &[
         description: "Center the text column in the window, like a page; off, the text starts at the left edge",
     },
     Spec {
+        key: "notes.directory",
+        kind: Kind::Str,
+        default: "\"~/org\"",
+        description: "The folder of your notes, which Search Notes searches (SPC n s), as Doom's org-directory",
+    },
+    Spec {
         key: "editor.restore_session",
         kind: Kind::Bool,
         default: "false",

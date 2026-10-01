@@ -4070,3 +4070,21 @@ fn markdown_front_matter_folded() {
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("title: Notes"), "{rows}");
 }
+
+#[test]
+fn inserting_names_and_copies() {
+    // Doom's `SPC i` (T2.7i.13).
+    let mut t = open("x\n");
+    t.app.run_command("insert.fileName", serde_json::Value::Null);
+    assert_eq!(t.text(), "t.orgx\n");
+    kalem_core::command::record_history("copied text");
+    t.app
+        .run_command("insert.fromHistory", serde_json::Value::Null);
+    t.typ("copied");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.text().starts_with("t.orgcopied text"), "{}", t.text());
+    t.app.run_command("insert.unicode", serde_json::Value::Null);
+    t.typ("U+2192");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.text().contains('→'), "{}", t.text());
+}

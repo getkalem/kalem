@@ -117,6 +117,11 @@ it off. The leader's first keys:
 | =SPC q s=, =SPC q l= | Save the session; restore the last one      |
 | =SPC q S=, =SPC q L= | Save a session as; restore one              |
 | =SPC q K=            | Save the session and quit                   |
+| =SPC i u=, =SPC i e= | A character by its Unicode name; an emoji   |
+| =SPC i f=, =SPC i F= | This file's name; its path                  |
+| =SPC i y=, =SPC i r= | From the clipboard history; a Vim register  |
+| =SPC n s=            | Search the notes folder (=notes.directory=) |
+| =SPC n y=, =SPC n Y= | Copy as HTML; as rich text                  |
 | =SPC q Q=            | Quit without saving, after a question       |
 | =SPC q f=, =SPC q F= | Close this window; quit                     |
 | =SPC q r=, =SPC q R= | Restart with the open documents; restart    |
