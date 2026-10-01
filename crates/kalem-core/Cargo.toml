@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+dunce.workspace = true
 unicode-normalization = "0.1"
 org-syntax.workspace = true
 klm-syntax.workspace = true

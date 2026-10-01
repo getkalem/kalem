@@ -3843,6 +3843,7 @@ version = "0.0.1"
 dependencies = [
  "chardetng",
  "comrak",
+ "dunce",
  "emojis",
  "encoding_rs",
  "fluent-bundle",
@@ -3891,6 +3892,7 @@ dependencies = [
 name = "kalem-fs"
 version = "0.0.1"
 dependencies = [
+ "dunce",
  "filetime",
  "jiff",
  "tracing",
@@ -3909,6 +3911,7 @@ dependencies = [
 name = "kalem-project"
 version = "0.0.1"
 dependencies = [
+ "dunce",
  "grep-matcher",
  "grep-regex",
  "grep-searcher",

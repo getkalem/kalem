@@ -1386,11 +1386,29 @@ pub fn link_at(
     }
     let path = if wiki {
         let found = resolve_wiki(doc, &path);
-        match doc.and_then(std::path::Path::parent) {
-            Some(dir) => found
+        // Relative to the document's folder, written with `/`; the folder
+        // as written or as the project's root resolved it (`/private/var`
+        // on macOS).
+        let rel = doc.and_then(std::path::Path::parent).and_then(|dir| {
+            found
                 .strip_prefix(dir)
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_else(|_| found.to_string_lossy().into_owned()),
+                .ok()
+                .map(std::path::Path::to_path_buf)
+                .or_else(|| {
+                    let dir = dunce::canonicalize(dir).ok()?;
+                    dunce::canonicalize(&found)
+                        .ok()?
+                        .strip_prefix(dir)
+                        .ok()
+                        .map(std::path::Path::to_path_buf)
+                })
+        });
+        match rel {
+            Some(p) => p
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+                .join("/"),
             None => found.to_string_lossy().into_owned(),
         }
     } else {

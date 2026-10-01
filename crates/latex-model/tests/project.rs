@@ -29,7 +29,11 @@ fn numbered_across_files() {
     let files: Vec<String> = m
         .files
         .iter()
-        .map(|f| f.strip_prefix(dir()).unwrap().display().to_string())
+        .map(|f| {
+            let rel = f.strip_prefix(dir()).unwrap();
+            let parts: Vec<_> = rel.iter().map(|c| c.to_string_lossy()).collect();
+            parts.join("/")
+        })
         .collect();
     assert_eq!(
         files,

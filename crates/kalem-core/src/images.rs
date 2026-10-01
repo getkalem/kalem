@@ -27,8 +27,9 @@ pub fn resolve(path: &str, base: Option<&Path>) -> PathBuf {
         return PathBuf::from(home).join(rest);
     }
     let p = PathBuf::from(path);
+    // `/x/b.png` is not relative on Windows either: the drive's root.
     match base {
-        Some(b) if p.is_relative() => b.join(p),
+        Some(b) if !p.has_root() => b.join(p),
         _ => p,
     }
 }

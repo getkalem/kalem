@@ -41,7 +41,7 @@ pub struct Diagnostic {
 }
 
 fn same_file(a: &Path, b: &Path) -> bool {
-    match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+    match (dunce::canonicalize(a), dunce::canonicalize(b)) {
         (Ok(x), Ok(y)) => x == y,
         _ => a == b,
     }

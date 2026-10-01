@@ -674,7 +674,7 @@ fn command_palette(cx: &mut TestAppContext) {
 #[gpui::test]
 fn export_dialog(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\n", cx);
-    cx.simulate_keystrokes("ctrl-alt-e");
+    cx.simulate_keystrokes(&format!("{p}-alt-e", p = primary()));
     cx.run_until_parked();
     let ids = e.read_with(cx, |e, _| {
         e.palette
@@ -1117,17 +1117,17 @@ fn line_commands(cx: &mut TestAppContext) {
     at(&e, 0, cx);
     cx.simulate_keystrokes("alt-down");
     assert_eq!(text_of(&e, cx), "apple\npear\nfig\n");
-    cx.simulate_keystrokes("ctrl-shift-d");
+    cx.simulate_keystrokes(&format!("{p}-shift-d", p = primary()));
     assert_eq!(text_of(&e, cx), "apple\npear\npear\nfig\n");
     let sel = |e: &Entity<Editor>, cx: &mut VisualTestContext| {
         e.read_with(cx, |e, _| e.doc.selected_text().map(str::to_string))
     };
-    cx.simulate_keystrokes("ctrl-alt-right");
+    cx.simulate_keystrokes(&format!("{p}-alt-right", p = primary()));
     assert_eq!(sel(&e, cx).as_deref(), Some("pear"));
     // The line is the word: the paragraph next.
-    cx.simulate_keystrokes("ctrl-alt-right");
+    cx.simulate_keystrokes(&format!("{p}-alt-right", p = primary()));
     assert_eq!(sel(&e, cx).as_deref(), Some("apple\npear\npear\nfig"));
-    cx.simulate_keystrokes("ctrl-alt-left");
+    cx.simulate_keystrokes(&format!("{p}-alt-left", p = primary()));
     assert_eq!(sel(&e, cx).as_deref(), Some("pear"));
 }
 
@@ -1200,7 +1200,7 @@ fn multiple_cursors(cx: &mut TestAppContext) {
 fn next_occurrence(cx: &mut TestAppContext) {
     let (e, cx) = open("cat dog cat\n", cx);
     at(&e, 1, cx);
-    cx.simulate_keystrokes("ctrl-d ctrl-d");
+    cx.simulate_keystrokes(&format!("{p}-d {p}-d", p = primary()));
     cx.simulate_input("cow");
     assert_eq!(text_of(&e, cx), "cow dog cow\n");
 }
@@ -2294,7 +2294,7 @@ fn file_manager_and_projects_view(cx: &mut TestAppContext) {
                 .contains("renamed/"))
     );
     // Ctrl+Z takes the rename back, and redoes nothing more.
-    cx.simulate_keystrokes("ctrl-z");
+    cx.simulate_keystrokes(&format!("{p}-z", p = primary()));
     cx.run_until_parked();
     assert!(dir.join("proj/made").is_dir() && !dir.join("proj/renamed").exists());
     e.update_in(cx, |e, window, cx| {
@@ -2499,7 +2499,7 @@ fn pictures(cx: &mut TestAppContext) {
 fn footnotes(cx: &mut TestAppContext) {
     let (e, cx) = open("Some text here.\n", cx);
     at(&e, 9, cx);
-    cx.simulate_keystrokes("ctrl-alt-f");
+    cx.simulate_keystrokes(&format!("{p}-alt-f", p = primary()));
     cx.run_until_parked();
     assert_eq!(
         text_of(&e, cx),
@@ -2944,14 +2944,14 @@ fn latex_structural_editing(cx: &mut TestAppContext) {
     assert!(text_of(&e, cx).contains("\\item One\n\\item Two\n"));
     let at_word = text_of(&e, cx).find("words").unwrap() + 1;
     at(&e, at_word, cx);
-    cx.simulate_keystrokes("ctrl-b");
+    cx.simulate_keystrokes(&format!("{p}-b", p = primary()));
     assert!(text_of(&e, cx).contains("some \\textbf{words}"));
     let end = text_of(&e, cx).len();
     at(&e, end, cx);
     cx.simulate_input("\\begin{center}");
     assert!(text_of(&e, cx).ends_with("\\begin{center}\n  \n\\end{center}"));
     at(&e, text_of(&e, cx).find("some").unwrap(), cx);
-    cx.simulate_keystrokes("ctrl-1");
+    cx.simulate_keystrokes(&format!("{p}-1", p = primary()));
     assert!(text_of(&e, cx).contains("\\section{some \\textbf{words}}"));
 }
 
@@ -3202,7 +3202,7 @@ fn file_manager_editable_names(cx: &mut TestAppContext) {
         "{}",
         cursor_line(&ws, cx)
     );
-    cx.simulate_keystrokes("ctrl-s");
+    cx.simulate_keystrokes(&format!("{p}-s", p = primary()));
     cx.run_until_parked();
     assert!(dir.join("proj/new-a.org").is_file() && !dir.join("proj/a.org").exists());
     // Escape discards an edit.
@@ -3327,7 +3327,7 @@ fn file_manager_preview(cx: &mut TestAppContext) {
         ))
     );
     // Ctrl+T: the pictures as thumbnails; a click goes to its line.
-    cx.simulate_keystrokes("ctrl-t");
+    cx.simulate_keystrokes(&format!("{p}-t", p = primary()));
     cx.run_until_parked();
     let thumb = cx.debug_bounds("thumbnail-0").expect("a thumbnail");
     cx.simulate_click(thumb.center(), gpui::Modifiers::default());
@@ -3338,7 +3338,7 @@ fn file_manager_preview(cx: &mut TestAppContext) {
         cursor_line(&ws, cx)
     );
     // Again: hidden.
-    cx.simulate_keystrokes("ctrl-t");
+    cx.simulate_keystrokes(&format!("{p}-t", p = primary()));
     cx.run_until_parked();
     assert!(cx.debug_bounds("preview").is_none());
 }

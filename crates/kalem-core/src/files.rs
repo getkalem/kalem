@@ -302,11 +302,18 @@ pub fn guess(bytes: &[u8]) -> &'static encoding_rs::Encoding {
     guess_in(bytes, locale_hint().as_deref())
 }
 
-/// [`guess`] with a top-level domain as the hint (`tr`, `jp`, `ru`).
+/// [`guess`] with a top-level domain as the hint (`tr`, `jp`, `ru`). A
+/// hint of a region that writes in Windows-1252 (`us`, `de`) says only
+/// what the text is when nothing else does: the bytes decide first, so a
+/// Turkish file opened on an American system reads as Turkish.
 pub fn guess_in(bytes: &[u8], tld: Option<&str>) -> &'static encoding_rs::Encoding {
     let mut d = chardetng::EncodingDetector::new();
     d.feed(bytes, true);
-    d.guess(tld.map(str::as_bytes), true)
+    let hinted = d.guess(tld.map(str::as_bytes), true);
+    if hinted == encoding_rs::WINDOWS_1252 && tld.is_some() {
+        return d.guess(None, true);
+    }
+    hinted
 }
 
 /// The top-level domain of the system locale's region (`tr-TR` gives
@@ -509,7 +516,7 @@ fn write_in_place(path: &Path, bytes: &[u8]) -> io::Result<()> {
 /// returns the new state of the file.
 pub fn write(path: &Path, bytes: &[u8], options: SaveOptions) -> io::Result<DiskState> {
     // Follow links, so that a link stays a link.
-    let target = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let target = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let existing = std::fs::metadata(&target).ok();
     if options.backup && existing.is_some() {
         std::fs::copy(&target, backup_path(&target))?;
@@ -608,7 +615,7 @@ fn split(path: &Path) -> io::Result<(PathBuf, std::ffi::OsString)> {
         .parent()
         .filter(|d| !d.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    Ok((std::fs::canonicalize(dir)?, name.to_os_string()))
+    Ok((dunce::canonicalize(dir)?, name.to_os_string()))
 }
 
 impl FileWatcher {
@@ -631,7 +638,7 @@ impl FileWatcher {
                 let (Some(dir), Some(name)) = (p.parent(), p.file_name()) else {
                     continue;
                 };
-                let dir = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+                let dir = dunce::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
                 if let Some(original) = whole.get(&dir).or_else(|| whole.get(p))
                     && sent.insert(original.clone())
                 {
@@ -660,7 +667,7 @@ impl FileWatcher {
     /// `workspace:file-changed` with `dir` as the path.
     pub fn watch_dir(&mut self, dir: &Path) -> notify::Result<()> {
         use notify::Watcher;
-        let canonical = std::fs::canonicalize(dir)?;
+        let canonical = dunce::canonicalize(dir)?;
         let new_dir = !self
             .watched
             .lock()
@@ -685,7 +692,7 @@ impl FileWatcher {
     /// Stops watching folder `dir` as a whole.
     pub fn unwatch_dir(&mut self, dir: &Path) -> notify::Result<()> {
         use notify::Watcher;
-        let canonical = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+        let canonical = dunce::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
         let removed = self
             .dirs
             .lock()
@@ -801,6 +808,12 @@ mod tests {
         // Short Turkish text reads as Windows-1254 with a Turkish hint.
         let (b, _, _) = encoding_rs::WINDOWS_1254.encode("ağaç");
         assert_eq!(guess_in(&b, Some("tr")), encoding_rs::WINDOWS_1254);
+        // A Western region's hint does not outweigh the bytes.
+        let (b, _, _) = encoding_rs::WINDOWS_1254
+            .encode("Ağaçların gölgesinde çalışan işçiler, güneşin doğuşunu şarkılarla karşıladı.");
+        assert_eq!(guess_in(&b, Some("us")), encoding_rs::WINDOWS_1254);
+        let (b, _, _) = encoding_rs::WINDOWS_1252.encode("Größe und Café, déjà vu à Noël.");
+        assert_eq!(guess_in(&b, Some("us")), encoding_rs::WINDOWS_1252);
         // UTF-32 is refused, not read as UTF-16.
         let e = decode(None, b"\xFF\xFE\0\0a\0\0\0".to_vec()).unwrap_err();
         assert!(matches!(e, OpenError::UnsupportedEncoding(_)), "{e}");

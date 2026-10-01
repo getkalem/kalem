@@ -49,7 +49,7 @@ static RECORDED: std::sync::Mutex<(u64, Vec<Recorded>)> = std::sync::Mutex::new(
 /// files they are in (a problem without a file is the root's).
 pub fn record(root: &Path, problems: &[Problem]) {
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
-    let canon = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let canon = |p: &Path| dunce::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
     let located: Vec<(PathBuf, Problem)> = problems
         .iter()
         .map(|p| {
@@ -76,7 +76,7 @@ pub fn recorded() -> u64 {
 
 /// The problems the last builds found in `file`.
 pub fn problems_in(file: &Path) -> Vec<Problem> {
-    let file = std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
+    let file = dunce::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
     RECORDED.lock().map_or(Vec::new(), |r| {
         r.1.iter()
             .flat_map(|(_, v)| v.iter())

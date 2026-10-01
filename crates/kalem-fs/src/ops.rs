@@ -110,7 +110,7 @@ pub fn conflicts(op: &Operation) -> Vec<PathBuf> {
 }
 
 fn same_file(a: &Path, b: &Path) -> bool {
-    match (a.canonicalize(), b.canonicalize()) {
+    match (dunce::canonicalize(a), dunce::canonicalize(b)) {
         (Ok(x), Ok(y)) => x == y,
         _ => false,
     }
@@ -170,8 +170,8 @@ pub(crate) fn copy_with(src: &Path, dst: &Path, r: &dyn Report) -> io::Result<()
     let meta = std::fs::symlink_metadata(src)?;
     let ft = meta.file_type();
     if ft.is_dir() {
-        if let Ok(c) = src.canonicalize()
-            && let Some(parent) = dst.parent().and_then(|p| p.canonicalize().ok())
+        if let Ok(c) = dunce::canonicalize(src)
+            && let Some(parent) = dst.parent().and_then(|p| dunce::canonicalize(p).ok())
             && parent.starts_with(&c)
         {
             return Err(io::Error::new(

@@ -99,7 +99,7 @@ pub fn find_root(file: &std::path::Path, text: &str) -> std::path::PathBuf {
     });
     candidates.sort();
     let mut cache = project::ProjectCache::default();
-    let canon = |p: &std::path::Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    let canon = |p: &std::path::Path| dunce::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
     let this = canon(file);
     for c in candidates {
         if canon(&c) == this {
@@ -373,8 +373,8 @@ impl LatexState {
         };
         match rx.try_recv() {
             Ok(root) => {
-                let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
-                let root = std::fs::canonicalize(&root).unwrap_or(root);
+                let path = dunce::canonicalize(path).unwrap_or_else(|_| path.clone());
+                let root = dunce::canonicalize(&root).unwrap_or(root);
                 *self.project.borrow_mut() = Some(ProjectView {
                     root,
                     path,
@@ -4441,8 +4441,8 @@ mod tests {
         std::fs::write(&one, "\\chapter{One}\n").unwrap();
         let found = find_root(&one, "\\chapter{One}\n");
         assert_eq!(
-            found.canonicalize().unwrap(),
-            dir.join("src/main.tex").canonicalize().unwrap()
+            dunce::canonicalize(found).unwrap(),
+            dunce::canonicalize(dir.join("src/main.tex")).unwrap()
         );
         // A file no document includes: the setting names its root.
         let lone = dir.join("chapters/lone.tex");
@@ -4451,7 +4451,10 @@ mod tests {
         set_root_setting("src/main.tex");
         let named = find_root(&lone, "\\section{Lone}\n");
         set_root_setting("");
-        assert_eq!(named, dir.join("src/main.tex"));
+        assert_eq!(
+            dunce::canonicalize(named).unwrap(),
+            dunce::canonicalize(dir.join("src/main.tex")).unwrap()
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

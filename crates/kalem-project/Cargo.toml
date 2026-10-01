@@ -11,6 +11,7 @@ keywords = ["projectile", "project", "editor", "search"]
 categories = ["filesystem", "text-editors"]
 
 [dependencies]
+dunce.workspace = true
 ignore = "0.4"
 grep-searcher = "0.1"
 grep-regex = "0.1"

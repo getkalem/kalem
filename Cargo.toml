@@ -13,6 +13,8 @@ homepage = "https://getkalem.github.io/kalem"
 authors = ["The Kalem Contributors"]
 
 [workspace.dependencies]
+# Canonical paths without Windows's `\\?\` prefix where it is not needed.
+dunce = "1"
 org-syntax = { path = "crates/org-syntax", version = "0.0.1" }
 klm-syntax = { path = "crates/klm-syntax" }
 # Markdown (D19): Kalem's fork of comrak, with the sourcepos fixes an editor
