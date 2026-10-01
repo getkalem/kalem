@@ -1,16 +1,19 @@
-This chapter states what Kalem does with Markdown today and what it
-plans. The two are kept apart: the sections under /Today/ describe the
-code as it is; the section /Planned: Markdown mode/ describes work that
-has not started and is marked as such throughout.
+This chapter states what Kalem does with Markdown today and what
+remains. The two are kept apart: the sections under /Today/ describe the
+code as it is; the last section, /What remains of Markdown mode/, lists
+the open work by its task.
 
-In short: Kalem reads Markdown with comrak, the Rust port of GitHub's
-own parser, in Kalem's fork (D19), and draws a Markdown file as it
-reads: markers hidden away from the cursor, headings by level, emphasis,
-code, links, images, formulas and task list checkboxes. The file is
-still edited as text and never rewritten. Kalem writes Markdown, as an export of Org
-documents, in two flavours: Emacs's =ox-md= Markdown, byte for byte, and
-GitHub Flavored Markdown. Markdown is read only through pandoc, when a
-Markdown file is converted to Org.
+In short: Markdown is one of Kalem's built-in formats. Kalem reads it
+with comrak, the Rust port of GitHub's own parser, in Kalem's fork
+(D19), and draws a Markdown file as it reads: markers hidden away from
+the cursor, headings by level, emphasis, code, links, images, formulas,
+task list checkboxes, tables and front matter. The file is edited as
+text and never rewritten: Kalem writes nothing into a Markdown file that
+you did not type, and never converts it in order to open it. Kalem also
+writes Markdown as an export of Org documents, in two flavours, Emacs's
+=ox-md= Markdown byte for byte and GitHub Flavored Markdown, and
+converts a Markdown file to Org without pandoc when you ask (/Convert to
+Org/, =kalem export FILE.md --to org=).
 
 * The oracle
 
@@ -411,40 +414,30 @@ A LaTeX document can be exported as Markdown through pandoc
 =markdown= writer produces it; Kalem passes the file and, when the
 document names one, its bibliography.
 
-* Planned: Markdown mode
+* What remains of Markdown mode
 
-What is left of group 2.7c of =todo.md= and section 2.6.1 of the
-design document. The parser is decided (D19): comrak, in Kalem's fork,
-pinned to a commit of its =kalem-main= branch; the view of the section
-above is done.
+The mode is in use. What is left of group 6 of =todo.md= (the former
+2.7c), by task:
 
-- *Dialect.* CommonMark with the GitHub extensions: tables, task lists,
-  strike-through, autolinks, footnotes; YAML or TOML front matter; and
-  =$…$= and =$$…$$= math.
-- *Parser.* comrak, the Rust port of GitHub's own parser =cmark-gfm=, so
-  a file reads as it does on GitHub; reparsed from the enclosing
-  top-level block on each edit. Kalem uses its fork =getkalem/comrak=,
-  where what an editor needs is fixed (every node's position inside its
-  parent: done) and offered upstream (D19, decided by the owner on
-  2026-10-01; the comparison with pulldown-cmark is in
-  =spikes/md-parser=). comrak's columns count bytes, so a table of line
-  starts turns them into exact byte ranges.
-- *Lossless editing.* As for Org: the file is edited as text, never
-  regenerated from a tree; the parser only yields ranges for the view,
-  so untouched bytes stay as they were (T2.7c.8).
-- *Conversion.* "Convert to Org" and "Convert from Org", through the
-  exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).
-- *What note-taking users expect.* Front matter edited as a form
-  (T2.7c.9; wiki links and the copies are done).
-- *Conformance.* Every example of the CommonMark and GFM specifications
-  as a test, the parsed tree rendered to HTML by a minimal transcoder
-  and compared with the specification's expected output; =cmark-gfm= as
-  the reference where the suites are silent; the byte-exact round trip
-  on a corpus of READMEs and note vaults; a known-differences list; the
-  agreement counts only go up (T2.7c.11).
-- *The mode contract.* Markdown is a mode of the contract plugins will
-  use (=MarkdownMode=, T2.7c.10) and passes its conformance check; the
-  editors still draw it with =kalem_core::markdown='s own view code.
+- *The comrak fork* (T2.7c.1a): each fix an editor needs, every node
+  inside its parent and byte offsets beside line and column, offered
+  upstream as a pull request; Kalem stays pinned to the fork until they
+  land.
+- *The mode contract* (T2.7c.10): Markdown implements =ModeSpec= and
+  passes its conformance check, but the editors still draw it through
+  =kalem_core::markdown='s own view code. Drawing every mode from its
+  tree is open, as is the plugin side of the contract (T3.1.9g).
+- *Large files* (T2.7c.6): files up to 2 MiB are drawn as they read.
+  Open: the first parse of a larger file in the background, and a
+  keystroke in a 10 MB file within the budget of the design's section
+  15; the reparse still copies the node list and the line starts.
+- *Snapshots and a corpus* (T2.7c.8, T2.7c.11): rendering snapshots in
+  both editors; the byte-exact round trip over a corpus of real READMEs
+  and note vaults; and the specification file run in CI, by a download
+  step or committed with its licence.
+- *A known-differences chapter* of its own, following the skeleton the
+  other formats use (T2.10.8); today the sixteen differences are listed
+  under /The oracle/ above.
 
 The rule of the standard modes holds: Kalem writes nothing into a
-Markdown file that the user did not type.
+Markdown file that you did not type.
