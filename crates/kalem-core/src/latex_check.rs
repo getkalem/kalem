@@ -687,6 +687,85 @@ fn view_model(parse: &latex_syntax::Parse, file: Option<&std::path::Path>) -> la
     }
 }
 
+/// How much of a LaTeX document the rendered view covers (T2.7h.1): its
+/// body's bytes, those the view leaves as source (the outermost commands
+/// and environments it does not render, outside formulas), and every
+/// command and environment of the body with how often it comes and
+/// whether the view renders it. Formulas count as rendered: they are the
+/// math renderer's.
+#[derive(Debug, Clone, Default)]
+pub struct Coverage {
+    /// The bytes of the body (`\begin{document}` to `\end{document}`, or
+    /// the whole file without them).
+    pub body: usize,
+    /// The bytes of the body that show as source.
+    pub source: usize,
+    /// The bytes of the body in formulas.
+    pub math: usize,
+    /// Commands (`\foo`) and environments (`\begin{bar}`): how often, and
+    /// whether rendered.
+    pub names: HashMap<String, (usize, bool)>,
+}
+
+/// [`Coverage`] of `text`, with the project of `file` when given.
+pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
+    let parse = latex_syntax::parse(text);
+    let model = view_model(&parse, file);
+    let body = model.body.clone().unwrap_or(0..text.len());
+    let mut c = Coverage {
+        body: body.len(),
+        ..Coverage::default()
+    };
+    // The end of the last span counted, so that only the outermost of
+    // nested spans counts.
+    let mut source_to = 0;
+    let mut math_to = 0;
+    for n in parse.syntax().descendants() {
+        let r = n.text_range();
+        let (start, end) = (usize::from(r.start()), usize::from(r.end()));
+        if !body.contains(&start) {
+            continue;
+        }
+        let end = end.min(body.end);
+        let is_math_env = n.kind() == K::ENVIRONMENT
+            && latex_syntax::name(&n).is_some_and(|x| latex_syntax::signatures::is_math(&x));
+        if matches!(n.kind(), K::INLINE_MATH | K::DISPLAY_MATH) || is_math_env {
+            if start >= math_to && start >= source_to {
+                c.math += end - start;
+                math_to = end;
+            }
+            continue;
+        }
+        if start < math_to {
+            continue;
+        }
+        let (key, rendered) = match n.kind() {
+            K::COMMAND => match latex_syntax::name(&n) {
+                Some(name) if name.chars().all(|c| c.is_ascii_alphabetic() || c == '@') => {
+                    let r = crate::latex_view::renders_command(&name);
+                    (format!("\\{name}"), r)
+                }
+                _ => continue,
+            },
+            K::ENVIRONMENT => match latex_syntax::name(&n) {
+                Some(name) => {
+                    let r = crate::latex_view::renders_environment(&name, &model);
+                    (format!("\\begin{{{name}}}"), r)
+                }
+                None => continue,
+            },
+            _ => continue,
+        };
+        let e = c.names.entry(key).or_insert((0, rendered));
+        e.0 += 1;
+        if !rendered && start >= source_to {
+            c.source += end - start;
+            source_to = end;
+        }
+    }
+    c
+}
+
 /// [`unrendered`] with the project of `file`.
 pub fn unrendered_in(text: &str, file: Option<&std::path::Path>) -> Vec<(String, usize)> {
     let parse = latex_syntax::parse(text);

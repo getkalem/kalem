@@ -1,0 +1,218 @@
+//! `kalem latex-coverage DIR...`: how much of a corpus of LaTeX sources
+//! the rendered view covers (T2.7h.1). A folder holds fields, a field
+//! papers, a paper its files (`arxiv/math/2401.00001/main.tex`): the
+//! report gives, overall and by field, the share of the body that shows
+//! as source and the share in formulas, and the most frequent commands
+//! and environments with how many papers use them and whether the view
+//! renders them.
+
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+
+use super::Result;
+
+/// A command's or environment's uses, the papers using it, and whether
+/// the view renders it.
+type Use = (usize, HashSet<String>, bool);
+
+/// Files larger than this are left out (generated data, not prose).
+const MAX_FILE: u64 = 2 * 1024 * 1024;
+
+#[derive(Default)]
+struct Totals {
+    papers: HashSet<String>,
+    files: usize,
+    body: usize,
+    source: usize,
+    math: usize,
+}
+
+impl Totals {
+    fn add(&mut self, paper: &str, c: &kalem_core::latex_check::Coverage) {
+        self.papers.insert(paper.to_string());
+        self.files += 1;
+        self.body += c.body;
+        self.source += c.source;
+        self.math += c.math;
+    }
+
+    fn json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "papers": self.papers.len(),
+            "files": self.files,
+            "body_bytes": self.body,
+            "source_bytes": self.source,
+            "math_bytes": self.math,
+            "source_share": share(self.source, self.body),
+            "math_share": share(self.math, self.body),
+        })
+    }
+}
+
+fn share(a: usize, b: usize) -> f64 {
+    if b == 0 {
+        0.
+    } else {
+        (a as f64 / b as f64 * 10_000.).round() / 10_000.
+    }
+}
+
+/// The `.tex` files under `dir`, with their field and paper: the first
+/// and first two parts of their path below `dir`.
+fn files(dir: &Path) -> Vec<(PathBuf, String, String)> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p.extension().is_some_and(|x| x.eq_ignore_ascii_case("tex"))
+                && e.metadata().is_ok_and(|m| m.len() <= MAX_FILE)
+            {
+                let parts: Vec<String> = p
+                    .strip_prefix(dir)
+                    .unwrap_or(&p)
+                    .components()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .collect();
+                let field = if parts.len() > 2 {
+                    parts[0].clone()
+                } else {
+                    "-".to_string()
+                };
+                let paper = if parts.len() > 2 {
+                    format!("{}/{}", parts[0], parts[1])
+                } else {
+                    parts.first().cloned().unwrap_or_default()
+                };
+                out.push((p, field, paper));
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
+pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result<ExitCode> {
+    let mut all = Totals::default();
+    let mut fields: BTreeMap<String, Totals> = BTreeMap::new();
+    // Per name: uses, the papers using it, rendered.
+    let mut names: HashMap<String, Use> = HashMap::new();
+    for dir in dirs {
+        for (f, field, paper) in files(dir) {
+            let Ok(bytes) = std::fs::read(&f) else {
+                continue;
+            };
+            let text = String::from_utf8_lossy(&bytes);
+            let c = kalem_core::latex_check::coverage_report(&text, Some(&f));
+            all.add(&paper, &c);
+            fields.entry(field).or_default().add(&paper, &c);
+            for (name, (n, rendered)) in c.names {
+                let e = names
+                    .entry(name)
+                    .or_insert_with(|| (0, HashSet::new(), rendered));
+                e.0 += n;
+                e.1.insert(paper.clone());
+            }
+        }
+    }
+    if all.files == 0 {
+        return Err("No .tex files found".into());
+    }
+    let mut ranked: Vec<(&String, &Use)> = names.iter().collect();
+    // By how many papers use it, then how often: one long document's own
+    // macros do not crowd out what most papers use.
+    ranked.sort_by(|a, b| {
+        b.1.1
+            .len()
+            .cmp(&a.1.1.len())
+            .then(b.1.0.cmp(&a.1.0))
+            .then(a.0.cmp(b.0))
+    });
+    let row = |(name, (n, papers, rendered)): &(&String, &Use)| {
+        (name.to_string(), *n, papers.len(), *rendered)
+    };
+    let most: Vec<_> = ranked.iter().take(top).map(row).collect();
+    let unrendered: Vec<_> = ranked
+        .iter()
+        .filter(|(_, (_, _, r))| !r)
+        .take(top)
+        .map(row)
+        .collect();
+    let mut out = std::io::stdout().lock();
+    if json {
+        let list = |v: &[(String, usize, usize, bool)]| -> Vec<serde_json::Value> {
+            v.iter()
+                .map(|(name, n, p, r)| {
+                    serde_json::json!({"name": name, "uses": n, "papers": p, "rendered": r})
+                })
+                .collect()
+        };
+        let by_field: serde_json::Map<String, serde_json::Value> =
+            fields.iter().map(|(k, t)| (k.clone(), t.json())).collect();
+        let v = serde_json::json!({
+            "total": all.json(),
+            "fields": by_field,
+            "most_frequent": list(&most),
+            "most_frequent_unrendered": list(&unrendered),
+        });
+        writeln!(
+            out,
+            "{}",
+            serde_json::to_string_pretty(&v).map_err(|e| e.to_string())?
+        )
+        .map_err(|e| e.to_string())?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    let pct = |a: usize, b: usize| format!("{:.1}%", share(a, b) * 100.);
+    let mut s = String::new();
+    s.push_str(&format!(
+        "{} papers, {} files, {} KB of body text: {} shows as source, {} is formulas\n\n",
+        all.papers.len(),
+        all.files,
+        all.body / 1024,
+        pct(all.source, all.body),
+        pct(all.math, all.body)
+    ));
+    s.push_str("| field | papers | files | body KB | source | formulas |\n|---|---:|---:|---:|---:|---:|\n");
+    for (k, t) in &fields {
+        s.push_str(&format!(
+            "| {k} | {} | {} | {} | {} | {} |\n",
+            t.papers.len(),
+            t.files,
+            t.body / 1024,
+            pct(t.source, t.body),
+            pct(t.math, t.body)
+        ));
+    }
+    let table = |title: &str, v: &[(String, usize, usize, bool)]| {
+        let mut s =
+            format!("\n{title}\n\n| name | uses | papers | rendered |\n|---|---:|---:|---|\n");
+        for (name, n, p, r) in v {
+            s.push_str(&format!(
+                "| `{name}` | {n} | {p} | {} |\n",
+                if *r { "yes" } else { "no" }
+            ));
+        }
+        s
+    };
+    s.push_str(&table(
+        &format!(
+            "The {} most frequent commands and environments (outside formulas)",
+            most.len()
+        ),
+        &most,
+    ));
+    s.push_str(&table(
+        &format!("The {} most frequent shown as source", unrendered.len()),
+        &unrendered,
+    ));
+    write!(out, "{s}").map_err(|e| e.to_string())?;
+    Ok(ExitCode::SUCCESS)
+}

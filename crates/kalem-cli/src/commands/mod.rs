@@ -1,6 +1,7 @@
 //! Subcommand implementations.
 
 pub(crate) mod book;
+mod coverage;
 mod diff_emacs;
 mod diff_model;
 mod diff_pandoc;
@@ -12,6 +13,7 @@ use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
 
+pub(crate) use coverage::latex_coverage;
 pub(crate) use diff_emacs::{DiffOptions, diff_emacs};
 pub(crate) use diff_model::diff_model;
 pub(crate) use diff_pandoc::diff_pandoc;

@@ -8,6 +8,7 @@
 | =kalem commands [--type T]=         | Lists the commands (of text type =T=): ID, title, scope and keys                 |
 | =kalem query FILE... MATCH=         | Headlines matching an Org match string, such as ='TODO="NEXT"+work'=             |
 | =kalem parse FILE=                  | The syntax tree of an Org, Markdown, LaTeX or Kalem file, each by its own parser |
+| =kalem latex-coverage DIR...=      | How much of a corpus of LaTeX sources (=DIR/FIELD/PAPER/*.tex=) the view renders: by field, the body's share shown as source and in formulas; the 200 commands and environments most papers use, and those shown as source (=--top N=, =--format json=) |
 | =kalem dump FILE=                   | The syntax tree as JSON, in Emacs's terms                                        |
 | =kalem diff-emacs FILE...=          | Compares the parse with Emacs (development)                                      |
 

@@ -1,0 +1,46 @@
+name: arXiv coverage
+
+# T2.7h.1: how much of a stratified sample of arXiv's LaTeX sources the
+# rendered view covers. Run by hand (and monthly); about an hour, most of
+# it the pause arXiv asks for between requests. The report is in the
+# job's log and its artifact; the sources are not kept.
+
+on:
+  workflow_dispatch:
+    inputs:
+      per_field:
+        description: Papers per field
+        default: "200"
+  schedule:
+    - cron: "17 3 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p kalem-editor --no-default-features --features tui
+      - uses: actions/cache@v4
+        with:
+          path: .cache/arxiv
+          key: arxiv-2024-${{ github.event.inputs.per_field || '200' }}
+      - name: Fetch the sample
+        run: python3 tools/arxiv-sample.py .cache/arxiv --per-field "${{ github.event.inputs.per_field || '200' }}"
+      - name: Measure
+        run: |
+          ./target/release/kalem latex-coverage .cache/arxiv > coverage.md
+          ./target/release/kalem latex-coverage --format json .cache/arxiv > coverage.json
+          cat coverage.md
+          cat coverage.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arxiv-coverage
+          path: |
+            coverage.md
+            coverage.json

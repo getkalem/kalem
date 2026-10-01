@@ -577,3 +577,42 @@ fn parse_and_check_by_kind_and_folder() {
     assert_eq!(codes, ["markdown-missing-file"]);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn latex_coverage_by_field() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-coverage-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for (paper, body) in [
+        (
+            "math/p1",
+            "\\documentclass{article}\n\\begin{document}\n\\section{A} Text $x+y$.\n\\foo{bar}\n\\end{document}\n",
+        ),
+        (
+            "cs/p2",
+            "\\documentclass{article}\n\\begin{document}\nPlain \\emph{words}.\n\\end{document}\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(paper)).unwrap();
+        std::fs::write(dir.join(paper).join("main.tex"), body).unwrap();
+    }
+    let (code, out, _) = kalem(&[
+        "latex-coverage",
+        "--format",
+        "json",
+        &dir.display().to_string(),
+    ]);
+    assert_eq!(code, 0);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["total"]["papers"], 2);
+    assert!(v["fields"]["math"]["source_bytes"].as_u64().unwrap() > 0);
+    assert_eq!(v["fields"]["cs"]["source_bytes"], 0);
+    assert!(v["fields"]["math"]["math_bytes"].as_u64().unwrap() > 0);
+    let names: Vec<&str> = v["most_frequent_unrendered"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["\\foo"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}

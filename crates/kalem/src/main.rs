@@ -24,6 +24,7 @@ const SUBCOMMANDS: &[&str] = &[
     "dump",
     "diff-emacs",
     "diff-pandoc",
+    "latex-coverage",
     "help",
 ];
 

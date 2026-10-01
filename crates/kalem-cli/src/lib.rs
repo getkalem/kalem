@@ -202,6 +202,20 @@ enum Command {
         #[arg(long, value_enum, default_value_t = Format::Text)]
         format: Format,
     },
+    /// How much of a corpus of LaTeX sources the rendered view covers:
+    /// by field (the folders under DIR), the share of the body shown as
+    /// source, and the most frequent commands and environments.
+    LatexCoverage {
+        /// Folders of sources: DIR/FIELD/PAPER/*.tex.
+        #[arg(required = true)]
+        dirs: Vec<PathBuf>,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = Format::Text)]
+        format: Format,
+        /// How many commands and environments to list.
+        #[arg(long, default_value_t = 200)]
+        top: usize,
+    },
     /// LaTeX documents: `kalem latex build FILE`.
     Latex {
         #[command(subcommand)]
@@ -400,6 +414,9 @@ where
             summary,
             format,
         } => commands::diff_pandoc(&files, summary, matches!(format, Format::Json)),
+        Command::LatexCoverage { dirs, format, top } => {
+            commands::latex_coverage(&dirs, matches!(format, Format::Json), top)
+        }
         Command::Latex {
             action:
                 LatexAction::Build {
