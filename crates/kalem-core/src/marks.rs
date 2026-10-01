@@ -30,8 +30,10 @@ const KEEP: usize = 100;
 impl Marks {
     /// Moves every position through `tx`.
     pub fn map(&mut self, tx: &Transaction) {
+        // Text put right where a mark is goes before it: a line opened
+        // above a marked line moves the mark down with its line.
         for p in self.named.values_mut() {
-            *p = tx.map(*p, Assoc::Before);
+            *p = tx.map(*p, Assoc::After);
         }
         for p in self
             .jumps
@@ -39,7 +41,7 @@ impl Marks {
             .chain(self.changes.iter_mut())
             .chain(self.held.iter_mut())
         {
-            *p = tx.map(*p, Assoc::Before);
+            *p = tx.map(*p, Assoc::After);
         }
     }
 

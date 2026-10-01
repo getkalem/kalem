@@ -431,7 +431,7 @@ impl Vim {
                         edit(doc, s..fnb, &ind, s);
                     }
                 }
-                self.goto_line(doc, b);
+                self.goto_line(doc, a);
             }
             _ if is("ret", "retab") => {
                 let ts = self.options.tabstop.max(1);
@@ -443,6 +443,7 @@ impl Vim {
                         edit(doc, s..fnb, &ind, s);
                     }
                 }
+                self.goto_line(doc, cur);
             }
             "=" => {
                 let n = if range.is_some() { b + 1 } else { last + 1 };
@@ -561,11 +562,9 @@ impl Vim {
         to: usize,
         _keep: bool,
     ) {
-        if to != usize::MAX && to >= a && to <= b {
-            // Into itself: only to its own place.
-            if to == b || to + 1 == a {
-                return;
-            }
+        // Into itself, or where the lines are already: nothing moves.
+        if (to != usize::MAX && to + 1 >= a && to <= b) || (to == usize::MAX && a == 0) {
+            self.goto_line(doc, b);
             return;
         }
         let text = lines_text(doc, a, b);
@@ -835,6 +834,9 @@ impl Vim {
         let count_only = flags.contains('n');
         let mut n = 0;
         let mut last_line_done = None;
+        // Line breaks the replacements made, all and in the last line.
+        let mut added = 0;
+        let mut last_breaks = 0;
         // Last line first, so the earlier lines stay where they are.
         for l in (a..=b.min(last_line(doc))).rev() {
             let (s, e) = (line_start(doc, l), line_end(doc, l));
@@ -863,6 +865,10 @@ impl Vim {
             new.push_str(&text[at..]);
             last_line_done.get_or_insert(l);
             if !count_only {
+                added += new.matches('\n').count();
+                if last_line_done == Some(l) {
+                    last_breaks = new.matches('\n').count();
+                }
                 edit(doc, s..e, &new, s);
             }
         }
@@ -877,7 +883,9 @@ impl Vim {
                 out.message = Some((format!("{n} matches"), false));
             }
             Some(l) => {
-                let p = first_non_blank(doc, l.min(last_line(doc)));
+                // The last line of the last replacement.
+                let line = l + (added - last_breaks) + last_breaks;
+                let p = first_non_blank(doc, line.min(last_line(doc)));
                 doc.selection = Selection::caret(p);
                 self.cursor = p;
                 self.note_change(doc, p);

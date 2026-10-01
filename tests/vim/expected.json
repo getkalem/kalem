@@ -1,118 +1,1008 @@
 {
+ "C_empty": {
+  "col": 1,
+  "line": 2,
+  "text": "one, two;three  four\nX\n  five-six seven.eight\nnine\n"
+ },
+ "D_count": {
+  "col": 1,
+  "line": 1,
+  "text": "third line\nfourth line\nfifth line\n"
+ },
+ "E_end": {
+  "col": 14,
+  "line": 1,
+  "text": "one, two;thre  four\n\n  five-six seven.eight\nnine\n"
+ },
+ "H_count": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\necond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "J_count2": {
+  "col": 11,
+  "line": 1,
+  "text": "first line second line\nthird line\nfourth line\nfifth line\n"
+ },
  "J_count_beyond": {
   "col": 2,
   "line": 1,
   "text": "a b\n"
+ },
+ "J_empty": {
+  "col": 20,
+  "line": 1,
+  "text": "one, two;three  four\n  five-six seven.eight\nnine\n"
+ },
+ "J_paren": {
+  "col": 3,
+  "line": 1,
+  "text": "f() x\n"
+ },
+ "J_trailing_space": {
+  "col": 4,
+  "line": 1,
+  "text": "ab cd\n"
+ },
+ "L_count": {
+  "col": 1,
+  "line": 4,
+  "text": "first line\nsecond line\nthird line\nourth line\nfifth line\n"
+ },
+ "P_linewise_first": {
+  "col": 1,
+  "line": 1,
+  "text": "second line\nfirst line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "R_bs_all": {
+  "col": 1,
+  "line": 1,
+  "text": "abc\n"
+ },
+ "R_count": {
+  "col": 4,
+  "line": 1,
+  "text": "xyxyef\n"
+ },
+ "R_dot": {
+  "col": 2,
+  "line": 2,
+  "text": "ABrst line\nABcond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "R_enter": {
+  "col": 1,
+  "line": 2,
+  "text": "ax\nyd\n"
+ },
+ "R_eol": {
+  "col": 4,
+  "line": 1,
+  "text": "axyz\n"
+ },
+ "S_indent": {
+  "col": 3,
+  "line": 3,
+  "text": "one, two;three  four\n\n  X\nnine\n"
+ },
+ "U_twice": {
+  "col": 1,
+  "line": 1,
+  "text": "e quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "V_c": {
+  "col": 1,
+  "line": 1,
+  "text": "X\nthird line\nfourth line\nfifth line\n"
+ },
+ "V_count_shift": {
+  "col": 5,
+  "line": 1,
+  "text": "    first line\n    second line\nthird line\nfourth line\nfifth line\n"
+ },
+ "V_p_charwise": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nf\nthird line\nfourth line\nfifth line\n"
+ },
+ "V_y_cursor": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "W_across": {
+  "col": 1,
+  "line": 2,
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n"
+ },
+ "X_line_start": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "Y_count": {
+  "col": 1,
+  "line": 6,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\nfirst line\nsecond line\nthird line\n"
  },
  "ampersand": {
   "col": 1,
   "line": 2,
   "text": "ba aa\nba aa\n"
  },
+ "ampersand_none": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "b_across_lines": {
+  "col": 1,
+  "line": 3,
+  "text": "one, two;three  four\n\n five-six seven.eight\nnine\n"
+ },
+ "b_first": {
+  "col": 1,
+  "line": 1,
+  "text": "b cd\n"
+ },
+ "cW_punct": {
+  "col": 1,
+  "line": 1,
+  "text": "X two;three  four\n\n  five-six seven.eight\nnine\n"
+ },
  "c_dollar_count": {
   "col": 1,
   "line": 1,
   "text": "!\nthird line\nfourth line\nfifth line\n"
+ },
+ "c_mark": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nX\nfifth line\n"
+ },
+ "c_percent": {
+  "col": 4,
+  "line": 1,
+  "text": "a (X e) f\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "c_search": {
+  "col": 1,
+  "line": 1,
+  "text": "Xfox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "caret_indent": {
+  "col": 3,
+  "line": 3,
+  "text": "one, two;three  four\n\n  ive-six seven.eight\nnine\n"
+ },
+ "cc_indent": {
+  "col": 3,
+  "line": 3,
+  "text": "one, two;three  four\n\n  X\nnine\n"
  },
  "cgn": {
   "col": 3,
   "line": 1,
   "text": "bar x bar y bar\n"
  },
+ "changelist": {
+  "col": 1,
+  "line": 1,
+  "text": "rst line\nsecond line\nthird line\nfourth line\nifth line\n"
+ },
+ "ci_quote_outside": {
+  "col": 6,
+  "line": 1,
+  "text": "x = \"Z\"\n"
+ },
+ "cis": {
+  "col": 1,
+  "line": 5,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nX Another sentence!\n  end\n"
+ },
+ "ciw_punct": {
+  "col": 4,
+  "line": 1,
+  "text": "oneX two;three  four\n\n  five-six seven.eight\nnine\n"
+ },
+ "count_e_lines": {
+  "col": 14,
+  "line": 1,
+  "text": "one, two;thre  four\n\n  five-six seven.eight\nnine\n"
+ },
+ "count_insert_esc": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "count_w_beyond": {
+  "col": 4,
+  "line": 1,
+  "text": "a b \n"
+ },
  "count_x": {
   "col": 1,
   "line": 1,
   "text": "uick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ct_paren": {
+  "col": 1,
+  "line": 1,
+  "text": "X(b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "ctrl_a_after_cursor": {
+  "col": 7,
+  "line": 1,
+  "text": "a 1 b 3\n"
+ },
+ "ctrl_a_bin": {
+  "col": 5,
+  "line": 1,
+  "text": "0b110\n"
+ },
+ "ctrl_a_dot": {
+  "col": 3,
+  "line": 1,
+  "text": "2 2\n"
+ },
+ "ctrl_a_hex_upper": {
+  "col": 5,
+  "line": 1,
+  "text": "0x100\n"
+ },
+ "ctrl_a_leading_zero": {
+  "col": 3,
+  "line": 1,
+  "text": "008\n"
+ },
+ "ctrl_a_none": {
+  "col": 1,
+  "line": 1,
+  "text": "bc\n"
+ },
+ "ctrl_a_word_num": {
+  "col": 3,
+  "line": 1,
+  "text": "x10y\n"
+ },
+ "ctrl_d": {
+  "col": 1,
+  "line": 5,
+  "text": "first line\nsecond line\nthird line\nfourth line\nifth line\n"
  },
  "ctrl_e_ctrl_y": {
   "col": 1,
   "line": 2,
   "text": "first line\necond line\nthird line\nfourth line\nfifth line\n"
  },
+ "ctrl_f": {
+  "col": 1,
+  "line": 5,
+  "text": "first line\nsecond line\nthird line\nfourth line\nifth line\n"
+ },
  "ctrl_o_jump": {
   "col": 3,
   "line": 6,
   "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  nd\n"
+ },
+ "ctrl_u": {
+  "col": 1,
+  "line": 1,
+  "text": "irst line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ctrl_v_I_short": {
+  "col": 3,
+  "line": 1,
+  "text": "ab-cd\nx\nef-gh\n"
+ },
+ "ctrl_v_c_dot": {
+  "col": 1,
+  "line": 3,
+  "text": "Xirst line\nXecond line\nXhird line\nXourth line\nfifth line\n"
+ },
+ "ctrl_v_o_d": {
+  "col": 2,
+  "line": 1,
+  "text": "fst line\nsond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ctrl_v_r": {
+  "col": 1,
+  "line": 1,
+  "text": "xxrst line\nxxcond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ctrl_v_short_lines": {
+  "col": 3,
+  "line": 1,
+  "text": "abd\nx\nefh\n"
+ },
+ "ctrl_v_y_p": {
+  "col": 11,
+  "line": 1,
+  "text": "first linefi\nsecond linsee\nthird line\nfourth line\nfifth line\n"
+ },
+ "ctrl_x_to_neg": {
+  "col": 2,
+  "line": 1,
+  "text": "-2\n"
+ },
+ "cw_end": {
+  "col": 4,
+  "line": 1,
+  "text": "ab X\n"
+ },
+ "cw_space": {
+  "col": 3,
+  "line": 1,
+  "text": "abXcd\n"
+ },
+ "d0": {
+  "col": 1,
+  "line": 1,
+  "text": "brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "d3l": {
+  "col": 1,
+  "line": 1,
+  "text": " quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dG_mid": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nsecond line\n"
+ },
+ "dH": {
+  "col": 1,
+  "line": 1,
+  "text": ""
+ },
+ "dL": {
+  "col": 1,
+  "line": 1,
+  "text": ""
+ },
+ "d_brace": {
+  "col": 1,
+  "line": 1,
+  "text": ""
+ },
+ "d_caret": {
+  "col": 3,
+  "line": 3,
+  "text": "one, two;three  four\n\n  t\nnine\n"
  },
  "d_count_motion": {
   "col": 1,
   "line": 1,
   "text": "jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "d_percent": {
+  "col": 4,
+  "line": 1,
+  "text": "a ( e) f\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "d_search_back": {
+  "col": 32,
+  "line": 1,
+  "text": "The quick brown fox jumps over .\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "da_angle": {
+  "col": 3,
+  "line": 1,
+  "text": "f  c\n"
+ },
+ "da_paren_outer": {
+  "col": 3,
+  "line": 1,
+  "text": "a  f\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "da_quote_double": {
+  "col": 1,
+  "line": 3,
+  "text": "a (b (c d) e) f\n{x [y] z}\n\n"
+ },
+ "dap_last": {
+  "col": 1,
+  "line": 1,
+  "text": ""
+ },
+ "dat_on_tag": {
+  "col": 1,
+  "line": 1,
+  "text": "\n"
+ },
+ "daw_end": {
+  "col": 2,
+  "line": 1,
+  "text": "ab\n"
+ },
+ "daw_space": {
+  "col": 2,
+  "line": 1,
+  "text": "ab\n"
+ },
+ "ddP": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
  "dd_last_line": {
   "col": 1,
   "line": 4,
   "text": "first line\nsecond line\nthird line\nfourth line\n"
+ },
+ "dfx_count": {
+  "col": 1,
+  "line": 1,
+  "text": "c-d\n"
+ },
+ "diB": {
+  "col": 2,
+  "line": 2,
+  "text": "a (b (c d) e) f\n{}\n\"q 'r' s\"\n"
+ },
+ "di_bracket_cur": {
+  "col": 5,
+  "line": 2,
+  "text": "a (b (c d) e) f\n{x [] z}\n\"q 'r' s\"\n"
+ },
+ "di_paren_count": {
+  "col": 4,
+  "line": 1,
+  "text": "a () f\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "di_paren_nested": {
+  "col": 7,
+  "line": 1,
+  "text": "a (b () e) f\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "di_paren_on_open": {
+  "col": 4,
+  "line": 1,
+  "text": "a () f\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "di_quote_single": {
+  "col": 5,
+  "line": 3,
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q '' s\"\n"
+ },
+ "dib": {
+  "col": 7,
+  "line": 1,
+  "text": "a (b () e) f\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "dip_count": {
+  "col": 3,
+  "line": 1,
+  "text": "  five-six seven.eight\nnine\n"
+ },
+ "dis_first": {
+  "col": 1,
+  "line": 5,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\n Another sentence!\n  end\n"
+ },
+ "dit_nested": {
+  "col": 4,
+  "line": 1,
+  "text": "<a></a>\n"
+ },
+ "diw_space": {
+  "col": 3,
+  "line": 1,
+  "text": "abcd\n"
+ },
+ "dj_last": {
+  "col": 1,
+  "line": 5,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "dk_first": {
+  "col": 1,
+  "line": 1,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "dollar_count": {
+  "col": 10,
+  "line": 2,
+  "text": "first line\nsecond lin\nthird line\nfourth line\nfifth line\n"
+ },
+ "dot_A": {
+  "col": 11,
+  "line": 3,
+  "text": "first line!\nsecond line\nthird line!\nfourth line\nfifth line\n"
+ },
+ "dot_J": {
+  "col": 23,
+  "line": 1,
+  "text": "first line second line third line\nfourth line\nfifth line\n"
  },
  "dot_after_p": {
   "col": 1,
   "line": 4,
   "text": "first line\nfirst line\nfirst line\nfirst line\nsecond line\nthird line\nfourth line\nfifth line\n"
  },
+ "dot_after_x_count": {
+  "col": 1,
+  "line": 1,
+  "text": "ick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_ciw": {
+  "col": 3,
+  "line": 1,
+  "text": "Z Z brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_cw": {
+  "col": 9,
+  "line": 1,
+  "text": "A quick A fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_gU": {
+  "col": 5,
+  "line": 1,
+  "text": "THE QUICK brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_new_count": {
+  "col": 1,
+  "line": 1,
+  "text": "fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_o": {
+  "col": 1,
+  "line": 4,
+  "text": "first line\nX\nsecond line\nX\nthird line\nfourth line\nfifth line\n"
+ },
+ "dot_p": {
+  "col": 3,
+  "line": 1,
+  "text": "TTThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_r": {
+  "col": 2,
+  "line": 1,
+  "text": "XXe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_tilde": {
+  "col": 3,
+  "line": 1,
+  "text": "tHe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_visual_line_count": {
+  "col": 1,
+  "line": 1,
+  "text": "fifth line\n"
+ },
+ "dtx_semicolon": {
+  "col": 2,
+  "line": 1,
+  "text": "-b-c-d\n"
+ },
+ "dw_eol": {
+  "col": 3,
+  "line": 1,
+  "text": "ab \nef\n"
+ },
+ "dw_last_word_line": {
+  "col": 3,
+  "line": 1,
+  "text": "ab \nef gh\n"
+ },
+ "e_last": {
+  "col": 3,
+  "line": 1,
+  "text": "a b\n"
+ },
+ "e_punct": {
+  "col": 8,
+  "line": 1,
+  "text": "one, tw;three  four\n\n  five-six seven.eight\nnine\n"
+ },
+ "eq_count": {
+  "col": 3,
+  "line": 2,
+  "text": "int main() {\n  if (x) {\n    y = 1;\n    }\n    return 0;\n}\n"
+ },
+ "ex_0put": {
+  "col": 1,
+  "line": 1,
+  "text": "second line\nfirst line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_amp_normal": {
+  "col": 1,
+  "line": 2,
+  "text": "ba\nba\n"
+ },
+ "ex_at_colon": {
+  "col": 1,
+  "line": 2,
+  "text": "first line!\nsecond line!\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_co_0": {
+  "col": 1,
+  "line": 1,
+  "text": "fifth line\nfirst line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
  "ex_d": {
   "col": 1,
   "line": 2,
   "text": "first line\nfourth line\nfifth line\n"
+ },
+ "ex_d_count": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nfourth line\nfifth line\n"
+ },
+ "ex_d_register": {
+  "col": 1,
+  "line": 3,
+  "text": "first line\nthird line\nsecond line\nfourth line\nfifth line\n"
+ },
+ "ex_dollar": {
+  "col": 1,
+  "line": 5,
+  "text": "first line\nsecond line\nthird line\nfourth line\nifth line\n"
  },
  "ex_g": {
   "col": 1,
   "line": 1,
   "text": ""
  },
+ "ex_g_amp": {
+  "col": 1,
+  "line": 2,
+  "text": "bb\nbb\n"
+ },
+ "ex_g_m0": {
+  "col": 1,
+  "line": 1,
+  "text": "fifth line\nfourth line\nthird line\nsecond line\nfirst line\n"
+ },
+ "ex_g_normal": {
+  "col": 11,
+  "line": 5,
+  "text": "first line;\nsecond line;\nthird line;\nfourth line;\nfifth line;\n"
+ },
+ "ex_g_range": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nfifth line\n"
+ },
+ "ex_g_s": {
+  "col": 1,
+  "line": 5,
+  "text": "first LINE\nsecond line\nthird line\nfourth LINE\nfifth LINE\n"
+ },
  "ex_gt": {
   "col": 5,
   "line": 2,
   "text": "first line\n    second line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_gt_count": {
+  "col": 5,
+  "line": 2,
+  "text": "    first line\n    second line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_j_bang": {
+  "col": 1,
+  "line": 1,
+  "text": "first linesecond line\nthird line\nfourth line\nfifth line\n"
  },
  "ex_join": {
   "col": 1,
   "line": 1,
   "text": "first line second line third line\nfourth line\nfifth line\n"
  },
+ "ex_k": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_left": {
+  "col": 1,
+  "line": 1,
+  "text": "a\nb\n"
+ },
+ "ex_lt": {
+  "col": 3,
+  "line": 2,
+  "text": "  a\n  b\n"
+ },
  "ex_m": {
   "col": 1,
   "line": 3,
   "text": "second line\nthird line\nfirst line\nfourth line\nfifth line\n"
+ },
+ "ex_m_range": {
+  "col": 1,
+  "line": 5,
+  "text": "third line\nfourth line\nfifth line\nfirst line\nsecond line\n"
+ },
+ "ex_m_up": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nfourth line\nsecond line\nthird line\nfifth line\n"
+ },
+ "ex_norm_range": {
+  "col": 2,
+  "line": 3,
+  "text": "first line\n- second line\n- third line\nfourth line\nfifth line\n"
  },
  "ex_normal": {
   "col": 11,
   "line": 5,
   "text": "first line!\nsecond line!\nthird line!\nfourth line!\nfifth line!\n"
  },
+ "ex_number_goto": {
+  "col": 1,
+  "line": 3,
+  "text": "first line\nsecond line\nhird line\nfourth line\nfifth line\n"
+ },
+ "ex_put_bang": {
+  "col": 1,
+  "line": 3,
+  "text": "first line\nsecond line\nfirst line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_range_dot_plus": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nfourth line\nfifth line\n"
+ },
+ "ex_range_marks": {
+  "col": 1,
+  "line": 1,
+  "text": "fourth line\nfifth line\n"
+ },
+ "ex_range_minus": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nsecond line\n"
+ },
+ "ex_range_pattern": {
+  "col": 1,
+  "line": 3,
+  "text": "first line\nsecond line\nfourth line\nfifth line\n"
+ },
+ "ex_range_pattern_range": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nfifth line\n"
+ },
+ "ex_retab": {
+  "col": 9,
+  "line": 1,
+  "text": "        x\n"
+ },
+ "ex_s_amp": {
+  "col": 1,
+  "line": 5,
+  "text": "first [line]\nsecond [line]\nthird [line]\nfourth [line]\nfifth [line]\n"
+ },
+ "ex_s_amp_flags": {
+  "col": 1,
+  "line": 2,
+  "text": "bb bb\nbb bb\n"
+ },
+ "ex_s_case": {
+  "col": 1,
+  "line": 5,
+  "text": "First Line\nSecond Line\nThird Line\nFourth Line\nFifth Line\n"
+ },
+ "ex_s_count": {
+  "col": 1,
+  "line": 3,
+  "text": "fIrst lIne\nsecond lIne\nthIrd lIne\nfourth line\nfifth line\n"
+ },
+ "ex_s_empty_pat": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick br0wn f0x jumps 0ver the lazy d0g.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ex_s_groups": {
+  "col": 1,
+  "line": 5,
+  "text": "line first\nline second\nline third\nline fourth\nline fifth\n"
+ },
+ "ex_s_i_flag": {
+  "col": 1,
+  "line": 1,
+  "text": "X quick brown fox jumps over X lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ex_s_newline": {
+  "col": 1,
+  "line": 2,
+  "text": "first\nline\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_s_tilde": {
+  "col": 1,
+  "line": 2,
+  "text": "xb ab\naxy\n"
+ },
+ "ex_s_upper": {
+  "col": 1,
+  "line": 5,
+  "text": "FIRST line\nsecond line\nthird line\nFOURTH line\nFIFTH line\n"
+ },
+ "ex_set_et_toggle": {
+  "col": 2,
+  "line": 1,
+  "text": "\tfirst line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_set_sw": {
+  "col": 5,
+  "line": 1,
+  "text": "    first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
  "ex_sort": {
   "col": 1,
   "line": 1,
   "text": "a\nb\nc\n"
+ },
+ "ex_sort_i": {
+  "col": 1,
+  "line": 1,
+  "text": "A\na\nb\nB\n"
+ },
+ "ex_sort_n": {
+  "col": 1,
+  "line": 1,
+  "text": "x9\nx10\nx100\n"
+ },
+ "ex_sort_pat": {
+  "col": 1,
+  "line": 1,
+  "text": "c2 x\nb1 y\na3 z\n"
+ },
+ "ex_sort_r": {
+  "col": 1,
+  "line": 1,
+  "text": "c\nb\na\n"
+ },
+ "ex_sort_r_pat": {
+  "col": 1,
+  "line": 1,
+  "text": "b1 y\nc2 x\na3 z\n"
+ },
+ "ex_sort_u": {
+  "col": 1,
+  "line": 1,
+  "text": "a\nb\n"
  },
  "ex_t": {
   "col": 1,
   "line": 6,
   "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\nfirst line\n"
  },
+ "ex_t_dot": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nfirst line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_undo": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
  "ex_v": {
   "col": 1,
   "line": 2,
   "text": "first line\nfourth line\nfifth line\n"
+ },
+ "ex_v_s": {
+  "col": 1,
+  "line": 2,
+  "text": "first line!\nsecond line!\nthird line\nfourth line\nfifth line\n"
+ },
+ "ex_y_count_put": {
+  "col": 1,
+  "line": 6,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\nfirst line\nsecond line\n"
  },
  "ex_y_put": {
   "col": 1,
   "line": 4,
   "text": "first line\nsecond line\nthird line\nfirst line\nfourth line\nfifth line\n"
  },
+ "gJ_count": {
+  "col": 22,
+  "line": 1,
+  "text": "first linesecond linethird line\nfourth line\nfifth line\n"
+ },
+ "gM": {
+  "col": 23,
+  "line": 1,
+  "text": "The quick brown fox jups over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "gUU_count": {
+  "col": 1,
+  "line": 1,
+  "text": "FIRST LINE\nSECOND LINE\nthird line\nfourth line\nfifth line\n"
+ },
+ "g_ctrl_a_count": {
+  "col": 1,
+  "line": 1,
+  "text": "2\n4\n6\n"
+ },
+ "g_question": {
+  "col": 1,
+  "line": 1,
+  "text": "Gur dhvpx oebja sbk whzcf bire gur ynml qbt.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "g_question_w": {
+  "col": 1,
+  "line": 1,
+  "text": "Gur quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "g_tilde_tilde": {
+  "col": 1,
+  "line": 1,
+  "text": "tHE QUICK BROWN FOX JUMPS OVER THE LAZY DOG.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
  "ga_noop": {
   "col": 44,
   "line": 1,
   "text": "he quick brown fox jumps over the lazy dog.  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ga_noop2": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ge_line_start": {
+  "col": 1,
+  "line": 2,
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n"
  },
  "gi": {
   "col": 2,
   "line": 1,
   "text": "XYThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "gi_after_move": {
+  "col": 1,
+  "line": 1,
+  "text": "XThe quick brown fox jumps over the lazy dog.end\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "gm_short": {
+  "col": 2,
+  "line": 1,
+  "text": "ab\n"
+ },
+ "go_count_line2": {
+  "col": 4,
+  "line": 2,
+  "text": "first line\nsecnd line\nthird line\nfourth line\nfifth line\n"
+ },
+ "guiw": {
+  "col": 1,
+  "line": 1,
+  "text": "the quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
  "gv_after_y": {
   "col": 1,
   "line": 1,
   "text": " quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "hash_wrap": {
+  "col": 6,
+  "line": 1,
+  "text": "aa b a\n"
+ },
+ "ins_2O": {
+  "col": 1,
+  "line": 3,
+  "text": "first line\nX\nX\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ins_3A": {
+  "col": 13,
+  "line": 1,
+  "text": "first line!!!\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ins_3I": {
+  "col": 3,
+  "line": 1,
+  "text": "---first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ins_3a": {
+  "col": 4,
+  "line": 1,
+  "text": "T---he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
  "ins_3i": {
   "col": 6,
@@ -149,15 +1039,40 @@
   "line": 1,
   "text": "The quick brown fox jumps over the lazy dog\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_bs_indent_sts": {
+  "col": 2,
+  "line": 1,
+  "text": "  x\n"
+ },
+ "ins_bs_join": {
+  "col": 10,
+  "line": 1,
+  "text": "first linesecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ins_cr_ai_empty": {
+  "col": 3,
+  "line": 3,
+  "text": "  ab\n\n  x\n"
+ },
  "ins_cr_indent": {
   "col": 3,
   "line": 3,
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\n  x\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_cr_middle": {
+  "col": 1,
+  "line": 2,
+  "text": "ab \ncd\n"
+ },
  "ins_ctrl_a": {
   "col": 4,
   "line": 2,
   "text": "abThe quick brown fox jumps over the lazy dog.\n  abindented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_ctrl_a_after_o": {
+  "col": 13,
+  "line": 3,
+  "text": "first line\nxy\nsecond linexy\nthird line\nfourth line\nfifth line\n"
  },
  "ins_ctrl_at": {
   "col": 4,
@@ -174,10 +1089,20 @@
   "line": 1,
   "text": "              x\n"
  },
+ "ins_ctrl_d_partial": {
+  "col": 3,
+  "line": 1,
+  "text": "  x\n"
+ },
  "ins_ctrl_e": {
   "col": 2,
   "line": 2,
   "text": "first line\nthsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ins_ctrl_e_short": {
+  "col": 3,
+  "line": 2,
+  "text": "abcdef\nxbc\n"
  },
  "ins_ctrl_h": {
   "col": 45,
@@ -194,10 +1119,30 @@
   "line": 1,
   "text": "ëThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_ctrl_k_rev": {
+  "col": 2,
+  "line": 1,
+  "text": "xë\n"
+ },
+ "ins_ctrl_k_turkish": {
+  "col": 6,
+  "line": 1,
+  "text": "xğşı\n"
+ },
  "ins_ctrl_m": {
   "col": 1,
   "line": 2,
   "text": "The \nquick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_ctrl_n": {
+  "col": 14,
+  "line": 1,
+  "text": "foo foobar foo\n"
+ },
+ "ins_ctrl_n_twice": {
+  "col": 17,
+  "line": 1,
+  "text": "foo foobar foobar\n"
  },
  "ins_ctrl_o": {
   "col": 2,
@@ -209,10 +1154,40 @@
   "line": 1,
   "text": "XThe quick brown fox jumps over the lazy dog.Y\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_ctrl_o_p": {
+  "col": 49,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog. The!\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_ctrl_o_zz": {
+  "col": 4,
+  "line": 1,
+  "text": "abcdThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_ctrl_p": {
+  "col": 17,
+  "line": 1,
+  "text": "foo foobar foobar\n"
+ },
+ "ins_ctrl_p_none": {
+  "col": 5,
+  "line": 1,
+  "text": "abc x\n"
+ },
  "ins_ctrl_r": {
   "col": 48,
   "line": 1,
   "text": "The quick brown fox jumps over the lazy dog. The\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_ctrl_r_dash": {
+  "col": 44,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.T\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_ctrl_r_linewise": {
+  "col": 1,
+  "line": 3,
+  "text": "first line\nsecond linefirst line\n\nthird line\nfourth line\nfifth line\n"
  },
  "ins_ctrl_r_named": {
   "col": 7,
@@ -224,15 +1199,40 @@
   "line": 1,
   "text": "  first line\nsecond line\nthird line\nfourth line\nfifth line\n"
  },
+ "ins_ctrl_t_twice": {
+  "col": 5,
+  "line": 1,
+  "text": "    x\n"
+ },
  "ins_ctrl_u": {
   "col": 44,
   "line": 1,
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_ctrl_u_indent": {
+  "col": 1,
+  "line": 3,
+  "text": "one, two;three  four\n\n\nnine\n"
+ },
+ "ins_ctrl_u_typed": {
+  "col": 22,
+  "line": 3,
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n"
+ },
  "ins_ctrl_v": {
   "col": 1,
   "line": 1,
   "text": "AThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_ctrl_v_tab": {
+  "col": 2,
+  "line": 1,
+  "text": "x\t\n"
+ },
+ "ins_ctrl_v_u": {
+  "col": 2,
+  "line": 1,
+  "text": "xé\n"
  },
  "ins_ctrl_w": {
   "col": 48,
@@ -244,10 +1244,30 @@
   "line": 1,
   "text": "The quick brown fox jumps over the lazy \n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_ctrl_w_indent": {
+  "col": 1,
+  "line": 3,
+  "text": "one, two;three  four\n\nfive-six seven.eight\nnine\n"
+ },
+ "ins_ctrl_w_punct": {
+  "col": 8,
+  "line": 1,
+  "text": "one, two\n\n  five-six seven.eight\nnine\n"
+ },
+ "ins_ctrl_w_start": {
+  "col": 1,
+  "line": 1,
+  "text": "cd\n"
+ },
  "ins_ctrl_y": {
   "col": 2,
   "line": 2,
   "text": "first line\nfisecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "ins_esc_bol": {
+  "col": 2,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
  "ins_esc_moves_left": {
   "col": 45,
@@ -269,6 +1289,16 @@
   "line": 2,
   "text": "first line\nX\nsecond line\nthird line\nfourth line\nfifth line\n"
  },
+ "ins_o_ai_cr": {
+  "col": 3,
+  "line": 3,
+  "text": "  ab\n\n  x\n"
+ },
+ "ins_o_ai_esc": {
+  "col": 1,
+  "line": 2,
+  "text": "  ab\n\n"
+ },
  "ins_o_indent": {
   "col": 3,
   "line": 3,
@@ -278,6 +1308,26 @@
   "col": 2,
   "line": 1,
   "text": "  The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_tab_noet": {
+  "col": 3,
+  "line": 1,
+  "text": "x\ty\n"
+ },
+ "ins_tab_noet_sts": {
+  "col": 7,
+  "line": 1,
+  "text": "x\t    y\n"
+ },
+ "ins_tab_sts": {
+  "col": 3,
+  "line": 1,
+  "text": "x y\n"
+ },
+ "jump_ctrl_i": {
+  "col": 1,
+  "line": 5,
+  "text": "first line\nsecond line\nthird line\nfourth line\nifth line\n"
  },
  "macro": {
   "col": 11,
@@ -294,10 +1344,55 @@
   "line": 5,
   "text": "- first line\n- second line\n- third line\n- fourth line\nfifth line\n"
  },
+ "macro_ex": {
+  "col": 1,
+  "line": 4,
+  "text": "fIrst line\nsecond lIne\nthIrd line\nfourth line\nfifth line\n"
+ },
+ "macro_recursive_stop": {
+  "col": 10,
+  "line": 5,
+  "text": "first line.\nsecond line.\nthird line.\nfourth line.\nfifth line\n"
+ },
+ "macro_register_text": {
+  "col": 2,
+  "line": 1,
+  "text": "ixrst line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "macro_upper_append": {
+  "col": 1,
+  "line": 3,
+  "text": "-first line!\n-second line!\nthird line\nfourth line\nfifth line\n"
+ },
+ "macro_yanked": {
+  "col": 21,
+  "line": 1,
+  "text": "first line;first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
  "mark_backtick": {
   "col": 5,
   "line": 1,
   "text": "The end\n"
+ },
+ "mark_backtick_backtick": {
+  "col": 17,
+  "line": 1,
+  "text": "The quick brown ox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  nd\n"
+ },
+ "mark_bracket": {
+  "col": 2,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "mark_caret": {
+  "col": 3,
+  "line": 1,
+  "text": "abhe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "mark_dot": {
+  "col": 1,
+  "line": 1,
+  "text": "e quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
  "mark_jump": {
   "col": 1,
@@ -308,6 +1403,11 @@
   "col": 1,
   "line": 1,
   "text": "irst line\nsecond line\nthird line\nfourth line\nifth line\n"
+ },
+ "mark_upper": {
+  "col": 1,
+  "line": 1,
+  "text": "irst line\nsecond line\nthird line\nfourth line\nfifth line\n"
  },
  "motion_0": {
   "col": 1,
@@ -974,10 +2074,40 @@
   "line": 1,
   "text": "The The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "p_after_dd_last": {
+  "col": 1,
+  "line": 5,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "p_count_chars": {
+  "col": 4,
+  "line": 1,
+  "text": "TTTThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
  "p_linewise_last": {
   "col": 1,
   "line": 6,
   "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\nfirst line\n"
+ },
+ "percent_count": {
+  "col": 1,
+  "line": 3,
+  "text": "first line\nsecond line\nhird line\nfourth line\nfifth line\n"
+ },
+ "pipe_tab": {
+  "col": 2,
+  "line": 1,
+  "text": "\tb\n"
+ },
+ "r_count_too_many": {
+  "col": 1,
+  "line": 1,
+  "text": "abc\n"
+ },
+ "r_enter": {
+  "col": 1,
+  "line": 2,
+  "text": "ab\ncd\n"
  },
  "reg_append": {
   "col": 14,
@@ -1014,6 +2144,81 @@
   "line": 1,
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "s_count_eol": {
+  "col": 2,
+  "line": 1,
+  "text": "aX\n"
+ },
+ "search_back_wrap": {
+  "col": 3,
+  "line": 6,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  nd\n"
+ },
+ "search_count": {
+  "col": 29,
+  "line": 1,
+  "text": "The quick brown fox jumps ovr the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "search_ic": {
+  "col": 32,
+  "line": 1,
+  "text": "The quick brown fox jumps over he lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "search_n_count": {
+  "col": 42,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dg.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "search_offset_none": {
+  "col": 35,
+  "line": 1,
+  "text": "The quick brown fox jumps over the \n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "search_regex_class": {
+  "col": 1,
+  "line": 1,
+  "text": "ne, two;three  four\n\n  five-six seven.eight\nnine\n"
+ },
+ "search_scs": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "search_very_magic": {
+  "col": 3,
+  "line": 3,
+  "text": "one, two;three  four\n\n  ive-six seven.eight\nnine\n"
+ },
+ "search_word_boundary": {
+  "col": 32,
+  "line": 1,
+  "text": "The quick brown fox jumps over he lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "search_wrap": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "shift_count_dot": {
+  "col": 3,
+  "line": 2,
+  "text": "  first line\n  second line\nthird line\nfourth line\nfifth line\n"
+ },
+ "shift_left_partial": {
+  "col": 1,
+  "line": 1,
+  "text": "x\n"
+ },
+ "shift_right_tab_no_et": {
+  "col": 3,
+  "line": 1,
+  "text": "  x\n"
+ },
+ "star_count": {
+  "col": 11,
+  "line": 1,
+  "text": "aa b aa c a\n"
+ },
  "star_cw_n": {
   "col": 12,
   "line": 1,
@@ -1028,6 +2233,106 @@
   "col": 2,
   "line": 2,
   "text": "ba aa\nAa aa\n"
+ },
+ "tilde_count_eol": {
+  "col": 3,
+  "line": 1,
+  "text": "aBC\n"
+ },
+ "tilde_op_noop": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "u_count": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "undo_insert": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "undo_o": {
+  "col": 1,
+  "line": 1,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "undo_redo_count": {
+  "col": 1,
+  "line": 1,
+  "text": "e quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "v_J": {
+  "col": 11,
+  "line": 1,
+  "text": "first line second line\nthird line\nfourth line\nfifth line\n"
+ },
+ "v_c_lines": {
+  "col": 1,
+  "line": 1,
+  "text": "Xecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "v_count_reselect": {
+  "col": 1,
+  "line": 1,
+  "text": " quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "v_ctrl_a_count": {
+  "col": 1,
+  "line": 1,
+  "text": "6\n6\n"
+ },
+ "v_dollar_d": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nthird line\nfourth line\nfifth line\n"
+ },
+ "v_esc": {
+  "col": 3,
+  "line": 1,
+  "text": "Th quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "v_gv_after_d": {
+  "col": 1,
+  "line": 1,
+  "text": "e quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "v_iw_extend": {
+  "col": 1,
+  "line": 1,
+  "text": " brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "v_o_d": {
+  "col": 11,
+  "line": 1,
+  "text": "The quick wn fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "v_p_linewise": {
+  "col": 1,
+  "line": 3,
+  "text": "first line\n\nfirst line\ncond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "v_tilde_lines": {
+  "col": 1,
+  "line": 1,
+  "text": "FIRST LINE\nSECOND LINE\nthird line\nfourth line\nfifth line\n"
+ },
+ "v_y_cursor": {
+  "col": 11,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "vaw": {
+  "col": 5,
+  "line": 1,
+  "text": "The brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "vip_count": {
+  "col": 3,
+  "line": 1,
+  "text": "  five-six seven.eight\nnine\n"
  },
  "vis_J": {
   "col": 23,
@@ -1159,15 +2464,90 @@
   "line": 1,
   "text": "TheThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "viw_count": {
+  "col": 1,
+  "line": 1,
+  "text": " brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "w_empty_line": {
+  "col": 10,
+  "line": 1,
+  "text": "one, two;hree  four\n\n  five-six seven.eight\nnine\n"
+ },
+ "w_last_word": {
+  "col": 2,
+  "line": 1,
+  "text": "a \n"
+ },
+ "w_punct": {
+  "col": 9,
+  "line": 1,
+  "text": "one, twothree  four\n\n  five-six seven.eight\nnine\n"
+ },
+ "x_empty_line": {
+  "col": 1,
+  "line": 2,
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n"
+ },
  "x_end_of_line": {
   "col": 42,
   "line": 1,
   "text": "The quick brown fox jumps over the lazy do\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "xp_swap_eol": {
+  "col": 2,
+  "line": 1,
+  "text": "ab\n"
+ },
+ "y_dollar_P": {
+  "col": 44,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "y_mark": {
+  "col": 1,
+  "line": 6,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\nfirst line\nsecond line\nthird line\n"
+ },
+ "y_search_p": {
+  "col": 60,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.The quick brown \n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
  "yank_cursor": {
   "col": 5,
   "line": 1,
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "yi_paren_P": {
+  "col": 18,
+  "line": 1,
+  "text": "a (b (c d) e) fc d\n{x [y] z}\n\"q 'r' s\"\n"
+ },
+ "yw_cursor": {
+  "col": 11,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "yy_count_p": {
+  "col": 1,
+  "line": 6,
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\nfirst line\nsecond line\n"
+ },
+ "yyp_count": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\nfirst line\nfirst line\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "zero_after_count": {
+  "col": 1,
+  "line": 1,
+  "text": "\nsecond line\nthird line\nfourth line\nfifth line\n"
+ },
+ "zt_noop": {
+  "col": 1,
+  "line": 2,
+  "text": "first line\necond line\nthird line\nfourth line\nfifth line\n"
  },
  "zz_noop": {
   "col": 1,

@@ -31,7 +31,7 @@ Word-like keys (Cmd+S, Cmd+C, Cmd+V), as Doom's =s-= keys do, and Control
 is Vim's.
 
 What Vim does, Kalem does the same way, and the tests hold it to that:
-=tests/vim/cases.json= has a few hundred key sequences, each run in Vim
+=tests/vim/cases.json= has some five hundred key sequences, each run in Vim
 itself (=tools/vim-expected.py=, a job of the continuous integration)
 and in Kalem, and the text and cursor after them must agree. What is
 there:

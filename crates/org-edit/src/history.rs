@@ -36,6 +36,9 @@ pub struct History {
     pub group_window: Duration,
     /// The most steps kept.
     pub limit: usize,
+    /// While set, every change joins the step made since (Vim's insert
+    /// session is one step): the number of steps when it began.
+    join: Option<usize>,
 }
 
 impl Default for History {
@@ -45,6 +48,7 @@ impl Default for History {
             redo: Vec::new(),
             group_window: Duration::from_millis(300),
             limit: 10_000,
+            join: None,
         }
     }
 }
@@ -83,6 +87,15 @@ impl History {
         }
         self.redo.clear();
         let pair = (tx.clone(), tx.invert(before));
+        if let Some(n) = self.join
+            && self.undo.len() > n
+            && let Some(last) = self.undo.last_mut()
+        {
+            last.txs.push(pair);
+            last.selection_after = selection_after;
+            last.time = now;
+            return;
+        }
         if kind == ChangeKind::Typing
             && let Some(last) = self.undo.last_mut()
             && last.kind == ChangeKind::Typing
@@ -123,6 +136,7 @@ impl History {
 
     /// Undoes the last step: the inverse transactions to apply.
     pub fn undo(&mut self) -> Option<Replay> {
+        self.join = None;
         let step = self.undo.pop()?;
         let replay = Replay {
             transactions: step.txs.iter().rev().map(|(_, inv)| inv.clone()).collect(),
@@ -135,6 +149,7 @@ impl History {
 
     /// Redoes the last undone step.
     pub fn redo(&mut self) -> Option<Replay> {
+        self.join = None;
         let step = self.redo.pop()?;
         let replay = Replay {
             transactions: step.txs.iter().map(|(f, _)| f.clone()).collect(),
@@ -148,8 +163,16 @@ impl History {
     /// Ends the current typing group, so the next typing starts a new
     /// step (for example after the cursor moves).
     pub fn break_group(&mut self) {
+        self.join = None;
         if let Some(last) = self.undo.last_mut() {
             last.kind = ChangeKind::Command;
         }
+    }
+
+    /// From now until [`History::break_group`], every change joins one
+    /// step.
+    pub fn begin_join(&mut self) {
+        self.break_group();
+        self.join = Some(self.undo.len());
     }
 }

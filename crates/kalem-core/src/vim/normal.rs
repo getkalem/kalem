@@ -165,6 +165,7 @@ impl Vim {
                 let e = self.registers.entry(name).or_insert(Register {
                     text: String::new(),
                     linewise: false,
+                    block: false,
                 });
                 e.text.push_str(&text);
             } else {
@@ -173,6 +174,7 @@ impl Vim {
                     Register {
                         text,
                         linewise: false,
+                        block: false,
                     },
                 );
             }

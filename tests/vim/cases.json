@@ -1173,5 +1173,1385 @@
   "name": "J_count_beyond",
   "text": "a\nb\n",
   "keys": "5J"
+ },
+ {
+  "name": "w_punct",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "wwwx"
+ },
+ {
+  "name": "w_empty_line",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "4wx"
+ },
+ {
+  "name": "W_across",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "3Wx"
+ },
+ {
+  "name": "b_across_lines",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jjb x"
+ },
+ {
+  "name": "e_punct",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "eeex"
+ },
+ {
+  "name": "E_end",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "EEx"
+ },
+ {
+  "name": "ge_line_start",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jjgex"
+ },
+ {
+  "name": "w_last_word",
+  "text": "a b\n",
+  "keys": "wwx"
+ },
+ {
+  "name": "e_last",
+  "text": "a bc\n",
+  "keys": "eex"
+ },
+ {
+  "name": "b_first",
+  "text": "ab cd\n",
+  "keys": "lbx"
+ },
+ {
+  "name": "count_w_beyond",
+  "text": "a b c\n",
+  "keys": "9wx"
+ },
+ {
+  "name": "count_e_lines",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "5ex"
+ },
+ {
+  "name": "dollar_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "2$x"
+ },
+ {
+  "name": "caret_indent",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jj$^x"
+ },
+ {
+  "name": "zero_after_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "10x"
+ },
+ {
+  "name": "dw_eol",
+  "text": "ab cd\nef\n",
+  "keys": "wdw"
+ },
+ {
+  "name": "dw_last_word_line",
+  "text": "ab cd\nef gh\n",
+  "keys": "wdw"
+ },
+ {
+  "name": "cw_space",
+  "text": "ab   cd\n",
+  "keys": "llcwX<Esc>"
+ },
+ {
+  "name": "cw_end",
+  "text": "ab cd\n",
+  "keys": "wcwX<Esc>"
+ },
+ {
+  "name": "cW_punct",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "cWX<Esc>"
+ },
+ {
+  "name": "d_brace",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "d}"
+ },
+ {
+  "name": "d_percent",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "fbd%"
+ },
+ {
+  "name": "c_percent",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "fbc%X<Esc>"
+ },
+ {
+  "name": "y_dollar_P",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wy$P"
+ },
+ {
+  "name": "dG_mid",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jjdG"
+ },
+ {
+  "name": "dj_last",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Gdj"
+ },
+ {
+  "name": "dk_first",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "dk"
+ },
+ {
+  "name": "d3l",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "d3l"
+ },
+ {
+  "name": "d0",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wwd0"
+ },
+ {
+  "name": "d_caret",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jj$d^"
+ },
+ {
+  "name": "dfx_count",
+  "text": "a-b-c-d\n",
+  "keys": "d2f-"
+ },
+ {
+  "name": "dtx_semicolon",
+  "text": "a-b-c-d\n",
+  "keys": "dt-;"
+ },
+ {
+  "name": "ct_paren",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "ct(X<Esc>"
+ },
+ {
+  "name": "dH",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "GdH"
+ },
+ {
+  "name": "dL",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "dL"
+ },
+ {
+  "name": "yw_cursor",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wwyw"
+ },
+ {
+  "name": "yy_count_p",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "2yyGp"
+ },
+ {
+  "name": "Y_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3YGp"
+ },
+ {
+  "name": "x_empty_line",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jx"
+ },
+ {
+  "name": "X_line_start",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "X"
+ },
+ {
+  "name": "D_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "2D"
+ },
+ {
+  "name": "C_empty",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jCX<Esc>"
+ },
+ {
+  "name": "s_count_eol",
+  "text": "abc\n",
+  "keys": "l5sX<Esc>"
+ },
+ {
+  "name": "S_indent",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jjSX<Esc>"
+ },
+ {
+  "name": "cc_indent",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jjccX<Esc>"
+ },
+ {
+  "name": "tilde_count_eol",
+  "text": "abc\n",
+  "keys": "l9~"
+ },
+ {
+  "name": "r_count_too_many",
+  "text": "abc\n",
+  "keys": "5rx"
+ },
+ {
+  "name": "r_enter",
+  "text": "ab cd\n",
+  "keys": "llr<CR>"
+ },
+ {
+  "name": "J_empty",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "J"
+ },
+ {
+  "name": "J_paren",
+  "text": "f(\n) x\n",
+  "keys": "J"
+ },
+ {
+  "name": "J_trailing_space",
+  "text": "ab \ncd\n",
+  "keys": "J"
+ },
+ {
+  "name": "J_count2",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "2J"
+ },
+ {
+  "name": "gJ_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3gJ"
+ },
+ {
+  "name": "guiw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "gUiwguiw"
+ },
+ {
+  "name": "g_tilde_tilde",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "g~~"
+ },
+ {
+  "name": "gUU_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "2gUU"
+ },
+ {
+  "name": "g_question",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "g??"
+ },
+ {
+  "name": "g_question_w",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "g?w"
+ },
+ {
+  "name": "shift_count_dot",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ">>j."
+ },
+ {
+  "name": "shift_left_partial",
+  "text": " x\n",
+  "keys": "<<"
+ },
+ {
+  "name": "shift_right_tab_no_et",
+  "text": "x\n",
+  "keys": ">>"
+ },
+ {
+  "name": "eq_count",
+  "text": "int main() {\n    if (x) {\n        y = 1;\n    }\n    return 0;\n}\n",
+  "keys": "j=j"
+ },
+ {
+  "name": "p_count_chars",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "yl3p"
+ },
+ {
+  "name": "P_linewise_first",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jyykP"
+ },
+ {
+  "name": "p_after_dd_last",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Gddp"
+ },
+ {
+  "name": "xp_swap_eol",
+  "text": "ab\n",
+  "keys": "lxp"
+ },
+ {
+  "name": "ddP",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jddP"
+ },
+ {
+  "name": "yyp_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "yy2p"
+ },
+ {
+  "name": "dot_after_x_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "3x."
+ },
+ {
+  "name": "dot_new_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dw2."
+ },
+ {
+  "name": "dot_A",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "A!<Esc>jj."
+ },
+ {
+  "name": "dot_o",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "oX<Esc>j."
+ },
+ {
+  "name": "dot_cw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "cwA<Esc>ww."
+ },
+ {
+  "name": "dot_ciw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "ciwZ<Esc>w."
+ },
+ {
+  "name": "dot_r",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "rXl."
+ },
+ {
+  "name": "dot_J",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "J."
+ },
+ {
+  "name": "dot_tilde",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "~."
+ },
+ {
+  "name": "dot_p",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "ylp."
+ },
+ {
+  "name": "dot_visual_line_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Vjd."
+ },
+ {
+  "name": "dot_gU",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "gUiww."
+ },
+ {
+  "name": "undo_insert",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iab<Esc>u"
+ },
+ {
+  "name": "undo_redo_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "x<sync>x<sync>x<sync>2u<C-r>"
+ },
+ {
+  "name": "U_twice",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "xxUU"
+ },
+ {
+  "name": "undo_o",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "oX<Esc>u"
+ },
+ {
+  "name": "u_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "x<sync>x<sync>x<sync>3u"
+ },
+ {
+  "name": "diw_space",
+  "text": "ab   cd\n",
+  "keys": "lldiw"
+ },
+ {
+  "name": "daw_end",
+  "text": "ab cd\n",
+  "keys": "wdaw"
+ },
+ {
+  "name": "daw_space",
+  "text": "ab   cd\n",
+  "keys": "lldaw"
+ },
+ {
+  "name": "ciw_punct",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "lllciwX<Esc>"
+ },
+ {
+  "name": "di_paren_nested",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "fcdi("
+ },
+ {
+  "name": "da_paren_outer",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "fcd2a("
+ },
+ {
+  "name": "di_paren_on_open",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "f(di("
+ },
+ {
+  "name": "di_paren_count",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "fcd2i("
+ },
+ {
+  "name": "dib",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "fcdib"
+ },
+ {
+  "name": "di_bracket_cur",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "jfydi["
+ },
+ {
+  "name": "diB",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "jfxdiB"
+ },
+ {
+  "name": "di_quote_single",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "jjfrdi'"
+ },
+ {
+  "name": "da_quote_double",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "jjfqda\""
+ },
+ {
+  "name": "ci_quote_outside",
+  "text": "x = \"abc\"\n",
+  "keys": "ci\"Z<Esc>"
+ },
+ {
+  "name": "yi_paren_P",
+  "text": "a (b (c d) e) f\n{x [y] z}\n\"q 'r' s\"\n",
+  "keys": "fcyi($p"
+ },
+ {
+  "name": "dap_last",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "dap"
+ },
+ {
+  "name": "dip_count",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "d2ip"
+ },
+ {
+  "name": "vip_count",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "v2ipd"
+ },
+ {
+  "name": "vaw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wvawd"
+ },
+ {
+  "name": "viw_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "v3iwd"
+ },
+ {
+  "name": "dis_first",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "4jdis"
+ },
+ {
+  "name": "cis",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "4jwwcisX<Esc>"
+ },
+ {
+  "name": "dit_nested",
+  "text": "<a> <b>x</b> </a>\n",
+  "keys": "fxd2it"
+ },
+ {
+  "name": "dat_on_tag",
+  "text": "<a>x</a>\n",
+  "keys": "dat"
+ },
+ {
+  "name": "da_angle",
+  "text": "f <a b> c\n",
+  "keys": "fada<"
+ },
+ {
+  "name": "v_dollar_d",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jv$d"
+ },
+ {
+  "name": "v_o_d",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wwvlloxd"
+ },
+ {
+  "name": "V_count_shift",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Vj2>"
+ },
+ {
+  "name": "v_J",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "vjJ"
+ },
+ {
+  "name": "v_tilde_lines",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Vj~"
+ },
+ {
+  "name": "v_y_cursor",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wwvey"
+ },
+ {
+  "name": "V_y_cursor",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jVjy"
+ },
+ {
+  "name": "v_c_lines",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "vjcX<Esc>"
+ },
+ {
+  "name": "V_c",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "VjcX<Esc>"
+ },
+ {
+  "name": "ctrl_v_o_d",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "l<C-v>jlOd"
+ },
+ {
+  "name": "ctrl_v_short_lines",
+  "text": "abcd\nx\nefgh\n",
+  "keys": "ll<C-v>jjd"
+ },
+ {
+  "name": "ctrl_v_r",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-v>jlrx"
+ },
+ {
+  "name": "ctrl_v_y_p",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-v>jly$p"
+ },
+ {
+  "name": "ctrl_v_I_short",
+  "text": "abcd\nx\nefgh\n",
+  "keys": "ll<C-v>jjI-<Esc>"
+ },
+ {
+  "name": "ctrl_v_c_dot",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-v>jcX<Esc>jj."
+ },
+ {
+  "name": "v_gv_after_d",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vlyjgvd"
+ },
+ {
+  "name": "v_p_linewise",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "yyjvlp"
+ },
+ {
+  "name": "V_p_charwise",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "ylj Vp"
+ },
+ {
+  "name": "v_iw_extend",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "viwiwiwd"
+ },
+ {
+  "name": "v_esc",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vll<Esc>x"
+ },
+ {
+  "name": "v_count_reselect",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vlly1vd"
+ },
+ {
+  "name": "ins_bs_join",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jI<BS><Esc>"
+ },
+ {
+  "name": "ins_ctrl_w_punct",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "A<C-w><C-w><C-w><Esc>"
+ },
+ {
+  "name": "ins_ctrl_w_start",
+  "text": "ab cd\n",
+  "keys": "wi<C-w><C-w><Esc>"
+ },
+ {
+  "name": "ins_ctrl_u_indent",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jjA<C-u><C-u><Esc>"
+ },
+ {
+  "name": "ins_ctrl_u_typed",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jjAxyz<C-u><Esc>"
+ },
+ {
+  "name": "ins_ctrl_w_indent",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "jjI<C-w><Esc>"
+ },
+ {
+  "name": "ins_bs_indent_sts",
+  "text": "    x\n",
+  "keys": "I<BS><Esc>"
+ },
+ {
+  "name": "ins_tab_sts",
+  "text": "x\n",
+  "keys": "A<Tab>y<Esc>"
+ },
+ {
+  "name": "ins_tab_noet",
+  "text": "x\n",
+  "keys": ":set noet sts=0<CR>A<Tab>y<Esc>"
+ },
+ {
+  "name": "ins_tab_noet_sts",
+  "text": "x\n",
+  "keys": ":set noet sts=4 ts=8<CR>A<Tab><Tab><Tab>y<Esc>"
+ },
+ {
+  "name": "ins_cr_middle",
+  "text": "ab cd\n",
+  "keys": "wi<CR><Esc>"
+ },
+ {
+  "name": "ins_cr_ai_empty",
+  "text": "  ab\n",
+  "keys": "A<CR><CR>x<Esc>"
+ },
+ {
+  "name": "ins_o_ai_esc",
+  "text": "  ab\n",
+  "keys": "o<Esc>"
+ },
+ {
+  "name": "ins_o_ai_cr",
+  "text": "  ab\n",
+  "keys": "o<CR>x<Esc>"
+ },
+ {
+  "name": "ins_ctrl_t_twice",
+  "text": "x\n",
+  "keys": "A<C-t><C-t><Esc>"
+ },
+ {
+  "name": "ins_ctrl_d_partial",
+  "text": "   x\n",
+  "keys": "A<C-d><Esc>"
+ },
+ {
+  "name": "ins_ctrl_r_linewise",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "yyjA<C-r>\"<Esc>"
+ },
+ {
+  "name": "ins_ctrl_r_dash",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "xA<C-r>-<Esc>"
+ },
+ {
+  "name": "ins_ctrl_n",
+  "text": "foo foobar fo\n",
+  "keys": "A<C-n><Esc>"
+ },
+ {
+  "name": "ins_ctrl_p",
+  "text": "foo foobar fo\n",
+  "keys": "A<C-p><Esc>"
+ },
+ {
+  "name": "ins_ctrl_n_twice",
+  "text": "foo foobar fo\n",
+  "keys": "A<C-n><C-n><Esc>"
+ },
+ {
+  "name": "ins_ctrl_p_none",
+  "text": "abc\n",
+  "keys": "A x<C-p><Esc>"
+ },
+ {
+  "name": "ins_ctrl_v_tab",
+  "text": "x\n",
+  "keys": "A<C-v><Tab><Esc>"
+ },
+ {
+  "name": "ins_ctrl_v_u",
+  "text": "x\n",
+  "keys": "A<C-v>u00e9<Esc>"
+ },
+ {
+  "name": "ins_ctrl_k_rev",
+  "text": "x\n",
+  "keys": "A<C-k>:e<Esc>"
+ },
+ {
+  "name": "ins_ctrl_k_turkish",
+  "text": "x\n",
+  "keys": "A<C-k>g(<C-k>s,<C-k>i.<Esc>"
+ },
+ {
+  "name": "ins_3a",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "3a-<Esc>"
+ },
+ {
+  "name": "ins_3A",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3A!<Esc>"
+ },
+ {
+  "name": "ins_3I",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3I-<Esc>"
+ },
+ {
+  "name": "ins_2O",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "j2OX<Esc>"
+ },
+ {
+  "name": "ins_ctrl_o_zz",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iab<C-o>zzcd<Esc>"
+ },
+ {
+  "name": "ins_ctrl_o_p",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "yiwA <C-o>p!<Esc>"
+ },
+ {
+  "name": "ins_ctrl_a_after_o",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "oxy<Esc>jA<C-a><Esc>"
+ },
+ {
+  "name": "ins_esc_bol",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jI<Esc>x"
+ },
+ {
+  "name": "ins_ctrl_e_short",
+  "text": "abcdef\nx\n",
+  "keys": "jA<C-y><C-y><Esc>"
+ },
+ {
+  "name": "R_eol",
+  "text": "ab\n",
+  "keys": "lRxyz<Esc>"
+ },
+ {
+  "name": "R_count",
+  "text": "abcdef\n",
+  "keys": "2Rxy<Esc>"
+ },
+ {
+  "name": "R_enter",
+  "text": "abcd\n",
+  "keys": "lRx<CR>y<Esc>"
+ },
+ {
+  "name": "R_bs_all",
+  "text": "abc\n",
+  "keys": "Rxyz<BS><BS><BS><BS><Esc>"
+ },
+ {
+  "name": "R_dot",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "RAB<Esc>j0."
+ },
+ {
+  "name": "search_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "2/e<CR>x"
+ },
+ {
+  "name": "search_wrap",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "G/The<CR>x"
+ },
+ {
+  "name": "search_back_wrap",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "?end<CR>x"
+ },
+ {
+  "name": "search_regex_class",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "/\\d<CR>x"
+ },
+ {
+  "name": "search_word_boundary",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "/\\<the\\><CR>x"
+ },
+ {
+  "name": "search_very_magic",
+  "text": "one, two;three  four\n\n  five-six seven.eight\nnine\n",
+  "keys": "/\\v(t|f)i<CR>x"
+ },
+ {
+  "name": "search_n_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "/o<CR>3nx"
+ },
+ {
+  "name": "search_offset_none",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "/lazy<CR>D"
+ },
+ {
+  "name": "star_count",
+  "text": "aa b aa c aa\n",
+  "keys": "2*x"
+ },
+ {
+  "name": "hash_wrap",
+  "text": "aa b aa\n",
+  "keys": "#x"
+ },
+ {
+  "name": "d_search_back",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$d?the<CR>"
+ },
+ {
+  "name": "c_search",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "c/fox<CR>X<Esc>"
+ },
+ {
+  "name": "y_search_p",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "y/fox<CR>$p"
+ },
+ {
+  "name": "search_ic",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": ":set ic<CR>/THE<CR>x"
+ },
+ {
+  "name": "search_scs",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": ":set ic scs<CR>/The<CR>nx"
+ },
+ {
+  "name": "ex_range_dot_plus",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "j:.,+1d<CR>"
+ },
+ {
+  "name": "ex_range_marks",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "majjmb:'a,'bd<CR>"
+ },
+ {
+  "name": "ex_range_pattern",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":/third/d<CR>"
+ },
+ {
+  "name": "ex_range_pattern_range",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":/second/,/fourth/d<CR>"
+ },
+ {
+  "name": "ex_range_minus",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "G:-2,.d<CR>"
+ },
+ {
+  "name": "ex_s_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":s/i/I/g 3<CR>"
+ },
+ {
+  "name": "ex_s_amp",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":%s/line/[&]/<CR>"
+ },
+ {
+  "name": "ex_s_groups",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":%s/\\(\\w\\+\\) \\(\\w\\+\\)/\\2 \\1/<CR>"
+ },
+ {
+  "name": "ex_s_case",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":%s/\\w\\+/\\u&/g<CR>"
+ },
+ {
+  "name": "ex_s_upper",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":%s/f\\w*/\\U&/<CR>"
+ },
+ {
+  "name": "ex_s_newline",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":1s/ /\\r/<CR>"
+ },
+ {
+  "name": "ex_s_amp_flags",
+  "text": "aa aa\naa aa\n",
+  "keys": ":s/a/b/g<CR>j:&&<CR>"
+ },
+ {
+  "name": "ex_s_tilde",
+  "text": "ab ab\nab\n",
+  "keys": ":s/a/x/<CR>:2s/b/~y/<CR>"
+ },
+ {
+  "name": "ex_s_empty_pat",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "/o<CR>:s//0/g<CR>"
+ },
+ {
+  "name": "ex_s_i_flag",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": ":s/the/X/gi<CR>"
+ },
+ {
+  "name": "ex_g_normal",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":g/i/norm A;<CR>"
+ },
+ {
+  "name": "ex_g_s",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":g/f/s/line/LINE/<CR>"
+ },
+ {
+  "name": "ex_g_m0",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":g/^/m0<CR>"
+ },
+ {
+  "name": "ex_v_s",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":v/th/s/$/!/<CR>"
+ },
+ {
+  "name": "ex_g_range",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":2,4g/i/d<CR>"
+ },
+ {
+  "name": "ex_d_register",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":2d a<CR>\"ap"
+ },
+ {
+  "name": "ex_d_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":2d 2<CR>"
+ },
+ {
+  "name": "ex_y_count_put",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":y 2<CR>Gp"
+ },
+ {
+  "name": "ex_put_bang",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "yy:3put!<CR>"
+ },
+ {
+  "name": "ex_0put",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jyy:0put<CR>"
+ },
+ {
+  "name": "ex_m_up",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":4m1<CR>"
+ },
+ {
+  "name": "ex_m_range",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":1,2m$<CR>"
+ },
+ {
+  "name": "ex_t_dot",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":t.<CR>"
+ },
+ {
+  "name": "ex_co_0",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "G:co0<CR>"
+ },
+ {
+  "name": "ex_j_bang",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":1,2j!<CR>"
+ },
+ {
+  "name": "ex_gt_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":>> 2<CR>"
+ },
+ {
+  "name": "ex_lt",
+  "text": "    a\n    b\n",
+  "keys": ":%<<CR>"
+ },
+ {
+  "name": "ex_norm_range",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":2,3norm! I- <CR>"
+ },
+ {
+  "name": "ex_sort_n",
+  "text": "x10\nx9\nx100\n",
+  "keys": ":sort n<CR>"
+ },
+ {
+  "name": "ex_sort_u",
+  "text": "b\na\nb\na\n",
+  "keys": ":sort u<CR>"
+ },
+ {
+  "name": "ex_sort_r",
+  "text": "b\nc\na\n",
+  "keys": ":sort!<CR>"
+ },
+ {
+  "name": "ex_sort_i",
+  "text": "b\nA\na\nB\n",
+  "keys": ":sort i<CR>"
+ },
+ {
+  "name": "ex_sort_pat",
+  "text": "a3 z\nb1 y\nc2 x\n",
+  "keys": ":sort /\\a\\d /<CR>"
+ },
+ {
+  "name": "ex_sort_r_pat",
+  "text": "a3 z\nb1 y\nc2 x\n",
+  "keys": ":sort /\\d/ r<CR>"
+ },
+ {
+  "name": "ex_left",
+  "text": "   a\n b\n",
+  "keys": ":%left<CR>"
+ },
+ {
+  "name": "ex_set_sw",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":set sw=4<CR>>>"
+ },
+ {
+  "name": "ex_set_et_toggle",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":set et!<CR>:set sw=8<CR>>>"
+ },
+ {
+  "name": "ex_number_goto",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":3<CR>x"
+ },
+ {
+  "name": "ex_dollar",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":$<CR>x"
+ },
+ {
+  "name": "ex_k",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "j:k a<CR>G:'ad<CR>"
+ },
+ {
+  "name": "ex_retab",
+  "text": "\tx\n",
+  "keys": ":set et<CR>:retab<CR>"
+ },
+ {
+  "name": "ex_amp_normal",
+  "text": "aa\naa\n",
+  "keys": ":s/a/b/<CR>j&"
+ },
+ {
+  "name": "ex_g_amp",
+  "text": "aa\naa\n",
+  "keys": ":s/a/b/g<CR>g&"
+ },
+ {
+  "name": "ex_at_colon",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":s/$/!/<CR>j@:"
+ },
+ {
+  "name": "ex_undo",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "x<sync>:undo<CR>"
+ },
+ {
+  "name": "mark_upper",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "mAjj'Ax"
+ },
+ {
+  "name": "mark_backtick_backtick",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wwwGx``x"
+ },
+ {
+  "name": "jump_ctrl_i",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "G<C-o><C-i>x"
+ },
+ {
+  "name": "mark_dot",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "xG'.x"
+ },
+ {
+  "name": "mark_bracket",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jyiwG`]x"
+ },
+ {
+  "name": "mark_caret",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iab<Esc>G`^x"
+ },
+ {
+  "name": "changelist",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "x<sync>Gx<sync>g;g;x"
+ },
+ {
+  "name": "y_mark",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "majjy'aGp"
+ },
+ {
+  "name": "c_mark",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jmajjc'aX<Esc>"
+ },
+ {
+  "name": "gi_after_move",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "Aend<Esc>ggiX"
+ },
+ {
+  "name": "macro_upper_append",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "qaA!<Esc>qqAI-<Esc>jq@a"
+ },
+ {
+  "name": "macro_register_text",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "qaxq\"ap"
+ },
+ {
+  "name": "macro_yanked",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "iA;<Esc>0\"ay$u@a"
+ },
+ {
+  "name": "macro_recursive_stop",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "qaA.<Esc>jq3@a"
+ },
+ {
+  "name": "macro_ex",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "qa:s/i/I/<CR>jq@a@@"
+ },
+ {
+  "name": "ctrl_a_word_num",
+  "text": "x9y\n",
+  "keys": "<C-a>"
+ },
+ {
+  "name": "ctrl_a_leading_zero",
+  "text": "007\n",
+  "keys": "<C-a>"
+ },
+ {
+  "name": "ctrl_a_bin",
+  "text": "0b101\n",
+  "keys": "<C-a>"
+ },
+ {
+  "name": "ctrl_a_hex_upper",
+  "text": "0xFF\n",
+  "keys": "<C-a>"
+ },
+ {
+  "name": "ctrl_x_to_neg",
+  "text": "1\n",
+  "keys": "3<C-x>"
+ },
+ {
+  "name": "ctrl_a_after_cursor",
+  "text": "a 1 b 2\n",
+  "keys": "fb<C-a>"
+ },
+ {
+  "name": "ctrl_a_none",
+  "text": "abc\n",
+  "keys": "<C-a>x"
+ },
+ {
+  "name": "ctrl_a_dot",
+  "text": "1 1\n",
+  "keys": "<C-a>w."
+ },
+ {
+  "name": "v_ctrl_a_count",
+  "text": "1\n1\n",
+  "keys": "VG5<C-a>"
+ },
+ {
+  "name": "g_ctrl_a_count",
+  "text": "0\n0\n0\n",
+  "keys": "VG2g<C-a>"
+ },
+ {
+  "name": "H_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "G2Hx"
+ },
+ {
+  "name": "L_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "2Lx"
+ },
+ {
+  "name": "ctrl_d",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-d>x"
+ },
+ {
+  "name": "ctrl_u",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "G<C-u>x"
+ },
+ {
+  "name": "ctrl_f",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-f>x"
+ },
+ {
+  "name": "percent_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "60%x"
+ },
+ {
+  "name": "pipe_tab",
+  "text": "\tab\n",
+  "keys": "9|x"
+ },
+ {
+  "name": "gm_short",
+  "text": "abc\n",
+  "keys": "gmx"
+ },
+ {
+  "name": "gM",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "gMx"
+ },
+ {
+  "name": "go_count_line2",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "15gox"
+ },
+ {
+  "name": "ga_noop2",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "gax"
+ },
+ {
+  "name": "zt_noop",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jztx"
+ },
+ {
+  "name": "tilde_op_noop",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "x"
+ },
+ {
+  "name": "ampersand_none",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "&x"
+ },
+ {
+  "name": "count_insert_esc",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "5i<Esc>x"
  }
 ]

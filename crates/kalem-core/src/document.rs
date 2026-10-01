@@ -1180,6 +1180,12 @@ impl DocumentState {
         self.history.break_group();
     }
 
+    /// Every change from now until [`Self::break_undo_group`] is one undo
+    /// step (Vim's command and the insert it starts).
+    pub fn begin_undo_join(&mut self) {
+        self.history.begin_join();
+    }
+
     /// Undoes the last step; returns its label.
     pub fn undo(&mut self) -> Option<String> {
         if self.read_only {
