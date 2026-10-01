@@ -53,7 +53,7 @@ const OPS: &[Op] = &[
     op("_", "subscr", 1200, 1201),
     op("%", "percent", 1100, -1),
     op("u!", "lnot", -1, 1000),
-    op("mod", "mod", 400, 400),
+    op("mod", "makemod", 400, 400),
     op("+/-", "sdev", 300, 300),
     op("!!", "dfact", 210, -1),
     op("!", "fact", 210, -1),

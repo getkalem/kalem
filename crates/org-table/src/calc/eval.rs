@@ -177,7 +177,16 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         ("sub", 2) => sub(&args[0], &args[1], env),
         ("div", 2) => div(&args[0], &args[1], env),
         ("percent", 1) => div(&args[0], &Expr::int(100), env),
-        ("abs", 1) if matches!(args[0], Expr::Date(_)) => args[0].clone(),
+        ("abs", 1) if matches!(args[0], Expr::Date(_)) || algebra::mod_form(&args[0]).is_some() => {
+            args[0].clone()
+        }
+        // `a mod m`, the modulo form (`calcFunc-makemod`).
+        ("makemod", 2) => match (&args[0], &args[1]) {
+            (Expr::Num(a), Expr::Num(m)) => {
+                algebra::make_mod(a, m, env).unwrap_or_else(|| keep(f, args))
+            }
+            _ => keep(f, args),
+        },
         ("abs", 1) => match &args[0] {
             Expr::Vec(v) if !v.iter().any(is_vec) => {
                 // The length of a vector.
@@ -542,7 +551,7 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         ("vmean", _) => vmean(args, env),
         ("vmedian", _) => vmedian(args, env),
         ("vvar", _) | ("vsdev", _) | ("vpvar", _) | ("vpsdev", _) => variance(f, args, env),
-        _ => keep(f, args),
+        _ => super::funcs::apply(f, &args, env).unwrap_or_else(|| keep(f, args)),
     }
 }
 

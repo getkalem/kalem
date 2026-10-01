@@ -281,7 +281,7 @@ fn add_float(am: BigInt, ae: i64, bm: BigInt, be: i64, prec: &Prec) -> Num {
 }
 
 /// The numerator and denominator of an integer or fraction.
-fn rational(a: &Num) -> (BigInt, BigInt) {
+pub(crate) fn rational(a: &Num) -> (BigInt, BigInt) {
     match a {
         Num::Int(n) => (n.clone(), BigInt::one()),
         Num::Frac(n, d) => (n.clone(), d.clone()),

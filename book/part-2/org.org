@@ -732,18 +732,31 @@ Calc as reproduced:
   and times (a timestamp in a field is a date; the difference of two is
   days) and durations.
 - Operators: ~+~, ~-~, ~*~, ~/~, ~^~, ~%~ (percent or remainder), ~\~
-  (integer division), =mod=, ~!~ and ~!!~ (factorials), the comparisons
+  (integer division), =mod= (a modulo form: =10 mod 3= is =1 mod 3=, and
+  arithmetic on it stays modulo 3; the function =mod(10, 3)= is the
+  remainder, 1), ~!~ and ~!!~ (factorials), the comparisons
   ~<~, ~>~, ~<=~, ~>=~, ~=~, ~==~, ~!=~, and ~&&~, ~||~, ~!~, ~?:~;
   implicit multiplication binds tighter than ~/~, as in Calc.
 - Functions: =abs=, =sign=, =floor=, =ceil=, =round=, =trunc=, =sqrt=,
   =exp=, =ln=, =log=, =log10=, =sin=, =cos=, =tan=, =arcsin=, =arccos=,
   =arctan=, =sinh=, =cosh=, =tanh=, =arcsinh=, =arccosh=, =arctanh=,
   =sec=, =csc=, =cot=, =rad=, =deg=, =sqr=, =inv=, =hypot=, =nroot=,
-  =round= with a number of places, =fact=, =choose=, =gcd=, =lcm=,
-  =idiv=, =fdiv=, =min=,
-  =max=, =if=, =year=, =month=, =day=, =weekday=, and the vector
-  functions =vsum=, =vprod=, =vmax=, =vmin=, =vcount=, =vlen=, =vmean=,
-  =vmedian=, =vvar=, =vsdev=, =vpvar=, =vpsdev=.
+  =round= with a number of places, =fact=, =choose=, =perm=, =gcd=,
+  =lcm=, =idiv=, =fdiv=, =min=, =max=, =if=, =year=, =month=, =day=,
+  =weekday=; number theory: =prime=, =nextprime=, =prevprime=,
+  =totient=, =isqrt=, =ilog=; the parts of a float =mant= and =xpon=;
+  =frac= (a float as a fraction, within a tolerance); the bitwise
+  functions on 32-bit words (a last argument gives another size) =and=,
+  =or=, =xor=, =diff=, =not=, =lsh=, =rsh=; the vector functions
+  =vsum=, =vprod=, =vmax=, =vmin=, =vcount=, =vlen=, =vmean=,
+  =vmedian=, =vvar=, =vsdev=, =vpvar=, =vpsdev=, and those that build
+  and take apart vectors: =vec=, =cvec=, =index=, =rev=, =sort=,
+  =rsort=, =grade=, =rgrade=, =head=, =tail=, =rhead=, =rtail=,
+  =cons=, =rcons=, =vconcat=, =subvec=, =find=, =vmask=, =mrow=,
+  =mcol=, =trn=, =arrange=, =histogram=, =string=, and the sets
+  =rdup=, =vunion=, =vint=, =vdiff=, =vxor=. Not yet: =random=,
+  complex numbers (=sqrt(-4)= stays as it is), intervals as sets
+  (=vcompl=).
 - Formulas over text fields stay symbolic, with Calc's basic
   simplifications (=x + 2=, =2 a=).
 

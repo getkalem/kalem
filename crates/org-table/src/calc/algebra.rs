@@ -111,7 +111,7 @@ pub(crate) fn is_constant(e: &Expr) -> bool {
     match e {
         Expr::Num(_) | Expr::Date(_) => true,
         Expr::Vec(v) => v.iter().all(is_constant),
-        _ => false,
+        e => mod_form(e).is_some(),
     }
 }
 
@@ -243,8 +243,70 @@ fn combine(a: &Expr, b: &Expr, sign: i8, env: &Env) -> Option<Expr> {
     Some(scaled(k, xa, env))
 }
 
+/// A modulo form `a mod m` (Calc's `(mod a m)`): the parser cannot
+/// produce the name, so a form is never evaluated again as `%`.
+pub(crate) const MOD_FORM: &str = "mod-form";
+
+/// The value and modulus of a modulo form.
+pub(crate) fn mod_form(e: &Expr) -> Option<(&Num, &Num)> {
+    match e {
+        Expr::Call(f, xs) if f == MOD_FORM && xs.len() == 2 => match (&xs[0], &xs[1]) {
+            (Expr::Num(a), Expr::Num(m)) => Some((a, m)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// `math-make-mod`: `a` reduced into `[0, m)`.
+pub(crate) fn make_mod(a: &Num, m: &Num, env: &Env) -> Option<Expr> {
+    if m.is_zero() || m.is_negative() {
+        return None;
+    }
+    let r = num::modulo(a, m, &env.prec).ok()?;
+    Some(Expr::call(
+        MOD_FORM,
+        vec![Expr::Num(r), Expr::Num(m.clone())],
+    ))
+}
+
+/// The inverse of `a` modulo the integer `m`, when there is one.
+fn mod_inverse(a: &BigInt, m: &BigInt) -> Option<BigInt> {
+    let e = a.extended_gcd(m);
+    e.gcd.is_one().then(|| e.x.mod_floor(m))
+}
+
+/// Arithmetic on modulo forms (`math-add`, `math-mul`… on `(mod a m)`):
+/// with a number or a form of the same modulus the result is reduced; two
+/// moduli differ, or a formula is involved, and the caller keeps it.
+pub(crate) fn modular(op: &str, a: &Expr, b: &Expr, env: &Env) -> Option<Expr> {
+    let (x, y, m) = match (mod_form(a), mod_form(b), a, b) {
+        (Some((x, m)), Some((y, n)), ..) if m == n => (x, y, m),
+        (Some((x, m)), None, _, Expr::Num(y)) => (x, y, m),
+        (None, Some((y, m)), Expr::Num(x), _) => (x, y, m),
+        _ => return None,
+    };
+    let p = &env.prec;
+    let r = match op {
+        "+" => num::add(x, y, p),
+        "-" => num::sub(x, y, p),
+        "*" => num::mul(x, y, p),
+        "/" => match (x, y, m) {
+            (Num::Int(x), Num::Int(y), Num::Int(mi)) => {
+                Num::Int(x * mod_inverse(&y.mod_floor(mi), mi)?)
+            }
+            _ => num::div(x, y, p).ok()?,
+        },
+        _ => return None,
+    };
+    make_mod(&r, m, env)
+}
+
 /// `math-add`.
 pub(crate) fn add(a: &Expr, b: &Expr, env: &Env) -> Expr {
+    if let Some(r) = modular("+", a, b, env) {
+        return r;
+    }
     match (a, b) {
         (Expr::Date(d), Expr::Num(n)) | (Expr::Num(n), Expr::Date(d)) => {
             return Expr::Date(num::add(d, n, &env.prec));
@@ -344,6 +406,9 @@ fn distributes(e: &Expr) -> bool {
 
 /// `math-sub`.
 pub(crate) fn sub(a: &Expr, b: &Expr, env: &Env) -> Expr {
+    if let Some(r) = modular("-", a, b, env) {
+        return r;
+    }
     match (a, b) {
         (Expr::Date(x), Expr::Date(y)) => return Expr::Num(num::sub(x, y, &env.prec)),
         (Expr::Date(x), Expr::Num(n)) => return Expr::Date(num::sub(x, n, &env.prec)),
@@ -398,6 +463,11 @@ pub(crate) fn sub(a: &Expr, b: &Expr, env: &Env) -> Expr {
 
 /// `math-neg`.
 pub(crate) fn neg(a: &Expr, env: &Env) -> Expr {
+    if let Some((x, m)) = mod_form(a)
+        && let Some(r) = make_mod(&x.neg(), m, env)
+    {
+        return r;
+    }
     match a {
         Expr::Num(n) => Expr::Num(n.neg()),
         Expr::Vec(v) => Expr::Vec(v.iter().map(|x| neg(x, env)).collect()),
@@ -430,6 +500,9 @@ fn power(e: &Expr) -> (Expr, Expr) {
 
 /// `math-mul`.
 pub(crate) fn mul(a: &Expr, b: &Expr, env: &Env) -> Expr {
+    if let Some(r) = modular("*", a, b, env) {
+        return r;
+    }
     match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => return Expr::Num(num::mul(x, y, &env.prec)),
         (Expr::Vec(x), Expr::Vec(y)) => {
@@ -576,6 +649,9 @@ fn mul_infinite(a: &Expr, b: &Expr) -> Option<Expr> {
 
 /// `math-div`.
 pub(crate) fn div(a: &Expr, b: &Expr, env: &Env) -> Expr {
+    if let Some(r) = modular("/", a, b, env) {
+        return r;
+    }
     match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => {
             return match num::div(x, y, &env.prec) {
@@ -688,6 +764,22 @@ pub(crate) fn pow(a: &Expr, b: &Expr, env: &Env) -> Expr {
     }
     if is_nan(a) {
         return a.clone();
+    }
+    // A modulo form to a natural power, by squaring.
+    if let Some((_, m)) = mod_form(a)
+        && let Some(n) = num_of(b).and_then(Num::to_i64)
+        && n >= 0
+    {
+        let mut r = make_mod(&Num::int(1), m, env).expect("a positive modulus");
+        let (mut base, mut n) = (a.clone(), n);
+        while n > 0 {
+            if n & 1 == 1 {
+                r = mul(&r, &base, env);
+            }
+            base = mul(&base, &base, env);
+            n >>= 1;
+        }
+        return r;
     }
     if let Expr::Vec(_) = a
         && let Some(n) = num_of(b).and_then(Num::to_i64)

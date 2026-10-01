@@ -22,7 +22,7 @@ fn op_for(func: &str) -> Option<Op> {
         "subscr" => ("_", 1200, 1201, None),
         "percent" => ("%", 1100, -1, None),
         "lnot" => ("u!", -1, 1000, None),
-        "mod" => ("mod", 400, 400, Some(185)),
+        "mod" | "mod-form" => ("mod", 400, 400, Some(185)),
         "sdev" => ("+/-", 300, 300, Some(185)),
         "dfact" => ("!!", 210, -1, None),
         "fact" => ("!", 210, -1, None),
