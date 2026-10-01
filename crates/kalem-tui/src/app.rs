@@ -258,6 +258,10 @@ struct TuiHost<'a> {
     output: &'a mut Vec<String>,
     lines: usize,
     rich: bool,
+    /// The first document line shown.
+    top: usize,
+    /// A new first line asked for (CTRL-E, `zt`).
+    scroll: Option<usize>,
 }
 
 impl kalem_core::vim::Host for TuiHost<'_> {
@@ -276,6 +280,26 @@ impl kalem_core::vim::Host for TuiHost<'_> {
 
     fn rich_view(&self) -> bool {
         self.rich
+    }
+
+    fn visible_lines(&self) -> Option<(usize, usize)> {
+        let top = self.scroll.unwrap_or(self.top);
+        Some((top, top + self.lines.saturating_sub(1)))
+    }
+
+    fn scroll(&mut self, by: isize, last: usize) -> Option<(usize, usize)> {
+        let top = self.scroll.unwrap_or(self.top) as isize + by;
+        self.scroll = Some(top.clamp(0, last as isize) as usize);
+        self.visible_lines()
+    }
+
+    fn scroll_to(&mut self, line: usize, at: u8) {
+        let above = match at {
+            0 => 0,
+            1 => self.lines / 2,
+            _ => self.lines.saturating_sub(1),
+        };
+        self.scroll = Some(line.saturating_sub(above));
     }
 }
 
@@ -3339,15 +3363,27 @@ impl App {
             self.vim = Some(v);
             return false;
         }
-        let out = {
+        let top = self
+            .doc
+            .text()
+            .line_of(self.editor.viewport.top.min(self.doc.text().len()));
+        let (out, scroll) = {
             let mut host = TuiHost {
                 clip: &mut self.clipboard.text,
                 output: &mut self.output,
                 lines: usize::from(self.editor.area.height.max(4)),
                 rich: !self.editor.source,
+                top,
+                scroll: None,
             };
-            v.key(&mut self.doc, key, &mut host)
+            let out = v.key(&mut self.doc, key, &mut host);
+            (out, host.scroll)
         };
+        // CTRL-E, CTRL-Y, `zt`, `zz`, `zb`: the view moves.
+        if let Some(l) = scroll {
+            self.editor.viewport.top = self.doc.text().line_start(l);
+            self.editor.viewport.top_row = 0;
+        }
         self.vim = Some(v);
         self.update_cursor_shape();
         self.dirty = true;

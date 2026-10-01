@@ -219,14 +219,15 @@ fn relative(path: &Path, base: &Path) -> String {
     let p: Vec<_> = path.components().collect();
     let b: Vec<_> = base.components().collect();
     let common = p.iter().zip(&b).take_while(|(x, y)| x == y).count();
-    let mut out = PathBuf::new();
+    // Written with `/`, as Org links are on every system.
+    let mut parts: Vec<String> = Vec::new();
     for _ in common..b.len() {
-        out.push("..");
+        parts.push("..".into());
     }
     for c in &p[common..] {
-        out.push(c);
+        parts.push(c.as_os_str().to_string_lossy().into_owned());
     }
-    let s = out.display().to_string();
+    let s = parts.join("/");
     if s.is_empty() { ".".into() } else { s }
 }
 

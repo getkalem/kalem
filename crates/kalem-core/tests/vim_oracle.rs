@@ -16,7 +16,6 @@ use serde_json::Value;
 struct TestHost {
     clip: Option<String>,
     top: usize,
-    lines: usize,
 }
 
 const ROWS: usize = 23;
@@ -38,8 +37,8 @@ impl Host for TestHost {
         Some((self.top, self.top + ROWS - 1))
     }
 
-    fn scroll(&mut self, by: isize) -> Option<(usize, usize)> {
-        let top = (self.top as isize + by).clamp(0, self.lines.saturating_sub(1) as isize);
+    fn scroll(&mut self, by: isize, last: usize) -> Option<(usize, usize)> {
+        let top = (self.top as isize + by).clamp(0, last as isize);
         self.top = top as usize;
         self.visible_lines()
     }
@@ -99,10 +98,7 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
     let mut v = Vim::new();
     // Vim's own keys: no leader (Kalem's is Space).
     v.leader = None;
-    let mut host = TestHost {
-        lines: text.lines().count(),
-        ..TestHost::default()
-    };
+    let mut host = TestHost::default();
     let mut all = parse_keys(keys);
     all.extend([Key::Esc, Key::Esc]);
     for key in all {

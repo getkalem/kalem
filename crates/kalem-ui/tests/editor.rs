@@ -1806,7 +1806,14 @@ fn editing_an_argument_with_the_arrows(cx: &mut TestAppContext) {
         let (a, b) = typed(cx);
         assert!(a.ends_with("ax.r") && b.is_empty(), "{a:?} {b:?}");
         cx.simulate_keystrokes("enter");
-        cx.run_until_parked();
+        // The move runs on a thread of its own.
+        for _ in 0..500 {
+            cx.run_until_parked();
+            if dir.join("proj/ax.r").exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         assert!(dir.join("proj/ax.r").exists(), "vim {vim}");
     }
 }

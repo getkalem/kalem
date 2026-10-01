@@ -352,7 +352,7 @@ impl Vim {
         host: &mut dyn Host,
     ) {
         let by = count as isize * if down { 1 } else { -1 };
-        let Some((top, bottom)) = host.scroll(by) else {
+        let Some((top, bottom)) = host.scroll(by, last_line(doc)) else {
             return;
         };
         let line = line_of(doc, self.cursor);

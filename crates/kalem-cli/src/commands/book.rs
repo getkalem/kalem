@@ -688,8 +688,14 @@ fn site_links(out: &Path) -> Vec<String> {
                     }
                     let target = html_unescape(target);
                     if !folder.join(&target).exists() {
-                        let page = p.strip_prefix(out).unwrap_or(&p);
-                        problems.push(format!("{}: dangling link {link}", page.display()));
+                        // The page's path with `/`, as in the site.
+                        let page: Vec<String> = p
+                            .strip_prefix(out)
+                            .unwrap_or(&p)
+                            .components()
+                            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                            .collect();
+                        problems.push(format!("{}: dangling link {link}", page.join("/")));
                     }
                 }
             }

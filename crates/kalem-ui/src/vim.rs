@@ -51,6 +51,10 @@ struct GuiHost<'a, 'b> {
     cx: &'a mut Context<'b, Editor>,
     lines: usize,
     rich: bool,
+    /// The first document line shown.
+    top: usize,
+    /// A new first line asked for (CTRL-E, `zt`).
+    scroll: Option<usize>,
 }
 
 impl Host for GuiHost<'_, '_> {
@@ -69,6 +73,26 @@ impl Host for GuiHost<'_, '_> {
 
     fn rich_view(&self) -> bool {
         self.rich
+    }
+
+    fn visible_lines(&self) -> Option<(usize, usize)> {
+        let top = self.scroll.unwrap_or(self.top);
+        Some((top, top + self.lines.saturating_sub(1)))
+    }
+
+    fn scroll(&mut self, by: isize, last: usize) -> Option<(usize, usize)> {
+        let top = self.scroll.unwrap_or(self.top) as isize + by;
+        self.scroll = Some(top.clamp(0, last as isize) as usize);
+        self.visible_lines()
+    }
+
+    fn scroll_to(&mut self, line: usize, at: u8) {
+        let above = match at {
+            0 => 0,
+            1 => self.lines / 2,
+            _ => self.lines.saturating_sub(1),
+        };
+        self.scroll = Some(line.saturating_sub(above));
     }
 }
 
@@ -109,11 +133,31 @@ impl Editor {
         let lines = (self.list.viewport_bounds().size.height / gpui::px(self.theme.size * 1.45))
             .floor()
             .max(4.) as usize;
-        let out = {
+        let top = self
+            .visible
+            .get(self.list.logical_scroll_top().item_ix)
+            .copied()
+            .unwrap_or(0);
+        let (out, scroll) = {
             let rich = !self.source;
-            let mut host = GuiHost { cx, lines, rich };
-            v.key(&mut self.doc, k, &mut host)
+            let mut host = GuiHost {
+                cx,
+                lines,
+                rich,
+                top,
+                scroll: None,
+            };
+            let out = v.key(&mut self.doc, k, &mut host);
+            (out, host.scroll)
         };
+        // CTRL-E, CTRL-Y, `zt`, `zz`, `zb`: the view moves.
+        if let Some(line) = scroll {
+            let item_ix = self.visible.partition_point(|l| *l < line);
+            self.list.scroll_to(gpui::ListOffset {
+                item_ix,
+                offset_in_item: gpui::px(0.),
+            });
+        }
         self.vim = Some(v);
         if !out.handled {
             return false;

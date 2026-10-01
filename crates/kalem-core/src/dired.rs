@@ -3319,13 +3319,13 @@ mod tests {
         assert_eq!(
             req,
             vec![Request::Open {
-                path: Some(d.join("sub/inner.org").display().to_string())
+                path: Some(d.join("sub").join("inner.org").display().to_string())
             }]
         );
         run(&mut doc, "dired.mark", json!({})).0.unwrap();
         assert_eq!(
             state(&doc).targets(cursor_line(&doc)),
-            vec![d.join("sub/inner.org")]
+            vec![d.join("sub").join("inner.org")]
         );
         // A new file goes into the folder of the cursor's line.
         goto(&mut doc, "deeper/");

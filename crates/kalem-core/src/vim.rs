@@ -111,9 +111,10 @@ pub trait Host {
         None
     }
     /// Scrolls the view `by` lines down (up when negative), for CTRL-E
-    /// and CTRL-Y; the lines on screen after.
-    fn scroll(&mut self, by: isize) -> Option<(usize, usize)> {
-        let _ = by;
+    /// and CTRL-Y, the first line shown at most `last` (the document's
+    /// last); the lines on screen after.
+    fn scroll(&mut self, by: isize, last: usize) -> Option<(usize, usize)> {
+        let _ = (by, last);
         None
     }
     /// Shows `line` at the top (0), middle (1) or bottom (2) of the
