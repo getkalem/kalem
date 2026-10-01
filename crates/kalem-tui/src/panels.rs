@@ -49,6 +49,9 @@ pub struct Palette {
     pub pick: Option<Picker>,
     /// Searching a project's files instead.
     pub search: Option<ProjectSearch>,
+    /// Opened by a request for a list ([`kalem_core::command::Request::is_picker`]),
+    /// which `SPC '` opens again with what is typed in it.
+    pub resumable: bool,
     /// Searching the lines of open documents instead (`SPC s b`).
     pub lines: Option<LineSearch>,
     /// Where the cursor was when the line search opened: the document's
@@ -68,6 +71,7 @@ impl Palette {
             ordered: false,
             pick: None,
             search: None,
+            resumable: false,
             lines: None,
             origin: None,
         }

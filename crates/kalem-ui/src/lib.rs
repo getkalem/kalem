@@ -51,6 +51,7 @@ pub fn shared(config: Config) -> editor::Shared {
         jobs: Rc::default(),
         completers: kalem_core::completers::Registry::with_builtins(),
         bus: Rc::default(),
+        last: Rc::default(),
         problems: std::cell::Cell::new(0),
         config,
         registry,
