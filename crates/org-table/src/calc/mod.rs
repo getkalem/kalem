@@ -5,6 +5,7 @@ mod algebra;
 pub mod date;
 pub mod eval;
 pub mod expr;
+mod funcs;
 pub mod num;
 pub mod parse;
 pub mod print;
@@ -42,13 +43,13 @@ pub fn eval(formula: &str, modes: &Modes) -> Result<String, Error> {
     eval_checked(formula, modes).map(|(s, _)| s)
 }
 
-/// `math-constp`: numbers, and vectors and intervals of them.
+/// `math-constp`: numbers, modulo forms, and vectors and intervals of them.
 fn is_constant(e: &expr::Expr) -> bool {
     match e {
         expr::Expr::Num(_) | expr::Expr::Date(_) => true,
         expr::Expr::Vec(v) => v.iter().all(is_constant),
         expr::Expr::Intv(_, a, b) => is_constant(a) && is_constant(b),
-        _ => false,
+        e => algebra::mod_form(e).is_some(),
     }
 }
 
