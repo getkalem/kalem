@@ -5,11 +5,12 @@ a styled document, CSV as a grid, LaTeX with formulas typeset). The
 design gives each one contract shared by the built-in ones and by
 plugins (D25). This chapter says where each contract stands today.
 
-| Contract       | State today                                          | Code                           | Plugin side       |
-|----------------+------------------------------------------------------+--------------------------------+-------------------|
-| Completers     | Implemented; three built-in completers use it        | =kalem-core/src/completers.rs= | T3.1.9c           |
-| Highlighters   | syntect with the built-in syntax definitions         | =kalem-highlight/src/lib.rs=   | T3.1.9g           |
-| Document modes | Not yet a contract: a fixed set of modes in the core | =kalem-core/src/mode.rs=       | T2.7c.10, T3.1.9g |
+| Contract       | State today                                                                                                                    | Code                           | Plugin side       |
+|----------------+--------------------------------------------------------------------------------------------------------------------------------+--------------------------------+-------------------|
+| Completers     | Implemented; three built-in completers use it                                                                                  | =kalem-core/src/completers.rs= | T3.1.9c           |
+| Highlighters   | syntect with the built-in syntax definitions                                                                                   | =kalem-highlight/src/lib.rs=   | T3.1.9g           |
+| Document modes | The contract with its conformance check; CSV and the Kalem format on it, the editors still drawing each mode with its own code | =kalem-core/src/modes.rs=      | T2.7c.10, T3.1.9g |
+| Language packs | Implemented and wired; no pack built in                                                                                        | =kalem-core/src/packs.rs=      | T3.1.9c, T3.1.9e  |
 
 * Completers
 
@@ -258,34 +259,28 @@ In this order:
 A file whose start has a NUL byte, or bytes that are not UTF-8 with
 many control characters among them, is binary.
 
-** The mode contract (planned)
+** The mode contract
 
-The design wants one contract for every mode, the one built-in modes
-use and plugins will use (§11.11): a =DocumentModeSpec= in =kalem-core=
-with
+One contract serves every mode, the one built-in modes use and plugins
+will use (§11.11): the trait =ModeSpec= in =kalem_core::modes=, with
 
-| Part                                           | What the mode gives                                                        |
-|------------------------------------------------+----------------------------------------------------------------------------|
-| =detect=                                       | Extensions, mode lines, a sniff function over the first bytes              |
-| =parse(text, edit?, previous?)=                | A tree of nodes, each with a kind from a fixed vocabulary and a byte range |
-| =grid(text)=                                   | Rows and cells with ranges, for table-like formats                         |
-| =edit=                                         | Enter, Tab, input rules and toggles, each returning edits with ranges      |
-| =outline=, =format=, =complete=, =diagnostics= | The language pack hooks                                                    |
-| =export=                                       | Optional conversion to Org or HTML                                         |
+| Part                               | What the mode gives                                                                         |
+|------------------------------------+---------------------------------------------------------------------------------------------|
+| =id=, =detect=                     | Its name; extensions and a sniff function over the first bytes                              |
+| =parse(text, edit?, previous?)=    | A flat tree of nodes, each with a kind from a fixed vocabulary, a byte range and its parent |
+| =grid(text)=                       | Rows and cells with ranges, for table-like formats                                          |
+| =edit=                             | Enter, Tab and toggles, each returning edits with ranges                                    |
+| =outline=, =format=, =diagnostics= | As the language pack hooks below                                                            |
+| =to_html=                          | Optional conversion to HTML                                                                 |
 
-The core would build the view from the ranges, so that both editors
-render every mode and the mode draws nothing; a mode returns ranges
-into the text, never text, so it cannot break the byte-exact round
-trip. Task T2.7c.10 defines this contract in phase 2 and rewrites the
-Markdown, CSV and LaTeX modes against it; until then there is no mode
-contract in the code, and a new mode means a new variant of
-=DocumentMode= and its own view code in both frontends. The plugin side,
-=kalem::modes::register=, is T3.1.9g; see [[file:plugins.org][Plugins]].
-
-Formats whose view is their source (JSON, YAML, diff, ledger files)
-are meant to get no mode at all, only a /language pack/: highlighting
-plus an outline, a formatter, completion and diagnostics (T2.7a.7,
-open).
+A mode returns ranges into the text, never text, so it cannot break the
+byte-exact round trip. =modes::check= is the conformance check every
+mode runs: every range inside the text and inside its parent, two
+parses equal, an incremental parse equal to a full one. CSV and the
+Kalem format are written against it (T2.7c.10). Still to come: the
+editors drawing every mode from its tree rather than from each mode's
+own view code, Markdown and LaTeX on the contract, and the plugin side,
+=kalem::modes::register= (T3.1.9g; see [[file:plugins.org][Plugins]]).
 
 * Highlighters
 
