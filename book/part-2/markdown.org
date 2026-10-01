@@ -135,6 +135,12 @@ edits it as plain text. Concretely:
   Emacs keymap) sorts the body rows by the cursor's column, as numbers
   when they all are, else as text ignoring case; =reverse= sorts
   descending. Outside a table these keys move lines as everywhere.
+- In a list item, Alt+Up and Alt+Down move the item with what it holds
+  above the item before or below the one after (=markdown.list.moveUp=,
+  =markdown.list.moveDown=); a numbered list is numbered again from the
+  number it started at. /Renumber List/ (=markdown.list.renumber=) puts
+  the numbers in order after other edits, as markdown-mode's cleanup of
+  list numbers does.
 - Formulas: a table followed by lines =<!-- TBLFM: … -->= (as
   Obsidian's Advanced Tables writes them, and invisible elsewhere) is
   computed by F9 (/Recalculate Table/, =markdown.table.recalculate=)
@@ -405,7 +411,6 @@ above is done.
   so untouched bytes stay as they were (T2.7c.8).
 - *View.* Done as above; still to come: code blocks coloured with the
   state of the lines before (T2.7c.3).
-- *Editing.* Renumbering a list after other edits (T2.7c.5).
 - *Conversion.* "Convert to Org" and "Convert from Org", through the
   exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).
 - *What note-taking users expect.* Front matter edited as a form

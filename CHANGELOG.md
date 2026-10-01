@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Markdown lists: Alt+Up and Alt+Down move an item with its content, numbered lists numbered again; Renumber List (T2.7c.5).
 - Markdown tables compute their formulas: `<!-- TBLFM: … -->` lines after a table, as Obsidian writes them, in Org's formula language (F9) (T2.7c.4).
 - Workspaces (`SPC TAB`): named sets of a window's documents, each with its panes, switched, renamed, deleted (keeping the documents open), saved and loaded (T2.7i.15).
 - Panes in both editors (`SPC w`, `C-x 2`, `C-x 3`, `C-x o`): split, focus by direction, move, close, only, balance, resize, swap, rotate, and undo and redo of the layout (T2.7i.5).
