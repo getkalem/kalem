@@ -571,15 +571,24 @@ the sorted view shows only the filtered records (=csv::shown_lines=).
 Filter and view sort are state of the open document, not of the file;
 they are not saved.
 
-Three toggles change how the grid draws the document, and are not saved
-either (=csv::View=):
+The grid looks like a spreadsheet (=csv.sheet=, on by default): the
+column letters in a shaded bar above the rows (=A=, =B=, … =AA=),
+lined up with the cells and scrolled with them, each row's number in a
+shaded gutter on its left, and the cell at the cursor marked in Excel's
+green, its row number and column letter too. The header row stays under
+the letters when the rows scroll. The editor's own line numbers are not
+drawn: the rows are numbered.
+
+Three more toggles change how the grid draws the document, and are not
+saved either (=csv::View=); the settings =csv.align_numbers=,
+=csv.rainbow= and =csv.coordinates= say how new files start:
 
 - /Align Numbers Right/ (on by default) turns the right alignment of
   columns of numbers off and on.
 - /Rainbow Columns/ gives each column its color, six colors in turn,
   readable on light and dark themes (as Emacs's =rainbow-csv=).
-- /Coordinate Grid/ (=C-c }= in the Emacs keymap, as in an Org table)
-  shows each row's number in a dimmed gutter and each column's letters
+- /Coordinate Grid/ (=C-c }= in the Emacs keymap, as in an Org table),
+  without the spreadsheet look, shows each row's number in a dimmed gutter and each column's letters
   on the first row (=A:name=), with blanks of the same width below them
   so the columns stay aligned; /Go to Cell/ and /Cell Coordinates/ use
   the same names.

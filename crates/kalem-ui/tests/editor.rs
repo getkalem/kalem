@@ -3483,6 +3483,10 @@ fn csv_filter_and_header(cx: &mut TestAppContext) {
     e.update(cx, |_, cx| cx.notify());
     cx.run_until_parked();
     assert!(cx.debug_bounds("csv-header").is_some(), "the header pinned");
+    // The column letters above it, as a spreadsheet has them.
+    let letters = cx.debug_bounds("csv-letters").expect("the letters bar");
+    let header = cx.debug_bounds("csv-header").unwrap();
+    assert!(letters.bottom() <= header.top() + gpui::px(16.), "{letters:?} {header:?}");
     // A filter keeps the header, the matching rows and the cursor's.
     cx.dispatch_action(kalem_ui::editor::RunCommand::with(
         "csv.filter",
