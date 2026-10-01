@@ -1222,78 +1222,78 @@ what = "Project diagnostics"
 reason = "Waits for the checks of =kalem check= in the editor, and the language packs (3.8)"
 
 
-# Git =SPC g=.
+# Git =SPC g=: not planned (owner, 2026-10-01).
 [[key]]
 doom = "SPC g g"
 keys = "space g g"
 what = "Status"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g b"
 keys = "space g b"
 what = "Blame"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g B"
 keys = "space g shift+b"
 what = "Blame this line"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g c c"
 keys = "space g c c"
 what = "Commit"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g S"
 keys = "space g shift+s"
 what = "Stage the file"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g U"
 keys = "space g shift+u"
 what = "Unstage the file"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g R"
 keys = "space g shift+r"
 what = "Revert the file"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g L"
 keys = "space g shift+l"
 what = "Log of the file"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g t"
 keys = "space g t"
 what = "Time machine"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g ["
 keys = "space g ["
 what = "Previous hunk"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g ]"
 keys = "space g ]"
 what = "Next hunk"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 [[key]]
 doom = "SPC g o o"
 keys = "space g o o"
 what = "Open on the remote"
-reason = "Planned: T2.7i.11"
+reason = "Not planned: Kalem has no Git integration (owner, 2026-10-01)"
 
 
 # Notes =SPC n=.
