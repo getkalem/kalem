@@ -124,7 +124,8 @@ Planned: `kalem agenda`, and `kalem run` for a plugin's command in batch, like `
 | `design_document.md` | The design document (RFC 0001) |
 | `design_doc2.md` | The second design document (RFC 0002): the standard modes, the Kalem format, the Book |
 | `rfcs/` | RFC 0003, the Kalem format, and the RFC process |
-| `todo.md` | The work breakdown |
+| `todo.md` | The work breakdown: every task with its reason, test and done-criterion, done and open |
+| `todo2.md` | The open tasks, in the order they are to be done, under general headings, with the points that need a decision |
 
 ## Building
 
