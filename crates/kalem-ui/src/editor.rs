@@ -933,6 +933,9 @@ impl Editor {
         if let Some(v) = &self.vim {
             c.set("vimMode", WhenValue::Str(v.mode_name().into()));
             c.flag("vimCommand", v.idle_command() && v.command_line.is_none());
+            c.flag("vimActive", true);
+            // Control is Vim's; on macOS the Word-like keys are Command's.
+            c.flag("vimOwnsCtrl", !self.shared.swap_primary);
         }
         c
     }

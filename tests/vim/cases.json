@@ -1,0 +1,1177 @@
+[
+ {
+  "name": "motion_w",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wwx"
+ },
+ {
+  "name": "motion_W",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jWWx"
+ },
+ {
+  "name": "motion_b",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$bx"
+ },
+ {
+  "name": "motion_B",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "j$Bx"
+ },
+ {
+  "name": "motion_e",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "eex"
+ },
+ {
+  "name": "motion_E",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jEEx"
+ },
+ {
+  "name": "motion_ge",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$gex"
+ },
+ {
+  "name": "motion_gE",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "j$gEx"
+ },
+ {
+  "name": "motion_0",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jw0x"
+ },
+ {
+  "name": "motion_caret",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "j$^x"
+ },
+ {
+  "name": "motion_dollar",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$x"
+ },
+ {
+  "name": "motion_g_",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jg_x"
+ },
+ {
+  "name": "motion_hjkl",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jjlllkhx"
+ },
+ {
+  "name": "motion_count_j",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3jx"
+ },
+ {
+  "name": "motion_G",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Gx"
+ },
+ {
+  "name": "motion_gg",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Gggx"
+ },
+ {
+  "name": "motion_countG",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3Gx"
+ },
+ {
+  "name": "motion_f",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "fox"
+ },
+ {
+  "name": "motion_F",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$Fox"
+ },
+ {
+  "name": "motion_t",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "tox"
+ },
+ {
+  "name": "motion_T",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$Tox"
+ },
+ {
+  "name": "motion_semicolon",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "fo;;x"
+ },
+ {
+  "name": "motion_comma",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "fo;;,x"
+ },
+ {
+  "name": "motion_2f",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "2fox"
+ },
+ {
+  "name": "motion_percent",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jf(%x"
+ },
+ {
+  "name": "motion_brace_fwd",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "}x"
+ },
+ {
+  "name": "motion_brace_back",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "G{x"
+ },
+ {
+  "name": "motion_paren_fwd",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "4j)x"
+ },
+ {
+  "name": "motion_paren_back",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "4j$(x"
+ },
+ {
+  "name": "motion_H",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "GHx"
+ },
+ {
+  "name": "motion_L",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Lx"
+ },
+ {
+  "name": "motion_M",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Mx"
+ },
+ {
+  "name": "motion_pipe",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "10|x"
+ },
+ {
+  "name": "motion_plus",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "+x"
+ },
+ {
+  "name": "motion_minus",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "j-x"
+ },
+ {
+  "name": "motion_enter",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "<CR>x"
+ },
+ {
+  "name": "motion_underscore",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "j2_x"
+ },
+ {
+  "name": "motion_star",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "w*x"
+ },
+ {
+  "name": "motion_hash",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "G#x"
+ },
+ {
+  "name": "motion_search",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "/lazy<CR>x"
+ },
+ {
+  "name": "motion_search_back",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "G?the<CR>x"
+ },
+ {
+  "name": "motion_n",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "/e<CR>nnx"
+ },
+ {
+  "name": "motion_N",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "/e<CR>nnNx"
+ },
+ {
+  "name": "motion_gstar",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "g*x"
+ },
+ {
+  "name": "motion_go",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "20gox"
+ },
+ {
+  "name": "motion_gm",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "gmx"
+ },
+ {
+  "name": "op_dw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dw"
+ },
+ {
+  "name": "op_d2w",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "d2w"
+ },
+ {
+  "name": "op_2dw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "2dw"
+ },
+ {
+  "name": "op_de",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "de"
+ },
+ {
+  "name": "op_db",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$db"
+ },
+ {
+  "name": "op_dd",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jdd"
+ },
+ {
+  "name": "op_3dd",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3dd"
+ },
+ {
+  "name": "op_D",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wD"
+ },
+ {
+  "name": "op_dj",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "dj"
+ },
+ {
+  "name": "op_dk",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jjdk"
+ },
+ {
+  "name": "op_dG",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jjdG"
+ },
+ {
+  "name": "op_dgg",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jjdgg"
+ },
+ {
+  "name": "op_dt",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dtx"
+ },
+ {
+  "name": "op_df",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dfx"
+ },
+ {
+  "name": "op_d_search",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "d/lazy<CR>"
+ },
+ {
+  "name": "op_cw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "cwNEW<Esc>"
+ },
+ {
+  "name": "op_cw_space",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "ec<Space>X<Esc>"
+ },
+ {
+  "name": "op_ce",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "ceNEW<Esc>"
+ },
+ {
+  "name": "op_cc",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jccNEW<Esc>"
+ },
+ {
+  "name": "op_C",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wCNEW<Esc>"
+ },
+ {
+  "name": "op_S",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jSNEW<Esc>"
+ },
+ {
+  "name": "op_s",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "3sNEW<Esc>"
+ },
+ {
+  "name": "op_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "3x"
+ },
+ {
+  "name": "op_X",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$3X"
+ },
+ {
+  "name": "op_r",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "rZ"
+ },
+ {
+  "name": "op_3r",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "3rZ"
+ },
+ {
+  "name": "op_R",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "RABC<Esc>"
+ },
+ {
+  "name": "op_R_bs",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "RABC<BS><BS><Esc>"
+ },
+ {
+  "name": "op_tilde",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "~~~"
+ },
+ {
+  "name": "op_3tilde",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "3~"
+ },
+ {
+  "name": "op_g_tilde_w",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "g~w"
+ },
+ {
+  "name": "op_gUw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "gUw"
+ },
+ {
+  "name": "op_guu",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "gUUguu"
+ },
+ {
+  "name": "op_gUU",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "gUU"
+ },
+ {
+  "name": "op_J",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "J"
+ },
+ {
+  "name": "op_3J",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3J"
+ },
+ {
+  "name": "op_gJ",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "gJ"
+ },
+ {
+  "name": "op_J_indent",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "J"
+ },
+ {
+  "name": "op_shift_right",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ">>"
+ },
+ {
+  "name": "op_shift_left",
+  "text": "\t\tx\n",
+  "keys": "<<"
+ },
+ {
+  "name": "op_3shift",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3>>"
+ },
+ {
+  "name": "op_shift_motion",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ">j"
+ },
+ {
+  "name": "op_yank_put",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "yyp"
+ },
+ {
+  "name": "op_yank_P",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jyyP"
+ },
+ {
+  "name": "op_yw_p",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "ywP"
+ },
+ {
+  "name": "op_dd_p",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "ddp"
+ },
+ {
+  "name": "op_xp",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "xp"
+ },
+ {
+  "name": "op_3p",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "yw3P"
+ },
+ {
+  "name": "op_yiw_viw_p",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "yiwwviwp"
+ },
+ {
+  "name": "op_Y",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "Yjp"
+ },
+ {
+  "name": "op_y_dollar",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wy$P"
+ },
+ {
+  "name": "op_gp",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "yyjgpx"
+ },
+ {
+  "name": "op_dot",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dw.."
+ },
+ {
+  "name": "op_dot_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dw3."
+ },
+ {
+  "name": "op_dot_insert",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iab<Esc>j."
+ },
+ {
+  "name": "op_dot_cw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "cwX<Esc>w."
+ },
+ {
+  "name": "op_dot_A",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "A;<Esc>j."
+ },
+ {
+  "name": "op_undo",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dw<sync>dw<sync>u"
+ },
+ {
+  "name": "op_redo",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dw<sync>dw<sync>u<sync>u<sync><C-r>"
+ },
+ {
+  "name": "op_U",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "xxxU"
+ },
+ {
+  "name": "op_ctrl_a",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jj2w<C-a>"
+ },
+ {
+  "name": "op_ctrl_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jj2w5<C-x>"
+ },
+ {
+  "name": "op_ctrl_a_hex",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jj3w<C-a>"
+ },
+ {
+  "name": "op_ctrl_a_neg",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jj$<C-a><C-a>"
+ },
+ {
+  "name": "op_ctrl_a_search",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jj<C-a>"
+ },
+ {
+  "name": "op_eq",
+  "text": "a\n    b\n  c\n",
+  "keys": "=G"
+ },
+ {
+  "name": "obj_diw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wdiw"
+ },
+ {
+  "name": "obj_daw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wdaw"
+ },
+ {
+  "name": "obj_diW",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jjwdiW"
+ },
+ {
+  "name": "obj_daW",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jjwdaW"
+ },
+ {
+  "name": "obj_dis",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "4jwwdis"
+ },
+ {
+  "name": "obj_das",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "4jwwdas"
+ },
+ {
+  "name": "obj_dip",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dip"
+ },
+ {
+  "name": "obj_dap",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dap"
+ },
+ {
+  "name": "obj_di_paren",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jfadi("
+ },
+ {
+  "name": "obj_da_paren",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jfada("
+ },
+ {
+  "name": "obj_di_bracket",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jfbdi["
+ },
+ {
+  "name": "obj_ci_quote",
+  "text": "say \"hello world\" now\n",
+  "keys": "fwci\"X<Esc>"
+ },
+ {
+  "name": "obj_da_quote",
+  "text": "say \"hello world\" now\n",
+  "keys": "fwda\""
+ },
+ {
+  "name": "obj_di_quote_before",
+  "text": "say \"hello\" now\n",
+  "keys": "di\""
+ },
+ {
+  "name": "obj_dit",
+  "text": "<a><b>text</b></a>\n",
+  "keys": "fedit"
+ },
+ {
+  "name": "obj_dat",
+  "text": "<a><b>text</b></a>\n",
+  "keys": "fedat"
+ },
+ {
+  "name": "obj_di_brace",
+  "text": "f {\n  a;\n  b;\n}\n",
+  "keys": "jdi{"
+ },
+ {
+  "name": "obj_ci_angle",
+  "text": "x <abc> y\n",
+  "keys": "fbci<Z<Esc>"
+ },
+ {
+  "name": "obj_yi_backtick",
+  "text": "a `code` b\n",
+  "keys": "fcyi`$p"
+ },
+ {
+  "name": "obj_d2aw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "d2aw"
+ },
+ {
+  "name": "obj_vip",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vipd"
+ },
+ {
+  "name": "vis_v_d",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vwwd"
+ },
+ {
+  "name": "vis_V_d",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Vjd"
+ },
+ {
+  "name": "vis_ctrl_v_d",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "l<C-v>jjld"
+ },
+ {
+  "name": "vis_o",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wvlloxd"
+ },
+ {
+  "name": "vis_gv",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vl<Esc>wgvd"
+ },
+ {
+  "name": "vis_y_P",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "veyP"
+ },
+ {
+  "name": "vis_c",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vecX<Esc>"
+ },
+ {
+  "name": "vis_U",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "veU"
+ },
+ {
+  "name": "vis_u",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "VU0veu"
+ },
+ {
+  "name": "vis_tilde",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "ve~"
+ },
+ {
+  "name": "vis_J",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "VjjJ"
+ },
+ {
+  "name": "vis_gt",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Vj>"
+ },
+ {
+  "name": "vis_r",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "verx"
+ },
+ {
+  "name": "vis_block_I",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-v>jjI- <Esc>"
+ },
+ {
+  "name": "vis_block_A",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-v>jj$A;<Esc>"
+ },
+ {
+  "name": "vis_block_c",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-v>jjecX<Esc>"
+ },
+ {
+  "name": "vis_block_dollar_d",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "l<C-v>j$d"
+ },
+ {
+  "name": "vis_p_replace",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "yiwwvep"
+ },
+ {
+  "name": "vis_count",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "v3ld"
+ },
+ {
+  "name": "vis_ip",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vipy}p"
+ },
+ {
+  "name": "vis_line_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "V2jd"
+ },
+ {
+  "name": "vis_dot",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Vd."
+ },
+ {
+  "name": "vis_swap_V",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vjVd"
+ },
+ {
+  "name": "vis_block_o",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-v>jlOd"
+ },
+ {
+  "name": "vis_ctrl_a",
+  "text": "1\n1\n1\n",
+  "keys": "VG<C-a>"
+ },
+ {
+  "name": "vis_g_ctrl_a",
+  "text": "0\n0\n0\n",
+  "keys": "VGg<C-a>"
+ },
+ {
+  "name": "ins_i",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iX<Esc>"
+ },
+ {
+  "name": "ins_a",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "aX<Esc>"
+ },
+ {
+  "name": "ins_I",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jwIX<Esc>"
+ },
+ {
+  "name": "ins_gI",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jwgIX<Esc>"
+ },
+ {
+  "name": "ins_A",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "AX<Esc>"
+ },
+ {
+  "name": "ins_o",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "oX<Esc>"
+ },
+ {
+  "name": "ins_O",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jOX<Esc>"
+ },
+ {
+  "name": "ins_o_indent",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "joX<Esc>"
+ },
+ {
+  "name": "ins_3i",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "3iab<Esc>"
+ },
+ {
+  "name": "ins_3o",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "3oX<Esc>"
+ },
+ {
+  "name": "ins_ctrl_w",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "Aone two<C-w><Esc>"
+ },
+ {
+  "name": "ins_ctrl_w2",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "A<C-w><C-w><Esc>"
+ },
+ {
+  "name": "ins_ctrl_u",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "Anew text<C-u><Esc>"
+ },
+ {
+  "name": "ins_ctrl_h",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "Aab<C-h><Esc>"
+ },
+ {
+  "name": "ins_bs",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "Aab<BS><BS><BS><Esc>"
+ },
+ {
+  "name": "ins_ctrl_r",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "yiwA <C-r>\"<Esc>"
+ },
+ {
+  "name": "ins_ctrl_r_named",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "\"ayiwwi<C-r>a<Esc>"
+ },
+ {
+  "name": "ins_ctrl_o",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iX<C-o>dwY<Esc>"
+ },
+ {
+  "name": "ins_ctrl_o_dollar",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iX<C-o>$Y<Esc>"
+ },
+ {
+  "name": "ins_ctrl_t",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "i<C-t><Esc>"
+ },
+ {
+  "name": "ins_ctrl_d",
+  "text": "\t\tx\n",
+  "keys": "A<C-d><Esc>"
+ },
+ {
+  "name": "ins_ctrl_e",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jI<C-e><C-e><Esc>"
+ },
+ {
+  "name": "ins_ctrl_y",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "jI<C-y><C-y><Esc>"
+ },
+ {
+  "name": "ins_ctrl_a",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iab<Esc>jI<C-a><Esc>"
+ },
+ {
+  "name": "ins_ctrl_v",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "i<C-v>065<Esc>"
+ },
+ {
+  "name": "ins_ctrl_j",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wi<C-j><Esc>"
+ },
+ {
+  "name": "ins_ctrl_m",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wi<C-m><Esc>"
+ },
+ {
+  "name": "ins_cr_indent",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jA<CR>x<Esc>"
+ },
+ {
+  "name": "ins_ctrl_bracket",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iX<C-[>x"
+ },
+ {
+  "name": "ins_esc_moves_left",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "Aab<Esc>x"
+ },
+ {
+  "name": "ins_ctrl_at",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iab<Esc>jI<C-@>"
+ },
+ {
+  "name": "ins_tab",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "i<Tab><Esc>"
+ },
+ {
+  "name": "ins_ctrl_k",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "i<C-k>e:<Esc>"
+ },
+ {
+  "name": "reg_named",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "\"ayyj\"ap"
+ },
+ {
+  "name": "reg_append",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "\"ayw w\"Ayw\"aP"
+ },
+ {
+  "name": "reg_numbered",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "dddd\"2p"
+ },
+ {
+  "name": "reg_small_delete",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "dwj\"-p"
+ },
+ {
+  "name": "reg_black_hole",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "yw\"_dwP"
+ },
+ {
+  "name": "reg_zero",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "ywdw\"0P"
+ },
+ {
+  "name": "reg_dot",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iab<Esc>\".p"
+ },
+ {
+  "name": "mark_jump",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "majjd'a"
+ },
+ {
+  "name": "mark_backtick",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wmaGd`a"
+ },
+ {
+  "name": "mark_last",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Gx``x"
+ },
+ {
+  "name": "macro",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "qaA;<Esc>jq2@a"
+ },
+ {
+  "name": "macro_at_at",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "qaA;<Esc>jq@a@@"
+ },
+ {
+  "name": "macro_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "qaI- <Esc>jq3@a"
+ },
+ {
+  "name": "ctrl_e_ctrl_y",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "<C-e>x"
+ },
+ {
+  "name": "count_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "5x"
+ },
+ {
+  "name": "ampersand",
+  "text": "aa aa\naa aa\n",
+  "keys": ":s/a/b/<CR>j&"
+ },
+ {
+  "name": "subst_g",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": ":%s/o/0/g<CR>"
+ },
+ {
+  "name": "ex_d",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":2,3d<CR>"
+ },
+ {
+  "name": "ex_m",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":1m3<CR>"
+ },
+ {
+  "name": "ex_t",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":1t$<CR>"
+ },
+ {
+  "name": "ex_normal",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":%norm A!<CR>"
+ },
+ {
+  "name": "ex_g",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":g/i/d<CR>"
+ },
+ {
+  "name": "ex_v",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":v/f/d<CR>"
+ },
+ {
+  "name": "ex_sort",
+  "text": "c\nb\na\n",
+  "keys": ":sort<CR>"
+ },
+ {
+  "name": "ex_join",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":1,3j<CR>"
+ },
+ {
+  "name": "ex_gt",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":2>><CR>"
+ },
+ {
+  "name": "ex_y_put",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": ":1y<CR>:3put<CR>"
+ },
+ {
+  "name": "tilde_cmd",
+  "text": "aa aa\naa aa\n",
+  "keys": ":s/a/b/<CR>j~"
+ },
+ {
+  "name": "gi",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "iX<Esc>jgiY<Esc>"
+ },
+ {
+  "name": "gv_after_y",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "vey$gvd"
+ },
+ {
+  "name": "ctrl_o_jump",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "Gggx<C-o>x"
+ },
+ {
+  "name": "ga_noop",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "xgJ"
+ },
+ {
+  "name": "zz_noop",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "jzzx"
+ },
+ {
+  "name": "dot_after_p",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "yyp.."
+ },
+ {
+  "name": "cgn",
+  "text": "foo x foo y foo\n",
+  "keys": "/foo<CR>cgnbar<Esc>.."
+ },
+ {
+  "name": "star_cw_n",
+  "text": "aa bb aa bb aa\n",
+  "keys": "*cwX<Esc>n."
+ },
+ {
+  "name": "d_count_motion",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "2d2w"
+ },
+ {
+  "name": "c_dollar_count",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "2C!<Esc>"
+ },
+ {
+  "name": "yank_cursor",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "wyiw"
+ },
+ {
+  "name": "dd_last_line",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "Gdd"
+ },
+ {
+  "name": "p_linewise_last",
+  "text": "first line\nsecond line\nthird line\nfourth line\nfifth line\n",
+  "keys": "yyGp"
+ },
+ {
+  "name": "x_end_of_line",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
+  "keys": "$xx"
+ },
+ {
+  "name": "J_count_beyond",
+  "text": "a\nb\n",
+  "keys": "5J"
+ }
+]

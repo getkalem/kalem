@@ -1774,7 +1774,12 @@ fn file_manager_context_menu(cx: &mut TestAppContext) {
 fn editing_an_argument_with_the_arrows(cx: &mut TestAppContext) {
     for vim in [false, true] {
         let (ws, dir, cx) = open_project(vim, cx);
-        cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
+        // Doom's `SPC o -` with Vim's keys.
+        if vim {
+            cx.simulate_keystrokes("space o -");
+        } else {
+            cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
+        }
         cx.run_until_parked();
         let e = ws.read_with(cx, |ws, _| ws.editor.clone());
         e.update_in(cx, |e, window, cx| {
@@ -2140,9 +2145,19 @@ fn help_keys(cx: &mut TestAppContext) {
         })
     };
     cx.simulate_keystrokes("space h k");
+    cx.simulate_keystrokes(&format!("{}-space", primary()));
+    cx.run_until_parked();
+    assert!(status(cx).contains("edit.complete"), "{}", status(cx));
+    // A Word-like key Vim has instead: Control is Vim's, Command (macOS)
+    // keeps the Word-like keys.
+    cx.simulate_keystrokes("space h k");
     cx.simulate_keystrokes(&format!("{}-s", primary()));
     cx.run_until_parked();
-    assert!(status(cx).contains("app.save"), "{}", status(cx));
+    if cfg!(target_os = "macos") {
+        assert!(status(cx).contains("app.save"), "{}", status(cx));
+    } else {
+        assert!(!status(cx).contains("app.save"), "{}", status(cx));
+    }
     cx.simulate_keystrokes("space h m");
     cx.run_until_parked();
     assert!(status(cx).contains("org"), "{}", status(cx));

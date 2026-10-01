@@ -20,22 +20,76 @@ The other keys are in the sections above, and in the command palette.
 
 * Vim keys
 
-With =editor.keymap_profile = "vim"=, the editor has Vim's modes. Normal
-mode moves and edits: =h j k l=, =w b e=, =0 ^ $=, =gg G=, =f t ; ,=, =%=,
-={ }=, counts, the operators =d c y > <= and =gu gU g~= with motions and
-text objects (=iw=, =i"=, =i(=, =ip= and their =a= forms; in Org
-documents also =ih= the headline's title, =iR= the subtree below its
-headline, =ii= a list item's text, =ic= a table cell and =ie= the inside
-of emphasis, and their =a= forms with the whole headline, subtree, item,
-cell or emphasis), =x D C p P J r ~ u= Ctrl+R and =.= to repeat. =v= and =V= select characters and lines, Ctrl+V a block of columns
-(=I= and =A= then type on each of its lines).
-=/= and =?= search, =n N * #= repeat. Registers: ="a= to ="z=, and ="+=
-for the system clipboard. The command line knows =:w=, =:q=, =:q!=,
-=:wq=, =:x=, =:NUMBER=, =:$=, =:noh=, =:e FILE= (=:e= alone asks for
-a file), =:e!= (Revert to Saved), =:enew= (a new document), =:bn=,
-=:bp=, =:bd= and =:ls=; =:Ex=, =:E=, =:Explore= and =:Dired= open the
-file manager, and =:Projects= the projects. =gt= and =gT= go to the next
-and previous document.
+With =editor.keymap_profile = "vim"=, every key is Vim's except the
+leader keys, which are Doom Emacs's (=SPC f f=, =SPC p p=…, below). The
+Word-like keys with Control or Alt are off wherever the Vim layer is on:
+Ctrl+S, Ctrl+W, Ctrl+V and the others are Vim's (=:w= saves). Doom keeps
+a few keys under Evil and so does Kalem: Alt with the arrows (Org's and
+Markdown's structure moves, the tables' rows and columns), Control or Alt
+with Enter, and Ctrl+Space for completion. On macOS, Command keeps the
+Word-like keys (Cmd+S, Cmd+C, Cmd+V), as Doom's =s-= keys do, and Control
+is Vim's.
+
+What Vim does, Kalem does the same way, and the tests hold it to that:
+=tests/vim/cases.json= has a few hundred key sequences, each run in Vim
+itself (=tools/vim-expected.py=, a job of the continuous integration)
+and in Kalem, and the text and cursor after them must agree. What is
+there:
+
+- Normal mode: every motion (=h j k l w b e ge W B E gE 0 ^ $ g_ | gm gM
+  go gg G H M L f t F T ; , % ( ) { } + - _ Enter=), counts, the
+  operators =d c y > < = g~ gu gU g?= with motions, text objects (=iw aw
+  iW aW is as ip ap i( a( i[ a[ i{ a{ i< a< it at i" a" i' a' i` a`=, with
+  counts, =d2aw=), =x X s S r R D C Y p P gp gP J gJ ~ u U Ctrl+R .=,
+  =Ctrl+A= and =Ctrl+X= (decimal, =0x= hexadecimal, =0b= binary), =gi gI
+  gv gn gN cgn=, =Ctrl+E Ctrl+Y zt zz zb=, =Ctrl+D Ctrl+U Ctrl+F Ctrl+B=.
+- Marks =m= with =' `= and Vim's own marks (=''=, ='[=, =']=, ='<=,
+  ='>=, ='.=, ='^=), the jump list (=Ctrl+O=, =Ctrl+I=) and the change
+  list (=g;=, =g,=).
+- Registers: ="a= to ="z= (="A= appends), ="0= the last yank, ="1= to
+  ="9= the deletes of lines, ="-= the small ones, ="_= nothing, =".= the
+  last insert, =":= the last command line, ="/= the last search, ="+=
+  and ="*= the system clipboard. Macros: =q= records, =@= runs, =@@=
+  again, =@:= the command line again.
+- Visual mode: =v V= and Ctrl+V, =o=, =gv=, the operators, =r=, =p=
+  (the replaced text goes to the unnamed register), =J=, Ctrl+A and
+  =g Ctrl+A=, =I= and =A= on a block (=$= to the end of each line), and
+  =.= repeats on as much text.
+- Insert mode: Ctrl+W, Ctrl+U and Ctrl+H (=backspace= as
+  =indent,eol,start=, stopping once where the insert started), Ctrl+R
+  and a register, Ctrl+O for one command, Ctrl+T and Ctrl+D to indent,
+  Ctrl+E and Ctrl+Y, Ctrl+A and Ctrl+@, Ctrl+V for a character by its
+  code, Ctrl+K and a digraph (Vim's table of 1,363), Ctrl+N and Ctrl+P to
+  complete a word from the document, counts (=3ia=, =3o=); in plain text
+  also Enter with =autoindent=, Tab with =expandtab= and =softtabstop=,
+  and Backspace. In Org, Markdown and LaTeX documents Enter, Tab and
+  Backspace keep what the document does with them (continuing a list,
+  moving between table cells), as Doom's Evil does.
+- Search: =/= and =?= with Vim's patterns (=\<word\>=, =\(…\)=, =\|=,
+  =\{n,m}=, =\v=, =\V=, =\zs=, =\ze=, =\c=), =n N * # g* g#=.
+- The command line, with ranges (=%=, =.=, =$=, numbers, marks,
+  =/pat/=, =?pat?=, offsets, ='<,'>= from visual mode): =:s= with its
+  flags and =&=, =\1=, =\u=, =\U=, =~= in the replacement, =:&=, =:&&=,
+  =:~=, =&= and =g&=; =:g= and =:v=; =:d=, =:y=, =:pu=, =:m=, =:t=,
+  =:co=, =:j=, =:>=, =:<=, =:norm=, =:sort= (=n=, =u=, =i=, =r=, a
+  pattern, =!=), =:k= and =:mark=, =:u=, =:red=, =:left=, =:retab=,
+  =:==, =:p=, =:reg=, =:marks=, =:noh=; =:set= for =shiftwidth=,
+  =tabstop=, =softtabstop=, =expandtab=, =autoindent=, =ignorecase=,
+  =smartcase=, =wrapscan=, =joinspaces=, =nrformats= (with =no=, =inv=,
+  =!=, =?=, =+== and =-==). Files and windows: =:w=, =:q=, =:q!=, =:wq=,
+  =:x=, =:qa=, =:wqa=, =:e FILE= (=:e= alone asks), =:e!= (Revert to
+  Saved), =:enew=, =:bn=, =:bp=, =:bd=, =:ls=, =:sp=, =:vs=, =:close=,
+  =:only=, =:new=; =:Ex=, =:E=, =:Explore= and =:Dired= open the file
+  manager, and =:Projects= the projects. =gt= and =gT= go to the next
+  and previous document.
+
+Kalem's defaults differ from Vim's where Vim's own are kept for
+compatibility with Vi: =autoindent= is on, =shiftwidth= is 2 with
+=expandtab= and =softtabstop= following it, =backspace= is
+=indent,eol,start=, =nrformats= is =bin,hex= and =joinspaces= is off;
+=:set= changes them for the document. What Vim has that Kalem does not:
+Vim script, plugins, =:help=, folds by Vim's commands (Kalem folds Org
+headings with Tab), the =:!= filter and =gq= formatting.
 
 Space is the leader, as in Doom Emacs. Press it, wait a moment
 (=keys.hints_delay=, 400 ms), and a panel shows what can follow: each key
@@ -175,10 +229,8 @@ trash, unless it has unsaved changes.
 
 =editor.vim.leader= makes another key the leader (="\\"= or =","=, say).
 
-Insert mode (=i a o= and the others) types as usual, with the Word-like
-keys. Keys with Control or Alt that Vim does not use, such as Ctrl+S, keep
-their Word-like meaning in every mode. In Org documents, =>>= and =<<=
-demote and promote headings and indent list items.
+In Org documents, =>>= and =<<= demote and promote headings and indent
+list items.
 
 =editor.vim.modes= limits Vim keys to some kinds of documents: =org=,
 =markdown=, =csv=, =latex=, =text= (plain text, code and BibTeX) and
@@ -214,10 +266,10 @@ in a document of each kind.
 
 ** Markdown
 
-In Markdown, Ctrl+B, Ctrl+I and Ctrl+K make the selection bold, italic
-or a link with the Word-like keys too (=markdown.emphasis.bold=,
+With the Word-like keys, Ctrl+B, Ctrl+I and Ctrl+K make the selection
+bold, italic or a link (=markdown.emphasis.bold=,
 =markdown.emphasis.italic=, =markdown.insert.link=); a second time takes
-the markers away.
+the markers away. With Vim's keys these are the local leader's.
 
 #+KALEM_KEYS: doom-localleader-markdown
 

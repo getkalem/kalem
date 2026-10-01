@@ -296,8 +296,11 @@ fn vim_profile() {
     assert!(t.app.take_output().contains(&"\x1b[6 q".to_string()));
     t.key(KeyCode::Esc, KeyModifiers::NONE);
     assert_eq!(t.text(), "one two!\nthree\n");
-    // Chords Vim leaves alone go to the Word-like keys: Ctrl+S saves.
+    // Control is Vim's: Ctrl+S is not the Word-like Save; `:w` saves.
     t.key(KeyCode::Char('s'), KeyModifiers::CONTROL);
+    assert!(t.app.doc.is_modified());
+    t.typ(":w");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert!(!t.app.doc.is_modified());
     // `:q!` closes without asking.
     t.typ("x:q!");
@@ -3954,13 +3957,20 @@ fn help_keys() {
     let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
     let (mut t, _dir) = project_app(config);
     t.typ(" hk");
-    t.key(KeyCode::Char('s'), KeyModifiers::CONTROL);
+    t.key(KeyCode::Char(' '), KeyModifiers::CONTROL);
     assert!(
-        status(&mut t).contains("ctrl+s runs Save"),
+        status(&mut t).contains("ctrl+space runs Compl"),
         "{}",
         status(&mut t)
     );
-    assert!(!t.app.doc.is_modified());
+    // Control is Vim's: the Word-like Ctrl+S is off.
+    t.typ(" hk");
+    t.key(KeyCode::Char('s'), KeyModifiers::CONTROL);
+    assert!(
+        status(&mut t).contains("ctrl+s runs no command"),
+        "{}",
+        status(&mut t)
+    );
     t.typ(" hm");
     assert!(status(&mut t).contains("org"), "{}", status(&mut t));
     t.at(0);

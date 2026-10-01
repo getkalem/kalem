@@ -17,6 +17,11 @@
 //! documents `>>` and `<<` demote and promote headlines and indent list
 //! items. Block selection, macros, marks and `:s` come later (§7.3.1).
 
+mod ex;
+mod insert;
+mod normal;
+mod pattern;
+
 use std::collections::HashMap;
 use std::ops::Range;
 use std::time::Instant;
@@ -100,6 +105,26 @@ pub trait Host {
     fn rich_view(&self) -> bool {
         false
     }
+    /// The first and last document lines on screen (from 0), for `H`,
+    /// `M` and `L`; `None` where the frontend cannot say.
+    fn visible_lines(&self) -> Option<(usize, usize)> {
+        None
+    }
+    /// Scrolls the view `by` lines down (up when negative), for CTRL-E
+    /// and CTRL-Y; the lines on screen after.
+    fn scroll(&mut self, by: isize) -> Option<(usize, usize)> {
+        let _ = by;
+        None
+    }
+    /// Shows `line` at the top (0), middle (1) or bottom (2) of the
+    /// screen, for `zt`, `zz` and `zb`.
+    fn scroll_to(&mut self, line: usize, at: u8) {
+        let _ = (line, at);
+    }
+    /// The screen's width in columns, for `gm`.
+    fn columns(&self) -> usize {
+        80
+    }
 }
 
 /// One character left or right of `pos`: over the shown text in the rich
@@ -140,6 +165,8 @@ enum Op {
     Lower,
     Upper,
     Toggle,
+    Rot13,
+    Reindent,
 }
 
 impl Op {
@@ -150,6 +177,7 @@ impl Op {
             'y' => Op::Yank,
             '>' => Op::Indent,
             '<' => Op::Outdent,
+            '=' => Op::Reindent,
             _ => return None,
         })
     }
@@ -175,6 +203,16 @@ enum Pending {
     Replace,
     Register,
     Object(bool),
+    /// `m`: the mark's name.
+    Mark,
+    /// `'` (linewise) or `` ` ``: the mark to go to.
+    GotoMark(bool),
+    /// `q`: the register to record into.
+    Macro,
+    /// `@`: the register to run.
+    Execute,
+    /// `z`: what to scroll.
+    Z,
 }
 
 /// A register's contents.
@@ -216,6 +254,78 @@ enum Target {
     },
 }
 
+/// The options `:set` changes (`:help options`), with Kalem's defaults
+/// where Vim's differ: 'autoindent' on, 'shiftwidth' 2, 'expandtab',
+/// 'softtabstop' following 'shiftwidth', 'backspace' as
+/// `indent,eol,start` (always), 'nrformats' `bin,hex`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Options {
+    /// 'shiftwidth': columns for `>>`, `<<`, CTRL-T and CTRL-D (0: 'tabstop').
+    pub shiftwidth: usize,
+    /// 'tabstop': the columns a tab takes.
+    pub tabstop: usize,
+    /// 'softtabstop': the columns Tab and Backspace go (negative:
+    /// 'shiftwidth').
+    pub softtabstop: isize,
+    /// 'expandtab': spaces instead of tabs.
+    pub expandtab: bool,
+    /// 'autoindent': a new line gets the indent of the one before.
+    pub autoindent: bool,
+    /// 'ignorecase' in patterns.
+    pub ignorecase: bool,
+    /// 'smartcase': an upper case letter in a pattern matches case.
+    pub smartcase: bool,
+    /// 'wrapscan': searches go around the end.
+    pub wrapscan: bool,
+    /// 'nrformats': `bin`, `octal`, `hex`, `alpha` for CTRL-A and CTRL-X.
+    pub nrformats: Vec<String>,
+    /// 'joinspaces': two spaces after a period when joining.
+    pub joinspaces: bool,
+    /// 'startofline': line motions go to the first non-blank.
+    pub startofline: bool,
+    /// 'textwidth': the width `gq` formats to (0: 79).
+    pub textwidth: usize,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Options {
+            shiftwidth: 2,
+            tabstop: 8,
+            softtabstop: -1,
+            expandtab: true,
+            autoindent: true,
+            ignorecase: false,
+            smartcase: false,
+            wrapscan: true,
+            nrformats: vec!["bin".into(), "hex".into()],
+            joinspaces: false,
+            startofline: false,
+            textwidth: 0,
+        }
+    }
+}
+
+/// CTRL-O in insert mode: one command, then insert mode again.
+#[derive(Debug, Clone, Copy)]
+struct CtrlO {
+    /// The cursor was after the end of the line.
+    eol: bool,
+    /// Where it was.
+    at: usize,
+}
+
+/// A host with no clipboard, for keys replayed inside the layer.
+struct NoHost;
+
+impl Host for NoHost {
+    fn clipboard(&mut self) -> Option<String> {
+        None
+    }
+
+    fn set_clipboard(&mut self, _: &str) {}
+}
+
 /// The state of the Vim layer for one document.
 #[derive(Debug, Clone)]
 pub struct Vim {
@@ -246,6 +356,42 @@ pub struct Vim {
     /// The leader key: in normal and visual mode it is left to the keymap,
     /// which binds sequences starting with it (Doom Emacs's `SPC p p`).
     pub leader: Option<Key>,
+    /// The options.
+    pub options: Options,
+    insert_pending: insert::InsertPending,
+    completion: Option<insert::Completion>,
+    /// What the last insert typed (the `.` register, CTRL-A).
+    last_inserted: Option<String>,
+    ctrl_o: Option<CtrlO>,
+    /// The start of a line indented by 'autoindent' with nothing typed on
+    /// it yet: Escape and Enter take the indent away again.
+    ai_line: Option<usize>,
+    /// `3i`: the insert is typed this many times.
+    insert_count: usize,
+    insert_repeat: insert::Repeat,
+    /// What replace mode typed over, for Backspace.
+    replaced: Vec<String>,
+    /// The macro being recorded: its register and the keys so far.
+    macro_rec: Option<(char, Vec<Key>)>,
+    last_macro: Option<char>,
+    macro_depth: usize,
+    /// The last command line (`@:`, the `:` register).
+    last_ex: Option<String>,
+    /// `U`: the last changed line and its text before the changes.
+    line_undo: Option<(usize, String)>,
+    /// The last visual selection, for `gv`.
+    last_visual: Option<(Mode, usize, usize)>,
+    /// The motion being made is a jump (`G`, `%`, a search).
+    jumping: bool,
+    /// The last `:s`, for `:&`, `&`, `g&` and `~` in a replacement.
+    last_sub: Option<ex::Substitute>,
+    /// The last put was of lines.
+    put_linewise: bool,
+    /// A block selection goes to the end of every line (`$`).
+    block_end: bool,
+    /// Where the cursor goes when a block insert ends: the block's top
+    /// left corner.
+    block_corner: Option<usize>,
 }
 
 impl Default for Vim {
@@ -277,17 +423,6 @@ fn find_kind(c: char) -> Find {
         'F' => Find::Back,
         _ => Find::BackTill,
     }
-}
-
-fn regex_escape(s: &str) -> String {
-    let mut out = String::new();
-    for c in s.chars() {
-        if "\\.+*?()|[]{}^$#&-~".contains(c) {
-            out.push('\\');
-        }
-        out.push(c);
-    }
-    out
 }
 
 // Positions in the document.
@@ -583,25 +718,114 @@ fn paragraph(doc: &DocumentState, pos: usize, forward: bool, count: usize) -> us
     line_start(doc, line)
 }
 
-fn search_from(
-    doc: &DocumentState,
-    pattern: &str,
-    back: bool,
-    from: usize,
-    count: usize,
-) -> Option<usize> {
-    let opts = crate::find::FindOptions { regex: true };
-    let matches = crate::find::find_with(doc.text().as_str(), pattern, opts).ok()?;
-    let mut p = from;
-    for _ in 0..count {
-        let next = if back {
-            crate::find::next(&matches, p, true)?
-        } else {
-            crate::find::next(&matches, p + 1, false)?
-        };
-        p = next.start;
+/// The starts of the sentences around `pos` (`:help sentence`): after
+/// `.`, `!` or `?` (and any closing `)`, `]`, `"`, `'`) and a blank or
+/// the end of the line; a paragraph's first non-blank; an empty line.
+fn sentence_starts(doc: &DocumentState, pos: usize) -> Vec<usize> {
+    let text = doc.text().as_str();
+    // The paragraphs around the cursor are enough.
+    let line = line_of(doc, pos);
+    let mut first = line;
+    let mut seen = 0;
+    while first > 0 && seen < 2 {
+        first -= 1;
+        if blank_line(doc, first) {
+            seen += 1;
+        }
     }
-    Some(p)
+    let last = last_line(doc);
+    let mut end_line = line;
+    let mut seen = 0;
+    while end_line < last && seen < 2 {
+        end_line += 1;
+        if blank_line(doc, end_line) {
+            seen += 1;
+        }
+    }
+    let from = line_start(doc, first);
+    let to = line_end(doc, end_line);
+    let mut starts = vec![from];
+    let bytes = text.as_bytes();
+    let mut l = first;
+    while l <= end_line {
+        let (s, e) = (line_start(doc, l), line_end(doc, l));
+        if s == e {
+            // An empty line is a sentence, and so is what comes after it.
+            starts.push(s);
+            if l < end_line {
+                starts.push(first_non_blank(doc, l + 1));
+            }
+        }
+        l += 1;
+    }
+    let mut i = from;
+    while i < to {
+        if matches!(bytes[i], b'.' | b'!' | b'?') {
+            let mut j = i + 1;
+            while j < to && matches!(bytes[j], b')' | b']' | b'"' | b'\'') {
+                j += 1;
+            }
+            if j >= to || matches!(bytes[j], b' ' | b'\t' | b'\n') {
+                while j < to && matches!(bytes[j], b' ' | b'\t' | b'\n') {
+                    j += 1;
+                }
+                if j < to && !(bytes[j - 1] == b'\n' && bytes.get(j) == Some(&b'\n')) {
+                    starts.push(j);
+                }
+            }
+            i = j.max(i + 1);
+        } else {
+            i += 1;
+        }
+    }
+    starts.retain(|p| *p <= text.len());
+    starts.sort_unstable();
+    starts.dedup();
+    starts
+}
+
+/// The start of the next (`)`) or this or the previous (`(`) sentence.
+fn sentence(doc: &DocumentState, pos: usize, forward: bool) -> usize {
+    let starts = sentence_starts(doc, pos);
+    if forward {
+        starts
+            .into_iter()
+            .find(|s| *s > pos)
+            .unwrap_or_else(|| line_end(doc, last_line(doc)))
+    } else {
+        starts.into_iter().rev().find(|s| *s < pos).unwrap_or(0)
+    }
+}
+
+/// The end of the word before `pos` (`ge`, `gE`).
+fn word_end_back(doc: &DocumentState, pos: usize, big: bool) -> usize {
+    let text = doc.text().as_str();
+    let k = char_at(doc, pos).map_or(0, |c| class(c, big));
+    let mut p = pos;
+    // Out of the word the cursor is in.
+    if k != 0 {
+        while let Some(c) = char_before(doc, p) {
+            if c == '\n' || class(c, big) != k {
+                break;
+            }
+            p -= c.len_utf8();
+        }
+    }
+    // Back over blanks; an empty line is a word.
+    while let Some(c) = char_before(doc, p) {
+        if c == '\n' {
+            if p >= 2 && text.as_bytes()[p - 2] == b'\n' {
+                return p - 1;
+            }
+            p -= 1;
+            continue;
+        }
+        if !c.is_whitespace() {
+            return p - c.len_utf8();
+        }
+        p -= c.len_utf8();
+    }
+    0
 }
 
 // Text objects.
@@ -649,7 +873,21 @@ fn object(doc: &DocumentState, pos: usize, c: char, inner: bool) -> Option<Targe
                 .find(|p| p[0] <= pos && pos <= p[1])
                 .or_else(|| pairs.iter().find(|p| p[0] > pos))?;
             let (a, b) = (pair[0], pair[1]);
-            Some(Target::Chars(if inner { a + 1..b } else { a..b + 1 }))
+            if inner {
+                return Some(Target::Chars(a + 1..b));
+            }
+            // With the blanks after it, or else those before it.
+            let mut end = b + 1;
+            while end < e && matches!(text.as_bytes()[end], b' ' | b'\t') {
+                end += 1;
+            }
+            let mut start = a;
+            if end == b + 1 {
+                while start > s && matches!(text.as_bytes()[start - 1], b' ' | b'\t') {
+                    start -= 1;
+                }
+            }
+            Some(Target::Chars(start..end))
         }
         '(' | ')' | 'b' | '[' | ']' | '{' | '}' | 'B' | '<' | '>' => {
             let (open, close) = match c {
@@ -688,7 +926,64 @@ fn object(doc: &DocumentState, pos: usize, c: char, inner: bool) -> Option<Targe
                 }
             }
             let b = b?;
-            Some(Target::Chars(if inner { a + 1..b } else { a..b + 1 }))
+            if !inner {
+                return Some(Target::Chars(a..b + 1));
+            }
+            // Inside a block written over lines: the lines between the
+            // braces' lines, not the line break after `{` nor the indent
+            // before `}`.
+            let mut start = a + 1;
+            let mut end = b;
+            let after_open = &text[start..line_end(doc, line_of(doc, start))];
+            if after_open.trim().is_empty() && line_of(doc, b) > line_of(doc, a) {
+                start = line_end(doc, line_of(doc, start)) + 1;
+                let close_line = line_of(doc, b);
+                if text[line_start(doc, close_line)..b].trim().is_empty() {
+                    end = line_start(doc, close_line);
+                    if end > start {
+                        return Some(Target::Lines(line_of(doc, start), close_line - 1));
+                    }
+                }
+            }
+            Some(Target::Chars(start..end.max(start)))
+        }
+        's' => {
+            let starts = sentence_starts(doc, pos);
+            let begin = starts
+                .iter()
+                .rev()
+                .find(|s| **s <= pos)
+                .copied()
+                .unwrap_or(0);
+            let next = starts
+                .iter()
+                .find(|s| **s > pos)
+                .copied()
+                .unwrap_or(text.len());
+            // The sentence without the blanks before the next.
+            let body = text[begin..next].trim_end_matches([' ', '\t', '\n']).len();
+            let end = begin + body;
+            if inner {
+                return Some(Target::Chars(begin..end));
+            }
+            let blanks_after = next > end && !text[end..next].contains('\n');
+            if blanks_after {
+                Some(Target::Chars(begin..next))
+            } else {
+                let mut b = begin;
+                while b > 0 && matches!(text.as_bytes()[b - 1], b' ' | b'\t') {
+                    b -= 1;
+                }
+                Some(Target::Chars(b..end))
+            }
+        }
+        't' => {
+            let (open, close) = tag_around(text, pos)?;
+            Some(Target::Chars(if inner {
+                open.end..close.start
+            } else {
+                open.start..close.end
+            }))
         }
         'p' => {
             let last = last_line(doc);
@@ -712,6 +1007,108 @@ fn object(doc: &DocumentState, pos: usize, c: char, inner: bool) -> Option<Targe
         'h' | 'R' | 'i' | 'c' | 'e' => org_object(doc, pos, c, inner),
         _ => None,
     }
+}
+
+/// Text object `c` with a count: `2aw` two words (and their blanks),
+/// `2i(` the second pair of parentheses out.
+fn object_n(doc: &DocumentState, pos: usize, c: char, inner: bool, n: usize) -> Option<Target> {
+    let first = object(doc, pos, c, inner)?;
+    if n <= 1 {
+        return Some(first);
+    }
+    match (c, first) {
+        ('w' | 'W' | 's', Target::Chars(mut r)) => {
+            for _ in 1..n {
+                let Some(Target::Chars(next)) = object(doc, r.end, c, inner) else {
+                    break;
+                };
+                if next.end <= r.end {
+                    break;
+                }
+                r.end = next.end;
+            }
+            Some(Target::Chars(r))
+        }
+        ('p', Target::Lines(a, mut b)) => {
+            for _ in 1..n {
+                if b >= last_line(doc) {
+                    break;
+                }
+                let next_start = line_start(doc, b + 1);
+                if let Some(Target::Lines(_, nb)) = object(doc, next_start, c, inner) {
+                    b = nb;
+                }
+            }
+            Some(Target::Lines(a, b))
+        }
+        (_, Target::Chars(mut r)) if "()b[]{}B<>t".contains(c) => {
+            // Outward, a pair at a time.
+            for _ in 1..n {
+                let outer = object(doc, r.start, c, false)?;
+                let Target::Chars(o) = outer else { break };
+                let start = if r.start > 0 { r.start - 1 } else { break };
+                let Some(Target::Chars(next)) =
+                    object(doc, start.min(o.start.saturating_sub(1)), c, inner)
+                else {
+                    break;
+                };
+                if next.start >= r.start {
+                    break;
+                }
+                r = next;
+            }
+            Some(Target::Chars(r))
+        }
+        (_, t) => Some(t),
+    }
+}
+
+/// The innermost element `<tag>…</tag>` around `pos`: its opening and
+/// closing tags' ranges.
+fn tag_around(text: &str, pos: usize) -> Option<(Range<usize>, Range<usize>)> {
+    let bytes = text.as_bytes();
+    let mut stack: Vec<(String, Range<usize>)> = Vec::new();
+    let mut best: Option<(Range<usize>, Range<usize>)> = None;
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] != b'<' {
+            i += 1;
+            continue;
+        }
+        let Some(close) = text[i..].find('>').map(|j| i + j) else {
+            break;
+        };
+        let inside = &text[i + 1..close];
+        let closing = inside.starts_with('/');
+        let name: String = inside
+            .trim_start_matches('/')
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))
+            .collect();
+        let range = i..close + 1;
+        if name.is_empty() || inside.ends_with('/') {
+            i = close + 1;
+            continue;
+        }
+        if closing {
+            if let Some(k) = stack.iter().rposition(|(n, _)| *n == name) {
+                let (_, open) = stack.remove(k);
+                stack.truncate(k);
+                if open.start <= pos && pos < range.end {
+                    let smaller = best
+                        .as_ref()
+                        .is_none_or(|(o, c)| open.start >= o.start && range.end <= c.end);
+                    if smaller {
+                        best = Some((open, range.clone()));
+                    }
+                }
+            }
+        } else {
+            stack.push((name, range.clone()));
+        }
+        i = close + 1;
+    }
+    best
 }
 
 /// Org's text objects, from the current parse: `h` the headline (inner:
@@ -839,6 +1236,26 @@ impl Vim {
             block_insert: None,
             replaying: false,
             leader: Some(Key::Char(' ')),
+            options: Options::default(),
+            insert_pending: insert::InsertPending::None,
+            completion: None,
+            last_inserted: None,
+            ctrl_o: None,
+            ai_line: None,
+            insert_count: 1,
+            insert_repeat: insert::Repeat::Here,
+            replaced: Vec::new(),
+            macro_rec: None,
+            last_macro: None,
+            macro_depth: 0,
+            last_ex: None,
+            line_undo: None,
+            last_visual: None,
+            jumping: false,
+            last_sub: None,
+            put_linewise: false,
+            block_end: false,
+            block_corner: None,
         }
     }
 
@@ -959,6 +1376,12 @@ impl Vim {
             handled: true,
             ..Outcome::default()
         };
+        // Recording a macro: the keys typed (not those it runs).
+        if self.macro_depth == 0
+            && let Some((_, keys)) = &mut self.macro_rec
+        {
+            keys.push(key);
+        }
         if self.command_line.is_some() {
             self.command_line_key(doc, key, host, &mut out);
             if self.mode == Mode::Normal {
@@ -968,11 +1391,7 @@ impl Vim {
         }
         match self.mode {
             Mode::Insert => {
-                if matches!(key, Key::Esc | Key::Ctrl('[')) {
-                    self.leave_insert(doc);
-                } else {
-                    out.handled = false;
-                }
+                out.handled = self.insert_key(doc, key, host, &mut out);
             }
             Mode::Replace => self.replace_key(doc, key),
             Mode::Normal | Mode::Visual | Mode::VisualLine | Mode::VisualBlock
@@ -990,10 +1409,57 @@ impl Vim {
                 if !self.visual() {
                     self.cursor = doc.selection.head.min(doc.text().len());
                 }
+                // CTRL-O's command cancelled: insert mode again.
+                if self.ctrl_o.is_some() && self.idle() && matches!(key, Key::Esc | Key::Ctrl('['))
+                {
+                    self.back_from_ctrl_o(doc, false);
+                    return out;
+                }
+                let version = doc.version();
+                let line = line_of(doc, self.cursor);
+                let line_text = {
+                    let r = doc.text().line_range(line.min(doc.text().line_count() - 1));
+                    doc.text().as_str()[r]
+                        .trim_end_matches(['\n', '\r'])
+                        .to_string()
+                };
+                let visual_before = self
+                    .visual()
+                    .then_some((self.mode, self.anchor, self.cursor));
+                // Each command its own undo step.
+                if self.idle() && self.keys.is_empty() {
+                    doc.break_undo_group();
+                }
                 self.keys.push(key);
                 self.command(doc, key, host, &mut out);
                 if self.idle() {
                     self.keys.clear();
+                }
+                // The `.` mark, the change list and `U`'s line.
+                if doc.version() != version && key != Key::Char('U') {
+                    let at = doc.selection.head;
+                    self.note_change(doc, at);
+                    if self.line_undo.as_ref().map(|l| l.0) != Some(line) {
+                        self.line_undo = Some((line, line_text));
+                    }
+                }
+                // Leaving visual mode: `'<`, `'>` and `gv`.
+                if let Some((mode, a, c)) = visual_before
+                    && !self.visual()
+                {
+                    let len = doc.text().len();
+                    let (a, c) = (a.min(len), c.min(len));
+                    doc.marks.named.insert('<', a.min(c));
+                    doc.marks.named.insert('>', a.max(c));
+                    self.last_visual = Some((mode, a, c));
+                }
+                if self.ctrl_o.is_some()
+                    && self.idle()
+                    && self.command_line.is_none()
+                    && self.mode == Mode::Normal
+                {
+                    self.back_from_ctrl_o(doc, key == Key::Char('$'));
+                    return out;
                 }
                 if self.visual() {
                     doc.selection = self.visual_selection(doc);
@@ -1025,7 +1491,66 @@ impl Vim {
         let (a, c) = (self.anchor, self.cursor);
         let (la, lc) = (line_of(doc, a), line_of(doc, c));
         let (ca, cc) = (column(doc, a), column(doc, c));
-        (la.min(lc), la.max(lc), ca.min(cc), ca.max(cc) + 1)
+        let right = if self.block_end {
+            usize::MAX
+        } else {
+            ca.max(cc) + 1
+        };
+        (la.min(lc), la.max(lc), ca.min(cc), right)
+    }
+
+    /// The keys that select what the visual selection covers, from the
+    /// cursor, for `.` to do the same to as much text.
+    fn visual_keys(&self, doc: &DocumentState) -> Vec<Key> {
+        let mut keys = Vec::new();
+        let count = |keys: &mut Vec<Key>, n: usize, k: char| {
+            if n > 0 {
+                if n > 1 {
+                    keys.extend(n.to_string().chars().map(Key::Char));
+                }
+                keys.push(Key::Char(k));
+            }
+        };
+        let (a, c) = (self.anchor.min(self.cursor), self.anchor.max(self.cursor));
+        let (la, lc) = (line_of(doc, a), line_of(doc, c));
+        match self.mode {
+            Mode::VisualLine => {
+                keys.push(Key::Char('V'));
+                count(&mut keys, lc - la, 'j');
+            }
+            Mode::VisualBlock => {
+                let (first, last, left, right) = self.block(doc);
+                keys.push(Key::Ctrl('v'));
+                count(&mut keys, last - first, 'j');
+                if right == usize::MAX {
+                    keys.push(Key::Char('$'));
+                } else {
+                    count(&mut keys, right - left - 1, 'l');
+                }
+            }
+            _ => {
+                keys.push(Key::Char('v'));
+                if la == lc {
+                    count(&mut keys, doc.text().as_str()[a..c].chars().count(), 'l');
+                } else {
+                    count(&mut keys, lc - la, 'j');
+                    keys.push(Key::Char('0'));
+                    count(&mut keys, column(doc, c), 'l');
+                }
+            }
+        }
+        keys
+    }
+
+    /// Before an operator on the visual selection: the keys `.` repeats
+    /// start with the selection's.
+    fn prefix_visual_keys(&mut self, doc: &DocumentState) {
+        if self.replaying {
+            return;
+        }
+        let mut k = self.visual_keys(doc);
+        k.append(&mut self.keys);
+        self.keys = k;
     }
 
     /// The parts of each line the block selection covers, for the
@@ -1204,9 +1729,50 @@ impl Vim {
             Key::Char('+') | Key::Enter => to_line(line + n, None),
             Key::Char('-') => to_line(line.saturating_sub(n), None),
             Key::Char('_') => to_line(line + n - 1, None),
-            Key::Char('H') => to_line(line.saturating_sub(host.page_lines() / 2), None),
-            Key::Char('L') => to_line(line + host.page_lines() / 2, None),
-            Key::Char('M') => to_line(line, None),
+            Key::Char('H' | 'L' | 'M') => {
+                let (top, bottom) = host.visible_lines().unwrap_or_else(|| {
+                    let half = host.page_lines() / 2;
+                    (line.saturating_sub(half), line + half)
+                });
+                let bottom = bottom.min(last);
+                let l = match key {
+                    Key::Char('H') => (top + n - 1).min(bottom),
+                    Key::Char('L') => bottom.saturating_sub(n - 1).max(top),
+                    _ => top + (bottom - top) / 2,
+                };
+                to_line(l, None)
+            }
+            Key::Char('|') => {
+                let ts = self.options.tabstop.max(1);
+                let (s, e) = (line_start(doc, line), line_end(doc, line));
+                let want = n - 1;
+                let mut col = 0;
+                let mut p = s;
+                for (i, c) in doc.text().as_str()[s..e].char_indices() {
+                    let next = if c == '\t' {
+                        (col / ts + 1) * ts
+                    } else {
+                        col + 1
+                    };
+                    p = s + i;
+                    if next > want {
+                        break;
+                    }
+                    col = next;
+                    p = s + i + c.len_utf8();
+                }
+                if self.op.is_none() && p >= e && e > s {
+                    p = doc.grapheme_before(e);
+                }
+                charwise(p)
+            }
+            Key::Char('(' | ')') => {
+                let mut p = pos;
+                for _ in 0..n {
+                    p = sentence(doc, p, key == Key::Char(')'));
+                }
+                charwise(p)
+            }
             Key::Char('0') => charwise(line_start(doc, line)),
             Key::Char('^') => charwise(first_non_blank(doc, line)),
             Key::Char('$') => {
@@ -1273,7 +1839,7 @@ impl Vim {
                     return Some(None);
                 };
                 let back = back != (key == Key::Char('N'));
-                search_from(doc, &pat, back, pos, n).map(|to| Motion {
+                self.search_from(doc, &pat, back, pos, n).map(|to| Motion {
                     to,
                     linewise: false,
                     inclusive: false,
@@ -1284,6 +1850,10 @@ impl Vim {
         if !vertical {
             self.goal = None;
         }
+        self.jumping = matches!(
+            key,
+            Key::Char('G' | '%' | '(' | ')' | '{' | '}' | 'n' | 'N' | 'H' | 'L' | 'M')
+        );
         self.motion_count = n;
         Some(m)
     }
@@ -1302,10 +1872,15 @@ impl Vim {
         v
     }
 
-    fn store(&mut self, text: String, linewise: bool, host: &mut dyn Host) {
-        crate::command::record_history(&text);
+    /// Puts yanked or deleted text in the registers as Vim does: the
+    /// register named (`"a`, appended to with `"A`), else `"0` for a yank,
+    /// `"1` (the older ones moving up to `"9`) for a delete of lines or
+    /// across lines and `"-` for a smaller one; the unnamed `""` always,
+    /// except for the black hole `"_`.
+    fn store(&mut self, text: String, linewise: bool, yank: bool, host: &mut dyn Host) {
         let r = Register { text, linewise };
         match self.register.take() {
+            Some('_') => return,
             Some('+' | '*') => host.set_clipboard(&r.text),
             Some(c) if c.is_ascii_uppercase() => {
                 let e = self
@@ -1315,13 +1890,36 @@ impl Vim {
                         text: String::new(),
                         linewise,
                     });
+                if linewise && !e.linewise && !e.text.is_empty() {
+                    e.text.push('\n');
+                }
                 e.text.push_str(&r.text);
+                e.linewise |= linewise;
+                let all = e.clone();
+                crate::command::record_history(&all.text);
+                self.registers.insert('"', all);
+                return;
             }
             Some(c) if c.is_ascii_lowercase() => {
                 self.registers.insert(c, r.clone());
             }
-            _ => {}
+            _ if yank => {
+                self.registers.insert('0', r.clone());
+            }
+            _ if linewise || r.text.contains('\n') => {
+                for i in (1..9).rev() {
+                    let from = char::from(b'0' + i);
+                    if let Some(old) = self.registers.remove(&from) {
+                        self.registers.insert(char::from(b'0' + i + 1), old);
+                    }
+                }
+                self.registers.insert('1', r.clone());
+            }
+            _ => {
+                self.registers.insert('-', r.clone());
+            }
         }
+        crate::command::record_history(&r.text);
         self.registers.insert('"', r);
     }
 
@@ -1331,6 +1929,19 @@ impl Vim {
                 let linewise = text.ends_with('\n');
                 Register { text, linewise }
             }),
+            Some('.') => self.last_inserted.clone().map(|text| Register {
+                text,
+                linewise: false,
+            }),
+            Some(':') => self.last_ex.clone().map(|text| Register {
+                text,
+                linewise: false,
+            }),
+            Some('/') => self.last_search.clone().map(|(text, _)| Register {
+                text,
+                linewise: false,
+            }),
+            Some('_') => None,
             Some(c) => self.registers.get(&c.to_ascii_lowercase()).cloned(),
             None => self.registers.get(&'"').cloned(),
         }
@@ -1348,7 +1959,56 @@ impl Vim {
 
     fn leave_insert(&mut self, doc: &mut DocumentState) {
         self.mode = Mode::Normal;
-        let head = doc.selection.head.min(doc.text().len());
+        self.insert_pending = insert::InsertPending::None;
+        self.completion = None;
+        self.ctrl_o = None;
+        let mut head = doc.selection.head.min(doc.text().len());
+        // An indent 'autoindent' gave that nothing was typed after goes.
+        if let Some(s) = self.ai_line.take()
+            && s <= head
+            && line_start(doc, line_of(doc, s)) == s
+        {
+            let e = line_end(doc, line_of(doc, s));
+            if e > s && head >= s && head <= e && doc.text().as_str()[s..e].trim().is_empty() {
+                edit(doc, s..e, "", s);
+                head = s;
+            }
+        }
+        doc.marks.named.insert('^', head);
+        if let Some(at) = self.insert_at.filter(|at| head > *at) {
+            doc.marks.named.insert('[', at);
+            doc.marks.named.insert(']', head);
+        }
+        let typed = self
+            .insert_at
+            .filter(|at| head >= *at)
+            .map(|at| doc.text().as_str()[at..head].to_string());
+        if let Some(t) = &typed {
+            self.last_inserted = Some(t.clone());
+        }
+        // `3i`: the text typed twice more; `3o`: on two more lines.
+        let count = std::mem::replace(&mut self.insert_count, 1);
+        if count > 1
+            && let Some(t) = typed.as_ref().filter(|t| !t.is_empty())
+        {
+            let more = match self.insert_repeat {
+                insert::Repeat::Here => t.repeat(count - 1),
+                insert::Repeat::Lines => {
+                    let line = line_of(doc, head);
+                    let s = line_start(doc, line);
+                    let at = self.insert_at.unwrap_or(s).max(s);
+                    let indent = doc.text().as_str()[s..at].to_string();
+                    format!("\n{indent}{t}").repeat(count - 1)
+                }
+            };
+            let at = if self.insert_repeat == insert::Repeat::Lines {
+                line_end(doc, line_of(doc, head))
+            } else {
+                head
+            };
+            edit(doc, at..at, &more, at + more.len());
+            head = at + more.len();
+        }
         if let (Some((lines, col, pad)), Some(at)) = (self.block_insert.take(), self.insert_at)
             && head > at
             && !doc.text().as_str()[at..head].contains('\n')
@@ -1359,6 +2019,10 @@ impl Vim {
             for l in lines.filter(|l| *l <= last_line(doc)) {
                 let e = line_end(doc, l);
                 let width = doc.text().as_str()[line_start(doc, l)..e].chars().count();
+                if col == usize::MAX {
+                    let _ = tx.insert(e, typed.clone());
+                    continue;
+                }
                 if width < col {
                     if pad {
                         let fill = " ".repeat(col - width);
@@ -1371,9 +2035,9 @@ impl Vim {
             let tx = tx.select(Selection::caret(head));
             doc.apply(&tx, ChangeKind::Command, Instant::now());
         }
-        if let (Some(mut c), Some(at)) = (self.recording.take(), self.insert_at) {
-            if head >= at {
-                c.inserted = Some(doc.text().as_str()[at..head].to_string());
+        if let Some(mut c) = self.recording.take() {
+            if typed.is_some() {
+                c.inserted = typed.clone();
             }
             if !self.replaying {
                 self.last_change = Some(c);
@@ -1381,10 +2045,30 @@ impl Vim {
         }
         self.insert_at = None;
         doc.break_undo_group();
-        if head > line_start(doc, line_of(doc, head)) {
+        if let Some(corner) = self.block_corner.take() {
+            // A block insert ends at the block's top left corner.
+            doc.selection = Selection::caret(corner.min(doc.text().len()));
+        } else if head > line_start(doc, line_of(doc, head)) {
             doc.selection = Selection::caret(doc.grapheme_before(head));
         }
         self.clamp(doc);
+    }
+
+    /// Insert mode again after CTRL-O's command; at the end of the line
+    /// when the cursor was there and stayed, or after `$`.
+    fn back_from_ctrl_o(&mut self, doc: &mut DocumentState, dollar: bool) {
+        let Some(c) = self.ctrl_o.take() else {
+            return;
+        };
+        let mut at = doc.selection.head.min(doc.text().len());
+        let e = line_end(doc, line_of(doc, at));
+        if dollar || (c.eol && at == c.at) {
+            at = e;
+        }
+        self.mode = Mode::Insert;
+        doc.selection = Selection::caret(at);
+        self.cursor = at;
+        self.insert_at = Some(at);
     }
 
     // Operators.
@@ -1399,6 +2083,29 @@ impl Vim {
         out: &mut Outcome,
     ) {
         let len = doc.text().len();
+        // `'[` and `']`: the text operated on (moving with the edit).
+        let (a, b) = match &target {
+            Target::Lines(l1, l2) => (line_start(doc, *l1), line_end(doc, *l2)),
+            Target::Chars(r) => (
+                r.start.min(len),
+                doc.grapheme_before(r.end.min(len)).max(r.start.min(len)),
+            ),
+            Target::Block {
+                first,
+                last,
+                left,
+                right,
+            } => (
+                at_column(doc, *first, *left),
+                at_column(doc, (*last).min(last_line(doc)), right.saturating_sub(1)),
+            ),
+        };
+        doc.marks.named.insert('[', a);
+        doc.marks.named.insert(']', b);
+        if op == Op::Reindent {
+            let (l1, l2) = (line_of(doc, a), line_of(doc, b));
+            return self.reindent(doc, l1, l2);
+        }
         match target {
             Target::Lines(l1, l2) => {
                 let lines: String = (l1..=l2)
@@ -1410,7 +2117,7 @@ impl Vim {
                     .collect();
                 match op {
                     Op::Yank => {
-                        self.store(lines, true, host);
+                        self.store(lines, true, op == Op::Yank, host);
                         let caret = if line_of(doc, self.cursor) == l1 {
                             self.cursor
                         } else {
@@ -1419,24 +2126,24 @@ impl Vim {
                         doc.selection = Selection::caret(caret);
                     }
                     Op::Delete => {
-                        self.store(lines, true, host);
+                        self.store(lines, true, op == Op::Yank, host);
                         let span = line_span(doc, l1, l2);
                         edit(doc, span.clone(), "", span.start);
                         let l = l1.min(last_line(doc));
                         doc.selection = Selection::caret(first_non_blank(doc, l));
                     }
                     Op::Change => {
-                        self.store(lines, true, host);
+                        self.store(lines, true, op == Op::Yank, host);
                         // The first line's indentation stays.
                         let s = first_non_blank(doc, l1);
                         let e = line_end(doc, l2);
                         edit(doc, s..e, "", s);
                         self.enter_insert(doc, s);
                     }
-                    Op::Indent | Op::Outdent => {
+                    Op::Indent | Op::Outdent | Op::Reindent => {
                         self.shift_lines(doc, l1, l2, op == Op::Indent, out)
                     }
-                    Op::Lower | Op::Upper | Op::Toggle => {
+                    Op::Lower | Op::Upper | Op::Toggle | Op::Rot13 => {
                         let r = line_start(doc, l1)..line_end(doc, l2);
                         self.change_case(doc, op, r);
                         doc.selection = Selection::caret(first_non_blank(doc, l1));
@@ -1461,11 +2168,11 @@ impl Vim {
                 let text = text.join("\n");
                 match op {
                     Op::Yank => {
-                        self.store(text, false, host);
+                        self.store(text, false, op == Op::Yank, host);
                         doc.selection = Selection::caret(top);
                     }
                     Op::Delete | Op::Change => {
-                        self.store(text, false, host);
+                        self.store(text, false, op == Op::Yank, host);
                         let mut tx = Transaction::new("Vim");
                         for r in &ranges {
                             let _ = tx.delete(r.clone());
@@ -1475,12 +2182,13 @@ impl Vim {
                         if op == Op::Change {
                             self.enter_insert(doc, top);
                             self.block_insert = Some((first + 1..last + 1, left, false));
+                            self.block_corner = Some(top);
                         }
                     }
-                    Op::Indent | Op::Outdent => {
+                    Op::Indent | Op::Outdent | Op::Reindent => {
                         self.shift_lines(doc, first, last, op == Op::Indent, out)
                     }
-                    Op::Lower | Op::Upper | Op::Toggle => {
+                    Op::Lower | Op::Upper | Op::Toggle | Op::Rot13 => {
                         for r in ranges.into_iter().rev() {
                             self.change_case(doc, op, r);
                         }
@@ -1493,24 +2201,24 @@ impl Vim {
                 let text = doc.text().as_str()[r.clone()].to_string();
                 match op {
                     Op::Yank => {
-                        self.store(text, false, host);
+                        self.store(text, false, op == Op::Yank, host);
                         doc.selection = Selection::caret(r.start);
                     }
                     Op::Delete | Op::Change => {
-                        self.store(text, false, host);
+                        self.store(text, false, op == Op::Yank, host);
                         edit(doc, r.clone(), "", r.start);
                         if op == Op::Change {
                             self.enter_insert(doc, r.start);
                         }
                     }
-                    Op::Indent | Op::Outdent => {
+                    Op::Indent | Op::Outdent | Op::Reindent => {
                         let (l1, l2) = (
                             line_of(doc, r.start),
                             line_of(doc, r.end.saturating_sub(1).max(r.start)),
                         );
                         self.shift_lines(doc, l1, l2, op == Op::Indent, out);
                     }
-                    Op::Lower | Op::Upper | Op::Toggle => {
+                    Op::Lower | Op::Upper | Op::Toggle | Op::Rot13 => {
                         self.change_case(doc, op, r.clone());
                         doc.selection = Selection::caret(r.start);
                     }
@@ -1524,6 +2232,14 @@ impl Vim {
         let new: String = match op {
             Op::Lower => s.to_lowercase(),
             Op::Upper => s.to_uppercase(),
+            Op::Rot13 => s
+                .chars()
+                .map(|c| match c {
+                    'a'..='z' => (((c as u8 - b'a') + 13) % 26 + b'a') as char,
+                    'A'..='Z' => (((c as u8 - b'A') + 13) % 26 + b'A') as char,
+                    c => c,
+                })
+                .collect(),
             _ => s
                 .chars()
                 .flat_map(|c| {
@@ -1540,8 +2256,51 @@ impl Vim {
         }
     }
 
+    /// `=` without an indent program: each line indented as the line
+    /// before it ('autoindent'), empty lines left empty.
+    fn reindent(&mut self, doc: &mut DocumentState, l1: usize, l2: usize) {
+        let ts = self.options.tabstop.max(1);
+        let mut indent = if l1 > 0 {
+            let mut l = l1 - 1;
+            while l > 0 && blank_line(doc, l) {
+                l -= 1;
+            }
+            doc.text().as_str()[line_start(doc, l)..first_non_blank(doc, l)].to_string()
+        } else {
+            String::new()
+        };
+        for l in l1..=l2.min(last_line(doc)) {
+            let (s, fnb, e) = (
+                line_start(doc, l),
+                first_non_blank(doc, l),
+                line_end(doc, l),
+            );
+            if fnb == e {
+                continue;
+            }
+            let width = {
+                let mut col = 0;
+                for c in indent.chars() {
+                    col = if c == '\t' {
+                        (col / ts + 1) * ts
+                    } else {
+                        col + 1
+                    };
+                }
+                col
+            };
+            let want = insert::indent_string(width, ts, self.options.expandtab);
+            if doc.text().as_str()[s..fnb] != want {
+                edit(doc, s..fnb, &want, s);
+            }
+            indent = want;
+        }
+        let p = first_non_blank(doc, l1);
+        doc.selection = Selection::caret(p);
+    }
+
     /// `>>` and `<<`: in Org documents headlines and list items as Org
-    /// does it, other lines by two spaces.
+    /// does it, other lines by 'shiftwidth'.
     fn shift_lines(
         &mut self,
         doc: &mut DocumentState,
@@ -1580,15 +2339,20 @@ impl Vim {
                 doc.run(now, |d, p, _| {
                     org_edit::list::indent_item(d, p, None, right, true)
                 })
-            } else if right {
-                if !line.is_empty() {
-                    edit(doc, s..s, "  ", s);
-                }
-                Ok(())
             } else {
-                let n = line.bytes().take(2).take_while(|b| *b == b' ').count();
-                if n > 0 {
-                    edit(doc, s..s + n, "", s);
+                // 'shiftwidth' columns more or less; empty lines stay.
+                let ts = self.options.tabstop.max(1);
+                let sw = self.shiftwidth();
+                let blank = line.len() - line.trim_start_matches([' ', '\t']).len();
+                let width = insert::vcol(doc, s + blank, ts);
+                let new = if right {
+                    width + sw
+                } else {
+                    width.saturating_sub(sw)
+                };
+                if !line.is_empty() && new != width {
+                    let indent = insert::indent_string(new, ts, self.options.expandtab);
+                    edit(doc, s..s + blank, &indent, s);
                 }
                 Ok(())
             };
@@ -1603,6 +2367,31 @@ impl Vim {
         let Some(r) = self.fetch(host) else { return };
         let pos = self.cursor;
         let line = line_of(doc, pos);
+        self.put_linewise = r.linewise;
+        let (start, added) = self.put_text(doc, &r, before, count, pos, line);
+        // `'[` and `']`: the first and the last character put.
+        doc.marks.named.insert('[', start);
+        let end = start + added;
+        doc.marks.named.insert(
+            ']',
+            if r.linewise {
+                end.min(doc.text().len())
+            } else {
+                doc.grapheme_before(end).max(start)
+            },
+        );
+    }
+
+    /// Puts register `r`; where the text went and its length.
+    fn put_text(
+        &mut self,
+        doc: &mut DocumentState,
+        r: &Register,
+        before: bool,
+        count: usize,
+        pos: usize,
+        line: usize,
+    ) -> (usize, usize) {
         if r.linewise {
             let mut t = r.text.clone();
             if !t.ends_with('\n') {
@@ -1620,10 +2409,11 @@ impl Vim {
                 edit(doc, len..len, &format!("\n{body}"), len + 1);
                 let l = line_of(doc, len + 1);
                 doc.selection = Selection::caret(first_non_blank(doc, l));
-                return;
+                return (len + 1, body.len());
             };
             edit(doc, at..at, &t, at);
             doc.selection = Selection::caret(first_non_blank(doc, line_of(doc, at)));
+            (at, t.len())
         } else {
             let t = r.text.repeat(count);
             let e = line_end(doc, line);
@@ -1634,7 +2424,14 @@ impl Vim {
             };
             let end = at + t.len();
             edit(doc, at..at, &t, end);
-            doc.selection = Selection::caret(doc.grapheme_before(end).max(at));
+            // Several lines: the cursor at their start.
+            let caret = if t.contains('\n') {
+                at
+            } else {
+                doc.grapheme_before(end).max(at)
+            };
+            doc.selection = Selection::caret(caret);
+            (at, t.len())
         }
     }
 
@@ -1647,8 +2444,15 @@ impl Vim {
             let next = first_non_blank(doc, line + 1);
             let next_empty = next >= line_end(doc, line + 1);
             let this_empty = e == line_start(doc, line);
-            let sep = if next_empty || this_empty || doc.text().as_str()[..e].ends_with(' ') {
+            let before = &doc.text().as_str()[line_start(doc, line)..e];
+            let sep = if next_empty
+                || this_empty
+                || before.ends_with([' ', '\t'])
+                || doc.text().as_str()[next..].starts_with(')')
+            {
                 ""
+            } else if self.options.joinspaces && before.ends_with(['.', '!', '?']) {
+                "  "
             } else {
                 " "
             };
@@ -1669,7 +2473,7 @@ impl Vim {
             Pending::Register => {
                 self.pending = Pending::None;
                 if let Key::Char(c) = key
-                    && (c.is_ascii_alphabetic() || matches!(c, '"' | '+' | '*'))
+                    && (c.is_ascii_alphanumeric() || "\"+*-_.:/".contains(c))
                 {
                     self.register = Some(c);
                 }
@@ -1695,6 +2499,38 @@ impl Vim {
                 let Key::Char(c) = key else {
                     return self.reset();
                 };
+                if self.visual() {
+                    self.prefix_visual_keys(doc);
+                    // Every character selected becomes `c`.
+                    let t = self.visual_target(doc);
+                    self.mode = Mode::Normal;
+                    let ranges: Vec<Range<usize>> = match t {
+                        Target::Chars(r) => Vec::from([r]),
+                        Target::Lines(a, b) => {
+                            let r = line_start(doc, a)..line_end(doc, b);
+                            Vec::from([r])
+                        }
+                        Target::Block {
+                            first,
+                            last,
+                            left,
+                            right,
+                        } => (first..=last.min(last_line(doc)))
+                            .map(|l| at_column(doc, l, left)..at_column(doc, l, right))
+                            .collect(),
+                    };
+                    let top = ranges.first().map_or(self.cursor, |r| r.start);
+                    for r in ranges.into_iter().rev() {
+                        let old = doc.text().as_str()[r.clone()].to_string();
+                        let new: String =
+                            old.chars().map(|x| if x == '\n' { x } else { c }).collect();
+                        edit(doc, r, &new, top);
+                    }
+                    doc.selection = Selection::caret(top);
+                    self.cursor = top;
+                    self.changed();
+                    return self.reset();
+                }
                 let n = self.count.take().unwrap_or(1);
                 let pos = self.cursor;
                 let e = line_end(doc, line_of(doc, pos));
@@ -1714,6 +2550,7 @@ impl Vim {
                 self.pending = Pending::None;
                 match key {
                     Key::Char('g') => {
+                        self.jumping = true;
                         let n = self.count.take();
                         let l = n.map_or(0, |c| c.saturating_sub(1)).min(last_line(doc));
                         let m = Some(Motion {
@@ -1733,16 +2570,121 @@ impl Vim {
                         self.count = None;
                         out.commands.push(("file.previous".into(), Value::Null));
                     }
-                    Key::Char(c @ ('u' | 'U' | '~')) => {
+                    Key::Char(c @ ('e' | 'E' | '_' | 'o' | 'm' | 'M')) => {
+                        let count = match (self.count.take(), self.op) {
+                            (Some(c), Some((_, oc))) => Some(c * oc.max(1)),
+                            (None, Some((_, oc))) if oc > 0 => Some(oc),
+                            (c, _) => c,
+                        };
+                        let m = self.g_motion(doc, c, count, host);
+                        self.finish_motion(doc, m, host, out);
+                    }
+                    Key::Char('J') if !self.visual() && self.op.is_none() => {
+                        let n = self.count.take().unwrap_or(1);
+                        self.begin_change();
+                        self.join_raw(doc, line_of(doc, self.cursor), n);
+                        self.changed();
+                    }
+                    Key::Char('v') if self.op.is_none() => {
+                        if let Some((mode, a, c)) = self.last_visual {
+                            let len = doc.text().len();
+                            self.mode = mode;
+                            self.anchor = a.min(len);
+                            self.cursor = c.min(len);
+                        }
+                        self.count = None;
+                    }
+                    Key::Char('i') if !self.visual() && self.op.is_none() => {
+                        let n = self.count.take().unwrap_or(1);
+                        let at = self.mark(doc, '^').unwrap_or(self.cursor);
+                        self.insert_count = n;
+                        self.insert_repeat = insert::Repeat::Here;
+                        self.begin_change();
+                        self.enter_insert(doc, at);
+                    }
+                    Key::Char('I') if !self.visual() && self.op.is_none() => {
+                        let n = self.count.take().unwrap_or(1);
+                        let s = line_start(doc, line_of(doc, self.cursor));
+                        self.insert_count = n;
+                        self.insert_repeat = insert::Repeat::Here;
+                        self.begin_change();
+                        self.enter_insert(doc, s);
+                    }
+                    Key::Char(c @ ('p' | 'P')) if !self.visual() && self.op.is_none() => {
+                        let n = self.count.take().unwrap_or(1);
+                        self.begin_change();
+                        self.put(doc, c == 'P', n, host);
+                        // The cursor just after the new text.
+                        if let Some(&end) = doc.marks.named.get(&']') {
+                            let end = end.min(doc.text().len());
+                            let to = if self.put_linewise {
+                                end
+                            } else {
+                                doc.grapheme_after(end).min(doc.text().len())
+                            };
+                            doc.selection = Selection::caret(to);
+                            self.cursor = to;
+                        }
+                        self.changed();
+                    }
+                    Key::Char(c @ (';' | ',')) if self.op.is_none() => {
+                        let n = self.count.take().unwrap_or(1);
+                        self.change_list(doc, c == ';', n);
+                    }
+                    Key::Char(c @ ('*' | '#')) if self.op.is_none() => {
+                        // As `*` and `#`, the word not as a whole word.
+                        let n = self.count.take().unwrap_or(1);
+                        if let Some(Target::Chars(w)) = object(doc, self.cursor, 'w', true) {
+                            let word = doc.text().as_str()[w].to_string();
+                            let pat = format!("\\V{}", word.replace('\\', "\\\\"));
+                            let back = c == '#';
+                            self.last_search = Some((pat.clone(), back));
+                            self.jump(doc);
+                            if let Some(to) = self.search_from(doc, &pat, back, self.cursor, n) {
+                                doc.selection = Selection::caret(to);
+                                self.cursor = to;
+                            }
+                            out.highlights = self.matches(doc, &pat).ok();
+                        }
+                    }
+                    Key::Char(c @ ('n' | 'N')) => {
+                        self.count = None;
+                        self.select_match(doc, c == 'N', host, out);
+                    }
+                    Key::Char('a') if self.op.is_none() => {
+                        self.count = None;
+                        if let Some(ch) = char_at(doc, self.cursor).filter(|c| *c != '\n') {
+                            let n = ch as u32;
+                            out.message =
+                                Some((format!("<{ch}> {n}, Hex {n:02x}, Oct {n:03o}"), false));
+                        }
+                    }
+                    Key::Char('&') if self.op.is_none() => {
+                        self.count = None;
+                        self.begin_change();
+                        self.ex(doc, "%s//~/&", host, out);
+                        self.changed();
+                    }
+                    Key::Ctrl(c @ ('a' | 'x')) if self.visual() => {
+                        let n = self.count.take().unwrap_or(1) as i64;
+                        let t = self.visual_target(doc);
+                        self.mode = Mode::Normal;
+                        self.visual_increment(doc, t, if c == 'a' { n } else { -n }, true);
+                    }
+                    Key::Char(c @ ('u' | 'U' | '~' | '?')) => {
                         let op = match c {
                             'u' => Op::Lower,
                             'U' => Op::Upper,
+                            '?' => Op::Rot13,
                             _ => Op::Toggle,
                         };
                         if self.visual() {
+                            self.prefix_visual_keys(doc);
                             let t = self.visual_target(doc);
                             self.mode = Mode::Normal;
+                            self.begin_change();
                             self.apply_op(doc, op, t, host, out);
+                            self.changed();
                         } else {
                             self.operator(doc, op, host, out);
                         }
@@ -1759,7 +2701,8 @@ impl Vim {
                 if "hRice".contains(c) {
                     doc.wait_for_parse();
                 }
-                let Some(t) = object(doc, self.cursor, c, inner) else {
+                let n = self.count.take().unwrap_or(1) * self.op.map_or(1, |o| o.1.max(1));
+                let Some(t) = object_n(doc, self.cursor, c, inner, n) else {
                     return self.reset();
                 };
                 if self.visual() {
@@ -1785,6 +2728,50 @@ impl Vim {
                     self.changed_if(op);
                 }
                 return;
+            }
+            Pending::Mark => {
+                self.pending = Pending::None;
+                if let Key::Char(c) = key
+                    && (c.is_ascii_alphabetic() || "'`[]<>".contains(c))
+                {
+                    let c = if c == '`' { '\'' } else { c };
+                    doc.marks.named.insert(c, self.cursor);
+                }
+                return self.reset();
+            }
+            Pending::GotoMark(linewise) => {
+                self.pending = Pending::None;
+                let Key::Char(c) = key else {
+                    return self.reset();
+                };
+                let m = self.goto_mark(doc, c, linewise);
+                if m.is_none() {
+                    out.message = Some(("E20: Mark not set".into(), true));
+                }
+                return self.finish_motion(doc, m, host, out);
+            }
+            Pending::Macro => {
+                self.pending = Pending::None;
+                if let Key::Char(c) = key {
+                    self.record_macro(c);
+                }
+                return self.reset();
+            }
+            Pending::Execute => {
+                self.pending = Pending::None;
+                let n = self.count.take().unwrap_or(1);
+                self.reset();
+                if let Key::Char(c) = key {
+                    self.keys.clear();
+                    self.execute_macro(doc, c, n, host, out);
+                }
+                return;
+            }
+            Pending::Z => {
+                self.pending = Pending::None;
+                let n = self.count.take();
+                self.z_command(doc, key, n, host);
+                return self.reset();
             }
             Pending::None => {}
         }
@@ -1816,7 +2803,60 @@ impl Vim {
         // Other commands forget the column vertical motion keeps.
         self.goal = None;
         let Key::Char(c) = key else {
+            let n = self.count.unwrap_or(1);
+            let plain = matches!(doc.meta.mode, DocumentMode::Text { .. });
             match key {
+                Key::Ctrl('o') if !self.visual() && self.op.is_none() => {
+                    self.jump_list(doc, true, n)
+                }
+                Key::Tab if plain && !self.visual() && self.op.is_none() => {
+                    self.jump_list(doc, false, n)
+                }
+                Key::Ctrl('i') if !self.visual() && self.op.is_none() => {
+                    self.jump_list(doc, false, n)
+                }
+                Key::Ctrl('a' | 'x') if self.op.is_none() => {
+                    let by = n as i64 * if key == Key::Ctrl('a') { 1 } else { -1 };
+                    if self.visual() {
+                        let t = self.visual_target(doc);
+                        self.mode = Mode::Normal;
+                        self.visual_increment(doc, t, by, false);
+                    } else {
+                        self.begin_change();
+                        let line = line_of(doc, self.cursor);
+                        if self.increment(doc, line, self.cursor, by) {
+                            self.changed();
+                        }
+                    }
+                }
+                Key::Ctrl('e' | 'y') if self.op.is_none() => {
+                    self.scroll_lines(doc, key == Key::Ctrl('e'), n, host)
+                }
+                Key::Ctrl('g') if self.op.is_none() => {
+                    let lines = last_line(doc) + 1;
+                    let l = line_of(doc, self.cursor) + 1;
+                    let name = doc
+                        .meta
+                        .path
+                        .as_ref()
+                        .and_then(|p| p.file_name())
+                        .map_or_else(
+                            || "[No Name]".to_string(),
+                            |n| n.to_string_lossy().into_owned(),
+                        );
+                    let modified = if doc.is_modified() { " [Modified]" } else { "" };
+                    out.message = Some((
+                        format!(
+                            "\"{name}\"{modified} {lines} lines --{}%--",
+                            l * 100 / lines.max(1)
+                        ),
+                        false,
+                    ));
+                }
+                Key::Ctrl('^' | '6') if self.op.is_none() => {
+                    out.commands.push(("file.last".into(), Value::Null));
+                }
+                Key::Ctrl('l') => {}
                 Key::Ctrl('r') if !self.visual() => {
                     for _ in 0..self.count.take().unwrap_or(1) {
                         if doc.redo().is_none() {
@@ -1838,9 +2878,12 @@ impl Vim {
         // Operators.
         if let Some(op) = Op::of(c) {
             if self.visual() {
+                self.prefix_visual_keys(doc);
                 let t = self.visual_target(doc);
                 self.mode = Mode::Normal;
+                self.begin_change_if(op);
                 self.apply_op(doc, op, t, host, out);
+                self.changed_if(op);
                 return self.reset();
             }
             return self.operator(doc, op, host, out);
@@ -1853,6 +2896,8 @@ impl Vim {
                 'i' | 'a' => self.pending = Pending::Object(c == 'i'),
                 'f' | 't' | 'F' | 'T' => self.pending = Pending::Find(find_kind(c)),
                 'g' => self.pending = Pending::G,
+                '\'' | '`' => self.pending = Pending::GotoMark(c == '\''),
+                '?' if op == Op::Rot13 => self.operator(doc, op, host, out),
                 '/' | '?' => self.command_line = Some(c.to_string()),
                 // `guu`, `gUU`, `g~~`.
                 'u' if op == Op::Lower => self.operator(doc, op, host, out),
@@ -1883,7 +2928,40 @@ impl Vim {
                 self.count = count;
                 self.pending = Pending::Replace;
             }
-            ':' | '/' | '?' => self.command_line = Some(c.to_string()),
+            ':' | '/' | '?' => {
+                // `3:` is `:.,.+2`.
+                self.command_line = Some(match (c, count) {
+                    (':', Some(n)) if n > 1 => format!(":.,.+{}", n - 1),
+                    _ => c.to_string(),
+                });
+            }
+            'm' => self.pending = Pending::Mark,
+            '\'' | '`' => {
+                self.count = count;
+                self.pending = Pending::GotoMark(c == '\'');
+            }
+            'q' if self.macro_rec.is_some() => {
+                // The `q` that ends the recording is not part of it.
+                if let Some((_, keys)) = &mut self.macro_rec {
+                    keys.pop();
+                }
+                self.stop_macro();
+            }
+            'q' => self.pending = Pending::Macro,
+            '@' => {
+                self.count = count;
+                self.pending = Pending::Execute;
+            }
+            'U' => self.line_undo(doc),
+            'z' => {
+                self.count = count;
+                self.pending = Pending::Z;
+            }
+            '&' => {
+                self.begin_change();
+                self.ex(doc, "s", host, out);
+                self.changed();
+            }
             'x' | 'X' | 's' | 'D' | 'C' | 'S' | 'Y' => {
                 // Shorthands for an operator and a motion.
                 let seq = match c {
@@ -1939,43 +3017,14 @@ impl Vim {
                 }
             }
             '.' => self.repeat(doc, count, host, out),
-            'i' => {
-                self.begin_change();
-                self.enter_insert(doc, pos);
-            }
-            'a' => {
-                self.begin_change();
-                let e = line_end(doc, line);
-                self.enter_insert(
-                    doc,
-                    if pos < e {
-                        doc.grapheme_after(pos)
-                    } else {
-                        pos
-                    },
-                );
-            }
-            'I' => {
-                self.begin_change();
-                self.enter_insert(doc, first_non_blank(doc, line));
-            }
-            'A' => {
-                self.begin_change();
-                self.enter_insert(doc, line_end(doc, line));
-            }
-            'o' | 'O' => {
-                self.begin_change();
-                let s = line_start(doc, line);
-                let indent = doc.text().as_str()[s..first_non_blank(doc, line)].to_string();
-                if c == 'o' {
-                    let e = line_end(doc, line);
-                    let at = e + 1 + indent.len();
-                    edit(doc, e..e, &format!("\n{indent}"), at);
-                    self.enter_insert(doc, at);
+            'i' | 'a' | 'I' | 'A' | 'o' | 'O' => {
+                self.insert_count = n;
+                self.insert_repeat = if matches!(c, 'o' | 'O') {
+                    insert::Repeat::Lines
                 } else {
-                    edit(doc, s..s, &format!("{indent}\n"), s + indent.len());
-                    self.enter_insert(doc, s + indent.len());
-                }
+                    insert::Repeat::Here
+                };
+                self.open_insert(doc, c, pos, line);
             }
             'R' => {
                 self.begin_change();
@@ -1995,21 +3044,198 @@ impl Vim {
                 if !word.chars().any(is_word) {
                     return;
                 }
-                let pat = format!(r"\b{}\b", regex_escape(&word));
+                let word_start = word.starts_with(is_word);
+                let word_end = word.ends_with(is_word);
+                let pat = format!(
+                    "{}\\V{}\\m{}",
+                    if word_start { "\\<" } else { "" },
+                    word.replace('\\', "\\\\"),
+                    if word_end { "\\>" } else { "" }
+                );
                 let back = c == '#';
                 self.last_search = Some((pat.clone(), back));
-                if let Some(to) = search_from(doc, &pat, back, pos, n) {
+                self.jump(doc);
+                if let Some(to) = self.search_from(doc, &pat, back, pos, n) {
                     doc.selection = Selection::caret(to);
                 }
-                let opts = crate::find::FindOptions { regex: true };
-                out.highlights = crate::find::find_with(doc.text().as_str(), &pat, opts).ok();
+                out.highlights = self.matches(doc, &pat).ok();
             }
             // An unused character does nothing (and is not typed).
             _ => self.reset(),
         }
     }
 
+    /// The matches of Vim pattern `pattern`, with 'ignorecase' and
+    /// 'smartcase'.
+    fn matches(&self, doc: &DocumentState, pattern: &str) -> Result<Vec<Range<usize>>, String> {
+        let p = pattern::Pattern::new(pattern, self.options.ignorecase, self.options.smartcase)?;
+        Ok(p.find_all(doc.text().as_str()))
+    }
+
+    /// The start of the `count`th match of `pattern` after `from` (before
+    /// it with `back`), around the end with 'wrapscan'.
+    fn search_from(
+        &self,
+        doc: &DocumentState,
+        pattern: &str,
+        back: bool,
+        from: usize,
+        count: usize,
+    ) -> Option<usize> {
+        let matches = self.matches(doc, pattern).ok()?;
+        let wrap = self.options.wrapscan;
+        let mut p = from;
+        for _ in 0..count {
+            let next = if back {
+                matches
+                    .iter()
+                    .rev()
+                    .find(|m| m.start < p)
+                    .or_else(|| matches.last().filter(|_| wrap))
+            } else {
+                matches
+                    .iter()
+                    .find(|m| m.start > p)
+                    .or_else(|| matches.first().filter(|_| wrap))
+            }?;
+            p = next.start;
+        }
+        Some(p)
+    }
+
+    /// The motions after `g`: `ge`, `gE`, `g_`, `go`, `gm`, `gM`.
+    fn g_motion(
+        &mut self,
+        doc: &DocumentState,
+        c: char,
+        count: Option<usize>,
+        host: &dyn Host,
+    ) -> Option<Motion> {
+        let n = count.unwrap_or(1).max(1);
+        let pos = self.cursor;
+        let line = line_of(doc, pos);
+        self.goal = None;
+        self.motion_count = n;
+        let (s, e) = (line_start(doc, line), line_end(doc, line));
+        let last_char = |s: usize, e: usize| if e > s { doc.grapheme_before(e) } else { e };
+        let to = match c {
+            'e' | 'E' => {
+                let mut p = pos;
+                for _ in 0..n {
+                    p = word_end_back(doc, p, c == 'E');
+                }
+                return Some(Motion {
+                    to: p,
+                    linewise: false,
+                    inclusive: true,
+                });
+            }
+            '_' => {
+                let l = (line + n - 1).min(last_line(doc));
+                let (s, e) = (line_start(doc, l), line_end(doc, l));
+                let t = doc.text().as_str()[s..e].trim_end_matches([' ', '\t']);
+                let p = if t.is_empty() {
+                    s
+                } else {
+                    last_char(s, s + t.len())
+                };
+                return Some(Motion {
+                    to: p,
+                    linewise: false,
+                    inclusive: true,
+                });
+            }
+            'o' => {
+                let mut p = (n - 1).min(doc.text().len());
+                while !doc.text().as_str().is_char_boundary(p) {
+                    p -= 1;
+                }
+                // Not on a line feed, as in normal mode.
+                if char_at(doc, p) == Some('\n') && p > line_start(doc, line_of(doc, p)) {
+                    p = doc.grapheme_before(p);
+                }
+                return Some(Motion {
+                    to: p,
+                    linewise: false,
+                    inclusive: false,
+                });
+            }
+            'm' => {
+                let half = host.columns() / 2;
+                at_column(doc, line, half).min(last_char(s, e))
+            }
+            _ => {
+                let width = doc.text().as_str()[s..e].chars().count();
+                let pct = count.unwrap_or(50).min(100);
+                at_column(doc, line, width * pct / 100).min(last_char(s, e))
+            }
+        };
+        Some(Motion {
+            to,
+            linewise: false,
+            inclusive: false,
+        })
+    }
+
+    /// `gJ`: lines joined as they are, no blanks added or taken.
+    fn join_raw(&mut self, doc: &mut DocumentState, line: usize, count: usize) {
+        let mut caret = None;
+        for _ in 0..count.max(2) - 1 {
+            if line >= last_line(doc) {
+                break;
+            }
+            let e = line_end(doc, line);
+            let next = line_start(doc, line + 1);
+            edit(doc, e..next, "", e);
+            caret = Some(e);
+        }
+        if let Some(e) = caret {
+            doc.selection = Selection::caret(e.saturating_sub(0));
+        }
+    }
+
+    /// `i`, `a`, `I`, `A`, `o` and `O`.
+    fn open_insert(&mut self, doc: &mut DocumentState, c: char, pos: usize, line: usize) {
+        self.begin_change();
+        match c {
+            'i' => self.enter_insert(doc, pos),
+            'a' => {
+                let e = line_end(doc, line);
+                let at = if pos < e {
+                    doc.grapheme_after(pos)
+                } else {
+                    pos
+                };
+                self.enter_insert(doc, at);
+            }
+            'I' => self.enter_insert(doc, first_non_blank(doc, line)),
+            'A' => self.enter_insert(doc, line_end(doc, line)),
+            _ => {
+                let s = line_start(doc, line);
+                let indent = if self.options.autoindent {
+                    doc.text().as_str()[s..first_non_blank(doc, line)].to_string()
+                } else {
+                    String::new()
+                };
+                let at = if c == 'o' {
+                    let e = line_end(doc, line);
+                    let at = e + 1 + indent.len();
+                    edit(doc, e..e, &format!("\n{indent}"), at);
+                    at
+                } else {
+                    edit(doc, s..s, &format!("{indent}\n"), s + indent.len());
+                    s + indent.len()
+                };
+                self.enter_insert(doc, at);
+                if !indent.is_empty() {
+                    self.ai_line = Some(line_start(doc, line_of(doc, at)));
+                }
+            }
+        }
+    }
+
     fn start_visual(&mut self, mode: Mode) {
+        self.block_end = false;
         self.mode = mode;
         self.anchor = self.cursor;
         self.reset();
@@ -2022,6 +3248,9 @@ impl Vim {
         host: &mut dyn Host,
         out: &mut Outcome,
     ) {
+        if !"ovVigfFtT\"r:".contains(c) {
+            self.prefix_visual_keys(doc);
+        }
         let target = self.visual_target(doc);
         let lines = match &target {
             Target::Lines(a, b) => Target::Lines(*a, *b),
@@ -2050,8 +3279,9 @@ impl Vim {
                     let (col, pad) = if c == 'I' {
                         (left, false)
                     } else {
-                        (right, true)
+                        (right, right != usize::MAX)
                     };
+                    self.block_corner = Some(at_column(doc, first, left));
                     let width = |l: usize| {
                         doc.text().as_str()[line_start(doc, l)..line_end(doc, l)]
                             .chars()
@@ -2059,7 +3289,9 @@ impl Vim {
                     };
                     self.begin_change();
                     let mut at = at_column(doc, first, col);
-                    if pad && width(first) < col {
+                    if col == usize::MAX {
+                        at = line_end(doc, first);
+                    } else if pad && width(first) < col {
                         let e = line_end(doc, first);
                         let fill = " ".repeat(col - width(first));
                         edit(doc, e..e, &fill, e + fill.len());
@@ -2101,6 +3333,7 @@ impl Vim {
                 }
             }
             'o' => std::mem::swap(&mut self.anchor, &mut self.cursor),
+            'r' => self.pending = Pending::Replace,
             'i' | 'a' => self.pending = Pending::Object(c == 'i'),
             'g' => self.pending = Pending::G,
             'f' | 't' | 'F' | 'T' => self.pending = Pending::Find(find_kind(c)),
@@ -2157,7 +3390,21 @@ impl Vim {
                         r.text
                     };
                     let at = range.start;
+                    let old = doc.text().as_str()[range.clone()].to_string();
                     edit(doc, range, &t, at);
+                    // The cursor on the last character put (the first line
+                    // of lines).
+                    let caret = if r.linewise || was_lines {
+                        first_non_blank(doc, line_of(doc, at))
+                    } else {
+                        doc.grapheme_before(at + t.len()).max(at)
+                    };
+                    doc.selection = Selection::caret(caret);
+                    self.cursor = caret;
+                    // `p` puts what it replaced in the unnamed register.
+                    if c == 'p' {
+                        self.store(old, was_lines, false, host);
+                    }
                 }
             }
             ':' => self.command_line = Some(":'<,'>".into()),
@@ -2202,10 +3449,24 @@ impl Vim {
             return self.reset();
         };
         if self.visual() {
+            self.jumping = false;
             self.cursor = m.to;
+            // `$` in a block: to the end of every line, until a motion
+            // sideways.
+            let last = self.keys.last().copied();
+            let vertical = matches!(
+                last,
+                Some(Key::Char('j' | 'k' | 'G') | Key::Down | Key::Up | Key::Ctrl('n' | 'p'))
+            );
+            self.block_end = self.mode == Mode::VisualBlock
+                && (last == Some(Key::Char('$')) || (self.block_end && vertical));
             return;
         }
+        let jumping = std::mem::take(&mut self.jumping);
         let Some((op, _)) = self.op.take() else {
+            if jumping {
+                self.jump(doc);
+            }
             doc.selection = Selection::caret(m.to);
             self.cursor = m.to;
             return;
@@ -2351,6 +3612,7 @@ impl Vim {
         match key {
             Key::Esc | Key::Ctrl('[') => {
                 self.mode = Mode::Normal;
+                self.replaced.clear();
                 if let Some(c) = self.recording.take()
                     && !self.replaying
                 {
@@ -2371,6 +3633,8 @@ impl Vim {
                 } else {
                     pos
                 };
+                self.replaced
+                    .push(doc.text().as_str()[pos..end].to_string());
                 let mut tx = Transaction::new("Typing");
                 tx.replace(pos..end, c.to_string()).expect("one edit");
                 let tx = tx.select(Selection::caret(pos + c.len_utf8()));
@@ -2379,9 +3643,31 @@ impl Vim {
                     r.inserted.get_or_insert_default().push(c);
                 }
             }
-            Key::Backspace | Key::Left => {
+            Key::Enter => {
+                let pos = doc.selection.head;
+                edit(doc, pos..pos, "\n", pos + 1);
+                self.replaced.push(String::new());
+            }
+            // Backspace puts back what was typed over.
+            Key::Backspace | Key::Ctrl('h') => {
+                let pos = doc.selection.head;
+                let before = doc.grapheme_before(pos);
+                match self.replaced.pop() {
+                    Some(orig) if before < pos => {
+                        edit(doc, before..pos, &orig, before);
+                        if let Some(r) = &mut self.recording
+                            && let Some(t) = &mut r.inserted
+                        {
+                            t.pop();
+                        }
+                    }
+                    _ => doc.selection = Selection::caret(before),
+                }
+            }
+            Key::Left => {
                 let pos = doc.selection.head;
                 doc.selection = Selection::caret(doc.grapheme_before(pos));
+                self.replaced.clear();
             }
             Key::Right => {
                 let pos = doc.selection.head;
@@ -2420,7 +3706,7 @@ impl Vim {
                 let line = self.command_line.take().unwrap_or_default();
                 let (kind, rest) = line.split_at(1);
                 if kind == ":" {
-                    self.ex(doc, rest.trim_start_matches("'<,'>"), out);
+                    self.ex(doc, rest, host, out);
                 } else {
                     self.search(doc, rest, kind == "?", host, out);
                 }
@@ -2446,12 +3732,12 @@ impl Vim {
             pattern.to_string()
         };
         self.last_search = Some((pattern.clone(), back));
-        let opts = crate::find::FindOptions { regex: true };
-        match crate::find::find_with(doc.text().as_str(), &pattern, opts) {
+        match self.matches(doc, &pattern) {
             Ok(all) => {
                 out.highlights = Some(all);
-                match search_from(doc, &pattern, back, self.cursor, 1) {
+                match self.search_from(doc, &pattern, back, self.cursor, 1) {
                     Some(to) => {
+                        self.jumping = true;
                         let m = Some(Motion {
                             to,
                             linewise: false,
@@ -2473,7 +3759,8 @@ impl Vim {
         self.keys.clear();
     }
 
-    fn ex(&mut self, doc: &mut DocumentState, cmd: &str, out: &mut Outcome) {
+    /// The command line's commands about files, windows and buffers.
+    fn ex_app(&mut self, doc: &mut DocumentState, cmd: &str, out: &mut Outcome) {
         let cmd = cmd.trim();
         let save = || ("app.save".to_string(), Value::Null);
         // `:q` closes the pane, and quits only from the last one.
@@ -2914,9 +4201,10 @@ mod tests {
             v.registers.get(&'"').map(|r| r.text.as_str()),
             Some("bc\nfg")
         );
-        // I and A type on every line; A pads short lines.
+        // I and A type on every line; A pads short lines; the cursor
+        // ends at the block's top left corner, as in Vim.
         assert_eq!(run(t, 1, "<C-v>jjI-<Esc>"), "a|-bcd\ne-fgh\ni-jkl\n");
-        assert_eq!(run("ab\nc\nde\n", 0, "<C-v>jjlA!<Esc>"), "ab|!\nc !\nde!\n");
+        assert_eq!(run("ab\nc\nde\n", 0, "<C-v>jjlA!<Esc>"), "|ab!\nc !\nde!\n");
         // c changes the block and types on every line.
         assert_eq!(run(t, 1, "<C-v>jlcX<Esc>"), "a|Xd\neXh\nijkl\n");
         // o swaps the corners; Ctrl+V again ends it.

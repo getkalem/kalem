@@ -1,0 +1,2 @@
+# Cases of cases.json where Kalem's Vim layer does not yet do what Vim does.
+# The test fails when one of these agrees (take it off) or another differs.
