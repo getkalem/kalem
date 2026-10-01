@@ -252,6 +252,7 @@ fn other_device() -> Option<PathBuf> {
 
 #[cfg(unix)]
 #[test]
+#[allow(clippy::print_stderr)] // says why it skipped
 fn move_across_devices() {
     use std::os::unix::fs::PermissionsExt;
     let Some(other) = other_device() else {
