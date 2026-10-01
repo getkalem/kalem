@@ -883,8 +883,11 @@ everything shown.
 
 ** Outline, table of contents and footnote list
 
-The outline panel lists the sections of the file with their numbers,
-levels counted from the file's highest level. A =\tableofcontents= line,
+The outline panel lists the sections of the project in reading order
+with their numbers, levels counted from the highest level among them:
+those of the file shown, and those of the files it includes (=\input=,
+=\include=, =\subfile=…) or that include it; choosing a section of
+another file opens that file at the section. A =\tableofcontents= line,
 away from the cursor, shows the table of contents LaTeX prints there: the
 unstarred sections down to =\subsubsection= (=\subsection= in the classes
 with chapters: =book=, =report=, =amsbook=, =memoir=, =scrbook=,
@@ -1398,9 +1401,7 @@ work breakdown (group 2.7h of =todo.md=):
   the document's own macros; no verbatim environments beyond the fixed
   list.
 - *Projects.* No workspace setting for the root and no use of the
-  project's file list in the root search (T2.7h.4). The outline panel
-  lists only the sections of the file shown, though with the project's
-  numbers.
+  project's file list in the root search (T2.7h.4).
 - *Mathematics.* No table of unsupported macros yet (T2.7h.7). The
   definitions given to the renderer are cut from the edited file by the
   ranges of the model's macros, so in a file of a multi-file project

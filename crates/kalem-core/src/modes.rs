@@ -136,6 +136,7 @@ impl Tree {
                     todo: None,
                     title: text.get(n.range.clone()).unwrap_or("").trim().to_string(),
                     start: n.range.start,
+                    file: None,
                 }),
                 _ => None,
             })

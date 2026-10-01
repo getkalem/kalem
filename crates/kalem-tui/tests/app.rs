@@ -3177,6 +3177,39 @@ fn latex_project_numbers_across_files() {
 }
 
 #[test]
+fn latex_outline_shows_included_files() {
+    // The outline of the main document lists the chapter of the file it
+    // includes, and choosing it opens that file at the heading (§9.5).
+    let dir = std::env::temp_dir().join(format!("kalem-tui-outline-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let main = dir.join("main.tex");
+    std::fs::write(
+        &main,
+        "\\documentclass{book}\n\\begin{document}\n\\chapter{One}\n\\include{two}\n\\end{document}\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("two.tex"), "% a chapter\n\\chapter{Two}\nText.\n").unwrap();
+    let app = App::with_keymap(Some(&main), Config::default(), Caps::full(), &[], Vec::new()).unwrap();
+    let term = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    let mut t = T {
+        app,
+        term,
+        dir: Some(dir.clone()),
+    };
+    t.app.doc.wait_for_latex_project();
+    t.app.doc.poll();
+    let items = kalem_core::latex_view::outline_items(&t.app.doc).unwrap();
+    let titles: Vec<_> = items.iter().map(|i| (i.title.as_str(), i.file.is_some())).collect();
+    assert_eq!(titles, [("1\u{2003}One", false), ("2\u{2003}Two", true)]);
+    let two = items[1].clone();
+    assert_eq!(
+        kalem_core::view::position_in_file(two.file.as_deref().unwrap(), two.start),
+        Some((2, 0))
+    );
+}
+
+#[test]
 fn insert_figure_asks_for_the_picture() {
     let mut t = with_file(
         "\\begin{document}\n\n\\end{document}\n",

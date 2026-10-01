@@ -2936,11 +2936,13 @@ pub fn link_at(doc: &crate::DocumentState, pos: usize) -> Option<crate::input::L
 pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::OutlineItem>> {
     let model = doc.latex()?.model();
     let top = model.sections.iter().map(|s| s.level).min().unwrap_or(1);
+    // The project's sections in reading order, those of the files it
+    // includes with their file (design §9.5).
     Some(
         model
             .sections
             .iter()
-            .filter(|s| s.file == 0)
+            .filter(|s| s.file == 0 || model.files.get(s.file).is_some())
             .map(|s| crate::view::OutlineItem {
                 level: (s.level - top + 1).max(1) as usize,
                 todo: None,
@@ -2949,6 +2951,7 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
                     None => s.title.clone(),
                 },
                 start: s.range.start,
+                file: (s.file != 0).then(|| model.files[s.file].clone()),
             })
             .collect(),
     )
