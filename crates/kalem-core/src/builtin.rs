@@ -1008,7 +1008,7 @@ fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
     let path = std::path::absolute(&path).unwrap_or(path);
     let text = doc.text().as_str().to_string();
     let disk = latex_model::project::Disk;
-    let root = latex_model::project::find_root(&path, &text, &disk, None, None);
+    let root = crate::latex_view::find_root(&path, &text);
     let project = latex_model::project::ProjectCache::default().load(&root, &disk);
     let root_text = if root == path {
         text
@@ -1559,8 +1559,7 @@ fn latex_pandoc(ctx: &mut EditorContext<'_>, to: &'static str, ext: &'static str
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-export-needs-file")))?;
     let path = std::path::absolute(&path).unwrap_or(path);
     let text = d.text().as_str().to_string();
-    let root =
-        latex_model::project::find_root(&path, &text, &latex_model::project::Disk, None, None);
+    let root = crate::latex_view::find_root(&path, &text);
     let search = std::env::var_os("PATH").unwrap_or_default();
     let pandoc = crate::pandoc::find_with(ctx.config.str("export.pandoc_path"), &search)
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-pandoc")))?;

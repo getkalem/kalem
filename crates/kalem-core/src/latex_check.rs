@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
-use latex_model::project::{Disk, ProjectCache, find_root};
+use latex_model::project::{Disk, ProjectCache};
 use latex_syntax::SyntaxKind as K;
 
 /// How much a diagnostic matters.
@@ -438,7 +438,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
     let parse = latex_syntax::parse(text);
     let mut out: Vec<Diagnostic> = Vec::new();
     // The project it belongs to, for labels and citations in other files.
-    let root = find_root(path, text, &Disk, None, None);
+    let root = crate::latex_view::find_root(path, text);
     let project = ProjectCache::default().load(&root, &Disk);
     let (model, this) = match project.model.files.iter().position(|f| same_file(f, path)) {
         Some(i) if !same_file(&root, path) || i == 0 => (project.model.clone(), i),

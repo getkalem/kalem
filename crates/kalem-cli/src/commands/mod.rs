@@ -566,7 +566,7 @@ pub(crate) fn latex_build(
     let text = read(file)?;
     let file = std::path::absolute(file).map_err(|e| e.to_string())?;
     let disk = latex_model::project::Disk;
-    let root = latex_model::project::find_root(&file, &text, &disk, None, None);
+    let root = kalem_core::latex_view::find_root(&file, &text);
     let project = latex_model::project::ProjectCache::default().load(&root, &disk);
     let root_text = std::fs::read_to_string(&root).map_err(|e| e.to_string())?;
     // `--engine` wins over `% !TEX program`, which wins over the packages.

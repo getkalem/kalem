@@ -3190,7 +3190,14 @@ fn latex_outline_shows_included_files() {
     )
     .unwrap();
     std::fs::write(dir.join("two.tex"), "% a chapter\n\\chapter{Two}\nText.\n").unwrap();
-    let app = App::with_keymap(Some(&main), Config::default(), Caps::full(), &[], Vec::new()).unwrap();
+    let app = App::with_keymap(
+        Some(&main),
+        Config::default(),
+        Caps::full(),
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
     let term = Terminal::new(TestBackend::new(60, 8)).unwrap();
     let mut t = T {
         app,
@@ -3200,7 +3207,10 @@ fn latex_outline_shows_included_files() {
     t.app.doc.wait_for_latex_project();
     t.app.doc.poll();
     let items = kalem_core::latex_view::outline_items(&t.app.doc).unwrap();
-    let titles: Vec<_> = items.iter().map(|i| (i.title.as_str(), i.file.is_some())).collect();
+    let titles: Vec<_> = items
+        .iter()
+        .map(|i| (i.title.as_str(), i.file.is_some()))
+        .collect();
     assert_eq!(titles, [("1\u{2003}One", false), ("2\u{2003}Two", true)]);
     let two = items[1].clone();
     assert_eq!(

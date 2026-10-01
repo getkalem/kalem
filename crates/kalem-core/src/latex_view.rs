@@ -48,6 +48,78 @@ pub struct LatexState {
     file: Option<(std::path::PathBuf, Option<String>)>,
 }
 
+/// The root document `latex.root` names, relative to the project's
+/// folder (or the file's without a project); empty for none.
+static ROOT_SETTING: std::sync::RwLock<String> = std::sync::RwLock::new(String::new());
+
+/// Sets `latex.root` (from the settings, for the whole process).
+pub fn set_root_setting(value: &str) {
+    if let Ok(mut s) = ROOT_SETTING.write() {
+        *s = value.trim().to_string();
+    }
+}
+
+/// The root document of the LaTeX file `file` with text `text`, as every
+/// part of Kalem finds it (T2.7h.4): `% !TEX root`, a subfile's main
+/// document, a `.latexmain` marker, the root `latex.root` names, the file
+/// itself with a `\documentclass`, a document with one in its folder or
+/// above, within its project, that includes it; and last, any document of
+/// the project that includes it.
+pub fn find_root(file: &std::path::Path, text: &str) -> std::path::PathBuf {
+    use latex_model::project::{self, Disk};
+    let dir = file.parent().unwrap_or(std::path::Path::new(""));
+    let top = kalem_project::list::detect_root(dir);
+    let setting = ROOT_SETTING
+        .read()
+        .ok()
+        .map(|s| s.clone())
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            let p = std::path::PathBuf::from(&s);
+            if p.is_absolute() {
+                p
+            } else {
+                top.clone().unwrap_or_else(|| dir.to_path_buf()).join(p)
+            }
+        })
+        .filter(|p| p.exists());
+    let root = project::find_root(file, text, &Disk, setting.as_deref(), top.as_deref());
+    if root != file || text.contains("\\documentclass") {
+        return root;
+    }
+    // Any document of the project that includes it (a main file in a
+    // sibling folder).
+    let Some(top) = top else { return root };
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let mut candidates = Vec::new();
+    kalem_project::files::walk(&top, &[], &cancel, |p| {
+        if p.extension().is_some_and(|e| e == "tex") && candidates.len() < 2000 {
+            candidates.push(if p.is_relative() { top.join(p) } else { p });
+        }
+    });
+    candidates.sort();
+    let mut cache = project::ProjectCache::default();
+    let canon = |p: &std::path::Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    let this = canon(file);
+    for c in candidates {
+        if canon(&c) == this {
+            continue;
+        }
+        let has_class = std::fs::read_to_string(&c).is_ok_and(|t| t.contains("\\documentclass"));
+        if has_class
+            && cache
+                .load(&c, &Disk)
+                .model
+                .files
+                .iter()
+                .any(|f| canon(f) == this)
+        {
+            return c;
+        }
+    }
+    root
+}
+
 /// The `% !TEX root = …` line among the first lines of `text`, as written.
 fn magic_root_line(text: &str) -> Option<String> {
     text.lines()
@@ -244,8 +316,7 @@ impl LatexState {
         let (tx, rx) = std::sync::mpsc::channel();
         let (p, t) = (path.to_path_buf(), text.to_string());
         std::thread::spawn(move || {
-            let root =
-                latex_model::project::find_root(&p, &t, &latex_model::project::Disk, None, None);
+            let root = find_root(&p, &t);
             let _ = tx.send(root);
         });
         self.root = Some((path.to_path_buf(), rx));
@@ -4325,6 +4396,37 @@ mod tests {
                 language: Some("python".into())
             }
         );
+    }
+
+    #[test]
+    fn roots_across_the_project() {
+        // A main document in a sibling folder, and `latex.root` (T2.7h.4).
+        let dir = std::env::temp_dir().join(format!("kalem-latex-root-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::create_dir_all(dir.join("chapters")).unwrap();
+        std::fs::write(dir.join(".kalem"), "").unwrap();
+        std::fs::write(
+            dir.join("src/main.tex"),
+            "\\documentclass{book}\n\\begin{document}\n\\input{../chapters/one}\n\\end{document}\n",
+        )
+        .unwrap();
+        let one = dir.join("chapters/one.tex");
+        std::fs::write(&one, "\\chapter{One}\n").unwrap();
+        let found = find_root(&one, "\\chapter{One}\n");
+        assert_eq!(
+            found.canonicalize().unwrap(),
+            dir.join("src/main.tex").canonicalize().unwrap()
+        );
+        // A file no document includes: the setting names its root.
+        let lone = dir.join("chapters/lone.tex");
+        std::fs::write(&lone, "\\section{Lone}\n").unwrap();
+        assert_eq!(find_root(&lone, "\\section{Lone}\n"), lone);
+        set_root_setting("src/main.tex");
+        let named = find_root(&lone, "\\section{Lone}\n");
+        set_root_setting("");
+        assert_eq!(named, dir.join("src/main.tex"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
