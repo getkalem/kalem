@@ -1,8 +1,9 @@
-Kalem opens any text file. Org, LaTeX, CSV and BibTeX files get the views
-of their formats ([[file:writing-in-org.org][Writing in Org]], [[file:latex-files.org][LaTeX files]], which covers =.bib=
-files too, and [[file:csv-files.org][CSV files]]); Markdown, code, configuration files and every other text
-file are edited as plain text: monospace, colored by their language, with line
-numbers, the cursor's line marked and indentation guides. Tab follows the
+Kalem opens any text file. Org, Markdown, LaTeX, CSV and BibTeX files
+get the views of their formats ([[file:writing-in-org.org][Writing in Org]], [[file:../part-2/markdown.org][Markdown]],
+[[file:latex-files.org][LaTeX files]], which covers =.bib= files too, and [[file:csv-files.org][CSV files]]); code,
+configuration files and every other text file are edited as plain text:
+monospace, colored by their language, with line numbers, the cursor's
+line marked and indentation guides. Tab follows the
 file's indentation (tabs, or its number of spaces) and indents selected
 lines; Shift+Tab outdents.
 
@@ -28,5 +29,4 @@ the element around it), and /Shrink Selection/ (Ctrl+Alt+Left) goes back.
 The kind of a file comes from, in order: your choice with the command
 /Set Document Mode/ (remembered in the workspace settings), a mode line
 such as =-*- mode: org -*-= on the first line, the extension, and a
-=#!= line. Markdown files are edited as text for now. Binary files are
-not opened.
+=#!= line. Binary files are not opened.

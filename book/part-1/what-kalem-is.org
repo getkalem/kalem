@@ -1,0 +1,146 @@
+Kalem is a fast, open source, text-first editor for every plain-text
+format. It opens a file as what it is, Org, Markdown, LaTeX, CSV, BibTeX
+or code, shows it the way it reads, and writes back only what you
+changed. One editor runs in a window and in a terminal, and every
+operation on a document is also a command on the command line. This
+chapter says what that means and what it does not; the rest of Part I is
+the manual.
+
+* Text first
+
+The file on disk is the truth. Kalem keeps no database, no container
+format and no sidecar files: the document is the text file you see in
+=git diff=, in =grep= and in any other editor, and Kalem's job is to show
+it well and to edit it in place. Bold reads as bold, a table is a grid, a
+formula is typeset, a link is a link, and under them the file is the same
+plain text it was. There is nothing to export before a colleague can read
+your work, and nothing to lose if you stop using Kalem.
+
+* Every format as itself
+
+Kalem never converts a file in order to open it, never asks whether it
+may, and never saves a file as another format. A Markdown file stays
+Markdown, a =.tex= file stays the LaTeX a TeX engine reads, a CSV file
+stays the CSV its spreadsheet wrote, delimiter and all. Conversion exists
+only as a command you run on purpose: /Export/, /Convert to Org/, =kalem
+export=, each of which writes a new file and leaves the old one alone.
+
+Three rules make this hold for every format (Part II explains them):
+
+1. *Ranges, never text.* A mode reads the file into ranges of its text;
+   an edit replaces only the characters it changes. Kalem never writes a
+   file back from a tree, so untouched parts stay byte for byte: spacing,
+   comments, line endings, a byte order mark.
+2. *No extension.* Kalem writes nothing into a file that its standard
+   does not define. What a format cannot express is not offered in it: a
+   Markdown file gets no font menu, a CSV file no formatting.
+3. *Unknown constructs stay visible.* What Kalem does not understand is
+   shown as the source it is, never hidden or guessed.
+
+* The formats
+
+Five formats are built in. Each follows its standard and is checked
+against an /oracle/, a reference implementation or test suite;
+[[file:../part-2/overview.org][Standard modes and their oracles]] has the table, and Part II a chapter
+for each.
+
+| Format          | Opens as                                                 | Where in this book  |
+|-----------------+----------------------------------------------------------+---------------------|
+| Org             | A document; tables with formulas, TODO states, export    | [[file:writing-in-org.org][Writing in Org]], [[file:../part-2/org.org][Org]] |
+| Markdown        | A document; task lists, tables, front matter, wiki links | [[file:../part-2/markdown.org][Markdown]]            |
+| LaTeX           | A document; formulas, references, citations, PDF builds  | [[file:latex-files.org][LaTeX files]], [[file:../part-2/latex.org][LaTeX]]  |
+| CSV, TSV        | A grid with sorting, filters and statistics              | [[file:csv-files.org][CSV files]], [[file:../part-2/csv.org][CSV]]      |
+| BibTeX          | A grid of entries                                        | [[file:../part-2/bibtex.org][BibTeX]]              |
+| Everything else | Plain text, colored by its language                      | [[file:plain-text-and-code.org][Plain text and code]] |
+
+Every other format is a plugin: more text formats, viewers and editors
+for files that are not text (PDF, Word, Excel, images), language servers
+for programming languages. The plugin runtime is phase 3 of the roadmap
+and is not built yet; [[file:../part-4/overview.org][The extension model]] says what can be changed
+today.
+
+* Extensible, in Rust
+
+A plugin is compiled Rust, run by Kalem as a WebAssembly component: a
+piece of compiled code with a typed interface, its own memory, a memory
+limit, a time budget, and only the permissions it declares. Kalem ships
+no JavaScript, Lua or Lisp interpreter and reads no script at startup;
+configuration is data, in TOML and JSON files.
+
+This is a deliberate difference from the extensible editors people know.
+An Emacs package, a Vim script or a VS Code extension runs in an
+interpreter inside the editor. The editor pays for that interpreter on
+every keystroke, a slow extension makes a slow editor, and there is no
+budget the editor can enforce. Kalem's plugins are compiled code with a
+budget: a plugin cannot freeze the editor, a plugin that fails is
+disabled rather than taking Kalem down, and a plugin author reads the
+same Rust types as a core contributor, because the built-in modes and
+completers implement the very contracts a plugin will. The cost, accepted
+knowingly, is that a plugin author needs a Rust toolchain, hidden behind
+=kalem plugin new= and =kalem plugin build= once they exist.
+[[file:../part-4/plugins.org][Plugins]] has the design.
+
+* Fast
+
+Kalem is one static binary with no runtime to start and nothing to
+interpret, and every target in the design has a measurement. A few,
+measured on an Apple M1 Max on 2026-09-28:
+
+| What                                                                | Measured         | Target              |
+|---------------------------------------------------------------------+------------------+---------------------|
+| Cold start to the first frame, graphical editor                     | 148 ms           | under 300 ms        |
+| Opening a 1 MB document, graphical editor                           | 184 ms           | under 200 ms        |
+| From a keystroke to the frame, graphical editor, usually · 1 in 100 | 8.7 ms · 14.9 ms | under 16 ms · 33 ms |
+| Reparse after a keystroke in the 840 KB Org manual                  | 0.05 ms          | under 2 ms          |
+| A 100 MB plain text file, until it responds, graphical editor       | 430 ms           | under 1 s           |
+| Memory with an empty document, graphical editor                     | 47 MB            | under 80 MB         |
+| The binary, both editors · terminal only                            | 13 MB · 7 MB     | under 40 MB · 15 MB |
+
+[[file:../part-5/performance.org][Performance]] has every target, the method and the scripts that
+repeat the measurement.
+
+* Two editors and a command line
+
+The graphical editor and the terminal editor share one core: the same
+commands, keys, settings, menus and views. The terminal editor draws
+formulas, images and tables too, so a document reads the same over SSH
+as on the desktop; what the terminal cannot show is listed in
+[[file:../part-5/terminal-parity.org][Terminal parity]]. Every document operation is also a command-line
+tool, for scripts and CI: [[file:the-command-line.org][The command line]].
+
+* A power editor's tools
+
+Word-like keys by default and Vim keys as an option, with Doom Emacs's
+leader keys in the Vim profile ([[file:keys.org][Keys]]). A file manager with the keys
+every file manager has ([[file:the-file-manager.org][The file manager]]), projects and find in
+files ([[file:documents-and-projects.org][Documents and projects]]), a command palette and
+bookmarks ([[file:finding-and-commands.org][Finding and commands]]), an outline, focus mode and
+narrowing ([[file:views.org][Views]]), panes, workspaces and sessions ([[file:keys.org][Keys]]). Everything is a command
+with a configurable key, and configuration is data that Kalem checks
+when it reads it ([[file:settings.org][Settings]]).
+
+Kalem borrows these tools from Emacs, which did them first, and that is
+where the debt ends: Kalem is not an Emacs, not an Org editor only, and
+not made for Emacs users in particular. It is made for anyone with text
+files.
+
+* The Kalem format, optional
+
+For documents the standard formats cannot carry, letters, papers, theses
+and books with page-quality output, Kalem is designing a format of its
+own, =.klm=: one command syntax, Org's outline and tasks, LaTeX
+mathematics, tables with formulas, styles and page layout in a
+stylesheet, with a specification and a conformance suite (Part III). It
+is a design track beside the standard formats, which come first, and it
+changes nothing about them: Kalem never converts your files into it.
+
+* What Kalem is not
+
+Not a Microsoft Office clone: Word files are to be opened as themselves
+through a plugin, later, and are imported or exported through pandoc
+today. Not a page layout tool, a full spreadsheet or a visual slide
+designer. Not a full IDE: language servers come as plugins, and the core
+knows no programming language. Not an Emacs: no Elisp, no agenda
+settings by the hundred. Not a collaboration service: files and git are
+enough. The design document lists the
+[[https://github.com/getkalem/kalem/blob/main/design_document.md#14-non-goals][non-goals]] in full.
