@@ -499,6 +499,7 @@ pub(crate) fn commands() -> Vec<Command> {
     let mut all = plain_commands();
     all.extend(crate::dired::commands());
     all.extend(csv_commands());
+    all.extend(markdown_commands());
     all.extend(bib_commands());
     all.push(scoped(
         cmd(
@@ -1803,6 +1804,88 @@ fn bib_commands() -> Vec<Command> {
             Ok(())
         }),
     ]
+}
+
+fn markdown_commands() -> Vec<Command> {
+    use crate::command::Scope;
+    vec![
+        scoped(
+            cmd(
+                "markdown.toggleCheckbox",
+                "Toggle Checkbox",
+                "Markdown",
+                &["ctrl+shift+c"],
+                None,
+                |ctx, _| {
+                    // The task list item at the cursor: `[ ]` ⇄ `[x]`.
+                    let d = ctx.doc()?;
+                    let md = crate::markdown::parsed(d);
+                    let at = d.selection.head;
+                    lines_command(ctx, |t, _| crate::markdown::toggle_checkbox(&md, t, at))
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        md_table(
+            "markdown.table.nextField",
+            "Next Field",
+            &["tab"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::next_field(md, t, at, true)
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.previousField",
+            "Previous Field",
+            &["shift+tab"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::next_field(md, t, at, false)
+                })
+            },
+        ),
+        md_table("markdown.table.align", "Align Table", &[], |ctx, _| {
+            md_table_run(ctx, crate::markdown_table::align_at)
+        }),
+    ]
+}
+
+/// A command on the Markdown table at the cursor, its keys bound there.
+fn md_table(id: &str, title: &str, keys: &[&str], h: Handler) -> Command {
+    scoped(
+        cmd(
+            id,
+            title,
+            "Markdown",
+            keys,
+            Some("editorMode == markdown && inMarkdownTable"),
+            h,
+        ),
+        crate::command::Scope::only(&["markdown"]),
+    )
+}
+
+fn md_table_run(
+    ctx: &mut EditorContext<'_>,
+    f: fn(&crate::markdown::Md, &str, usize) -> Option<org_edit::Transaction>,
+) -> CommandResult {
+    let now = ctx.now;
+    let d = ctx.doc()?;
+    let md = crate::markdown::parsed(d);
+    let at = d.selection.head;
+    let Some(tx) = f(&md, d.text().as_str(), at) else {
+        return Ok(());
+    };
+    if tx.edits.is_empty() {
+        if let Some(s) = tx.selection_after {
+            d.selection = s;
+        }
+    } else {
+        d.apply(&tx, org_edit::ChangeKind::Command, now);
+    }
+    Ok(())
 }
 
 fn csv_commands() -> Vec<Command> {
@@ -5913,6 +5996,56 @@ mod tests {
         d.undo();
         d.undo();
         assert_eq!(d.text().as_str(), "* A\n* B\n");
+    }
+
+    #[test]
+    fn markdown_commands() {
+        let reg = CommandRegistry::with_builtins();
+        let mut d = doc("| a | b |\n|---|---|\n| 1 | 2 |\n\n- [ ] task\n", 2);
+        d.set_mode(
+            DocumentMode::Markdown,
+            &crate::settings::Config::default().parse_base(),
+        );
+        assert_eq!(
+            d.when_context().get("inMarkdownTable"),
+            Some(&crate::when::Value::Bool(true))
+        );
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 1).at(9, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("markdown.table.nextField", &mut ctx, &json!({}))
+            .unwrap();
+        drop(ctx);
+        assert_eq!(
+            d.text().as_str(),
+            "| a   | b   |\n| --- | --- |\n| 1   | 2   |\n\n- [ ] task\n"
+        );
+        assert_eq!(
+            &d.text().as_str()[d.selection.head..d.selection.head + 1],
+            "b"
+        );
+        d.selection = org_edit::Selection::caret(d.text().len() - 3);
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 1).at(9, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("markdown.toggleCheckbox", &mut ctx, &json!({}))
+            .unwrap();
+        drop(ctx);
+        assert!(d.text().as_str().ends_with("- [x] task\n"));
     }
 
     #[test]

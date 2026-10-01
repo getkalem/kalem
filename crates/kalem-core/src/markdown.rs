@@ -608,6 +608,55 @@ fn runs(text: &str, line: Range<usize>, pieces: &[Piece]) -> Vec<Run> {
     out
 }
 
+/// The code on line `line` of a Markdown document with its language: the
+/// line's text inside a fenced code block that names one, for the
+/// editors to color as they color code.
+pub fn code_on_line(doc: &crate::DocumentState, line: Range<usize>) -> Vec<(Range<usize>, String)> {
+    if doc.meta.mode != crate::DocumentMode::Markdown || doc.text().len() > LIVE_LIMIT {
+        return Vec::new();
+    }
+    let md = parsed(doc);
+    code_lines(&md, line)
+}
+
+fn code_lines(md: &Md, line: Range<usize>) -> Vec<(Range<usize>, String)> {
+    let idx = md.line_of(line.start);
+    md.on_line(idx)
+        .find_map(|n| match &n.kind {
+            MdKind::CodeBlock {
+                fenced: true,
+                language: Some(l),
+            } => {
+                let first = md.line_of(n.range.start);
+                let last = md.line_of(n.range.end.saturating_sub(1).max(n.range.start));
+                (idx > first && idx < last).then(|| vec![(line.clone(), l.clone())])
+            }
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// Toggles the box of the task list item whose line holds `at`: `[ ]`
+/// becomes `[x]`, `[x]` or `[X]` becomes `[ ]`; one character changes.
+pub fn toggle_checkbox(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
+    let line = md.line_of(at);
+    let boxed = md.nodes.iter().rev().find_map(|n| match &n.kind {
+        MdKind::TaskItem { boxed, .. } if boxed.len() == 3 && md.line_of(boxed.start) == line => {
+            Some(boxed.clone())
+        }
+        _ => None,
+    })?;
+    let mark = boxed.start + 1..boxed.start + 2;
+    let new = if text[mark.clone()].trim().is_empty() {
+        "x"
+    } else {
+        " "
+    };
+    let mut tx = org_edit::Transaction::new("Toggle Checkbox");
+    tx.replace(mark, new).ok()?;
+    Some(tx)
+}
+
 /// The headings of a Markdown document for the outline sidebar.
 pub fn outline_items(doc: &crate::DocumentState) -> Vec<crate::view::OutlineItem> {
     let md = parsed(doc);
@@ -772,6 +821,36 @@ mod tests {
         // On its line the box shows as written.
         assert_eq!(v(10, Some(l[10].start)).display(), "- [x] done");
         assert!(v(12, None).runs[0].style.dim);
+    }
+
+    #[test]
+    fn code_blocks_name_their_language() {
+        let t = "```rust\nlet x = 1;\n```\n\n    indented\n";
+        let md = Md::parse(t);
+        let l = lines(t);
+        assert_eq!(
+            code_lines(&md, l[1].clone()),
+            [(l[1].clone(), "rust".to_string())]
+        );
+        assert!(code_lines(&md, l[0].clone()).is_empty());
+        assert!(code_lines(&md, l[4].clone()).is_empty());
+    }
+
+    #[test]
+    fn checkboxes_toggle() {
+        let t = "- [ ] todo\n- [X] done\n- plain\n";
+        let md = Md::parse(t);
+        let run = |at: usize| {
+            let tx = toggle_checkbox(&md, t, at)?;
+            let mut s = t.to_string();
+            for e in tx.edits.iter().rev() {
+                s.replace_range(e.range.clone(), &e.insert);
+            }
+            Some(s)
+        };
+        assert_eq!(run(8).unwrap(), "- [x] todo\n- [X] done\n- plain\n");
+        assert_eq!(run(12).unwrap(), "- [ ] todo\n- [ ] done\n- plain\n");
+        assert!(run(25).is_none());
     }
 
     #[test]

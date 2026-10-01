@@ -2394,11 +2394,20 @@ fn markdown_reads_as_text() {
     // The cursor on the heading shows its `#`; the paragraph hides its
     // markers.
     assert!(s.iter().any(|l| l.contains("# Notes")), "{s:#?}");
-    assert!(s.iter().any(|l| l.contains("Some bold and a link.")), "{s:#?}");
+    assert!(
+        s.iter().any(|l| l.contains("Some bold and a link.")),
+        "{s:#?}"
+    );
     t.at(15);
     let s = screen(&mut t);
-    assert!(s.iter().any(|l| l.contains("Notes") && !l.contains('#')), "{s:#?}");
-    assert!(s.iter().any(|l| l.contains("Some **bold** and a link.")), "{s:#?}");
+    assert!(
+        s.iter().any(|l| l.contains("Notes") && !l.contains('#')),
+        "{s:#?}"
+    );
+    assert!(
+        s.iter().any(|l| l.contains("Some **bold** and a link.")),
+        "{s:#?}"
+    );
 }
 
 #[test]

@@ -1561,6 +1561,16 @@ impl DocumentState {
         c.flag("hasFile", self.meta.path.is_some());
         c.flag("readOnly", self.read_only);
         c.flag("hasFormatter", crate::packs::has_formatter(self));
+        if self.meta.mode == DocumentMode::Markdown
+            && self.text.len() <= crate::markdown::LIVE_LIMIT
+        {
+            let md = crate::markdown::parsed(self);
+            let at = self.selection.head;
+            c.flag(
+                "inMarkdownTable",
+                crate::markdown_table::table_at(&md, self.text.as_str(), at).is_some(),
+            );
+        }
         c.set("textType", Value::Str(self.text_type()));
         let Some((parse, _)) = self.parse() else {
             return c;

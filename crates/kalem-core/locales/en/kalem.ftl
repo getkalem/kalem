@@ -828,6 +828,11 @@ cmd-csv-sortFile = Sort File by Column
 cmd-csv-copyAsTsv = Copy as Tab-Separated Values
 cmd-csv-openAsText = Open as Plain Text
 cmd-csv-convertToOrg = Convert to Org Table
+cmd-markdown-toggleCheckbox = Toggle Checkbox
+cmd-markdown-table-nextField = Next Field
+cmd-markdown-table-previousField = Previous Field
+cmd-markdown-table-align = Align Table
+category-markdown = Markdown
 msg-csv-duplicates = { $count ->
     [0] No duplicate rows
     [one] One duplicate row removed

@@ -2005,7 +2005,12 @@ impl App {
                 self.last_click = Some((now, m.column, m.row));
                 if let Some((Widget::Checkbox(_), start, _)) = widget {
                     self.doc.move_cursor(start, false);
-                    self.run_command("list.toggleCheckbox", Value::Null);
+                    let id = if self.doc.meta.mode == DocumentMode::Markdown {
+                        "markdown.toggleCheckbox"
+                    } else {
+                        "list.toggleCheckbox"
+                    };
+                    self.run_command(id, Value::Null);
                     return;
                 }
                 // A row of a table of contents leads to its heading.

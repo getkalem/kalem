@@ -70,6 +70,21 @@ edits it as plain text. Concretely:
   256 KiB are drawn as source until the reparse is incremental
   (T2.7c.6).
 - The outline sidebar lists the headings.
+- A click on a task list item's checkbox, or /Toggle Checkbox/
+  (Ctrl+Shift+C, =markdown.toggleCheckbox=) on its line, turns =[ ]=
+  into =[x]= and back; one character changes.
+- The lines of a fenced code block that names its language are coloured
+  in that language, line by line.
+- In a table (GitHub's pipe tables), Tab aligns the table and goes to
+  the next cell, past the last cell adding an empty row, and Shift+Tab
+  goes back, as in an Org table (=markdown.table.nextField=,
+  =markdown.table.previousField=, when ~inMarkdownTable~); /Align Table/
+  (=markdown.table.align=) only aligns. Aligning pads each column to its
+  widest cell by display width, keeps the delimiter row's alignments
+  (=:---=, =:---:=, =---:=) with as many dashes as the column is wide,
+  pads cells as their column is aligned, gives short rows empty cells,
+  keeps escaped pipes =\|= inside their cell, and keeps the first line's
+  indentation.
 - The text of a source view is coloured by the Markdown syntax definition bundled with
   the highlighter (the Sublime Text Markdown syntax that =syntect=
   ships, language name "Markdown"), looked up as =md=. That syntax is a
@@ -301,11 +316,10 @@ above is done.
 - *Lossless editing.* As for Org: the file is edited as text, never
   regenerated from a tree; the parser only yields ranges for the view,
   so untouched bytes stay as they were (T2.7c.8).
-- *View.* Done as above; still to come: checkboxes toggled by a click,
-  code fences highlighted, front matter folded (T2.7c.3).
-- *Editing.* Tables in the grid Org tables use; Enter continuing lists
-  and quotes; autoformat triggers; an outline from the headings
-  (T2.7c.4, T2.7c.5).
+- *View.* Done as above; still to come: front matter folded, and code
+  blocks coloured with the state of the lines before (T2.7c.3).
+- *Editing.* Tables: moving rows and columns, formulas (T2.7c.4); Enter
+  continuing lists and quotes; autoformat triggers (T2.7c.5).
 - *Conversion.* "Convert to Org" and "Convert from Org", through the
   exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).
 - *What note-taking users expect.* Wiki links =[[Page]]= resolved and

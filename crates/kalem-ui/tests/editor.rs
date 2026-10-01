@@ -2680,18 +2680,23 @@ fn inserting_drawers(cx: &mut TestAppContext) {
 
 #[gpui::test]
 fn markdown_reads_as_text(cx: &mut TestAppContext) {
-    let (e, cx) = open_named(
-        "# Notes\n\nSome *em* and `code`.\n",
-        "n.md",
-        || None,
-        cx,
-    );
+    let (e, cx) = open_named("# Notes\n\nSome *em* and `code`.\n", "n.md", || None, cx);
     at(&e, 0, cx);
-    let shown = e.read_with(cx, |e, _| (e.line_view(0).display(), e.line_view(2).display()));
-    assert_eq!(shown, ("# Notes".to_string(), "Some em and code.".to_string()));
+    let shown = e.read_with(cx, |e, _| {
+        (e.line_view(0).display(), e.line_view(2).display())
+    });
+    assert_eq!(
+        shown,
+        ("# Notes".to_string(), "Some em and code.".to_string())
+    );
     at(&e, 15, cx);
-    let shown = e.read_with(cx, |e, _| (e.line_view(0).display(), e.line_view(2).display()));
-    assert_eq!(shown, ("Notes".to_string(), "Some *em* and code.".to_string()));
+    let shown = e.read_with(cx, |e, _| {
+        (e.line_view(0).display(), e.line_view(2).display())
+    });
+    assert_eq!(
+        shown,
+        ("Notes".to_string(), "Some *em* and code.".to_string())
+    );
 }
 
 #[gpui::test]

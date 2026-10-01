@@ -154,9 +154,9 @@ Written on 2026-10-01 from the former `todo.md` (now `todo_old.md`) at commit 1d
 
 - [x] T2.7c.2 Markdown view model on the shared inline editing model: hidden markers with cursor reveal, headings, emphasis, code, links, images, footnotes (done, 2026-10-01: `kalem_core::markdown` on comrak: byte ranges from comrak's byte columns through a line table, a parse memo per text version, `line_view` with Org's reveal rule and `editor.show_source_markers`, headings by level, emphasis, strong, strike-through, code, links, footnote references, images and `$…$` formulas as widgets, in both editors with the source view as before; the outline sidebar from the headings; files over 256 KiB drawn as source until T2.7c.6; tests in the core and both frontends)
 
-- [~] T2.7c.3 Lists and task lists (clickable checkboxes), block quotes, code fences with highlighting (D16), front matter folded (done: task list boxes drawn as checkboxes off the cursor's line, block quote markers dimmed, code blocks monospace with fences dimmed, front matter dimmed. Open: a click toggling the box, fences highlighted by language, front matter folded)
+- [~] T2.7c.3 Lists and task lists (clickable checkboxes), block quotes, code fences with highlighting (D16), front matter folded (done: task list boxes drawn as checkboxes off the cursor's line and toggled by a click or Toggle Checkbox, block quote markers dimmed, code blocks monospace with fences dimmed and their lines coloured in the fence's language, front matter dimmed. Open: front matter folded, code coloured with the state of the lines before)
 
-- [ ] T2.7c.4 GFM tables edited in the grid shared with Org tables; math with the D4 engine
+- [~] T2.7c.4 GFM tables edited in the grid shared with Org tables; math with the D4 engine (done: `$…$` and `$$…$$` drawn by the formula widget; `kalem_core::markdown_table`: Tab aligns the table and goes to the next cell (a new row past the last), Shift+Tab back, Align Table, alignments of the delimiter row kept, display widths, escaped pipes. Open: moving and inserting rows and columns, sorting, formulas)
 
 - [ ] T2.7c.5 Editing behaviors: autoformat triggers, Enter continues lists and quotes, outline sidebar from headings
 

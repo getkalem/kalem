@@ -693,7 +693,11 @@ pub fn inline_code_colors(
 ) -> Vec<(std::ops::Range<usize>, Hsla)> {
     let text = editor.doc.text();
     let mut out = Vec::new();
-    for (code, lang) in kalem_core::latex_view::inline_code(&editor.doc, range) {
+    // LaTeX's inline code, and a Markdown code block's lines.
+    let code = kalem_core::latex_view::inline_code(&editor.doc, range.clone())
+        .into_iter()
+        .chain(kalem_core::markdown::code_on_line(&editor.doc, range));
+    for (code, lang) in code {
         let Some(l) = kalem_highlight::Language::find(&lang) else {
             continue;
         };

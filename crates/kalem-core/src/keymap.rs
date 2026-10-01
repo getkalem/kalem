@@ -809,6 +809,27 @@ mod tests {
     }
 
     #[test]
+    fn markdown_tables_take_tab() {
+        let reg = CommandRegistry::with_builtins();
+        let (m, _) = Keymap::build(&reg, Profile::Word, &[]);
+        let mut md = Context::default();
+        md.set("editorMode", V::Str("markdown".into()));
+        md.set("textType", V::Str("markdown".into()));
+        let outside = run(&m, "tab", &md).map(|r| r.0);
+        assert_ne!(outside, Some("markdown.table.nextField"));
+        md.flag("inMarkdownTable", true);
+        assert_eq!(run(&m, "tab", &md).unwrap().0, "markdown.table.nextField");
+        assert_eq!(
+            run(&m, "shift+tab", &md).unwrap().0,
+            "markdown.table.previousField"
+        );
+        assert_eq!(
+            run(&m, "ctrl+shift+c", &md).unwrap().0,
+            "markdown.toggleCheckbox"
+        );
+    }
+
+    #[test]
     fn emacs_example() {
         // `docs/keymaps/emacs.json`, the Emacs Org keys as a user keymap.
         let reg = CommandRegistry::with_builtins();
