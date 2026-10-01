@@ -130,6 +130,12 @@ pub const SPECS: &[Spec] = &[
         description: "Center the text column in the window, like a page; off, the text starts at the left edge",
     },
     Spec {
+        key: "editor.restore_session",
+        kind: Kind::Bool,
+        default: "false",
+        description: "On start without files, open the documents open when Kalem last quit (the session SPC q l restores)",
+    },
+    Spec {
         key: "editor.outline_indent",
         kind: Kind::Bool,
         default: "true",

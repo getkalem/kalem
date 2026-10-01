@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Sessions: Save Session (`SPC q s`, `SPC q S`), Restore Session (`SPC q l`, `SPC q L`) and Save Session and Quit (`SPC q K`) keep the open documents, their cursors, the one shown and the project; the last session is saved on quit, and restored on start with `editor.restore_session` (T2.7i.14).
 - `SPC u`, the universal argument: the next command runs four times, sixteen after `SPC u SPC u`, or as many as the digits typed after it (T2.7i.18).
 - `SPC '` opens the last list to choose from again with what was typed in it, and `SPC ~` shows or hides the panel shown or hidden last (Resume Last Picker, Toggle Last Panel; T2.7i.18).
 - The which-key panel waits `keys.hints_delay` (400 ms) after a prefix, names the leader's groups as Doom does (`+file`, `+buffer`…), and marks Doom's keys Kalem does not bind yet as "(later)" or "(plugin)"; `keys.hints = false` turns it off (T2.7i.19).

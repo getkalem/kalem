@@ -215,6 +215,10 @@ pub enum Request {
     ResumePicker,
     /// Show or hide the panel shown or hidden last (Doom's `SPC ~`).
     ToggleLastPanel,
+    /// Save the open documents as session `0` ([`crate::sessions`]).
+    SaveSession(String),
+    /// Open the documents of session `0`.
+    RestoreSession(String),
     /// Start the universal argument, or multiply it by four (Doom's
     /// `SPC u`, [`crate::prefix_arg`]).
     UniversalArgument,

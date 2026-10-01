@@ -222,6 +222,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("csv.setQuote", object(&[("quote", "string", true)])),
         ("csv.splitColumn", object(&[("separator", "string", true)])),
         ("bookmark.set", object(&[("name", "string", false)])),
+        ("session.save", object(&[("name", "string", false)])),
+        ("session.saveAs", object(&[("name", "string", true)])),
+        ("session.restore", object(&[("name", "string", false)])),
+        ("session.restoreNamed", object(&[("name", "string", false)])),
         ("bookmark.goto", object(&[("name", "string", true)])),
         ("bookmark.delete", object(&[("name", "string", false)])),
         ("csv.joinColumns", object(&[("separator", "string", true)])),
@@ -4249,6 +4253,83 @@ fn plain_commands() -> Vec<Command> {
             &["ctrl+h"],
             None,
             |ctx, _| request(ctx, Request::Find { replace: true }),
+        ),
+        // Sessions (Doom's `SPC q`, T2.7i.14).
+        cmd(
+            "session.save",
+            "Save Session",
+            "Session",
+            &[],
+            None,
+            |ctx, args| {
+                let name = args.get("name").and_then(Value::as_str);
+                let name = name.unwrap_or(crate::sessions::LAST).to_string();
+                request(ctx, Request::SaveSession(name))
+            },
+        ),
+        cmd(
+            "session.saveAs",
+            "Save Session As",
+            "Session",
+            &[],
+            None,
+            |ctx, args| {
+                let name = arg_str(args, "name")?.to_string();
+                request(ctx, Request::SaveSession(name))
+            },
+        ),
+        cmd(
+            "session.restore",
+            "Restore Last Session",
+            "Session",
+            &[],
+            None,
+            |ctx, args| {
+                let name = args.get("name").and_then(Value::as_str);
+                let name = name.unwrap_or(crate::sessions::LAST).to_string();
+                request(ctx, Request::RestoreSession(name))
+            },
+        ),
+        cmd(
+            "session.restoreNamed",
+            "Restore Session",
+            "Session",
+            &[],
+            None,
+            |ctx, args| {
+                if let Some(name) = args.get("name").and_then(Value::as_str) {
+                    return request(ctx, Request::RestoreSession(name.to_string()));
+                }
+                let names = crate::sessions::names();
+                if names.is_empty() {
+                    return Err(CommandError::new(crate::tr!("msg-no-sessions")));
+                }
+                let items = names
+                    .into_iter()
+                    .map(|n| crate::palette::PaletteItem {
+                        id: crate::palette::invocation(
+                            "session.restore",
+                            &serde_json::json!({ "name": n }),
+                        ),
+                        title: n,
+                        category: crate::tr!("category-session"),
+                        keys: String::new(),
+                        also: String::new(),
+                    })
+                    .collect();
+                request(ctx, Request::Choose(items))
+            },
+        ),
+        cmd(
+            "session.saveAndQuit",
+            "Save Session and Quit",
+            "Session",
+            &[],
+            None,
+            |ctx, _| {
+                request(ctx, Request::SaveSession(crate::sessions::LAST.to_string()))?;
+                request(ctx, Request::Quit)
+            },
         ),
         cmd(
             crate::prefix_arg::COMMAND,

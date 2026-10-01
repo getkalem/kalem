@@ -1455,19 +1455,19 @@ reason = "Planned: T2.7i.14"
 doom = "SPC q K"
 keys = "space q shift+k"
 what = "Save the session and quit"
-reason = "Planned: T2.7i.14"
+command = "session.saveAndQuit"
 
 [[key]]
 doom = "SPC q l"
 keys = "space q l"
 what = "Restore the last session"
-reason = "Planned: T2.7i.14"
+command = "session.restore"
 
 [[key]]
 doom = "SPC q L"
 keys = "space q shift+l"
 what = "Restore a session"
-reason = "Planned: T2.7i.14"
+command = "session.restoreNamed"
 
 [[key]]
 doom = "SPC q q"
@@ -1497,13 +1497,13 @@ reason = "Planned: T2.7i.14"
 doom = "SPC q s"
 keys = "space q s"
 what = "Save the session"
-reason = "Planned: T2.7i.14"
+command = "session.save"
 
 [[key]]
 doom = "SPC q S"
 keys = "space q shift+s"
 what = "Save the session to a file"
-reason = "Planned: T2.7i.14"
+command = "session.saveAs"
 
 
 # Workspaces =SPC TAB=.
