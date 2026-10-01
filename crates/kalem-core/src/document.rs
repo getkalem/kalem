@@ -1570,6 +1570,10 @@ impl DocumentState {
                 "inMarkdownTable",
                 crate::markdown_table::table_at(&md, self.text.as_str(), at).is_some(),
             );
+            c.flag(
+                "inMarkdownList",
+                crate::markdown::newline(&md, self.text.as_str(), at).is_some(),
+            );
         }
         c.set("textType", Value::Str(self.text_type()));
         let Some((parse, _)) = self.parse() else {

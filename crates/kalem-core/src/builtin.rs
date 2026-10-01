@@ -1849,6 +1849,18 @@ fn markdown_commands() -> Vec<Command> {
         md_table("markdown.table.align", "Align Table", &[], |ctx, _| {
             md_table_run(ctx, crate::markdown_table::align_at)
         }),
+        // Enter in a list item or a quote continues it (T2.7c.5).
+        scoped(
+            cmd(
+                "markdown.newline",
+                "New Item",
+                "Markdown",
+                &[],
+                Some("editorMode == markdown && inMarkdownList"),
+                |ctx, _| md_table_run(ctx, crate::markdown::newline),
+            ),
+            Scope::only(&["markdown"]),
+        ),
     ]
 }
 

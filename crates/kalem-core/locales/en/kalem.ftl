@@ -829,6 +829,7 @@ cmd-csv-copyAsTsv = Copy as Tab-Separated Values
 cmd-csv-openAsText = Open as Plain Text
 cmd-csv-convertToOrg = Convert to Org Table
 cmd-markdown-toggleCheckbox = Toggle Checkbox
+cmd-markdown-newline = New Item
 cmd-markdown-table-nextField = Next Field
 cmd-markdown-table-previousField = Previous Field
 cmd-markdown-table-align = Align Table

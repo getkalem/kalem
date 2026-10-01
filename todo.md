@@ -158,7 +158,7 @@ Written on 2026-10-01 from the former `todo.md` (now `todo_old.md`) at commit 1d
 
 - [~] T2.7c.4 GFM tables edited in the grid shared with Org tables; math with the D4 engine (done: `$…$` and `$$…$$` drawn by the formula widget; `kalem_core::markdown_table`: Tab aligns the table and goes to the next cell (a new row past the last), Shift+Tab back, Align Table, alignments of the delimiter row kept, display widths, escaped pipes. Open: moving and inserting rows and columns, sorting, formulas)
 
-- [ ] T2.7c.5 Editing behaviors: autoformat triggers, Enter continues lists and quotes, outline sidebar from headings
+- [~] T2.7c.5 Editing behaviors: autoformat triggers, Enter continues lists and quotes, outline sidebar from headings (done: the outline sidebar from the headings; Enter continues list items, numbered items, task items and quotes and ends the list on an empty item (`markdown::newline`, `inMarkdownList`, in `word.json`); tests in the core and the terminal editor. Open: autoformat triggers, renumbering numbered lists)
 
 - [ ] T2.7c.6 Incremental reparse from the enclosing top-level block; performance on 10 MB files
 

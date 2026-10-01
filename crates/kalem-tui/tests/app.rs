@@ -2411,6 +2411,20 @@ fn markdown_reads_as_text() {
 }
 
 #[test]
+fn markdown_enter_continues_a_list() {
+    let mut t = with_file("- [x] one\n", "n.md", Config::default(), (70, 8));
+    t.at(9);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    for c in "two".chars() {
+        t.key(KeyCode::Char(c), KeyModifiers::NONE);
+    }
+    assert_eq!(t.app.doc.text().as_str(), "- [x] one\n- [ ] two\n");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.app.doc.text().as_str(), "- [x] one\n- [ ] two\n\n");
+}
+
+#[test]
 fn csv_grid() {
     let mut t = with_file(
         "name,age\nAda,36\nBob,7\n",
