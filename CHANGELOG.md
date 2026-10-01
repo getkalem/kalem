@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Markdown: a code block's lines are coloured with the state of the lines before them, so strings and comments over several lines read right (T2.7c.3).
 - Markdown lists: Alt+Up and Alt+Down move an item with its content, numbered lists numbered again; Renumber List (T2.7c.5).
 - Markdown tables compute their formulas: `<!-- TBLFM: … -->` lines after a table, as Obsidian writes them, in Org's formula language (F9) (T2.7c.4).
 - Workspaces (`SPC TAB`): named sets of a window's documents, each with its panes, switched, renamed, deleted (keeping the documents open), saved and loaded (T2.7i.15).

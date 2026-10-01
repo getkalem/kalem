@@ -114,7 +114,8 @@ edits it as plain text. Concretely:
   (Ctrl+Shift+C, =markdown.toggleCheckbox=) on its line, turns =[ ]=
   into =[x]= and back; one character changes.
 - The lines of a fenced code block that names its language are coloured
-  in that language, line by line.
+  in that language, each with the state of the block's lines before it
+  (a string or comment over several lines is one).
 - In a table (GitHub's pipe tables), Tab aligns the table and goes to
   the next cell, past the last cell adding an empty row, and Shift+Tab
   goes back, as in an Org table (=markdown.table.nextField=,
@@ -409,8 +410,6 @@ above is done.
 - *Lossless editing.* As for Org: the file is edited as text, never
   regenerated from a tree; the parser only yields ranges for the view,
   so untouched bytes stay as they were (T2.7c.8).
-- *View.* Done as above; still to come: code blocks coloured with the
-  state of the lines before (T2.7c.3).
 - *Conversion.* "Convert to Org" and "Convert from Org", through the
   exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).
 - *What note-taking users expect.* Front matter edited as a form

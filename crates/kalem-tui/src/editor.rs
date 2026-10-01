@@ -726,16 +726,26 @@ impl<'a> Layout<'a> {
     /// Colors LaTeX's inline code of a known language (`\lstinline`).
     fn color_inline_code(&self, line: &Range<usize>, glyphs: &mut [Glyph]) {
         let text = self.text();
-        // LaTeX's inline code, and a Markdown code block's lines.
+        // LaTeX's inline code; a Markdown code block's line with the
+        // state of the block's lines before it.
+        let block = kalem_core::markdown::code_block_on_line(self.doc, line.clone());
         let code = kalem_core::latex_view::inline_code(self.doc, line.clone())
             .into_iter()
-            .chain(kalem_core::markdown::code_on_line(self.doc, line.clone()));
-        for (code, lang) in code {
+            .map(|(r, l)| (r, l, None))
+            .chain(block.map(|(b, i, l)| (b, l, Some(i))));
+        for (code, lang, nth) in code {
             let Some(l) = kalem_highlight::Language::find(&lang) else {
                 continue;
             };
-            let spans = kalem_highlight::highlight(l, &text.as_str()[code.clone()]);
-            let Some(spans) = spans.first() else { continue };
+            let all = kalem_highlight::highlight_block(l, &text.as_str()[code.clone()]);
+            let Some(spans) = all.get(nth.unwrap_or(0)) else {
+                continue;
+            };
+            // The block's line starts where the line does.
+            let code = match nth {
+                Some(_) => line.start..line.end,
+                None => code,
+            };
             for g in glyphs.iter_mut() {
                 if g.src_end <= g.src || g.src < code.start || g.src >= code.end {
                     continue;

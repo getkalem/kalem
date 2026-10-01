@@ -880,6 +880,38 @@ pub fn code_on_line(doc: &crate::DocumentState, line: Range<usize>) -> Vec<(Rang
     code_lines(&md, line)
 }
 
+/// The fenced code block of a known language holding line `line`: the
+/// bytes of its code (the lines between the fences), the line's place
+/// among them, and the language, so that the line is coloured with the
+/// state of the lines before it (T2.7c.3).
+pub fn code_block_on_line(
+    doc: &crate::DocumentState,
+    line: Range<usize>,
+) -> Option<(Range<usize>, usize, String)> {
+    if doc.meta.mode != crate::DocumentMode::Markdown || doc.text().len() > LIVE_LIMIT {
+        return None;
+    }
+    let md = parsed(doc);
+    let idx = md.line_of(line.start);
+    md.on_line(idx).find_map(|n| match &n.kind {
+        MdKind::CodeBlock {
+            fenced: true,
+            language: Some(l),
+        } => {
+            let first = md.line_of(n.range.start);
+            let last = md.line_of(n.range.end.saturating_sub(1).max(n.range.start));
+            if !(idx > first && idx < last) {
+                return None;
+            }
+            let text = doc.text();
+            let start = text.line_start(first + 1);
+            let end = text.line_start(last);
+            Some((start..end, idx - first - 1, l.clone()))
+        }
+        _ => None,
+    })
+}
+
 fn code_lines(md: &Md, line: Range<usize>) -> Vec<(Range<usize>, String)> {
     let idx = md.line_of(line.start);
     md.on_line(idx)
