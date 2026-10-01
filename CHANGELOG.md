@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Markdown pictures: dropped, pasted or inserted with Insert Image, copied into `images/` beside the document (`markdown.assets_dir`) and linked as `![name](images/name.png)`.
+- CSV: Record View, Edit Field (`C-c \``), Replace in Column, the Frequency Table with a histogram, Kill and Yank Field; `csv.align_numbers`, `csv.rainbow` and `csv.coordinates` for new files (T2.7d.9).
 - Kalem's logo, a fountain pen (`assets/kalem.svg`): on macOS the Dock shows it when Kalem runs as a bare binary (`cargo run`) instead of "exec".
 - Markdown: Edit Properties, the front matter as a form: each field changed, added or deleted on its own line, YAML or TOML (T2.7c.9).
 - Markdown: a code block's lines are coloured with the state of the lines before them, so strings and comments over several lines read right (T2.7c.3).

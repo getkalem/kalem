@@ -33,6 +33,9 @@ one, generated from the code.
 | =editor.keymap_profile=                  | ="word"=   | =word= or =vim=                                                                    |
 | =editor.vim.modes=                       | =[]=       | Kinds of documents with Vim keys; empty for all                                    |
 | =editor.vim.leader=                      | ="space"=  | The leader of the Vim keys (=SPC p p=)                                             |
+| =markdown.assets_dir=                    | ="images"= | Where a Markdown document's pictures are copied                                    |
+| =csv.rainbow=                            | =false=    | CSV files start with rainbow columns                                               |
+| =csv.coordinates=                        | =false=    | CSV files start with the coordinate grid                                           |
 | =notes.directory=                        | ="~/org"=  | The notes folder =SPC n s= searches                                                |
 | =editor.restore_session=                 | =false=    | On start without a file, the documents open at the last quit                       |
 | =keys.hints=                             | =true=     | The panel of keys that may follow a prefix (=SPC=, =C-x=)                          |

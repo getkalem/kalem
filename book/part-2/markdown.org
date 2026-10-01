@@ -142,6 +142,14 @@ edits it as plain text. Concretely:
   number it started at. /Renumber List/ (=markdown.list.renumber=) puts
   the numbers in order after other edits, as markdown-mode's cleanup of
   list numbers does.
+- Pictures: dropping picture files on the document (graphical editor),
+  pasting a copied picture or the paths of picture files (a terminal
+  pastes a dropped file's path), or /Insert Image/
+  (=markdown.insert.image=, which asks for the file) writes
+  =![name](images/name.png)= at the cursor. A picture from outside the
+  document's folder is copied into =images/= beside it (the setting
+  =markdown.assets_dir=), under a free name; a pasted picture is saved
+  there as =pasted-DATE.png=.
 - /Edit Properties/ (=markdown.frontMatter.edit=) lists the front
   matter's fields as Obsidian's properties panel does; choosing one
   offers its value to change, and the list has /Add a property…/ and a

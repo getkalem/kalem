@@ -130,6 +130,12 @@ pub const SPECS: &[Spec] = &[
         description: "Center the text column in the window, like a page; off, the text starts at the left edge",
     },
     Spec {
+        key: "markdown.assets_dir",
+        kind: Kind::Str,
+        default: "\"images\"",
+        description: "The folder, beside a Markdown document, that pictures dropped, pasted or inserted from elsewhere are copied into ({name} is the document's name)",
+    },
+    Spec {
         key: "csv.align_numbers",
         kind: Kind::Bool,
         default: "true",
@@ -724,6 +730,7 @@ impl Config {
         crate::view::set_source_markers(self.str("editor.show_source_markers"));
         crate::images::set_assets_dir(self.str("org.assets_dir"));
         crate::latex_view::set_root_setting(self.str("latex.root"));
+        crate::images::set_markdown_assets_dir(self.str("markdown.assets_dir"));
         crate::csv::set_view_defaults(crate::csv::View {
             align_numbers: self.bool("csv.align_numbers"),
             rainbow: self.bool("csv.rainbow"),

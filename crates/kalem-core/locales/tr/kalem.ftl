@@ -1016,3 +1016,4 @@ category-record = Kayıt { $row }
 category-frequencies = Sıklıklar
 csv-column = Sütun { $n }
 msg-replaced-count = { $count } alan değişti
+cmd-markdown-insert-image = Resim Ekle

@@ -2761,7 +2761,7 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) {
-        let pictures = self.doc.meta.mode == kalem_core::mode::DocumentMode::Org
+        let pictures = kalem_core::images::LinkStyle::of(&self.doc.meta.mode).is_some()
             && !paths.is_empty()
             && paths.iter().all(|f| kalem_core::images::is_image(f));
         if !pictures {

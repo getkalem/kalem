@@ -35,6 +35,116 @@ pub fn resolve(path: &str, base: Option<&Path>) -> PathBuf {
 
 static ASSETS_DIR: std::sync::RwLock<String> = std::sync::RwLock::new(String::new());
 
+/// Where a Markdown document's pictures go, from `markdown.assets_dir`.
+static MD_ASSETS_DIR: std::sync::RwLock<String> = std::sync::RwLock::new(String::new());
+
+/// Sets where Markdown documents' pictures go: a folder name relative to
+/// the document's folder (`images` by default), `{name}` its name.
+pub fn set_markdown_assets_dir(pattern: &str) {
+    if let Ok(mut p) = MD_ASSETS_DIR.write() {
+        *p = pattern.to_string();
+    }
+}
+
+/// How a picture is linked: Org's `[[file:…]]` or Markdown's `![…](…)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LinkStyle {
+    /// `[[file:a.png]]`, the pictures in `org.assets_dir`.
+    Org,
+    /// `![a](images/a.png)`, the pictures in `markdown.assets_dir`.
+    Markdown,
+}
+
+impl LinkStyle {
+    /// The style of a document of `mode`, if it links pictures.
+    pub fn of(mode: &crate::DocumentMode) -> Option<LinkStyle> {
+        match mode {
+            crate::DocumentMode::Org => Some(LinkStyle::Org),
+            crate::DocumentMode::Markdown => Some(LinkStyle::Markdown),
+            _ => None,
+        }
+    }
+}
+
+fn dir_for(document: &Path, style: LinkStyle) -> Option<PathBuf> {
+    match style {
+        LinkStyle::Org => assets_dir(document),
+        LinkStyle::Markdown => {
+            let pattern = MD_ASSETS_DIR.read().map(|p| p.clone()).unwrap_or_default();
+            let pattern = if pattern.trim().is_empty() {
+                "images".to_string()
+            } else {
+                pattern
+            };
+            assets_dir_with(document, &pattern)
+        }
+    }
+}
+
+/// The link to `file` from `document` in `style`: relative when it is in
+/// the document's folder or below.
+fn link_in(document: &Path, file: &Path, style: LinkStyle) -> String {
+    if style == LinkStyle::Org {
+        return link(document, file);
+    }
+    let dir = document.parent().unwrap_or(Path::new(""));
+    let rel = file.strip_prefix(dir).unwrap_or(file);
+    let s = rel.to_string_lossy().replace('\\', "/");
+    let alt = file
+        .file_stem()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if s.contains([' ', '(', ')']) {
+        format!("![{alt}](<{s}>)")
+    } else {
+        format!("![{alt}]({s})")
+    }
+}
+
+/// [`import`] for a document linking in `style`.
+pub fn import_as(document: &Path, file: &Path, style: LinkStyle) -> Result<String, String> {
+    let dir = document.parent().unwrap_or(Path::new(""));
+    if file.starts_with(dir) && !dir.as_os_str().is_empty() {
+        return Ok(link_in(document, file, style));
+    }
+    let assets = dir_for(document, style).ok_or("no document name")?;
+    std::fs::create_dir_all(&assets).map_err(|e| format!("{}: {e}", assets.display()))?;
+    let name = file
+        .file_name()
+        .map_or_else(|| "image.png".into(), |n| n.to_string_lossy().into_owned());
+    let target = free_name(&assets, &name);
+    std::fs::copy(file, &target).map_err(|e| format!("{}: {e}", file.display()))?;
+    Ok(link_in(document, &target, style))
+}
+
+/// [`import_all`] for a document linking in `style`.
+pub fn import_all_as(
+    document: &Path,
+    files: &[PathBuf],
+    style: LinkStyle,
+) -> Result<String, String> {
+    let links: Result<Vec<String>, String> = files
+        .iter()
+        .map(|f| import_as(document, f, style))
+        .collect();
+    Ok(links?.join("\n"))
+}
+
+/// [`save`] for a document linking in `style`.
+pub fn save_as(
+    document: &Path,
+    data: &[u8],
+    extension: &str,
+    style: LinkStyle,
+) -> Result<String, String> {
+    let assets = dir_for(document, style).ok_or("no document name")?;
+    std::fs::create_dir_all(&assets).map_err(|e| format!("{}: {e}", assets.display()))?;
+    let stamp = jiff::Zoned::now().strftime("%Y%m%d-%H%M%S").to_string();
+    let target = free_name(&assets, &format!("pasted-{stamp}.{extension}"));
+    std::fs::write(&target, data).map_err(|e| format!("{}: {e}", target.display()))?;
+    Ok(link_in(document, &target, style))
+}
+
 /// Sets where pictures go, from `org.assets_dir`: a folder name in which
 /// `{name}` is the document's name, relative to the document's folder.
 pub fn set_assets_dir(pattern: &str) {
@@ -146,7 +256,6 @@ pub fn import_all(document: &Path, files: &[PathBuf]) -> Result<String, String> 
     Ok(links?.join("\n"))
 }
 
-/// The pixels of the picture `file`, at most `max` pixels on its longer
 /// Kalem's logo (`assets/kalem.svg`): the application's icon.
 pub const LOGO_SVG: &[u8] = include_bytes!("../../../assets/kalem.svg");
 
@@ -157,10 +266,15 @@ pub fn svg_png(svg: &[u8], size: u32) -> Result<Vec<u8>, String> {
     let sz = tree.size();
     let k = size as f32 / sz.width().max(sz.height());
     let mut pixmap = resvg::tiny_skia::Pixmap::new(size, size).ok_or("empty picture")?;
-    resvg::render(&tree, resvg::tiny_skia::Transform::from_scale(k, k), &mut pixmap.as_mut());
+    resvg::render(
+        &tree,
+        resvg::tiny_skia::Transform::from_scale(k, k),
+        &mut pixmap.as_mut(),
+    );
     pixmap.encode_png().map_err(|e| e.to_string())
 }
 
+/// The pixels of the picture `file`, at most `max` pixels on its longer
 /// side (larger pictures are scaled down, keeping their shape); SVG is
 /// drawn at its own size.
 pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
