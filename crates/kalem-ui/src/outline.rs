@@ -191,6 +191,7 @@ impl Editor {
                 .model()
                 .map(|m| kalem_core::view::outline_items(&m))
                 .or_else(|| kalem_core::latex_view::outline_items(&self.doc))
+                .or_else(|| kalem_core::packs::outline_items(&self.doc))
         {
             o.items = items;
             o.version = Some(version);

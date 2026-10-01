@@ -299,6 +299,7 @@ status-saved = Kaydedildi
 status-position = Satır { $line }, Sütun { $column }
 status-formula-lisp = Emacs Lisp formülü, hesaplanmaz
 status-table-count = Sayı: { $count }
+status-problems = { $count } sorun
 status-csv-filter = Süzüldü: { $total } satırdan { $matched } (“{ $filter }”)
 status-bib = { $count } kayıt
 status-bib-sorted = { $count } kayıt, { $column } sütununa göre ({ $order })

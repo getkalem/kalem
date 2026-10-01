@@ -303,6 +303,10 @@ status-saved = Saved
 status-position = Ln { $line }, Col { $column }
 status-formula-lisp = Emacs Lisp formula, not computed
 status-table-count = Count: { $count }
+status-problems = { $count ->
+    [one] One problem
+   *[other] { $count } problems
+}
 status-csv-filter = Filtered: { $matched } of { $total } rows (“{ $filter }”)
 status-bib = { $count } entries
 status-bib-sorted = { $count } entries, sorted by { $column } ({ $order })

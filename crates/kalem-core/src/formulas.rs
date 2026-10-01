@@ -116,6 +116,10 @@ pub fn selection_stats(doc: &DocumentState) -> Option<String> {
     if crate::bibtex::is_bib(doc) {
         return crate::bibtex::status(doc);
     }
+    // A language pack's diagnostics (T2.7a.7).
+    if let Some(s) = crate::packs::status(doc) {
+        return Some(s);
+    }
     let sel = doc.selection;
     if sel.anchor == sel.head {
         return None;

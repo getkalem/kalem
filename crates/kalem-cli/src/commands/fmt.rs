@@ -59,10 +59,30 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool, repair: bool) -> 
             }
             continue;
         }
+        let mode = kalem_core::DocumentMode::detect(Some(path), text.as_bytes());
+        // A language pack's formatter (T2.7a.7); a syntax error refuses.
+        let pack = match &mode {
+            kalem_core::DocumentMode::Text { language: Some(l) } => {
+                kalem_core::packs::for_language(l).and_then(|p| p.format(&text))
+            }
+            _ => None,
+        };
+        if let Some(kalem_core::packs::Formatted::Refused(d)) = &pack {
+            refused += 1;
+            let line = text[..d.range.start.min(text.len())].matches('\n').count() + 1;
+            let _ = writeln!(
+                out,
+                "{}:{line}: not formatted: {}",
+                path.display(),
+                d.message
+            );
+            continue;
+        }
         // As the editors decide: `.tex`, `.latex`, `.ltx`, or a mode line.
-        let latex = kalem_core::DocumentMode::detect(Some(path), text.as_bytes())
-            == kalem_core::DocumentMode::Latex;
-        let formatted = if latex {
+        let latex = mode == kalem_core::DocumentMode::Latex;
+        let formatted = if let Some(kalem_core::packs::Formatted::Text(t)) = pack {
+            t
+        } else if latex {
             kalem_core::latex_fmt::format(&text, align)
         } else {
             org_edit::format::format(&org_model::Document::new(org_syntax::parse(&text)))

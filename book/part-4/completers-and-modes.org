@@ -5,11 +5,11 @@ a styled document, CSV as a grid, LaTeX with formulas typeset). The
 design gives each one contract shared by the built-in ones and by
 plugins (D25). This chapter says where each contract stands today.
 
-| Contract    | State today                                               | Code                                | Plugin side |
-|-------------+-----------------------------------------------------------+-------------------------------------+-------------|
-| Completers  | Implemented; three built-in completers use it             | =kalem-core/src/completers.rs=      | T3.1.9c     |
-| Highlighters | syntect with the built-in syntax definitions             | =kalem-highlight/src/lib.rs=        | T3.1.9g     |
-| Document modes | Not yet a contract: a fixed set of modes in the core   | =kalem-core/src/mode.rs=            | T2.7c.10, T3.1.9g |
+| Contract       | State today                                          | Code                           | Plugin side       |
+|----------------+------------------------------------------------------+--------------------------------+-------------------|
+| Completers     | Implemented; three built-in completers use it        | =kalem-core/src/completers.rs= | T3.1.9c           |
+| Highlighters   | syntect with the built-in syntax definitions         | =kalem-highlight/src/lib.rs=   | T3.1.9g           |
+| Document modes | Not yet a contract: a fixed set of modes in the core | =kalem-core/src/mode.rs=       | T2.7c.10, T3.1.9g |
 
 * Completers
 
@@ -47,11 +47,11 @@ $ kalem complete notes.org:4:5      # line 4 is "#+ti"
 
 ** The built-in completers
 
-| ID      | Applies in                       | Trigger                                   | Priority | Items                                                                 |
-|---------+----------------------------------+-------------------------------------------+----------+-----------------------------------------------------------------------|
-| =org=   | Org documents                    | =#+=, =[[=, =[fn:= or =:= before the cursor | 10       | =#+= keywords and blocks, link targets, footnote labels, tags         |
-| =latex= | LaTeX files                      | =\=, ={=, =,= or =[= before the cursor       | 10       | Commands, environments, citation keys, labels, files, packages, options |
-| =words= | Every mode but the file manager  | A word of three letters                   | 0        | Words of the document, nearest to the cursor first                    |
+| ID      | Applies in                      | Trigger                                     | Priority | Items                                                                   |
+|---------+---------------------------------+---------------------------------------------+----------+-------------------------------------------------------------------------|
+| =org=   | Org documents                   | =#+=, =[[=, =[fn:= or =:= before the cursor |       10 | =#+= keywords and blocks, link targets, footnote labels, tags           |
+| =latex= | LaTeX files                     | =\=, ={=, =,= or =[= before the cursor      |       10 | Commands, environments, citation keys, labels, files, packages, options |
+| =words= | Every mode but the file manager | A word of three letters                     |        0 | Words of the document, nearest to the cursor first                      |
 
 The words completer takes words of at least three letters that start
 with the word being typed (ignoring case) and are longer than it, from
@@ -104,11 +104,11 @@ pub trait Completer: Send + Sync {
 
 ** Triggers
 
-| Trigger             | Fires when                                                                 |
-|---------------------+----------------------------------------------------------------------------|
-| =Strings(&[...])=   | One of the strings occurs in the line before the cursor, or on request     |
-| =WordPrefix(n)=     | The word before the cursor has at least =n= characters; on request, one    |
-| =Request=           | Only on request (Ctrl+Space, Alt+/)                                        |
+| Trigger           | Fires when                                                              |
+|-------------------+-------------------------------------------------------------------------|
+| =Strings(&[...])= | One of the strings occurs in the line before the cursor, or on request  |
+| =WordPrefix(n)=   | The word before the cursor has at least =n= characters; on request, one |
+| =Request=         | Only on request (Ctrl+Space, Alt+/)                                     |
 
 A word here is letters, digits and =_=. A completer whose trigger
 fires may still return nothing: the Org completer checks the place
@@ -118,15 +118,15 @@ itself and gives items only where a completion belongs.
 
 =complete= and =applies= receive a =Context=:
 
-| Field       | What it holds                                                                        |
-|-------------+--------------------------------------------------------------------------------------|
-| =text=      | The document's text: all of it up to a megabyte, else the megabyte around the cursor |
-| =base=      | Where =text= starts in the document, in bytes                                        |
-| =point=     | The cursor, in bytes from the start of the document                                  |
-| =mode=      | The document's mode (=DocumentMode=)                                                 |
+| Field       | What it holds                                                                                                                                             |
+|-------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =text=      | The document's text: all of it up to a megabyte, else the megabyte around the cursor                                                                      |
+| =base=      | Where =text= starts in the document, in bytes                                                                                                             |
+| =point=     | The cursor, in bytes from the start of the document                                                                                                       |
+| =mode=      | The document's mode (=DocumentMode=)                                                                                                                      |
 | =text_type= | The text type at the cursor, the =textType= of when-clauses: =python= in a =.py= file or a Python source block, =markdown=, =latex=, =csv=, =org=, =text= |
-| =path=      | The document's file, if it has one                                                   |
-| =requested= | Whether the user asked (Ctrl+Space, Alt+/) rather than typed a trigger              |
+| =path=      | The document's file, if it has one                                                                                                                        |
+| =requested= | Whether the user asked (Ctrl+Space, Alt+/) rather than typed a trigger                                                                                    |
 
 Its methods: =slice(range)= gives the text of a range of the document
 (within the copy), =line_before()= the text before the cursor on its
@@ -136,15 +136,15 @@ where it starts.
 
 ** Items
 
-| Field    | What it is                                                                    |
-|----------+-------------------------------------------------------------------------------|
-| =label=  | What the menu shows                                                           |
-| =insert= | The text that replaces =range=                                                |
-| =range=  | The text the item replaces; it ends at the cursor                             |
-| =cursor= | Where the cursor goes, in bytes into =insert=                                 |
-| =kind=   | =word=, =keyword=, =link=, =tag=, =footnote=, =symbol= or =snippet=           |
-| =detail= | A line more about the item: where a word comes from, an entry's authors       |
-| =source= | The completer's ID, set by the registry                                       |
+| Field    | What it is                                                              |
+|----------+-------------------------------------------------------------------------|
+| =label=  | What the menu shows                                                     |
+| =insert= | The text that replaces =range=                                          |
+| =range=  | The text the item replaces; it ends at the cursor                       |
+| =cursor= | Where the cursor goes, in bytes into =insert=                           |
+| =kind=   | =word=, =keyword=, =link=, =tag=, =footnote=, =symbol= or =snippet=     |
+| =detail= | A line more about the item: where a word comes from, an entry's authors |
+| =source= | The completer's ID, set by the registry                                 |
 
 =Item::new(label, insert, range, kind)= makes an item with the cursor
 after the inserted text and no detail.
@@ -225,16 +225,16 @@ plugins (T3.3.2).
 A document mode decides how a file is shown and edited. The modes today
 are a fixed set in the core (=DocumentMode= in =mode.rs=):
 
-| Mode        | Name in settings and =editorMode= | Files                                        |
-|-------------+-----------------------------------+----------------------------------------------|
-| Org         | =org=                             | =.org=, =.org_archive=, =.klm=               |
-| Markdown    | =markdown=                        | =.md=, =.markdown=, =.mdown=, =.mkd=, =.gfm= |
-| CSV         | =csv=                             | =.csv=, =.tsv=, =.tab=                       |
-| LaTeX       | =latex=                           | =.tex=, =.latex=, =.ltx=                     |
-| BibTeX      | =text=, language =bib=            | =.bib=, shown as a grid of entries           |
-| Plain text  | =text=                            | Everything else that is text, with a language for highlighting |
-| Binary      | =binary=                          | Not opened for editing                       |
-| File manager | =directory=                      | Folders                                      |
+| Mode         | Name in settings and =editorMode= | Files                                                          |
+|--------------+-----------------------------------+----------------------------------------------------------------|
+| Org          | =org=                             | =.org=, =.org_archive=, =.klm=                                 |
+| Markdown     | =markdown=                        | =.md=, =.markdown=, =.mdown=, =.mkd=, =.gfm=                   |
+| CSV          | =csv=                             | =.csv=, =.tsv=, =.tab=                                         |
+| LaTeX        | =latex=                           | =.tex=, =.latex=, =.ltx=                                       |
+| BibTeX       | =text=, language =bib=            | =.bib=, shown as a grid of entries                             |
+| Plain text   | =text=                            | Everything else that is text, with a language for highlighting |
+| Binary       | =binary=                          | Not opened for editing                                         |
+| File manager | =directory=                       | Folders                                                        |
 
 BibTeX is not a mode of its own: a =.bib= file is plain text whose
 language is =bib=, which the editors show as a grid of entries (see
@@ -264,14 +264,14 @@ The design wants one contract for every mode, the one built-in modes
 use and plugins will use (§11.11): a =DocumentModeSpec= in =kalem-core=
 with
 
-| Part                                     | What the mode gives                                                      |
-|------------------------------------------+--------------------------------------------------------------------------|
-| =detect=                                 | Extensions, mode lines, a sniff function over the first bytes            |
-| =parse(text, edit?, previous?)=          | A tree of nodes, each with a kind from a fixed vocabulary and a byte range |
-| =grid(text)=                             | Rows and cells with ranges, for table-like formats                       |
-| =edit=                                   | Enter, Tab, input rules and toggles, each returning edits with ranges    |
-| =outline=, =format=, =complete=, =diagnostics= | The language pack hooks                                            |
-| =export=                                 | Optional conversion to Org or HTML                                       |
+| Part                                           | What the mode gives                                                        |
+|------------------------------------------------+----------------------------------------------------------------------------|
+| =detect=                                       | Extensions, mode lines, a sniff function over the first bytes              |
+| =parse(text, edit?, previous?)=                | A tree of nodes, each with a kind from a fixed vocabulary and a byte range |
+| =grid(text)=                                   | Rows and cells with ranges, for table-like formats                         |
+| =edit=                                         | Enter, Tab, input rules and toggles, each returning edits with ranges      |
+| =outline=, =format=, =complete=, =diagnostics= | The language pack hooks                                                    |
+| =export=                                       | Optional conversion to Org or HTML                                         |
 
 The core would build the view from the ranges, so that both editors
 render every mode and the mode draws nothing; a mode returns ranges
@@ -336,3 +336,33 @@ plugin's folder into =kalem-highlight=, with comment tokens and
 indentation rules, with no code (=kalem::modes::register_highlighter=,
 T3.1.9g). A declarative mode adds a mapping from the syntax's scopes to
 the view's kinds on top of it; see [[file:plugins.org][Plugins]].
+
+* Language packs
+
+A format whose view is its source, JSON, YAML, TOML, XML, a diff, a
+ledger journal, a gettext catalogue, gets no document mode. It gets a
+/language pack/: four hooks on top of its highlighter, the same four a
+plugin gives (=kalem_core::packs=, T2.7a.7).
+
+| Hook          | What the pack gives                             | Where Kalem uses it                                          |
+|---------------+-------------------------------------------------+--------------------------------------------------------------|
+| =outline=     | Headings with their level, title and start      | The outline sidebar of both editors                          |
+| =format=      | The formatted text, or a refusal with its place | Format Document (=hasFormatter=), =kalem fmt=, =kalem check= |
+| =diagnostics= | Problems with a range, a code and a message     | The status bar, =kalem check=                                |
+| =completer=   | A completer on the contract above               | The completion menu                                          |
+
+A pack serves text types, the highlighter's language names (=json=,
+=diff=), and a document in plain text mode with one of them gets the
+pack's hooks; a hook a pack does not give is absent. The status bar
+shows the problem on the cursor's line, or how many problems there are
+("3 problems"). Format Document refuses a text the formatter refuses
+(a syntax error) and puts the cursor at the place; =kalem fmt= lists
+it as "not formatted" and fails, and =kalem check= prints each problem
+as =FILE:LINE:COL: error[CODE]: MESSAGE= (=--json= gives the pack's
+name and whether the file is formatted).
+
+The packs themselves are plugins in =getkalem/plugins= (D29): diff and
+patch, JSON, YAML, TOML and XML, ledger, hledger and beancount, gettext
+and Fluent. They register through the plugin host, which comes with the
+WebAssembly runtime (group 3.1); until then the contract is in the
+core with its wiring and tests, and no pack is built in.

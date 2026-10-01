@@ -232,6 +232,15 @@ pub(crate) fn check(
             continue;
         }
         let mode = kalem_core::DocumentMode::detect(Some(f), text.as_bytes());
+        // A language pack's diagnostics (T2.7a.7).
+        if let kalem_core::DocumentMode::Text { language: Some(l) } = &mode
+            && let Some(pack) = kalem_core::packs::for_language(l)
+        {
+            let (ok, result) = check_pack(f, &text, &*pack, json, &mut out)?;
+            failed |= !ok;
+            results.extend(result);
+            continue;
+        }
         let parse = org_syntax::parse_file(&text, f);
         let (roundtrip, mut diags) = if mode == kalem_core::DocumentMode::Csv {
             // CSV: its malformed fields, not an Org parse.
@@ -407,6 +416,66 @@ fn check_klm(
         .map_err(|e| e.to_string())?;
     }
     Ok((ok, None))
+}
+
+/// `kalem check` on a file a language pack serves: its diagnostics, each
+/// an error, and whether its formatter would change it.
+fn check_pack(
+    f: &Path,
+    text: &str,
+    pack: &dyn kalem_core::packs::LanguagePack,
+    json: bool,
+    out: &mut impl Write,
+) -> Result<(bool, Option<serde_json::Value>)> {
+    let diags = pack.diagnostics(text);
+    let formatted = match pack.format(text) {
+        Some(kalem_core::packs::Formatted::Text(t)) => Some(t == text),
+        _ => None,
+    };
+    if json {
+        let list: Vec<serde_json::Value> = diags
+            .iter()
+            .map(|d| {
+                let (line, col) = line_col(text, d.range.start);
+                serde_json::json!({
+                    "code": d.code,
+                    "severity": "error",
+                    "message": d.message,
+                    "start": d.range.start,
+                    "end": d.range.end,
+                    "line": line,
+                    "column": col,
+                })
+            })
+            .collect();
+        let v = serde_json::json!({
+            "file": f.display().to_string(),
+            "pack": pack.id(),
+            "formatted": formatted,
+            "diagnostics": list,
+        });
+        return Ok((diags.is_empty(), Some(v)));
+    }
+    for d in &diags {
+        let (line, col) = line_col(text, d.range.start);
+        writeln!(
+            out,
+            "{}:{line}:{col}: error[{}]: {}",
+            f.display(),
+            d.code,
+            d.message
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if formatted == Some(false) {
+        writeln!(
+            out,
+            "{}: info: not formatted (`kalem fmt` formats it)",
+            f.display()
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok((diags.is_empty(), None))
 }
 
 fn check_latex(

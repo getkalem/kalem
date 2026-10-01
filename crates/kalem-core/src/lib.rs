@@ -47,6 +47,7 @@ pub mod math;
 pub mod menus;
 pub mod mode;
 pub mod modes;
+pub mod packs;
 pub mod palette;
 pub mod pandoc;
 pub mod paste;
