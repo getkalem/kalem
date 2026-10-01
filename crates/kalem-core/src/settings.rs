@@ -130,6 +130,24 @@ pub const SPECS: &[Spec] = &[
         description: "Center the text column in the window, like a page; off, the text starts at the left edge",
     },
     Spec {
+        key: "csv.align_numbers",
+        kind: Kind::Bool,
+        default: "true",
+        description: "CSV files start with columns of numbers and dates aligned right (Toggle Number Alignment changes one file)",
+    },
+    Spec {
+        key: "csv.rainbow",
+        kind: Kind::Bool,
+        default: "false",
+        description: "CSV files start with each column its color (Rainbow Columns changes one file)",
+    },
+    Spec {
+        key: "csv.coordinates",
+        kind: Kind::Bool,
+        default: "false",
+        description: "CSV files start with column letters and row numbers shown (Coordinate Grid changes one file)",
+    },
+    Spec {
         key: "notes.directory",
         kind: Kind::Str,
         default: "\"~/org\"",
@@ -706,6 +724,11 @@ impl Config {
         crate::view::set_source_markers(self.str("editor.show_source_markers"));
         crate::images::set_assets_dir(self.str("org.assets_dir"));
         crate::latex_view::set_root_setting(self.str("latex.root"));
+        crate::csv::set_view_defaults(crate::csv::View {
+            align_numbers: self.bool("csv.align_numbers"),
+            rainbow: self.bool("csv.rainbow"),
+            coordinates: self.bool("csv.coordinates"),
+        });
     }
 
     /// Settings from the texts of settings files, in layer order.

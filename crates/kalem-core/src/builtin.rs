@@ -218,6 +218,18 @@ fn schemas() -> Vec<(&'static str, Value)> {
             ]),
         ),
         ("csv.sortFile", object(&[("reverse", "boolean", false)])),
+        (
+            "csv.setField",
+            object(&[
+                ("row", "integer", false),
+                ("column", "integer", false),
+                ("value", "string", true),
+            ]),
+        ),
+        (
+            "csv.replaceInColumn",
+            object(&[("find", "string", true), ("replace", "string", false)]),
+        ),
         ("csv.filter", object(&[("text", "string", true)])),
         ("csv.sortView", object(&[("reverse", "boolean", false)])),
         ("csv.setDelimiter", object(&[("delimiter", "string", true)])),
@@ -237,7 +249,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "markdown.frontMatter.set",
             object(&[("key", "string", true), ("value", "string", true)]),
         ),
-        ("markdown.frontMatter.delete", object(&[("key", "string", true)])),
+        (
+            "markdown.frontMatter.delete",
+            object(&[("key", "string", true)]),
+        ),
         ("insert.text", object(&[("text", "string", true)])),
         ("pane.focus", object(&[("dir", "string", true)])),
         ("workspace.newNamed", object(&[("name", "string", true)])),
@@ -2568,6 +2583,161 @@ fn csv_commands() -> Vec<Command> {
                 Ok((
                     Some(crate::csv::sort_file(text, &l.dialect, col, reverse)),
                     Some((top, col)),
+                ))
+            })
+        }),
+        // A record as a form, a long field in a line of its own, find and
+        // replace in a column, the frequency table, fields killed and
+        // yanked (T2.7d.9).
+        c("csv.recordView", "Record View", &[], |ctx, _| {
+            let d = ctx.doc()?;
+            let (layout, row, rec, _) = crate::csv::cell_at(d)
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+            let text = d.text().as_str();
+            let dl = &layout.dialect;
+            let header = if dl.header {
+                layout.index.borrow_mut().record(text, 0, dl)
+            } else {
+                None
+            };
+            let n = rec
+                .fields
+                .len()
+                .max(header.as_ref().map_or(0, |h| h.fields.len()));
+            let category = crate::tr!("category-record", row = row + 1);
+            let items = (0..n)
+                .map(|col| {
+                    let name = header
+                        .as_ref()
+                        .and_then(|h| h.fields.get(col))
+                        .map(|f| crate::csv::value(text, f, dl).into_owned())
+                        .unwrap_or_else(|| crate::tr!("csv-column", n = col + 1));
+                    let v = rec
+                        .fields
+                        .get(col)
+                        .map(|f| crate::csv::value(text, f, dl).into_owned())
+                        .unwrap_or_default();
+                    crate::palette::PaletteItem {
+                        id: crate::palette::invocation(
+                            "csv.setField",
+                            &serde_json::json!({ "row": row, "column": col, "value_default": v }),
+                        ),
+                        title: format!("{name}: {v}"),
+                        category: category.clone(),
+                        keys: String::new(),
+                        also: String::new(),
+                    }
+                })
+                .collect();
+            request(ctx, Request::Choose(items))
+        }),
+        c("csv.editField", "Edit Field", &["ctrl+c `"], |ctx, _| {
+            let d = ctx.doc()?;
+            let (layout, row, rec, col) = crate::csv::cell_at(d)
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+            let v = rec
+                .fields
+                .get(col)
+                .map(|f| crate::csv::value(d.text().as_str(), f, &layout.dialect).into_owned())
+                .unwrap_or_default();
+            request(
+                ctx,
+                Request::Ask {
+                    command: "csv.setField".into(),
+                    args: serde_json::json!({ "row": row, "column": col, "value_default": v }),
+                    arg: "value".into(),
+                },
+            )
+        }),
+        c("csv.setField", "Set Field", &[], |ctx, args| {
+            let row = args.get("row").and_then(Value::as_u64).map(|r| r as usize);
+            let col = args
+                .get("column")
+                .and_then(Value::as_u64)
+                .map(|c| c as usize);
+            let value = arg_str(args, "value")?.to_string();
+            csv_edit(ctx, |text, l, here, rec, here_col| {
+                let row = row.unwrap_or(here);
+                let col = col.unwrap_or(here_col);
+                let rec = if row == here {
+                    rec.clone()
+                } else {
+                    l.index
+                        .borrow_mut()
+                        .record(text, row, &l.dialect)
+                        .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-row")))?
+                };
+                Ok((
+                    Some(crate::csv::set_cell(text, &rec, col, &value, &l.dialect)),
+                    Some((row, col)),
+                ))
+            })
+        }),
+        c(
+            "csv.replaceInColumn",
+            "Replace in Column",
+            &[],
+            |ctx, args| {
+                let find = arg_str(args, "find")?.to_string();
+                let with = args
+                    .get("replace")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let mut count = 0;
+                csv_edit(ctx, |text, l, row, _, col| {
+                    let (tx, n) =
+                        crate::csv::replace_in_column(text, &l.dialect, col, &find, &with);
+                    count = n;
+                    Ok(((n > 0).then_some(tx), Some((row, col))))
+                })?;
+                ctx.messages
+                    .push(crate::tr!("msg-replaced-count", count = count));
+                Ok(())
+            },
+        ),
+        c("csv.frequencies", "Frequency Table", &[], |ctx, _| {
+            let d = ctx.doc()?;
+            let (layout, _, _, col) = crate::csv::cell_at(d)
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+            let freq = crate::csv::frequencies(d.text().as_str(), &layout.dialect, col);
+            let max = freq.first().map_or(0, |f| f.1);
+            let category = crate::tr!("category-frequencies");
+            let items = freq
+                .into_iter()
+                .take(500)
+                .map(|(v, n)| crate::palette::PaletteItem {
+                    id: crate::palette::invocation("csv.filter", &serde_json::json!({ "text": v })),
+                    title: format!("{n:>6}  {}  {v}", crate::csv::bar(n, max, 20)),
+                    category: category.clone(),
+                    keys: String::new(),
+                    also: String::new(),
+                })
+                .collect();
+            request(ctx, Request::Choose(items))
+        }),
+        c("csv.killField", "Kill Field", &[], |ctx, _| {
+            let mut killed = String::new();
+            csv_edit(ctx, |text, l, row, rec, col| {
+                killed = rec
+                    .fields
+                    .get(col)
+                    .map(|f| crate::csv::value(text, f, &l.dialect).into_owned())
+                    .unwrap_or_default();
+                Ok((
+                    Some(crate::csv::set_cell(text, rec, col, "", &l.dialect)),
+                    Some((row, col)),
+                ))
+            })?;
+            ctx.clipboard.record(killed.clone());
+            request(ctx, Request::CopyText(killed))
+        }),
+        c("csv.yankField", "Yank Field", &[], |ctx, _| {
+            let v = ctx.clipboard.text.clone();
+            csv_edit(ctx, |text, l, row, rec, col| {
+                Ok((
+                    Some(crate::csv::set_cell(text, rec, col, &v, &l.dialect)),
+                    Some((row, col)),
                 ))
             })
         }),

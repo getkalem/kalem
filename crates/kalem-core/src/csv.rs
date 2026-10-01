@@ -906,14 +906,88 @@ pub struct View {
     pub coordinates: bool,
 }
 
+/// The view new CSV documents start with: the settings `csv.align_numbers`,
+/// `csv.rainbow` and `csv.coordinates`.
+static VIEW_DEFAULTS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1);
+
+/// Sets the view new CSV documents start with.
+pub fn set_view_defaults(v: View) {
+    let bits = u8::from(v.align_numbers) | u8::from(v.rainbow) << 1 | u8::from(v.coordinates) << 2;
+    VIEW_DEFAULTS.store(bits, std::sync::atomic::Ordering::Relaxed);
+}
+
 impl Default for View {
     fn default() -> View {
+        let bits = VIEW_DEFAULTS.load(std::sync::atomic::Ordering::Relaxed);
         View {
-            align_numbers: true,
-            rainbow: false,
-            coordinates: false,
+            align_numbers: bits & 1 != 0,
+            rainbow: bits & 2 != 0,
+            coordinates: bits & 4 != 0,
         }
     }
+}
+
+/// The values of column `col` (the header row left out) with how many
+/// rows hold each, the most frequent first, then in text order.
+pub fn frequencies(text: &str, d: &Dialect, col: usize) -> Vec<(String, usize)> {
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (i, row) in rows(text, d).into_iter().enumerate() {
+        if i == 0 && d.header {
+            continue;
+        }
+        let v = row.get(col).cloned().unwrap_or_default();
+        *counts.entry(v).or_default() += 1;
+    }
+    let mut v: Vec<(String, usize)> = counts.into_iter().collect();
+    v.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    v
+}
+
+/// A bar of `n` out of `max` in at most `width` cells, for the frequency
+/// table's histogram.
+pub fn bar(n: usize, max: usize, width: usize) -> String {
+    let cells = if max == 0 {
+        0
+    } else {
+        (n * width).div_ceil(max)
+    };
+    "█".repeat(cells)
+}
+
+/// Each field of column `col` (the header left out) with `find` replaced
+/// by `replace`: the edits, and how many fields changed.
+pub fn replace_in_column(
+    text: &str,
+    d: &Dialect,
+    col: usize,
+    find: &str,
+    replace: &str,
+) -> (Transaction, usize) {
+    let mut tx = Transaction::new("Replace in Column");
+    let mut n = 0;
+    if find.is_empty() {
+        return (tx, 0);
+    }
+    let mut at = 0;
+    let mut first = true;
+    while at < text.len() {
+        let rec = scan(text, at, d);
+        let header = first && d.header;
+        first = false;
+        if !header && let Some(f) = rec.fields.get(col) {
+            let v = value(text, f, d);
+            if v.contains(find) {
+                let new = v.replace(find, replace);
+                let _ = tx.replace(f.range.clone(), encode(&new, d));
+                n += 1;
+            }
+        }
+        if rec.next <= at {
+            break;
+        }
+        at = rec.next;
+    }
+    (tx, n)
 }
 
 /// The colors of rainbow columns, readable on light and dark themes.
@@ -1840,5 +1914,31 @@ mod tests {
         assert!(idx.starts.len() < 100);
         assert_eq!(idx.count(&t, &d), 100_000);
         assert!(start.elapsed() < std::time::Duration::from_secs(2));
+    }
+}
+
+#[cfg(test)]
+mod spreadsheet_tests {
+    use super::*;
+
+    #[test]
+    fn frequencies_and_column_replace() {
+        let t = "name,city\nAli,Ankara\nAyşe,İzmir\nCan,Ankara\n";
+        let d = detect(t);
+        assert_eq!(
+            frequencies(t, &d, 1),
+            [("Ankara".to_string(), 2), ("İzmir".to_string(), 1)]
+        );
+        assert_eq!(bar(1, 2, 10), "█████");
+        let (tx, n) = replace_in_column(t, &d, 1, "Ankara", "Bursa");
+        assert_eq!(n, 2);
+        let mut s = t.to_string();
+        for e in tx.edits.iter().rev() {
+            s.replace_range(e.range.clone(), &e.insert);
+        }
+        assert_eq!(s, "name,city\nAli,Bursa\nAyşe,İzmir\nCan,Bursa\n");
+        // The header and the other columns stay.
+        let (_, n) = replace_in_column(t, &d, 0, "city", "x");
+        assert_eq!(n, 0);
     }
 }
