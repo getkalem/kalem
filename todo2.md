@@ -4,7 +4,7 @@ Every task of [`todo.md`](todo.md) that is not done, in the order it is to be do
 
 Markers as in `todo.md`: `[ ]` to do, `[~]` in progress (the task's text says what is done and what is open). A heading may end with **Needs discussion**: the open decisions that belong to it, and the points the author of this file (2026-10-01) did not understand or found doubtful, for the owner to settle; nothing under that heading changes a task.
 
-Written on 2026-10-01 from `todo.md` at commit 1d3508a; 251 open tasks.
+Written on 2026-10-01 from `todo.md` at commit 1d3508a; 250 open tasks (T4.1.3, an out-of-process plugin protocol, was removed by the owner on 2026-10-01 as contrary to D28).
 
 ## 0. This file
 
@@ -718,8 +718,6 @@ Written on 2026-10-01 from `todo.md` at commit 1d3508a; 251 open tasks.
 
 ## 21. Maturity (todo.md 4.1, 4.2, 4.3)
 
-- [ ] T4.1.3 Out-of-process protocol: JSON-RPC over stdio; example Python plugin
-
 - [ ] T4.1.4 Plugin index (JSON) and in-app browser; API version compatibility
 
 - [ ] T4.2.1 Babel `:session` (persistent REPL) and `:noweb`
@@ -754,7 +752,6 @@ Written on 2026-10-01 from `todo.md` at commit 1d3508a; 251 open tasks.
 
 ### Needs discussion
 
-- *T4.1.3 contradicts D28 and D10.* D28 says plugins are WASM components written in Rust and no scripting engine ships; D10 closed a second language. T4.1.3 adds an out-of-process JSON-RPC protocol with an example Python plugin, which is a second plugin kind with a second security story. Cancel it, or re-decide D28 on purpose.
 - *T4.3.2, the PDF panel on pdfium,* is the renderer question of groups 7 and 18 (one renderer, pure Rust); the task was "moved up" for T2.7h.24 and should be rewritten as "the pdf-viewer plugin's renderer in a panel".
 - *T4.3.4, "basic screen reader support",* is partly done: AccessKit reports the text, caret and selection since T1.5.2b, and the release checklist has screen reader rows. The task should say what remains (the panels, the file manager, the terminal editor's announcements).
 - *T4.3.3, automatic updates:* cargo-dist's installers update by re-running; an in-app updater (Sparkle on macOS, a background check elsewhere) needs signing (group 9) and a decision on phoning home, which the permission model should cover.
@@ -815,4 +812,4 @@ Written on 2026-10-01 from `todo.md` at commit 1d3508a; 251 open tasks.
 | D59 | Formulas in CSV files | 4 |
 | D61 | Where the Book is published | 1 |
 
-Decisions this file proposes to add: the order of groups 6, 7, 8 and 12 (T2.7c.0); which release carries the signed packages (groups 2, 13); one PDF renderer for the panel and the viewer (groups 7, 18, 21); the fate of T4.1.3 (group 21); the layout model for panes and workspaces (group 8); where AsciiDoc and reST live (group 4).
+Decisions this file proposes to add: the order of groups 6, 7, 8 and 12 (T2.7c.0); which release carries the signed packages (groups 2, 13); one PDF renderer for the panel and the viewer (groups 7, 18, 21); the layout model for panes and workspaces (group 8); where AsciiDoc and reST live (group 4).
