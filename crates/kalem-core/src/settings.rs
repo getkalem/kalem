@@ -226,6 +226,12 @@ pub const SPECS: &[Spec] = &[
         description: "The TeX engine for LaTeX documents: auto (from % !TEX program and the packages), pdflatex, xelatex, lualatex or tectonic",
     },
     Spec {
+        key: "latex.root",
+        kind: Kind::Str,
+        default: r#""""#,
+        description: "The root document of LaTeX files that do not name one with % !TEX root, relative to the project's folder (for the workspace's settings)",
+    },
+    Spec {
         key: "latex.build_on_save",
         kind: Kind::Bool,
         default: "false",
@@ -675,6 +681,7 @@ impl Config {
         crate::l10n::set_language(self.str("ui.language"));
         crate::view::set_source_markers(self.str("editor.show_source_markers"));
         crate::images::set_assets_dir(self.str("org.assets_dir"));
+        crate::latex_view::set_root_setting(self.str("latex.root"));
     }
 
     /// Settings from the texts of settings files, in layer order.

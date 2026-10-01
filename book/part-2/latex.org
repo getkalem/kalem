@@ -333,13 +333,19 @@ applies wins:
    the same way.
 3. A file named =NAME.latexmain= in the file's folder or a folder above
    it: =NAME= in that folder.
-4. A workspace setting naming the root. (The function takes one; no
-   setting feeds it yet, so this step never applies.)
+4. The setting =latex.root=, a path relative to the project's folder
+   (the folder with =.git=, =.kalem= or another project marker; the
+   file's folder without one), usually in the workspace's settings; it
+   must exist.
 5. The file itself, when a line of it starts with =\documentclass= (not
    the =subfiles= class).
 6. The first =.tex= file with a =\documentclass=, in the file's folder or
-   a folder above, whose project includes the file.
-7. The file itself.
+   a folder above (up to the project's folder), whose project includes
+   the file.
+7. The first =.tex= file of the project, by path, with a
+   =\documentclass= whose project includes the file (a main document in
+   a sibling folder: =src/main.tex= for =chapters/one.tex=).
+8. The file itself.
 
 #+begin_src latex
 % !TEX root = ../thesis.tex
@@ -1383,6 +1389,7 @@ Each parses without diagnostics and compiles with pdflatex in the tests.
 | =latex.engine=           | =auto=  | the TeX engine: =auto=, =pdflatex=, =xelatex= or =lualatex=      |
 | =latex.build_on_save=    | =false= | build the PDF each time a LaTeX document is saved                |
 | =latex.output_directory= | empty   | where builds go, relative to the root document; empty: beside it |
+| =latex.root=             | empty   | the root document, relative to the project's folder (step 4 above) |
 | =export.open_after=      | =false= | open the PDF of a build and the files pandoc writes              |
 
 * Limits and known gaps
@@ -1400,8 +1407,8 @@ work breakdown (group 2.7h of =todo.md=):
 - *Parsing.* No catcode changes but =\makeatletter=; no signatures for
   the document's own macros; no verbatim environments beyond the fixed
   list.
-- *Projects.* No workspace setting for the root and no use of the
-  project's file list in the root search (T2.7h.4).
+- *Projects.* The project's last-resort search reads at most 2,000
+  =.tex= files.
 - *Mathematics.* No table of unsupported macros yet (T2.7h.7). The
   definitions given to the renderer are cut from the edited file by the
   ranges of the model's macros, so in a file of a multi-file project
