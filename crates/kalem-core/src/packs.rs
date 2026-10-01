@@ -171,6 +171,7 @@ pub(crate) mod tests {
                         todo: None,
                         title: name.to_string(),
                         start: at,
+                        file: None,
                     });
                 }
                 at += line.len();

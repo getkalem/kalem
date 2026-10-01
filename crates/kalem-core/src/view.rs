@@ -652,6 +652,21 @@ pub struct OutlineItem {
     pub title: String,
     /// Where it starts.
     pub start: usize,
+    /// The file it is in, when another than the document's (a LaTeX
+    /// project's included file); `start` is then in that file.
+    pub file: Option<std::path::PathBuf>,
+}
+
+/// The line (from 1) and byte column of byte `offset` of the file at
+/// `path`, read from the disk: where an outline item of another file
+/// leads.
+pub fn position_in_file(path: &std::path::Path, offset: usize) -> Option<(u64, usize)> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let offset = offset.min(text.len());
+    let before = &text[..offset];
+    let line = before.matches('\n').count() as u64 + 1;
+    let col = offset - before.rfind('\n').map_or(0, |i| i + 1);
+    Some((line, col))
 }
 
 /// The headings of `doc` for an outline panel (inlinetasks left out).
@@ -669,6 +684,7 @@ pub fn outline_items(doc: &org_model::Document) -> Vec<OutlineItem> {
             }),
             title: e.raw_title.clone(),
             start: usize::from(e.range.start()),
+            file: None,
         })
         .collect()
 }

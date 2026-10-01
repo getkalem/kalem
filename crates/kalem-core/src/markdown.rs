@@ -1244,6 +1244,7 @@ fn outline(md: &Md, text: &str) -> Vec<crate::view::OutlineItem> {
             todo: None,
             title: text[n.content.clone()].trim().to_string(),
             start: n.range.start,
+            file: None,
         })
         .collect()
 }
@@ -1886,7 +1887,13 @@ mod spec {
             if !ok {
                 differ.push(e.section.clone());
                 if std::env::var("KALEM_SHOW").is_ok() && !e.section.starts_with("Emphasis") {
-                    eprintln!("--- {}\n{:?}\n{:?}\n{:?}", e.section, e.markdown, e.html, html(&e.markdown));
+                    eprintln!(
+                        "--- {}\n{:?}\n{:?}\n{:?}",
+                        e.section,
+                        e.markdown,
+                        e.html,
+                        html(&e.markdown)
+                    );
                 }
             }
             // Every node inside the text and its parent; every line drawn.

@@ -203,7 +203,10 @@ impl Editor {
             o.collapsed.retain(|s| starts.contains(s));
         }
         let head = self.doc.selection.head;
-        let current = o.items.iter().rposition(|i| i.start <= head);
+        let current = o
+            .items
+            .iter()
+            .rposition(|i| i.file.is_none() && i.start <= head);
         let theme = self.theme.clone();
         let mut rows = Vec::new();
         for i in o.shown() {
@@ -288,7 +291,17 @@ impl Editor {
             row = row
                 .child(zone(false))
                 .child(zone(true))
-                .on_click(cx.listener(move |this, _, window, cx| this.jump_to(start, window, cx)))
+                .on_click({
+                    let file = it.file.clone();
+                    cx.listener(move |this, _, window, cx| match &file {
+                        // A heading of an included file: that file, at it.
+                        Some(f) => cx.emit(crate::editor::DocEvent::Open {
+                            path: f.clone(),
+                            at: kalem_core::view::position_in_file(f, start),
+                        }),
+                        None => this.jump_to(start, window, cx),
+                    })
+                })
                 .on_drag(
                     DraggedHeading {
                         start,

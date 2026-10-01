@@ -2505,7 +2505,10 @@ impl App {
             None => {
                 let items = self.outline_items();
                 let head = self.doc.selection.head;
-                let selected = items.iter().rposition(|i| i.start <= head).unwrap_or(0);
+                let selected = items
+                    .iter()
+                    .rposition(|i| i.file.is_none() && i.start <= head)
+                    .unwrap_or(0);
                 self.outline = Some(OutlinePanel::new(items, selected, self.doc.version()));
             }
         }
@@ -2515,10 +2518,16 @@ impl App {
     /// Jumps to the outline's chosen heading.
     fn outline_jump(&mut self) {
         let Some(o) = &mut self.outline else { return };
-        let Some(start) = o.items.get(o.selected).map(|i| i.start) else {
+        let Some((start, file)) = o.items.get(o.selected).map(|i| (i.start, i.file.clone())) else {
             return;
         };
         o.focus = false;
+        // A heading of an included file: that file, at the heading.
+        if let Some(file) = file {
+            let at = kalem_core::view::position_in_file(&file, start);
+            self.open_path(&file, at);
+            return;
+        }
         self.doc.move_cursor(start, false);
         self.editor.viewport.goal_x = None;
         self.after_change(true);
@@ -3394,7 +3403,10 @@ impl App {
                 ..text_area
             };
             let head = self.doc.selection.head;
-            let current = o.items.iter().rposition(|i| i.start <= head);
+            let current = o
+                .items
+                .iter()
+                .rposition(|i| i.file.is_none() && i.start <= head);
             o.draw(f.buffer_mut(), panel, current, &self.caps);
             text_area.x += w;
             text_area.width -= w;

@@ -195,6 +195,7 @@ impl ModeSpec for KlmMode {
                     todo: None,
                     title: text[b.0..b.1].trim().to_string(),
                     start: c.range.0,
+                    file: None,
                 });
             }
         });
