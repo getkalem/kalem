@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Kalem's logo, a fountain pen (`assets/kalem.svg`): on macOS the Dock shows it when Kalem runs as a bare binary (`cargo run`) instead of "exec".
 - Markdown: Edit Properties, the front matter as a form: each field changed, added or deleted on its own line, YAML or TOML (T2.7c.9).
 - Markdown: a code block's lines are coloured with the state of the lines before them, so strings and comments over several lines read right (T2.7c.3).
 - Markdown lists: Alt+Up and Alt+Down move an item with its content, numbered lists numbered again; Renumber List (T2.7c.5).

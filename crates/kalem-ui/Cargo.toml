@@ -26,8 +26,9 @@ tracing = "0.1"
 unicode-segmentation = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard", "NSApplication", "NSResponder", "NSImage"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSData"] }
 
 [dev-dependencies]
 # The terminal editor, for the tests comparing the two editors.
