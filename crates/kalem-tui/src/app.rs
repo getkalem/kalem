@@ -162,6 +162,8 @@ pub struct App {
     resume_input: Option<String>,
     /// A list to choose from was asked for: the next palette is one.
     mark_picker: bool,
+    /// The universal argument being typed (`SPC u`).
+    prefix: Option<kalem_core::prefix_arg::PrefixArg>,
     /// The panel shown or hidden last (`SPC ~`).
     last_panel: Option<Request>,
     /// The find bar, when open.
@@ -425,6 +427,7 @@ impl App {
             last_picker: None,
             resume_input: None,
             mark_picker: false,
+            prefix: None,
             last_panel: None,
             status: None,
             prompt: None,
@@ -1314,6 +1317,12 @@ impl App {
 
     /// Runs a command, asking for missing required arguments first.
     pub fn run_command(&mut self, id: &str, args: Value) {
+        // The universal argument's count, for any command but itself.
+        let times = if id == kalem_core::prefix_arg::COMMAND {
+            1
+        } else {
+            self.prefix.take().map_or(1, |p| p.count())
+        };
         let Some(cmd) = self.registry.get(id) else {
             self.message(tr!("msg-unknown-command", id = id), true);
             return;
@@ -1363,7 +1372,7 @@ impl App {
             now,
             clock,
         );
-        let result = self.registry.execute(id, &mut ctx, &args);
+        let result = self.registry.execute_times(id, &mut ctx, &args, times);
         let requests = std::mem::take(&mut ctx.requests);
         let messages = std::mem::take(&mut ctx.messages);
         drop(ctx);
@@ -1427,6 +1436,14 @@ impl App {
                 }
                 None => self.message(tr!("msg-no-picker"), false),
             },
+            Request::UniversalArgument => {
+                match &mut self.prefix {
+                    Some(p) => p.again(),
+                    None => self.prefix = Some(Default::default()),
+                }
+                let label = self.prefix.map(|p| p.label()).unwrap_or_default();
+                self.message(label, false);
+            }
             Request::ToggleLastPanel => match self.last_panel.clone() {
                 Some(r) => self.request(r),
                 None => self.message(tr!("msg-no-panel"), false),
@@ -2766,6 +2783,26 @@ impl App {
         if self.palette.is_some() {
             self.palette_key(&k);
             return;
+        }
+        // After `SPC u`: digits give the count, Escape drops it.
+        if self.pending.is_empty()
+            && let Some(p) = &mut self.prefix
+        {
+            let plain = k.modifiers.difference(KeyModifiers::SHIFT).is_empty();
+            if let KeyCode::Char(c) = k.code
+                && plain
+                && p.key(&c.to_string())
+            {
+                let label = p.label();
+                self.message(label, false);
+                return;
+            }
+            if k.code == KeyCode::Esc {
+                self.prefix = None;
+                self.status = None;
+                self.dirty = true;
+                return;
+            }
         }
         if self.find.is_some() && self.find_key(&k) {
             return;

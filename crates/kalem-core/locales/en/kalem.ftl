@@ -990,3 +990,5 @@ msg-no-picker = No list to resume yet
 msg-no-panel = No panel shown or hidden yet
 cmd-picker-resume = Resume Last Picker
 cmd-view-toggleLastPanel = Toggle Last Panel
+msg-universal-argument = Count { $n }: the next command runs { $n } times
+cmd-app-universalArgument = Universal Argument

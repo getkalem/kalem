@@ -215,6 +215,9 @@ pub enum Request {
     ResumePicker,
     /// Show or hide the panel shown or hidden last (Doom's `SPC ~`).
     ToggleLastPanel,
+    /// Start the universal argument, or multiply it by four (Doom's
+    /// `SPC u`, [`crate::prefix_arg`]).
+    UniversalArgument,
 }
 
 impl Request {
@@ -897,6 +900,26 @@ impl CommandRegistry {
     /// Every command, by ID.
     pub fn commands(&self) -> impl Iterator<Item = &Command> {
         self.commands.values()
+    }
+
+    /// Runs command `id` `n` times (the universal argument), stopping
+    /// after the first run that asks something of the frontend (opens a
+    /// list, a file) and at the first error.
+    pub fn execute_times(
+        &self,
+        id: &str,
+        ctx: &mut EditorContext<'_>,
+        args: &Value,
+        n: usize,
+    ) -> CommandResult {
+        for _ in 0..n.clamp(1, crate::prefix_arg::MAX) {
+            let asked = ctx.requests.len();
+            self.execute(id, ctx, args)?;
+            if ctx.requests.len() > asked {
+                break;
+            }
+        }
+        Ok(())
     }
 
     /// Runs a command.

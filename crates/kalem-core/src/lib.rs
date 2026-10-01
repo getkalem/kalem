@@ -56,6 +56,7 @@ pub mod palette;
 pub mod pandoc;
 pub mod paste;
 pub mod pdf;
+pub mod prefix_arg;
 pub mod print;
 pub mod projects;
 pub mod properties;
