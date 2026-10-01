@@ -131,6 +131,21 @@ it off. The leader's first keys:
 (=SPC u 1 2=); Escape drops it. A command that opens a list or asks
 for a file runs once.
 
+=SPC w= divides the window into panes, as Doom does: =SPC w v= and
+=SPC w s= split it beside and below, =SPC w h j k l= go to the pane in
+that direction, =SPC w H J K L= move the pane to that edge of the window,
+=SPC w w= and =SPC w p= go to the next and the last pane, =SPC w o=
+shows only this pane and again all of them, =SPC w ==, =SPC w + - < >=
+balance and resize (with =SPC u= for a count), =SPC w x= swaps, =SPC w r=
+rotates, and =SPC w u= and =SPC w U= undo and redo the layout. The
+focused pane shows the active document; the new pane of a split shows
+the document shown before it, and when only one document is open a split
+shows it beside itself (the split view). Opening a document another pane
+shows swaps the two. A click in a pane focuses it. Both editors have
+panes; in the terminal a rule with the document's name divides them. In
+the Emacs keymap =C-x 2=, =C-x 3=, =C-x o=, =C-x 0= and =C-x 1= do the
+same.
+
 A session is the open documents, the cursor in each, the one shown and
 the project. Kalem saves the session called =last= when it quits, which
 =SPC q l= restores, and on start too when =editor.restore_session= is

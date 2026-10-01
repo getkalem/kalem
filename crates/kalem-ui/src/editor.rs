@@ -172,6 +172,8 @@ pub enum DocEvent {
     CloseWindow,
     /// Start Kalem again, restoring the session when `0`.
     Restart(bool),
+    /// Change the window's panes.
+    Pane(kalem_core::layout::PaneOp),
     /// Save the window's documents as session `0`.
     SaveSession(String),
     /// Open the documents of session `0`.
@@ -1040,6 +1042,7 @@ impl Editor {
             Request::QuitWithoutSaving => cx.emit(DocEvent::QuitWithoutSaving),
             Request::CloseWindow => cx.emit(DocEvent::CloseWindow),
             Request::Restart { restore } => cx.emit(DocEvent::Restart(restore)),
+            Request::Pane(op) => cx.emit(DocEvent::Pane(op)),
             Request::SaveSession(name) => cx.emit(DocEvent::SaveSession(name)),
             Request::RestoreSession(name) => cx.emit(DocEvent::RestoreSession(name)),
             Request::UniversalArgument => {

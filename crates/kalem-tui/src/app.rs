@@ -2,6 +2,7 @@
 //! settings and event bus, driven by terminal events.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -166,6 +167,13 @@ pub struct App {
     mark_picker: bool,
     /// The universal argument being typed (`SPC u`).
     prefix: Option<kalem_core::prefix_arg::PrefixArg>,
+    /// The window's panes (`SPC w`, T2.7i.5); the focused one shows the
+    /// active document.
+    layout: kalem_core::layout::Layout,
+    /// What the other panes show, each with a view of its own.
+    panes: HashMap<kalem_core::layout::PaneId, (DocumentId, EditorView)>,
+    /// Where each pane was drawn, for clicks.
+    pane_areas: Vec<(kalem_core::layout::PaneId, Rect)>,
     /// The panel shown or hidden last (`SPC ~`).
     last_panel: Option<Request>,
     /// The find bar, when open.
@@ -432,6 +440,9 @@ impl App {
             resume_input: None,
             mark_picker: false,
             prefix: None,
+            layout: kalem_core::layout::Layout::new(),
+            panes: HashMap::new(),
+            pane_areas: Vec::new(),
             last_panel: None,
             status: None,
             prompt: None,
@@ -938,6 +949,7 @@ impl App {
             .copied()
             .unwrap_or(0);
         self.bus.emit(&Event::DocumentClose { doc: self.doc_id });
+        let closing_id = self.doc_id;
         if let (Some(w), Some(p)) = (&mut self.watcher, &self.doc.meta.path) {
             let _ = w.unwatch(p);
         }
@@ -947,6 +959,7 @@ impl App {
         if self.active > closing {
             self.active -= 1;
         }
+        self.forget_document(closing_id);
         self.dirty = true;
     }
 
@@ -1473,6 +1486,7 @@ impl App {
                 self.restart = true;
                 self.close();
             }
+            Request::Pane(op) => self.pane_op(&op),
             Request::SaveSession(name) => {
                 match kalem_core::sessions::save(&name, &self.session()) {
                     Ok(p) => self.message(
@@ -2019,6 +2033,130 @@ impl App {
         self.quit = true;
     }
 
+    /// The index among the open documents of document `id`.
+    fn doc_index(&self, id: DocumentId) -> Option<usize> {
+        if id == self.doc_id {
+            return Some(self.active);
+        }
+        self.docs
+            .iter()
+            .position(|b| b.as_ref().is_some_and(|b| b.doc_id == id))
+    }
+
+    /// Focuses pane `p`: its document becomes the active one, and the pane
+    /// left keeps showing the document it showed.
+    fn focus_pane(&mut self, p: kalem_core::layout::PaneId) {
+        let old = self.layout.focus();
+        if p == old {
+            return;
+        }
+        let Some((doc, view)) = self.panes.remove(&p) else {
+            return;
+        };
+        let here = self.doc_id;
+        let mut left = self.new_view(&self.doc);
+        left.viewport = self.editor.viewport.clone();
+        self.panes.insert(old, (here, left));
+        self.layout.set_focus(p);
+        if let Some(i) = self.doc_index(doc) {
+            self.activate(i);
+        }
+        let _ = view;
+        self.dirty = true;
+    }
+
+    /// A change of the panes (`SPC w`).
+    fn pane_op(&mut self, op: &kalem_core::layout::PaneOp) {
+        use kalem_core::layout::PaneOp;
+        let old_focus = self.layout.focus();
+        let before = self.layout.panes();
+        let (changed, new) = self.layout.apply(op);
+        if let PaneOp::Close(_) = op
+            && !changed
+        {
+            self.message(tr!("msg-last-pane"), false);
+            return;
+        }
+        if let Some(new) = new {
+            // The pane left shows the document; the new one, focused, too
+            // (or a new empty one).
+            let mut left = self.new_view(&self.doc);
+            left.viewport = self.editor.viewport.clone();
+            self.panes.insert(old_focus, (self.doc_id, left));
+            if *op == PaneOp::New {
+                self.new_empty();
+            }
+            let _ = new;
+        }
+        if let PaneOp::Close(with_doc) = op {
+            // The closed pane was the focused one: the active document is
+            // the pane's; the newly focused pane's document becomes active.
+            let closing = self.doc_id;
+            // Kept, for an undo to show again.
+            let mut kept = self.new_view(&self.doc);
+            kept.viewport = self.editor.viewport.clone();
+            self.panes.insert(old_focus, (closing, kept));
+            let focus = self.layout.focus();
+            if let Some((doc, _)) = self.panes.remove(&focus)
+                && let Some(i) = self.doc_index(doc)
+            {
+                self.activate(i);
+            }
+            if *with_doc && let Some(i) = self.doc_index(closing) {
+                // Closed as Close does, asking about unsaved changes.
+                self.activate(i);
+                self.request(Request::Close);
+            }
+        } else if self.layout.focus() != old_focus && new.is_none() {
+            // Focus moved (or undo, rotation): the newly focused pane's
+            // document becomes active.
+            let focus = self.layout.focus();
+            if let Some((doc, _)) = self.panes.remove(&focus) {
+                let mut left = self.new_view(&self.doc);
+                left.viewport = self.editor.viewport.clone();
+                if self.layout.panes().contains(&old_focus)
+                    || self.layout.hidden().contains(&old_focus)
+                {
+                    self.panes.insert(old_focus, (self.doc_id, left));
+                }
+                if let Some(i) = self.doc_index(doc) {
+                    self.activate(i);
+                }
+            }
+        }
+        // Swaps and rotations rename the panes: what each showed moves
+        // with its place, so the focused pane keeps the active document.
+        // Closed panes are kept for an undo, a few.
+        let _ = before;
+        if self.panes.len() > 32 {
+            let live = self.layout.panes();
+            self.panes.retain(|p, _| live.contains(p));
+        }
+        let focus = self.layout.focus();
+        self.panes.remove(&focus);
+        let _ = changed;
+        self.dirty = true;
+    }
+
+    /// The panes showing document `id` other than the focused one switch
+    /// to the active document; called when `id` closes.
+    fn forget_document(&mut self, id: DocumentId) {
+        let shown = self.doc_id;
+        let gone: Vec<_> = self
+            .panes
+            .iter()
+            .filter(|(_, (d, _))| *d == id)
+            .map(|(p, _)| *p)
+            .collect();
+        for p in gone {
+            if self.layout.panes().len() > 1 && self.layout.close(p) {
+                self.panes.remove(&p);
+            } else if let Some(e) = self.panes.get_mut(&p) {
+                e.0 = shown;
+            }
+        }
+    }
+
     /// The open documents with a file, as a session.
     pub fn session(&self) -> kalem_core::sessions::Session {
         let mut s = kalem_core::sessions::Session {
@@ -2109,6 +2247,16 @@ impl App {
 
     fn mouse(&mut self, m: crossterm::event::MouseEvent) {
         let shift = m.modifiers.contains(KeyModifiers::SHIFT);
+        // A click in another pane focuses it first.
+        if let MouseEventKind::Down(_) = m.kind
+            && let Some(&(p, _)) = self
+                .pane_areas
+                .iter()
+                .find(|(_, r)| r.contains(ratatui::layout::Position::new(m.column, m.row)))
+            && p != self.layout.focus()
+        {
+            self.focus_pane(p);
+        }
         if let MouseEventKind::Down(MouseButton::Left) = m.kind
             && let Some(&(_, id)) = self
                 .action_spots
@@ -3543,6 +3691,74 @@ impl App {
     }
 
     /// Draws the frame.
+    /// Draws the panes in `area`, a rule between them; the cursor of the
+    /// focused one.
+    fn draw_panes(&mut self, buf: &mut ratatui::buffer::Buffer, area: Rect) -> Option<(u16, u16)> {
+        use kalem_core::layout::Rect as R;
+        let rects = self.layout.rects(R {
+            x: f32::from(area.x),
+            y: f32::from(area.y),
+            w: f32::from(area.width),
+            h: f32::from(area.height),
+        });
+        let rule = crate::panels::panel_style(&self.caps);
+        let focus = self.layout.focus();
+        let mut cursor = None;
+        self.pane_areas.clear();
+        for (p, r) in rects {
+            let (x0, y0) = (r.x.round() as u16, r.y.round() as u16);
+            let (x1, y1) = ((r.x + r.w).round() as u16, (r.y + r.h).round() as u16);
+            let mut a = Rect::new(x0, y0, x1.saturating_sub(x0), y1.saturating_sub(y0));
+            // A rule on the right and at the bottom, inside the window.
+            if x1 < area.right() && a.width > 1 {
+                a.width -= 1;
+                for y in a.top()..a.bottom() {
+                    buf[(a.right(), y)].set_symbol("│").set_style(rule);
+                }
+            }
+            if y1 < area.bottom() && a.height > 1 {
+                a.height -= 1;
+                let title = if p == focus {
+                    format!(" {} ", self.open_files()[self.active].title)
+                } else {
+                    self.panes
+                        .get(&p)
+                        .and_then(|(d, _)| self.doc_index(*d))
+                        .map(|i| format!(" {} ", self.open_files()[i].title))
+                        .unwrap_or_default()
+                };
+                for x in a.left()..a.right() {
+                    buf[(x, a.bottom())].set_symbol("─").set_style(rule);
+                }
+                buf.set_stringn(a.x + 1, a.bottom(), &title, a.width as usize, rule);
+            }
+            self.pane_areas.push((p, a));
+            if p == focus {
+                cursor = self.editor.draw(&self.doc, &self.caps, buf, a);
+                continue;
+            }
+            // A pane an undo brought back shows the active document.
+            let (doc, mut view) = match self.panes.remove(&p) {
+                Some(e) => e,
+                None => (self.doc_id, self.new_view(&self.doc)),
+            };
+            let caps = self.caps.clone();
+            match self.doc_index(doc) {
+                Some(i) if i == self.active => {
+                    view.draw(&self.doc, &caps, buf, a);
+                }
+                Some(i) => {
+                    if let Some(b) = &self.docs[i] {
+                        view.draw(&b.doc, &caps, buf, a);
+                    }
+                }
+                None => {}
+            }
+            self.panes.insert(p, (doc, view));
+        }
+        cursor
+    }
+
     pub fn draw(&mut self, f: &mut Frame<'_>) {
         let area = f.area();
         let info = self.formula.get(&mut self.doc);
@@ -3665,9 +3881,13 @@ impl App {
                     })
                     .collect()
             });
-        let cursor = self
-            .editor
-            .draw(&self.doc, &self.caps, f.buffer_mut(), text_area);
+        let cursor = if self.layout.is_split() {
+            self.draw_panes(f.buffer_mut(), text_area)
+        } else {
+            self.pane_areas.clear();
+            self.editor
+                .draw(&self.doc, &self.caps, f.buffer_mut(), text_area)
+        };
         if let Some(c) = cursor {
             self.draw_popup(f.buffer_mut(), text_area, c);
         }
