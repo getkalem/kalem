@@ -1007,6 +1007,150 @@ pub fn newline(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> 
     Some(tx.select(org_edit::Selection::caret(at + insert.len())))
 }
 
+/// The innermost list item holding `at`, by index.
+fn item_at(md: &Md, at: usize) -> Option<usize> {
+    md.nodes
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, n)| {
+            matches!(n.kind, MdKind::Item | MdKind::TaskItem { .. })
+                && n.range.start <= at
+                && at <= n.range.end
+        })
+        .map(|(i, _)| i)
+}
+
+/// Whether `at` is in a list item.
+pub fn in_item(md: &Md, at: usize) -> bool {
+    item_at(md, at).is_some()
+}
+
+/// The whole lines of `r` in `text`: from the start of its first line to
+/// after the line feed of its last.
+fn whole_lines(text: &str, r: &Range<usize>) -> Range<usize> {
+    let start = text[..r.start].rfind('\n').map_or(0, |i| i + 1);
+    let end = text[r.end..]
+        .find('\n')
+        .map_or(text.len(), |i| r.end + i + 1);
+    start..end
+}
+
+/// `text` with the ordered list holding `at` numbered from `from` (else
+/// its first item's number) on, one more each item; `None` outside an
+/// ordered list.
+pub fn renumbered(text: &str, at: usize, from: Option<u64>) -> Option<String> {
+    let md = Md::parse(text);
+    let (list, l) = md.nodes.iter().enumerate().rev().find(|(_, l)| {
+        matches!(l.kind, MdKind::List { ordered: true }) && l.range.start <= at && at <= l.range.end
+    })?;
+    let _ = l;
+    let mut out = text.to_string();
+    let mut n: Option<u64> = None;
+    let mut edits = Vec::new();
+    for item in md.nodes.iter().filter(|i| {
+        i.parent == Some(list as u32) && matches!(i.kind, MdKind::Item | MdKind::TaskItem { .. })
+    }) {
+        let s = &text[item.range.clone()];
+        let lead = s.len() - s.trim_start().len();
+        let start = item.range.start + lead;
+        let len = text[start..].bytes().take_while(u8::is_ascii_digit).count();
+        let Ok(this) = text[start..start + len].parse::<u64>() else {
+            continue;
+        };
+        let want = n.map_or(from.unwrap_or(this), |k| k + 1);
+        n = Some(want);
+        if want != this {
+            edits.push((start..start + len, want.to_string()));
+        }
+    }
+    for (r, s) in edits.into_iter().rev() {
+        out.replace_range(r, &s);
+    }
+    Some(out)
+}
+
+/// Renumbers the ordered list at `at` (as Emacs's markdown-mode cleans up
+/// list numbers); `None` when it is numbered already.
+pub fn renumber_list(text: &str, at: usize) -> Option<org_edit::Transaction> {
+    let new = renumbered(text, at, None)?;
+    crate::lines::replace_differing(text, &new, "Renumber List")
+}
+
+/// The list item at `at` (with what it holds) moved above the item
+/// before it (`up`) or below the one after, the list renumbered when it is
+/// ordered, the cursor moving with the item.
+pub fn move_item(md: &Md, text: &str, at: usize, up: bool) -> Option<org_edit::Transaction> {
+    let i = item_at(md, at)?;
+    let item = &md.nodes[i];
+    let sibling = md
+        .nodes
+        .iter()
+        .enumerate()
+        .filter(|(j, n)| {
+            *j != i
+                && n.parent == item.parent
+                && matches!(n.kind, MdKind::Item | MdKind::TaskItem { .. })
+        })
+        .filter(|(_, n)| {
+            if up {
+                n.range.end <= item.range.start
+            } else {
+                n.range.start >= item.range.end
+            }
+        })
+        .map(|(_, n)| n)
+        .reduce(|a, b| {
+            if up {
+                b
+            } else {
+                if a.range.start < b.range.start { a } else { b }
+            }
+        })?;
+    let mine = whole_lines(text, &item.range);
+    let theirs = whole_lines(text, &sibling.range);
+    let (first, second) = if up {
+        (theirs, mine.clone())
+    } else {
+        (mine.clone(), theirs)
+    };
+    if first.end > second.start {
+        return None;
+    }
+    let mut a = text[first.clone()].to_string();
+    let mut b = text[second.clone()].to_string();
+    // The last item of a text without a final line feed.
+    if !b.ends_with('\n') {
+        b.push('\n');
+        a = a.strip_suffix('\n').unwrap_or(&a).to_string();
+    }
+    let between = &text[first.end..second.start];
+    let mut new = String::with_capacity(text.len() + 1);
+    new.push_str(&text[..first.start]);
+    new.push_str(&b);
+    new.push_str(between);
+    new.push_str(&a);
+    new.push_str(&text[second.end..]);
+    let offset = at - mine.start;
+    let caret = if up {
+        first.start + offset
+    } else {
+        first.start + b.len() + between.len() + offset
+    };
+    // The list starts at the number it started at.
+    let first = [&text[first.clone()], &text[second.clone()]]
+        .iter()
+        .find_map(|s| {
+            let s = s.trim_start();
+            s[..s.bytes().take_while(u8::is_ascii_digit).count()]
+                .parse::<u64>()
+                .ok()
+        });
+    let new = renumbered(&new, caret, first).unwrap_or(new);
+    let tx = crate::lines::replace_differing(text, &new, "Move Item")?;
+    Some(tx.select(org_edit::Selection::caret(caret.min(new.len()))))
+}
+
 /// The items after a new numbered item, numbered on from it: the number
 /// of each following item of the same list one higher than the one before.
 fn renumber_after(
@@ -1432,6 +1576,47 @@ pub fn to_tree(md: &Md) -> Tree {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn items_moved_and_lists_renumbered() {
+        let t = "Steps:\n\n1. one\n2. two\n   more of two\n3. three\n\nEnd.\n";
+        let md = Md::parse(t);
+        let apply = |t: &str, tx: &org_edit::Transaction| {
+            let mut s = t.to_string();
+            for e in tx.edits.iter().rev() {
+                s.replace_range(e.range.clone(), &e.insert);
+            }
+            (s, tx.selection_after.map_or(0, |a| a.head))
+        };
+        // Two up: its own lines with it, the numbers in order again.
+        let at = t.find("two").unwrap();
+        let (s, c) = apply(t, &move_item(&md, t, at, true).unwrap());
+        assert_eq!(
+            s,
+            "Steps:\n\n1. two\n   more of two\n2. one\n3. three\n\nEnd.\n"
+        );
+        assert_eq!(&s[c..c + 3], "two");
+        // Three down: nothing after it.
+        assert!(move_item(&md, t, t.find("three").unwrap(), false).is_none());
+        let (s, c) = apply(
+            t,
+            &move_item(&md, t, t.find("one").unwrap(), false).unwrap(),
+        );
+        assert_eq!(
+            s,
+            "Steps:\n\n1. two\n   more of two\n2. one\n3. three\n\nEnd.\n"
+        );
+        assert_eq!(&s[c..c + 3], "one");
+        // A deleted item: Renumber List fixes the numbers from the first.
+        let gap = "4. a\n6. b\n9. c\n";
+        let (s, _) = apply(gap, &renumber_list(gap, 0).unwrap());
+        assert_eq!(s, "4. a\n5. b\n6. c\n");
+        assert!(renumber_list(&s, 0).is_none());
+        // Bullets move too.
+        let b = "- x\n- y\n";
+        let (s, _) = apply(b, &move_item(&Md::parse(b), b, 5, true).unwrap());
+        assert_eq!(s, "- y\n- x\n");
+    }
 
     #[test]
     fn emphasis_and_links() {

@@ -2230,6 +2230,44 @@ fn markdown_commands() -> Vec<Command> {
             ),
             Scope::only(&["markdown"]),
         ),
+        // List items moved and lists renumbered (T2.7c.5).
+        scoped(
+            cmd(
+                "markdown.list.moveUp",
+                "Move Item Up",
+                "Markdown",
+                &["alt+up"],
+                Some("editorMode == markdown && inMarkdownItem && !inMarkdownTable"),
+                |ctx, _| md_table_run(ctx, |md, t, at| crate::markdown::move_item(md, t, at, true)),
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.list.moveDown",
+                "Move Item Down",
+                "Markdown",
+                &["alt+down"],
+                Some("editorMode == markdown && inMarkdownItem && !inMarkdownTable"),
+                |ctx, _| {
+                    md_table_run(ctx, |md, t, at| {
+                        crate::markdown::move_item(md, t, at, false)
+                    })
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.list.renumber",
+                "Renumber List",
+                "Markdown",
+                &[],
+                Some("editorMode == markdown"),
+                |ctx, _| md_table_run(ctx, |_, t, at| crate::markdown::renumber_list(t, at)),
+            ),
+            Scope::only(&["markdown"]),
+        ),
         // Enter in a list item or a quote continues it (T2.7c.5).
         scoped(
             cmd(

@@ -997,3 +997,6 @@ msg-no-saved-workspaces = Henüz kaydedilmiş çalışma alanı yok
 msg-workspace-deleted = Kayıtlı çalışma alanı { $name } silindi
 cmd-markdown-table-recalculate = Tabloyu Yeniden Hesapla
 msg-no-formulas = Tablonun formülü yok (ardından bir <!-- TBLFM: … --> satırı)
+cmd-markdown-list-moveUp = Ögeyi Yukarı Taşı
+cmd-markdown-list-moveDown = Ögeyi Aşağı Taşı
+cmd-markdown-list-renumber = Listeyi Yeniden Numarala
