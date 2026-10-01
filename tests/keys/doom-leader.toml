@@ -1443,13 +1443,13 @@ reason = "Planned: T2.7i.13"
 doom = "SPC q f"
 keys = "space q f"
 what = "Close the frame"
-reason = "Planned: T2.7i.14"
+command = "window.close"
 
 [[key]]
 doom = "SPC q F"
 keys = "space q shift+f"
 what = "Close all frames"
-reason = "Planned: T2.7i.14"
+command = "app.quit"
 
 [[key]]
 doom = "SPC q K"
@@ -1479,19 +1479,19 @@ command = "app.quit"
 doom = "SPC q Q"
 keys = "space q shift+q"
 what = "Quit without saving"
-reason = "Planned: T2.7i.14"
+command = "app.quitWithoutSaving"
 
 [[key]]
 doom = "SPC q r"
 keys = "space q r"
 what = "Restart and restore"
-reason = "Planned: T2.7i.14"
+command = "app.restartAndRestore"
 
 [[key]]
 doom = "SPC q R"
 keys = "space q shift+r"
 what = "Restart"
-reason = "Planned: T2.7i.14"
+command = "app.restart"
 
 [[key]]
 doom = "SPC q s"

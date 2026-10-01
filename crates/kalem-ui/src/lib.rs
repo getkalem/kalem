@@ -94,6 +94,12 @@ pub fn run(path: Option<PathBuf>) {
     app.run(move |cx| {
         cx.bind_keys(workspace::menu_bindings(&shared));
         cx.set_menus(workspace::menus());
+        // The session `SPC q l` restores.
+        cx.on_app_quit(|cx| {
+            workspace::save_last_session(cx);
+            async {}
+        })
+        .detach();
         let s = shared.clone();
         cx.on_action(move |_: &workspace::OpenFile, cx| workspace::open_file(s.clone(), cx));
         // Started from an app bundle without a file (a Finder launch), a

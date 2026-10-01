@@ -215,6 +215,16 @@ pub enum Request {
     ResumePicker,
     /// Show or hide the panel shown or hidden last (Doom's `SPC ~`).
     ToggleLastPanel,
+    /// Quit without saving, after a confirmation (Doom's `SPC q Q`).
+    QuitWithoutSaving,
+    /// Close this window, asking about its unsaved documents (`SPC q f`).
+    CloseWindow,
+    /// Start Kalem again, with the open documents when `restore`
+    /// (`SPC q r`, `SPC q R`); refused while documents are unsaved.
+    Restart {
+        /// The session restored.
+        restore: bool,
+    },
     /// Save the open documents as session `0` ([`crate::sessions`]).
     SaveSession(String),
     /// Open the documents of session `0`.
