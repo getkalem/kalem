@@ -1,8 +1,6 @@
 //! Trashing and restoring, against a trash in a temporary home: the test
 //! runs itself again with the environment pointing there.
 
-use std::path::PathBuf;
-
 #[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn trash_and_restore() {
@@ -20,7 +18,7 @@ fn trash_and_restore() {
         assert!(status.success());
         return;
     };
-    let dir = PathBuf::from(home).join("work");
+    let dir = std::path::PathBuf::from(home).join("work");
     std::fs::create_dir_all(&dir).unwrap();
     let a = dir.join("a.txt");
     std::fs::write(&a, "first").unwrap();
