@@ -1,0 +1,873 @@
+# Doom Emacs's local leader `SPC m` (`:lang org`, `:lang latex`,
+# `:lang markdown`) and what each key does in Kalem with Vim keys
+# (T2.7i.16, T2.7i.17). `mode` is the kind of document the key is for;
+# the rest is as in doom-leader.toml. The test in
+# `kalem_core::key_tables` checks each row against the Vim keymap in a
+# document of that mode.
+
+
+# org.
+[[key]]
+doom = "SPC m t"
+mode = "org"
+keys = "space m t"
+what = "Set the TODO keyword"
+command = "org.todo.set"
+
+[[key]]
+doom = "SPC m q"
+mode = "org"
+keys = "space m q"
+what = "Set tags"
+command = "org.tags.set"
+
+[[key]]
+doom = "SPC m o"
+mode = "org"
+keys = "space m o"
+what = "Set a property"
+command = "org.property.set"
+
+[[key]]
+doom = "SPC m x"
+mode = "org"
+keys = "space m x"
+what = "Toggle the checkbox"
+command = "list.toggleCheckbox"
+
+[[key]]
+doom = "SPC m #"
+mode = "org"
+keys = "space m #"
+what = "Update statistics cookies"
+reason = "Not needed: Kalem updates the cookies as checkboxes and TODO keywords change"
+
+[[key]]
+doom = "SPC m '"
+mode = "org"
+keys = "space m '"
+what = "Edit the block at point in a pane"
+reason = "Planned: T2.7i.5 (panes)"
+
+[[key]]
+doom = "SPC m ."
+mode = "org"
+keys = "space m ."
+what = "Go to a heading"
+command = "search.lines"
+
+[[key]]
+doom = "SPC m /"
+mode = "org"
+keys = "space m /"
+what = "Go to a heading in all open documents"
+command = "search.lines"
+
+[[key]]
+doom = "SPC m A"
+mode = "org"
+keys = "space m shift+a"
+what = "Archive the subtree"
+command = "org.archive.sibling"
+
+[[key]]
+doom = "SPC m e"
+mode = "org"
+keys = "space m e"
+what = "Export dispatch"
+command = "export.dialog"
+
+[[key]]
+doom = "SPC m f"
+mode = "org"
+keys = "space m f"
+what = "Footnote action"
+command = "org.footnote.action"
+
+[[key]]
+doom = "SPC m h"
+mode = "org"
+keys = "space m h"
+what = "Toggle heading"
+reason = "Planned: T2.11 (org-toggle-heading)"
+
+[[key]]
+doom = "SPC m i"
+mode = "org"
+keys = "space m i"
+what = "Toggle item"
+reason = "Planned: T2.11 (org-toggle-item)"
+
+[[key]]
+doom = "SPC m I"
+mode = "org"
+keys = "space m shift+i"
+what = "Toggle inline images"
+reason = "Images always show away from the cursor; Toggle Source View shows the links"
+
+[[key]]
+doom = "SPC m k"
+mode = "org"
+keys = "space m k"
+what = "Move the subtree up"
+command = "org.headline.moveSubtreeUp"
+
+[[key]]
+doom = "SPC m j"
+mode = "org"
+keys = "space m j"
+what = "Move the subtree down"
+command = "org.headline.moveSubtreeDown"
+
+[[key]]
+doom = "SPC m n"
+mode = "org"
+keys = "space m n"
+what = "Narrow to the subtree"
+command = "view.narrowToSubtree"
+
+[[key]]
+doom = "SPC m N"
+mode = "org"
+keys = "space m shift+n"
+what = "Widen"
+command = "view.widen"
+
+[[key]]
+doom = "SPC m P"
+mode = "org"
+keys = "space m shift+p"
+what = "Publish"
+reason = "Planned: phase 3 (publishing projects)"
+
+[[key]]
+doom = "SPC m a a"
+mode = "org"
+keys = "space m a a"
+what = "Attach a file"
+reason = "Planned: phase 3 (org-attach)"
+
+[[key]]
+doom = "SPC m a c"
+mode = "org"
+keys = "space m a c"
+what = "Attach to a new folder"
+reason = "Planned: phase 3 (org-attach)"
+
+[[key]]
+doom = "SPC m a d"
+mode = "org"
+keys = "space m a d"
+what = "Delete an attachment"
+reason = "Planned: phase 3 (org-attach)"
+
+[[key]]
+doom = "SPC m a f"
+mode = "org"
+keys = "space m a f"
+what = "Find an attachment"
+reason = "Planned: phase 3 (org-attach)"
+
+[[key]]
+doom = "SPC m a l"
+mode = "org"
+keys = "space m a l"
+what = "Attach by link"
+reason = "Planned: phase 3 (org-attach)"
+
+[[key]]
+doom = "SPC m a n"
+mode = "org"
+keys = "space m a n"
+what = "New attachment"
+reason = "Planned: phase 3 (org-attach)"
+
+[[key]]
+doom = "SPC m a o"
+mode = "org"
+keys = "space m a o"
+what = "Open an attachment"
+reason = "Planned: phase 3 (org-attach)"
+
+[[key]]
+doom = "SPC m a u"
+mode = "org"
+keys = "space m a u"
+what = "Attach from a URL"
+reason = "Planned: phase 3 (org-attach)"
+
+[[key]]
+doom = "SPC m b -"
+mode = "org"
+keys = "space m b -"
+what = "Insert a rule row"
+command = "table.insertHline"
+
+[[key]]
+doom = "SPC m b a"
+mode = "org"
+keys = "space m b a"
+what = "Align the table"
+command = "table.align"
+
+[[key]]
+doom = "SPC m b c"
+mode = "org"
+keys = "space m b c"
+what = "Create a table"
+command = "table.create"
+
+[[key]]
+doom = "SPC m b e"
+mode = "org"
+keys = "space m b e"
+what = "Edit the field"
+reason = "Fields are edited in place"
+
+[[key]]
+doom = "SPC m b f"
+mode = "org"
+keys = "space m b f"
+what = "Edit the formulas"
+command = "table.setFormula"
+
+[[key]]
+doom = "SPC m b r"
+mode = "org"
+keys = "space m b r"
+what = "Recalculate"
+command = "table.recalculate"
+
+[[key]]
+doom = "SPC m b s"
+mode = "org"
+keys = "space m b s"
+what = "Sort the rows"
+command = "table.sortRows"
+
+[[key]]
+doom = "SPC m b t"
+mode = "org"
+keys = "space m b t"
+what = "Toggle the formula display"
+reason = "Planned: T2.1 (the formula overlay)"
+
+[[key]]
+doom = "SPC m b i c"
+mode = "org"
+keys = "space m b i c"
+what = "Insert a column"
+command = "table.insertColumn"
+
+[[key]]
+doom = "SPC m b i r"
+mode = "org"
+keys = "space m b i r"
+what = "Insert a row"
+command = "table.insertRow"
+
+[[key]]
+doom = "SPC m b i h"
+mode = "org"
+keys = "space m b i h"
+what = "Insert a rule row"
+command = "table.insertHline"
+
+[[key]]
+doom = "SPC m b d c"
+mode = "org"
+keys = "space m b d c"
+what = "Delete the column"
+command = "table.deleteColumn"
+
+[[key]]
+doom = "SPC m b d r"
+mode = "org"
+keys = "space m b d r"
+what = "Delete the row"
+command = "table.killRow"
+
+[[key]]
+doom = "SPC m c c"
+mode = "org"
+keys = "space m c c"
+what = "Clock in"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m c C"
+mode = "org"
+keys = "space m c shift+c"
+what = "Clock out"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m c d"
+mode = "org"
+keys = "space m c d"
+what = "Mark the default task"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m c e"
+mode = "org"
+keys = "space m c e"
+what = "Set the effort"
+command = "org.property.set"
+
+[[key]]
+doom = "SPC m c g"
+mode = "org"
+keys = "space m c g"
+what = "Go to the clocked task"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m c l"
+mode = "org"
+keys = "space m c l"
+what = "Clock in the last task"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m c r"
+mode = "org"
+keys = "space m c r"
+what = "Clock report"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m c R"
+mode = "org"
+keys = "space m c shift+r"
+what = "Resolve clocks"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m c x"
+mode = "org"
+keys = "space m c x"
+what = "Cancel the clock"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m d d"
+mode = "org"
+keys = "space m d d"
+what = "Set a deadline"
+command = "org.deadline"
+
+[[key]]
+doom = "SPC m d s"
+mode = "org"
+keys = "space m d s"
+what = "Schedule"
+command = "org.schedule"
+
+[[key]]
+doom = "SPC m d t"
+mode = "org"
+keys = "space m d t"
+what = "Insert a timestamp"
+command = "org.insert.timestamp"
+
+[[key]]
+doom = "SPC m d T"
+mode = "org"
+keys = "space m d shift+t"
+what = "Insert an inactive timestamp"
+command = "org.insert.timestamp"
+
+[[key]]
+doom = "SPC m g g"
+mode = "org"
+keys = "space m g g"
+what = "Go to a heading"
+command = "search.lines"
+
+[[key]]
+doom = "SPC m g c"
+mode = "org"
+keys = "space m g c"
+what = "Go to the clocked task"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC m g i"
+mode = "org"
+keys = "space m g i"
+what = "Go to an ID"
+reason = "Planned: phase 3 (org-id)"
+
+[[key]]
+doom = "SPC m g r"
+mode = "org"
+keys = "space m g r"
+what = "Go to a refile target"
+command = "org.refile"
+
+[[key]]
+doom = "SPC m g x"
+mode = "org"
+keys = "space m g x"
+what = "Open the link at point"
+command = "org.link.open"
+
+[[key]]
+doom = "SPC m l i"
+mode = "org"
+keys = "space m l i"
+what = "Insert the stored link"
+command = "org.link.insertStored"
+
+[[key]]
+doom = "SPC m l l"
+mode = "org"
+keys = "space m l l"
+what = "Insert a link"
+command = "org.insert.link"
+
+[[key]]
+doom = "SPC m l L"
+mode = "org"
+keys = "space m l shift+l"
+what = "Insert a link to a heading"
+command = "org.link.insertStored"
+
+[[key]]
+doom = "SPC m l s"
+mode = "org"
+keys = "space m l s"
+what = "Store a link"
+command = "link.store"
+
+[[key]]
+doom = "SPC m l S"
+mode = "org"
+keys = "space m l shift+s"
+what = "Store a link to the heading"
+command = "link.store"
+
+[[key]]
+doom = "SPC m l d"
+mode = "org"
+keys = "space m l d"
+what = "Remove the link"
+reason = "Planned: T2.11 (Remove Link)"
+
+[[key]]
+doom = "SPC m l t"
+mode = "org"
+keys = "space m l t"
+what = "Toggle link display"
+command = "view.toggleSourceMarkers"
+
+[[key]]
+doom = "SPC m p p"
+mode = "org"
+keys = "space m p p"
+what = "Set the priority"
+command = "org.priority.set"
+
+[[key]]
+doom = "SPC m p u"
+mode = "org"
+keys = "space m p u"
+what = "Raise the priority"
+command = "org.priority.up"
+
+[[key]]
+doom = "SPC m p d"
+mode = "org"
+keys = "space m p d"
+what = "Lower the priority"
+command = "org.priority.down"
+
+[[key]]
+doom = "SPC m r r"
+mode = "org"
+keys = "space m r r"
+what = "Refile"
+command = "org.refile"
+
+[[key]]
+doom = "SPC m r R"
+mode = "org"
+keys = "space m r shift+r"
+what = "Refile to the last target"
+reason = "Planned: T2.11 (refile history)"
+
+[[key]]
+doom = "SPC m r ."
+mode = "org"
+keys = "space m r ."
+what = "Refile in this document"
+command = "org.refile"
+
+[[key]]
+doom = "SPC m s a"
+mode = "org"
+keys = "space m s a"
+what = "Toggle the archive tag"
+command = "org.archive.toggleTag"
+
+[[key]]
+doom = "SPC m s A"
+mode = "org"
+keys = "space m s shift+a"
+what = "Archive to a sibling"
+command = "org.archive.sibling"
+
+[[key]]
+doom = "SPC m s d"
+mode = "org"
+keys = "space m s d"
+what = "Cut the subtree"
+command = "org.headline.cutSubtree"
+
+[[key]]
+doom = "SPC m s h"
+mode = "org"
+keys = "space m s h"
+what = "Promote the subtree"
+command = "org.headline.promoteSubtree"
+
+[[key]]
+doom = "SPC m s l"
+mode = "org"
+keys = "space m s l"
+what = "Demote the subtree"
+command = "org.headline.demoteSubtree"
+
+[[key]]
+doom = "SPC m s j"
+mode = "org"
+keys = "space m s j"
+what = "Move the subtree down"
+command = "org.headline.moveSubtreeDown"
+
+[[key]]
+doom = "SPC m s k"
+mode = "org"
+keys = "space m s k"
+what = "Move the subtree up"
+command = "org.headline.moveSubtreeUp"
+
+[[key]]
+doom = "SPC m s n"
+mode = "org"
+keys = "space m s n"
+what = "Narrow to the subtree"
+command = "view.narrowToSubtree"
+
+[[key]]
+doom = "SPC m s N"
+mode = "org"
+keys = "space m s shift+n"
+what = "Widen"
+command = "view.widen"
+
+[[key]]
+doom = "SPC m s r"
+mode = "org"
+keys = "space m s r"
+what = "Refile"
+command = "org.refile"
+
+[[key]]
+doom = "SPC m s s"
+mode = "org"
+keys = "space m s s"
+what = "Sparse tree"
+command = "search.lines"
+
+[[key]]
+doom = "SPC m s S"
+mode = "org"
+keys = "space m s shift+s"
+what = "Sort the subtree"
+command = "org.headline.sort"
+
+
+# latex.
+[[key]]
+doom = "SPC m a"
+mode = "latex"
+keys = "space m a"
+what = "Build and view"
+command = "latex.build"
+
+[[key]]
+doom = "SPC m b"
+mode = "latex"
+keys = "space m b"
+what = "Build"
+command = "latex.build"
+
+[[key]]
+doom = "SPC m c"
+mode = "latex"
+keys = "space m c"
+what = "Complete a command"
+command = "edit.complete"
+
+[[key]]
+doom = "SPC m e"
+mode = "latex"
+keys = "space m e"
+what = "Insert an equation"
+command = "latex.insert.equation"
+
+[[key]]
+doom = "SPC m f"
+mode = "latex"
+keys = "space m f"
+what = "Insert a font command"
+command = "latex.format.italic"
+
+[[key]]
+doom = "SPC m s"
+mode = "latex"
+keys = "space m s"
+what = "Change the section level"
+command = "latex.section.setLevel"
+
+[[key]]
+doom = "SPC m v"
+mode = "latex"
+keys = "space m v"
+what = "View the PDF"
+reason = "Planned: T2.7h.24 (the PDF panel)"
+
+[[key]]
+doom = "SPC m ="
+mode = "latex"
+keys = "space m ="
+what = "Table of contents"
+command = "view.outline"
+
+[[key]]
+doom = "SPC m *"
+mode = "latex"
+keys = "space m *"
+what = "Toggle math preview"
+command = "view.toggleMath"
+
+[[key]]
+doom = "SPC m p"
+mode = "latex"
+keys = "space m p"
+what = "Next problem"
+command = "latex.nextProblem"
+
+[[key]]
+doom = "SPC m l"
+mode = "latex"
+keys = "space m l"
+what = "Problems"
+command = "latex.problems"
+
+
+# markdown.
+[[key]]
+doom = "SPC m '"
+mode = "markdown"
+keys = "space m '"
+what = "Edit the code block in a pane"
+reason = "Planned: T2.7i.5 (panes)"
+
+[[key]]
+doom = "SPC m e"
+mode = "markdown"
+keys = "space m e"
+what = "Export (to Org)"
+command = "markdown.convertToOrg"
+
+[[key]]
+doom = "SPC m o"
+mode = "markdown"
+keys = "space m o"
+what = "Open the export"
+reason = "Planned: T2.7c (Markdown export through Org)"
+
+[[key]]
+doom = "SPC m p"
+mode = "markdown"
+keys = "space m p"
+what = "Preview the export"
+reason = "Planned: T2.7c (Markdown export through Org)"
+
+[[key]]
+doom = "SPC m i b"
+mode = "markdown"
+keys = "space m i b"
+what = "Insert bold"
+command = "markdown.emphasis.bold"
+
+[[key]]
+doom = "SPC m i i"
+mode = "markdown"
+keys = "space m i i"
+what = "Insert italic"
+command = "markdown.emphasis.italic"
+
+[[key]]
+doom = "SPC m i c"
+mode = "markdown"
+keys = "space m i c"
+what = "Insert code"
+command = "markdown.emphasis.code"
+
+[[key]]
+doom = "SPC m i l"
+mode = "markdown"
+keys = "space m i l"
+what = "Insert a link"
+command = "markdown.insert.link"
+
+[[key]]
+doom = "SPC m i L"
+mode = "markdown"
+keys = "space m i shift+l"
+what = "Insert a reference link"
+reason = "Planned: T2.7c.9"
+
+[[key]]
+doom = "SPC m i u"
+mode = "markdown"
+keys = "space m i u"
+what = "Insert a URI"
+command = "markdown.insert.link"
+
+[[key]]
+doom = "SPC m i f"
+mode = "markdown"
+keys = "space m i f"
+what = "Insert a footnote"
+reason = "Planned: T2.7c.9"
+
+[[key]]
+doom = "SPC m i w"
+mode = "markdown"
+keys = "space m i w"
+what = "Insert a wiki link"
+command = "edit.complete"
+
+[[key]]
+doom = "SPC m i -"
+mode = "markdown"
+keys = "space m i -"
+what = "Insert a rule"
+reason = "Type three dashes"
+
+[[key]]
+doom = "SPC m i t"
+mode = "markdown"
+keys = "space m i t"
+what = "Insert a table"
+reason = "Type a header line with pipes; Tab aligns it"
+
+[[key]]
+doom = "SPC m t e"
+mode = "markdown"
+keys = "space m t e"
+what = "Toggle math"
+command = "view.toggleMath"
+
+[[key]]
+doom = "SPC m t f"
+mode = "markdown"
+keys = "space m t f"
+what = "Toggle code fontification"
+reason = "Code blocks are always coloured"
+
+[[key]]
+doom = "SPC m t i"
+mode = "markdown"
+keys = "space m t i"
+what = "Toggle images"
+reason = "Images always show away from the cursor"
+
+[[key]]
+doom = "SPC m t l"
+mode = "markdown"
+keys = "space m t l"
+what = "Toggle URL hiding"
+command = "view.toggleSourceMarkers"
+
+[[key]]
+doom = "SPC m t m"
+mode = "markdown"
+keys = "space m t m"
+what = "Toggle markup hiding"
+command = "view.toggleSourceMarkers"
+
+[[key]]
+doom = "SPC m t w"
+mode = "markdown"
+keys = "space m t w"
+what = "Toggle wiki links"
+command = "view.toggleSourceMarkers"
+
+[[key]]
+doom = "SPC m x"
+mode = "markdown"
+keys = "space m x"
+what = "Toggle the checkbox"
+command = "markdown.toggleCheckbox"
+
+[[key]]
+doom = "SPC m b a"
+mode = "markdown"
+keys = "space m b a"
+what = "Align the table"
+command = "markdown.table.align"
+
+[[key]]
+doom = "SPC m b s"
+mode = "markdown"
+keys = "space m b s"
+what = "Sort the table"
+command = "markdown.table.sort"
+
+[[key]]
+doom = "SPC m i 1"
+mode = "markdown"
+keys = "space m i 1"
+what = "Insert a level 1 heading"
+reason = "Type # and a space"
+
+[[key]]
+doom = "SPC m i 2"
+mode = "markdown"
+keys = "space m i 2"
+what = "Insert a level 2 heading"
+reason = "Type ## and a space"
+
+[[key]]
+doom = "SPC m i 3"
+mode = "markdown"
+keys = "space m i 3"
+what = "Insert a level 3 heading"
+reason = "Type ### and a space"
+
+[[key]]
+doom = "SPC m i 4"
+mode = "markdown"
+keys = "space m i 4"
+what = "Insert a level 4 heading"
+reason = "Type #### and a space"
+
+[[key]]
+doom = "SPC m i 5"
+mode = "markdown"
+keys = "space m i 5"
+what = "Insert a level 5 heading"
+reason = "Type ##### and a space"
+
+[[key]]
+doom = "SPC m i 6"
+mode = "markdown"
+keys = "space m i 6"
+what = "Insert a level 6 heading"
+reason = "Type ###### and a space"

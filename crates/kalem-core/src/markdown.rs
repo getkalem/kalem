@@ -1101,6 +1101,63 @@ fn close_fence(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> 
 
 /// Toggles the box of the task list item whose line holds `at`: `[ ]`
 /// becomes `[x]`, `[x]` or `[X]` becomes `[ ]`; one character changes.
+/// The selection wrapped in `open` and `close` (`**` for bold), or the
+/// markers taken away when they are already around it; without a
+/// selection the markers with the cursor between them.
+pub fn wrap(
+    text: &str,
+    sel: org_edit::Selection,
+    open: &str,
+    close: &str,
+) -> org_edit::Transaction {
+    let (a, z) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
+    let mut tx = org_edit::Transaction::new("Emphasis");
+    let around =
+        a >= open.len() && text[..a].ends_with(open) && text[z..].starts_with(close) && a < z;
+    if around {
+        let _ = tx.delete(z..z + close.len());
+        let _ = tx.delete(a - open.len()..a);
+        let (s, e) = (a - open.len(), z - open.len());
+        return tx.select(org_edit::Selection { anchor: s, head: e });
+    }
+    if a == z {
+        let _ = tx.insert(a, format!("{open}{close}"));
+    } else {
+        let _ = tx.insert(z, close.to_string());
+        let _ = tx.insert(a, open.to_string());
+    }
+    let s = a + open.len();
+    tx.select(org_edit::Selection {
+        anchor: s,
+        head: s + (z - a),
+    })
+}
+
+/// A link around the selection: `[text](|)`, the cursor where the address
+/// goes, or `[|]()` without a selection; with `bare`, `<|>` around it.
+pub fn insert_link(text: &str, sel: org_edit::Selection, bare: bool) -> org_edit::Transaction {
+    let (a, z) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
+    let mut tx = org_edit::Transaction::new("Insert Link");
+    if bare && a == z {
+        let _ = tx.insert(a, "<>".to_string());
+        return tx.select(org_edit::Selection::caret(a + 1));
+    }
+    if bare {
+        let _ = tx.insert(z, ">".to_string());
+        let _ = tx.insert(a, "<".to_string());
+        return tx.select(org_edit::Selection::caret(z + 1));
+    }
+    let _ = text;
+    if a == z {
+        let _ = tx.insert(a, "[]()".to_string());
+        return tx.select(org_edit::Selection::caret(a + 1));
+    }
+    let _ = tx.insert(z, "]()".to_string());
+    let _ = tx.insert(a, "[".to_string());
+    let caret = z + 3;
+    tx.select(org_edit::Selection::caret(caret))
+}
+
 pub fn toggle_checkbox(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
     let line = md.line_of(at);
     let boxed = md.nodes.iter().rev().find_map(|n| match &n.kind {
@@ -1375,6 +1432,34 @@ pub fn to_tree(md: &Md) -> Tree {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn emphasis_and_links() {
+        let apply = |t: &str, tx: &org_edit::Transaction| {
+            let mut s = t.to_string();
+            for e in tx.edits.iter().rev() {
+                s.replace_range(e.range.clone(), &e.insert);
+            }
+            (s, tx.selection_after.unwrap())
+        };
+        let sel = |a, h| org_edit::Selection { anchor: a, head: h };
+        let t = "say hello now";
+        let (s, after) = apply(t, &wrap(t, sel(4, 9), "**", "**"));
+        assert_eq!(s, "say **hello** now");
+        assert_eq!(&s[after.anchor..after.head], "hello");
+        // Again: taken away.
+        let (s, _) = apply(&s, &wrap(&s, after, "**", "**"));
+        assert_eq!(s, t);
+        // Without a selection: the cursor between the markers.
+        let (s, after) = apply(t, &wrap(t, sel(4, 4), "`", "`"));
+        assert_eq!((s.as_str(), after.head), ("say ``hello now", 5));
+        let (s, after) = apply(t, &insert_link(t, sel(4, 9), false));
+        assert_eq!((s.as_str(), after.head), ("say [hello]() now", 12));
+        let (s, after) = apply(t, &insert_link(t, sel(4, 4), false));
+        assert_eq!((s.as_str(), after.head), ("say []()hello now", 5));
+        let (s, _) = apply(t, &insert_link(t, sel(4, 9), true));
+        assert_eq!(s, "say <hello> now");
+    }
 
     fn lines(t: &str) -> Vec<Range<usize>> {
         let mut out = Vec::new();

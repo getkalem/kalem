@@ -158,10 +158,35 @@ Every key of Doom Emacs's leader map, and what it does in Kalem or why it
 does not yet: /Planned/ names the task that brings it, and a few keys
 Kalem will not have say why. The table is generated from
 =tests/keys/doom-leader.toml=, which the tests check against the Vim
-keymap, so it cannot drift from the keys. The local leader, =SPC m=, is
-the next step, and the file manager's keys are in its chapter.
+keymap, so it cannot drift from the keys. The file manager's keys are in
+its chapter.
 
 #+KALEM_KEYS: doom-leader
+
+* The local leader =SPC m=
+
+=SPC m= holds the keys of the document's kind, as Doom's =:lang org=,
+=:lang latex= and =:lang markdown= modules have them; the same keys do
+different things in an Org, a LaTeX and a Markdown document. The tables
+come from =tests/keys/doom-localleader.toml=, checked against the keymap
+in a document of each kind.
+
+** Org
+
+#+KALEM_KEYS: doom-localleader-org
+
+** LaTeX
+
+#+KALEM_KEYS: doom-localleader-latex
+
+** Markdown
+
+In Markdown, Ctrl+B, Ctrl+I and Ctrl+K make the selection bold, italic
+or a link with the Word-like keys too (=markdown.emphasis.bold=,
+=markdown.emphasis.italic=, =markdown.insert.link=); a second time takes
+the markers away.
+
+#+KALEM_KEYS: doom-localleader-markdown
 
 * Your own keys
 

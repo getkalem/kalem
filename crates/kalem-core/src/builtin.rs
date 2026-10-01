@@ -227,6 +227,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "markdown.table.sort",
             object(&[("reverse", "boolean", false)]),
         ),
+        (
+            "markdown.insert.link",
+            object(&[("bare", "boolean", false)]),
+        ),
         ("session.saveAs", object(&[("name", "string", true)])),
         ("session.restore", object(&[("name", "string", false)])),
         ("session.restoreNamed", object(&[("name", "string", false)])),
@@ -1895,6 +1899,64 @@ fn markdown_commands() -> Vec<Command> {
                     let md = crate::markdown::parsed(d);
                     let at = d.selection.head;
                     lines_command(ctx, |t, _| crate::markdown::toggle_checkbox(&md, t, at))
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.emphasis.bold",
+                "Bold",
+                "Markdown",
+                &["ctrl+b"],
+                Some("editorMode == markdown"),
+                |ctx, _| lines_command(ctx, |t, s| Some(crate::markdown::wrap(t, s, "**", "**"))),
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.emphasis.italic",
+                "Italic",
+                "Markdown",
+                &["ctrl+i"],
+                Some("editorMode == markdown"),
+                |ctx, _| lines_command(ctx, |t, s| Some(crate::markdown::wrap(t, s, "*", "*"))),
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.emphasis.code",
+                "Code",
+                "Markdown",
+                &[],
+                Some("editorMode == markdown"),
+                |ctx, _| lines_command(ctx, |t, s| Some(crate::markdown::wrap(t, s, "`", "`"))),
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.emphasis.strikeThrough",
+                "Strike-through",
+                "Markdown",
+                &[],
+                Some("editorMode == markdown"),
+                |ctx, _| lines_command(ctx, |t, s| Some(crate::markdown::wrap(t, s, "~~", "~~"))),
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.insert.link",
+                "Insert Link",
+                "Markdown",
+                &["ctrl+k"],
+                Some("editorMode == markdown"),
+                |ctx, args| {
+                    let bare = arg_bool(args, "bare");
+                    lines_command(ctx, |t, s| Some(crate::markdown::insert_link(t, s, bare)))
                 },
             ),
             Scope::only(&["markdown"]),
@@ -4795,7 +4857,7 @@ fn plain_commands() -> Vec<Command> {
             "Toggle Formula Preview",
             "View",
             &[],
-            Some(ORG),
+            Some("editorMode == org || editorMode == latex || editorMode == markdown"),
             |ctx, _| request(ctx, Request::ToggleMath),
         ),
         cmd(

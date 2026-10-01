@@ -19,6 +19,8 @@ pub struct KeyRow {
     pub what: String,
     /// The key of the same command without Vim keys.
     pub emacs: Option<String>,
+    /// The kind of document it is for (the local leader's tables).
+    pub mode: Option<String>,
 }
 
 /// Doom Emacs's file manager keys (T2.7e.18).
@@ -31,11 +33,29 @@ pub fn doom_leader() -> Vec<KeyRow> {
     parse(include_str!("../../../tests/keys/doom-leader.toml"), "doom")
 }
 
-/// The table called `name` (`doom-dired`, `doom-leader`).
+/// Doom Emacs's local leader `SPC m` for Org, LaTeX and Markdown
+/// (T2.7i.16, T2.7i.17).
+pub fn doom_local_leader() -> Vec<KeyRow> {
+    parse(
+        include_str!("../../../tests/keys/doom-localleader.toml"),
+        "doom",
+    )
+}
+
+/// The table called `name` (`doom-dired`, `doom-leader`, and
+/// `doom-localleader` or `doom-localleader-MODE` for one mode).
 pub fn table(name: &str) -> Option<Vec<KeyRow>> {
+    if let Some(mode) = name.strip_prefix("doom-localleader-") {
+        let rows: Vec<KeyRow> = doom_local_leader()
+            .into_iter()
+            .filter(|r| r.mode.as_deref() == Some(mode))
+            .collect();
+        return (!rows.is_empty()).then_some(rows);
+    }
     match name {
         "doom-dired" => Some(doom_dired()),
         "doom-leader" => Some(doom_leader()),
+        "doom-localleader" => Some(doom_local_leader()),
         _ => None,
     }
 }
@@ -56,6 +76,7 @@ fn parse(text: &str, theirs: &str) -> Vec<KeyRow> {
                 reason: s("reason"),
                 what: s("what").unwrap_or_default(),
                 emacs: s("emacs"),
+                mode: s("mode"),
             }
         })
         .collect()
@@ -147,6 +168,60 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn doom_local_leader_keys() {
+        let rows = doom_local_leader();
+        assert!(rows.len() > 100, "{}", rows.len());
+        let reg = CommandRegistry::with_builtins();
+        let (vim, issues) = Keymap::build(&reg, Profile::Vim, &[]);
+        assert!(issues.is_empty(), "{issues:#?}");
+        let mut seen = std::collections::HashSet::new();
+        let mut wrong = Vec::new();
+        for r in &rows {
+            let row = &r.theirs;
+            let mode = r.mode.as_deref().unwrap_or_else(|| panic!("{row}: a mode"));
+            assert!(seen.insert((mode, &r.keys)), "{row} twice in {mode}");
+            let mut ctx = Context::default();
+            ctx.flag("hasFile", true);
+            ctx.set("editorMode", V::Str(mode.into()));
+            ctx.set("textType", V::Str(mode.into()));
+            ctx.flag("vimCommand", true);
+            for f in [
+                "inProject",
+                "onHeadline",
+                "inTable",
+                "inList",
+                "inMarkdownTable",
+            ] {
+                ctx.flag(f, true);
+            }
+            match (&r.command, &r.reason) {
+                (Some(c), None) => {
+                    assert!(reg.get(c).is_some(), "{row}: no command {c}");
+                    if lookup(&vim, &r.keys, &ctx) != Some(c.as_str()) {
+                        wrong.push(format!("{row} ({mode}): {c}"));
+                    }
+                }
+                (None, Some(why)) => assert!(!why.is_empty(), "{row}"),
+                _ => panic!("{row}: a command or a reason"),
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
+        // Every local leader binding is in the table.
+        let listed: std::collections::HashSet<String> =
+            rows.iter().map(|r| r.keys.clone()).collect();
+        for b in vim.bindings() {
+            let keys = b.keys.to_string();
+            if keys.starts_with("space m ") {
+                assert!(
+                    listed.contains(&keys),
+                    "{keys} is bound but not in the table"
+                );
+            }
+        }
+        assert!(table("doom-localleader-latex").is_some_and(|t| t.len() > 5));
     }
 
     #[test]
