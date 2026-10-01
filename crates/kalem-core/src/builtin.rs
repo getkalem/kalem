@@ -231,6 +231,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "markdown.insert.link",
             object(&[("bare", "boolean", false)]),
         ),
+        ("insert.text", object(&[("text", "string", true)])),
         ("session.saveAs", object(&[("name", "string", true)])),
         ("session.restore", object(&[("name", "string", false)])),
         ("session.restoreNamed", object(&[("name", "string", false)])),
@@ -898,6 +899,16 @@ fn export_setting(
 
 /// Runs a line command on the text and selection of the document, as one
 /// undo step; `None` from it changes nothing.
+/// Inserts `text` over the selection, the cursor after it.
+fn insert_plain(ctx: &mut EditorContext<'_>, text: &str) -> CommandResult {
+    lines_command(ctx, |_, s| {
+        let (a, z) = (s.anchor.min(s.head), s.anchor.max(s.head));
+        let mut tx = org_edit::Transaction::new("Insert");
+        let _ = tx.replace(a..z, text.to_string());
+        Some(tx.select(org_edit::Selection::caret(a + text.len())))
+    })
+}
+
 fn lines_command(
     ctx: &mut EditorContext<'_>,
     f: impl FnOnce(&str, org_edit::Selection) -> Option<org_edit::Transaction>,
@@ -4456,6 +4467,123 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::Find { replace: true }),
         ),
+        // Doom's `SPC n` (T2.7i.12).
+        cmd(
+            "notes.search",
+            "Search Notes",
+            "Search",
+            &[],
+            None,
+            |ctx, _| {
+                let dir = crate::settings::expand_home(ctx.config.str("notes.directory"));
+                let dir = std::path::PathBuf::from(dir);
+                if !dir.is_dir() {
+                    return Err(CommandError::new(crate::tr!(
+                        "msg-no-notes-folder",
+                        path = dir.display().to_string()
+                    )));
+                }
+                request(ctx, Request::SearchIn(dir))
+            },
+        ),
+        // Doom's `SPC i` (T2.7i.13).
+        cmd(
+            crate::insert::TEXT,
+            "Insert Text",
+            "Insert",
+            &[],
+            None,
+            |ctx, args| {
+                let text = arg_str(args, "text")?.to_string();
+                insert_plain(ctx, &text)
+            },
+        ),
+        cmd(
+            "insert.unicode",
+            "Insert Unicode Character",
+            "Insert",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Choose(crate::insert::unicode_items())),
+        ),
+        cmd(
+            "insert.emoji",
+            "Insert Emoji",
+            "Insert",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Choose(crate::insert::emoji_items())),
+        ),
+        cmd(
+            "insert.fileName",
+            "Insert File Name",
+            "Insert",
+            &[],
+            Some("hasFile"),
+            |ctx, _| {
+                let path = this_file(ctx)?;
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                insert_plain(ctx, &name)
+            },
+        ),
+        cmd(
+            "insert.filePath",
+            "Insert File Path",
+            "Insert",
+            &[],
+            Some("hasFile"),
+            |ctx, _| {
+                let path = this_file(ctx)?.display().to_string();
+                insert_plain(ctx, &path)
+            },
+        ),
+        cmd(
+            "insert.fromHistory",
+            "Insert from Clipboard History",
+            "Insert",
+            &[],
+            None,
+            |ctx, _| {
+                let texts: Vec<(String, String)> = crate::command::clipboard_history()
+                    .into_iter()
+                    .map(|t| (String::new(), t))
+                    .collect();
+                if texts.is_empty() {
+                    return Err(CommandError::new(crate::tr!("msg-no-history")));
+                }
+                let category = crate::tr!("category-clipboard");
+                request(
+                    ctx,
+                    Request::Choose(crate::insert::text_items(&texts, &category)),
+                )
+            },
+        ),
+        cmd(
+            "insert.fromRegister",
+            "Insert from Register",
+            "Insert",
+            &[],
+            None,
+            |ctx, _| {
+                let texts: Vec<(String, String)> = ctx
+                    .clipboard
+                    .registers
+                    .iter()
+                    .map(|(c, t)| (format!("\"{c}  "), t.clone()))
+                    .collect();
+                if texts.is_empty() {
+                    return Err(CommandError::new(crate::tr!("msg-no-registers")));
+                }
+                let category = crate::tr!("category-registers");
+                request(
+                    ctx,
+                    Request::Choose(crate::insert::text_items(&texts, &category)),
+                )
+            },
+        ),
         // Sessions (Doom's `SPC q`, T2.7i.14).
         cmd(
             "session.save",
@@ -4988,7 +5116,7 @@ fn plain_commands() -> Vec<Command> {
                     })
                 });
                 if r.is_ok() {
-                    ctx.clipboard.text = clip;
+                    ctx.clipboard.record(clip);
                 }
                 r
             },
@@ -5006,7 +5134,7 @@ fn plain_commands() -> Vec<Command> {
                     .ok_or_else(|| CommandError::new(crate::tr!("msg-not-org")))?;
                 let text = text_of(&model);
                 let clip = h::copy_subtree(&text, doc.selection.head, model.parse().context())?;
-                ctx.clipboard.text = clip;
+                ctx.clipboard.record(clip);
                 Ok(())
             },
         ),

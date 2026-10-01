@@ -1301,25 +1301,25 @@ reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
 doom = "SPC n a"
 keys = "space n a"
 what = "Agenda"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n A"
 keys = "space n shift+a"
 what = "Agenda"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n c"
 keys = "space n c"
 what = "Capture"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n C"
 keys = "space n shift+c"
 what = "Go to the capture target"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n d"
@@ -1331,31 +1331,31 @@ reason = "Deft is not part of Kalem"
 doom = "SPC n l"
 keys = "space n l"
 what = "Store a link"
-reason = "Planned: T2.7i.12"
+command = "link.store"
 
 [[key]]
 doom = "SPC n m"
 keys = "space n m"
 what = "Tags view"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n n"
 keys = "space n n"
 what = "Capture"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n N"
 keys = "space n shift+n"
 what = "Go to the capture target"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n o"
 keys = "space n o"
 what = "Active clocks"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n r"
@@ -1367,31 +1367,31 @@ reason = "Org Roam is not part of Kalem"
 doom = "SPC n s"
 keys = "space n s"
 what = "Search the notes"
-reason = "Planned: T2.7i.12"
+command = "notes.search"
 
 [[key]]
 doom = "SPC n t"
 keys = "space n t"
 what = "TODO list"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n v"
 keys = "space n v"
 what = "Agenda views"
-reason = "Planned: T2.7i.12"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n y"
 keys = "space n y"
 what = "Export to the clipboard"
-reason = "Planned: T2.7i.12"
+command = "edit.copyHtml"
 
 [[key]]
 doom = "SPC n Y"
 keys = "space n shift+y"
 what = "Export to the clipboard as rich text"
-reason = "Planned: T2.7i.12"
+command = "edit.copyRichText"
 
 
 # Insert =SPC i=.
@@ -1399,43 +1399,43 @@ reason = "Planned: T2.7i.12"
 doom = "SPC i e"
 keys = "space i e"
 what = "Emoji"
-reason = "Planned: T2.7i.13"
+command = "insert.emoji"
 
 [[key]]
 doom = "SPC i f"
 keys = "space i f"
 what = "File name"
-reason = "Planned: T2.7i.13"
+command = "insert.fileName"
 
 [[key]]
 doom = "SPC i F"
 keys = "space i shift+f"
 what = "File path"
-reason = "Planned: T2.7i.13"
+command = "insert.filePath"
 
 [[key]]
 doom = "SPC i r"
 keys = "space i r"
 what = "From a register"
-reason = "Planned: T2.7i.13"
+command = "insert.fromRegister"
 
 [[key]]
 doom = "SPC i s"
 keys = "space i s"
 what = "Snippet"
-reason = "Planned: T2.7i.13"
+reason = "Planned: T3.8.3 (snippets)"
 
 [[key]]
 doom = "SPC i u"
 keys = "space i u"
 what = "Unicode character"
-reason = "Planned: T2.7i.13"
+command = "insert.unicode"
 
 [[key]]
 doom = "SPC i y"
 keys = "space i y"
 what = "From the clipboard history"
-reason = "Planned: T2.7i.13"
+command = "insert.fromHistory"
 
 
 # Quit and sessions =SPC q=.

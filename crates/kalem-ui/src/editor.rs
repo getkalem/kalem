@@ -988,6 +988,11 @@ impl Editor {
         }
         let now = Instant::now();
         let clock = jiff::Zoned::now().datetime();
+        self.clipboard.registers = self
+            .vim
+            .as_ref()
+            .map(|v| v.register_texts())
+            .unwrap_or_default();
         let mut ctx = EditorContext::new(
             Some(&mut self.doc),
             &mut self.clipboard,
@@ -1060,7 +1065,7 @@ impl Editor {
                     return;
                 };
                 cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
-                self.clipboard.text = text;
+                self.clipboard.record(text);
                 if r == Request::Cut {
                     self.doc.cut_selections(Instant::now());
                     self.after_change(cx);
@@ -2733,7 +2738,7 @@ impl Editor {
         if a < z {
             let code = text.as_str()[a..z].to_string();
             cx.write_to_clipboard(ClipboardItem::new_string(code.clone()));
-            self.clipboard.text = code;
+            self.clipboard.record(code);
             self.message(tr!("msg-copied"), false);
             cx.notify();
         }

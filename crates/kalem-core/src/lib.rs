@@ -24,6 +24,7 @@ pub mod find;
 pub mod formulas;
 pub mod images;
 pub mod input;
+pub mod insert;
 pub mod jobs;
 pub mod key_tables;
 pub mod keymap;

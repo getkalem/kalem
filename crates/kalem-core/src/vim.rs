@@ -1290,7 +1290,20 @@ impl Vim {
 
     // Registers.
 
+    /// The registers with text, by name, the unnamed `"` first.
+    pub fn register_texts(&self) -> Vec<(char, String)> {
+        let mut v: Vec<(char, String)> = self
+            .registers
+            .iter()
+            .filter(|(_, r)| !r.text.is_empty())
+            .map(|(c, r)| (*c, r.text.clone()))
+            .collect();
+        v.sort_by_key(|(c, _)| (*c != '"', *c));
+        v
+    }
+
     fn store(&mut self, text: String, linewise: bool, host: &mut dyn Host) {
+        crate::command::record_history(&text);
         let r = Register { text, linewise };
         match self.register.take() {
             Some('+' | '*') => host.set_clipboard(&r.text),

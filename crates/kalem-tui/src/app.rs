@@ -1375,6 +1375,11 @@ impl App {
         let now = Instant::now();
         let clock = jiff::Zoned::now().datetime();
         let before = self.doc.selection;
+        self.clipboard.registers = self
+            .vim
+            .as_ref()
+            .map(|v| v.register_texts())
+            .unwrap_or_default();
         let mut ctx = EditorContext::new(
             Some(&mut self.doc),
             &mut self.clipboard,
@@ -1664,13 +1669,13 @@ impl App {
                 }
             }
             Request::CopyText(t) => {
-                self.clipboard.text = t.clone();
+                self.clipboard.record(t.clone());
                 self.write_terminal(&osc52(&t));
             }
             Request::Complete => self.request_completion(),
             // The terminal's clipboard takes plain text only.
             Request::CopyRich { text, .. } => {
-                self.clipboard.text = text.clone();
+                self.clipboard.record(text.clone());
                 self.write_terminal(&osc52(&text));
                 self.message(tr!("msg-rich-copy-plain"), false);
             }
@@ -1691,7 +1696,7 @@ impl App {
                     self.message(tr!("msg-nothing-selected"), false);
                     return;
                 };
-                self.clipboard.text = text.clone();
+                self.clipboard.record(text.clone());
                 self.write_terminal(&osc52(&text));
                 if r == Request::Cut {
                     self.doc.cut_selections(Instant::now());
