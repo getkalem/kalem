@@ -555,6 +555,9 @@ impl Editor {
         }
         let b = match self.doc.parse() {
             // LaTeX: its displayed formulas, and the text between them.
+            _ if self.doc.meta.mode == kalem_core::DocumentMode::Markdown => {
+                Arc::new(kalem_core::markdown::blocks(&self.doc))
+            }
             _ if self.doc.latex().is_some() => Arc::new(kalem_core::latex_view::blocks(&self.doc)),
             Some((p, true)) => Arc::new(view::blocks(&p.syntax(), p.context())),
             _ => Arc::new(Vec::new()),

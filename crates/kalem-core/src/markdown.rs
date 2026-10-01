@@ -1232,6 +1232,63 @@ pub fn to_html(text: &str) -> String {
 }
 
 /// The headings of a Markdown document for the outline sidebar.
+/// The blocks of a Markdown document for the views' folding (T2.7c.3):
+/// the front matter as a drawer, folded to its first line while the
+/// cursor is away from it as Org folds a property drawer, and the rest
+/// one paragraph. None without front matter.
+pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
+    use crate::view::{Block, BlockKind};
+    let md = parsed(doc);
+    if !md
+        .nodes
+        .iter()
+        .any(|n| matches!(n.kind, MdKind::FrontMatter))
+    {
+        return Vec::new();
+    }
+    let text = doc.text().as_str();
+    let Some(end) = front_matter_end(text) else {
+        return Vec::new();
+    };
+    let mut out = vec![Block {
+        kind: BlockKind::Drawer,
+        range: 0..end,
+        content_end: end,
+        depth: 0,
+        headline: None,
+    }];
+    if end < text.len() {
+        out.push(Block {
+            kind: BlockKind::Paragraph,
+            range: end..text.len(),
+            content_end: text.len(),
+            depth: 0,
+            headline: None,
+        });
+    }
+    out
+}
+
+/// Where the front matter `---` … `---` (or `...`) at the start of `text`
+/// ends: after its closing line.
+fn front_matter_end(text: &str) -> Option<usize> {
+    let body = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let skip = text.len() - body.len();
+    let mut lines = body.split_inclusive('\n');
+    let first = lines.next()?;
+    if first.trim_end() != "---" {
+        return None;
+    }
+    let mut at = skip + first.len();
+    for l in lines {
+        at += l.len();
+        if matches!(l.trim_end(), "---" | "...") {
+            return Some(at);
+        }
+    }
+    None
+}
+
 pub fn outline_items(doc: &crate::DocumentState) -> Vec<crate::view::OutlineItem> {
     let md = parsed(doc);
     outline(&md, doc.text().as_str())

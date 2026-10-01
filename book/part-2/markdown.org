@@ -82,7 +82,9 @@ edits it as plain text. Concretely:
   away from the cursor; a task list item's =[ ]= or =[x]= is a checkbox
   while the cursor is off its line. Block quote markers and thematic
   breaks are dimmed; code blocks, HTML blocks, tables and front matter
-  are monospace, fences and front matter dimmed. The setting
+  are monospace, fences and front matter dimmed. Away from the cursor
+  the front matter folds to its first line, as a property drawer does
+  in Org, and opens when the cursor goes into it. The setting
   =editor.show_source_markers= (=cursor=, =always=, =never=) applies as
   in Org, and /Toggle Source View/ shows the text as it is. After an
   edit only the top-level blocks around it are parsed again, with a
@@ -394,9 +396,9 @@ above is done.
 - *Lossless editing.* As for Org: the file is edited as text, never
   regenerated from a tree; the parser only yields ranges for the view,
   so untouched bytes stay as they were (T2.7c.8).
-- *View.* Done as above; still to come: front matter folded, and code
-  blocks coloured with the state of the lines before (T2.7c.3).
-- *Editing.* Tables: moving rows and columns, formulas (T2.7c.4);
+- *View.* Done as above; still to come: code blocks coloured with the
+  state of the lines before (T2.7c.3).
+- *Editing.* Tables: formulas (T2.7c.4);
   renumbering a list after other edits (T2.7c.5).
 - *Conversion.* "Convert to Org" and "Convert from Org", through the
   exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).

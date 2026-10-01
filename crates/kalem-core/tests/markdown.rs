@@ -86,3 +86,26 @@ fn outline_from_the_file() {
     );
     let _ = std::fs::remove_dir_all(path.parent().unwrap());
 }
+
+#[test]
+fn front_matter_folds_away_from_the_cursor() {
+    let text = "---\ntitle: Notes\ntags: [a, b]\n---\n# Heading\n\ntext\n";
+    let (path, mut d) = open("fm.md", text);
+    let blocks = kalem_core::markdown::blocks(&d);
+    assert_eq!(blocks[0].range, 0..text.find("# Heading").unwrap());
+    let folds = kalem_core::view::Folds::default();
+    // The cursor in the text: the front matter shows its first line.
+    d.selection = org_edit::Selection::caret(text.len() - 2);
+    let v = kalem_core::view::visible(text, &blocks, &folds, d.selection.head);
+    assert!(v.folded.contains(&0));
+    assert_eq!(v.ranges[0], 0..4);
+    // The cursor in it: all of it.
+    let v = kalem_core::view::visible(text, &blocks, &folds, 6);
+    assert!(v.folded.is_empty());
+    assert_eq!(v.ranges, vec![0..text.len()]);
+    // Without front matter, no blocks: nothing folds.
+    let (p2, d2) = open("plain.md", "# A\n\n---\n\ntext\n");
+    assert!(kalem_core::markdown::blocks(&d2).is_empty());
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    let _ = std::fs::remove_dir_all(p2.parent().unwrap());
+}
