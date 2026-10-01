@@ -715,7 +715,7 @@ pub fn swap_columns(text: &str, d: &Dialect, a: usize) -> Transaction {
 /// The order of two values in a column: numbers (read as the column
 /// statistics read them) before text, numbers by value, text without
 /// case. A total order, as sorting needs, whatever the column mixes.
-fn compare(a: &str, b: &str, comma_decimal: bool) -> std::cmp::Ordering {
+pub(crate) fn compare(a: &str, b: &str, comma_decimal: bool) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     match (number(a, comma_decimal), number(b, comma_decimal)) {
         (Some(x), Some(y)) => x.total_cmp(&y),
@@ -816,7 +816,7 @@ pub fn to_org_table(text: &str, d: &Dialect) -> String {
 /// `1.234,5` (Turkish and most of Europe), `1 234,5`; a comma alone is
 /// the decimal point unless it groups thousands (`1,234,567`, or `1,234`
 /// outside files that `;` delimits, as European spreadsheets write).
-fn number(v: &str, comma_decimal: bool) -> Option<f64> {
+pub(crate) fn number(v: &str, comma_decimal: bool) -> Option<f64> {
     let v = v.trim().replace(['\u{a0}', '\u{202f}', ' ', '\''], "");
     if v.is_empty() {
         return None;

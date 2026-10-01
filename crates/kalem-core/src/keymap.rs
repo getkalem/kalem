@@ -775,6 +775,39 @@ mod tests {
     }
 
     #[test]
+    fn csv_grid_has_the_table_keys() {
+        // The keys of Org tables move and insert rows and columns in a
+        // CSV grid too, in the Word-like profile and the Emacs keymap.
+        let reg = CommandRegistry::with_builtins();
+        let mut csv = Context::default();
+        csv.set("editorMode", V::Str("csv".into()));
+        csv.set("textType", V::Str("csv".into()));
+        let (m, _) = Keymap::build(&reg, Profile::Word, &[]);
+        for (k, c) in [
+            ("alt+up", "csv.moveRowUp"),
+            ("alt+down", "csv.moveRowDown"),
+            ("alt+left", "csv.moveColumnLeft"),
+            ("alt+right", "csv.moveColumnRight"),
+            ("alt+shift+up", "csv.deleteRow"),
+            ("alt+shift+down", "csv.insertRow"),
+            ("alt+shift+left", "csv.deleteColumn"),
+            ("alt+shift+right", "csv.insertColumn"),
+        ] {
+            assert_eq!(run(&m, k, &csv).map(|r| r.0), Some(c), "{k}");
+        }
+        let text = include_str!("../../../docs/keymaps/emacs.json");
+        let (entries, _) = parse_keymap(text, Origin::User);
+        let (m, _) = Keymap::build(&reg, Profile::Word, &entries);
+        assert_eq!(run(&m, "M-<up>", &csv).unwrap().0, "csv.moveRowUp");
+        assert_eq!(run(&m, "C-c ^", &csv).unwrap().0, "csv.sortFileBy");
+        assert_eq!(run(&m, "C-c +", &csv).unwrap().0, "csv.sumColumn");
+        assert_eq!(run(&m, "C-c ?", &csv).unwrap().0, "csv.cellCoordinates");
+        // Org's own table keys are untouched.
+        let ctx = org_ctx(&["inTable"]);
+        assert_eq!(run(&m, "C-c ^", &ctx).unwrap().0, "table.sortRows");
+    }
+
+    #[test]
     fn emacs_example() {
         // `docs/keymaps/emacs.json`, the Emacs Org keys as a user keymap.
         let reg = CommandRegistry::with_builtins();

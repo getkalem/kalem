@@ -824,6 +824,29 @@ cmd-csv-sortFile = Sort File by Column
 cmd-csv-copyAsTsv = Copy as Tab-Separated Values
 cmd-csv-openAsText = Open as Plain Text
 cmd-csv-convertToOrg = Convert to Org Table
+msg-csv-duplicates = { $count ->
+    [0] No duplicate rows
+    [one] One duplicate row removed
+   *[other] { $count } duplicate rows removed
+}
+msg-csv-nothing-to-split = No value in this column holds “{ $separator }”
+msg-csv-bad-columns = Not columns: { $value } (letters or numbers, a - before one to sort it descending: B, -A)
+msg-csv-no-numbers = No numbers in this column
+msg-csv-sum = Sum: { $sum } (copied)
+msg-csv-cell = Cell { $cell } ({ $org })
+msg-csv-cell-named = Cell { $cell } ({ $org }), column “{ $column }”
+msg-csv-bad-cell = Not a cell: { $value } (B3, @3$2 or 3,2)
+msg-csv-no-series = This value does not continue as a series
+cmd-csv-fillDown = Fill Down
+cmd-csv-fillSeries = Fill Series
+cmd-csv-removeDuplicates = Remove Duplicate Rows
+cmd-csv-transpose = Transpose
+cmd-csv-splitColumn = Split Column
+cmd-csv-joinColumns = Join with Next Column
+cmd-csv-sortFileBy = Sort File by Columns
+cmd-csv-sumColumn = Sum Column
+cmd-csv-cellCoordinates = Cell Coordinates
+cmd-csv-goToCell = Go to Cell
 cmd-file-print = Print
 msg-printing = Printing { $path }
 msg-print-viewer = Opened { $path }; print it from the viewer
