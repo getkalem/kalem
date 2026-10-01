@@ -3733,3 +3733,16 @@ fn workspaces_of_a_window(cx: &mut TestAppContext) {
     run("workspace.delete", serde_json::Value::Null, cx);
     assert!(shown(cx).contains(&"a.org".to_string()) && shown(cx).contains(&"b.org".to_string()));
 }
+
+/// Closing the last document leaves an empty one, the window open.
+#[gpui::test]
+fn closing_the_last_document_keeps_the_window(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(false, cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("file.close", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "Untitled");
+    assert_eq!(ws.read_with(cx, |ws, _| ws.editors.len()), 1);
+}

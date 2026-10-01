@@ -1095,3 +1095,4 @@ category-frequencies = Frequencies
 csv-column = Column { $n }
 msg-replaced-count = { $count } fields changed
 cmd-markdown-insert-image = Insert Image
+cmd-pane-closeOrQuit = Close Pane or Quit

@@ -1017,3 +1017,4 @@ category-frequencies = Sıklıklar
 csv-column = Sütun { $n }
 msg-replaced-count = { $count } alan değişti
 cmd-markdown-insert-image = Resim Ekle
+cmd-pane-closeOrQuit = Bölmeyi Kapat ya da Çık

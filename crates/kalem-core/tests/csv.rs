@@ -151,8 +151,12 @@ fn large_files_lay_out_lazily() {
     let l = csv::Layout::new(&text);
     let last = text.len() - "99999,name 99999,297.5\n".len();
     let line = last..text.len() - 1;
-    let view = csv::line_view(&l, &text, line);
-    assert!(view.display().starts_with("99999"), "{}", view.display());
+    let view = csv::line_view(&l, &text, line, None);
+    assert!(
+        view.display().trim_start().starts_with("100001 99999"),
+        "{}",
+        view.display()
+    );
     // Generous for debug builds on slow machines; the release figure is in
     // book/part-5/performance.org.
     assert!(start.elapsed().as_secs() < 5, "{:?}", start.elapsed());

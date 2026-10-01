@@ -2476,7 +2476,8 @@ impl Vim {
     fn ex(&mut self, doc: &mut DocumentState, cmd: &str, out: &mut Outcome) {
         let cmd = cmd.trim();
         let save = || ("app.save".to_string(), Value::Null);
-        let quit = || ("app.quit".to_string(), Value::Null);
+        // `:q` closes the pane, and quits only from the last one.
+        let quit = || ("pane.closeOrQuit".to_string(), Value::Null);
         match cmd {
             "" => {}
             "w" | "write" => out.commands.push(save()),
@@ -2486,6 +2487,19 @@ impl Vim {
                 out.commands.push(save());
                 out.commands.push(quit());
             }
+            "qa" | "qall" | "quitall" | "qa!" => {
+                out.commands.push(("app.quit".into(), Value::Null))
+            }
+            "wqa" | "wqall" | "xa" | "xall" => {
+                out.commands.push(("file.saveAll".into(), Value::Null));
+                out.commands.push(("app.quit".into(), Value::Null));
+            }
+            // Windows: the panes.
+            "sp" | "split" => out.commands.push(("pane.splitBelow".into(), Value::Null)),
+            "vs" | "vsp" | "vsplit" => out.commands.push(("pane.splitRight".into(), Value::Null)),
+            "clo" | "close" => out.commands.push(("pane.close".into(), Value::Null)),
+            "on" | "only" => out.commands.push(("pane.only".into(), Value::Null)),
+            "new" => out.commands.push(("pane.new".into(), Value::Null)),
             "noh" | "nohlsearch" => out.highlights = Some(Vec::new()),
             // Buffers: the open documents.
             "bn" | "bnext" => out.commands.push(("file.next".into(), Value::Null)),
@@ -2865,7 +2879,7 @@ mod tests {
         }
         let out = v.key(&mut d, Key::Enter, &mut h);
         let names: Vec<&str> = out.commands.iter().map(|c| c.0.as_str()).collect();
-        assert_eq!(names, ["app.save", "app.quit"]);
+        assert_eq!(names, ["app.save", "pane.closeOrQuit"]);
         // Keys Vim does not use go on; unused characters do nothing.
         assert!(!v.key(&mut d, Key::Ctrl('s'), &mut h).handled);
         let before = d.text().as_str().to_string();

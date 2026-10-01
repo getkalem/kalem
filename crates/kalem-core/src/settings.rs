@@ -142,6 +142,12 @@ pub const SPECS: &[Spec] = &[
         description: "CSV files start with columns of numbers and dates aligned right (Toggle Number Alignment changes one file)",
     },
     Spec {
+        key: "csv.sheet",
+        kind: Kind::Bool,
+        default: "true",
+        description: "CSV files look like a spreadsheet: row numbers and column letters in shaded bars, the cell at the cursor marked (Spreadsheet Look changes one file)",
+    },
+    Spec {
         key: "csv.rainbow",
         kind: Kind::Bool,
         default: "false",
@@ -735,6 +741,7 @@ impl Config {
             align_numbers: self.bool("csv.align_numbers"),
             rainbow: self.bool("csv.rainbow"),
             coordinates: self.bool("csv.coordinates"),
+            sheet: self.bool("csv.sheet"),
         });
     }
 
