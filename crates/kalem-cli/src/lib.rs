@@ -131,9 +131,10 @@ enum Command {
         /// `FILE:LINE:COLUMN` (1-based; the column in characters).
         place: String,
     },
-    /// Align tables and tags, and blank lines as each file has them.
+    /// Align tables and tags, and blank lines as each file has them; the
+    /// Kalem format's canonical form.
     Fmt {
-        /// Org or LaTeX files to format in place.
+        /// Org, LaTeX or Kalem format files to format in place.
         #[arg(required = true)]
         files: Vec<PathBuf>,
         /// Change nothing; list the files that would change and fail if
@@ -143,6 +144,10 @@ enum Command {
         /// LaTeX: line up the `&` of tables and alignments.
         #[arg(long)]
         align: bool,
+        /// Kalem format: format ill-formed files too, as the parser
+        /// recovers them (RFC 0003 §15), and print what changed.
+        #[arg(long)]
+        repair: bool,
     },
     /// Export Org files as Emacs's Org exporter does: `kalem export
     /// notes.org --to html` writes `notes.html` beside it (or the file
@@ -341,7 +346,8 @@ where
             files,
             check,
             align,
-        } => commands::fmt(&files, check, align),
+            repair,
+        } => commands::fmt(&files, check, align, repair),
         Command::Complete { place } => commands::complete(&place),
         Command::Commands { text_type } => commands::list_commands(text_type.as_deref()),
         Command::Book {

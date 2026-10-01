@@ -10,12 +10,55 @@ use super::Result;
 /// `kalem fmt`: tables and tags aligned, blank lines as each document has
 /// them (`org_edit::format`); with `check`, only lists the files that
 /// would change and fails if there are any.
-pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCode> {
+pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool, repair: bool) -> Result<ExitCode> {
     let mut out = std::io::stdout().lock();
     let mut changed = 0;
+    let mut refused = 0;
     for path in files {
         let (text, meta, _) =
             kalem_core::files::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        // The Kalem format: its canonical form, for well-formed files only
+        // (RFC 0003 §15); `--repair` formats the recovered tree and shows
+        // the change.
+        if is_klm(path, &text) {
+            let doc = klm_syntax::parse(&text);
+            if !klm_syntax::well_formed(&doc) && !repair {
+                refused += 1;
+                let _ = writeln!(
+                    out,
+                    "{}: not formatted: {} problems (`kalem check` lists them, `kalem fmt --repair` fixes them)",
+                    path.display(),
+                    doc.diagnostics.len()
+                );
+                continue;
+            }
+            let formatted = klm_syntax::fmt(&doc);
+            if formatted == text {
+                continue;
+            }
+            changed += 1;
+            if repair {
+                let _ = write!(
+                    out,
+                    "{}",
+                    kalem_core::lines::unified_diff(&text, &formatted, &path.display().to_string())
+                );
+            }
+            if check {
+                if !repair {
+                    let _ = writeln!(out, "{}", path.display());
+                }
+            } else {
+                kalem_core::files::write(
+                    path,
+                    &kalem_core::files::encode(&formatted, &meta),
+                    kalem_core::files::SaveOptions::default(),
+                )
+                .map_err(|e| format!("{}: {e}", path.display()))?;
+                let _ = writeln!(out, "formatted {}", path.display());
+            }
+            continue;
+        }
         // As the editors decide: `.tex`, `.latex`, `.ltx`, or a mode line.
         let latex = kalem_core::DocumentMode::detect(Some(path), text.as_bytes())
             == kalem_core::DocumentMode::Latex;
@@ -40,11 +83,19 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
             let _ = writeln!(out, "formatted {}", path.display());
         }
     }
-    Ok(if check && changed > 0 {
+    Ok(if (check && changed > 0) || refused > 0 {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
     })
+}
+
+/// Whether `path` is in the Kalem format: `.klm`, or text that starts
+/// with `\klm[`.
+pub(crate) fn is_klm(path: &Path, text: &str) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("klm"))
+        || text.starts_with("\\klm[")
 }
 
 /// `kalem query FILE... MATCH`: the headlines matching an Org match string

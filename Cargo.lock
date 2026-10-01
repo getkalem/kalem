@@ -3759,6 +3759,7 @@ dependencies = [
  "clap",
  "jiff",
  "kalem-core",
+ "klm-syntax",
  "latex-model",
  "latex-syntax",
  "org-cite",

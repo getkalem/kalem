@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The Kalem format's canonical form (T2.13.6): `kalem fmt` and `kalem check` read `.klm` with `klm-syntax`; `fmt` refuses an ill-formed file and `--repair` formats it and shows the diff; `\meta[format=sentence]` writes a line per sentence; the editors save a well-formed `.klm` in canonical form, and Repair Document fixes an ill-formed one.
 - `klm-syntax`, the parser of the Kalem format (T2.13.3), grown from the spike: every node with its byte range, recovery as RFC 0003 §15 says, incremental reparsing from the enclosing top-level block (equal to a full parse), no panic on mangled input, a megabyte in about 50 ms.
 - The document mode contract in `kalem-core` (`kalem_core::modes`, T2.7c.10): the fixed kinds, the flat tree, `ModeSpec` and a conformance check; CSV and the Kalem format written against it.
 - Format Document (`SPC c f`, as `kalem fmt` does for Org and LaTeX) and Delete Trailing Blank Lines (`SPC c W`), with Doom's other `SPC c` keys that need no language pack (T2.7i.10).

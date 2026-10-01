@@ -2536,12 +2536,56 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| lines_command(ctx, |t, _| crate::lines::trim_trailing_blank_lines(t)),
         ),
         cmd(
+            "edit.repairDocument",
+            "Repair Document",
+            "Edit",
+            &[],
+            Some("fileKind == klm"),
+            |ctx, _| {
+                let now = ctx.now;
+                let d = ctx.doc()?;
+                let text = d.text().as_str().to_string();
+                let doc = klm_syntax::parse(&text);
+                let problems = doc.diagnostics.len();
+                let new = klm_syntax::fmt(&doc);
+                let changed = crate::lines::unified_diff(&text, &new, "")
+                    .lines()
+                    .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
+                    .count();
+                if let Some(tx) = crate::lines::replace_differing(&text, &new, "Repair Document") {
+                    d.apply(&tx, org_edit::ChangeKind::Command, now);
+                }
+                ctx.messages.push(crate::tr!(
+                    "msg-klm-repaired",
+                    problems = problems,
+                    lines = changed
+                ));
+                Ok(())
+            },
+        ),
+        cmd(
             "edit.formatDocument",
             "Format Document",
             "Edit",
             &[],
             Some("editorMode == org || editorMode == latex"),
             |ctx, _| {
+                // The Kalem format: its canonical form, well-formed only
+                // (RFC 0003 §15).
+                if crate::klm::is_klm_file(ctx.doc()?) {
+                    let d = ctx.doc()?;
+                    let doc = klm_syntax::parse(d.text().as_str());
+                    if !klm_syntax::well_formed(&doc) {
+                        return Err(CommandError::new(crate::tr!(
+                            "msg-klm-ill-formed",
+                            count = doc.diagnostics.len()
+                        )));
+                    }
+                    let new = klm_syntax::fmt(&doc);
+                    return lines_command(ctx, |t, _| {
+                        crate::lines::replace_differing(t, &new, "Format Document")
+                    });
+                }
                 let latex = ctx.doc()?.meta.mode == crate::DocumentMode::Latex;
                 lines_command(ctx, |t, _| {
                     // As `kalem fmt` does.
@@ -5974,5 +6018,47 @@ mod tests {
             reg.execute(id, &mut ctx, &serde_json::Value::Null).unwrap();
         }
         assert_eq!(d.text().as_str(), "* A\n| a   | b |\n| ccc | d |\n");
+    }
+
+    #[test]
+    fn kalem_format_documents() {
+        let (reg, mut clip, config) = (
+            CommandRegistry::with_builtins(),
+            Clipboard::default(),
+            crate::settings::Config::default(),
+        );
+        let mut run = |d: &mut DocumentState, id: &str| {
+            let mut ctx = EditorContext {
+                document: Some(d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 10, 1).at(9, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            reg.execute(id, &mut ctx, &serde_json::Value::Null)
+                .map(|_| ctx.messages)
+        };
+        let mut d = doc("\\klm[1.0]\n\n\\h1{A}\n\n\n\nOne\ntwo.\n", 0);
+        d.meta.path = Some("note.klm".into());
+        run(&mut d, "edit.formatDocument").unwrap();
+        assert_eq!(d.text().as_str(), "\\klm[1.0]\n\n\\h1{A}\n\nOne two.\n");
+        // Ill-formed: refused; Repair Document fixes it, undoably.
+        let mut d = doc("\\klm[1.0]\n\nA \\b{bold\n\nNext.\n", 0);
+        d.meta.path = Some("note.klm".into());
+        assert!(run(&mut d, "edit.formatDocument").is_err());
+        let msg = run(&mut d, "edit.repairDocument").unwrap();
+        assert_eq!(d.text().as_str(), "\\klm[1.0]\n\nA \\b{bold}\n\nNext.\n");
+        assert!(msg[0].contains('1'), "{msg:?}");
+        d.undo();
+        assert!(d.text().as_str().contains("\\b{bold\n"));
+        // Saving formats a well-formed file only.
+        d.before_save(&config, Instant::now());
+        assert!(d.text().as_str().contains("\\b{bold\n"));
+        let mut d = doc("\\klm[1.0]\n\nOne\ntwo.\n", 0);
+        d.meta.path = Some("note.klm".into());
+        d.before_save(&config, Instant::now());
+        assert_eq!(d.text().as_str(), "\\klm[1.0]\n\nOne two.\n");
     }
 }
