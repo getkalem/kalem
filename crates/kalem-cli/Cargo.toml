@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 org-syntax.workspace = true
+klm-syntax.workspace = true
 org-cite.workspace = true
 org-model.workspace = true
 org-edit.workspace = true

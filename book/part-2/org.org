@@ -121,8 +121,9 @@ A file that still has them keeps them byte for byte. Kalem shows them
 as Emacs does, as an export snippet for another back-end, an unknown
 affiliated keyword and an unknown keyword, and its exports drop them
 exactly as Emacs's do. ~kalem check~ lists each one as
-=kalem-markup-in-org=. A =.klm= file opens as strict Org until the Kalem
-format's parser takes the extension (T2.13.3).
+=kalem-markup-in-org=. A =.klm= file is in the Kalem format, which
+=kalem check= and =kalem fmt= read with its own parser (T2.13.3); the
+editors still show it as Org text until they render the format.
 
 * The syntax tree
 

@@ -40,6 +40,17 @@ impl KlmMode {
     }
 }
 
+/// Whether `doc` is a Kalem format file (`.klm`, or text starting with
+/// `\klm[`).
+pub fn is_klm_file(doc: &crate::DocumentState) -> bool {
+    doc.meta
+        .path
+        .as_deref()
+        .and_then(|p| p.extension())
+        .is_some_and(|e| e.eq_ignore_ascii_case("klm"))
+        || doc.text().as_str().starts_with("\\klm[")
+}
+
 /// The contract's kind of command `c`.
 fn kind_of(c: &Command, inline: bool) -> Kind {
     let attr = |key: &str| {
