@@ -709,6 +709,9 @@ fn prefix(line: &str) -> Option<Prefix> {
 /// Enter is then a plain new line.
 pub fn newline(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
     let idx = md.line_of(at);
+    if let Some(tx) = close_fence(md, text, at) {
+        return Some(tx);
+    }
     let in_code = md.on_line(idx).any(|n| {
         matches!(
             n.kind,
@@ -739,7 +742,100 @@ pub fn newline(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> 
     }
     let insert = format!("\n{}", p.next);
     tx.replace(at..at, &insert).ok()?;
+    renumber_after(md, text, end, &p.next, &mut tx);
     Some(tx.select(org_edit::Selection::caret(at + insert.len())))
+}
+
+/// The items after a new numbered item, numbered on from it: the number
+/// of each following item of the same list one higher than the one before.
+fn renumber_after(
+    md: &Md,
+    text: &str,
+    line_end: usize,
+    next: &str,
+    tx: &mut org_edit::Transaction,
+) {
+    let digits = next.trim_start_matches([' ', '\t', '>']);
+    let Some(mut n) = digits
+        .split(['.', ')'])
+        .next()
+        .and_then(|d| d.parse::<u64>().ok())
+    else {
+        return;
+    };
+    // The ordered list holding the line, and its items after it.
+    let Some(list) = md
+        .nodes
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| {
+            matches!(l.kind, MdKind::List { ordered: true })
+                && l.range.start <= line_end
+                && line_end <= l.range.end
+        })
+        .last()
+        .map(|(i, _)| i as u32)
+    else {
+        return;
+    };
+    for item in md.nodes.iter().filter(|i| {
+        i.parent == Some(list)
+            && matches!(i.kind, MdKind::Item | MdKind::TaskItem { .. })
+            && i.range.start > line_end
+    }) {
+        n += 1;
+        let s = &text[item.range.clone()];
+        let lead = s.len() - s.trim_start().len();
+        let start = item.range.start + lead;
+        let len = text[start..].bytes().take_while(u8::is_ascii_digit).count();
+        if len == 0 {
+            break;
+        }
+        let _ = tx.replace(start..start + len, n.to_string());
+    }
+}
+
+/// Enter at the end of an opening fence (```` ``` ```` or `~~~` with a
+/// language) whose block runs to the end of the text, unclosed: a blank
+/// line for the code and the closing fence after it.
+fn close_fence(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
+    let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+    let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+    if at != end {
+        return None;
+    }
+    let line = &text[start..end];
+    let indent = &line[..line.len() - line.trim_start().len()];
+    let body = line.trim_start();
+    let fence: String = body
+        .chars()
+        .take_while(|c| *c == '`' || *c == '~')
+        .collect();
+    if fence.len() < 3 || !(fence.bytes().all(|b| b == b'`') || fence.bytes().all(|b| b == b'~')) {
+        return None;
+    }
+    let block = md.nodes.iter().find(|n| {
+        matches!(n.kind, MdKind::CodeBlock { fenced: true, .. })
+            && n.range.start >= start
+            && n.range.start <= end
+    })?;
+    // Unclosed: no closing fence after the opening line.
+    let rest = &text[end.min(block.range.end)..block.range.end];
+    if rest.lines().skip(1).any(|l| {
+        l.trim_start().starts_with(fence.as_str())
+            && l.trim()
+                .chars()
+                .all(|c| c == fence.chars().next().unwrap_or('`'))
+    }) {
+        return None;
+    }
+    if block.range.end < text.trim_end().len() {
+        return None;
+    }
+    let insert = format!("\n{indent}\n{indent}{fence}");
+    let mut tx = org_edit::Transaction::new("New Line");
+    tx.replace(at..at, &insert).ok()?;
+    Some(tx.select(org_edit::Selection::caret(at + 1 + indent.len())))
 }
 
 /// Toggles the box of the task list item whose line holds `at`: `[ ]`
@@ -964,6 +1060,22 @@ mod tests {
         assert_eq!(run("- onetwo\n", 5).unwrap().0, "- one\n- two\n");
         // An empty item ends the list.
         assert_eq!(run("- a\n- \n", 6).unwrap(), ("- a\n\n".to_string(), 4));
+        // The numbers after a new item go one up.
+        assert_eq!(
+            run("1. a\n2. b\n3. c\n", 4).unwrap().0,
+            "1. a\n2. \n3. b\n4. c\n"
+        );
+        assert_eq!(run("- a\n- b\n", 3).unwrap().0, "- a\n- \n- b\n");
+        // An opening fence gets its closing one.
+        assert_eq!(
+            run("```rust", 7).unwrap(),
+            ("```rust\n\n```".to_string(), 8)
+        );
+        assert_eq!(
+            run("Text\n\n  ~~~\n", 11).unwrap().0,
+            "Text\n\n  ~~~\n  \n  ~~~\n"
+        );
+        assert!(run("```\nx\n```\n", 3).is_none());
         // Not in a paragraph or a code block, nor before the bullet.
         assert!(run("text\n", 4).is_none());
         assert!(run("```\n- x\n```\n", 7).is_none());

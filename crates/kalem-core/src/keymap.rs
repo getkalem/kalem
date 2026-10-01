@@ -829,10 +829,7 @@ mod tests {
         );
         // Enter continues a list only in one.
         md.flag("inMarkdownTable", false);
-        assert_ne!(
-            run(&m, "enter", &md).map(|r| r.0),
-            Some("markdown.newline")
-        );
+        assert_ne!(run(&m, "enter", &md).map(|r| r.0), Some("markdown.newline"));
         md.flag("inMarkdownList", true);
         assert_eq!(run(&m, "enter", &md).unwrap().0, "markdown.newline");
     }
