@@ -4169,3 +4169,23 @@ fn workspaces_in_the_terminal() {
     assert_eq!(titles(&t).len(), 2);
     assert!(!status(&mut t).contains("[notes]"));
 }
+
+#[test]
+fn markdown_code_coloured_with_the_lines_before() {
+    // T2.7c.3: the second line of a string that spans lines is a string.
+    let text = "```python\nx = \"\"\"first\nsecond line\n\"\"\"\n```\n\nafter\n";
+    let mut t = with_file(text, "t.md", Config::default(), (50, 8));
+    t.at(text.len());
+    let buf = t.draw();
+    let row = |y: u16| -> String { (0..50).map(|x| buf[(x, y)].symbol().to_string()).collect() };
+    // The cell of `word`'s first character.
+    let cell = |word: &str| {
+        (0..8u16)
+            .find_map(|y| row(y).find(word).map(|x| (row(y)[..x].chars().count() as u16, y)))
+            .unwrap_or_else(|| panic!("{word}: {:?}", (0..8).map(row).collect::<Vec<_>>()))
+    };
+    let first = buf[cell("first")].fg;
+    let second = buf[cell("second")].fg;
+    assert_eq!(first, second);
+    assert_ne!(buf[cell("x =")].fg, first);
+}

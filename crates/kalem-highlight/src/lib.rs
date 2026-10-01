@@ -389,6 +389,32 @@ impl Windowed {
     }
 }
 
+/// [`highlight`] of a block, kept for the blocks highlighted last: a
+/// block's lines are drawn one at a time, each with the state of the lines
+/// before it, so the whole block is highlighted once and its lines taken
+/// from that.
+pub fn highlight_block(language: Language, text: &str) -> std::sync::Arc<Vec<Vec<Span>>> {
+    use std::hash::{Hash, Hasher};
+    type Cache = Vec<(u64, std::sync::Arc<Vec<Vec<Span>>>)>;
+    thread_local! {
+        static CACHE: std::cell::RefCell<Cache> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    language.0.name.hash(&mut h);
+    text.hash(&mut h);
+    let key = h.finish();
+    CACHE.with(|c| {
+        let mut c = c.borrow_mut();
+        if let Some((_, v)) = c.iter().find(|(k, _)| *k == key) {
+            return v.clone();
+        }
+        let v = std::sync::Arc::new(highlight(language, text));
+        c.insert(0, (key, v.clone()));
+        c.truncate(32);
+        v
+    })
+}
+
 /// Highlights `text` line by line; the spans of each line are in order
 /// and do not overlap. Lines are split at `\n`.
 pub fn highlight(language: Language, text: &str) -> Vec<Vec<Span>> {

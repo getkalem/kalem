@@ -693,16 +693,23 @@ pub fn inline_code_colors(
 ) -> Vec<(std::ops::Range<usize>, Hsla)> {
     let text = editor.doc.text();
     let mut out = Vec::new();
-    // LaTeX's inline code, and a Markdown code block's lines.
+    // LaTeX's inline code; a Markdown code block's line with the state of
+    // the block's lines before it.
+    let block = kalem_core::markdown::code_block_on_line(&editor.doc, range.clone());
     let code = kalem_core::latex_view::inline_code(&editor.doc, range.clone())
         .into_iter()
-        .chain(kalem_core::markdown::code_on_line(&editor.doc, range));
-    for (code, lang) in code {
+        .map(|(r, l)| (r, l, None))
+        .chain(block.map(|(b, i, l)| (b, l, Some(i))));
+    for (code, lang, nth) in code {
         let Some(l) = kalem_highlight::Language::find(&lang) else {
             continue;
         };
-        let spans = kalem_highlight::highlight(l, &text.as_str()[code.clone()]);
-        for sp in spans.first().into_iter().flatten() {
+        let all = kalem_highlight::highlight_block(l, &text.as_str()[code.clone()]);
+        let code = match nth {
+            Some(_) => range.start..range.end,
+            None => code,
+        };
+        for sp in all.get(nth.unwrap_or(0)).into_iter().flatten() {
             if let Some(color) = theme.code(sp.kind) {
                 out.push((
                     code.start + sp.range.start..code.start + sp.range.end,
