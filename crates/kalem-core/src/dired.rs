@@ -2818,7 +2818,7 @@ pub(crate) fn commands() -> Vec<Command> {
         cmd(
             "dired.contextMenu",
             "File Menu",
-            &["shift+f10"],
+            &["shift+f10", "menu"],
             Some(IN_LISTING),
             |ctx, args| {
                 let doc = listing(ctx)?;
@@ -3065,6 +3065,8 @@ pub fn context_menu(doc: &DocumentState, on_entry: bool) -> Vec<ContextItem> {
             sep.clone(),
             titled("dired.copyPath", has),
             titled("dired.copyRelativePath", has),
+            // A link to insert in a document (T2.7e.10).
+            titled("link.store", has),
             titled("dired.reveal", has),
         ]);
     }
@@ -3845,6 +3847,16 @@ mod tests {
             ]
         );
         assert!(on.iter().all(|(l, e)| *e || l == "Paste"), "{on:?}");
+        assert!(names.contains(&"Store Link"), "{names:?}");
+        // The File Menu offers the items in the menu's order.
+        let reg = crate::command::CommandRegistry::with_builtins();
+        assert!(
+            reg.get("dired.contextMenu")
+                .unwrap()
+                .default_keys
+                .iter()
+                .any(|k| k.to_string() == "menu")
+        );
         let off = labels(false, &doc);
         assert!(!off.iter().any(|(l, _)| l == "Open" || l == "Rename"));
         assert!(off.iter().any(|(l, e)| l == "New Folder…" && *e));

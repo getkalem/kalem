@@ -223,3 +223,62 @@ fn rename_changing_case_only() {
     assert_eq!(names, vec!["A.txt"]);
     assert_eq!(read(&d.join("A.txt")), "A");
 }
+
+/// A folder on another device than the temporary folder, for moves that
+/// cannot rename: `KALEM_OTHER_DEVICE`, or `/dev/shm` where it is a
+/// separate file system (Linux containers and CI runners).
+#[cfg(unix)]
+fn other_device() -> Option<PathBuf> {
+    use std::os::unix::fs::MetadataExt;
+    let here = std::fs::metadata(std::env::temp_dir()).ok()?.dev();
+    let candidates = std::env::var_os("KALEM_OTHER_DEVICE")
+        .map(PathBuf::from)
+        .into_iter()
+        .chain([PathBuf::from("/dev/shm")]);
+    for c in candidates {
+        if let Ok(m) = std::fs::metadata(&c)
+            && m.is_dir()
+            && m.dev() != here
+        {
+            let d = c.join(format!("kalem-fs-xdev-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&d);
+            if std::fs::create_dir_all(&d).is_ok() {
+                return Some(d);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(unix)]
+#[test]
+fn move_across_devices() {
+    use std::os::unix::fs::PermissionsExt;
+    let Some(other) = other_device() else {
+        eprintln!("skipped: no folder on another device (set KALEM_OTHER_DEVICE)");
+        return;
+    };
+    let d = tree(
+        "xdev",
+        &[("a.txt", "alpha"), ("folder/b.txt", "beta"), ("folder/sub/c.txt", "gamma")],
+    );
+    std::fs::set_permissions(d.join("a.txt"), std::fs::Permissions::from_mode(0o640)).unwrap();
+    std::os::unix::fs::symlink("b.txt", d.join("folder/link")).unwrap();
+    // A file: copied there, then removed here, its mode kept.
+    kalem_fs::move_path(&d.join("a.txt"), &other.join("a.txt")).unwrap();
+    assert!(!d.join("a.txt").exists());
+    assert_eq!(read(&other.join("a.txt")), "alpha");
+    let mode = std::fs::metadata(other.join("a.txt")).unwrap().permissions().mode();
+    assert_eq!(mode & 0o777, 0o640);
+    // A folder with a link in it: the link stays a link.
+    kalem_fs::move_path(&d.join("folder"), &other.join("folder")).unwrap();
+    assert!(!d.join("folder").exists());
+    assert_eq!(read(&other.join("folder/sub/c.txt")), "gamma");
+    let link = other.join("folder/link");
+    assert!(std::fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+    assert_eq!(std::fs::read_link(&link).unwrap(), PathBuf::from("b.txt"));
+    // And back again, onto the same device as before.
+    kalem_fs::move_path(&other.join("folder"), &d.join("folder")).unwrap();
+    assert_eq!(read(&d.join("folder/b.txt")), "beta");
+    let _ = std::fs::remove_dir_all(&other);
+}

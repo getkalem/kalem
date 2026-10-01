@@ -50,6 +50,7 @@ pub fn chord(k: &KeyEvent, enhanced: bool) -> Option<KeyChord> {
         KeyCode::Left => "left".into(),
         KeyCode::Right => "right".into(),
         KeyCode::F(n) => format!("f{n}"),
+        KeyCode::Menu => "menu".into(),
         _ => return None,
     };
     Some(KeyChord { mods, key })
@@ -88,6 +89,7 @@ mod tests {
         assert_eq!(k(KeyCode::BackTab, KeyModifiers::SHIFT), "shift+tab");
         assert_eq!(k(KeyCode::Char(' '), KeyModifiers::CONTROL), "ctrl+space");
         assert_eq!(k(KeyCode::F(5), KeyModifiers::NONE), "f5");
+        assert_eq!(k(KeyCode::Menu, KeyModifiers::NONE), "menu");
         assert_eq!(
             text(&KeyEvent::new(KeyCode::Char('A'), KeyModifiers::SHIFT)),
             Some('A')
