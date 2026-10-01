@@ -19,10 +19,28 @@ named by the design is the CommonMark and GFM specification test suites,
 every example of each specification a test, with =cmark-gfm= as the
 reference implementation where the suites are silent, plus a byte-exact
 round trip of untouched text on a corpus of real READMEs and note
-vaults. The suites run against comrak in =spikes/md-parser= (639 of
-648 CommonMark examples and every GFM extension example agree; the nine
-are the suite's age, not a defect), but not yet as Kalem's own tests
-(T2.7c.11 in =todo.md=, planned).
+vaults. The suites run as Kalem's own test (=markdown::spec=, T2.7c.11)
+when the specification file is on disk (=KALEM_GFM_SPEC=, or the
+spike's download, =spikes/md-parser/README.md=; it is CC BY-SA and not
+in the repository): every example's HTML, as comrak renders it with
+Kalem's extensions, is compared with the specification's, and the
+counts only go up (632 of 648 CommonMark examples and 23 of 24
+extension examples today); every example's nodes lie inside the text
+and their parents, every line is drawn with the cursor on it and away,
+and an edit in the middle reparses as a full parse does. The sixteen
+CommonMark examples that differ are known:
+
+- nine of /Emphasis and strong emphasis/ (runs of =**= and =__=): the
+  0.29 suite against CommonMark 0.31's rule, which comrak follows;
+- one of /Setext headings/: a document starting with =---= is front
+  matter in Kalem, as in GitHub, Jekyll and Obsidian;
+- one of /Links/ and one of /Images/: =[[…]]= is a wiki link;
+- four of /Autolinks/: bare addresses and mail addresses are links, as
+  GitHub's extension makes them (the CommonMark examples are run with it
+  on, as Kalem reads every file);
+
+and one extension example, /Disallowed Raw HTML/: comrak's tag filter
+is gone upstream, and it matters only for HTML output.
 
 The Markdown Kalem /writes/ has a different oracle, Org's exporter:
 the =md= back-end is compared byte for byte with Emacs's =ox-md= (see
