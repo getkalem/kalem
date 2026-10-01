@@ -135,6 +135,13 @@ edits it as plain text. Concretely:
   Emacs keymap) sorts the body rows by the cursor's column, as numbers
   when they all are, else as text ignoring case; =reverse= sorts
   descending. Outside a table these keys move lines as everywhere.
+- Formulas: a table followed by lines =<!-- TBLFM: … -->= (as
+  Obsidian's Advanced Tables writes them, and invisible elsewhere) is
+  computed by F9 (/Recalculate Table/, =markdown.table.recalculate=)
+  with Org's formula language and engine: =$4=$2*$3=,
+  =@>$4=vsum(@I..@II)=, Calc's functions. The delimiter row is Org's
+  first rule, so column formulas leave the header alone; numbers come
+  out as Emacs writes them (=6.= for a float).
 - The text of a source view is coloured by the Markdown syntax definition bundled with
   the highlighter (the Sublime Text Markdown syntax that =syntect=
   ships, language name "Markdown"), looked up as =md=. That syntax is a
@@ -398,8 +405,7 @@ above is done.
   so untouched bytes stay as they were (T2.7c.8).
 - *View.* Done as above; still to come: code blocks coloured with the
   state of the lines before (T2.7c.3).
-- *Editing.* Tables: formulas (T2.7c.4);
-  renumbering a list after other edits (T2.7c.5).
+- *Editing.* Renumbering a list after other edits (T2.7c.5).
 - *Conversion.* "Convert to Org" and "Convert from Org", through the
   exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).
 - *What note-taking users expect.* Front matter edited as a form

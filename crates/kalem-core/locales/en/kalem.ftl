@@ -1073,3 +1073,5 @@ msg-workspace = Workspace { $name }
 msg-last-workspace = This is the only workspace
 msg-no-saved-workspaces = No workspaces saved yet
 msg-workspace-deleted = Saved workspace { $name } deleted
+cmd-markdown-table-recalculate = Recalculate Table
+msg-no-formulas = The table has no formulas (a line <!-- TBLFM: … --> after it)

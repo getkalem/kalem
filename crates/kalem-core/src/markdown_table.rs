@@ -343,6 +343,102 @@ pub fn edit_at(md: &Md, text: &str, pos: usize, e: TableEdit) -> Option<Transact
     Some(tx.select(Selection::caret(caret)))
 }
 
+/// The formulas of the table `range` of `text`: the `<!-- TBLFM: … -->`
+/// lines right after it, as Obsidian's Advanced Tables writes them (each
+/// line one `#+TBLFM` of Org).
+fn formulas_after(text: &str, range: &Range<usize>) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut at = (range.end + 1).min(text.len());
+    while at < text.len() {
+        let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+        let line = text[at..end].trim();
+        let Some(f) = line
+            .strip_prefix("<!--")
+            .and_then(|l| l.strip_suffix("-->"))
+            .map(str::trim)
+            .and_then(|l| l.strip_prefix("TBLFM:"))
+        else {
+            break;
+        };
+        out.push(f.trim().to_string());
+        at = end + 1;
+    }
+    out
+}
+
+/// The table at `pos` computed with its formulas (T2.7c.4): the
+/// `<!-- TBLFM: … -->` lines after it, in Org's formula language, the
+/// delimiter row standing for Org's first rule (so column formulas skip
+/// the header). `Ok(None)` without formulas.
+pub fn recalculate_at(md: &Md, text: &str, pos: usize) -> Result<Option<Transaction>, String> {
+    use org_table::table::{Row, Table};
+    let Some(range) = table_at(md, text, pos) else {
+        return Ok(None);
+    };
+    let lines = formulas_after(text, &range);
+    if lines.is_empty() {
+        return Ok(None);
+    }
+    let mut equations = Vec::new();
+    for l in &lines {
+        let t = org_table::tblfm::parse(l);
+        if let Some(d) = t.duplicates.first() {
+            return Err(format!(
+                "Double definition `{d}=' in TBLFM line, please fix by hand"
+            ));
+        }
+        equations.extend(t.equations);
+    }
+    let table_text = &text[range.clone()];
+    let rows: Vec<Row> = table_text
+        .split('\n')
+        .enumerate()
+        .map(|(i, l)| {
+            if i == 1 {
+                Row::Rule
+            } else {
+                Row::Data(cells(l))
+            }
+        })
+        .collect();
+    let table = Table { rows };
+    let env = org_table::formula::Env {
+        remote: &org_table::formula::NoRemote,
+        constants: &[],
+        property: &|_: &str| None,
+        duration_custom: Default::default(),
+    };
+    let (new, _) = org_table::recalc::recalculate(&table, &equations, &env).map_err(|e| e.0)?;
+    let old_lines: Vec<&str> = table_text.split('\n').collect();
+    let indent: String = table_text
+        .chars()
+        .take_while(|c| *c == ' ' || *c == '\t')
+        .collect();
+    let out: Vec<String> = new
+        .rows
+        .iter()
+        .enumerate()
+        .map(|(i, r)| match r {
+            Row::Rule => old_lines.get(i).copied().unwrap_or("|---|").to_string(),
+            Row::Data(f) => {
+                let f: Vec<String> = f.iter().map(|c| c.replace('|', "\\|")).collect();
+                format!("{indent}| {} |", f.join(" | "))
+            }
+        })
+        .collect();
+    let aligned = align(&out.join("\n"));
+    let mut whole = String::with_capacity(text.len() + 16);
+    whole.push_str(&text[..range.start]);
+    whole.push_str(&aligned);
+    whole.push_str(&text[range.end..]);
+    let caret = pos.min(range.start + aligned.len());
+    Ok(Some(
+        crate::lines::replace_differing(text, &whole, "Recalculate Table")
+            .unwrap_or_else(|| Transaction::new("Recalculate Table"))
+            .select(Selection::caret(caret)),
+    ))
+}
+
 /// The table at `pos` aligned, `None` when it already is.
 pub fn align_at(md: &Md, text: &str, pos: usize) -> Option<Transaction> {
     let range = table_at(md, text, pos)?;
@@ -364,6 +460,32 @@ mod tests {
             s.replace_range(e.range.clone(), &e.insert);
         }
         s
+    }
+
+    #[test]
+    fn formulas_as_obsidian_writes_them() {
+        let text = "| item | n | price | total |\n|---|--:|--:|--:|\n| a | 2 | 3 | |\n| b | 4 | 1.5 | |\n| sum | | | |\n<!-- TBLFM: $4=$2*$3 -->\n<!-- TBLFM: @>$4=vsum(@I..@II) -->\n\nAfter.\n";
+        let md = Md::parse(text);
+        let tx = recalculate_at(&md, text, 3).unwrap().unwrap();
+        let t = apply(text, &tx);
+        let rows: Vec<&str> = t.lines().collect();
+        assert!(rows[2].ends_with("|     6 |"), "{t}");
+        // As Emacs's Calc writes a float.
+        assert!(rows[3].ends_with("|    6. |"), "{t}");
+        assert!(
+            rows[4].contains("| sum ") && rows[4].ends_with("|   12. |"),
+            "{t}"
+        );
+        assert!(
+            t.contains("<!-- TBLFM: $4=$2*$3 -->\n<!-- TBLFM: @>$4=vsum(@I..@II) -->\n\nAfter.\n")
+        );
+        // Without formulas, nothing.
+        let plain = "| a |\n|---|\n| 1 |\n";
+        assert!(
+            recalculate_at(&Md::parse(plain), plain, 2)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
