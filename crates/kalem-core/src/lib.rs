@@ -50,6 +50,7 @@ pub mod logging;
 pub mod markdown;
 pub mod markdown_org;
 pub mod markdown_table;
+pub mod marks;
 pub mod math;
 pub mod menus;
 pub mod mode;

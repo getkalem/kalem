@@ -576,6 +576,8 @@ impl App {
         if let Some(v) = &self.vim {
             c.set("vimMode", WhenValue::Str(v.mode_name().into()));
             c.flag("vimCommand", v.idle_command() && v.command_line.is_none());
+            c.flag("vimActive", true);
+            c.flag("vimOwnsCtrl", true);
         }
         c
     }
@@ -3331,7 +3333,9 @@ impl App {
             return false;
         };
         let key = vim_key_of(k);
-        if v.takes_text() && !matches!(key, Key::Esc | Key::Ctrl('[')) {
+        // Insert mode's own keys go to the layer; typed characters and
+        // keys it does not know go to the editor.
+        if v.takes_text() && matches!(key, Key::Char(_) | Key::Other) {
             self.vim = Some(v);
             return false;
         }

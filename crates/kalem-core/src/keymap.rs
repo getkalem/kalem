@@ -31,8 +31,9 @@ use crate::when::{Context, WhenClause};
 pub enum Profile {
     /// Word-like keys, the default.
     Word,
-    /// Vim's modal keys (`kalem_core::vim`), with the Word-like keys in
-    /// insert mode and for chords Vim does not use.
+    /// Vim's modal keys (`kalem_core::vim`) and Doom Emacs's leader keys;
+    /// the Word-like keys only where the Vim layer is off (the file
+    /// manager) and those Doom keeps (Meta with the arrows or Enter).
     Vim,
 }
 
@@ -357,38 +358,87 @@ impl Keymap {
                 });
             }
         }
+        // In the Vim profile the Word-like keys with Control or Alt give
+        // way to Vim's while the Vim layer is on (`vimActive`; Control
+        // only where it is Vim's, `vimOwnsCtrl`, not Command on macOS):
+        // the keys from the default keys and `word.json`, unless the Vim
+        // profile's own file binds them again, as Doom keeps them.
+        let mut word_like: Vec<bool> = vec![profile == Profile::Vim; all.len()];
         let mut profile_entries = Vec::new();
-        for file in profile.files() {
+        for (i, file) in profile.files().iter().enumerate() {
             let (entries, profile_issues) = parse_keymap_with(file, Origin::Profile, leader);
             debug_assert!(
                 profile_issues.is_empty() || leader != DEFAULT_LEADER,
                 "{profile_issues:?}"
             );
-            profile_entries.extend(entries);
+            let word = profile == Profile::Vim && i + 1 < profile.files().len();
+            profile_entries.extend(entries.into_iter().map(|e| (e, word)));
         }
-        for e in profile_entries.iter().chain(user) {
+        let user = user.iter().map(|e| (e.clone(), false));
+        for (e, word) in profile_entries.into_iter().chain(user) {
             match e {
                 Entry::Add(b) => {
-                    let same = all.iter_mut().find(|a| {
+                    let same = all.iter_mut().zip(word_like.iter_mut()).find(|(a, _)| {
                         a.keys == b.keys
                             && a.command == b.command
                             && a.args == b.args
                             && a.when == b.when
                     });
                     match same {
-                        Some(a) => {
+                        Some((a, w)) => {
                             if b.terminal_keys.is_some() {
                                 a.terminal_keys = b.terminal_keys.clone();
                             }
+                            *w &= word;
                         }
-                        None => all.push(b.clone()),
+                        None => {
+                            all.push(b);
+                            word_like.push(word);
+                        }
                     }
                 }
                 Entry::Remove { command, keys } => {
-                    all.retain(|a| {
-                        !(&a.command == command && keys.as_ref().is_none_or(|k| &a.keys == k))
-                    });
+                    let keep: Vec<bool> = all
+                        .iter()
+                        .map(|a| {
+                            !(a.command == command && keys.as_ref().is_none_or(|k| &a.keys == k))
+                        })
+                        .collect();
+                    let mut k = keep.iter();
+                    all.retain(|_| *k.next().unwrap_or(&true));
+                    let mut k = keep.iter();
+                    word_like.retain(|_| *k.next().unwrap_or(&true));
                 }
+            }
+        }
+        for (b, word) in all.iter_mut().zip(&word_like) {
+            let Some(first) = b.keys.0.first() else {
+                continue;
+            };
+            // What Doom keeps under Evil: the Meta arrows (Org's, Markdown's,
+            // the tables' structure moves), Control or Meta with Enter, and
+            // completion on Control+Space.
+            let m = first.mods;
+            let arrow = matches!(first.key.as_str(), "up" | "down" | "left" | "right");
+            let doom = (m.alt && !m.ctrl && arrow)
+                || (first.key == "enter" && (m.alt || m.ctrl))
+                || (m.ctrl && !m.alt && !m.shift && first.key == "space");
+            if doom {
+                continue;
+            }
+            let flag = if first.mods.ctrl {
+                "vimOwnsCtrl"
+            } else if first.mods.alt {
+                "vimActive"
+            } else {
+                continue;
+            };
+            if *word {
+                let off = WhenClause::Not(Box::new(WhenClause::Key(flag.into())));
+                b.when = Some(match b.when.take() {
+                    Some(w) => WhenClause::And(Box::new(off), Box::new(w)),
+                    None => off,
+                });
             }
         }
         let mut issues = Vec::new();

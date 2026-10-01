@@ -255,6 +255,8 @@ cursor or on the editor.
 | =inProject=      | The document belongs to a project                                   | frontend      |
 | =vimMode=        | With the Vim profile: =normal=, =insert=, =visual=, =visualLine=, =visualBlock=, =replace= | frontend |
 | =vimCommand=     | With the Vim profile: in normal or visual mode, with no command half typed and no =:= line open | frontend |
+| =vimActive=      | With the Vim profile: the Vim layer is on for the document (the Word-like keys with Alt are off) | frontend |
+| =vimOwnsCtrl=    | As =vimActive=, where Control is Vim's (not on macOS, where Command has the Word-like keys): the Word-like keys with Control are off | frontend |
 
 The Org keys (=onHeadline= to =inSrcBlock=) are false outside Org
 documents. While a large Org document is being parsed again, they come

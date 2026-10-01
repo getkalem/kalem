@@ -116,6 +116,9 @@ pub struct DocumentState {
     /// The narrowed part of the text, if any (view state; commands see only
     /// this part).
     pub narrowing: Option<std::ops::Range<usize>>,
+    /// Positions that move with the text: Vim's marks, jump list and
+    /// change list.
+    pub marks: crate::marks::Marks,
     /// The file as last read or written.
     disk: Option<DiskState>,
     /// Edits applied since the frontend last took them.
@@ -245,6 +248,7 @@ impl DocumentState {
             history: History::new(),
             meta,
             narrowing: None,
+            marks: Default::default(),
             disk: None,
             changes: Vec::new(),
             dired: None,
@@ -1210,6 +1214,7 @@ impl DocumentState {
             return;
         }
         self.changes.push(tx.clone());
+        self.marks.map(tx);
         let edit = tx.covering_edit(self.text.as_str());
         if let Some(r) = &self.narrowing {
             self.narrowing = Some(

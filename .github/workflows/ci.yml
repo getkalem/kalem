@@ -103,6 +103,17 @@ jobs:
       - run: cargo +nightly fuzz run latex_parse -- -max_total_time=60
       - run: cargo +nightly fuzz run latex_reparse -- -max_total_time=60
 
+  vim:
+    name: differential test against Vim
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y vim
+      - run: vim --version | head -2
+      # The results recorded in tests/vim/expected.json are Vim's own;
+      # the test suite holds Kalem's Vim layer to them.
+      - run: python3 tools/vim-expected.py --check
+
   emacs:
     name: differential test against Emacs
     runs-on: ubuntu-latest
