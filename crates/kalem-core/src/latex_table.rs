@@ -47,9 +47,10 @@ pub(crate) enum Row {
     Data(Range<usize>, Vec<Range<usize>>, Vec<Span>, bool),
 }
 
-/// A `\\multicolumn` in a row: its first column, the columns it covers,
-/// and its alignment.
-pub(crate) type Span = (usize, usize, char);
+/// A span in a row: its first column, the columns it covers (a
+/// `\\multicolumn`) or, for a `\\multirow`, 1, its alignment, and the
+/// rows it covers (1 but for a `\\multirow`).
+pub(crate) type Span = (usize, usize, char, usize);
 
 /// A simple table: one row a line, the rule lines between.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -220,9 +221,9 @@ fn row(text: &str, line: Range<usize>, columns: usize, open: &mut bool) -> Optio
         // A span: its text in its first column, the columns it covers
         // after it empty (the grid has no spans).
         match span_cell(text, r.clone()) {
-            Some((content, columns, align)) => {
-                if columns > 1 {
-                    spans.push((cells.len(), columns, align));
+            Some((content, columns, rows, align)) => {
+                if columns > 1 || rows > 1 {
+                    spans.push((cells.len(), columns, align, rows));
                 }
                 cells.push(content);
                 for _ in 1..columns {
@@ -244,10 +245,10 @@ fn row(text: &str, line: Range<usize>, columns: usize, open: &mut bool) -> Optio
 }
 
 /// A cell that is all a `\\multicolumn{n}{spec}{text}` or a
-/// `\\multirow{n}[…]{width}{text}`: its text's range and the columns it
-/// covers, and the alignment its specification gives (`l` for a
+/// `\\multirow{n}[…]{width}{text}`: its text's range, the columns and the
+/// rows it covers, and the alignment its specification gives (`l` for a
 /// `\\multirow`).
-fn span_cell(text: &str, cell: Range<usize>) -> Option<(Range<usize>, usize, char)> {
+fn span_cell(text: &str, cell: Range<usize>) -> Option<(Range<usize>, usize, usize, char)> {
     let b = text.as_bytes();
     let s = &text[cell.clone()];
     // The groups `{…}` from `i`, balanced, with their inner ranges.
@@ -305,8 +306,12 @@ fn span_cell(text: &str, cell: Range<usize>) -> Option<(Range<usize>, usize, cha
     if end != cell.end {
         return None;
     }
-    let columns = if multi { count.max(1) } else { 1 };
-    Some((content, columns, align))
+    let (columns, rows) = if multi {
+        (count.max(1), 1)
+    } else {
+        (1, count.max(1))
+    };
+    Some((content, columns, rows, align))
 }
 
 /// `env` as a simple table: its specification plain and every line of
@@ -376,15 +381,23 @@ pub fn table_view(doc: &crate::DocumentState, start: usize) -> Option<TableView>
     }
     let mut spans = Vec::new();
     let mut ruled = Vec::new();
+    let mut multirows = Vec::new();
     for (i, r) in t.rows.iter().enumerate() {
         if let Row::Data(_, _, sp, rule) = r {
-            spans.extend(sp.iter().map(|&(c, n, a)| (i, c, n, a)));
+            for &(c, n, a, down) in sp {
+                if n > 1 {
+                    spans.push((i, c, n, a));
+                }
+                if down > 1 {
+                    multirows.push((i, c, down));
+                }
+            }
             if *rule {
                 ruled.push(i);
             }
         }
     }
-    let rows = t
+    let mut rows: Vec<TableRow> = t
         .rows
         .into_iter()
         .map(|r| match r {
@@ -402,6 +415,9 @@ pub fn table_view(doc: &crate::DocumentState, start: usize) -> Option<TableView>
             }
         })
         .collect();
+    for (i, c, down) in multirows {
+        center_multirow(&mut rows, i, c, down);
+    }
     Some(TableView {
         range: t.body,
         rows,
@@ -409,6 +425,53 @@ pub fn table_view(doc: &crate::DocumentState, start: usize) -> Option<TableView>
         spans,
         ruled,
     })
+}
+
+/// A `\\multirow` at row `i`, column `c`, over `down` rows, drawn in the
+/// middle of them as LaTeX sets it: its text moved to the middle row's
+/// cell when that one is empty (the runs keep pointing at that cell, so
+/// the line still maps to its source).
+fn center_multirow(rows: &mut [TableRow], i: usize, c: usize, down: usize) {
+    let data: Vec<usize> = (i..rows.len())
+        .filter(|&r| matches!(rows[r], TableRow::Data { .. }))
+        .take(down)
+        .collect();
+    let Some(&target) = data.get((down - 1) / 2) else {
+        return;
+    };
+    if target == i {
+        return;
+    }
+    let empty = match &rows[target] {
+        TableRow::Data { cells, .. } => cells.get(c).is_some_and(|cell| {
+            cell.range.is_empty() && cell.runs.iter().all(|r| r.text.trim().is_empty())
+        }),
+        TableRow::Rule { .. } => false,
+    };
+    if !empty {
+        return;
+    }
+    let TableRow::Data { cells, .. } = &mut rows[i] else {
+        return;
+    };
+    let Some(from) = cells.get_mut(c) else {
+        return;
+    };
+    let moved = std::mem::take(&mut from.runs);
+    let TableRow::Data { cells, .. } = &mut rows[target] else {
+        return;
+    };
+    let cell = &mut cells[c];
+    let at = cell.range.start;
+    cell.runs = moved
+        .into_iter()
+        .map(|r| crate::view::Run {
+            src: at..at,
+            verbatim: false,
+            widget: None,
+            ..r
+        })
+        .collect();
 }
 
 /// The cursor moved to the next cell of the simple table around `pos`
@@ -514,6 +577,46 @@ mod tests {
         let tv = table_view(&d, text.find("\\multicolumn").unwrap()).unwrap();
         assert_eq!(tv.spans, vec![(0, 0, 2, 'c')]);
         assert_eq!(tv.ruled, vec![0]);
+    }
+
+    #[test]
+    fn multirow_drawn_across_its_rows() {
+        // Three rows: the text in the middle one, as LaTeX sets it; the
+        // runs of every line stay within it.
+        let text = "\\begin{tabular}{ll}\n\\multirow{3}*{Group} & a \\\\\n & b \\\\\n & c \\\\\n\\end{tabular}\n";
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Latex,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        let tv = table_view(&d, text.find("\\multirow").unwrap()).unwrap();
+        let shown = |r: usize| match &tv.rows[r] {
+            TableRow::Data { line, cells } => {
+                for c in cells {
+                    for run in &c.runs {
+                        assert!(line.start <= run.src.start && run.src.end <= line.end);
+                    }
+                }
+                cells[0]
+                    .runs
+                    .iter()
+                    .map(|r| r.text.as_str())
+                    .collect::<String>()
+            }
+            TableRow::Rule { .. } => panic!(),
+        };
+        assert_eq!(shown(0), "");
+        assert_eq!(shown(1), "Group");
+        assert_eq!(shown(2), "");
+        assert!(tv.spans.is_empty());
     }
 
     #[test]

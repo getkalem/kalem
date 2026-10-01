@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- LaTeX tables: a `\multirow` is drawn in the middle of the rows it covers, as LaTeX sets it (T2.7h.9).
 - Quit Without Saving (`SPC q Q`), Close Window (`SPC q f`), Restart (`SPC q R`) and Restart and Restore (`SPC q r`) (T2.7i.14).
 - Sessions: Save Session (`SPC q s`, `SPC q S`), Restore Session (`SPC q l`, `SPC q L`) and Save Session and Quit (`SPC q K`) keep the open documents, their cursors, the one shown and the project; the last session is saved on quit, and restored on start with `editor.restore_session` (T2.7i.14).
 - `SPC u`, the universal argument: the next command runs four times, sixteen after `SPC u SPC u`, or as many as the digits typed after it (T2.7i.18).
