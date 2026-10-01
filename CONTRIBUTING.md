@@ -5,7 +5,7 @@ Thank you for your interest in Kalem. This document explains how to set up a dev
 ## Before you start
 
 - Read [the Kalem Book](https://getkalem.github.io/kalem) (source in `book/`): Part I is the manual, Part II says exactly what Kalem does with each format it opens and against which reference that is tested, Part III is the specification of the Kalem format, Part IV covers extending Kalem and Part V the design. The design documents, [`design_document.md`](design_document.md) (RFC 0001) and [`design_doc2.md`](design_doc2.md) (RFC 0002), describe what Kalem is, what it is not, and how it is built.
-- Look at [`todo2.md`](todo2.md) for the open tasks in the order they are to be done, and at [`todo.md`](todo.md) for every task with its history. Task IDs such as `T2.7h.4` are the same in both and are used in issues and pull requests.
+- Look at [`todo.md`](todo.md) for the open tasks in the order they are to be done, and at [`todo_old.md`](todo_old.md) for the done tasks, the decisions and the history. Task IDs such as `T2.7h.4` are the same in both and are used in issues and pull requests.
 - For larger changes, open an issue first. Changes to the design go through an RFC (see [`rfcs/README.md`](rfcs/README.md)).
 
 ## Development setup
