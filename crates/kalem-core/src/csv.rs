@@ -1005,28 +1005,46 @@ pub const SHEET_GRAY: u32 = 0xbfbfbf55;
 /// spreadsheet marks them (Excel's green).
 pub const SHEET_ACTIVE: u32 = 0x9fd18a99;
 
+/// The narrowest a column of the spreadsheet look is, in characters, as
+/// Excel's columns are some eight characters wide however little they
+/// hold.
+pub const SHEET_MIN_WIDTH: usize = 8;
+
+/// The width of each column of the spreadsheet look: its widest value
+/// (at most forty characters), its letters, at least
+/// [`SHEET_MIN_WIDTH`].
+pub fn sheet_widths(layout: &Layout) -> Vec<usize> {
+    layout
+        .widths
+        .iter()
+        .enumerate()
+        .map(|(j, &w)| {
+            w.max(crate::csv_tools::column_letters(j).len())
+                .max(SHEET_MIN_WIDTH)
+        })
+        .collect()
+}
+
 /// The bar of column letters above a spreadsheet-looking grid: the text
 /// of each piece and whether it is the column at the cursor (`current`).
-/// The pieces line up with the rows of [`line_view`]: the gutter, then
-/// each column's letters centered over its width, and the three cells of
-/// the bar between columns.
+/// The pieces line up with the rows of [`line_view`]: the gutter and the
+/// grid's left edge, then each column's letters centered over the cell
+/// and the edge after it.
 pub fn letters_bar(layout: &Layout, current: Option<usize>) -> Vec<(String, bool)> {
-    let mut out = vec![(" ".repeat(layout.gutter + 2), false)];
-    let n = layout.widths.len();
-    for (j, &w) in layout.widths.iter().enumerate() {
+    let mut out = vec![(" ".repeat(layout.gutter + 2), false), ("│".into(), false)];
+    for (j, w) in sheet_widths(layout).into_iter().enumerate() {
         let letters = crate::csv_tools::column_letters(j);
-        let w = w.max(letters.len());
+        let w = w + 2;
         let left = (w - letters.len()) / 2;
-        let mut cell = format!(
-            "{}{letters}{}",
-            " ".repeat(left),
-            " ".repeat(w - letters.len() - left)
-        );
-        if j + 1 < n {
-            out.push((cell, current == Some(j)));
-            cell = " │ ".into();
-        }
-        out.push((cell, current == Some(j) && j + 1 == n));
+        out.push((
+            format!(
+                "{}{letters}{}",
+                " ".repeat(left),
+                " ".repeat(w - letters.len() - left)
+            ),
+            current == Some(j),
+        ));
+        out.push(("│".into(), false));
     }
     out
 }
@@ -1249,6 +1267,28 @@ pub fn line_view(
         widget: None,
     };
     let mut runs = Vec::new();
+    let sheet_w = if view.sheet {
+        sheet_widths(layout)
+    } else {
+        Vec::new()
+    };
+    let width_of = |j: usize| {
+        if view.sheet {
+            sheet_w.get(j).copied().unwrap_or(SHEET_MIN_WIDTH)
+        } else {
+            layout.widths.get(j).copied().unwrap_or(0)
+        }
+    };
+    let bar = |at: usize, t: &str| Run {
+        src: at..at,
+        text: t.into(),
+        verbatim: false,
+        style: Style {
+            dim: true,
+            ..Style::default()
+        },
+        widget: None,
+    };
     if view.sheet {
         // The row number in a shaded gutter, marked on the cursor's row.
         let here = active.is_some();
@@ -1263,6 +1303,8 @@ pub fn line_view(
             },
             widget: None,
         });
+        // The grid's left edge.
+        runs.push(bar(line.start, "│ "));
     } else if view.coordinates {
         // The row number, in the gutter.
         runs.push(deco(
@@ -1286,12 +1328,7 @@ pub fn line_view(
             };
             runs.push(deco(f.range.start, label, true));
         }
-        let pad = layout
-            .widths
-            .get(j)
-            .copied()
-            .unwrap_or(0)
-            .saturating_sub(s.width());
+        let pad = width_of(j).saturating_sub(s.width());
         let right =
             view.align_numbers && !header && layout.numeric.get(j).copied().unwrap_or(false);
         // The cell at the cursor marked across its width.
@@ -1315,8 +1352,19 @@ pub fn line_view(
         } else if on && pad == 0 {
             runs.push(mark(deco(f.range.start, " ".into(), false)));
         }
-        if last && on && pad > 0 && !right {
+        if last && (on || view.sheet) && pad > 0 && !right {
             runs.push(mark(deco(f.range.end, " ".repeat(pad), false)));
+        }
+        if last && view.sheet {
+            // The edge after the last cell, then empty cells to the last
+            // column, so the grid goes on.
+            runs.push(bar(f.range.end, " │"));
+            for k in rec.fields.len()..sheet_w.len() {
+                runs.push(bar(
+                    f.range.end,
+                    &format!("{} │", " ".repeat(width_of(k) + 1)),
+                ));
+            }
         }
         if !last {
             // The padding, then the delimiter drawn as a bar.
@@ -1913,9 +1961,10 @@ mod tests {
             let s: usize = t.split_inclusive('\n').take(i).map(str::len).sum();
             s..s + t.split('\n').nth(i).unwrap().len()
         };
-        // The row number shaded in the gutter; no letters in the cells.
+        // The row number shaded in the gutter; no letters in the cells;
+        // columns at least eight characters wide, between edges.
         let v = line_view(&l, t, line(1), None);
-        assert_eq!(v.display(), " 2 Ada  │ 36");
+        assert_eq!(v.display(), " 2 │ Ada      │       36 │");
         assert_eq!(
             v.runs[0].style.rich.highlight,
             Some(crate::theme::Color(SHEET_GRAY))
@@ -1929,19 +1978,24 @@ mod tests {
             .filter(|r| r.style.rich.highlight == Some(crate::theme::Color(SHEET_ACTIVE)))
             .map(|r| r.text.as_str())
             .collect();
-        assert_eq!(marked, " 2 36");
+        assert_eq!(marked, " 2       36");
         // The letters bar lines up with the rows.
         let bar: String = letters_bar(&l, Some(1))
             .into_iter()
             .map(|(s, _)| s)
             .collect();
-        assert_eq!(bar, "    A   │ B ");
+        assert_eq!(bar, "   │    A     │    B     │");
         assert_eq!(bar.chars().count(), v.display().chars().count());
         assert!(
             letters_bar(&l, Some(1))
                 .iter()
                 .any(|(s, on)| *on && s.trim() == "B")
         );
+        // A short row: its missing cells drawn empty, the grid goes on.
+        let t2 = "a,b,c\nx\n";
+        let l2 = Layout::with_view(t2, detect(t2), sheet);
+        let v = line_view(&l2, t2, 6..7, None);
+        assert_eq!(v.display(), " 2 │ x        │          │          │");
     }
 
     #[test]

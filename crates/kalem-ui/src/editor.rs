@@ -2355,12 +2355,16 @@ impl Editor {
         }
         if self.doc.meta.mode == DocumentMode::Csv && !self.source {
             let layout = kalem_core::csv::layout(&self.doc);
-            return kalem_core::csv::line_view(
+            let mut v = kalem_core::csv::line_view(
                 &layout,
                 text.as_str(),
                 range,
                 Some(self.doc.selection.head),
             );
+            if layout.view.sheet {
+                sheet_runs(&mut v);
+            }
+            return v;
         }
         // Markdown: as it reads, markers hidden away from the cursor.
         if self.doc.meta.mode == DocumentMode::Markdown && !self.source {
@@ -3759,9 +3763,25 @@ impl gpui::Render for Editor {
             .filter(|l| l.view.sheet)
             .map(|l| {
                 let current = kalem_core::csv::cell_at(&self.doc).map(|(_, _, _, c)| c);
-                kalem_core::csv::letters_bar(&l, current)
+                (l.gutter, kalem_core::csv::sheet_widths(&l), current)
             });
         let bar_height = px(theme.size * 1.6);
+        // A character's width in the grid's font, to line the letters up
+        // with the columns.
+        let char_w = {
+            let run = gpui::TextRun {
+                len: 1,
+                font: gpui::font(SharedString::from(theme.mono.clone())),
+                color: theme.foreground,
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            window
+                .text_system()
+                .shape_line("0".into(), px(theme.size), &[run], None)
+                .width
+        };
         let (mono, size, hscroll, dark) = (
             SharedString::from(theme.mono.clone()),
             px(theme.size),
@@ -3791,35 +3811,68 @@ impl gpui::Render for Editor {
                 .pt(top)
                 .pb(px(16.))
                 .relative();
-            if let Some(pieces) = &sheet {
-                let gray = shade(kalem_core::csv::SHEET_GRAY);
-                let green = shade(kalem_core::csv::SHEET_ACTIVE);
+            if let Some((gutter, widths, current)) = &sheet {
+                let (gray, green, line) = (
+                    shade(kalem_core::csv::SHEET_GRAY),
+                    shade(kalem_core::csv::SHEET_ACTIVE),
+                    border,
+                );
+                let edge = if dark {
+                    crate::theme::color(kalem_core::theme::Color(0x21a366ff))
+                } else {
+                    crate::theme::color(kalem_core::theme::Color(0x107c41ff))
+                };
+                // The corner over the row numbers, to the grid's left edge
+                // (the middle of its bar), then each column between the
+                // middles of its bars, and empty columns to the edge.
+                let corner = char_w * (*gutter as f32 + 2.5);
+                let extra = kalem_core::csv::SHEET_MIN_WIDTH;
+                let columns = widths
+                    .iter()
+                    .copied()
+                    .chain(std::iter::repeat_n(extra, 60))
+                    .enumerate()
+                    .map(|(j, w)| {
+                        let on = *current == Some(j);
+                        let mut d = div()
+                            .flex_none()
+                            .w(char_w * (w as f32 + 3.))
+                            .h_full()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .border_l_1()
+                            .border_color(line)
+                            .child(SharedString::from(kalem_core::csv_tools::column_letters(j)));
+                        if on {
+                            d = d
+                                .bg(green)
+                                .font_weight(gpui::FontWeight::BOLD)
+                                .text_color(edge)
+                                .border_b_2()
+                                .border_color(edge);
+                        }
+                        d
+                    });
                 text = text.child(
                     div()
                         .debug_selector(|| "csv-letters".into())
                         .absolute()
-                        .top(px(8.))
+                        .top(px(16.))
                         .left(px(0.))
                         .right(px(0.))
                         .h(bar_height)
                         .bg(gray)
+                        .border_b_1()
+                        .border_color(line)
                         .overflow_hidden()
                         .flex()
                         .flex_row()
-                        .items_center()
                         .pl(px(48.) - hscroll)
                         .font_family(mono.clone())
                         .text_size(size)
-                        .children(pieces.iter().map(|(t, on)| {
-                            let d = div()
-                                .whitespace_nowrap()
-                                .child(SharedString::from(t.replace(' ', "\u{a0}")));
-                            if *on {
-                                d.bg(green).font_weight(gpui::FontWeight::BOLD)
-                            } else {
-                                d
-                            }
-                        })),
+                        .child(div().flex_none().w(corner).h_full())
+                        .children(columns),
                 );
             }
             if let Some(w) = column {
@@ -3992,6 +4045,20 @@ impl Drop for Editor {
     fn drop(&mut self) {
         if let Ok(mut bus) = self.shared.bus.try_borrow_mut() {
             bus.emit(&kalem_core::events::Event::DocumentClose { doc: self.doc_id });
+        }
+    }
+}
+
+/// A row of the spreadsheet look as the graphical editor draws it: the
+/// grid's lines, the shaded row number and the cell at the cursor are
+/// painted ([`crate::line`]), so the bars in the text are not shown and
+/// the shading of the runs goes.
+fn sheet_runs(v: &mut kalem_core::view::LineView) {
+    for (i, r) in v.runs.iter_mut().enumerate() {
+        r.style.rich.highlight = None;
+        if i > 0 && !r.verbatim && r.text.contains('│') {
+            r.style.dim = false;
+            r.style.rich.color = Some(kalem_core::theme::Color(0));
         }
     }
 }

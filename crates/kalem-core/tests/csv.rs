@@ -153,7 +153,7 @@ fn large_files_lay_out_lazily() {
     let line = last..text.len() - 1;
     let view = csv::line_view(&l, &text, line, None);
     assert!(
-        view.display().trim_start().starts_with("100001 99999"),
+        view.display().trim_start().starts_with("100001 │    99999"),
         "{}",
         view.display()
     );

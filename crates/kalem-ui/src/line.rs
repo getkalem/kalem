@@ -1260,7 +1260,9 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         grid: None,
         bar: quote,
         rule: false,
-        nowrap: !editor.wrap,
+        // A spreadsheet's rows do not wrap: they scroll sideways.
+        nowrap: !editor.wrap
+            || (editor.doc.meta.mode == kalem_core::DocumentMode::Csv && !editor.source),
         spacing: 1.,
         fit,
     }
@@ -1483,6 +1485,19 @@ impl gpui::Element for LineElement {
             .unwrap_or_default();
         let marked = editor.marked.clone();
         let view = p.view.clone();
+        let sheet = (editor.doc.meta.mode == kalem_core::DocumentMode::Csv && !editor.source)
+            .then(|| kalem_core::csv::layout(&editor.doc))
+            .filter(|l| l.view.sheet)
+            .map(|l| {
+                let active = kalem_core::csv::cell_at(&editor.doc)
+                    .filter(|(_, _, rec, _)| rec.range.start == view.range.start)
+                    .map(|(_, _, _, c)| c);
+                SheetRow {
+                    active,
+                    extra: kalem_core::csv::SHEET_MIN_WIDTH + 3,
+                    columns: l.widths.len(),
+                }
+            });
         let (ls, le) = (view.range.start, view.range.end);
         let marks: Vec<std::ops::Range<usize>> = {
             // Search matches, else the fields the formula at the cursor
@@ -1604,6 +1619,11 @@ impl gpui::Element for LineElement {
             ),
         };
         window.with_content_mask(Some(mask), |window| {
+            // A CSV document as a spreadsheet: the grid painted under the
+            // text.
+            if let Some(grid) = &sheet {
+                paint_sheet(grid, &view, &layout, origin, bounds, &theme, window);
+            }
             // Indentation guides in plain text.
             if plain && step > 1 {
                 let text = view.display();
@@ -1898,5 +1918,125 @@ fn paint_checkbox(b: Bounds<Pixels>, state: CheckState, theme: &Theme, window: &
             window.paint_quad(fill(bar, theme.background));
         }
         CheckState::Unchecked => {}
+    }
+}
+
+/// What a row of the spreadsheet look needs to be painted.
+struct SheetRow {
+    /// The column of the cell at the cursor, on its row.
+    active: Option<usize>,
+    /// The width of the empty columns after the last, in characters.
+    extra: usize,
+    /// The document's columns.
+    columns: usize,
+}
+
+/// The light gray of a spreadsheet's headers, and Excel's green.
+fn sheet_colors(theme: &Theme) -> (Hsla, Hsla, Hsla) {
+    let shade = |c: u32| {
+        let h = crate::theme::color(kalem_core::theme::Color(c));
+        if theme.dark { Hsla { a: 0.45, ..h } } else { h }
+    };
+    let green = if theme.dark {
+        crate::theme::color(kalem_core::theme::Color(0x21a366ff))
+    } else {
+        crate::theme::color(kalem_core::theme::Color(0x107c41ff))
+    };
+    (
+        shade(kalem_core::csv::SHEET_GRAY),
+        shade(kalem_core::csv::SHEET_ACTIVE),
+        green,
+    )
+}
+
+/// Paints a row of the spreadsheet look: the row number's shaded cell,
+/// a line under the row and between the columns (the bars of the text,
+/// then on at the width of an empty column to the edge), and the cell at
+/// the cursor framed in green.
+fn paint_sheet(
+    row: &SheetRow,
+    view: &kalem_core::view::LineView,
+    layout: &InlineLayout,
+    origin: gpui::Point<Pixels>,
+    bounds: Bounds<Pixels>,
+    theme: &Theme,
+    window: &mut Window,
+) {
+    let (gray, active_bg, green) = sheet_colors(theme);
+    let (top, h) = (bounds.origin.y, bounds.size.height);
+    let right = bounds.origin.x + bounds.size.width + px(10.);
+    let x_at = |o: usize| origin.x + layout.caret(o).origin.x;
+    // Where the bars of the text are: the middle of each.
+    let mut edges = Vec::new();
+    let mut at = 0;
+    for (i, r) in view.runs.iter().enumerate() {
+        if i > 0 && !r.verbatim {
+            for (k, _) in r.text.match_indices('│') {
+                let o = at + k;
+                edges.push((x_at(o) + x_at(o + '│'.len_utf8())) / 2.);
+            }
+        }
+        at += r.text.len();
+    }
+    // Not a row of the grid (the empty line after the last record).
+    let Some(&first) = edges.first() else {
+        return;
+    };
+    // The row number's cell, to the grid's left edge.
+    let gutter_end = first;
+    window.paint_quad(fill(
+        Bounds::new(point(origin.x, top), size(gutter_end - origin.x, h)),
+        if row.active.is_some() {
+            active_bg
+        } else {
+            gray
+        },
+    ));
+    if row.active.is_some() {
+        window.paint_quad(fill(
+            Bounds::new(point(gutter_end - px(2.), top), size(px(2.), h)),
+            green,
+        ));
+    }
+    // Empty columns on to the edge.
+    if edges.len() >= 2 && row.columns > 0 {
+        let char_w = x_at(1) - x_at(0);
+        let step = char_w * row.extra as f32;
+        let mut x = *edges.last().unwrap_or(&first);
+        while x < right && step > px(1.) {
+            x += step;
+            edges.push(x);
+        }
+    }
+    // The lines: under the row, between the cells.
+    window.paint_quad(fill(
+        Bounds::new(
+            point(origin.x, top + h - px(1.)),
+            size(right - origin.x, px(1.)),
+        ),
+        theme.border,
+    ));
+    for x in &edges {
+        window.paint_quad(fill(
+            Bounds::new(point(*x, top), size(px(1.), h)),
+            theme.border,
+        ));
+    }
+    // The cell at the cursor, framed.
+    if let Some(c) = row.active
+        && let (Some(&a), Some(&b)) = (edges.get(c), edges.get(c + 1))
+    {
+        let r = Bounds::new(
+            point(a - px(1.), top - px(1.)),
+            size(b - a + px(2.), h + px(1.)),
+        );
+        window.paint_quad(gpui::quad(
+            r,
+            px(0.),
+            gpui::transparent_black(),
+            px(2.),
+            green,
+            Default::default(),
+        ));
     }
 }

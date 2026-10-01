@@ -2487,7 +2487,10 @@ fn csv_grid() {
         (70, 8),
     );
     let s = screen(&mut t);
-    assert!(s.iter().any(|l| l.contains("Ada  │  36")), "{s:#?}");
+    assert!(
+        s.iter().any(|l| l.contains("Ada      │       36")),
+        "{s:#?}"
+    );
     // Tab goes from field to field; the column's numbers in the status bar.
     t.at(9);
     t.key(KeyCode::Tab, KeyModifiers::NONE);
@@ -4316,11 +4319,17 @@ fn csv_looks_like_a_spreadsheet() {
         rows[0].contains(" A ") && rows[0].contains(" B"),
         "{rows:#?}"
     );
-    assert!(rows[2].contains(" 2 Ada"), "{rows:#?}");
-    // The letters line up with the cells.
-    let a = rows[0].find('B').unwrap();
-    let b = rows[2].find("36").unwrap();
-    assert_eq!(rows[0][..a].chars().count(), rows[2][..b].chars().count());
+    // Columns at least eight wide, between the grid's lines.
+    assert!(rows[2].contains(" 2 │ Ada      │       36 │"), "{rows:#?}");
+    // The letters bar's lines line up with the grid's.
+    let bars = |r: &str| -> Vec<usize> {
+        r.chars()
+            .enumerate()
+            .filter(|(_, c)| *c == '│')
+            .map(|(i, _)| i)
+            .collect()
+    };
+    assert_eq!(bars(&rows[0]), bars(&rows[2]), "{rows:#?}");
 }
 
 #[test]
