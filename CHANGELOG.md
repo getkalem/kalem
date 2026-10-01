@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- `kalem parse` parses a Markdown file as Markdown (it parsed it as Org), and LaTeX as LaTeX; `kalem check` takes folders, and checks Markdown as Markdown: links to files that are not there.
 - Vim: `>>` and `<<` follow `shiftwidth`; `.` repeats a visual change on as much text; each command is its own undo step.
 - The file manager's menu marks the item under the pointer in the selection's color (it was too faint to see).
 - Closing the last document no longer quits Kalem: an empty document takes its place.

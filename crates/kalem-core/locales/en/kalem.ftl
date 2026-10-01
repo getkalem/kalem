@@ -369,6 +369,7 @@ msg-unarchived = Subtree unarchived
 msg-not-in-subtree = Not in a subtree: put the cursor on a heading or under one
 msg-no-references = Nothing to refer to: name a table or a block, or add a heading
 msg-picture-needs-file = Save the document first: pictures go into a folder beside it
+msg-md-missing-file = No such file: { $path }
 msg-no-unused-images = No unused images
 msg-unused-images-trashed = { $count ->
     [one] Moved an unused image to the Trash: { $names }

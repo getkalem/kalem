@@ -524,3 +524,56 @@ fn markdown_exports_to_org() {
     assert!(dir.join("README.org").exists());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn parse_and_check_by_kind_and_folder() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-folder-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("sub")).unwrap();
+    std::fs::create_dir_all(dir.join(".hidden")).unwrap();
+    std::fs::write(
+        dir.join("a.md"),
+        "# Hi\n\nSee [b](sub/b.org) and [x](gone.md).\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("sub/b.org"), "* B\n").unwrap();
+    std::fs::write(dir.join(".hidden/c.org"), "* C\n").unwrap();
+    std::fs::write(dir.join("d.csv"), "a,b\n").unwrap();
+    let p = |n: &str| dir.join(n).display().to_string();
+    // A Markdown file is parsed as Markdown, not as Org.
+    let (code, out, _) = kalem(&["parse", &p("a.md")]);
+    assert_eq!(code, 0);
+    assert!(
+        out.contains("Heading { level: 1") && out.contains("Link { url: \"gone.md\" }"),
+        "{out}"
+    );
+    let (code, _, err) = kalem(&["parse", &p("d.csv")]);
+    assert_eq!(code, 2);
+    assert!(err.contains("not CSV"), "{err}");
+    // A folder stands for its files; links to missing files are reported.
+    let (code, out, _) = kalem(&["check", "--format", "json", &dir.display().to_string()]);
+    assert_eq!(code, 0);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let files: Vec<&str> = v
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["file"].as_str().unwrap())
+        .collect();
+    assert_eq!(files.len(), 3, "{files:?}");
+    assert!(!files.iter().any(|f| f.contains(".hidden")));
+    let md = v
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["file"].as_str().unwrap().ends_with("a.md"))
+        .unwrap();
+    let codes: Vec<&str> = md["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(codes, ["markdown-missing-file"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}

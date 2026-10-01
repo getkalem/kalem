@@ -99,11 +99,105 @@ pub(crate) fn complete(place: &str) -> Result<ExitCode> {
 }
 
 pub(crate) fn parse(file: &Path) -> Result<ExitCode> {
+    use kalem_core::DocumentMode;
     let text = read(file)?;
-    let parse = org_syntax::parse_file(&text, file);
     let mut out = std::io::stdout().lock();
-    writeln!(out, "{:#?}", parse.syntax()).map_err(|e| e.to_string())?;
+    // As the editors and `kalem check` decide what the file is.
+    let mode = DocumentMode::detect(Some(file), text.as_bytes());
+    let tree = if fmt::is_klm(file, &text) {
+        format!("{:#?}", klm_syntax::parse(&text))
+    } else {
+        match mode {
+            DocumentMode::Org => format!("{:#?}", org_syntax::parse_file(&text, file).syntax()),
+            DocumentMode::Latex => format!("{:#?}", latex_syntax::parse(&text).syntax()),
+            DocumentMode::Markdown => markdown_tree(&text),
+            m => {
+                return Err(format!(
+                    "{}: kalem parse reads Org, Markdown, LaTeX and Kalem files, not {}",
+                    file.display(),
+                    m.title()
+                ));
+            }
+        }
+    };
+    writeln!(out, "{}", tree.trim_end()).map_err(|e| e.to_string())?;
     Ok(ExitCode::SUCCESS)
+}
+
+/// A Markdown document's nodes as a tree, one a line, indented by depth,
+/// as the syntax trees of the other formats print: `KIND@START..END`,
+/// with the text of text and code.
+fn markdown_tree(text: &str) -> String {
+    let md = kalem_core::markdown::Md::parse(text);
+    let mut depth: Vec<usize> = Vec::with_capacity(md.nodes.len());
+    let mut out = format!("Document@0..{}\n", text.len());
+    for n in &md.nodes {
+        let d = n.parent.map_or(0, |p| depth[p as usize] + 1);
+        depth.push(d);
+        let kind = format!("{:?}", n.kind);
+        out.push_str(&format!(
+            "{}{kind}@{}..{}",
+            "  ".repeat(d + 1),
+            n.range.start,
+            n.range.end
+        ));
+        if matches!(
+            n.kind,
+            kalem_core::markdown::MdKind::Text | kalem_core::markdown::MdKind::Code
+        ) {
+            out.push_str(&format!(" {:?}", &text[n.content.clone()]));
+        }
+        out.push('\n');
+    }
+    out
+}
+
+/// The files `paths` name: a folder stands for the Org, Markdown, LaTeX,
+/// Kalem, CSV and BibTeX files under it (hidden files and folders,
+/// `target` and `node_modules` left out), in order.
+fn expand_files(paths: &[std::path::PathBuf]) -> Result<Vec<std::path::PathBuf>> {
+    use kalem_core::DocumentMode;
+    let wanted = |p: &Path| {
+        matches!(
+            DocumentMode::detect(Some(p), b""),
+            DocumentMode::Org | DocumentMode::Markdown | DocumentMode::Latex | DocumentMode::Csv
+        ) || p.extension().is_some_and(|e| e.eq_ignore_ascii_case("bib"))
+    };
+    let mut out = Vec::new();
+    for p in paths {
+        if !p.is_dir() {
+            out.push(p.clone());
+            continue;
+        }
+        let mut found = Vec::new();
+        let mut stack = vec![p.clone()];
+        while let Some(d) = stack.pop() {
+            let rd = std::fs::read_dir(&d).map_err(|e| format!("{}: {e}", d.display()))?;
+            for e in rd.flatten() {
+                let path = e.path();
+                let name = e.file_name().to_string_lossy().into_owned();
+                if name.starts_with('.') {
+                    continue;
+                }
+                if path.is_dir() {
+                    if !matches!(name.as_str(), "target" | "node_modules") {
+                        stack.push(path);
+                    }
+                } else if wanted(&path) {
+                    found.push(path);
+                }
+            }
+        }
+        if found.is_empty() {
+            return Err(format!(
+                "{}: no Org, Markdown, LaTeX, Kalem, CSV or BibTeX files in it",
+                p.display()
+            ));
+        }
+        found.sort();
+        out.extend(found);
+    }
+    Ok(out)
 }
 
 /// 1-based line and column (in characters) of a byte offset.
@@ -214,7 +308,9 @@ pub(crate) fn check(
     let mut failed = false;
     let mut results = Vec::new();
     let mut out = std::io::stdout().lock();
-    for f in files {
+    let files = expand_files(files)?;
+    for f in &files {
+        let f = f.as_path();
         let text = read(f)?;
         // As the editors decide: `.tex`, `.latex`, `.ltx`, or a mode line.
         let latex = kalem_core::DocumentMode::detect(Some(f), text.as_bytes())
@@ -241,8 +337,25 @@ pub(crate) fn check(
             results.extend(result);
             continue;
         }
-        let parse = org_syntax::parse_file(&text, f);
-        let (roundtrip, mut diags) = if mode == kalem_core::DocumentMode::Csv {
+        let markdown = mode == kalem_core::DocumentMode::Markdown;
+        let parse = org_syntax::parse_file(if markdown { "" } else { &text }, f);
+        let (roundtrip, mut diags) = if markdown {
+            // Markdown: every text is a document; links to files that
+            // are not there.
+            let diags = kalem_core::markdown::missing_files(&text, f)
+                .into_iter()
+                .map(|(r, path)| org_syntax::Diagnostic {
+                    range: org_syntax::TextRange::new(
+                        org_syntax::TextSize::from(r.start as u32),
+                        org_syntax::TextSize::from(r.end as u32),
+                    ),
+                    severity: org_syntax::Severity::Warning,
+                    code: "markdown-missing-file",
+                    message: kalem_core::tr!("msg-md-missing-file", path = path),
+                })
+                .collect();
+            (true, diags)
+        } else if mode == kalem_core::DocumentMode::Csv {
             // CSV: its malformed fields, not an Org parse.
             let d = kalem_core::csv::detect(&text);
             let diags = kalem_core::csv::problems(&text, &d, usize::MAX)
@@ -280,7 +393,7 @@ pub(crate) fn check(
             diags.sort_by_key(|d| d.range.start());
         }
         // Citations: the bibliography files, and keys none of them has.
-        if mode != kalem_core::DocumentMode::Csv {
+        if mode != kalem_core::DocumentMode::Csv && !markdown {
             diags.extend(citation_diagnostics(&text, f));
         }
         diags.sort_by_key(|d| d.range.start());

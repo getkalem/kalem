@@ -355,6 +355,7 @@ msg-unarchived = Alt ağaç arşivden çıkarıldı
 msg-not-in-subtree = Bir alt ağaçta değil: imleci bir başlığa ya da altına koyun
 msg-no-references = Başvurulacak bir şey yok: bir tabloya ya da bloğa ad verin veya bir başlık ekleyin
 msg-picture-needs-file = Önce belgeyi kaydedin: resimler yanındaki bir klasöre konur
+msg-md-missing-file = Böyle bir dosya yok: { $path }
 msg-no-unused-images = Kullanılmayan resim yok
 msg-unused-images-trashed = { $count } kullanılmayan resim çöp kutusuna taşındı: { $names }
 msg-ordered-on = Alt görevler sırayla tamamlanmalı

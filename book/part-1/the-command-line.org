@@ -1,13 +1,13 @@
 | Command                             | What it does                                                                     |
 |-------------------------------------+----------------------------------------------------------------------------------|
-| =kalem check FILE...=               | Syntax diagnostics; exits 1 on errors (=--deny-warnings=, =--format json=)       |
+| =kalem check FILE-OR-FOLDER...=     | Syntax diagnostics; exits 1 on errors (=--deny-warnings=, =--format json=); a folder stands for the Org, Markdown, LaTeX, Kalem, CSV and BibTeX files under it, hidden ones left out; in Markdown, links to files that are not there |
 | =kalem check FILE.tex --unrendered= | LaTeX: unbalanced groups, labels, citations, missing files; what shows as source |
 | =kalem latex build FILE=            | Builds the PDF of a LaTeX project; its problems at their files and lines         |
 | =kalem fmt FILE...=                 | Aligns tables and tags, tidies blank lines; =--check= for CI                     |
 | =kalem complete FILE:LINE:COL=      | Prints the completions there: label, kind and completer, one a line              |
 | =kalem commands [--type T]=         | Lists the commands (of text type =T=): ID, title, scope and keys                 |
 | =kalem query FILE... MATCH=         | Headlines matching an Org match string, such as ='TODO="NEXT"+work'=             |
-| =kalem parse FILE=                  | The syntax tree                                                                  |
+| =kalem parse FILE=                  | The syntax tree of an Org, Markdown, LaTeX or Kalem file, each by its own parser |
 | =kalem dump FILE=                   | The syntax tree as JSON, in Emacs's terms                                        |
 | =kalem diff-emacs FILE...=          | Compares the parse with Emacs (development)                                      |
 

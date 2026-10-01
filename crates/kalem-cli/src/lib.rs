@@ -98,13 +98,13 @@ enum BookAction {
 enum Command {
     /// Print the syntax tree of a file.
     Parse {
-        /// The Org file to parse.
+        /// The Org, Markdown, LaTeX or Kalem file to parse.
         file: PathBuf,
     },
-    /// Check files: syntax diagnostics and round-trip verification (Org
-    /// and LaTeX files).
+    /// Check files: syntax diagnostics and round-trip verification (Org,
+    /// Markdown, LaTeX, Kalem, CSV and BibTeX files).
     Check {
-        /// Org or LaTeX files to check.
+        /// Files to check; a folder stands for those under it.
         #[arg(required = true)]
         files: Vec<PathBuf>,
         /// Output format.

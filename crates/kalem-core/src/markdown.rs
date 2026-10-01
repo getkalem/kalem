@@ -149,6 +149,36 @@ fn options_with(front_matter: bool) -> comrak::Options<'static> {
     o
 }
 
+/// The links and pictures of `text` (a Markdown file at `path`) that
+/// name a file of this computer that is not there: each link's bytes and
+/// destination. Web addresses, `mailto:`, links within the document
+/// (`#part`) and wiki links (a page not written yet is not a mistake)
+/// are left alone.
+pub fn missing_files(text: &str, path: &std::path::Path) -> Vec<(Range<usize>, String)> {
+    let dir = path.parent().unwrap_or(std::path::Path::new(""));
+    Md::parse(text)
+        .nodes
+        .iter()
+        .filter_map(|n| {
+            let url = match &n.kind {
+                MdKind::Link { url } | MdKind::Image { url } => url,
+                _ => return None,
+            };
+            let target = url.split(['#', '?']).next().unwrap_or("").trim();
+            if target.is_empty() || target.contains("://") || target.starts_with("mailto:") {
+                return None;
+            }
+            let target = target.replace("%20", " ");
+            let file = if std::path::Path::new(&target).is_absolute() {
+                std::path::PathBuf::from(&target)
+            } else {
+                dir.join(&target)
+            };
+            (!file.exists()).then(|| (n.range.clone(), url.clone()))
+        })
+        .collect()
+}
+
 /// Byte offsets of the line starts.
 fn line_starts(text: &str) -> Vec<usize> {
     std::iter::once(0)
