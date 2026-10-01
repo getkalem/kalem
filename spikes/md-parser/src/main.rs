@@ -3,7 +3,7 @@
 //! extensions): HTML agreement with the specification, a byte range for
 //! every block and inline node, and speed on 10 MB. `cargo run --release`.
 
-#![allow(clippy::print_stdout)]
+#![allow(clippy::print_stdout, deprecated)]
 
 use std::time::Instant;
 
@@ -122,7 +122,7 @@ fn pulldown_html(md: &str, ext: bool) -> String {
 
 fn comrak_options(ext: bool) -> comrak::Options<'static> {
     let mut o = comrak::Options::default();
-    o.render.unsafe_ = true;
+    o.render.r#unsafe = true;
     if ext {
         o.extension.table = true;
         o.extension.strikethrough = true;
@@ -136,9 +136,9 @@ fn comrak_options(ext: bool) -> comrak::Options<'static> {
 fn comrak_html(md: &str, ext: bool) -> String {
     let arena = comrak::Arena::new();
     let root = comrak::parse_document(&arena, md, &comrak_options(ext));
-    let mut out = Vec::new();
+    let mut out = String::new();
     comrak::format_html(root, &comrak_options(ext), &mut out).unwrap();
-    String::from_utf8(out).unwrap()
+    out
 }
 
 /// Every pulldown-cmark event's range: inside the text, on character
@@ -230,7 +230,7 @@ fn main() {
     println!("{} examples: {core} CommonMark, {} GFM extensions\n", ex.len(), ex.len() - core);
     for (name, render) in [
         ("pulldown-cmark 0.13", pulldown_html as fn(&str, bool) -> String),
-        ("comrak 0.39", comrak_html),
+        ("comrak 0.55", comrak_html),
     ] {
         let mut pass = 0;
         let mut pass_ext = 0;
@@ -273,6 +273,9 @@ fn main() {
         let (n, m, p) = comrak_ranges(&e.markdown, ext);
         nodes += n;
         missing += m;
+        if std::env::var("SHOWPOS").is_ok() && !p.is_empty() {
+            println!("POS {:?}", e.markdown);
+        }
         cproblems.extend(p);
     }
     println!("\npulldown-cmark ranges: {events} events, {} problems", pproblems.len());
