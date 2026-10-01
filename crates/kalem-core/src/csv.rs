@@ -464,10 +464,8 @@ fn looks_like_header(text: &str, d: &Dialect) -> bool {
         return false;
     }
     let names: Vec<Cow<'_, str>> = first.fields.iter().map(|f| value(text, f, d)).collect();
-    let number = |s: &str| {
-        let s = s.trim().replace(['\u{a0}', ' '], "");
-        !s.is_empty() && (s.parse::<f64>().is_ok() || s.replace(',', ".").parse::<f64>().is_ok())
-    };
+    // The reader of the statistics and of sorting.
+    let number = |s: &str| number(s, d.delimiter == b';').is_some();
     if names.iter().any(|n| number(n)) {
         return false;
     }
@@ -815,10 +813,38 @@ pub fn to_org_table(text: &str, d: &Dialect) -> String {
 /// A number as spreadsheets write it: `1234.5`, `1,234.5` (English),
 /// `1.234,5` (Turkish and most of Europe), `1 234,5`; a comma alone is
 /// the decimal point unless it groups thousands (`1,234,567`, or `1,234`
-/// outside files that `;` delimits, as European spreadsheets write).
+/// outside files that `;` delimits, as European spreadsheets write), and
+/// in files that `;` delimits a dot alone before three digits groups them
+/// (`1.234` is one thousand…). Not numbers: dates, version numbers, phone
+/// numbers (spaces that do not group thousands, `+90 …`) and integers
+/// with leading zeros (identifiers such as `05321234567`).
 pub(crate) fn number(v: &str, comma_decimal: bool) -> Option<f64> {
-    let v = v.trim().replace(['\u{a0}', '\u{202f}', ' ', '\''], "");
+    let t = v.trim();
+    // Spaces group thousands or they are not a number's.
+    let spaced: Vec<&str> = t.split([' ', '\u{a0}', '\u{202f}']).collect();
+    if spaced.len() > 1 {
+        let head = spaced[0].trim_start_matches(['-', '+']);
+        let ok = !head.is_empty()
+            && head.len() <= 3
+            && head.bytes().all(|b| b.is_ascii_digit())
+            && spaced[1..spaced.len() - 1]
+                .iter()
+                .all(|g| g.len() == 3 && g.bytes().all(|b| b.is_ascii_digit()))
+            && spaced.last().is_some_and(|g| {
+                g.len() >= 3
+                    && g[..3].bytes().all(|b| b.is_ascii_digit())
+                    && (g.len() == 3 || matches!(g.as_bytes()[3], b'.' | b','))
+            });
+        if !ok {
+            return None;
+        }
+    }
+    let v = t.replace(['\u{a0}', '\u{202f}', ' ', '\''], "");
     if v.is_empty() {
+        return None;
+    }
+    let digits = v.trim_start_matches(['-', '+']);
+    if digits.len() > 1 && digits.starts_with('0') && digits.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
     let grouped = |s: &str, sep: char| {
@@ -844,6 +870,7 @@ pub(crate) fn number(v: &str, comma_decimal: bool) -> Option<f64> {
             }
         }
         (None, Some(_)) if v.matches('.').count() > 1 && grouped(&v, '.') => v.replace('.', ""),
+        (None, Some(_)) if comma_decimal && grouped(&v, '.') => v.replace('.', ""),
         _ => v,
     };
     normal.parse::<f64>().ok().filter(|x| x.is_finite())
@@ -1557,6 +1584,34 @@ mod tests {
         assert_eq!(number("1 234,5", true), Some(1234.5));
         assert_eq!(number("abc", false), None);
         assert_eq!(number("inf", false), None);
+        // A Turkish thousand in a file `;` delimits; a decimal elsewhere.
+        assert_eq!(number("1.234", true), Some(1234.0));
+        assert_eq!(number("1.234", false), Some(1.234));
+        assert_eq!(number("12.5", true), Some(12.5));
+        assert_eq!(number("1 234 567", false), Some(1_234_567.0));
+        assert_eq!(number("0,5", true), Some(0.5));
+        assert_eq!(number("0", false), Some(0.0));
+        // Dates, versions, phone numbers and identifiers are not numbers.
+        for v in [
+            "29.09.2026",
+            "2026-09-29",
+            "9/29/2026",
+            "1.2.3",
+            "10.0.1",
+            "+90 532 123 45 67",
+            "0532 123 45 67",
+            "(0532) 123 4567",
+            "05321234567",
+            "007",
+            "12:30",
+        ] {
+            assert_eq!(number(v, false), None, "{v}");
+            assert_eq!(number(v, true), None, "{v}");
+        }
+        // The header test reads numbers as the statistics do: a column of
+        // phone numbers under a header is still a header.
+        let t = "ad,telefon\nAda,0532 123 45 67\nBob,7\n";
+        assert!(detect(t).header);
     }
 
     fn apply(text: &str, tx: Transaction) -> String {

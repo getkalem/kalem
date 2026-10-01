@@ -251,6 +251,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- CSV column statistics no longer count phone numbers or identifiers with leading zeros as numbers, read `1.234` as one thousand… in files `;` delimits, and the header test reads numbers as the statistics and sorting do (T2.11.61).
 - Decision D19 (owner, 2026-10-01): Markdown mode will use comrak, the Rust port of GitHub's `cmark-gfm`, in Kalem's fork `getkalem/comrak` where its source positions are fixed for an editor.
 - The README, the contribution guide, the RFC process, the issue and pull request templates, the `kalem --help` about line, the design document's vision (RFC 0001 §0 to §1.2) and the Book's design pages describe Kalem as it is: an editor that opens plain-text formats (Org, LaTeX, CSV, BibTeX, Markdown, code) as themselves and never rewrites them, with the Book's Part II as the specification of every format, the Kalem format as its own, and the same editor in a window and a terminal; "Typora for Org" stays only as history (T2.10.11). Repository links now point at `getkalem/kalem`.
 - GitHub Markdown export (`gfm`) is now a port of the `ox-gfm` package and writes exactly what it writes (checked against it on every export case): paragraphs on one line, fenced example blocks, rules of dashes only, a table of contents without heading, footnotes under "## Footnotes".

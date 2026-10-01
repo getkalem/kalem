@@ -643,9 +643,17 @@ they group thousands when every group after the first has three digits
 and either there are several (=1,234,567=) or the file is not delimited
 by =;= (where European spreadsheets write decimal commas: =1,5=, and
 =1,234= reads as 1.234); with several full stops in groups of three,
-they group thousands (=1.234.567=); infinities and NaN are not numbers.
-Values that are
-neither are left out. The status bar shows "Count: /n/   Sum: …
+they group thousands (=1.234.567=), and in a file delimited by =;= a
+single full stop before three digits does too (=1.234= is one
+thousand two hundred thirty-four there, as Turkish spreadsheets write
+it, and 1.234 elsewhere). Spaces count only as they group thousands
+(=1 234,5=). Not numbers: infinities and NaN, dates (=29.09.2026=,
+=2026-09-29=), version numbers (=1.2.3=), phone numbers (=+90 532 123
+45 67=, =0532 123 45 67=) and integers with leading zeros, which are
+identifiers (=05321234567=, =007=). Values that are not numbers are
+left out. The same reader decides the header row (a first record with
+a number in it is data) and how Sort File compares, so the three always
+agree. The status bar shows "Count: /n/   Sum: …
 Average: …   Min: …   Max: …", each number written as an integer when it
 is whole and otherwise with up to six decimals; nothing is shown when
 the column has no numbers. With a filter on, the filter's count comes
