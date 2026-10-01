@@ -154,5 +154,7 @@
   { "keys": "C-c ^", "command": "csv.sortFileBy" },
   { "keys": "C-c +", "command": "csv.sumColumn" },
   { "keys": "C-c ?", "command": "csv.cellCoordinates" },
-  { "keys": "C-c }", "command": "csv.toggleCoordinates" }
+  { "keys": "C-c }", "command": "csv.toggleCoordinates" },
+  // Markdown tables: sorted as Org sorts a table.
+  { "keys": "C-c ^", "command": "markdown.table.sort" }
 ]
