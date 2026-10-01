@@ -2155,6 +2155,14 @@ impl Editor {
             let layout = kalem_core::csv::layout(&self.doc);
             return kalem_core::csv::line_view(&layout, text.as_str(), range);
         }
+        // Markdown: as it reads, markers hidden away from the cursor.
+        if self.doc.meta.mode == DocumentMode::Markdown && !self.source {
+            return kalem_core::markdown::line_view(
+                &self.doc,
+                range,
+                Some(self.doc.selection.head),
+            );
+        }
         match self.doc.parse() {
             Some((p, true)) if self.source => {
                 view::source_line_view(&p.syntax(), p.context(), text.as_str(), range)

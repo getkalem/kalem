@@ -261,7 +261,11 @@ fn move_across_devices() {
     };
     let d = tree(
         "xdev",
-        &[("a.txt", "alpha"), ("folder/b.txt", "beta"), ("folder/sub/c.txt", "gamma")],
+        &[
+            ("a.txt", "alpha"),
+            ("folder/b.txt", "beta"),
+            ("folder/sub/c.txt", "gamma"),
+        ],
     );
     std::fs::set_permissions(d.join("a.txt"), std::fs::Permissions::from_mode(0o640)).unwrap();
     std::os::unix::fs::symlink("b.txt", d.join("folder/link")).unwrap();
@@ -269,14 +273,22 @@ fn move_across_devices() {
     kalem_fs::move_path(&d.join("a.txt"), &other.join("a.txt")).unwrap();
     assert!(!d.join("a.txt").exists());
     assert_eq!(read(&other.join("a.txt")), "alpha");
-    let mode = std::fs::metadata(other.join("a.txt")).unwrap().permissions().mode();
+    let mode = std::fs::metadata(other.join("a.txt"))
+        .unwrap()
+        .permissions()
+        .mode();
     assert_eq!(mode & 0o777, 0o640);
     // A folder with a link in it: the link stays a link.
     kalem_fs::move_path(&d.join("folder"), &other.join("folder")).unwrap();
     assert!(!d.join("folder").exists());
     assert_eq!(read(&other.join("folder/sub/c.txt")), "gamma");
     let link = other.join("folder/link");
-    assert!(std::fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+    assert!(
+        std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
     assert_eq!(std::fs::read_link(&link).unwrap(), PathBuf::from("b.txt"));
     // And back again, onto the same device as before.
     kalem_fs::move_path(&other.join("folder"), &d.join("folder")).unwrap();
