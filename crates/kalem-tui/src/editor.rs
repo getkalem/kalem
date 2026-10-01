@@ -1750,9 +1750,11 @@ impl EditorView {
     ) -> Option<(u16, u16)> {
         let area = self.column(area);
         // Line numbers in a gutter.
+        // (A CSV grid numbers its rows itself.)
         let numbers = self.line_numbers
             && doc.dired.is_none()
-            && (doc.meta.mode != kalem_core::DocumentMode::Org || self.source);
+            && (doc.meta.mode != kalem_core::DocumentMode::Org || self.source)
+            && (doc.meta.mode != kalem_core::DocumentMode::Csv || self.source);
         let digits = doc.text().line_count().to_string().len() as u16;
         let gutter = if numbers && area.width > digits + 10 {
             digits + 1
@@ -1774,6 +1776,22 @@ impl EditorView {
             self.viewport.top = doc.text().line_start(doc.text().line_of(lim.start));
             self.viewport.top_row = 0;
         }
+        // A spreadsheet-looking CSV grid: the column letters in a bar on
+        // the first row, above everything.
+        let sheet =
+            (doc.meta.mode == kalem_core::DocumentMode::Csv && !self.source && area.height > 3)
+                .then(|| kalem_core::csv::layout(doc))
+                .filter(|l| l.view.sheet);
+        let letters_area = Rect { height: 1, ..area };
+        let area = if sheet.is_some() {
+            Rect {
+                y: area.y + 1,
+                height: area.height - 1,
+                ..area
+            }
+        } else {
+            area
+        };
         let blocks = self.blocks(doc);
         if self.follow {
             self.reveal(doc, &blocks);
@@ -1909,6 +1927,34 @@ impl EditorView {
                 let style = ratatui::style::Style::default().add_modifier(Modifier::DIM);
                 let n = format!("{:>w$}", 1, w = usize::from(digits));
                 buf.set_stringn(full.x, header_area.y, &n, usize::from(digits), style);
+            }
+        }
+        if let Some(layout) = &sheet {
+            let current = kalem_core::csv::cell_at(doc).map(|(_, _, _, c)| c);
+            let shade = |c: u32| {
+                ratatui::style::Color::Rgb((c >> 24) as u8, (c >> 16) as u8, (c >> 8) as u8)
+            };
+            let gray = ratatui::style::Style::default()
+                .bg(shade(kalem_core::csv::SHEET_GRAY))
+                .fg(ratatui::style::Color::Black);
+            let on = gray
+                .bg(shade(kalem_core::csv::SHEET_ACTIVE))
+                .add_modifier(Modifier::BOLD);
+            for x in letters_area.left()..letters_area.right() {
+                buf[(x, letters_area.y)].set_symbol(" ").set_style(gray);
+            }
+            // Lined up with the rows: after the margin, scrolled with them.
+            let mut x = i64::from(letters_area.x) + 1 - self.hscroll as i64;
+            for (piece, current_col) in kalem_core::csv::letters_bar(layout, current) {
+                for ch in piece.chars() {
+                    if x >= i64::from(letters_area.x) && x < i64::from(letters_area.right()) {
+                        let style = if current_col { on } else { gray };
+                        buf[(x as u16, letters_area.y)]
+                            .set_symbol(&ch.to_string())
+                            .set_style(style);
+                    }
+                    x += 1;
+                }
             }
         }
         let cursor = drawn.cursor;

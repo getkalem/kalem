@@ -2229,7 +2229,9 @@ impl Editor {
 
     /// Whether lines show numbers: plain text and the source view.
     pub fn line_numbers(&self) -> bool {
+        // A CSV grid numbers its rows itself.
         self.shared.config.bool("editor.line_numbers")
+            && (self.doc.meta.mode != DocumentMode::Csv || self.source)
             && self.doc.dired.is_none()
             && (self.doc.meta.mode != DocumentMode::Org || self.source)
     }
@@ -3689,6 +3691,26 @@ impl gpui::Render for Editor {
             && kalem_core::csv::layout(&self.doc).dialect.header;
         let background = theme.background;
         let border = theme.border;
+        // A spreadsheet-looking CSV grid: the column letters in a bar above
+        // the rows, the cursor's column marked.
+        let sheet = (self.doc.meta.mode == DocumentMode::Csv && !self.source)
+            .then(|| kalem_core::csv::layout(&self.doc))
+            .filter(|l| l.view.sheet)
+            .map(|l| {
+                let current = kalem_core::csv::cell_at(&self.doc).map(|(_, _, _, c)| c);
+                kalem_core::csv::letters_bar(&l, current)
+            });
+        let bar_height = px(theme.size * 1.6);
+        let (mono, size, hscroll, dark) = (
+            SharedString::from(theme.mono.clone()),
+            px(theme.size),
+            self.hscroll,
+            theme.dark,
+        );
+        let shade = move |c: u32| {
+            let h = crate::theme::color(kalem_core::theme::Color(c));
+            if dark { gpui::Hsla { a: 0.45, ..h } } else { h }
+        };
         let pane = |state: ListState, visible: Vec<usize>, other: bool| {
             let entity = entity.clone();
             let header_editor = entity.clone();
@@ -3696,7 +3718,49 @@ impl gpui::Render for Editor {
             let pinned = header
                 && visible.first() == Some(&0)
                 && (top.item_ix > 0 || top.offset_in_item > px(0.));
-            let mut text = div().h_full().w_full().px(px(48.)).py(px(16.)).relative();
+            let top = if sheet.is_some() {
+                px(16.) + bar_height
+            } else {
+                px(16.)
+            };
+            let mut text = div()
+                .h_full()
+                .w_full()
+                .px(px(48.))
+                .pt(top)
+                .pb(px(16.))
+                .relative();
+            if let Some(pieces) = &sheet {
+                let gray = shade(kalem_core::csv::SHEET_GRAY);
+                let green = shade(kalem_core::csv::SHEET_ACTIVE);
+                text = text.child(
+                    div()
+                        .debug_selector(|| "csv-letters".into())
+                        .absolute()
+                        .top(px(8.))
+                        .left(px(0.))
+                        .right(px(0.))
+                        .h(bar_height)
+                        .bg(gray)
+                        .overflow_hidden()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .pl(px(48.) - hscroll)
+                        .font_family(mono.clone())
+                        .text_size(size)
+                        .children(pieces.iter().map(|(t, on)| {
+                            let d = div()
+                                .whitespace_nowrap()
+                                .child(SharedString::from(t.replace(' ', "\u{a0}")));
+                            if *on {
+                                d.bg(green).font_weight(gpui::FontWeight::BOLD)
+                            } else {
+                                d
+                            }
+                        })),
+                );
+            }
             if let Some(w) = column {
                 text = text.max_w(w);
             }
@@ -3751,7 +3815,7 @@ impl gpui::Render for Editor {
                     div()
                         .debug_selector(|| "csv-header".into())
                         .absolute()
-                        .top(px(0.))
+                        .top(top - px(16.))
                         .left(px(48.))
                         .right(px(48.))
                         .pt(px(16.))

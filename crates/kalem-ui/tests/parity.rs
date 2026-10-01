@@ -155,7 +155,14 @@ fn gui_lines(
                 .map(|r| r.text.as_str())
                 .collect::<Vec<_>>()
                 .join("");
-            out.insert(line, words(&text));
+            // A CSV grid's row number in its gutter is not the line's text.
+            let mut w = words(&text);
+            if e.doc.meta.mode == kalem_core::DocumentMode::Csv
+                && w.first().is_some_and(|f| *f == (line + 1).to_string())
+            {
+                w.remove(0);
+            }
+            out.insert(line, w);
         }
         (e.visible.clone(), out)
     })

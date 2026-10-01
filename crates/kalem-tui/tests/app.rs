@@ -3185,11 +3185,11 @@ fn csv_filter_and_header_in_the_terminal() {
         let city = if i % 10 == 0 { "Izmir" } else { "Ankara" };
         rows.push_str(&format!("p{i},{city}\n"));
     }
-    let mut t = with_file(&rows, "people.csv", Config::default(), (70, 8));
-    // Scrolled down: the header stays on the first row.
+    let mut t = with_file(&rows, "people.csv", Config::default(), (70, 9));
+    // Scrolled down: the header stays under the column letters.
     t.at(rows.find("p20").unwrap());
     let screen_rows = screen(&mut t);
-    assert!(screen_rows[0].contains("name"), "{screen_rows:#?}");
+    assert!(screen_rows[1].contains("name"), "{screen_rows:#?}");
     assert!(screen_rows.iter().any(|r| r.contains("p20")));
     // A filter: the header and the matching rows (and the cursor's).
     t.at(0);
@@ -4287,4 +4287,22 @@ fn vim_quit_closes_the_pane_first() {
     t.typ(":q");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert!(t.app.quit);
+}
+
+#[test]
+fn csv_looks_like_a_spreadsheet() {
+    let text = "name,n\nAda,36\nBob,7\n";
+    let mut t = with_file(text, "t.csv", Config::default(), (40, 8));
+    t.at(text.find("36").unwrap());
+    let rows = screen(&mut t);
+    // The letters bar, then the rows numbered.
+    assert!(
+        rows[0].contains(" A ") && rows[0].contains(" B"),
+        "{rows:#?}"
+    );
+    assert!(rows[2].contains(" 2 Ada"), "{rows:#?}");
+    // The letters line up with the cells.
+    let a = rows[0].find('B').unwrap();
+    let b = rows[2].find("36").unwrap();
+    assert_eq!(rows[0][..a].chars().count(), rows[2][..b].chars().count());
 }
