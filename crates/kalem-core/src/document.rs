@@ -1560,6 +1560,7 @@ impl DocumentState {
         c.flag("modified", self.is_modified());
         c.flag("hasFile", self.meta.path.is_some());
         c.flag("readOnly", self.read_only);
+        c.flag("hasFormatter", crate::packs::has_formatter(self));
         c.set("textType", Value::Str(self.text_type()));
         let Some((parse, _)) = self.parse() else {
             return c;

@@ -2830,8 +2830,23 @@ fn plain_commands() -> Vec<Command> {
             "Format Document",
             "Edit",
             &[],
-            Some("editorMode == org || editorMode == latex"),
+            Some("editorMode == org || editorMode == latex || hasFormatter"),
             |ctx, _| {
+                // A language pack's formatter (T2.7a.7); a syntax error
+                // refuses, at its place.
+                if let Some(f) = crate::packs::format(ctx.doc()?) {
+                    let new = match f {
+                        crate::packs::Formatted::Text(t) => t,
+                        crate::packs::Formatted::Refused(d) => {
+                            let at = d.range.start;
+                            ctx.doc()?.selection = org_edit::Selection::caret(at);
+                            return Err(CommandError::new(d.message));
+                        }
+                    };
+                    return lines_command(ctx, |t, _| {
+                        crate::lines::replace_differing(t, &new, "Format Document")
+                    });
+                }
                 // The Kalem format: its canonical form, well-formed only
                 // (RFC 0003 §15).
                 if crate::klm::is_klm_file(ctx.doc()?) {
@@ -5898,6 +5913,73 @@ mod tests {
         d.undo();
         d.undo();
         assert_eq!(d.text().as_str(), "* A\n* B\n");
+    }
+
+    #[test]
+    fn language_packs_in_the_editor() {
+        // A pack's four hooks reach the editor (T2.7a.7).
+        crate::packs::register(Arc::new(crate::packs::tests::IniPack));
+        let reg = CommandRegistry::with_builtins();
+        let mut d = doc("[a]\nx=1\n[b]\ny  =2\n", 0);
+        d.set_mode(
+            DocumentMode::Text {
+                language: Some("kalem-test-ini".into()),
+            },
+            &crate::settings::Config::default().parse_base(),
+        );
+        let items = crate::packs::outline_items(&d).unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(
+            d.when_context().get("hasFormatter"),
+            Some(&crate::when::Value::Bool(true))
+        );
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 1).at(9, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("edit.formatDocument", &mut ctx, &json!({}))
+            .unwrap();
+        drop(ctx);
+        assert_eq!(d.text().as_str(), "[a]\nx = 1\n[b]\ny = 2\n");
+        assert_eq!(crate::formulas::selection_stats(&d), None);
+        // A syntax error: in the status bar, and Format Document refuses
+        // with the cursor at it.
+        d.selection = org_edit::Selection::caret(d.text().len());
+        let mut tx = org_edit::Transaction::new("t");
+        tx.replace(d.text().len()..d.text().len(), "oops\n")
+            .unwrap();
+        d.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+        d.selection = org_edit::Selection::caret(0);
+        assert_eq!(
+            crate::formulas::selection_stats(&d).as_deref(),
+            Some("One problem")
+        );
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 1).at(9, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        let err = reg
+            .execute("edit.formatDocument", &mut ctx, &json!({}))
+            .unwrap_err();
+        assert!(err.message.contains("oops"));
+        drop(ctx);
+        assert_eq!(d.selection.head, 20);
+        assert_eq!(
+            crate::formulas::selection_stats(&d).as_deref(),
+            Some("No value: oops")
+        );
     }
 
     #[test]

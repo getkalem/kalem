@@ -283,13 +283,14 @@ pub fn accepted(item: &Item) {
 impl Registry {
     /// The built-in completers: Org's, and the document's words.
     pub fn with_builtins() -> Registry {
-        Registry {
-            completers: vec![
-                Arc::new(OrgCompleter),
-                Arc::new(crate::latex_complete::LatexCompleter),
-                Arc::new(WordsCompleter),
-            ],
-        }
+        let mut completers: Vec<Arc<dyn Completer>> = vec![
+            Arc::new(OrgCompleter),
+            Arc::new(crate::latex_complete::LatexCompleter),
+            Arc::new(WordsCompleter),
+        ];
+        // The language packs' (T2.7a.7).
+        completers.extend(crate::packs::completers());
+        Registry { completers }
     }
 
     /// Adds a completer (a plugin's).
