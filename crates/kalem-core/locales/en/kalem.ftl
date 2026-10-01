@@ -986,3 +986,7 @@ fm-menu-invert = Invert Selection
 fm-menu-sort = Sort By…
 cmd-dired-contextMenu = File Menu
 fm-menu = File
+msg-no-picker = No list to resume yet
+msg-no-panel = No panel shown or hidden yet
+cmd-picker-resume = Resume Last Picker
+cmd-view-toggleLastPanel = Toggle Last Panel

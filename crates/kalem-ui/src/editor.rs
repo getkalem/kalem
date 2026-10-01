@@ -93,6 +93,19 @@ pub struct Shared {
     /// plugins and the frontend's listeners, as the terminal editor sends
     /// them.
     pub bus: Rc<RefCell<kalem_core::events::EventBus>>,
+    /// The request that opened the last list to choose from, and what was
+    /// typed in it (`SPC '`), and the panel shown or hidden last (`SPC ~`),
+    /// whichever document it was in.
+    pub last: Rc<RefCell<Last>>,
+}
+
+/// What `SPC '` and `SPC ~` do again.
+#[derive(Debug, Default)]
+pub struct Last {
+    /// The request that opened the last list, and what was typed in it.
+    pub picker: Option<(Request, String)>,
+    /// The panel shown or hidden last.
+    pub panel: Option<Request>,
 }
 
 /// The next document's number on the event bus.
@@ -289,6 +302,10 @@ pub struct Editor {
     pub preview_cache: crate::preview::Cache,
     /// The command palette, when open.
     pub palette: Option<crate::panels::Palette>,
+    /// What to type into the list opening now, resumed.
+    pub resume_input: Option<String>,
+    /// A list to choose from was asked for: the next palette is one.
+    pub mark_picker: bool,
     /// The find bar, when open.
     pub find: Option<crate::panels::FindBar>,
     /// The date picker, when open.
@@ -403,6 +420,8 @@ impl Editor {
             theme,
             pending: Vec::new(),
             pending_at: None,
+            resume_input: None,
+            mark_picker: false,
             hints_drawn: false,
             marked: None,
             painted: Rc::default(),
@@ -848,6 +867,32 @@ impl Editor {
         }
     }
 
+    /// What was typed in a list resumed (`SPC '`), once it is open.
+    pub(crate) fn apply_resume(&mut self) {
+        let input = self.resume_input.take();
+        let Some(p) = &mut self.palette else {
+            self.mark_picker = false;
+            return;
+        };
+        if std::mem::take(&mut self.mark_picker) {
+            p.resumable = true;
+        }
+        if let Some(input) = input {
+            p.input = input;
+            p.back = 0;
+            p.input_changed();
+        }
+    }
+
+    /// Keeps what is typed in the open list for `SPC '`.
+    pub(crate) fn remember_picker(&mut self) {
+        if let (Some(p), Some(last)) = (&self.palette, &mut self.shared.last.borrow_mut().picker)
+            && p.resumable
+        {
+            last.1 = p.input.clone();
+        }
+    }
+
     pub(crate) fn message(&mut self, text: impl Into<String>, error: bool) {
         let text = text.into();
         if error {
@@ -946,7 +991,32 @@ impl Editor {
     }
 
     fn request(&mut self, r: Request, window: &mut Window, cx: &mut Context<'_, Self>) {
+        if r.is_picker() {
+            self.shared.last.borrow_mut().picker = Some((r.clone(), String::new()));
+            self.mark_picker = true;
+        }
+        if r.is_panel_toggle() {
+            self.shared.last.borrow_mut().panel = Some(r.clone());
+        }
         match r {
+            Request::ResumePicker => {
+                let last = self.shared.last.borrow().picker.clone();
+                match last {
+                    Some((r, input)) => {
+                        self.resume_input = Some(input.clone());
+                        self.request(r.clone(), window, cx);
+                        self.shared.last.borrow_mut().picker = Some((r, input));
+                    }
+                    None => self.message(kalem_core::tr!("msg-no-picker"), false),
+                }
+            }
+            Request::ToggleLastPanel => {
+                let last = self.shared.last.borrow().panel.clone();
+                match last {
+                    Some(r) => self.request(r, window, cx),
+                    None => self.message(kalem_core::tr!("msg-no-panel"), false),
+                }
+            }
             Request::Save => self.save(window, cx),
             Request::SaveAs => self.save_as(window, cx),
             Request::Quit => cx.emit(DocEvent::Quit),
@@ -3480,6 +3550,7 @@ impl gpui::Render for Editor {
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> impl gpui::IntoElement {
+        self.apply_resume();
         use gpui::{
             InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
             div, list,

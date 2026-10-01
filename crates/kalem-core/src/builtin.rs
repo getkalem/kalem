@@ -4251,6 +4251,22 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| request(ctx, Request::Find { replace: true }),
         ),
         cmd(
+            "picker.resume",
+            "Resume Last Picker",
+            "Search",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::ResumePicker),
+        ),
+        cmd(
+            "view.toggleLastPanel",
+            "Toggle Last Panel",
+            "View",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::ToggleLastPanel),
+        ),
+        cmd(
             "view.outline",
             "Outline",
             "View",

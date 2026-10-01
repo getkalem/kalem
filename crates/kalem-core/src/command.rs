@@ -210,6 +210,41 @@ pub enum Request {
         /// Without a message (remembered choices such as recent colors).
         quiet: bool,
     },
+    /// Open the last list to choose from again, with what was typed in it
+    /// (Doom's `SPC '`).
+    ResumePicker,
+    /// Show or hide the panel shown or hidden last (Doom's `SPC ~`).
+    ToggleLastPanel,
+}
+
+impl Request {
+    /// Whether this opens a list to choose from, which
+    /// [`Request::ResumePicker`] opens again.
+    pub fn is_picker(&self) -> bool {
+        matches!(
+            self,
+            Request::Palette
+                | Request::Menus
+                | Request::HelpBindings
+                | Request::Pick(_)
+                | Request::SearchProject
+                | Request::SearchIn(_)
+                | Request::SearchLines { .. }
+                | Request::PickProject(_)
+                | Request::SearchProjectFor(_)
+                | Request::SearchOtherProject
+                | Request::Choose(_)
+        )
+    }
+
+    /// Whether this shows or hides a panel, which
+    /// [`Request::ToggleLastPanel`] does again.
+    pub fn is_panel_toggle(&self) -> bool {
+        matches!(
+            self,
+            Request::Outline | Request::OpenFiles | Request::Preview { .. } | Request::Split
+        )
+    }
 }
 
 /// What [`Request::FileManager`] shows. The window's file manager is used

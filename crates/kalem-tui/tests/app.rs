@@ -1398,6 +1398,23 @@ fn doom_keys_in_the_terminal() {
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(title(&t), "loose.org");
     assert_eq!(t.text(), "* Loose\n");
+    // SPC ': the list again (here, outside the project, the projects),
+    // with what was typed in it.
+    t.typ(" '");
+    settle(&mut t);
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains(": b.org"), "{rows}");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    // SPC ~: no panel yet, then the outline shown and hidden again.
+    t.typ(" ~");
+    assert!(status(&mut t).contains("No panel"), "{}", status(&mut t));
+    t.app.run_command("view.outline", serde_json::Value::Null);
+    let shown = screen(&mut t).join("\n");
+    // (The outline has the keys now.)
+    t.app
+        .run_command("view.toggleLastPanel", serde_json::Value::Null);
+    let hidden = screen(&mut t).join("\n");
+    assert_ne!(shown, hidden);
 }
 
 #[test]

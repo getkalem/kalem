@@ -155,6 +155,15 @@ pub struct App {
     completers: kalem_core::completers::Registry,
     /// The command palette, when open.
     palette: Option<Palette>,
+    /// The request that opened the last list to choose from, and what was
+    /// typed in it (`SPC '`).
+    last_picker: Option<(Request, String)>,
+    /// What to type into the list opening now, resumed.
+    resume_input: Option<String>,
+    /// A list to choose from was asked for: the next palette is one.
+    mark_picker: bool,
+    /// The panel shown or hidden last (`SPC ~`).
+    last_panel: Option<Request>,
     /// The find bar, when open.
     find: Option<Find>,
     /// The last search, offered when find opens again.
@@ -413,6 +422,10 @@ impl App {
             caps,
             pending: Vec::new(),
             pending_at: None,
+            last_picker: None,
+            resume_input: None,
+            mark_picker: false,
+            last_panel: None,
             status: None,
             prompt: None,
             debouncer: ChangeDebouncer::new(Duration::from_millis(300)),
@@ -1390,7 +1403,34 @@ impl App {
     }
 
     fn request(&mut self, r: Request) {
+        let picker = r.is_picker();
+        self.request_inner(r);
+        if picker {
+            self.apply_resume();
+        }
+    }
+
+    fn request_inner(&mut self, r: Request) {
+        if r.is_picker() {
+            self.last_picker = Some((r.clone(), String::new()));
+            self.mark_picker = true;
+        }
+        if r.is_panel_toggle() {
+            self.last_panel = Some(r.clone());
+        }
         match r {
+            Request::ResumePicker => match self.last_picker.clone() {
+                Some((r, input)) => {
+                    self.resume_input = Some(input.clone());
+                    self.request(r.clone());
+                    self.last_picker = Some((r, input));
+                }
+                None => self.message(tr!("msg-no-picker"), false),
+            },
+            Request::ToggleLastPanel => match self.last_panel.clone() {
+                Some(r) => self.request(r),
+                None => self.message(tr!("msg-no-panel"), false),
+            },
             Request::Save => self.save(false),
             Request::SaveAs => {
                 let current = self
@@ -2179,7 +2219,39 @@ impl App {
         self.dirty = true;
     }
 
+    /// What was typed in a list resumed (`SPC '`), once it is open.
+    fn apply_resume(&mut self) {
+        let input = self.resume_input.take();
+        let Some(p) = &mut self.palette else {
+            self.mark_picker = false;
+            return;
+        };
+        if std::mem::take(&mut self.mark_picker) {
+            p.resumable = true;
+        }
+        if let Some(input) = input {
+            p.input = input;
+            p.back = 0;
+            p.input_changed();
+        }
+    }
+
+    /// Keeps what is typed in the open list for `SPC '`.
+    fn remember_picker(&mut self) {
+        if let (Some(p), Some(last)) = (&self.palette, &mut self.last_picker)
+            && p.resumable
+        {
+            last.1 = p.input.clone();
+        }
+    }
+
     fn palette_key(&mut self, k: &KeyEvent) {
+        self.remember_picker();
+        self.palette_key_and_remember(k);
+        self.remember_picker();
+    }
+
+    fn palette_key_and_remember(&mut self, k: &KeyEvent) {
         if self.palette.as_ref().is_some_and(|p| p.lines.is_some()) {
             match k.code {
                 KeyCode::Esc => self.end_line_search(false),

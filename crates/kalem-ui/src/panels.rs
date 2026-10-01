@@ -53,6 +53,9 @@ pub struct Palette {
     pub pick: Option<Picker>,
     /// Searching a project's files instead.
     pub search: Option<ProjectSearch>,
+    /// Opened by a request for a list ([`kalem_core::command::Request::is_picker`]),
+    /// which `SPC '` opens again with what is typed in it.
+    pub resumable: bool,
     /// Searching the lines of open documents instead (`SPC s b`).
     pub lines: Option<kalem_core::line_search::LineSearch>,
     /// Where the cursor was when the line search opened: its source in
@@ -86,6 +89,7 @@ impl Palette {
             arg: None,
             pick: None,
             search: None,
+            resumable: false,
             lines: None,
             origin: None,
         }
@@ -453,6 +457,8 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> bool {
+        self.apply_resume();
+        self.remember_picker();
         let Some(p) = &mut self.palette else {
             return false;
         };
@@ -528,9 +534,11 @@ impl Editor {
         if self.date_input(text, cx) || self.settings_input(text, cx) {
             return true;
         }
+        self.apply_resume();
         if let Some(p) = &mut self.palette {
             kalem_core::line_edit::insert(&mut p.input, p.back, text);
             p.input_changed();
+            self.remember_picker();
             self.preview_line(cx);
             cx.notify();
             return true;

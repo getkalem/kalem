@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `SPC '` opens the last list to choose from again with what was typed in it, and `SPC ~` shows or hides the panel shown or hidden last (Resume Last Picker, Toggle Last Panel; T2.7i.18).
 - The which-key panel waits `keys.hints_delay` (400 ms) after a prefix, names the leader's groups as Doom does (`+file`, `+buffer`…), and marks Doom's keys Kalem does not bind yet as "(later)" or "(plugin)"; `keys.hints = false` turns it off (T2.7i.19).
 - Bookmarks: Set Bookmark, Jump to Bookmark and Delete Bookmark (`SPC b m`, `SPC RET`, `SPC b M`), and `SPC *` searches the project for the word at the cursor (T2.7i.18).
 - LaTeX: Insert Figure, Table and Equation follow the document's indentation, label placement and label prefixes; the formatting toggles keep braces balanced and treat `\emph` and `\textit` as one (T2.7h.15).

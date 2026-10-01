@@ -1656,6 +1656,14 @@ fn doom_leader_keys(cx: &mut TestAppContext) {
     cx.simulate_input("loose");
     cx.simulate_keystrokes("enter");
     assert_eq!(active_title(&ws, cx), "loose.org");
+    // SPC ': that list again, with what was typed in it.
+    cx.simulate_keystrokes("space '");
+    settle_picker(&ws, cx);
+    let input = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).palette.as_ref().map(|p| p.input.clone())
+    });
+    assert_eq!(input.as_deref(), Some("loose"));
+    cx.simulate_keystrokes("escape");
     // Space still moves nothing in the text: the document is unchanged.
     let text = ws.read_with(cx, |ws, cx| {
         ws.editor.read(cx).doc.text().as_str().to_string()

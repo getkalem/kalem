@@ -88,6 +88,8 @@
   { "keys": "leader o b", "command": "export.htmlBrowser", "when": "vimCommand" },
   { "keys": "leader o l", "command": "org.link.open", "when": "vimCommand" },
   { "keys": "leader *", "command": "project.searchWord", "when": "vimCommand" },
+  { "keys": "leader '", "command": "picker.resume", "when": "vimCommand" },
+  { "keys": "leader ~", "command": "view.toggleLastPanel", "when": "vimCommand" },
   { "keys": "leader enter", "command": "bookmark.jump", "when": "vimCommand" },
   { "keys": "leader s m", "command": "bookmark.jump", "when": "vimCommand" },
   { "keys": "leader b m", "command": "bookmark.set", "when": "vimCommand" },

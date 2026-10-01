@@ -55,7 +55,7 @@ command = "project.search"
 doom = "SPC '"
 keys = "space '"
 what = "Resume the last picker"
-reason = "Planned: T2.7i.18"
+command = "picker.resume"
 
 [[key]]
 doom = "SPC *"
@@ -67,7 +67,7 @@ command = "project.searchWord"
 doom = "SPC ~"
 keys = "space ~"
 what = "Toggle the last popup"
-reason = "Planned: T2.7i.18"
+command = "view.toggleLastPanel"
 
 [[key]]
 doom = "SPC RET"

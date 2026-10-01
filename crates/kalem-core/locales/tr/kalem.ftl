@@ -908,3 +908,7 @@ fm-menu-invert = Seçimi Tersine Çevir
 fm-menu-sort = Sırala…
 cmd-dired-contextMenu = Dosya Menüsü
 fm-menu = Dosya
+msg-no-picker = Yeniden açılacak liste yok
+msg-no-panel = Henüz açılıp kapanan panel yok
+cmd-picker-resume = Son Listeyi Yeniden Aç
+cmd-view-toggleLastPanel = Son Paneli Aç/Kapat
