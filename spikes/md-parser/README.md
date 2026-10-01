@@ -33,6 +33,18 @@ and short table rows still have positions outside their parent, and it is
 a little slower. Its `tagfilter` option is deprecated, to be removed in
 0.56.
 
+Kalem's fork (`getkalem/comrak`, branch `kalem/sourcepos-in-parent`, on
+upstream main past 0.55.0) fixes both: a list item finalised after its list
+(the line closing the list doesn't fit in it, so the list is closed while
+its last item is open) now gets the list's column-0 fix, and an
+autocompleted cell is clamped to its row's last column. With the fork the
+spike reports 2,855 nodes, 0 without a position, 0 outside their parent;
+upstream main has already removed `tagfilter`, so the spike was run with it
+off (23 / 24, the tag filter example) and Kalem will filter the tags in its
+own HTML export. To measure the fork, add
+`[patch.crates-io] comrak = { path = "../../../comrak" }` (a clone of the
+fork) and drop the `tagfilter` line. Until the branch is pushed, the commit is kept here as `patches/0001-*.patch` (`git am` on upstream 1470560).
+
 The nine CommonMark examples both miss are the same: runs of `**` and
 `__` (`****foo****`), where both follow CommonMark 0.31's rule for nested
 strong emphasis and the 0.29 suite expects the older one. They are the
