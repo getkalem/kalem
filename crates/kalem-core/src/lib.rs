@@ -12,6 +12,7 @@ pub mod code;
 pub mod command;
 pub mod completers;
 pub mod csv;
+pub mod csv_tools;
 pub mod cursors;
 pub mod dates;
 pub mod dired;

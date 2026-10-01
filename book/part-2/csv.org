@@ -351,36 +351,49 @@ empty fields; the round-trip tests use it to edit a cell.
 ** The commands
 
 The commands are in the category /CSV/ and apply only in CSV documents
-(scope =csv=). Only Tab and Shift+Tab have keys by default; the others
-are in the graphical editor's /Table/ menu (rows, columns, filter and
-sorts), on its toolbar (insert and delete row and column, Sort File,
+(scope =csv=). Tab and Shift+Tab move between fields, and the keys of
+Org tables move, insert and delete rows and columns (Alt with the
+arrows, Alt+Shift with them); in the Emacs keymap, =C-c ^= sorts by
+columns, =C-c += sums the column and =C-c ?= names the cell, as in an
+Org table. The others are in the graphical editor's /Table/ menu
+(rows, columns, filter, sorts and the spreadsheet habits below), on its toolbar (insert and delete row and column, Sort File,
 Filter Rows), in the /File/ menu (Copy as Tab-Separated Values, Convert
 to Org Table, Open as Plain Text) and in the palette of both editors.
 
-| Command               | Title                             | Key       | Changes the file         |
-|-----------------------+-----------------------------------+-----------+--------------------------|
-| =csv.nextField=       | Next Field                        | Tab       | Only past the last field |
-| =csv.previousField=   | Previous Field                    | Shift+Tab | No                       |
-| =csv.insertRow=       | Insert Row                        |           | Yes                      |
-| =csv.deleteRow=       | Delete Row                        |           | Yes                      |
-| =csv.moveRowUp=       | Move Row Up                       |           | Yes                      |
-| =csv.moveRowDown=     | Move Row Down                     |           | Yes                      |
-| =csv.insertColumn=    | Insert Column                     |           | Yes                      |
-| =csv.deleteColumn=    | Delete Column                     |           | Yes                      |
-| =csv.moveColumnLeft=  | Move Column Left                  |           | Yes                      |
-| =csv.moveColumnRight= | Move Column Right                 |           | Yes                      |
-| =csv.sortFile=        | Sort File by Column               |           | Yes                      |
-| =csv.filter=          | Filter Rows                       |           | No                       |
-| =csv.clearFilter=     | Show All Rows                     |           | No                       |
-| =csv.sortView=        | Sort View by Column               |           | No                       |
-| =csv.unsortView=      | File Order                        |           | No                       |
-| =csv.copyAsTsv=       | Copy as Tab-Separated Values      |           | No                       |
-| =csv.openAsText=      | Open as Plain Text                |           | No                       |
-| =csv.convertToOrg=    | Convert to Org Table              |           | Writes a new file        |
-| =csv.setDelimiter=    | Set Delimiter                     |           | No                       |
-| =csv.setQuote=        | Set Quote Character               |           | No                       |
-| =csv.toggleHeader=    | First Row Is a Header             |           | No                       |
-| =csv.detectDialect=   | Detect Delimiter and Header Again |           | No                       |
+| Command                | Title                             | Key             | Changes the file         |
+|------------------------+-----------------------------------+-----------------+--------------------------|
+| =csv.nextField=        | Next Field                        | Tab             | Only past the last field |
+| =csv.previousField=    | Previous Field                    | Shift+Tab       | No                       |
+| =csv.insertRow=        | Insert Row                        | Alt+Shift+Down  | Yes                      |
+| =csv.deleteRow=        | Delete Row                        | Alt+Shift+Up    | Yes                      |
+| =csv.moveRowUp=        | Move Row Up                       | Alt+Up          | Yes                      |
+| =csv.moveRowDown=      | Move Row Down                     | Alt+Down        | Yes                      |
+| =csv.insertColumn=     | Insert Column                     | Alt+Shift+Right | Yes                      |
+| =csv.deleteColumn=     | Delete Column                     | Alt+Shift+Left  | Yes                      |
+| =csv.moveColumnLeft=   | Move Column Left                  | Alt+Left        | Yes                      |
+| =csv.moveColumnRight=  | Move Column Right                 | Alt+Right       | Yes                      |
+| =csv.sortFile=         | Sort File by Column               |                 | Yes                      |
+| =csv.sortFileBy=       | Sort File by Columns              |                 | Yes                      |
+| =csv.fillDown=         | Fill Down                         |                 | Yes, the filled cells    |
+| =csv.fillSeries=       | Fill Series                       |                 | Yes, the filled cells    |
+| =csv.splitColumn=      | Split Column                      |                 | Yes                      |
+| =csv.joinColumns=      | Join with Next Column             |                 | Yes                      |
+| =csv.removeDuplicates= | Remove Duplicate Rows             |                 | Yes                      |
+| =csv.transpose=        | Transpose                         |                 | Yes                      |
+| =csv.sumColumn=        | Sum Column                        |                 | With =insert=: the cell  |
+| =csv.cellCoordinates=  | Cell Coordinates                  |                 | No                       |
+| =csv.goToCell=         | Go to Cell                        |                 | No                       |
+| =csv.filter=           | Filter Rows                       |                 | No                       |
+| =csv.clearFilter=      | Show All Rows                     |                 | No                       |
+| =csv.sortView=         | Sort View by Column               |                 | No                       |
+| =csv.unsortView=       | File Order                        |                 | No                       |
+| =csv.copyAsTsv=        | Copy as Tab-Separated Values      |                 | No                       |
+| =csv.openAsText=       | Open as Plain Text                |                 | No                       |
+| =csv.convertToOrg=     | Convert to Org Table              |                 | Writes a new file        |
+| =csv.setDelimiter=     | Set Delimiter                     |                 | No                       |
+| =csv.setQuote=         | Set Quote Character               |                 | No                       |
+| =csv.toggleHeader=     | First Row Is a Header             |                 | No                       |
+| =csv.detectDialect=    | Detect Delimiter and Header Again |                 | No                       |
 
 Arguments: =csv.sortFile= and =csv.sortView= take =reverse= (boolean);
 =csv.filter= takes =text= (string, required); =csv.setDelimiter= takes
@@ -495,6 +508,41 @@ b,10       →      c,100       (column 0, reverse)
 a,9               b,10
 c,100             a,9
 #+end_example
+
+** The spreadsheet habits
+
+These commands borrow what people miss beside a spreadsheet; each is
+an ordinary edit of cell text (=kalem_core::csv_tools=), so the file
+keeps its dialect and every byte the command does not name.
+
+- /Fill Down/ copies the first row of the selection into the same
+  column of the other rows it covers; without a selection, the cell
+  above into the cell at the cursor. /Fill Series/ continues instead:
+  numbers by the step of the two cells above (1 when there is one, or
+  with a selection), keeping the decimals the first value writes
+  (=1.50=, =1.75=; =1,5= in a file =;= delimits); text ending in a
+  number counts on (=Item 9=, =Item 10=; =007=, =008=). A value that
+  cannot continue is refused with a message.
+- /Remove Duplicate Rows/ deletes every data record equal, field by
+  field after unquoting, to an earlier one, with its line ending; the
+  header and blank lines stay, and the message counts the rows removed.
+- /Transpose/ makes rows columns, padding short rows with empty fields,
+  and writes the records with the dialect's delimiter and line ending.
+- /Split Column/ (=separator=, a space when empty) splits the cursor's
+  column into as many columns as the most parts a value has; values with
+  fewer parts get empty fields. /Join with Next Column/ (=separator=)
+  writes the two values with the separator between them, or the one
+  that is not empty.
+- /Sort File by Columns/ (=columns=) sorts by several columns in order,
+  named by letter or number with =-= for descending (=B, -A= or =2 -1=);
+  values compare as /Sort File by Column/ compares them.
+- /Sum Column/ shows the sum of the column's numbers (read as the
+  statistics read them; the header left out) and copies it, as =C-c +=
+  does in an Org table; with =insert=, it writes the sum of the other
+  rows into the cell at the cursor.
+- /Cell Coordinates/ names the cell as a spreadsheet and as an Org
+  table do, =B3 (@3$2)=, with the column's header; /Go to Cell/
+  (=cell=) takes either form, or =3,2=.
 
 * Views that do not change the file
 

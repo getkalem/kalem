@@ -757,6 +757,28 @@ cmd-csv-sortFile = Dosyayı Sütuna Göre Sırala
 cmd-csv-copyAsTsv = Sekmeyle Ayrılmış Değerler Olarak Kopyala
 cmd-csv-openAsText = Düz Metin Olarak Aç
 cmd-csv-convertToOrg = Org Tablosuna Dönüştür
+msg-csv-duplicates = { $count ->
+    [0] Yinelenen satır yok
+   *[other] { $count } yinelenen satır silindi
+}
+msg-csv-nothing-to-split = Bu sütunda “{ $separator }” içeren değer yok
+msg-csv-bad-columns = Sütun değil: { $value } (harf ya da sayı; azalan sıra için önüne -: B, -A)
+msg-csv-no-numbers = Bu sütunda sayı yok
+msg-csv-sum = Toplam: { $sum } (kopyalandı)
+msg-csv-cell = Hücre { $cell } ({ $org })
+msg-csv-cell-named = Hücre { $cell } ({ $org }), sütun “{ $column }”
+msg-csv-bad-cell = Hücre değil: { $value } (B3, @3$2 ya da 3,2)
+msg-csv-no-series = Bu değer bir seri olarak sürdürülemiyor
+cmd-csv-fillDown = Aşağı Doldur
+cmd-csv-fillSeries = Seri Doldur
+cmd-csv-removeDuplicates = Yinelenen Satırları Sil
+cmd-csv-transpose = Satır ve Sütunları Değiştir
+cmd-csv-splitColumn = Sütunu Böl
+cmd-csv-joinColumns = Sonraki Sütunla Birleştir
+cmd-csv-sortFileBy = Dosyayı Sütunlara Göre Sırala
+cmd-csv-sumColumn = Sütunu Topla
+cmd-csv-cellCoordinates = Hücrenin Konumu
+cmd-csv-goToCell = Hücreye Git
 cmd-file-print = Yazdır
 msg-printing = { $path } yazdırılıyor
 msg-print-viewer = { $path } açıldı; görüntüleyiciden yazdırın
