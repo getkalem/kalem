@@ -995,3 +995,5 @@ msg-workspace = Çalışma alanı { $name }
 msg-last-workspace = Tek çalışma alanı bu
 msg-no-saved-workspaces = Henüz kaydedilmiş çalışma alanı yok
 msg-workspace-deleted = Kayıtlı çalışma alanı { $name } silindi
+cmd-markdown-table-recalculate = Tabloyu Yeniden Hesapla
+msg-no-formulas = Tablonun formülü yok (ardından bir <!-- TBLFM: … --> satırı)

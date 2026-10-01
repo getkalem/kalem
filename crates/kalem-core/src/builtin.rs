@@ -2015,6 +2015,25 @@ fn markdown_commands() -> Vec<Command> {
                 })
             },
         ),
+        md_table(
+            "markdown.table.recalculate",
+            "Recalculate Table",
+            &["f9"],
+            |ctx, _| {
+                let now = ctx.now;
+                let d = ctx.doc()?;
+                let md = crate::markdown::parsed(d);
+                let at = d.selection.head;
+                match crate::markdown_table::recalculate_at(&md, d.text().as_str(), at) {
+                    Ok(Some(tx)) => {
+                        d.apply(&tx, org_edit::ChangeKind::Command, now);
+                        Ok(())
+                    }
+                    Ok(None) => Err(CommandError::new(crate::tr!("msg-no-formulas"))),
+                    Err(e) => Err(CommandError::new(e)),
+                }
+            },
+        ),
         md_table("markdown.table.align", "Align Table", &[], |ctx, _| {
             md_table_run(ctx, crate::markdown_table::align_at)
         }),
