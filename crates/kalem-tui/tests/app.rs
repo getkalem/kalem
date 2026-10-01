@@ -4054,3 +4054,19 @@ fn quitting_without_saving_and_restarting() {
     u.app.run_command("app.restart", serde_json::Value::Null);
     assert!(u.app.quit && u.app.restart);
 }
+
+#[test]
+fn markdown_front_matter_folded() {
+    let text = "---\ntitle: Notes\ntags: [a]\n---\n# Heading\n\ntext\n";
+    let mut t = with_file(text, "t.md", Config::default(), (50, 8));
+    t.at(text.len() - 2);
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        !rows.contains("title:") && rows.contains("Heading"),
+        "{rows}"
+    );
+    // The cursor in it: it opens.
+    t.at(6);
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("title: Notes"), "{rows}");
+}

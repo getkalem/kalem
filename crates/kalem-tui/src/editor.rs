@@ -468,7 +468,12 @@ impl<'a> Layout<'a> {
                 }
             }
             (ranges, HashSet::new())
-        } else if source || (parse.is_none() && doc.latex().is_none()) || blocks.is_empty() {
+        } else if source
+            || (parse.is_none()
+                && doc.latex().is_none()
+                && doc.meta.mode != kalem_core::DocumentMode::Markdown)
+            || blocks.is_empty()
+        {
             (std::iter::once(0..len + 1).collect(), HashSet::new())
         } else {
             let v = view::visible(doc.text().as_str(), blocks, folds, doc.selection.head);
@@ -1642,6 +1647,9 @@ impl EditorView {
         }
         let b = match doc.parse() {
             // LaTeX: its displayed formulas and code, the text between.
+            _ if doc.meta.mode == kalem_core::DocumentMode::Markdown => {
+                Arc::new(kalem_core::markdown::blocks(doc))
+            }
             _ if doc.latex().is_some() => Arc::new(kalem_core::latex_view::blocks(doc)),
             Some((p, true)) => Arc::new(view::blocks(&p.syntax(), p.context())),
             _ => Arc::new(Vec::new()),

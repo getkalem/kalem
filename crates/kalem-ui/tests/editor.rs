@@ -3637,3 +3637,21 @@ fn closing_the_window_asks(cx: &mut TestAppContext) {
     assert!(!cx.has_pending_prompt());
     assert_eq!(active_title(&ws, cx), "a.org");
 }
+
+/// Markdown front matter folds to its first line away from the cursor
+/// (T2.7c.3).
+#[gpui::test]
+fn markdown_front_matter_folded(cx: &mut TestAppContext) {
+    let text = "---\ntitle: Notes\ntags: [a]\n---\n# Heading\n\ntext\n";
+    let (e, cx) = open_named(text, "t.md", || None, cx);
+    at(&e, text.len() - 2, cx);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.visible.clone()),
+        vec![0, 4, 5, 6, 7]
+    );
+    at(&e, 6, cx);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.visible.clone()),
+        vec![0, 1, 2, 3, 4, 5, 6, 7]
+    );
+}
