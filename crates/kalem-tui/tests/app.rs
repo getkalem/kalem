@@ -2971,6 +2971,26 @@ fn latex_table_spans() {
 }
 
 #[test]
+fn latex_multirow_across_its_rows() {
+    let text = "\\begin{tabular}{ll}\n\\multirow{3}*{Group} & a \\\\\n & b \\\\\n & c \\\\\n\\end{tabular}\n\nafter\n";
+    let mut t = with_file(text, "t.tex", Config::default(), (50, 8));
+    t.at(text.len());
+    let rows: Vec<String> = (0..3)
+        .map(|y| {
+            t.row(y)
+                .trim_start_matches(|c: char| c.is_ascii_digit() || c == ' ')
+                .trim_end()
+                .to_string()
+        })
+        .collect();
+    assert_eq!(
+        rows,
+        ["│       │ a │", "│ Group │ b │", "│       │ c │"],
+        "{rows:#?}"
+    );
+}
+
+#[test]
 fn file_manager_editable_names() {
     let (mut t, dir) = project_app(Config::default());
     t.key(

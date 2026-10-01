@@ -1142,7 +1142,8 @@ use) when it is /simple/. The definition (=latex_table::simple=):
 5. A cell that is all =\multicolumn{n}{spec}{text}= spans =n= columns,
    aligned as the first letter of its =spec=; a cell that is all
    =\multirow{n}[…]{width}{text}= (=width= may be =*=) shows its text in
-   its cell. Any other cell containing =\multicolumn= or =\multirow=
+   the middle of the =n= rows it covers, as LaTeX sets it, when the cell
+   of the middle row is empty, else in its own cell. Any other cell containing =\multicolumn= or =\multirow=
    makes the table not simple.
 
 #+begin_src latex
