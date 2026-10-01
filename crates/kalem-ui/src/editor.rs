@@ -2413,7 +2413,12 @@ impl Editor {
         }
         if let Some((src, Widget::Checkbox(_))) = widget {
             self.doc.move_cursor(src.start, false);
-            self.run_command("list.toggleCheckbox", Value::Null, window, cx);
+            let id = if self.doc.meta.mode == DocumentMode::Markdown {
+                "markdown.toggleCheckbox"
+            } else {
+                "list.toggleCheckbox"
+            };
+            self.run_command(id, Value::Null, window, cx);
             return;
         }
         // A click on a formula edits its source: the cursor goes inside.

@@ -1,0 +1,303 @@
+//! GitHub's tables in Markdown edited as Org tables are (T2.7c.4): Tab
+//! aligns the table and goes to the next cell (a new row past the last),
+//! Shift+Tab to the one before, and Align Table pads the columns. The
+//! delimiter row keeps each column's alignment (`:---`, `:---:`, `---:`),
+//! and cells are padded as their column is aligned.
+
+use std::ops::Range;
+
+use org_edit::{Selection, Transaction};
+use unicode_width::UnicodeWidthStr;
+
+use crate::markdown::{Md, MdKind};
+
+/// How a column is aligned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Align {
+    None,
+    Left,
+    Center,
+    Right,
+}
+
+/// The table holding `pos`: its lines, from the start of the first to the
+/// end of the last (without its line feed).
+pub fn table_at(md: &Md, text: &str, pos: usize) -> Option<Range<usize>> {
+    let n = md
+        .nodes
+        .iter()
+        .find(|n| matches!(n.kind, MdKind::Table) && n.range.start <= pos && pos <= n.range.end)?;
+    let start = text[..n.range.start].rfind('\n').map_or(0, |i| i + 1);
+    let end = text[n.range.end..]
+        .find('\n')
+        .map_or(text.len(), |i| n.range.end + i);
+    Some(start..end)
+}
+
+/// The cells of a table line: split at the pipes that are not escaped, the
+/// leading and trailing pipe dropped, each cell trimmed.
+fn cells(line: &str) -> Vec<String> {
+    let t = line.trim();
+    let t = t.strip_prefix('|').unwrap_or(t);
+    let mut out = Vec::new();
+    let mut cell = String::new();
+    let mut escaped = false;
+    for c in t.chars() {
+        if c == '|' && !escaped {
+            out.push(cell.trim().to_string());
+            cell.clear();
+            continue;
+        }
+        escaped = c == '\\' && !escaped;
+        cell.push(c);
+    }
+    // After the trailing pipe nothing is left; without one, the last cell.
+    if !cell.trim().is_empty() || !t.ends_with('|') {
+        out.push(cell.trim().to_string());
+    }
+    out
+}
+
+fn delimiter_cell(c: &str) -> Option<Align> {
+    let c = c.trim();
+    let (l, r) = (c.starts_with(':'), c.ends_with(':'));
+    let dashes = c.trim_matches(':');
+    if dashes.is_empty() || !dashes.bytes().all(|b| b == b'-') {
+        return None;
+    }
+    Some(match (l, r) {
+        (true, true) => Align::Center,
+        (true, false) => Align::Left,
+        (false, true) => Align::Right,
+        _ => Align::None,
+    })
+}
+
+/// The table's text aligned: the columns padded to their widest cell, the
+/// delimiter row's dashes to the width, short rows given empty cells, the
+/// first line's indentation kept.
+pub fn align(table: &str) -> String {
+    let lines: Vec<&str> = table.split('\n').collect();
+    let indent: String = lines
+        .first()
+        .map(|l| l.chars().take_while(|c| *c == ' ' || *c == '\t').collect())
+        .unwrap_or_default();
+    let rows: Vec<Vec<String>> = lines.iter().map(|l| cells(l)).collect();
+    let aligns: Vec<Align> = rows
+        .get(1)
+        .map(|r| {
+            r.iter()
+                .map(|c| delimiter_cell(c).unwrap_or(Align::None))
+                .collect()
+        })
+        .unwrap_or_default();
+    let ncols = rows
+        .iter()
+        .map(Vec::len)
+        .max()
+        .unwrap_or(0)
+        .max(aligns.len());
+    let mut widths = vec![3usize; ncols];
+    for (i, r) in rows.iter().enumerate() {
+        if i == 1 {
+            continue;
+        }
+        for (j, c) in r.iter().enumerate() {
+            widths[j] = widths[j].max(c.width());
+        }
+    }
+    let mut out = Vec::new();
+    for (i, r) in rows.iter().enumerate() {
+        let mut parts = Vec::new();
+        for (j, &w) in widths.iter().enumerate() {
+            let a = aligns.get(j).copied().unwrap_or(Align::None);
+            if i == 1 {
+                let (l, r) = match a {
+                    Align::Left => (":", ""),
+                    Align::Right => ("", ":"),
+                    Align::Center => (":", ":"),
+                    Align::None => ("", ""),
+                };
+                parts.push(format!("{l}{}{r}", "-".repeat(w - l.len() - r.len())));
+                continue;
+            }
+            let c = r.get(j).map_or("", String::as_str);
+            let pad = w - c.width();
+            parts.push(match a {
+                Align::Right => format!("{}{c}", " ".repeat(pad)),
+                Align::Center => format!("{}{c}{}", " ".repeat(pad / 2), " ".repeat(pad - pad / 2)),
+                _ => format!("{c}{}", " ".repeat(pad)),
+            });
+        }
+        out.push(format!("{indent}| {} |", parts.join(" | ")));
+    }
+    out.join("\n")
+}
+
+/// The row and column of `pos` in the table `range` of `text`.
+fn cell_of(text: &str, range: &Range<usize>, pos: usize) -> (usize, usize) {
+    let before = &text[range.start..pos.clamp(range.start, range.end)];
+    let row = before.matches('\n').count();
+    let line = &before[before.rfind('\n').map_or(0, |i| i + 1)..];
+    // The unescaped pipes before it; a leading pipe opens the first cell.
+    let mut pipes = 0usize;
+    let mut escaped = false;
+    for c in line.chars() {
+        if c == '|' && !escaped {
+            pipes += 1;
+        }
+        escaped = c == '\\' && !escaped;
+    }
+    let lead = line.trim_start().starts_with('|');
+    (row, if lead { pipes.saturating_sub(1) } else { pipes })
+}
+
+/// Where the text of cell (`row`, `col`) starts in an aligned table.
+fn cell_start(aligned: &str, row: usize, col: usize) -> usize {
+    let mut at = 0;
+    for (i, line) in aligned.split('\n').enumerate() {
+        if i == row {
+            // After the `col + 1`-th pipe and its space.
+            let mut seen = 0;
+            for (k, c) in line.char_indices() {
+                if c == '|' {
+                    if seen == col {
+                        let rest = &line[k + 1..];
+                        let skip = rest.len() - rest.trim_start().len();
+                        return at + k + 1 + skip.min(1);
+                    }
+                    seen += 1;
+                }
+            }
+            return at + line.len();
+        }
+        at += line.len() + 1;
+    }
+    at
+}
+
+/// The table aligned and the cursor moved one cell on (`forward`) or back:
+/// rows wrap, the delimiter row is skipped, and past the last cell of the
+/// last row a new empty row is added.
+pub fn next_field(md: &Md, text: &str, pos: usize, forward: bool) -> Option<Transaction> {
+    let range = table_at(md, text, pos)?;
+    let (row, col) = cell_of(text, &range, pos);
+    let mut aligned = align(&text[range.clone()]);
+    let rows = aligned.split('\n').count();
+    let ncols = cells(aligned.split('\n').next().unwrap_or("")).len().max(1);
+    let col = col.min(ncols - 1);
+    let (mut r, mut c) = (row, col);
+    if forward {
+        c += 1;
+        if c >= ncols {
+            c = 0;
+            r += 1;
+        }
+        if r == 1 {
+            r = 2;
+        }
+        if r >= rows {
+            // A new row, as Tab does in an Org table.
+            let indent: String = aligned
+                .chars()
+                .take_while(|c| *c == ' ' || *c == '\t')
+                .collect();
+            let empty = vec!["   "; ncols].join(" | ");
+            aligned.push_str(&format!("\n{indent}| {empty} |"));
+            aligned = align(&aligned);
+        }
+    } else if c > 0 {
+        c -= 1;
+    } else if r > 0 {
+        r -= 1;
+        if r == 1 {
+            r = 0;
+        }
+        c = ncols - 1;
+    }
+    let caret = range.start + cell_start(&aligned, r, c);
+    let mut new = String::with_capacity(text.len() + 16);
+    new.push_str(&text[..range.start]);
+    new.push_str(&aligned);
+    new.push_str(&text[range.end..]);
+    let tx = crate::lines::replace_differing(text, &new, "Next Field")
+        .unwrap_or_else(|| Transaction::new("Next Field"));
+    Some(tx.select(Selection::caret(caret)))
+}
+
+/// The table at `pos` aligned, `None` when it already is.
+pub fn align_at(md: &Md, text: &str, pos: usize) -> Option<Transaction> {
+    let range = table_at(md, text, pos)?;
+    let aligned = align(&text[range.clone()]);
+    let mut new = String::with_capacity(text.len());
+    new.push_str(&text[..range.start]);
+    new.push_str(&aligned);
+    new.push_str(&text[range.end..]);
+    crate::lines::replace_differing(text, &new, "Align Table")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn apply(text: &str, tx: &Transaction) -> String {
+        let mut s = text.to_string();
+        for e in tx.edits.iter().rev() {
+            s.replace_range(e.range.clone(), &e.insert);
+        }
+        s
+    }
+
+    #[test]
+    fn aligning_keeps_the_alignments() {
+        let t = "| a | long header |\n|:-|--:|\n| wide cell | 1 |\n| x |";
+        assert_eq!(
+            align(t),
+            "| a         | long header |\n| :-------- | ----------: |\n| wide cell |           1 |\n| x         |             |"
+        );
+        // Escaped pipes stay inside their cell; rows without outer pipes.
+        assert_eq!(
+            align("a | b\n---|---\nc \\| d | e"),
+            "| a      | b   |\n| ------ | --- |\n| c \\| d | e   |"
+        );
+        assert_eq!(
+            align("| ç | ü |\n|:-:|-|\n| İİ | x |"),
+            "|  ç  | ü   |\n| :-: | --- |\n| İİ  | x   |"
+        );
+    }
+
+    #[test]
+    fn tab_moves_through_the_cells() {
+        let t = "Intro\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter\n";
+        let md = Md::parse(t);
+        let at = t.find("| a").unwrap() + 2;
+        let tx = next_field(&md, t, at, true).unwrap();
+        let s = apply(t, &tx);
+        assert_eq!(
+            s,
+            "Intro\n\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n\nAfter\n"
+        );
+        let caret = tx.selection_after.unwrap().head;
+        assert_eq!(&s[caret..caret + 1], "b");
+        // From the last cell of the header to the first of the next row.
+        let md = Md::parse(&s);
+        let tx = next_field(&md, &s, caret, true).unwrap();
+        let caret = tx.selection_after.unwrap().head;
+        assert_eq!(&s[caret..caret + 1], "1");
+        // Past the last cell: a new row.
+        let at = s.find("2  ").unwrap();
+        let tx = next_field(&md, &s, at, true).unwrap();
+        let s2 = apply(&s, &tx);
+        assert_eq!(
+            s2,
+            "Intro\n\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n|     |     |\n\nAfter\n"
+        );
+        // Back again.
+        let md = Md::parse(&s);
+        let tx = next_field(&md, &s, at, false).unwrap();
+        let caret = tx.selection_after.unwrap().head;
+        assert_eq!(&s[caret..caret + 1], "1");
+        assert!(next_field(&md, &s, 0, true).is_none());
+        assert!(align_at(&md, &s, at).is_none());
+    }
+}

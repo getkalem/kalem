@@ -721,7 +721,11 @@ impl<'a> Layout<'a> {
     /// Colors LaTeX's inline code of a known language (`\lstinline`).
     fn color_inline_code(&self, line: &Range<usize>, glyphs: &mut [Glyph]) {
         let text = self.text();
-        for (code, lang) in kalem_core::latex_view::inline_code(self.doc, line.clone()) {
+        // LaTeX's inline code, and a Markdown code block's lines.
+        let code = kalem_core::latex_view::inline_code(self.doc, line.clone())
+            .into_iter()
+            .chain(kalem_core::markdown::code_on_line(self.doc, line.clone()));
+        for (code, lang) in code {
             let Some(l) = kalem_highlight::Language::find(&lang) else {
                 continue;
             };
@@ -1221,6 +1225,9 @@ impl<'a> Layout<'a> {
                     // Syntax colors where the line shows its source (not a
                     // BibTeX grid row).
                     self.plain_colors(line, &range, &mut lg.glyphs);
+                    if self.doc.meta.mode == kalem_core::DocumentMode::Markdown && !self.source {
+                        self.color_inline_code(&range, &mut lg.glyphs);
+                    }
                 }
                 lg
             }
