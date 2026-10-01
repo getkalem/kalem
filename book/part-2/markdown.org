@@ -141,6 +141,25 @@ application bundle declares Markdown as a type it can open.
 
 ** Converting Markdown to Org
 
+/Convert to Org/ (=markdown.convertToOrg=, in the /File/ menu of a
+Markdown document) and =kalem export FILE.md --to org= convert without
+pandoc, from comrak's tree (=kalem_core::markdown_org=): headings become
+headlines by level, =*em*= =/em/=, =**strong**= =*strong*=, =`code`=
+=~code~= (===code=== when it holds a tilde), =~~gone~~= =+gone+=, links
+=[[url][text]]= (=[[url]]= when the text is the address), images
+=[[src]]=, lists with their bullets or numbers and task items with
+=[ ]= or =[X]=, block quotes =#+begin_quote=, fenced code
+=#+begin_src LANG= (=#+begin_example= without a language, lines
+starting with =*= or =#+= quoted with a comma as Org does), raw HTML
+blocks =#+begin_export html= and inline HTML =@@html:…@@=, tables with
+a rule under the header row, thematic breaks =-----=, footnotes
+=[fn:NAME]= with their definitions, =$x$= =\(x\)= and =$$x$$= =\[x\]=,
+hard line breaks =\\=, and the front matter's keys as =#+KEY:= lines
+(=title=, =author=, =date= become Org's). The command writes
+=NAME.org= beside the file, never over an existing one, and opens it;
+the command line writes it, or to =-o=. The Markdown file does not
+change.
+
 /Import as Org/ (the command =file.import=, and =kalem import FILE.md=
 on the command line) converts a Markdown file to Org through pandoc,
 when pandoc is installed. The file (=.md=, =.markdown=, =.mdown=,
@@ -152,7 +171,7 @@ Markdown dialect, which differs from CommonMark in places, is not used.
 The result is cleaned up, written as =NAME.org= beside the file (never
 over an existing one, unless =--force= is given on the command line),
 its pictures in =NAME_assets=, and opened. The Markdown file does not
-change. This is a one-way conversion; Kalem has no reader of its own.
+change. pandoc's conversion also brings the pictures beside the file.
 
 * Today: Markdown export from Org
 

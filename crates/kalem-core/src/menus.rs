@@ -113,6 +113,8 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("csv.copyAsTsv"),
                 item("csv.convertToOrg"),
                 item("csv.openAsText"),
+                // Markdown.
+                item("markdown.convertToOrg"),
                 MenuEntry::Separator,
                 item("app.save"),
                 named(tr("menu-save-as"), "app.saveAs"),

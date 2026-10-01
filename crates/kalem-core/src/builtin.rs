@@ -1849,6 +1849,44 @@ fn markdown_commands() -> Vec<Command> {
         md_table("markdown.table.align", "Align Table", &[], |ctx, _| {
             md_table_run(ctx, crate::markdown_table::align_at)
         }),
+        // Markdown to Org beside the file, without pandoc (T2.7c.7).
+        scoped(
+            cmd(
+                "markdown.convertToOrg",
+                "Convert to Org",
+                "Markdown",
+                &[],
+                None,
+                |ctx, _| {
+                    let d = ctx.doc()?;
+                    let org = crate::markdown_org::to_org(d.text().as_str());
+                    let path = d
+                        .meta
+                        .path
+                        .clone()
+                        .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-save-first")))?;
+                    let target = path.with_extension("org");
+                    if target.exists() {
+                        return Err(CommandError::new(crate::tr!(
+                            "msg-import-exists",
+                            path = target.display().to_string()
+                        )));
+                    }
+                    std::fs::write(&target, org).map_err(|e| CommandError::new(e.to_string()))?;
+                    ctx.messages.push(crate::tr!(
+                        "msg-csv-converted",
+                        path = target.display().to_string()
+                    ));
+                    request(
+                        ctx,
+                        Request::Open {
+                            path: Some(target.display().to_string()),
+                        },
+                    )
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
         // Enter in a list item or a quote continues it (T2.7c.5).
         scoped(
             cmd(

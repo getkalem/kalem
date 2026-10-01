@@ -505,3 +505,22 @@ fn export_says_markdown_is_read_as_org() {
     assert!(err.is_empty(), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn markdown_exports_to_org() {
+    // `kalem export FILE.md --to org` without pandoc (T2.7c.7).
+    let dir = std::env::temp_dir().join(format!("kalem-cli-md-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let md = dir.join("README.md");
+    std::fs::write(&md, "# Title\n\nSome *text* and `code`.\n\n- [ ] task\n").unwrap();
+    let (code, out, err) = kalem(&["export", md.to_str().unwrap(), "--to", "org", "-o", "-"]);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out, "* Title\n\nSome /text/ and ~code~.\n\n- [ ] task\n");
+    assert!(err.is_empty(), "{err}");
+    let (code, out, _) = kalem(&["export", md.to_str().unwrap(), "--to", "org"]);
+    assert_eq!(code, 0);
+    assert!(out.trim().ends_with("README.org"), "{out}");
+    assert!(dir.join("README.org").exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
