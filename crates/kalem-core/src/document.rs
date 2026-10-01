@@ -132,6 +132,9 @@ pub struct DocumentState {
     /// A CSV document's dialect, detected when it is first laid out and
     /// kept (edits do not change it), or set by hand.
     pub csv_dialect: std::cell::Cell<Option<crate::csv::Dialect>>,
+    /// How the grid shows a CSV document (view state): alignment,
+    /// rainbow columns, the coordinate grid.
+    pub csv_view: crate::csv::View,
     /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
     /// descending; the file keeps its order.
     pub bib_sort: Option<(usize, bool)>,
@@ -248,6 +251,7 @@ impl DocumentState {
             csv_filter: None,
             csv_sort: None,
             csv_dialect: std::cell::Cell::new(None),
+            csv_view: crate::csv::View::default(),
             bib_sort: None,
         }
     }

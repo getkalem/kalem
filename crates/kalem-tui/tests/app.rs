@@ -2390,7 +2390,7 @@ fn csv_grid() {
         (70, 8),
     );
     let s = screen(&mut t);
-    assert!(s.iter().any(|l| l.contains("Ada  │ 36")), "{s:#?}");
+    assert!(s.iter().any(|l| l.contains("Ada  │  36")), "{s:#?}");
     // Tab goes from field to field; the column's numbers in the status bar.
     t.at(9);
     t.key(KeyCode::Tab, KeyModifiers::NONE);

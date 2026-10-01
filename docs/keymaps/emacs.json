@@ -153,5 +153,6 @@
   // from the commands' own keys).
   { "keys": "C-c ^", "command": "csv.sortFileBy" },
   { "keys": "C-c +", "command": "csv.sumColumn" },
-  { "keys": "C-c ?", "command": "csv.cellCoordinates" }
+  { "keys": "C-c ?", "command": "csv.cellCoordinates" },
+  { "keys": "C-c }", "command": "csv.toggleCoordinates" }
 ]

@@ -802,6 +802,7 @@ mod tests {
         assert_eq!(run(&m, "C-c ^", &csv).unwrap().0, "csv.sortFileBy");
         assert_eq!(run(&m, "C-c +", &csv).unwrap().0, "csv.sumColumn");
         assert_eq!(run(&m, "C-c ?", &csv).unwrap().0, "csv.cellCoordinates");
+        assert_eq!(run(&m, "C-c }", &csv).unwrap().0, "csv.toggleCoordinates");
         // Org's own table keys are untouched.
         let ctx = org_ctx(&["inTable"]);
         assert_eq!(run(&m, "C-c ^", &ctx).unwrap().0, "table.sortRows");
