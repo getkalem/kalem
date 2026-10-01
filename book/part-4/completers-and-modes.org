@@ -15,38 +15,28 @@ plugins (D25). This chapter says where each contract stands today.
 * Completers
 
 A completer is a source of completions: Org's keywords and link
-targets, LaTeX's commands and citation keys, the words of the document.
-One contract serves all of them (design §11.12, task T2.7a.8, done).
-The core runs the completers that apply at the cursor, merges and ranks
-their items, and shows one menu, the same in both editors.
+targets, LaTeX's commands and citation keys, the words of the
+document. One contract serves all of them (design §11.12): the core
+runs the completers that apply at the cursor, merges and ranks their
+items, and shows one menu, the same in both editors. The contract is
+a Rust trait in =kalem_core::completers=, implemented only inside
+Kalem today; plugins will implement the same trait through the
+generated bindings (T3.1.9c).
 
-The contract is a Rust trait in =kalem_core::completers=. Today it is
-implemented only inside Kalem; plugins will implement the same trait
-through the generated bindings (T3.1.9c). What follows is the contract
-as the code has it.
-
-** Using completion
-
-- The menu opens by itself when a completer's trigger fires as you
-  type, and Ctrl+Space or Alt+/ (the command =edit.complete=) asks for
-  it anywhere.
-- Down and Up choose an item; Escape closes the menu.
-- Tab takes the chosen item. Enter takes it too, except for a word from
-  the document: then Enter closes the menu and starts a new line, so
-  that the menu does not get in the way of writing prose.
-- Taking an item is one undo step.
-- =kalem complete FILE:LINE:COL= prints the items at a place of a file,
-  best first, one a line: label, kind and completer, separated by tabs.
-  Line and column count from 1, the column in characters. It completes
-  as if asked with Ctrl+Space, and waits up to two seconds for slow
-  completers.
+The menu opens by itself when a completer's trigger fires as you
+type, and Ctrl+Space or Alt+/ (=edit.complete=) asks for it anywhere.
+Down and Up choose an item, Escape closes the menu, Tab takes the
+chosen item and so does Enter, except for a word from the document,
+where Enter closes the menu and starts a new line. Taking an item is
+one undo step. =kalem complete FILE:LINE:COL= prints the items at a
+place, best first, one a line, as label, kind and completer separated
+by tabs; it completes as if asked with Ctrl+Space and waits up to two
+seconds for slow completers.
 
 #+begin_src text
 $ kalem complete notes.org:4:5      # line 4 is "#+ti"
 #+title:	keyword	org
 #+end_src
-
-** The built-in completers
 
 | ID      | Applies in                      | Trigger                                     | Priority | Items                                                                   |
 |---------+---------------------------------+---------------------------------------------+----------+-------------------------------------------------------------------------|
@@ -55,18 +45,13 @@ $ kalem complete notes.org:4:5      # line 4 is "#+ti"
 | =words= | Every mode but the file manager | A word of three letters                     |        0 | Words of the document, nearest to the cursor first                      |
 
 The words completer takes words of at least three letters that start
-with the word being typed (ignoring case) and are longer than it, from
-the megabyte of text around the cursor, nearest first, at most fifty.
-In Org documents it stays quiet where Org's own completion applies,
-after =#+=, in a link, in a footnote label or a tag.
-
-The completers the design names for later, the /dictionary/ of the
-document's language (with spell checking, phase 3), a language server
-bridge and a model, are not implemented.
+with the word being typed, ignoring case, from the megabyte of text
+around the cursor, nearest first, at most fifty; in Org documents it
+stays quiet where Org's own completion applies. A dictionary with
+spell checking, a language server bridge and a model are not
+implemented.
 
 ** The contract
-
-A completer implements this trait:
 
 #+begin_src rust
 pub trait Completer: Send + Sync {
@@ -84,26 +69,15 @@ pub trait Completer: Send + Sync {
 }
 #+end_src
 
-- =id= names the completer in the menu's items and in =kalem complete=.
-- =scope= gives the text types the completer serves, as a command's
-  scope does (=Scope::only(&["org"])=, =Scope::except(&["directory"])=):
-  the type at the cursor, so a completer for =python= also runs in a
-  Python source block of an Org document. =applies= decides the rest,
-  from the context below (the mode, the path, the text before the
-  cursor): the completer's when-clause, written as Rust code.
-- =trigger= says what opens the menu (below).
-- =complete= returns the items. A fast completer gets the document
-  (=doc= is =Some=), with its parse and model, and runs on the editor's
-  thread; it must return quickly. A completer whose =slow= is =true=
-  runs on another thread with the context only (=doc= is =None=); long
-  work checks =cancel.cancelled()= and stops when it is set.
-- =resolve= gives documentation for an item, fetched only when the item
-  is chosen.
-- =hover= gives text about the thing under the cursor;
-  =Registry::hover= asks the completers in scope in turn. No editor
-  shows a hover card yet.
-
-** Triggers
+=scope= gives the text types the completer serves, as a command's
+scope does, by the type at the cursor, so a completer for =python=
+also runs in a Python source block; =applies= decides the rest from
+the context. A fast completer gets the document (=doc= is =Some=) and
+runs on the editor's thread, so it must return quickly; a completer
+whose =slow= is =true= runs on another thread with the context only,
+and long work checks =cancel.cancelled()=. =resolve= gives
+documentation for an item when it is chosen; =hover= gives text about
+the thing under the cursor (no editor shows a hover card yet).
 
 | Trigger           | Fires when                                                              |
 |-------------------+-------------------------------------------------------------------------|
@@ -111,76 +85,26 @@ pub trait Completer: Send + Sync {
 | =WordPrefix(n)=   | The word before the cursor has at least =n= characters; on request, one |
 | =Request=         | Only on request (Ctrl+Space, Alt+/)                                     |
 
-A word here is letters, digits and =_=. A completer whose trigger
-fires may still return nothing: the Org completer checks the place
-itself and gives items only where a completion belongs.
+The =Context= holds =text= (the document's text up to a megabyte,
+else the megabyte around the cursor, starting at =base=), =point=,
+=mode=, =text_type=, =path= and =requested=; its methods
+=slice(range)=, =line_before()=, =paragraph_before()= and
+=word_prefix()= give the text around the cursor. An =Item= has
+=label=, =insert=, =range= (what it replaces, ending at the cursor),
+=cursor= (where the cursor goes in =insert=), =kind= (=word=,
+=keyword=, =link=, =tag=, =footnote=, =symbol=, =snippet=), =detail=
+and =source=; =Item::new(label, insert, range, kind)= makes one.
 
-** The context
-
-=complete= and =applies= receive a =Context=:
-
-| Field       | What it holds                                                                                                                                             |
-|-------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =text=      | The document's text: all of it up to a megabyte, else the megabyte around the cursor                                                                      |
-| =base=      | Where =text= starts in the document, in bytes                                                                                                             |
-| =point=     | The cursor, in bytes from the start of the document                                                                                                       |
-| =mode=      | The document's mode (=DocumentMode=)                                                                                                                      |
-| =text_type= | The text type at the cursor, the =textType= of when-clauses: =python= in a =.py= file or a Python source block, =markdown=, =latex=, =csv=, =org=, =text= |
-| =path=      | The document's file, if it has one                                                                                                                        |
-| =requested= | Whether the user asked (Ctrl+Space, Alt+/) rather than typed a trigger                                                                                    |
-
-Its methods: =slice(range)= gives the text of a range of the document
-(within the copy), =line_before()= the text before the cursor on its
-line, =paragraph_before()= the text before the cursor since the last
-blank line, and =word_prefix()= the word being typed with the offset
-where it starts.
-
-** Items
-
-| Field    | What it is                                                              |
-|----------+-------------------------------------------------------------------------|
-| =label=  | What the menu shows                                                     |
-| =insert= | The text that replaces =range=                                          |
-| =range=  | The text the item replaces; it ends at the cursor                       |
-| =cursor= | Where the cursor goes, in bytes into =insert=                           |
-| =kind=   | =word=, =keyword=, =link=, =tag=, =footnote=, =symbol= or =snippet=     |
-| =detail= | A line more about the item: where a word comes from, an entry's authors |
-| =source= | The completer's ID, set by the registry                                 |
-
-=Item::new(label, insert, range, kind)= makes an item with the cursor
-after the inserted text and no detail.
-
-** Merging, ranking and timing
-
-The =Registry= holds the completers; =Registry::with_builtins()= has
-=org=, =latex= and =words=, and =register= adds another. At each
-keystroke that may complete:
-
-1. The registry keeps the completers that apply and whose trigger fires.
-2. Fast completers run at once; their items show immediately.
-3. Slow completers each run on their own thread with a copy of the
-   context. The editors poll for their results and add the items as
-   they arrive, as Search in Project does.
-4. The next keystroke starts a new completion; the old one is dropped
-   and its cancel flag set, so slow completers stop and their late
-   results are discarded.
-
-Items are merged into one list. Two items with the same insertion over
-the same range count once. The list is ordered by:
-
-1. items whose label starts with the word being typed, first;
-2. then items accepted recently (the last fifty insertions taken, the
-   most recent first);
-3. then the completer's priority, higher first.
-
-Items that tie keep their order: the completers' order in the registry,
-and each completer's own order.
-
-A slow completer has a time budget (=budget=, 100 ms unless it says
-otherwise, §11.6): when it runs out, the completion stops waiting for
-it, its thread is told to stop, and whatever it sends later is dropped;
-the menu keeps the others' items. =kalem complete= waits up to two
-seconds.
+At each keystroke that may complete, the =Registry= keeps the
+completers that apply and whose trigger fires, runs the fast ones at
+once and the slow ones on their own threads, adding their items as
+they arrive; the next keystroke drops the old completion and sets its
+cancel flag. Items with the same insertion over the same range count
+once, and the list is ordered by items whose label starts with the
+word being typed, then items accepted recently, then the completer's
+priority. A slow completer that misses its budget (=budget=, 100 ms)
+shows nothing for that keystroke and the menu keeps the others'
+items.
 
 ** Writing a completer today
 
@@ -217,14 +141,12 @@ impl Completer for Glossary {
 #+end_src
 
 As a plugin, the same completer will be registered with
-=kalem::completers::register= (T3.1.9c); the declarative level, a word
-list with no code, and the language server bridge are its reference
-plugins (T3.3.2).
+=kalem::completers::register= (T3.1.9c).
 
 * Document modes
 
-A document mode decides how a file is shown and edited. The modes today
-are a fixed set in the core (=DocumentMode= in =mode.rs=):
+The modes today are a fixed set in the core (=DocumentMode= in
+=mode.rs=):
 
 | Mode         | Name in settings and =editorMode= | Files                                                          |
 |--------------+-----------------------------------+----------------------------------------------------------------|
@@ -237,105 +159,63 @@ are a fixed set in the core (=DocumentMode= in =mode.rs=):
 | Binary       | =binary=                          | Not opened for editing                                         |
 | File manager | =directory=                       | Folders                                                        |
 
-BibTeX is not a mode of its own: a =.bib= file is plain text whose
-language is =bib=, which the editors show as a grid of entries (see
-[[file:../part-2/bibtex.org][BibTeX]]); its commands serve the text type
-=bib=.
+A mode is chosen in this order: the mode chosen with /Set Document
+Mode/ (=view.setMode=), which the workspace settings remember by path
+in =files.modes=; a mode line on the first line (~-*- mode: org -*-~
+or ~-*- org -*-~; a name that is not a mode opens plain text with
+that language); the extension; a =#!= line (=#!/usr/bin/env python3=
+opens plain text in =python=); plain text without a language. A file
+whose start has a NUL byte, or bytes that are not UTF-8 with many
+control characters, is binary.
 
-** How a mode is chosen
-
-In this order:
-
-1. The mode chosen with /Set Document Mode/ (=view.setMode=), which the
-   workspace settings remember by path in =files.modes=.
-2. A mode line on the first line: ~-*- mode: org -*-~ or ~-*- org -*-~.
-   A name that is not a mode (~-*- mode: python -*-~) opens plain text
-   with that language. =org-mode= and the like count as the mode.
-3. The extension, as in the table above; another extension opens plain
-   text with the extension as its language.
-4. A =#!= line: =#!/usr/bin/env python3= opens plain text in =python=.
-5. Plain text without a language.
-
-A file whose start has a NUL byte, or bytes that are not UTF-8 with
-many control characters among them, is binary.
-
-** The mode contract
-
-One contract serves every mode, the one built-in modes use and plugins
-will use (§11.11): the trait =ModeSpec= in =kalem_core::modes=, with
-
-| Part                               | What the mode gives                                                                         |
-|------------------------------------+---------------------------------------------------------------------------------------------|
-| =id=, =detect=                     | Its name; extensions and a sniff function over the first bytes                              |
-| =parse(text, edit?, previous?)=    | A flat tree of nodes, each with a kind from a fixed vocabulary, a byte range and its parent |
-| =grid(text)=                       | Rows and cells with ranges, for table-like formats                                          |
-| =edit=                             | Enter, Tab and toggles, each returning edits with ranges                                    |
-| =outline=, =format=, =diagnostics= | As the language pack hooks below                                                            |
-| =to_html=                          | Optional conversion to HTML                                                                 |
-
-A mode returns ranges into the text, never text, so it cannot break the
-byte-exact round trip. =modes::check= is the conformance check every
-mode runs: every range inside the text and inside its parent, two
-parses equal, an incremental parse equal to a full one. CSV and the
-Kalem format are written against it (T2.7c.10). Still to come: the
-editors drawing every mode from its tree rather than from each mode's
-own view code, Markdown and LaTeX on the contract, and the plugin side,
-=kalem::modes::register= (T3.1.9g; see [[file:plugins.org][Plugins]]).
+One contract serves every mode, the one built-in modes use and
+plugins will use (§11.11): the trait =ModeSpec= in =kalem_core::modes=,
+with =id= and =detect= (extensions and a sniff function over the
+first bytes), =parse(text, edit?, previous?)= (a flat tree of nodes,
+each with a kind from a fixed vocabulary, a byte range and its
+parent), =grid(text)= (rows and cells with ranges, for table-like
+formats), =edit= (Enter, Tab and toggles, each returning edits with
+ranges), the language pack hooks =outline=, =format= and
+=diagnostics=, and an optional =to_html=. A mode returns ranges into
+the text, never text, so it cannot break the byte-exact round trip;
+=modes::check= is the conformance check every mode runs: every range
+inside the text and inside its parent, two parses equal, an
+incremental parse equal to a full one. CSV and the Kalem format are
+written against it (T2.7c.10). Still to come: the editors drawing
+every mode from its tree, Markdown and LaTeX on the contract, and the
+plugin side, =kalem::modes::register= (T3.1.9g).
 
 * Highlighters
 
 Code is highlighted by =kalem-highlight=, one engine for plain text
 files and for Org source blocks (D16). It uses syntect, which reads
-Sublime Text syntax definitions, with pure Rust regular expressions.
-The syntax definitions are syntect's default set with those of =bat=
-added (the =two-face= crate), built into Kalem: about two hundred
-languages, among them C, C++, Rust, Go, Java, Kotlin, Swift, JavaScript,
-TypeScript, Python, Ruby, Perl, PHP, Haskell, OCaml, Lisp, Clojure,
-Scala, Erlang, Elixir, Zig, Nix, Lua, R, MATLAB, SQL, shell, fish, HTML,
-CSS, SCSS, XML, YAML, TOML, INI, JSON, Markdown, LaTeX, Dockerfiles,
-Makefiles, CMake, DOT and diffs; the chapter /Plain text and code/ lists
-them all.
+Sublime Text syntax definitions, with pure Rust regular expressions;
+the definitions are syntect's default set with those of =bat= added
+(the =two-face= crate), built into Kalem: about two hundred
+languages, listed in /Plain text and code/. A language name is looked
+up, ignoring case, first in a table of Org's source block names that
+differ from syntect's (=sh=, =shell=, =bash= and =zsh= are shell,
+=elisp= is Lisp, =js= JavaScript, =py= Python, =tex= LaTeX, =dot=
+Graphviz), then as a syntax's name token, then as a file extension; a
+name that finds nothing is not highlighted.
 
-** Finding the language
-
-A language name is looked up, ignoring case:
-
-1. in a table of Org's source block names that differ from syntect's:
-   =sh=, =shell=, =bash= and =zsh= are shell, =elisp= and =emacs-lisp=
-   are Lisp, =js= JavaScript, =ts= TypeScript, =h= C, =py= Python, =tex= LaTeX,
-   =sqlite= SQL, =dot= Graphviz, and so on;
-2. then as a syntax's name token;
-3. then as a file extension.
-
-A name that finds nothing, or finds only Plain Text, is not
-highlighted.
-
-** Kinds and colors
-
-The highlighter gives each span a /kind/ from the syntax's scope, not a
-color: comment, string, number, constant, keyword, operator, function,
-type, variable, tag, macro, invalid. The editors color the kinds with
-the theme; a theme has six colors for code (=keyword=, =string=,
-=comment=, =number=, =function=, =type=), which you can change in
-=themes/light.toml= and =themes/dark.toml= in the settings directory.
-
-In plain text files the highlighter keeps its state at each line, so
-after an edit only the changed lines, and those after them until the
-state is what it was before, are highlighted again.
-
-** Adding a language (planned)
-
-There is no way today to add a syntax definition without rebuilding
-Kalem. The plugin API will load a Sublime syntax definition from a
-plugin's folder into =kalem-highlight=, with comment tokens and
-indentation rules, with no code (=kalem::modes::register_highlighter=,
-T3.1.9g). A declarative mode adds a mapping from the syntax's scopes to
-the view's kinds on top of it; see [[file:plugins.org][Plugins]].
+The highlighter gives each span a /kind/ from the syntax's scope, not
+a color: comment, string, number, constant, keyword, operator,
+function, type, variable, tag, macro, invalid. The editors color the
+kinds with the theme, whose six code colors (=keyword=, =string=,
+=comment=, =number=, =function=, =type=) you can change in
+=themes/light.toml= and =themes/dark.toml=. In plain text files the
+highlighter keeps its state at each line, so after an edit only the
+changed lines, and those after them until the state is what it was,
+are highlighted again. There is no way today to add a syntax
+definition without rebuilding Kalem; the plugin API will load a
+Sublime syntax definition from a plugin's folder, with no code
+(T3.1.9g).
 
 * Language packs
 
-A format whose view is its source, JSON, YAML, TOML, XML, a diff, a
-ledger journal, a gettext catalogue, gets no document mode. It gets a
+A format whose view is its source (JSON, YAML, TOML, XML, a diff, a
+ledger journal, a gettext catalogue) gets no document mode but a
 /language pack/: four hooks on top of its highlighter, the same four a
 plugin gives (=kalem_core::packs=, T2.7a.7).
 
@@ -348,16 +228,11 @@ plugin gives (=kalem_core::packs=, T2.7a.7).
 
 A pack serves text types, the highlighter's language names (=json=,
 =diff=), and a document in plain text mode with one of them gets the
-pack's hooks; a hook a pack does not give is absent. The status bar
-shows the problem on the cursor's line, or how many problems there are
-("3 problems"). Format Document refuses a text the formatter refuses
-(a syntax error) and puts the cursor at the place; =kalem fmt= lists
-it as "not formatted" and fails, and =kalem check= prints each problem
-as =FILE:LINE:COL: error[CODE]: MESSAGE= (=--json= gives the pack's
-name and whether the file is formatted).
-
-The packs themselves are plugins in =getkalem/plugins= (D29): diff and
-patch, JSON, YAML, TOML and XML, ledger, hledger and beancount, gettext
-and Fluent. They register through the plugin host, which comes with the
-WebAssembly runtime (group 3.1); until then the contract is in the
-core with its wiring and tests, and no pack is built in.
+pack's hooks. The status bar shows the problem on the cursor's line
+or how many there are; Format Document refuses a text the formatter
+refuses and puts the cursor at the place; =kalem fmt= lists it as "not
+formatted" and fails, and =kalem check= prints each problem as
+=FILE:LINE:COL: error[CODE]: MESSAGE=. The packs themselves are to be
+plugins in =getkalem/plugins= (D29), registered through the plugin
+host that comes with the WebAssembly runtime; until then the contract
+is in the core with its wiring and tests, and no pack is built in.
