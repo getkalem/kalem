@@ -70,6 +70,20 @@ edits it as plain text. Concretely:
   256 KiB are drawn as source until the reparse is incremental
   (T2.7c.6).
 - The outline sidebar lists the headings.
+- Links open with /Open Link/ (=markdown.openLink=, Command-click on
+  macOS and Control-click elsewhere in the graphical editor, =SPC o l=
+  in the Vim profile): a web or mail address in the system's
+  application, a file relative to the document (a =#heading= after it
+  searched for), and a wiki link as Obsidian and Logseq write them,
+  =[[Page]]= or =[[Page|title]]=: =Page.md= in the document's folder,
+  else the first file of that name, ignoring case, anywhere in the
+  project, else a new =Page.md= beside the document. A wiki link shows
+  its title, its brackets and target hidden away from the cursor.
+  Typing =[[= offers the project's Markdown files by name and completes
+  the closing =]]=.
+- /Copy as HTML/ and /Copy as Rich Text/ copy the selection, or the
+  whole document, as comrak renders it (raw HTML left out), as they do
+  for Org.
 - A click on a task list item's checkbox, or /Toggle Checkbox/
   (Ctrl+Shift+C, =markdown.toggleCheckbox=) on its line, turns =[ ]=
   into =[x]= and back; one character changes.
@@ -352,9 +366,8 @@ above is done.
   renumbering a list after other edits (T2.7c.5).
 - *Conversion.* "Convert to Org" and "Convert from Org", through the
   exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).
-- *What note-taking users expect.* Wiki links =[[Page]]= resolved and
-  completed in the project, front matter edited as a form, copy as HTML
-  and as rich text (T2.7c.9).
+- *What note-taking users expect.* Front matter edited as a form
+  (T2.7c.9; wiki links and the copies are done).
 - *Conformance.* Every example of the CommonMark and GFM specifications
   as a test, the parsed tree rendered to HTML by a minimal transcoder
   and compared with the specification's expected output; =cmark-gfm= as

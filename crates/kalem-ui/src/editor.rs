@@ -2405,6 +2405,8 @@ impl Editor {
             self.doc.move_cursor(pos, false);
             let id = if self.doc.latex().is_some() {
                 "latex.link.open"
+            } else if self.doc.meta.mode == DocumentMode::Markdown {
+                "markdown.openLink"
             } else {
                 "org.link.open"
             };

@@ -76,6 +76,11 @@ pub enum MdKind {
         /// The destination.
         url: String,
     },
+    /// A wiki link `[[Page]]` or `[[Page|title]]`, with its target.
+    WikiLink {
+        /// The page named.
+        target: String,
+    },
     /// An image, with its source.
     Image {
         /// The source.
@@ -128,6 +133,8 @@ fn options() -> comrak::Options<'static> {
     o.extension.footnotes = true;
     o.extension.math_dollars = true;
     o.extension.front_matter_delimiter = Some("---".to_string());
+    // Obsidian's and Logseq's `[[Page]]` and `[[Page|title]]`.
+    o.extension.wikilinks_title_after_pipe = true;
     o
 }
 
@@ -242,6 +249,9 @@ impl Md {
                 V::Strikethrough => MdKind::Strikethrough,
                 V::Link(l) => MdKind::Link { url: l.url.clone() },
                 V::Image(l) => MdKind::Image { url: l.url.clone() },
+                V::WikiLink(w) => MdKind::WikiLink {
+                    target: w.url.clone(),
+                },
                 V::FootnoteReference(_) => MdKind::FootnoteRef,
                 V::Math(m) => MdKind::Math {
                     display: m.display_math,
@@ -488,7 +498,7 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
                     around(n, &mut pieces);
                 }
             }
-            MdKind::Link { .. } => {
+            MdKind::Link { .. } | MdKind::WikiLink { .. } => {
                 pieces.push(Piece::Style(clip(&n.content), |s| s.link = true));
                 if !revealed(&n.range) {
                     around(n, &mut pieces);
@@ -859,6 +869,117 @@ pub fn toggle_checkbox(md: &Md, text: &str, at: usize) -> Option<org_edit::Trans
     Some(tx)
 }
 
+/// Where a link at `at` leads: a web or mail address, a file relative to
+/// the document (a `#heading` after it as the search), or a wiki page
+/// found in the project ([`resolve_wiki`]).
+pub fn link_at(
+    md: &Md,
+    at: usize,
+    doc: Option<&std::path::Path>,
+) -> Option<crate::input::LinkAction> {
+    use crate::input::LinkAction;
+    let n = md.nodes.iter().rev().find(|n| {
+        matches!(
+            n.kind,
+            MdKind::Link { .. } | MdKind::WikiLink { .. } | MdKind::Image { .. }
+        ) && n.range.start <= at
+            && at <= n.range.end
+    })?;
+    let (url, wiki) = match &n.kind {
+        MdKind::Link { url } | MdKind::Image { url } => (url.clone(), false),
+        MdKind::WikiLink { target } => (target.clone(), true),
+        _ => return None,
+    };
+    if !wiki && (url.contains("://") || url.starts_with("mailto:")) {
+        return Some(LinkAction::Url(url));
+    }
+    let (path, search) = match url.split_once('#') {
+        Some((p, h)) => (p.to_string(), Some(h.to_string())),
+        None => (url, None),
+    };
+    if path.is_empty() {
+        return Some(LinkAction::Missing(search.unwrap_or_default()));
+    }
+    let path = if wiki {
+        let found = resolve_wiki(doc, &path);
+        match doc.and_then(std::path::Path::parent) {
+            Some(dir) => found
+                .strip_prefix(dir)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| found.to_string_lossy().into_owned()),
+            None => found.to_string_lossy().into_owned(),
+        }
+    } else {
+        path
+    };
+    Some(LinkAction::File { path, search })
+}
+
+/// The Markdown files of the project of the document at `doc` (its
+/// folder without a project), at most ten thousand, by path.
+pub fn project_pages(doc: Option<&std::path::Path>) -> Vec<std::path::PathBuf> {
+    let Some(dir) = doc.and_then(std::path::Path::parent) else {
+        return Vec::new();
+    };
+    let root = kalem_project::list::detect_root(dir).unwrap_or_else(|| dir.to_path_buf());
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let mut out = Vec::new();
+    kalem_project::files::walk(&root, &[], &cancel, |p| {
+        let md = p
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "md" | "markdown"));
+        if md && out.len() < 10_000 {
+            out.push(if p.is_relative() { root.join(p) } else { p });
+        }
+    });
+    out.sort();
+    out
+}
+
+/// The file a wiki link names: `Page.md` (or the name as given when it
+/// has an extension) in the document's folder, else the first of that
+/// name, ignoring case, anywhere in the project, else `Page.md` beside
+/// the document, to be created.
+pub fn resolve_wiki(doc: Option<&std::path::Path>, target: &str) -> std::path::PathBuf {
+    let name = if std::path::Path::new(target).extension().is_some() {
+        target.to_string()
+    } else {
+        format!("{target}.md")
+    };
+    let dir = doc
+        .and_then(std::path::Path::parent)
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default();
+    let here = dir.join(&name);
+    if here.exists() {
+        return here;
+    }
+    let want = name.to_lowercase();
+    project_pages(doc)
+        .into_iter()
+        .find(|p| {
+            p.file_name()
+                .and_then(|f| f.to_str())
+                .is_some_and(|f| f.to_lowercase() == want)
+                || p.to_string_lossy()
+                    .to_lowercase()
+                    .ends_with(&format!("/{want}"))
+        })
+        .unwrap_or(here)
+}
+
+/// Markdown as HTML, comrak's rendering with the extensions Kalem reads
+/// (raw HTML left out), for Copy as HTML and Copy as Rich Text.
+pub fn to_html(text: &str) -> String {
+    let arena = comrak::Arena::new();
+    let o = options();
+    let root = comrak::parse_document(&arena, text, &o);
+    let mut out = String::new();
+    let _ = comrak::format_html(root, &o, &mut out);
+    out.trim().to_string()
+}
+
 /// The headings of a Markdown document for the outline sidebar.
 pub fn outline_items(doc: &crate::DocumentState) -> Vec<crate::view::OutlineItem> {
     let md = parsed(doc);
@@ -924,7 +1045,7 @@ pub fn to_tree(md: &Md) -> Tree {
             MdKind::Emphasis => Kind::Emphasis,
             MdKind::Strong => Kind::Strong,
             MdKind::Code => Kind::InlineCode,
-            MdKind::Link { .. } => Kind::Link { target: None },
+            MdKind::Link { .. } | MdKind::WikiLink { .. } => Kind::Link { target: None },
             MdKind::Image { .. } => Kind::Image { target: None },
             MdKind::Math { display: true } => Kind::MathBlock,
             MdKind::Math { display: false } => Kind::Math,
@@ -1080,6 +1201,57 @@ mod tests {
         assert!(run("text\n", 4).is_none());
         assert!(run("```\n- x\n```\n", 7).is_none());
         assert!(run("- one\n", 0).is_none());
+    }
+
+    #[test]
+    fn links_lead_somewhere() {
+        use crate::input::LinkAction;
+        let dir = std::env::temp_dir().join(format!("kalem-md-wiki-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("notes/deep")).unwrap();
+        std::fs::write(dir.join(".kalem"), "").unwrap();
+        std::fs::write(dir.join("notes/deep/Other Page.md"), "x").unwrap();
+        let doc = dir.join("notes/index.md");
+        let t =
+            "See [[Other Page|the other]], [[New]], [web](https://x.org) and [file](a.md#Part).\n";
+        let md = Md::parse(t);
+        let at = |w: &str| t.find(w).unwrap() + 1;
+        assert_eq!(
+            link_at(&md, at("the other"), Some(&doc)),
+            Some(LinkAction::File {
+                path: "deep/Other Page.md".into(),
+                search: None
+            })
+        );
+        assert_eq!(
+            link_at(&md, at("New"), Some(&doc)),
+            Some(LinkAction::File {
+                path: "New.md".into(),
+                search: None
+            })
+        );
+        assert_eq!(
+            link_at(&md, at("web"), Some(&doc)),
+            Some(LinkAction::Url("https://x.org".into()))
+        );
+        assert_eq!(
+            link_at(&md, at("file"), Some(&doc)),
+            Some(LinkAction::File {
+                path: "a.md".into(),
+                search: Some("Part".into())
+            })
+        );
+        assert!(link_at(&md, 0, Some(&doc)).is_none());
+        // A wiki link shows its title, its target hidden away from it.
+        let v = view_line(&md, t, 0..t.len() - 1, None);
+        assert!(
+            v.display().starts_with("See the other, New, web"),
+            "{}",
+            v.display()
+        );
+        assert_eq!(project_pages(Some(&doc)).len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(to_html("*a* [[B]]").contains("<em>a</em>"));
     }
 
     #[test]

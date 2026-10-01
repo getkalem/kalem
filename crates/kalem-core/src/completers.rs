@@ -286,6 +286,7 @@ impl Registry {
         let mut completers: Vec<Arc<dyn Completer>> = vec![
             Arc::new(OrgCompleter),
             Arc::new(crate::latex_complete::LatexCompleter),
+            Arc::new(WikiCompleter),
             Arc::new(WordsCompleter),
         ];
         // The language packs' (T2.7a.7).
@@ -569,6 +570,68 @@ impl Completer for OrgCompleter {
             })
             .collect()
     }
+}
+
+/// Wiki links in Markdown (T2.7c.9): after `[[`, the Markdown files of
+/// the project by name, completed with the closing `]]`.
+struct WikiCompleter;
+
+impl Completer for WikiCompleter {
+    fn id(&self) -> &'static str {
+        "wiki"
+    }
+
+    fn priority(&self) -> i32 {
+        10
+    }
+
+    fn scope(&self) -> crate::command::Scope {
+        crate::command::Scope::only(&["markdown"])
+    }
+
+    fn applies(&self, ctx: &Context) -> bool {
+        ctx.mode == DocumentMode::Markdown && wiki_prefix(ctx.line_before()).is_some()
+    }
+
+    fn trigger(&self) -> Trigger {
+        Trigger::Strings(&["[["])
+    }
+
+    fn complete(&self, ctx: &Context, _doc: Option<&DocumentState>, _cancel: &Cancel) -> Vec<Item> {
+        let Some(typed) = wiki_prefix(ctx.line_before()) else {
+            return Vec::new();
+        };
+        let start = ctx.point - typed.len();
+        let lower = typed.to_lowercase();
+        let after_close = ctx.slice(ctx.point..ctx.point + 2) == "]]";
+        let mut out = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for p in crate::markdown::project_pages(ctx.path.as_deref()) {
+            let Some(stem) = p.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            if !stem.to_lowercase().contains(&lower) || !seen.insert(stem.to_string()) {
+                continue;
+            }
+            let insert = if after_close {
+                stem.to_string()
+            } else {
+                format!("{stem}]]")
+            };
+            let mut item = Item::new(stem, insert, start..ctx.point, Kind::Link);
+            item.detail = p.display().to_string();
+            item.source = "wiki";
+            out.push(item);
+        }
+        out
+    }
+}
+
+/// The page name typed after an open `[[` on the line, if any.
+fn wiki_prefix(line: &str) -> Option<&str> {
+    let i = line.rfind("[[")?;
+    let typed = &line[i + 2..];
+    (!typed.contains("]]") && !typed.contains('|')).then_some(typed)
 }
 
 /// The words of the document starting with the word being typed, the

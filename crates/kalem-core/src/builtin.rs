@@ -1887,6 +1887,25 @@ fn markdown_commands() -> Vec<Command> {
             ),
             Scope::only(&["markdown"]),
         ),
+        // The link at the cursor: a web address, a file, a wiki page.
+        scoped(
+            cmd(
+                "markdown.openLink",
+                "Open Link",
+                "Markdown",
+                &[],
+                None,
+                |ctx, _| {
+                    let d = ctx.doc()?;
+                    let md = crate::markdown::parsed(d);
+                    let action =
+                        crate::markdown::link_at(&md, d.selection.head, d.meta.path.as_deref())
+                            .ok_or_else(|| CommandError::new(crate::tr!("msg-no-link")))?;
+                    request(ctx, Request::OpenLink(action))
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
         // Enter in a list item or a quote continues it (T2.7c.5).
         scoped(
             cmd(
@@ -3292,13 +3311,16 @@ fn plain_commands() -> Vec<Command> {
             "Copy as Rich Text",
             "Edit",
             &[],
-            Some(ORG),
+            Some("editorMode == org || editorMode == markdown"),
             |ctx, _| {
                 let doc = ctx.doc()?;
                 let text = crate::rich_copy::selection_text(doc);
                 let path = doc.meta.path.clone();
-                let html =
-                    crate::rich_copy::html(&text, path.as_deref()).map_err(CommandError::new)?;
+                let html = if doc.meta.mode == crate::DocumentMode::Markdown {
+                    crate::markdown::to_html(&text)
+                } else {
+                    crate::rich_copy::html(&text, path.as_deref()).map_err(CommandError::new)?
+                };
                 ctx.requests.push(Request::CopyRich { html, text });
                 Ok(())
             },
@@ -3308,13 +3330,16 @@ fn plain_commands() -> Vec<Command> {
             "Copy as HTML",
             "Edit",
             &[],
-            Some(ORG),
+            Some("editorMode == org || editorMode == markdown"),
             |ctx, _| {
                 let doc = ctx.doc()?;
                 let text = crate::rich_copy::selection_text(doc);
                 let path = doc.meta.path.clone();
-                let html =
-                    crate::rich_copy::html(&text, path.as_deref()).map_err(CommandError::new)?;
+                let html = if doc.meta.mode == crate::DocumentMode::Markdown {
+                    crate::markdown::to_html(&text)
+                } else {
+                    crate::rich_copy::html(&text, path.as_deref()).map_err(CommandError::new)?
+                };
                 ctx.requests.push(Request::CopyText(html));
                 Ok(())
             },
@@ -6096,6 +6121,56 @@ mod tests {
             .unwrap();
         drop(ctx);
         assert!(d.text().as_str().ends_with("- [x] task\n"));
+    }
+
+    #[test]
+    fn markdown_links_and_wiki_completion() {
+        let dir = std::env::temp_dir().join(format!("kalem-md-links-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("Garden Notes.md"), "x").unwrap();
+        let path = dir.join("index.md");
+        std::fs::write(&path, "See [[Garden").unwrap();
+        let base = crate::settings::Config::default().parse_base();
+        let mut d =
+            DocumentState::open(&path, Arc::new(org_model::Settings::default()), &base).unwrap();
+        d.selection = org_edit::Selection::caret(d.text().len());
+        let items = crate::completers::Registry::with_builtins().complete(
+            &mut d,
+            false,
+            std::time::Duration::from_millis(200),
+        );
+        let wiki: Vec<_> = items.iter().filter(|i| i.source == "wiki").collect();
+        assert_eq!(wiki.len(), 1, "{items:?}");
+        assert_eq!(wiki[0].insert, "Garden Notes]]");
+        // Open Link on a wiki link asks the frontend to open the page.
+        let reg = CommandRegistry::with_builtins();
+        let config = crate::settings::Config::default();
+        let mut clip = Clipboard::default();
+        let mut tx = org_edit::Transaction::new("t");
+        tx.replace(d.text().len()..d.text().len(), " Notes]]")
+            .unwrap();
+        d.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+        d.selection = org_edit::Selection::caret(8);
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 1).at(9, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("markdown.openLink", &mut ctx, &json!({}))
+            .unwrap();
+        assert!(matches!(
+            ctx.requests.last(),
+            Some(Request::OpenLink(crate::input::LinkAction::File { path, .. })) if path == "Garden Notes.md"
+        ));
+        reg.execute("edit.copyHtml", &mut ctx, &json!({})).unwrap();
+        assert!(matches!(ctx.requests.last(), Some(Request::CopyText(h)) if h.contains("<p>See")));
+        drop(ctx);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
