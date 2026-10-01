@@ -689,11 +689,12 @@ impl DocumentState {
     pub fn paste(&mut self, text: &str, html: Option<&str>, plain: bool, now: Instant) {
         // The paths of pictures (a dropped file, as terminals paste it):
         // copied beside the document and linked.
-        let pictures = (!plain && self.meta.mode == DocumentMode::Org)
+        let style = crate::images::LinkStyle::of(&self.meta.mode);
+        let pictures = (!plain && style.is_some())
             .then(|| crate::images::pasted_paths(text))
             .flatten();
-        if let (Some(files), Some(doc)) = (pictures, self.meta.path.clone())
-            && let Ok(links) = crate::images::import_all(&doc, &files)
+        if let (Some(files), Some(doc), Some(style)) = (pictures, self.meta.path.clone(), style)
+            && let Ok(links) = crate::images::import_all_as(&doc, &files, style)
         {
             return self.paste(&links, None, true, now);
         }
@@ -746,15 +747,14 @@ impl DocumentState {
         extension: &str,
         now: Instant,
     ) -> Result<(), String> {
-        if self.meta.mode != DocumentMode::Org {
-            return Err(crate::l10n::tr("msg-not-org"));
-        }
+        let style = crate::images::LinkStyle::of(&self.meta.mode)
+            .ok_or_else(|| crate::l10n::tr("msg-not-org"))?;
         let doc = self
             .meta
             .path
             .clone()
             .ok_or_else(|| crate::l10n::tr("msg-picture-needs-file"))?;
-        let link = crate::images::save(&doc, data, extension)?;
+        let link = crate::images::save_as(&doc, data, extension, style)?;
         self.paste(&link, None, true, now);
         Ok(())
     }
@@ -767,7 +767,9 @@ impl DocumentState {
             .path
             .clone()
             .ok_or_else(|| crate::l10n::tr("msg-picture-needs-file"))?;
-        let links = crate::images::import_all(&doc, files)?;
+        let style = crate::images::LinkStyle::of(&self.meta.mode)
+            .ok_or_else(|| crate::l10n::tr("msg-not-org"))?;
+        let links = crate::images::import_all_as(&doc, files, style)?;
         self.paste(&links, None, true, now);
         Ok(())
     }

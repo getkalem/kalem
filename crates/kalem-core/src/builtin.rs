@@ -250,6 +250,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[("key", "string", true), ("value", "string", true)]),
         ),
         (
+            "markdown.insert.image",
+            object(&[("path", "string", false)]),
+        ),
+        (
             "markdown.frontMatter.delete",
             object(&[("key", "string", true)]),
         ),
@@ -2246,6 +2250,43 @@ fn markdown_commands() -> Vec<Command> {
                         crate::markdown::link_at(&md, d.selection.head, d.meta.path.as_deref())
                             .ok_or_else(|| CommandError::new(crate::tr!("msg-no-link")))?;
                     request(ctx, Request::OpenLink(action))
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        // A picture: chosen, copied into `images/` when it is elsewhere,
+        // and linked.
+        scoped(
+            cmd(
+                "markdown.insert.image",
+                "Insert Image",
+                "Markdown",
+                &[],
+                Some("editorMode == markdown"),
+                |ctx, args| {
+                    let Some(path) = args.get("path").and_then(Value::as_str) else {
+                        return request(
+                            ctx,
+                            Request::PickFile {
+                                command: "markdown.insert.image".into(),
+                                arg: "path".into(),
+                                args: serde_json::json!({}),
+                            },
+                        );
+                    };
+                    let now = ctx.now;
+                    let d = ctx.doc()?;
+                    let doc =
+                        d.meta.path.clone().ok_or_else(|| {
+                            CommandError::new(crate::tr!("msg-picture-needs-file"))
+                        })?;
+                    let file = std::path::PathBuf::from(crate::settings::expand_home(path));
+                    let file = if file.is_relative() {
+                        doc.parent().unwrap_or(std::path::Path::new("")).join(file)
+                    } else {
+                        file
+                    };
+                    d.drop_pictures(&[file], now).map_err(CommandError::new)
                 },
             ),
             Scope::only(&["markdown"]),

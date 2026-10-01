@@ -4211,3 +4211,25 @@ fn markdown_properties_as_a_form() {
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), "---\ntitle: New title\ntags: [a]\n---\n# Body\n");
 }
+
+#[test]
+fn markdown_pictures_copied_into_images() {
+    // A picture from elsewhere goes into `images/` beside the document.
+    let mut t = with_file("Text\n", "notes.md", Config::default(), (60, 8));
+    let dir = t.app.doc.meta.path.clone().unwrap().parent().unwrap().to_path_buf();
+    let elsewhere = std::env::temp_dir().join(format!("kalem-pic-{}.png", std::process::id()));
+    std::fs::write(&elsewhere, kalem_core::images::svg_png(kalem_core::images::LOGO_SVG, 16).unwrap()).unwrap();
+    t.at(5);
+    t.app.run_command(
+        "markdown.insert.image",
+        serde_json::json!({ "path": elsewhere.display().to_string() }),
+    );
+    let name = elsewhere.file_name().unwrap().to_string_lossy().into_owned();
+    let stem = elsewhere.file_stem().unwrap().to_string_lossy().into_owned();
+    assert_eq!(t.text(), format!("Text\n![{stem}](images/{name})"));
+    assert!(dir.join("images").join(&name).exists());
+    // Pasted paths too, as a terminal pastes a dropped file.
+    t.app.paste(&elsewhere.display().to_string(), false);
+    assert!(t.text().contains(&format!("images/{stem}-2.png")), "{}", t.text());
+    let _ = std::fs::remove_file(&elsewhere);
+}
