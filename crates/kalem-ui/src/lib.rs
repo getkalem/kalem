@@ -5,6 +5,7 @@
 pub mod clipboard;
 pub mod datepicker;
 pub mod editor;
+pub mod icon;
 pub mod keys;
 pub mod line;
 pub mod math;
@@ -92,6 +93,8 @@ pub fn run(path: Option<PathBuf>) {
             .extend(urls.iter().filter_map(|u| file_url_path(u)));
     });
     app.run(move |cx| {
+        // The logo in the Dock rather than "exec" (`cargo run`).
+        icon::set_app_icon();
         cx.bind_keys(workspace::menu_bindings(&shared));
         cx.set_menus(workspace::menus());
         // The session `SPC q l` restores.

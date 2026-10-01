@@ -147,6 +147,20 @@ pub fn import_all(document: &Path, files: &[PathBuf]) -> Result<String, String> 
 }
 
 /// The pixels of the picture `file`, at most `max` pixels on its longer
+/// Kalem's logo (`assets/kalem.svg`): the application's icon.
+pub const LOGO_SVG: &[u8] = include_bytes!("../../../assets/kalem.svg");
+
+/// An SVG drawn as a PNG `size` pixels square (the application's icon).
+pub fn svg_png(svg: &[u8], size: u32) -> Result<Vec<u8>, String> {
+    let tree = resvg::usvg::Tree::from_data(svg, &resvg::usvg::Options::default())
+        .map_err(|e| e.to_string())?;
+    let sz = tree.size();
+    let k = size as f32 / sz.width().max(sz.height());
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(size, size).ok_or("empty picture")?;
+    resvg::render(&tree, resvg::tiny_skia::Transform::from_scale(k, k), &mut pixmap.as_mut());
+    pixmap.encode_png().map_err(|e| e.to_string())
+}
+
 /// side (larger pictures are scaled down, keeping their shape); SVG is
 /// drawn at its own size.
 pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
@@ -281,5 +295,17 @@ mod tests {
         assert_eq!(img.dimensions(), (40, 20));
         assert_eq!(img.get_pixel(10, 10).0, [255, 0, 0, 255]);
         assert!(decode(&dir.join("missing.png"), 100).is_err());
+    }
+}
+
+#[cfg(test)]
+mod logo_tests {
+    #[test]
+    fn the_logo_draws() {
+        let png = super::svg_png(super::LOGO_SVG, 256).unwrap();
+        assert!(png.starts_with(b"\x89PNG"));
+        if let Some(out) = std::env::var_os("KALEM_LOGO_PNG") {
+            std::fs::write(out, &png).unwrap();
+        }
     }
 }
