@@ -66,9 +66,15 @@ edits it as plain text. Concretely:
   breaks are dimmed; code blocks, HTML blocks, tables and front matter
   are monospace, fences and front matter dimmed. The setting
   =editor.show_source_markers= (=cursor=, =always=, =never=) applies as
-  in Org, and /Toggle Source View/ shows the text as it is. Files over
-  256 KiB are drawn as source until the reparse is incremental
-  (T2.7c.6).
+  in Org, and /Toggle Source View/ shows the text as it is. After an
+  edit only the top-level blocks around it are parsed again, with a
+  block more on each side out to a blank line and the next block as a
+  guard: if the guard reads differently, or a fence is left open, or two
+  lists meet, or the document has link reference definitions or
+  footnotes (which reach across it), the whole text is parsed. A
+  random-edit test checks that the result is always that of a full
+  parse. Files over 2 MiB are drawn as source, since opening one parses
+  it on the editor's thread.
 - The outline sidebar lists the headings.
 - Links open with /Open Link/ (=markdown.openLink=, Command-click on
   macOS and Control-click elsewhere in the graphical editor, =SPC o l=
