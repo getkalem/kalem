@@ -291,6 +291,10 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("csv.sumColumn"),
                 item("csv.cellCoordinates"),
                 item("csv.goToCell"),
+                MenuEntry::Separator,
+                item("csv.toggleAlignment"),
+                item("csv.toggleRainbow"),
+                item("csv.toggleCoordinates"),
             ],
         },
         MenuSpec {

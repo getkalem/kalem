@@ -866,17 +866,67 @@ pub fn column_stats(text: &str, d: &Dialect, col: usize) -> Option<(usize, f64, 
     Some((nums.len(), sum, sum / nums.len() as f64, min, max))
 }
 
+/// How the grid shows a CSV document (view state, never written to the
+/// file; T2.7d.9).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct View {
+    /// Columns of numbers and dates aligned right, as spreadsheets do.
+    pub align_numbers: bool,
+    /// Each column its color.
+    pub rainbow: bool,
+    /// Row numbers in the gutter and column letters on the first row, as
+    /// `C-c }` shows them in an Org table.
+    pub coordinates: bool,
+}
+
+impl Default for View {
+    fn default() -> View {
+        View {
+            align_numbers: true,
+            rainbow: false,
+            coordinates: false,
+        }
+    }
+}
+
+/// The colors of rainbow columns, readable on light and dark themes.
+const RAINBOW: [u32; 6] = [
+    0x2e86deff, 0xc0392bff, 0x27ae60ff, 0x8e44adff, 0xd35400ff, 0x16a085ff,
+];
+
 /// How a CSV document is laid out as a grid, for a text version: its
 /// dialect, the width of each column (from the first thousand records,
-/// at most forty characters), and the record index.
+/// at most forty characters), which columns hold numbers, and the record
+/// index.
 #[derive(Debug)]
 pub struct Layout {
     /// The dialect.
     pub dialect: Dialect,
     /// Column widths, in characters.
     pub widths: Vec<usize>,
+    /// Columns whose values are numbers or dates (most of the non-empty
+    /// ones of the first thousand data records).
+    pub numeric: Vec<bool>,
+    /// How the grid shows the document.
+    pub view: View,
+    /// The width of the row numbers of the coordinate grid.
+    pub gutter: usize,
     /// Record starts, found as far as the view needed.
     pub index: std::cell::RefCell<Index>,
+}
+
+/// A value right-aligned in a column: a number as spreadsheets write it,
+/// or a date (`2026-09-29`, `29.09.2026`, `9/29/2026`).
+fn numeric_value(v: &str, comma_decimal: bool) -> bool {
+    let v = v.trim();
+    if number(v, comma_decimal).is_some() {
+        return true;
+    }
+    let parts: Vec<&str> = v.split(['-', '.', '/']).collect();
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|p| (1..=4).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// The widest a column is laid out.
@@ -890,9 +940,17 @@ impl Layout {
 
     /// The layout of `text` in `dialect`.
     pub fn with(text: &str, dialect: Dialect) -> Layout {
+        Layout::with_view(text, dialect, View::default())
+    }
+
+    /// The layout of `text` in `dialect`, shown as `view` says.
+    pub fn with_view(text: &str, dialect: Dialect, view: View) -> Layout {
         use unicode_width::UnicodeWidthStr;
         let mut index = Index::new(text);
         let mut widths: Vec<usize> = Vec::new();
+        // Per column: numeric and non-empty data values.
+        let mut counts: Vec<(usize, usize)> = Vec::new();
+        let comma = dialect.delimiter == b';';
         for i in 0..1000 {
             let Some(r) = index.record(text, i, &dialect) else {
                 break;
@@ -901,14 +959,37 @@ impl Layout {
                 let w = text[f.range.clone()].width().min(MAX_WIDTH);
                 if j >= widths.len() {
                     widths.push(w);
+                    counts.push((0, 0));
                 } else {
                     widths[j] = widths[j].max(w);
                 }
+                if i == 0 && dialect.header {
+                    continue;
+                }
+                let v = value(text, f, &dialect);
+                if !v.trim().is_empty() {
+                    counts[j].1 += 1;
+                    if numeric_value(&v, comma) {
+                        counts[j].0 += 1;
+                    }
+                }
             }
         }
+        let numeric = counts
+            .iter()
+            .map(|&(n, all)| all > 0 && n * 5 >= all * 4)
+            .collect();
+        let gutter = if view.coordinates {
+            (memchr_count(text) + 1).to_string().len()
+        } else {
+            0
+        };
         Layout {
             dialect,
             widths,
+            numeric,
+            view,
+            gutter,
             index: std::cell::RefCell::new(index),
         }
     }
@@ -923,11 +1004,16 @@ impl Layout {
     }
 }
 
+/// The number of line feeds in `text`: an upper bound of its records.
+fn memchr_count(text: &str) -> usize {
+    text.bytes().filter(|&b| b == b'\n').count()
+}
+
 /// What a memo is for: the text's version and a length or column.
 type Key = (u64, usize, Dialect);
 
 thread_local! {
-    static LAYOUT: std::cell::RefCell<Option<(Key, std::rc::Rc<Layout>)>> =
+    static LAYOUT: std::cell::RefCell<Option<((Key, View), std::rc::Rc<Layout>)>> =
         const { std::cell::RefCell::new(None) };
 }
 
@@ -943,23 +1029,29 @@ pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
             d
         }
     };
-    let key = (doc.version(), doc.text().len(), dialect);
+    let key = ((doc.version(), doc.text().len(), dialect), doc.csv_view);
     LAYOUT.with(|l| {
         if let Some((k, v)) = &*l.borrow()
             && *k == key
         {
             return v.clone();
         }
-        let v = std::rc::Rc::new(Layout::with(doc.text().as_str(), dialect));
+        let v = std::rc::Rc::new(Layout::with_view(
+            doc.text().as_str(),
+            dialect,
+            doc.csv_view,
+        ));
         *l.borrow_mut() = Some((key, v.clone()));
         v
     })
 }
 
 /// A line of a CSV document as a row of the grid: each field as written
-/// (so that it is edited in place), padded to its column's width, with
-/// `│` for the delimiters; the header row bold. A line inside a record
-/// that spans lines (a quoted line break) shows as it is.
+/// (so that it is edited in place), padded to its column's width (on the
+/// left in a column of numbers), with `│` for the delimiters; the header
+/// row bold; with the view's options, each column its color, and the row
+/// number and column letters of the coordinate grid. A line inside a
+/// record that spans lines (a quoted line break) shows as it is.
 pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view::LineView {
     use crate::view::{LineView, Run, Style};
     use unicode_width::UnicodeWidthStr;
@@ -970,8 +1062,15 @@ pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view
         return crate::view::plain_line_view(text, line, None);
     };
     let header = row == 0 && layout.dialect.header;
-    let style = Style {
+    let view = layout.view;
+    let style_of = |j: usize| Style {
         bold: header,
+        rich: crate::rich::CharFormat {
+            color: view
+                .rainbow
+                .then(|| crate::theme::Color(RAINBOW[j % RAINBOW.len()])),
+            ..Default::default()
+        },
         ..Style::default()
     };
     let deco = |at: usize, t: String, dim: bool| Run {
@@ -986,27 +1085,51 @@ pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view
         widget: None,
     };
     let mut runs = Vec::new();
+    if view.coordinates {
+        // The row number, in the gutter.
+        runs.push(deco(
+            line.start,
+            format!("{:>w$} ", row + 1, w = layout.gutter),
+            true,
+        ));
+    }
     for (j, f) in rec.fields.iter().enumerate() {
         let s = &text[f.range.clone()];
-        if !s.is_empty() {
-            runs.push(Run {
-                src: f.range.clone(),
-                text: s.to_string(),
-                verbatim: true,
-                style,
-                widget: None,
-            });
-        }
         let last = j + 1 == rec.fields.len();
+        if view.coordinates {
+            // The column's letters on the first row, the same width of
+            // blanks below them.
+            let letters = crate::csv_tools::column_letters(j);
+            let label = if row == 0 {
+                format!("{letters}:")
+            } else {
+                " ".repeat(letters.len() + 1)
+            };
+            runs.push(deco(f.range.start, label, true));
+        }
         let pad = layout
             .widths
             .get(j)
             .copied()
             .unwrap_or(0)
             .saturating_sub(s.width());
+        let right =
+            view.align_numbers && !header && layout.numeric.get(j).copied().unwrap_or(false);
+        if right && pad > 0 {
+            runs.push(deco(f.range.start, " ".repeat(pad), false));
+        }
+        if !s.is_empty() {
+            runs.push(Run {
+                src: f.range.clone(),
+                text: s.to_string(),
+                verbatim: true,
+                style: style_of(j),
+                widget: None,
+            });
+        }
         if !last {
             // The padding, then the delimiter drawn as a bar.
-            if pad > 0 {
+            if pad > 0 && !right {
                 runs.push(deco(f.range.end, " ".repeat(pad), false));
             }
             runs.push(Run {
@@ -1575,6 +1698,75 @@ mod tests {
         // A record over two lines shows as written.
         assert_eq!(line_view(&l, t, lines[3].clone()).display(), "\"two");
         assert_eq!(line_view(&l, t, lines[4].clone()).display(), "lines\",1");
+    }
+
+    #[test]
+    fn grid_views() {
+        let t = "name,n,when\nAda,36,2026-09-29\nBob,7,29.09.2026\n";
+        let lines: Vec<Range<usize>> = {
+            let mut out = Vec::new();
+            let mut s = 0;
+            for (i, _) in t.match_indices('\n') {
+                out.push(s..i);
+                s = i + 1;
+            }
+            out
+        };
+        let d = detect(t);
+        // Numbers and dates right, text left; the header as written.
+        let l = Layout::with_view(t, d, View::default());
+        assert_eq!(l.numeric, [false, true, true]);
+        assert_eq!(
+            line_view(&l, t, lines[2].clone()).display(),
+            "Bob  │  7 │ 29.09.2026"
+        );
+        assert_eq!(
+            line_view(&l, t, lines[0].clone()).display(),
+            "name │ n  │ when"
+        );
+        let plain = View {
+            align_numbers: false,
+            ..View::default()
+        };
+        let l = Layout::with_view(t, d, plain);
+        assert_eq!(
+            line_view(&l, t, lines[2].clone()).display(),
+            "Bob  │ 7  │ 29.09.2026"
+        );
+        // The coordinate grid: row numbers and column letters.
+        let grid = View {
+            coordinates: true,
+            ..View::default()
+        };
+        let l = Layout::with_view(t, d, grid);
+        assert_eq!(
+            line_view(&l, t, lines[0].clone()).display(),
+            "1 A:name │ B:n  │ C:when"
+        );
+        let v = line_view(&l, t, lines[1].clone());
+        assert_eq!(v.display(), "2   Ada  │   36 │   2026-09-29");
+        // Editing positions still map through the decorations.
+        let at = t.find("36").unwrap() + 1;
+        assert_eq!(v.source_offset(v.display_offset(at)), at);
+        // Rainbow columns: each column its color.
+        let l = Layout::with_view(
+            t,
+            d,
+            View {
+                rainbow: true,
+                ..View::default()
+            },
+        );
+        let v = line_view(&l, t, lines[1].clone());
+        let colors: Vec<_> = v
+            .runs
+            .iter()
+            .filter(|r| r.verbatim)
+            .map(|r| r.style.rich.color)
+            .collect();
+        assert_eq!(colors.len(), 3);
+        assert!(colors.iter().all(Option::is_some));
+        assert_ne!(colors[0], colors[1]);
     }
 
     #[test]

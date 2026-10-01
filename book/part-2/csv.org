@@ -296,12 +296,18 @@ The layout (=csv::Layout=) is computed once per version of the text:
 - the dialect, as detected above;
 - a width for each column: the largest display width, in terminal
   columns, of the field's source text (quotes included) in the first
-  1,000 records, at most 40.
+  1,000 records, at most 40;
+- which columns hold numbers: those where at least four in five of the
+  non-empty data values of the first 1,000 records are numbers (read as
+  the column statistics read them) or dates (=2026-09-29=,
+  =29.09.2026=, =9/29/2026=).
 
 A line of the file that starts a record, and holds all of it, is drawn
 as a row: each field's source text as written, then padding to its
 column's width, then the delimiter drawn as a dimmed =│= with a space on
-each side. The last field is not padded. A field wider than 40 is not
+each side; in a column of numbers the padding comes first, so numbers
+and dates line up on the right as in a spreadsheet (the header row
+stays left). The last field is not padded unless it is a number. A field wider than 40 is not
 cut; the fields after it on that row shift right. The header row is
 bold. The fields are shown verbatim, so the cursor moves through their
 real characters and every keystroke edits the file at that place.
@@ -564,6 +570,19 @@ asks for descending directly. /File Order/ ends it. With a filter on,
 the sorted view shows only the filtered records (=csv::shown_lines=).
 Filter and view sort are state of the open document, not of the file;
 they are not saved.
+
+Three toggles change how the grid draws the document, and are not saved
+either (=csv::View=):
+
+- /Align Numbers Right/ (on by default) turns the right alignment of
+  columns of numbers off and on.
+- /Rainbow Columns/ gives each column its color, six colors in turn,
+  readable on light and dark themes (as Emacs's =rainbow-csv=).
+- /Coordinate Grid/ (=C-c }= in the Emacs keymap, as in an Org table)
+  shows each row's number in a dimmed gutter and each column's letters
+  on the first row (=A:name=), with blanks of the same width below them
+  so the columns stay aligned; /Go to Cell/ and /Cell Coordinates/ use
+  the same names.
 
 * The clipboard
 

@@ -937,6 +937,16 @@ fn csv_edit(
     Ok(())
 }
 
+/// Changes how the CSV grid shows the document.
+fn csv_view(ctx: &mut EditorContext<'_>, f: impl FnOnce(&mut crate::csv::View)) -> CommandResult {
+    let d = ctx.doc()?;
+    if d.meta.mode != crate::DocumentMode::Csv {
+        return Err(CommandError::new(crate::tr!("msg-not-csv")));
+    }
+    f(&mut d.csv_view);
+    Ok(())
+}
+
 /// Fill Down and Fill Series in the column at the cursor: the rows the
 /// selection covers from its first one, or without a selection the cell
 /// from the one above (a series stepping as the two above do).
@@ -2079,6 +2089,19 @@ fn csv_commands() -> Vec<Command> {
                 request(ctx, Request::CopyText(tsv))
             },
         ),
+        // The grid's view (never written to the file).
+        c(
+            "csv.toggleAlignment",
+            "Align Numbers Right",
+            &[],
+            |ctx, _| csv_view(ctx, |v| v.align_numbers = !v.align_numbers),
+        ),
+        c("csv.toggleRainbow", "Rainbow Columns", &[], |ctx, _| {
+            csv_view(ctx, |v| v.rainbow = !v.rainbow)
+        }),
+        c("csv.toggleCoordinates", "Coordinate Grid", &[], |ctx, _| {
+            csv_view(ctx, |v| v.coordinates = !v.coordinates)
+        }),
         c("csv.fillDown", "Fill Down", &[], |ctx, _| {
             csv_fill(ctx, false)
         }),
@@ -5925,8 +5948,16 @@ mod tests {
         let (t, _) = run("csv.splitColumn", json!({"separator": "-"})).unwrap();
         assert_eq!(t, "name,n\nCy,1\nBob,1\nAda,1\n");
         run("csv.cellCoordinates", json!({})).unwrap();
+        // The view changes; the file does not.
+        let before = run("csv.toggleRainbow", json!({})).unwrap().0;
+        run("csv.toggleCoordinates", json!({})).unwrap();
+        run("csv.toggleAlignment", json!({})).unwrap();
+        let after = run("csv.toggleRainbow", json!({})).unwrap().0;
+        assert_eq!(before, after);
         let (t, _) = run("csv.transpose", json!({})).unwrap();
         assert_eq!(t, "name,Cy,Bob,Ada\nn,1,1,1\n");
+        let v = ctx.document.as_deref().unwrap().csv_view;
+        assert!(v.coordinates && !v.rainbow && !v.align_numbers);
         let msgs = ctx.messages.clone();
         assert!(msgs.iter().any(|m| m.contains("Sum: 4")), "{msgs:?}");
         assert!(
