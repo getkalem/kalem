@@ -1,9 +1,9 @@
-//! `klm-parser-spike parse|fmt|html|check FILE`, `examples OUTDIR
+//! `klm-syntax parse|fmt|html|check FILE`, `examples OUTDIR
 //! CHAPTER.org…` (the suite's files from Part III's examples).
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
-use klm_parser_spike as klm;
+use klm_syntax as klm;
 
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -76,7 +76,7 @@ fn main() -> std::process::ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: klm-parser-spike parse|fmt|html|check FILE… | examples OUTDIR CHAPTER.org…"
+                "usage: klm-syntax parse|fmt|html|check FILE… | examples OUTDIR CHAPTER.org…"
             );
             return std::process::ExitCode::from(2);
         }

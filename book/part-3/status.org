@@ -9,13 +9,16 @@ from (=rfcs/0003-kalem-format.md=), so "(14.4)" is rule 4 of chapter 14.
   on 2026-09-30, with the clarifications the parser spike led to (RFC
   0003, appendix B). The format's own version is independent of
   Kalem's; the changes are in the [[file:changelog.org][changelog of the format]].
-- *Implemented:* a throwaway parser (=spikes/klm-parser=, task T2.13.2)
-  that reads every example of this part and the three samples of
-  =tests/klm-spec/samples/=, recovers from ill-formed input as chapter
-  15 says, and writes the canonical form of chapter 14. Nothing else
-  yet: Kalem does not open, edit or export =.klm= files as this format;
-  a =.klm= file opens as Org until the parser =klm-syntax= takes the
-  extension (T2.13.3).
+- *Implemented:* the parser =klm-syntax= (task T2.13.3, grown from the
+  spike of T2.13.2): every node with its byte range, recovery from
+  ill-formed input exactly as chapter 15 says, a reparse from the
+  enclosing top-level block after an edit that gives the same tree as a
+  full parse, and the canonical form of chapter 14. It reads every
+  example of this part and the three samples of =tests/klm-spec/samples/=,
+  never panics on thousands of mangled inputs, and parses a megabyte in
+  about 50 ms. Kalem's core has the format on its mode contract (the
+  outline, Format Document, diagnostics, HTML); the editors do not yet
+  render or edit =.klm= files as this format (T2.13.5, T2.13.7).
 - *Open questions* are listed in section 21 of RFC 0003; the survey of
   other formats (section 2), the alternatives considered (section 20)
   and the record of the experiments (appendices A and B) stay there. The
