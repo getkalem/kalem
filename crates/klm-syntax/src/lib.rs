@@ -1,9 +1,9 @@
-//! A throwaway parser for the grammar of RFC 0003 (the Kalem format, draft
-//! 0.2), task T2.13.2: parse to a tree with byte ranges, recover from
-//! ill-formed input as §15 says, write the canonical form of §14, and
-//! render a plain semantic HTML. Its job is to find where the grammar is
-//! wrong or silent; the findings are in `README.md` and in appendix B of
-//! the RFC. `klm-syntax` (T2.13.3) replaces it.
+//! The parser of the Kalem format (RFC 0003, Part III of the Book; task
+//! T2.13.3): a lossless tree with the byte range of every node, recovery
+//! from ill-formed input exactly as §15 says, incremental reparsing from
+//! the enclosing top-level block, the canonical form of §14 and a plain
+//! semantic HTML. It grew out of the spike of T2.13.2, whose findings are
+//! appendix B of the RFC.
 
 use std::collections::HashSet;
 
@@ -47,10 +47,18 @@ pub enum Body {
 pub struct Command {
     /// Its name.
     pub name: String,
+    /// Where the name is, its backslash included.
+    pub name_range: Range,
     /// Its attributes, in the order written.
     pub attrs: Vec<Attr>,
+    /// Where each attribute is written, in the order of `attrs`.
+    pub attr_ranges: Vec<Range>,
+    /// The attribute list, its brackets included.
+    pub attrs_range: Option<Range>,
     /// Its content.
     pub body: Body,
+    /// The content between the braces.
+    pub body_range: Option<Range>,
     /// Where it is.
     pub range: Range,
 }
@@ -67,10 +75,10 @@ pub enum Node {
 /// Inline content.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Inline {
-    /// Text, escapes resolved.
-    Text(String),
-    /// `$…$`.
-    Math(String),
+    /// Text, escapes resolved, and where it is written.
+    Text(String, Range),
+    /// `$…$`: the formula, and where it is with its dollars.
+    Math(String, Range),
     /// An inline command.
     Command(Command),
 }
@@ -99,6 +107,22 @@ pub struct Document {
     pub blocks: Vec<Node>,
     /// What the parser recovered from.
     pub diagnostics: Vec<Diagnostic>,
+    /// The `#id`s of each top-level block, with where they are written,
+    /// for the duplicate check after an incremental parse.
+    ids: Vec<Vec<(String, Range)>>,
+}
+
+/// The `#id`s in a block, in order.
+fn block_ids(n: &Node) -> Vec<(String, Range)> {
+    let mut out = Vec::new();
+    visit_commands(std::slice::from_ref(n), &mut |c| {
+        for (a, r) in c.attrs.iter().zip(&c.attr_ranges) {
+            if let Attr::Id(id) = a {
+                out.push((id.clone(), *r));
+            }
+        }
+    });
+    out
 }
 
 /// How a command's content is read and written.
@@ -214,7 +238,34 @@ struct Parser<'a> {
     /// Where parsing stops (an unclosed block's recovered end).
     end: usize,
     diags: Vec<Diagnostic>,
-    ids: HashSet<String>,
+    /// A paragraph just ended at the `}` that closes its block.
+    pending_close: bool,
+    /// Where the last closing brace of a block was.
+    last_close: usize,
+}
+
+/// What one step of the block loop found.
+enum Step {
+    /// A block, or nothing (blank content).
+    Node(Option<Node>),
+    /// The `}` closing the enclosing block.
+    Closed,
+}
+
+/// Where an inline starts.
+fn inline_start(i: &Inline) -> usize {
+    match i {
+        Inline::Text(_, r) | Inline::Math(_, r) => r.0,
+        Inline::Command(c) => c.range.0,
+    }
+}
+
+/// Where an inline ends.
+fn inline_end(i: &Inline) -> usize {
+    match i {
+        Inline::Text(_, r) | Inline::Math(_, r) => r.1,
+        Inline::Command(c) => c.range.1,
+    }
 }
 
 /// Parses `src`.
@@ -225,7 +276,8 @@ pub fn parse(src: &str) -> Document {
         pos: 0,
         end: src.len(),
         diags: Vec::new(),
-        ids: HashSet::new(),
+        pending_close: false,
+        last_close: 0,
     };
     let version = if let Some(rest) = src.strip_prefix("\\klm[") {
         let close = rest.find(']').map(|i| i + 5);
@@ -238,10 +290,247 @@ pub fn parse(src: &str) -> Document {
         None
     };
     let (blocks, _) = p.blocks(false, 0);
-    Document {
+    let ids = blocks.iter().map(block_ids).collect();
+    let mut doc = Document {
         version,
         blocks,
         diagnostics: p.diags,
+        ids,
+    };
+    finish(&mut doc);
+    doc
+}
+
+/// The checks over the whole document, after its blocks are parsed each
+/// on its own: a duplicate `#id` (the first keeps it, §15); diagnostics
+/// in order.
+fn finish(doc: &mut Document) {
+    doc.diagnostics.retain(|d| d.code != "duplicate-id");
+    let mut seen: HashSet<&str> = HashSet::new();
+    let mut found = Vec::new();
+    for (id, r) in doc.ids.iter().flatten() {
+        if !seen.insert(id.as_str()) {
+            found.push(Diagnostic {
+                range: *r,
+                code: "duplicate-id",
+                message: format!("#{id} is used before; the first keeps it"),
+            });
+        }
+    }
+    doc.diagnostics.extend(found);
+    doc.diagnostics.sort_by_key(|d| d.range);
+}
+
+/// Calls `f` on every command, in document order.
+pub fn visit_commands<'a>(blocks: &'a [Node], f: &mut dyn FnMut(&'a Command)) {
+    fn inl<'a>(i: &'a [Inline], f: &mut dyn FnMut(&'a Command)) {
+        for x in i {
+            if let Inline::Command(c) = x {
+                cmd(c, f);
+            }
+        }
+    }
+    fn cmd<'a>(c: &'a Command, f: &mut dyn FnMut(&'a Command)) {
+        f(c);
+        match &c.body {
+            Body::Blocks(b) => visit_commands(b, f),
+            Body::Inline(i) => inl(i, f),
+            _ => {}
+        }
+    }
+    for b in blocks {
+        match b {
+            Node::Paragraph(i, _) => inl(i, f),
+            Node::Block(c) => cmd(c, f),
+        }
+    }
+}
+
+impl Node {
+    /// Where the block is.
+    pub fn range(&self) -> Range {
+        match self {
+            Node::Paragraph(_, r) => *r,
+            Node::Block(c) => c.range,
+        }
+    }
+}
+
+/// `doc`, the tree of `old`, after `old[edit]` was replaced so that the
+/// text is now `new`: reparsed from the top-level block before the one
+/// the edit touches up to the first unchanged top-level block, the rest
+/// moved. The same as `parse(new)`.
+pub fn reparse(doc: Document, old: &str, edit: (usize, usize), new: &str) -> Document {
+    let header = old.find('\n').unwrap_or(old.len());
+    if edit.0 <= header
+        || doc.version.is_none() && old.starts_with("\\klm[") != new.starts_with("\\klm[")
+    {
+        return parse(new);
+    }
+    let delta = new.len() as isize - old.len() as isize;
+    let line_start = |i: usize| old[..i].rfind('\n').map_or(0, |n| n + 1);
+    let n = doc.blocks.len();
+    // The blocks whose line starts at or before the edit, by bisection.
+    let mut touched = doc.blocks.partition_point(|b| b.range().0 <= edit.0);
+    if touched < n && line_start(doc.blocks[touched].range().0) <= edit.0 {
+        touched += 1;
+    }
+    let first = touched.saturating_sub(2);
+    if first == 0 && doc.version.is_some() {
+        return parse(new);
+    }
+    let from = if first == 0 {
+        0
+    } else {
+        line_start(doc.blocks[first].range().0)
+    };
+    let mut p = Parser {
+        src: new,
+        b: new.as_bytes(),
+        pos: from,
+        end: new.len(),
+        diags: Vec::new(),
+        pending_close: false,
+        last_close: 0,
+    };
+    let Document {
+        version,
+        blocks: mut old_blocks,
+        diagnostics: old_diags,
+        ids: mut old_ids,
+    } = doc;
+    let mut rest = old_blocks.split_off(first);
+    let mut rest_ids = old_ids.split_off(first);
+    let mut blocks = old_blocks;
+    // Where the new parse joins an old block that starts after the edit:
+    // its index among `rest`.
+    let edit_end_new = (edit.1 as isize + delta) as usize;
+    let joins = |pos: usize, rest: &[Node]| -> Option<usize> {
+        if pos <= edit_end_new {
+            return None;
+        }
+        let q = (pos as isize - delta) as usize;
+        let k = rest.partition_point(|b| b.range().0 < q);
+        // The block whose line starts at `q`: the one at or after it.
+        [k.checked_sub(1), Some(k)]
+            .into_iter()
+            .flatten()
+            .filter(|&k| k < rest.len())
+            .find(|&k| {
+                let r = rest[k].range().0;
+                r >= q && old[q..r].bytes().all(|b| b == b' ' || b == b'\t') && line_start(r) == q
+            })
+    };
+    let mut reused = None;
+    loop {
+        p.skip_blank_lines();
+        if let Some(k) = joins(p.pos, &rest) {
+            reused = Some(first + k);
+            break;
+        }
+        let (mut one, _) = p.blocks_one();
+        if one.is_empty() {
+            break;
+        }
+        blocks.append(&mut one);
+    }
+    let starts_at = |i: usize, rest: &[Node]| line_start(rest[i - first].range().0);
+    // The duplicate ids change only when a block with an id is parsed
+    // again or goes away.
+    let gone = reused.map_or(rest.len(), |i| i - first);
+    let mut ids = old_ids;
+    ids.extend(blocks[first..].iter().map(block_ids));
+    let ids_changed = ids[first..].iter().any(|v| !v.is_empty())
+        || rest_ids[..gone].iter().any(|v| !v.is_empty());
+    let mut diagnostics: Vec<Diagnostic> = Vec::new();
+    let mut later_diags = Vec::new();
+    let cut = reused.map(|i| starts_at(i, &rest));
+    for d in old_diags {
+        if d.code == "duplicate-id" && ids_changed {
+            continue;
+        }
+        if d.range.1 <= from && d.range.0 < from {
+            diagnostics.push(d);
+        } else if cut.is_some_and(|c| d.range.0 >= c) {
+            later_diags.push(d);
+        }
+    }
+    diagnostics.extend(p.diags);
+    if let Some(i) = reused {
+        for mut b in rest.drain(i - first..) {
+            if delta != 0 {
+                shift_node(&mut b, delta);
+            }
+            blocks.push(b);
+        }
+        for mut v in rest_ids.drain(i - first..) {
+            for (_, r) in &mut v {
+                shift_range(r, delta);
+            }
+            ids.push(v);
+        }
+        for mut d in later_diags {
+            d.range = (shift(d.range.0, delta), shift(d.range.1, delta));
+            diagnostics.push(d);
+        }
+    }
+    let mut out = Document {
+        version,
+        blocks,
+        diagnostics,
+        ids,
+    };
+    if ids_changed {
+        finish(&mut out);
+    } else {
+        out.diagnostics.sort_by_key(|d| d.range);
+    }
+    out
+}
+
+fn shift(i: usize, delta: isize) -> usize {
+    (i as isize + delta) as usize
+}
+
+fn shift_range(r: &mut Range, delta: isize) {
+    *r = (shift(r.0, delta), shift(r.1, delta));
+}
+
+fn shift_command(c: &mut Command, delta: isize) {
+    shift_range(&mut c.range, delta);
+    shift_range(&mut c.name_range, delta);
+    for r in &mut c.attr_ranges {
+        shift_range(r, delta);
+    }
+    if let Some(r) = &mut c.attrs_range {
+        shift_range(r, delta);
+    }
+    if let Some(r) = &mut c.body_range {
+        shift_range(r, delta);
+    }
+    match &mut c.body {
+        Body::Blocks(b) => b.iter_mut().for_each(|n| shift_node(n, delta)),
+        Body::Inline(i) => shift_inlines(i, delta),
+        _ => {}
+    }
+}
+
+fn shift_inlines(i: &mut [Inline], delta: isize) {
+    for x in i {
+        match x {
+            Inline::Text(_, r) | Inline::Math(_, r) => shift_range(r, delta),
+            Inline::Command(c) => shift_command(c, delta),
+        }
+    }
+}
+
+fn shift_node(n: &mut Node, delta: isize) {
+    match n {
+        Node::Paragraph(i, r) => {
+            shift_range(r, delta);
+            shift_inlines(i, delta);
+        }
+        Node::Block(c) => shift_command(c, delta),
     }
 }
 
@@ -359,79 +648,125 @@ impl Parser<'_> {
         }
     }
 
+    /// Past blank lines.
+    fn skip_blank_lines(&mut self) {
+        while !self.eof() && self.blank_line(self.pos) {
+            let e = self.line_end(self.pos);
+            self.pos = (e + 1).min(self.end);
+        }
+    }
+
+    /// One block at the top level (after blank lines): none at the end.
+    fn blocks_one(&mut self) -> (Vec<Node>, bool) {
+        self.skip_blank_lines();
+        if self.eof() {
+            return (Vec::new(), false);
+        }
+        match self.block_step(false, 0) {
+            Step::Node(n) => (n.into_iter().collect(), false),
+            Step::Closed => (Vec::new(), true),
+        }
+    }
+
     /// Blocks up to the end, or up to the `}` that closes the enclosing
     /// command when `closing`; whether that `}` came. `indent` is the
     /// enclosing command's indentation (for recovery).
     fn blocks(&mut self, closing: bool, indent: usize) -> (Vec<Node>, bool) {
         let mut out = Vec::new();
         loop {
-            // Blank lines.
-            while !self.eof() && self.blank_line(self.pos) {
-                let e = self.line_end(self.pos);
-                self.pos = (e + 1).min(self.end);
-            }
+            self.skip_blank_lines();
             if self.eof() {
                 return (out, false);
             }
-            let start = self.pos;
-            self.skip_blanks();
-            let first = self.pos;
-            if closing && self.at(first) == Some(b'}') {
-                self.pos += 1;
-                if !self.rest_of_line() {
-                    let e = self.line_end(self.pos);
-                    self.diag(
-                        (self.pos, e),
-                        "text-after-block",
-                        "text after a closing brace",
-                    );
-                }
+            match self.block_step(closing, indent) {
+                Step::Node(n) => out.extend(n),
+                Step::Closed => return (out, true),
+            }
+            if std::mem::take(&mut self.pending_close) {
                 return (out, true);
             }
-            if self.block_command_at(first) {
-                let col = first - self.line_start(first);
-                out.push(Node::Block(self.block_command(col)));
-                continue;
-            }
-            self.pos = start;
-            let (inl, closed) = self.inlines(Stop::Paragraph { closing });
-            let range = (first, self.pos);
-            if !inl.is_empty() {
-                out.push(Node::Paragraph(inl, range));
-            }
-            if closed {
-                self.rest_of_line();
-                return (out, true);
-            }
-            let _ = indent;
         }
+    }
+
+    /// The block at the position (not blank, not at the end).
+    fn block_step(&mut self, closing: bool, _indent: usize) -> Step {
+        let start = self.pos;
+        self.skip_blanks();
+        let first = self.pos;
+        if closing && self.at(first) == Some(b'}') {
+            self.last_close = first;
+            self.pos += 1;
+            if !self.rest_of_line() {
+                let e = self.line_end(self.pos);
+                self.diag(
+                    (self.pos, e),
+                    "text-after-block",
+                    "text after a closing brace",
+                );
+            }
+            return Step::Closed;
+        }
+        if self.block_command_at(first) {
+            let col = first - self.line_start(first);
+            return Step::Node(Some(Node::Block(self.block_command(col))));
+        }
+        self.pos = start;
+        let (inl, closed) = self.inlines(Stop::Paragraph { closing });
+        let begin = inl.first().map_or(first, inline_start).min(first);
+        let end = inl.last().map_or(first, inline_end).max(first);
+        let range = (begin, end);
+        let node = (!inl.is_empty()).then_some(Node::Paragraph(inl, range));
+        if closed {
+            self.last_close = self.pos - 1;
+            self.rest_of_line();
+            if let Some(n) = node {
+                // The paragraph, then the close: the caller sees the close
+                // next time round at the same place.
+                self.pending_close = true;
+                return Step::Node(Some(n));
+            }
+            return Step::Closed;
+        }
+        Step::Node(node)
     }
 
     fn block_command(&mut self, col: usize) -> Command {
         let start = self.pos;
         let (name, after) = self.name_at(start).expect("a command");
         self.pos = after;
-        let attrs = self.attributes(&name);
+        let (attrs, attr_ranges, attrs_range) = self.attributes(&name);
         let k = kind(&name);
+        let mut body_range = None;
         let body = if self.at(self.pos) == Some(b'{') {
             match k {
-                Kind::Verbatim => Body::Verbatim(self.verbatim(true)),
-                Kind::Records => Body::Lines(
-                    self.verbatim(true)
-                        .lines()
-                        .map(str::trim)
-                        .filter(|l| !l.is_empty())
-                        .map(str::to_string)
-                        .collect(),
-                ),
+                Kind::Verbatim | Kind::Records => {
+                    let open = self.pos;
+                    let (v, closed) = self.verbatim_closed(true);
+                    let close = if closed { self.pos - 1 } else { self.pos };
+                    body_range = Some((open + 1, close.max(open + 1)));
+                    if k == Kind::Verbatim {
+                        Body::Verbatim(v)
+                    } else {
+                        Body::Lines(
+                            v.lines()
+                                .map(str::trim)
+                                .filter(|l| !l.is_empty())
+                                .map(str::to_string)
+                                .collect(),
+                        )
+                    }
+                }
                 _ => {
                     self.pos += 1;
                     let content = self.pos;
                     let (blocks, closed) = self.blocks(true, col);
                     if closed {
+                        body_range = Some((content, self.last_close.max(content)));
                         Body::Blocks(blocks)
                     } else {
-                        Body::Blocks(self.recover_block(start, content, col))
+                        let b = self.recover_block(start, content, col);
+                        body_range = Some((content, self.pos.max(content)));
+                        Body::Blocks(b)
                     }
                 }
             }
@@ -453,11 +788,27 @@ impl Parser<'_> {
                 format!("\\{name} is not in the specification; read as a generic block"),
             );
         }
+        // A block ends with its closing brace or its content, not with the
+        // line feed after it.
+        let end = body_range
+            .map(|r| {
+                if self.b.get(r.1) == Some(&b'}') {
+                    r.1 + 1
+                } else {
+                    r.1
+                }
+            })
+            .or(attrs_range.map(|r| r.1))
+            .unwrap_or(after);
         Command {
             name,
+            name_range: (start, after),
             attrs,
+            attr_ranges,
+            attrs_range,
             body,
-            range: (start, self.pos),
+            body_range,
+            range: (start, end.max(after)),
         }
     }
 
@@ -493,10 +844,11 @@ impl Parser<'_> {
         blocks
     }
 
-    fn attributes(&mut self, name: &str) -> Vec<Attr> {
+    fn attributes(&mut self, name: &str) -> (Vec<Attr>, Vec<Range>, Option<Range>) {
         let mut out = Vec::new();
+        let mut ranges = Vec::new();
         if self.at(self.pos) != Some(b'[') {
-            return out;
+            return (out, ranges, None);
         }
         let open = self.pos;
         let end = self.attrs_end(open);
@@ -518,17 +870,10 @@ impl Parser<'_> {
             if i >= inner_end {
                 break;
             }
+            let at = i;
             let (tok, next) = self.token(i, inner_end);
             i = next;
             if let Some(id) = tok.strip_prefix('#').filter(|_| !tok.contains('=')) {
-                if !self.ids.insert(id.to_string()) {
-                    self.diag(
-                        (open, end),
-                        "duplicate-id",
-                        format!("#{id} is used before; the first keeps it"),
-                    );
-                    continue;
-                }
                 out.push(Attr::Id(id.to_string()));
             } else if let Some(s) = tok
                 .strip_prefix('.')
@@ -547,9 +892,10 @@ impl Parser<'_> {
             } else {
                 out.push(Attr::Flag(tok));
             }
+            ranges.push((at, i));
         }
         self.pos = end;
-        out
+        (out, ranges, Some((open, end)))
     }
 
     /// A token of an attribute list from `i`: a quoted string, a
@@ -598,8 +944,8 @@ impl Parser<'_> {
     /// Verbatim content from `{` at the position: as written, braces
     /// balanced, a backslash taking the next character with it. As a
     /// block, the content is the lines between the opening line and the
-    /// line of the closing brace.
-    fn verbatim(&mut self, block: bool) -> String {
+    /// line of the closing brace. With whether the closing brace came.
+    fn verbatim_closed(&mut self, block: bool) -> (String, bool) {
         let open = self.pos;
         let mut j = open + 1;
         let mut depth = 1;
@@ -633,7 +979,7 @@ impl Parser<'_> {
                 "verbatim content without its closing brace",
             );
             self.pos = until;
-            return self.src[open + 1..until].to_string();
+            return (self.src[open + 1..until].to_string(), false);
         };
         self.pos = close + 1;
         let inner = &self.src[open + 1..close];
@@ -642,23 +988,29 @@ impl Parser<'_> {
             let body = &inner[1..];
             let line = body.rfind('\n').map_or(0, |n| n + 1);
             if body[line..].trim().is_empty() {
-                return body[..line].to_string();
+                return (body[..line].to_string(), true);
             }
-            return body.to_string();
+            return (body.to_string(), true);
         }
-        inner.to_string()
+        (inner.to_string(), true)
     }
 
     /// Inline content until `stop`; whether a closing brace ended it.
     fn inlines(&mut self, stop: Stop) -> (Vec<Inline>, bool) {
         let mut out: Vec<Inline> = Vec::new();
         let mut text = String::new();
-        let flush = |text: &mut String, out: &mut Vec<Inline>| {
+        // Where the text being gathered starts.
+        let mut from = self.pos;
+        let flush = |text: &mut String, out: &mut Vec<Inline>, from: &mut usize, to: usize| {
             if !text.is_empty() {
-                out.push(Inline::Text(std::mem::take(text)));
+                out.push(Inline::Text(std::mem::take(text), (*from, to)));
             }
+            *from = to;
         };
         while let Some(c) = self.at(self.pos) {
+            if text.is_empty() {
+                from = self.pos;
+            }
             match c {
                 b'\\' => {
                     let n = self.at(self.pos + 1);
@@ -666,7 +1018,7 @@ impl Parser<'_> {
                         text.push(e as char);
                         self.pos += 2;
                     } else if n.is_some_and(is_name_start) {
-                        flush(&mut text, &mut out);
+                        flush(&mut text, &mut out, &mut from, self.pos);
                         let (name, _) = self.name_at(self.pos).expect("a name");
                         if !matches!(kind(&name), Kind::Inline | Kind::Verbatim | Kind::Unknown)
                             && name != "img"
@@ -691,7 +1043,7 @@ impl Parser<'_> {
                     }
                 }
                 b'$' => {
-                    flush(&mut text, &mut out);
+                    flush(&mut text, &mut out, &mut from, self.pos);
                     out.push(self.math());
                 }
                 b'{' => {
@@ -702,13 +1054,13 @@ impl Parser<'_> {
                 }
                 b'}' => match stop {
                     Stop::Brace => {
+                        flush(&mut text, &mut out, &mut from, self.pos);
                         self.pos += 1;
-                        flush(&mut text, &mut out);
                         return (out, true);
                     }
                     Stop::Paragraph { closing: true } => {
+                        flush(&mut text, &mut out, &mut from, self.pos);
                         self.pos += 1;
-                        flush(&mut text, &mut out);
                         trim_end(&mut out);
                         return (out, true);
                     }
@@ -744,11 +1096,11 @@ impl Parser<'_> {
                                 "unclosed-inline",
                                 "an inline command without its closing brace; it ends with its paragraph",
                             );
-                            flush(&mut text, &mut out);
+                            flush(&mut text, &mut out, &mut from, self.pos);
                             return (out, false);
                         }
+                        flush(&mut text, &mut out, &mut from, self.pos);
                         self.pos = next;
-                        flush(&mut text, &mut out);
                         trim_end(&mut out);
                         return (out, false);
                     }
@@ -770,7 +1122,7 @@ impl Parser<'_> {
                 "an inline command without its closing brace",
             );
         }
-        flush(&mut text, &mut out);
+        flush(&mut text, &mut out, &mut from, self.pos);
         trim_end(&mut out);
         (out, false)
     }
@@ -779,14 +1131,21 @@ impl Parser<'_> {
         let start = self.pos;
         let (name, after) = self.name_at(start).expect("a command");
         self.pos = after;
-        let attrs = self.attributes(&name);
+        let (attrs, attr_ranges, attrs_range) = self.attributes(&name);
+        let mut body_range = None;
         let body = if self.at(self.pos) == Some(b'{') {
-            if kind(&name) == Kind::Verbatim {
-                Body::Verbatim(self.verbatim(false))
+            let content = self.pos + 1;
+            let (b, closed) = if kind(&name) == Kind::Verbatim {
+                let (v, closed) = self.verbatim_closed(false);
+                (Body::Verbatim(v), closed)
             } else {
                 self.pos += 1;
-                Body::Inline(self.inlines(Stop::Brace).0)
-            }
+                let (inl, closed) = self.inlines(Stop::Brace);
+                (Body::Inline(inl), closed)
+            };
+            let close = if closed { self.pos - 1 } else { self.pos };
+            body_range = Some((content, close.max(content)));
+            b
         } else {
             Body::None
         };
@@ -799,8 +1158,12 @@ impl Parser<'_> {
         }
         Command {
             name,
+            name_range: (start, after),
             attrs,
+            attr_ranges,
+            attrs_range,
             body,
+            body_range,
             range: (start, self.pos),
         }
     }
@@ -813,7 +1176,7 @@ impl Parser<'_> {
                 b'\\' => j += 1,
                 b'$' => {
                     self.pos = j + 1;
-                    return Inline::Math(self.src[open + 1..j].to_string());
+                    return Inline::Math(self.src[open + 1..j].to_string(), (open, j + 1));
                 }
                 b'\n' if self.blank_line(j + 1) || j + 1 >= self.end => break,
                 _ => {}
@@ -827,7 +1190,7 @@ impl Parser<'_> {
             "`$` without its pair; the formula ends with its paragraph",
         );
         self.pos = until;
-        Inline::Math(self.src[open + 1..until].to_string())
+        Inline::Math(self.src[open + 1..until].to_string(), (open, until))
     }
 }
 
@@ -840,8 +1203,10 @@ enum Stop {
 }
 
 fn trim_end(out: &mut Vec<Inline>) {
-    if let Some(Inline::Text(t)) = out.last_mut() {
+    if let Some(Inline::Text(t, r)) = out.last_mut() {
         let n = t.trim_end().len();
+        // Blanks are written as they are, so the range shrinks as much.
+        r.1 -= t.len() - n;
         t.truncate(n);
         if t.is_empty() {
             out.pop();
@@ -872,6 +1237,7 @@ fn unquote(v: &str) -> String {
 
 /// The document as JSON, for `parse(fmt(x)) = parse(x)` and the suite.
 pub fn model(doc: &Document) -> Value {
+    SEEN_IDS.with(|s| s.borrow_mut().clear());
     json!({
         "version": doc.version,
         "blocks": doc.blocks.iter().map(block_model).collect::<Vec<_>>(),
@@ -885,12 +1251,25 @@ fn block_model(n: &Node) -> Value {
     }
 }
 
+thread_local! {
+    /// The ids the model has seen: a later duplicate is not in it (§15).
+    static SEEN_IDS: std::cell::RefCell<HashSet<String>> = std::cell::RefCell::new(HashSet::new());
+}
+
 fn command_model(c: &Command) -> Value {
     let mut m = serde_json::Map::new();
     m.insert("cmd".into(), json!(c.name));
-    if !c.attrs.is_empty() {
+    let attrs: Vec<&Attr> = c
+        .attrs
+        .iter()
+        .filter(|a| match a {
+            Attr::Id(id) => SEEN_IDS.with(|s| s.borrow_mut().insert(id.clone())),
+            _ => true,
+        })
+        .collect();
+    if !attrs.is_empty() {
         // The order of kinds is the serializer's; within a kind, as written.
-        let mut attrs: Vec<&Attr> = c.attrs.iter().collect();
+        let mut attrs = attrs;
         attrs.sort_by_key(|a| rank(a));
         m.insert(
             "attrs".into(),
@@ -935,7 +1314,7 @@ fn inlines_model(inl: &[Inline]) -> Vec<Value> {
     let mut out: Vec<Value> = Vec::new();
     for i in inl {
         match i {
-            Inline::Text(t) => {
+            Inline::Text(t, _) => {
                 let t = collapse(t);
                 if let Some(Value::String(prev)) = out.last_mut() {
                     prev.push_str(&t);
@@ -943,7 +1322,7 @@ fn inlines_model(inl: &[Inline]) -> Vec<Value> {
                     out.push(Value::String(t));
                 }
             }
-            Inline::Math(m) => out.push(json!({ "math": m })),
+            Inline::Math(m, _) => out.push(json!({ "math": m })),
             Inline::Command(c) => out.push(command_model(c)),
         }
     }
@@ -1089,7 +1468,7 @@ fn fmt_inlines(inl: &[Inline]) -> String {
     let mut out = String::new();
     for (i, x) in inl.iter().enumerate() {
         match x {
-            Inline::Text(t) => {
+            Inline::Text(t, _) => {
                 // Paragraph text is one line (§14.5).
                 let t = join_lines(t);
                 for ch in t.chars() {
@@ -1102,7 +1481,7 @@ fn fmt_inlines(inl: &[Inline]) -> String {
                     }
                 }
             }
-            Inline::Math(m) => {
+            Inline::Math(m, _) => {
                 out.push('$');
                 out.push_str(m);
                 out.push('$');
@@ -1133,7 +1512,7 @@ fn fmt_inlines(inl: &[Inline]) -> String {
                         // Without braces, unless what follows would be read
                         // as more of the name or as its attributes.
                         let next = match inl.get(i + 1) {
-                            Some(Inline::Text(t)) => join_lines(t).chars().next(),
+                            Some(Inline::Text(t, _)) => join_lines(t).chars().next(),
                             _ => None,
                         };
                         let needs = next.is_some_and(|ch| {
@@ -1343,8 +1722,8 @@ fn kind_of_line(c: &Command) -> bool {
 fn html_inlines(inl: &[Inline], out: &mut String) {
     for i in inl {
         match i {
-            Inline::Text(t) => out.push_str(&esc(&collapse(t))),
-            Inline::Math(m) => {
+            Inline::Text(t, _) => out.push_str(&esc(&collapse(t))),
+            Inline::Math(m, _) => {
                 out.push_str(&format!("<span class=\"math\">\\({}\\)</span>", esc(m)))
             }
             Inline::Command(c) => {

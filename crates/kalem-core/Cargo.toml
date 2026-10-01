@@ -11,6 +11,7 @@ authors.workspace = true
 [dependencies]
 unicode-normalization = "0.1"
 org-syntax.workspace = true
+klm-syntax.workspace = true
 org-model.workspace = true
 org-cite.workspace = true
 org-edit.workspace = true

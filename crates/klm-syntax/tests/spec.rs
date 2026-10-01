@@ -2,7 +2,7 @@
 //! samples parse, format idempotently and keep their model; each recovery
 //! rule of §15 and each known ambiguity has a case.
 
-use klm_parser_spike::{Body, Inline, Node, examples, fmt, model, org_examples, parse};
+use klm_syntax::{Body, Inline, Node, examples, fmt, model, org_examples, parse};
 use serde_json::json;
 
 fn root() -> std::path::PathBuf {
@@ -274,7 +274,7 @@ fn a_paragraph_on_several_lines_is_one_line() {
     let Node::Paragraph(inl, _) = &doc.blocks[0] else {
         panic!()
     };
-    assert!(matches!(&inl[0], Inline::Text(_)));
+    assert!(matches!(&inl[0], Inline::Text(..)));
 }
 
 #[test]

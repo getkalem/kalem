@@ -54,7 +54,7 @@ Kalem is not a Microsoft Office clone, a page layout tool, a full spreadsheet, a
 - **CSV as a grid**, with sorting and filters, dialect kept; **BibTeX as a grid** of entries.
 - **Around the files.** Projects, a folder tree, find in files, a file manager like Dired with the keys every file manager has, plain text with highlighting, themes, settings in TOML, keymaps in JSON, English and Turkish.
 - **Two editors.** Graphical and terminal, with the same commands, keys, settings and menus; menus in the macOS menu bar and in the window's own menu bar on Linux and Windows; F10 lists every menu item in both.
-- **The Kalem format**, on paper: the specification at draft 0.2 in Part III of the Book, a prototype parser (`spikes/klm-parser`) that parses, formats and round-trips every example, and the first files of the conformance suite (`tests/klm-spec`).
+- **The Kalem format**, on paper: the specification at draft 0.2 in Part III of the Book, the parser `klm-syntax` that parses, formats and round-trips every example, and the first files of the conformance suite (`tests/klm-spec`).
 
 ## Not yet
 
@@ -117,7 +117,7 @@ Planned: `kalem agenda`, and `kalem run` for a plugin's command in batch, like `
 | `crates/kalem-fs`, `crates/kalem-project`, `crates/kalem-highlight` | Files, projects and syntax highlighting |
 | `crates/kalem-cli` | Command-line subcommands |
 | `crates/kalem` | The `kalem` binary (published as `kalem-editor`) |
-| `spikes/klm-parser` | The prototype parser of the Kalem format; `klm-syntax`, `klm-model` and `klm-edit` will be crates when the format enters the editor |
+| `klm-syntax` | The parser and canonical formatter of the Kalem format, with byte ranges and incremental reparsing; `klm-model` and `klm-edit` follow |
 | `tests/corpus`, `tests/latex`, `tests/csv`, `tests/klm-spec` | Real-world files and conformance suites used for testing |
 | `tests/emacs` | Scripts that compare Kalem's Org parser, commands and exporters with Emacs |
 | `book/` | The Kalem Book, in Org: the manual, the formats, the Kalem format, extending Kalem, the design |

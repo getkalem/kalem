@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `klm-syntax`, the parser of the Kalem format (T2.13.3), grown from the spike: every node with its byte range, recovery as RFC 0003 §15 says, incremental reparsing from the enclosing top-level block (equal to a full parse), no panic on mangled input, a megabyte in about 50 ms.
+- The document mode contract in `kalem-core` (`kalem_core::modes`, T2.7c.10): the fixed kinds, the flat tree, `ModeSpec` and a conformance check; CSV and the Kalem format written against it.
 - Format Document (`SPC c f`, as `kalem fmt` does for Org and LaTeX) and Delete Trailing Blank Lines (`SPC c W`), with Doom's other `SPC c` keys that need no language pack (T2.7i.10).
 - Doom's `SPC h` keys (T2.7i.9): Describe Key, All Key Bindings, Describe This Document, Describe the Character, Choose the Theme and Reload Settings and Keys, in both editors, and Set a Setting for keymaps and lists.
 - Doom's `SPC p` keys (T2.7i.8): browse or find a file in another project, a shell command at the project's folder, the project's TODOs, the other file of the same name (`.org` and its `.html` or `.pdf`), the workspace settings and the project's scratch.
