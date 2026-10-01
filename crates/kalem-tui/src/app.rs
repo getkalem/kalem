@@ -1121,6 +1121,10 @@ impl App {
                 );
                 return;
             }
+            ProjectRequest::AddChosen => {
+                return self.project_request(ProjectRequest::Add(None));
+            }
+            ProjectRequest::Remove(root) => self.projects.remove(&root),
             ProjectRequest::Rename(name) => match &project {
                 Some(root) => self.projects.rename(root, &name),
                 None => Err(tr!("msg-no-project")),
@@ -1158,10 +1162,21 @@ impl App {
                 None => Err(tr!("msg-no-project")),
             },
         };
+        let changed = result.is_ok();
         match result {
             Ok(m) if m.is_empty() => {}
             Ok(m) => self.message(m, false),
             Err(m) => self.message(m, true),
+        }
+        // The projects view lists the projects as they are now.
+        if changed
+            && self
+                .doc
+                .dired
+                .as_deref()
+                .is_some_and(|d| d.place == Place::Projects)
+        {
+            self.run_command("dired.refresh", Value::Null);
         }
     }
 

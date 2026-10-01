@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The projects view's menu: Remove from Projects (the folder stays) and Add Project Folder….
 - CSV looks like a spreadsheet (`csv.sheet`, on by default): row numbers in a shaded gutter, the cell at the cursor and its row number marked in Excel's green.
 - Vim's `:q` closes the pane, quitting only from the last one; `:qa`, `:wqa`, `:sp`, `:vs`, `:close`, `:only` and `:new`.
 - Markdown pictures: dropped, pasted or inserted with Insert Image, copied into `images/` beside the document (`markdown.assets_dir`) and linked as `![name](images/name.png)`.

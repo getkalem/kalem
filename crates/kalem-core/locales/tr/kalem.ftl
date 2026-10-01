@@ -1018,3 +1018,5 @@ csv-column = Sütun { $n }
 msg-replaced-count = { $count } alan değişti
 cmd-markdown-insert-image = Resim Ekle
 cmd-pane-closeOrQuit = Bölmeyi Kapat ya da Çık
+cmd-project-addFolder = Proje Klasörü Ekle…
+fm-menu-remove-project = Projelerden Kaldır (klasör silinmez)

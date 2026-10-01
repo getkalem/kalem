@@ -1814,6 +1814,27 @@ impl Editor {
                     return;
                 }
             },
+            P::Remove(root) => self.shared.projects.borrow_mut().remove(&root),
+            P::AddChosen => {
+                let paths = cx.prompt_for_paths(gpui::PathPromptOptions {
+                    files: false,
+                    directories: true,
+                    multiple: false,
+                    prompt: None,
+                });
+                cx.spawn(async move |this, cx| {
+                    if let Ok(Ok(Some(paths))) = paths.await
+                        && let Some(p) = paths.into_iter().next()
+                    {
+                        let _ = this.update(cx, |e, cx| {
+                            let r = e.shared.projects.borrow_mut().add(&p);
+                            e.project_changed(r, cx);
+                        });
+                    }
+                })
+                .detach();
+                return;
+            }
             P::Rename(name) => match &project {
                 Some(root) => self.shared.projects.borrow_mut().rename(root, &name),
                 None => Err(tr!("msg-no-project")),
@@ -1851,10 +1872,29 @@ impl Editor {
                 None => Err(tr!("msg-no-project")),
             },
         };
+        self.project_changed(result, cx);
+    }
+
+    /// After a change of the project list: its message, and the projects
+    /// view listing the projects as they are now.
+    fn project_changed(&mut self, result: Result<String, String>, cx: &mut Context<'_, Self>) {
+        let changed = result.is_ok();
         match result {
             Ok(m) if m.is_empty() => {}
             Ok(m) => self.message(m, false),
             Err(m) => self.message(m, true),
+        }
+        if changed
+            && self
+                .doc
+                .dired
+                .as_deref()
+                .is_some_and(|d| d.place == kalem_core::dired::Place::Projects)
+        {
+            cx.emit(DocEvent::FileManager {
+                place: kalem_core::dired::Place::Projects,
+                select: None,
+            });
         }
         cx.notify();
     }

@@ -374,6 +374,10 @@ pub enum PickKind {
 pub enum ProjectRequest {
     /// Add a folder: `path`, or the active document's folder.
     Add(Option<String>),
+    /// Add a folder chosen in a dialog (the projects view's menu).
+    AddChosen,
+    /// Take this project off the list; its folder stays as it is.
+    Remove(std::path::PathBuf),
     /// Rename the current project.
     Rename(String),
     /// Walk the current project's files again.
