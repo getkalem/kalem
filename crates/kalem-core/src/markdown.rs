@@ -1719,3 +1719,218 @@ mod tests {
         }
     }
 }
+
+/// Conformance with the CommonMark and GFM specifications (T2.7c.11):
+/// GitHub's `spec.txt` of `cmark-gfm` (CC BY-SA 4.0, not in the
+/// repository), from `KALEM_GFM_SPEC` or the spike's download
+/// (`spikes/md-parser/README.md` says how). Without it the test says so
+/// and passes.
+#[cfg(test)]
+mod spec {
+    use super::*;
+
+    /// An example of the specification.
+    pub(super) struct Example {
+        section: String,
+        extension: Option<String>,
+        markdown: String,
+        html: String,
+    }
+
+    fn examples(spec: &str) -> Vec<Example> {
+        let fence = "````````````````````````````````";
+        let mut out = Vec::new();
+        let mut section = String::new();
+        let mut lines = spec.lines();
+        while let Some(l) = lines.next() {
+            if let Some(h) = l.strip_prefix("## ").or_else(|| l.strip_prefix("# ")) {
+                section = h.trim().to_string();
+            }
+            let Some(rest) = l.strip_prefix(fence) else {
+                continue;
+            };
+            let rest = rest.trim();
+            let Some(ext) = rest.strip_prefix("example") else {
+                continue;
+            };
+            let ext = ext.trim();
+            let mut md = String::new();
+            let mut html = String::new();
+            let mut in_html = false;
+            for l in lines.by_ref() {
+                if l.starts_with(fence) {
+                    break;
+                }
+                if l == "." && !in_html {
+                    in_html = true;
+                    continue;
+                }
+                let l = l.replace('→', "\t");
+                if in_html {
+                    html.push_str(&l);
+                    html.push('\n');
+                } else {
+                    md.push_str(&l);
+                    md.push('\n');
+                }
+            }
+            out.push(Example {
+                section: section.clone(),
+                extension: (!ext.is_empty()).then(|| ext.to_string()),
+                markdown: md,
+                html,
+            });
+        }
+        out
+    }
+
+    /// HTML compared as cmark's test runner does, roughly: whitespace between
+    /// tags and at the ends dropped, self-closing tags and attribute order
+    /// made alike.
+    fn normalize(html: &str) -> String {
+        // `"` and `&quot;` are the same character in text (cmark's runner
+        // compares them so).
+        let mut s = html.replace("\r\n", "\n").replace("&quot;", "\"");
+        // Void elements with or without the slash.
+        s = s.replace(" />", ">").replace("/>", ">");
+        // Table alignment as an attribute or a style; an empty body.
+        for a in ["left", "center", "right"] {
+            s = s.replace(
+                &format!("style=\"text-align: {a}\""),
+                &format!("align=\"{a}\""),
+            );
+        }
+        s = s
+            .replace("<tbody></tbody>", "")
+            .replace("<tbody>\n</tbody>", "");
+        // Attributes of input elements in a fixed order.
+        s = s.replace(
+            "<input disabled=\"\" type=\"checkbox\"",
+            "<input type=\"checkbox\" disabled=\"\"",
+        );
+        s = s.replace(
+            "<input checked=\"\" disabled=\"\" type=\"checkbox\"",
+            "<input type=\"checkbox\" checked=\"\" disabled=\"\"",
+        );
+        s = s.replace(
+            "<input type=\"checkbox\" disabled=\"\" checked=\"\"",
+            "<input type=\"checkbox\" checked=\"\" disabled=\"\"",
+        );
+        let mut out = String::new();
+        let mut pending = String::new();
+        for c in s.chars() {
+            if c.is_whitespace() {
+                pending.push(c);
+                continue;
+            }
+            if !pending.is_empty() {
+                let after_tag = out.ends_with('>');
+                if after_tag && c != '<' {
+                    // A line break or a space after a tag reads the same.
+                    out.push(' ');
+                } else if !after_tag {
+                    out.push_str(&pending);
+                }
+                pending.clear();
+            }
+            out.push(c);
+        }
+        out.trim().to_string()
+    }
+
+    /// Whether an example is about GitHub's extensions: labelled with one,
+    /// or in a section marked "(extension)" (the task lists are not
+    /// labelled).
+    fn uses_extensions(e: &Example) -> bool {
+        e.extension.as_deref().is_some_and(|x| x != "disabled") || e.section.contains("(extension)")
+    }
+
+    /// The HTML as GitHub renders it, raw HTML kept, with Kalem's
+    /// extensions.
+    fn html(md: &str) -> String {
+        let arena = comrak::Arena::new();
+        let mut o = options();
+        o.render.r#unsafe = true;
+        let root = comrak::parse_document(&arena, md, &o);
+        let mut out = String::new();
+        let _ = comrak::format_html(root, &o, &mut out);
+        out
+    }
+
+    #[test]
+    #[allow(clippy::print_stderr)]
+    fn spec_examples() {
+        let path = std::env::var("KALEM_GFM_SPEC").unwrap_or_else(|_| {
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../spikes/md-parser/data/gfm-spec.txt"
+            )
+            .into()
+        });
+        let Ok(spec) = std::fs::read_to_string(&path) else {
+            eprintln!("skipped: no {path} (see spikes/md-parser/README.md)");
+            return;
+        };
+        let ex = examples(&spec);
+        let (mut core, mut core_ok, mut ext, mut ext_ok) = (0, 0, 0, 0);
+        let mut differ = Vec::new();
+        for e in &ex {
+            let ok = normalize(&html(&e.markdown)) == normalize(&e.html);
+            if uses_extensions(e) {
+                ext += 1;
+                ext_ok += usize::from(ok);
+            } else {
+                core += 1;
+                core_ok += usize::from(ok);
+            }
+            if !ok {
+                differ.push(e.section.clone());
+                if std::env::var("KALEM_SHOW").is_ok() && !e.section.starts_with("Emphasis") {
+                    eprintln!("--- {}\n{:?}\n{:?}\n{:?}", e.section, e.markdown, e.html, html(&e.markdown));
+                }
+            }
+            // Every node inside the text and its parent; every line drawn.
+            let md = Md::parse(&e.markdown);
+            for n in &md.nodes {
+                assert!(n.range.end <= e.markdown.len(), "{:?}", e.markdown);
+                if let Some(p) = n.parent {
+                    let pr = &md.nodes[p as usize].range;
+                    assert!(
+                        pr.start <= n.range.start && n.range.end <= pr.end,
+                        "{:?} {n:?}",
+                        e.markdown
+                    );
+                }
+            }
+            let mut s = 0;
+            for l in e.markdown.split_inclusive('\n') {
+                let line = s..s + l.trim_end_matches(['\n', '\r']).len();
+                let _ = view_line(&md, &e.markdown, line.clone(), Some(line.start));
+                let _ = view_line(&md, &e.markdown, line, None);
+                s += l.len();
+            }
+            // An edit in the middle reparsed as a whole parse reads it.
+            let mid = (e.markdown.len() / 2..e.markdown.len())
+                .find(|&i| e.markdown.is_char_boundary(i))
+                .unwrap_or(0);
+            let mut after = e.markdown.clone();
+            after.insert(mid, 'x');
+            assert_eq!(
+                md.reparse(&e.markdown, &after).nodes,
+                Md::parse(&after).nodes,
+                "{:?}",
+                e.markdown
+            );
+        }
+        eprintln!("{core_ok}/{core} CommonMark, {ext_ok}/{ext} extensions; differing: {differ:?}");
+        // The counts only go up (`docs`: the known differences).
+        assert!(
+            core_ok >= KNOWN_CORE && ext_ok >= KNOWN_EXT,
+            "{core_ok}/{core}, {ext_ok}/{ext}"
+        );
+    }
+
+    /// The examples that agree today.
+    const KNOWN_CORE: usize = 632;
+    const KNOWN_EXT: usize = 23;
+}

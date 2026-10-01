@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Markdown conformance test against the CommonMark and GFM specification examples, with the known differences documented (T2.7c.11).
 - Markdown is reparsed incrementally after an edit, from the blocks around it, always matching a full parse; files up to 2 MiB are drawn as they read (T2.7c.6).
 - Markdown: wiki links `[[Page]]` and `[[Page|title]]` drawn, opened in the project and completed after `[[`; Open Link for links, files and addresses; Copy as HTML and Copy as Rich Text (T2.7c.9).
 - Markdown to Org without pandoc: Convert to Org in a Markdown document and `kalem export FILE.md --to org` (T2.7c.7); Enter in a numbered list numbers the items after it, and an opening fence gets its closing one (T2.7c.5).
