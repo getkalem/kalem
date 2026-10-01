@@ -34,7 +34,10 @@ fn untouched_bytes_stay() {
             let v = kalem_core::markdown::line_view(&d, r.clone(), cursor);
             // Every shown character maps back into the line.
             for run in &v.runs {
-                assert!(r.start <= run.src.start && run.src.end <= r.end, "{run:?} in {r:?}");
+                assert!(
+                    r.start <= run.src.start && run.src.end <= r.end,
+                    "{run:?} in {r:?}"
+                );
                 if run.verbatim {
                     assert_eq!(run.text, text[run.src.clone()]);
                 }
@@ -42,7 +45,8 @@ fn untouched_bytes_stay() {
         }
     }
     // Saved unedited: the same bytes.
-    d.save(kalem_core::files::SaveOptions::default(), true).unwrap();
+    d.save(kalem_core::files::SaveOptions::default(), true)
+        .unwrap();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), README);
     // One edit through a Markdown command: only its byte changes.
     let at = text.find("[ ] task").unwrap() + 1;
@@ -62,7 +66,8 @@ fn untouched_bytes_stay() {
     reg.execute("markdown.toggleCheckbox", &mut ctx, &serde_json::json!({}))
         .unwrap();
     drop(ctx);
-    d.save(kalem_core::files::SaveOptions::default(), true).unwrap();
+    d.save(kalem_core::files::SaveOptions::default(), true)
+        .unwrap();
     let after = std::fs::read_to_string(&path).unwrap();
     assert_eq!(after, README.replacen("[ ] task", "[x] task", 1));
     let _ = std::fs::remove_dir_all(path.parent().unwrap());
@@ -73,7 +78,10 @@ fn outline_from_the_file() {
     let (path, d) = open("notes.markdown", "Title\n=====\n\n## Part *one*\n\ntext\n");
     let items = kalem_core::markdown::outline_items(&d);
     assert_eq!(
-        items.iter().map(|i| (i.level, i.title.as_str())).collect::<Vec<_>>(),
+        items
+            .iter()
+            .map(|i| (i.level, i.title.as_str()))
+            .collect::<Vec<_>>(),
         [(1, "Title"), (2, "Part *one*")]
     );
     let _ = std::fs::remove_dir_all(path.parent().unwrap());

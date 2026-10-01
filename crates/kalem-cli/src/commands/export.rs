@@ -108,15 +108,15 @@ pub(crate) fn export(
         // would open it as something else.
         let mode = kalem_core::DocumentMode::detect(Some(file), text.as_bytes());
         // Markdown to Org: written from comrak's tree (T2.7c.7).
-        let markdown_to_org =
-            mode == kalem_core::DocumentMode::Markdown && to == Target::Org;
+        let markdown_to_org = mode == kalem_core::DocumentMode::Markdown && to == Target::Org;
         if !markdown_to_org
             && matches!(
-            mode,
-            kalem_core::DocumentMode::Markdown
-                | kalem_core::DocumentMode::Csv
-                | kalem_core::DocumentMode::Latex
-        ) {
+                mode,
+                kalem_core::DocumentMode::Markdown
+                    | kalem_core::DocumentMode::Csv
+                    | kalem_core::DocumentMode::Latex
+            )
+        {
             eprintln!(
                 "{}: warning: read as Org, not as {} (`kalem export` reads Org files{})",
                 file.display(),

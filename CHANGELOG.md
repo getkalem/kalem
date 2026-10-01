@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Markdown: wiki links `[[Page]]` and `[[Page|title]]` drawn, opened in the project and completed after `[[`; Open Link for links, files and addresses; Copy as HTML and Copy as Rich Text (T2.7c.9).
 - Markdown to Org without pandoc: Convert to Org in a Markdown document and `kalem export FILE.md --to org` (T2.7c.7); Enter in a numbered list numbers the items after it, and an opening fence gets its closing one (T2.7c.5).
 - Markdown: Enter continues list items, numbered items, task items and quotes, and an empty item ends the list (T2.7c.5).
 - Markdown: task list checkboxes toggled by a click or Ctrl+Shift+C, code blocks coloured in their language, and tables aligned by Tab and Shift+Tab as Org tables are (T2.7c.3, T2.7c.4).
