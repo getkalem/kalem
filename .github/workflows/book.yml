@@ -36,7 +36,7 @@ jobs:
         run: ./target/release/kalem book check book
       - name: Build the Book
         run: ./target/release/kalem book build book --out _site
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request'
         with:
           path: _site
