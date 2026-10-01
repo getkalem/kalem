@@ -3,6 +3,8 @@
 Derived from `design_document.md`. Every item references the relevant section with `§`. When the design changes, update the document first, then this list.
 
 Markers: `[ ]` to do · `[x]` done · `[-]` cancelled · `[~]` in progress
+
+[`todo2.md`](todo2.md) (2026-10-01) lists the open tasks of this file, with their IDs and full text, in the order they are to be done, under general headings, each heading with the points that need the owner's decision.
 IDs: `T<phase>.<group>.<n>`; decisions are `D<n>` (§21).
 
 How this list is used (owner, 2026-09-30): planning writes the tasks here, each with its reason, its test and its done-criterion, and never implements; implementation works the list in order, marks progress (`[~]`, `[x]`) and adds the "done:" notes, and never re-decides a `[-]`. A task that turns out wrong is questioned here, not worked around in code.
