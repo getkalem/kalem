@@ -44,6 +44,9 @@ pub struct Palette {
     /// The chosen line.
     pub selected: usize,
     items: Vec<PaletteItem>,
+    /// The items' order means something (a context menu): kept while
+    /// nothing is typed.
+    pub ordered: bool,
     /// Asking for an argument instead of choosing a command.
     pub arg: Option<ArgPrompt>,
     /// Choosing from a list instead: documents, files, projects.
@@ -79,6 +82,7 @@ impl Palette {
             back: 0,
             selected: 0,
             items: Vec::new(),
+            ordered: false,
             arg: None,
             pick: None,
             search: None,
@@ -94,6 +98,7 @@ impl Palette {
         }
         match &self.pick {
             Some(p) => kalem_core::projects::matches(p, &self.input),
+            None if self.ordered => palette::matches_ordered(&self.items, &self.input),
             None => palette::matches(&self.items, &self.input),
         }
     }
@@ -167,6 +172,7 @@ impl Editor {
         self.completion = None;
         let mut p = Palette::new(String::new());
         p.items = items;
+        p.ordered = true;
         self.palette = Some(p);
         cx.notify();
     }

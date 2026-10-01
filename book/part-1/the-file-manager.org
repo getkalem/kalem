@@ -76,12 +76,14 @@ A right click on an entry, on the marked entries or on the empty listing
 opens a menu in the order other file managers use: Open, Open with the
 system's application; Cut, Copy, Paste, Duplicate; Rename, Move to…, Copy
 to…; Move to the Trash, Delete for Good; New File, New Folder; Copy Path,
-Copy Relative Path, Show in System File Manager; Select All, Invert
-Selection; Sort by…, Hidden Files; Properties (kind, size, dates,
-permissions, the target of a link). Items that cannot apply are greyed
-out. Shift+F10 opens the same menu from the keyboard; in the terminal a
-right click (with the mouse on) or Shift+F10 shows it as a list to pick
-from.
+Copy Relative Path, Store Link (to insert with Insert Link in a
+document), Show in System File Manager; Select All, Invert Selection;
+Sort by…, Hidden Files; Properties (kind, size, dates, permissions, the
+target of a link). Items that cannot apply are greyed out. Shift+F10 or
+the Menu key opens the same menu from the keyboard; in the terminal a
+right click (with the mouse on), Shift+F10 or the Menu key (in
+terminals that report it) shows it as a list to pick from, in the
+menu's order until you type to narrow it.
 
 The keys every file manager has work in the listing too, with Command in
 place of Ctrl on macOS:

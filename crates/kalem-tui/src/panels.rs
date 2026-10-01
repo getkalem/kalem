@@ -42,6 +42,9 @@ pub struct Palette {
     /// The chosen line.
     pub selected: usize,
     items: Vec<PaletteItem>,
+    /// The items' order means something (a context menu): kept while
+    /// nothing is typed.
+    pub ordered: bool,
     /// Choosing from a list instead of commands.
     pub pick: Option<Picker>,
     /// Searching a project's files instead.
@@ -62,6 +65,7 @@ impl Palette {
             back: 0,
             selected: 0,
             items,
+            ordered: false,
             pick: None,
             search: None,
             lines: None,
@@ -120,6 +124,7 @@ impl Palette {
         }
         match &self.pick {
             Some(p) => kalem_core::projects::matches(p, &self.input),
+            None if self.ordered => kalem_core::palette::matches_ordered(&self.items, &self.input),
             None => kalem_core::palette::matches(&self.items, &self.input),
         }
     }

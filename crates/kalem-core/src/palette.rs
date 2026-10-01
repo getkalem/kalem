@@ -163,6 +163,16 @@ pub fn matches<'a>(items: &'a [PaletteItem], input: &str) -> Vec<&'a PaletteItem
     scored.into_iter().map(|(_, it)| it).collect()
 }
 
+/// [`matches`] for a list whose order means something (a context menu,
+/// a choice a command offers): with nothing typed, the items in their
+/// order rather than sorted.
+pub fn matches_ordered<'a>(items: &'a [PaletteItem], input: &str) -> Vec<&'a PaletteItem> {
+    if input.trim().is_empty() {
+        return items.iter().collect();
+    }
+    matches(items, input)
+}
+
 /// A palette item's `id` that runs `command` with `args`: the command,
 /// a space and the arguments as JSON ([`split_invocation`] reads it).
 pub fn invocation(command: &str, args: &serde_json::Value) -> String {
@@ -184,6 +194,25 @@ pub fn split_invocation(id: &str) -> (&str, serde_json::Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ordered_lists_keep_their_order() {
+        let item = |t: &str| PaletteItem {
+            id: t.into(),
+            title: t.into(),
+            category: String::new(),
+            keys: String::new(),
+            also: String::new(),
+        };
+        let items = [item("Open"), item("Cut"), item("Delete")];
+        let titles = |v: Vec<&PaletteItem>| v.iter().map(|i| i.title.clone()).collect::<Vec<_>>();
+        assert_eq!(
+            titles(matches_ordered(&items, "")),
+            ["Open", "Cut", "Delete"]
+        );
+        assert_eq!(titles(matches(&items, "")), ["Cut", "Delete", "Open"]);
+        assert_eq!(titles(matches_ordered(&items, "de")), ["Delete"]);
+    }
 
     #[test]
     fn fuzzy_matching() {

@@ -46,6 +46,7 @@ const NAMED: &[&str] = &[
     "down",
     "left",
     "right",
+    "menu",
 ];
 
 fn key_name(k: &str) -> Option<String> {

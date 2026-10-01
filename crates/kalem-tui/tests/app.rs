@@ -3468,9 +3468,17 @@ fn file_manager_right_click() {
         row as u16,
         KeyModifiers::NONE,
     );
+    // The menu's order, not sorted: Open first, then Open with System
+    // Application.
+    let shown = screen(&mut t).join("\n");
+    let open = shown.find("File: Open\n").or(shown.find("File: Open ")).expect(&shown);
+    let system = shown.find("Open with System Application").expect(&shown);
+    assert!(open < system, "{shown}");
+    for c in "relative".chars() {
+        t.key(KeyCode::Char(c), KeyModifiers::NONE);
+    }
     let shown = screen(&mut t).join("\n");
     assert!(shown.contains("Copy Relative Paths"), "{shown}");
-    assert!(shown.contains("Duplicate"), "{shown}");
     t.key(KeyCode::Esc, KeyModifiers::NONE);
     let marks = |t: &T| t.app.doc.dired.as_deref().unwrap().marks.len();
     mouse(

@@ -1570,7 +1570,9 @@ impl App {
                 self.message(tr!("msg-rich-copy-plain"), false);
             }
             Request::Choose(items) => {
-                self.palette = Some(Palette::new(items));
+                let mut p = Palette::new(items);
+                p.ordered = true;
+                self.palette = Some(p);
                 self.dirty = true;
             }
             Request::ExportDialog => {
