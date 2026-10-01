@@ -263,16 +263,19 @@ document names one, its bibliography.
 
 *Everything in this section is planned, not implemented.* It is group
 2.7c of =todo.md= and section 2.6.1 of the design document; decision
-D19 (the parser) and the order of the work (D21, T2.7c.0) are open.
+The parser is decided (D19): comrak, in Kalem's fork; the order of the
+work follows D21.
 
 - *Dialect.* CommonMark with the GitHub extensions: tables, task lists,
   strike-through, autolinks, footnotes; YAML or TOML front matter; and
   =$…$= and =$$…$$= math.
-- *Parser.* A CommonMark parser that reports source offsets, reparsed
-  from the enclosing top-level block on each edit. pulldown-cmark's
-  offset iterator is the recommended candidate (D19, spike T2.7c.1);
-  comrak, tree-sitter-markdown and a parser of Kalem's own are the
-  alternatives considered.
+- *Parser.* comrak, the Rust port of GitHub's own parser =cmark-gfm=, so
+  a file reads as it does on GitHub; reparsed from the enclosing
+  top-level block on each edit. Kalem uses its fork =getkalem/comrak=,
+  where what an editor needs is fixed (every node's position inside its
+  parent, byte offsets) and offered upstream (D19, decided by the owner
+  on 2026-10-01; the comparison with pulldown-cmark is in
+  =spikes/md-parser=).
 - *Lossless editing.* As for Org: the file is edited as text, never
   regenerated from a tree; the parser only yields ranges for the view,
   so untouched bytes stay as they were (T2.7c.8).
