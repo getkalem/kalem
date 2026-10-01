@@ -117,6 +117,71 @@ pub fn import_as(document: &Path, file: &Path, style: LinkStyle) -> Result<Strin
     Ok(link_in(document, &target, style))
 }
 
+/// The pictures in `document`'s pictures folder (for `style`) that no
+/// document links any more: a picture is in use while its file name
+/// appears in `text` (the document as it is in the editor) or in any
+/// Org, Markdown or LaTeX file of the document's folder and the folders
+/// below it, so a picture another document shares is kept.
+pub fn unused(document: &Path, text: &str, style: LinkStyle) -> Vec<PathBuf> {
+    let Some(assets) = dir_for(document, style) else {
+        return Vec::new();
+    };
+    let Ok(rd) = std::fs::read_dir(&assets) else {
+        return Vec::new();
+    };
+    let mut pictures: Vec<(PathBuf, String)> = rd
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_file() && is_image(p))
+        .filter_map(|p| {
+            let name = p.file_name()?.to_string_lossy().into_owned();
+            Some((p, name))
+        })
+        .collect();
+    let used = |t: &str, name: &str| t.contains(name) || t.contains(&name.replace(' ', "%20"));
+    pictures.retain(|(_, n)| !used(text, n));
+    let root = document.parent().unwrap_or(Path::new(""));
+    let mut stack = vec![(root.to_path_buf(), 0)];
+    while let Some((dir, depth)) = stack.pop() {
+        if pictures.is_empty() {
+            break;
+        }
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            let p = e.path();
+            let hidden = p
+                .file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with('.'));
+            if hidden {
+                continue;
+            }
+            if p.is_dir() {
+                if depth < 8 {
+                    stack.push((p, depth + 1));
+                }
+                continue;
+            }
+            let linking = p.extension().is_some_and(|x| {
+                matches!(
+                    x.to_string_lossy().to_lowercase().as_str(),
+                    "org" | "md" | "markdown" | "tex" | "html"
+                )
+            });
+            if !linking || p == document {
+                continue;
+            }
+            if let Ok(t) = std::fs::read_to_string(&p) {
+                pictures.retain(|(_, n)| !used(&t, n));
+            }
+        }
+    }
+    let mut out: Vec<PathBuf> = pictures.into_iter().map(|(p, _)| p).collect();
+    out.sort();
+    out
+}
+
 /// [`import_all`] for a document linking in `style`.
 pub fn import_all_as(
     document: &Path,
@@ -340,6 +405,26 @@ pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unused_pictures() {
+        let dir = std::env::temp_dir().join(format!("kalem-unused-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("images")).unwrap();
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        for n in ["a.png", "b c.png", "shared.jpg", "gone.png", "notes.txt"] {
+            std::fs::write(dir.join("images").join(n), "").unwrap();
+        }
+        let doc = dir.join("doc.md");
+        std::fs::write(dir.join("sub/other.org"), "[[file:../images/shared.jpg]]\n").unwrap();
+        // The text in the editor, not the file on disk, says what is used.
+        std::fs::write(&doc, "![](images/gone.png)\n").unwrap();
+        let text = "![a](images/a.png)\n![b](<images/b%20c.png>)\n";
+        assert_eq!(
+            unused(&doc, text, LinkStyle::Markdown),
+            [dir.join("images/gone.png")]
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn assets_dir_setting() {

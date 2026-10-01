@@ -4001,6 +4001,44 @@ fn plain_commands() -> Vec<Command> {
                 Ok(())
             },
         ),
+        // Pictures left in the pictures folder after their links were
+        // deleted, moved to the Trash (never deleted for good: undo in the
+        // document can still want them, and the Trash gives them back).
+        cmd(
+            "file.removeUnusedImages",
+            "Remove Unused Images",
+            "File",
+            &[],
+            Some("editorMode == org || editorMode == markdown"),
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let Some(style) = crate::images::LinkStyle::of(&doc.meta.mode) else {
+                    return Ok(());
+                };
+                let path = doc
+                    .meta
+                    .path
+                    .clone()
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-picture-needs-file")))?;
+                let unused = crate::images::unused(&path, doc.text().as_str(), style);
+                if unused.is_empty() {
+                    ctx.messages.push(crate::tr!("msg-no-unused-images"));
+                    return Ok(());
+                }
+                kalem_fs::trash_paths(&unused).map_err(CommandError::new)?;
+                let names: Vec<String> = unused
+                    .iter()
+                    .filter_map(|p| p.file_name())
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .collect();
+                ctx.messages.push(crate::tr!(
+                    "msg-unused-images-trashed",
+                    count = unused.len() as i64,
+                    names = names.join(", ")
+                ));
+                Ok(())
+            },
+        ),
         cmd(
             "edit.paste",
             "Paste",
