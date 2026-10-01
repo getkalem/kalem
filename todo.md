@@ -162,7 +162,7 @@ Written on 2026-10-01 from the former `todo.md` (now `todo_old.md`) at commit 1d
 
 - [ ] T2.7c.6 Incremental reparse from the enclosing top-level block; performance on 10 MB files
 
-- [ ] T2.7c.7 "Convert to Org" and "Convert from Org" (exporter or pandoc); `kalem export FILE.md --to org`
+- [x] T2.7c.7 "Convert to Org" and "Convert from Org" (exporter or pandoc); `kalem export FILE.md --to org` (done, 2026-10-01: `kalem_core::markdown_org::to_org` writes comrak's tree as Org without pandoc; Convert to Org (`markdown.convertToOrg`, File menu) writes `NAME.org` beside the file and opens it; `kalem export FILE.md --to org`; Convert from Org is the Markdown and GFM export Org documents have; `kalem import` through pandoc stays for pictures; tests in the core and the command line)
 
 - [ ] T2.7c.8 Both frontends; snapshot tests; byte-exact round trip of untouched text
 

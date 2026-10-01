@@ -107,7 +107,11 @@ pub(crate) fn export(
         // The input is read as Org whatever it is: said when the editors
         // would open it as something else.
         let mode = kalem_core::DocumentMode::detect(Some(file), text.as_bytes());
-        if matches!(
+        // Markdown to Org: written from comrak's tree (T2.7c.7).
+        let markdown_to_org =
+            mode == kalem_core::DocumentMode::Markdown && to == Target::Org;
+        if !markdown_to_org
+            && matches!(
             mode,
             kalem_core::DocumentMode::Markdown
                 | kalem_core::DocumentMode::Csv
@@ -118,7 +122,7 @@ pub(crate) fn export(
                 file.display(),
                 mode.title(),
                 if mode == kalem_core::DocumentMode::Markdown {
-                    "; `kalem import` converts Markdown to Org"
+                    "; `--to org` converts Markdown to Org"
                 } else {
                     ""
                 }
@@ -149,7 +153,9 @@ pub(crate) fn export(
             }
             continue;
         }
-        let out = if to == Target::Org {
+        let out = if markdown_to_org {
+            Ok(kalem_core::markdown_org::to_org(text))
+        } else if to == Target::Org {
             let (out, counts) = kalem_core::kinds::strip_markup(text);
             eprintln!(
                 "{}: {}",
