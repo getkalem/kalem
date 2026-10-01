@@ -14,15 +14,24 @@ cargo run --release
 
 ## Results (2026-10-01, a 4-core Xeon at 2.8 GHz)
 
-| | pulldown-cmark 0.13.4 | comrak 0.39.1 |
+| | pulldown-cmark 0.13.4 | comrak 0.55.0 (0.39.1) |
 |---|---|---|
-| CommonMark examples, HTML as the specification | 639 / 648 | 639 / 648 |
-| GFM extension examples | 12 / 24 | 24 / 24 |
-| Byte ranges | every event (4,887), none outside the text or its parent | 2,855 nodes; 4 without a position, 4 outside the text or their parent (empty table cells, fenced code in a list item) |
+| CommonMark examples, HTML as the specification | 639 / 648 | 639 / 648 (the same) |
+| GFM extension examples | 12 / 24 | 24 / 24 (the same) |
+| Byte ranges | every event (4,887), none outside the text or its parent | 2,855 nodes, all with a position (0.39: 4 without); 5 outside their parent (0.39: 4): a list item reaching past its list, a cell of a short table row past the row |
 | Positions given as | byte ranges | line and column (converted with a line table) |
-| 10 MB, a full parse | 0.39 s | 1.47 s |
+| 10 MB, a full parse | 0.42 to 0.48 s | 1.71 to 1.91 s (0.39: 1.47 s) |
 | Tree | a flat event stream with ranges | an arena AST |
 | License | MIT | BSD-2-Clause |
+| crates.io (2026-10-01) | 164 million downloads, 1,709 crates depend on it | 8.3 million, 296 |
+| Who uses it | rustdoc, mdBook, Zola | a Rust port of GitHub's `cmark-gfm`; behind Ruby's `commonmarker` |
+
+The comrak column is 0.55.0, the current release; 0.39.1, measured first,
+is in parentheses where it differed. The newer version gives every node a
+position and fixed the fenced code blocks in list items, but list items
+and short table rows still have positions outside their parent, and it is
+a little slower. Its `tagfilter` option is deprecated, to be removed in
+0.56.
 
 The nine CommonMark examples both miss are the same: runs of `**` and
 `__` (`****foo****`), where both follow CommonMark 0.31's rule for nested
