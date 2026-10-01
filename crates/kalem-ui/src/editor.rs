@@ -174,6 +174,8 @@ pub enum DocEvent {
     Restart(bool),
     /// Change the window's panes.
     Pane(kalem_core::layout::PaneOp),
+    /// Act on the window's workspaces.
+    Workspace(kalem_core::workspaces::WorkspaceOp),
     /// Save the window's documents as session `0`.
     SaveSession(String),
     /// Open the documents of session `0`.
@@ -1043,6 +1045,7 @@ impl Editor {
             Request::CloseWindow => cx.emit(DocEvent::CloseWindow),
             Request::Restart { restore } => cx.emit(DocEvent::Restart(restore)),
             Request::Pane(op) => cx.emit(DocEvent::Pane(op)),
+            Request::Workspace(op) => cx.emit(DocEvent::Workspace(op)),
             Request::SaveSession(name) => cx.emit(DocEvent::SaveSession(name)),
             Request::RestoreSession(name) => cx.emit(DocEvent::RestoreSession(name)),
             Request::UniversalArgument => {
@@ -1732,11 +1735,13 @@ impl Editor {
                 path: None,
                 title: d.list_title(),
                 modified: false,
+                hidden: false,
             },
             None => kalem_core::projects::OpenFile {
                 path: self.doc.meta.path.clone(),
                 title: self.title(),
                 modified: self.doc.is_modified(),
+                hidden: false,
             },
         }
     }

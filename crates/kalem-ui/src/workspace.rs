@@ -67,6 +67,22 @@ pub struct Workspace {
     pub layout: kalem_core::layout::Layout,
     /// What the other panes show (and closed ones, for an undo).
     pub panes: std::collections::HashMap<kalem_core::layout::PaneId, Entity<Editor>>,
+    /// The window's workspaces (`SPC TAB`, T2.7i.15), each document by its
+    /// editor's entity id.
+    pub spaces: kalem_core::workspaces::Workspaces,
+    /// The panes of the workspaces not shown, by workspace.
+    stashed: std::collections::HashMap<u64, PaneStash>,
+}
+
+/// A workspace's panes while another one shows.
+type PaneStash = (
+    kalem_core::layout::Layout,
+    std::collections::HashMap<kalem_core::layout::PaneId, Entity<Editor>>,
+);
+
+/// The number a workspace knows a document by.
+fn doc_key(e: &Entity<Editor>) -> u64 {
+    e.entity_id().as_u64()
 }
 
 impl std::fmt::Debug for Workspace {
@@ -102,6 +118,8 @@ impl Workspace {
             previous: None,
             layout: kalem_core::layout::Layout::new(),
             panes: std::collections::HashMap::new(),
+            spaces: kalem_core::workspaces::Workspaces::new(),
+            stashed: std::collections::HashMap::new(),
         };
         ws.adopt(editor.clone(), window, cx);
         // A window coming to the front brings its document's menus.
@@ -167,7 +185,10 @@ impl Workspace {
     pub fn open_files(&self, cx: &App) -> Vec<projects::OpenFile> {
         self.editors
             .iter()
-            .map(|e| e.read(cx).open_file())
+            .map(|e| projects::OpenFile {
+                hidden: !self.spaces.shows(doc_key(e)),
+                ..e.read(cx).open_file()
+            })
             .collect()
     }
 
@@ -200,6 +221,7 @@ impl Workspace {
             }
         }
         self.editor = editor.clone();
+        self.spaces.showing(doc_key(&editor));
         let focus = gpui::Focusable::focus_handle(editor.read(cx), cx);
         window.focus(&focus, cx);
         self.set_title(window, cx);
@@ -312,6 +334,7 @@ impl Workspace {
         };
         let at = order.iter().position(|&x| x == i).unwrap_or(0);
         self.editors.remove(i);
+        self.spaces.leave(doc_key(editor));
         if self.editors.is_empty() {
             window.remove_window();
             return;
@@ -340,6 +363,172 @@ impl Workspace {
             self.activate(e, window, cx);
         }
         cx.notify();
+    }
+
+    /// Shows the workspace `change` makes current: its panes and the
+    /// document it showed last, else one of its documents, else a new
+    /// empty one.
+    fn show_space(
+        &mut self,
+        change: impl FnOnce(&mut kalem_core::workspaces::Workspaces) -> bool,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        let old = self.spaces.current().id;
+        self.spaces.showing(doc_key(&self.editor));
+        if !change(&mut self.spaces) {
+            return;
+        }
+        let stash = (
+            std::mem::take(&mut self.layout),
+            std::mem::take(&mut self.panes),
+        );
+        if self.spaces.list().iter().any(|w| w.id == old) {
+            self.stashed.insert(old, stash);
+        }
+        let ws = self.spaces.current().clone();
+        let (layout, panes) = self.stashed.remove(&ws.id).unwrap_or_default();
+        self.layout = layout;
+        self.panes = panes;
+        let target = ws
+            .active
+            .and_then(|k| self.editors.iter().find(|e| doc_key(e) == k).cloned())
+            .filter(|e| self.spaces.shows(doc_key(e)))
+            .or_else(|| {
+                self.editors
+                    .iter()
+                    .find(|e| self.spaces.shows(doc_key(e)))
+                    .cloned()
+            });
+        match target {
+            Some(e) => self.activate(e, window, cx),
+            None => self.new_document(window, cx),
+        }
+        let msg = tr!("msg-workspace", name = ws.name);
+        self.editor.update(cx, |e, cx| {
+            e.message(msg, false);
+            cx.notify();
+        });
+        cx.notify();
+    }
+
+    /// A workspace request (`SPC TAB`).
+    fn workspace_op(
+        &mut self,
+        op: kalem_core::workspaces::WorkspaceOp,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        use kalem_core::workspaces::{WorkspaceOp as W, Workspaces};
+        let say = |ws: &mut Self, msg: String, error: bool, cx: &mut Context<'_, Self>| {
+            ws.editor.update(cx, |e, cx| {
+                e.message(msg, error);
+                cx.notify();
+            });
+        };
+        match op {
+            W::List => {
+                let items = self.spaces.items();
+                self.editor.update(cx, |e, cx| e.open_choice(items, cx));
+            }
+            W::New(name) => self.show_space(
+                |w| {
+                    w.add(name.as_deref());
+                    true
+                },
+                window,
+                cx,
+            ),
+            W::Delete => {
+                if !self.spaces.several() {
+                    say(self, tr!("msg-last-workspace"), false, cx);
+                    return;
+                }
+                let gone = self.spaces.current().id;
+                self.show_space(|w| w.delete().is_some(), window, cx);
+                self.stashed.remove(&gone);
+            }
+            W::Rename(name) => {
+                self.spaces.rename(&name);
+                cx.notify();
+            }
+            W::Cycle(back) => self.show_space(|w| w.cycle(back), window, cx),
+            W::Switch(i) => self.show_space(|w| w.switch(i), window, cx),
+            W::Last => self.show_space(|w| w.switch_last(), window, cx),
+            W::Save => {
+                let mut s = self.session(cx);
+                let shown: Vec<std::path::PathBuf> = self
+                    .editors
+                    .iter()
+                    .filter(|e| self.spaces.shows(doc_key(e)))
+                    .filter_map(|e| e.read(cx).doc.meta.path.clone())
+                    .collect();
+                let active = s.documents.get(s.active).map(|d| d.path.clone());
+                s.documents.retain(|d| shown.contains(&d.path));
+                s.active = active
+                    .and_then(|a| s.documents.iter().position(|d| d.path == a))
+                    .unwrap_or(0);
+                let name = Workspaces::session_name(&self.spaces.current().name);
+                let (msg, error) = match kalem_core::sessions::save(&name, &s) {
+                    Ok(p) => (
+                        tr!("msg-session-saved", path = p.display().to_string()),
+                        false,
+                    ),
+                    Err(e) => (e, true),
+                };
+                say(self, msg, error, cx);
+            }
+            W::Load(None) | W::DeleteSaved(None) => {
+                let command = if matches!(op, W::DeleteSaved(_)) {
+                    "workspace.deleteSaved"
+                } else {
+                    "workspace.load"
+                };
+                let names = Workspaces::saved();
+                if names.is_empty() {
+                    say(self, tr!("msg-no-saved-workspaces"), false, cx);
+                    return;
+                }
+                let items: Vec<_> = names
+                    .into_iter()
+                    .map(|n| kalem_core::palette::PaletteItem {
+                        id: kalem_core::palette::invocation(
+                            command,
+                            &serde_json::json!({ "name": n }),
+                        ),
+                        title: n,
+                        category: tr!("category-workspaces"),
+                        keys: String::new(),
+                        also: String::new(),
+                    })
+                    .collect();
+                self.editor.update(cx, |e, cx| e.open_choice(items, cx));
+            }
+            W::Load(Some(name)) => {
+                match kalem_core::sessions::load(&Workspaces::session_name(&name)) {
+                    Ok(s) => {
+                        self.show_space(
+                            |w| {
+                                w.add(Some(&name));
+                                true
+                            },
+                            window,
+                            cx,
+                        );
+                        self.restore_session(s, window, cx);
+                    }
+                    Err(e) => say(self, e, true, cx),
+                }
+            }
+            W::DeleteSaved(Some(name)) => {
+                let (msg, error) =
+                    match kalem_core::sessions::delete(&Workspaces::session_name(&name)) {
+                        Ok(()) => (tr!("msg-workspace-deleted", name = name), false),
+                        Err(e) => (e, true),
+                    };
+                say(self, msg, error, cx);
+            }
+        }
     }
 
     /// Focuses pane `p`: its editor becomes the active one.
@@ -1055,6 +1244,7 @@ impl Workspace {
             }
             DocEvent::Quit => self.quit(window, cx),
             DocEvent::Pane(op) => self.pane_op(&op, window, cx),
+            DocEvent::Workspace(op) => self.workspace_op(op, window, cx),
             DocEvent::QuitWithoutSaving => self.quit_without_saving(window, cx),
             DocEvent::CloseWindow => self.close_window(window, cx),
             DocEvent::Restart(restore) => self.restart(restore, window, cx),
@@ -1782,8 +1972,13 @@ impl Workspace {
         let encoding = kalem_core::files::encoding_label(&e.doc.meta)
             .map(|n| format!("{n}   "))
             .unwrap_or_default();
+        let space = if self.spaces.several() {
+            format!("[{}]   ", self.spaces.current().name)
+        } else {
+            String::new()
+        };
         let left = format!(
-            "{mode}{project}{name}   {kind}{encoding}{state}   {position}{words}{formula}{table}"
+            "{mode}{space}{project}{name}   {kind}{encoding}{state}   {position}{words}{formula}{table}"
         );
         let (msg, error) = match self.shared.jobs.borrow().first() {
             // A file operation running: its progress.

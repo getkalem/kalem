@@ -11,6 +11,7 @@ use crate::command::{
 use crate::keys::KeySequence;
 use crate::layout::{Axis, PaneOp};
 use crate::when::WhenClause;
+use crate::workspaces::WorkspaceOp;
 
 type Handler = fn(&mut EditorContext<'_>, &Value) -> CommandResult;
 
@@ -234,6 +235,14 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("insert.text", object(&[("text", "string", true)])),
         ("pane.focus", object(&[("dir", "string", true)])),
+        ("workspace.newNamed", object(&[("name", "string", true)])),
+        ("workspace.rename", object(&[("name", "string", true)])),
+        ("workspace.switch", object(&[("index", "integer", true)])),
+        ("workspace.load", object(&[("name", "string", false)])),
+        (
+            "workspace.deleteSaved",
+            object(&[("name", "string", false)]),
+        ),
         ("pane.move", object(&[("dir", "string", true)])),
         (
             "pane.resize",
@@ -4480,6 +4489,118 @@ fn plain_commands() -> Vec<Command> {
             &["ctrl+h"],
             None,
             |ctx, _| request(ctx, Request::Find { replace: true }),
+        ),
+        // Workspaces (Doom's `SPC TAB`, T2.7i.15).
+        cmd(
+            "workspace.list",
+            "Switch Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Workspace(WorkspaceOp::List)),
+        ),
+        cmd(
+            "workspace.new",
+            "New Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Workspace(WorkspaceOp::New(None))),
+        ),
+        cmd(
+            "workspace.newNamed",
+            "New Named Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, args| {
+                let name = arg_str(args, "name")?.to_string();
+                request(ctx, Request::Workspace(WorkspaceOp::New(Some(name))))
+            },
+        ),
+        cmd(
+            "workspace.delete",
+            "Delete Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Workspace(WorkspaceOp::Delete)),
+        ),
+        cmd(
+            "workspace.rename",
+            "Rename Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, args| {
+                let name = arg_str(args, "name")?.to_string();
+                request(ctx, Request::Workspace(WorkspaceOp::Rename(name)))
+            },
+        ),
+        cmd(
+            "workspace.next",
+            "Next Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Workspace(WorkspaceOp::Cycle(false))),
+        ),
+        cmd(
+            "workspace.previous",
+            "Previous Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Workspace(WorkspaceOp::Cycle(true))),
+        ),
+        cmd(
+            "workspace.switch",
+            "Go to Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, args| {
+                let i = args.get("index").and_then(Value::as_u64).unwrap_or(0) as usize;
+                request(ctx, Request::Workspace(WorkspaceOp::Switch(i)))
+            },
+        ),
+        cmd(
+            "workspace.last",
+            "Last Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Workspace(WorkspaceOp::Last)),
+        ),
+        cmd(
+            "workspace.save",
+            "Save Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Workspace(WorkspaceOp::Save)),
+        ),
+        cmd(
+            "workspace.load",
+            "Load Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, args| {
+                let name = args.get("name").and_then(Value::as_str).map(str::to_string);
+                request(ctx, Request::Workspace(WorkspaceOp::Load(name)))
+            },
+        ),
+        cmd(
+            "workspace.deleteSaved",
+            "Delete Saved Workspace",
+            "Workspace",
+            &[],
+            None,
+            |ctx, args| {
+                let name = args.get("name").and_then(Value::as_str).map(str::to_string);
+                request(ctx, Request::Workspace(WorkspaceOp::DeleteSaved(name)))
+            },
         ),
         // Panes (Doom's `SPC w`, T2.7i.5).
         cmd(

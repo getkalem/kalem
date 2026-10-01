@@ -76,6 +76,7 @@ pub mod toc;
 pub mod view;
 pub mod vim;
 pub mod when;
+pub mod workspaces;
 
 pub use builtin::export_dialog_items;
 pub use command::{

@@ -3695,3 +3695,41 @@ fn panes_side_by_side(cx: &mut TestAppContext) {
     run("pane.undo", serde_json::Value::Null, cx);
     assert!(ws.read_with(cx, |ws, _| ws.layout.is_split()));
 }
+
+/// Workspaces (T2.7i.15): each its own documents; deleting one keeps
+/// them open.
+#[gpui::test]
+fn workspaces_of_a_window(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    let run = |cmd: &str, args: serde_json::Value, cx: &mut VisualTestContext| {
+        let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+        e.update_in(cx, |e, window, cx| e.run_command(cmd, args, window, cx));
+        cx.run_until_parked();
+    };
+    let shown = |cx: &mut VisualTestContext| -> Vec<String> {
+        ws.read_with(cx, |ws, cx| {
+            ws.open_files(cx)
+                .into_iter()
+                .filter(|f| !f.hidden)
+                .map(|f| f.title)
+                .collect()
+        })
+    };
+    run(
+        "workspace.newNamed",
+        serde_json::json!({ "name": "notes" }),
+        cx,
+    );
+    let b = dir.join("proj/sub/b.org");
+    ws.update_in(cx, |ws, window, cx| ws.open(&b, None, window, cx));
+    cx.run_until_parked();
+    assert!(shown(cx).contains(&"b.org".to_string()));
+    assert!(!shown(cx).contains(&"a.org".to_string()));
+    run("workspace.last", serde_json::Value::Null, cx);
+    assert_eq!(active_title(&ws, cx), "a.org");
+    assert_eq!(shown(cx), ["a.org"]);
+    run("workspace.next", serde_json::Value::Null, cx);
+    assert_eq!(active_title(&ws, cx), "b.org");
+    run("workspace.delete", serde_json::Value::Null, cx);
+    assert!(shown(cx).contains(&"a.org".to_string()) && shown(cx).contains(&"b.org".to_string()));
+}

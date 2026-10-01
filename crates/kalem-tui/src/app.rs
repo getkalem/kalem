@@ -48,6 +48,12 @@ pub enum FilesAt {
 
 /// An open document that is not the active one: its state while another
 /// is shown.
+/// A workspace's panes while another one shows.
+type Stash = (
+    kalem_core::layout::Layout,
+    HashMap<kalem_core::layout::PaneId, (DocumentId, EditorView)>,
+);
+
 struct Buffer {
     doc: DocumentState,
     doc_id: DocumentId,
@@ -174,6 +180,10 @@ pub struct App {
     panes: HashMap<kalem_core::layout::PaneId, (DocumentId, EditorView)>,
     /// Where each pane was drawn, for clicks.
     pane_areas: Vec<(kalem_core::layout::PaneId, Rect)>,
+    /// The workspaces (`SPC TAB`, T2.7i.15).
+    workspaces: kalem_core::workspaces::Workspaces,
+    /// The panes of the workspaces not shown, by workspace.
+    stashed: HashMap<u64, Stash>,
     /// The panel shown or hidden last (`SPC ~`).
     last_panel: Option<Request>,
     /// The find bar, when open.
@@ -443,6 +453,8 @@ impl App {
             layout: kalem_core::layout::Layout::new(),
             panes: HashMap::new(),
             pane_areas: Vec::new(),
+            workspaces: kalem_core::workspaces::Workspaces::new(),
+            stashed: HashMap::new(),
             last_panel: None,
             status: None,
             prompt: None,
@@ -508,6 +520,7 @@ impl App {
         if problems > 0 {
             app.message(tr!("msg-config-problems", count = problems), true);
         }
+        app.workspaces.showing(app.doc_id.0);
         app.bus.emit(&Event::AppReady);
         Ok(app)
     }
@@ -592,12 +605,19 @@ impl App {
                     .map_or_else(|| tr!("untitled"), |n| n.to_string_lossy().into_owned()),
             },
             modified: doc.is_modified(),
+            hidden: false,
         };
         self.docs
             .iter()
-            .map(|b| match b {
-                Some(b) => file(&b.doc),
-                None => file(&self.doc),
+            .map(|b| {
+                let (doc, id) = match b {
+                    Some(b) => (&b.doc, b.doc_id),
+                    None => (&self.doc, self.doc_id),
+                };
+                OpenFile {
+                    hidden: !self.workspaces.shows(id.0),
+                    ..file(doc)
+                }
             })
             .collect()
     }
@@ -676,6 +696,7 @@ impl App {
             self.message(tr!("msg-reloaded"), false);
         }
         self.enter_project();
+        self.workspaces.showing(self.doc_id.0);
         self.dirty = true;
     }
 
@@ -960,6 +981,7 @@ impl App {
             self.active -= 1;
         }
         self.forget_document(closing_id);
+        self.workspaces.leave(closing_id.0);
         self.dirty = true;
     }
 
@@ -1487,6 +1509,7 @@ impl App {
                 self.close();
             }
             Request::Pane(op) => self.pane_op(&op),
+            Request::Workspace(op) => self.workspace_op(op),
             Request::SaveSession(name) => {
                 match kalem_core::sessions::save(&name, &self.session()) {
                     Ok(p) => self.message(
@@ -2136,6 +2159,151 @@ impl App {
         self.panes.remove(&focus);
         let _ = changed;
         self.dirty = true;
+    }
+
+    /// Shows workspace `i` after `change` (which made it current): its
+    /// panes and the document it showed last, else one of its documents,
+    /// else a new empty one.
+    fn show_workspace(
+        &mut self,
+        change: impl FnOnce(&mut kalem_core::workspaces::Workspaces) -> bool,
+    ) {
+        let old = self.workspaces.current().id;
+        self.workspaces.showing(self.doc_id.0);
+        if !change(&mut self.workspaces) {
+            return;
+        }
+        let stash = (
+            std::mem::take(&mut self.layout),
+            std::mem::take(&mut self.panes),
+        );
+        if self.workspaces.list().iter().any(|w| w.id == old) {
+            self.stashed.insert(old, stash);
+        }
+        let ws = self.workspaces.current().clone();
+        let (layout, panes) = self.stashed.remove(&ws.id).unwrap_or_default();
+        self.layout = layout;
+        self.panes = panes;
+        let ids: Vec<DocumentId> = self
+            .docs
+            .iter()
+            .map(|b| b.as_ref().map_or(self.doc_id, |b| b.doc_id))
+            .collect();
+        let target = ws
+            .active
+            .map(DocumentId)
+            .filter(|d| ids.contains(d) && self.workspaces.shows(d.0))
+            .or_else(|| ids.iter().copied().find(|d| self.workspaces.shows(d.0)));
+        match target.and_then(|d| self.doc_index(d)) {
+            Some(i) if i != self.active => self.activate(i),
+            Some(_) => {}
+            None => self.new_empty(),
+        }
+        self.message(tr!("msg-workspace", name = ws.name), false);
+        self.dirty = true;
+    }
+
+    /// A workspace request (`SPC TAB`).
+    fn workspace_op(&mut self, op: kalem_core::workspaces::WorkspaceOp) {
+        use kalem_core::workspaces::{WorkspaceOp as W, Workspaces};
+        match op {
+            W::List => self.request(Request::Choose(self.workspaces.items())),
+            W::New(name) => self.show_workspace(|w| {
+                w.add(name.as_deref());
+                true
+            }),
+            W::Delete => {
+                if !self.workspaces.several() {
+                    self.message(tr!("msg-last-workspace"), false);
+                    return;
+                }
+                let gone = self.workspaces.current().id;
+                self.show_workspace(|w| w.delete().is_some());
+                self.stashed.remove(&gone);
+            }
+            W::Rename(name) => {
+                self.workspaces.rename(&name);
+                self.dirty = true;
+            }
+            W::Cycle(back) => self.show_workspace(|w| w.cycle(back)),
+            W::Switch(i) => self.show_workspace(|w| w.switch(i)),
+            W::Last => self.show_workspace(|w| w.switch_last()),
+            W::Save => {
+                let mut s = self.session();
+                let shown: Vec<PathBuf> = self
+                    .docs
+                    .iter()
+                    .filter_map(|b| {
+                        let (doc, id) = match b {
+                            Some(b) => (&b.doc, b.doc_id),
+                            None => (&self.doc, self.doc_id),
+                        };
+                        doc.meta
+                            .path
+                            .clone()
+                            .filter(|_| self.workspaces.shows(id.0))
+                    })
+                    .collect();
+                let active = s.documents.get(s.active).map(|d| d.path.clone());
+                s.documents.retain(|d| shown.contains(&d.path));
+                s.active = active
+                    .and_then(|a| s.documents.iter().position(|d| d.path == a))
+                    .unwrap_or(0);
+                let name = Workspaces::session_name(&self.workspaces.current().name);
+                match kalem_core::sessions::save(&name, &s) {
+                    Ok(p) => self.message(
+                        tr!("msg-session-saved", path = p.display().to_string()),
+                        false,
+                    ),
+                    Err(e) => self.message(e, true),
+                }
+            }
+            W::Load(None) | W::DeleteSaved(None) => {
+                let delete = matches!(op, W::DeleteSaved(_));
+                let names = Workspaces::saved();
+                if names.is_empty() {
+                    self.message(tr!("msg-no-saved-workspaces"), false);
+                    return;
+                }
+                let command = if delete {
+                    "workspace.deleteSaved"
+                } else {
+                    "workspace.load"
+                };
+                let items = names
+                    .into_iter()
+                    .map(|n| kalem_core::palette::PaletteItem {
+                        id: kalem_core::palette::invocation(
+                            command,
+                            &serde_json::json!({ "name": n }),
+                        ),
+                        title: n,
+                        category: tr!("category-workspaces"),
+                        keys: String::new(),
+                        also: String::new(),
+                    })
+                    .collect();
+                self.request(Request::Choose(items));
+            }
+            W::Load(Some(name)) => {
+                match kalem_core::sessions::load(&Workspaces::session_name(&name)) {
+                    Ok(s) => {
+                        self.show_workspace(|w| {
+                            w.add(Some(&name));
+                            true
+                        });
+                        self.restore_session(s);
+                    }
+                    Err(e) => self.message(e, true),
+                }
+            }
+            W::DeleteSaved(Some(name)) => {
+                match kalem_core::sessions::delete(&Workspaces::session_name(&name)) {
+                    Ok(()) => self.message(tr!("msg-workspace-deleted", name = name), false),
+                    Err(e) => self.message(e, true),
+                }
+            }
+        }
     }
 
     /// The panes showing document `id` other than the focused one switch
@@ -4029,6 +4197,12 @@ impl App {
             x += label.width() as u16;
         }
         let room = |x: u16| line.right().saturating_sub(x) as usize;
+        // The workspace, when there are several.
+        if self.workspaces.several() {
+            let s = format!(" [{}]", self.workspaces.current().name);
+            buf.set_stringn(x, y, &s, room(x), crate::panels::accent_style(caps, bar));
+            x += s.width() as u16;
+        }
         // The project and the file.
         x += 1;
         if let Some(p) = self.projects.containing(self.doc.meta.path.as_deref()) {

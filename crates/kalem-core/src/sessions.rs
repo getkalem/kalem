@@ -153,6 +153,12 @@ pub fn load(name: &str) -> Result<Session, String> {
     Ok(Session::from_json(&v))
 }
 
+/// Deletes session `name`.
+pub fn delete(name: &str) -> Result<(), String> {
+    let f = file(name).ok_or_else(|| crate::tr!("msg-no-state-dir"))?;
+    std::fs::remove_file(f).map_err(|_| crate::tr!("msg-no-session", name = name.to_string()))
+}
+
 /// The saved sessions' names, the last one first.
 pub fn names() -> Vec<String> {
     let Some(d) = dir() else {
