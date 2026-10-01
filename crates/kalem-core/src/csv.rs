@@ -1012,8 +1012,11 @@ fn memchr_count(text: &str) -> usize {
 /// What a memo is for: the text's version and a length or column.
 type Key = (u64, usize, Dialect);
 
+/// The layout last computed, with what it was computed for.
+type LayoutMemo = ((Key, View), std::rc::Rc<Layout>);
+
 thread_local! {
-    static LAYOUT: std::cell::RefCell<Option<((Key, View), std::rc::Rc<Layout>)>> =
+    static LAYOUT: std::cell::RefCell<Option<LayoutMemo>> =
         const { std::cell::RefCell::new(None) };
 }
 
