@@ -22,6 +22,7 @@ pub mod events;
 pub mod files;
 pub mod find;
 pub mod formulas;
+pub mod front_matter;
 pub mod images;
 pub mod input;
 pub mod insert;

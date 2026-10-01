@@ -4181,11 +4181,33 @@ fn markdown_code_coloured_with_the_lines_before() {
     // The cell of `word`'s first character.
     let cell = |word: &str| {
         (0..8u16)
-            .find_map(|y| row(y).find(word).map(|x| (row(y)[..x].chars().count() as u16, y)))
+            .find_map(|y| {
+                row(y)
+                    .find(word)
+                    .map(|x| (row(y)[..x].chars().count() as u16, y))
+            })
             .unwrap_or_else(|| panic!("{word}: {:?}", (0..8).map(row).collect::<Vec<_>>()))
     };
     let first = buf[cell("first")].fg;
     let second = buf[cell("second")].fg;
     assert_eq!(first, second);
     assert_ne!(buf[cell("x =")].fg, first);
+}
+
+#[test]
+fn markdown_properties_as_a_form() {
+    // T2.7c.9: choose a field, its value offered to change.
+    let text = "---\ntitle: Old\ntags: [a]\n---\n# Body\n";
+    let mut t = with_file(text, "t.md", Config::default(), (60, 10));
+    t.app
+        .run_command("markdown.frontMatter.edit", serde_json::Value::Null);
+    t.typ("title");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    // The value is offered: replaced by typing after clearing it.
+    for _ in 0..3 {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("New title");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.text(), "---\ntitle: New title\ntags: [a]\n---\n# Body\n");
 }
