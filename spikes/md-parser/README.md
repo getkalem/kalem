@@ -43,7 +43,7 @@ upstream main has already removed `tagfilter`, so the spike was run with it
 off (23 / 24, the tag filter example) and Kalem will filter the tags in its
 own HTML export. To measure the fork, add
 `[patch.crates-io] comrak = { path = "../../../comrak" }` (a clone of the
-fork) and drop the `tagfilter` line. Until the branch is pushed, the commit is kept here as `patches/0001-*.patch` (`git am` on upstream 1470560).
+fork) and drop the `tagfilter` line.
 
 The nine CommonMark examples both miss are the same: runs of `**` and
 `__` (`****foo****`), where both follow CommonMark 0.31's rule for nested
