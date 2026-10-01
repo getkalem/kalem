@@ -938,6 +938,19 @@ mod tests {
             run(&m, "ctrl+shift+c", &md).unwrap().0,
             "markdown.toggleCheckbox"
         );
+        // Org's table keys move a table's rows and columns, the lines
+        // elsewhere.
+        assert_eq!(
+            run(&m, "alt+up", &md).unwrap().0,
+            "markdown.table.moveRowUp"
+        );
+        assert_eq!(
+            run(&m, "alt+shift+right", &md).unwrap().0,
+            "markdown.table.insertColumn"
+        );
+        md.flag("inMarkdownTable", false);
+        assert_eq!(run(&m, "alt+up", &md).unwrap().0, "lines.moveUp");
+        md.flag("inMarkdownTable", true);
         // Enter continues a list only in one.
         md.flag("inMarkdownTable", false);
         assert_ne!(run(&m, "enter", &md).map(|r| r.0), Some("markdown.newline"));

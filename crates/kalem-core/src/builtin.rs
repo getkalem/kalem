@@ -223,6 +223,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("csv.splitColumn", object(&[("separator", "string", true)])),
         ("bookmark.set", object(&[("name", "string", false)])),
         ("session.save", object(&[("name", "string", false)])),
+        (
+            "markdown.table.sort",
+            object(&[("reverse", "boolean", false)]),
+        ),
         ("session.saveAs", object(&[("name", "string", true)])),
         ("session.restore", object(&[("name", "string", false)])),
         ("session.restoreNamed", object(&[("name", "string", false)])),
@@ -1918,6 +1922,142 @@ fn markdown_commands() -> Vec<Command> {
         md_table("markdown.table.align", "Align Table", &[], |ctx, _| {
             md_table_run(ctx, crate::markdown_table::align_at)
         }),
+        md_table(
+            "markdown.table.moveRowUp",
+            "Move Row Up",
+            &["alt+up"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::MoveRow(true),
+                    )
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.moveRowDown",
+            "Move Row Down",
+            &["alt+down"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::MoveRow(false),
+                    )
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.moveColumnLeft",
+            "Move Column Left",
+            &["alt+left"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::MoveColumn(true),
+                    )
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.moveColumnRight",
+            "Move Column Right",
+            &["alt+right"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::MoveColumn(false),
+                    )
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.insertRow",
+            "Insert Row",
+            &["alt+shift+down"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::InsertRow,
+                    )
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.deleteRow",
+            "Delete Row",
+            &["alt+shift+up"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::DeleteRow,
+                    )
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.insertColumn",
+            "Insert Column",
+            &["alt+shift+right"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::InsertColumn,
+                    )
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.deleteColumn",
+            "Delete Column",
+            &["alt+shift+left"],
+            |ctx, _| {
+                md_table_run(ctx, |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::DeleteColumn,
+                    )
+                })
+            },
+        ),
+        md_table(
+            "markdown.table.sort",
+            "Sort Rows by Column",
+            &[],
+            |ctx, args| {
+                let reverse = arg_bool(args, "reverse");
+                md_table_run(ctx, move |md, t, at| {
+                    crate::markdown_table::edit_at(
+                        md,
+                        t,
+                        at,
+                        crate::markdown_table::TableEdit::Sort(reverse),
+                    )
+                })
+            },
+        ),
         // Markdown to Org beside the file, without pandoc (T2.7c.7).
         scoped(
             cmd(
@@ -2007,7 +2147,7 @@ fn md_table(id: &str, title: &str, keys: &[&str], h: Handler) -> Command {
 
 fn md_table_run(
     ctx: &mut EditorContext<'_>,
-    f: fn(&crate::markdown::Md, &str, usize) -> Option<org_edit::Transaction>,
+    f: impl Fn(&crate::markdown::Md, &str, usize) -> Option<org_edit::Transaction>,
 ) -> CommandResult {
     let now = ctx.now;
     let d = ctx.doc()?;

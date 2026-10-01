@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Markdown tables: Org's table keys move, insert and delete rows and columns, and Sort Rows by Column sorts the body (T2.7c.4).
 - LaTeX: a keystroke in a large file of a project no longer numbers the project again when it only moves the file's events: 21 ms to 2.2 ms in the Stacks project's `algebra.tex` (T2.7h.35).
 - LaTeX tables: a `\multirow` is drawn in the middle of the rows it covers, as LaTeX sets it (T2.7h.9).
 - Quit Without Saving (`SPC q Q`), Close Window (`SPC q f`), Restart (`SPC q R`) and Restart and Restore (`SPC q r`) (T2.7i.14).

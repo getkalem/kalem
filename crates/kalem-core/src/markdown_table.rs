@@ -225,6 +225,124 @@ pub fn next_field(md: &Md, text: &str, pos: usize, forward: bool) -> Option<Tran
     Some(tx.select(Selection::caret(caret)))
 }
 
+/// A change of a table's rows or columns, as Org's table keys make them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableEdit {
+    /// The row at the cursor up (`true`) or down, among the body rows.
+    MoveRow(bool),
+    /// The column at the cursor left (`true`) or right.
+    MoveColumn(bool),
+    /// An empty row above the cursor's (the first body row from the
+    /// header).
+    InsertRow,
+    /// The cursor's body row deleted.
+    DeleteRow,
+    /// An empty column left of the cursor's.
+    InsertColumn,
+    /// The cursor's column deleted (not the last one).
+    DeleteColumn,
+    /// The body rows sorted by the cursor's column: as numbers when they
+    /// all are, else as text ignoring case; descending when `true`.
+    Sort(bool),
+}
+
+/// The table at `pos` changed by `e` and aligned, the cursor in the cell
+/// it went to; `None` when `e` cannot apply there (the header row does
+/// not move, a body row does not go above the delimiter row).
+pub fn edit_at(md: &Md, text: &str, pos: usize, e: TableEdit) -> Option<Transaction> {
+    let range = table_at(md, text, pos)?;
+    let (row, col) = cell_of(text, &range, pos);
+    let table = &text[range.clone()];
+    let indent: String = table
+        .chars()
+        .take_while(|c| *c == ' ' || *c == '\t')
+        .collect();
+    let mut rows: Vec<Vec<String>> = table.split('\n').map(cells).collect();
+    if rows.len() < 2 {
+        return None;
+    }
+    let ncols = rows.iter().map(Vec::len).max().unwrap_or(1).max(1);
+    for (i, r) in rows.iter_mut().enumerate() {
+        let fill = if i == 1 { "---" } else { "" };
+        r.resize(ncols, fill.to_string());
+    }
+    let col = col.min(ncols - 1);
+    let n = rows.len();
+    let (r, c) = match e {
+        TableEdit::MoveRow(true) if row >= 3 && row < n => {
+            rows.swap(row, row - 1);
+            (row - 1, col)
+        }
+        TableEdit::MoveRow(false) if row >= 2 && row + 1 < n => {
+            rows.swap(row, row + 1);
+            (row + 1, col)
+        }
+        TableEdit::MoveColumn(true) if col > 0 => {
+            rows.iter_mut().for_each(|r| r.swap(col, col - 1));
+            (row, col - 1)
+        }
+        TableEdit::MoveColumn(false) if col + 1 < ncols => {
+            rows.iter_mut().for_each(|r| r.swap(col, col + 1));
+            (row, col + 1)
+        }
+        TableEdit::InsertRow => {
+            let at = row.max(2);
+            rows.insert(at, vec![String::new(); ncols]);
+            (at, col)
+        }
+        TableEdit::DeleteRow if row >= 2 && row < n => {
+            rows.remove(row);
+            let last = rows.len() - 1;
+            (row.min(last).max(if last >= 2 { 2 } else { 0 }), col)
+        }
+        TableEdit::InsertColumn => {
+            for (i, r) in rows.iter_mut().enumerate() {
+                r.insert(col, if i == 1 { "---".into() } else { String::new() });
+            }
+            (row, col)
+        }
+        TableEdit::DeleteColumn if ncols > 1 => {
+            rows.iter_mut().for_each(|r| {
+                r.remove(col);
+            });
+            (row, col.min(ncols - 2))
+        }
+        TableEdit::Sort(reverse) if n > 3 => {
+            let mut body = rows.split_off(2);
+            let numbers: Option<Vec<f64>> = body
+                .iter()
+                .map(|r| r[col].trim().parse::<f64>().ok())
+                .collect();
+            match numbers {
+                Some(_) => body.sort_by(|a, b| {
+                    let (x, y) = (a[col].trim().parse::<f64>(), b[col].trim().parse::<f64>());
+                    x.unwrap_or(0.0).total_cmp(&y.unwrap_or(0.0))
+                }),
+                None => body.sort_by_key(|r| r[col].to_lowercase()),
+            }
+            if reverse {
+                body.reverse();
+            }
+            rows.extend(body);
+            (row, col)
+        }
+        _ => return None,
+    };
+    let lines: Vec<String> = rows
+        .iter()
+        .map(|r| format!("{indent}| {} |", r.join(" | ")))
+        .collect();
+    let aligned = align(&lines.join("\n"));
+    let caret = range.start + cell_start(&aligned, r, c);
+    let mut new = String::with_capacity(text.len() + 16);
+    new.push_str(&text[..range.start]);
+    new.push_str(&aligned);
+    new.push_str(&text[range.end..]);
+    let tx = crate::lines::replace_differing(text, &new, "Edit Table")
+        .unwrap_or_else(|| Transaction::new("Edit Table"));
+    Some(tx.select(Selection::caret(caret)))
+}
+
 /// The table at `pos` aligned, `None` when it already is.
 pub fn align_at(md: &Md, text: &str, pos: usize) -> Option<Transaction> {
     let range = table_at(md, text, pos)?;
@@ -246,6 +364,68 @@ mod tests {
             s.replace_range(e.range.clone(), &e.insert);
         }
         s
+    }
+
+    #[test]
+    fn rows_and_columns_as_in_org() {
+        let text = "Intro\n\n| n | name |\n|--:|:--|\n| 2 | beta |\n| 10 | Alpha |\n| 1 | gamma |\n\nAfter\n";
+        let md = Md::parse(text);
+        let at = |cell: &str| text.find(cell).unwrap();
+        let run = |pos: usize, e: TableEdit| {
+            let tx = edit_at(&md, text, pos, e).expect("applies");
+            (apply(text, &tx), tx.selection_after.unwrap().head)
+        };
+        let table = |s: &str| s.split("\n\n").nth(1).unwrap().to_string();
+        // A body row up, and the cursor with it.
+        let (t, c) = run(at("10"), TableEdit::MoveRow(true));
+        assert_eq!(
+            table(&t),
+            "|   n | name  |\n| --: | :---- |\n|  10 | Alpha |\n|   2 | beta  |\n|   1 | gamma |"
+        );
+        assert!(t[c..].trim_start().starts_with("10 |"));
+        // The first body row does not go above the delimiter row, nor the
+        // header down.
+        assert!(edit_at(&md, text, at("beta"), TableEdit::MoveRow(true)).is_none());
+        assert!(edit_at(&md, text, at("name"), TableEdit::MoveRow(false)).is_none());
+        // Columns move with their alignment.
+        let (t, _) = run(at("beta"), TableEdit::MoveColumn(true));
+        assert!(
+            table(&t).starts_with("| name  |   n |\n| :---- | --: |"),
+            "{t}"
+        );
+        // Insert and delete.
+        let (t, _) = run(at("beta"), TableEdit::InsertRow);
+        assert_eq!(table(&t).lines().nth(2), Some("|     |       |"));
+        let (t, _) = run(at("beta"), TableEdit::DeleteRow);
+        assert!(!t.contains("beta"));
+        let (t, _) = run(at("beta"), TableEdit::InsertColumn);
+        assert!(
+            table(&t).starts_with("|   n |     | name  |\n| --: | --- | :---- |"),
+            "{t}"
+        );
+        let (t, _) = run(at("beta"), TableEdit::DeleteColumn);
+        assert!(!t.contains("beta") && t.contains("|  10 |"));
+        // Sorting: numbers as numbers, text ignoring case.
+        let (t, _) = run(at("10"), TableEdit::Sort(false));
+        let tt = table(&t);
+        let firsts: Vec<&str> = tt
+            .lines()
+            .skip(2)
+            .map(|l| l.split('|').nth(1).unwrap().trim())
+            .collect();
+        assert_eq!(firsts, ["1", "2", "10"]);
+        let (t, _) = run(at("10"), TableEdit::Sort(true));
+        assert!(table(&t).lines().nth(2).unwrap().contains("10"));
+        let tx = edit_at(&md, text, at("name |"), TableEdit::Sort(false)).unwrap();
+        let t = apply(text, &tx);
+        let names: Vec<String> = table(&t)
+            .lines()
+            .skip(2)
+            .map(|l| l.split('|').nth(2).unwrap().trim().to_string())
+            .collect();
+        assert_eq!(names, ["Alpha", "beta", "gamma"]);
+        // Outside the text around the table, nothing changes.
+        assert!(t.starts_with("Intro\n\n") && t.ends_with("\n\nAfter\n"));
     }
 
     #[test]

@@ -123,6 +123,16 @@ edits it as plain text. Concretely:
   pads cells as their column is aligned, gives short rows empty cells,
   keeps escaped pipes =\|= inside their cell, and keeps the first line's
   indentation.
+- The table keys of Org move a table's rows and columns: Alt+Up and
+  Alt+Down move the body row (the header stays, and no row goes above the
+  delimiter row), Alt+Left and Alt+Right the column with its alignment;
+  Alt+Shift+Down inserts an empty row above, Alt+Shift+Up deletes the
+  row, Alt+Shift+Right inserts an empty column to the left,
+  Alt+Shift+Left deletes the column (=markdown.table.moveRowUp= and the
+  others). /Sort Rows by Column/ (=markdown.table.sort=, =C-c ^= in the
+  Emacs keymap) sorts the body rows by the cursor's column, as numbers
+  when they all are, else as text ignoring case; =reverse= sorts
+  descending. Outside a table these keys move lines as everywhere.
 - The text of a source view is coloured by the Markdown syntax definition bundled with
   the highlighter (the Sublime Text Markdown syntax that =syntect=
   ships, language name "Markdown"), looked up as =md=. That syntax is a
