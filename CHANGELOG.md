@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- The Book's Part V has a page "Kalem and Emacs": what Kalem takes from Emacs (commands, keymaps, modes, the terminal, batch mode, Org, Dired, Projectile), what it leaves out on purpose (Elisp, `init.el`, everything-is-a-buffer, packages with full access, extended syntax) with the decision behind each, what that costs an Emacs user, and how the two work on the same files; linked from the README and the manual.
 
 - The Vim profile is Vim: its keys everywhere but Doom's leader keys, the Word-like Control and Alt keys off while the Vim layer is on (Command keeps them on macOS). Insert mode's keys (Ctrl+W, Ctrl+U, Ctrl+R, Ctrl+O, Ctrl+T, Ctrl+D, Ctrl+V, Ctrl+K digraphs, Ctrl+N completion…), Vim's patterns, the command line with ranges (`:s`, `:g`, `:v`, `:d`, `:m`, `:t`, `:norm`, `:sort`, `:set`…), marks, the jump and change lists, macros, Ctrl+A and Ctrl+X, `U`, `gv`, `gi`, `gn`, sentence and tag objects. Checked against Vim itself, case by case, in CI.
 - The repository is public: CI runs on every push again, every job green on Linux, macOS and Windows, and the Kalem Book is published at https://getkalem.github.io/kalem from `main`.

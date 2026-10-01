@@ -100,7 +100,8 @@ Not a Microsoft Office clone: Word files will open through a plugin
 later, and go through pandoc today. Not a page layout tool, a full
 spreadsheet or a visual slide designer. Not a full IDE: language
 servers come as plugins, and the core knows no programming language.
-Not an Emacs: no Elisp, no agenda settings by the hundred. Not a
+Not an Emacs: no Elisp, no agenda settings by the hundred;
+[[file:../part-5/kalem-and-emacs.org][Kalem and Emacs]] says what is taken from it and what is left out. Not a
 collaboration service: files and git are enough. The design document
 lists the
 [[https://github.com/getkalem/kalem/blob/main/docs/design_document.md#14-non-goals][non-goals]] in full.

@@ -41,6 +41,6 @@ kalem export notes.org --to html    # the command-line tools: check, fmt, query,
 
 ## More
 
-- [The Kalem Book](https://getkalem.github.io/kalem): the manual, and what Kalem does with each format.
+- [The Kalem Book](https://getkalem.github.io/kalem): the manual, and what Kalem does with each format. [Kalem and Emacs](book/part-5/kalem-and-emacs.org): what is taken from Emacs, and what is left out on purpose.
 - [Contributing](CONTRIBUTING.md), the [design documents and task list](docs/README.md), the [changelog](CHANGELOG.md).
 - License: MIT or Apache-2.0, at your option.
