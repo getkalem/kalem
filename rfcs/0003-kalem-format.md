@@ -70,7 +70,7 @@ A last survey before the syntax was fixed. Each row names what the Kalem format 
 
 ## 3. Principles the syntax follows
 
-From design_doc2.md section 5, sharpened by the owner's decisions:
+From docs/design_doc2.md section 5, sharpened by the owner's decisions:
 
 1. **One explicit syntax for everything.** No lightweight markers for headings, lists or emphasis: the editor writes the file, so typing cost does not count, and one mechanism keeps the grammar and the tooling small. The single exception is inline mathematics (8), because its notation is LaTeX's own and `$` belongs to that notation.
 2. **The editor guarantees well-formedness.** Every command is inserted with its closing brace; the cursor never enters a delimiter; every edit is a tree operation; the document is well-formed after every transaction, checked in debug builds and by property tests (15).

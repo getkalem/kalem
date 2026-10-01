@@ -8,7 +8,7 @@ yet; it is the work of phase 3 of the roadmap.
 This part of the Book describes both, and keeps them apart. Every
 section says whether what it describes is *available today* or
 *planned*, and planned work is named by its task in the work breakdown
-(=todo.md=), such as T3.1.1, so that you can follow it.
+(=docs/todo.md=), such as T3.1.1, so that you can follow it.
 
 * Available today and planned
 

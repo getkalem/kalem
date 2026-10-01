@@ -1,72 +1,52 @@
-Choose /Settings/ in the Kalem menu (Ctrl+, or Cmd+,) for the theme, the
+/Settings/ in the Kalem menu (Ctrl+, or Cmd+,) sets the theme, the
 keys, the language, the text size and the font. Changes apply to every
-window and are saved in =settings.toml=, in the settings directory:
+window and are saved in =settings.toml= in the settings directory:
 =$KALEM_CONFIG_DIR=, or =kalem= in =$XDG_CONFIG_HOME=, =%APPDATA%= on
 Windows, or =~/.config=. A project can have its own
 =.kalem/settings.toml=, which applies over yours.
 
-The terminal editor has no settings panel: /Settings/ (Ctrl+,, or Alt+,
-where the terminal cannot send it) shows the path of =settings.toml= in
-the status line. Open the file and edit it there, or use the commands
-that change a setting, such as /Toggle Folder Tree/.
+The terminal editor has no settings panel: /Settings/ (Ctrl+,, or
+Alt+, where the terminal cannot send it) shows the path of
+=settings.toml= in the status line. Edit the file there, or use the
+commands that change a setting, such as /Toggle Folder Tree/ or
+/Toggle Line Numbers/, which save it. Kalem reads its settings files
+when it starts, so after editing one by hand, restart it; a change
+made in the panel or by such a command is read at once.
 
-Kalem reads its settings files when it starts. After editing one by
-hand, in either editor, restart Kalem; a change made in the settings
-panel or by such a command reads your =settings.toml= again at once.
+The settings you are most likely to change; [[file:../appendices/settings.org][the Settings appendix]]
+lists every one, generated from the code.
 
-The table lists the settings you are most likely to change;
-[[file:../appendices/settings.org][the Settings appendix]] lists every
-one, generated from the code.
+| Setting                   | Default    | What it does                                                 |
+|---------------------------+------------+--------------------------------------------------------------|
+| =ui.language=             | ="auto"=   | =auto= (the system's), =en= or =tr=                          |
+| =editor.theme=            | ="system"= | =system=, =light= or =dark=                                  |
+| =editor.font_family=      | =""=       | Body font; empty for the system font                         |
+| =editor.code_font_family= | =""=       | Font of code and plain text                                  |
+| =editor.font_size=        | =16=       | Text size                                                    |
+| =editor.line_width=       | =80=       | Width of the text column in characters (0: all)              |
+| =editor.center_text=      | =false=    | The text column in the middle of the window                  |
+| =editor.soft_wrap=        | =true=     | Wrap long lines                                              |
+| =editor.line_numbers=     | =true=     | Line numbers in plain text and the source view               |
+| =editor.keymap_profile=   | ="word"=   | =word= or =vim=                                              |
+| =editor.vim.leader=       | ="space"=  | The leader of the Vim keys (=SPC p p=)                       |
+| =editor.restore_session=  | =false=    | On start without a file, the documents open at the last quit |
+| =ui.open_files=           | ="left"=   | Open files on the =left=, at the =top=, =hidden=             |
+| =ui.folder_tree=          | =true=     | The project's folders and files below the open files         |
+| =projects.auto_add=       | =true=     | Folders under version control become projects                |
+| =org.todo_keywords=       | TODO, DONE | TODO states of files without =#+TODO=; see below             |
+| =files.show_hidden=       | =false=    | Dot files in the file manager                                |
+| =log.level=               | ="info"=   | How much goes to the log                                     |
 
-| Setting                                  | Default    | What it does                                                                       |
-|------------------------------------------+------------+------------------------------------------------------------------------------------|
-| =ui.language=                            | ="auto"=   | =auto= (the system's), =en= or =tr=                                                |
-| =editor.theme=                           | ="system"= | =system=, =light= or =dark=                                                        |
-| =editor.font_family=                     | =""=       | Body font; empty for the system font                                               |
-| =editor.code_font_family=                | =""=       | Font of code and plain text                                                        |
-| =editor.font_size=                       | =16=       | Text size                                                                          |
-| =editor.line_width=                      | =80=       | Width of the text column in characters (0: all)                                    |
-| =editor.center_text=                     | =false=    | The text column in the middle of the window                                        |
-| =editor.soft_wrap=                       | =true=     | Wrap long lines                                                                    |
-| =editor.line_numbers=                    | =true=     | Line numbers in plain text and the source view                                     |
-| =editor.trim_trailing_whitespace=        | =false=    | Remove the blanks at the ends of lines when saving (not in CSV and Markdown files) |
-| =editor.keymap_profile=                  | ="word"=   | =word= or =vim=                                                                    |
-| =editor.vim.modes=                       | =[]=       | Kinds of documents with Vim keys; empty for all                                    |
-| =editor.vim.leader=                      | ="space"=  | The leader of the Vim keys (=SPC p p=)                                             |
-| =markdown.assets_dir=                    | ="images"= | Where a Markdown document's pictures are copied                                    |
-| =csv.rainbow=                            | =false=    | CSV files start with rainbow columns                                               |
-| =csv.coordinates=                        | =false=    | CSV files start with the coordinate grid                                           |
-| =notes.directory=                        | ="~/org"=  | The notes folder =SPC n s= searches                                                |
-| =editor.restore_session=                 | =false=    | On start without a file, the documents open at the last quit                       |
-| =keys.hints=                             | =true=     | The panel of keys that may follow a prefix (=SPC=, =C-x=)                          |
-| =keys.hints_delay=                       | =400=      | Milliseconds before that panel shows                                               |
-| =ui.open_files=                          | ="left"=   | Open files on the =left=, at the =top=, =hidden=                                   |
-| =ui.menu_bar=                            | =true=     | The window's menu bar on Linux and Windows (macOS has its own)                     |
-| =ui.folder_tree=                         | =true=     | The project's folders and files below the open files on the left                   |
-| =editor.outline_indent=                  | =true=     | Text under a heading starts at its title                                           |
-| =projects.auto_add=                      | =true=     | Folders under version control become projects                                      |
-| =org.todo_keywords=                      | TODO, DONE | TODO states of files without =#+TODO=; see below                                   |
-| =org.log_done=                           | ="none"=   | What marking a task done records                                                   |
-| =org.enforce_todo_dependencies=          | =false=    | Open subtasks keep a task from being done                                          |
-| =org.enforce_todo_checkbox_dependencies= | =false=    | So do unchecked boxes                                                              |
-| =org.todo_state_tags_triggers=           | =[]=       | Tags changed with the TODO state                                                   |
-| =files.backup=                           | =false=    | Keep the previous version as =NAME.bak=                                            |
-| =files.details=                          | =true=     | Permissions, sizes and times in the file manager                                   |
-| =files.show_hidden=                      | =false=    | Dot files in the file manager                                                      |
-| =files.sort=                             | ="name"=   | =name=, =time=, =size= or =extension=                                              |
-| =files.directories_first=                | =true=     | Folders before files in the file manager                                           |
-| =log.level=                              | ="info"=   | How much goes to the log                                                           |
-
-=org.todo_keywords= is a list such as =["TODO", "NEXT", "|", "DONE"]=: the
-states after the bar are done states.
+=org.todo_keywords= is a list such as =["TODO", "NEXT", "|", "DONE"]=:
+the states after the bar are done states.
 
 * Themes
 
 Light and dark themes follow the system unless =editor.theme= says
-otherwise; the terminal editor asks the terminal for its background. To
-change colors, write =themes/light.toml= or =themes/dark.toml= in the
-settings directory with a =[colors]= table holding the colors to change,
-as =#rrggbb= or =#rrggbbaa=; colors you leave out keep their values:
+otherwise; the terminal editor asks the terminal for its background.
+To change colors, write =themes/light.toml= or =themes/dark.toml= in
+the settings directory with a =[colors]= table of the colors to
+change, as =#rrggbb= or =#rrggbbaa=; the others keep their values:
 
 #+begin_src toml
 [colors]
@@ -74,6 +54,6 @@ background = "#fdf6e3"
 link = "#268bd2"
 #+end_src
 
-The built-in themes, with every color's name and a comment on what it
-colors, are =crates/kalem-core/themes/light.toml= and =dark.toml= in
-Kalem's source.
+The built-in themes, with every color's name and what it colors, are
+=crates/kalem-core/themes/light.toml= and =dark.toml= in Kalem's
+source.

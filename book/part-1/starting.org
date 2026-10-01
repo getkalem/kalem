@@ -8,10 +8,8 @@
 | =kalem tui --detect= | What the terminal can do: colors, images, keyboard                           |
 | =kalem check FILE=   | Command-line tools: see [[file:the-command-line.org][The command line]]                                     |
 
-A file that does not exist yet is created when you save. A new file needs
-an extension, such as =notes.org=; a bare word is taken for a mistyped
-command.
-
-The editors open one file at a time: =kalem a.org b.org= stops with "one
-file at a time". Open the others from the editor (Ctrl+O, the file
-manager), where they are listed beside the first.
+A file that does not exist yet is created when you save. Give it an
+extension, such as =notes.org=: a bare word is taken for a mistyped
+command. The editors open one file at a time (=kalem a.org b.org=
+stops with "one file at a time"); open the others from the editor,
+with Ctrl+O or the file manager, and they are listed beside the first.

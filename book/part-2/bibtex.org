@@ -27,7 +27,7 @@ What is tested today:
   tests of =bibtex.rs=);
 - Org's reading against Emacs's =bibtex-parse-entry= on a sample
   (=@string= and month expansion, =#=, blank squeezing; unit tests of
-  =org-cite=, T2.4.2 in =todo.md=);
+  =org-cite=, T2.4.2 in =docs/todo.md=);
 - CSL cards for the LaTeX view in the =apa= and =ieee= styles
   (=cite::card_tests=), and BibTeX pasted into a LaTeX document;
 - the diagnostics about citation keys in =latex_check= and in

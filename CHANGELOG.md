@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- The README is one page; the Book's Part I says the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
+
 ### Fixed
 
 - `kalem parse` parses a Markdown file as Markdown (it parsed it as Org), and LaTeX as LaTeX; `kalem check` takes folders, and checks Markdown as Markdown: links to files that are not there.

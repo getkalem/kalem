@@ -1,4 +1,4 @@
-Every decision of the design, with the task that closes it and its state, as the former work breakdown (=todo_old.md=, frozen on 2026-10-01) records it. The decisions with a record of their own are the following chapters.
+Every decision of the design, with the task that closes it and its state, as the former work breakdown (=docs/todo_old.md=, frozen on 2026-10-01) records it. The decisions with a record of their own are the following chapters.
 
 | ID | Decision | Closed in | Status |
 |-
@@ -22,7 +22,7 @@ Every decision of the design, with the task that closes it and its state, as the
 | D18 | Entity table provenance | Phase 0 exit | Open: owner decision |
 | D19 | Markdown parser | T2.7c.1 | Decided (owner, 2026-10-01): comrak, in the fork =getkalem/comrak= |
 | D20 | File operations for the file manager | T2.7e.1 | Decided 2026-09-28 |
-| D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | *Closed (owner, 2026-09-30):* faithful standard modes plus the Kalem format (design_doc2.md) |
+| D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | *Closed (owner, 2026-09-30):* faithful standard modes plus the Kalem format (docs/design_doc2.md) |
 | D22 | PDF without TeX: the renderer for "Export as PDF" from HTML (system print to PDF, a bundled HTML renderer, or typst) | T2.3.13 | Open (review, 2026-09-28) |
 | D23 | UI framework revisited: stay on gpui through a registry snapshot or vendoring (T2.8.6), or leave gpui (T2.8.7) | T2.8.6a, T2.8.7, 2.9 | Open: owner decision (review, 2026-09-28) |
 | D24 | File kinds: ~.org~ is strict Org; ~.klm~ was Org plus Kalem's additions | T2.2a.9 | ~.org~ strict stays *decided*; the ~.klm~ half is *superseded by RFC 0003* (owner, 2026-09-30): the Kalem format is its own specification; the interim additions are removed from Org now, not at the first release (owner, 2026-09-30), T2.13.13 |
@@ -32,22 +32,22 @@ Every decision of the design, with the task that closes it and its state, as the
 | D28 | Plugin ABI and language: WASM components on a WIT API, Rust the only language, no scripting engine; the engine by the spike | T3.1.0, T3.1.1, T3.1.2 | *Decided (owner, 2026-09-28)*, engine open |
 | D29 | Small core: Org, Markdown, CSV and LaTeX (2.7h), the text engine, the two frontends, the infrastructure before plugins; the rest bundled or community plugins | T3.3.2a | *Decided (owner, 2026-09-28)*; new modes and file types in ~getkalem/plugins~ (T3.3.7) |
 | D30 | The rendered subset of LaTeX and its coverage target, from a study of arXiv sources (record =D30-latex-subset.org=) | T2.7h.1, T2.7h.36 | Open: the study has not run; the subset was chosen without it |
-| D31 | The Kalem format: heading marker (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D32 | The Kalem format: emphasis markers (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D33 | The Kalem format: attribute syntax (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D34 | The Kalem format: generic block fence (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D35 | The Kalem format: front matter (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D36 | The Kalem format: tasks and properties on headings (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D37 | The Kalem format: table formulas (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D38 | The Kalem format: math delimiters and blocks (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D39 | The Kalem format: stylesheet language (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D40 | The Kalem format: layout directives (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D41 | The Kalem format: comments (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D42 | The Kalem format: includes and macros (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D43 | The Kalem format: executable blocks (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D44 | The Kalem format: extensions (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D45 | The Kalem format: specification license and governance (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
-| D46 | The Kalem format: where the specification lives (design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D31 | The Kalem format: heading marker (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D32 | The Kalem format: emphasis markers (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D33 | The Kalem format: attribute syntax (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D34 | The Kalem format: generic block fence (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D35 | The Kalem format: front matter (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D36 | The Kalem format: tasks and properties on headings (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D37 | The Kalem format: table formulas (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D38 | The Kalem format: math delimiters and blocks (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D39 | The Kalem format: stylesheet language (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D40 | The Kalem format: layout directives (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D41 | The Kalem format: comments (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D42 | The Kalem format: includes and macros (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D43 | The Kalem format: executable blocks (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D44 | The Kalem format: extensions (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D45 | The Kalem format: specification license and governance (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
+| D46 | The Kalem format: where the specification lives (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
 | D47 | The command sigil: =\= | RFC 0003 §4.1, §20 | *Decided (owner, 2026-09-30)* |
 | D48 | Paragraphs implicit, separated by blank lines; the only non-command structure | RFC 0003 §4.4 | *Decided (owner, 2026-09-30)* |
 | D49 | One shortcut, ~$…$~ for inline mathematics in LaTeX notation; no other lightweight marker | RFC 0003 §8, §20, appendix A | *Decided (owner, 2026-09-30)*, confirmed by the first experiment: diffs read well without shortcuts |

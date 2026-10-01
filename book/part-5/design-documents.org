@@ -4,12 +4,12 @@ the process).
 
 | RFC  | Title                                                        | Status                         | Source |
 |------+--------------------------------------------------------------+--------------------------------+--------|
-| 0001 | Kalem design document: vision, architecture, formats, roadmap | Accepted; changed by later RFCs | [[https://github.com/getkalem/kalem/blob/main/design_document.md][design_document.md]] |
-| 0002 | Standard modes, the Kalem format, and the Book               | Accepted (owner, 2026-09-30)   | [[https://github.com/getkalem/kalem/blob/main/design_doc2.md][design_doc2.md]] |
+| 0001 | Kalem design document: vision, architecture, formats, roadmap | Accepted; changed by later RFCs | [[https://github.com/getkalem/kalem/blob/main/docs/design_document.md][docs/design_document.md]] |
+| 0002 | Standard modes, the Kalem format, and the Book               | Accepted (owner, 2026-09-30)   | [[https://github.com/getkalem/kalem/blob/main/docs/design_doc2.md][docs/design_doc2.md]] |
 | 0003 | The Kalem format (=.klm=), specification                     | Accepted, draft 0.2; frozen as the design record, the specification is Part III | [[https://github.com/getkalem/kalem/blob/main/rfcs/0003-kalem-format.md][rfcs/0003-kalem-format.md]] |
 
 The work breakdown that follows from them, with the state of every task,
-is [[https://github.com/getkalem/kalem/blob/main/todo.md][todo.md]].
+is [[https://github.com/getkalem/kalem/blob/main/docs/todo.md][docs/todo.md]].
 
 * The principles in short
 

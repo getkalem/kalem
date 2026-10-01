@@ -1,53 +1,56 @@
 # Contributing to Kalem
 
-Thank you for your interest in Kalem. This document explains how to set up a development environment and how changes are made.
+Thank you for your interest in Kalem. This page says how to set up, what the rules are, and how changes are made.
 
 ## Before you start
 
-- Read [the Kalem Book](https://getkalem.github.io/kalem) (source in `book/`): Part I is the manual, Part II says exactly what Kalem does with each format it opens and against which reference that is tested, Part III is the specification of the Kalem format, Part IV covers extending Kalem and Part V the design. The design documents, [`design_document.md`](design_document.md) (RFC 0001) and [`design_doc2.md`](design_doc2.md) (RFC 0002), describe what Kalem is, what it is not, and how it is built.
-- Look at [`todo.md`](todo.md) for the open tasks in the order they are to be done, and at [`todo_old.md`](todo_old.md) for the done tasks, the decisions and the history. Task IDs such as `T2.7h.4` are the same in both and are used in issues and pull requests.
-- For larger changes, open an issue first. Changes to the design go through an RFC (see [`rfcs/README.md`](rfcs/README.md)).
+- Read [the Kalem Book](https://getkalem.github.io/kalem): Part I is the manual, Part II says what Kalem does with each format and how that is tested, Part IV covers extending Kalem. The design is in [`docs/design_document.md`](docs/design_document.md) (RFC 0001) and [`docs/design_doc2.md`](docs/design_doc2.md) (RFC 0002).
+- [`docs/todo.md`](docs/todo.md) lists the open tasks in order; [`docs/todo_old.md`](docs/todo_old.md) keeps the done ones and the decisions. Task IDs such as `T2.7h.4` are used in issues and pull requests.
+- For a larger change, open an issue first. Changes to the design go through an RFC ([`rfcs/README.md`](rfcs/README.md)).
 
-## Development setup
+## Setup
 
-1. Install Rust with [rustup](https://rustup.rs). The toolchain is selected by `rust-toolchain.toml`.
-2. Install the reference tools of the formats you work on: Emacs 29 or newer with Org 9.7 or newer for Org (the differential tests compare Kalem with `org-element`, Org's commands and its exporters), pandoc and a TeX distribution for LaTeX (`kalem diff-pandoc`, `kalem latex build`). CSV, BibTeX and plain text need nothing.
-3. Build and test:
+1. Install Rust with [rustup](https://rustup.rs); `rust-toolchain.toml` selects the toolchain.
+2. Install the reference tools of the formats you work on: Emacs 29 or newer with Org 9.7 for Org, pandoc and a TeX distribution for LaTeX. CSV, BibTeX, Markdown and plain text need nothing.
+3. Build and test with `cargo test --workspace`.
 
-```bash
-cargo test --workspace
-```
+## The rules
 
-## Rules that keep Kalem working
+- **Round trip is sacred.** Parsing and printing return the input unchanged, in every format. A mode returns ranges into the file; it never regenerates the file from a tree, and never normalizes text the user did not edit.
+- **The reference decides.** Org follows `org-element.el`, LaTeX the TeX engines checked against pandoc, CSV RFC 4180 and the files spreadsheets write, Markdown the CommonMark and GFM suites. An intentional difference goes into the format's known-differences chapter of the Book, with a test.
+- **Standard formats are never extended.** Nothing goes into a `.org`, `.tex`, `.csv`, `.bib` or `.md` file that its standard does not define. What a format cannot express belongs to the Kalem format, through its specification (Part III) and its suite (`tests/klm-spec`).
+- **Unknown constructs stay visible**, shown as source, never hidden or guessed.
+- **The core has no UI dependencies.** The `org-*`, `latex-*` and `kalem-core` crates do not depend on a GUI or terminal library.
+- **Both editors, or the gap recorded.** A feature is done when it works in both editors; what the terminal cannot show is listed in `book/part-5/terminal-parity.org`.
+- **The Book changes with the code.** A pull request that changes behavior changes `book/` too, and `kalem book check` passes.
+- **Every user action is a command**, reached through the command registry, with a configurable key.
 
-- **Round-trip is sacred.** For every input, in every format, parsing and printing must return the input unchanged. Never normalize text the user did not edit. A mode returns ranges into the file; it never regenerates the file from a tree.
-- **Each format's oracle is the reference.** Org follows what `org-element.el` does where the Org Syntax document is ambiguous; LaTeX follows what the TeX engines accept, checked against pandoc's reader; CSV follows RFC 4180 and the files spreadsheets write; Markdown follows the CommonMark and GFM suites, with comrak as the reference where they are silent. Record intentional differences in the format's known-differences chapter of the Book (`book/part-2/org-known-differences.org`, `book/part-2/latex-known-differences.org`), and make each entry a test.
-- **Standard formats are never extended.** Kalem writes nothing into a `.org`, `.tex`, `.csv`, `.bib` or `.md` file that its standard does not define. What a format cannot express is not offered in it; it belongs to the Kalem format, `.klm`, whose changes go through its specification (Part III) and its conformance suite (`tests/klm-spec`).
-- **Unknown constructs stay visible.** What a mode does not understand is shown as source, never hidden or guessed.
-- **The core has no UI dependencies.** The `org-*`, `latex-*` and `kalem-core` crates must not depend on a GUI or terminal library.
-- **Both editors, or the gap recorded.** A feature is done when it works in the graphical and the terminal editor; what the terminal cannot show is listed in `book/part-5/terminal-parity.org`.
-- **The Book changes with the code.** A pull request that changes behavior changes the Book (`book/`) in the same pull request; `kalem book check` must pass.
-- **Every user action is a command.** Frontends and plugins go through the command registry, and every key is configurable.
+## Code and tests
 
-## Code style
+- `cargo fmt --all` and `cargo clippy --workspace --all-targets` are clean; CI treats warnings as errors.
+- Public items have documentation comments. Prefer small, focused pull requests.
+- Tests go next to the code or in the crate's `tests/`. Parser changes need snapshot tests and, where possible, a corpus or differential test against the format's reference.
+- Real-world files live in `tests/corpus`, `tests/latex` and `tests/csv`. Add only files whose license allows redistribution, record each in `tests/corpus/LICENSES.md`, and never add personal data.
 
-- `cargo fmt --all` and `cargo clippy --workspace --all-targets` must be clean. CI treats warnings as errors.
-- Public items have documentation comments.
-- Prefer small, focused pull requests.
-- Tests go next to the code (`#[cfg(test)]`) or in the crate's `tests/` directory. Parser changes need snapshot tests and, where possible, a corpus or differential test against the format's oracle.
+## Where things are
 
-## Test corpus
+| Path | Contents |
+|---|---|
+| `crates/org-*` | Org: the lossless incremental parser (`org-syntax`), the document model, editing commands, tables and formulas, exporters, citations, formulas drawn natively |
+| `crates/latex-*`, `crates/klm-syntax` | The LaTeX parser and model; the parser of the Kalem format |
+| `crates/kalem-core` | The editor's model, shared by both frontends: documents and modes, commands, keymaps, settings, the file manager, projects |
+| `crates/kalem-ui`, `crates/kalem-tui` | The graphical and the terminal editor, with `gpui-rich-text` and `tui-rich-text` |
+| `crates/kalem-cli`, `crates/kalem` | The command-line tools and the `kalem` binary (published as `kalem-editor`) |
+| `tests/`, `fuzz/`, `tools/` | Corpora, conformance suites, the Emacs comparison scripts, fuzz targets, measurement scripts |
+| `book/`, `docs/`, `rfcs/` | The Book; the design documents, task lists and release notes; the RFCs |
 
-Real-world files live in `tests/corpus` (Org, LaTeX, Kalem format), `tests/latex` and `tests/csv`. Only add files whose license allows redistribution, and record each file in `tests/corpus/LICENSES.md`. Never add personal data.
+Markdown is parsed by [comrak](https://github.com/kivikakk/comrak) through Kalem's fork [`getkalem/comrak`](https://github.com/getkalem/comrak), which fixes the source positions an editor needs; the fixes are offered upstream.
 
-## Commit messages
+## Commits and the changelog
 
-Use the imperative mood ("Add headline parser", not "Added"). Reference the task ID or issue when there is one. Keep the first line under 72 characters.
-
-## Changelog
-
-Add a line to the "Unreleased" section of [`CHANGELOG.md`](CHANGELOG.md) for every user-visible change.
+- Imperative mood ("Add headline parser"), the first line under 72 characters, the task ID or issue when there is one.
+- Every user-visible change gets a line under "Unreleased" in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
-By contributing you agree that your contributions are dual licensed under MIT OR Apache-2.0, as described in the [README](README.md#license).
+Contributions are dual licensed under MIT OR Apache-2.0, as the [README](README.md#more) says. Files under `tests/corpus` keep their original licenses, listed in `tests/corpus/LICENSES.md`.

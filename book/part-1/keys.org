@@ -1,6 +1,6 @@
 Kalem has two keymaps, chosen in the settings: Word-like keys, the
-default, and Vim keys. On macOS, Command takes the place of Control in the
-Word-like keys (Cmd+S saves).
+default, and Vim keys. On macOS, Command takes the place of Control in
+the Word-like keys (Cmd+S saves).
 
 * Word-like keys
 
@@ -16,245 +16,96 @@ Word-like keys (Cmd+S saves).
 | Ctrl+O, Ctrl+N, Ctrl+W | Open, New, Close document             |
 | Ctrl+Shift+P, F1       | Command palette (Ctrl+G in terminals) |
 
-The other keys are in the sections above, and in the command palette.
+The other keys are in the chapters of what they do, and in the command
+palette.
 
 * Vim keys
 
-With =editor.keymap_profile = "vim"=, every key is Vim's except the
-leader keys, which are Doom Emacs's (=SPC f f=, =SPC p p=…, below). The
-Word-like keys with Control or Alt are off wherever the Vim layer is on:
-Ctrl+S, Ctrl+W, Ctrl+V and the others are Vim's (=:w= saves). Doom keeps
-a few keys under Evil and so does Kalem: Alt with the arrows (Org's and
-Markdown's structure moves, the tables' rows and columns), Control or Alt
-with Enter, and Ctrl+Space for completion. On macOS, Command keeps the
-Word-like keys (Cmd+S, Cmd+C, Cmd+V), as Doom's =s-= keys do, and Control
-is Vim's.
+With =editor.keymap_profile = "vim"=, every key is Vim's: the modes,
+motions, operators, text objects and counts, registers and macros,
+marks with the jump and change lists, search with Vim's patterns, and
+the command line with ranges, =:s=, =:g=, =:sort=, =:set= and the file
+and window commands (=:w=, =:e=, =:sp=, =:bn=, =:Ex= for the file
+manager, =:Projects=). Some five hundred key sequences in
+=tests/vim/cases.json= are run in Vim itself and in Kalem, and the text
+and cursor after them must agree. Not there: Vim script, plugins,
+=:help=, Vim's fold commands (Tab folds Org headings), the =:!= filter
+and =gq=.
 
-What Vim does, Kalem does the same way, and the tests hold it to that:
-=tests/vim/cases.json= has some five hundred key sequences, each run in Vim
-itself (=tools/vim-expected.py=, a job of the continuous integration)
-and in Kalem, and the text and cursor after them must agree. What is
-there:
-
-- Normal mode: every motion (=h j k l w b e ge W B E gE 0 ^ $ g_ | gm gM
-  go gg G H M L f t F T ; , % ( ) { } + - _ Enter=), counts, the
-  operators =d c y > < = g~ gu gU g?= with motions, text objects (=iw aw
-  iW aW is as ip ap i( a( i[ a[ i{ a{ i< a< it at i" a" i' a' i` a`=, with
-  counts, =d2aw=), =x X s S r R D C Y p P gp gP J gJ ~ u U Ctrl+R .=,
-  =Ctrl+A= and =Ctrl+X= (decimal, =0x= hexadecimal, =0b= binary), =gi gI
-  gv gn gN cgn=, =Ctrl+E Ctrl+Y zt zz zb=, =Ctrl+D Ctrl+U Ctrl+F Ctrl+B=.
-- Marks =m= with =' `= and Vim's own marks (=''=, ='[=, =']=, ='<=,
-  ='>=, ='.=, ='^=), the jump list (=Ctrl+O=, =Ctrl+I=) and the change
-  list (=g;=, =g,=).
-- Registers: ="a= to ="z= (="A= appends), ="0= the last yank, ="1= to
-  ="9= the deletes of lines, ="-= the small ones, ="_= nothing, =".= the
-  last insert, =":= the last command line, ="/= the last search, ="+=
-  and ="*= the system clipboard. Macros: =q= records, =@= runs, =@@=
-  again, =@:= the command line again.
-- Visual mode: =v V= and Ctrl+V, =o=, =gv=, the operators, =r=, =p=
-  (the replaced text goes to the unnamed register), =J=, Ctrl+A and
-  =g Ctrl+A=, =I= and =A= on a block (=$= to the end of each line), and
-  =.= repeats on as much text.
-- Insert mode: Ctrl+W, Ctrl+U and Ctrl+H (=backspace= as
-  =indent,eol,start=, stopping once where the insert started), Ctrl+R
-  and a register, Ctrl+O for one command, Ctrl+T and Ctrl+D to indent,
-  Ctrl+E and Ctrl+Y, Ctrl+A and Ctrl+@, Ctrl+V for a character by its
-  code, Ctrl+K and a digraph (Vim's table of 1,363), Ctrl+N and Ctrl+P to
-  complete a word from the document, counts (=3ia=, =3o=); in plain text
-  also Enter with =autoindent=, Tab with =expandtab= and =softtabstop=,
-  and Backspace. In Org, Markdown and LaTeX documents Enter, Tab and
-  Backspace keep what the document does with them (continuing a list,
-  moving between table cells), as Doom's Evil does.
-- Search: =/= and =?= with Vim's patterns (=\<word\>=, =\(…\)=, =\|=,
-  =\{n,m}=, =\v=, =\V=, =\zs=, =\ze=, =\c=), =n N * # g* g#=.
-- The command line, with ranges (=%=, =.=, =$=, numbers, marks,
-  =/pat/=, =?pat?=, offsets, ='<,'>= from visual mode): =:s= with its
-  flags and =&=, =\1=, =\u=, =\U=, =~= in the replacement, =:&=, =:&&=,
-  =:~=, =&= and =g&=; =:g= and =:v=; =:d=, =:y=, =:pu=, =:m=, =:t=,
-  =:co=, =:j=, =:>=, =:<=, =:norm=, =:sort= (=n=, =u=, =i=, =r=, a
-  pattern, =!=), =:k= and =:mark=, =:u=, =:red=, =:left=, =:retab=,
-  =:==, =:p=, =:reg=, =:marks=, =:noh=; =:set= for =shiftwidth=,
-  =tabstop=, =softtabstop=, =expandtab=, =autoindent=, =ignorecase=,
-  =smartcase=, =wrapscan=, =joinspaces=, =nrformats= (with =no=, =inv=,
-  =!=, =?=, =+== and =-==). Files and windows: =:w=, =:q=, =:q!=, =:wq=,
-  =:x=, =:qa=, =:wqa=, =:e FILE= (=:e= alone asks), =:e!= (Revert to
-  Saved), =:enew=, =:bn=, =:bp=, =:bd=, =:ls=, =:sp=, =:vs=, =:close=,
-  =:only=, =:new=; =:Ex=, =:E=, =:Explore= and =:Dired= open the file
-  manager, and =:Projects= the projects. =gt= and =gT= go to the next
-  and previous document.
-
-Kalem's defaults differ from Vim's where Vim's own are kept for
-compatibility with Vi: =autoindent= is on, =shiftwidth= is 2 with
-=expandtab= and =softtabstop= following it, =backspace= is
+The Word-like Control and Alt keys are off where the Vim layer is on,
+except, as in Doom Emacs, Alt with the arrows (structure moves, table
+rows and columns), Control or Alt with Enter, and Ctrl+Space for
+completion; on macOS, Command keeps the Word-like keys. In Org
+documents =>>= and =<<= demote and promote headings and indent list
+items. Kalem's defaults differ from Vim's where Vim keeps Vi's:
+=autoindent= is on, =shiftwidth= is 2 with =expandtab=, =backspace= is
 =indent,eol,start=, =nrformats= is =bin,hex= and =joinspaces= is off;
-=:set= changes them for the document. What Vim has that Kalem does not:
-Vim script, plugins, =:help=, folds by Vim's commands (Kalem folds Org
-headings with Tab), the =:!= filter and =gq= formatting.
+=:set= changes them for the document. =editor.vim.leader= makes
+another key the leader, and =editor.vim.modes= limits Vim keys to some
+kinds of documents: =org=, =markdown=, =csv=, =latex=, =text= and
+=directory=.
 
-Space is the leader, as in Doom Emacs. Press it, wait a moment
-(=keys.hints_delay=, 400 ms), and a panel shows what can follow: each key
-with its command, groups under Doom's names (=+file=, =+buffer=,
-=+project=…), and Doom's keys Kalem does not bind yet marked "(later)", or
-"(plugin)" when a plugin will bring them. The same panel follows any
-prefix, =C-x= and =C-c= of the Emacs keys too; =keys.hints = false= turns
-it off. The leader's first keys:
+** The leader
 
-| Keys                 | Command                                     |
-|----------------------+---------------------------------------------|
-| =SPC p p=            | Switch Project                              |
-| =SPC p f=, =SPC SPC= | Find File in Project                        |
-| =SPC p r=, =SPC p b= | Recent files, open documents of the project |
-| =SPC p a=, =SPC p d= | Add Project, Remove Project                 |
-| =SPC s p=, =SPC /=   | Search in Project                           |
-| =SPC ,=, =SPC b b=   | Switch Document                             |
-| =SPC b n=, =SPC b p= | Next, previous document                     |
-| =SPC b k=            | Close Document                              |
-| =SPC f f=, =SPC .=   | Open a file by path (a new name makes it)   |
-| =SPC f r=            | Recent files                                |
-| =SPC f s=            | Save                                        |
-| =SPC o p=            | Show or hide the open files                 |
-| =SPC o -=            | File manager at the document's folder       |
-| =SPC o P=, =SPC p D= | Projects view; the project's folder         |
-| =SPC :=              | Command palette                             |
-| =SPC b d=            | Close Document (as =SPC b k=)               |
-| =SPC b ]=, =SPC b [= | Next, previous document                     |
-| =SPC b s=, =SPC b r= | Save; Revert to Saved                       |
-| =SPC b N=            | New Document                                |
-| =SPC b l=, =SPC `=   | The document shown before                   |
-| =SPC b S=            | Save all                                    |
-| =SPC b O=, =SPC b K= | Close the others, close all (unsaved stay)  |
-| =SPC b z=            | Move the document to the end of the list    |
-| =SPC b x=, =SPC b X= | Scratch document; the project's             |
-| =SPC b y=            | Copy the whole document                     |
-| =SPC f S=            | Save As                                     |
-| =SPC f R=, =SPC f C= | Rename or move, copy this file              |
-| =SPC f D=            | Move this file to the trash (asks first)    |
-| =SPC f y=, =SPC f Y= | Copy this file's path; from the project     |
-| =SPC f p=, =SPC f P= | The settings folder; your =keymap.json=     |
-| =SPC f c=            | The workspace settings                      |
-| =SPC p k=, =SPC p s= | Close, save the project's documents         |
-| =SPC p i=            | Refresh Project Files                       |
-| =SPC p .=, =SPC p >= | This project's folder; another project's    |
-| =SPC p F=            | Find a file in another project              |
-| =SPC p !=, =SPC p t= | Shell command at the project; its TODOs     |
-| =SPC p o=            | The other file (=.org=, =.html=, =.pdf= …)  |
-| =SPC p e=, =SPC p x= | The workspace settings; the project scratch |
-| =SPC s b=, =SPC s s= | Search lines, the cursor following          |
-| =SPC s B=, =SPC s i= | Lines of all documents; the headings        |
-| =SPC s d=, =SPC s D= | Search this folder; another folder          |
-| =SPC s P=, =SPC s o= | Search another project; online              |
-| =SPC o o=            | Outline                                     |
-| =SPC o t=, =SPC o T= | The system's terminal here; at the project  |
-| =SPC o b=            | Export as HTML and open it in the browser   |
-| =SPC o l=, =SPC o x= | Open the link at the cursor; scratch        |
-| =SPC o f=            | A new window (graphical editor)             |
-| =SPC t w=            | Soft wrap                                   |
-| =SPC t z=            | Focus mode                                  |
-| =SPC t m=            | Formula preview                             |
-| =SPC t l=, =SPC t v= | Line numbers; markup characters shown       |
-| =SPC t b=            | Big text, and back                          |
-| =SPC t r=            | Read-only: edits refused, and back          |
-| =SPC t F=, =SPC t Z= | Full screen; full screen and focus mode     |
-| =SPC w v=            | Split view                                  |
-| =SPC c f=            | Format the document, as =kalem fmt= does    |
-| =SPC c w=, =SPC c W= | Delete blanks at line ends; blank lines at the end |
-| =SPC c j=            | Jump to a heading                           |
-| =SPC h k=            | What the next keys run                      |
-| =SPC h b b=          | Every key binding, to find and run one      |
-| =SPC h m=, =SPC h '= | This document's mode; the character         |
-| =SPC h t=            | Choose the theme                            |
-| =SPC h r r=          | Read the settings and keys again            |
-| =SPC q q=            | Quit                                        |
-| =SPC '=              | The last list again, with what was typed    |
-| =SPC ~=              | Show or hide the panel shown or hidden last |
-| =SPC u=              | A count for the next command                |
-| =SPC q s=, =SPC q l= | Save the session; restore the last one      |
-| =SPC q S=, =SPC q L= | Save a session as; restore one              |
-| =SPC q K=            | Save the session and quit                   |
-| =SPC i u=, =SPC i e= | A character by its Unicode name; an emoji   |
-| =SPC i f=, =SPC i F= | This file's name; its path                  |
-| =SPC i y=, =SPC i r= | From the clipboard history; a Vim register  |
-| =SPC n s=            | Search the notes folder (=notes.directory=) |
-| =SPC n y=, =SPC n Y= | Copy as HTML; as rich text                  |
-| =SPC q Q=            | Quit without saving, after a question       |
-| =SPC q f=, =SPC q F= | Close this window; quit                     |
-| =SPC q r=, =SPC q R= | Restart with the open documents; restart    |
+Space is the leader, as in Doom Emacs. Press it and wait a moment
+(=keys.hints_delay=, 400 ms): a panel shows what can follow, in Doom's
+groups, with the keys Kalem does not bind yet marked "(later)" or
+"(plugin)". The panel follows any prefix, =C-x= and =C-c= of the Emacs
+keys too; =keys.hints = false= turns it off. The keys you will use
+first:
 
-=SPC u= is Emacs's universal argument: the next command runs four times,
-=SPC u SPC u= sixteen, and digits typed after =SPC u= give the count
-(=SPC u 1 2=); Escape drops it. A command that opens a list or asks
-for a file runs once.
+| Keys                 | Command                                   |
+|----------------------+-------------------------------------------|
+| =SPC p p=            | Switch Project                            |
+| =SPC SPC=, =SPC p f= | Find File in Project                      |
+| =SPC /=              | Search in Project                         |
+| =SPC ,=, =SPC b b=   | Switch Document                           |
+| =SPC f f=, =SPC .=   | Open a file by path (a new name makes it) |
+| =SPC f s=, =SPC b k= | Save; Close Document                      |
+| =SPC o -=, =SPC o P= | File manager; projects                    |
+| =SPC o o=            | Outline                                   |
+| =SPC s s=            | Search lines, the cursor following        |
+| =SPC :=              | Command palette                           |
+| =SPC t z=, =SPC w v= | Focus mode; split view                    |
+| =SPC q l=, =SPC q q= | Restore the last session; quit            |
+| =SPC h k=            | What the next keys run                    |
 
-=SPC w= divides the window into panes, as Doom does: =SPC w v= and
-=SPC w s= split it beside and below, =SPC w h j k l= go to the pane in
-that direction, =SPC w H J K L= move the pane to that edge of the window,
-=SPC w w= and =SPC w p= go to the next and the last pane, =SPC w o=
-shows only this pane and again all of them, =SPC w ==, =SPC w + - < >=
-balance and resize (with =SPC u= for a count), =SPC w x= swaps, =SPC w r=
-rotates, and =SPC w u= and =SPC w U= undo and redo the layout. The
-focused pane shows the active document; the new pane of a split shows
-the document shown before it, and when only one document is open a split
-shows it beside itself (the split view). Opening a document another pane
-shows swaps the two. A click in a pane focuses it. Both editors have
-panes; in the terminal a rule with the document's name divides them. In
-the Emacs keymap =C-x 2=, =C-x 3=, =C-x o=, =C-x 0= and =C-x 1= do the
-same.
+=SPC u= is Emacs's universal argument: the next command runs four
+times, =SPC u SPC u= sixteen, digits after =SPC u= give the count, and
+Escape drops it. Every key of Doom's leader map, and what it does in
+Kalem or why it does not yet, is in the table at the end of this
+chapter.
 
-=SPC TAB= keeps workspaces, named sets of the window's documents, as
-Doom does: =SPC TAB n= starts one (=SPC TAB N= with a name), =SPC TAB
-TAB= or =SPC TAB .= chooses one, =SPC TAB [= and =SPC TAB ]= go to the
-one before and after, =SPC TAB 1= to =9= by place, =SPC TAB `= to the
-last, =SPC TAB r= renames and =SPC TAB d= deletes it. The list of open
-files and the document cycle show the workspace's documents; each
-workspace keeps its panes and the document it showed. Deleting a
-workspace closes nothing: its documents join the workspace shown next.
-=SPC TAB s= saves the workspace's documents (a session called
-=workspace-NAME=), =SPC TAB l= opens a saved one in a new workspace, and
-=SPC TAB x= deletes a saved one. The status bar names the workspace when
-there are several.
+** Panes, workspaces and sessions
 
-A session is the open documents, the cursor in each, the one shown and
-the project. Kalem saves the session called =last= when it quits, which
-=SPC q l= restores, and on start too when =editor.restore_session= is
-on. =SPC q S= asks for a name (or a file path ending in =.json=);
-the sessions live in =sessions/= in Kalem's state folder. Restarting
-waits until the changed documents are saved or closed.
+=SPC w= divides the window into panes, as Doom does: =SPC w v= and =SPC
+w s= split it beside and below, =SPC w h j k l= go to the pane in that
+direction, =SPC w H J K L= move the pane to that edge, =SPC w o= shows
+only this pane and again all, =SPC w == balances, =SPC w x= swaps,
+=SPC w u= undoes the layout. A click focuses a pane; the new pane of a
+split shows the document shown before it, or the same document beside
+itself when only one is open. Both editors have panes; in the
+terminal a rule with the document's name divides them.
 
-The toggles that are settings (line numbers, markup characters, big
-text) save the setting, so the settings file and the key agree.
+=SPC TAB= keeps workspaces, named sets of the window's documents, each
+with its panes: =SPC TAB n= starts one, =SPC TAB TAB= chooses one, =SPC
+TAB [= and =SPC TAB ]= go to the one before and after, =SPC TAB r=
+renames and =SPC TAB d= deletes it (its documents join the next
+workspace); =SPC TAB s= and =SPC TAB l= save and restore one as a
+session.
 
-A document follows its file when the file is renamed or moved, from
-here or from the file manager, and closes when the file goes to the
-trash, unless it has unsaved changes.
-
-=editor.vim.leader= makes another key the leader (="\\"= or =","=, say).
-
-In Org documents, =>>= and =<<= demote and promote headings and indent
-list items.
-
-=editor.vim.modes= limits Vim keys to some kinds of documents: =org=,
-=markdown=, =csv=, =latex=, =text= (plain text, code and BibTeX) and
-=directory= (the file manager); for example =["text"]= for plain text
-only.
-
-* Doom's leader map in Kalem
-
-Every key of Doom Emacs's leader map, and what it does in Kalem or why it
-does not yet: /Planned/ names the task that brings it, and a few keys
-Kalem will not have say why. The table is generated from
-=tests/keys/doom-leader.toml=, which the tests check against the Vim
-keymap, so it cannot drift from the keys. The file manager's keys are in
-its chapter.
-
-#+KALEM_KEYS: doom-leader
+A session is the open documents, the cursor in each, the one shown
+and the project. Kalem saves the session =last= when it quits; =SPC q
+l= restores it, and so does starting when =editor.restore_session= is
+on. =SPC q S= saves a session by name, and =SPC q L= restores one;
+they live in =sessions/= in Kalem's state folder.
 
 * The local leader =SPC m=
 
 =SPC m= holds the keys of the document's kind, as Doom's =:lang org=,
-=:lang latex= and =:lang markdown= modules have them; the same keys do
-different things in an Org, a LaTeX and a Markdown document. The tables
-come from =tests/keys/doom-localleader.toml=, checked against the keymap
-in a document of each kind.
+=:lang latex= and =:lang markdown= modules have them. The tables come
+from =tests/keys/doom-localleader.toml=, checked against the keymap in
+a document of each kind.
 
 ** Org
 
@@ -267,16 +118,14 @@ in a document of each kind.
 ** Markdown
 
 With the Word-like keys, Ctrl+B, Ctrl+I and Ctrl+K make the selection
-bold, italic or a link (=markdown.emphasis.bold=,
-=markdown.emphasis.italic=, =markdown.insert.link=); a second time takes
-the markers away. With Vim's keys these are the local leader's.
+bold, italic or a link, and a second time take the markers away. With
+Vim's keys these are the local leader's.
 
 #+KALEM_KEYS: doom-localleader-markdown
 
 * Your own keys
 
-Every key can be changed. =keymap.json= in the settings directory changes
-keys:
+=keymap.json= in the settings directory changes any key:
 
 #+begin_src json
 [
@@ -293,49 +142,52 @@ keys:
 ]
 #+end_src
 
-=kalem commands= lists the command IDs (the palette shows titles, and
-finds a command by its ID too). =leader= stands for the Vim leader.
-=docs/keymaps/emacs.json= is a complete keymap with Emacs Org mode keys,
-to copy into =keymap.json=.
+=kalem commands= lists the command IDs, and the palette finds a
+command by its ID too. =leader= stands for the Vim leader.
+=docs/keymaps/emacs.json= is a complete keymap with Emacs's Org keys,
+to copy from.
 
-Every command serves some types of text: all of them, a list, or all but
-some. The type is the one at the cursor, innermost first: a source
-block's language in an Org document (=python=), =latex= in a formula, the
-file's kind (=org=, or =klm= for a =.klm= file, which Org's commands
-serve too), a file's language (=rust=), =markdown=, =csv=, =text=. So
+Every command serves some types of text. The type is the one at the
+cursor, innermost first: a source block's language (=python=), =latex=
+in a formula, the file's kind (=org=, =markdown=, =csv=, =text=, or
+=klm=, which Org's commands serve too), a file's language (=rust=). So
 Ctrl+B makes bold text in Org and does nothing in a Python block, and
-Alt+Up moves lines in code, source blocks included, but moves headings,
-items and rows in Org. A binding can use the type too: ="when":
-"textType == python"=; a type Kalem does not know is reported with the
-other problems of the keymap. =kalem commands --type org= lists the
-commands a type has, with their scope and keys.
+Alt+Up moves lines in code but headings, items and rows in Org. A
+binding can use the type: ="when": "textType == python"=. =kalem
+commands --type org= lists the commands of a type with their scope
+and keys.
 
 * Keys in a terminal
 
 A terminal without the kitty keyboard protocol cannot send some keys:
 Ctrl+Enter arrives as Enter, Ctrl+Shift+P as Ctrl+P, and Command never
-arrives. The terminal editor then uses other keys for those commands,
-and the palette and menus show the keys it uses:
+arrives. The terminal editor then uses other keys, which the palette
+and menus show:
 
-| Keys                          | In such a terminal              |
-|-------------------------------+---------------------------------|
-| Ctrl+Enter (Cycle TODO State) | Ctrl+T                          |
-| Ctrl+, (Settings)             | Alt+,                           |
-| Shift+Enter (line break)      | Ctrl+J                          |
-| Ctrl+Shift+Z (Redo)           | Ctrl+Y                          |
-| Ctrl+Shift+P (palette)        | Ctrl+G (and F1)                 |
-| Ctrl+Tab, Ctrl+Shift+Tab      | Ctrl+PageDown, Ctrl+PageUp      |
-| Ctrl+/ (source view)          | Ctrl+_                          |
+| Keys                          | In such a terminal         |
+|-------------------------------+----------------------------|
+| Ctrl+Enter (Cycle TODO State) | Ctrl+T                     |
+| Ctrl+, (Settings)             | Alt+,                      |
+| Shift+Enter (line break)      | Ctrl+J                     |
+| Ctrl+Shift+Z (Redo)           | Ctrl+Y                     |
+| Ctrl+Shift+P (palette)        | Ctrl+G (and F1)            |
+| Ctrl+Tab, Ctrl+Shift+Tab      | Ctrl+PageDown, Ctrl+PageUp |
+| Ctrl+/ (source view)          | Ctrl+_                     |
 
-Other Control keys such a terminal cannot send (with Shift, with a
-digit, Ctrl+.) become Alt and the same key: Ctrl+Shift+T is Alt+T,
-Ctrl+1 is Alt+1. A key with no such substitute, or whose substitute
-another binding already has, is left out in such a terminal. A binding
-in =keymap.json= can name its terminal key with
-="terminalKeys": "alt+w"=.
+Other Control keys such a terminal cannot send become Alt and the same
+key (Ctrl+Shift+T is Alt+T, Ctrl+1 is Alt+1); a binding in
+=keymap.json= can name its own with ="terminalKeys": "alt+w"=. Alt
+reaches Kalem only when the terminal sends it: in macOS Terminal, set
+"Use Option as Meta key" (Settings, Profiles, Keyboard); in iTerm2,
+"Left Option key: Esc+" (Profiles, Keys). Terminals with the kitty
+keyboard protocol (kitty, WezTerm, Ghostty, foot) send every key as it
+is.
 
-In a terminal, keys with Alt reach Kalem only when the terminal sends
-them: in macOS Terminal and iTerm2, set Option to act as Meta (Terminal:
-Settings, Profiles, Keyboard, "Use Option as Meta key"; iTerm2: Profiles,
-Keys, "Left Option key: Esc+"). Terminals with the kitty keyboard protocol
-(kitty, WezTerm, Ghostty, foot) send every key as it is.
+* Doom's leader map in Kalem
+
+Every key of Doom Emacs's leader map, and what it does in Kalem or why
+it does not yet: /Planned/ names the task that brings it. The table is
+generated from =tests/keys/doom-leader.toml=, which the tests check
+against the Vim keymap. The file manager's keys are in its chapter.
+
+#+KALEM_KEYS: doom-leader

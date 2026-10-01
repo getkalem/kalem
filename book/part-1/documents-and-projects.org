@@ -1,27 +1,26 @@
-A window holds several documents. Opening a file (Ctrl+O, the File menu, a
-file link, or a file opened from Finder) shows it in the same window. The
-open files are listed on the left; the setting =ui.open_files= puts them
-at the top as tabs, or hides them, and Ctrl+Shift+E shows or hides the
-list. A click shows a document. Ctrl+Tab and Ctrl+PageDown go to the next
-one, Ctrl+Shift+Tab and Ctrl+PageUp to the previous one, Ctrl+Alt+O lists
-them by name, Ctrl+Alt+R lists the files you opened recently, and Ctrl+W
-closes the document (asking first when it has unsaved changes).
+A window holds several documents. Opening a file (Ctrl+O, the File
+menu, a file link, or Finder) shows it in the same window. The open
+files are listed on the left; =ui.open_files= puts them at the top as
+tabs or hides them, and Ctrl+Shift+E shows or hides the list. A click
+shows a document. Ctrl+Tab and Ctrl+PageDown go to the next one,
+Ctrl+Shift+Tab and Ctrl+PageUp to the previous one, Ctrl+Alt+O lists
+them by name, Ctrl+Alt+R lists the files you opened recently, and
+Ctrl+W closes the document, asking first when it has unsaved changes.
 
-A project is a folder in your project list: /Add Project/ adds the
-document's folder, /Add Project Folder…/ in the Project menu chooses one,
-and a folder under version control (Git, Mercurial, Subversion), or with
-a =.projectile= file or a =.kalem= folder (where a project's own
-settings live), joins the list by itself when you open one of its files
-(=projects.auto_add = false= turns that off). Nothing is written into the
-folder: the list is kept in =projects.toml= in the settings folder,
-=~/.config/kalem/projects.toml= unless =KALEM_CONFIG_DIR= or
-=XDG_CONFIG_HOME= says otherwise (=%APPDATA%\kalem= on Windows).
+A project is a folder in your project list. /Add Project/ adds the
+document's folder, /Add Project Folder…/ (Project menu) chooses one,
+and a folder under version control (Git, Mercurial, Subversion), or
+with a =.projectile= file or a =.kalem= folder (where a project's own
+settings live), joins the list by itself when you open one of its
+files (=projects.auto_add = false= turns that off). Nothing is written
+into the folder: the list and the recent files are kept in
+=projects.toml= beside =settings.toml=.
 
-The document you are in decides the current project: Ctrl+P and Search in
-Project work on its project at once, and Switch Project lists it first.
-Files of a project are listed under its name; files outside every project
-come after, one by one. The status bar shows the project of the
-document.
+The document you are in decides the current project: Ctrl+P and
+Search in Project work on it at once, and Switch Project lists it
+first. Files are listed under their project's name, files outside
+every project after them, and the status bar shows the document's
+project.
 
 | Keys         | Command                                                              |
 |--------------+----------------------------------------------------------------------|
@@ -30,27 +29,19 @@ document.
 | Ctrl+Shift+F | Search in Project; Alt+C case, Alt+W words, Alt+R regular expression |
 |              | Recent Files in Project, Remove Project, Rename Project (palette)    |
 
-These have no keys; the palette has them:
-
-- /Switch Document in Project/ :: lists the project's open documents.
-- /Save Project Documents/ :: saves the project's documents that have
-  unsaved changes.
-- /Close Project Documents/ :: closes the project's documents; those
-  with unsaved changes stay open.
-- /Refresh Project Files/ :: walks the project's folder again, for files
-  added or removed outside Kalem.
-
-The file list follows the ignore rules of ripgrep: =.gitignore= and
-=.ignore= files, with or without a Git repository, and never =.git= itself
-or binary files. The list of projects and recent files is kept in
-=projects.toml=, beside =settings.toml=.
+In the palette: /Switch Document in Project/ lists the project's open
+documents, /Save Project Documents/ and /Close Project Documents/ save
+or close them (those with unsaved changes stay open), and /Refresh
+Project Files/ walks the folder again for files added or removed
+outside Kalem. The file list follows ripgrep's ignore rules,
+=.gitignore= and =.ignore= files with or without a Git repository, and
+never lists =.git= itself or binary files.
 
 * The folder tree
 
 When the document is in a project and the open files are on the left,
-the project's folders and files are listed below them, folders first.
-A click on a folder opens or closes it; a click on a file opens it, and
-the document's file is marked. /Reveal in Folder Tree/ opens the folders
-down to the document's file, and /Toggle Folder Tree/ shows or hides
-the tree, saving the setting =ui.folder_tree=. The tree lists the
-project's files as above, with the same ignore rules.
+the project's folders and files are listed below them, folders first,
+with the same ignore rules. A click opens or closes a folder or opens
+a file, and the document's file is marked. /Reveal in Folder Tree/
+opens the folders down to the document's file; /Toggle Folder Tree/
+shows or hides the tree, saving the setting =ui.folder_tree=.

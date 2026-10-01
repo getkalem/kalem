@@ -1,28 +1,28 @@
 CSV and TSV files open as a grid: each field padded to its column's
-width, =│= between the fields and the header row bold. The file itself
-does not change: the grid is drawn over the text, so each field is
-edited where it stands, and the delimiter (=,=, =;=, a tab or =|=), the
-quoting, the line endings and a byte order mark stay as the file has
-them. A spreadsheet in a Turkish or other European locale writes =;=
-between fields and =,= in numbers; both are read.
+width, =│= between the fields and the header row bold. The grid is
+drawn over the text, so each field is edited where it stands, and the
+delimiter (=,=, =;=, a tab or =|=), the quoting, the line endings and a
+byte order mark stay as the file has them. A spreadsheet in a Turkish
+or other European locale writes =;= between fields and =,= in numbers;
+both are read.
 
-Tab and Shift+Tab go from field to field (Tab past the last field adds a
-row). The commands of the /CSV/ category insert, delete and move rows
-and columns, /Sort File by Column/ sorts the records by the column at
-the cursor (numbers as numbers, the header first), and every change is
-one undo step. Only the fields that change are written, quoted only when
-they need it. /Copy as Tab-Separated Values/ copies the selected
-records (all of them without a selection) as a spreadsheet pastes them,
-and rows pasted from a spreadsheet get the file's delimiter. The status
-bar shows the count, sum, average, smallest and largest of the numbers
-in the cursor's column. The header row stays at the top when the rows
-scroll. /Filter Rows/ asks for a text and shows only the rows with a
-field holding it (case ignored), with the header and the row at the
-cursor; the status bar says how many of the rows match, the file does
-not change, and /Show All Rows/ shows them all again. Both are in the
-/Table/ menu, as are /Sort View by Column/, which shows the rows in the
-order of the column at the cursor (again: descending) with the file
-unchanged, and /File Order/, which ends it. /Open as Plain Text/ shows
-the text as it is,
-and /Convert to Org Table/ writes the rows as an Org table in a new
-=.org= file beside it and opens it.
+Tab and Shift+Tab go from field to field (Tab past the last field adds
+a row). The commands of the /CSV/ category insert, delete and move
+rows and columns, and /Sort File by Column/ sorts the records by the
+column at the cursor (numbers as numbers, the header first); every
+change is one undo step, and only the fields that change are written,
+quoted only when they need it. /Copy as Tab-Separated Values/ copies
+the selected records (all of them without a selection) as a
+spreadsheet pastes them, and rows pasted from a spreadsheet get the
+file's delimiter. The status bar shows the count, sum, average,
+smallest and largest of the numbers in the cursor's column, and the
+header row stays at the top when the rows scroll.
+
+In the /Table/ menu: /Filter Rows/ asks for a text and shows only the
+rows with a field holding it (case ignored), with the header and the
+row at the cursor, and says how many match; /Show All Rows/ shows them
+all again. /Sort View by Column/ shows the rows in the order of the
+column at the cursor (again: descending) and /File Order/ ends it;
+neither changes the file. /Open as Plain Text/ shows the text as it
+is, and /Convert to Org Table/ writes the rows as an Org table in a
+new =.org= file beside it and opens it.

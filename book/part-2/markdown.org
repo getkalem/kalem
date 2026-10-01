@@ -416,7 +416,7 @@ document names one, its bibliography.
 
 * What remains of Markdown mode
 
-The mode is in use. What is left of group 6 of =todo.md= (the former
+The mode is in use. What is left of group 6 of =docs/todo.md= (the former
 2.7c), by task:
 
 - *The comrak fork* (T2.7c.1a): each fix an editor needs, every node

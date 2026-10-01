@@ -1,42 +1,34 @@
-The editor shows the document as it will read: markup such as the stars
-around bold text is hidden, and appears when the cursor is on it, so you
-can always see and change what is in the file. =editor.show_source_markers=
-shows it =always= or =never= instead.
+The editor shows the document as it reads: the markup, such as the
+stars around bold text, is hidden and appears when the cursor is on
+it, so you can always see and change what is in the file
+(=editor.show_source_markers= shows it =always= or =never= instead).
 
-An Org file is Org as Emacs knows it, and Kalem keeps it so: it writes
-nothing into it that Org does not define, so a co-author in Emacs never
-meets a line only Kalem understands. Fonts, sizes, colors and the other
-formatting of a word processor are not part of Org, so Kalem does not
-offer them in an Org file; they belong to the Kalem format, which is being
-designed (Part III). A file an earlier Kalem wrote such formatting into
-keeps it byte for byte, and shows it as Emacs does: an =@@kalem:…@@=
-snippet as a snippet, an =#+ATTR_KALEM:= or =#+KALEM:= line as a line of
-the file; =kalem check= lists them. A =.klm= file is in the Kalem format:
-=kalem check= and =kalem fmt= read it with its own parser, and the
-editors still show it as Org text until they render the format.
+An Org file stays Org as Emacs knows it: Kalem writes nothing into it
+that Org does not define, so a co-author in Emacs never meets a line
+only Kalem understands. Fonts, sizes and colors are not part of Org
+and are not offered in an Org file; they belong to the Kalem format,
+which is being designed (Part III). A =.klm= file is read by =kalem
+check= and =kalem fmt= with its own parser; the editors show it as
+Org text until they render the format.
 
 * Headings
 
 A line that starts with stars is a heading: =* Chapter=, =** Section=.
 Ctrl+1 to Ctrl+6 make the current line a heading of that level, Ctrl+0
-makes a heading plain text again. Alt+Left and Alt+Right promote and demote
-a heading; with Shift, its whole subtree. Alt+Up and Alt+Down move a
-subtree past its neighbors.
+makes it plain text again. Alt+Left and Alt+Right promote and demote a
+heading, with Shift its whole subtree; Alt+Up and Alt+Down move a
+subtree past its neighbors. Tab on a heading folds and unfolds it;
+Shift+Tab cycles the whole document between overview, contents and
+everything.
 
-Tab on a heading folds and unfolds it; Shift+Tab on a heading cycles the
-whole document between overview, contents and everything.
-
-/Cut Subtree/ and /Copy Subtree/ put the heading at the cursor, with
-everything under it, on the clipboard; /Paste Subtree/ pastes one,
-changing its level to fit where it goes, as Emacs's =org-paste-subtree=
-does. /Sort Entries/ sorts the selected headings, else those under the
-one at the cursor, else the top-level ones, and asks how, with the
-letters of Emacs's =org-sort-entries=: =a= by title, =n= by number, =t=
-by time, =c= by creation time, =s= by scheduled date, =d= by deadline,
-=p= by priority, =o= by TODO state and =k= by clocked time; a capital
-letter sorts in reverse. (=r=, by a property, needs the property's name,
-which the palette does not ask for; a key binding can give it with
-="args": {"by": "r", "property": "EFFORT"}=.)
+/Cut Subtree/ and /Copy Subtree/ take the heading at the cursor with
+everything under it, and /Paste Subtree/ pastes one at the level that
+fits where it goes, as Emacs does. /Sort Entries/ sorts the selected
+headings, else those under the one at the cursor, else the top-level
+ones, with the letters of Emacs's =org-sort-entries=: =a= by title,
+=n= by number, =t= by time, =c= by creation time, =s= by scheduled
+date, =d= by deadline, =p= by priority, =o= by TODO state, =k= by
+clocked time; a capital letter sorts in reverse.
 
 * Text formatting
 
@@ -48,291 +40,196 @@ which the palette does not ask for; a key binding can give it with
 | Ctrl+Shift+X | Strike-through | =+gone+=      |
 | Ctrl+Shift+K | Code           | =~code~=      |
 
-/Verbatim/ (~=verbatim=~) has no key; it is in the palette. With a
-selection, the keys format it, or remove the formatting when it is
-already there. Deleting a marker character turns the formatting into
-plain text, and the status bar says so.
+/Verbatim/ (~=verbatim=~) is in the palette. With a selection, the keys
+add the formatting, or remove it when it is already there. Deleting a
+marker character turns the formatting into plain text, and the status
+bar says so.
 
 * Lists and checkboxes
 
 Start a line with =- = for a list or =1. = for a numbered one. Enter
-continues the list; Enter on an empty item ends it. Tab and Shift+Tab
-indent and outdent an item, Alt+Enter inserts one, Ctrl+Shift+L cycles the
-bullet style. Ctrl+Shift+C adds, checks and unchecks a checkbox =[ ]=, and
-a click on a checkbox toggles it. Statistics cookies such as =[1/3]= are
-kept up to date.
-/Repair List/ fixes the list at the cursor as Emacs's
-=org-list-repair= does: the items' indentation, bullets and numbers
-made consistent.
+continues the list, and ends it on an empty item. Tab and Shift+Tab
+indent and outdent an item, Alt+Enter inserts one, Ctrl+Shift+L cycles
+the bullet style. Ctrl+Shift+C adds, checks and unchecks a checkbox
+=[ ]=, a click toggles it, and statistics cookies such as =[1/3]= stay
+up to date. /Repair List/ makes the indentation, bullets and numbers
+of the list consistent, as Emacs's =org-list-repair= does.
 
 * Tables
 
-Ctrl+Shift+T inserts a table. A line starting with =|= is a table row.
-Typing keeps the columns aligned. Tab and Shift+Tab move between fields,
-Enter goes to the next row. With Alt: Up and Down move rows, Left and
-Right move columns; with Alt+Shift: Down inserts a row, Up deletes one,
-Right inserts a column, Left deletes one. Away from the cursor, a table is
-drawn as a grid.
-
-Pasting cells from a spreadsheet makes a table.
-
-These table commands have no keys; the palette has them:
-
-- /Align Table/ :: aligns the columns (typing does it too).
-- /Insert Horizontal Rule/ :: a rule, =|---+---|=, below the row.
-- /Sort Rows/ :: sorts the rows between the rules around the cursor by
-  the cursor's column, and asks how: =a= alphabetically, =n= by number,
-  =t= by time; a capital letter sorts in reverse. It is Emacs's
-  =org-table-sort-lines=.
-- /Export Table…/ :: writes the table at the cursor to a file: CSV when
-  its name ends with =.csv=, tab-separated values otherwise.
-- /Import Table…/ :: reads a CSV or tab-separated file into a table at
-  the cursor.
+Ctrl+Shift+T inserts a table; a line starting with =|= is a row, and
+typing keeps the columns aligned. Tab and Shift+Tab move between
+fields, Enter goes to the next row. Alt with Up and Down moves rows,
+with Left and Right columns; Alt+Shift+Down inserts a row, Alt+Shift+Up
+deletes one, Alt+Shift+Right inserts a column, Alt+Shift+Left deletes
+one. Away from the cursor a table is drawn as a grid, and cells pasted
+from a spreadsheet become a table. In the palette: /Align Table/,
+/Insert Horizontal Rule/ (=|---+---|= below the row), /Sort Rows/ (by
+the cursor's column: =a= alphabetically, =n= by number, =t= by time, a
+capital letter in reverse), /Export Table…/ (CSV when the name ends
+with =.csv=, else tab-separated) and /Import Table…/.
 
 ** Formulas
 
-A =#+TBLFM:= line under a table computes fields, as in Emacs: =$4=$2*$3=
-fills the fourth column of every row with the product of the second and
-third, =@>$4=vsum(@2..@-1)= puts a sum in the last row. F9 (=C-c *= in
-the Emacs example keymap) recalculates the table and aligns it. With the
-setting =org.table_auto_recalc = true= (in a folder's
-=.kalem/settings.toml= for the files there), leaving a field with Tab,
-Shift+Tab or Enter recalculates too.
+A =#+TBLFM:= line under a table computes fields as in Emacs: =$4=$2*$3=
+fills the fourth column with the product of the second and third,
+=@>$4=vsum(@2..@-1)= puts a sum in the last row. F9 recalculates and
+aligns the table; with =org.table_auto_recalc = true=, leaving a field
+with Tab, Shift+Tab or Enter recalculates too. Formulas are Emacs Calc
+formulas and give Emacs's results: the same references (=$2=, =@3$1=,
+=@I..@II=, =$-1=, =remote(name, @2$3)=, column names from a =!= row,
+=#+CONSTANTS=), functions (=vsum=, =vmean=, =vmedian=, =round=, =if=…),
+flags (=;%.2f=, =;N=, =;E=, =;T= for durations) and dates: =$2-$1=
+between two timestamps is a number of days. Emacs Lisp formulas
+(='(...)=) are kept but not computed.
 
-Formulas are Emacs Calc formulas and give the results Emacs gives: the
-same references (=$2=, =@3$1=, =@I..@II=, =$-1=, =remote(name, @2$3)=,
-column names from a =!= row, parameters from =$= rows, =#+CONSTANTS=),
-the same functions (=vsum=, =vmean=, =vmedian=, =round=, =if=…), the
-same flags (=;%.2f=, =;N=, =;E=, =;T= for durations such as =8:30=), and
-dates: =$2-$1= between two timestamps is a number of days. Emacs Lisp
-formulas (='(...)=) are kept but not computed; Kalem says which ones.
-
-With the cursor in a field that a formula fills, the status bar is the
-formula bar: it shows the formula, such as =$4 = $2*$3=, and why the
-field shows =#ERROR= when it does, and the fields the formula reads
-are highlighted in the table. /Edit Formula/ (F2) asks for the field's
-formula, starting with the one it has: ~=$2*$3~ for its column, or
-~:=$2*$3~ for this field alone, as typed in a field in Emacs. The
-=#+TBLFM:= line is written, and the table recalculated.
-
-From the command line, =kalem table recalc FILE= recalculates every table
-of a file (=--iterate= until nothing changes, =--check= for CI).
+With the cursor in a field a formula fills, the status bar is the
+formula bar: it shows the formula, says why the field shows =#ERROR=
+when it does, and highlights the fields the formula reads. /Edit
+Formula/ (F2) asks for the field's formula, ~=$2*$3~ for its column or
+~:=$2*$3~ for this field alone, writes the =#+TBLFM:= line and
+recalculates. From the command line, =kalem table recalc FILE=
+recalculates every table of a file (=--iterate= until nothing changes,
+=--check= for CI).
 
 * Formulas in the text
 
 LaTeX formulas show typeset: =$E=mc^2$=, =\(a^2+b^2\)=, =$$\sum_i x_i$$=
-and environments such as =\begin{align}= … =\end{align}=. With the
-cursor inside a formula you see its source, with a preview of the result
-beside it as you type; a click on a formula takes you into its source. A
-formula that cannot be typeset shows its source in a red frame. The
-commands =\newcommand=, =\renewcommand=, =\def= and =\DeclareMathOperator=
-in =#+LATEX_HEADER:= lines work in the document's formulas. /Toggle
-Formula Preview/ shows every formula as its source.
-
-In the terminal, formulas are approximated with Unicode characters
-(=x²=, =α=). Terminals that draw images (kitty, iTerm2, WezTerm, sixel)
-show displayed formulas and environments typeset.
+and environments such as =\begin{align}=. With the cursor inside a
+formula you see its source, with a preview beside it as you type; a
+click on a formula takes you into its source, and a formula that
+cannot be typeset shows its source in a red frame. =\newcommand=,
+=\def= and =\DeclareMathOperator= in =#+LATEX_HEADER:= lines work in
+the document's formulas. /Toggle Formula Preview/ shows every formula
+as its source. The terminal approximates formulas with Unicode (=x²=,
+=α=), and draws displayed ones typeset where it draws images (kitty,
+iTerm2, WezTerm, sixel).
 
 * Links
 
-Ctrl+K inserts a link. Typing =[[= offers the document's headings and
-targets. Ctrl-click (Cmd-click on macOS) opens a link: web links in the
-browser, file links in Kalem or their application, internal links jump.
-/Open Link/ (the palette) opens the link at the cursor the same way.
+Ctrl+K inserts a link, and typing =[[= offers the document's headings,
+targets and named elements. Ctrl-click (Cmd-click on macOS), or /Open
+Link/ in the palette, opens the link at the cursor: web links in the
+browser, file links in Kalem or their application, internal links by
+jumping. /Store Link/ keeps a link to what is at the cursor, in the
+file manager the marked files, in a document its file and heading;
+/Insert Stored Link/ writes them as =[[file:…][name]]=, and Ctrl+K
+offers the last one. /Insert Cross Reference/ lists what a link can
+point to, named elements, headings by =CUSTOM_ID= and =<<targets>>=,
+and links to the one you choose.
 
-/Store Link/ (the palette) keeps a link to what is at the cursor: in the
-file manager the marked files (or the one at the cursor), in a document its
-file and the heading the cursor is under. /Insert Stored Link/ puts them in
-an Org document as =[[file:…][name]]=, one a line, and Ctrl+K offers the
-last one. The path is relative when the file is in the document's folder
-or below it, absolute otherwise.
+* Macros, snippets, captions and blocks
 
-* Macros, export snippets and targets
+Away from the cursor, a macro such as ={{{title}}}= shows what the
+export writes in its place, in the link color and italic: the
+document's =#+MACRO:= definitions and Org's own =title=, =author=,
+=date=, =n=, =time= and the rest. An export snippet, =@@html:<br>@@=,
+shows its back-end dimmed and its contents as code. Targets
+(=<<here>>=) and radio targets (=<<<Term>>>=) hide their brackets, and
+every other =Term= in the text links to the radio target. A =#+TOC:
+headlines 2= line shows the table of contents an export puts there,
+and a click on a row goes to its heading.
 
-Away from the cursor, a macro such as ={{{title}}}= or ={{{version(2)}}}=
-shows what the export writes in its place, in the link color and
-italic: the =#+MACRO:= definitions of the document with their =$1=
-arguments, and Org's own =title=, =author=, =date=, =email=, =keyword=,
-=property=, =n= and =time=. A macro the document does not define stays
-as written. An export snippet, =@@html:<br>@@=, shows its back-end,
-dimmed, and its contents as code. Targets (=<<here>>=) and radio targets
-(=<<<Term>>>=) hide their brackets, and every other =Term= in the text
-is a link to the radio target.
-
-* Captions, names and cross references
-
-/Set Caption/ and /Set Name/ (Insert > Caption… and Name…) write the
-=#+CAPTION:= or =#+NAME:= line of the table, block, picture or paragraph
-at the cursor, the prompt starting with the one it has; an empty answer
-removes it. /Insert Cross Reference/ (Insert > Cross Reference…) lists
-what a link can point to (named elements with their captions, headings
-by =CUSTOM_ID= and title, and =<<targets>>=) and links to the one you
-choose; typing =[[= offers named elements too.
-
-* Blocks and drawers
-
-Away from the cursor, a block shows its kind on a thin first line: a
-source block its language, with a copy button; an export block its
-back-end (=export html=), its contents colored in that language; a
-comment block (=#+begin_comment=), which exports leave out, dimmed.
-Quote and verse blocks have a bar in the margin, center blocks are
-centered. Drawers fold to their first line with =…= and open when the
-cursor enters them. /Insert Drawer/ (Insert > Drawer) asks for a name and
-writes an empty drawer at the cursor, or around the selected lines, as
-Emacs's =org-insert-drawer= does.
-/Insert Block/ asks for a kind (=src=, =quote=, =example=, =center=,
-=verse=, =comment=, or another) and writes =#+begin_KIND= and
-=#+end_KIND= around the selected lines, or an empty block at the cursor,
-as Emacs's =org-insert-structure-template= does. /Insert Horizontal
-Rule/ writes a rule, =-----=, on the line if it is blank, else on a new
-line after it.
-
-* Table of contents
-
-Away from the cursor, a =#+TOC: headlines 2= line shows the table of
-contents an export puts there: the headings to that depth, numbered as
-the export numbers them, leaving out =COMMENT= and =:noexport:= headings
-and numbering none under =:UNNUMBERED:=. =#+TOC: headlines 1 local=
-lists only the headings below the keyword's own. A click on a row goes
-to its heading; with the cursor on the line you edit the keyword.
+/Set Caption/ and /Set Name/ (Insert menu) write the =#+CAPTION:= or
+=#+NAME:= line of the table, block, picture or paragraph at the
+cursor; an empty answer removes it. A block shows its kind on a thin
+first line, a source block its language with a copy button, a comment
+block dimmed; quote and verse blocks have a bar in the margin, and
+drawers fold to their first line until the cursor enters them. /Insert
+Block/ asks for a kind (=src=, =quote=, =example=, =center=, =verse=,
+=comment=, or another) and wraps the selected lines or writes an empty
+block; /Insert Drawer/ does the same with a drawer; /Insert Horizontal
+Rule/ writes =-----=.
 
 * Footnotes
 
-/New Footnote/ (Ctrl+Alt+F, or Insert > Footnote) writes the next free
-number, =[fn:1]=, at the cursor and starts its definition under the
-=Footnotes= heading at the end of the document (made when missing), with
-the cursor there; =org.footnote_section = ""= puts each definition at
-the end of its section instead. /Go to Footnote Definition or Reference/
-goes from a reference to its definition and from a definition's label
-back to its closest reference. /Renumber Footnotes/ numbers them again
-in reading order, /Sort Footnote Definitions/ puts the definitions in
-the order of their references, /Normalize Footnotes/ does both and moves
-inline footnotes out, and /Delete Footnote/ removes a footnote with all
-its references. These are Emacs's =org-footnote= commands and give the
+/New Footnote/ (Ctrl+Alt+F) writes the next free number, =[fn:1]=, at
+the cursor and starts its definition under the =Footnotes= heading at
+the end of the document, made when missing (=org.footnote_section =
+""= puts it at the end of the section instead). /Go to Footnote
+Definition or Reference/ goes from one to the other; /Renumber
+Footnotes/, /Sort Footnote Definitions/, /Normalize Footnotes/ and
+/Delete Footnote/ are Emacs's =org-footnote= commands and give the
 same text. With the cursor on a reference, the status bar shows the
-footnote's text; in the graphical editor, so does a tooltip under the
-mouse.
+footnote's text, and the graphical editor a tooltip.
 
 * Pictures
 
-A link to a picture without a description, such as =[[file:cat.png]]=,
-shows the picture in its place (PNG, JPEG, GIF, WebP, BMP, TIFF and
-SVG), no wider than the text; with the cursor on it you see the link.
-=#+ATTR_ORG: :width 300= (pixels) or =:width 50%= above the paragraph sets
-its width. =[[attachment:plan.png]]= finds the file in its heading's
-attachment folder as =org-attach= keeps it: the =DIR= property, else
-=data/= and the heading's =ID=.
-
-A picture pasted from the clipboard (a screenshot), or picture files
-pasted or dropped on a saved document, are copied into a folder beside
-it, =NAME_assets= for =NAME.org= (=org.assets_dir= names another), and
-linked where the cursor or the mouse is; pictures already in the document's folder are linked where
-they are. The terminal editor draws pictures that are alone on their
-line where the terminal draws images, and a file dropped on the terminal
-is linked the same way.
+A link to a picture without a description, =[[file:cat.png]]=, shows
+the picture in its place (PNG, JPEG, GIF, WebP, BMP, TIFF, SVG), no
+wider than the text; =#+ATTR_ORG: :width 300= or =:width 50%= above it
+sets its width, and =[[attachment:plan.png]]= finds the file in the
+heading's attachment folder as =org-attach= keeps it. A picture pasted
+from the clipboard, or picture files pasted or dropped on a saved
+document, are copied into =NAME_assets= beside =NAME.org=
+(=org.assets_dir= names another folder) and linked where the cursor or
+the mouse is. The terminal editor draws pictures alone on their line
+where the terminal draws images.
 
 * Tasks, dates and tags
 
 Ctrl+Enter cycles a heading through its TODO states (=TODO=, =DONE=, or
 the states of the document's =#+TODO= line); Shift+Left and Shift+Right
-step through them, Shift+Up and Shift+Down change the priority.
+step through them, Shift+Up and Shift+Down change the priority. In the
+palette: /Set TODO State/, /Mark Done/, /Next Keyword Set/ and
+/Previous Keyword Set/ (when =#+TODO= lines give several), /Set
+Priority/ and /Remove Priority/, /Set Tags/ and /Toggle Tag/ (a colon
+at the end of a heading offers the tags too), /Align All Tags/, /Set
+Property/ and /Delete Property/, /Edit Properties/ (the entry's
+properties as a list to change, add to or remove from) and /Add Note/
+(a note under the heading, in the drawer =org.log_into_drawer= names).
+Each writes what the Emacs command of the same name writes.
 
-Without keys, in the palette: /Set TODO State/ asks for the state,
-/Mark Done/ marks the heading done, and /Next Keyword Set/ and
-/Previous Keyword Set/ go to the first state of another sequence when
-=#+TODO= lines give several. /Set Priority/ asks for the priority's
-letter and /Remove Priority/ takes it off. /Set Tags/ asks for the
-heading's tags, words separated by blanks or colons (nothing removes
-them), /Toggle Tag/ adds or removes one tag, and /Align All Tags/ moves
-every heading's tags to the right edge. /Set Property/ and /Delete
-Property/ ask for a property's name (and value), as /Edit Properties/
-below does in one list. /Add Note/ asks for a note and writes it under
-the heading as Emacs's =org-add-note= does, in the drawer
-=org.log_into_drawer= names (such as =LOGBOOK=) when it names one.
+/Schedule/ (Ctrl+Alt+S) and /Set Deadline/ ask for a date, from a
+calendar in the graphical editor or typed (=today=, =+3d=, =friday=,
+=2026-10-05 14:30=, with a repeater or warning such as =+1w= or =-3d=
+after it), and write =SCHEDULED:= or =DEADLINE:= on the planning line
+as Emacs does; /Remove Schedule/ and /Remove Deadline/ take them off.
+Alt+Shift+D inserts a date from the same calendar, where arrows move by
+day and week and Page Up and Page Down by month; Ctrl+Shift+D inserts
+the current time stamp.
 
-/Schedule/ (Ctrl+Alt+S) and /Set Deadline/ ask for a date (a calendar in
-the graphical editor; =today=, =+3d=, =friday=, =2026-10-05 14:30= and
-the like typed) and write =SCHEDULED:= or =DEADLINE:= on the heading's
-planning line, as Emacs's =org-schedule= and =org-deadline= do: a time
-of day when you give one, a repeater or warning typed after the date
-(=2026-10-05 +1w=, =friday .+2d -3d=), the old timestamp's repeater kept
-otherwise, and =CLOSED:= taken away. /Remove Schedule/ and /Remove
-Deadline/ take them off again.
+/Refile/ (Ctrl+Alt+W) moves the subtree at the cursor under another
+heading of the document, chosen by outline path, as its last child.
+/Archive to Sibling/ moves it under an =Archive= heading among its
+siblings, tagged =ARCHIVE=, with the time in =ARCHIVE_TIME=; /Toggle
+Archive Tag/ sets or removes the tag. Archiving into another file is
+not there yet.
 
-/Edit Properties/ (Format menu, or the palette) lists the properties of
-the entry at the cursor as =KEY: value=; choosing one asks for its new
-value, starting with the old one, and the list also offers a new
-property and the removal of each. The drawer is written as Emacs's
-=org-entry-put= writes it, values aligned.
+With =org.enforce_todo_dependencies= on, a task cannot be done while a
+task below it is open, and under a heading with the =ORDERED= property
+(/Toggle Ordered Subtasks/) each task waits for the ones before it;
+=org.enforce_todo_checkbox_dependencies= makes it wait for its
+checkboxes too, and a =NOBLOCKING= property lifts both.
+=org.todo_state_tags_triggers= changes tags with the state: ="done:
+-next +closed"= removes =next= and adds =closed= when a task is done.
+These are Emacs's settings of the same names, so a file behaves the
+same in both.
 
-/Refile/ (Ctrl+Alt+W, or Org > Refile…) moves the subtree at the cursor
-under another heading of the document, chosen from a list of outline
-paths (=Project/Tasks=), as its last child. /Archive to Sibling/ moves it
-under an =Archive= heading among its siblings, tagged =ARCHIVE= and made
-when missing, with the time in an =ARCHIVE_TIME= property; /Toggle
-Archive Tag/ sets or removes the =ARCHIVE= tag. The three give the text
-Emacs's =org-refile=, =org-archive-to-archive-sibling= and
-=org-toggle-archive-tag= give. Archiving into another file
-(=org-archive-subtree=) is not there yet.
+* Completion, paste and cursors
 
-With =org.enforce_todo_dependencies= on, a task cannot be marked done
-while a task below it is still open, and under a heading with the
-=ORDERED= property (Toggle Ordered Subtasks) each task waits for the ones
-before it; with =org.enforce_todo_checkbox_dependencies=, it also waits
-for its checkboxes. A =NOBLOCKING= property lifts both for one task.
-=org.todo_state_tags_triggers= changes tags with the state: the entry
-="done: -next +closed"= removes =next= and adds =closed= when a task is
-done (=todo= stands for any open state, a keyword for itself, and nothing
-before the colon for no keyword). These are the settings of the same names
-in Emacs, so a file behaves the same in both.
-
-Alt+Shift+D inserts a date: a calendar opens on the date under the cursor
-or today. Arrows move by day and week, Page Up and Page Down by month, and
-you can type a date such as =+3d=, =fri 10:00=, =tomorrow= or
-=2026-12-24=. Ctrl+Shift+D inserts the current time stamp.
-
-Typing a colon at the end of a heading offers the tags of =#+TAGS= and
-the tags in use; the chosen tag is aligned at the right edge.
-
-* Completion
-
-Typing =#+= offers keywords and blocks (=#+begin_src=, =#+title:=), =[[=
-link targets, =[fn:= footnote labels, and a colon after a heading its
-tags. In every file, typing the third letter of a word offers the words
-of the document that start the same way, the nearest first. Ctrl+Space
-(or Alt+/) asks for completions at the cursor after a single letter. Up and Down choose,
-Tab inserts (Enter too, except for words, where it goes on to a new
-line), Escape closes. Items chosen lately come first.
-
-* Paste
+Typing =#+= offers keywords and blocks, =[[= link targets, =[fn:=
+footnote labels, and a colon after a heading its tags. In every file,
+the third letter of a word offers the document's words that start the
+same way; Ctrl+Space (or Alt+/) asks after a single letter. Up and
+Down choose, Tab inserts (Enter too, except for words, where it starts
+a new line), Escape closes.
 
 Paste (Ctrl+V) converts: cells from a spreadsheet become a table, and
 text copied from a web page or a word processor becomes Org with its
-headings, emphasis, links, lists and tables (merged cells take their
-place empty, a table inside a cell becomes =a, b; c, d=, and emphasis
-inside a word gets the zero-width spaces Org needs to see it). The
-graphical editor reads that HTML on macOS, and on Linux through
-=wl-paste= or =xclip= when installed. Paste as Plain Text
-(Ctrl+Shift+V) inserts the text as it is. In source blocks, text is always
-pasted as it is.
+headings, emphasis, links, lists and tables (the graphical editor
+reads that HTML on macOS, and on Linux through =wl-paste= or =xclip=).
+Paste as Plain Text (Ctrl+Shift+V) inserts the text as it is, as any
+paste in a source block does. /Copy as Rich Text/ (Edit menu) copies
+the selection, or the whole document, as HTML with the Org text
+beside it, so mail and word processors keep the formatting (on macOS;
+elsewhere the command copies plain text and says so); /Copy as HTML/
+copies the HTML markup itself.
 
-/Copy as Rich Text/ (Edit menu) copies the selection, or the whole
-document when nothing is selected, as HTML from the HTML export, with its
-Org text beside it for places that take plain text: pasted into mail or a
-word processor, it keeps its headings, emphasis, links, lists and tables.
-The HTML clipboard is there on macOS; elsewhere, and in the terminal, the
-command copies the plain text and says so. /Copy as HTML/ copies the HTML
-markup itself as text, in both editors.
-
-* Multiple cursors
-
-Ctrl+Alt+Down and Ctrl+Alt+Up add a cursor on the next or previous line,
-at the same column; Alt-click adds one where you click (or removes one).
-Ctrl+D selects the word at the cursor, then each next occurrence of the
-selection; /Select All Occurrences/ selects every one at once.
-Ctrl+Alt+Shift+Down and Up make a column selection: the same columns on
-each line. Typing, Backspace, Delete and the arrow keys then act at every
-cursor, as one undo step; Copy takes each selection, one a line, and
-pasting as many lines as there are cursors puts one at each. Escape, a
-click, or /Single Cursor/ leaves one cursor. /Select Word/ selects the
-word at the cursor, without looking for the next one.
+Ctrl+Alt+Down and Ctrl+Alt+Up add a cursor on the next or previous
+line; Alt-click adds or removes one where you click; Ctrl+D selects
+the word at the cursor, then each next occurrence, and /Select All
+Occurrences/ every one; Ctrl+Alt+Shift+Down and Up make a column
+selection. Typing, Backspace, Delete and the arrows then act at every
+cursor as one undo step, and Copy takes each selection, one a line.
+Escape, a click or /Single Cursor/ leaves one cursor.

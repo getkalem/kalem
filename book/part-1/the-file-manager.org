@@ -1,39 +1,23 @@
-Kalem has a file manager like Emacs's Dired. Ctrl+Alt+D lists the folder of
-the document, the cursor on its file; the same key goes back to the
-document. The toolbar's /File Manager/ and /Projects/ buttons, the two
-entries at the bottom of the list of open files, the key shown at the
-right of the terminal's status line (a click works too), the File and
-Project menus and the palette (type =files=, =projects= or =dired=) all get
-there. Opening a folder (Ctrl+O, =kalem FOLDER=, =:e FOLDER=) lists it too.
-A window has one file manager, which goes from folder to folder; the list
-of open files calls it /File Manager/.
+Kalem has a file manager like Emacs's Dired. Ctrl+Alt+D lists the
+folder of the document with the cursor on its file, and goes back to
+the document; the toolbar's /File Manager/ and /Projects/ buttons, the
+File and Project menus and the palette get there too, and opening a
+folder (Ctrl+O, =kalem FOLDER=, =:e FOLDER=) lists it. A window has one
+file manager, which goes from folder to folder.
 
-It has two views. The normal view lists a folder: permissions, size,
-modification time and name, folders first. The projects view
-(Ctrl+Alt+Shift+D, or /Projects/ in the Project menu) lists every project,
-and only the projects, as if they were all in one folder. =P= switches
-between the two views. Its menu (a right click, or the Menu key) opens
-the project under the pointer, /Remove from Projects/ takes it off the
-list (its folder and files stay as they are), and /Add Project
-Folder…/ asks for a folder to add. The rules:
+The normal view lists a folder: permissions, size, modification time
+and name, folders first. The projects view (Ctrl+Alt+Shift+D, or
+/Projects/ in the Project menu) lists every project as if they were
+in one folder; =P= switches between the two, and the projects' menu
+(right click) opens a project, removes it from the list (the folder
+stays) or adds one. Going up from a project's folder shows the
+projects again; going up from the projects goes to the folder above
+the project at the cursor.
 
-- The /File Manager/ button always shows a folder, never the projects:
-  from the projects, the folder shown before them, else the home folder;
-  pressed again, it stays. Ctrl+Alt+D does the same from the projects, and
-  from a folder goes back to the document.
-- The /Projects/ button always shows the projects; pressed again, it
-  stays. The button of the view shown is drawn pressed, and the terminal's
-  status line names the view.
-- Opening a project lists its folder, and going up from that folder, as
-  the first step, shows the projects again. Any other step forgets this:
-  after going into a subfolder and back, up is the real parent folder.
-- In the projects, up (=^=, =-=, Backspace) goes to the folder above the
-  project at the cursor, so there is always a way up to the root of the
-  file system.
-
-The listing is read-only text: the arrow keys, search, and with Vim keys
-=j k gg G= and =/= work as in any document. A click on a name opens it.
-Commands act on the marked entries, or on the one at the cursor.
+The listing is read-only text: the arrow keys, search, and with Vim
+keys =j k gg G= and =/= work as in any document. A click on a name
+opens it. Commands act on the marked entries, or on the one at the
+cursor.
 
 | Keys                | Command                                               |
 |---------------------+-------------------------------------------------------|
@@ -67,29 +51,8 @@ Commands act on the marked entries, or on the one at the cursor.
 | =w=                 | Copy the names                                        |
 | =q=                 | Close the file manager                                |
 
-/Delete for Good/, /Copy Paths/, /Reverse Order/ and /Stop File
-Operations/ are in the palette. Copying and moving run in the background,
-with their progress in the status bar. When a file is already at the
-destination, Kalem asks: overwrite, skip, or keep both (the new one becomes
-=name (2).ext=), for that file or for all that are left. Ctrl+Z takes
-back the renames, moves and moves to the trash done in this session, the
-last first; it refuses when a file has been put in the way.
-
-A right click on an entry, on the marked entries or on the empty listing
-opens a menu in the order other file managers use: Open, Open with the
-system's application; Cut, Copy, Paste, Duplicate; Rename, Move to…, Copy
-to…; Move to the Trash, Delete for Good; New File, New Folder; Copy Path,
-Copy Relative Path, Store Link (to insert with Insert Link in a
-document), Show in System File Manager; Select All, Invert Selection;
-Sort by…, Hidden Files; Properties (kind, size, dates, permissions, the
-target of a link). Items that cannot apply are greyed out. Shift+F10 or
-the Menu key opens the same menu from the keyboard; in the terminal a
-right click (with the mouse on), Shift+F10 or the Menu key (in
-terminals that report it) shows it as a list to pick from, in the
-menu's order until you type to narrow it.
-
-The keys every file manager has work in the listing too, with Command in
-place of Ctrl on macOS:
+The keys every file manager has work too, with Command in place of
+Ctrl on macOS:
 
 | Keys                    | Command                                            |
 |-------------------------+----------------------------------------------------|
@@ -102,75 +65,47 @@ place of Ctrl on macOS:
 | Alt+Enter               | Properties                                         |
 | Ctrl+click, Shift+click | Mark one entry, mark a range                       |
 
-Cut and Copy keep the paths in Kalem's own file clipboard, and put them on
-the system clipboard as text; Paste moves or copies them into the folder
-listed, with the same question when a name is taken. /Duplicate/ copies an
-entry beside itself as =name copy.ext=. Dragging entries, and pasting a
-file list into Finder, Explorer or the desktop's file manager, do not work
-yet.
+A right click (Shift+F10 or the Menu key from the keyboard) opens a
+menu with the usual entries of a file manager, from Open to
+Properties; the terminal shows it as a list to pick from. /Delete for
+Good/, /Copy Paths/, /Reverse Order/, /Show in System File Manager/
+and /Stop File Operations/ are in the palette.
+
+Copying and moving run in the background, with their progress in the
+status bar. When a file is already at the destination, Kalem asks:
+overwrite, skip, or keep both (=name (2).ext=), for that file or for
+all that are left. Ctrl+Z takes back the renames, moves and moves to
+the trash of this session, the last first. Cut and Copy keep the
+paths in Kalem's own file clipboard and put them on the system
+clipboard as text; dragging entries, and pasting a file list into
+Finder or Explorer, do not work yet.
 
 =e= makes the names editable, as Emacs's wdired does: change them with
-any editing command (a name with a folder in it, such as =old/a.txt=,
-moves the file there), then Ctrl+S renames them all at
-once, names that swap included, and Escape leaves them as they were.
-Nothing changes when a name is empty, two files would get the same name,
-a name is taken by a file that stays, or a line was added, removed or
-changed outside its name; the edit stays to fix. Ctrl+Z undoes the whole
-set of renames.
+any editing command (=old/a.txt= moves the file there), then Ctrl+S
+renames them all at once, swaps included, and Escape leaves them as
+they were. Nothing changes when a name is empty or taken, or a line
+was changed outside its name; the edit stays to fix.
 
-=% f= lists the files and folders under the folder, at any depth, whose
-names match a shell pattern (=*.org=, =report-??.pdf=) or contain the text
-given, each named by its path from the folder; they open, take marks and
-are copied, moved or renamed as other entries are, and =^= goes back to the
-folder's own entries. =A= searches the text of the files under the folder
-(its project's ignore rules when it is a project) and opens a match at its
-line.
-
-=i= lists the folder at the cursor below the folder's own entries, as
-Dired's =i= does, and goes to it (to it at once when it is listed
-already); its entries take marks and commands as the others do. =K=,
-on a listed folder's line or its entries, takes it out of the listing
-again. =* t= asks since when: an age (=30m=, =2h=, =3d=, =1w=), =today=,
-=yesterday=, or a date and time (=2026-09-01=, =2026-09-01 14:30=), and
-marks the entries changed since then.
-
-=!= runs a shell command on the marked files (or the one at the cursor)
-in their folder, after asking: a =*= standing alone is replaced by all of
-them and the command runs once; a =?= standing alone runs it once per file
-with the file there; otherwise it runs once per file with the file at the
-end, as in Dired. The last line of its output shows in the status bar.
-/Show in System File Manager/ (the palette) shows the file selected in
-Finder, Explorer or the desktop's file manager.
-
-In the graphical editor =v= shows a pane beside the listing with the file
-at the cursor: a picture, the first lines of an Org, Markdown or other text
-file, or a folder's names. Ctrl+T shows the listing's pictures (the marked
-ones, or all) as thumbnails there instead; a click on one goes to its line.
-The same key hides the pane.
+=% f= lists the files and folders under the folder, at any depth,
+whose names match a shell pattern (=*.org=) or contain the text given;
+they take marks and commands as other entries do, and =^= goes back.
+=A= searches the text of the files under the folder and opens a match
+at its line. =i= lists the folder at the cursor below the folder's own
+entries, as Dired does, and =K= takes it out again. =* t= marks the
+entries changed since an age (=30m=, =3d=, =1w=), =today=, =yesterday=
+or a date and time. =!= runs a shell command on the marked files in
+their folder: a =*= standing alone is replaced by all of them, a =?=
+runs the command once per file, as in Dired. In the graphical editor
+=v= shows the file at the cursor in a pane beside the listing, and
+Ctrl+T the listing's pictures as thumbnails.
 
 With Vim keys the file manager's keys come first, except =n=, =p=, =w=
-and Backspace, which Vim keeps; =j=, =k=, =G= and searching are Vim's
-too. From a document, =-= opens the file manager (as vim-vinegar and
-Doom do; in the file manager it goes up), and so do =:Ex=, =:Explore=
-and =:E=; =:Projects= shows the projects. =SPC o -= opens the file
-manager and comes back, =SPC o P= shows the projects and =SPC p D= the
-project's folder.
-
-The keys are Doom Emacs's (its =dired= module with evil-collection and
-dirvish): =h= goes up and =l= opens, =g r= reads the folder again, =g g=
-goes to the first entry, =I= lists a folder below and =$= takes it out,
-=y y= and =Y= copy the paths, =y n= the names and =y r= the relative
-paths, =f= shows a file's properties, =a= the projects, =N= narrows the
-listing, and =C-x C-q= edits the names. =SPC .= asks for a path starting
-in the listed folder and opens it, making the file when the name is new;
-=SPC f D=, =SPC f R= and =SPC f C= delete, rename and copy the entry at
-point. Dired's =* *= (executables), =% u= and =% l= (rename to upper and
-lower case), =% R= (rename by a regular expression; =$1= or =${1}= in the
-replacement), =Z= (compress to a zip, or extract an archive, with the
-system's =zip=, =unzip= and =tar=) and =&= work with either keymap.
-
-Every Doom key, and what it does here or why it does not yet (generated
-from =tests/keys/doom-dired.toml=, which the tests check against the
-keymaps):
+and Backspace, which Vim keeps. From a document, =-= opens the file
+manager (as vim-vinegar and Doom do), and so do =:Ex= and =:Explore=;
+=:Projects= shows the projects. The keys are Doom Emacs's (its =dired=
+module with evil-collection and dirvish), listed below with what each
+does here or why it does not yet; the table is generated from
+=tests/keys/doom-dired.toml=, which the tests check against the
+keymaps.
 
 #+KALEM_KEYS: doom-dired

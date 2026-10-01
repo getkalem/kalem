@@ -13,7 +13,7 @@ opened: a format is opened as itself, or as plain text.
 
 * Three rules
 
-Every standard mode keeps three rules (design_doc2.md, section 2):
+Every standard mode keeps three rules (docs/design_doc2.md, section 2):
 
 1. *Ranges, never text.* A mode reads the file into ranges of the
    text. Rendering, editing and every command work on those ranges, and

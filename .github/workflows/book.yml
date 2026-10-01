@@ -1,6 +1,6 @@
 name: Book
 
-# The Book (design_doc2.md §10): checked on every pull request, built by
+# The Book (docs/design_doc2.md §10): checked on every pull request, built by
 # Kalem and published to GitHub Pages on every merge to main.
 
 on:
