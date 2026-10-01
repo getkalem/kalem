@@ -153,6 +153,95 @@ pub fn trim_trailing_blank_lines(text: &str) -> Option<Transaction> {
     Some(tx)
 }
 
+/// The difference of `old` and `new` as a unified diff (`---`, `+++`,
+/// hunks with three lines of context), by the longest common subsequence
+/// of their lines; empty when they are the same. `name` heads it.
+pub fn unified_diff(old: &str, new: &str, name: &str) -> String {
+    if old == new {
+        return String::new();
+    }
+    let a: Vec<&str> = old.split_inclusive('\n').collect();
+    let b: Vec<&str> = new.split_inclusive('\n').collect();
+    // The common head and tail, then the table on what is left.
+    let head = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
+    let tail = a[head..]
+        .iter()
+        .rev()
+        .zip(b[head..].iter().rev())
+        .take_while(|(x, y)| x == y)
+        .count();
+    let (ma, mb) = (&a[head..a.len() - tail], &b[head..b.len() - tail]);
+    // Ops over the middle: ' ' kept, '-' removed, '+' added.
+    let mut ops: Vec<(char, &str)> = Vec::new();
+    if ma.len().saturating_mul(mb.len()) <= 4_000_000 {
+        let (n, m) = (ma.len(), mb.len());
+        let mut t = vec![0u32; (n + 1) * (m + 1)];
+        for i in (0..n).rev() {
+            for j in (0..m).rev() {
+                t[i * (m + 1) + j] = if ma[i] == mb[j] {
+                    t[(i + 1) * (m + 1) + j + 1] + 1
+                } else {
+                    t[(i + 1) * (m + 1) + j].max(t[i * (m + 1) + j + 1])
+                };
+            }
+        }
+        let (mut i, mut j) = (0, 0);
+        while i < n || j < m {
+            if i < n && j < m && ma[i] == mb[j] {
+                ops.push((' ', ma[i]));
+                i += 1;
+                j += 1;
+            } else if i < n && (j == m || t[(i + 1) * (m + 1) + j] >= t[i * (m + 1) + j + 1]) {
+                ops.push(('-', ma[i]));
+                i += 1;
+            } else {
+                ops.push(('+', mb[j]));
+                j += 1;
+            }
+        }
+    } else {
+        ops.extend(ma.iter().map(|l| ('-', *l)));
+        ops.extend(mb.iter().map(|l| ('+', *l)));
+    }
+    let all: Vec<(char, &str)> = a[..head]
+        .iter()
+        .map(|l| (' ', *l))
+        .chain(ops)
+        .chain(a[a.len() - tail..].iter().map(|l| (' ', *l)))
+        .collect();
+    let mut out = format!("--- {name}\n+++ {name}\n");
+    let changed: Vec<usize> = (0..all.len()).filter(|&k| all[k].0 != ' ').collect();
+    let mut k = 0;
+    while k < changed.len() {
+        let start = changed[k].saturating_sub(3);
+        let mut end = changed[k];
+        while k < changed.len() && changed[k] <= end + 6 {
+            end = changed[k];
+            k += 1;
+        }
+        let end = (end + 4).min(all.len());
+        // Line numbers of the hunk in each file.
+        let before = |upto: usize, side: char| {
+            all[..upto]
+                .iter()
+                .filter(|(c, _)| *c == ' ' || *c == side)
+                .count()
+        };
+        let (oa, ob) = (before(start, '-'), before(start, '+'));
+        let la = all[start..end].iter().filter(|(c, _)| *c != '+').count();
+        let lb = all[start..end].iter().filter(|(c, _)| *c != '-').count();
+        out.push_str(&format!("@@ -{},{la} +{},{lb} @@\n", oa + 1, ob + 1));
+        for (c, l) in &all[start..end] {
+            out.push(*c);
+            out.push_str(l);
+            if !l.ends_with('\n') {
+                out.push_str("\n\\ No newline at end of file\n");
+            }
+        }
+    }
+    out
+}
+
 /// `text` changed into `new` by one replacement of the part that differs,
 /// so the cursor and folds outside it stay (a formatter's result).
 pub fn replace_differing(text: &str, new: &str, label: &str) -> Option<Transaction> {
@@ -369,6 +458,17 @@ impl crate::DocumentState {
         {
             self.apply(&tx, org_edit::ChangeKind::Command, now);
         }
+        // The Kalem format is saved in its canonical form, when it is
+        // well-formed (RFC 0003 §15); an ill-formed one is saved as it is.
+        if crate::klm::is_klm_file(self) && self.dired.is_none() {
+            let doc = klm_syntax::parse(self.text().as_str());
+            if klm_syntax::well_formed(&doc) {
+                let new = klm_syntax::fmt(&doc);
+                if let Some(tx) = replace_differing(self.text().as_str(), &new, "Format Document") {
+                    self.apply(&tx, org_edit::ChangeKind::Command, now);
+                }
+            }
+        }
     }
 }
 
@@ -486,5 +586,15 @@ mod tests {
         let tx = replace_differing("| a |b|\nx\n", "| a | b |\nx\n", "Format").unwrap();
         assert_eq!(tx.apply("| a |b|\nx\n"), "| a | b |\nx\n");
         assert!(replace_differing("same", "same", "Format").is_none());
+    }
+
+    #[test]
+    fn unified_diffs() {
+        assert_eq!(unified_diff("a\n", "a\n", "f"), "");
+        let d = unified_diff("a\nb\nc\n", "a\nB\nc\nd\n", "f.klm");
+        assert_eq!(
+            d,
+            "--- f.klm\n+++ f.klm\n@@ -1,3 +1,4 @@\n a\n-b\n+B\n c\n+d\n"
+        );
     }
 }

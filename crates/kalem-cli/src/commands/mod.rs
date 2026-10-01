@@ -225,6 +225,12 @@ pub(crate) fn check(
             results.extend(result);
             continue;
         }
+        if fmt::is_klm(f, &text) {
+            let (ok, result) = check_klm(f, &text, json, deny_warnings, &mut out)?;
+            failed |= !ok;
+            results.extend(result);
+            continue;
+        }
         let mode = kalem_core::DocumentMode::detect(Some(f), text.as_bytes());
         let parse = org_syntax::parse_file(&text, f);
         let (roundtrip, mut diags) = if mode == kalem_core::DocumentMode::Csv {
@@ -333,6 +339,76 @@ pub(crate) fn check(
 }
 
 /// `kalem check` of a LaTeX file: whether it passes, and its JSON result.
+/// `kalem check` of a Kalem format file: what the parser recovered from
+/// (RFC 0003 §15) as errors, an unknown command as a warning, and whether
+/// the file is in canonical form.
+fn check_klm(
+    f: &Path,
+    text: &str,
+    json: bool,
+    deny_warnings: bool,
+    out: &mut impl Write,
+) -> Result<(bool, Option<serde_json::Value>)> {
+    let doc = klm_syntax::parse(text);
+    let severity = |code: &str| {
+        if code == "unknown-command" {
+            "warning"
+        } else {
+            "error"
+        }
+    };
+    let canonical = klm_syntax::well_formed(&doc) && klm_syntax::fmt(&doc) == text;
+    let ok = doc
+        .diagnostics
+        .iter()
+        .all(|d| severity(d.code) == "warning" && !deny_warnings);
+    if json {
+        let list: Vec<serde_json::Value> = doc
+            .diagnostics
+            .iter()
+            .map(|d| {
+                let (line, col) = line_col(text, d.range.0);
+                serde_json::json!({
+                    "code": d.code,
+                    "severity": severity(d.code),
+                    "message": d.message,
+                    "start": d.range.0,
+                    "end": d.range.1,
+                    "line": line,
+                    "column": col,
+                })
+            })
+            .collect();
+        let v = serde_json::json!({
+            "file": f.display().to_string(),
+            "canonical": canonical,
+            "diagnostics": list,
+        });
+        return Ok((ok, Some(v)));
+    }
+    for d in &doc.diagnostics {
+        let (line, col) = line_col(text, d.range.0);
+        writeln!(
+            out,
+            "{}:{line}:{col}: {}[{}]: {}",
+            f.display(),
+            severity(d.code),
+            d.code,
+            d.message
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if klm_syntax::well_formed(&doc) && !canonical {
+        writeln!(
+            out,
+            "{}: info: not in canonical form (`kalem fmt` writes it)",
+            f.display()
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok((ok, None))
+}
+
 fn check_latex(
     f: &Path,
     text: &str,

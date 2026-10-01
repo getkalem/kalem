@@ -286,3 +286,20 @@ fn records_are_lines() {
     assert_eq!(c.body, Body::Lines(vec!["effort=2h".into(), "x=1".into()]));
     assert_eq!(fmt(&doc), "\\h1{A}\n\\props{\n  effort=2h\n  x=1\n}\n");
 }
+
+#[test]
+fn a_line_per_sentence() {
+    let src = "\\klm[1.0]\n\\meta[format=sentence]\n\nOne. Two \\b{a. b}? Three $x. y$ four! \\ref[a] five.\n";
+    let doc = parse(src);
+    assert!(klm_syntax::sentence_lines(&doc));
+    let out = fmt(&doc);
+    assert_eq!(
+        out,
+        "\\klm[1.0]\n\\meta[format=sentence]\n\nOne.\nTwo \\b{a. b}?\nThree $x. y$ four! \\ref[a] five.\n"
+    );
+    assert_eq!(fmt(&parse(&out)), out);
+    assert_eq!(model(&parse(&out)), model(&doc));
+    // Without the setting, one line.
+    let one = klm_syntax::fmt_with(&doc, false);
+    assert!(one.contains("One. Two"));
+}

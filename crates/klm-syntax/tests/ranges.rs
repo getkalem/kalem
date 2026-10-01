@@ -182,7 +182,11 @@ fn char_floor(s: &str, mut i: usize) -> usize {
 
 #[test]
 fn incremental_equals_full() {
-    let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
+    let seed = std::env::var("KLM_SEED")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0x9E37_79B9_7F4A_7C15);
+    let mut rng = Rng(seed);
     for (name, src) in corpus() {
         for _ in 0..40 {
             let a = char_floor(&src, rng.below(src.len() + 1));
@@ -199,9 +203,14 @@ fn incremental_equals_full() {
 
 #[test]
 fn mangled_input_never_panics() {
-    let mut rng = Rng(42);
+    // `KLM_SEED` tries another sequence.
+    let seed = std::env::var("KLM_SEED")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(42);
+    let mut rng = Rng(seed);
     let corpus = corpus();
-    for round in 0..3000 {
+    for round in 0..20000 {
         let (_, base) = &corpus[round % corpus.len()];
         let mut s = base.clone();
         for _ in 0..1 + rng.below(6) {
@@ -219,8 +228,45 @@ fn mangled_input_never_panics() {
             }
         }
         check(&s, &doc, "mangled");
-        let _ = klm_syntax::fmt(&doc);
+        let out = klm_syntax::fmt(&doc);
         let _ = klm_syntax::html(&doc);
+        // A well-formed result formats without changing its content, and
+        // formatting twice changes nothing more (§14.9).
+        if klm_syntax::well_formed(&doc) {
+            let again = parse(&out);
+            let (a, b) = (klm_syntax::model(&again), klm_syntax::model(&doc));
+            if a != b {
+                let (ab, bb) = (
+                    a["blocks"].as_array().unwrap(),
+                    b["blocks"].as_array().unwrap(),
+                );
+                let k = ab
+                    .iter()
+                    .zip(bb)
+                    .position(|(x, y)| x != y)
+                    .unwrap_or(ab.len().min(bb.len()));
+                panic!(
+                    "fmt changed block {k} of the content:\nformatted: {}\nafter: {}\nbefore: {}\ninput: {s:?}",
+                    out,
+                    ab.get(k).map_or(String::new(), |v| v.to_string()),
+                    bb.get(k).map_or(String::new(), |v| v.to_string()),
+                );
+            }
+            assert_eq!(
+                klm_syntax::fmt(&again),
+                out,
+                "fmt is not idempotent on {s:?}"
+            );
+            for sentences in [true, false] {
+                let o = klm_syntax::fmt_with(&doc, sentences);
+                assert_eq!(
+                    klm_syntax::model(&parse(&o)),
+                    klm_syntax::model(&doc),
+                    "{s:?}"
+                );
+                assert_eq!(klm_syntax::fmt_with(&parse(&o), sentences), o, "{s:?}");
+            }
+        }
     }
 }
 

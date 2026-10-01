@@ -11,8 +11,9 @@ offer them in an Org file; they belong to the Kalem format, which is being
 designed (Part III). A file an earlier Kalem wrote such formatting into
 keeps it byte for byte, and shows it as Emacs does: an =@@kalem:…@@=
 snippet as a snippet, an =#+ATTR_KALEM:= or =#+KALEM:= line as a line of
-the file; =kalem check= lists them. Until the Kalem format is ready, a
-=.klm= file opens as Org.
+the file; =kalem check= lists them. A =.klm= file is in the Kalem format:
+=kalem check= and =kalem fmt= read it with its own parser, and the
+editors still show it as Org text until they render the format.
 
 * Headings
 

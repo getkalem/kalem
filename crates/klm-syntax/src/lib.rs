@@ -91,7 +91,9 @@ pub struct Diagnostic {
     /// Which rule: `unclosed-inline`, `unclosed-block`, `unclosed-math`,
     /// `unclosed-verbatim`, `stray-brace`, `unknown-command`,
     /// `duplicate-id`, `lone-backslash`, `unclosed-attributes`,
-    /// `missing-version`, `block-command-inline`, `text-after-block`.
+    /// `missing-version`, `block-command-inline`, `text-after-block`,
+    /// `bad-attribute` (an id, key or flag the grammar of §16 does not
+    /// allow).
     pub code: &'static str,
     /// For people.
     pub message: String,
@@ -606,7 +608,9 @@ impl Parser<'_> {
         while let Some(c) = self.at(j) {
             match c {
                 b'\n' => return j,
-                b'\\' if quoted => j += 1,
+                // Attributes stay on their line (§14.6): an escape does not
+                // take a line feed with it.
+                b'\\' if quoted && self.at(j + 1) != Some(b'\n') => j += 1,
                 b'"' => quoted = !quoted,
                 b'[' | b'<' if !quoted => depth += 1,
                 b'>' if !quoted && depth > 0 => depth -= 1,
@@ -620,7 +624,7 @@ impl Parser<'_> {
             }
             j += 1;
         }
-        j
+        j.min(self.end)
     }
 
     /// Whether the line at `i` (after its indentation) starts a block
@@ -788,6 +792,13 @@ impl Parser<'_> {
                 format!("\\{name} is not in the specification; read as a generic block"),
             );
         }
+        if name == "klm" {
+            self.diag(
+                (start, after),
+                "misplaced-version",
+                "\\klm[…] belongs on the first line, alone",
+            );
+        }
         // A block ends with its closing brace or its content, not with the
         // line feed after it.
         let end = body_range
@@ -873,7 +884,13 @@ impl Parser<'_> {
             let at = i;
             let (tok, next) = self.token(i, inner_end);
             i = next;
+            let mut bad = None;
             if let Some(id) = tok.strip_prefix('#').filter(|_| !tok.contains('=')) {
+                if !is_id(id) {
+                    bad = Some(format!(
+                        "#{id} is not an id: letters, digits, -, _, : and ."
+                    ));
+                }
                 out.push(Attr::Id(id.to_string()));
             } else if let Some(s) = tok
                 .strip_prefix('.')
@@ -883,14 +900,28 @@ impl Parser<'_> {
             } else if i < inner_end && self.b[i] == b'=' {
                 let (v, next) = self.token(i + 1, inner_end);
                 i = next;
+                if !is_key(&tok) {
+                    bad = Some(format!("`{tok}` is not a key"));
+                } else if unclosed_quote(&v) {
+                    bad = Some(format!("the value of `{tok}` has no closing quote"));
+                }
                 out.push(Attr::Key(tok, unquote(&v)));
             } else if !positional_taken
                 && (POSITIONAL.contains(&name) || !is_key(&tok) || tok.starts_with('"'))
             {
                 positional_taken = true;
+                if unclosed_quote(&tok) {
+                    bad = Some("a value without its closing quote".into());
+                }
                 out.push(Attr::Positional(unquote(&tok)));
             } else {
+                if !is_key(&tok) {
+                    bad = Some(format!("`{tok}` is not a key, and the value is taken"));
+                }
                 out.push(Attr::Flag(tok));
+            }
+            if let Some(m) = bad {
+                self.diag((at, i), "bad-attribute", m);
             }
             ranges.push((at, i));
         }
@@ -1214,6 +1245,30 @@ fn trim_end(out: &mut Vec<Inline>) {
     }
 }
 
+/// Whether `v` opens a quote it does not close.
+fn unclosed_quote(v: &str) -> bool {
+    let Some(inner) = v.strip_prefix('"') else {
+        return false;
+    };
+    let mut escaped = false;
+    for (i, c) in inner.char_indices() {
+        match c {
+            '\\' if !escaped => escaped = true,
+            '"' if !escaped => return i + 1 != inner.len(),
+            _ => escaped = false,
+        }
+    }
+    true
+}
+
+/// An id (§16): a letter or digit, then letters, digits, `-`, `_`, `:`
+/// and `.`.
+fn is_id(s: &str) -> bool {
+    let mut c = s.chars();
+    c.next().is_some_and(char::is_alphanumeric)
+        && c.all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))
+}
+
 fn is_key(s: &str) -> bool {
     s.split('.').all(|p| {
         p.as_bytes()
@@ -1289,6 +1344,8 @@ fn command_model(c: &Command) -> Value {
         Body::Inline(i) => {
             m.insert("inline".into(), Value::Array(inlines_model(i)));
         }
+        // Empty content is the same as none.
+        Body::Verbatim(v) if v.is_empty() => {}
         Body::Verbatim(v) => {
             // A block's last line feed is the closing brace's line.
             m.insert("verbatim".into(), json!(v.strip_suffix('\n').unwrap_or(v)));
@@ -1359,6 +1416,31 @@ fn collapse(t: &str) -> String {
 
 /// The canonical bytes of `doc`.
 pub fn fmt(doc: &Document) -> String {
+    fmt_with(doc, sentence_lines(doc))
+}
+
+/// Whether the document asks for a line per sentence:
+/// `\meta[format=sentence]` (§14.5).
+pub fn sentence_lines(doc: &Document) -> bool {
+    matches!(doc.blocks.first(), Some(Node::Block(c)) if c.name == "meta"
+        && c.attrs.iter().any(|a| matches!(a, Attr::Key(k, v) if k == "format" && v == "sentence")))
+}
+
+/// Whether `doc` is well-formed (§15): nothing recovered, no unknown
+/// command, no duplicate id. Formatting on save applies only then.
+pub fn well_formed(doc: &Document) -> bool {
+    doc.diagnostics.is_empty()
+}
+
+thread_local! {
+    /// Paragraphs written a sentence a line (§14.5) by this `fmt_with`.
+    static SENTENCES: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The canonical bytes of `doc`, its paragraphs one line each, or with
+/// `sentences` a line per sentence (§14.5).
+pub fn fmt_with(doc: &Document, sentences: bool) -> String {
+    SENTENCES.with(|s| s.set(sentences));
     let mut out = String::new();
     let mut blocks = doc.blocks.as_slice();
     if let Some(v) = &doc.version {
@@ -1374,6 +1456,44 @@ pub fn fmt(doc: &Document) -> String {
         }
     }
     fmt_blocks(blocks, 0, true, &mut out);
+    out
+}
+
+/// A paragraph's canonical line cut after each sentence: after `.`, `?`
+/// or `!` and a space, outside commands and formulas, where the next
+/// line would not start with a command (which could read as a block).
+fn sentences(line: &str) -> Vec<&str> {
+    let b = line.as_bytes();
+    let mut out = Vec::new();
+    let mut depth = 0usize;
+    let mut math = false;
+    let mut start = 0;
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'\\' => {
+                i += 2;
+                continue;
+            }
+            b'{' => depth += 1,
+            b'}' => depth = depth.saturating_sub(1),
+            b'$' => math = !math,
+            b'.' | b'?' | b'!'
+                if depth == 0
+                    && !math
+                    && b.get(i + 1) == Some(&b' ')
+                    && b.get(i + 2).is_some_and(|c| *c != b'\\' && *c != b' ') =>
+            {
+                out.push(&line[start..=i]);
+                start = i + 2;
+                i += 2;
+                continue;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    out.push(&line[start..]);
     out
 }
 
@@ -1398,15 +1518,38 @@ fn fmt_block(n: &Node, indent: usize, out: &mut String) {
     let pad = " ".repeat(indent);
     match n {
         Node::Paragraph(inl, _) => {
-            out.push_str(&pad);
-            out.push_str(fmt_inlines(inl).trim());
+            let mut line = fmt_inlines(inl);
+            // A picture alone on its line is a block (§16): one alone in a
+            // paragraph keeps empty braces to stay in it.
+            let mut content = inl
+                .iter()
+                .filter(|i| !matches!(i, Inline::Text(t, _) if t.trim().is_empty()));
+            if let (Some(Inline::Command(c)), None) = (content.next(), content.next())
+                && c.name == "img"
+                && !line.trim_end().ends_with('}')
+            {
+                line = format!("{}{{}}", line.trim_end());
+            }
+            let line = line.trim();
+            if SENTENCES.with(|s| s.get()) {
+                for (i, part) in sentences(line).into_iter().enumerate() {
+                    if i > 0 {
+                        out.push('\n');
+                    }
+                    out.push_str(&pad);
+                    out.push_str(part);
+                }
+            } else {
+                out.push_str(&pad);
+                out.push_str(line);
+            }
             out.push('\n');
         }
         Node::Block(c) => {
             out.push_str(&pad);
             out.push('\\');
             out.push_str(&c.name);
-            out.push_str(&fmt_attrs(&c.attrs));
+            out.push_str(&fmt_attrs(&c.name, &c.attrs));
             match &c.body {
                 Body::None => out.push('\n'),
                 Body::Verbatim(v) => {
@@ -1447,6 +1590,11 @@ fn fmt_block(n: &Node, indent: usize, out: &mut String) {
                             out.push('{');
                             out.push_str(fmt_inlines(inl).trim());
                             out.push('\n');
+                            // Paragraphs are always a blank line apart
+                            // (§14.3), or they would read as one.
+                            if matches!(rest.first(), Some(Node::Paragraph(..))) {
+                                out.push('\n');
+                            }
                             fmt_blocks(rest, indent + 2, false, out);
                             out.push_str(&pad);
                             out.push_str("}\n");
@@ -1489,7 +1637,7 @@ fn fmt_inlines(inl: &[Inline]) -> String {
             Inline::Command(c) => {
                 out.push('\\');
                 out.push_str(&c.name);
-                out.push_str(&fmt_attrs(&c.attrs));
+                out.push_str(&fmt_attrs(&c.name, &c.attrs));
                 let empty = match &c.body {
                     Body::None => true,
                     Body::Inline(v) => inlines_model(v).is_empty(),
@@ -1533,10 +1681,19 @@ fn join_lines(t: &str) -> String {
     if !t.contains('\n') {
         return t.to_string();
     }
+    // A line break and the blanks around it become one space; the blanks
+    // at the run's two ends stay, as they separate it from what is beside
+    // it (`two \b{x}`).
     let mut out = String::new();
-    for (i, l) in t.split('\n').enumerate() {
-        let l = if i == 0 { l.trim_end() } else { l.trim() };
-        if i > 0 && !out.is_empty() && !l.is_empty() {
+    let parts: Vec<&str> = t.split('\n').collect();
+    let last = parts.len() - 1;
+    for (i, l) in parts.iter().enumerate() {
+        let l = match (i == 0, i == last) {
+            (true, _) => l.trim_end(),
+            (_, true) => l.trim_start(),
+            _ => l.trim(),
+        };
+        if i > 0 && !out.ends_with(' ') {
             out.push(' ');
         }
         out.push_str(l);
@@ -1544,7 +1701,7 @@ fn join_lines(t: &str) -> String {
     out
 }
 
-fn fmt_attrs(attrs: &[Attr]) -> String {
+fn fmt_attrs(name: &str, attrs: &[Attr]) -> String {
     if attrs.is_empty() {
         return String::new();
     }
@@ -1557,6 +1714,9 @@ fn fmt_attrs(attrs: &[Attr]) -> String {
             Attr::Style(v) => format!(".{v}"),
             Attr::Key(k, v) => format!("{k}={}", value(v)),
             Attr::Flag(k) => k.clone(),
+            // Bare, a value that looks like a key would read as a flag
+            // of a command that takes no positional value.
+            Attr::Positional(v) if !POSITIONAL.contains(&name) && is_key(v) => quote(v),
             Attr::Positional(v) => value(v),
         })
         .collect();
@@ -1586,12 +1746,13 @@ fn value(v: &str) -> String {
         && !v.starts_with(['<', '[', '#', '.'])
         && !v
             .chars()
-            .any(|c| c.is_whitespace() || matches!(c, ']' | '"' | '=' | '\\'));
-    if bare {
-        v.to_string()
-    } else {
-        format!("\"{}\"", v.replace('\\', "\\\\").replace('"', "\\\""))
-    }
+            .any(|c| c.is_whitespace() || matches!(c, '[' | ']' | '<' | '>' | '"' | '=' | '\\'));
+    if bare { v.to_string() } else { quote(v) }
+}
+
+/// `v` in quotes, its quotes and backslashes escaped.
+fn quote(v: &str) -> String {
+    format!("\"{}\"", v.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
 // ---------------------------------------------------------------------
