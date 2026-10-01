@@ -15,9 +15,10 @@ is [[https://github.com/getkalem/kalem/blob/main/todo.md][todo.md]].
 
 - *A lossless engine.* Every format is parsed into ranges of the file;
   edits replace ranges; nothing is regenerated from a tree.
-- *Standard formats stay standard.* Kalem renders and edits Org, LaTeX,
-  CSV, BibTeX and code, and Markdown when its mode arrives, without
-  writing anything their standards do not define (Part II).
+- *Standard formats stay standard.* Kalem renders and edits Org,
+  Markdown, LaTeX, CSV, BibTeX and code without writing anything their
+  standards do not define, and never converts a file in order to open it
+  (Part II).
 - *An oracle per format, and a specification per format.* Each mode is
   checked against a reference implementation (Emacs for Org, pandoc's
   reader and the TeX engines for LaTeX, RFC 4180 and spreadsheets for
@@ -29,5 +30,7 @@ is [[https://github.com/getkalem/kalem/blob/main/todo.md][todo.md]].
   terminal editor (ratatui) share =kalem-core=: the commands, keymaps,
   settings and view model. A feature is done when it works in both;
   what the terminal cannot show is listed in [[file:terminal-parity.org][Terminal parity]].
-- *A small core.* Org, LaTeX, CSV and Markdown are in the core; other
-  modes and features come as plugins on the same contracts (Part IV).
+- *A small core, extended in Rust.* Org, Markdown, LaTeX, CSV and BibTeX
+  are in the core; other modes and features come as plugins, compiled
+  Rust run as WebAssembly components on the same contracts, with no
+  scripting engine in the editor (Part IV).

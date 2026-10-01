@@ -19,7 +19,7 @@ mod commands;
 #[command(
     name = "kalem",
     version,
-    about = "Kalem: a fast editor for plain-text documents, shown as they read and kept byte for byte: Org, LaTeX, CSV, BibTeX and code",
+    about = "Kalem: a fast, text-first editor that opens every plain-text format as itself and keeps it byte for byte: Org, Markdown, LaTeX, CSV, BibTeX and code",
     long_about = None,
     // The editors, which `kalem` starts before these commands are read.
     override_usage = "kalem [FILE | FOLDER]      the editor: graphical where there is a display, else in the terminal

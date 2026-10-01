@@ -12,19 +12,19 @@ section says whether what it describes is *available today* or
 
 * Available today and planned
 
-| What                                          | Status    | Where                                    |
-|-----------------------------------------------+-----------+------------------------------------------|
-| Settings (=settings.toml=, workspace layers)  | Available | [[file:../part-1/settings.org][Settings]]                                 |
-| Key bindings (=keymap.json=, two profiles)    | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]                |
-| Command registry, scopes and when-clauses     | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]                |
-| Themes (=themes/light.toml=, =dark.toml=)     | Available | this chapter, below                      |
-| Completer contract (in Rust, inside Kalem)    | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]]       |
-| Highlighting of code (syntect, built in)      | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]]       |
-| Command line for scripts and CI               | Available | [[file:../part-1/the-command-line.org][The command line]]                         |
-| Document mode contract (=DocumentModeSpec=)   | Planned   | T2.7c.10                                 |
-| Plugins as WASM components on a WIT API       | Planned   | T3.1.0 to T3.1.17, [[file:plugins.org][Plugins]]                |
-| Plugin repository =getkalem/plugins=          | Started   | T3.3.7 (skeleton only), [[file:plugins.org][Plugins]]           |
-| Inspection panel, hot reload, debug socket    | Planned   | T3.2.1 to T3.2.5                         |
+| What                                         | Status    | Where                              |
+|----------------------------------------------+-----------+------------------------------------|
+| Settings (=settings.toml=, workspace layers) | Available | [[file:../part-1/settings.org][Settings]]                           |
+| Key bindings (=keymap.json=, two profiles)   | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]          |
+| Command registry, scopes and when-clauses    | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]          |
+| Themes (=themes/light.toml=, =dark.toml=)    | Available | this chapter, below                |
+| Completer contract (in Rust, inside Kalem)   | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]] |
+| Highlighting of code (syntect, built in)     | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]] |
+| Command line for scripts and CI              | Available | [[file:../part-1/the-command-line.org][The command line]]                   |
+| Document mode contract (=ModeSpec=)          | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]] |
+| Plugins as WASM components on a WIT API      | Planned   | T3.1.0 to T3.1.17, [[file:plugins.org][Plugins]]         |
+| Plugin repository =getkalem/plugins=         | Started   | T3.3.7 (skeleton only), [[file:plugins.org][Plugins]]    |
+| Inspection panel, hot reload, debug socket   | Planned   | T3.2.1 to T3.2.5                   |
 
 "Available" means that it works in the current version, in both
 editors, and that this Book describes it from the code. "Planned" means
@@ -42,16 +42,16 @@ The two goals meet in one rule: *plugins extend semantics, not syntax*.
 The parser's grammar is fixed. Org already has extension points made for
 exactly this, and Emacs packages use them the same way:
 
-| Org extension point      | Example                            | What a plugin gives it                                   |
-|--------------------------+------------------------------------+----------------------------------------------------------|
-| Special blocks           | =#+BEGIN_kanban= ... =#+END_kanban= | A renderer, an editor widget, export output              |
-| Source block languages   | =#+BEGIN_SRC mermaid=              | A renderer (a diagram), a Babel executor                 |
-| Link types               | =[[jira:ABC-123]]=                 | Resolution, click, hover, completion, rendering, export  |
-| Drawers and properties   | =:ESTIMATE: 3h=                    | Views, computations, badges                              |
-| Keywords                 | =#+KANBAN_COLUMNS: TODO DOING DONE= | Document-level configuration for a plugin                |
-| Tags and TODO keywords   | =:urgent:=, =WAITING=              | Views, highlighting, automation                          |
-| Export snippets, macros  | =@@myformat:...@@=, ={{{badge(new)}}}= | Output for one back-end, expansion                   |
-| Dynamic blocks           | =#+BEGIN: word-report=             | Generated content, refreshed on demand                   |
+| Org extension point     | Example                                | What a plugin gives it                                  |
+|-------------------------+----------------------------------------+---------------------------------------------------------|
+| Special blocks          | =#+BEGIN_kanban= ... =#+END_kanban=    | A renderer, an editor widget, export output             |
+| Source block languages  | =#+BEGIN_SRC mermaid=                  | A renderer (a diagram), a Babel executor                |
+| Link types              | =[[jira:ABC-123]]=                     | Resolution, click, hover, completion, rendering, export |
+| Drawers and properties  | =:ESTIMATE: 3h=                        | Views, computations, badges                             |
+| Keywords                | =#+KANBAN_COLUMNS: TODO DOING DONE=    | Document-level configuration for a plugin               |
+| Tags and TODO keywords  | =:urgent:=, =WAITING=                  | Views, highlighting, automation                         |
+| Export snippets, macros | =@@myformat:...@@=, ={{{badge(new)}}}= | Output for one back-end, expansion                      |
+| Dynamic blocks          | =#+BEGIN: word-report=                 | Generated content, refreshed on demand                  |
 
 A document that uses a plugin still opens in Emacs, and in Kalem
 without the plugin: the plugin's content shows as ordinary Org, a
@@ -105,10 +105,11 @@ Where this stands:
 - The *completer contract* exists in =kalem-core= (T2.7a.8, done). The
   Org, LaTeX and document-words completers are written against it. It is
   a Rust trait; plugins will reach it through the WIT bindings (T3.1.9c).
-- The *document mode contract* does not exist yet. Markdown, CSV and
-  LaTeX are still separate modes in the core; T2.7c.10 rewrites them
-  against a common =DocumentModeSpec= in phase 2, and T3.1.9g exposes it
-  to plugins.
+- The *document mode contract* exists in =kalem-core= (=ModeSpec=,
+  T2.7c.10): CSV, Markdown and the Kalem format implement it and pass
+  its conformance check. The editors still draw each mode through its
+  own view code, LaTeX and Org are not on the contract yet, and T3.1.9g
+  exposes it to plugins.
 - The *highlighter* is syntect with the syntax definitions built into
   Kalem (D16). Loading a plugin's Sublime syntax definition is T3.1.9g.
 
@@ -137,6 +138,16 @@ The owner decided on 2026-09-28 how plugins run:
   into their own Kalem binary (=kalem build --with=), with native speed
   and no sandbox, by their own choice.
 
+Why not a scripting language, as Emacs, Vim and VS Code have? Their
+packages, scripts and extensions run in an interpreter inside the
+editor: the editor pays for the interpreter on every keystroke, a slow
+extension makes a slow editor, and there is no budget the editor can
+enforce. A compiled component has a budget, its own memory and a typed
+interface, and runs at the speed of compiled code. Kalem's plugin
+authors write Rust because the editor is written in Rust: the contract a
+plugin implements is the one the built-in modes implement, so there is
+one API, not a core API with a scripting API beside it.
+
 What this costs, and was accepted knowingly: no REPL and no instant
 reload (the live runtime shrinks to inspection and reload), a Rust
 toolchain for plugin authors (hidden behind =kalem plugin new= and
@@ -151,15 +162,15 @@ spike T3.1.0 decides it against Kalem's size and speed targets.
 
 * The layers
 
-| Layer                        | Technology                                          | Status                     |
-|------------------------------+-----------------------------------------------------+----------------------------|
-| Command registry and events  | Rust, =kalem-core=                                  | Available (built-ins only) |
-| User configuration           | =settings.toml=, =keymap.json=, =projects.toml=; data, not code (D9) | Available |
-| Plugin package               | A WASM component in Rust, with a manifest           | Planned, phase 3           |
-| Bundled plugins              | The same components, embedded in the binary         | Planned, phase 3           |
-| Threads                      | One component instance per thread                   | Planned, phase 3           |
-| Out of process               | JSON-RPC over stdio: language servers, tools        | Planned, phases 3 and 4    |
-| Compiled distribution        | =kalem build --with=                                | Planned, phase 4           |
+| Layer                       | Technology                                                           | Status                     |
+|-----------------------------+----------------------------------------------------------------------+----------------------------|
+| Command registry and events | Rust, =kalem-core=                                                   | Available (built-ins only) |
+| User configuration          | =settings.toml=, =keymap.json=, =projects.toml=; data, not code (D9) | Available                  |
+| Plugin package              | A WASM component in Rust, with a manifest                            | Planned, phase 3           |
+| Bundled plugins             | The same components, embedded in the binary                          | Planned, phase 3           |
+| Threads                     | One component instance per thread                                    | Planned, phase 3           |
+| Out of process              | JSON-RPC over stdio: language servers, tools                         | Planned, phases 3 and 4    |
+| Compiled distribution       | =kalem build --with=                                                 | Planned, phase 4           |
 
 The command registry and the event bus exist in =kalem-core= and carry
 every built-in command and the editors' own events. Their plugin side

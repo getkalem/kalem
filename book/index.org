@@ -1,17 +1,19 @@
 #+TITLE: The Kalem Book
 
-Kalem is an editor for plain text documents that looks like a word
-processor. Bold text is bold, headings are large, tables are grids,
-formulas are typeset and links are links, while the file on disk stays
-the standard text it was: Org, LaTeX, CSV, BibTeX or code, byte for byte
-where you did not edit it. Kalem runs as a desktop application and in a
-terminal, with the same commands in both, and it has command-line tools
-for scripts and CI.
+Kalem is a fast, open source, text-first editor for every plain-text
+format. It opens a file as what it is, Org, Markdown, LaTeX, CSV, BibTeX
+or code, and shows it the way it reads: bold text is bold, headings are
+large, tables are grids, formulas are typeset and links are links, while
+the file on disk stays the standard text it was, byte for byte where you
+did not edit it. Other formats come as plugins, written in Rust. Kalem
+runs as a desktop application and in a terminal, with the same commands
+in both, and it has command-line tools for scripts and CI.
 
 This book is the one reference for Kalem. It has five parts:
 
-- *Part I, Kalem*, is the manual: installing, the two editors, writing,
-  views, projects, exporting, keys, settings and the command line.
+- *Part I, Kalem*, is the manual: what Kalem is, installing, the two
+  editors, writing, views, projects, exporting, keys, settings and the
+  command line.
 - *Part II, the standard formats*, says exactly what Kalem does with each
   format it opens, which parts it renders, edits and exports, and against
   which reference implementation (the /oracle/) that is tested. It is
@@ -21,7 +23,7 @@ This book is the one reference for Kalem. It has five parts:
   document format, =.klm=: its syntax, structure, stylesheets, canonical
   form, grammar and conformance.
 - *Part IV, extending Kalem*, covers commands, keys, completers and the
-  plugin model.
+  plugin model: plugins are compiled Rust, run as WebAssembly components.
 - *Part V, design*, gathers the design documents, the decision records,
   performance and terminal parity.
 
@@ -34,6 +36,7 @@ the =book/= folder of the repository, written in Org; =kalem book build=
 turns it into this site.
 
 * Part I. Kalem
+- [[file:part-1/what-kalem-is.org][What Kalem is]]
 - [[file:part-1/installing.org][Installing]]
 - [[file:part-1/starting.org][Starting]]
 - [[file:part-1/writing-in-org.org][Writing in Org]]
