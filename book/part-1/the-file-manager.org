@@ -12,7 +12,10 @@ It has two views. The normal view lists a folder: permissions, size,
 modification time and name, folders first. The projects view
 (Ctrl+Alt+Shift+D, or /Projects/ in the Project menu) lists every project,
 and only the projects, as if they were all in one folder. =P= switches
-between the two views. The rules:
+between the two views. Its menu (a right click, or the Menu key) opens
+the project under the pointer, /Remove from Projects/ takes it off the
+list (its folder and files stay as they are), and /Add Project
+Folder…/ asks for a folder to add. The rules:
 
 - The /File Manager/ button always shows a folder, never the projects:
   from the projects, the folder shown before them, else the home folder;

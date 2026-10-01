@@ -4306,3 +4306,31 @@ fn csv_looks_like_a_spreadsheet() {
     let b = rows[2].find("36").unwrap();
     assert_eq!(rows[0][..a].chars().count(), rows[2][..b].chars().count());
 }
+
+#[test]
+fn projects_view_menu_removes_and_adds() {
+    // Right click (the Menu key) on a project: Remove from Projects takes
+    // it off the list and leaves its folder.
+    let (mut t, dir) = project_app(Config::default());
+    t.app.run_command("dired.projects", serde_json::Value::Null);
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("proj"), "{shown}");
+    let row = t.app.doc.text().as_str().find("proj").unwrap();
+    t.at(row);
+    t.app.run_command("dired.contextMenu", serde_json::Value::Null);
+    t.typ("Remove from Projects");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.projects.list.list.is_empty(), "{:?}", t.app.projects.list);
+    assert!(dir.join("proj/a.org").exists());
+    // Add Project Folder… asks for the folder.
+    t.app.run_command("dired.contextMenu", serde_json::json!({ "listing": true }));
+    t.typ("Add Project");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    for _ in 0..200 {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ(&dir.join("proj").display().to_string());
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.app.projects.list.list.len(), 1);
+    assert!(screen(&mut t).join("\n").contains("proj"));
+}

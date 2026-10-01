@@ -197,6 +197,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("file.import", object(&[("file", "string", true)])),
         ("org.note.add", object(&[("note", "string", false)])),
         ("org.footnote.new", object(&[("label", "string", false)])),
+        ("project.remove", object(&[("path", "string", false)])),
         ("project.add", object(&[("path", "string", false)])),
         ("project.rename", object(&[("name", "string", true)])),
         ("table.import", object(&[("file", "string", true)])),
@@ -4782,7 +4783,21 @@ fn plain_commands() -> Vec<Command> {
             "Project",
             &[],
             None,
-            |ctx, _| request(ctx, Request::Pick(PickKind::RemoveProject)),
+            |ctx, args| match args.get("path").and_then(Value::as_str) {
+                Some(p) => request(
+                    ctx,
+                    Request::Project(ProjectRequest::Remove(std::path::PathBuf::from(p))),
+                ),
+                None => request(ctx, Request::Pick(PickKind::RemoveProject)),
+            },
+        ),
+        cmd(
+            "project.addFolder",
+            "Add Project Folder…",
+            "Project",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Project(ProjectRequest::AddChosen)),
         ),
         cmd(
             "project.rename",

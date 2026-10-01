@@ -3021,6 +3021,24 @@ pub fn context_menu(doc: &DocumentState, on_entry: bool) -> Vec<ContextItem> {
     let titled = |id: &'static str, enabled: bool| item(tr(&command_key(id)), id, enabled);
     let sep = ContextItem::Separator;
     let mut out = Vec::new();
+    // The projects view: open a project, take it off the list (its folder
+    // stays), add one.
+    if s.place == Place::Projects {
+        let root = on_entry.then(|| s.path_at(cursor_line(doc))).flatten();
+        out.push(item(tr("fm-menu-open"), "dired.open", root.is_some()));
+        out.push(ContextItem::Command {
+            label: tr("fm-menu-remove-project"),
+            id: "project.remove",
+            args: root.as_ref().map_or(
+                Value::Null,
+                |r| serde_json::json!({ "path": r.display().to_string() }),
+            ),
+            enabled: root.is_some(),
+        });
+        out.push(sep.clone());
+        out.push(titled("project.addFolder", true));
+        return out;
+    }
     if on_entry {
         out.extend([
             item(
