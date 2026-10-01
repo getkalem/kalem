@@ -102,7 +102,11 @@ edits it as plain text. Concretely:
   followed by =10.=, the =.= or =)= kept), and an empty =[ ]= after a
   task item; the text after the cursor moves to the new item. On an
   item or quoted line that holds nothing but its markers, Enter removes
-  them, which ends the list. Elsewhere, and in code blocks, Enter
+  them, which ends the list. In a numbered list the items after the new
+  one are numbered on from it. At the end of an opening fence (=```=
+  or =~~~=, with or without a language) that nothing closes, Enter adds
+  an empty line and the closing fence and puts the cursor between them.
+  Elsewhere, and in code blocks, Enter
   (=edit.newline=) starts a new line with the current line's
   indentation.
 - /Toggle Comment/ (Ctrl+Alt+C) wraps each selected line in
@@ -326,7 +330,7 @@ above is done.
 - *View.* Done as above; still to come: front matter folded, and code
   blocks coloured with the state of the lines before (T2.7c.3).
 - *Editing.* Tables: moving rows and columns, formulas (T2.7c.4);
-  autoformat triggers and renumbering a list after an edit (T2.7c.5).
+  renumbering a list after other edits (T2.7c.5).
 - *Conversion.* "Convert to Org" and "Convert from Org", through the
   exporter or pandoc, and =kalem export FILE.md --to org= (T2.7c.7).
 - *What note-taking users expect.* Wiki links =[[Page]]= resolved and
