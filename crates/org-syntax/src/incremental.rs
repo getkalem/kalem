@@ -330,7 +330,7 @@ fn try_crlf(
         context: old.context.clone(),
         source: old.source.clone(),
         norm: Some(std::sync::Arc::new(crate::crlf::Norm {
-            green: new_norm.green,
+            green: new_norm.green.clone(),
             map: new_map,
             text: new_norm_text,
         })),

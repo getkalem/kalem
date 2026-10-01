@@ -151,6 +151,22 @@ pub fn expand_file_name(file: &str, dir: &std::path::Path) -> String {
         let cwd = std::env::current_dir().unwrap_or_default();
         format!("{}/{file}", cwd.join(dir).display())
     };
+    // On Windows, Emacs writes `C:/dir/file`: the separators as `/`, the
+    // drive kept first.
+    let joined = if cfg!(windows) {
+        joined.replace('\\', "/")
+    } else {
+        joined
+    };
+    let drive = |s: &str| {
+        let b = s.as_bytes();
+        cfg!(windows) && b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':'
+    };
+    let joined = if drive(file) {
+        file.replace('\\', "/")
+    } else {
+        joined
+    };
     let mut parts: Vec<&str> = Vec::new();
     for c in joined.split('/') {
         match c {
@@ -160,6 +176,9 @@ pub fn expand_file_name(file: &str, dir: &std::path::Path) -> String {
             }
             c => parts.push(c),
         }
+    }
+    if parts.first().is_some_and(|p| drive(p)) {
+        return parts.join("/");
     }
     format!("/{}", parts.join("/"))
 }

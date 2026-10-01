@@ -1235,8 +1235,16 @@ pub fn undo_last() -> Result<(Vec<PathBuf>, String), String> {
                 items.iter().map(|(a, b)| (b.clone(), a.clone())).collect();
             let freed: std::collections::HashSet<&PathBuf> =
                 items.iter().map(|(_, to)| to).collect();
+            // A rename that changed only the case: on a file system that
+            // ignores case (macOS, Windows) the old name finds the file
+            // itself, which is not in the way.
+            let case_only = |a: &Path, b: &Path| {
+                a != b && a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
+            };
             if let Some((from, _)) = items.iter().find(|(from, to)| {
-                (std::fs::symlink_metadata(from).is_ok() && !freed.contains(from))
+                (std::fs::symlink_metadata(from).is_ok()
+                    && !freed.contains(from)
+                    && !case_only(from, to))
                     || std::fs::symlink_metadata(to).is_err()
             }) {
                 Err(crate::tr!("fm-undo-blocked", name = name_of(from)))
@@ -1804,7 +1812,7 @@ fn rename_names(ctx: &mut EditorContext<'_>, f: &dyn Fn(&str) -> Option<String>)
             )));
         }
         // A file system that ignores case finds the file itself there.
-        let itself = std::fs::canonicalize(to).ok() == std::fs::canonicalize(from).ok();
+        let itself = dunce::canonicalize(to).ok() == dunce::canonicalize(from).ok();
         if std::fs::symlink_metadata(to).is_ok() && !sources.contains(to) && !itself {
             return Err(CommandError::new(crate::tr!(
                 "fm-exists",
@@ -3123,7 +3131,7 @@ mod tests {
                 std::fs::write(p, "x").unwrap();
             }
         }
-        d.canonicalize().unwrap()
+        dunce::canonicalize(d).unwrap()
     }
 
     fn run(doc: &mut DocumentState, id: &str, args: Value) -> (CommandResult, Vec<Request>) {

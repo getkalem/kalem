@@ -1026,8 +1026,7 @@ fn workspace_root(config: &Config) -> Option<PathBuf> {
 /// `files.modes`).
 fn relative_key(root: &Path, path: &Path) -> Option<String> {
     let abs = |p: &Path| {
-        std::fs::canonicalize(p)
-            .unwrap_or_else(|_| std::path::absolute(p).unwrap_or(p.to_path_buf()))
+        dunce::canonicalize(p).unwrap_or_else(|_| std::path::absolute(p).unwrap_or(p.to_path_buf()))
     };
     let rel = abs(path).strip_prefix(abs(root)).ok()?.to_path_buf();
     let parts: Vec<String> = rel

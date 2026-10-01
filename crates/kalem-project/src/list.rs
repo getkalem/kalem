@@ -81,7 +81,7 @@ impl Project {
 /// `path` as the list stores it: absolute, with links resolved when it
 /// exists.
 pub fn normal(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path)
+    dunce::canonicalize(path)
         .or_else(|_| std::path::absolute(path))
         .unwrap_or_else(|_| path.to_path_buf())
 }

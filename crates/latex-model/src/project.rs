@@ -128,7 +128,8 @@ pub fn find_root(
 ) -> PathBuf {
     // A relative path is searched from the current folder upwards, and
     // what is found under it given back relative.
-    if file.is_relative()
+    // (`/q/x.tex` is rooted on Windows too, on the current drive.)
+    if !file.has_root()
         && let Ok(cwd) = std::env::current_dir()
     {
         let root = find_root(&cwd.join(file), text, files, setting, top);

@@ -29,6 +29,17 @@ pub(crate) struct Raw {
     pub(crate) structure: Option<Rc<ListStruct>>,
 }
 
+/// Freed without recursion: a deeply nested document's tree would take a
+/// frame per level.
+impl Drop for Raw {
+    fn drop(&mut self) {
+        let mut stack = std::mem::take(&mut self.children);
+        while let Some(mut r) = stack.pop() {
+            stack.append(&mut r.children);
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Tok {
     pub(crate) kind: SyntaxKind,

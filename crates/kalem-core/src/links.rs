@@ -114,7 +114,8 @@ pub fn org_text(links: &[Stored], doc_path: Option<&Path>) -> String {
     links
         .iter()
         .filter_map(|l| {
-            let target = file_target(&l.path, dir.as_deref(), l.search.as_deref());
+            let path = std::path::absolute(&l.path).unwrap_or_else(|_| l.path.clone());
+            let target = file_target(&path, dir.as_deref(), l.search.as_deref());
             org_edit::insert::link_string(&target, Some(&l.description)).ok()
         })
         .collect::<Vec<_>>()

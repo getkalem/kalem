@@ -11,6 +11,7 @@ keywords = ["dired", "file-manager", "trash", "editor"]
 categories = ["filesystem", "text-editors"]
 
 [dependencies]
+dunce.workspace = true
 trash = "5"
 filetime = "0.2"
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo"] }

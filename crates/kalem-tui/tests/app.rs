@@ -1285,7 +1285,8 @@ fn documents_and_projects_in_the_terminal() {
     t.key(KeyCode::Char('o'), KeyModifiers::CONTROL);
     let last = status(&mut t);
     assert!(
-        last.starts_with("Open file: ") && last.ends_with("proj/"),
+        last.starts_with("Open file: ")
+            && last.ends_with(&format!("proj{}", std::path::MAIN_SEPARATOR)),
         "{last}"
     );
     for _ in 0.."proj/".len() {
@@ -1334,7 +1335,7 @@ fn documents_and_projects_in_the_terminal() {
     let rows = screen(&mut t);
     assert!(
         rows.iter()
-            .any(|r| r.contains("sub/b.org:3") && r.contains("the needle here")),
+            .any(|r| r.replace('\\', "/").contains("sub/b.org:3") && r.contains("the needle here")),
         "{rows:?}"
     );
     t.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -3042,12 +3043,17 @@ fn file_manager_find_and_search() {
         .run_command("dired.findName", serde_json::json!({ "pattern": "*.org" }));
     let rows = screen(&mut t).join("\n");
     assert!(
-        rows.contains("sub/b.org") && rows.contains("2 found"),
+        rows.contains(&format!("sub{}b.org", std::path::MAIN_SEPARATOR))
+            && rows.contains("2 found"),
         "{rows}"
     );
     // `^` shows the folder again.
     t.typ("^");
-    assert!(!screen(&mut t).join("\n").contains("sub/b.org"));
+    assert!(
+        !screen(&mut t)
+            .join("\n")
+            .contains(&format!("sub{}b.org", std::path::MAIN_SEPARATOR))
+    );
     // `A` searches the text of the folder's files; Enter opens the match.
     t.typ("A");
     t.typ("needle");

@@ -68,6 +68,23 @@ impl TextEdit {
     }
 }
 
+/// Rowan frees a tree recursively, a frame or more per level: a deeply
+/// nested document's tree is freed on a stack large enough for it (the
+/// main thread has 1 MiB on Windows).
+impl Drop for Parse {
+    fn drop(&mut self) {
+        const NEED: usize = 64 * 1024 * 1024;
+        if stacker::remaining_stack().is_some_and(|r| r >= NEED) {
+            return;
+        }
+        let green = std::mem::replace(
+            &mut self.green,
+            rowan::GreenNode::new(rowan::SyntaxKind(0), std::iter::empty()),
+        );
+        stacker::grow(NEED, move || drop(green));
+    }
+}
+
 /// A parsed document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parse {
