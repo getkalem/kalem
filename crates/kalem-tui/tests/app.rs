@@ -2382,6 +2382,26 @@ fn drawers_and_export_blocks() {
 }
 
 #[test]
+fn markdown_reads_as_text() {
+    let mut t = with_file(
+        "# Notes\n\nSome **bold** and a [link](http://x.org).\n",
+        "n.md",
+        Config::default(),
+        (70, 8),
+    );
+    t.at(0);
+    let s = screen(&mut t);
+    // The cursor on the heading shows its `#`; the paragraph hides its
+    // markers.
+    assert!(s.iter().any(|l| l.contains("# Notes")), "{s:#?}");
+    assert!(s.iter().any(|l| l.contains("Some bold and a link.")), "{s:#?}");
+    t.at(15);
+    let s = screen(&mut t);
+    assert!(s.iter().any(|l| l.contains("Notes") && !l.contains('#')), "{s:#?}");
+    assert!(s.iter().any(|l| l.contains("Some **bold** and a link.")), "{s:#?}");
+}
+
+#[test]
 fn csv_grid() {
     let mut t = with_file(
         "name,age\nAda,36\nBob,7\n",
@@ -3471,7 +3491,10 @@ fn file_manager_right_click() {
     // The menu's order, not sorted: Open first, then Open with System
     // Application.
     let shown = screen(&mut t).join("\n");
-    let open = shown.find("File: Open\n").or(shown.find("File: Open ")).expect(&shown);
+    let open = shown
+        .find("File: Open\n")
+        .or(shown.find("File: Open "))
+        .expect(&shown);
     let system = shown.find("Open with System Application").expect(&shown);
     assert!(open < system, "{shown}");
     for c in "relative".chars() {

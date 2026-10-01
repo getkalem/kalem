@@ -274,6 +274,7 @@ impl Modes {
         let mut m = Modes { specs: Vec::new() };
         m.register(Box::new(CsvMode));
         m.register(Box::new(crate::klm::KlmMode::default()));
+        m.register(Box::new(crate::markdown::MarkdownMode));
         m
     }
 

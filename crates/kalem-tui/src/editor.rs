@@ -1183,6 +1183,13 @@ impl<'a> Layout<'a> {
                     // A CSV row as a row of the grid.
                     let layout = kalem_core::csv::layout(self.doc);
                     kalem_core::csv::line_view(&layout, self.text().as_str(), range.clone())
+                } else if self.doc.meta.mode == kalem_core::DocumentMode::Markdown
+                    && !self.source
+                    && range.len() <= view::LONG_LINE
+                {
+                    // Markdown as it reads, markers hidden away from the
+                    // cursor.
+                    kalem_core::markdown::line_view(self.doc, range.clone(), Some(self.cursor))
                 } else {
                     let mut v = view::plain_line_view(
                         self.text().as_str(),

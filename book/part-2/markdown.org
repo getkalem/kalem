@@ -3,8 +3,11 @@ plans. The two are kept apart: the sections under /Today/ describe the
 code as it is; the section /Planned: Markdown mode/ describes work that
 has not started and is marked as such throughout.
 
-In short: Kalem has no Markdown parser yet. A Markdown file is edited
-as highlighted plain text. Kalem writes Markdown, as an export of Org
+In short: Kalem reads Markdown with comrak, the Rust port of GitHub's
+own parser, in Kalem's fork (D19), and draws a Markdown file as it
+reads: markers hidden away from the cursor, headings by level, emphasis,
+code, links, images, formulas and task list checkboxes. The file is
+still edited as text and never rewritten. Kalem writes Markdown, as an export of Org
 documents, in two flavours: Emacs's =ox-md= Markdown, byte for byte, and
 GitHub Flavored Markdown. Markdown is read only through pandoc, when a
 Markdown file is converted to Org.
@@ -16,8 +19,10 @@ named by the design is the CommonMark and GFM specification test suites,
 every example of each specification a test, with =cmark-gfm= as the
 reference implementation where the suites are silent, plus a byte-exact
 round trip of untouched text on a corpus of real READMEs and note
-vaults. None of this runs today, because there is no Markdown reader to
-test (T2.7c.11 in =todo.md=, planned).
+vaults. The suites run against comrak in =spikes/md-parser= (639 of
+648 CommonMark examples and every GFM extension example agree; the nine
+are the suite's age, not a defect), but not yet as Kalem's own tests
+(T2.7c.11 in =todo.md=, planned).
 
 The Markdown Kalem /writes/ has a different oracle, Org's exporter:
 the =md= back-end is compared byte for byte with Emacs's =ox-md= (see
@@ -39,17 +44,33 @@ The mode's name in when-clauses and scopes is =markdown=
 
 ** What the mode does
 
-Markdown mode (=DocumentMode::Markdown=) is, today, plain text mode
-under another name. Concretely:
+Markdown mode (=DocumentMode::Markdown=) draws the file as it reads and
+edits it as plain text. Concretely:
 
 - The file is read, decoded and saved as every text file is (the
   chapter /Plain text and code/): encoding, byte order mark and
   line endings kept, untouched bytes unchanged. Kalem never rewrites a
   Markdown file.
-- Each line is drawn as it is, in a monospace font; no marker is hidden,
-  no heading enlarged, no image or formula rendered, no table drawn as a
-  grid.
-- The text is coloured by the Markdown syntax definition bundled with
+- Each line is drawn from comrak's parse (=kalem_core::markdown=),
+  with Org's reveal rule: the markers of an object (the =*= of
+  emphasis, the =**= of strong emphasis, the =~~= of strike-through,
+  the backticks of code, the =[=, =](url)= of a link) show only while
+  the cursor is inside it, from its first character to its last; the
+  =#= of a heading only while the cursor is on its line. Headings are
+  drawn by level (an underlined heading's line of === or --- dimmed),
+  emphasis in italics, strong emphasis bold, code in the code style,
+  links as links, footnote references as such; an image is drawn in
+  place of =![alt](src)= and a formula in place of =$…$= or =$$…$$=
+  away from the cursor; a task list item's =[ ]= or =[x]= is a checkbox
+  while the cursor is off its line. Block quote markers and thematic
+  breaks are dimmed; code blocks, HTML blocks, tables and front matter
+  are monospace, fences and front matter dimmed. The setting
+  =editor.show_source_markers= (=cursor=, =always=, =never=) applies as
+  in Org, and /Toggle Source View/ shows the text as it is. Files over
+  256 KiB are drawn as source until the reparse is incremental
+  (T2.7c.6).
+- The outline sidebar lists the headings.
+- The text of a source view is coloured by the Markdown syntax definition bundled with
   the highlighter (the Sublime Text Markdown syntax that =syntect=
   ships, language name "Markdown"), looked up as =md=. That syntax is a
   set of regular expressions, not a CommonMark parser: its colouring is
@@ -261,10 +282,10 @@ document names one, its bibliography.
 
 * Planned: Markdown mode
 
-*Everything in this section is planned, not implemented.* It is group
-2.7c of =todo.md= and section 2.6.1 of the design document; decision
-The parser is decided (D19): comrak, in Kalem's fork; the order of the
-work follows D21.
+What is left of group 2.7c of =todo.md= and section 2.6.1 of the
+design document. The parser is decided (D19): comrak, in Kalem's fork,
+pinned to a commit of its =kalem-main= branch; the view of the section
+above is done.
 
 - *Dialect.* CommonMark with the GitHub extensions: tables, task lists,
   strike-through, autolinks, footnotes; YAML or TOML front matter; and
@@ -273,16 +294,15 @@ work follows D21.
   a file reads as it does on GitHub; reparsed from the enclosing
   top-level block on each edit. Kalem uses its fork =getkalem/comrak=,
   where what an editor needs is fixed (every node's position inside its
-  parent, byte offsets) and offered upstream (D19, decided by the owner
-  on 2026-10-01; the comparison with pulldown-cmark is in
-  =spikes/md-parser=).
+  parent: done) and offered upstream (D19, decided by the owner on
+  2026-10-01; the comparison with pulldown-cmark is in
+  =spikes/md-parser=). comrak's columns count bytes, so a table of line
+  starts turns them into exact byte ranges.
 - *Lossless editing.* As for Org: the file is edited as text, never
   regenerated from a tree; the parser only yields ranges for the view,
   so untouched bytes stay as they were (T2.7c.8).
-- *View.* The inline model the Org mode uses: emphasis, code and link
-  markers hidden away from the cursor; headings by level; clickable task
-  list checkboxes; images and formulas rendered; code fences
-  highlighted; front matter folded (T2.7c.2, T2.7c.3).
+- *View.* Done as above; still to come: checkboxes toggled by a click,
+  code fences highlighted, front matter folded (T2.7c.3).
 - *Editing.* Tables in the grid Org tables use; Enter continuing lists
   and quotes; autoformat triggers; an outline from the headings
   (T2.7c.4, T2.7c.5).
@@ -297,10 +317,9 @@ work follows D21.
   the reference where the suites are silent; the byte-exact round trip
   on a corpus of READMEs and note vaults; a known-differences list; the
   agreement counts only go up (T2.7c.11).
-- *The mode contract.* Markdown mode is to be written against the
-  document mode contract that plugins will use (T2.7c.10), so that a
-  plugin mode can do everything it does.
+- *The mode contract.* Markdown is a mode of the contract plugins will
+  use (=MarkdownMode=, T2.7c.10) and passes its conformance check; the
+  editors still draw it with =kalem_core::markdown='s own view code.
 
-Until then, the rule of the standard modes holds for Markdown in its
-simplest form: Kalem writes nothing into a Markdown file that the user
-did not type, and shows everything as source.
+The rule of the standard modes holds: Kalem writes nothing into a
+Markdown file that the user did not type.

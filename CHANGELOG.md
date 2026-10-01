@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Markdown mode reads as it is meant to (T2.7c.2): comrak (Kalem's fork, D19) parses the file, and both editors hide markers away from the cursor as in Org, draw headings by level, emphasis, code and links, images and formulas, and task list checkboxes; the outline lists the headings; Markdown is a mode of the mode contract.
 - The file manager's menu: Store Link, the Menu key, and the menu's order kept in the list both editors show (T2.7e.17); moves across file systems tested (T2.7e.14).
 - Language packs (T2.7a.7): the contract for formats whose view is their source (`kalem_core::packs`): an outline for the sidebar, a formatter for Format Document and `kalem fmt`, diagnostics for the status bar and `kalem check`, and a completer; the packs themselves come as plugins.
 - CSV grid: the keys of Org tables (Alt with the arrows moves rows and columns, Alt+Shift inserts and deletes; `C-c ^`, `C-c +` and `C-c ?` in the Emacs keymap), and what people miss beside a spreadsheet: Fill Down, Fill Series, Remove Duplicate Rows, Transpose, Split Column, Join with Next Column, Sort File by Columns, Sum Column, Cell Coordinates and Go to Cell (`B3` or `@3$2`), each an edit of the cells it names and nothing else; columns of numbers and dates aligned right, Rainbow Columns and a Coordinate Grid (`C-c }`), views that are never saved (T2.7d.9).

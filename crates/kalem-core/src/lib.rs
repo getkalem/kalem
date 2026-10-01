@@ -43,6 +43,7 @@ pub mod line_search;
 pub mod lines;
 pub mod links;
 pub mod logging;
+pub mod markdown;
 pub mod math;
 pub mod menus;
 pub mod mode;
