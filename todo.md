@@ -355,7 +355,7 @@ Phases are sequential. The next phase does not start before the current phase's 
 ### 2.7c Markdown mode (§2.6.1, D19)
 
 - [ ] T2.7c.0 Order of phase 2 (needs a decision by the owner, D21): Markdown mode before the remaining Emacs-style extras (wdired, Dired search, Org text objects for Vim). The editing engine (hidden markers, tables, formulas, outline, export) is shared and only the parser (D19) is missing; the Markdown audience is many times the Org audience; MarkText (61k stars, unmaintained since 2022), Typora (paid, closed) and Zettlr (Electron) leave room for a fast native open source editor (review, 2026-09-28)
-- [ ] T2.7c.1 Decide D19 (Markdown parser); spike pulldown-cmark's offset iterator on a Markdown corpus (CommonMark spec examples, GitHub READMEs): every block and inline range, round-trip untouched
+- [ ] T2.7c.1 Decide D19 (Markdown parser); spike pulldown-cmark's offset iterator on a Markdown corpus (CommonMark spec examples, GitHub READMEs): every block and inline range, round-trip untouched (spike done, 2026-10-01, `spikes/md-parser`: on the GFM suite both pass 639 of 648 CommonMark examples (the nine are the 0.29 suite against CommonMark 0.31's nested strong emphasis); GFM extensions 12 of 24 for pulldown-cmark (no extended autolinks, no tag filter) against 24 of 24 for comrak; pulldown-cmark gives a byte range for every event with no anomaly, comrak line and column with 4 positions missing and 4 wrong; 10 MB in 0.39 s against 1.47 s. Waiting for the owner's decision on D19)
 - [ ] T2.7c.2 Markdown view model on the shared inline editing model: hidden markers with cursor reveal, headings, emphasis, code, links, images, footnotes
 - [ ] T2.7c.3 Lists and task lists (clickable checkboxes), block quotes, code fences with highlighting (D16), front matter folded
 - [ ] T2.7c.4 GFM tables edited in the grid shared with Org tables; math with the D4 engine
@@ -1053,7 +1053,7 @@ A language plugin makes Kalem a complete editor for a programming language witho
 | D16 | Syntax highlighting engine | T1.6a.2 | **Decided:** syntect |
 | D17 | Vim mode engine | T2.7b.1 | Decided: own engine; replaces the Emacs profile |
 | D18 | Entity table provenance | Phase 0 exit | Open: owner decision |
-| D19 | Markdown parser | T2.7c.1 | Open |
+| D19 | Markdown parser | T2.7c.1 | Open: the spike's data are in `spikes/md-parser/README.md` (2026-10-01) |
 | D20 | File operations for the file manager | T2.7e.1 | Decided 2026-09-28 |
 | D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | **Closed (owner, 2026-09-30):** faithful standard modes plus the Kalem format (design_doc2.md) |
 | D22 | PDF without TeX: the renderer for "Export as PDF" from HTML (system print to PDF, a bundled HTML renderer, or typst) | T2.3.13 | Open (review, 2026-09-28) |

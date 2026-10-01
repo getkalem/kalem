@@ -1,0 +1,12 @@
+[package]
+name = "md-parser-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Spike: Markdown parsers measured for decision D19 (task T2.7c.1)"
+
+[workspace]
+
+[dependencies]
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+comrak = { version = "0.39", default-features = false }
