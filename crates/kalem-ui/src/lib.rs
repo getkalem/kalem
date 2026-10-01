@@ -102,7 +102,11 @@ pub fn run(path: Option<PathBuf>) {
             .is_ok_and(|p| p.to_string_lossy().contains(".app/Contents/MacOS/"));
         let started_with_file = path.is_some() || !bundle;
         if started_with_file {
+            let restore = path.is_none();
             workspace::open_window(path, shared.clone(), cx);
+            if restore {
+                workspace::restore_last_session(&shared, cx);
+            }
             shared
                 .bus
                 .borrow_mut()
@@ -130,6 +134,7 @@ pub fn run(path: Option<PathBuf>) {
                     }
                     if open_empty {
                         workspace::open_window(None, shared.clone(), cx);
+                        workspace::restore_last_session(&shared, cx);
                     }
                     if ready {
                         shared

@@ -3571,3 +3571,45 @@ fn latex_sections_fold(cx: &mut TestAppContext) {
     assert!(!lines.contains(&1), "{lines:?}");
     assert!(lines.contains(&2) && lines.contains(&3), "{lines:?}");
 }
+
+/// Sessions (T2.7i.14): the open documents, their cursors and the one
+/// shown, saved and restored.
+#[gpui::test]
+fn sessions_save_and_restore(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    let b = dir.join("proj/sub/b.org");
+    ws.update_in(cx, |ws, window, cx| ws.open(&b, Some((3, 4)), window, cx));
+    cx.run_until_parked();
+    let file = dir.join("work.json").display().to_string();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let f = file.clone();
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "session.saveAs",
+            serde_json::json!({ "name": f }),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let s = kalem_core::sessions::load(&file).unwrap();
+    assert_eq!(s.documents.len(), 2);
+    assert_eq!(s.active, 1);
+    assert_eq!((s.documents[1].line, s.documents[1].column), (3, 4));
+    // Closed, then restored: b.org shown again, its cursor where it was.
+    ws.update_in(cx, |ws, window, cx| {
+        ws.open(&dir.join("loose.org"), None, window, cx)
+    });
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "session.restoreNamed",
+            serde_json::json!({ "name": file }),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "b.org");
+    assert_eq!(cursor_line(&ws, cx), "the needle here");
+}

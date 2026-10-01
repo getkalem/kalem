@@ -555,7 +555,57 @@ impl Workspace {
 
     /// Quits, asking first when documents (in any window) have unsaved
     /// changes.
+    /// The window's documents with a file, as a session.
+    pub fn session(&self, cx: &App) -> kalem_core::sessions::Session {
+        let mut s = kalem_core::sessions::Session::default();
+        for e in &self.editors {
+            let ed = e.read(cx);
+            let doc = &ed.doc;
+            let Some(path) = doc.meta.path.clone().filter(|_| doc.dired.is_none()) else {
+                continue;
+            };
+            if *e == self.editor {
+                s.active = s.documents.len();
+                s.project = ed.project();
+            }
+            let t = doc.text();
+            let line = t.line_of(doc.selection.head);
+            s.documents.push(kalem_core::sessions::SessionDoc {
+                path,
+                line: line as u64 + 1,
+                column: doc.selection.head - t.line_range(line).start,
+            });
+        }
+        s
+    }
+
+    /// Opens the documents of `session`, showing its active one.
+    pub fn restore_session(
+        &mut self,
+        session: kalem_core::sessions::Session,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        let s = session.existing();
+        for d in &s.documents {
+            self.open(&d.path, Some((d.line, d.column)), window, cx);
+        }
+        if let Some(d) = s.documents.get(s.active) {
+            self.open(&d.path, None, window, cx);
+        }
+        let msg = tr!("msg-session-restored", count = s.documents.len());
+        self.editor.update(cx, |e, cx| {
+            e.message(msg, false);
+            cx.notify();
+        });
+    }
+
     pub fn quit(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        // The session `SPC q l` restores.
+        let session = self.session(cx);
+        if !session.documents.is_empty() {
+            let _ = kalem_core::sessions::save(kalem_core::sessions::LAST, &session);
+        }
         let mut modified: Vec<Entity<Editor>> = self
             .editors
             .iter()
@@ -703,6 +753,26 @@ impl Workspace {
                 }
             }
             DocEvent::Quit => self.quit(window, cx),
+            DocEvent::SaveSession(name) => {
+                let msg = match kalem_core::sessions::save(&name, &self.session(cx)) {
+                    Ok(p) => (
+                        tr!("msg-session-saved", path = p.display().to_string()),
+                        false,
+                    ),
+                    Err(e) => (e, true),
+                };
+                self.editor.update(cx, |e, cx| {
+                    e.message(msg.0, msg.1);
+                    cx.notify();
+                });
+            }
+            DocEvent::RestoreSession(name) => match kalem_core::sessions::load(&name) {
+                Ok(s) => self.restore_session(s, window, cx),
+                Err(e) => self.editor.update(cx, |ed, cx| {
+                    ed.message(e, true);
+                    cx.notify();
+                }),
+            },
             DocEvent::FileManager { place, select } => self.file_manager(place, select, window, cx),
             DocEvent::LeaveFileManager => self.leave_file_manager(window, cx),
             DocEvent::FilesChanged {
@@ -1656,6 +1726,25 @@ pub fn open_window(path: Option<PathBuf>, shared: Rc<Shared>, cx: &mut App) {
     if let Err(e) = result {
         tracing::error!("cannot open a window: {e}");
     }
+}
+
+/// Opens the last session in the first window, when the settings say so
+/// (`editor.restore_session`).
+pub fn restore_last_session(shared: &Shared, cx: &mut App) {
+    if !shared.config.bool("editor.restore_session") {
+        return;
+    }
+    let Ok(session) = kalem_core::sessions::load(kalem_core::sessions::LAST) else {
+        return;
+    };
+    let Some(w) = cx
+        .windows()
+        .into_iter()
+        .find_map(|w| w.downcast::<Workspace>())
+    else {
+        return;
+    };
+    let _ = w.update(cx, |ws, window, cx| ws.restore_session(session, window, cx));
 }
 
 /// Asks for files and opens them in the active window, or a new one.

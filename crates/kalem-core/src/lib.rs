@@ -63,6 +63,7 @@ pub mod properties;
 pub mod refile;
 pub mod rich;
 pub mod rich_copy;
+pub mod sessions;
 pub mod settings;
 pub mod siunitx;
 pub mod stats;

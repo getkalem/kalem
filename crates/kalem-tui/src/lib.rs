@@ -56,6 +56,10 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
             return Err(io::Error::other(e.to_string()));
         }
     };
+    // The last session, when no file was given and the settings say so.
+    if path.is_none() && app.config_bool("editor.restore_session") {
+        app.run_command("session.restore", serde_json::Value::Null);
+    }
     // Images need a graphics protocol; block characters are not used.
     // ratatui-image's own terminal query is not used: its reader thread
     // outlives its timeout and takes keystrokes.

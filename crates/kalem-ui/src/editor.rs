@@ -166,6 +166,10 @@ pub enum DocEvent {
     Documents(kalem_core::command::DocumentsRequest),
     /// Quit, asking about every unsaved document.
     Quit,
+    /// Save the window's documents as session `0`.
+    SaveSession(String),
+    /// Open the documents of session `0`.
+    RestoreSession(String),
     /// Show `place` in the window's file manager (a new one if there is
     /// none), the cursor on `select`.
     FileManager {
@@ -1019,6 +1023,8 @@ impl Editor {
                     None => self.message(kalem_core::tr!("msg-no-picker"), false),
                 }
             }
+            Request::SaveSession(name) => cx.emit(DocEvent::SaveSession(name)),
+            Request::RestoreSession(name) => cx.emit(DocEvent::RestoreSession(name)),
             Request::UniversalArgument => {
                 match &mut self.prefix {
                     Some(p) => p.again(),

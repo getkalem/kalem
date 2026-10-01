@@ -586,6 +586,11 @@ impl App {
             .collect()
     }
 
+    /// Setting `key`'s value.
+    pub fn config_bool(&self, key: &str) -> bool {
+        self.config.bool(key)
+    }
+
     /// The active document's index among the open ones.
     pub fn active_index(&self) -> usize {
         self.active
@@ -1436,6 +1441,19 @@ impl App {
                 }
                 None => self.message(tr!("msg-no-picker"), false),
             },
+            Request::SaveSession(name) => {
+                match kalem_core::sessions::save(&name, &self.session()) {
+                    Ok(p) => self.message(
+                        tr!("msg-session-saved", path = p.display().to_string()),
+                        false,
+                    ),
+                    Err(e) => self.message(e, true),
+                }
+            }
+            Request::RestoreSession(name) => match kalem_core::sessions::load(&name) {
+                Ok(s) => self.restore_session(s),
+                Err(e) => self.message(e, true),
+            },
             Request::UniversalArgument => {
                 match &mut self.prefix {
                     Some(p) => p.again(),
@@ -1966,7 +1984,52 @@ impl App {
 
     fn close(&mut self) {
         self.bus.emit(&Event::DocumentClose { doc: self.doc_id });
+        // The session `SPC q l` restores.
+        let session = self.session();
+        if !session.documents.is_empty() {
+            let _ = kalem_core::sessions::save(kalem_core::sessions::LAST, &session);
+        }
         self.quit = true;
+    }
+
+    /// The open documents with a file, as a session.
+    pub fn session(&self) -> kalem_core::sessions::Session {
+        let mut s = kalem_core::sessions::Session {
+            project: self.project(),
+            ..Default::default()
+        };
+        for (i, b) in self.docs.iter().enumerate() {
+            let doc = b.as_ref().map_or(&self.doc, |b| &b.doc);
+            let Some(path) = doc.meta.path.clone().filter(|_| doc.dired.is_none()) else {
+                continue;
+            };
+            if i == self.active {
+                s.active = s.documents.len();
+            }
+            let t = doc.text();
+            let line = t.line_of(doc.selection.head);
+            s.documents.push(kalem_core::sessions::SessionDoc {
+                path,
+                line: line as u64 + 1,
+                column: doc.selection.head - t.line_range(line).start,
+            });
+        }
+        s
+    }
+
+    /// Opens the documents of `session`, showing its active one.
+    fn restore_session(&mut self, session: kalem_core::sessions::Session) {
+        let s = session.existing();
+        for d in &s.documents {
+            self.open_path(&d.path, Some((d.line, d.column)));
+        }
+        if let Some(d) = s.documents.get(s.active) {
+            self.open_path(&d.path, None);
+        }
+        self.message(
+            tr!("msg-session-restored", count = s.documents.len()),
+            false,
+        );
     }
 
     /// Types `text` over the selection.

@@ -1418,8 +1418,7 @@ fn doom_keys_in_the_terminal() {
     // SPC u 3: the next command runs three times.
     t.typ(" u3");
     assert!(status(&mut t).contains("Count 3"), "{}", status(&mut t));
-    t.app
-        .run_command("edit.newline", serde_json::Value::Null);
+    t.app.run_command("edit.newline", serde_json::Value::Null);
     assert_eq!(t.text(), "\n\n\n* Loose\n", "{}", status(&mut t));
 }
 
@@ -3959,4 +3958,47 @@ fn format_key() {
     t.key(KeyCode::Esc, KeyModifiers::NONE);
     t.typ(" cf");
     assert!(t.text().contains("| a | b |"), "{}", t.text());
+}
+
+#[test]
+fn sessions_save_and_restore() {
+    // T2.7i.14: the open documents, their cursors and the one shown.
+    let (mut t, dir) = project_app(Config::default());
+    let b = dir.join("proj/sub/b.org");
+    t.app.run_command(
+        "file.open",
+        serde_json::json!({ "path": b.display().to_string() }),
+    );
+    let at = t.text().find("needle").unwrap();
+    t.at(at);
+    let file = dir.join("work.json").display().to_string();
+    t.app
+        .run_command("session.saveAs", serde_json::json!({ "name": file }));
+    assert!(
+        status(&mut t).contains("Session saved"),
+        "{}",
+        status(&mut t)
+    );
+    // A new editor on another file restores it.
+    let mut caps = Caps::full();
+    caps.kitty_keyboard = false;
+    let app = App::with_keymap(
+        Some(&dir.join("loose.org")),
+        Config::default(),
+        caps,
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
+    let mut u = T {
+        app,
+        term: Terminal::new(TestBackend::new(80, 12)).unwrap(),
+        dir: None,
+    };
+    u.app
+        .run_command("session.restoreNamed", serde_json::json!({ "name": file }));
+    assert_eq!(title(&u), "b.org");
+    assert_eq!(u.app.doc.selection.head, at);
+    let titles: Vec<String> = u.app.open_files().into_iter().map(|f| f.title).collect();
+    assert_eq!(titles, ["loose.org", "a.org", "b.org"]);
 }
