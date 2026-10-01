@@ -638,12 +638,69 @@ pub(crate) fn build(dir: &Path, out: &Path) -> Result<ExitCode> {
     copy_assets(dir, out, dir)?;
     // GitHub Pages serves the folder as it is.
     std::fs::write(out.join(".nojekyll"), "").map_err(|e| e.to_string())?;
+    let dangling = site_links(out);
+    for p in &dangling {
+        eprintln!("{p}");
+    }
     println!("{} ({} pages)", out.display(), pages.len());
-    Ok(if problems.is_empty() {
+    Ok(if problems.is_empty() && dangling.is_empty() {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
     })
+}
+
+/// The links of the built site that lead nowhere: every relative `href`
+/// and `src` of every page, resolved against the page's folder, must name
+/// a file of the site (its fragment and query left aside).
+fn site_links(out: &Path) -> Vec<String> {
+    let mut problems = Vec::new();
+    let mut stack = vec![out.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+                continue;
+            }
+            if p.extension().is_none_or(|x| x != "html") {
+                continue;
+            }
+            let Ok(html) = std::fs::read_to_string(&p) else {
+                continue;
+            };
+            let folder = p.parent().unwrap_or(out);
+            for attr in ["href=\"", "src=\""] {
+                for part in html.split(attr).skip(1) {
+                    let Some(link) = part.split('"').next() else {
+                        continue;
+                    };
+                    let target = link.split(['#', '?']).next().unwrap_or("");
+                    if target.is_empty()
+                        || target.contains(':')
+                        || target.starts_with('/')
+                        || target.starts_with("//")
+                    {
+                        continue;
+                    }
+                    let target = html_unescape(target);
+                    if !folder.join(&target).exists() {
+                        let page = p.strip_prefix(out).unwrap_or(&p);
+                        problems.push(format!("{}: dangling link {link}", page.display()));
+                    }
+                }
+            }
+        }
+    }
+    problems.sort();
+    problems
+}
+
+fn html_unescape(s: &str) -> String {
+    s.replace("&amp;", "&").replace("%20", " ")
 }
 
 /// Copies the pictures under `from` to the same place under `out`.
@@ -694,6 +751,22 @@ mod tests {
         assert_eq!(c.parts.len(), 2);
         assert_eq!(c.parts[0].chapters[0].page(), "part-1/a.html");
         assert_eq!(c.parts[0].chapters[1].page(), "appendices/commands.html");
+    }
+
+    #[test]
+    fn checks_the_built_site() {
+        let out = std::env::temp_dir().join(format!("kalem-site-{}", std::process::id()));
+        std::fs::create_dir_all(out.join("part-1")).unwrap();
+        std::fs::write(out.join("index.html"), "<a href=\"part-1/a.html#x\">a</a>").unwrap();
+        std::fs::write(
+            out.join("part-1/a.html"),
+            "<a href=\"../index.html\">i</a><img src=\"pic.png\"><a href=\"https://x.org\">x</a><a href=\"#top\">t</a>",
+        )
+        .unwrap();
+        assert_eq!(site_links(&out), ["part-1/a.html: dangling link pic.png"]);
+        std::fs::write(out.join("part-1/pic.png"), "").unwrap();
+        assert!(site_links(&out).is_empty());
+        let _ = std::fs::remove_dir_all(&out);
     }
 
     #[test]

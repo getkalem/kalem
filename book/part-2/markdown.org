@@ -149,7 +149,13 @@ edits it as plain text. Concretely:
   =![name](images/name.png)= at the cursor. A picture from outside the
   document's folder is copied into =images/= beside it (the setting
   =markdown.assets_dir=), under a free name; a pasted picture is saved
-  there as =pasted-DATE.png=.
+  there as =pasted-DATE.png=. Deleting a picture's link leaves its
+  file (undo can bring the link back, and another document can use
+  it); /Remove Unused Images/ (=file.removeUnusedImages=, in Org
+  documents too, for their =org.assets_dir=) moves to the Trash the
+  pictures of that folder whose names no Org, Markdown, LaTeX or HTML
+  file of the document's folder, nor the document as it is in the
+  editor, mentions.
 - /Edit Properties/ (=markdown.frontMatter.edit=) lists the front
   matter's fields as Obsidian's properties panel does; choosing one
   offers its value to change, and the list has /Add a property…/ and a

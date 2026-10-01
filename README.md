@@ -1,6 +1,6 @@
 # Kalem
 
-**Kalem** ("pen" in Turkish) is a fast, open source editor that shows plain-text documents the way they read and keeps them plain text. It opens Org, LaTeX, CSV and BibTeX files rendered, as a word processor or a spreadsheet would show them, edits them in place, and writes back only what you changed: each format exactly as its standard defines it, nothing added and nothing dropped. Markdown is next. Kalem also has a document format of its own, `.klm`, designed from what these formats do best, and it runs the same editor in a window and in a terminal.
+**Kalem** ("pen" in Turkish) is a fast, open source editor that shows plain-text documents the way they read and keeps them plain text. It opens Org, Markdown, LaTeX, CSV and BibTeX files rendered, as a word processor or a spreadsheet would show them, edits them in place, and writes back only what you changed: each format exactly as its standard defines it, nothing added and nothing dropped. Kalem also has a document format of its own, `.klm`, designed from what these formats do best, and it runs the same editor in a window and in a terminal.
 
 > **Status: alpha, not released yet.** There are no binaries: build from source to try it. Progress is in [`todo.md`](todo.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -14,9 +14,9 @@
 |---|---|---|---|---|
 | Org (`.org`) | A document: headings, emphasis, lists, checkboxes, tables with formulas, footnotes, links, images, citations, formulas | The Org Syntax as `org-element.el` implements it (Org 9.7) | Emacs 30.1, construct by construct, on the Org manual, Org's own tests, all of Worg and mutated files; the editing commands and the exporters against Emacs's | Parser, model, editing, tables and export at 100% agreement |
 | LaTeX (`.tex`) | A document: sections with their numbers, styled text, formulas drawn inline, references, citations, figures, tables, code | LaTeX as the TeX engines accept it | Byte-exact round trip; structure against pandoc's LaTeX reader; the PDF built by a TeX engine; planned, the PDF the authors published, on thousands of arXiv documents, for numbering, references, citations and formulas | Rendered subset, multi-file projects, diagnostics, completion, building; what Kalem does not render is shown as source |
-| CSV, TSV | A grid with a header row, sorting and filters | RFC 4180 and the dialects spreadsheets write | RFC 4180's cases; files written by Excel, LibreOffice Calc and Google Sheets in several locales | Grid, dialect detection, editing |
+| CSV, TSV | A spreadsheet-like grid: column letters, row numbers, the header pinned, sorting and filters | RFC 4180 and the dialects spreadsheets write | RFC 4180's cases; files written by Excel, LibreOffice Calc and Google Sheets in several locales | Grid, dialect detection, editing |
 | BibTeX (`.bib`) | A grid of entries | BibTeX and BibLaTeX data files | The same file read by BibTeX or biber, and by hayagriva | Grid, sorting, field editing |
-| Markdown (`.md`) | Plain text today; a document like Org's is planned | CommonMark with the GitHub extensions | The CommonMark and GFM specification suites | Planned |
+| Markdown (`.md`) | A document: headings, emphasis, lists and task lists, tables with formulas, code coloured in its language, formulas, pictures, wiki links, front matter as a form | CommonMark with the GitHub extensions | The CommonMark and GFM specification suites | Rendered, edited, converted to Org; untouched bytes stay as they were |
 | Kalem (`.klm`) | Kalem's own format: Org's structure, LaTeX mathematics, styles and page layout | Its own specification, Part III of the Book | A conformance suite, one file per example of the specification | Specification at draft 0.2 with a prototype parser; the editor opens a `.klm` file as Org for now |
 | Everything else | Plain text, colored by its language | The file's own bytes | The file unchanged but for the edits | Highlighting, indentation, line tools |
 
@@ -34,13 +34,13 @@
 
 **The Kalem format.** `.klm` is a plain-text document format designed from scratch: one command syntax, `\name[attributes]{content}`, Org's outline, tasks, tags, properties and timestamps, LaTeX mathematics in `$…$`, tables with spreadsheet formulas, styles and page layout in a separate stylesheet, canonical serialization and lossless conversion to and from Org. It is meant for the documents Org and Markdown cannot carry, letters, papers, theses and books with page-quality output, and it converts to Org, HTML, PDF and the other export formats. It is a design track beside the standard formats, which come first.
 
-**Small core, plugins for the rest.** Org, LaTeX, CSV, BibTeX, Markdown, plain text, the file manager and projects are built in. Other formats, viewers for files that are not text (PDF, Word, Excel, images), language servers for programming languages and other features are planned as plugins: WebAssembly components written in Rust against a typed API, sandboxed, from a separate `getkalem/plugins` repository.
+**Small core, plugins for the rest.** Org, Markdown, LaTeX, CSV, BibTeX, Markdown, plain text, the file manager and projects are built in. Other formats, viewers for files that are not text (PDF, Word, Excel, images), language servers for programming languages and other features are planned as plugins: WebAssembly components written in Rust against a typed API, sandboxed, from a separate `getkalem/plugins` repository.
 
 Kalem is not a Microsoft Office clone, a page layout tool, a full spreadsheet, a full IDE or a replacement for Emacs. See [non-goals](design_document.md#14-non-goals).
 
 ## Who it is for
 
-- **Writers and note takers.** Notes, outlines, tasks and documents in Org, in one light application, with export to HTML, Markdown, LaTeX, PDF and, through pandoc, Word, OpenDocument and EPUB. Markdown comes next. The Book: [Writing in Org](book/part-1/writing-in-org.org), [Exporting](book/part-1/exporting.org).
+- **Writers and note takers.** Notes, outlines, tasks and documents in Org, in one light application, with export to HTML, Markdown, LaTeX, PDF and, through pandoc, Word, OpenDocument and EPUB, and Markdown as a document too. The Book: [Writing in Org](book/part-1/writing-in-org.org), [Exporting](book/part-1/exporting.org).
 - **Scientists, students and authors.** LaTeX documents edited as they read, with formulas drawn inline, citations from BibTeX, multi-file projects and PDF builds, and Org with citations, formulas and LaTeX export for papers and books. The Book: [LaTeX files](book/part-1/latex-files.org), [Citations](book/part-1/citations.org).
 - **People who want their files opened as themselves.** CSV as a grid, BibTeX as a grid, and later, through plugins, Word, Excel and PDF files, never converted in order to be opened. The Book: [CSV files](book/part-1/csv-files.org).
 - **People who use Org with people who use Emacs.** A co-author's `.org` file edited without learning Emacs, and returned to Emacs without a diff outside the edits. The Book: [Org](book/part-2/org.org).
@@ -51,14 +51,14 @@ Kalem is not a Microsoft Office clone, a page layout tool, a full spreadsheet, a
 
 - **Org as a document**, checked against Emacs: headings, emphasis, lists and checkboxes, links, footnotes, citations with a picker, pictures, LaTeX formulas drawn inline, source blocks with highlighting, folding, the outline, and a source view to switch to at any time. TODO states, priorities, tags, properties, scheduling with a date picker, state logging, repeaters, TODO dependencies and match strings (`kalem query`), each command identical to Emacs on thousands of cases. Tables with `#+TBLFM` formulas and Calc's functions, a formula bar, recalculation and CSV import and export. Export to HTML, Markdown, GitHub Markdown, LaTeX, PDF and plain text matching Emacs's exporter, with citations in Org's `basic` styles or any CSL style, or through biblatex and natbib; Word, OpenDocument, EPUB and RTF through pandoc.
 - **LaTeX as a document**: sections, formulas, references, citations, figures, tables and code rendered; multi-file projects; PDF builds with diagnostics at their files and lines; completion of commands, labels and citations; `.tex` files stay LaTeX byte for byte.
-- **CSV as a grid**, with sorting and filters, dialect kept; **BibTeX as a grid** of entries.
-- **Around the files.** Projects, a folder tree, find in files, a file manager like Dired with the keys every file manager has, plain text with highlighting, themes, settings in TOML, keymaps in JSON, English and Turkish.
+- **Markdown as a document**: markers hidden away from the cursor, tables aligned and computed, lists continued and renumbered, pictures dropped or pasted into `images/`, wiki links, front matter as a form, conversion to Org without pandoc.
+- **CSV as a spreadsheet-like grid**, with sorting, filters, a record view and a frequency table, dialect kept; **BibTeX as a grid** of entries.
+- **Around the files.** Panes, workspaces and sessions, projects, a folder tree, find in files, a file manager like Dired with the keys every file manager has, plain text with highlighting, themes, settings in TOML, keymaps in JSON, English and Turkish.
 - **Two editors.** Graphical and terminal, with the same commands, keys, settings and menus; menus in the macOS menu bar and in the window's own menu bar on Linux and Windows; F10 lists every menu item in both.
 - **The Kalem format**, on paper: the specification at draft 0.2 in Part III of the Book, the parser `klm-syntax` that parses, formats and round-trips every example, and the first files of the conformance suite (`tests/klm-spec`).
 
 ## Not yet
 
-- Markdown as a document (today it opens as plain text)
 - The Kalem format in the editor: `klm-syntax`, `klm-model`, `klm-edit`, rendering, stylesheets and the exporters
 - The agenda, capture, clocking reports, Babel (running source blocks)
 - Plugins, viewers for files that are not text, language servers, spell checking

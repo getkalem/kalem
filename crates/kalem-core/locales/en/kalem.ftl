@@ -369,6 +369,11 @@ msg-unarchived = Subtree unarchived
 msg-not-in-subtree = Not in a subtree: put the cursor on a heading or under one
 msg-no-references = Nothing to refer to: name a table or a block, or add a heading
 msg-picture-needs-file = Save the document first: pictures go into a folder beside it
+msg-no-unused-images = No unused images
+msg-unused-images-trashed = { $count ->
+    [one] Moved an unused image to the Trash: { $names }
+   *[other] Moved { $count } unused images to the Trash: { $names }
+}
 msg-ordered-on = Subtasks must be completed in sequence
 msg-ordered-off = Subtasks can be completed in any order
 msg-opened = Opened { $target }
@@ -1095,6 +1100,7 @@ category-frequencies = Frequencies
 csv-column = Column { $n }
 msg-replaced-count = { $count } fields changed
 cmd-markdown-insert-image = Insert Image
+cmd-file-removeUnusedImages = Remove Unused Images
 cmd-pane-closeOrQuit = Close Pane or Quit
 cmd-project-addFolder = Add Project Folder…
 fm-menu-remove-project = Remove from Projects (the folder stays)

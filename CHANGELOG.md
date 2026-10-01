@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The repository is public: CI runs on every push again, on Linux, macOS and Windows, and the Kalem Book is published at https://getkalem.github.io/kalem from `main`.
+- Remove Unused Images: the pictures no document links any more, moved from `images/` (or `org.assets_dir`) to the Trash.
+- The Book's build checks every relative link of the built site.
 - The projects view's menu: Remove from Projects (the folder stays) and Add Project Folder….
 - CSV looks like a spreadsheet (`csv.sheet`, on by default): row numbers in a shaded gutter, the cell at the cursor and its row number marked in Excel's green.
 - Vim's `:q` closes the pane, quitting only from the last one; `:qa`, `:wqa`, `:sp`, `:vs`, `:close`, `:only` and `:new`.
