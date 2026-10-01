@@ -4996,6 +4996,14 @@ fn plain_commands() -> Vec<Command> {
             request(ctx, Request::Pane(PaneOp::Close(false)))
         }),
         cmd(
+            "pane.closeOrQuit",
+            "Close Pane or Quit",
+            "Window",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Pane(PaneOp::CloseOrQuit)),
+        ),
+        cmd(
             "pane.closeWithDocument",
             "Close Pane and Document",
             "Window",

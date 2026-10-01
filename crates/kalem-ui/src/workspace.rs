@@ -321,7 +321,8 @@ impl Workspace {
     }
 
     /// Closes `editor`'s document (its unsaved changes were dealt with);
-    /// the last one closes the window.
+    /// closing the last one leaves an empty document, not an empty or
+    /// closed window (quitting is Quit's).
     pub fn close(
         &mut self,
         editor: &Entity<Editor>,
@@ -336,7 +337,8 @@ impl Workspace {
         self.editors.remove(i);
         self.spaces.leave(doc_key(editor));
         if self.editors.is_empty() {
-            window.remove_window();
+            self.new_document(window, cx);
+            cx.notify();
             return;
         }
         // The other panes showing it close, or show the active document.
@@ -579,6 +581,17 @@ impl Workspace {
         cx: &mut Context<'_, Self>,
     ) {
         use kalem_core::layout::PaneOp;
+        if *op == PaneOp::CloseOrQuit {
+            if self.layout.is_split() {
+                return self.pane_op(&PaneOp::Close(false), window, cx);
+            }
+            // The split view of one document closes first.
+            if self.editor.read(cx).other.is_some() {
+                self.editor.update(cx, |e, cx| e.toggle_split(cx));
+                return;
+            }
+            return self.quit(window, cx);
+        }
         let old = self.layout.focus();
         // A split of the only document: the document beside itself, as
         // the split view shows it.

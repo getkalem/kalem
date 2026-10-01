@@ -1201,7 +1201,12 @@ impl<'a> Layout<'a> {
                 {
                     // A CSV row as a row of the grid.
                     let layout = kalem_core::csv::layout(self.doc);
-                    kalem_core::csv::line_view(&layout, self.text().as_str(), range.clone())
+                    kalem_core::csv::line_view(
+                        &layout,
+                        self.text().as_str(),
+                        range.clone(),
+                        Some(self.cursor),
+                    )
                 } else if self.doc.meta.mode == kalem_core::DocumentMode::Markdown
                     && !self.source
                     && range.len() <= view::LONG_LINE

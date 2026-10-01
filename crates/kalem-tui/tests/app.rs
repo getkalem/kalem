@@ -4216,20 +4216,75 @@ fn markdown_properties_as_a_form() {
 fn markdown_pictures_copied_into_images() {
     // A picture from elsewhere goes into `images/` beside the document.
     let mut t = with_file("Text\n", "notes.md", Config::default(), (60, 8));
-    let dir = t.app.doc.meta.path.clone().unwrap().parent().unwrap().to_path_buf();
+    let dir = t
+        .app
+        .doc
+        .meta
+        .path
+        .clone()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
     let elsewhere = std::env::temp_dir().join(format!("kalem-pic-{}.png", std::process::id()));
-    std::fs::write(&elsewhere, kalem_core::images::svg_png(kalem_core::images::LOGO_SVG, 16).unwrap()).unwrap();
+    std::fs::write(
+        &elsewhere,
+        kalem_core::images::svg_png(kalem_core::images::LOGO_SVG, 16).unwrap(),
+    )
+    .unwrap();
     t.at(5);
     t.app.run_command(
         "markdown.insert.image",
         serde_json::json!({ "path": elsewhere.display().to_string() }),
     );
-    let name = elsewhere.file_name().unwrap().to_string_lossy().into_owned();
-    let stem = elsewhere.file_stem().unwrap().to_string_lossy().into_owned();
+    let name = elsewhere
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let stem = elsewhere
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
     assert_eq!(t.text(), format!("Text\n![{stem}](images/{name})"));
     assert!(dir.join("images").join(&name).exists());
     // Pasted paths too, as a terminal pastes a dropped file.
     t.app.paste(&elsewhere.display().to_string(), false);
-    assert!(t.text().contains(&format!("images/{stem}-2.png")), "{}", t.text());
+    assert!(
+        t.text().contains(&format!("images/{stem}-2.png")),
+        "{}",
+        t.text()
+    );
     let _ = std::fs::remove_file(&elsewhere);
+}
+
+#[test]
+fn closing_the_last_document_keeps_kalem_open() {
+    let mut t = open("* A\n");
+    t.app.run_command("file.close", serde_json::Value::Null);
+    assert!(!t.app.quit);
+    assert_eq!(title(&t), "Untitled");
+    assert_eq!(t.app.open_files().len(), 1);
+    // The empty one stays.
+    t.app.run_command("file.close", serde_json::Value::Null);
+    assert!(!t.app.quit);
+    assert_eq!(t.app.open_files().len(), 1);
+}
+
+#[test]
+fn vim_quit_closes_the_pane_first() {
+    // `SPC w n` then `:q`: the pane closes, Kalem stays; `:q` from the
+    // last pane quits, as in Vim.
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("* A\n", config, (60, 10));
+    t.typ(" wn");
+    assert_eq!(title(&t), "Untitled");
+    t.typ(":q");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(!t.app.quit);
+    assert_eq!(title(&t), "t.org");
+    t.typ(":q");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.quit);
 }

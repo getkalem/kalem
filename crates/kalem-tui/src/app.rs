@@ -956,11 +956,19 @@ impl App {
     }
 
     /// Closes the active document (its changes were dealt with); the last
-    /// one ends the application.
+    /// one leaves an empty document (quitting is Quit's).
     fn close_document(&mut self) {
         if self.docs.len() <= 1 {
-            self.close();
-            return;
+            if self.doc.meta.path.is_none() && self.doc.text().is_empty() {
+                return;
+            }
+            // An empty document to show, then this one closes.
+            let closing = self.active;
+            self.new_empty();
+            if self.docs.len() <= 1 {
+                return;
+            }
+            self.activate(closing);
         }
         let order = projects::order(&self.open_files(), &self.projects.list);
         let at = order.iter().position(|&x| x == self.active).unwrap_or(0);
@@ -2091,6 +2099,12 @@ impl App {
     /// A change of the panes (`SPC w`).
     fn pane_op(&mut self, op: &kalem_core::layout::PaneOp) {
         use kalem_core::layout::PaneOp;
+        if *op == PaneOp::CloseOrQuit {
+            if self.layout.is_split() {
+                return self.pane_op(&PaneOp::Close(false));
+            }
+            return self.request(Request::Quit);
+        }
         let old_focus = self.layout.focus();
         let before = self.layout.panes();
         let (changed, new) = self.layout.apply(op);

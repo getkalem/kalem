@@ -904,15 +904,22 @@ pub struct View {
     /// Row numbers in the gutter and column letters on the first row, as
     /// `C-c }` shows them in an Org table.
     pub coordinates: bool,
+    /// As a spreadsheet looks: row numbers in a shaded gutter, the column
+    /// letters in a bar above the grid ([`letters_bar`]), the cell at the
+    /// cursor marked, its row number and column letter too.
+    pub sheet: bool,
 }
 
 /// The view new CSV documents start with: the settings `csv.align_numbers`,
 /// `csv.rainbow` and `csv.coordinates`.
-static VIEW_DEFAULTS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1);
+static VIEW_DEFAULTS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1 | 8);
 
 /// Sets the view new CSV documents start with.
 pub fn set_view_defaults(v: View) {
-    let bits = u8::from(v.align_numbers) | u8::from(v.rainbow) << 1 | u8::from(v.coordinates) << 2;
+    let bits = u8::from(v.align_numbers)
+        | u8::from(v.rainbow) << 1
+        | u8::from(v.coordinates) << 2
+        | u8::from(v.sheet) << 3;
     VIEW_DEFAULTS.store(bits, std::sync::atomic::Ordering::Relaxed);
 }
 
@@ -923,6 +930,7 @@ impl Default for View {
             align_numbers: bits & 1 != 0,
             rainbow: bits & 2 != 0,
             coordinates: bits & 4 != 0,
+            sheet: bits & 8 != 0,
         }
     }
 }
@@ -988,6 +996,39 @@ pub fn replace_in_column(
         at = rec.next;
     }
     (tx, n)
+}
+
+/// The shading of a spreadsheet's row numbers and column letters.
+pub const SHEET_GRAY: u32 = 0xbfbfbf55;
+
+/// The cell at the cursor, its row number and column letter, as a
+/// spreadsheet marks them (Excel's green).
+pub const SHEET_ACTIVE: u32 = 0x9fd18a99;
+
+/// The bar of column letters above a spreadsheet-looking grid: the text
+/// of each piece and whether it is the column at the cursor (`current`).
+/// The pieces line up with the rows of [`line_view`]: the gutter, then
+/// each column's letters centered over its width, and the three cells of
+/// the bar between columns.
+pub fn letters_bar(layout: &Layout, current: Option<usize>) -> Vec<(String, bool)> {
+    let mut out = vec![(" ".repeat(layout.gutter + 2), false)];
+    let n = layout.widths.len();
+    for (j, &w) in layout.widths.iter().enumerate() {
+        let letters = crate::csv_tools::column_letters(j);
+        let w = w.max(letters.len());
+        let left = (w - letters.len()) / 2;
+        let mut cell = format!(
+            "{}{letters}{}",
+            " ".repeat(left),
+            " ".repeat(w - letters.len() - left)
+        );
+        if j + 1 < n {
+            out.push((cell, current == Some(j)));
+            cell = " │ ".into();
+        }
+        out.push((cell, current == Some(j) && j + 1 == n));
+    }
+    out
 }
 
 /// The colors of rainbow columns, readable on light and dark themes.
@@ -1080,7 +1121,7 @@ impl Layout {
             .iter()
             .map(|&(n, all)| all > 0 && n * 5 >= all * 4)
             .collect();
-        let gutter = if view.coordinates {
+        let gutter = if view.coordinates || view.sheet {
             (memchr_count(text) + 1).to_string().len()
         } else {
             0
@@ -1156,7 +1197,12 @@ pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
 /// row bold; with the view's options, each column its color, and the row
 /// number and column letters of the coordinate grid. A line inside a
 /// record that spans lines (a quoted line break) shows as it is.
-pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view::LineView {
+pub fn line_view(
+    layout: &Layout,
+    text: &str,
+    line: Range<usize>,
+    cursor: Option<usize>,
+) -> crate::view::LineView {
     use crate::view::{LineView, Run, Style};
     use unicode_width::UnicodeWidthStr;
     let Some((row, rec)) = layout
@@ -1167,6 +1213,20 @@ pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view
     };
     let header = row == 0 && layout.dialect.header;
     let view = layout.view;
+    // The cell at the cursor, in a spreadsheet-looking grid.
+    let active = cursor
+        .filter(|_| view.sheet)
+        .filter(|c| rec.range.start <= *c && *c <= rec.range.end)
+        .map(|c| {
+            rec.fields
+                .iter()
+                .position(|f| c <= f.range.end)
+                .unwrap_or(rec.fields.len().saturating_sub(1))
+        });
+    let shade = |color: u32| crate::rich::CharFormat {
+        highlight: Some(crate::theme::Color(color)),
+        ..Default::default()
+    };
     let style_of = |j: usize| Style {
         bold: header,
         rich: crate::rich::CharFormat {
@@ -1189,7 +1249,21 @@ pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view
         widget: None,
     };
     let mut runs = Vec::new();
-    if view.coordinates {
+    if view.sheet {
+        // The row number in a shaded gutter, marked on the cursor's row.
+        let here = active.is_some();
+        runs.push(Run {
+            src: line.start..line.start,
+            text: format!(" {:>w$} ", row + 1, w = layout.gutter),
+            verbatim: false,
+            style: Style {
+                bold: here,
+                rich: shade(if here { SHEET_ACTIVE } else { SHEET_GRAY }),
+                ..Style::default()
+            },
+            widget: None,
+        });
+    } else if view.coordinates {
         // The row number, in the gutter.
         runs.push(deco(
             line.start,
@@ -1200,7 +1274,8 @@ pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view
     for (j, f) in rec.fields.iter().enumerate() {
         let s = &text[f.range.clone()];
         let last = j + 1 == rec.fields.len();
-        if view.coordinates {
+        let on = active == Some(j);
+        if view.coordinates && !view.sheet {
             // The column's letters on the first row, the same width of
             // blanks below them.
             let letters = crate::csv_tools::column_letters(j);
@@ -1219,22 +1294,34 @@ pub fn line_view(layout: &Layout, text: &str, line: Range<usize>) -> crate::view
             .saturating_sub(s.width());
         let right =
             view.align_numbers && !header && layout.numeric.get(j).copied().unwrap_or(false);
+        // The cell at the cursor marked across its width.
+        let mark = |mut r: Run| {
+            if on {
+                r.style.rich.highlight = Some(crate::theme::Color(SHEET_ACTIVE));
+            }
+            r
+        };
         if right && pad > 0 {
-            runs.push(deco(f.range.start, " ".repeat(pad), false));
+            runs.push(mark(deco(f.range.start, " ".repeat(pad), false)));
         }
         if !s.is_empty() {
-            runs.push(Run {
+            runs.push(mark(Run {
                 src: f.range.clone(),
                 text: s.to_string(),
                 verbatim: true,
                 style: style_of(j),
                 widget: None,
-            });
+            }));
+        } else if on && pad == 0 {
+            runs.push(mark(deco(f.range.start, " ".into(), false)));
+        }
+        if last && on && pad > 0 && !right {
+            runs.push(mark(deco(f.range.end, " ".repeat(pad), false)));
         }
         if !last {
             // The padding, then the delimiter drawn as a bar.
             if pad > 0 && !right {
-                runs.push(deco(f.range.end, " ".repeat(pad), false));
+                runs.push(mark(deco(f.range.end, " ".repeat(pad), false)));
             }
             runs.push(Run {
                 src: f.range.end..f.range.end + 1,
@@ -1806,10 +1893,61 @@ mod tests {
         assert_eq!(column_stats(e, &d, 1).unwrap().1, 1236.0);
     }
 
+    /// The grid without the spreadsheet look.
+    const CLASSIC: View = View {
+        align_numbers: true,
+        rainbow: false,
+        coordinates: false,
+        sheet: false,
+    };
+
+    #[test]
+    fn spreadsheet_look() {
+        let t = "name,n\nAda,36\nBob,7\n";
+        let sheet = View {
+            sheet: true,
+            ..CLASSIC
+        };
+        let l = Layout::with_view(t, detect(t), sheet);
+        let line = |i: usize| {
+            let s: usize = t.split_inclusive('\n').take(i).map(str::len).sum();
+            s..s + t.split('\n').nth(i).unwrap().len()
+        };
+        // The row number shaded in the gutter; no letters in the cells.
+        let v = line_view(&l, t, line(1), None);
+        assert_eq!(v.display(), " 2 Ada  │ 36");
+        assert_eq!(
+            v.runs[0].style.rich.highlight,
+            Some(crate::theme::Color(SHEET_GRAY))
+        );
+        // The cell at the cursor and its row number marked.
+        let at = t.find("36").unwrap();
+        let v = line_view(&l, t, line(1), Some(at));
+        let marked: String = v
+            .runs
+            .iter()
+            .filter(|r| r.style.rich.highlight == Some(crate::theme::Color(SHEET_ACTIVE)))
+            .map(|r| r.text.as_str())
+            .collect();
+        assert_eq!(marked, " 2 36");
+        // The letters bar lines up with the rows.
+        let bar: String = letters_bar(&l, Some(1))
+            .into_iter()
+            .map(|(s, _)| s)
+            .collect();
+        assert_eq!(bar, "    A   │ B ");
+        assert_eq!(bar.chars().count(), v.display().chars().count());
+        assert!(
+            letters_bar(&l, Some(1))
+                .iter()
+                .any(|(s, on)| *on && s.trim() == "B")
+        );
+    }
+
     #[test]
     fn grid_rows() {
         let t = "name,n\nAda,36\n\"long, name\",7\n\"two\nlines\",1\n";
-        let l = Layout::new(t);
+        let l = Layout::with_view(t, detect(t), CLASSIC);
         assert_eq!(l.widths, [12, 2]);
         let lines: Vec<Range<usize>> = {
             let mut out = Vec::new();
@@ -1820,16 +1958,19 @@ mod tests {
             }
             out
         };
-        let v = line_view(&l, t, lines[1].clone());
+        let v = line_view(&l, t, lines[1].clone(), None);
         assert_eq!(v.display(), "Ada          │ 36");
         assert!(v.runs[0].verbatim && !v.runs[0].style.bold);
-        assert!(line_view(&l, t, lines[0].clone()).runs[0].style.bold);
+        assert!(line_view(&l, t, lines[0].clone(), None).runs[0].style.bold);
         // Editing positions map through: after `Ada` is in the field.
         let at = t.find("Ada").unwrap() + 3;
         assert_eq!(v.source_offset(v.display_offset(at)), at);
         // A record over two lines shows as written.
-        assert_eq!(line_view(&l, t, lines[3].clone()).display(), "\"two");
-        assert_eq!(line_view(&l, t, lines[4].clone()).display(), "lines\",1");
+        assert_eq!(line_view(&l, t, lines[3].clone(), None).display(), "\"two");
+        assert_eq!(
+            line_view(&l, t, lines[4].clone(), None).display(),
+            "lines\",1"
+        );
     }
 
     #[test]
@@ -1846,36 +1987,36 @@ mod tests {
         };
         let d = detect(t);
         // Numbers and dates right, text left; the header as written.
-        let l = Layout::with_view(t, d, View::default());
+        let l = Layout::with_view(t, d, CLASSIC);
         assert_eq!(l.numeric, [false, true, true]);
         assert_eq!(
-            line_view(&l, t, lines[2].clone()).display(),
+            line_view(&l, t, lines[2].clone(), None).display(),
             "Bob  │  7 │ 29.09.2026"
         );
         assert_eq!(
-            line_view(&l, t, lines[0].clone()).display(),
+            line_view(&l, t, lines[0].clone(), None).display(),
             "name │ n  │ when"
         );
         let plain = View {
             align_numbers: false,
-            ..View::default()
+            ..CLASSIC
         };
         let l = Layout::with_view(t, d, plain);
         assert_eq!(
-            line_view(&l, t, lines[2].clone()).display(),
+            line_view(&l, t, lines[2].clone(), None).display(),
             "Bob  │ 7  │ 29.09.2026"
         );
         // The coordinate grid: row numbers and column letters.
         let grid = View {
             coordinates: true,
-            ..View::default()
+            ..CLASSIC
         };
         let l = Layout::with_view(t, d, grid);
         assert_eq!(
-            line_view(&l, t, lines[0].clone()).display(),
+            line_view(&l, t, lines[0].clone(), None).display(),
             "1 A:name │ B:n  │ C:when"
         );
-        let v = line_view(&l, t, lines[1].clone());
+        let v = line_view(&l, t, lines[1].clone(), None);
         assert_eq!(v.display(), "2   Ada  │   36 │   2026-09-29");
         // Editing positions still map through the decorations.
         let at = t.find("36").unwrap() + 1;
@@ -1886,10 +2027,10 @@ mod tests {
             d,
             View {
                 rainbow: true,
-                ..View::default()
+                ..CLASSIC
             },
         );
-        let v = line_view(&l, t, lines[1].clone());
+        let v = line_view(&l, t, lines[1].clone(), None);
         let colors: Vec<_> = v
             .runs
             .iter()

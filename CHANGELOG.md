@@ -6,8 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Closing the last document no longer quits Kalem: an empty document takes its place.
+
 ### Added
 
+- CSV looks like a spreadsheet (`csv.sheet`, on by default): row numbers in a shaded gutter, the cell at the cursor and its row number marked in Excel's green.
+- Vim's `:q` closes the pane, quitting only from the last one; `:qa`, `:wqa`, `:sp`, `:vs`, `:close`, `:only` and `:new`.
 - Markdown pictures: dropped, pasted or inserted with Insert Image, copied into `images/` beside the document (`markdown.assets_dir`) and linked as `![name](images/name.png)`.
 - CSV: Record View, Edit Field (`C-c \``), Replace in Column, the Frequency Table with a histogram, Kill and Yank Field; `csv.align_numbers`, `csv.rainbow` and `csv.coordinates` for new files (T2.7d.9).
 - Kalem's logo, a fountain pen (`assets/kalem.svg`): on macOS the Dock shows it when Kalem runs as a bare binary (`cargo run`) instead of "exec".
