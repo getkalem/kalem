@@ -1415,6 +1415,12 @@ fn doom_keys_in_the_terminal() {
         .run_command("view.toggleLastPanel", serde_json::Value::Null);
     let hidden = screen(&mut t).join("\n");
     assert_ne!(shown, hidden);
+    // SPC u 3: the next command runs three times.
+    t.typ(" u3");
+    assert!(status(&mut t).contains("Count 3"), "{}", status(&mut t));
+    t.app
+        .run_command("edit.newline", serde_json::Value::Null);
+    assert_eq!(t.text(), "\n\n\n* Loose\n", "{}", status(&mut t));
 }
 
 #[test]

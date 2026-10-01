@@ -793,7 +793,7 @@ mod tests {
         assert_eq!(label("f").as_deref(), Some("+file"));
         assert_eq!(label("b").as_deref(), Some("+buffer"));
         // A Doom key Kalem does not bind yet, marked.
-        assert!(label("u").is_some_and(|l| l.ends_with(')')), "{items:?}");
+        assert_eq!(label("shift+x").as_deref(), Some("Capture (later)"));
     }
 
     #[test]

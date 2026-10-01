@@ -85,7 +85,7 @@ reason = "Planned: T2.7i.18"
 doom = "SPC u"
 keys = "space u"
 what = "Universal argument"
-reason = "Planned: T2.7i.18"
+command = "app.universalArgument"
 
 [[key]]
 doom = "SPC ;"

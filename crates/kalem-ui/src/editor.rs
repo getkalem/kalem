@@ -306,6 +306,8 @@ pub struct Editor {
     pub resume_input: Option<String>,
     /// A list to choose from was asked for: the next palette is one.
     pub mark_picker: bool,
+    /// The universal argument being typed (`SPC u`).
+    pub prefix: Option<kalem_core::prefix_arg::PrefixArg>,
     /// The find bar, when open.
     pub find: Option<crate::panels::FindBar>,
     /// The date picker, when open.
@@ -422,6 +424,7 @@ impl Editor {
             pending_at: None,
             resume_input: None,
             mark_picker: false,
+            prefix: None,
             hints_drawn: false,
             marked: None,
             painted: Rc::default(),
@@ -938,6 +941,12 @@ impl Editor {
         cx: &mut Context<'_, Self>,
     ) {
         let shared = self.shared.clone();
+        // The universal argument's count, for any command but itself.
+        let times = if id == kalem_core::prefix_arg::COMMAND {
+            1
+        } else {
+            self.prefix.take().map_or(1, |p| p.count())
+        };
         let Some(cmd) = shared.registry.get(id) else {
             self.message(tr!("msg-unknown-command", id = id), true);
             return;
@@ -973,7 +982,7 @@ impl Editor {
             now,
             clock,
         );
-        let result = shared.registry.execute(id, &mut ctx, &args);
+        let result = shared.registry.execute_times(id, &mut ctx, &args, times);
         let requests = std::mem::take(&mut ctx.requests);
         let messages = std::mem::take(&mut ctx.messages);
         drop(ctx);
@@ -1009,6 +1018,14 @@ impl Editor {
                     }
                     None => self.message(kalem_core::tr!("msg-no-picker"), false),
                 }
+            }
+            Request::UniversalArgument => {
+                match &mut self.prefix {
+                    Some(p) => p.again(),
+                    None => self.prefix = Some(Default::default()),
+                }
+                let label = self.prefix.map(|p| p.label()).unwrap_or_default();
+                self.message(label, false);
             }
             Request::ToggleLastPanel => {
                 let last = self.shared.last.borrow().panel.clone();
@@ -1852,6 +1869,26 @@ impl Editor {
         if self.find_key(&ev.keystroke, cx) {
             cx.stop_propagation();
             return;
+        }
+        // After `SPC u`: digits give the count, Escape drops it.
+        if self.pending.is_empty()
+            && let Some(p) = &mut self.prefix
+        {
+            let m = ev.keystroke.modifiers;
+            let plain = !m.control && !m.alt && !m.platform && !m.function;
+            if plain && p.key(&ev.keystroke.key) {
+                self.status = Some((p.label(), false));
+                cx.notify();
+                cx.stop_propagation();
+                return;
+            }
+            if ev.keystroke.key == "escape" {
+                self.prefix = None;
+                self.status = None;
+                cx.notify();
+                cx.stop_propagation();
+                return;
+            }
         }
         if !self.describing
             && self.pending.is_empty()

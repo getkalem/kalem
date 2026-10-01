@@ -4251,6 +4251,14 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| request(ctx, Request::Find { replace: true }),
         ),
         cmd(
+            crate::prefix_arg::COMMAND,
+            "Universal Argument",
+            "Edit",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::UniversalArgument),
+        ),
+        cmd(
             "picker.resume",
             "Resume Last Picker",
             "Search",

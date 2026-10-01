@@ -912,3 +912,5 @@ msg-no-picker = Yeniden açılacak liste yok
 msg-no-panel = Henüz açılıp kapanan panel yok
 cmd-picker-resume = Son Listeyi Yeniden Aç
 cmd-view-toggleLastPanel = Son Paneli Aç/Kapat
+msg-universal-argument = Sayı { $n }: sonraki komut { $n } kez çalışır
+cmd-app-universalArgument = Evrensel Argüman
