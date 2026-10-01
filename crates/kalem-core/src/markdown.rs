@@ -768,12 +768,12 @@ fn renumber_after(
         .nodes
         .iter()
         .enumerate()
-        .filter(|(_, l)| {
+        .rev()
+        .find(|(_, l)| {
             matches!(l.kind, MdKind::List { ordered: true })
                 && l.range.start <= line_end
                 && line_end <= l.range.end
         })
-        .last()
         .map(|(i, _)| i as u32)
     else {
         return;
