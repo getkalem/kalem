@@ -2425,6 +2425,26 @@ fn markdown_enter_continues_a_list() {
 }
 
 #[test]
+fn bookmarks_set_and_jumped_to() {
+    // `SPC b m` sets, `SPC RET` jumps (T2.7i.18); kept in the state
+    // directory, the line followed when lines are added above it.
+    let state = std::env::temp_dir().join(format!("kalem-tui-state-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&state);
+    kalem_core::bookmarks::use_file(Some(state.join("bookmarks.json")));
+    let mut t = with_file("one\ntwo\nthree\n", "b.org", Config::default(), (40, 6));
+    t.at(5);
+    t.app.run_command("bookmark.set", serde_json::json!({"name": "two"}));
+    t.at(0);
+    t.typ("zero\n");
+    t.app.run_command("bookmark.goto", serde_json::json!({"name": "two"}));
+    // The file was not saved: the bookmark's line as set, the second.
+    assert_eq!(t.app.doc.text().line_of(t.app.doc.selection.head), 1);
+    t.app.run_command("bookmark.delete", serde_json::json!({"name": "two"}));
+    assert!(kalem_core::bookmarks::load().is_empty());
+    let _ = std::fs::remove_dir_all(&state);
+}
+
+#[test]
 fn csv_grid() {
     let mut t = with_file(
         "name,age\nAda,36\nBob,7\n",
@@ -3273,7 +3293,8 @@ fn latex_inserts_follow_the_document_style() {
         "{text}"
     );
     t.at(at);
-    t.app.run_command("latex.insert.equation", serde_json::json!({}));
+    t.app
+        .run_command("latex.insert.equation", serde_json::json!({}));
     let text = t.text();
     assert!(
         text.contains("\\begin{equation}\\label{e-}\n\t\n\\end{equation}\n"),

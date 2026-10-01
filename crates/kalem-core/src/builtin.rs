@@ -221,6 +221,9 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("csv.setDelimiter", object(&[("delimiter", "string", true)])),
         ("csv.setQuote", object(&[("quote", "string", true)])),
         ("csv.splitColumn", object(&[("separator", "string", true)])),
+        ("bookmark.set", object(&[("name", "string", false)])),
+        ("bookmark.goto", object(&[("name", "string", true)])),
+        ("bookmark.delete", object(&[("name", "string", false)])),
         ("csv.joinColumns", object(&[("separator", "string", true)])),
         ("csv.sortFileBy", object(&[("columns", "string", true)])),
         ("csv.goToCell", object(&[("cell", "string", true)])),
@@ -1667,6 +1670,25 @@ fn latex_insert_citation(ctx: &mut EditorContext<'_>, args: &Value) -> CommandRe
 /// Inserts what `make` gives (text and the cursor's place in it) on the
 /// cursor's line when it is empty, else on a line of its own after it,
 /// with the line's indentation.
+/// The bookmarks to choose from, each running `command` with its name.
+fn bookmark_choice(ctx: &mut EditorContext<'_>, command: &str) -> CommandResult {
+    let marks = crate::bookmarks::load();
+    if marks.is_empty() {
+        return Err(CommandError::new(crate::tr!("msg-no-bookmarks")));
+    }
+    let items = marks
+        .iter()
+        .map(|b| crate::palette::PaletteItem {
+            id: crate::palette::invocation(command, &serde_json::json!({ "name": b.name })),
+            title: b.name.clone(),
+            category: crate::tr!("category-bookmarks"),
+            keys: String::new(),
+            also: format!("{} {}", b.path.display(), b.context.trim()),
+        })
+        .collect();
+    request(ctx, Request::Choose(items))
+}
+
 /// A float's caption and label lines, as `place` puts the label: the
 /// text up to the caption's text (where the cursor goes) and the rest.
 fn float_caption(
@@ -3951,6 +3973,124 @@ fn plain_commands() -> Vec<Command> {
                         command,
                         files: Vec::new(),
                         dir,
+                    }),
+                )
+            },
+        ),
+        cmd(
+            "project.searchWord",
+            "Search Project for Word",
+            "Project",
+            &[],
+            None,
+            |ctx, _| {
+                // Doom's `SPC *`: the word at the cursor (the selection).
+                let d = ctx.doc()?;
+                let text = d.text().as_str();
+                let (a, b) = (
+                    d.selection.anchor.min(d.selection.head),
+                    d.selection.anchor.max(d.selection.head),
+                );
+                let word = if a < b {
+                    text[a..b].to_string()
+                } else {
+                    crate::lines::word_at(text, a)
+                        .map(|r| text[r].to_string())
+                        .unwrap_or_default()
+                };
+                if word.trim().is_empty() {
+                    return Err(CommandError::new(crate::tr!("msg-no-word")));
+                }
+                request(ctx, Request::SearchProjectFor(word))
+            },
+        ),
+        cmd(
+            "bookmark.set",
+            "Set Bookmark",
+            "Bookmarks",
+            &[],
+            None,
+            |ctx, args| {
+                let d = ctx.doc()?;
+                let path = d
+                    .meta
+                    .path
+                    .clone()
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-save-first")))?;
+                let path = std::path::absolute(&path).unwrap_or(path);
+                let text = d.text();
+                let at = d.selection.head.min(text.len());
+                let line = text.line_of(at);
+                let range = text.line_range(line);
+                let context = text.as_str()[range.clone()].to_string();
+                let stem = path
+                    .file_name()
+                    .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+                let name = args
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|n| !n.is_empty())
+                    .map_or_else(|| format!("{stem}:{}", line + 1), str::to_string);
+                crate::bookmarks::set(crate::bookmarks::Bookmark {
+                    name: name.clone(),
+                    path,
+                    line: line as u64 + 1,
+                    column: at - range.start,
+                    context,
+                })
+                .map_err(CommandError::new)?;
+                ctx.messages
+                    .push(crate::tr!("msg-bookmark-set", name = name.as_str()));
+                Ok(())
+            },
+        ),
+        cmd(
+            "bookmark.jump",
+            "Jump to Bookmark",
+            "Bookmarks",
+            &[],
+            None,
+            |ctx, _| bookmark_choice(ctx, "bookmark.goto"),
+        ),
+        cmd(
+            "bookmark.delete",
+            "Delete Bookmark",
+            "Bookmarks",
+            &[],
+            None,
+            |ctx, args| match args.get("name").and_then(Value::as_str) {
+                Some(name) => {
+                    if crate::bookmarks::delete(name).map_err(CommandError::new)? {
+                        ctx.messages
+                            .push(crate::tr!("msg-bookmark-deleted", name = name));
+                    }
+                    Ok(())
+                }
+                None => bookmark_choice(ctx, "bookmark.delete"),
+            },
+        ),
+        cmd(
+            "bookmark.goto",
+            "Go to Bookmark",
+            "Bookmarks",
+            &[],
+            None,
+            |ctx, args| {
+                let name = arg_str(args, "name")?.to_string();
+                let b = crate::bookmarks::load()
+                    .into_iter()
+                    .find(|b| b.name == name)
+                    .ok_or_else(|| {
+                        CommandError::new(crate::tr!("msg-no-match-for", target = name.as_str()))
+                    })?;
+                let line = std::fs::read_to_string(&b.path)
+                    .map_or(b.line, |t| crate::bookmarks::line_now(&b, &t));
+                request(
+                    ctx,
+                    Request::OpenLink(crate::input::LinkAction::File {
+                        path: b.path.display().to_string(),
+                        search: Some(line.to_string()),
                     }),
                 )
             },

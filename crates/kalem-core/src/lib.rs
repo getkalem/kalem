@@ -6,6 +6,7 @@
 pub mod affiliated;
 pub mod bibstyle;
 pub mod bibtex;
+pub mod bookmarks;
 mod builtin;
 pub mod cite;
 pub mod code;

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Bookmarks: Set Bookmark, Jump to Bookmark and Delete Bookmark (`SPC b m`, `SPC RET`, `SPC b M`), and `SPC *` searches the project for the word at the cursor (T2.7i.18).
 - LaTeX: Insert Figure, Table and Equation follow the document's indentation, label placement and label prefixes; the formatting toggles keep braces balanced and treat `\emph` and `\textit` as one (T2.7h.15).
 - LaTeX: the Book lists the math macros the formula renderer does not know, kept exact by a test over some three hundred macros (T2.7h.7).
 - LaTeX: the setting `latex.root` names a project's root document, and a file whose main document lives in a sibling folder finds it through the project (T2.7h.4).
@@ -279,6 +280,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The terminal editor opens links to text files in Kalem, as the graphical editor does, rather than with the system's application.
 - Typing a capital P in a document with the Word-like keys, or `a` in Vim's insert mode, opened the projects view: those file manager keys now apply only in a listing, and a test keeps typed characters from running commands.
 - In the Emacs keymap Enter in the file manager ran Newline instead of opening the entry; `SPC p D` and other project commands did not apply in a file manager listing.
 - The palette and the questions Kalem asks (a rename, a file name) take the arrows, Home, End and Delete, and move and delete by words, in both editors; before, typing only added or removed at the end.
