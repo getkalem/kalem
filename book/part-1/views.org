@@ -1,33 +1,30 @@
-- Source view (Ctrl+/) :: the file's own text, with colors, line numbers
-  and every character shown.
+- Source view (Ctrl+/) :: the file's own text, with colors, line
+  numbers and every character shown.
 - Split view (Ctrl+\) :: the source beside the rich view of the same
-  document. A click makes a side the active one.
-- Outline (Ctrl+Shift+O) :: the headings in a sidebar. A click jumps to a
-  heading; dragging one moves its subtree, before the heading it is dropped
-  on or, on the lower half, after it.
+  document; a click makes a side the active one.
+- Outline (Ctrl+Shift+O) :: the headings in a sidebar. A click jumps to
+  a heading; dragging one moves its subtree before the heading it is
+  dropped on or, on the lower half, after it.
 - Focus mode (F8) :: only the section you are writing in.
 - Narrowing :: /Narrow to Subtree/, /Element/ or /Block/ in the command
   palette shows only that part; /Widen/ shows everything again.
 - Soft wrap (Alt+Z) :: long lines wrap at the window's edge, or scroll
   sideways.
-- Word counts :: the status bar counts the words of the document and of
-  the section at the cursor. /Set Document Word Target/ writes
+- Word counts :: the status bar counts the words of the document and
+  of the section at the cursor. /Set Document Word Target/ writes
   =#+PROPERTY: WORD_TARGET 80000= and /Set Section Word Target/ a
-  =WORD_TARGET= property on the heading (=80,000= and =80k= work too; 0
-  removes it); the counts then show against them, "12,400 of 80,000
+  =WORD_TARGET= property on the heading (=80,000= and =80k= work too;
+  0 removes it); the counts then show against them, "12,400 of 80,000
   (15%) words, 900 of 4,000 (22%) in section". /Word Count by Chapter/
   (View menu) lists the headings of the first two levels with their
   words and targets; choosing one goes there. /Go to Line/ moves to a
   line by its number.
 
-Headings move right by level, and the text under a heading starts where
-its title does, as with Emacs's =org-indent-mode=: in the window, two
-characters a level from the second on; in the terminal, where a sign
-marks each heading, after that sign. =editor.outline_indent = false=, or
-=#+STARTUP: noindent= in a file, keeps all text at the left edge (in the
-terminal, headings still move right by level).
-
-The text column is 80 characters wide and starts at the left edge of the
-window; the setting =editor.line_width= changes its width (0 for the whole
-window), and =editor.center_text = true= puts it in the middle, like a
-page.
+Headings move right by level, and the text under a heading starts
+where its title does, as with Emacs's =org-indent-mode=: two
+characters a level in the window, after the heading's sign in the
+terminal. =editor.outline_indent = false=, or =#+STARTUP: noindent= in
+a file, keeps all text at the left edge. The text column is 80
+characters wide at the left edge of the window; =editor.line_width=
+changes its width (0 for the whole window), and =editor.center_text =
+true= puts it in the middle, like a page.

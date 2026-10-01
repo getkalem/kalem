@@ -48,7 +48,7 @@ tests of =csv.rs= cover dialect detection, RFC 4180 values, each editing
 operation's exact output, sorting, the conversions and a 100,000-row
 file; =csv_commands= in =builtin.rs= runs the commands on a document;
 both editors have a =csv_grid= test. The work items are group 2.7d of
-=todo.md=; the corpus of the design (Google Sheets, Excel, more
+=docs/todo.md=; the corpus of the design (Google Sheets, Excel, more
 locales) is not there yet, so the design's table still lists CSV as
 planned.
 

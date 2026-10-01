@@ -1,9 +1,4 @@
-Kalem has no releases yet: there are no archives or installers to
-download. Build it from source.
-
-* From source
-
-With Rust 1.88 or later:
+Kalem has no releases yet. Build it from source with Rust 1.88 or later:
 
 #+begin_src sh
 cargo install --path crates/kalem
@@ -12,23 +7,19 @@ cargo install --path crates/kalem --no-default-features --features tui
 #+end_src
 
 Both put one program, =kalem=, in Cargo's =bin= folder, which is on
-your =PATH= when Rust is installed with rustup.
+your =PATH= when Rust came with rustup.
 
 - Linux :: the graphical editor needs the development files of
-  xkbcommon, Wayland, X11 (xcb), fontconfig, freetype and Vulkan. On
-  Debian and Ubuntu: =libxkbcommon-dev libxkbcommon-x11-dev
+  xkbcommon, Wayland, X11 (xcb), fontconfig, freetype and Vulkan; on
+  Debian and Ubuntu, =libxkbcommon-dev libxkbcommon-x11-dev
   libwayland-dev libx11-xcb-dev libxcb1-dev libfontconfig-dev
   libfreetype-dev libvulkan-dev=. The terminal-only build needs none of
   them.
 - macOS :: nothing more. =tools/macos-app.sh= builds =Kalem.app=; it is
-  not signed, so the first time, open it with right-click and /Open/,
-  and confirm.
-- Windows :: nothing more than Rust with its MSVC tools; the same
-  commands build both editors. The settings are in =%APPDATA%\kalem=.
-
-* Releases
+  not signed, so the first time, open it with right-click and /Open/.
+- Windows :: Rust with its MSVC tools, nothing more. The settings live
+  in =%APPDATA%\kalem=.
 
 Releases are planned for macOS (Apple silicon and Intel), Linux (x86-64
 and ARM) and Windows (x86-64), with a terminal-only archive for servers
-and minimal systems. Until the first one, this chapter describes the
-build from source only.
+and minimal systems.

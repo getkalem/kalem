@@ -16,14 +16,14 @@ Large or hard-to-reverse changes to Kalem go through a short written proposal, a
 1. Copy the template below to `rfcs/NNNN-short-title.md`, using the next free number.
 2. Open a pull request. Discussion happens on the pull request.
 3. When there is rough consensus, a maintainer merges it as accepted, or closes it as declined with a short explanation.
-4. Accepted RFCs are reflected in `design_document.md` and `todo.md`.
+4. Accepted RFCs are reflected in `docs/design_document.md` and `docs/todo.md`.
 
 ## Index
 
 | Number | Title | Status |
 |---|---|---|
-| 0001 | [Kalem design document](../design_document.md) | Accepted, living document |
-| 0002 | [Standard modes, the Kalem format, and the Book](../design_doc2.md) | Accepted (owner, 2026-09-30) |
+| 0001 | [Kalem design document](../docs/design_document.md) | Accepted, living document |
+| 0002 | [Standard modes, the Kalem format, and the Book](../docs/design_doc2.md) | Accepted (owner, 2026-09-30) |
 | 0003 | [The Kalem format (`.klm`), specification](0003-kalem-format.md) | Accepted, draft 0.2; frozen as the design record, the specification is Part III of the Book |
 
 ## Template

@@ -1442,7 +1442,7 @@ Each parses without diagnostics and compiles with pdflatex in the tests.
 * Limits and known gaps
 
 What Kalem does not do today, from the code and the open items of the
-work breakdown (group 2.7h of =todo.md=):
+work breakdown (group 2.7h of =docs/todo.md=):
 
 - *No corpus yet.* The rendered subset was chosen without the planned
   coverage study over arXiv sources (T2.7h.1), so no coverage target is

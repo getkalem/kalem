@@ -1,4 +1,4 @@
-//! `kalem book build` and `kalem book check`: the Book (design_doc2.md §10)
+//! `kalem book build` and `kalem book check`: the Book (docs/design_doc2.md §10)
 //! as a static site, built by Kalem's own HTML exporter.
 //!
 //! `book/index.org` is the table of contents: its title, an introduction,
@@ -350,7 +350,7 @@ fn generated(name: &str) -> Option<String> {
 }
 
 /// The HTML body of Org `text` from `file`. Underscores stay underscores
-/// (`design_doc2.md`), as `^:{}` asks, unless the chapter says otherwise.
+/// (`docs/design_doc2.md`), as `^:{}` asks, unless the chapter says otherwise.
 fn export_body(text: &str, file: &Path) -> std::result::Result<String, String> {
     let text = &format!("#+OPTIONS: ^:{{}}\n{text}");
     let settings = org_export::Settings {

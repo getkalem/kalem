@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
+
 ### Fixed
 
 - `kalem parse` parses a Markdown file as Markdown (it parsed it as Org), and LaTeX as LaTeX; `kalem check` takes folders, and checks Markdown as Markdown: links to files that are not there.
@@ -14,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- The Book's Part V has a page "Kalem and Emacs": what Kalem takes from Emacs (commands, keymaps, modes, the terminal, batch mode, Org, Dired, Projectile), what it leaves out on purpose (Elisp, `init.el`, everything-is-a-buffer, packages with full access, extended syntax) with the decision behind each, what that costs an Emacs user, and how the two work on the same files; linked from the README and the manual.
 
 - `kalem latex-coverage DIR...`: how much of a corpus of LaTeX sources the rendered view covers, by field, with the commands and environments most papers use; a CI workflow runs it on a stratified sample of arXiv.
 - The Vim profile is Vim: its keys everywhere but Doom's leader keys, the Word-like Control and Alt keys off while the Vim layer is on (Command keeps them on macOS). Insert mode's keys (Ctrl+W, Ctrl+U, Ctrl+R, Ctrl+O, Ctrl+T, Ctrl+D, Ctrl+V, Ctrl+K digraphs, Ctrl+N completion…), Vim's patterns, the command line with ranges (`:s`, `:g`, `:v`, `:d`, `:m`, `:t`, `:norm`, `:sort`, `:set`…), marks, the jump and change lists, macros, Ctrl+A and Ctrl+X, `U`, `gv`, `gi`, `gn`, sentence and tag objects. Checked against Vim itself, case by case, in CI.

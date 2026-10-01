@@ -1,39 +1,27 @@
 #+TITLE: The Kalem Book
 
-Kalem is a fast, open source, text-first editor for every plain-text
-format. It opens a file as what it is, Org, Markdown, LaTeX, CSV, BibTeX
-or code, and shows it the way it reads: bold text is bold, headings are
-large, tables are grids, formulas are typeset and links are links, while
-the file on disk stays the standard text it was, byte for byte where you
-did not edit it. Other formats come as plugins, written in Rust. Kalem
-runs as a desktop application and in a terminal, with the same commands
-in both, and it has command-line tools for scripts and CI.
+Kalem is a fast, open source editor for plain-text documents. It shows
+Org, Markdown, LaTeX, CSV, BibTeX and code the way they read, bold as
+bold and tables as grids, and keeps the file on disk the standard text
+it was, byte for byte where you did not edit. It runs in a window and
+in a terminal with the same commands, and its command-line tools serve
+scripts and CI.
 
-This book is the one reference for Kalem. It has five parts:
+This book is the one reference for Kalem, in five parts:
 
-- *Part I, Kalem*, is the manual: what Kalem is, installing, the two
-  editors, writing, views, projects, exporting, keys, settings and the
-  command line.
-- *Part II, the standard formats*, says exactly what Kalem does with each
-  format it opens, which parts it renders, edits and exports, and against
-  which reference implementation (the /oracle/) that is tested. It is
-  written, for every format and LaTeX included, precisely enough to serve
-  as the reference for later implementations, Kalem's own and others'.
-- *Part III, the Kalem format*, is the specification of Kalem's own
-  document format, =.klm=: its syntax, structure, stylesheets, canonical
-  form, grammar and conformance.
-- *Part IV, extending Kalem*, covers commands, keys, completers and the
-  plugin model: plugins are compiled Rust, run as WebAssembly components.
-- *Part V, design*, gathers the design documents, the decision records,
-  performance and terminal parity.
+- *Part I, Kalem*: the manual.
+- *Part II, the standard formats*: what Kalem does with each format it
+  opens and against which reference that is tested, precisely enough
+  to serve as the reference for other implementations.
+- *Part III, the Kalem format*: the specification of =.klm=.
+- *Part IV, extending Kalem*: commands, keys, completers and plugins.
+- *Part V, design*: the design documents, the decisions, performance
+  and terminal parity.
 
-The appendices list every command, every setting and the command line's
-help; they are generated from the code each time the book is built, so
-they cannot fall behind it.
-
-The book at the =main= branch describes the =main= branch. Its source is
-the =book/= folder of the repository, written in Org; =kalem book build=
-turns it into this site.
+The appendices list every command, setting and command-line option,
+generated from the code at each build. The book at the =main= branch
+describes the =main= branch; its source is the =book/= folder of the
+repository, in Org, and =kalem book build= turns it into this site.
 
 * Part I. Kalem
 - [[file:part-1/what-kalem-is.org][What Kalem is]]
@@ -96,6 +84,7 @@ turns it into this site.
 
 * Part V. Design
 - [[file:part-5/design-documents.org][Design documents]]
+- [[file:part-5/kalem-and-emacs.org][Kalem and Emacs]]
 - [[file:part-5/decisions.org][Decision records]]
 - [[file:part-5/decisions/D2-parser-foundation.org][D2: Parser foundation]]
 - [[file:part-5/decisions/D3-ui-framework.org][D3: UI framework]]

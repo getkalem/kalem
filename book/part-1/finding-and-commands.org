@@ -1,43 +1,42 @@
-Ctrl+F finds, Ctrl+H finds and replaces. Every match is marked; Enter and
-Shift+Enter step through them. In the replace field, Enter replaces one
-match and Alt+Enter all of them, in one undo step. Alt+R, or the =.*=
-button, makes the search a regular expression; the replacement can use
-=$1= for its groups.
+Ctrl+F finds, Ctrl+H finds and replaces. Every match is marked; Enter
+and Shift+Enter step through them. In the replace field, Enter
+replaces one match and Alt+Enter all of them, in one undo step. Alt+R,
+or the =.*= button, makes the search a regular expression, with =$1=
+for its groups in the replacement.
 
-Ctrl+Shift+P (or F1) opens the command palette: every command that
-applies, by its title, with its category and keys. Type part of a title
-to find it; a command's ID (=org.todo.cycle=, or =org todo cycle=)
-finds it too, and =kalem commands= lists the IDs. Commands that need
-something, such as a heading level, ask for it. What you type there, as
-in any question Kalem asks, is edited as a line: the left and right
-arrows, Home, End, Backspace and Delete, by words with Ctrl (Option on
-macOS). In a terminal the palette is Ctrl+G, and the status line says so.
+Ctrl+Shift+P (or F1; Ctrl+G in a terminal) opens the command palette:
+every command that applies, by its title, with its category and keys.
+Type part of a title, or a command's ID (=org.todo.cycle=, or =org
+todo cycle=; =kalem commands= lists them). Commands that need
+something, such as a heading level, ask for it. What you type there,
+as in any question Kalem asks, is edited as a line: the arrows, Home,
+End, Backspace and Delete, by words with Ctrl (Option on macOS).
 
 /Search Lines/ (=SPC s b= with Vim keys, and =SPC s s=) lists the lines
 of the document that hold every word typed, in any order, and the
-cursor goes to the chosen one as you move through the list: Enter stays
-there, Escape goes back. Lower-case words match either case; a word
-with a capital matches exactly. =SPC s B= searches every open document,
-=SPC s i= lists the headings (=SPC s I= of every open document), and
-=SPC s S= starts with the word at the cursor. =SPC s d= searches the
-files under the document's folder, =SPC s D= another folder, =SPC s P=
-another project, and =SPC s o= looks the word or the selection up
-online (the setting =search.online_url= says where). =SPC *= searches
-the project for the word at the cursor, or the selection.
+cursor follows the list: Enter stays there, Escape goes back.
+Lower-case words match either case; a word with a capital matches
+exactly. =SPC s B= searches every open document, =SPC s i= lists the
+headings (=SPC s I= of every open document), =SPC s S= starts with the
+word at the cursor, =SPC s d= searches the files under the document's
+folder, =SPC s D= another folder, =SPC s P= another project, =SPC s o=
+looks the word or the selection up online (=search.online_url= says
+where), and =SPC *= searches the project for the word at the cursor or
+the selection.
 
 Bookmarks are named places in files: /Set Bookmark/ (=SPC b m=) names
 the cursor's place (the file and line when you give no name), /Jump to
-Bookmark/ (=SPC RET= or =SPC s m=) lists them and opens the chosen one
-at its place, and /Delete Bookmark/ (=SPC b M=) takes one away. They
-are kept in =bookmarks.json= in Kalem's state folder, for every project,
-with the text of the bookmarked line, so a bookmark follows its line
-when lines are added above it.
+Bookmark/ (=SPC RET= or =SPC s m=) lists them and opens one at its
+place, and /Delete Bookmark/ (=SPC b M=) takes one away. They are kept
+in =bookmarks.json= in Kalem's state folder, for every project, with
+the text of their line, so a bookmark follows its line when lines are
+added above it.
 
 The menus hold the commands of the document you are in: a LaTeX file
-has LaTeX's, a CSV file a Table menu. On macOS they are in the menu bar
-at the top of the screen; on Linux and Windows the window has its own
-menu bar above the toolbar (the setting =ui.menu_bar = false= hides
-it). F10 lists every menu item in the palette, titled with its menu
-(/Edit › Select All/), in both editors: it is how the terminal editor,
-which has no menu bar, reaches them. Where this book names a menu item,
-F10 and its name find it.
+has LaTeX's, a CSV file a Table menu. On macOS they are in the menu
+bar at the top of the screen; on Linux and Windows the window has its
+own menu bar above the toolbar (=ui.menu_bar = false= hides it). F10
+lists every menu item in the palette, titled with its menu (/Edit ›
+Select All/), in both editors; it is how the terminal editor, which
+has no menu bar, reaches them. Where this book names a menu item, F10
+and its name find it.
