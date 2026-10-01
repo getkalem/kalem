@@ -226,6 +226,18 @@ pub const SPECS: &[Spec] = &[
         description: "The TeX engine for LaTeX documents: auto (from % !TEX program and the packages), pdflatex, xelatex, lualatex or tectonic",
     },
     Spec {
+        key: "keys.hints",
+        kind: Kind::Bool,
+        default: "true",
+        description: "Show the keys that may follow a half-typed key sequence (which-key)",
+    },
+    Spec {
+        key: "keys.hints_delay",
+        kind: Kind::Int(0, 5000),
+        default: "400",
+        description: "How long a half-typed key sequence waits before its keys show, in milliseconds",
+    },
+    Spec {
         key: "latex.root",
         kind: Kind::Str,
         default: r#""""#,

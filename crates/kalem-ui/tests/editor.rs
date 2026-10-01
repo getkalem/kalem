@@ -1635,8 +1635,8 @@ fn doom_leader_keys(cx: &mut TestAppContext) {
             .which_key(&e.shared.registry, &seq, &e.context())
     });
     assert!(
-        hint.contains(&("p".to_string(), "+Project".to_string()))
-            && hint.contains(&("f".to_string(), "+File".to_string())),
+        hint.contains(&("p".to_string(), "+project".to_string()))
+            && hint.contains(&("f".to_string(), "+file".to_string())),
         "{hint:?}"
     );
     cx.simulate_keystrokes("b p");
