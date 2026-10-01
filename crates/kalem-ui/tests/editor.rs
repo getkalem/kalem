@@ -1738,8 +1738,12 @@ fn file_manager_context_menu(cx: &mut TestAppContext) {
             })
     });
     assert_eq!(first.as_deref(), Some("Open"));
-    // Its Copy item puts the file on the file clipboard.
+    // The item under the pointer is marked.
     let copy = cx.debug_bounds("context-3").expect("Copy");
+    cx.simulate_mouse_move(copy.center(), None, gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.menu_hover), Some(3));
+    // Its Copy item puts the file on the file clipboard.
     cx.simulate_click(copy.center(), gpui::Modifiers::default());
     cx.run_until_parked();
     assert!(e.read_with(cx, |e, _| e.context_menu.is_none()));

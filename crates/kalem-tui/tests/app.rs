@@ -4317,13 +4317,19 @@ fn projects_view_menu_removes_and_adds() {
     assert!(shown.contains("proj"), "{shown}");
     let row = t.app.doc.text().as_str().find("proj").unwrap();
     t.at(row);
-    t.app.run_command("dired.contextMenu", serde_json::Value::Null);
+    t.app
+        .run_command("dired.contextMenu", serde_json::Value::Null);
     t.typ("Remove from Projects");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
-    assert!(t.app.projects.list.list.is_empty(), "{:?}", t.app.projects.list);
+    assert!(
+        t.app.projects.list.list.is_empty(),
+        "{:?}",
+        t.app.projects.list
+    );
     assert!(dir.join("proj/a.org").exists());
     // Add Project Folder… asks for the folder.
-    t.app.run_command("dired.contextMenu", serde_json::json!({ "listing": true }));
+    t.app
+        .run_command("dired.contextMenu", serde_json::json!({ "listing": true }));
     t.typ("Add Project");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     for _ in 0..200 {

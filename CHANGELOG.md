@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The file manager's menu marks the item under the pointer in the selection's color (it was too faint to see).
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added

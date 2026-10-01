@@ -347,6 +347,8 @@ pub struct Editor {
     pub cite_hover: Option<(Point<Pixels>, String)>,
     /// The file manager's context menu, where it opened (T2.7e.17).
     pub context_menu: Option<(Point<Pixels>, Vec<kalem_core::dired::ContextItem>)>,
+    /// The context menu's item under the pointer.
+    pub menu_hover: Option<usize>,
     /// Formulas drawn rendered (else as their source).
     pub math: bool,
     /// The document's `\newcommand`s for formulas, for a text version.
@@ -471,6 +473,7 @@ impl Editor {
             cite_preview: Default::default(),
             cite_hover: None,
             context_menu: None,
+            menu_hover: None,
             math: true,
             math_macros: RefCell::new((u64::MAX, Rc::from(""))),
             focus_mode: false,
@@ -2704,6 +2707,7 @@ impl Editor {
         }
         let items = kalem_core::dired::context_menu(&self.doc, on_entry);
         self.context_menu = Some((ev.position, items));
+        self.menu_hover = None;
         cx.notify();
     }
 
@@ -2714,7 +2718,9 @@ impl Editor {
         };
         let (at, items) = self.context_menu.clone()?;
         let theme = self.theme.clone();
-        let hover = gpui::hsla(0., 0., 0.5, 0.15);
+        // The item under the pointer, in the selection's color.
+        let hover = theme.selection;
+        let hovered = self.menu_hover;
         let mut list = div()
             .id("context-menu")
             .occlude()
@@ -2755,13 +2761,25 @@ impl Editor {
                         .child(label)
                         .child(div().text_color(theme.muted).child(keys));
                     if enabled {
-                        row =
-                            row.cursor_pointer()
-                                .hover(move |s| s.bg(hover))
-                                .on_click(cx.listener(move |this, _, window, cx| {
-                                    this.context_menu = None;
-                                    this.run_command(id, args.clone(), window, cx);
-                                }));
+                        if hovered == Some(n) {
+                            row = row.bg(hover);
+                        }
+                        row = row
+                            .cursor_pointer()
+                            .hover(move |s| s.bg(hover))
+                            .on_hover(cx.listener(move |this, on: &bool, _, cx| {
+                                if *on {
+                                    this.menu_hover = Some(n);
+                                } else if this.menu_hover == Some(n) {
+                                    this.menu_hover = None;
+                                }
+                                cx.notify();
+                            }))
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.context_menu = None;
+                                this.menu_hover = None;
+                                this.run_command(id, args.clone(), window, cx);
+                            }));
                     } else {
                         row = row.text_color(theme.muted);
                     }
