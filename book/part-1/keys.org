@@ -37,8 +37,13 @@ a file), =:e!= (Revert to Saved), =:enew= (a new document), =:bn=,
 file manager, and =:Projects= the projects. =gt= and =gT= go to the next
 and previous document.
 
-Space is the leader, as in Doom Emacs. Press it and a panel shows what can
-follow:
+Space is the leader, as in Doom Emacs. Press it, wait a moment
+(=keys.hints_delay=, 400 ms), and a panel shows what can follow: each key
+with its command, groups under Doom's names (=+file=, =+buffer=,
+=+project=…), and Doom's keys Kalem does not bind yet marked "(later)", or
+"(plugin)" when a plugin will bring them. The same panel follows any
+prefix, =C-x= and =C-c= of the Emacs keys too; =keys.hints = false= turns
+it off. The leader's first keys:
 
 | Keys                 | Command                                     |
 |----------------------+---------------------------------------------|

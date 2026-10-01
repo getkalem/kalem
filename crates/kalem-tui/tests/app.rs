@@ -1361,18 +1361,23 @@ fn documents_and_projects_in_the_terminal() {
 
 #[test]
 fn doom_keys_in_the_terminal() {
-    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.keymap_profile = \"vim\"\nkeys.hints_delay = 0\n",
+    )]);
     let (mut t, dir) = project_app(config);
     t.app.run_command(
         "file.open",
         serde_json::json!({ "path": dir.join("loose.org").display().to_string() }),
     );
     assert_eq!(title(&t), "loose.org");
-    // Space shows what follows above the status line; SPC b p goes back.
+    // Space shows what follows above the status line, with Doom's group
+    // names; SPC b p goes back.
     t.typ(" ");
     let rows = screen(&mut t).join("\n");
     assert!(
-        rows.contains("p → +Project") && rows.contains("f → +File"),
+        rows.contains("p → +project") && rows.contains("f → +file"),
         "{rows}"
     );
     t.typ("bp");
@@ -2433,13 +2438,16 @@ fn bookmarks_set_and_jumped_to() {
     kalem_core::bookmarks::use_file(Some(state.join("bookmarks.json")));
     let mut t = with_file("one\ntwo\nthree\n", "b.org", Config::default(), (40, 6));
     t.at(5);
-    t.app.run_command("bookmark.set", serde_json::json!({"name": "two"}));
+    t.app
+        .run_command("bookmark.set", serde_json::json!({"name": "two"}));
     t.at(0);
     t.typ("zero\n");
-    t.app.run_command("bookmark.goto", serde_json::json!({"name": "two"}));
+    t.app
+        .run_command("bookmark.goto", serde_json::json!({"name": "two"}));
     // The file was not saved: the bookmark's line as set, the second.
     assert_eq!(t.app.doc.text().line_of(t.app.doc.selection.head), 1);
-    t.app.run_command("bookmark.delete", serde_json::json!({"name": "two"}));
+    t.app
+        .run_command("bookmark.delete", serde_json::json!({"name": "two"}));
     assert!(kalem_core::bookmarks::load().is_empty());
     let _ = std::fs::remove_dir_all(&state);
 }

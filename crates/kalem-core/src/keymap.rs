@@ -584,6 +584,47 @@ impl Keymap {
             };
             parts.push((key.to_string(), label));
         }
+        // After the leader: Doom's group names, and its keys Kalem does
+        // not bind yet, marked (T2.7i.19).
+        let leader = pressed
+            .0
+            .first()
+            .is_some_and(|c| c.key == "space" && c.mods == crate::keys::Modifiers::default());
+        if leader {
+            if pressed.0.len() == 1 {
+                for (k, label) in parts.iter_mut() {
+                    if label.starts_with('+')
+                        && let Some(name) = doom_group(k)
+                    {
+                        *label = format!("+{name}");
+                    }
+                }
+            }
+            for row in crate::key_tables::doom_leader() {
+                let (Some(reason), Some(keys)) = (&row.reason, KeySequence::parse(&row.keys))
+                else {
+                    continue;
+                };
+                let later = ["Planned", "Not yet", "Waits", "Needs"]
+                    .iter()
+                    .any(|p| reason.starts_with(p));
+                if !later || !keys.starts_with(pressed) || keys.0.len() <= pressed.0.len() {
+                    continue;
+                }
+                let next = keys.0[pressed.0.len()].to_string();
+                if !seen.insert(keys.0[pressed.0.len()].clone()) {
+                    continue;
+                }
+                let label = if keys.0.len() > pressed.0.len() + 1 {
+                    format!("+{}", doom_group(&next).unwrap_or("…"))
+                } else if reason.starts_with("Needs") {
+                    format!("{} ({})", row.what, crate::tr!("which-key-plugin"))
+                } else {
+                    format!("{} ({})", row.what, crate::tr!("which-key-later"))
+                };
+                parts.push((next, label));
+            }
+        }
         parts
     }
 
@@ -648,6 +689,46 @@ impl Keymap {
     }
 }
 
+/// Whether the keys after a sequence half-typed since `since` show now
+/// (`keys.hints`, after `keys.hints_delay`), and if not, how long until
+/// they do (`None`: never).
+pub fn hints_due(
+    config: &crate::settings::Config,
+    since: Option<std::time::Instant>,
+    now: std::time::Instant,
+) -> Option<std::time::Duration> {
+    let since = since?;
+    if !config.bool("keys.hints") {
+        return None;
+    }
+    let delay = std::time::Duration::from_millis(config.int("keys.hints_delay").max(0) as u64);
+    Some(delay.saturating_sub(now.saturating_duration_since(since)))
+}
+
+/// Doom Emacs's name for the group of leader keys after `key`.
+fn doom_group(key: &str) -> Option<&'static str> {
+    Some(match key {
+        "b" => "buffer",
+        "f" => "file",
+        "s" => "search",
+        "w" => "window",
+        "p" => "project",
+        "t" => "toggle",
+        "o" => "open",
+        "h" => "help",
+        "c" => "code",
+        "g" => "git",
+        "n" => "notes",
+        "i" => "insert",
+        "q" => "quit",
+        "tab" => "workspace",
+        "m" => "localleader",
+        "r" => "remote",
+        "a" => "actions",
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -701,6 +782,36 @@ mod tests {
     /// Typing text never runs a command: no binding of a printable key
     /// without Control, Alt or Command applies in a document, outside
     /// Vim's normal mode (file manager keys are for listings only).
+    #[test]
+    fn which_key_after_the_leader() {
+        let reg = CommandRegistry::with_builtins();
+        let (m, _) = Keymap::build(&reg, Profile::Vim, &[]);
+        let ctx = org_ctx(&["hasFile", "inProject", "vimCommand"]);
+        let items = m.which_key(&reg, &keys("space"), &ctx);
+        let label = |k: &str| items.iter().find(|i| i.0 == k).map(|i| i.1.clone());
+        // Doom's group names.
+        assert_eq!(label("f").as_deref(), Some("+file"));
+        assert_eq!(label("b").as_deref(), Some("+buffer"));
+        // A Doom key Kalem does not bind yet, marked.
+        assert!(label("u").is_some_and(|l| l.ends_with(')')), "{items:?}");
+    }
+
+    #[test]
+    fn hints_wait_their_delay() {
+        let config = crate::settings::Config::default();
+        let t = std::time::Instant::now();
+        let ms = std::time::Duration::from_millis;
+        assert_eq!(hints_due(&config, None, t), None);
+        assert_eq!(hints_due(&config, Some(t), t), Some(ms(400)));
+        assert_eq!(hints_due(&config, Some(t), t + ms(500)), Some(ms(0)));
+        let config = crate::settings::Config::from_layers(&[(
+            crate::settings::Layer::User,
+            None,
+            "[keys]\nhints = false\n",
+        )]);
+        assert_eq!(hints_due(&config, Some(t), t + ms(500)), None);
+    }
+
     #[test]
     fn typed_characters_are_text() {
         let reg = CommandRegistry::with_builtins();

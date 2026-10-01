@@ -250,6 +250,10 @@ pub struct Editor {
     pub theme: Theme,
     /// Keys of a sequence typed so far (`space p`, `C-c`).
     pub pending: Vec<KeyChord>,
+    /// When the half-typed sequence began, for the which-key delay.
+    pub pending_at: Option<Instant>,
+    /// Whether the which-key panel was asked for since `pending_at`.
+    pub hints_drawn: bool,
     /// IME composition in progress.
     pub marked: Option<Range<usize>>,
     /// Lines as last painted, by source line.
@@ -398,6 +402,8 @@ impl Editor {
             folded_blocks: HashSet::new(),
             theme,
             pending: Vec::new(),
+            pending_at: None,
+            hints_drawn: false,
             marked: None,
             painted: Rc::default(),
             status: None,
@@ -1789,6 +1795,10 @@ impl Editor {
             cx.stop_propagation();
             return;
         }
+        if self.pending.is_empty() {
+            self.pending_at = Some(Instant::now());
+            self.hints_drawn = false;
+        }
         self.pending.push(chord);
         let seq = KeySequence(self.pending.clone());
         let ctx = self.context();
@@ -2737,6 +2747,16 @@ impl Editor {
     /// Background work: a finished background parse restyles the lines.
     pub fn tick(&mut self, cx: &mut Context<'_, Self>) {
         self.tick_palette(cx);
+        // The which-key panel once its delay has passed.
+        if !self.pending.is_empty()
+            && let Some(d) =
+                kalem_core::keymap::hints_due(&self.shared.config, self.pending_at, Instant::now())
+            && d.is_zero()
+            && !self.hints_drawn
+        {
+            self.hints_drawn = true;
+            cx.notify();
+        }
         // Events: edits after their pause, and those raised elsewhere.
         {
             let mut bus = self.shared.bus.borrow_mut();
@@ -3284,6 +3304,12 @@ impl Editor {
     fn which_key_view(&self) -> Option<gpui::AnyElement> {
         use gpui::{IntoElement, ParentElement, Styled, div};
         if self.pending.is_empty() {
+            return None;
+        }
+        // After `keys.hints_delay`, unless `keys.hints` is off.
+        let due =
+            kalem_core::keymap::hints_due(&self.shared.config, self.pending_at, Instant::now());
+        if due.is_none_or(|d| !d.is_zero()) {
             return None;
         }
         let seq = KeySequence(self.pending.clone());

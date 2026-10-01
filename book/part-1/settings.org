@@ -33,6 +33,8 @@ one, generated from the code.
 | =editor.keymap_profile=                  | ="word"=   | =word= or =vim=                                                                    |
 | =editor.vim.modes=                       | =[]=       | Kinds of documents with Vim keys; empty for all                                    |
 | =editor.vim.leader=                      | ="space"=  | The leader of the Vim keys (=SPC p p=)                                             |
+| =keys.hints=                             | =true=     | The panel of keys that may follow a prefix (=SPC=, =C-x=)                          |
+| =keys.hints_delay=                       | =400=      | Milliseconds before that panel shows                                               |
 | =ui.open_files=                          | ="left"=   | Open files on the =left=, at the =top=, =hidden=                                   |
 | =ui.menu_bar=                            | =true=     | The window's menu bar on Linux and Windows (macOS has its own)                     |
 | =ui.folder_tree=                         | =true=     | The project's folders and files below the open files on the left                   |

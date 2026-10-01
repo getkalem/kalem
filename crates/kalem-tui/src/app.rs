@@ -138,6 +138,8 @@ pub struct App {
     /// The terminal's capabilities.
     pub caps: Caps,
     pending: Vec<KeyChord>,
+    /// When the half-typed sequence began, for the which-key delay.
+    pending_at: Option<Instant>,
     status: Option<Status>,
     prompt: Option<Prompt>,
     debouncer: ChangeDebouncer,
@@ -410,6 +412,7 @@ impl App {
             editor: EditorView::default(),
             caps,
             pending: Vec::new(),
+            pending_at: None,
             status: None,
             prompt: None,
             debouncer: ChangeDebouncer::new(Duration::from_millis(300)),
@@ -2706,6 +2709,9 @@ impl App {
             return;
         }
         if let Some(chord) = input::chord(&k, self.caps.kitty_keyboard) {
+            if self.pending.is_empty() {
+                self.pending_at = Some(Instant::now());
+            }
             self.pending.push(chord);
             let seq = KeySequence(self.pending.clone());
             let ctx = self.context();
@@ -3301,6 +3307,13 @@ impl App {
     /// How long the event loop may wait for input.
     pub fn timeout(&self, now: Instant) -> Duration {
         let mut t = Duration::from_millis(500);
+        // The which-key panel when its delay has passed.
+        if !self.pending.is_empty()
+            && let Some(d) = kalem_core::keymap::hints_due(&self.config, self.pending_at, now)
+            && !d.is_zero()
+        {
+            t = t.min(d);
+        }
         if !self.jobs.is_empty() {
             t = t.min(Duration::from_millis(30));
         }
@@ -3456,7 +3469,8 @@ impl App {
         if let Some(p) = &self.palette {
             p.draw(f.buffer_mut(), text_area, &self.caps);
         }
-        if !self.pending.is_empty() {
+        let due = kalem_core::keymap::hints_due(&self.config, self.pending_at, Instant::now());
+        if !self.pending.is_empty() && due.is_some_and(|d| d.is_zero()) {
             let seq = KeySequence(self.pending.clone());
             let items = self.keymap.which_key(&self.registry, &seq, &self.context());
             crate::panels::draw_which_key(f.buffer_mut(), text_area, &items, &self.caps);
