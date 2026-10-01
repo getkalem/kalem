@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The local leader `SPC m` for Org, LaTeX and Markdown as Doom has it, each key's command or reason in the Book; Markdown's Bold, Italic, Code and Insert Link (Ctrl+B, Ctrl+I, Ctrl+K) (T2.7i.16, T2.7i.17).
 - Markdown: the front matter folds to its first line while the cursor is away from it, in both editors (T2.7c.3).
 - Markdown tables: Org's table keys move, insert and delete rows and columns, and Sort Rows by Column sorts the body (T2.7c.4).
 - LaTeX: a keystroke in a large file of a project no longer numbers the project again when it only moves the file's events: 21 ms to 2.2 ms in the Stacks project's `algebra.tex` (T2.7h.35).
