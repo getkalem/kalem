@@ -41,8 +41,11 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | LaTeX document model, 1 MB paper, first build / after an edit (=latex-model=, =--example timing=)                                        | 21 ms / 6.7 ms           | ---                 |
 | LaTeX mode, 1 MB paper: opening (parse and state)                                                                                        | 50 ms                    | under 200 ms        |
 | LaTeX mode, 1 MB paper: a keystroke with the model, the blocks and a screen of 50 lines, p50 / p99 (=kalem-core --example latex_timing=) | 10.7 ms / 15.8 ms        | under 16 ms         |
+| LaTeX project, keystroke in the Stacks project's 1.8 MB =algebra.tex=: the project's model, p50 (=latex_keystroke=)                      | 2.2 ms (was 21 ms)       | under 2 ms          |
 
-Every target is met. The binary size target includes math fonts, which come with phase 2 (T2.2.1).
+Every target is met but the last, a fifth over it on this machine. An edit that only moves the events of a file (typing in a paragraph, the common keystroke) moves the last model's positions instead of numbering the project again; the edit's region comes from the shared nodes of the two trees, and a test of random edits checks the result against a model built from scratch (=latex-model/tests/incremental.rs=). The files of the project are trusted from disk for a second between checks.
+
+The binary size target includes math fonts, which come with phase 2 (T2.2.1).
 
 * Where the time goes
 A full parse of the Org manual takes 42 ms (about 20 MB/s). Opening an Org document is mostly this parse, so the tightest targets are the ones that parse a 1 MB file: =check=, =fmt= and opening in the graphical editor. What made them fit:

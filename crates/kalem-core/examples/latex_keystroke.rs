@@ -20,6 +20,7 @@ fn main() {
     let mid = d.text().len() / 2;
     let at = d.text().line_range(d.text().line_of(mid)).start;
     let (mut apply, mut model, mut view) = (0.0, 0.0, 0.0);
+    let mut models = Vec::new();
     let n = 20;
     for i in 0..n {
         let t = Instant::now();
@@ -30,6 +31,7 @@ fn main() {
         let t = Instant::now();
         std::hint::black_box(d.latex().unwrap().model());
         model += t.elapsed().as_secs_f64();
+        models.push(t.elapsed().as_secs_f64());
         let t = Instant::now();
         let r = d.text().line_range(d.text().line_of(at));
         for l in 0..50 {
@@ -63,6 +65,8 @@ fn main() {
     }
     let ms = |x: f64| x / n as f64 * 1000.0;
     println!("own model alone {:.2} ms", ms(own));
+    models.sort_by(f64::total_cmp);
+    println!("model p50 {:.2} ms", models[models.len() / 2] * 1000.0);
     println!(
         "per keystroke: apply {:.2} ms, model {:.2} ms, 50 lines drawn {:.2} ms",
         ms(apply),

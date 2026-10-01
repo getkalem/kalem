@@ -386,6 +386,56 @@ impl Model {
         Cache::default().model(parse).as_ref().clone()
     }
 
+    /// The positions in file `file` moved by `region` (an edit that left
+    /// its events as they were, moved); `false`, the model half moved,
+    /// when one falls inside the region.
+    pub(crate) fn move_positions(&mut self, file: usize, region: &extract::Region) -> bool {
+        let f = |r: &mut Range<usize>| match (region.map(r.start), region.map(r.end)) {
+            (Some(s), Some(e)) => {
+                *r = s..e;
+                true
+            }
+            _ => false,
+        };
+        let mut ok = true;
+        if file == 0 {
+            ok &= f(&mut self.preamble);
+            if let Some(b) = &mut self.body {
+                ok &= f(b);
+            }
+        }
+        macro_rules! each {
+            ($v:expr) => {
+                for x in $v.iter_mut().filter(|x| x.file == file) {
+                    ok &= f(&mut x.range);
+                }
+            };
+        }
+        if let Some(c) = self.class.as_mut().filter(|c| c.file == file) {
+            ok &= f(&mut c.range);
+        }
+        each!(self.packages);
+        each!(self.sections);
+        each!(self.labels);
+        each!(self.references);
+        each!(self.citations);
+        for fl in &mut self.floats {
+            if fl.file == file {
+                ok &= f(&mut fl.range);
+            }
+            each!(fl.captions);
+        }
+        each!(self.equations);
+        each!(self.theorems);
+        each!(self.footnotes);
+        each!(self.macros);
+        each!(self.environments);
+        each!(self.bibliography);
+        each!(self.includes);
+        each!(self.contents_lines);
+        ok
+    }
+
     /// A project's model as seen from its file `this`: that file becomes
     /// file 0 and the root document takes its index, so that what is in
     /// `this` has `file == 0` as in the model of one document, and
@@ -468,6 +518,8 @@ impl Model {
 pub struct Cache {
     events: extract::Cache,
     last: Option<(rowan::GreenNode, Arc<Model>)>,
+    /// The events of the last version.
+    items: Option<Arc<Vec<Item>>>,
 }
 
 impl Cache {
@@ -480,11 +532,34 @@ impl Cache {
             return m.clone();
         }
         let root = parse.syntax();
-        let items = self.events.document(&root);
+        let items = Arc::new(self.events.document(&root));
         let len = usize::from(root.text_range().end());
-        let m = Arc::new(number(&items, len, None));
+        // The same events, moved by the edit: the same numbers, moved.
+        let moved = match (self.last.take(), &self.items) {
+            (Some((g, m)), Some(old)) => {
+                let region = extract::Region::between(&g, parse.green());
+                if extract::same_moved(old, 0, &items, 0, &region) {
+                    // In place when nobody else holds the last model.
+                    let mut m = Arc::try_unwrap(m).unwrap_or_else(|m| Model::clone(&m));
+                    m.move_positions(0, &region).then_some(m)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+        let m = Arc::new(moved.unwrap_or_else(|| number(&items, len, None)));
         self.last = Some((parse.green().clone(), m.clone()));
+        self.items = Some(items);
         m
+    }
+
+    /// The events of `parse`, when they are those of the last model.
+    pub(crate) fn items_of(&self, parse: &latex_syntax::Parse) -> Option<Arc<Vec<Item>>> {
+        let (g, _) = self.last.as_ref()?;
+        std::ptr::eq::<rowan::GreenNodeData>(&**g, &**parse.green())
+            .then(|| self.items.clone())
+            .flatten()
     }
 }
 

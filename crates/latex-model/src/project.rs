@@ -198,6 +198,35 @@ pub struct Project {
 pub struct ProjectCache {
     /// Each file's text, parse, events cache and last events.
     files: HashMap<PathBuf, CachedFile>,
+    /// The last project loaded, with the events of each of its files.
+    last: Option<Loaded>,
+}
+
+/// A project as last loaded.
+#[derive(Debug)]
+struct Loaded {
+    root: PathBuf,
+    model: Arc<Model>,
+    /// The events of each file, by its index in the model's files.
+    items: Vec<Option<Arc<Vec<Item>>>>,
+    /// How the model came from the one before.
+    change: Change,
+    /// How many times it was loaded.
+    generation: u64,
+    /// The model as seen from a file ([`ProjectCache::seen_from`]), and
+    /// the load it was made for.
+    seen: Option<(usize, u64, Arc<Model>)>,
+}
+
+/// How a project's model came from the one before.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Change {
+    /// Numbered again.
+    New,
+    /// The same.
+    Same,
+    /// The positions of one file moved.
+    Moved(usize, extract::Region),
 }
 
 /// A file of a project as the cache keeps it.
@@ -208,6 +237,8 @@ struct CachedFile {
     events: extract::Cache,
     /// The events of `parse`, while it stays the same.
     items: Option<Arc<Vec<Item>>>,
+    /// The parse and events before the last change, to see what moved.
+    prev: Option<(Parse, Arc<Vec<Item>>)>,
 }
 
 impl CachedFile {
@@ -217,7 +248,18 @@ impl CachedFile {
             parse: latex_syntax::parse(""),
             events: extract::Cache::default(),
             items: None,
+            prev: None,
         }
+    }
+
+    /// A new parse: the events of the old one kept to compare.
+    fn replace(&mut self, text: Arc<str>, parse: Parse) {
+        if let Some(items) = self.items.take() {
+            self.prev = Some((std::mem::replace(&mut self.parse, parse), items));
+        } else {
+            self.parse = parse;
+        }
+        self.text = text;
     }
 }
 
@@ -231,10 +273,11 @@ impl ProjectCache {
             .or_insert_with(CachedFile::new);
         if !Arc::ptr_eq(&entry.text, &text) {
             if *entry.text != *text {
-                entry.parse = latex_syntax::parse(&text);
-                entry.items = None;
+                let parse = latex_syntax::parse(&text);
+                entry.replace(text, parse);
+            } else {
+                entry.text = text;
             }
-            entry.text = text;
         }
         if let Some(items) = &entry.items {
             return items.clone();
@@ -252,16 +295,151 @@ impl ProjectCache {
             .files
             .entry(path.to_path_buf())
             .or_insert_with(CachedFile::new);
-        entry.text = text;
-        entry.parse = parse;
-        entry.items = None;
+        entry.replace(text, parse);
+    }
+
+    /// [`ProjectCache::set_parse`], with the events the document's own
+    /// model read from the same parse (read once, not twice).
+    pub fn set_parse_from(
+        &mut self,
+        path: &Path,
+        text: Arc<str>,
+        parse: Parse,
+        own: &crate::Cache,
+    ) {
+        let items = own.items_of(&parse);
+        self.set_parse(path, text, parse);
+        if let Some(entry) = self.files.get_mut(path) {
+            entry.items = items;
+        }
+    }
+
+    /// The last project again, when its files' events are the same but
+    /// for one file whose events only moved with an edit: its model with
+    /// that file's positions moved, without numbering the project again.
+    fn moved(&mut self, root: &Path, files: &dyn Files) -> Option<Arc<Model>> {
+        let mut last = self.last.take()?;
+        if last.root != root {
+            return None;
+        }
+        // Which file's events changed.
+        let mut changed = None;
+        for i in 0..last.model.files.len() {
+            let path = last.model.files[i].clone();
+            let text = files.read_shared(&path)?;
+            let items = self.items(&path, text);
+            if last
+                .items
+                .get(i)?
+                .as_ref()
+                .is_some_and(|l| Arc::ptr_eq(l, &items))
+            {
+                continue;
+            }
+            if changed.is_some() {
+                return None;
+            }
+            changed = Some((i, items));
+        }
+        last.generation += 1;
+        let Some((i, items)) = changed else {
+            last.change = Change::Same;
+            let m = last.model.clone();
+            self.last = Some(last);
+            return Some(m);
+        };
+        let entry = self.files.get(&last.model.files[i])?;
+        let (prev_parse, prev_items) = entry.prev.as_ref()?;
+        let old = last.items[i].as_ref()?;
+        if !Arc::ptr_eq(prev_items, old) {
+            return None;
+        }
+        let region = extract::Region::between(prev_parse.green(), entry.parse.green());
+        if !extract::same_moved(old, 0, &items, 0, &region) {
+            return None;
+        }
+        // In place when nobody else holds the last model.
+        let model = std::mem::take(&mut last.model);
+        let mut m = Arc::try_unwrap(model).unwrap_or_else(|m| Model::clone(&m));
+        if !m.move_positions(i, &region) {
+            return None;
+        }
+        let model = Arc::new(m);
+        last.model = model.clone();
+        last.items[i] = Some(items);
+        last.change = Change::Moved(i, region);
+        self.last = Some(last);
+        Some(model)
+    }
+
+    /// The last project's model as seen from its file `this` (see
+    /// [`Model::seen_from`]), with that file's `preamble` and `body`: the
+    /// one given last time, moved as the project's model moved, when it
+    /// can be.
+    pub fn seen_from(
+        &mut self,
+        this: usize,
+        preamble: std::ops::Range<usize>,
+        body: Option<std::ops::Range<usize>>,
+    ) -> Option<Arc<Model>> {
+        let last = self.last.as_mut()?;
+        if this == 0 && last.model.preamble == preamble && last.model.body == body {
+            return Some(last.model.clone());
+        }
+        let generation = last.generation;
+        let cached = last
+            .seen
+            .take()
+            .filter(|(t, g, _)| *t == this && (*g == generation || *g + 1 == generation));
+        let fresh = |model: &Model| model.seen_from(this);
+        let mut m = match cached {
+            Some((_, g, m)) if g == generation || last.change == Change::Same => {
+                if m.preamble == preamble && m.body == body {
+                    last.seen = Some((this, generation, m.clone()));
+                    return Some(m);
+                }
+                Arc::try_unwrap(m).unwrap_or_else(|m| Model::clone(&m))
+            }
+            Some((_, _, m)) => match last.change {
+                Change::Moved(i, region) => {
+                    // The files `this` and 0 trade places in the view.
+                    let f = if i == this {
+                        0
+                    } else if i == 0 {
+                        this
+                    } else {
+                        i
+                    };
+                    let mut m = Arc::try_unwrap(m).unwrap_or_else(|m| Model::clone(&m));
+                    if m.move_positions(f, &region) {
+                        m
+                    } else {
+                        fresh(&last.model)
+                    }
+                }
+                _ => fresh(&last.model),
+            },
+            None => fresh(&last.model),
+        };
+        m.preamble = preamble;
+        m.body = body;
+        let m = Arc::new(m);
+        last.seen = Some((this, generation, m.clone()));
+        Some(m)
     }
 
     /// The project whose root document is `root`.
     pub fn load(&mut self, root: &Path, files: &dyn Files) -> Project {
+        if let Some(model) = self.moved(root, files) {
+            return Project {
+                root: root.to_path_buf(),
+                model,
+            };
+        }
         let text = files.read_shared(root).unwrap_or_else(|| Arc::from(""));
         let len = text.len();
         let items = self.items(root, text);
+        let mut used: Vec<Option<Arc<Vec<Item>>>> = vec![Some(items.clone())];
         let root_dir = root.parent().unwrap_or(Path::new("")).to_path_buf();
         // The files, and the folder `\input` reads from in each.
         let mut paths: Vec<PathBuf> = vec![root.to_path_buf()];
@@ -300,16 +478,29 @@ impl ProjectCache {
                     None => {
                         paths.push(path.clone());
                         bases.push(base);
+                        used.push(None);
                         paths.len() - 1
                     }
                 };
-                Some((id, self.items(&path, text)))
+                let items = self.items(&path, text);
+                used[id] = Some(items.clone());
+                Some((id, items))
             };
         let mut model = crate::number(&items, len, Some(&mut resolve));
         model.files = paths;
+        let model = Arc::new(model);
+        let generation = self.last.as_ref().map_or(0, |l| l.generation + 1);
+        self.last = Some(Loaded {
+            root: root.to_path_buf(),
+            model: model.clone(),
+            items: used,
+            change: Change::New,
+            generation,
+            seen: None,
+        });
         Project {
             root: root.to_path_buf(),
-            model: Arc::new(model),
+            model,
         }
     }
 }

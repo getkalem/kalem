@@ -11,14 +11,14 @@ use latex_syntax::{SyntaxElement, SyntaxKind::*, SyntaxNode, signatures};
 use rowan::{GreenNode, NodeOrToken};
 
 /// An argument of a command, in order.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Arg {
     Star,
     Opt(String),
     Mand(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Event {
     Class {
         name: String,
@@ -154,21 +154,233 @@ pub(crate) enum Event {
     },
 }
 
+impl Event {
+    /// Every position of the event (relative to its paragraph) through
+    /// `f`; `false` when `f` gives none for one.
+    fn map_positions(&mut self, f: &dyn Fn(usize) -> Option<usize>) -> bool {
+        let range = |r: &mut Range<usize>| match (f(r.start), f(r.end)) {
+            (Some(s), Some(e)) => {
+                *r = s..e;
+                true
+            }
+            _ => false,
+        };
+        match self {
+            Event::Class { range: r, .. }
+            | Event::Package { range: r, .. }
+            | Event::Section { range: r, .. }
+            | Event::Label { range: r, .. }
+            | Event::Ref { range: r, .. }
+            | Event::Cite { range: r, .. }
+            | Event::Caption { range: r, .. }
+            | Event::Footnote { range: r, .. }
+            | Event::Macro { range: r, .. }
+            | Event::NewEnvironment { range: r, .. }
+            | Event::Bibliography { range: r, .. }
+            | Event::ContentsLine { range: r, .. }
+            | Event::Include { range: r, .. } => range(r),
+            Event::EnvEnter { range: r, body, .. } => range(r) && range(body),
+            Event::LineBreak { at } => match f(*at) {
+                Some(a) => {
+                    *at = a;
+                    true
+                }
+                None => false,
+            },
+            Event::Appendix
+            | Event::FrontMatter
+            | Event::MainMatter
+            | Event::BackMatter
+            | Event::TheoremDef { .. }
+            | Event::BibliographyStyle(_)
+            | Event::SetCounter { .. }
+            | Event::NumberWithin { .. }
+            | Event::FootnoteEnd
+            | Event::ResetWithin { .. }
+            | Event::Step { .. }
+            | Event::Item { .. }
+            | Event::IncludeOnly(_)
+            | Event::GraphicsPath(_)
+            | Event::EnvExit
+            | Event::NoNumber
+            | Event::Tag { .. } => true,
+        }
+    }
+}
+
+/// Where two versions of a text differ: the old text's `start..old_end`
+/// became `start..new_end` (from their trees, the shared nodes skipped).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Region {
+    pub start: usize,
+    pub old_end: usize,
+    pub new_end: usize,
+}
+
+impl Region {
+    /// The region between the trees `old` and `new`.
+    pub(crate) fn between(old: &rowan::GreenNodeData, new: &rowan::GreenNodeData) -> Region {
+        let old_len = usize::from(old.text_len());
+        let new_len = usize::from(new.text_len());
+        let start = common(old, new, false);
+        let end = common(old, new, true).min(old_len.min(new_len) - start);
+        Region {
+            start,
+            old_end: old_len - end,
+            new_end: new_len - end,
+        }
+    }
+
+    /// An old position in the new text: before the region the same, after
+    /// it shifted; none inside it, or at an insertion's point (which side
+    /// it belongs to is not known).
+    pub(crate) fn map(&self, x: usize) -> Option<usize> {
+        if x < self.start {
+            Some(x)
+        } else if x >= self.old_end && x > self.start {
+            Some(x + self.new_end - self.old_end)
+        } else if x >= self.old_end && self.old_end == self.new_end {
+            // Nothing changed.
+            Some(x)
+        } else {
+            None
+        }
+    }
+}
+
+/// The length of the text the two trees share at their start (or end).
+fn common(old: &rowan::GreenNodeData, new: &rowan::GreenNodeData, from_end: bool) -> usize {
+    shared(old, new, from_end).0
+}
+
+/// The text `old` and `new` share at their start (or end), and whether
+/// they are the same.
+fn shared(old: &rowan::GreenNodeData, new: &rowan::GreenNodeData, from_end: bool) -> (usize, bool) {
+    if std::ptr::eq(old, new) {
+        return (usize::from(old.text_len()), true);
+    }
+    if from_end {
+        shared_in(old.children().rev(), new.children().rev(), true)
+    } else {
+        shared_in(old.children(), new.children(), false)
+    }
+}
+
+fn shared_in<'a>(
+    mut a: impl ExactSizeIterator<
+        Item = rowan::NodeOrToken<&'a rowan::GreenNodeData, &'a rowan::GreenTokenData>,
+    >,
+    mut b: impl ExactSizeIterator<
+        Item = rowan::NodeOrToken<&'a rowan::GreenNodeData, &'a rowan::GreenTokenData>,
+    >,
+    from_end: bool,
+) -> (usize, bool) {
+    let same_len = a.len() == b.len();
+    let mut n = 0;
+    loop {
+        let (x, y) = match (a.next(), b.next()) {
+            (Some(x), Some(y)) => (x, y),
+            _ => return (n, same_len),
+        };
+        match (x, y) {
+            (NodeOrToken::Node(x), NodeOrToken::Node(y)) if x.kind() == y.kind() => {
+                let (m, same) = shared(x, y, from_end);
+                n += m;
+                if !same {
+                    return (n, false);
+                }
+            }
+            (NodeOrToken::Token(x), NodeOrToken::Token(y)) => {
+                if x == y {
+                    n += usize::from(x.text_len());
+                    continue;
+                }
+                // The common part of two tokens.
+                let (s, t) = (x.text().as_bytes(), y.text().as_bytes());
+                n += if from_end {
+                    s.iter()
+                        .rev()
+                        .zip(t.iter().rev())
+                        .take_while(|(p, q)| p == q)
+                        .count()
+                } else {
+                    s.iter().zip(t).take_while(|(p, q)| p == q).count()
+                };
+                return (n, false);
+            }
+            _ => return (n, false),
+        }
+    }
+}
+
+/// Whether the events `new` (of a paragraph at `new_base`) are the events
+/// `old` (at `old_base`) with their positions moved by `region`: the same
+/// numbers then follow, moved alike.
+pub(crate) fn same_moved(
+    old: &[Item],
+    old_base: usize,
+    new: &[Item],
+    new_base: usize,
+    region: &Region,
+) -> bool {
+    if old.len() != new.len() {
+        return false;
+    }
+    old.iter().zip(new).all(|(a, b)| match (a, b) {
+        (Item::Nested(oa, ia), Item::Nested(ob, ib)) => {
+            if region.map(old_base + oa) != Some(new_base + ob) {
+                return false;
+            }
+            Arc::ptr_eq(ia, ib) || same_moved(ia, old_base + oa, ib, new_base + ob, region)
+        }
+        (Item::Event(x), Item::Event(y)) => {
+            let mut x = x.clone();
+            let f = |p: usize| region.map(old_base + p)?.checked_sub(new_base);
+            x.map_positions(&f) && x == *y
+        }
+        _ => false,
+    })
+}
+
 /// Events of a paragraph, with those of the paragraphs inside it by
 /// reference.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Item {
     Event(Event),
     /// A paragraph inside, at this offset from the paragraph's start.
     Nested(usize, Arc<Vec<Item>>),
 }
 
+/// A hasher for addresses: they are spread already, a multiplication
+/// mixes them enough (SipHash cost more than the rest of a keystroke).
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct AddressHasher(u64);
+
+impl std::hash::Hasher for AddressHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        for &b in bytes {
+            self.0 = (self.0.rotate_left(5) ^ u64::from(b)).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
+        }
+    }
+
+    fn write_usize(&mut self, n: usize) {
+        self.0 = (n as u64 ^ (n as u64 >> 29)).wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    }
+}
+
+type ByAddress =
+    HashMap<usize, (GreenNode, Arc<Vec<Item>>), std::hash::BuildHasherDefault<AddressHasher>>;
+
 /// Events per paragraph, by the address of its green node (kept alive
 /// with it).
 #[derive(Debug, Default)]
 pub(crate) struct Cache {
-    map: HashMap<usize, (GreenNode, Arc<Vec<Item>>)>,
-    used: HashMap<usize, (GreenNode, Arc<Vec<Item>>)>,
+    map: ByAddress,
+    used: ByAddress,
 }
 
 impl Cache {
@@ -176,8 +388,9 @@ impl Cache {
     pub(crate) fn document(&mut self, root: &SyntaxNode) -> Vec<Item> {
         let mut out = Vec::new();
         self.children(root, 0, &mut out);
-        // Only what this version uses stays.
-        self.map = std::mem::take(&mut self.used);
+        // Only what this version uses stays (the tables keep their room).
+        std::mem::swap(&mut self.map, &mut self.used);
+        self.used.clear();
         out
     }
 
@@ -223,7 +436,13 @@ impl Cache {
                 ENVIRONMENT => self.environment(&child, base, out),
                 // `\[…\]` is amsmath's `equation*`: a `\tag` there numbers
                 // it (not in `$$…$$`, where amsmath's `\tag` fails).
-                DISPLAY_MATH if child.text().to_string().starts_with("\\[") => {
+                DISPLAY_MATH
+                    if child
+                        .first_token()
+                        .is_some_and(|t| t.text().starts_with("\\["))
+                        || child.text().char_at(0.into()) == Some('\\')
+                            && child.text().char_at(1.into()) == Some('[') =>
+                {
                     let range = rel(child.text_range(), base);
                     let body = (range.start + 2).min(range.end)
                         ..range.end.saturating_sub(2).max(range.start);

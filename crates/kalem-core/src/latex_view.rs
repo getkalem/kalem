@@ -146,9 +146,22 @@ struct ProjectView {
 /// Files read from the disk, kept while their modification time stays.
 #[derive(Debug, Default)]
 struct DiskCache {
-    files:
-        RefCell<std::collections::HashMap<std::path::PathBuf, (std::time::SystemTime, Arc<str>)>>,
+    /// Each file's time of change, when that was last asked, and its text.
+    files: RefCell<std::collections::HashMap<std::path::PathBuf, DiskFile>>,
 }
+
+/// A file of [`DiskCache`].
+#[derive(Debug)]
+struct DiskFile {
+    modified: std::time::SystemTime,
+    checked: std::time::Instant,
+    text: Arc<str>,
+}
+
+/// How long a file read from disk is trusted without asking the disk
+/// again: a keystroke reads every file of a project, and a hundred
+/// `stat` calls cost more than the rest of it.
+const DISK_TRUSTED: std::time::Duration = std::time::Duration::from_secs(1);
 
 /// The disk, with one file's text as edited.
 struct Overlay<'a> {
@@ -166,15 +179,28 @@ impl latex_model::project::Files for Overlay<'_> {
         if path == self.path {
             return Some(self.text.clone());
         }
-        let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok()?;
         let mut files = self.disk.files.borrow_mut();
-        if let Some((t, text)) = files.get(path)
-            && *t == modified
+        if let Some(f) = files.get(path)
+            && f.checked.elapsed() < DISK_TRUSTED
         {
-            return Some(text.clone());
+            return Some(f.text.clone());
+        }
+        let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok()?;
+        if let Some(f) = files.get_mut(path)
+            && f.modified == modified
+        {
+            f.checked = std::time::Instant::now();
+            return Some(f.text.clone());
         }
         let text: Arc<str> = Arc::from(std::fs::read_to_string(path).ok()?);
-        files.insert(path.to_path_buf(), (modified, text.clone()));
+        files.insert(
+            path.to_path_buf(),
+            DiskFile {
+                modified,
+                checked: std::time::Instant::now(),
+                text: text.clone(),
+            },
+        );
         Some(text)
     }
 
@@ -191,6 +217,7 @@ impl ProjectView {
         parse: &latex_syntax::Parse,
         text: &Arc<str>,
         own: &latex_model::Model,
+        cache: &latex_model::Cache,
     ) -> Option<Arc<latex_model::Model>> {
         // The root document that includes nothing needs no project.
         if self.root == self.path && own.includes.is_empty() {
@@ -201,9 +228,11 @@ impl ProjectView {
         {
             return Some(m.clone());
         }
+        // The last model let go, so that it can be moved in place.
+        self.last = None;
         let text = text.clone();
         self.cache
-            .set_parse(&self.path, text.clone(), parse.clone());
+            .set_parse_from(&self.path, text.clone(), parse.clone(), cache);
         let files = Overlay {
             disk: &self.disk,
             path: &self.path,
@@ -211,16 +240,12 @@ impl ProjectView {
         };
         let project = self.cache.load(&self.root, &files);
         let this = project.model.files.iter().position(|f| *f == self.path)?;
-        // The root document: the project's model as it is (no copy).
-        if this == 0 && project.model.preamble == own.preamble && project.model.body == own.body {
-            self.last = Some((parse.green().clone(), project.model.clone()));
-            return Some(project.model);
-        }
-        let mut m = project.model.seen_from(this);
-        // The document's own preamble and body.
-        m.preamble = own.preamble.clone();
-        m.body = own.body.clone();
-        let m = Arc::new(m);
+        drop(project);
+        // Seen from this file, with its own preamble and body (the root
+        // document's: the project's model as it is).
+        let m = self
+            .cache
+            .seen_from(this, own.preamble.clone(), own.body.clone())?;
         self.last = Some((parse.green().clone(), m.clone()));
         Some(m)
     }
@@ -299,11 +324,12 @@ impl LatexState {
     /// (its numbers continue the files before it, and labels in the other
     /// files resolve).
     pub fn model(&self) -> Arc<latex_model::Model> {
-        let own = self.models.borrow_mut().model(&self.parse);
+        let mut models = self.models.borrow_mut();
+        let own = models.model(&self.parse);
         let mut project = self.project.borrow_mut();
         match project
             .as_mut()
-            .and_then(|p| p.model(&self.parse, &self.text, &own))
+            .and_then(|p| p.model(&self.parse, &self.text, &own, &models))
         {
             Some(m) => m,
             None => own,
