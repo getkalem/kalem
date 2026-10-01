@@ -164,7 +164,7 @@ Written on 2026-10-01 from the former `todo.md` (now `todo_old.md`) at commit 1d
 
 - [x] T2.7c.7 "Convert to Org" and "Convert from Org" (exporter or pandoc); `kalem export FILE.md --to org` (done, 2026-10-01: `kalem_core::markdown_org::to_org` writes comrak's tree as Org without pandoc; Convert to Org (`markdown.convertToOrg`, File menu) writes `NAME.org` beside the file and opens it; `kalem export FILE.md --to org`; Convert from Org is the Markdown and GFM export Org documents have; `kalem import` through pandoc stays for pictures; tests in the core and the command line)
 
-- [ ] T2.7c.8 Both frontends; snapshot tests; byte-exact round trip of untouched text
+- [~] T2.7c.8 Both frontends; snapshot tests; byte-exact round trip of untouched text (done: both editors draw Markdown through `markdown::line_view` with tests of the shown text in each; `kalem-core/tests/markdown.rs` opens a README with a byte order mark, CR LF, hard breaks, tabs, HTML and footnotes, draws every line with the cursor on it and away, checks every shown character maps into its line, saves it unedited byte for byte, and after a checkbox toggle with only that byte changed. Open: rendering snapshots, a corpus of real READMEs and vaults)
 
 - [ ] T2.7c.9 What Obsidian and Logseq users expect in Markdown files: wiki links `[[Page]]` resolved and completed within the project (T2.7f), front matter edited as a form, "copy as HTML" and "copy as rich text" (T2.6.1) (review, 2026-09-28)
 
