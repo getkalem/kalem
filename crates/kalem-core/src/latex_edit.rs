@@ -155,11 +155,20 @@ pub fn mirror(root: &SyntaxNode, range: Range<usize>) -> Option<Range<usize>> {
 /// selection or the word at the cursor.
 pub fn toggle(text: &str, sel: Selection, root: &SyntaxNode, command: &str) -> Option<Transaction> {
     let (a, b) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
-    // Inside `\command{…}`: unwrapped.
+    // Commands that toggle as one: italics is `\emph` or `\textit`.
+    let family: &[&str] = match command {
+        "emph" | "textit" => &["emph", "textit"],
+        "textbf" => &["textbf"],
+        "texttt" => &["texttt"],
+        "underline" => &["underline"],
+        _ => &[],
+    };
+    let same = |n: &str| n == command || family.contains(&n);
+    // Inside `\command{…}` (or one of its family): unwrapped.
     if let Some(t) = latex_syntax::token_at(root, a) {
         let cmd = t.parent_ancestors().find(|n| {
             n.kind() == K::COMMAND
-                && latex_syntax::name(n).as_deref() == Some(command)
+                && latex_syntax::name(n).as_deref().is_some_and(same)
                 && span(n).end >= b
         });
         if let Some(cmd) = cmd
@@ -187,6 +196,10 @@ pub fn toggle(text: &str, sel: Selection, root: &SyntaxNode, command: &str) -> O
     } else {
         (a, b)
     };
+    // A selection that starts or ends inside a command takes all of it,
+    // so that the braces stay balanced: `a \emph{b| c} d|` wraps the
+    // whole `\emph{b c}`.
+    let (a, b) = balanced(root, a, b);
     let open = format!("\\{command}{{");
     let mut tx = Transaction::new("Formatting");
     tx.replace(a..a, open.clone()).ok()?;
@@ -195,6 +208,172 @@ pub fn toggle(text: &str, sel: Selection, root: &SyntaxNode, command: &str) -> O
         anchor: a + open.len(),
         head: b + open.len(),
     }))
+}
+
+/// `a..b` widened until no command or group is cut by it.
+fn balanced(root: &SyntaxNode, mut a: usize, mut b: usize) -> (usize, usize) {
+    loop {
+        let (a0, b0) = (a, b);
+        for pos in [a, b.saturating_sub(1).max(a)] {
+            let Some(t) = latex_syntax::token_at(root, pos) else {
+                continue;
+            };
+            for n in t.parent_ancestors() {
+                if !matches!(n.kind(), K::COMMAND | K::GROUP | K::INLINE_MATH) {
+                    continue;
+                }
+                let r = span(&n);
+                // Cut by the selection: inside it at one end only.
+                let cut = (r.start < a && a < r.end && r.end < b)
+                    || (a < r.start && r.start < b && b < r.end);
+                if cut {
+                    a = a.min(r.start);
+                    b = b.max(r.end);
+                }
+            }
+        }
+        if (a, b) == (a0, b0) {
+            return (a, b);
+        }
+    }
+}
+
+/// Where a float's `\\label` goes, as the document puts it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LabelPlace {
+    /// On a line of its own after the caption (the default).
+    AfterCaption,
+    /// Inside the caption's braces, at their end.
+    InCaption,
+    /// On a line of its own before the caption.
+    BeforeCaption,
+}
+
+/// The document's own style for what Kalem writes into it (T2.7h.15), as
+/// Org's style inference reads a document's: the indentation of an
+/// environment's body, where a float's and an equation's `\\label` go,
+/// and the prefix of each kind of label.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Style {
+    /// The indentation of an environment's body, one step.
+    pub step: String,
+    /// A float's label.
+    pub label: LabelPlace,
+    /// An equation's label on the `\\begin{equation}` line.
+    pub equation_label_inline: bool,
+    /// The label prefixes: figures, tables, equations (with their
+    /// separator, `fig:`).
+    pub prefixes: [String; 3],
+}
+
+impl Style {
+    /// The style of `text`; Kalem's defaults where it shows none.
+    pub fn infer(text: &str) -> Style {
+        let lines: Vec<&str> = text.lines().collect();
+        let indent = |l: &str| l.len() - l.trim_start_matches([' ', '\t']).len();
+        // The step: a body line's indentation beyond its `\\begin`'s.
+        let mut steps: std::collections::HashMap<String, usize> = Default::default();
+        for (i, l) in lines.iter().enumerate() {
+            let t = l.trim_start();
+            if !t.starts_with("\\begin{") || t.starts_with("\\begin{document}") {
+                continue;
+            }
+            if let Some(next) = lines[i + 1..].iter().find(|n| !n.trim().is_empty()) {
+                let (a, b) = (indent(l), indent(next));
+                if b > a && !next.trim_start().starts_with("\\end{") {
+                    *steps.entry(next[a..b].to_string()).or_default() += 1;
+                } else if b == a && !next.trim_start().starts_with("\\end{") {
+                    *steps.entry(String::new()).or_default() += 1;
+                }
+            }
+        }
+        let step = steps
+            .into_iter()
+            .max_by_key(|(s, n)| (*n, std::cmp::Reverse(s.len())))
+            .map_or_else(|| "  ".to_string(), |(s, _)| s);
+        // Labels of floats and equations.
+        let (mut inside, mut before, mut after) = (0, 0, 0);
+        let (mut eq_inline, mut eq_own) = (0, 0);
+        let mut prefixes: [std::collections::HashMap<String, usize>; 3] = Default::default();
+        let mut env: Vec<&str> = Vec::new();
+        let mut caption_seen = false;
+        let mut label_before = false;
+        for l in &lines {
+            let t = l.trim_start();
+            if let Some(name) = t.strip_prefix("\\begin{").and_then(|r| r.split('}').next()) {
+                env.push(name);
+                caption_seen = false;
+                label_before = false;
+                if matches!(name, "equation" | "align" | "gather" | "multline") {
+                    if l.contains("\\label{") {
+                        eq_inline += 1;
+                    } else {
+                        eq_own += 1;
+                    }
+                }
+            }
+            let kind = match env.last().map(|e| e.trim_end_matches('*')) {
+                Some("figure") => Some(0),
+                Some("table") => Some(1),
+                Some("equation" | "align" | "gather" | "multline") => Some(2),
+                _ => None,
+            };
+            if let Some(k) = kind
+                && let Some(i) = l.find("\\label{")
+            {
+                let label = &l[i + 7..];
+                if let Some(c) = label
+                    .find([':', '-', '_'])
+                    .filter(|&c| c < label.find('}').unwrap_or(0))
+                {
+                    *prefixes[k].entry(label[..=c].to_string()).or_default() += 1;
+                }
+                if k < 2 {
+                    if let Some(c) = l.find("\\caption") {
+                        if c < i {
+                            inside += 1;
+                        }
+                    } else if caption_seen {
+                        after += 1;
+                    } else {
+                        label_before = true;
+                    }
+                }
+            }
+            if kind.is_some_and(|k| k < 2) && l.contains("\\caption") {
+                caption_seen = true;
+                if label_before {
+                    before += 1;
+                    label_before = false;
+                }
+            }
+            if t.starts_with("\\end{") {
+                env.pop();
+            }
+        }
+        let label = if inside > after.max(before) {
+            LabelPlace::InCaption
+        } else if before > after {
+            LabelPlace::BeforeCaption
+        } else {
+            LabelPlace::AfterCaption
+        };
+        let pick = |m: &std::collections::HashMap<String, usize>, default: &str| {
+            m.iter()
+                .max_by_key(|(p, n)| (**n, std::cmp::Reverse((*p).clone())))
+                .map_or_else(|| default.to_string(), |(p, _)| p.clone())
+        };
+        Style {
+            step,
+            label,
+            equation_label_inline: eq_inline > eq_own,
+            prefixes: [
+                pick(&prefixes[0], "fig:"),
+                pick(&prefixes[1], "tab:"),
+                pick(&prefixes[2], "eq:"),
+            ],
+        }
+    }
 }
 
 /// The sectioning commands of a class, from level 1.
@@ -880,6 +1059,51 @@ mod tests {
         assert_eq!(s, "some \\textbf{words} here");
         let tx = toggle(&s, Selection::caret(15), &root(&s), "textbf").unwrap();
         assert_eq!(apply(&s, &tx).0, t);
+        // Italics is one family: `\textit` unwrapped by the emphasis toggle.
+        let t = "a \\textit{b} c";
+        let tx = toggle(t, Selection::caret(11), &root(t), "emph").unwrap();
+        assert_eq!(apply(t, &tx).0, "a b c");
+        // A selection cutting a command takes all of it.
+        let t = "a \\emph{b c} d";
+        let sel = Selection {
+            anchor: t.find('c').unwrap(),
+            head: t.len(),
+        };
+        let tx = toggle(t, sel, &root(t), "textbf").unwrap();
+        assert_eq!(apply(t, &tx).0, "a \\textbf{\\emph{b c} d}");
+        let sel = Selection {
+            anchor: 0,
+            head: t.find('b').unwrap() + 1,
+        };
+        let tx = toggle(t, sel, &root(t), "textbf").unwrap();
+        assert_eq!(apply(t, &tx).0, "\\textbf{a \\emph{b c}} d");
+        // And math.
+        let t = "x $a+b$ y";
+        let sel = Selection { anchor: 0, head: 4 };
+        let tx = toggle(t, sel, &root(t), "textbf").unwrap();
+        assert_eq!(apply(t, &tx).0, "\\textbf{x $a+b$} y");
+    }
+
+    #[test]
+    fn style_inference() {
+        assert_eq!(
+            Style::infer(""),
+            Style {
+                step: "  ".into(),
+                label: LabelPlace::AfterCaption,
+                equation_label_inline: false,
+                prefixes: ["fig:".into(), "tab:".into(), "eq:".into()],
+            }
+        );
+        let t = "\\begin{document}\n\\begin{figure}\n\t\\centering\n\t\\caption{A cat.\\label{f-cat}}\n\\end{figure}\n\\begin{equation}\\label{e-one}\n\tx\n\\end{equation}\n\\begin{table}\n\t\\caption{T.\\label{t-x}}\n\\end{table}\n";
+        let s = Style::infer(t);
+        assert_eq!(s.step, "\t");
+        assert_eq!(s.label, LabelPlace::InCaption);
+        assert!(s.equation_label_inline);
+        assert_eq!(s.prefixes, ["f-".to_string(), "t-".into(), "e-".into()]);
+        let t = "\\begin{figure}\n\\label{fig:a}\n\\caption{A}\n\\end{figure}\n";
+        let s = Style::infer(t);
+        assert_eq!((s.step.as_str(), s.label), ("", LabelPlace::BeforeCaption));
     }
 
     #[test]

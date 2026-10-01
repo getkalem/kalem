@@ -3256,6 +3256,32 @@ fn insert_figure_asks_for_the_picture() {
 }
 
 #[test]
+fn latex_inserts_follow_the_document_style() {
+    // Tabs for indentation, the label inside the caption, `f-` and `e-`
+    // as prefixes, an equation's label on its first line (T2.7h.15).
+    let doc = "\\begin{document}\n\\begin{figure}\n\t\\centering\n\t\\caption{Old.\\label{f-old}}\n\\end{figure}\n\\begin{equation}\\label{e-old}\n\tx\n\\end{equation}\n\n\\end{document}\n";
+    let mut t = with_file(doc, "s.tex", Config::default(), (60, 12));
+    let at = doc.find("\n\n\\end{document}").unwrap() + 1;
+    t.at(at);
+    t.app.run_command(
+        "latex.insert.figure",
+        serde_json::json!({ "path": "cat.png", "caption": "A cat" }),
+    );
+    let text = t.text();
+    assert!(
+        text.contains("\\begin{figure}[htbp]\n\t\\centering\n\t\\includegraphics[width=0.8\\linewidth]{cat.png}\n\t\\caption{A cat\\label{f-cat}}\n\\end{figure}\n"),
+        "{text}"
+    );
+    t.at(at);
+    t.app.run_command("latex.insert.equation", serde_json::json!({}));
+    let text = t.text();
+    assert!(
+        text.contains("\\begin{equation}\\label{e-}\n\t\n\\end{equation}\n"),
+        "{text}"
+    );
+}
+
+#[test]
 fn inserted_latex_table_is_a_grid() {
     // Insert Table writes a tabular the view shows as the grid: no `&`
     // or `\\` on screen away from the cursor.

@@ -1246,6 +1246,22 @@ line after it. Insert Figure writes:
 \end{figure}
 #+end_src
 
+That is the default; the inserts follow the document's own style
+(=latex_edit::Style=), read from what it already has: the indentation
+of an environment's body (the most common step after a =\begin= line:
+two spaces, four, a tab or none), where a float's =\label= goes (inside
+the caption's braces, on its own line before the caption, or after it,
+by the document's majority), whether an equation's =\label= sits on its
+=\begin{equation}= line, and the prefix of each kind of label (=fig:=,
+=f-=, =figure:=…, the most common among the document's figures, tables
+and equations).
+
+The formatting toggles keep the braces balanced: a selection that starts
+or ends inside a command, a group or a formula takes all of it
+(=a \emph{b| c} d|= with Bold gives =a \textbf{\emph{b c} d}=), and
+=\emph= and =\textit= toggle as one: Emphasis inside =\textit{…}= takes
+the =\textit= off.
+
 Behaviours while typing:
 
 | Typed                                         | Result                                                                                                                                                                                                                                                                                            |
@@ -1452,9 +1468,8 @@ work breakdown (group 2.7h of =todo.md=):
   pages; =\cpageref= stays source. In the view, bibliography files are
   resolved from the edited file's folder; =kalem check= resolves them
   from the root's, as LaTeX does.
-- *Editing.* No nesting rules for formatting toggles inside other
-  formatting, no dashes while typing, no style inference for blank lines
-  and =\label= placement (T2.7h.15).
+- *Editing.* No typographic dashes while typing, and no style for the
+  blank lines around an insert (T2.7h.15).
 - *Completion.* No texlab bridge (T2.7h.17, which needs the language
   server plugin).
 - *BibTeX.* No entries added from a DOI (T2.7h.19).

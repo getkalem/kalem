@@ -1435,15 +1435,19 @@ fn latex_commands() -> Vec<Command> {
                 Some(Value::String(w)) if !w.trim().is_empty() => w.trim().to_string(),
                 _ => "0.8\\linewidth".to_string(),
             };
-            latex_insert(ctx, |_, indent, _| {
+            latex_insert(ctx, |text, indent, _| {
                 let stem = std::path::Path::new(&path)
                     .file_stem()
                     .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+                // As the document writes its floats (T2.7h.15).
+                let style = crate::latex_edit::Style::infer(text);
+                let inner = format!("{indent}{}", style.step);
+                let label = format!("\\label{{{}{stem}}}", style.prefixes[0]);
+                let (head, tail) = float_caption(&inner, &caption, &label, style.label);
                 let head = format!(
-                    "{indent}\\begin{{figure}}[htbp]\n{indent}  \\centering\n{indent}  \\includegraphics[width={width}]{{{path}}}\n{indent}  \\caption{{{caption}"
+                    "{indent}\\begin{{figure}}[htbp]\n{inner}\\centering\n{inner}\\includegraphics[width={width}]{{{path}}}\n{head}"
                 );
-                let tail =
-                    format!("}}\n{indent}  \\label{{fig:{stem}}}\n{indent}\\end{{figure}}\n");
+                let tail = format!("{tail}{indent}\\end{{figure}}\n");
                 // The cursor in the caption, or after the figure once it has one.
                 let at = if caption.is_empty() {
                     head.len()
@@ -1464,7 +1468,7 @@ fn latex_commands() -> Vec<Command> {
                 .and_then(Value::as_u64)
                 .unwrap_or(2)
                 .clamp(1, 200) as usize;
-            latex_insert(ctx, move |_, indent, model| {
+            latex_insert(ctx, move |text, indent, model| {
                 // booktabs' rules when the document loads it.
                 let booktabs = model.packages.iter().any(|p| p.name == "booktabs");
                 let (top, mid, bottom) = if booktabs {
@@ -1472,33 +1476,48 @@ fn latex_commands() -> Vec<Command> {
                 } else {
                     ("\\hline", "\\hline", "\\hline")
                 };
-                let row = format!("{indent}    {} \\\\\n", vec![""; columns].join(" & "));
-                let head = format!(
-                    "{indent}\\begin{{table}}[htbp]\n{indent}  \\centering\n{indent}  \\caption{{"
-                );
+                // As the document writes its floats (T2.7h.15).
+                let style = crate::latex_edit::Style::infer(text);
+                let inner = format!("{indent}{}", style.step);
+                let cells = format!("{inner}{}", style.step);
+                let row = format!("{cells}{} \\\\\n", vec![""; columns].join(" & "));
+                let label = format!("\\label{{{}}}", style.prefixes[1]);
+                let (caption_head, caption_tail) = float_caption(&inner, "", &label, style.label);
+                let head =
+                    format!("{indent}\\begin{{table}}[htbp]\n{inner}\\centering\n{caption_head}");
                 let mut t = head.clone();
+                t.push_str(&caption_tail);
                 t.push_str(&format!(
-                    "}}\n{indent}  \\label{{tab:}}\n{indent}  \\begin{{tabular}}{{{}}}\n{indent}    {top}\n",
+                    "{inner}\\begin{{tabular}}{{{}}}\n{cells}{top}\n",
                     "l".repeat(columns)
                 ));
                 t.push_str(&row);
-                t.push_str(&format!("{indent}    {mid}\n"));
+                t.push_str(&format!("{cells}{mid}\n"));
                 for _ in 1..rows {
                     t.push_str(&row);
                 }
                 t.push_str(&format!(
-                    "{indent}    {bottom}\n{indent}  \\end{{tabular}}\n{indent}\\end{{table}}\n"
+                    "{cells}{bottom}\n{inner}\\end{{tabular}}\n{indent}\\end{{table}}\n"
                 ));
                 (t, head.len())
             })
         }),
         c("latex.insert.equation", "Insert Equation", &[], |ctx, _| {
-            latex_insert(ctx, |_, indent, _| {
-                let head = format!("{indent}\\begin{{equation}}\n{indent}  ");
-                (
-                    format!("{head}\n{indent}  \\label{{eq:}}\n{indent}\\end{{equation}}\n"),
-                    head.len(),
-                )
+            latex_insert(ctx, |text, indent, _| {
+                // As the document writes its equations (T2.7h.15).
+                let style = crate::latex_edit::Style::infer(text);
+                let inner = format!("{indent}{}", style.step);
+                let label = format!("\\label{{{}}}", style.prefixes[2]);
+                if style.equation_label_inline {
+                    let head = format!("{indent}\\begin{{equation}}{label}\n{inner}");
+                    (format!("{head}\n{indent}\\end{{equation}}\n"), head.len())
+                } else {
+                    let head = format!("{indent}\\begin{{equation}}\n{inner}");
+                    (
+                        format!("{head}\n{inner}{label}\n{indent}\\end{{equation}}\n"),
+                        head.len(),
+                    )
+                }
             })
         }),
         c(
@@ -1648,6 +1667,31 @@ fn latex_insert_citation(ctx: &mut EditorContext<'_>, args: &Value) -> CommandRe
 /// Inserts what `make` gives (text and the cursor's place in it) on the
 /// cursor's line when it is empty, else on a line of its own after it,
 /// with the line's indentation.
+/// A float's caption and label lines, as `place` puts the label: the
+/// text up to the caption's text (where the cursor goes) and the rest.
+fn float_caption(
+    inner: &str,
+    caption: &str,
+    label: &str,
+    place: crate::latex_edit::LabelPlace,
+) -> (String, String) {
+    use crate::latex_edit::LabelPlace as P;
+    match place {
+        P::InCaption => (
+            format!("{inner}\\caption{{{caption}"),
+            format!("{label}}}\n"),
+        ),
+        P::BeforeCaption => (
+            format!("{inner}{label}\n{inner}\\caption{{{caption}"),
+            "}\n".to_string(),
+        ),
+        P::AfterCaption => (
+            format!("{inner}\\caption{{{caption}"),
+            format!("}}\n{inner}{label}\n"),
+        ),
+    }
+}
+
 fn latex_insert(
     ctx: &mut EditorContext<'_>,
     make: impl FnOnce(&str, &str, &latex_model::Model) -> (String, usize),
