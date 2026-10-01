@@ -1369,7 +1369,7 @@ impl Editor {
         use kalem_core::input::LinkAction;
         match action {
             LinkAction::Url(url) => cx.open_url(&url),
-            LinkAction::File { path, .. } => {
+            LinkAction::File { path, search } => {
                 let path = std::path::PathBuf::from(path.trim_start_matches("file:"));
                 let path = match (&self.doc.meta.path, path.is_absolute()) {
                     (Some(doc), false) => doc.parent().map_or(path.clone(), |d| d.join(&path)),
@@ -1381,9 +1381,15 @@ impl Editor {
                         | DocumentMode::Markdown
                         | DocumentMode::Text { .. }
                         | DocumentMode::Csv
+                        | DocumentMode::Latex
                 );
                 if text {
-                    cx.emit(DocEvent::Open { path, at: None });
+                    // A line number as the search: the cursor on that line.
+                    let at = search
+                        .as_deref()
+                        .and_then(|s| s.trim().parse::<u64>().ok())
+                        .map(|l| (l, 0));
+                    cx.emit(DocEvent::Open { path, at });
                 } else {
                     cx.open_with_system(&path);
                 }

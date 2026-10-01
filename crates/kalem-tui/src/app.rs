@@ -1740,14 +1740,31 @@ impl App {
         use kalem_core::input::LinkAction;
         let target = match action {
             LinkAction::Url(url) => url,
-            LinkAction::File { path, .. } => {
+            LinkAction::File { path, search } => {
                 let p = std::path::PathBuf::from(path.trim_start_matches("file:"));
-                match (&self.doc.meta.path, p.is_absolute()) {
+                let p = match (&self.doc.meta.path, p.is_absolute()) {
                     (Some(doc), false) => doc.parent().map_or(p.clone(), |d| d.join(&p)),
                     _ => p,
+                };
+                // Text files open here, as in the graphical editor; a line
+                // number as the search puts the cursor on that line.
+                let text = matches!(
+                    DocumentMode::detect(Some(&p), b""),
+                    DocumentMode::Org
+                        | DocumentMode::Markdown
+                        | DocumentMode::Text { .. }
+                        | DocumentMode::Csv
+                        | DocumentMode::Latex
+                );
+                if text {
+                    let at = search
+                        .as_deref()
+                        .and_then(|s| s.trim().parse::<u64>().ok())
+                        .map(|l| (l, 0));
+                    self.open_path(&p, at);
+                    return;
                 }
-                .display()
-                .to_string()
+                p.display().to_string()
             }
             LinkAction::Jump(_) => return,
             LinkAction::Missing(s) => {

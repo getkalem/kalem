@@ -61,7 +61,7 @@ reason = "Planned: T2.7i.18"
 doom = "SPC *"
 keys = "space *"
 what = "Search the project for the word at point"
-reason = "Planned: T2.7i.18"
+command = "project.searchWord"
 
 [[key]]
 doom = "SPC ~"
@@ -73,7 +73,7 @@ reason = "Planned: T2.7i.18"
 doom = "SPC RET"
 keys = "space enter"
 what = "Jump to a bookmark"
-reason = "Planned: T2.7i.18"
+command = "bookmark.jump"
 
 [[key]]
 doom = "SPC X"
@@ -153,13 +153,13 @@ command = "file.last"
 doom = "SPC b m"
 keys = "space b m"
 what = "Set bookmark"
-reason = "Kalem has no bookmarks yet; they come with =SPC s m= (T2.7i.4)"
+command = "bookmark.set"
 
 [[key]]
 doom = "SPC b M"
 keys = "space b shift+m"
 what = "Delete bookmark"
-reason = "Kalem has no bookmarks yet; they come with =SPC s m= (T2.7i.4)"
+command = "bookmark.delete"
 
 [[key]]
 doom = "SPC b n"
@@ -433,7 +433,7 @@ reason = "Not yet: a list of the document's links; =SPC s b= with part of the li
 doom = "SPC s m"
 keys = "space s m"
 what = "Jump to a bookmark"
-reason = "Kalem has no bookmarks yet"
+command = "bookmark.jump"
 
 [[key]]
 doom = "SPC s o"
