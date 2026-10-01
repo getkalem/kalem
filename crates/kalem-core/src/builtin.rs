@@ -4321,6 +4321,33 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "app.quitWithoutSaving",
+            "Quit Without Saving",
+            "File",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::QuitWithoutSaving),
+        ),
+        cmd(
+            "window.close",
+            "Close Window",
+            "Window",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::CloseWindow),
+        ),
+        cmd("app.restart", "Restart", "File", &[], None, |ctx, _| {
+            request(ctx, Request::Restart { restore: false })
+        }),
+        cmd(
+            "app.restartAndRestore",
+            "Restart and Restore",
+            "File",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Restart { restore: true }),
+        ),
+        cmd(
             "session.saveAndQuit",
             "Save Session and Quit",
             "Session",

@@ -3613,3 +3613,27 @@ fn sessions_save_and_restore(cx: &mut TestAppContext) {
     assert_eq!(active_title(&ws, cx), "b.org");
     assert_eq!(cursor_line(&ws, cx), "the needle here");
 }
+
+/// Closing a window asks about its unsaved documents; Restart waits for
+/// them (T2.7i.14).
+#[gpui::test]
+fn closing_the_window_asks(cx: &mut TestAppContext) {
+    let (ws, _dir, cx) = open_project(false, cx);
+    cx.simulate_input("x");
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("app.restart", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    let status = e.read_with(cx, |e, _| e.status.clone());
+    assert!(status.is_some_and(|(s, error)| error && s.contains("Save or close")));
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("window.close", serde_json::Value::Null, window, cx)
+    });
+    cx.run_until_parked();
+    assert!(cx.has_pending_prompt());
+    cx.simulate_prompt_answer("Cancel");
+    cx.run_until_parked();
+    assert!(!cx.has_pending_prompt());
+    assert_eq!(active_title(&ws, cx), "a.org");
+}

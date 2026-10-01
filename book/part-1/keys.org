@@ -117,6 +117,9 @@ it off. The leader's first keys:
 | =SPC q s=, =SPC q l= | Save the session; restore the last one      |
 | =SPC q S=, =SPC q L= | Save a session as; restore one              |
 | =SPC q K=            | Save the session and quit                   |
+| =SPC q Q=            | Quit without saving, after a question       |
+| =SPC q f=, =SPC q F= | Close this window; quit                     |
+| =SPC q r=, =SPC q R= | Restart with the open documents; restart    |
 
 =SPC u= is Emacs's universal argument: the next command runs four times,
 =SPC u SPC u= sixteen, and digits typed after =SPC u= give the count
@@ -127,7 +130,8 @@ A session is the open documents, the cursor in each, the one shown and
 the project. Kalem saves the session called =last= when it quits, which
 =SPC q l= restores, and on start too when =editor.restore_session= is
 on. =SPC q S= asks for a name (or a file path ending in =.json=);
-the sessions live in =sessions/= in Kalem's state folder.
+the sessions live in =sessions/= in Kalem's state folder. Restarting
+waits until the changed documents are saved or closed.
 
 The toggles that are settings (line numbers, markup characters, big
 text) save the setting, so the settings file and the key agree.

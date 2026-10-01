@@ -4002,3 +4002,35 @@ fn sessions_save_and_restore() {
     let titles: Vec<String> = u.app.open_files().into_iter().map(|f| f.title).collect();
     assert_eq!(titles, ["loose.org", "a.org", "b.org"]);
 }
+
+#[test]
+fn quitting_without_saving_and_restarting() {
+    // T2.7i.14: `SPC q Q` asks, then quits with the changes lost; a
+    // restart waits for the changes to be saved.
+    let mut t = open("* A\n");
+    t.typ("x");
+    t.app.run_command("app.restart", serde_json::Value::Null);
+    assert!(!t.app.quit && !t.app.restart);
+    assert!(
+        status(&mut t).contains("Save or close"),
+        "{}",
+        status(&mut t)
+    );
+    t.app
+        .run_command("app.quitWithoutSaving", serde_json::Value::Null);
+    assert!(!t.app.quit);
+    t.key(KeyCode::Char('n'), KeyModifiers::NONE);
+    assert!(!t.app.quit);
+    t.app
+        .run_command("app.quitWithoutSaving", serde_json::Value::Null);
+    t.key(KeyCode::Char('y'), KeyModifiers::NONE);
+    assert!(t.app.quit);
+    assert_eq!(
+        std::fs::read_to_string(t.app.doc.meta.path.clone().unwrap()).unwrap(),
+        "* A\n"
+    );
+    // Nothing unsaved: Restart ends this editor to start another.
+    let mut u = open("* B\n");
+    u.app.run_command("app.restart", serde_json::Value::Null);
+    assert!(u.app.quit && u.app.restart);
+}

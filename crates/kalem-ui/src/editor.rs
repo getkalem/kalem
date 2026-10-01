@@ -166,6 +166,12 @@ pub enum DocEvent {
     Documents(kalem_core::command::DocumentsRequest),
     /// Quit, asking about every unsaved document.
     Quit,
+    /// Quit without saving, after a confirmation.
+    QuitWithoutSaving,
+    /// Close the window, asking about its unsaved documents.
+    CloseWindow,
+    /// Start Kalem again, restoring the session when `0`.
+    Restart(bool),
     /// Save the window's documents as session `0`.
     SaveSession(String),
     /// Open the documents of session `0`.
@@ -1023,6 +1029,9 @@ impl Editor {
                     None => self.message(kalem_core::tr!("msg-no-picker"), false),
                 }
             }
+            Request::QuitWithoutSaving => cx.emit(DocEvent::QuitWithoutSaving),
+            Request::CloseWindow => cx.emit(DocEvent::CloseWindow),
+            Request::Restart { restore } => cx.emit(DocEvent::Restart(restore)),
             Request::SaveSession(name) => cx.emit(DocEvent::SaveSession(name)),
             Request::RestoreSession(name) => cx.emit(DocEvent::RestoreSession(name)),
             Request::UniversalArgument => {

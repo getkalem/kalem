@@ -113,6 +113,26 @@ pub fn file(name: &str) -> Option<PathBuf> {
     dir().map(|d| d.join(format!("{name}.json")))
 }
 
+/// The marker that the next start restores the last session (`SPC q r`).
+fn restore_marker() -> Option<PathBuf> {
+    dir().map(|d| d.join(".restore"))
+}
+
+/// The next start restores the last session, whatever the settings.
+pub fn restore_on_next_start() -> Result<(), String> {
+    let f = restore_marker().ok_or_else(|| crate::tr!("msg-no-state-dir"))?;
+    if let Some(d) = f.parent() {
+        std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&f, "").map_err(|e| e.to_string())
+}
+
+/// Whether this start restores the last session because of
+/// [`restore_on_next_start`] (asked once).
+pub fn take_restore_request() -> bool {
+    restore_marker().is_some_and(|f| std::fs::remove_file(f).is_ok())
+}
+
 /// Saves `session` as `name`.
 pub fn save(name: &str, session: &Session) -> Result<PathBuf, String> {
     let f = file(name).ok_or_else(|| crate::tr!("msg-no-state-dir"))?;

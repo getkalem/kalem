@@ -91,6 +91,8 @@ enum PromptKind {
     SaveAs,
     /// Unsaved changes when quitting: yes, no, cancel.
     Quit,
+    /// Quitting without saving the unsaved changes: yes, no.
+    QuitDiscard,
     /// Unsaved changes when closing the document: yes, no, cancel.
     Close,
     /// The file changed on disk while there are unsaved changes.
@@ -217,6 +219,8 @@ pub struct App {
     watched_dirs: Vec<PathBuf>,
     /// Whether the application should end.
     pub quit: bool,
+    /// Whether Kalem starts again after it ends (`SPC q r`, `SPC q R`).
+    pub restart: bool,
     /// Whether the screen needs drawing.
     pub dirty: bool,
 }
@@ -465,6 +469,7 @@ impl App {
             jobs: Vec::new(),
             watched_dirs: Vec::new(),
             quit: false,
+            restart: false,
             dirty: true,
         };
         app.files_at = match app.config.str("ui.open_files") {
@@ -1441,6 +1446,28 @@ impl App {
                 }
                 None => self.message(tr!("msg-no-picker"), false),
             },
+            Request::QuitWithoutSaving => match self.modified_count() {
+                0 => self.close(),
+                n => self.ask(
+                    PromptKind::QuitDiscard,
+                    &tr!("prompt-quit-discard", count = n.to_string()),
+                    String::new(),
+                ),
+            },
+            // One window here.
+            Request::CloseWindow => self.request(Request::Quit),
+            Request::Restart { restore } => {
+                if self.modified_count() > 0 {
+                    self.message(tr!("msg-restart-unsaved"), true);
+                    return;
+                }
+                if restore && let Err(e) = kalem_core::sessions::restore_on_next_start() {
+                    self.message(e, true);
+                    return;
+                }
+                self.restart = true;
+                self.close();
+            }
             Request::SaveSession(name) => {
                 match kalem_core::sessions::save(&name, &self.session()) {
                     Ok(p) => self.message(
@@ -1984,11 +2011,6 @@ impl App {
 
     fn close(&mut self) {
         self.bus.emit(&Event::DocumentClose { doc: self.doc_id });
-        // The session `SPC q l` restores.
-        let session = self.session();
-        if !session.documents.is_empty() {
-            let _ = kalem_core::sessions::save(kalem_core::sessions::LAST, &session);
-        }
         self.quit = true;
     }
 
@@ -3231,7 +3253,11 @@ impl App {
         }
         let yes_no = matches!(
             p.kind,
-            PromptKind::Quit | PromptKind::Close | PromptKind::Reload | PromptKind::Overwrite
+            PromptKind::Quit
+                | PromptKind::QuitDiscard
+                | PromptKind::Close
+                | PromptKind::Reload
+                | PromptKind::Overwrite
         );
         if !yes_no && let Some(edit) = line_key(&k) {
             kalem_core::line_edit::apply(&mut p.input, &mut p.back, edit);
@@ -3257,6 +3283,8 @@ impl App {
                         }
                     }
                     (PromptKind::Quit, _, true) => self.close(),
+                    (PromptKind::QuitDiscard, true, _) => self.close(),
+                    (PromptKind::QuitDiscard, _, true) => self.message(tr!("msg-cancelled"), false),
                     (PromptKind::Close, true, _) => {
                         self.save(false);
                         if !self.doc.is_modified() {

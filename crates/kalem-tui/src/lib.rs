@@ -57,7 +57,8 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
         }
     };
     // The last session, when no file was given and the settings say so.
-    if path.is_none() && app.config_bool("editor.restore_session") {
+    let asked = kalem_core::sessions::take_restore_request();
+    if asked || (path.is_none() && app.config_bool("editor.restore_session")) {
         app.run_command("session.restore", serde_json::Value::Null);
     }
     // Images need a graphics protocol; block characters are not used.
@@ -85,7 +86,7 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
         .is_some_and(|t| t.to_lowercase().contains("kitty"));
     app.editor.images.borrow_mut().compress = ssh && kitty;
     tracing::info!(graphics = ?app.caps.graphics(), cell = ?app.caps.cell_size, "images");
-    let (mut term, _session) = terminal::start(&app.caps)?;
+    let (mut term, session) = terminal::start(&app.caps)?;
     // For start-up measurements (book/part-5/performance.org): quit after the
     // first frame.
     let exit_after_start = std::env::var_os("KALEM_EXIT_AFTER_START").is_some();
@@ -118,6 +119,22 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
         if app.quit {
             break;
         }
+    }
+    // The session `SPC q l` restores.
+    let last = app.session();
+    if !last.documents.is_empty() {
+        let _ = kalem_core::sessions::save(kalem_core::sessions::LAST, &last);
+    }
+    // `SPC q r`, `SPC q R`: the terminal given back, then Kalem again with
+    // the same arguments.
+    if app.restart {
+        drop(term);
+        drop(session);
+        let exe = std::env::current_exe()?;
+        let status = std::process::Command::new(exe)
+            .args(std::env::args_os().skip(1))
+            .status()?;
+        std::process::exit(status.code().unwrap_or(0));
     }
     Ok(())
 }

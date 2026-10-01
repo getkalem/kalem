@@ -600,12 +600,17 @@ impl Workspace {
         });
     }
 
-    pub fn quit(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
-        // The session `SPC q l` restores.
+    /// Saves the session `SPC q l` restores.
+    pub fn save_last_session(&self, cx: &App) {
         let session = self.session(cx);
         if !session.documents.is_empty() {
             let _ = kalem_core::sessions::save(kalem_core::sessions::LAST, &session);
         }
+    }
+
+    /// The documents with unsaved changes: this window's, and with `all`
+    /// the other windows' too.
+    fn modified(&self, all: bool, window: &Window, cx: &App) -> Vec<Entity<Editor>> {
         let mut modified: Vec<Entity<Editor>> = self
             .editors
             .iter()
@@ -614,7 +619,7 @@ impl Workspace {
             .collect();
         let me = window.window_handle();
         for w in cx.windows() {
-            if w == me {
+            if w == me || !all {
                 continue;
             }
             if let Some(w) = w.downcast::<Workspace>()
@@ -628,6 +633,105 @@ impl Workspace {
                 );
             }
         }
+        modified
+    }
+
+    /// Quits after a confirmation, losing the unsaved changes (`SPC q Q`).
+    pub fn quit_without_saving(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        let n = self.modified(true, window, cx).len();
+        if n == 0 {
+            cx.quit();
+            return;
+        }
+        let (quit, cancel) = (tr!("dialog-quit"), tr!("dialog-cancel"));
+        let answer = window.prompt(
+            gpui::PromptLevel::Warning,
+            &tr!("dialog-quit-discard", count = n.to_string()),
+            None,
+            &[quit.as_str(), cancel.as_str()],
+            cx,
+        );
+        cx.spawn_in(window, async move |_, cx| {
+            if let Ok(0) = answer.await {
+                let _ = cx.update(|_, cx| cx.quit());
+            }
+        })
+        .detach();
+    }
+
+    /// Closes the window, asking about its unsaved documents (`SPC q f`).
+    pub fn close_window(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        let modified = self.modified(false, window, cx);
+        if modified.is_empty() {
+            window.remove_window();
+            return;
+        }
+        let (save, discard, cancel) = (
+            tr!("dialog-save"),
+            tr!("dialog-dont-save"),
+            tr!("dialog-cancel"),
+        );
+        let question = if modified.len() == 1 {
+            tr!("dialog-save-before-quit")
+        } else {
+            tr!(
+                "dialog-save-all-before-quit",
+                count = modified.len().to_string()
+            )
+        };
+        let answer = window.prompt(
+            gpui::PromptLevel::Warning,
+            &question,
+            None,
+            &[save.as_str(), discard.as_str(), cancel.as_str()],
+            cx,
+        );
+        cx.spawn_in(window, async move |this, cx| {
+            let a = answer.await;
+            let _ = this.update_in(cx, |ws, window, cx| match a {
+                Ok(0) => {
+                    let all = modified
+                        .iter()
+                        .all(|e| e.update(cx, |e, _| e.save_quietly()));
+                    if all {
+                        window.remove_window();
+                    } else {
+                        ws.editor.update(cx, |e, cx| {
+                            e.status = Some((tr!("msg-not-saved", reason = tr!("untitled")), true));
+                            cx.notify();
+                        });
+                    }
+                }
+                Ok(1) => window.remove_window(),
+                _ => {}
+            });
+        })
+        .detach();
+    }
+
+    /// Starts Kalem again, with the open documents when `restore`
+    /// (`SPC q r`, `SPC q R`); refused while documents are unsaved.
+    pub fn restart(&mut self, restore: bool, window: &mut Window, cx: &mut Context<'_, Self>) {
+        let error = if !self.modified(true, window, cx).is_empty() {
+            Some(tr!("msg-restart-unsaved"))
+        } else if restore {
+            kalem_core::sessions::restore_on_next_start().err()
+        } else {
+            None
+        };
+        if let Some(e) = error {
+            self.editor.update(cx, |ed, cx| {
+                ed.message(e, true);
+                cx.notify();
+            });
+            return;
+        }
+        self.save_last_session(cx);
+        cx.restart();
+    }
+
+    pub fn quit(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        let modified = self.modified(true, window, cx);
         if modified.is_empty() {
             cx.quit();
             return;
@@ -753,6 +857,9 @@ impl Workspace {
                 }
             }
             DocEvent::Quit => self.quit(window, cx),
+            DocEvent::QuitWithoutSaving => self.quit_without_saving(window, cx),
+            DocEvent::CloseWindow => self.close_window(window, cx),
+            DocEvent::Restart(restore) => self.restart(restore, window, cx),
             DocEvent::SaveSession(name) => {
                 let msg = match kalem_core::sessions::save(&name, &self.session(cx)) {
                     Ok(p) => (
@@ -1728,10 +1835,25 @@ pub fn open_window(path: Option<PathBuf>, shared: Rc<Shared>, cx: &mut App) {
     }
 }
 
+/// Saves the active window's session as the last one, on quitting.
+pub fn save_last_session(cx: &mut App) {
+    let mut windows: Vec<gpui::AnyWindowHandle> = cx.active_window().into_iter().collect();
+    windows.extend(cx.windows());
+    for w in windows {
+        if let Some(w) = w.downcast::<Workspace>()
+            && let Ok(ws) = w.read(cx)
+        {
+            ws.save_last_session(cx);
+            return;
+        }
+    }
+}
+
 /// Opens the last session in the first window, when the settings say so
 /// (`editor.restore_session`).
 pub fn restore_last_session(shared: &Shared, cx: &mut App) {
-    if !shared.config.bool("editor.restore_session") {
+    let asked = kalem_core::sessions::take_restore_request();
+    if !asked && !shared.config.bool("editor.restore_session") {
         return;
     }
     let Ok(session) = kalem_core::sessions::load(kalem_core::sessions::LAST) else {
