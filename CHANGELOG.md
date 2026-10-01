@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Workspaces (`SPC TAB`): named sets of a window's documents, each with its panes, switched, renamed, deleted (keeping the documents open), saved and loaded (T2.7i.15).
 - Panes in both editors (`SPC w`, `C-x 2`, `C-x 3`, `C-x o`): split, focus by direction, move, close, only, balance, resize, swap, rotate, and undo and redo of the layout (T2.7i.5).
 - `SPC i`: a character by its Unicode name, an emoji, the file's name or path, a text from the clipboard history or a Vim register; `SPC n`: Search Notes (`notes.directory`), Store Link, Copy as HTML and as Rich Text (T2.7i.12, T2.7i.13).
 - The local leader `SPC m` for Org, LaTeX and Markdown as Doom has it, each key's command or reason in the Book; Markdown's Bold, Italic, Code and Insert Link (Ctrl+B, Ctrl+I, Ctrl+K) (T2.7i.16, T2.7i.17).

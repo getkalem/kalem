@@ -1511,76 +1511,124 @@ command = "session.saveAs"
 doom = "SPC TAB TAB"
 keys = "space tab tab"
 what = "List workspaces"
-reason = "Planned: T2.7i.15"
+command = "workspace.list"
 
 [[key]]
 doom = "SPC TAB n"
 keys = "space tab n"
 what = "New workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.new"
 
 [[key]]
 doom = "SPC TAB N"
 keys = "space tab shift+n"
 what = "New named workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.newNamed"
 
 [[key]]
 doom = "SPC TAB d"
 keys = "space tab d"
 what = "Delete workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.delete"
 
 [[key]]
 doom = "SPC TAB r"
 keys = "space tab r"
 what = "Rename workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.rename"
 
 [[key]]
 doom = "SPC TAB ["
 keys = "space tab ["
 what = "Previous workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.previous"
 
 [[key]]
 doom = "SPC TAB ]"
 keys = "space tab ]"
 what = "Next workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.next"
 
 [[key]]
 doom = "SPC TAB 1"
 keys = "space tab 1"
 what = "Workspace 1"
-reason = "Planned: T2.7i.15"
+command = "workspace.switch"
+
+[[key]]
+doom = "SPC TAB 2"
+keys = "space tab 2"
+what = "Workspace 2"
+command = "workspace.switch"
+
+[[key]]
+doom = "SPC TAB 3"
+keys = "space tab 3"
+what = "Workspace 3"
+command = "workspace.switch"
+
+[[key]]
+doom = "SPC TAB 4"
+keys = "space tab 4"
+what = "Workspace 4"
+command = "workspace.switch"
+
+[[key]]
+doom = "SPC TAB 5"
+keys = "space tab 5"
+what = "Workspace 5"
+command = "workspace.switch"
+
+[[key]]
+doom = "SPC TAB 6"
+keys = "space tab 6"
+what = "Workspace 6"
+command = "workspace.switch"
+
+[[key]]
+doom = "SPC TAB 7"
+keys = "space tab 7"
+what = "Workspace 7"
+command = "workspace.switch"
+
+[[key]]
+doom = "SPC TAB 8"
+keys = "space tab 8"
+what = "Workspace 8"
+command = "workspace.switch"
+
+[[key]]
+doom = "SPC TAB 9"
+keys = "space tab 9"
+what = "Workspace 9"
+command = "workspace.switch"
 
 [[key]]
 doom = "SPC TAB `"
 keys = "space tab `"
 what = "Last workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.last"
 
 [[key]]
 doom = "SPC TAB s"
 keys = "space tab s"
 what = "Save the workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.save"
 
 [[key]]
 doom = "SPC TAB l"
 keys = "space tab l"
 what = "Load a workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.load"
 
 [[key]]
 doom = "SPC TAB ."
 keys = "space tab ."
 what = "Switch workspace"
-reason = "Planned: T2.7i.15"
+command = "workspace.list"
 
 [[key]]
 doom = "SPC TAB x"
 keys = "space tab x"
 what = "Delete a saved session"
-reason = "Planned: T2.7i.15"
+command = "workspace.deleteSaved"

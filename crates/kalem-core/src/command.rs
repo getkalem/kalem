@@ -261,6 +261,9 @@ pub enum Request {
         /// The session restored.
         restore: bool,
     },
+    /// Act on the window's workspaces ([`crate::workspaces`], Doom's
+    /// `SPC TAB`).
+    Workspace(crate::workspaces::WorkspaceOp),
     /// Change the window's panes ([`crate::layout`], Doom's `SPC w`).
     Pane(crate::layout::PaneOp),
     /// Save the open documents as session `0` ([`crate::sessions`]).

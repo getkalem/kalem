@@ -192,6 +192,9 @@ pub struct OpenFile {
     pub title: String,
     /// It has unsaved changes.
     pub modified: bool,
+    /// It belongs to another workspace: left out of the list and the
+    /// cycle (T2.7i.15).
+    pub hidden: bool,
 }
 
 /// A line of a project's folder tree.
@@ -351,6 +354,9 @@ pub fn entries(files: &[OpenFile], projects: &Projects) -> Vec<Entry> {
     let mut groups: Vec<(PathBuf, String, Vec<usize>)> = Vec::new();
     let mut loose = Vec::new();
     for (i, f) in files.iter().enumerate() {
+        if f.hidden {
+            continue;
+        }
         match f.path.as_deref().and_then(|p| projects.containing(p)) {
             Some(p) => match groups.iter_mut().find(|g| g.0 == p.root) {
                 Some(g) => g.2.push(i),
@@ -852,6 +858,7 @@ mod tests {
             path: p.map(|p| base.join(p)),
             title: p.unwrap_or("Untitled").into(),
             modified: false,
+            hidden: false,
         };
         let files = [
             file(Some("loose.org")),

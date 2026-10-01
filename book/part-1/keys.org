@@ -146,6 +146,19 @@ panes; in the terminal a rule with the document's name divides them. In
 the Emacs keymap =C-x 2=, =C-x 3=, =C-x o=, =C-x 0= and =C-x 1= do the
 same.
 
+=SPC TAB= keeps workspaces, named sets of the window's documents, as
+Doom does: =SPC TAB n= starts one (=SPC TAB N= with a name), =SPC TAB
+TAB= or =SPC TAB .= chooses one, =SPC TAB [= and =SPC TAB ]= go to the
+one before and after, =SPC TAB 1= to =9= by place, =SPC TAB `= to the
+last, =SPC TAB r= renames and =SPC TAB d= deletes it. The list of open
+files and the document cycle show the workspace's documents; each
+workspace keeps its panes and the document it showed. Deleting a
+workspace closes nothing: its documents join the workspace shown next.
+=SPC TAB s= saves the workspace's documents (a session called
+=workspace-NAME=), =SPC TAB l= opens a saved one in a new workspace, and
+=SPC TAB x= deletes a saved one. The status bar names the workspace when
+there are several.
+
 A session is the open documents, the cursor in each, the one shown and
 the project. Kalem saves the session called =last= when it quits, which
 =SPC q l= restores, and on start too when =editor.restore_session= is

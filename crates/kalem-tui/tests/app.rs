@@ -4132,3 +4132,40 @@ fn panes_in_the_terminal() {
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("beta"), "{rows}");
 }
+
+#[test]
+fn workspaces_in_the_terminal() {
+    // T2.7i.15: each workspace its own documents; deleting one keeps them.
+    let (mut t, dir) = project_app(Config::default());
+    t.app
+        .run_command("workspace.newNamed", serde_json::json!({ "name": "notes" }));
+    assert_eq!(title(&t), "Untitled");
+    assert!(status(&mut t).contains("[notes]"), "{}", status(&mut t));
+    let b = dir.join("proj/sub/b.org");
+    t.app.run_command(
+        "file.open",
+        serde_json::json!({ "path": b.display().to_string() }),
+    );
+    let titles = |t: &T| -> Vec<String> {
+        t.app
+            .open_files()
+            .into_iter()
+            .filter(|f| !f.hidden)
+            .map(|f| f.title)
+            .collect()
+    };
+    // (The empty document gave its place to b.org.)
+    assert_eq!(titles(&t), ["b.org"]);
+    // Back to main: a.org alone.
+    t.app.run_command("workspace.last", serde_json::Value::Null);
+    assert_eq!(title(&t), "a.org");
+    assert_eq!(titles(&t), ["a.org"]);
+    t.app
+        .run_command("workspace.switch", serde_json::json!({ "index": 1 }));
+    assert_eq!(title(&t), "b.org");
+    // Deleting it: its documents join main.
+    t.app
+        .run_command("workspace.delete", serde_json::Value::Null);
+    assert_eq!(titles(&t).len(), 2);
+    assert!(!status(&mut t).contains("[notes]"));
+}
