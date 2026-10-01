@@ -125,3 +125,44 @@ fn snapshots() {
         failed.len()
     );
 }
+
+/// The macros of `macros.txt` the renderer refuses: (package, macro).
+fn refused() -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    for line in include_str!("macros.txt").lines() {
+        if line.starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        let mut parts = line.splitn(3, '\t');
+        let (Some(pkg), Some(name), Some(sample)) = (parts.next(), parts.next(), parts.next())
+        else {
+            continue;
+        };
+        if Ratex.render(&request(sample, true)).is_err() {
+            out.push((pkg.to_string(), name.to_string()));
+        }
+    }
+    out
+}
+
+#[test]
+fn unsupported_macros() {
+    // The Book's table names exactly the macros the renderer refuses
+    // (T2.7h.7): when RaTeX learns one, or forgets one, it changes.
+    let book = include_str!("../../../book/part-2/latex.org");
+    let table = &book[book.find("#+NAME: unsupported-math").expect("the table")..];
+    let mut documented: Vec<(String, String)> = table
+        .lines()
+        .skip(3)
+        .take_while(|l| l.starts_with('|'))
+        .filter_map(|l| {
+            let cells: Vec<&str> = l.split('|').map(str::trim).collect();
+            let unquote = |s: &str| s.trim_matches('=').to_string();
+            Some((unquote(cells.get(1)?), unquote(cells.get(2)?)))
+        })
+        .collect();
+    let mut got = refused();
+    documented.sort();
+    got.sort();
+    assert_eq!(got, documented, "update the table in book/part-2/latex.org");
+}

@@ -1,0 +1,363 @@
+# Math macros by package, each with a sample using it (T2.7h.7): the
+# test `unsupported_macros` renders every sample and compares the ones
+# RaTeX refuses with the table in book/part-2/latex.org.
+# package	macro	sample
+latex	\frac	\frac{a}{b}
+amsmath	\dfrac	\dfrac{a}{b}
+amsmath	\tfrac	\tfrac{a}{b}
+amsmath	\cfrac	\cfrac{1}{1+\cfrac{1}{x}}
+amsmath	\binom	\binom{n}{k}
+amsmath	\dbinom	\dbinom{n}{k}
+amsmath	\tbinom	\tbinom{n}{k}
+amsmath	\genfrac	\genfrac{(}{)}{0pt}{}{n}{k}
+latex	\sqrt	\sqrt[3]{x}
+latex	\hat	\hat{x}
+latex	\widehat	\widehat{xy}
+latex	\tilde	\tilde{x}
+latex	\widetilde	\widetilde{xy}
+latex	\bar	\bar{x}
+latex	\overline	\overline{xy}
+latex	\underline	\underline{xy}
+latex	\vec	\vec{v}
+latex	\overrightarrow	\overrightarrow{AB}
+latex	\overleftarrow	\overleftarrow{AB}
+amsmath	\overleftrightarrow	\overleftrightarrow{AB}
+latex	\dot	\dot{x}
+latex	\ddot	\ddot{x}
+amsmath	\dddot	\dddot{x}
+amsmath	\ddddot	\ddddot{x}
+latex	\breve	\breve{x}
+latex	\check	\check{x}
+latex	\acute	\acute{x}
+latex	\grave	\grave{x}
+latex	\mathring	\mathring{x}
+latex	\overbrace	\overbrace{a+b}^{n}
+latex	\underbrace	\underbrace{a+b}_{n}
+amsmath	\overset	\overset{!}{=}
+amsmath	\underset	\underset{x}{\max}
+latex	\stackrel	\stackrel{?}{=}
+amsmath	\xrightarrow	\xrightarrow{f}
+amsmath	\xleftarrow	\xleftarrow{f}
+mathtools	\xLeftarrow	\xLeftarrow{f}
+mathtools	\xRightarrow	\xRightarrow{f}
+mathtools	\xleftrightarrow	\xleftrightarrow{f}
+mathtools	\xmapsto	\xmapsto{f}
+mathtools	\xhookrightarrow	\xhookrightarrow{f}
+latex	\mathbb	\mathbb{R}
+latex	\mathcal	\mathcal{A}
+amssymb	\mathfrak	\mathfrak{g}
+mathrsfs	\mathscr	\mathscr{L}
+latex	\mathrm	\mathrm{d}x
+latex	\mathbf	\mathbf{v}
+latex	\mathit	\mathit{diff}
+latex	\mathsf	\mathsf{T}
+latex	\mathtt	\mathtt{x}
+amsmath	\boldsymbol	\boldsymbol{\alpha}
+bm	\bm	\bm{x}
+amsmath	\pmb	\pmb{x}
+amsmath	\text	\text{if } x
+latex	\textrm	\textrm{a}
+latex	\textbf	\textbf{a}
+latex	\textit	\textit{a}
+amsmath	\operatorname	\operatorname{rank} A
+amsmath	\operatorname*	\operatorname*{arg\,max}_x f
+latex	\mathop	\mathop{\mathrm{Res}}
+latex	\sum	\sum_{i=1}^n
+latex	\prod	\prod_i
+latex	\coprod	\coprod_i
+latex	\int	\int_0^1
+amsmath	\iint	\iint
+amsmath	\iiint	\iiint
+amsmath	\idotsint	\idotsint
+latex	\oint	\oint
+esint	\oiint	\oiint
+latex	\lim	\lim_{x\to 0}
+latex	\limsup	\limsup
+latex	\liminf	\liminf
+latex	\max	\max
+latex	\sup	\sup
+latex	\det	\det A
+latex	\gcd	\gcd(a,b)
+latex	\Pr	\Pr(A)
+latex	\arg	\arg z
+latex	\dim	\dim V
+latex	\ker	\ker f
+latex	\hom	\hom
+latex	\exp	\exp x
+latex	\log	\log x
+latex	\ln	\ln x
+latex	\sin	\sin x
+latex	\arcsin	\arcsin x
+latex	\sinh	\sinh x
+amsmath	\varlimsup	\varlimsup
+amsmath	\varliminf	\varliminf
+amsmath	\injlim	\injlim
+amsmath	\projlim	\projlim
+latex	\left	\left( x \right)
+latex	\middle	\left( x \middle| y \right)
+latex	\big	\big( x \big)
+latex	\Big	\Big( x \Big)
+latex	\bigg	\bigg( x \bigg)
+latex	\Bigg	\Bigg( x \Bigg)
+latex	\bigl	\bigl( x \bigr)
+latex	\langle	\langle x \rangle
+latex	\lceil	\lceil x \rceil
+latex	\lfloor	\lfloor x \rfloor
+amsmath	\lvert	\lvert x \rvert
+amsmath	\lVert	\lVert x \rVert
+latex	\lbrace	\lbrace x \rbrace
+latex	\{	\{ x \}
+latex	\|	\| x \|
+latex	\vert	\vert x \vert
+latex	\Vert	\Vert x \Vert
+latex	\backslash	A \backslash B
+amsmath	matrix	\begin{matrix} a & b \\ c & d \end{matrix}
+amsmath	pmatrix	\begin{pmatrix} a & b \end{pmatrix}
+amsmath	bmatrix	\begin{bmatrix} a & b \end{bmatrix}
+amsmath	Bmatrix	\begin{Bmatrix} a & b \end{Bmatrix}
+amsmath	vmatrix	\begin{vmatrix} a & b \end{vmatrix}
+amsmath	Vmatrix	\begin{Vmatrix} a & b \end{Vmatrix}
+amsmath	smallmatrix	\begin{smallmatrix} a & b \end{smallmatrix}
+mathtools	pmatrix*	\begin{pmatrix*}[r] -1 & 2 \end{pmatrix*}
+amsmath	cases	\begin{cases} 1 & x>0 \\ 0 & \text{else} \end{cases}
+mathtools	dcases	\begin{dcases} 1 & x>0 \end{dcases}
+mathtools	rcases	\begin{rcases} 1 & x>0 \end{rcases}
+amsmath	aligned	\begin{aligned} a &= b \\ c &= d \end{aligned}
+amsmath	gathered	\begin{gathered} a \\ b \end{gathered}
+amsmath	alignedat	\begin{alignedat}{2} a &= b &\quad c &= d \end{alignedat}
+amsmath	split	\begin{split} a &= b \\ &= c \end{split}
+latex	array	\begin{array}{cc} a & b \end{array}
+amsmath	subarray	\sum_{\begin{subarray}{c} i \\ j \end{subarray}}
+amsmath	\substack	\sum_{\substack{i<n \\ j<m}}
+amsmath	\sideset	\sideset{_a^b}{_c^d}\sum
+latex	\,	a\,b
+latex	\:	a\:b
+latex	\;	a\;b
+latex	\!	a\!b
+latex	\quad	a\quad b
+latex	\qquad	a\qquad b
+latex	\hspace	a\hspace{1em}b
+latex	\phantom	\phantom{x}
+latex	\hphantom	\hphantom{x}
+latex	\vphantom	\vphantom{x}
+latex	\mathstrut	\mathstrut
+latex	\kern	a\kern1em b
+latex	\mkern	a\mkern3mu b
+latex	\mskip	a\mskip3mu b
+latex	\varepsilon	\varepsilon
+latex	\vartheta	\vartheta
+latex	\varphi	\varphi
+latex	\varrho	\varrho
+latex	\varsigma	\varsigma
+amssymb	\varkappa	\varkappa
+amssymb	\digamma	\digamma
+amsmath	\varGamma	\varGamma
+upgreek	\upmu	\upmu
+latex	\leq	\leq
+latex	\geq	\geq
+latex	\neq	\neq
+latex	\approx	\approx
+latex	\equiv	\equiv
+latex	\sim	\sim
+latex	\simeq	\simeq
+latex	\cong	\cong
+latex	\propto	\propto
+latex	\prec	\prec
+latex	\preceq	\preceq
+latex	\ll	\ll
+latex	\gg	\gg
+latex	\subset	\subset
+latex	\subseteq	\subseteq
+amssymb	\subsetneq	\subsetneq
+amssymb	\supsetneqq	\supsetneqq
+latex	\in	\in
+latex	\notin	\notin
+latex	\ni	\ni
+latex	\mid	\mid
+amssymb	\nmid	\nmid
+latex	\parallel	\parallel
+amssymb	\nparallel	\nparallel
+latex	\perp	\perp
+latex	\vdash	\vdash
+latex	\models	\models
+mathtools	\coloneqq	\coloneqq
+mathtools	\eqqcolon	\eqqcolon
+mathtools	\coloneq	\coloneq
+mathtools	\vcentcolon	\vcentcolon
+amssymb	\triangleq	\triangleq
+latex	\doteq	\doteq
+amssymb	\lesssim	\lesssim
+amssymb	\gtrsim	\gtrsim
+amssymb	\lessgtr	\lessgtr
+amssymb	\leqslant	\leqslant
+amssymb	\geqslant	\geqslant
+amssymb	\nleq	\nleq
+amssymb	\ncong	\ncong
+amssymb	\nsim	\nsim
+latex	\not	\not=
+latex	\to	\to
+latex	\gets	\gets
+latex	\mapsto	\mapsto
+amsmath	\implies	\implies
+amsmath	\impliedby	\impliedby
+amsmath	\iff	\iff
+latex	\Rightarrow	\Rightarrow
+latex	\Leftrightarrow	\Leftrightarrow
+latex	\longrightarrow	\longrightarrow
+latex	\longmapsto	\longmapsto
+latex	\hookrightarrow	\hookrightarrow
+latex	\rightharpoonup	\rightharpoonup
+latex	\rightleftharpoons	\rightleftharpoons
+amssymb	\leadsto	\leadsto
+amssymb	\twoheadrightarrow	\twoheadrightarrow
+amssymb	\rightsquigarrow	\rightsquigarrow
+latex	\nearrow	\nearrow
+amssymb	\circlearrowleft	\circlearrowleft
+latex	\uparrow	\uparrow
+latex	\infty	\infty
+latex	\partial	\partial
+latex	\nabla	\nabla
+latex	\forall	\forall
+latex	\exists	\exists
+amssymb	\nexists	\nexists
+latex	\emptyset	\emptyset
+amssymb	\varnothing	\varnothing
+latex	\aleph	\aleph
+amssymb	\beth	\beth
+latex	\hbar	\hbar
+amssymb	\hslash	\hslash
+latex	\ell	\ell
+latex	\Re	\Re
+latex	\Im	\Im
+latex	\wp	\wp
+latex	\angle	\angle
+amssymb	\measuredangle	\measuredangle
+latex	\triangle	\triangle
+amssymb	\square	\square
+amssymb	\blacksquare	\blacksquare
+amssymb	\lozenge	\lozenge
+amssymb	\checkmark	\checkmark
+latex	\dagger	\dagger
+latex	\ddagger	\ddagger
+latex	\cdots	\cdots
+latex	\ldots	\ldots
+latex	\vdots	\vdots
+latex	\ddots	\ddots
+amsmath	\dots	\dots
+amsmath	\dotsc	a,\dotsc,b
+amsmath	\dotsb	a+\dotsb+b
+latex	\prime	f^\prime
+latex	\circ	f\circ g
+latex	\bullet	\bullet
+latex	\cdot	a\cdot b
+latex	\times	a\times b
+latex	\div	a\div b
+latex	\pm	\pm
+latex	\mp	\mp
+latex	\oplus	\oplus
+latex	\otimes	\otimes
+latex	\odot	\odot
+latex	\wedge	\wedge
+latex	\vee	\vee
+latex	\cap	\cap
+latex	\cup	\cup
+latex	\setminus	\setminus
+amssymb	\smallsetminus	\smallsetminus
+latex	\bigcup	\bigcup_i
+latex	\bigcap	\bigcap_i
+latex	\bigoplus	\bigoplus_i
+latex	\bigotimes	\bigotimes_i
+latex	\bigsqcup	\bigsqcup_i
+latex	\biguplus	\biguplus_i
+latex	\bigwedge	\bigwedge_i
+latex	\star	\star
+latex	\ast	\ast
+latex	\neg	\neg
+latex	\lnot	\lnot
+latex	\land	\land
+latex	\lor	\lor
+amssymb	\boxtimes	\boxtimes
+amssymb	\ltimes	\ltimes
+amssymb	\rtimes	\rtimes
+latex	\wr	\wr
+latex	\amalg	\amalg
+amssymb	\therefore	\therefore
+amssymb	\because	\because
+amsmath	\tag	x \tag{1}
+amsmath	\notag	x \notag
+latex	\nonumber	x \nonumber
+latex	\label	x \label{eq}
+amsmath	\eqref	\eqref{eq}
+latex	\ref	\ref{eq}
+amsmath	\boxed	\boxed{x}
+latex	\fbox	\fbox{x}
+xcolor	\color	{\color{red} x}
+xcolor	\textcolor	\textcolor{red}{x}
+xcolor	\colorbox	\colorbox{yellow}{x}
+cancel	\cancel	\cancel{x}
+cancel	\bcancel	\bcancel{x}
+cancel	\xcancel	\xcancel{x}
+cancel	\cancelto	\cancelto{0}{x}
+latex	\limits	\sum\limits_i
+latex	\nolimits	\int\nolimits_0^1
+latex	\displaystyle	\displaystyle x
+latex	\textstyle	\textstyle x
+latex	\scriptstyle	\scriptstyle x
+latex	\scriptscriptstyle	\scriptscriptstyle x
+mathtools	\mathclap	\sum_{\mathclap{i<n}}
+mathtools	\mathrlap	\mathrlap{x}
+mathtools	\mathllap	\mathllap{x}
+latex	\rlap	\rlap{x}
+latex	\llap	\llap{x}
+mathtools	\clap	\clap{x}
+mathtools	\prescript	\prescript{a}{b}{X}
+mathtools	\xrightleftharpoons	\xrightleftharpoons{a}
+mathtools	\shortintertext	a \shortintertext{and} b
+amsmath	\intertext	a \intertext{and} b
+latex	\mathrel	a\mathrel{R}b
+latex	\mathbin	a\mathbin{*}b
+latex	\mathpunct	a\mathpunct{;}b
+latex	\mathord	\mathord{+}
+latex	\mathinner	\mathinner{x}
+latex	\mathchoice	\mathchoice{a}{b}{c}{d}
+latex	\raisebox	\raisebox{1pt}{x}
+latex	\rule	\rule{1em}{1pt}
+mhchem	\ce	\ce{H2O}
+mhchem	\pu	\pu{1 m}
+nicefrac	\nicefrac	\nicefrac{1}{2}
+xfrac	\sfrac	\sfrac{1}{2}
+bbm	\mathbbm	\mathbbm{1}
+dsfont	\mathds	\mathds{1}
+tensor	\tensor	\tensor{T}{^a_b}
+physics	\dv	\dv{f}{x}
+physics	\bra	\bra{\psi}
+braket	\braket	\braket{a|b}
+amsmath	\mod	a \mod n
+amsmath	\bmod	a \bmod n
+amsmath	\pmod	a \pmod n
+amsmath	\pod	a \pod n
+latex	\atop	{a \atop b}
+latex	\over	{a \over b}
+latex	\choose	{n \choose k}
+latex	\underleftarrow	\underleftarrow{AB}
+amsmath	\underrightarrow	\underrightarrow{AB}
+amsmath	\underleftrightarrow	\underleftrightarrow{AB}
+latex	\overgroup	\overgroup{AB}
+latex	\utilde	\utilde{AB}
+amsmath	\overunderset	\overset{a}{\underset{b}{=}}
+amsmath	\mathbin	\mathbin{\diamond}
+latex	\diamond	\diamond
+amssymb	\Diamond	\Diamond
+latex	\clubsuit	\clubsuit
+latex	\flat	\flat
+latex	\sharp	\sharp
+latex	\natural	\natural
+amssymb	\complement	\complement
+amssymb	\eth	\eth
+amssymb	\mho	\mho
+latex	\imath	\imath
+latex	\jmath	\jmath
+amsmath	\varDelta	\varDelta
+latex	\top	\top
+latex	\bot	\bot
+amssymb	\Box	\Box

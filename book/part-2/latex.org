@@ -1080,6 +1080,36 @@ unit repeated, =\numlist= with ", " and " and ". siunitx is not in
 the test machine's TeX installation, so these follow its manual, not a
 comparison with its output.
 
+** Macros the renderer leaves as source
+
+The formulas are drawn by RaTeX, which reads KaTeX's LaTeX. Of the math
+macros in the test list =crates/org-math/tests/macros.txt= (some three
+hundred, by package, each with an example), these are the ones it does
+not know; a formula using one shows as its source in a red frame, as in
+Org, unless Kalem handles the macro itself first. The test
+=unsupported_macros= checks that this table names exactly the macros the
+renderer refuses, so it changes when the renderer does.
+
+#+NAME: unsupported-math
+| Package     | Macro             | In Kalem                                                                |
+|-------------+-------------------+-------------------------------------------------------------------------|
+| =amsmath=   | =\idotsint=       | source                                                                  |
+| =amsmath=   | =\sideset=        | source                                                                  |
+| =amsmath=   | =\intertext=      | source                                                                  |
+| =amsmath=   | =\eqref=          | source (a reference inside a formula)                                   |
+| =latex=     | =\ref=            | source (a reference inside a formula)                                   |
+| =latex=     | =\label=          | taken out of the formula, the equation numbered by the model            |
+| =mathtools= | =\prescript=      | source                                                                  |
+| =mathtools= | =\shortintertext= | source                                                                  |
+| =upgreek=   | =\upmu=           | source                                                                  |
+| =cancel=    | =\cancelto=       | source (=\cancel=, =\bcancel= and =\xcancel= are drawn)                 |
+| =nicefrac=  | =\nicefrac=       | source                                                                  |
+| =xfrac=     | =\sfrac=          | source                                                                  |
+| =bbm=       | =\mathbbm=        | source                                                                  |
+| =dsfont=    | =\mathds=         | source                                                                  |
+| =tensor=    | =\tensor=         | source                                                                  |
+| =physics=   | =\dv=             | given to the renderer as a definition when the document loads =physics= |
+
 * Tables
 
 A table environment is drawn as the shared grid (the one Org tables
@@ -1384,13 +1414,13 @@ Each parses without diagnostics and compiles with pdflatex in the tests.
 
 * Settings
 
-| Setting                  | Default | Meaning                                                          |
-|--------------------------+---------+------------------------------------------------------------------|
-| =latex.engine=           | =auto=  | the TeX engine: =auto=, =pdflatex=, =xelatex= or =lualatex=      |
-| =latex.build_on_save=    | =false= | build the PDF each time a LaTeX document is saved                |
-| =latex.output_directory= | empty   | where builds go, relative to the root document; empty: beside it |
+| Setting                  | Default | Meaning                                                            |
+|--------------------------+---------+--------------------------------------------------------------------|
+| =latex.engine=           | =auto=  | the TeX engine: =auto=, =pdflatex=, =xelatex= or =lualatex=        |
+| =latex.build_on_save=    | =false= | build the PDF each time a LaTeX document is saved                  |
+| =latex.output_directory= | empty   | where builds go, relative to the root document; empty: beside it   |
 | =latex.root=             | empty   | the root document, relative to the project's folder (step 4 above) |
-| =export.open_after=      | =false= | open the PDF of a build and the files pandoc writes              |
+| =export.open_after=      | =false= | open the PDF of a build and the files pandoc writes                |
 
 * Limits and known gaps
 
@@ -1409,7 +1439,8 @@ work breakdown (group 2.7h of =todo.md=):
   list.
 - *Projects.* The project's last-resort search reads at most 2,000
   =.tex= files.
-- *Mathematics.* No table of unsupported macros yet (T2.7h.7). The
+- *Mathematics.* The macros the renderer does not know are in the table
+  above. The
   definitions given to the renderer are cut from the edited file by the
   ranges of the model's macros, so in a file of a multi-file project
   macros defined in other files (the root's preamble) are not applied

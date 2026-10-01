@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- LaTeX: the Book lists the math macros the formula renderer does not know, kept exact by a test over some three hundred macros (T2.7h.7).
 - LaTeX: the setting `latex.root` names a project's root document, and a file whose main document lives in a sibling folder finds it through the project (T2.7h.4).
 - LaTeX: the outline lists the sections of the files a document includes, and choosing one opens that file at the section (T2.11.55, design §9.5).
 - Markdown conformance test against the CommonMark and GFM specification examples, with the known differences documented (T2.7c.11).
