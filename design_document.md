@@ -236,7 +236,7 @@ Every mode can switch to its source text ("Open as text"), and the choice is rem
 - **Lossless editing, as for Org:** the file is edited as text, never regenerated from a tree. The parser only produces source ranges for the view, so untouched bytes stay as they were.
 - **View:** the inline model of the Org mode (6.3): emphasis, code and link markers hidden away from the cursor, headings by level, clickable task list checkboxes, rendered images and math, code blocks with highlighting (D16), front matter folded.
 - **Editing:** autoformat triggers (`#`, `-`, `1.`, `>`, `` ``` ``), Enter continues lists and quotes, tables edited in the grid shared with Org tables (8), outline sidebar from headings, "Convert to Org" and "Convert from Org" through the exporter (10) or pandoc.
-- **Parser (D19):** a CommonMark parser that reports source offsets (pulldown-cmark's offset iterator is the recommended candidate), reparsed from the enclosing top-level block on each edit.
+- **Parser (D19, decided by the owner on 2026-10-01):** comrak, the Rust port of GitHub's `cmark-gfm`, so a file reads exactly as on GitHub, in Kalem's fork `getkalem/comrak` where its defects for an editor are fixed (source positions as byte ranges, every node inside its parent) and offered upstream; reparsed from the enclosing top-level block on each edit.
 
 #### 2.6.2 CSV mode
 
@@ -566,7 +566,7 @@ kalem-ui / kalem-tui ── command call ──▶ kalem-core: Command Registry 
 | GUI | gpui | Zed's framework; D3 decided (7.1) |
 | Highlighting | syntect or tree-sitter | D16 |
 | Encodings | encoding_rs | Legacy encodings in plain text mode |
-| Markdown | pulldown-cmark (D19) | Markdown mode (2.6.1): source ranges only, text edited directly |
+| Markdown | comrak, Kalem's fork (D19) | Markdown mode (2.6.1): source ranges only, text edited directly |
 | CSV | csv | CSV mode (2.6.2): records with byte positions |
 | TUI | ratatui, crossterm, ratatui-image | Terminal frontend; images through kitty, iTerm2 or sixel protocols; D14 decided (7.6) |
 | CLI | clap | Subcommands and batch mode |
@@ -1686,7 +1686,7 @@ Two tracks run beside the phases below (design_doc2.md, section 11; owner, 2026-
 | D16 | Syntax highlighting engine | syntect (Sublime syntax definitions, pure Rust with fancy-regex); tree-sitter (incremental, structural, C grammars) | syntect first for breadth and Sublime compatibility; tree-sitter later for structure-aware features | **Decided:** syntect with `regex-fancy`, in `kalem-highlight` (`book/part-5/decisions/D16-syntax-highlighting.org`) |
 | D17 | Vim mode engine | Own engine in kalem-core; reuse an existing crate; embed Neovim | Own engine, spun out if it proves reusable (4.7); Neovim embedding rejected for size and dependency reasons | **Decided:** own engine, `kalem_core::vim`; the Vim profile replaces the Emacs Org profile (owner, 2026-09-28) |
 | D18 | Entity table provenance | Keep with attribution; split (names and UTF-8 in `org-syntax`, export renderings elsewhere); ask the Org maintainers and the FSF; GPL for `org-syntax` | Split now, ask in parallel (`book/part-5/decisions/D18-entity-table-provenance.org`) | Open: owner decision, blocks publishing `org-syntax` |
-| D19 | Markdown parser | pulldown-cmark (offset iterator); comrak (AST with source positions); tree-sitter-markdown; own parser | pulldown-cmark: fast, CommonMark and GFM, MIT, offsets are enough because editing stays text-based | Open; measured in `spikes/md-parser` (2026-10-01): both 639/648 CommonMark, GFM 12/24 (no extended autolinks, no tag filter) against comrak's 24/24, clean byte ranges against comrak's line and column with a few wrong, four times faster |
+| D19 | Markdown parser | pulldown-cmark (offset iterator); comrak (AST with source positions); tree-sitter-markdown; own parser | comrak: GitHub's own rules (a port of `cmark-gfm`), all of GFM; its position defects fixed in Kalem's fork (`spikes/md-parser`: both 639/648 CommonMark, comrak 24/24 GFM against 12/24, a few positions outside their parent, four times slower than pulldown-cmark) | **Decided (owner, 2026-10-01):** comrak in the fork `getkalem/comrak`, fixes offered upstream |
 | D20 | File operations for the file manager (2.7) | `trash` crate plus std::fs with own copy, move and progress; `fs_extra`; shelling out to system tools | `trash` for deletion, own operations on std::fs for progress, cancellation and conflict handling | Decided 2026-09-28 (book/part-5/decisions/D20-file-operations.org) |
 | D21 | Product positioning | Org editor first; Markdown editor too; a light Office replacement (fonts, colors, spreadsheet notation) | "Kalem edits plain-text files as they look, and keeps them plain text, byte for byte": Org first, Markdown next, the Word-like additions only in `.klm` (D24); the README, the launch and the order of phase 2 follow it | **Closed (owner, 2026-09-30):** faithful standard modes plus the Kalem format; four use cases: notes and tasks, documentation, scientific writing, printed documents (design_doc2.md) |
 | D22 | PDF without TeX | System print to PDF; a bundled HTML renderer; typst | Decide with T2.3.13, after the HTML page template exists | Open (review, 2026-09-28) |
