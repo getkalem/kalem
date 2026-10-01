@@ -3655,3 +3655,43 @@ fn markdown_front_matter_folded(cx: &mut TestAppContext) {
         vec![0, 1, 2, 3, 4, 5, 6, 7]
     );
 }
+
+/// Panes (T2.7i.5): two documents side by side, focus moving between
+/// them, closing and undoing.
+#[gpui::test]
+fn panes_side_by_side(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    let run = |cmd: &str, args: serde_json::Value, cx: &mut VisualTestContext| {
+        let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+        e.update_in(cx, |e, window, cx| e.run_command(cmd, args, window, cx));
+        cx.run_until_parked();
+    };
+    // One document: a split shows it beside itself (the split view).
+    run("pane.splitRight", serde_json::Value::Null, cx);
+    assert!(ws.read_with(cx, |ws, cx| ws.editor.read(cx).other.is_some()));
+    run("view.split", serde_json::Value::Null, cx);
+    let b = dir.join("proj/sub/b.org");
+    ws.update_in(cx, |ws, window, cx| ws.open(&b, None, window, cx));
+    cx.run_until_parked();
+    // Two: b.org stays, a.org opens in the new pane, focused.
+    run("pane.splitRight", serde_json::Value::Null, cx);
+    assert!(ws.read_with(cx, |ws, _| ws.layout.is_split()));
+    assert_eq!(active_title(&ws, cx), "a.org");
+    run("pane.focus", serde_json::json!({ "dir": "left" }), cx);
+    assert_eq!(active_title(&ws, cx), "b.org");
+    run("pane.next", serde_json::Value::Null, cx);
+    assert_eq!(active_title(&ws, cx), "a.org");
+    // Showing b.org here swaps: the other pane shows a.org.
+    ws.update_in(cx, |ws, window, cx| ws.open(&b, None, window, cx));
+    cx.run_until_parked();
+    let other = ws.read_with(cx, |ws, cx| {
+        let left = ws.layout.panes()[0];
+        ws.panes[&left].read(cx).title()
+    });
+    assert_eq!(other, "a.org");
+    run("pane.close", serde_json::Value::Null, cx);
+    assert!(!ws.read_with(cx, |ws, _| ws.layout.is_split()));
+    assert_eq!(active_title(&ws, cx), "a.org");
+    run("pane.undo", serde_json::Value::Null, cx);
+    assert!(ws.read_with(cx, |ws, _| ws.layout.is_split()));
+}

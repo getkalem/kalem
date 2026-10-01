@@ -4075,7 +4075,8 @@ fn markdown_front_matter_folded() {
 fn inserting_names_and_copies() {
     // Doom's `SPC i` (T2.7i.13).
     let mut t = open("x\n");
-    t.app.run_command("insert.fileName", serde_json::Value::Null);
+    t.app
+        .run_command("insert.fileName", serde_json::Value::Null);
     assert_eq!(t.text(), "t.orgx\n");
     kalem_core::command::record_history("copied text");
     t.app
@@ -4087,4 +4088,47 @@ fn inserting_names_and_copies() {
     t.typ("U+2192");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert!(t.text().contains('→'), "{}", t.text());
+}
+
+#[test]
+fn panes_in_the_terminal() {
+    // T2.7i.5: two documents side by side; focus moves between them.
+    let (mut t, dir) = project_app(Config::default());
+    t.app
+        .run_command("pane.splitRight", serde_json::Value::Null);
+    let b = dir.join("proj/sub/b.org");
+    t.app.run_command(
+        "file.open",
+        serde_json::json!({ "path": b.display().to_string() }),
+    );
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("alpha") && rows.contains("beta"), "{rows}");
+    assert_eq!(
+        rows.lines().next().unwrap().matches('│').count(),
+        2,
+        "{rows}"
+    );
+    assert_eq!(title(&t), "b.org");
+    t.app
+        .run_command("pane.focus", serde_json::json!({ "dir": "left" }));
+    assert_eq!(title(&t), "a.org");
+    t.app.run_command("pane.next", serde_json::Value::Null);
+    assert_eq!(title(&t), "b.org");
+    // Only this pane, and back.
+    t.app.run_command("pane.only", serde_json::Value::Null);
+    let rows = screen(&mut t).join("\n");
+    assert!(!rows.contains("alpha"), "{rows}");
+    t.app.run_command("pane.only", serde_json::Value::Null);
+    assert!(screen(&mut t).join("\n").contains("alpha"));
+    // Closing the pane leaves a.org alone; the last pane stays.
+    t.app.run_command("pane.close", serde_json::Value::Null);
+    assert_eq!(title(&t), "a.org");
+    let rows = screen(&mut t).join("\n");
+    assert!(!rows.contains("beta"), "{rows}");
+    t.app.run_command("pane.close", serde_json::Value::Null);
+    assert!(status(&mut t).contains("only pane"), "{}", status(&mut t));
+    // Undo brings the split back.
+    t.app.run_command("pane.undo", serde_json::Value::Null);
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("beta"), "{rows}");
 }

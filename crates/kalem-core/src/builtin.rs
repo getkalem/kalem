@@ -9,6 +9,7 @@ use crate::command::{
     EditorContext, PickKind, ProjectRequest, Request,
 };
 use crate::keys::KeySequence;
+use crate::layout::{Axis, PaneOp};
 use crate::when::WhenClause;
 
 type Handler = fn(&mut EditorContext<'_>, &Value) -> CommandResult;
@@ -232,6 +233,13 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[("bare", "boolean", false)]),
         ),
         ("insert.text", object(&[("text", "string", true)])),
+        ("pane.focus", object(&[("dir", "string", true)])),
+        ("pane.move", object(&[("dir", "string", true)])),
+        (
+            "pane.resize",
+            object(&[("axis", "string", false), ("by", "integer", false)]),
+        ),
+        ("pane.rotate", object(&[("back", "boolean", false)])),
         ("session.saveAs", object(&[("name", "string", true)])),
         ("session.restore", object(&[("name", "string", false)])),
         ("session.restoreNamed", object(&[("name", "string", false)])),
@@ -899,6 +907,12 @@ fn export_setting(
 
 /// Runs a line command on the text and selection of the document, as one
 /// undo step; `None` from it changes nothing.
+/// The `dir` argument of a pane command.
+fn pane_dir(args: &Value) -> Result<crate::layout::Dir, CommandError> {
+    let d = arg_str(args, "dir")?;
+    crate::layout::Dir::parse(d).ok_or_else(|| CommandError::new(format!("dir: {d}")))
+}
+
 /// Inserts `text` over the selection, the cursor after it.
 fn insert_plain(ctx: &mut EditorContext<'_>, text: &str) -> CommandResult {
     lines_command(ctx, |_, s| {
@@ -4467,6 +4481,118 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::Find { replace: true }),
         ),
+        // Panes (Doom's `SPC w`, T2.7i.5).
+        cmd(
+            "pane.splitRight",
+            "Split Right",
+            "Window",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Pane(PaneOp::Split(Axis::Row))),
+        ),
+        cmd(
+            "pane.splitBelow",
+            "Split Below",
+            "Window",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Pane(PaneOp::Split(Axis::Column))),
+        ),
+        cmd(
+            "pane.focus",
+            "Focus Pane",
+            "Window",
+            &[],
+            None,
+            |ctx, args| {
+                let d = pane_dir(args)?;
+                request(ctx, Request::Pane(PaneOp::Focus(d)))
+            },
+        ),
+        cmd(
+            "pane.move",
+            "Move Pane",
+            "Window",
+            &[],
+            None,
+            |ctx, args| {
+                let d = pane_dir(args)?;
+                request(ctx, Request::Pane(PaneOp::Move(d)))
+            },
+        ),
+        cmd("pane.close", "Close Pane", "Window", &[], None, |ctx, _| {
+            request(ctx, Request::Pane(PaneOp::Close(false)))
+        }),
+        cmd(
+            "pane.closeWithDocument",
+            "Close Pane and Document",
+            "Window",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Pane(PaneOp::Close(true))),
+        ),
+        cmd(
+            "pane.only",
+            "Only This Pane",
+            "Window",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Pane(PaneOp::Only)),
+        ),
+        cmd("pane.next", "Next Pane", "Window", &[], None, |ctx, _| {
+            request(ctx, Request::Pane(PaneOp::Cycle(false)))
+        }),
+        cmd(
+            "pane.previous",
+            "Previous Pane",
+            "Window",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Pane(PaneOp::Previous)),
+        ),
+        cmd(
+            "pane.balance",
+            "Balance Panes",
+            "Window",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::Pane(PaneOp::Balance)),
+        ),
+        cmd(
+            "pane.resize",
+            "Resize Pane",
+            "Window",
+            &[],
+            None,
+            |ctx, args| {
+                let axis = match args.get("axis").and_then(Value::as_str) {
+                    Some("column") => Axis::Column,
+                    _ => Axis::Row,
+                };
+                let by = args.get("by").and_then(Value::as_i64).unwrap_or(5) as i32;
+                request(ctx, Request::Pane(PaneOp::Resize(axis, by)))
+            },
+        ),
+        cmd("pane.swap", "Swap Panes", "Window", &[], None, |ctx, _| {
+            request(ctx, Request::Pane(PaneOp::Swap))
+        }),
+        cmd(
+            "pane.rotate",
+            "Rotate Panes",
+            "Window",
+            &[],
+            None,
+            |ctx, args| request(ctx, Request::Pane(PaneOp::Rotate(arg_bool(args, "back")))),
+        ),
+        cmd("pane.undo", "Undo Layout", "Window", &[], None, |ctx, _| {
+            request(ctx, Request::Pane(PaneOp::Undo))
+        }),
+        cmd("pane.redo", "Redo Layout", "Window", &[], None, |ctx, _| {
+            request(ctx, Request::Pane(PaneOp::Redo))
+        }),
+        cmd("pane.new", "New Pane", "Window", &[], None, |ctx, _| {
+            request(ctx, Request::Pane(PaneOp::New))
+        }),
         // Doom's `SPC n` (T2.7i.12).
         cmd(
             "notes.search",

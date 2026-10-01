@@ -495,169 +495,169 @@ reason = "Not yet: the undo history as a list"
 doom = "SPC w v"
 keys = "space w v"
 what = "Split right"
-command = "view.split"
+command = "pane.splitRight"
 
 [[key]]
 doom = "SPC w s"
 keys = "space w s"
 what = "Split below"
-reason = "Planned: T2.7i.5"
+command = "pane.splitBelow"
 
 [[key]]
 doom = "SPC w h"
 keys = "space w h"
 what = "Focus left"
-reason = "Planned: T2.7i.5"
+command = "pane.focus"
 
 [[key]]
 doom = "SPC w j"
 keys = "space w j"
 what = "Focus down"
-reason = "Planned: T2.7i.5"
+command = "pane.focus"
 
 [[key]]
 doom = "SPC w k"
 keys = "space w k"
 what = "Focus up"
-reason = "Planned: T2.7i.5"
+command = "pane.focus"
 
 [[key]]
 doom = "SPC w l"
 keys = "space w l"
 what = "Focus right"
-reason = "Planned: T2.7i.5"
+command = "pane.focus"
 
 [[key]]
 doom = "SPC w H"
 keys = "space w shift+h"
 what = "Move left"
-reason = "Planned: T2.7i.5"
+command = "pane.move"
 
 [[key]]
 doom = "SPC w J"
 keys = "space w shift+j"
 what = "Move down"
-reason = "Planned: T2.7i.5"
+command = "pane.move"
 
 [[key]]
 doom = "SPC w K"
 keys = "space w shift+k"
 what = "Move up"
-reason = "Planned: T2.7i.5"
+command = "pane.move"
 
 [[key]]
 doom = "SPC w L"
 keys = "space w shift+l"
 what = "Move right"
-reason = "Planned: T2.7i.5"
+command = "pane.move"
 
 [[key]]
 doom = "SPC w c"
 keys = "space w c"
 what = "Close pane"
-reason = "Planned: T2.7i.5"
+command = "pane.close"
 
 [[key]]
 doom = "SPC w d"
 keys = "space w d"
 what = "Close pane"
-reason = "Planned: T2.7i.5"
+command = "pane.close"
 
 [[key]]
 doom = "SPC w o"
 keys = "space w o"
 what = "Only this pane"
-reason = "Planned: T2.7i.5"
+command = "pane.only"
 
 [[key]]
 doom = "SPC w m m"
 keys = "space w m m"
 what = "Maximize"
-reason = "Planned: T2.7i.5"
+command = "pane.only"
 
 [[key]]
 doom = "SPC w w"
 keys = "space w w"
 what = "Next pane"
-reason = "Planned: T2.7i.5"
+command = "pane.next"
 
 [[key]]
 doom = "SPC w p"
 keys = "space w p"
 what = "Previous pane"
-reason = "Planned: T2.7i.5"
+command = "pane.previous"
 
 [[key]]
 doom = "SPC w ="
 keys = "space w ="
 what = "Balance"
-reason = "Planned: T2.7i.5"
+command = "pane.balance"
 
 [[key]]
 doom = "SPC w +"
 keys = "space w +"
 what = "Taller"
-reason = "Planned: T2.7i.5"
+command = "pane.resize"
 
 [[key]]
 doom = "SPC w -"
 keys = "space w -"
 what = "Shorter"
-reason = "Planned: T2.7i.5"
+command = "pane.resize"
 
 [[key]]
 doom = "SPC w <"
 keys = "space w <"
 what = "Narrower"
-reason = "Planned: T2.7i.5"
+command = "pane.resize"
 
 [[key]]
 doom = "SPC w >"
 keys = "space w >"
 what = "Wider"
-reason = "Planned: T2.7i.5"
+command = "pane.resize"
 
 [[key]]
 doom = "SPC w x"
 keys = "space w x"
 what = "Swap"
-reason = "Planned: T2.7i.5"
+command = "pane.swap"
 
 [[key]]
 doom = "SPC w r"
 keys = "space w r"
 what = "Rotate"
-reason = "Planned: T2.7i.5"
+command = "pane.rotate"
 
 [[key]]
 doom = "SPC w R"
 keys = "space w shift+r"
 what = "Rotate back"
-reason = "Planned: T2.7i.5"
+command = "pane.rotate"
 
 [[key]]
 doom = "SPC w u"
 keys = "space w u"
 what = "Undo the layout"
-reason = "Planned: T2.7i.5"
+command = "pane.undo"
 
 [[key]]
 doom = "SPC w U"
 keys = "space w shift+u"
 what = "Redo the layout"
-reason = "Planned: T2.7i.5"
+command = "pane.redo"
 
 [[key]]
 doom = "SPC w n"
 keys = "space w n"
 what = "New pane"
-reason = "Planned: T2.7i.5"
+command = "pane.new"
 
 [[key]]
 doom = "SPC w q"
 keys = "space w q"
 what = "Close pane and document"
-reason = "Planned: T2.7i.5"
+command = "pane.closeWithDocument"
 
 
 # Toggles =SPC t=.

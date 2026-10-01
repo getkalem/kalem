@@ -62,6 +62,11 @@ pub struct Workspace {
     last_text: Option<Entity<Editor>>,
     /// The document shown before the active one (`SPC b l`).
     previous: Option<Entity<Editor>>,
+    /// The window's panes (`SPC w`, T2.7i.5); the focused one shows the
+    /// active editor.
+    pub layout: kalem_core::layout::Layout,
+    /// What the other panes show (and closed ones, for an undo).
+    pub panes: std::collections::HashMap<kalem_core::layout::PaneId, Entity<Editor>>,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -95,6 +100,8 @@ impl Workspace {
             subscriptions: Vec::new(),
             last_text: None,
             previous: None,
+            layout: kalem_core::layout::Layout::new(),
+            panes: std::collections::HashMap::new(),
         };
         ws.adopt(editor.clone(), window, cx);
         // A window coming to the front brings its document's menus.
@@ -180,6 +187,17 @@ impl Workspace {
         }
         if self.editor != editor {
             self.previous = Some(self.editor.clone());
+            // A pane that showed it shows the one the focused pane left.
+            let focus = self.layout.focus();
+            let live = self.layout.panes();
+            if let Some(p) = self
+                .panes
+                .iter()
+                .find(|(p, e)| **e == editor && **p != focus && live.contains(p))
+                .map(|(p, _)| *p)
+            {
+                self.panes.insert(p, self.editor.clone());
+            }
         }
         self.editor = editor.clone();
         let focus = gpui::Focusable::focus_handle(editor.read(cx), cx);
@@ -298,6 +316,18 @@ impl Workspace {
             window.remove_window();
             return;
         }
+        // The other panes showing it close, or show the active document.
+        let focus = self.layout.focus();
+        let showing: Vec<_> = self
+            .panes
+            .iter()
+            .filter(|(p, e)| *e == editor && **p != focus)
+            .map(|(p, _)| *p)
+            .collect();
+        for p in showing {
+            self.panes.remove(&p);
+            self.layout.close(p);
+        }
         if *editor == self.editor {
             // The next one in the list, else the one before.
             let next = order
@@ -310,6 +340,173 @@ impl Workspace {
             self.activate(e, window, cx);
         }
         cx.notify();
+    }
+
+    /// Focuses pane `p`: its editor becomes the active one.
+    pub fn focus_pane(
+        &mut self,
+        p: kalem_core::layout::PaneId,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        let old = self.layout.focus();
+        if p == old || !self.layout.set_focus(p) {
+            return;
+        }
+        self.show_focused(old, window, cx);
+    }
+
+    /// After the focus moved from pane `old`: that pane keeps the active
+    /// editor, and the focused pane's editor becomes active.
+    fn show_focused(
+        &mut self,
+        old: kalem_core::layout::PaneId,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        let focus = self.layout.focus();
+        self.panes.insert(old, self.editor.clone());
+        let e = self
+            .panes
+            .remove(&focus)
+            .filter(|e| self.editors.contains(e))
+            .unwrap_or_else(|| self.editor.clone());
+        // Set first so that activating does not hand `old` a pane twice.
+        if e != self.editor {
+            self.previous = Some(self.editor.clone());
+            self.editor = e.clone();
+            let f = gpui::Focusable::focus_handle(e.read(cx), cx);
+            window.focus(&f, cx);
+            self.set_title(window, cx);
+        }
+        cx.notify();
+    }
+
+    /// A change of the panes (`SPC w`).
+    pub fn pane_op(
+        &mut self,
+        op: &kalem_core::layout::PaneOp,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        use kalem_core::layout::PaneOp;
+        let old = self.layout.focus();
+        // A split of the only document: the document beside itself, as
+        // the split view shows it.
+        if matches!(op, PaneOp::Split(_)) && self.editors.len() == 1 {
+            self.editor.update(cx, |e, cx| e.toggle_split(cx));
+            return;
+        }
+        let (changed, new) = self.layout.apply(op);
+        if let PaneOp::Close(with_doc) = op {
+            if !changed {
+                self.editor.update(cx, |e, cx| {
+                    e.message(tr!("msg-last-pane"), false);
+                    cx.notify();
+                });
+                return;
+            }
+            let closing = self.editor.clone();
+            self.show_focused(old, window, cx);
+            if *with_doc {
+                closing.update(cx, |e, cx| {
+                    e.run_command("file.close", serde_json::Value::Null, window, cx)
+                });
+            }
+            return;
+        }
+        if new.is_some() {
+            // The pane left shows the document; the new one, focused, the
+            // document shown before it (or a new empty one).
+            self.panes.insert(old, self.editor.clone());
+            if *op == PaneOp::New {
+                self.new_document(window, cx);
+            } else {
+                let other = self
+                    .previous
+                    .clone()
+                    .filter(|p| *p != self.editor && self.editors.contains(p))
+                    .or_else(|| self.editors.iter().find(|e| **e != self.editor).cloned());
+                if let Some(e) = other {
+                    // The pane left keeps showing the document the user was
+                    // in; the new pane shows the other one.
+                    let here = self.editor.clone();
+                    self.editor = e.clone();
+                    self.panes.insert(old, here);
+                    let f = gpui::Focusable::focus_handle(e.read(cx), cx);
+                    window.focus(&f, cx);
+                    self.set_title(window, cx);
+                }
+            }
+            cx.notify();
+            return;
+        }
+        if self.layout.focus() != old {
+            self.show_focused(old, window, cx);
+        }
+        cx.notify();
+    }
+
+    /// The element of layout node `node`: a pane's editor, or a split's
+    /// panes side by side or one above another with a rule between.
+    fn pane_element(
+        &self,
+        node: &kalem_core::layout::Node,
+        theme: &Theme,
+        cx: &mut Context<'_, Self>,
+    ) -> gpui::AnyElement {
+        use kalem_core::layout::{Axis, Node};
+        match node {
+            Node::Leaf(p) => {
+                let focus = self.layout.focus();
+                let editor = if *p == focus {
+                    Some(self.editor.clone())
+                } else {
+                    self.panes
+                        .get(p)
+                        .filter(|e| self.editors.contains(e))
+                        .cloned()
+                };
+                let p = *p;
+                let mut d = div().size_full().min_w(px(0.)).min_h(px(0.));
+                if p != focus {
+                    d = d.capture_any_mouse_down(cx.listener(move |ws, _, window, cx| {
+                        ws.focus_pane(p, window, cx);
+                    }));
+                }
+                d.children(editor).into_any_element()
+            }
+            Node::Split { axis, children } => {
+                let total: f32 = children
+                    .iter()
+                    .map(|(_, w)| *w)
+                    .sum::<f32>()
+                    .max(f32::EPSILON);
+                let n = children.len();
+                let mut d = div().size_full().flex().min_w(px(0.)).min_h(px(0.));
+                d = match axis {
+                    Axis::Row => d.flex_row(),
+                    Axis::Column => d.flex_col(),
+                };
+                for (i, (c, w)) in children.iter().enumerate() {
+                    let share = gpui::relative(w / total);
+                    let mut cell = div().min_w(px(0.)).min_h(px(0.)).overflow_hidden();
+                    cell = match axis {
+                        Axis::Row => cell.h_full().w(share),
+                        Axis::Column => cell.w_full().h(share),
+                    };
+                    if i + 1 < n {
+                        cell = match axis {
+                            Axis::Row => cell.border_r_1(),
+                            Axis::Column => cell.border_b_1(),
+                        }
+                        .border_color(theme.border);
+                    }
+                    d = d.child(cell.child(self.pane_element(c, theme, cx)));
+                }
+                d.into_any_element()
+            }
+        }
     }
 
     /// Shows the next open document (in the list's order), or the previous.
@@ -857,6 +1054,7 @@ impl Workspace {
                 }
             }
             DocEvent::Quit => self.quit(window, cx),
+            DocEvent::Pane(op) => self.pane_op(&op, window, cx),
             DocEvent::QuitWithoutSaving => self.quit_without_saving(window, cx),
             DocEvent::CloseWindow => self.close_window(window, cx),
             DocEvent::Restart(restore) => self.restart(restore, window, cx),
@@ -1659,7 +1857,16 @@ impl Render for Workspace {
                             .flex()
                             .flex_col()
                             .children(top)
-                            .child(div().flex_1().min_h(px(0.)).child(self.editor.clone())),
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_h(px(0.))
+                                    .child(if self.layout.is_split() {
+                                        self.pane_element(&self.layout.root().clone(), &theme, cx)
+                                    } else {
+                                        self.editor.clone().into_any_element()
+                                    }),
+                            ),
                     ),
             )
             .child(self.status_bar(&theme, cx))
