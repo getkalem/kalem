@@ -233,6 +233,11 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "markdown.insert.link",
             object(&[("bare", "boolean", false)]),
         ),
+        (
+            "markdown.frontMatter.set",
+            object(&[("key", "string", true), ("value", "string", true)]),
+        ),
+        ("markdown.frontMatter.delete", object(&[("key", "string", true)])),
         ("insert.text", object(&[("text", "string", true)])),
         ("pane.focus", object(&[("dir", "string", true)])),
         ("workspace.newNamed", object(&[("name", "string", true)])),
@@ -2226,6 +2231,84 @@ fn markdown_commands() -> Vec<Command> {
                         crate::markdown::link_at(&md, d.selection.head, d.meta.path.as_deref())
                             .ok_or_else(|| CommandError::new(crate::tr!("msg-no-link")))?;
                     request(ctx, Request::OpenLink(action))
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        // The front matter as a form (T2.7c.9).
+        scoped(
+            cmd(
+                "markdown.frontMatter.edit",
+                "Edit Properties",
+                "Markdown",
+                &[],
+                Some("editorMode == markdown"),
+                |ctx, _| {
+                    let d = ctx.doc()?;
+                    let fields = crate::front_matter::read(d.text().as_str())
+                        .map(|f| f.fields)
+                        .unwrap_or_default();
+                    let category = crate::tr!("category-properties");
+                    let mut items: Vec<crate::palette::PaletteItem> = fields
+                        .iter()
+                        .map(|f| crate::palette::PaletteItem {
+                            id: crate::palette::invocation(
+                                "markdown.frontMatter.set",
+                                &serde_json::json!({ "key": f.key, "value_default": f.value }),
+                            ),
+                            title: format!("{}: {}", f.key, f.value),
+                            category: category.clone(),
+                            keys: String::new(),
+                            also: String::new(),
+                        })
+                        .collect();
+                    items.push(crate::palette::PaletteItem {
+                        id: "markdown.frontMatter.set".into(),
+                        title: crate::tr!("front-matter-add"),
+                        category: category.clone(),
+                        keys: String::new(),
+                        also: String::new(),
+                    });
+                    items.extend(fields.iter().map(|f| crate::palette::PaletteItem {
+                        id: crate::palette::invocation(
+                            "markdown.frontMatter.delete",
+                            &serde_json::json!({ "key": f.key }),
+                        ),
+                        title: crate::tr!("front-matter-delete", key = f.key.as_str()),
+                        category: category.clone(),
+                        keys: String::new(),
+                        also: String::new(),
+                    }));
+                    request(ctx, Request::Choose(items))
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.frontMatter.set",
+                "Set Property",
+                "Markdown",
+                &[],
+                Some("editorMode == markdown"),
+                |ctx, args| {
+                    let key = arg_str(args, "key")?.to_string();
+                    let value = arg_str(args, "value")?.to_string();
+                    lines_command(ctx, |t, _| crate::front_matter::set(t, &key, &value))
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.frontMatter.delete",
+                "Delete Property",
+                "Markdown",
+                &[],
+                Some("editorMode == markdown"),
+                |ctx, args| {
+                    let key = arg_str(args, "key")?.to_string();
+                    lines_command(ctx, |t, _| crate::front_matter::delete(t, &key))
                 },
             ),
             Scope::only(&["markdown"]),

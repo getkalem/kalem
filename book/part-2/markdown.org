@@ -142,6 +142,14 @@ edits it as plain text. Concretely:
   number it started at. /Renumber List/ (=markdown.list.renumber=) puts
   the numbers in order after other edits, as markdown-mode's cleanup of
   list numbers does.
+- /Edit Properties/ (=markdown.frontMatter.edit=) lists the front
+  matter's fields as Obsidian's properties panel does; choosing one
+  offers its value to change, and the list has /Add a property…/ and a
+  delete for each. YAML (=---=, =key: value=, lists as =[a, b]= or as
+  =- item= lines) and TOML (=+++=) are read; only the changed field's
+  line is rewritten, quoted when YAML needs it, a list kept a list (its
+  items separated by commas), and a document without front matter gets
+  one.
 - Formulas: a table followed by lines =<!-- TBLFM: … -->= (as
   Obsidian's Advanced Tables writes them, and invisible elsewhere) is
   computed by F9 (/Recalculate Table/, =markdown.table.recalculate=)
