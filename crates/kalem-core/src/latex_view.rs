@@ -5315,13 +5315,34 @@ pub fn explain_macro(doc: &crate::DocumentState, name: &str) -> String {
     let x = org_math::check(&org_math::source::prepare("x", &trial)).err();
     let use_it = format!("{name}{}", "{x}".repeat(m.args.max(3)));
     let u = org_math::check(&org_math::source::prepare(&use_it, &trial)).err();
-    format!(
-        "{} (file {}): x -> {:?}; use -> {:?}",
-        defs[i],
-        m.file,
-        x.map(|e| e.message),
-        u.map(|e| e.message)
-    )
+    // The prepared text around where the renderer stopped.
+    let near = |msg: &str, src: &str| -> String {
+        let p = org_math::source::prepare(src, &trial);
+        let at = msg
+            .split("position ")
+            .nth(1)
+            .and_then(|r| r.split(':').next())
+            .and_then(|n| n.trim().parse::<usize>().ok());
+        match at {
+            Some(a) => {
+                let b = p
+                    .char_indices()
+                    .map(|(i, _)| i)
+                    .find(|&i| i + 200 >= a)
+                    .unwrap_or(0);
+                let e = p
+                    .char_indices()
+                    .map(|(i, _)| i)
+                    .find(|&i| i > a + 60)
+                    .unwrap_or(p.len());
+                format!(" near «{}»", &p[b.min(e)..e])
+            }
+            None => String::new(),
+        }
+    };
+    let xs = x.map(|e| format!("{}{}", e.message, near(&e.message, "x")));
+    let us = u.map(|e| format!("{}{}", e.message, near(&e.message, &use_it)));
+    format!("{} (file {}): x -> {xs:?}; use -> {us:?}", defs[i], m.file)
 }
 
 /// The document's own definitions `own` (name, arguments, definition)
