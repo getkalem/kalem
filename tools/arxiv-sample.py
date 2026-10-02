@@ -24,6 +24,7 @@ import os
 import sys
 import tarfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -42,14 +43,31 @@ last = 0.0
 
 
 def get(url):
+    """The body at `url`; on 429 and 5xx, waits (Retry-After, else a
+    minute, doubling) and asks again, up to five times."""
     global last
-    wait = last + DELAY - time.time()
-    if wait > 0:
-        time.sleep(wait)
-    last = time.time()
-    req = urllib.request.Request(url, headers={"User-Agent": AGENT})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return r.read()
+    pause = 60
+    for attempt in range(6):
+        wait = last + DELAY - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        last = time.time()
+        req = urllib.request.Request(url, headers={"User-Agent": AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if attempt == 5 or not (e.code == 429 or e.code >= 500):
+                raise
+            after = e.headers.get("Retry-After", "")
+            time.sleep(int(after) if after.isdigit() else pause)
+            pause *= 2
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 5:
+                raise
+            time.sleep(pause)
+            pause *= 2
+    raise RuntimeError("unreachable")
 
 
 def listing(cat, year, n):
@@ -116,7 +134,11 @@ def main():
             if got >= want:
                 break
             # More than the share, for the PDF-only ones.
-            ids = listing(cat, a.year, share * 2)
+            try:
+                ids = listing(cat, a.year, share * 2)
+            except Exception as e:  # noqa: BLE001 (one category's error)
+                print(f"{field} {cat}: listing failed: {e}", file=sys.stderr)
+                continue
             taken = 0
             for i in ids:
                 if taken >= share or got >= want:
