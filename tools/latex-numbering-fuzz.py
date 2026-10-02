@@ -12,8 +12,10 @@ sharing a counter, subordinate to another), floats with captions,
 nested `enumerate` items, footnotes and counter commands
 (`\\setcounter`, `\\addtocounter`, `\\stepcounter`, `\\numberwithin`).
 pdflatex runs twice; every `\\label`'s number in the `.aux` file must be
-the number Kalem's model gives it. Documents pdflatex rejects are left
-out. A document that differs is written to the --keep folder (default
+the number Kalem's model gives it, a label LaTeX does not write must
+have none, and amsmath's "Multiple \\label's" errors (LaTeX carries on
+past them) must be the label clashes Kalem reports. Documents with
+other errors are left out. A document that differs is written to the --keep folder (default
 the scratch folder printed) with its differences, to become a fixture of
 `tests/latex/model` when it shows a bug.
 """
@@ -143,20 +145,33 @@ def document(rng):
             else:
                 body.append(f"\\{op}{{{c}}}{{{rng.randint(0, 5)}}}")
         body.append("")
-    return "\n".join(pre + ["\\begin{document}"] + body + ["\\end{document}", ""])
+    # Text last: a label on a page TeX never ships (after `\\part` at the
+    # end of a report) is not written, which is page building, not
+    # numbering.
+    return "\n".join(pre + ["\\begin{document}"] + body + ["End.", "\\end{document}", ""])
+
+
+CLASH = "Package amsmath Error: Multiple \\label's"
 
 
 def pdflatex(text, d):
+    """The numbers of the labels LaTeX writes, with the count of amsmath's
+    "Multiple \\label's" errors under the key "!clash"; None when the
+    document has another error."""
     with open(os.path.join(d, "t.tex"), "w") as f:
         f.write(text)
     for _ in range(2):
         r = subprocess.run(
-            ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", "t.tex"],
-            cwd=d, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
-        if r.returncode != 0:
+            ["pdflatex", "-interaction=nonstopmode", "t.tex"], cwd=d, stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
+        log = r.stdout.decode("latin-1")
+        errors = re.findall(r"^! (.*)$", log, re.M)
+        # Past amsmath's label clashes LaTeX carries on; not past others.
+        if any(not e.startswith(CLASH) for e in errors) or not os.path.exists(
+                os.path.join(d, "t.aux")):
             return None
     aux = open(os.path.join(d, "t.aux"), encoding="latin-1").read()
-    out = {}
+    out = {"!clash": str(len(errors))}
     for line in aux.splitlines():
         m = re.match(r"\\newlabel\{([^}@]*)\}\{\{", line)
         if not m:
@@ -196,15 +211,23 @@ def main():
             docs.append((i, text, latex, os.path.join(d, "t.tex")))
     files = [p for (_, _, _, p) in docs]
     got = {}
+    clashes = {}
     if files:
         r = subprocess.run([exe] + files, stdout=subprocess.PIPE, text=True, check=True)
         for line in r.stdout.splitlines():
             f, key, *num = line.split(" ")
-            got[(f, key)] = " ".join(num)
+            if key == "!clash":
+                clashes[f] = clashes.get(f, 0) + 1
+            else:
+                got[(f, key)] = " ".join(num)
     bad = 0
     for i, text, latex, path in docs:
+        got[(path, "!clash")] = str(clashes.get(path, 0))
         diffs = [f"{k}: LaTeX {v!r}, Kalem {got.get((path, k))!r}"
                  for k, v in latex.items() if got.get((path, k)) != v]
+        # A label LaTeX does not write has no number in Kalem either.
+        diffs += [f"{k}: LaTeX writes nothing, Kalem {n!r}" for (f, k), n in got.items()
+                  if f == path and k not in latex and n]
         if diffs:
             bad += 1
             base = os.path.join(keep, f"doc{seed}-{i}")
@@ -212,8 +235,10 @@ def main():
                 f.write(text)
             with open(base + ".diff", "w") as f:
                 f.write("\n".join(diffs) + "\n")
-    labels = sum(len(l) for (_, _, l, _) in docs)
-    print(f"{len(docs)}/{n} documents compiled, {labels} labels; {bad} documents differ"
+    labels = sum(len(l) - 1 for (_, _, l, _) in docs)
+    clashed = sum(1 for (_, _, l, _) in docs if l["!clash"] != "0")
+    print(f"{len(docs)}/{n} documents compiled ({clashed} past label clashes), {labels} "
+          f"labels; {bad} documents differ"
           + (f" (in {keep})" if bad else ""))
     shutil.rmtree(work, ignore_errors=True)
     sys.exit(1 if bad else 0)
