@@ -1,5 +1,5 @@
 - Status: *Decided* (2026-10-02), from the arXiv study of T2.7h.1
-- Decision: the rendered view of LaTeX covers what the study found papers write: structure, text and its formatting, references and citations (BibTeX's and a document's own bibliography), lists, floats with captions, theorems, tables (as the grid, or as text with their cells apart), formulas through the math renderer, colors and boxes, and every definition and setting as dimmed markup. What it does not render stays as source, never hidden (rule 3 of the standard modes). The coverage target (T2.7h.36) is *97% of the body rendered in every field*; the mode is not released below it.
+- Decision: the rendered view of LaTeX covers what the study found papers write: structure, text and its formatting, references and citations (BibTeX's and a document's own bibliography), lists, floats with captions, theorems, tables (as the grid, or as text with their cells apart), formulas through the math renderer, colors and boxes, and every definition and setting as dimmed markup. What it does not render stays as source, never hidden (rule 3 of the standard modes). The coverage target (T2.7h.36) is *99.9% of the body rendered in every field*, formulas the renderer cannot read counted as source; the mode is not released below it.
 - Tasks: T2.7h.1, T2.7h.36
 - Measurement: =tools/arxiv-sample.py= and =kalem latex-coverage= in =.github/workflows/arxiv.yml= (by hand and monthly, the report in the job's summary)
 
@@ -11,19 +11,23 @@ The body of every =.tex= file (=\begin{document}= to =\end{document}=, or the wh
 
 The first run counted otherwise: the body of every unknown environment whole, the arguments of drawn commands, macro files, and a list of rendered commands that had fallen behind the view. It put 19.2% of the body as source, with =\frac= and =\textwidth= near the top. The metric was corrected to what the view shows before any number was used.
 
+Since run 9 a formula counts as source when the math renderer cannot read it, prepared as the editor prepares it (the document's definitions, the packages' commands the renderer lacks, references as their numbers): the view shows such a formula as its source in a red frame. The files no document of the paper reads (old versions, unused sections) are left out.
+
 * Results
-Run 7 of the workflow (2026-10-02, commit =e482e0a=): 926 papers, 3,184 files, 88 MB of body text.
+Run 17 of the workflow (2026-10-02, commit =b06b512=), formulas counted: 925 papers, 2,496 files, 86 MB of body text.
 
 | Field            | Papers | Files | Body KB | Source | Formulas |
 |------------------+--------+-------+---------+--------+----------|
-| biology          |    189 |   637 |  14,910 |   0.5% |     9.4% |
-| computer science |    180 |   967 |  16,977 |   0.9% |    11.1% |
-| economics        |    183 |   646 |  22,422 |   0.4% |    19.9% |
-| mathematics      |    187 |   261 |  18,728 |   0.4% |    36.4% |
-| physics          |    187 |   673 |  15,174 |   0.9% |    14.4% |
-| all              |    926 | 3,184 |  88,213 |   0.6% |    19.0% |
+| biology          |    189 |   588 |  14,375 |  0.64% |    9.76% |
+| computer science |    179 |   869 |  16,220 |  1.46% |   11.38% |
+| economics        |    183 |   484 |  22,225 |  1.78% |   19.09% |
+| mathematics      |    187 |   256 |  18,713 |  2.54% |   35.21% |
+| physics          |    187 |   299 |  14,646 |  1.67% |   14.67% |
+| all              |    925 | 2,496 |  86,181 |  1.67% |   18.83% |
 
-Run 5, before colors, boxes, definitions as markup and REVTeX's bibliographies were rendered, had 1.7% (0.7% in mathematics to 4.0% in physics). What shows most as source now: subfig's =\subfloat=, =\frac= outside formulas (in a document's own macros), TikZ pictures, sizes like =\textwidth= in arguments, theorems whose =\newtheorem= the model does not read, csquotes' =\enquote=, =subequations=.
+Run 9, the first to count formulas, had 6.4%. What shows most as source now: a document's own macros a formula finds undefined (a long tail, one or two papers each), commutative diagrams (tikz-cd, xy), young tableaux, TikZ pictures, plain TeX in formulas (=\aligned=, =\buildrel=, =\matrix=), formulas between macros for an equation (=\be= … =\ee=).
+
+Run 7, before formulas were counted, had 0.6% (0.4% to 0.9% by field).
 
 * The subset
 Rendered, each checked against pdflatex by the differential tests of T2.7h.33 (=tools/latex-typeset-fuzz.py=, =tools/latex-numbering-fuzz.py=, =tools/latex-edit-fuzz.py=, in CI):
@@ -35,5 +39,5 @@ Rendered, each checked against pdflatex by the differential tests of T2.7h.33 (=
 
 Left as source, for now: TikZ and other pictures (folded), unknown commands of a document's own whose definitions are not read, and environments the view does not know (their delimiters).
 
-* Why 97%
-The working assumption was nine tenths for mathematics and computer science. Every field is above 99% already, so the target is set there: a fall below it is a regression in the view or in the metric, found by the monthly run.
+* Why 99.9%
+The first target, 97%, was set when every field was above 99% by the view's commands alone. Counting formulas showed what a reader meets: a formula in a red frame is as unread as a command shown as source, and mathematics, where a third of the body is formulas, was the field furthest from the PDF. The target is a thousandth of the body in every field, so that a paper opened in Kalem reads as its PDF does; a fall below it is a regression in the view, the renderer's preparation or the metric, found by the monthly run.
