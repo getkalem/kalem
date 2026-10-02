@@ -833,7 +833,7 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             }
         }
         "ref" | "eqref" | "pageref" | "autoref" | "cref" | "Cref" | "nameref" | "vref" | "Vref"
-        | "cpageref" => {
+        | "cpageref" | "subref" | "thref" => {
             if let Some(k) = m.first().map(|k| keys(k)).filter(|k| !k.is_empty()) {
                 push(Event::Ref {
                     command: name.clone(),

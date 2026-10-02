@@ -15,7 +15,7 @@ pub fn command(name: &str) -> &'static str {
         | "bar" | "tilde" | "vec" | "dot" | "ddot" | "check" | "breve" | "acute" | "grave"
         | "widehat" | "widetilde" | "overbrace" | "underbrace" | "overrightarrow"
         | "overleftarrow" | "label" | "ref" | "eqref" | "pageref" | "autoref" | "cref" | "Cref"
-        | "nameref" | "input" | "include" | "includeonly" | "bibliography"
+        | "subref" | "thref" | "nameref" | "input" | "include" | "includeonly" | "bibliography"
         | "bibliographystyle" | "date" | "thanks" | "phantom" | "hphantom" | "vphantom"
         | "intertext" | "sout" | "uline" | "appendixname" | "keywords" | "email"
         | "affiliation" | "address" | "subtitle" | "vref" | "Vref" | "cpageref"
