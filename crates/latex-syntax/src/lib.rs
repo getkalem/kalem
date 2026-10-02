@@ -92,17 +92,22 @@ pub struct Parse {
     diagnostics: Vec<Diagnostic>,
     toggles: Vec<(usize, bool)>,
     unclosed_env: bool,
+    /// What the text defines that changes how it parses, kept for
+    /// reparsing.
+    defs: std::sync::Arc<tables::Definitions>,
 }
 
 /// Parses `text`.
 pub fn parse(text: &str) -> Parse {
-    let p = parser::Parser::new(text, 0, text.len(), false);
+    let defs = std::sync::Arc::new(tables::Definitions::of(text));
+    let p = parser::Parser::new(text, 0, text.len(), false, &defs);
     let (green, p) = p.finish(SyntaxKind::ROOT, text.len(), parser::Mode::Text);
     Parse {
         green,
         toggles: p.toggles().to_vec(),
         diagnostics: p.diagnostics,
         unclosed_env: p.unclosed_env,
+        defs,
     }
 }
 
