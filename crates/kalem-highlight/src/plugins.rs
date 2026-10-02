@@ -264,7 +264,7 @@ pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Regist
         && let Ok((set, registered)) =
             syntect::dumps::from_reader::<(SyntaxSet, Registered), _>(&bytes[..])
     {
-        *super::SYNTAXES.write().expect("syntaxes") = Box::leak(Box::new(set));
+        super::replace_set(Box::leak(Box::new(set)));
         return registered;
     }
     let (flat, mut errors) = flatten(sources);
@@ -302,7 +302,7 @@ pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Regist
             let _ = std::fs::rename(&tmp, f);
         }
     }
-    *super::SYNTAXES.write().expect("syntaxes") = Box::leak(Box::new(set));
+    super::replace_set(Box::leak(Box::new(set)));
     registered
 }
 

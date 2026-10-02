@@ -114,6 +114,9 @@ static NEXT_DOC: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::ne
 /// What an editor asks of its window: documents to open, show or close.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DocEvent {
+    /// A list to choose from that background work offers (a plugin to
+    /// confirm), for the active document's palette.
+    Choose(Vec<kalem_core::palette::PaletteItem>),
     /// Insert a link to this file in the text document used last (a
     /// viewer's Insert Link at Point).
     InsertLink(std::path::PathBuf),
@@ -2319,7 +2322,10 @@ impl Editor {
             return;
         }
         let mut p = self.plain.borrow_mut();
-        if p.as_ref().is_some_and(|(v, ..)| *v == self.doc.version()) {
+        // The text's version, and the highlighter's set: a plugin
+        // installed colors open files at once.
+        let stamp = self.doc.version() ^ (kalem_highlight::generation() << 48);
+        if p.as_ref().is_some_and(|(v, ..)| *v == stamp) {
             return;
         }
         let text = self.doc.text().as_str();
@@ -2341,13 +2347,13 @@ impl Editor {
         {
             let mut w = self.windowed.borrow_mut();
             let wanted = found.filter(|_| large);
-            if w.language.map(|l| l.name()) != wanted.map(|l| l.name()) {
+            if w.language != wanted {
                 *w = kalem_highlight::Windowed::new(wanted);
             }
         }
         let old = p.take().and_then(|(_, h, _)| h);
         let h = language.map(|l| match old {
-            Some(mut h) if h.language().name() == l.name() => {
+            Some(mut h) if h.language() == l => {
                 h.update(text);
                 h
             }
@@ -2357,7 +2363,7 @@ impl Editor {
             Some(kalem_core::text::Indent::Spaces(n)) => n,
             _ => 0,
         };
-        *p = Some((self.doc.version(), h, step));
+        *p = Some((stamp, h, step));
     }
 
     /// Whether lines show numbers: plain text and the source view.
@@ -3098,6 +3104,10 @@ impl Editor {
             && m.session.poll()
         {
             cx.notify();
+        }
+        // Lists background work offers, for the active document.
+        for items in kalem_core::jobs::take_offers() {
+            cx.emit(DocEvent::Choose(items));
         }
         // Work commands started in the background (a PDF compiling).
         for f in kalem_core::jobs::take_finished() {

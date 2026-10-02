@@ -420,7 +420,10 @@ impl<'a> Layout<'a> {
         let is_plain = doc.meta.mode != kalem_core::DocumentMode::Org;
         if is_plain && doc.dired.is_none() {
             let mut p = plain.borrow_mut();
-            if p.as_ref().is_none_or(|(v, ..)| *v != doc.version()) {
+            // The text's version, and the highlighter's set: a plugin
+            // installed colors open files at once.
+            let stamp = doc.version() ^ (kalem_highlight::generation() << 48);
+            if p.as_ref().is_none_or(|(v, ..)| *v != stamp) {
                 let text = doc.text().as_str();
                 let lang = match &doc.meta.mode {
                     kalem_core::DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
@@ -435,13 +438,13 @@ impl<'a> Layout<'a> {
                 {
                     let mut w = windowed.borrow_mut();
                     let wanted = found.filter(|_| large);
-                    if w.language.map(|l| l.name()) != wanted.map(|l| l.name()) {
+                    if w.language != wanted {
                         *w = kalem_highlight::Windowed::new(wanted);
                     }
                 }
                 let old = p.take().and_then(|(_, h, _)| h);
                 let h = language.map(|l| match old {
-                    Some(mut h) if h.language().name() == l.name() => {
+                    Some(mut h) if h.language() == l => {
                         h.update(text);
                         h
                     }
@@ -451,7 +454,7 @@ impl<'a> Layout<'a> {
                     Some(kalem_core::text::Indent::Spaces(n)) => n,
                     _ => 0,
                 };
-                *p = Some((doc.version(), h, step));
+                *p = Some((stamp, h, step));
             }
         }
         {

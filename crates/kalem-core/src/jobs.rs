@@ -80,3 +80,22 @@ pub fn wait_all() -> Vec<Finished> {
     all.extend(take_finished());
     all
 }
+
+/// Lists to choose from that background work offers (a plugin found, to
+/// be confirmed): both frontends open them as `Request::Choose` does.
+static OFFERS: Mutex<Vec<Vec<crate::palette::PaletteItem>>> = Mutex::new(Vec::new());
+
+/// Offers `items` to choose from, from a job's thread.
+pub fn offer(items: Vec<crate::palette::PaletteItem>) {
+    if let Ok(mut o) = OFFERS.lock() {
+        o.push(items);
+    }
+}
+
+/// The lists offered since the last call.
+pub fn take_offers() -> Vec<Vec<crate::palette::PaletteItem>> {
+    OFFERS
+        .lock()
+        .map(|mut o| std::mem::take(&mut *o))
+        .unwrap_or_default()
+}

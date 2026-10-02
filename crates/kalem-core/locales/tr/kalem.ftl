@@ -263,6 +263,7 @@ category-csv = CSV
 category-tags = Etiketler
 category-view = Görünüm
 category-code = Kod
+category-plugins = Eklentiler
 
 ## Menüler.
 
@@ -1041,6 +1042,14 @@ cmd-code-allProblems = Açık Dosyaların Sorunlarını Listele
 cmd-code-restartServer = Dil Sunucusunu Yeniden Başlat
 cmd-code-serverStatus = Dil Sunucusu Durumu
 cmd-code-goto = Yere Git
+cmd-plugin-browse = Eklentilere Göz At
+cmd-plugin-install = Eklenti Kur…
+cmd-plugin-confirmInstall = Eklenti Kurulumunu Onayla
+cmd-plugin-cancelInstall = Eklenti Kurulumunu İptal Et
+cmd-plugin-list = Kurulu Eklentiler
+cmd-plugin-manage = Eklentiyi Yönet
+cmd-plugin-remove = Eklentiyi Kaldır
+cmd-plugin-removeConfirmed = Eklentiyi Şimdi Kaldır
 fm-menu-remove-project = Projelerden Kaldır (klasör silinmez)
 
 # The viewer of files that are not text (design §11.13).

@@ -271,6 +271,18 @@ pub fn load() {
     load_from(&plugin_dirs());
 }
 
+/// Loads the language plugins of [`plugin_dirs`] again, after one was
+/// installed or removed.
+pub fn reload() {
+    let dirs = LOADED
+        .read()
+        .expect("loaded")
+        .as_ref()
+        .map_or_else(plugin_dirs, |l| l.dirs.clone());
+    *LOADED.write().expect("loaded") = None;
+    load_from(&dirs);
+}
+
 /// Loads the language plugins in `dirs` (replacing those loaded before).
 pub fn load_from(dirs: &[PathBuf]) {
     let _guard = LOAD.lock().expect("load");
@@ -306,7 +318,9 @@ pub fn load_from(dirs: &[PathBuf]) {
             Err(e) => loaded.problems.push(format!("{}: {e}", folder.display())),
         }
     }
-    if !sources.is_empty() {
+    if sources.is_empty() {
+        kalem_highlight::reset();
+    } else {
         let cache = crate::logging::state_dir().map(|d| d.join("cache"));
         let r = kalem_highlight::register_cached(&sources, cache.as_deref());
         for (f, e) in &r.errors {

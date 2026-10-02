@@ -280,6 +280,12 @@ pub const SPECS: &[Spec] = &[
         description: "How long a half-typed key sequence waits before its keys show, in milliseconds",
     },
     Spec {
+        key: "plugins.index",
+        kind: Kind::Str,
+        default: r#""https://raw.githubusercontent.com/getkalem/plugins/main/index.json""#,
+        description: "Where Browse Plugins and Install Plugin read the plugin index (a URL, or file:// for a copy on disk)",
+    },
+    Spec {
         key: "latex.root",
         kind: Kind::Str,
         default: r#""""#,

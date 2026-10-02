@@ -73,6 +73,10 @@ pub fn menus() -> Vec<MenuSpec> {
             entries: vec![
                 named(tr("menu-settings"), "app.settings"),
                 MenuEntry::Separator,
+                item("plugin.browse"),
+                item("plugin.install"),
+                item("plugin.list"),
+                MenuEntry::Separator,
                 named(tr("menu-quit"), "app.quit"),
             ],
         },

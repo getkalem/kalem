@@ -53,6 +53,29 @@ enum TableAction {
 }
 
 #[derive(Debug, Subcommand)]
+enum PluginAction {
+    /// The plugins of the index (`plugins.index`), and which are installed.
+    Browse,
+    /// Installs a plugin: a name from the index (`elixir`), a GitHub
+    /// folder or repository link, an archive link, or a folder or archive
+    /// on disk. Shows what it is and asks first.
+    Install {
+        /// The plugin.
+        source: String,
+        /// Install without asking.
+        #[arg(long, short)]
+        yes: bool,
+    },
+    /// The installed plugins.
+    List,
+    /// Removes an installed plugin.
+    Remove {
+        /// Its ID.
+        id: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum LspAction {
     /// The language plugins, and what serves FILE: its language, root and
     /// server, or why there is none.
@@ -271,6 +294,12 @@ enum Command {
         /// How many commands and environments to list.
         #[arg(long, default_value_t = 200)]
         top: usize,
+    },
+    /// Plugins: `kalem plugin browse`, `install NAME|URL|PATH`, `list`,
+    /// `remove ID`.
+    Plugin {
+        #[command(subcommand)]
+        action: PluginAction,
     },
     /// Language servers: `kalem lsp status`, `kalem lsp check FILE`.
     Lsp {
@@ -504,6 +533,12 @@ where
         Command::LatexCoverage { dirs, format, top } => {
             commands::latex_coverage(&dirs, matches!(format, Format::Json), top)
         }
+        Command::Plugin { action } => match action {
+            PluginAction::Browse => commands::plugin::browse(),
+            PluginAction::Install { source, yes } => commands::plugin::install(&source, yes),
+            PluginAction::List => commands::plugin::list(),
+            PluginAction::Remove { id } => commands::plugin::remove(&id),
+        },
         Command::Lsp { action } => match action {
             LspAction::Status { file } => commands::lsp::status(file.as_deref()),
             LspAction::Check {
