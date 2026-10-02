@@ -124,9 +124,14 @@ fn settle(docs: &[DocumentState], quiet: Duration, limit: Duration) -> Result<()
                 }
             }
         }
+        // Diagnostics and log lines are activity: servers that report no
+        // progress (Expert) still log their builds.
         let now: Vec<usize> = docs
             .iter()
-            .map(|d| lsp::diagnostics(d.meta.path.as_deref().unwrap_or(Path::new(""))).len())
+            .flat_map(|d| {
+                let p = d.meta.path.as_deref().unwrap_or(Path::new(""));
+                [lsp::diagnostics(p).len(), lsp::log(p).len()]
+            })
             .collect();
         if now != last {
             last = now;
@@ -152,7 +157,7 @@ fn settle(docs: &[DocumentState], quiet: Duration, limit: Duration) -> Result<()
 }
 
 /// `kalem lsp check FILE...`: the diagnostics of the files' servers.
-pub(crate) fn check(files: &[PathBuf], json: bool, wait: u64) -> Result<ExitCode> {
+pub(crate) fn check(files: &[PathBuf], json: bool, wait: u64, log: bool) -> Result<ExitCode> {
     load_settings(files.first().map(PathBuf::as_path));
     let docs: Vec<DocumentState> = files.iter().map(|f| open(f)).collect::<Result<_>>()?;
     for d in &docs {
@@ -165,7 +170,7 @@ pub(crate) fn check(files: &[PathBuf], json: bool, wait: u64) -> Result<ExitCode
             ));
         }
     }
-    settle(&docs, Duration::from_secs(2), Duration::from_secs(wait))?;
+    settle(&docs, Duration::from_secs(3), Duration::from_secs(wait))?;
     let mut errors = 0;
     let mut out = Vec::new();
     for (f, d) in files.iter().zip(&docs) {
@@ -195,6 +200,11 @@ pub(crate) fn check(files: &[PathBuf], json: bool, wait: u64) -> Result<ExitCode
     }
     if json {
         println!("{}", serde_json::Value::Array(out));
+    }
+    if log && let Some(p) = docs.first().and_then(|d| d.meta.path.as_deref()) {
+        for line in lsp::log(p) {
+            eprintln!("{line}");
+        }
     }
     lsp::shutdown_all();
     Ok(if errors > 0 {
@@ -231,7 +241,7 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
     lsp::sync(&doc);
     settle(
         std::slice::from_ref(&doc),
-        Duration::from_millis(500),
+        Duration::from_secs(3),
         Duration::from_secs(wait),
     )?;
     lsp::request(&doc, kind)?;

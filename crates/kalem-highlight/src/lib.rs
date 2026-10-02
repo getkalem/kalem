@@ -8,7 +8,7 @@ use std::sync::{LazyLock, RwLock};
 
 mod plugins;
 
-pub use plugins::{Registered, SyntaxSource, flatten, register, register_cached};
+pub use plugins::{Files, Registered, SyntaxSource, flatten, register, register_cached};
 
 use syntect::parsing::{ParseState, Scope, ScopeStack, ScopeStackOp, SyntaxReference, SyntaxSet};
 

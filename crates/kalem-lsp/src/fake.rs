@@ -32,6 +32,13 @@ fn diagnostics(uri: &Value, text: &str) -> Value {
            "params": {"uri": uri, "diagnostics": list}})
 }
 
+/// A file's URI with links resolved, as Expert names files.
+fn real(uri: &str) -> String {
+    crate::uri::to_path(uri)
+        .and_then(|p| std::fs::canonicalize(p).ok())
+        .map_or_else(|| uri.to_string(), |p| crate::uri::from_path(&p))
+}
+
 /// Serves on standard input and output until `exit`.
 pub fn serve(behavior: &str) {
     let stdin = std::io::stdin();
@@ -79,11 +86,11 @@ pub fn serve(behavior: &str) {
                     std::process::exit(3);
                 }
                 let text = p["textDocument"]["text"].as_str().unwrap_or("").to_string();
-                send(&mut out, diagnostics(&p["textDocument"]["uri"], &text));
+                send(&mut out, diagnostics(&json!(real(&uri)), &text));
                 texts.insert(uri, text);
             }
             "textDocument/didChange" => {
-                let text = texts.entry(uri).or_default();
+                let text = texts.entry(uri.clone()).or_default();
                 for c in p["contentChanges"].as_array().into_iter().flatten() {
                     match c.get("range") {
                         Some(range) => {
@@ -97,7 +104,7 @@ pub fn serve(behavior: &str) {
                 if text.contains("CRASH") {
                     std::process::exit(4);
                 }
-                send(&mut out, diagnostics(&p["textDocument"]["uri"], text));
+                send(&mut out, diagnostics(&json!(real(&uri)), text));
             }
             "textDocument/hover" => {
                 let pos = &p["position"];

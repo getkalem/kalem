@@ -144,6 +144,7 @@ document has not changed since it was asked.
 kalem lsp status lib/hello.ex          # the plugins, and what serves the file
 kalem lsp check lib/*.ex               # the servers' diagnostics; exits 1 on errors
 kalem lsp check --format json lib/hello.ex
+kalem lsp check --log lib/hello.ex     # and the server's log on standard error
 kalem lsp ask hover lib/hello.ex 6:40  # documentation at line 6, column 40
 kalem lsp ask definition lib/hello.ex 6:40
 kalem lsp ask format lib/hello.ex      # the formatted text
