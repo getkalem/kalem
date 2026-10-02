@@ -80,6 +80,276 @@ fn plain_array_columns(s: &str) -> String {
     out
 }
 
+/// The arguments of the text from `s`'s start: optional `[…]` and
+/// mandatory `{…}` arguments, as strings, and what follows them.
+fn diagram_args(mut s: &str) -> (Vec<String>, Vec<String>, &str) {
+    let (mut opts, mut mands) = (Vec::new(), Vec::new());
+    loop {
+        let t = s.trim_start();
+        if t.starts_with('[') {
+            // Brackets nest in tikzcd's options (`[r, "{[x]}"]`) rarely; the
+            // first `]` at depth 0 of braces closes.
+            let mut depth = 0;
+            let mut end = None;
+            for (i, c) in t.char_indices().skip(1) {
+                match c {
+                    '{' => depth += 1,
+                    '}' => depth -= 1,
+                    ']' if depth == 0 => {
+                        end = Some(i);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            let Some(e) = end else { break };
+            opts.push(t[1..e].to_string());
+            s = &t[e + 1..];
+        } else if t.starts_with('{') {
+            let Some((g, after)) = group(t) else { break };
+            mands.push(g.to_string());
+            s = after;
+        } else {
+            break;
+        }
+    }
+    (opts, mands, s)
+}
+
+/// Splits `s` at `sep` outside braces and brackets.
+fn split_top(s: &str, sep: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0;
+    let b = s.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'\\' if s[i..].starts_with(sep) && depth == 0 => {
+                out.push(s[start..i].to_string());
+                i += sep.len();
+                start = i;
+                continue;
+            }
+            b'\\' => {
+                i += 2;
+                continue;
+            }
+            b'{' | b'[' => depth += 1,
+            b'}' | b']' => depth -= 1,
+            c if depth == 0 && sep.len() == 1 && c == sep.as_bytes()[0] => {
+                out.push(s[start..i].to_string());
+                start = i + 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    out.push(s[start..].to_string());
+    out
+}
+
+/// An arrow of a diagram: rows and columns it goes, and its label.
+struct Arrow {
+    rows: i32,
+    cols: i32,
+    label: String,
+}
+
+/// The direction letters of an arrow (`rrd`): rows and columns.
+fn steps(dirs: &str) -> (i32, i32) {
+    let (mut r, mut c) = (0, 0);
+    for ch in dirs.chars() {
+        match ch {
+            'r' => c += 1,
+            'l' => c -= 1,
+            'd' => r += 1,
+            'u' => r -= 1,
+            _ => {}
+        }
+    }
+    (r, c)
+}
+
+/// A diagram's cells: each one's text, its arrows taken out.
+fn cell_arrows(cell: &str, xy: bool) -> (String, Vec<Arrow>) {
+    let mut text = String::new();
+    let mut arrows = Vec::new();
+    let mut rest = cell;
+    loop {
+        let found = ["\\arrow", "\\ar"]
+            .iter()
+            .filter_map(|p| {
+                rest.find(p)
+                    .filter(|&i| {
+                        !rest[i + p.len()..].starts_with(|c: char| c.is_ascii_alphabetic())
+                    })
+                    .map(|i| (i, p.len()))
+            })
+            .min();
+        let Some((i, len)) = found else {
+            text.push_str(rest);
+            break;
+        };
+        text.push_str(&rest[..i]);
+        let mut after = &rest[i + len..];
+        // xymatrix's style (`@{->>}`, `@/^/`).
+        while let Some(a) = after.trim_start().strip_prefix('@') {
+            after = match a.chars().next() {
+                Some('{') => group(a).map_or(a, |(_, r)| r),
+                Some(c) => {
+                    let end = a[c.len_utf8()..]
+                        .find(c)
+                        .map_or(a.len(), |e| e + 2 * c.len_utf8());
+                    &a[end.min(a.len())..]
+                }
+                None => a,
+            };
+        }
+        let (opts, mands, mut after2) = diagram_args(after);
+        let mut label = String::new();
+        let (mut r, mut c) = (0, 0);
+        if let Some(o) = opts.first() {
+            for part in split_top(o, ",") {
+                let p = part.trim();
+                if let Some(q) = p.strip_prefix('"') {
+                    label = q.split('"').next().unwrap_or("").to_string();
+                } else if p.chars().all(|ch| "rlud".contains(ch)) && !p.is_empty() {
+                    (r, c) = steps(p);
+                }
+            }
+        }
+        // tikzcd's old form `\\arrow{r}{f}`.
+        if r == 0
+            && c == 0
+            && let Some(d) = mands.first()
+        {
+            (r, c) = steps(d);
+            if let Some(l) = mands.get(1) {
+                label = l.clone();
+            }
+        }
+        // xymatrix's labels: `^f`, `_g`, `|h`.
+        if xy {
+            while let Some(t) = after2.trim_start().strip_prefix(['^', '_', '|']) {
+                let t = t.trim_start();
+                let (l, r2) = match group(t) {
+                    Some((g, r2)) => (g.to_string(), r2),
+                    None => {
+                        let n = t.chars().next().map_or(0, char::len_utf8);
+                        if let Some(name) = t.strip_prefix('\\') {
+                            let m = name
+                                .chars()
+                                .take_while(char::is_ascii_alphabetic)
+                                .count()
+                                .max(1);
+                            (t[..1 + m].to_string(), &t[1 + m..])
+                        } else {
+                            (t[..n].to_string(), &t[n..])
+                        }
+                    }
+                };
+                if label.is_empty() {
+                    label = l;
+                }
+                after2 = r2;
+            }
+        }
+        arrows.push(Arrow {
+            rows: r,
+            cols: c,
+            label,
+        });
+        rest = after2;
+    }
+    (text.trim().to_string(), arrows)
+}
+
+/// A commutative diagram (tikz-cd's `tikzcd`, xy's `\\xymatrix{…}`) as an
+/// array the renderer draws: the objects in their places, an arrow
+/// between neighbours as `\\xrightarrow` or `\\downarrow` with its label,
+/// a diagonal one as `\\searrow` and its kin between them.
+fn diagram(body: &str, xy: bool) -> String {
+    let rows: Vec<Vec<(String, Vec<Arrow>)>> = split_top(body, "\\\\")
+        .iter()
+        .filter(|r| !r.trim().is_empty())
+        .map(|r| {
+            split_top(r, "&")
+                .iter()
+                .map(|c| cell_arrows(c, xy))
+                .collect()
+        })
+        .collect();
+    let n = rows.len().max(1);
+    let m = rows.iter().map(Vec::len).max().unwrap_or(1).max(1);
+    let (h, w) = (2 * n - 1, 2 * m - 1);
+    let mut grid = vec![vec![String::new(); w]; h];
+    for (i, row) in rows.iter().enumerate() {
+        for (j, (text, arrows)) in row.iter().enumerate() {
+            grid[2 * i][2 * j] = text.clone();
+            for a in arrows {
+                let (dr, dc) = (a.rows.signum(), a.cols.signum());
+                let (y, x) = (2 * i as i32 + dr, 2 * j as i32 + dc);
+                if y < 0 || x < 0 || y as usize >= h || x as usize >= w || (dr == 0 && dc == 0) {
+                    continue;
+                }
+                let l = &a.label;
+                let sym = match (dr, dc) {
+                    (0, 1) => format!("\\xrightarrow{{{l}}}"),
+                    (0, -1) => format!("\\xleftarrow{{{l}}}"),
+                    (1, 0) => format!("\\Big\\downarrow{{\\scriptstyle {l}}}"),
+                    (-1, 0) => format!("\\Big\\uparrow{{\\scriptstyle {l}}}"),
+                    (1, 1) => format!("\\searrow{{\\scriptstyle {l}}}"),
+                    (1, -1) => format!("{{\\scriptstyle {l}}}\\swarrow"),
+                    (-1, 1) => format!("\\nearrow{{\\scriptstyle {l}}}"),
+                    _ => format!("{{\\scriptstyle {l}}}\\nwarrow"),
+                };
+                let cell = &mut grid[y as usize][x as usize];
+                if cell.is_empty() {
+                    *cell = sym;
+                }
+            }
+        }
+    }
+    let cols = "c".repeat(w);
+    let body: Vec<String> = grid.iter().map(|r| r.join(" & ")).collect();
+    format!(
+        "\\begin{{array}}{{{cols}}}{}\\end{{array}}",
+        body.join(" \\\\ ")
+    )
+}
+
+/// tikz-cd's and xy's diagrams as arrays (see [`diagram`]).
+fn diagrams(s: &str) -> String {
+    let mut out = s.to_string();
+    while let Some(i) = out.find("\\begin{tikzcd}") {
+        let after = &out[i + "\\begin{tikzcd}".len()..];
+        let (_, _, body_start) = diagram_args(after);
+        let Some(end) = body_start.find("\\end{tikzcd}") else {
+            break;
+        };
+        let drawn = diagram(&body_start[..end], false);
+        let tail = body_start[end + "\\end{tikzcd}".len()..].to_string();
+        out = format!("{}{drawn}{tail}", &out[..i]);
+    }
+    while let Some(i) = out.find("\\xymatrix") {
+        let mut after = &out[i + "\\xymatrix".len()..];
+        // `@C=1em`, `@R-2pc`, `@!0`: spacing.
+        while let Some(a) = after.trim_start().strip_prefix('@') {
+            let end = a.find('{').unwrap_or(a.len());
+            let stop = a[..end].find(char::is_whitespace).unwrap_or(end);
+            after = &a[stop..];
+        }
+        let Some((body, tail)) = group(after.trim_start()) else {
+            break;
+        };
+        let drawn = diagram(body, true);
+        let tail = tail.to_string();
+        out = format!("{}{drawn}{tail}", &out[..i]);
+    }
+    out
+}
+
 /// `*{3}{c}` in a column specification as `ccc`.
 fn repeat_columns(spec: &str) -> String {
     let mut out = String::new();
@@ -282,6 +552,7 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     s = rename_env(&s, "multline*", "gather*");
     s = rename_env(&s, "multline", "gather");
     // eqnarray's `a &=& b` as an align's columns; flalign as align.
+    s = diagrams(&s);
     s = plain_array_columns(&s);
     s = math_out_of_text(&s);
     s = inner_dollars(&s);
@@ -335,7 +606,9 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     if macros.is_empty() {
         s
     } else {
-        format!("{macros}{s}")
+        // A definition's own `$…$` (`\\newcommand{\\minus}{$-$}`): math
+        // already where it is used.
+        format!("{}{s}", inner_dollars(macros))
     }
 }
 
@@ -521,5 +794,37 @@ mod prepare_tests {
         );
         assert_eq!(prepare("\\begin{dmath}x=1\\end{dmath}", ""), "x=1");
         assert_eq!(prepare("\\begin{math*}x\\end{math*}", ""), "x");
+    }
+
+    #[test]
+    fn commutative_diagrams() {
+        // tikz-cd and xy: the objects in their places, the arrows between
+        // them with their labels, as an array the renderer draws.
+        let t = prepare(
+            "\\begin{tikzcd}[cramped] A \\arrow[r, \"f\"] \\arrow[d, \"g\"'] & B \\arrow[d] \\\\ C \\arrow[r, \"h\"] & D \\end{tikzcd}",
+            "",
+        );
+        assert_eq!(
+            t,
+            "\\begin{array}{ccc}A & \\xrightarrow{f} & B \\\\ \\Big\\downarrow{\\scriptstyle g} &  & \\Big\\downarrow{\\scriptstyle } \\\\ C & \\xrightarrow{h} & D\\end{array}"
+        );
+        assert!(crate::check(&t).is_ok(), "{t}");
+        let x = prepare(
+            "\\xymatrix@C=2em{ V \\ar@{->>}[d]_p \\ar[r]^{\\phi} & W \\\\ U & }",
+            "",
+        );
+        assert!(
+            x.starts_with("\\begin{array}{ccc}V & \\xrightarrow{\\phi} & W"),
+            "{x}"
+        );
+        assert!(crate::check(&x).is_ok(), "{x}");
+    }
+
+    #[test]
+    fn dollars_in_definitions() {
+        assert_eq!(
+            prepare("1\\minus x", "\\def\\minus{$-$}"),
+            "\\def\\minus{-}1\\minus x"
+        );
     }
 }
