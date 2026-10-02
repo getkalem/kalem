@@ -10,19 +10,19 @@ pub fn command(name: &str) -> &'static str {
         | "subparagraph" => "*om",
         "textbf" | "textit" | "texttt" | "textsc" | "textsf" | "textrm" | "textup" | "textmd"
         | "textsl" | "textnormal" | "emph" | "underline" | "textsuperscript" | "textsubscript"
-        | "mbox" | "fbox" | "text" | "mathrm" | "mathbf" | "mathit" | "mathcal" | "mathbb"
-        | "mathsf" | "mathtt" | "mathfrak" | "mathscr" | "boldsymbol" | "overline" | "hat"
-        | "bar" | "tilde" | "vec" | "dot" | "ddot" | "check" | "breve" | "acute" | "grave"
-        | "widehat" | "widetilde" | "overbrace" | "underbrace" | "overrightarrow"
-        | "overleftarrow" | "label" | "ref" | "eqref" | "pageref" | "autoref" | "cref" | "Cref"
-        | "subref" | "thref" | "nameref" | "input" | "include" | "includeonly" | "bibliography"
-        | "bibliographystyle" | "date" | "thanks" | "phantom" | "hphantom" | "vphantom"
-        | "intertext" | "sout" | "uline" | "appendixname" | "keywords" | "email"
-        | "affiliation" | "address" | "subtitle" | "vref" | "Vref" | "cpageref"
-        | "refstepcounter" | "stepcounter" | "subfile" | "graphicspath" | "IEEEauthorblockN"
-        | "IEEEauthorblockA" | "IEEEmembership" | "institution" | "department" | "city"
-        | "state" | "country" | "streetaddress" | "postcode" | "orcid" | "institute" | "inst"
-        | "pacs" => "m",
+        | "IEEEauthorrefmark" | "authormark" | "mbox" | "fbox" | "text" | "mathrm" | "mathbf"
+        | "mathit" | "mathcal" | "mathbb" | "mathsf" | "mathtt" | "mathfrak" | "mathscr"
+        | "boldsymbol" | "overline" | "hat" | "bar" | "tilde" | "vec" | "dot" | "ddot"
+        | "check" | "breve" | "acute" | "grave" | "widehat" | "widetilde" | "overbrace"
+        | "underbrace" | "overrightarrow" | "overleftarrow" | "label" | "ref" | "eqref"
+        | "pageref" | "autoref" | "cref" | "Cref" | "subref" | "thref" | "nameref" | "input"
+        | "include" | "includeonly" | "bibliography" | "bibliographystyle" | "date" | "thanks"
+        | "phantom" | "hphantom" | "vphantom" | "intertext" | "sout" | "uline" | "appendixname"
+        | "keywords" | "email" | "affiliation" | "address" | "subtitle" | "vref" | "Vref"
+        | "cpageref" | "refstepcounter" | "stepcounter" | "subfile" | "graphicspath"
+        | "IEEEauthorblockN" | "IEEEauthorblockA" | "IEEEmembership" | "institution"
+        | "department" | "city" | "state" | "country" | "streetaddress" | "postcode" | "orcid"
+        | "institute" | "inst" | "pacs" => "m",
         "IEEEPARstart" => "mm",
         // algorithmicx's (algpseudocode) and algorithmic's statements.
         "If" | "ElsIf" | "For" | "ForAll" | "While" | "Until" | "Comment" | "IF" | "ELSIF"

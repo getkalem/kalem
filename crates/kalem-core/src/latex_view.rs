@@ -1005,7 +1005,8 @@ fn format_style(name: &str) -> Option<Style> {
         "texttt" => s.code = true,
         "underline" | "uline" => s.underline = true,
         "sout" => s.strike = true,
-        "textsuperscript" => s.superscript = true,
+        // Author marks set raised (IEEEtran's, Wiley's and others').
+        "textsuperscript" | "IEEEauthorrefmark" | "authormark" => s.superscript = true,
         "textsubscript" => s.subscript = true,
         "textsc" | "textsf" | "textrm" | "textup" | "textmd" | "textnormal" => {}
         _ => return None,
@@ -1234,6 +1235,8 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         | "SetDataSty" | "SetKwSty" | "SetCommentSty" | "SetProgSty" => "mm",
         // Struts and rules that make room, and array's line end.
         "rule" => "omm",
+        // TikZ's style declared in the text (`\tikzstyle{box}=[draw]`).
+        "tikzstyle" => "mk",
         "bigstrut" => "o",
         "arraybackslash" | "strut" | "mathstrut" => "",
         // A counter stepped, labels to come pointing at it: nothing printed.
@@ -1329,6 +1332,8 @@ pub(crate) fn box_args(name: &str) -> Option<&'static str> {
         "href@noop" => "m",
         // A link's target and its text; a stack of lines; a sub-caption.
         "hypertarget" | "hyperlink" => "m",
+        // REVTeX's e-print link in a bibliography: its text.
+        "Eprint" => "m",
         "subcaptionbox" => "o",
         "shortstack" => "o",
         "subcaption" => "o",
@@ -1413,6 +1418,17 @@ pub(crate) fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Optio
                     blanks(&mut p);
                 }
                 token(&mut p)?;
+            }
+            // `=` and an optional `[…]` (`\tikzstyle{x}=[draw]`).
+            'k' => {
+                if text[p..limit].starts_with('=') {
+                    p += 1;
+                    blanks(&mut p);
+                }
+                if text[p..limit].starts_with('[') {
+                    let close = text[p..limit].find(']')?;
+                    p += close + 1;
+                }
             }
             // A TeX parameter's value: `=` or not, then a number or a
             // dimension (`-1`, `10000`, `1.2pt plus 1fil`, `-\parindent`,
@@ -1757,7 +1773,8 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
 fn transparent(name: &str) -> bool {
     matches!(
         name,
-        "hyperlink"
+        "Eprint"
+            | "hyperlink"
             | "subcaptionbox"
             | "hypertarget"
             | "shortstack"
@@ -7057,6 +7074,8 @@ mod tests {
         let text = "\\documentclass{article}\n\\usepackage{tikz}\n\\begin{document}\n\\begin{tikzpicture}\n\\draw (0,0) -- (1,1);\n\\end{tikzpicture}\n\\end{document}\n";
         let d = doc(text);
         // Away from the cursor: the picture on its `\\begin` line.
+        let t = "\\tikzstyle{box}=[draw] A";
+        assert_eq!(args_end(t, 10, t.len(), "mk"), Some(22));
         let v = shown(&d, 3, None);
         let path = v.runs.iter().find_map(|r| match &r.widget {
             Some(crate::view::Widget::Image { path, .. }) => Some(path.clone()),
@@ -7211,6 +7230,28 @@ mod tests {
             (dingbat(51), dingbat(52), dingbat(108)),
             (Some("✓"), Some("✔"), Some("●"))
         );
+    }
+
+    #[test]
+    fn author_marks_eprints_and_tikz_styles() {
+        let text = "\\documentclass{article}\n\\usepackage{tikz}\n\\begin{document}\n\\tikzstyle{box}=[draw] A\\authormark{1} B\\IEEEauthorrefmark{2} \\Eprint{x}{arXiv:1}\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 3, None);
+        let read: String = v
+            .runs
+            .iter()
+            .filter(|r| !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        // Vertical mode: the blank at the paragraph's start prints nothing.
+        assert_eq!(read.trim_start(), "A1 B2 arXiv:1");
+        let raised: String = v
+            .runs
+            .iter()
+            .filter(|r| r.style.superscript && !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        assert_eq!(raised, "12");
     }
 
     #[test]
