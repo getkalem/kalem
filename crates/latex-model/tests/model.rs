@@ -286,6 +286,11 @@ fn subfigures() {
     check_labels("subfigures");
     check_labels("subfig");
     check_labels("caption-above");
+    // `\subfloat` with no optional argument, an empty one, or a list
+    // entry and a caption; the subfigure package's `\subfigure` prints
+    // `1(a)`.
+    check_labels("subfloat-forms");
+    check_labels("subfigure-package");
 }
 
 #[test]

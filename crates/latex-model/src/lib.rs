@@ -1213,7 +1213,15 @@ impl<'r> Numbering<'r> {
                             self.counters.insert(k.clone(), now);
                             next
                         };
-                        self.current = (Some(format!("{float}{n}")), Target::Float(k.clone()));
+                        // The subfigure package prints `1(a)`; subfig and
+                        // subcaption `1a`.
+                        let old = self.model.packages.iter().any(|p| p.name == "subfigure");
+                        let r = if old {
+                            format!("{float}({n})")
+                        } else {
+                            format!("{float}{n}")
+                        };
+                        self.current = (Some(r), Target::Float(k.clone()));
                         Some(n)
                     }
                     Some(k) => {

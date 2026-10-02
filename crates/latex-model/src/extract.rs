@@ -680,8 +680,9 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                 });
             }
         }
-        // subfig's `\subfloat[list][caption]{body}`, before its body.
-        "subfloat" => push(Event::Caption {
+        // subfig's `\subfloat[list][caption]{body}`, before its body, and
+        // the subfigure package's `\subfigure` and `\subtable`.
+        "subfloat" | "subfigure" | "subtable" => push(Event::Caption {
             text: o.last().unwrap_or(&"").to_string(),
             short: (o.len() > 1).then(|| o[0].to_string()),
             range,

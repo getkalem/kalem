@@ -2006,6 +2006,9 @@ fn unflagged_line_view(
     let mut heading_command: Option<SyntaxNode> = None;
     // Source ranges not shown (a caption's closing brace).
     let mut hidden: Vec<Range<usize>> = Vec::new();
+    // Source ranges shown as other text (the break between a
+    // sub-caption and its body).
+    let mut replaced: Vec<(Range<usize>, &'static str)> = Vec::new();
     // The arguments of case changes: whether to upper case, and whether
     // by TeX's primitive (which changes characters, not `\\ss` or `\\i`).
     let mut cases: Vec<(Range<usize>, bool, bool)> = Vec::new();
@@ -2116,6 +2119,16 @@ fn unflagged_line_view(
         }
         if let Some(skip) = hidden.iter().find(|h| h.start <= r.start && r.end <= h.end) {
             let _ = skip;
+            continue;
+        }
+        if let Some((range, with)) = replaced
+            .iter()
+            .find(|(h, _)| h.start <= r.start && r.end <= h.end)
+            .cloned()
+        {
+            if r.start == range.start {
+                b.replace(range.clone(), with, Style::default());
+            }
             continue;
         }
         // A theorem's or a proof's `\begin` and `\end`: its name, number
@@ -2332,6 +2345,52 @@ fn unflagged_line_view(
                         tok = n.next_token();
                     }
                     continue;
+                }
+                // subfig's `\\subfloat[list][caption]{body}`: `(a) `, the
+                // caption, then the body; no caption without an optional
+                // argument, the label alone with an empty one.
+                "\\subfloat" | "\\subfigure" | "\\subtable" => {
+                    let opts: Vec<SyntaxNode> =
+                        cmd.children().filter(|c| c.kind() == K::OPT_ARG).collect();
+                    if let Some(g) = cmd.children().find(|c| c.kind() == K::GROUP) {
+                        let gs = node_span(&g);
+                        let number = state.model().floats.iter().find_map(|f| {
+                            f.captions
+                                .iter()
+                                .find(|c| c.range.start == cs.start && c.file == 0)
+                                .and_then(|c| c.number.clone())
+                        });
+                        let bold = Style {
+                            bold: true,
+                            ..Style::default()
+                        };
+                        match (opts.last(), number) {
+                            (Some(o), Some(n)) => {
+                                let os = node_span(o);
+                                b.replace(cs.start..os.start + 1, &format!("({n}) "), bold);
+                                let empty = text[os.start + 1..os.end - 1].trim().is_empty();
+                                replaced
+                                    .push((os.end - 1..gs.start + 1, if empty { "" } else { " " }));
+                                while let Some(n) = &tok
+                                    && span(n).start < os.start + 1
+                                {
+                                    tok = n.next_token();
+                                }
+                            }
+                            _ => {
+                                b.replace(cs.start..gs.start + 1, "", bold);
+                                while let Some(n) = &tok
+                                    && span(n).start < gs.start + 1
+                                {
+                                    tok = n.next_token();
+                                }
+                            }
+                        }
+                        if text[..gs.end].ends_with('}') {
+                            hidden.push(gs.end - 1..gs.end);
+                        }
+                        continue;
+                    }
                 }
                 // A caption: `Figure 1: ` for the command and its brace.
                 "\\caption" => {
@@ -3824,6 +3883,9 @@ pub fn renders_command(name: &str) -> bool {
                 | "MakeTextLowercase"
                 | "bibitem"
                 | "newblock"
+                | "subfloat"
+                | "subfigure"
+                | "subtable"
                 | "textcolor"
                 | "color"
                 | "footnotetext"
@@ -4867,6 +4929,34 @@ mod tests {
         // A setting and a definition print nothing: markup, dimmed.
         let v = shown(&d, 1, None);
         assert!(v.runs.iter().all(|r| r.style.dim), "{:?}", v.runs);
+    }
+
+    #[test]
+    fn subfloats_show_their_letter_and_caption() {
+        let text = "\\usepackage{subfig}\n\\begin{figure}\n\\subfloat[Left $x$]{X}\n\\subfloat{Y}\n\\subfloat[][]{Z}\n\\subfloat[L][Shown]{W}\n\\caption{C}\n\\end{figure}\n";
+        let d = doc(text);
+        let text_of = |line: usize| -> String {
+            shown(&d, line, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.as_str())
+                .collect()
+        };
+        assert_eq!(
+            text_of(2),
+            format!("(a) Left {} X", crate::view::PLACEHOLDER)
+        );
+        assert_eq!(text_of(3), "Y");
+        assert_eq!(text_of(4), "(c) Z");
+        assert_eq!(text_of(5), "(d) Shown W");
+        // The letter bold, as a caption's label.
+        assert!(
+            shown(&d, 2, None)
+                .runs
+                .iter()
+                .any(|r| r.text == "(a) " && r.style.bold)
+        );
     }
 
     #[test]
