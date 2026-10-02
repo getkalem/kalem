@@ -43,12 +43,9 @@ jobs:
       - name: Measure
         run: |
           ./target/release/kalem latex-coverage .cache/arxiv > coverage.md
-          ./target/release/kalem latex-coverage --format json .cache/arxiv > coverage.json
           cat coverage.md
           cat coverage.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: arxiv-coverage
-          path: |
-            coverage.md
-            coverage.json
+          path: coverage.md
