@@ -815,7 +815,24 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
         let (key, rendered) = match n.kind() {
             K::COMMAND => match latex_syntax::name(&n) {
                 Some(name) if name.chars().all(|c| c.is_ascii_alphabetic() || c == '@') => {
-                    let r = crate::latex_view::renders_command(&name);
+                    let r = crate::latex_view::renders_command(&name) || {
+                        // A document's own text macro, shown as its text;
+                        // a note to self's argument, hidden.
+                        match crate::latex_view::own_macro(&model, &name) {
+                            Some(own) => {
+                                if own.args > 0 {
+                                    let spec = "m".repeat(own.args);
+                                    if let Some(e) =
+                                        crate::latex_view::args_end(text, end, body.end, &spec)
+                                    {
+                                        drawn_to = drawn_to.max(e);
+                                    }
+                                }
+                                true
+                            }
+                            None => false,
+                        }
+                    };
                     (format!("\\{name}"), r)
                 }
                 _ => continue,
