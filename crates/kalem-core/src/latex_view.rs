@@ -1647,11 +1647,12 @@ fn brace_is_markup(t: &SyntaxToken) -> bool {
 }
 
 /// `s` upper or lower cased as LaTeX's `\\MakeUppercase` does: not the
-/// micro sign, a symbol (not a Greek letter) to LaTeX.
+/// micro sign, the ohm, kelvin and ångström signs, symbols (not Greek or
+/// Latin letters) to LaTeX.
 fn change_case(s: &str, upper: bool) -> String {
     s.chars()
         .map(|c| match c {
-            '\u{b5}' => c.to_string(),
+            '\u{b5}' | '\u{2126}' | '\u{212a}' | '\u{212b}' => c.to_string(),
             _ if upper => c.to_uppercase().collect(),
             _ => c.to_lowercase().collect(),
         })
@@ -6119,6 +6120,7 @@ mod tests {
             ("\\MakeUppercase{x \\ss{} \\aa\\ ---}", "X SS Å —"),
             ("\\uppercase{x \\ss{} \\'e}", "X ß É"),
             ("\\MakeUppercase{\\textmu}", "µ"),
+            ("\\MakeLowercase{\\textohm {\\={E}}}", "\u{2126}ē"),
             ("\\c C---x", "Ç—x"),
             ("x \\S\\", "x § "),
         ];
