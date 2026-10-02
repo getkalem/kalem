@@ -3309,6 +3309,9 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
 pub fn renders_command(name: &str) -> bool {
     format_style(name).is_some()
         || front_style(name).is_some()
+        || declaration(name, &mut Style::default())
+        || accent_mark(name).is_some()
+        || transparent(name)
         || latex_syntax::signatures::is_sectioning(name)
         || chip_command(name)
         || word(name).is_some()
@@ -3361,7 +3364,32 @@ pub fn renders_command(name: &str) -> bool {
                 | "bibliographystyle"
                 | "noindent"
                 | "par"
+                | "vspace"
+                | "hspace"
+                | "addvspace"
+                | "vskip"
+                | "hskip"
+                | "today"
+                | "MakeUppercase"
+                | "MakeLowercase"
+                | "uppercase"
+                | "lowercase"
+                | "MakeTextUppercase"
+                | "MakeTextLowercase"
+                | "num"
+                | "si"
+                | "SI"
+                | "qty"
+                | "unit"
+                | "ang"
         )
+}
+
+/// Whether the view shows the arguments of command `name` as text (a
+/// format's, a caption's) rather than drawing or hiding them (a
+/// picture's options, a label's key).
+pub fn shows_arguments(name: &str) -> bool {
+    prose(name)
 }
 
 /// Whether the view renders environment `name` (theorems are the ones
