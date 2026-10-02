@@ -12,18 +12,18 @@ The body of every =.tex= file (=\begin{document}= to =\end{document}=, or the wh
 The first run counted otherwise: the body of every unknown environment whole, the arguments of drawn commands, macro files, and a list of rendered commands that had fallen behind the view. It put 19.2% of the body as source, with =\frac= and =\textwidth= near the top. The metric was corrected to what the view shows before any number was used.
 
 * Results
-Run 5 of the workflow (2026-10-02, commit =7bf271e=): 926 papers, 3,184 files, 88 MB of body text.
+Run 7 of the workflow (2026-10-02, commit =e482e0a=): 926 papers, 3,184 files, 88 MB of body text.
 
 | Field            | Papers | Files | Body KB | Source | Formulas |
 |------------------+--------+-------+---------+--------+----------|
-| biology          |    189 |   637 |  14,910 |   2.2% |     9.2% |
-| computer science |    180 |   967 |  16,977 |   1.4% |     9.6% |
-| economics        |    183 |   646 |  22,422 |   0.9% |    19.7% |
-| mathematics      |    187 |   261 |  18,728 |   0.7% |    36.1% |
-| physics          |    187 |   673 |  15,174 |   4.0% |    14.1% |
-| all              |    926 | 3,184 |  88,213 |   1.7% |    18.5% |
+| biology          |    189 |   637 |  14,910 |   0.5% |     9.4% |
+| computer science |    180 |   967 |  16,977 |   0.9% |    11.1% |
+| economics        |    183 |   646 |  22,422 |   0.4% |    19.9% |
+| mathematics      |    187 |   261 |  18,728 |   0.4% |    36.4% |
+| physics          |    187 |   673 |  15,174 |   0.9% |    14.4% |
+| all              |    926 | 3,184 |  88,213 |   0.6% |    19.0% |
 
-What showed most as source then: definitions (=\gdef=, =\def=, =\newcommand=), REVTeX's bibliography fields (=\bibinfo=, =\bibnamefont=), =\textcolor=, tables the grid could not take, =\parbox=; all rendered or dimmed since (T2.7h.36's report ranks them by the bytes they show as source).
+Run 5, before colors, boxes, definitions as markup and REVTeX's bibliographies were rendered, had 1.7% (0.7% in mathematics to 4.0% in physics). What shows most as source now: subfig's =\subfloat=, =\frac= outside formulas (in a document's own macros), TikZ pictures, sizes like =\textwidth= in arguments, theorems whose =\newtheorem= the model does not read, csquotes' =\enquote=, =subequations=.
 
 * The subset
 Rendered, each checked against pdflatex by the differential tests of T2.7h.33 (=tools/latex-typeset-fuzz.py=, =tools/latex-numbering-fuzz.py=, =tools/latex-edit-fuzz.py=, in CI):
@@ -36,4 +36,4 @@ Rendered, each checked against pdflatex by the differential tests of T2.7h.33 (=
 Left as source, for now: TikZ and other pictures (folded), unknown commands of a document's own whose definitions are not read, and environments the view does not know (their delimiters).
 
 * Why 97%
-The working assumption was nine tenths for mathematics and computer science. Every field is above 97% already, so the target is set there: a fall below it is a regression in the view or in the metric, found by the monthly run.
+The working assumption was nine tenths for mathematics and computer science. Every field is above 99% already, so the target is set there: a fall below it is a regression in the view or in the metric, found by the monthly run.
