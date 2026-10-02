@@ -48,6 +48,8 @@ pub struct LatexState {
     file: Option<(std::path::PathBuf, Option<String>)>,
     /// The paragraphs over several lines, for the text they were found in.
     paragraphs: RefCell<Option<(Arc<str>, Paragraphs)>>,
+    /// The pictures TeX had finished when the view last looked.
+    pub(crate) pictures_seen: std::cell::Cell<u64>,
 }
 
 /// The paragraphs of a LaTeX document over several source lines.
@@ -277,6 +279,7 @@ impl LatexState {
             root: None,
             file: None,
             paragraphs: RefCell::new(None),
+            pictures_seen: std::cell::Cell::new(0),
         }
     }
 
@@ -314,6 +317,11 @@ impl LatexState {
             .flat_map(|b| b.files.iter())
             .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
             .collect()
+    }
+
+    /// The project's root document, once it is found.
+    pub fn root_path(&self) -> Option<std::path::PathBuf> {
+        self.project.borrow().as_ref().map(|p| p.root.clone())
     }
 
     /// The folder of the project's root document, once it is found: where
@@ -2748,6 +2756,31 @@ fn unflagged_line_view(
                 continue;
             }
         }
+        // A TikZ picture away from the cursor: drawn by TeX, on its
+        // `\begin` line (the rest folded).
+        if t.kind() == K::CONTROL_WORD
+            && t.text() == "\\begin"
+            && let Some(begin) = t.parent().filter(|p| p.kind() == K::BEGIN)
+            && let Some(env) = begin.parent()
+            && latex_syntax::name(&env).is_some_and(|n| tex_picture(&n))
+            && !near(&node_span(&env))
+            && let Some(path) = picture_by_tex(doc, state, &text[node_span(&env)])
+        {
+            let end = line.end;
+            b.runs.push(Run {
+                src: r.start..end,
+                text: crate::view::PLACEHOLDER.to_string(),
+                verbatim: false,
+                style: Style::default(),
+                widget: Some(crate::view::Widget::Image { path, width: None }),
+            });
+            while let Some(n) = &tok
+                && span(n).start < end
+            {
+                tok = n.next_token();
+            }
+            continue;
+        }
         if t.kind() == K::CONTROL_WORD
             && let Some(cmd) = t
                 .parent()
@@ -4608,6 +4641,7 @@ pub fn shows_arguments(name: &str) -> bool {
 pub fn renders_environment(name: &str, model: &latex_model::Model) -> bool {
     // Tables: the grid, or text with their cells apart.
     crate::latex_table::is_table(name)
+        || tex_picture(name)
         || is_list(name)
         || float_name(name, false).is_some()
         || is_display_math(name)
@@ -4688,6 +4722,27 @@ fn float_name(kind: &str, turkish: bool) -> Option<&'static str> {
         ("algorithm", true) => "Algoritma",
         _ => return None,
     })
+}
+
+/// Environments TeX draws as pictures (TikZ's, pgf's, circuitikz's).
+pub(crate) fn tex_picture(name: &str) -> bool {
+    matches!(name, "tikzpicture" | "pgfpicture" | "circuitikz")
+}
+
+/// The PDF of picture `source` of `doc`, compiled by TeX with the
+/// document's preamble (see [`crate::tex_pictures`]).
+fn picture_by_tex(doc: &crate::DocumentState, state: &LatexState, source: &str) -> Option<String> {
+    let root = state.root_path();
+    let preamble = crate::tex_pictures::preamble_of(doc.text().as_str(), root.as_deref())?;
+    let dir = state.root_dir().or_else(|| {
+        doc.meta
+            .path
+            .as_deref()
+            .and_then(std::path::Path::parent)
+            .map(std::path::Path::to_path_buf)
+    });
+    crate::tex_pictures::picture(&preamble, source, dir.as_deref())
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
 /// The file an `\includegraphics` shows, relative to the document: its
@@ -5601,6 +5656,9 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
                         language: code_language(&n),
                     }
                 }
+                // A picture TeX draws: folded to its `\\begin` line, where
+                // the picture is.
+                Some(x) if tex_picture(&x) => BlockKind::Drawer,
                 // A `comment` environment, dimmed: folded as a drawer.
                 Some(x) if x == "comment" && text[node_span(&n)].matches('\n').count() >= 2 => {
                     BlockKind::Drawer
@@ -5748,6 +5806,28 @@ mod tests {
         let r = d.text().line_range(line);
         let r = r.start..r.end - usize::from(d.text().as_str()[r.clone()].ends_with('\n'));
         line_view(d, r, cursor)
+    }
+
+    #[test]
+    fn tikz_pictures_drawn_by_tex() {
+        let search = crate::pdf::tex_search_path();
+        if crate::pdf::find("pdflatex", &search).is_none() {
+            return;
+        }
+        let text = "\\documentclass{article}\n\\usepackage{tikz}\n\\begin{document}\n\\begin{tikzpicture}\n\\draw (0,0) -- (1,1);\n\\end{tikzpicture}\n\\end{document}\n";
+        let d = doc(text);
+        // Away from the cursor: the picture on its `\\begin` line.
+        let v = shown(&d, 3, None);
+        let path = v.runs.iter().find_map(|r| match &r.widget {
+            Some(crate::view::Widget::Image { path, .. }) => Some(path.clone()),
+            _ => None,
+        });
+        let path = path.expect("a picture");
+        assert!(path.ends_with(".pdf"), "{path}");
+        // At the cursor: the source.
+        let at = text.find("\\draw").unwrap();
+        let v = shown(&d, 3, Some(at));
+        assert!(v.runs.iter().all(|r| r.widget.is_none()));
     }
 
     #[test]

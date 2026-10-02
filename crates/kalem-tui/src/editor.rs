@@ -269,6 +269,14 @@ impl Images {
                     cols: cols as u16,
                 }
             });
+            // A file not there yet (a picture TeX is drawing) is looked
+            // for again at the next drawing.
+            if entry.is_none()
+                && let ImageKey::File(f, _) = key
+                && !f.is_file()
+            {
+                return None;
+            }
             self.cache.insert(key.clone(), entry);
         }
         self.cache.get(key)?.as_ref().map(|e| (e.rows, e.cols))
