@@ -743,6 +743,7 @@ impl Editor {
     /// Splits the view: the source beside the rich view (or the rich view
     /// beside the source), or closes the other view.
     pub fn toggle_split(&mut self, cx: &mut Context<'_, Self>) {
+        *self.plain.borrow_mut() = None;
         if self.other.take().is_some() {
             self.left = true;
         } else {
@@ -1172,6 +1173,8 @@ impl Editor {
             }
             Request::ToggleSource => {
                 self.source = !self.source;
+                // Markdown's colors are made for the source view only.
+                *self.plain.borrow_mut() = None;
                 self.list.reset(0);
                 self.visible.clear();
                 self.sync_pane(&[]);
@@ -2291,6 +2294,11 @@ impl Editor {
             _ => None,
         };
         // Very large files are colored a window at a time (T2.7a.3).
+        // Markdown as it reads colors only its code blocks (each on its
+        // own, `line::code_spans`): the whole text's colors, slow to make
+        // for a long file, only in the source view.
+        let any_source = self.source || self.other.as_ref().is_some_and(|o| o.source);
+        let lang = lang.filter(|_| self.doc.meta.mode != DocumentMode::Markdown || any_source);
         let found = lang.and_then(kalem_highlight::Language::find);
         let large = text.len() > 4 << 20;
         let language = found.filter(|_| !large);

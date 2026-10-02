@@ -3596,6 +3596,28 @@ fn latex_preamble_folds(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn markdown_colors_its_whole_text_in_the_source_view_only(cx: &mut TestAppContext) {
+    // Coloring a long Markdown file whole took seconds when it opened;
+    // as it reads, only its code blocks are colored (each on its own).
+    let text = "# Title\n\nSome *text*.\n\n```rust\nfn main() {}\n```\n";
+    let (e, cx) = open_named(text, "notes.md", || None, cx);
+    cx.run_until_parked();
+    let made = |e: &Entity<Editor>, cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| {
+            e.update_plain();
+            e.plain.borrow().as_ref().is_some_and(|p| p.1.is_some())
+        })
+    };
+    assert!(!made(&e, cx), "no whole-text colors as it reads");
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.toggleSource"));
+    cx.run_until_parked();
+    assert!(made(&e, cx), "the source view colored");
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.toggleSource"));
+    cx.run_until_parked();
+    assert!(!made(&e, cx));
+}
+
+#[gpui::test]
 fn csv_view_sorted(cx: &mut TestAppContext) {
     let text = "name,age\nAda,36\nBob,7\nCem,20\n";
     let (e, cx) = open_named(text, "s.csv", || None, cx);

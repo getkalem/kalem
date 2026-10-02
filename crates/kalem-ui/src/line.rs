@@ -1874,11 +1874,15 @@ impl gpui::Element for LineElement {
                 if let Some((_, next)) = block {
                     let next = next.min(le);
                     let x = layout.caret(view.display_offset(next)).origin.x;
-                    caret.size.width = if next > cursor && x > caret.origin.x {
-                        x - caret.origin.x
-                    } else {
-                        p.font_size * 0.55
-                    };
+                    // The character drawn as itself; otherwise (an empty
+                    // CSV cell before its delimiter's bar, a hidden
+                    // marker) one character wide, not to what comes next.
+                    caret.size.width =
+                        if drawn_at(&view, cursor) && next > cursor && x > caret.origin.x {
+                            x - caret.origin.x
+                        } else {
+                            p.font_size * 0.55
+                        };
                     color.a *= 0.45;
                 }
                 window.paint_quad(fill(Bounds::new(origin + caret.origin, caret.size), color));
@@ -2056,5 +2060,29 @@ fn paint_sheet(
             green,
             Default::default(),
         ));
+    }
+}
+
+/// Whether the character at source offset `at` is drawn as itself in
+/// `view` (Vim's block cursor covers it then; otherwise one character).
+fn drawn_at(view: &kalem_core::view::LineView, at: usize) -> bool {
+    view.runs
+        .iter()
+        .any(|r| r.verbatim && r.src.start <= at && at < r.src.end)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_block_cursor_on_an_empty_cell_is_one_character() {
+        // `,,`: on the empty cell B the next character is its delimiter,
+        // drawn as a bar after the cell's padding: the block covered both
+        // (into cell C).
+        let text = "a,,\n";
+        let mut layout = kalem_core::csv::Layout::new(text);
+        layout.view.sheet = true;
+        let v = kalem_core::csv::line_view(&layout, text, 0..3, Some(2));
+        assert!(!super::drawn_at(&v, 2), "{:?}", v.runs);
+        assert!(super::drawn_at(&v, 0));
     }
 }
