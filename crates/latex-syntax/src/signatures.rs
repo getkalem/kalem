@@ -23,6 +23,7 @@ pub fn command(name: &str) -> &'static str {
         | "IEEEauthorblockN" | "IEEEauthorblockA" | "IEEEmembership" | "institution"
         | "department" | "city" | "state" | "country" | "streetaddress" | "postcode" | "orcid"
         | "institute" | "inst" | "pacs" => "m",
+        "subjclass" | "altaffiliation" => "om",
         "IEEEPARstart" => "mm",
         // algorithmicx's (algpseudocode) and algorithmic's statements.
         "If" | "ElsIf" | "For" | "ForAll" | "While" | "Until" | "Comment" | "IF" | "ELSIF"

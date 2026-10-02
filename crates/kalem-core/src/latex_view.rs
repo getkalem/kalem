@@ -1042,6 +1042,16 @@ fn front_style(name: &str) -> Option<(Style, &'static str)> {
             s.byline = true;
             "PACS: "
         }
+        // amsart's.
+        "subjclass" => {
+            s.byline = true;
+            "Mathematics Subject Classification: "
+        }
+        // REVTeX's second affiliation.
+        "altaffiliation" => {
+            s.byline = true;
+            "Also at "
+        }
         "thanks" => {
             s.dim = true;
             ""
@@ -2113,6 +2123,34 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
                         out.push_str(dingbat(r[1..=close].trim().parse().ok()?)?);
                         i += skipped + close + 2;
                     }
+                    // A reference: what it prints (`\newcommand{\rife}[1]
+                    // {(\ref{#1})}`).
+                    "ref" | "eqref" | "autoref" | "cref" | "Cref" | "thref" | "subref"
+                    | "nameref" => {
+                        let r = inner[i..].trim_start();
+                        let skipped = inner.len() - i - r.len();
+                        let close = matching_brace(r.strip_prefix('{')?)?;
+                        out.push_str(&ref_text(model, cname, &r[1..=close]).0);
+                        i += skipped + close + 2;
+                    }
+                    // Space between lines and paragraphs prints nothing in
+                    // the line, space in it a blank (`\newcommand{\vs}
+                    // {\vspace{2mm}}`).
+                    "vspace" | "hspace" | "addvspace" => {
+                        let end = args_end(inner, i, inner.len(), "sm")?;
+                        if cname == "hspace" {
+                            out.push(' ');
+                        }
+                        i = end;
+                    }
+                    "vskip" | "hskip" => {
+                        i = args_end(inner, i, inner.len(), "n")?;
+                        if cname == "hskip" {
+                            out.push(' ');
+                        }
+                    }
+                    "smallskip" | "medskip" | "bigskip" | "par" | "noindent" | "newline"
+                    | "vfill" | "hfill" => {}
                     // A link's address, a color's name: the group after it
                     // skipped, the text in the next one read.
                     "href" | "textcolor" | "colorbox" => {
@@ -2203,15 +2241,36 @@ pub(crate) fn own_macro_use(
         .iter()
         .rev()
         .find(|m| m.name.strip_prefix('\\') == Some(name))?;
-    if m.args == 0
-        || m.args > 9
-        || m.default.is_some()
-        || m.body.trim().is_empty()
-        || own_wrapper(model, name)
+    // Another name for a reference command (`\newcommand{\eq}{\eqref}`):
+    // that command with the group after the name.
+    let alias = m.body.trim().strip_prefix('\\').filter(|b| {
+        m.args == 0
+            && matches!(
+                *b,
+                "ref" | "eqref" | "autoref" | "cref" | "Cref" | "thref" | "subref" | "nameref"
+            )
+    });
+    if alias.is_none()
+        && (m.args == 0
+            || m.args > 9
+            || m.default.is_some()
+            || m.body.trim().is_empty()
+            || own_wrapper(model, name))
     {
         return None;
     }
-    let (body, i) = expansion(m, text, at, limit)?;
+    let (body, i) = match alias {
+        Some(cmd) => {
+            let mut j = at;
+            while text[j..limit].starts_with(' ') {
+                j += 1;
+            }
+            let g = text[j..limit].strip_prefix('{')?;
+            let close = matching_brace(g)?;
+            (format!("\\{cmd}{{{}}}", &g[..close]), j + close + 2)
+        }
+        None => expansion(m, text, at, limit)?,
+    };
     let mut style = Style::default();
     let mut inner = body.as_str();
     for (cmd, set) in [
@@ -2313,6 +2372,47 @@ pub(crate) fn own_math(
     None
 }
 
+/// What a macro's body does in running text: of `\ifmmode A\else B\fi`
+/// the `B`, and `\(…\)` a formula as `$…$` is
+/// (`\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}`).
+fn text_mode(body: &str) -> String {
+    let mut s = body.replace("\\(", "$").replace("\\)", "$");
+    while let Some(at) = s.find("\\ifmmode") {
+        // The `\else` and `\fi` of this conditional, nested ones skipped.
+        let mut depth = 0;
+        let mut else_at = None;
+        let mut fi_at = None;
+        let mut k = at + "\\ifmmode".len();
+        while k < s.len() {
+            let r = &s[k..];
+            if r.starts_with("\\if") {
+                depth += 1;
+                k += 3;
+            } else if r.starts_with("\\else") && depth == 0 {
+                else_at = Some(k);
+                k += 5;
+            } else if r.starts_with("\\fi")
+                && !r[3..].starts_with(|c: char| c.is_ascii_alphabetic())
+            {
+                if depth == 0 {
+                    fi_at = Some(k);
+                    break;
+                }
+                depth -= 1;
+                k += 3;
+            } else {
+                k += r.chars().next().map_or(1, char::len_utf8);
+            }
+        }
+        let Some(fi) = fi_at else {
+            break;
+        };
+        let keep = else_at.map_or(String::new(), |e| s[e + 5..fi].to_string());
+        s.replace_range(at..fi + 3, &keep);
+    }
+    s
+}
+
 /// The body of macro `m` with the arguments of its use at `at` put in,
 /// and where the use ends (before `limit`): each argument a group, or one
 /// token.
@@ -2348,7 +2448,8 @@ fn expansion(
         }
     }
     let mut body = String::new();
-    let mut chars = m.body.trim().chars().peekable();
+    let text_body = text_mode(m.body.trim());
+    let mut chars = text_body.chars().peekable();
     while let Some(c) = chars.next() {
         if c == '#'
             && let Some(k) = chars.peek().and_then(|c| c.to_digit(10))
@@ -4126,6 +4227,28 @@ fn unflagged_line_view(
                             tok = n.next_token();
                         }
                     }
+                    // A&A's ion (`\ion{H}{ii}`): the element, a thin space
+                    // and the stage in small capitals.
+                    ("ion", _)
+                        if let Some(end) = args_end(text, r.end, line.end, "mm")
+                            && !near(&(r.start..end)) =>
+                    {
+                        let groups: Vec<&str> = text[r.end..end]
+                            .split(['{', '}'])
+                            .map(str::trim)
+                            .filter(|g| !g.is_empty())
+                            .collect();
+                        let shown = match groups.as_slice() {
+                            [el, stage] => format!("{el}\u{2009}{}", stage.to_uppercase()),
+                            _ => groups.concat(),
+                        };
+                        b.replace(r.start..end, &shown, c.style);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
                     // siunitx's numbers and quantities, typeset.
                     (
                         "num" | "si" | "unit" | "SI" | "qty" | "ang" | "numrange" | "SIrange"
@@ -4691,6 +4814,49 @@ fn plural(name: &str) -> String {
 /// order they come, each group sorted, runs of three or more consecutive
 /// numbers compressed to "1 to 3", "and" between two, commas and a final
 /// "and" in a group, ", and" before the last of three or more groups.
+/// What reference command `name` (one key: `\ref{a,b}` is the label
+/// `a,b`; cleveref's a list) prints for `key`, and whether the labels
+/// are known.
+pub(crate) fn ref_text(model: &latex_model::Model, name: &str, key: &str) -> (String, bool) {
+    if matches!(name, "cref" | "Cref") {
+        let keys: Vec<&str> = key
+            .split(',')
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+            .collect();
+        return cref_list(model, &keys, name);
+    }
+    let k = key.trim();
+    let Some(l) = model.label(k) else {
+        return ("??".to_string(), false);
+    };
+    let n = l.number.clone().unwrap_or_default();
+    let shown = match name {
+        "eqref" => format!("({n})"),
+        "pageref" => k.to_string(),
+        "nameref" => nameref(model, l),
+        // subcaption's: the sub-float's letter alone, `(a)`.
+        "subref" => {
+            let letter: String = n.chars().skip_while(|c| !c.is_alphabetic()).collect();
+            if letter.is_empty() {
+                n
+            } else {
+                format!("({letter})")
+            }
+        }
+        "autoref" | "thref" => {
+            let what = target_name(model, &l.target, &n, name);
+            if what.is_empty() {
+                n
+            } else {
+                format!("{what}\u{a0}{n}")
+            }
+        }
+        _ => n,
+    };
+    (shown, true)
+}
+
 fn cref_list(model: &latex_model::Model, keys: &[&str], command: &str) -> (String, bool) {
     let mut all = true;
     let mut groups: Vec<(String, Vec<String>)> = Vec::new();
@@ -5090,39 +5256,8 @@ fn chip(
                 .collect();
             cref_list(model, &keys, name)
         }
-        // The others take one key: `\ref{a,b}` is the label `a,b`.
         "ref" | "eqref" | "pageref" | "autoref" | "nameref" | "vref" | "Vref" | "subref"
-        | "thref" => {
-            let k = first.trim();
-            let Some(l) = model.label(k) else {
-                return ("??".to_string(), false);
-            };
-            let n = l.number.clone().unwrap_or_default();
-            let shown = match name {
-                "eqref" => format!("({n})"),
-                "pageref" => k.to_string(),
-                "nameref" => nameref(model, l),
-                // subcaption's: the sub-float's letter alone, `(a)`.
-                "subref" => {
-                    let letter: String = n.chars().skip_while(|c| !c.is_alphabetic()).collect();
-                    if letter.is_empty() {
-                        n
-                    } else {
-                        format!("({letter})")
-                    }
-                }
-                "autoref" | "thref" => {
-                    let what = target_name(model, &l.target, &n, name);
-                    if what.is_empty() {
-                        n
-                    } else {
-                        format!("{what}\u{a0}{n}")
-                    }
-                }
-                _ => n,
-            };
-            (shown, true)
-        }
+        | "thref" => ref_text(model, name, &first),
         _ => {
             // A citation: author and year from the bibliography, whose
             // files are found from the root's folder, as LaTeX finds them.
@@ -5434,6 +5569,7 @@ pub fn renders_command(name: &str) -> bool {
             name,
             "item"
                 | "ding"
+                | "ion"
                 | "caption"
                 | "includegraphics"
                 | "index"
@@ -5659,7 +5795,12 @@ fn formula_by_tex(doc: &crate::DocumentState, state: &LatexState, source: &str) 
 
 /// Environments TeX draws as pictures (TikZ's, pgf's, circuitikz's).
 pub(crate) fn tex_picture(name: &str) -> bool {
-    matches!(name, "tikzpicture" | "pgfpicture" | "circuitikz")
+    // LaTeX's own picture, Paul Taylor's and Xy-pic's diagrams, ytableau's
+    // Young tableaux too.
+    matches!(
+        name,
+        "tikzpicture" | "pgfpicture" | "circuitikz" | "picture" | "diagram" | "xy" | "ytableau"
+    )
 }
 
 /// The PDF of picture `source` of `doc`, compiled by TeX with the
@@ -6091,6 +6232,73 @@ pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
         .collect();
     out.extend(accepted_definitions(&out, &own));
     out
+}
+
+/// Why the view shows environment `name` of `doc` (at `file`) as source,
+/// for the coverage report's trace: the project the model read, the
+/// theorems it knows and where the project's files write the name.
+pub fn explain_environment(
+    doc: &crate::DocumentState,
+    name: &str,
+    file: &std::path::Path,
+) -> String {
+    let Some(state) = doc.latex() else {
+        return "not LaTeX".into();
+    };
+    let model = state.model();
+    let here = model.files.iter().position(|p| {
+        p == file || std::fs::canonicalize(p).ok() == std::fs::canonicalize(file).ok()
+    });
+    let used = model.theorems.iter().filter(|t| t.env == name).count();
+    let mut written = Vec::new();
+    let mut paths = model.files.clone();
+    if let Some(dir) = file.parent()
+        && let Ok(rd) = std::fs::read_dir(dir)
+    {
+        paths.extend(rd.flatten().map(|e| e.path()).filter(|p| {
+            p.extension()
+                .is_some_and(|x| x == "sty" || x == "tex" || x == "cls")
+        }));
+    }
+    let braced = format!("{{{name}}}");
+    for p in &paths {
+        let Ok(t) = std::fs::read_to_string(p) else {
+            continue;
+        };
+        if let Some(line) = t
+            .lines()
+            .find(|l| l.contains(&braced) && !l.contains("\\begin") && !l.contains("\\end"))
+        {
+            written.push(format!(
+                "{}: {}",
+                p.file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+                line.trim().chars().take(160).collect::<String>()
+            ));
+        }
+        if written.len() >= 3 {
+            break;
+        }
+    }
+    format!(
+        "{} files, this one {:?}; root {:?}; class {:?}; {used} of it numbered; theorems [{}]; written: {}",
+        model.files.len(),
+        here,
+        model.files.first(),
+        model.class.as_ref().map(|c| c.name.as_str()),
+        model
+            .theorem_kinds
+            .iter()
+            .map(|k| k.env.as_str())
+            .collect::<Vec<_>>()
+            .join(","),
+        if written.is_empty() {
+            "nowhere".to_string()
+        } else {
+            written.join(" | ")
+        }
+    )
 }
 
 /// Why a formula of `doc` finds `name` undefined, for the coverage
@@ -7230,6 +7438,65 @@ mod tests {
             (dingbat(51), dingbat(52), dingbat(108)),
             (Some("✓"), Some("✔"), Some("●"))
         );
+    }
+
+    #[test]
+    fn own_macros_of_references_and_space() {
+        // Another name for `\\eqref`, macros printing references, and
+        // macros that only add space between lines.
+        let text = "\\documentclass{article}\n\\usepackage{amsmath,cleveref}\n\\newcommand{\\eq}{\\eqref}\n\\newcommand{\\rife}[1]{(\\ref{#1})}\n\\newcommand{\\eqq}[1]{Eq.~\\eqref{eq:#1}}\n\\newcommand{\\vs}{\\vspace{2mm}}\n\\newcommand{\\vsk}{\\vskip.075in}\n\\begin{document}\n\\begin{equation}x\\label{eq:a}\\end{equation}\nA \\eq{eq:a} B \\rife{eq:a} C \\eqq{a}.\nD\\vs E\\vsk F\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert_eq!(read(9), "A (1) B (1) C Eq.\u{a0}(1).");
+        assert_eq!(read(10), "DEF");
+    }
+
+    #[test]
+    fn ions_and_macros_in_text_mode() {
+        let text = "\\documentclass{aa}\n\\def\\sym#1{\\ifmmode^{#1}\\else\\(^{#1}\\)\\fi}\n\\newcommand{\\io}[2]{\\relax\\ifmmode\\ifx\\a\\b{\\mathbf{#1}}\\else{\\mathrm{#1}}\\fi\\else\\textup{#1\\,{\\mdseries\\textsc{#2}}}\\fi}\n\\begin{document}\nGas (\\ion{H}{ii}) and \\io{O}{iii}; 0.5\\sym{**}\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 4, None);
+        let read: String = v
+            .runs
+            .iter()
+            .filter(|r| !r.style.dim && r.widget.is_none())
+            .map(|r| r.text.as_str())
+            .collect();
+        assert!(
+            read.starts_with("Gas (H\u{2009}II) and Oiii; 0.5"),
+            "{read}"
+        );
+        assert!(v.runs.iter().any(|r| matches!(
+            &r.widget,
+            Some(crate::view::Widget::Math { source, .. }) if source == "$^{**}$"
+        )));
+        assert_eq!(
+            text_mode("a\\ifmmode b\\ifx c\\else d\\fi\\else e\\fi f"),
+            "a e f"
+        );
+    }
+
+    #[test]
+    fn subject_classes_and_second_affiliations() {
+        let text = "\\documentclass{amsart}\n\\begin{document}\n\\subjclass[2020]{05C10}\n\\altaffiliation{MIT}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert_eq!(read(2), "Mathematics Subject Classification: 05C10");
+        assert_eq!(read(3), "Also at MIT");
     }
 
     #[test]

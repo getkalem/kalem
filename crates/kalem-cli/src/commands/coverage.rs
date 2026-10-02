@@ -199,7 +199,8 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
     let mut tex_papers: HashMap<String, HashSet<String>> = HashMap::new();
     let base = kalem_core::settings::Config::default().parse_base();
     let mut unread_count = 0;
-    // `KALEM_COVERAGE_TRACE="vu E"`: why those macros are undefined.
+    // `KALEM_COVERAGE_TRACE="vu E begin{lemma}"`: why those macros are
+    // undefined, and why those environments show as source.
     let trace: Vec<String> = std::env::var("KALEM_COVERAGE_TRACE")
         .unwrap_or_default()
         .split_whitespace()
@@ -244,11 +245,15 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                     if c.source_by_name.contains_key(name)
                         && traced.insert((f.clone(), format!("text {name}")))
                     {
-                        eprintln!(
-                            "trace {} {name} [text]: {}",
-                            f.display(),
-                            kalem_core::latex_view::explain_macro(&doc, name)
-                        );
+                        // `begin{name}`: an environment.
+                        let why = match name
+                            .strip_prefix("\\begin{")
+                            .and_then(|n| n.strip_suffix('}'))
+                        {
+                            Some(env) => kalem_core::latex_view::explain_environment(&doc, env, &f),
+                            None => kalem_core::latex_view::explain_macro(&doc, name),
+                        };
+                        eprintln!("trace {} {name} [text]: {why}", f.display());
                     }
                 }
                 for (r, kind) in kalem_core::latex_view::formula_failures(&doc) {
