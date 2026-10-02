@@ -94,3 +94,14 @@ pub trait MathEngine: Send + Sync {
     /// Renders a formula.
     fn render(&self, request: &Request) -> Result<Image, MathError>;
 }
+
+/// How many top-level nodes the engine reads in formula `latex`: a
+/// definition makes none, so definitions before a formula must leave the
+/// count as the formula alone has it.
+pub fn top_level_nodes(latex: &str) -> Result<usize, MathError> {
+    ratex_parser::parse(latex)
+        .map(|n| n.len())
+        .map_err(|e| MathError {
+            message: format!("{e}"),
+        })
+}

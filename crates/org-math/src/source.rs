@@ -1149,6 +1149,7 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     // eqnarray's `a &=& b` as an align's columns; flalign as align.
     s = diagrams(&s);
     s = plain_tex(&s);
+    s = without_optional(&s, "\\smashoperator");
     s = plain_array_columns(&s);
     s = math_out_of_text(&s);
     s = inner_dollars(&s);
@@ -1269,8 +1270,11 @@ pub fn macros(headers: &[String]) -> String {
 }
 
 /// `{\name}[n]{body}` (the arguments of `\newcommand`) as
-/// `\def\name#1…#n{body}`; `None` with an optional argument's default,
-/// which `\def` cannot express.
+/// `\def\name#1…#n{body}`. With an optional argument's default
+/// (`[n][default]`, which the renderer does not read: what follows would
+/// be shown before every formula), the default takes the first
+/// argument's place and the others move down (a document's uses with the
+/// optional argument written are expanded before, by the editor).
 fn as_def(rest: &str) -> Option<String> {
     let rest = rest.strip_prefix('*').unwrap_or(rest);
     let (name, rest) = match group(rest) {
@@ -1296,12 +1300,73 @@ fn as_def(rest: &str) -> Option<String> {
         n = count.trim().parse::<usize>().ok()?;
         rest = r.trim_start();
     }
-    if rest.starts_with('[') {
-        return None;
+    let mut default = None;
+    if let Some(r) = rest.strip_prefix('[') {
+        let (d, r) = bracket(r)?;
+        if n == 0 {
+            return None;
+        }
+        default = Some(d);
+        rest = r.trim_start();
     }
     let (body, _) = group(rest)?;
-    let params: String = (1..=n).map(|i| format!("#{i}")).collect();
-    Some(format!("\\def{name}{params}{{{body}}}"))
+    let Some(d) = default else {
+        let params: String = (1..=n).map(|i| format!("#{i}")).collect();
+        return Some(format!("\\def{name}{params}{{{body}}}"));
+    };
+    let mut b = String::new();
+    let mut chars = body.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '#'
+            && let Some(k) = chars.peek().and_then(|c| c.to_digit(10))
+        {
+            chars.next();
+            if k == 1 {
+                b.push_str(d);
+            } else {
+                b.push_str(&format!("#{}", k - 1));
+            }
+            continue;
+        }
+        b.push(c);
+    }
+    let params: String = (1..n).map(|i| format!("#{i}")).collect();
+    Some(format!("\\def{name}{params}{{{b}}}"))
+}
+
+/// The text of a bracketed argument after its `[`, with braces balanced,
+/// and what follows its `]`.
+fn bracket(s: &str) -> Option<(&str, &str)> {
+    let mut depth = 0usize;
+    for (i, c) in s.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth = depth.checked_sub(1)?,
+            ']' if depth == 0 => return Some((&s[..i], &s[i + 1..])),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// The optional argument of command `name` dropped (`\smashoperator[r]`).
+fn without_optional(s: &str, name: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(i) = rest.find(name) {
+        let after = &rest[i + name.len()..];
+        out.push_str(&rest[..i + name.len()]);
+        if after.starts_with(|c: char| c.is_ascii_alphabetic()) {
+            rest = after;
+            continue;
+        }
+        rest = match after.trim_start().strip_prefix('[').and_then(bracket) {
+            Some((_, r)) => r,
+            None => after,
+        };
+    }
+    out.push_str(rest);
+    out
 }
 
 /// `\DeclareMathOperator{\op}{text}` (or `*`) as `\newcommand{\op}{\operatorname{text}}`.
@@ -1372,10 +1437,11 @@ mod tests {
             macros(&["\\newcommand{\\norm}[1]{\\lVert #1 \\rVert}".into()]),
             "\\def\\norm#1{\\lVert #1 \\rVert}"
         );
-        // An optional argument's default stays with \newcommand.
+        // An optional argument's default, which the renderer does not
+        // read, in the first argument's place.
         assert_eq!(
             macros(&["\\newcommand{\\v}[2][x]{#1_#2}".into()]),
-            "\\newcommand{\\v}[2][x]{#1_#2}"
+            "\\def\\v#1{x_#1}"
         );
         assert_eq!(prepare("x \\in \\R", &m), format!("{m}x \\in \\R"));
     }
@@ -1444,6 +1510,30 @@ mod prepare_tests {
         assert_eq!(
             prepare("1\\minus x", "\\def\\minus{$-$}"),
             "\\def\\minus{-}1\\minus x"
+        );
+    }
+
+    #[test]
+    fn optional_argument_defaults() {
+        // The renderer does not read `\newcommand{\x}[n][default]`: what
+        // follows the count would be drawn before every formula.
+        for (def, made) in [
+            ("\\newcommand{\\a}[2][]{#2}", "\\def\\a#1{#1}"),
+            ("\\newcommand{\\b}[2][q]{#1+#2}", "\\def\\b#1{q+#1}"),
+            ("\\newcommand\\c[1][{[x]}]{(#1)}", "\\def\\c{({[x]})}"),
+            ("\\renewcommand{\\d}[3][]{#1#2#3}", "\\def\\d#1#2{#1#2}"),
+        ] {
+            let m = macros(&[def.to_string()]);
+            assert_eq!(m, made, "{def}");
+            assert_eq!(
+                crate::top_level_nodes(&prepare("x", &m)),
+                Ok(1),
+                "{def} -> {m}"
+            );
+        }
+        assert_eq!(
+            prepare("\\smashoperator[r]{\\sum_{i}} x", ""),
+            "\\smashoperator{\\sum_{i}} x"
         );
     }
 
