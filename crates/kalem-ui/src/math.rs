@@ -46,7 +46,7 @@ impl Default for Formulas {
     }
 }
 
-fn rgba(c: Hsla) -> [u8; 4] {
+pub(crate) fn rgba(c: Hsla) -> [u8; 4] {
     let r = c.to_rgb();
     let b = |v: f32| (v.clamp(0., 1.) * 255.).round() as u8;
     [b(r.r), b(r.g), b(r.b), b(r.a)]

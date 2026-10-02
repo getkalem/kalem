@@ -50,6 +50,18 @@ pub struct LatexState {
     paragraphs: RefCell<Option<(Arc<str>, Paragraphs)>>,
     /// The pictures TeX had finished when the view last looked.
     pub(crate) pictures_seen: std::cell::Cell<u64>,
+    /// The definitions formulas are read with, for the model they came
+    /// from, and which formulas the renderer reads with them.
+    formulas: RefCell<Option<FormulaCache>>,
+}
+
+/// The definitions of a model (by its address) and, by formula, whether
+/// the math renderer reads it.
+#[derive(Debug)]
+struct FormulaCache {
+    model: usize,
+    macros: String,
+    reads: std::collections::HashMap<String, bool>,
 }
 
 /// The paragraphs of a LaTeX document over several source lines.
@@ -289,6 +301,7 @@ impl LatexState {
             file: None,
             paragraphs: RefCell::new(None),
             pictures_seen: std::cell::Cell::new(0),
+            formulas: RefCell::new(None),
         }
     }
 
@@ -3271,12 +3284,21 @@ fn unflagged_line_view(
             && let Some(source) = math_source(doc, ms.clone())
         {
             let display = m.kind() != K::INLINE_MATH;
+            // One the renderer cannot read, typeset by TeX when it is
+            // installed (with the source as it is: TeX reads it whole).
+            let widget = if !renderer_reads(doc, &source)
+                && let Some(path) = formula_by_tex(doc, state, &text[ms.clone()])
+            {
+                crate::view::Widget::Image { path, width: None }
+            } else {
+                crate::view::Widget::Math { source, display }
+            };
             b.runs.push(Run {
                 src: ms.clone(),
                 text: crate::view::PLACEHOLDER.to_string(),
                 verbatim: false,
                 style: Style::default(),
-                widget: Some(crate::view::Widget::Math { source, display }),
+                widget: Some(widget),
             });
             while let Some(n) = &tok
                 && span(n).start < ms.end
@@ -4919,6 +4941,52 @@ fn float_name(kind: &str, turkish: bool) -> Option<&'static str> {
     })
 }
 
+/// Whether the math renderer reads formula `source` (its delimiters
+/// included) with the document's definitions; remembered.
+pub fn renderer_reads(doc: &crate::DocumentState, source: &str) -> bool {
+    let Some(state) = doc.latex() else {
+        return true;
+    };
+    let model = state.model();
+    let key = Arc::as_ptr(&model) as usize;
+    let mut cache = state.formulas.borrow_mut();
+    if cache.as_ref().is_none_or(|c| c.model != key) {
+        *cache = Some(FormulaCache {
+            model: key,
+            macros: org_math::source::macros(&math_definitions(doc)),
+            reads: std::collections::HashMap::new(),
+        });
+    }
+    let c = cache.as_mut().expect("set above");
+    if let Some(&r) = c.reads.get(source) {
+        return r;
+    }
+    let (inner, _) = org_math::source::body(source);
+    let r = inner.trim().is_empty()
+        || org_math::check(&org_math::source::prepare(inner, &c.macros)).is_ok();
+    if c.reads.len() > 4096 {
+        c.reads.clear();
+    }
+    c.reads.insert(source.to_string(), r);
+    r
+}
+
+/// The PDF of a formula the renderer cannot read, typeset by TeX with
+/// the document's preamble (see [`crate::tex_pictures::formula`]).
+fn formula_by_tex(doc: &crate::DocumentState, state: &LatexState, source: &str) -> Option<String> {
+    let root = state.root_path();
+    let preamble = crate::tex_pictures::preamble_of(doc.text().as_str(), root.as_deref())?;
+    let dir = state.root_dir().or_else(|| {
+        doc.meta
+            .path
+            .as_deref()
+            .and_then(std::path::Path::parent)
+            .map(std::path::Path::to_path_buf)
+    });
+    crate::tex_pictures::formula(&preamble, source, dir.as_deref())
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
 /// Environments TeX draws as pictures (TikZ's, pgf's, circuitikz's).
 pub(crate) fn tex_picture(name: &str) -> bool {
     matches!(name, "tikzpicture" | "pgfpicture" | "circuitikz")
@@ -6316,6 +6384,42 @@ mod tests {
         let at = text.find("$\\gls").unwrap();
         assert_eq!(math_source(&d, at..at + 1).unwrap(), "${\\gamma} = 1$");
         assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
+    }
+
+    #[test]
+    fn formulas_typeset_by_tex() {
+        let search = crate::pdf::tex_search_path();
+        if crate::pdf::find("pdflatex", &search).is_none() {
+            return;
+        }
+        // `\\ifnum` the renderer does not read: TeX typesets the formula.
+        let text = "\\documentclass{article}\n\\newcommand{\\pick}{\\ifnum1=1 a\\else b\\fi}\n\\begin{document}\nSee $\\pick + x$ and $y$.\n\\end{document}\n";
+        let d = doc(text);
+        assert!(!renderer_reads(&d, "$\\pick + x$"));
+        let v = shown(&d, 3, None);
+        let widgets: Vec<_> = v.runs.iter().filter_map(|r| r.widget.clone()).collect();
+        assert!(
+            matches!(&widgets[0], crate::view::Widget::Image { path, .. } if crate::tex_pictures::is_formula(std::path::Path::new(path))),
+            "{widgets:?}"
+        );
+        assert!(
+            matches!(&widgets[1], crate::view::Widget::Math { .. }),
+            "{widgets:?}"
+        );
+        let crate::view::Widget::Image { path, .. } = &widgets[0] else {
+            unreachable!()
+        };
+        let pdf = std::path::Path::new(path);
+        for _ in 0..600 {
+            if pdf.is_file() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        let mut img = crate::images::decode(pdf, 800).unwrap();
+        crate::images::tint(&mut img, [200, 200, 200]);
+        assert!(img.pixels().any(|p| p[3] > 100 && p[0] == 200));
+        assert!(img.height() > 10, "{:?}", img.dimensions());
     }
 
     #[test]

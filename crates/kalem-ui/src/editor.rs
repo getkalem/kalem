@@ -2912,15 +2912,20 @@ impl Editor {
     /// The picture an image link's `path` names, relative to the
     /// document's folder.
     pub fn picture(&self, path: &str) -> Option<crate::pictures::Picture> {
+        self.picture_in(path, None)
+    }
+
+    /// The picture at `path`; a formula TeX typeset in color `ink`.
+    pub fn picture_in(&self, path: &str, ink: Option<[u8; 3]>) -> Option<crate::pictures::Picture> {
         let base = self
             .doc
             .meta
             .path
             .as_deref()
             .and_then(std::path::Path::parent);
-        self.shared
-            .pictures
-            .get(&kalem_core::images::resolve(path, base))
+        let file = kalem_core::images::resolve(path, base);
+        let tint = ink.filter(|_| kalem_core::tex_pictures::is_formula(&file));
+        self.shared.pictures.get_tinted(&file, tint)
     }
 
     /// Dragging extends the selection.

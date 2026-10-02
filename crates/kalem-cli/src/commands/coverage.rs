@@ -29,6 +29,7 @@ struct Totals {
     body: usize,
     source: usize,
     math: usize,
+    tex: usize,
 }
 
 impl Totals {
@@ -38,6 +39,7 @@ impl Totals {
         self.body += c.body;
         self.source += c.source;
         self.math += c.math;
+        self.tex += c.tex;
     }
 
     fn json(&self) -> serde_json::Value {
@@ -47,6 +49,7 @@ impl Totals {
             "body_bytes": self.body,
             "source_bytes": self.source,
             "math_bytes": self.math,
+            "tex_bytes": self.tex,
             "source_share": share(self.source, self.body),
             "math_share": share(self.math, self.body),
         })
@@ -190,6 +193,10 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
     // Per name: the papers it shows source in, and an example.
     let mut source_papers: HashMap<String, HashSet<String>> = HashMap::new();
     let mut examples: HashMap<String, String> = HashMap::new();
+    // Per renderer message: the bytes of the formulas TeX typesets, and
+    // their papers.
+    let mut tex_bytes: HashMap<String, usize> = HashMap::new();
+    let mut tex_papers: HashMap<String, HashSet<String>> = HashMap::new();
     let base = kalem_core::settings::Config::default().parse_base();
     let mut unread_count = 0;
     // `KALEM_COVERAGE_TRACE="vu E"`: why those macros are undefined.
@@ -232,9 +239,10 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                 // The definitions of the files the document reads.
                 doc.wait_for_latex_project();
                 for (r, kind) in kalem_core::latex_view::formula_failures(&doc) {
+                    // Typeset by TeX in the view (when it is installed):
+                    // counted apart, not as source.
                     let n = r.len();
-                    c.source += n;
-                    c.math = c.math.saturating_sub(n);
+                    c.tex += n;
                     if let Some(name) = kind.strip_prefix("Undefined control sequence: ")
                         && trace.iter().any(|t| t == name)
                         && traced.insert((f.clone(), name.to_string()))
@@ -277,8 +285,12 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                         }
                     }
                     let key = format!("formula: {kind}");
-                    *c.source_by_name.entry(key.clone()).or_insert(0) += n;
-                    c.examples.entry(key).or_insert_with(|| {
+                    *tex_bytes.entry(key.clone()).or_insert(0) += n;
+                    tex_papers
+                        .entry(key.clone())
+                        .or_default()
+                        .insert(paper.clone());
+                    examples.entry(key).or_insert_with(|| {
                         kalem_core::latex_check::example(&doc.text().as_str()[r.clone()])
                     });
                 }
@@ -362,23 +374,27 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
     let pct = |a: usize, b: usize| format!("{:.2}%", share(a, b) * 100.);
     let mut s = String::new();
     s.push_str(&format!(
-        "{} papers, {} files, {} KB of body text: {} shows as source, {} is formulas ({} files no document reads left out)\n\n",
+        "{} papers, {} files, {} KB of body text: {} shows as source, {} is formulas, {} formulas TeX typesets (the math renderer cannot read them; without TeX they show as source) ({} files no document reads left out)\n\n",
         all.papers.len(),
         all.files,
         all.body / 1024,
         pct(all.source, all.body),
         pct(all.math, all.body),
+        pct(all.tex, all.body),
         unread_count
     ));
-    s.push_str("| field | papers | files | body KB | source | formulas |\n|---|---:|---:|---:|---:|---:|\n");
+    s.push_str(
+        "| field | papers | files | body KB | source | formulas | by TeX |\n|---|---:|---:|---:|---:|---:|---:|\n",
+    );
     for (k, t) in &fields {
         s.push_str(&format!(
-            "| {k} | {} | {} | {} | {} | {} |\n",
+            "| {k} | {} | {} | {} | {} | {} | {} |\n",
             t.papers.len(),
             t.files,
             t.body / 1024,
             pct(t.source, t.body),
-            pct(t.math, t.body)
+            pct(t.math, t.body),
+            pct(t.tex, t.body)
         ));
     }
     let table = |title: &str, v: &[(String, usize, usize, bool)]| {
@@ -417,6 +433,24 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
             "| `{name}` | {:.1} | {} | {papers} | {ex} |\n",
             **b as f64 / 1024.,
             pct(**b, all.source)
+        ));
+    }
+    let mut by_tex: Vec<(&String, &usize)> = tex_bytes.iter().collect();
+    by_tex.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+    by_tex.truncate(top);
+    s.push_str(&format!(
+        "\nThe {} renderer messages of the formulas TeX typesets\n\n| message | KB | papers | example |\n|---|---:|---:|---|\n",
+        by_tex.len()
+    ));
+    for (name, b) in &by_tex {
+        let papers = tex_papers.get(*name).map_or(0, HashSet::len);
+        let ex = examples
+            .get(*name)
+            .map(|e| e.replace('|', "\\|").replace('`', "'"))
+            .unwrap_or_default();
+        s.push_str(&format!(
+            "| `{name}` | {:.1} | {papers} | {ex} |\n",
+            **b as f64 / 1024.
         ));
     }
     write!(out, "{s}").map_err(|e| e.to_string())?;

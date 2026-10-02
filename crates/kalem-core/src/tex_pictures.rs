@@ -125,9 +125,41 @@ pub fn preamble_of(text: &str, root: Option<&Path>) -> Option<String> {
 /// a path whose file appears when TeX is done, `None` when there is no
 /// TeX or the picture does not compile.
 pub fn picture(preamble: &str, source: &str, dir: Option<&Path>) -> Option<PathBuf> {
+    let doc = format!(
+        "\\documentclass[border=2pt]{{standalone}}\n\\usepackage{{tikz}}\n{}\n\\begin{{document}}\n{source}\n\\end{{document}}\n",
+        picture_preamble(preamble)
+    );
+    compile_cached("picture", &doc, dir)
+}
+
+/// The PDF of formula `source` (with its delimiters, or a whole
+/// environment) that the math renderer cannot read, typeset by TeX with
+/// `preamble`, as [`picture`] makes one. Its file name starts with
+/// `formula-`: the frontends draw it in the text's color.
+pub fn formula(preamble: &str, source: &str, dir: Option<&Path>) -> Option<PathBuf> {
+    let doc = format!(
+        "\\documentclass[border=1pt,varwidth]{{standalone}}\n\\usepackage{{amsmath,amssymb}}\n{}\n\\begin{{document}}\n{source}\n\\end{{document}}\n",
+        picture_preamble(preamble)
+    );
+    compile_cached("formula", &doc, dir)
+}
+
+/// Whether `path` is a formula TeX typeset ([`formula`]).
+pub fn is_formula(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.starts_with("formula-"))
+        && path
+            .parent()
+            .and_then(|d| d.file_name())
+            .is_some_and(|d| d == "kalem-pictures")
+}
+
+/// The PDF of the standalone document `doc`, compiled on the thread and
+/// cached by its text and folder; named `PREFIX-HASH.pdf`.
+fn compile_cached(prefix: &str, doc: &str, dir: Option<&Path>) -> Option<PathBuf> {
     let mut h = std::collections::hash_map::DefaultHasher::new();
-    preamble.hash(&mut h);
-    source.hash(&mut h);
+    doc.hash(&mut h);
     dir.hash(&mut h);
     let key = h.finish();
     {
@@ -141,7 +173,7 @@ pub fn picture(preamble: &str, source: &str, dir: Option<&Path>) -> Option<PathB
     }
     let cache = std::env::temp_dir().join("kalem-pictures");
     std::fs::create_dir_all(&cache).ok()?;
-    let name = format!("{key:016x}");
+    let name = format!("{prefix}-{key:016x}");
     let pdf = cache.join(format!("{name}.pdf"));
     if pdf.is_file() {
         set(key, State::Ready(pdf.clone()));
@@ -150,10 +182,6 @@ pub fn picture(preamble: &str, source: &str, dir: Option<&Path>) -> Option<PathB
     let search = crate::pdf::tex_search_path();
     crate::pdf::find("pdflatex", &search)?;
     let tex = cache.join(format!("{name}.tex"));
-    let doc = format!(
-        "\\documentclass[border=2pt]{{standalone}}\n\\usepackage{{tikz}}\n{}\n\\begin{{document}}\n{source}\n\\end{{document}}\n",
-        picture_preamble(preamble)
-    );
     std::fs::write(&tex, doc).ok()?;
     set(key, State::Pending(pdf.clone()));
     let job = Job {

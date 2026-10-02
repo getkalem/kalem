@@ -16,8 +16,8 @@ const MAX_SIDE: u32 = 2400;
 /// A picture ready to draw: the image and its size in pixels.
 pub type Picture = (Arc<RenderImage>, u32, u32);
 
-/// Pictures by file, with the time their file was changed.
-type Cache = HashMap<PathBuf, (Option<SystemTime>, Option<Picture>)>;
+/// Pictures by file and tint, with the time their file was changed.
+type Cache = HashMap<(PathBuf, Option<[u8; 3]>), (Option<SystemTime>, Option<Picture>)>;
 
 /// Decoded pictures, shared by the windows.
 #[derive(Default)]
@@ -36,14 +36,27 @@ impl std::fmt::Debug for Pictures {
 impl Pictures {
     /// The picture in `file`, or `None` when it cannot be read.
     pub fn get(&self, file: &Path) -> Option<Picture> {
+        self.get_tinted(file, None)
+    }
+
+    /// The picture in `file`, in one color `tint` when given (a formula
+    /// TeX typeset, in the text's color).
+    pub fn get_tinted(&self, file: &Path, tint: Option<[u8; 3]>) -> Option<Picture> {
         let modified = std::fs::metadata(file).and_then(|m| m.modified()).ok();
-        if let Some((t, p)) = self.cache.borrow().get(file)
+        let key = (file.to_path_buf(), tint);
+        if let Some((t, p)) = self.cache.borrow().get(&key)
             && *t == modified
         {
             return p.clone();
         }
         let picture = kalem_core::images::decode(file, MAX_SIDE)
             .ok()
+            .map(|mut img| {
+                if let Some(rgb) = tint {
+                    kalem_core::images::tint(&mut img, rgb);
+                }
+                img
+            })
             .and_then(|img| {
                 let (w, h) = img.dimensions();
                 let mut bgra = img.into_raw();
@@ -61,7 +74,7 @@ impl Pictures {
         if cache.len() > 512 {
             cache.clear();
         }
-        cache.insert(file.to_path_buf(), (modified, picture.clone()));
+        cache.insert(key, (modified, picture.clone()));
         picture
     }
 }
