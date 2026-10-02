@@ -1032,6 +1032,20 @@ impl<'r> Numbering<'r> {
                 });
                 // Springer's classes declare their theorems themselves, each
                 // with its own counter (`envcountsame`: the theorem's).
+                // acmart and SIAM's classes too, on the theorem's counter.
+                if matches!(
+                    name.as_str(),
+                    "acmart" | "siamart" | "siamart220329" | "siamonline" | "siamonline220329"
+                ) {
+                    for (env, title, numbered) in SPRINGER_THEOREMS.iter().take(6) {
+                        self.model.theorem_kinds.push(TheoremKind {
+                            env: env.to_string(),
+                            title: title.to_string(),
+                            counter: "theorem".into(),
+                            numbered: *numbered,
+                        });
+                    }
+                }
                 if matches!(
                     name.as_str(),
                     "llncs" | "svjour" | "svjour3" | "svmult" | "svproc"
@@ -1665,6 +1679,19 @@ impl<'r> Numbering<'r> {
                 outer: self.current.0.clone(),
             });
         }
+        // A theorem the document uses but declares in a file the model
+        // does not read (a journal's class, a package elsewhere): the
+        // usual one of its name, on its own counter.
+        if !self.model.theorem_kinds.iter().any(|k| k.env == name)
+            && let Some(title) = usual_theorem(name)
+        {
+            self.model.theorem_kinds.push(TheoremKind {
+                env: name.to_string(),
+                title: title.to_string(),
+                counter: name.to_string(),
+                numbered: true,
+            });
+        }
         if let Some(kind) = self
             .model
             .theorem_kinds
@@ -1838,6 +1865,32 @@ fn enumitem_keys(s: &str) -> Vec<(String, String)> {
         part.push(c);
     }
     out
+}
+
+/// The title of a theorem-like environment of a usual name.
+fn usual_theorem(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "theorem" | "thm" => "Theorem",
+        "lemma" | "lem" => "Lemma",
+        "corollary" | "cor" => "Corollary",
+        "proposition" | "prop" => "Proposition",
+        "definition" | "defn" | "dfn" => "Definition",
+        "remark" | "rem" | "rmk" => "Remark",
+        "example" | "exmp" | "ex" => "Example",
+        "conjecture" | "conj" => "Conjecture",
+        "claim" => "Claim",
+        "assumption" => "Assumption",
+        "hypothesis" => "Hypothesis",
+        "observation" => "Observation",
+        "fact" => "Fact",
+        "notation" => "Notation",
+        "problem" => "Problem",
+        "question" => "Question",
+        "exercise" => "Exercise",
+        "property" => "Property",
+        "condition" => "Condition",
+        _ => return None,
+    })
 }
 
 /// The theorems Springer's classes (llncs, svjour3) declare: the
