@@ -688,6 +688,8 @@ kind-markup-in-org = Kalem'in önceki bir sürümünün yazdığı biçimlendirm
 msg-compiling-pdf = PDF derleniyor…
 msg-no-latex = LaTeX bulunamadı: TeX Live, MacTeX, MiKTeX veya tectonic kurun
 msg-pdf-failed = PDF oluşturulamadı: { $error }
+msg-build-no-log = { $program } LaTeX günlük yazmadan durdu: nedenini görmek için bir terminalde çalıştırın
+msg-build-no-pdf = LaTeX PDF yazmadı; günlükte hata yok (boş bir belge mi?)
 msg-pdf-error = { $place }: { $error }{ $count ->
     [0] {""}
    *[other] {" "}(ve { $count } hata daha)

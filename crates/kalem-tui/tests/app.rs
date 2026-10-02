@@ -2628,6 +2628,27 @@ fn latex_build_command() {
 }
 
 #[test]
+fn latex_build_saves_first() {
+    // The PDF is made from the text in the editor: unsaved changes are
+    // saved before LaTeX runs.
+    let search = std::env::var_os("PATH").unwrap_or_default();
+    if !std::env::split_paths(&search).any(|d| d.join("pdflatex").is_file()) {
+        return;
+    }
+    let mut t = with_file("", "b.tex", Config::default(), (70, 8));
+    t.typ("\\documentclass{article}\\begin{document}Hi\\end{document}");
+    t.key(KeyCode::F(5), KeyModifiers::NONE);
+    let done = kalem_core::jobs::wait_all();
+    let path = t.app.doc.meta.path.clone().unwrap();
+    assert!(
+        std::fs::read_to_string(&path).unwrap().contains("Hi"),
+        "{done:?}"
+    );
+    assert!(!t.app.doc.is_modified());
+    assert!(path.with_extension("pdf").is_file(), "{done:?}");
+}
+
+#[test]
 fn latex_structural_editing() {
     let text = "\\begin{itemize}\n\\item One\n\\end{itemize}\nsome words\n";
     let mut t = with_file(text, "e.tex", Config::default(), (60, 10));

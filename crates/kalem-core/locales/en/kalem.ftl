@@ -759,6 +759,8 @@ kind-markup-in-org = Formatting an earlier Kalem wrote; Org ignores it, and Kale
 msg-compiling-pdf = Compiling the PDF…
 msg-no-latex = No LaTeX found: install TeX Live, MacTeX, MiKTeX or tectonic
 msg-pdf-failed = The PDF could not be made: { $error }
+msg-build-no-log = { $program } stopped before LaTeX wrote a log: run it in a terminal to see why
+msg-build-no-pdf = LaTeX wrote no PDF; the log has no error (an empty document?)
 msg-pdf-error = { $place }: { $error }{ $count ->
     [0] {""}
     [one] {" "}(and 1 more error)

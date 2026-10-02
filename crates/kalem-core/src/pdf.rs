@@ -30,7 +30,7 @@ impl Engine {
         }
     }
 
-    fn program(self) -> &'static str {
+    pub(crate) fn program(self) -> &'static str {
         match self {
             Engine::PdfLatex => "pdflatex",
             Engine::XeLatex => "xelatex",
@@ -64,6 +64,60 @@ pub fn find(program: &str, path: &std::ffi::OsStr) -> Option<PathBuf> {
     };
     std::env::split_paths(path)
         .find_map(|dir| names.iter().map(|n| dir.join(n)).find(|p| p.is_file()))
+}
+
+/// `PATH`, then the folders TeX distributions install their programs in,
+/// which a program started from the desktop may not have on its `PATH`
+/// (macOS gives apps opened from the Finder `/usr/bin:/bin:/usr/sbin:/sbin`).
+pub fn tex_search_path() -> std::ffi::OsString {
+    let mut dirs: Vec<PathBuf> =
+        std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect();
+    let mut extra: Vec<PathBuf> = Vec::new();
+    if cfg!(target_os = "macos") {
+        extra.push("/Library/TeX/texbin".into());
+        extra.push("/opt/homebrew/bin".into());
+        extra.push("/usr/local/bin".into());
+    }
+    if cfg!(unix) {
+        extra.push("/usr/bin".into());
+        extra.push("/usr/local/bin".into());
+        // TeX Live installed by its own installer: /usr/local/texlive/YEAR/bin/ARCH.
+        if let Ok(years) = std::fs::read_dir("/usr/local/texlive") {
+            let mut years: Vec<PathBuf> = years.flatten().map(|e| e.path().join("bin")).collect();
+            years.sort();
+            for bin in years.into_iter().rev() {
+                if let Ok(arch) = std::fs::read_dir(&bin) {
+                    extra.extend(arch.flatten().map(|e| e.path()));
+                }
+            }
+        }
+        if let Some(home) = std::env::var_os("HOME") {
+            extra.push(PathBuf::from(home).join(".cargo/bin"));
+        }
+    }
+    if cfg!(windows) {
+        for var in ["LOCALAPPDATA", "ProgramFiles"] {
+            if let Some(base) = std::env::var_os(var) {
+                extra.push(PathBuf::from(&base).join("Programs/MiKTeX/miktex/bin/x64"));
+                extra.push(PathBuf::from(&base).join("MiKTeX/miktex/bin/x64"));
+            }
+        }
+        if let Ok(years) = std::fs::read_dir("C:\\texlive") {
+            let mut years: Vec<PathBuf> = years.flatten().map(|e| e.path()).collect();
+            years.sort();
+            for y in years.into_iter().rev() {
+                extra.push(y.join("bin").join("windows"));
+                extra.push(y.join("bin").join("win64"));
+                extra.push(y.join("bin").join("win32"));
+            }
+        }
+    }
+    for d in extra {
+        if !dirs.contains(&d) && d.is_dir() {
+            dirs.push(d);
+        }
+    }
+    std::env::join_paths(dirs).unwrap_or_default()
 }
 
 /// The tool for `engine`, looked for in `path`: `latexmk` with the
