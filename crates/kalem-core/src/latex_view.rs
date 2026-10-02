@@ -3858,13 +3858,29 @@ fn unflagged_line_view(
                         }) && let Some(end) = args_end(text, r.end, line.end, spec)
                             && !near(&(r.start..end)) =>
                     {
-                        // xcolor's `\color` ignores the blanks after it.
-                        let end = if n == "color" {
-                            let rest = &text[end..line.end];
-                            end + rest.len() - rest.trim_start_matches([' ', '\t']).len()
-                        } else {
-                            end
-                        };
+                        // xcolor's `\color` ends with `\ignorespaces`: the
+                        // blanks after it go, and `\space`, which expands
+                        // to one.
+                        let mut end = end;
+                        if n == "color" {
+                            loop {
+                                let rest = &text[end..line.end];
+                                let blanks =
+                                    rest.len() - rest.trim_start_matches([' ', '\t']).len();
+                                end += blanks;
+                                let rest = &text[end..line.end];
+                                match rest.strip_prefix("\\space") {
+                                    Some(after)
+                                        if !after
+                                            .starts_with(|c: char| c.is_ascii_alphabetic()) =>
+                                    {
+                                        end += "\\space".len();
+                                    }
+                                    _ if blanks == 0 => break,
+                                    _ => {}
+                                }
+                            }
+                        }
                         b.replace(r.start..end, "", c.style);
                         while let Some(n) = &tok
                             && span(n).start < end
@@ -6696,6 +6712,14 @@ mod tests {
         let at = text.find("$\\gls").unwrap();
         assert_eq!(math_source(&d, at..at + 1).unwrap(), "${\\gamma} = 1$");
         assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
+    }
+
+    #[test]
+    fn color_ignores_the_spaces_after_it() {
+        // xcolor's `\\color` ends with `\\ignorespaces`, which expands
+        // `\\space` too (the typeset fuzz's seed 384).
+        let d = doc("A{\\color{blue} \\space \\space x}\n");
+        assert_eq!(shown(&d, 0, None).display(), "A{x}");
     }
 
     #[test]
