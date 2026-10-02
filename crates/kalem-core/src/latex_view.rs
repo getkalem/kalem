@@ -1152,29 +1152,6 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         "cmidrule" => "pm",
         "def" | "gdef" | "edef" | "xdef" => "d",
         "let" | "global" => "l",
-        // Layout, spacing and page settings: nothing printed where they are.
-        "onecolumn"
-        | "FloatBarrier"
-        | "raggedright"
-        | "raggedleft"
-        | "onehalfspacing"
-        | "doublespacing"
-        | "singlespacing"
-        | "IEEEpeerreviewmaketitle"
-        | "endfirsthead"
-        | "endhead"
-        | "endfoot"
-        | "endlastfoot"
-        | "selectfont"
-        | "begingroup"
-        | "endgroup"
-        | "protect"
-        | "expandafter"
-        | "relax"
-        | "balance"
-        | "IEEEoverridecommandlockouts"
-        | "nolinenumbers"
-        | "linenumbers" => "",
         "twocolumn" => "o",
         "setstretch" | "authorrunning" | "titlerunning" | "pagerange" | "preprint"
         | "IEEEmembership" | "JournalTitle" | "corref" | "fnref" | "tnoteref" | "pubyear"
@@ -2106,6 +2083,28 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "space" => " ",
         "nobreakspace" => "\u{a0}",
         "relax" | "leavevmode" | "nolinebreak" | "nopagebreak" | "allowbreak" | "newblock" => "",
+        // Layout, spacing and page settings: nothing printed where they are.
+        "onecolumn"
+        | "FloatBarrier"
+        | "raggedright"
+        | "raggedleft"
+        | "onehalfspacing"
+        | "doublespacing"
+        | "singlespacing"
+        | "IEEEpeerreviewmaketitle"
+        | "endfirsthead"
+        | "endhead"
+        | "endfoot"
+        | "endlastfoot"
+        | "selectfont"
+        | "begingroup"
+        | "endgroup"
+        | "protect"
+        | "expandafter"
+        | "balance"
+        | "IEEEoverridecommandlockouts"
+        | "nolinenumbers"
+        | "linenumbers" => "",
         _ => return None,
     })
 }
