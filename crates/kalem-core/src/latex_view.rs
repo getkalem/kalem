@@ -1702,6 +1702,156 @@ fn symbol(s: &str) -> Option<&'static str> {
 }
 
 /// What a command without arguments typesets.
+/// What a document's own macro prints in text, when its definition is
+/// text the view can show without the renderer (`\newcommand{\ie}{i.e.\xspace}`,
+/// `\newcommand{\method}{\textsc{Foo}}`): the text, its style, whether it
+/// ends in `\xspace` (TeX keeps the space after it), and the arguments it
+/// takes (shown only when it prints nothing, as `\todo`'s `{}`).
+pub(crate) struct OwnMacro {
+    pub text: String,
+    pub style: Style,
+    pub xspace: bool,
+    pub args: usize,
+    pub default: bool,
+}
+
+pub(crate) fn own_macro(model: &latex_model::Model, name: &str) -> Option<OwnMacro> {
+    own_macro_depth(model, name, 0)
+}
+
+fn own_macro_depth(model: &latex_model::Model, name: &str, depth: usize) -> Option<OwnMacro> {
+    if depth > 8 {
+        return None;
+    }
+    let m = model
+        .macros
+        .iter()
+        .rev()
+        .find(|m| m.name.strip_prefix('\\') == Some(name))?;
+    let body = m.body.trim();
+    if m.args > 0 {
+        // A note to self (`\newcommand{\todo}[1]{}`): nothing printed.
+        return body.is_empty().then(|| OwnMacro {
+            text: String::new(),
+            style: Style::default(),
+            xspace: false,
+            args: m.args,
+            default: m.default.is_some(),
+        });
+    }
+    let mut style = Style::default();
+    let mut inner = body;
+    // One wrapper around the whole: its style.
+    for (cmd, set) in [
+        ("\\textbf{", 0),
+        ("\\textit{", 1),
+        ("\\emph{", 1),
+        ("\\texttt{", 2),
+        ("\\textsc{", 3),
+        ("\\textrm{", 3),
+        ("\\textsf{", 3),
+        ("\\mbox{", 3),
+        ("\\text{", 3),
+        ("\\textnormal{", 3),
+        ("\\textup{", 3),
+    ] {
+        if let Some(r) = inner.strip_prefix(cmd)
+            && let Some(close) = matching_brace(r)
+            && r[close + 1..].trim().is_empty()
+        {
+            inner = &r[..close];
+            match set {
+                0 => style.bold = true,
+                1 => style.italic = true,
+                2 => style.code = true,
+                _ => {}
+            }
+            break;
+        }
+    }
+    let mut out = String::new();
+    let mut xspace = false;
+    let b = inner.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'{' | b'}' => i += 1,
+            b'~' => {
+                out.push('\u{a0}');
+                i += 1;
+            }
+            b'$' | b'^' | b'_' | b'&' | b'#' | b'%' => return None,
+            b'\\' => {
+                let rest = &inner[i + 1..];
+                let n = rest.bytes().take_while(u8::is_ascii_alphabetic).count();
+                if n == 0 {
+                    let c = rest.chars().next()?;
+                    match c {
+                        ' ' => out.push(' '),
+                        '@' | '/' | ',' => {}
+                        '&' | '%' | '#' | '_' | '$' => out.push(c),
+                        _ => return None,
+                    }
+                    i += 1 + c.len_utf8();
+                    continue;
+                }
+                let cname = &rest[..n];
+                i += 1 + n;
+                match cname {
+                    "xspace" => xspace = true,
+                    "textbf" | "textit" | "emph" | "textsc" | "textrm" | "textsf" | "texttt"
+                    | "mbox" | "text" | "textnormal" | "textup" | "relax" | "protect" => {}
+                    _ => {
+                        if let Some(w) = word(cname) {
+                            out.push_str(w);
+                        } else if let Some(o) = own_macro_depth(model, cname, depth + 1)
+                            && o.args == 0
+                        {
+                            out.push_str(&o.text);
+                        } else {
+                            return None;
+                        }
+                        // A control word takes the spaces after it.
+                        while i < b.len() && b[i] == b' ' {
+                            i += 1;
+                        }
+                    }
+                }
+            }
+            _ => {
+                let c = inner[i..].chars().next()?;
+                out.push(c);
+                i += c.len_utf8();
+            }
+        }
+    }
+    Some(OwnMacro {
+        text: out,
+        style,
+        xspace,
+        args: 0,
+        default: false,
+    })
+}
+
+/// The `}` that closes the group whose `{` is just before `s`.
+fn matching_brace(s: &str) -> Option<usize> {
+    let mut depth = 1;
+    for (i, c) in s.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 pub(crate) fn word(name: &str) -> Option<&'static str> {
     Some(match name {
         "ldots" | "dots" | "textellipsis" => "\u{2026}",
@@ -3058,6 +3208,42 @@ fn unflagged_line_view(
                 let name = &s[1..];
                 let untitled = name == "maketitle" && state.titles().iter().all(Option::is_none);
                 match (name, word(name)) {
+                    // A document's own macro whose definition is text: the
+                    // text, as LaTeX prints it.
+                    (n, None)
+                        if !renders_command(n)
+                            && let Some(own) = own_macro(&state.model(), n) =>
+                    {
+                        let spec = if own.default { "o" } else { "m" };
+                        let spec: String = std::iter::once(spec)
+                            .chain(std::iter::repeat_n("m", own.args.saturating_sub(1)))
+                            .take(own.args)
+                            .collect();
+                        let mut end = args_end(text, r.end, line.end, &spec).unwrap_or(r.end);
+                        // `\method{}`: the group that ends the name, nothing.
+                        if text[end..line.end].starts_with("{}") {
+                            end += 2;
+                        } else if own.args == 0 && !own.xspace {
+                            // TeX takes the spaces after a control word.
+                            while text[end..line.end].starts_with(' ') {
+                                end += 1;
+                            }
+                        }
+                        if near(&(r.start..end)) {
+                            b.verbatim(r, c.style);
+                        } else {
+                            let mut st = c.style.clone();
+                            st.bold |= own.style.bold;
+                            st.italic |= own.style.italic;
+                            st.code |= own.style.code;
+                            b.replace(r.start..end, &own.text, st);
+                            while let Some(n) = &tok
+                                && span(n).start < end
+                            {
+                                tok = n.next_token();
+                            }
+                        }
+                    }
                     // siunitx's numbers and quantities, typeset.
                     (
                         "num" | "si" | "unit" | "SI" | "qty" | "ang" | "numrange" | "SIrange"
@@ -5495,6 +5681,24 @@ mod tests {
         let r = d.text().line_range(line);
         let r = r.start..r.end - usize::from(d.text().as_str()[r.clone()].ends_with('\n'));
         line_view(d, r, cursor)
+    }
+
+    #[test]
+    fn own_text_macros() {
+        let text = "\\newcommand{\\ie}{i.e.\\xspace}\n\\newcommand{\\method}{\\textsc{Foo}}\n\\newcommand{\\todo}[1]{}\n\\newcommand{\\R}{\\mathbb{R}}\nWe use \\method{} and \\method is good, \\ie fast\\todo{fix}. In \\R.\n";
+        let d = doc(text);
+        let v = shown(&d, 4, None);
+        let shown_text: String = v
+            .runs
+            .iter()
+            .filter(|r| !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        // TeX takes the space after `\\method`, not after `\\xspace`; a
+        // macro that is math stays as written (dimmed source).
+        assert_eq!(shown_text, "We use Foo and Foois good, i.e. fast. In .");
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, "\\R".len(), "{:?}", c.source_by_name);
     }
 
     #[test]
