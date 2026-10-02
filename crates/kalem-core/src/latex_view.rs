@@ -4517,17 +4517,52 @@ pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
         .filter(|d| !(loaded("siunitx") && d.starts_with("\\newcommand{\\qty}[1]")))
         .collect();
     out.extend(COMMON_MACROS.iter().map(|d| d.to_string()));
-    // The document's own, each kept only if the renderer takes it and a
-    // use of it: one it cannot read would stop every formula after it.
-    let mut kept = org_math::source::macros(&out);
-    for (m, def) in model.macros.iter().zip(model.macro_definitions()) {
-        let with = org_math::source::macros(std::slice::from_ref(&def));
-        let use_it = format!("{}{}", m.name, "{x}".repeat(m.args));
+    let own: Vec<(String, usize, String)> = model
+        .macros
+        .iter()
+        .zip(model.macro_definitions())
+        .map(|(m, d)| (m.name.clone(), m.args, d))
+        .collect();
+    out.extend(accepted_definitions(&out, &own));
+    out
+}
+
+/// The document's own definitions `own` (name, arguments, definition)
+/// the renderer takes after `before` and with a use of each: one it
+/// cannot read would stop every formula after it. Remembered, since the
+/// definitions change far less often than the text.
+fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> Vec<String> {
+    use std::hash::{Hash, Hasher};
+    type Memo = std::collections::HashMap<u64, Vec<String>>;
+    static MEMO: std::sync::Mutex<Option<Memo>> = std::sync::Mutex::new(None);
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    before.hash(&mut h);
+    own.hash(&mut h);
+    let key = h.finish();
+    if let Some(v) = MEMO
+        .lock()
+        .ok()
+        .and_then(|m| m.as_ref()?.get(&key).cloned())
+    {
+        return v;
+    }
+    let mut kept = org_math::source::macros(before);
+    let mut out = Vec::new();
+    for (name, args, def) in own {
+        let with = org_math::source::macros(std::slice::from_ref(def));
+        let use_it = format!("{name}{}", "{x}".repeat(*args));
         let trial = format!("{kept}{with}");
         if org_math::check(&org_math::source::prepare(&use_it, &trial)).is_ok() {
             kept = trial;
-            out.push(def);
+            out.push(def.clone());
         }
+    }
+    if let Ok(mut m) = MEMO.lock() {
+        let m = m.get_or_insert_with(Memo::new);
+        if m.len() > 256 {
+            m.clear();
+        }
+        m.insert(key, out.clone());
     }
     out
 }
