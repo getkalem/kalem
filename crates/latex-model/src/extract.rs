@@ -57,6 +57,12 @@ pub(crate) enum Event {
         notes: Vec<String>,
         range: Range<usize>,
     },
+    /// `\bibitem[label]{key}` of a `thebibliography`.
+    BibItem {
+        key: String,
+        label: Option<String>,
+        range: Range<usize>,
+    },
     Caption {
         text: String,
         short: Option<String>,
@@ -176,6 +182,7 @@ impl Event {
             | Event::Label { range: r, .. }
             | Event::Ref { range: r, .. }
             | Event::Cite { range: r, .. }
+            | Event::BibItem { range: r, .. }
             | Event::Caption { range: r, .. }
             | Event::Footnote { range: r, .. }
             | Event::Macro { range: r, .. }
@@ -621,6 +628,15 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                     name: n,
                     options: options.clone(),
                     range: range.clone(),
+                });
+            }
+        }
+        "bibitem" => {
+            if let Some(k) = m.first() {
+                push(Event::BibItem {
+                    key: k.trim().to_string(),
+                    label: o.first().map(|l| l.trim().to_string()),
+                    range,
                 });
             }
         }

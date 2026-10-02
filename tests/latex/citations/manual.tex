@@ -1,0 +1,16 @@
+\documentclass{article}
+\begin{document}
+Body \cite{knuth} \cite{ll}.
+\begin{thebibliography}{9}
+\bibitem{knuth} D. E. Knuth, \emph{The \TeX book}, 1984.
+\bibitem[LL90]{ll} L. Lamport and N. Lynch.
+\newblock Distributed computing.
+\bibitem{third} A third.
+\end{thebibliography}
+\clearpage
+\cite{knuth}
+\cite{ll,knuth}
+\cite[p.~3]{knuth}
+\cite{third}
+\cite{knuth,third}
+\end{document}

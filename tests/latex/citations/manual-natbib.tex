@@ -1,0 +1,18 @@
+\documentclass{article}
+\usepackage{natbib}
+\begin{document}
+Body \cite{knuth} \cite{ll}.
+\begin{thebibliography}{9}
+\bibitem[Knuth(1984)]{knuth} D. E. Knuth, \emph{The \TeX book}, 1984.
+\bibitem[Lamport and Lynch(1990)]{ll} L. Lamport and N. Lynch.
+\end{thebibliography}
+\clearpage
+\citet{knuth}
+\citep{knuth}
+\citep{knuth,ll}
+\citet{knuth,ll}
+\citep[p.~2]{knuth}
+\citep[see][p.~2]{ll}
+\citeauthor{ll}
+\citeyear{knuth}
+\end{document}

@@ -503,6 +503,23 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
             }
         }
     }
+    // Citations of the document's own bibliography (`thebibliography`)
+    // when it names no BibTeX file: a key it does not have.
+    if model.bibliography.is_empty() && !model.bib_items.is_empty() {
+        for c in model.citations.iter().filter(|c| c.file == this) {
+            for k in c.keys.iter().filter(|k| *k != "*") {
+                if !model.bib_items.iter().any(|i| &i.key == k) {
+                    out.push(Diagnostic {
+                        range: c.range.clone(),
+                        severity: Severity::Warning,
+                        code: "cite-unknown-key",
+                        message: crate::tr!("cite-unknown-key", key = k.as_str()),
+                        fix: None,
+                    });
+                }
+            }
+        }
+    }
     // Citations, when the document names its bibliography.
     let files: Vec<PathBuf> = model
         .bibliography
@@ -572,7 +589,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
         if errors.len() < files.len() {
             for c in model.citations.iter().filter(|c| c.file == this) {
                 for k in &c.keys {
-                    if bib.get(k).is_none() {
+                    if bib.get(k).is_none() && !model.bib_items.iter().any(|i| &i.key == k) {
                         out.push(Diagnostic {
                             range: c.range.clone(),
                             severity: Severity::Warning,
