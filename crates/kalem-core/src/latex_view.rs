@@ -5341,6 +5341,10 @@ pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
         .filter(|d| !(loaded("siunitx") && d.starts_with("\\newcommand{\\qty}[1]")))
         .collect();
     out.extend(COMMON_MACROS.iter().map(|d| d.to_string()));
+    // `\\cA` … `\\cZ` and their kin, which papers define in loops the model
+    // cannot read (`\\csname c#1\\endcsname`): the usual alphabets. A
+    // document's own definition comes after and wins.
+    out.extend(letter_families());
     let own: Vec<(String, usize, String)> = model
         .macros
         .iter()
@@ -5437,6 +5441,23 @@ pub fn explain_macro(doc: &crate::DocumentState, name: &str) -> String {
     format!("{} (file {}): x -> {xs:?}; use -> {us:?}", defs[i], m.file)
 }
 
+/// `\\cX` calligraphic, `\\bX` blackboard bold, `\\sX` script and `\\fX`
+/// Fraktur, for each capital X.
+fn letter_families() -> Vec<String> {
+    let mut out = Vec::with_capacity(4 * 26);
+    for c in 'A'..='Z' {
+        for (p, font) in [
+            ("c", "mathcal"),
+            ("b", "mathbb"),
+            ("s", "mathscr"),
+            ("f", "mathfrak"),
+        ] {
+            out.push(format!("\\newcommand{{\\{p}{c}}}{{\\{font}{{{c}}}}}"));
+        }
+    }
+    out
+}
+
 /// The document's own definitions `own` (name, arguments, definition)
 /// the renderer takes after `before` and with a use of each: one it
 /// cannot read would stop every formula after it. Remembered, since the
@@ -5458,6 +5479,10 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
     }
     let mut kept = org_math::source::macros(before);
     let mut out = Vec::new();
+    // Definitions whose use failed for a macro defined later (TeX expands
+    // at the use, so `\\newcommand{\\vu}{\\vc{u}}` before `\\vc` is fine):
+    // tried again with all the others.
+    let mut later: Vec<(&String, &String)> = Vec::new();
     for (name, args, def) in own {
         // TeX's own definition commands are not redefined (a package's
         // `\def\def` read wrongly would end every definition after it).
@@ -5502,10 +5527,32 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
                 || e.message.contains("Too many expansions")
                 || e.message.contains("Recursion limit"))
         {
+            if e.message.contains("Undefined control sequence") {
+                later.push((name, def));
+            }
             continue;
         }
         kept = trial;
         out.push(def.clone());
+    }
+    for (name, def) in later {
+        let with = org_math::source::macros(std::slice::from_ref(def));
+        let trial = format!("{kept}{with}");
+        let use_it = format!("{name}{{x}}{{x}}{{x}}");
+        let ok = |src: &str| org_math::check(&org_math::source::prepare(src, &trial));
+        let fine = ok("\\def\\kalemprobe{x}\\kalemprobe").is_ok()
+            && match ok(&use_it) {
+                Ok(()) => true,
+                Err(e) => {
+                    !e.message.contains("Undefined control sequence")
+                        && !e.message.contains("Too many expansions")
+                        && !e.message.contains("Recursion limit")
+                }
+            };
+        if fine {
+            kept = trial;
+            out.push(def.clone());
+        }
     }
     if let Ok(mut m) = MEMO.lock() {
         let m = m.get_or_insert_with(Memo::new);
@@ -5646,6 +5693,7 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\scr}[1]{\\mathscr{#1}}",
     "\\newcommand{\\none}{}",
     "\\newcommand{\\xspace}{}",
+    "\\newcommand{\\EuScript}[1]{\\mathscr{#1}}",
     "\\newcommand{\\ifthenelse}[3]{#2}",
     "\\newcommand{\\joinrel}{\\mathrel{\\mkern-3mu}}",
     "\\newcommand{\\IEEEyesnumber}{}",
@@ -6659,6 +6707,9 @@ mod tests {
         // xparse's and robust definitions, a macro as a script, a comment
         // in a diagram.
         let text = "\\documentclass{article}\n\\NewDocumentCommand{\\pr}{O{} m}{P_{#1}(#2)}\n\\DeclareRobustCommand{\\one}{\\mathbf{1}}\n\\DeclareMathOperator{\\End}{End}\n\\begin{document}\n$\\pr{A} + \\one_\\End$\n\\begin{tikzcd} A \\ar[r] % \\ar[bend left = 40,\n & B \\end{tikzcd}\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // A definition that uses one made after it; `\\cU` without one.
+        let text = "\\documentclass{article}\n\\newcommand{\\vu}{\\vc{u}}\n\\newcommand{\\vc}[1]{{\\bf #1}}\n\\begin{document}\n$\\vu = \\cU$\n\\end{document}\n";
         assert_eq!(formula_failures(&doc(text)), Vec::new());
         // An equation ended by `\\ee`.
         let text = "\\documentclass{article}\n\\begin{document}\n\\begin{equation}\na = b\n\\ee\nThen \\[x\\]\n\\end{document}\n";
