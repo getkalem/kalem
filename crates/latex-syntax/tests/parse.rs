@@ -318,6 +318,15 @@ fn piece() -> impl Strategy<Value = String> {
         Just("\\end{verbatim}".to_string()),
         Just("\\begin{align}".to_string()),
         Just("\\end{align}".to_string()),
+        Just("\\begin{tabular}".to_string()),
+        Just("\\end{tabular}".to_string()),
+        Just("\\be".to_string()),
+        Just("\\ee".to_string()),
+        Just("\\def\\bq{\\begin{equation}}".to_string()),
+        Just("\\bq".to_string()),
+        Just("\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}".to_string()),
+        Just("\\begin{eqn}".to_string()),
+        Just("\\end{eqn}".to_string()),
         Just("\\begin{document}".to_string()),
         Just("\\end{document}".to_string()),
         Just("\\section".to_string()),
@@ -455,4 +464,18 @@ fn comment_before_an_argument() {
         p.syntax().text().to_string(),
         "\\section% the title\n  {Title} after\n"
     );
+}
+
+#[test]
+fn formulas_of_a_document_s_own() {
+    // `\be … \ee` and an environment defined as an equation are displayed
+    // formulas; in a table's cell `$$` is an empty formula.
+    let p = parse(
+        "\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n\\be x \\ee\n\\begin{eqn}y\\end{eqn}\n\\begin{tabular}{cc}$$ & $a$ \\\\ $$ & b\\end{tabular}\n",
+    );
+    assert_eq!(
+        texts(&p, SyntaxKind::DISPLAY_MATH),
+        ["\\be x \\ee", "\\begin{eqn}y\\end{eqn}"]
+    );
+    assert_eq!(texts(&p, SyntaxKind::INLINE_MATH), ["$$", "$a$", "$$"]);
 }

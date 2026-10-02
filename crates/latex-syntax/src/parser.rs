@@ -42,6 +42,9 @@ const MAX_DEPTH: usize = 1000;
 
 pub(crate) struct Parser<'a> {
     depth: usize,
+    /// How many tables the parser is in: their cells are boxes, where
+    /// `$$` is an empty formula, not a displayed one.
+    pub(crate) cells: usize,
     src: &'a str,
     b: &'a [u8],
     pos: usize,
@@ -84,6 +87,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn new(src: &'a str, start: usize, end: usize, at_letter: bool) -> Parser<'a> {
         Parser {
             depth: 0,
+            cells: 0,
             src,
             b: src.as_bytes(),
             pos: start,
@@ -225,7 +229,7 @@ impl<'a> Parser<'a> {
                 self.token(R_BRACE, end);
             }
             Tok::Dollar if mode == Mode::Text => {
-                if self.pos + 1 < limit && self.b[self.pos + 1] == b'$' {
+                if self.pos + 1 < limit && self.b[self.pos + 1] == b'$' && self.cells == 0 {
                     let stop = Stop {
                         double_dollar: true,
                         ..PAR
@@ -655,7 +659,13 @@ impl<'a> Parser<'a> {
                 self.token(VERBATIM, body_end);
             }
         } else {
+            let table = matches!(
+                name,
+                "tabular" | "tabular*" | "tabularx" | "tabulary" | "longtable" | "longtable*"
+            );
+            self.cells += usize::from(table);
             self.container(body_end, if math { Mode::Math } else { Mode::Text });
+            self.cells -= usize::from(table);
         }
         self.builder.finish_node();
         if let Some(e) = closed {
