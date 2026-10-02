@@ -1914,6 +1914,28 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
                 i += 1 + n;
                 match cname {
                     "xspace" => xspace = true,
+                    // LaTeX's and TeX's case changes of their group.
+                    "MakeUppercase" | "MakeLowercase" | "uppercase" | "lowercase" => {
+                        let r = inner[i..].trim_start();
+                        let skipped = inner.len() - i - r.len();
+                        let close = matching_brace(r.strip_prefix('{')?)?;
+                        let (t, x) = plain_text(model, &r[1..=close], depth + 1)?;
+                        xspace |= x;
+                        if cname.contains("pper") {
+                            out.push_str(&t.to_uppercase());
+                        } else {
+                            out.push_str(&t.to_lowercase());
+                        }
+                        i += skipped + close + 2;
+                    }
+                    // `\romannumeral 4`: iv.
+                    "romannumeral" => {
+                        let r = inner[i..].trim_start();
+                        let skipped = inner.len() - i - r.len();
+                        let n = r.bytes().take_while(u8::is_ascii_digit).count();
+                        out.push_str(&roman(r[..n].parse().ok()?));
+                        i += skipped + n;
+                    }
                     // pifont's `\ding{51}`: its character.
                     "ding" => {
                         let r = inner[i..].trim_start();
@@ -1949,6 +1971,120 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
         }
     }
     Some((out, xspace))
+}
+
+/// `n` in lowercase Roman numerals, as `\romannumeral` writes it (nothing
+/// for zero).
+fn roman(mut n: u32) -> String {
+    let mut out = String::new();
+    for (v, s) in [
+        (1000, "m"),
+        (900, "cm"),
+        (500, "d"),
+        (400, "cd"),
+        (100, "c"),
+        (90, "xc"),
+        (50, "l"),
+        (40, "xl"),
+        (10, "x"),
+        (9, "ix"),
+        (5, "v"),
+        (4, "iv"),
+        (1, "i"),
+    ] {
+        while n >= v {
+            out.push_str(s);
+            n -= v;
+        }
+    }
+    out
+}
+
+/// A use at `at` of the document's own macro `name` with arguments whose
+/// definition, its arguments put in, is text (`\newcommand{\RN}[1]
+/// {\MakeUppercase{\romannumeral #1}}`, `\RN{4}`): that text, its style
+/// and where the use ends (before `limit`).
+pub(crate) fn own_macro_use(
+    model: &latex_model::Model,
+    name: &str,
+    text: &str,
+    at: usize,
+    limit: usize,
+) -> Option<(String, Style, usize)> {
+    let m = model
+        .macros
+        .iter()
+        .rev()
+        .find(|m| m.name.strip_prefix('\\') == Some(name))?;
+    if m.args == 0
+        || m.args > 9
+        || m.default.is_some()
+        || m.body.trim().is_empty()
+        || own_wrapper(model, name)
+    {
+        return None;
+    }
+    // Each argument: a group, or one token.
+    let mut args = Vec::new();
+    let mut i = at;
+    for _ in 0..m.args {
+        while text[i..limit].starts_with(' ') {
+            i += 1;
+        }
+        let r = &text[i..limit];
+        if let Some(g) = r.strip_prefix('{') {
+            let close = matching_brace(g)?;
+            args.push(&g[..close]);
+            i += close + 2;
+        } else if let Some(w) = r.strip_prefix('\\') {
+            let n = w.bytes().take_while(u8::is_ascii_alphabetic).count().max(1);
+            let n = w.char_indices().nth(n).map_or(w.len(), |(k, _)| k);
+            args.push(&r[..1 + n]);
+            i += 1 + n;
+        } else {
+            let c = r.chars().next()?;
+            if matches!(c, '}' | '%' | '\n' | '\r') {
+                return None;
+            }
+            args.push(&r[..c.len_utf8()]);
+            i += c.len_utf8();
+        }
+    }
+    let mut body = String::new();
+    let mut chars = m.body.trim().chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '#'
+            && let Some(k) = chars.peek().and_then(|c| c.to_digit(10))
+        {
+            chars.next();
+            body.push_str(args.get((k as usize).checked_sub(1)?)?);
+            continue;
+        }
+        body.push(c);
+    }
+    let mut style = Style::default();
+    let mut inner = body.as_str();
+    for (cmd, set) in [
+        ("\\textbf{", 0),
+        ("\\textit{", 1),
+        ("\\emph{", 1),
+        ("\\texttt{", 2),
+    ] {
+        if let Some(r) = inner.strip_prefix(cmd)
+            && let Some(close) = matching_brace(r)
+            && r[close + 1..].trim().is_empty()
+        {
+            inner = &r[..close];
+            match set {
+                0 => style.bold = true,
+                1 => style.italic = true,
+                _ => style.code = true,
+            }
+            break;
+        }
+    }
+    let (out, _) = plain_text(model, inner, 0)?;
+    Some((out, style, i))
 }
 
 /// What the glossary command `cmd` (`gls`, `acp`, `acrfull`, …) prints
@@ -3587,6 +3723,28 @@ fn unflagged_line_view(
                             st.italic |= own.style.italic;
                             st.code |= own.style.code;
                             b.replace(r.start..end, &own.text, st);
+                            while let Some(n) = &tok
+                                && span(n).start < end
+                            {
+                                tok = n.next_token();
+                            }
+                        }
+                    }
+                    // A document's own macro with arguments whose definition,
+                    // with them, is text: the text.
+                    (n, None)
+                        if !renders_command(n)
+                            && let Some((shown, st, end)) =
+                                own_macro_use(&state.model(), n, text, r.end, line.end) =>
+                    {
+                        if near(&(r.start..end)) {
+                            b.verbatim(r, c.style);
+                        } else {
+                            let mut style = c.style;
+                            style.bold |= st.bold;
+                            style.italic |= st.italic;
+                            style.code |= st.code;
+                            b.replace(r.start..end, &shown, style);
                             while let Some(n) = &tok
                                 && span(n).start < end
                             {
@@ -6538,6 +6696,14 @@ mod tests {
         let at = text.find("$\\gls").unwrap();
         assert_eq!(math_source(&d, at..at + 1).unwrap(), "${\\gamma} = 1$");
         assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
+    }
+
+    #[test]
+    fn own_macros_with_arguments_as_text() {
+        let text = "\\documentclass{article}\n\\newcommand{\\RN}[1]{\\MakeUppercase{\\romannumeral #1}}\n\\newcommand{\\vs}[2]{#1 versus #2}\n\\newcommand{\\showedits}[1]{{#1}}\n\\begin{document}\nPhase \\RN{4}; \\vs{A}{B}; \\showedits{\\emph{x}}.\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(shown(&d, 5, None).display(), "Phase IV; A versus B; {x}.");
+        assert_eq!(roman(1994), "mcmxciv");
     }
 
     #[test]

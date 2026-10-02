@@ -840,7 +840,15 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
                                     }
                                     true
                                 }
-                                None => false,
+                                None => match crate::latex_view::own_macro_use(
+                                    &model, &name, text, end, body.end,
+                                ) {
+                                    Some((_, _, e)) => {
+                                        drawn_to = drawn_to.max(e);
+                                        true
+                                    }
+                                    None => false,
+                                },
                             }
                         };
                     (format!("\\{name}"), r)
