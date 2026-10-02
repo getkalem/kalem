@@ -618,6 +618,49 @@ fn keys(s: &str) -> Vec<String> {
     k
 }
 
+/// The arguments of an xparse specification (`O{x} m m`) as `\newcommand`
+/// takes them: how many, and the default of the first when it is
+/// optional; `None` for other kinds (stars, delimited arguments).
+fn xparse_args(spec: &str) -> Option<(usize, Option<String>)> {
+    let mut args = 0;
+    let mut default = None;
+    let mut rest = spec.trim();
+    while let Some(c) = rest.chars().next() {
+        rest = rest[c.len_utf8()..].trim_start();
+        match c {
+            'm' => args += 1,
+            'o' if args == 0 => {
+                args += 1;
+                default = Some(String::new());
+            }
+            'O' if args == 0 => {
+                let r = rest.strip_prefix('{')?;
+                let mut depth = 1;
+                let mut end = None;
+                for (i, ch) in r.char_indices() {
+                    match ch {
+                        '{' => depth += 1,
+                        '}' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                end = Some(i);
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                let e = end?;
+                default = Some(r[..e].to_string());
+                rest = r[e + 1..].trim_start();
+                args += 1;
+            }
+            _ => return None,
+        }
+    }
+    Some((args, default))
+}
+
 /// The value of `key` in a key-value list (`name={x, y}, plural=zs`),
 /// its braces taken off.
 fn key_value(s: &str, key: &str) -> Option<String> {
@@ -821,11 +864,36 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             explicit: o.first().map(|s| s.trim().to_string()),
             range,
         }),
-        "newcommand" | "renewcommand" | "providecommand" => {
+        // xparse's `\NewDocumentCommand{\name}{O{x} m}{…}`: arguments as
+        // `\newcommand` takes them (an optional one first, then mandatory
+        // ones); other kinds of arguments are not read.
+        "NewDocumentCommand"
+        | "RenewDocumentCommand"
+        | "ProvideDocumentCommand"
+        | "DeclareDocumentCommand" => {
+            if let (Some(n), Some(spec), Some(body)) = (m.first(), m.get(1), m.get(2))
+                && let Some((args, default)) = xparse_args(spec)
+            {
+                push(Event::Macro {
+                    name: n.trim().to_string(),
+                    command: "newcommand".into(),
+                    args,
+                    default,
+                    body: body.to_string(),
+                    range,
+                });
+            }
+            return false;
+        }
+        "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => {
             if let (Some(n), Some(body)) = (m.first(), m.get(1)) {
                 push(Event::Macro {
                     name: n.trim().to_string(),
-                    command: name.clone(),
+                    command: if name == "DeclareRobustCommand" {
+                        "newcommand".into()
+                    } else {
+                        name.clone()
+                    },
                     args: o.first().and_then(|s| s.trim().parse().ok()).unwrap_or(0),
                     default: o.get(1).map(|s| s.to_string()),
                     body: body.to_string(),
