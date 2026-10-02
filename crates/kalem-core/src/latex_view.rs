@@ -3823,7 +3823,9 @@ pub fn shows_arguments(name: &str) -> bool {
 /// Whether the view renders environment `name` (theorems are the ones
 /// the model declares).
 pub fn renders_environment(name: &str, model: &latex_model::Model) -> bool {
-    is_list(name)
+    // Tables: the grid, or text with their cells apart.
+    crate::latex_table::is_table(name)
+        || is_list(name)
         || float_name(name, false).is_some()
         || is_display_math(name)
         || latex_syntax::signatures::is_math(name)
