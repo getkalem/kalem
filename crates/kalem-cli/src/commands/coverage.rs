@@ -146,6 +146,9 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
     let mut names: HashMap<String, Use> = HashMap::new();
     // Per name: the bytes it shows as source.
     let mut source_bytes: HashMap<String, usize> = HashMap::new();
+    // Per name: the papers it shows source in, and an example.
+    let mut source_papers: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut examples: HashMap<String, String> = HashMap::new();
     let base = kalem_core::settings::Config::default().parse_base();
     for dir in dirs {
         let list = files(dir);
@@ -169,15 +172,24 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                     let n = r.len();
                     c.source += n;
                     c.math = c.math.saturating_sub(n);
-                    *c.source_by_name
-                        .entry(format!("formula: {kind}"))
-                        .or_insert(0) += n;
+                    let key = format!("formula: {kind}");
+                    *c.source_by_name.entry(key.clone()).or_insert(0) += n;
+                    c.examples.entry(key).or_insert_with(|| {
+                        kalem_core::latex_check::example(&doc.text().as_str()[r.clone()])
+                    });
                 }
             }
             all.add(&paper, &c);
             fields.entry(field).or_default().add(&paper, &c);
             for (name, b) in &c.source_by_name {
                 *source_bytes.entry(name.clone()).or_insert(0) += b;
+                source_papers
+                    .entry(name.clone())
+                    .or_default()
+                    .insert(paper.clone());
+            }
+            for (name, e) in c.examples.drain() {
+                examples.entry(name).or_insert(e);
             }
             for (name, (n, rendered)) in c.names {
                 let e = names
@@ -287,13 +299,18 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
         &unrendered,
     ));
     s.push_str(&format!(
-        "\nThe {} names showing the most source\n\n| name | source KB | share of source |\n|---|---:|---:|\n",
+        "\nThe {} names showing the most source\n\n| name | source KB | share of source | papers | example |\n|---|---:|---:|---:|---|\n",
         heaviest.len()
     ));
     for (name, b) in &heaviest {
+        let papers = source_papers.get(*name).map_or(0, HashSet::len);
+        let ex = examples
+            .get(*name)
+            .map(|e| e.replace('|', "\\|").replace('`', "'"))
+            .unwrap_or_default();
         s.push_str(&format!(
-            "| `{name}` | {} | {} |\n",
-            **b / 1024,
+            "| `{name}` | {:.1} | {} | {papers} | {ex} |\n",
+            **b as f64 / 1024.,
             pct(**b, all.source)
         ));
     }

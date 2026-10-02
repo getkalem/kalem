@@ -755,6 +755,14 @@ pub struct Coverage {
     /// The bytes shown as source, by the outermost command or
     /// environment shown so.
     pub source_by_name: HashMap<String, usize>,
+    /// An example of each, its first one in the body.
+    pub examples: HashMap<String, String>,
+}
+
+/// A piece of source as an example: one line, at most 100 characters.
+pub fn example(s: &str) -> String {
+    let one: String = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    one.chars().take(100).collect()
 }
 
 /// [`Coverage`] of `text`, with the project of `file` when given.
@@ -842,6 +850,9 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
                 if a >= source_to && b > a {
                     c.source += b - a;
                     *c.source_by_name.entry(key.clone()).or_insert(0) += b - a;
+                    c.examples
+                        .entry(key.clone())
+                        .or_insert_with(|| example(&text[start..end]));
                     source_to = b;
                 }
             }
