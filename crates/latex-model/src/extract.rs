@@ -706,6 +706,20 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             }
             return false;
         }
+        // mathtools' `\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}`.
+        "DeclarePairedDelimiter" => {
+            if let (Some(n), Some(l), Some(r)) = (m.first(), m.get(1), m.get(2)) {
+                push(Event::Macro {
+                    name: n.trim().to_string(),
+                    command: "newcommand".into(),
+                    args: 1,
+                    default: None,
+                    body: format!("\\left{} #1 \\right{}", l.trim(), r.trim()),
+                    range,
+                });
+            }
+            return false;
+        }
         "DeclareMathOperator" => {
             if let (Some(n), Some(body)) = (m.first(), m.get(1)) {
                 push(Event::Macro {

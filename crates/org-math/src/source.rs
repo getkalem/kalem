@@ -28,6 +28,58 @@ fn rename_env(s: &str, from: &str, to: &str) -> String {
         .replace(&format!("\\end{{{from}}}"), &format!("\\end{{{to}}}"))
 }
 
+/// The column specifications of `array`s without what RaTeX does not
+/// take: material between columns (`@{}`, `!{}`) and before or after a
+/// column's cells (`>{}`, `<{}`).
+fn plain_array_columns(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find("\\begin{array}") {
+        let after = i + "\\begin{array}".len();
+        out.push_str(&rest[..after]);
+        rest = &rest[after..];
+        // The optional position, then the specification.
+        let trimmed = rest.trim_start();
+        let mut skip = rest.len() - trimmed.len();
+        if trimmed.starts_with('[')
+            && let Some(close) = trimmed.find(']')
+        {
+            skip += close + 1;
+        }
+        out.push_str(&rest[..skip]);
+        rest = &rest[skip..];
+        if let Some((spec, after)) = group(rest) {
+            let mut cleaned = String::new();
+            let mut chars = spec.chars().peekable();
+            while let Some(c) = chars.next() {
+                if matches!(c, '@' | '!' | '>' | '<') && chars.peek() == Some(&'{') {
+                    let mut depth = 0;
+                    for d in chars.by_ref() {
+                        match d {
+                            '{' => depth += 1,
+                            '}' => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                } else {
+                    cleaned.push(c);
+                }
+            }
+            out.push('{');
+            out.push_str(&cleaned);
+            out.push('}');
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The formula as RaTeX takes it: `\mbox` as `\text`, `multline` as
 /// `gather` (decision D4), after the definitions `macros`.
 pub fn prepare(latex: &str, macros: &str) -> String {
@@ -35,6 +87,7 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     s = rename_env(&s, "multline*", "gather*");
     s = rename_env(&s, "multline", "gather");
     // eqnarray's `a &=& b` as an align's columns; flalign as align.
+    s = plain_array_columns(&s);
     s = rename_env(&s, "eqnarray*", "align*");
     s = rename_env(&s, "eqnarray", "align");
     s = rename_env(&s, "flalign*", "align*");
