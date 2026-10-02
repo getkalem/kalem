@@ -965,6 +965,35 @@ fn node_span(n: &SyntaxNode) -> Range<usize> {
     usize::from(n.text_range().start())..usize::from(n.text_range().end())
 }
 
+/// The character of pifont's dingbat number `n` (ZapfDingbats), for those
+/// papers use: check marks, crosses, stars, pointers, bullets, numbers.
+pub(crate) fn dingbat(n: u8) -> Option<&'static str> {
+    Some(match n {
+        // ZapfDingbats' code n is Unicode's dingbat U+2700 + (n - 32) for
+        // most of its first half.
+        33..=126 => {
+            const TABLE: [&str; 94] = [
+                "✁", "✂", "✃", "✄", "☎", "✆", "✇", "✈", "✉", "☛", "☞", "✌", "✍", "✎", "✏", "✐",
+                "✑", "✒", "✓", "✔", "✕", "✖", "✗", "✘", "✙", "✚", "✛", "✜", "✝", "✞", "✟", "✠",
+                "✡", "✢", "✣", "✤", "✥", "✦", "✧", "★", "✩", "✪", "✫", "✬", "✭", "✮", "✯", "✰",
+                "✱", "✲", "✳", "✴", "✵", "✶", "✷", "✸", "✹", "✺", "✻", "✼", "✽", "✾", "✿", "❀",
+                "❁", "❂", "❃", "❄", "❅", "❆", "❇", "❈", "❉", "❊", "❋", "●", "❍", "■", "❏", "❐",
+                "❑", "❒", "▲", "▼", "◆", "❖", "◗", "❘", "❙", "❚", "❛", "❜", "❝", "❞",
+            ];
+            TABLE[usize::from(n - 33)]
+        }
+        // The circled numbers, the arrows.
+        172..=181 => ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"][usize::from(n - 172)],
+        182..=191 => ["❶", "❷", "❸", "❹", "❺", "❻", "❼", "❽", "❾", "❿"][usize::from(n - 182)],
+        212 => "➔",
+        213 => "→",
+        220 => "➜",
+        224 => "➠",
+        232 => "➨",
+        _ => return None,
+    })
+}
+
 /// The style a formatting command gives its argument.
 fn format_style(name: &str) -> Option<Style> {
     let mut s = Style::default();
@@ -1727,6 +1756,66 @@ pub(crate) struct OwnMacro {
     pub default: bool,
 }
 
+/// Whether the document's own macro `name` prints its first argument
+/// and nothing else (`\newcommand{\showedits}[1]{{#1}}`, `{\color{black}
+/// {#1}}`, `\textbf{#1}`): its name is markup, its argument the text.
+pub(crate) fn own_wrapper(model: &latex_model::Model, name: &str) -> bool {
+    let Some(m) = model
+        .macros
+        .iter()
+        .rev()
+        .find(|m| m.name.strip_prefix('\\') == Some(name))
+    else {
+        return false;
+    };
+    if m.args == 0 || m.default.is_some() {
+        return false;
+    }
+    let mut body = m.body.trim();
+    for _ in 0..4 {
+        // Outer braces.
+        if let Some(r) = body.strip_prefix('{')
+            && let Some(close) = matching_brace(r)
+            && r[close + 1..].trim().is_empty()
+        {
+            body = r[..close].trim();
+            continue;
+        }
+        // A formatting command, a color, a box around the whole.
+        let cmd: String = body
+            .strip_prefix('\\')
+            .map(|r| r.chars().take_while(char::is_ascii_alphabetic).collect())
+            .unwrap_or_default();
+        let after = &body[(cmd.len() + 1).min(body.len())..];
+        if !cmd.is_empty()
+            && (format_style(&cmd).is_some() || cmd == "mbox")
+            && let Some(r) = after.strip_prefix('{')
+            && let Some(close) = matching_brace(r)
+            && r[close + 1..].trim().is_empty()
+        {
+            body = r[..close].trim();
+            continue;
+        }
+        if cmd == "textcolor"
+            && let Some(r) = after.strip_prefix('{')
+            && let Some(close) = matching_brace(r)
+        {
+            body = r[close + 1..].trim();
+            continue;
+        }
+        // `\color{black}` before the text, in its group.
+        if cmd == "color"
+            && let Some(r) = after.strip_prefix('{')
+            && let Some(close) = matching_brace(r)
+        {
+            body = r[close + 1..].trim();
+            continue;
+        }
+        break;
+    }
+    body == "#1"
+}
+
 pub(crate) fn own_macro(model: &latex_model::Model, name: &str) -> Option<OwnMacro> {
     own_macro_depth(model, name, 0)
 }
@@ -1825,6 +1914,14 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
                 i += 1 + n;
                 match cname {
                     "xspace" => xspace = true,
+                    // pifont's `\ding{51}`: its character.
+                    "ding" => {
+                        let r = inner[i..].trim_start();
+                        let skipped = inner.len() - i - r.len();
+                        let close = r.strip_prefix('{')?.find('}')?;
+                        out.push_str(dingbat(r[1..=close].trim().parse().ok()?)?);
+                        i += skipped + close + 2;
+                    }
                     "textbf" | "textit" | "emph" | "textsc" | "textrm" | "textsf" | "texttt"
                     | "mbox" | "text" | "textnormal" | "textup" | "relax" | "protect" => {}
                     _ => {
@@ -2117,6 +2214,9 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "textnumero" => "\u{2116}",
         "textcelsius" => "\u{2103}",
         "textohm" => "\u{2126}",
+        // amssymb's check mark in text; aastex's micron.
+        "checkmark" => "\u{2713}",
+        "micron" => "\u{b5}m",
         "textleftarrow" => "\u{2190}",
         "textrightarrow" => "\u{2192}",
         "textuparrow" => "\u{2191}",
@@ -3494,6 +3594,54 @@ fn unflagged_line_view(
                             }
                         }
                     }
+                    // A document's own macro that prints its argument: its
+                    // name (and the blanks after it) markup, hidden away
+                    // from it; the argument is read as text.
+                    (n, None)
+                        if !renders_command(n)
+                            && own_wrapper(&state.model(), n)
+                            && let Some(cmd) = t.parent().filter(|p| p.kind() == K::COMMAND) =>
+                    {
+                        let mut end = r.end;
+                        while let Some(n) = tok.clone()
+                            && n.kind() == K::WHITESPACE
+                            && span(&n).end <= line.end
+                        {
+                            end = span(&n).end;
+                            tok = n.next_token();
+                        }
+                        if near(&node_span(&cmd)) {
+                            b.verbatim(
+                                r.start..end,
+                                Style {
+                                    dim: true,
+                                    ..c.style
+                                },
+                            );
+                        } else {
+                            b.replace(r.start..end, "", c.style);
+                        }
+                    }
+                    // pifont's dingbats by their number: `\ding{51}` ✓.
+                    ("ding", _)
+                        if let Some(end) = args_end(text, r.end, line.end, "m")
+                            && !near(&(r.start..end))
+                            && let Some(glyph) = text[r.end..end]
+                                .trim()
+                                .trim_start_matches('{')
+                                .trim_end_matches('}')
+                                .trim()
+                                .parse::<u8>()
+                                .ok()
+                                .and_then(dingbat) =>
+                    {
+                        b.replace(r.start..end, glyph, c.style);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
                     // siunitx's numbers and quantities, typeset.
                     (
                         "num" | "si" | "unit" | "SI" | "qty" | "ang" | "numrange" | "SIrange"
@@ -4766,6 +4914,7 @@ pub fn renders_command(name: &str) -> bool {
         || matches!(
             name,
             "item"
+                | "ding"
                 | "caption"
                 | "includegraphics"
                 | "index"
@@ -6389,6 +6538,26 @@ mod tests {
         let at = text.find("$\\gls").unwrap();
         assert_eq!(math_source(&d, at..at + 1).unwrap(), "${\\gamma} = 1$");
         assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
+    }
+
+    #[test]
+    fn own_wrappers_and_dingbats() {
+        // A macro that prints its argument: its name hidden, the argument
+        // read; pifont's dingbats and amssymb's check mark as characters.
+        let text = "\\documentclass{article}\n\\usepackage{pifont,xcolor}\n\\newcommand{\\showedits}[1]{{#1}}\n\\newcommand{\\lshr}[1]{{\\color{black}{#1}}}\n\\newcommand{\\cmark}{\\ding{51}}\n\\begin{document}\nA \\showedits{new} \\lshr{text} \\ding{55} \\checkmark\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(shown(&d, 6, None).display(), "A {new} {text} ✗ ✓");
+        let m = d.latex().unwrap().model();
+        assert!(own_wrapper(&m, "showedits") && own_wrapper(&m, "lshr"));
+        assert!(!own_wrapper(&m, "cmark"));
+        assert_eq!(
+            own_macro(&m, "cmark").map(|o| o.text),
+            Some("✓".to_string())
+        );
+        assert_eq!(
+            (dingbat(51), dingbat(52), dingbat(108)),
+            (Some("✓"), Some("✔"), Some("●"))
+        );
     }
 
     #[test]
