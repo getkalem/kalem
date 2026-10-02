@@ -444,6 +444,20 @@ impl<'a> Parser<'a> {
         let start = self.pos;
         let src = self.src;
         let name = &src[start + 1..name_end];
+        // `\be … \ee`, macros for an equation's environment: a displayed
+        // formula.
+        if mode == Mode::Text
+            && let Some(&close) = self.tables.aliases.get(&start)
+            && close < limit
+        {
+            let (_, close_end) = lexer::next(src, close, limit, self.at_letter);
+            self.builder.start_node(DISPLAY_MATH.into());
+            self.token(CONTROL_WORD, name_end);
+            self.seq(close, Mode::Math, Stop::default());
+            self.token(CONTROL_WORD, close_end);
+            self.builder.finish_node();
+            return;
+        }
         match name {
             "begin" => {
                 if let Some(n) = lexer::env_name(self.b, name_end, limit) {

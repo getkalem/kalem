@@ -1417,7 +1417,24 @@ impl<'r> Numbering<'r> {
                 range,
                 body,
                 note,
-            } => self.enter(name, at(range), at(body), note),
+            } => {
+                // `\be`: the environment its definition opens.
+                let name = match name.strip_prefix('\\') {
+                    Some(_) => self
+                        .model
+                        .macros
+                        .iter()
+                        .rev()
+                        .find(|m| &m.name == name)
+                        .and_then(|m| {
+                            let b = m.body.trim().strip_prefix("\\begin{")?;
+                            Some(b.split('}').next()?.to_string())
+                        })
+                        .unwrap_or_else(|| "equation".into()),
+                    None => name.clone(),
+                };
+                self.enter(&name, at(range), at(body), note)
+            }
             Event::FootnoteEnd => {
                 if let Some(c) = self.saved.pop() {
                     self.current = c;

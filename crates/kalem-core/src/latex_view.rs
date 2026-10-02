@@ -5078,11 +5078,43 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
             edits.push((node_span(&c), format!("\\text{{{shown}}}")));
         }
     }
+    // `\be … \ee`: the environment their definitions open and close,
+    // starred (only the tags number it).
+    if node.kind() == K::DISPLAY_MATH {
+        let words: Vec<_> = node
+            .children_with_tokens()
+            .filter_map(|e| e.into_token())
+            .filter(|t| t.kind() == K::CONTROL_WORD)
+            .collect();
+        if let (Some(open), Some(close)) = (words.first(), words.last())
+            && open.text_range().start() == node.text_range().start()
+            && close.text_range().end() == node.text_range().end()
+        {
+            let env = model
+                .macros
+                .iter()
+                .rev()
+                .find(|m| m.name == open.text())
+                .and_then(|m| {
+                    let b = m.body.trim().strip_prefix("\\begin{")?;
+                    Some(b.split('}').next()?.trim_end_matches('*').to_string())
+                })
+                .unwrap_or_else(|| "equation".into());
+            let span = |t: &latex_syntax::SyntaxToken| {
+                usize::from(t.text_range().start())..usize::from(t.text_range().end())
+            };
+            edits.push((span(open), format!("\\begin{{{env}*}}")));
+            edits.push((span(close), format!("\\end{{{env}*}}")));
+        }
+    }
     let name = (node.kind() == K::ENVIRONMENT)
         .then(|| latex_syntax::name(&node))
         .flatten();
-    if let Some(name) = &name {
-        let model = state.model();
+    let alias = node.kind() == K::DISPLAY_MATH
+        && node
+            .first_token()
+            .is_some_and(|t| t.kind() == K::CONTROL_WORD);
+    if name.is_some() || alias {
         for e in model
             .equations
             .iter()
@@ -5092,6 +5124,8 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
                 edits.push((e.range.end..e.range.end, format!("\\tag{{{n}}}")));
             }
         }
+    }
+    if let Some(name) = &name {
         // Starred, so that only the tags number it.
         if !name.ends_with('*') {
             for pat in [format!("\\begin{{{name}}}"), format!("\\end{{{name}}}")] {
@@ -5709,6 +5743,16 @@ mod tests {
         let at = text.find("$\\eqref").unwrap();
         let src = math_source(&d, at..at + 1).unwrap();
         assert!(src.contains("\\text{(1)}"), "{src}");
+        // `\be … \ee`: a displayed formula, as the environment their
+        // definitions name.
+        let text = "\\documentclass{article}\n\\def\\bea{\\begin{eqnarray}}\n\\def\\eea{\\end{eqnarray}}\n\\begin{document}\n\\bea\na &=& \\frac{1}{2}\n\\eea\nand \\be x \\ee\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(formula_failures(&d), Vec::new());
+        let at = text.find("\\bea\n").unwrap();
+        let src = math_source(&d, at..at + 1).unwrap();
+        assert!(src.starts_with("\\begin{eqnarray*}"), "{src}");
+        assert!(src.contains("\\tag{1}"), "{src}");
+        assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
     }
 
     #[test]
