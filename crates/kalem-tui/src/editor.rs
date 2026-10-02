@@ -369,6 +369,9 @@ pub(crate) struct Layout<'a> {
     /// The cursor's line, shown with a background in plain text and the
     /// source view.
     current: Option<usize>,
+    /// LaTeX: the paragraphs over several lines shown as one, away from
+    /// the cursor.
+    paragraphs: Vec<Range<usize>>,
 }
 
 impl<'a> Layout<'a> {
@@ -529,6 +532,33 @@ impl<'a> Layout<'a> {
                     .collect();
             }
         }
+        // A LaTeX paragraph over several lines away from the cursor shows as
+        // one, on its first line.
+        let mut paragraphs = Vec::new();
+        if latex && !source {
+            let text = doc.text();
+            let c = doc.selection.head;
+            for p in kalem_core::latex_view::joined_paragraphs(doc).iter() {
+                if p.start <= c && c <= p.end {
+                    continue;
+                }
+                let first = text.line_of(p.start);
+                let last = text.line_of(p.end);
+                if last == first {
+                    continue;
+                }
+                paragraphs.push(p.clone());
+                let hide = text.line_start(first + 1)..text.line_range(last).end + 1;
+                visible = visible
+                    .iter()
+                    .flat_map(|r| {
+                        [r.start..r.end.min(hide.start), r.start.max(hide.end)..r.end]
+                            .into_iter()
+                            .filter(|x| x.start < x.end)
+                    })
+                    .collect();
+            }
+        }
         // The narrowed part, or the section in focus.
         if let Some(lim) = view::limit(doc, focus) {
             let end = if lim.end >= len { len + 1 } else { lim.end };
@@ -558,6 +588,7 @@ impl<'a> Layout<'a> {
             plain,
             windowed,
             current: (is_plain || source).then(|| doc.text().line_of(doc.selection.head)),
+            paragraphs,
         }
     }
 
@@ -1193,6 +1224,15 @@ impl<'a> Layout<'a> {
                                 align,
                                 ..view::LineView::default()
                             }
+                        }
+                        None if let Some(p) =
+                            self.paragraphs.iter().find(|p| p.start == range.start) =>
+                        {
+                            kalem_core::latex_view::paragraph_view(
+                                self.doc,
+                                p.clone(),
+                                Some(self.cursor),
+                            )
                         }
                         None => kalem_core::latex_view::line_view(
                             self.doc,

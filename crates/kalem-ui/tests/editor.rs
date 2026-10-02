@@ -3001,6 +3001,31 @@ fn latex_completion(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn latex_paragraphs_show_as_one(cx: &mut TestAppContext) {
+    // As TeX sets them: the lines of a paragraph are one, away from the
+    // cursor; at the cursor they open into the source's lines.
+    let text = "\\documentclass{article}\n\\begin{document}\n\nThe well known theorem $x^2$ was\nproved invalid for other exponents.\nMeaning:\n\\[x^n + y^n = z^n\\]\n\\end{document}\n";
+    let (e, cx) = open_named(text, "p.tex", || None, cx);
+    cx.run_until_parked();
+    e.update(cx, |e, _| e.doc.wait_for_latex_project());
+    let end = text.find("\\end{document}").unwrap();
+    at(&e, end, cx);
+    let shown = |e: &Entity<Editor>, cx: &mut VisualTestContext, line: usize| {
+        e.read_with(cx, |e, _| e.item_of(line).is_some())
+    };
+    assert!(shown(&e, cx, 3));
+    assert!(!shown(&e, cx, 4));
+    assert!(!shown(&e, cx, 5));
+    assert!(shown(&e, cx, 6));
+    // The cursor in the paragraph: its three lines.
+    at(&e, text.find("proved").unwrap(), cx);
+    assert!(shown(&e, cx, 4) && shown(&e, cx, 5));
+    // And out again: one.
+    at(&e, end, cx);
+    assert!(!shown(&e, cx, 4));
+}
+
+#[gpui::test]
 fn latex_math_and_inserts(cx: &mut TestAppContext) {
     let text = "Let \n";
     let (e, cx) = open_named(text, "m.tex", || None, cx);
