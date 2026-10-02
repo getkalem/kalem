@@ -497,10 +497,11 @@ mod tests {
         let objects = [
             "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w} {h}] /Contents 4 0 R >>"),
             format!(
-                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w} {h}] /Contents 4 0 R >>"
+                "<< /Length {} >>\nstream\n{content}\nendstream",
+                content.len()
             ),
-            format!("<< /Length {} >>\nstream\n{content}\nendstream", content.len()),
         ];
         let mut out = b"%PDF-1.4\n".to_vec();
         let mut offsets = Vec::new();

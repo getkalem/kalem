@@ -840,6 +840,10 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
             K::ENVIRONMENT => match latex_syntax::name(&n) {
                 Some(name) => {
                     let r = crate::latex_view::renders_environment(&name, &model);
+                    // A picture TeX draws: all of it.
+                    if crate::latex_view::tex_picture(&name) {
+                        drawn_to = end;
+                    }
                     // A rendered environment's `\\begin` line is markup, its
                     // arguments with it (`{0.48\\textwidth}`).
                     if r && let Some(b) = n.children().find(|c| c.kind() == K::BEGIN) {
@@ -921,8 +925,11 @@ pub fn unrendered_in(text: &str, file: Option<&std::path::Path>) -> Vec<(String,
         if !body.contains(&start) {
             continue;
         }
+        // In a formula, or in a picture TeX draws.
         let in_math = n.ancestors().skip(1).any(|a| {
             matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
+                || (a.kind() == K::ENVIRONMENT
+                    && latex_syntax::name(&a).is_some_and(|x| crate::latex_view::tex_picture(&x)))
                 || (a.kind() == K::ENVIRONMENT
                     && latex_syntax::name(&a)
                         .is_some_and(|x| latex_syntax::signatures::is_math(&x)))
@@ -1250,13 +1257,6 @@ mod tests {
     #[test]
     fn unrendered_report() {
         let text = "\\documentclass{article}\\usepackage{tikz}\n\\begin{document}\n\\foo{x} \\foo \\emph{y} $\\alpha$\n\\begin{tikzpicture}\\draw;\\end{tikzpicture}\n\\end{document}\n";
-        assert_eq!(
-            unrendered(text),
-            [
-                ("\\foo".to_string(), 2),
-                ("\\begin{tikzpicture}".to_string(), 1),
-                ("\\draw".to_string(), 1)
-            ]
-        );
+        assert_eq!(unrendered(text), [("\\foo".to_string(), 2),]);
     }
 }

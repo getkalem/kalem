@@ -1272,7 +1272,10 @@ impl DocumentState {
                 let d =
                     l.diagnostics
                         .poll(self.version, self.meta.path.as_deref(), self.text.as_str());
-                project || d
+                // Pictures TeX finished drawing.
+                let done = crate::tex_pictures::finished();
+                let pictures = l.pictures_seen.replace(done) != done;
+                project || d || pictures
             }
             None => false,
         };

@@ -72,6 +72,7 @@ pub mod settings;
 pub mod siunitx;
 pub mod stats;
 pub mod system;
+pub mod tex_pictures;
 pub mod text;
 pub mod theme;
 pub mod toc;
