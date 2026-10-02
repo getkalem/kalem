@@ -262,6 +262,7 @@ category-bibtex = BibTeX
 category-csv = CSV
 category-tags = Etiketler
 category-view = Görünüm
+category-code = Kod
 
 ## Menüler.
 
@@ -1028,4 +1029,16 @@ cmd-markdown-insert-image = Resim Ekle
 cmd-file-removeUnusedImages = Kullanılmayan Resimleri Kaldır
 cmd-pane-closeOrQuit = Bölmeyi Kapat ya da Çık
 cmd-project-addFolder = Proje Klasörü Ekle…
+cmd-code-documentation = Belgelendirmeyi Göster
+cmd-code-definition = Tanıma Git
+cmd-code-declaration = Bildirime Git
+cmd-code-typeDefinition = Tür Tanımına Git
+cmd-code-implementation = Gerçeklemelere Git
+cmd-code-references = Başvuruları Bul
+cmd-code-symbols = Belgedeki Simgeye Git
+cmd-code-problems = Sorunları Listele
+cmd-code-allProblems = Açık Dosyaların Sorunlarını Listele
+cmd-code-restartServer = Dil Sunucusunu Yeniden Başlat
+cmd-code-serverStatus = Dil Sunucusu Durumu
+cmd-code-goto = Yere Git
 fm-menu-remove-project = Projelerden Kaldır (klasör silinmez)

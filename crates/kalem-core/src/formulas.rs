@@ -120,6 +120,13 @@ pub fn selection_stats(doc: &DocumentState) -> Option<String> {
     if let Some(s) = crate::packs::status(doc) {
         return Some(s);
     }
+    // A language server's: the problem on the cursor's line, its work in
+    // progress, or the counts (D57).
+    if let Some(p) = &doc.meta.path
+        && let Some(s) = crate::lsp::status(p, doc.selection.head)
+    {
+        return Some(s);
+    }
     let sel = doc.selection;
     if sel.anchor == sel.head {
         return None;

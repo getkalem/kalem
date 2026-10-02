@@ -1,5 +1,6 @@
-*Everything in this chapter is planned.* The plugin runtime is not
-implemented: Kalem cannot load a plugin today. The design is decided
+*Everything in this chapter is planned*, except language plugins,
+which are declarative and load today ([[file:language-plugins.org][Language plugins]]). The plugin
+runtime is not implemented: Kalem cannot load a component today. The design is decided
 (D25, D28, D29) and written out in section 11 of
 [[https://github.com/getkalem/kalem/blob/main/docs/design_document.md][the design document]]: the manifest, the API, the events, the
 extension points and an example plugin. The work is groups 3.1 to 3.3

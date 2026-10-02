@@ -1576,7 +1576,11 @@ impl DocumentState {
         c.flag("modified", self.is_modified());
         c.flag("hasFile", self.meta.path.is_some());
         c.flag("readOnly", self.read_only);
-        c.flag("hasFormatter", crate::packs::has_formatter(self));
+        c.flag(
+            "hasFormatter",
+            crate::packs::has_formatter(self) || crate::lsp::can(self, crate::lsp::Kind::Format),
+        );
+        c.flag("hasLanguageServer", crate::lsp::serves(self));
         if self.meta.mode == DocumentMode::Markdown
             && self.text.len() <= crate::markdown::LIVE_LIMIT
         {

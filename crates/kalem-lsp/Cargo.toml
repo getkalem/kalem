@@ -1,0 +1,27 @@
+[package]
+name = "kalem-lsp"
+description = "The language server client of the Kalem editor (D57): one client in the core, language-agnostic, configured by language plugins"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["lsp", "language-server", "editor"]
+categories = ["text-editors", "development-tools"]
+
+[dependencies]
+serde_json = "1"
+tracing = "0.1"
+
+[dev-dependencies]
+proptest = "1"
+
+[lints]
+workspace = true
+
+# The fake server is the test binary itself, started again with
+# `KALEM_LSP_FAKE` set, so it needs its own `main`.
+[[test]]
+name = "fake_server"
+harness = false

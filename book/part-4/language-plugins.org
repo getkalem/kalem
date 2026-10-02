@@ -1,0 +1,167 @@
+A /language plugin/ makes Kalem an editor for a programming language:
+highlighting for its files, and a language server for completion,
+documentation, definitions, references, diagnostics and formatting.
+It is declarative (D57): a manifest, Sublime syntax files and
+settings, and no code. Kalem's core reads the manifest, adds the
+syntaxes to its highlighter and runs the servers through its one
+language server client, so a language plugin needs no WebAssembly
+runtime and works today. The first is [[file:elixir.org][Elixir]].
+
+| Part                  | Where                           | State                                                       |
+|-----------------------+---------------------------------+-------------------------------------------------------------|
+| The client            | =kalem-lsp=                     | Implemented: one server per plugin, server and root         |
+| The servers' service  | =kalem-core/src/lsp.rs=         | Implemented: documents in step, crashes restarted           |
+| The manifest          | =kalem-core/src/languages.rs=   | The =languages= and =servers= sections                      |
+| Syntaxes with =extends= | =kalem-highlight/src/plugins.rs= | Implemented                                              |
+| The plugins           | =getkalem/plugins=              | =elixir=                                                    |
+
+* Where plugins are found
+
+A plugin is a folder holding a =plugin.json=. Kalem looks in
+=~/.config/kalem/plugins/= (the =plugins= folder of the settings
+folder) and in the folders of the environment variable
+=KALEM_PLUGIN_PATH=, a list like =PATH= whose entries are plugin
+folders or folders of plugins. Until the installer exists (group
+3.3), installing a plugin means copying or linking its folder there.
+Plugins load when the settings load, before the first file opens;
+=kalem lsp status= lists them and the problems met loading them.
+
+* The manifest
+
+Beside the fields every plugin has (=id=, =name=, =version=,
+=description=, =api=), a language plugin has these:
+
+#+begin_src json
+{
+  "syntaxes": ["syntaxes/Elixir.sublime-syntax", "syntaxes/HTML (HEEx).sublime-syntax"],
+  "syntaxBases": ["syntaxes/bases/HTML.sublime-syntax"],
+  "languages": [
+    {
+      "id": "elixir",
+      "name": "Elixir",
+      "syntax": "Elixir",
+      "extensions": ["ex", "exs"],
+      "filenames": ["mix.lock"],
+      "shebangs": ["elixir"],
+      "comment": { "line": "#" },
+      "servers": ["expert", "elixir-ls"]
+    }
+  ],
+  "servers": {
+    "elixir-ls": {
+      "name": "ElixirLS",
+      "command": ["elixir-ls"],
+      "candidates": ["language_server.sh", "~/.elixir-ls/release/language_server.sh"],
+      "localDirs": [],
+      "env": {},
+      "rootMarkers": ["mix.exs"],
+      "rootOutermost": true,
+      "initializationOptions": {},
+      "settings": { "elixirLS": { "mixEnv": "test" } },
+      "install": "brew install elixir-ls"
+    }
+  }
+}
+#+end_src
+
+- =syntaxes= are Sublime syntax files (D16), added to the highlighter.
+  A plugin's syntax comes before a built-in one for the same
+  extension. =syntaxBases= are files that other syntaxes =extend= and
+  that are not languages of their own: a plugin's copy of HTML must
+  not take =.html= files from Kalem's.
+- A *language* is a server's =languageId=, the files it claims (by
+  whole name first, then by the longest extension, so =page.html.heex=
+  is HEEx and not HTML, then by the interpreter of a =#!= line), its
+  syntax's name, its comment tokens, and its servers in order of
+  preference.
+- A *server* is a program and its arguments. When the program is not
+  found, =candidates= are tried in order: bare names on the =PATH=
+  (after =localDirs= under the project's root, such as
+  =node_modules/.bin=), or paths, with =~= for the home folder. The
+  root is the folder up from the file holding one of =rootMarkers=:
+  the nearest, or the outermost with =rootOutermost= (an umbrella
+  project); without one, the file's folder. =settings= answer the
+  server's =workspace/configuration= requests and are sent once after
+  it starts. =install= is what the status bar says when no candidate is
+  found: Kalem never installs a server by itself.
+
+* Settings
+
+A user's settings for a plugin live under its ID in =settings.toml=:
+
+#+begin_src toml
+[plugins."org.kalem.elixir"]
+server = "auto"     # a server's key, or "off"
+
+[plugins."org.kalem.elixir".settings.elixirLS]
+mixEnv = "dev"      # merged over the server's own settings
+
+[plugins."org.kalem.elixir".servers.elixir-ls]
+command = ["/opt/elixir-ls/language_server.sh"]
+env = { ELS_INSTALL_PREFIX = "/opt/elixir-ls" }
+#+end_src
+
+* What the editor does with a server
+
+A server starts when the first file it serves opens and stops when the
+last one closes. Kalem keeps it in step: the whole text when a file
+opens, then each change as the range it replaced (as UTF-16 or UTF-8
+positions, whichever the server takes; Kalem's own offsets are bytes),
+and the save. Nothing waits for a server on the editor's thread: an
+answer arrives while you type, and a server that never answers costs
+nothing but its silence. A server that exits is started again after
+half a second, then one, two, four seconds; after five failures it
+stays stopped, and the status bar says so.
+
+| Feature                          | Vim profile        | Word-like profile | Command                                 |
+|----------------------------------+--------------------+-------------------+-----------------------------------------|
+| Completion                       | as you type        | as you type       | the =lsp= completer                     |
+| Documentation at the cursor      | =K=, =SPC c k=     |                   | =code.documentation=                    |
+| Definition                       | =gd=, =SPC c d=    | F12               | =code.definition=                       |
+| Declaration                      |                    |                   | =code.declaration=                      |
+| Type definition                  | =SPC c t=          |                   | =code.typeDefinition=                   |
+| Implementations                  | =SPC c i=          |                   | =code.implementation=                   |
+| References                       | =gD=, =SPC c D=    | Shift+F12         | =code.references=                       |
+| Symbols of the document          |                    |                   | =code.symbols=                          |
+| Problems of the file, open files | =SPC c x=, =SPC c X= |                 | =code.problems=, =code.allProblems=     |
+| Format the document              | =SPC c f=          |                   | =edit.formatDocument=                   |
+| Restart the server               |                    |                   | =code.restartServer=                    |
+| What serves the file             |                    |                   | =code.serverStatus=                     |
+
+=gd=, =gD= and =K= act only in files a server serves. A =SPC c= key
+with no server says why: no plugin for the file's type, a server
+not installed (with the plugin's =install= text), servers turned off,
+or a server that does not provide the feature. Several places are a
+list to choose from; one definition is a jump. The status bar shows
+the problem on the cursor's line, else the server's work in progress
+(ElixirLS compiling), else the counts of errors and warnings.
+Formatting is applied as one undoable change, and only when the
+document has not changed since it was asked.
+
+* On the command line
+
+#+begin_src sh
+kalem lsp status lib/hello.ex          # the plugins, and what serves the file
+kalem lsp check lib/*.ex               # the servers' diagnostics; exits 1 on errors
+kalem lsp check --format json lib/hello.ex
+kalem lsp ask hover lib/hello.ex 6:40  # documentation at line 6, column 40
+kalem lsp ask definition lib/hello.ex 6:40
+kalem lsp ask format lib/hello.ex      # the formatted text
+#+end_src
+
+=check= and =ask= start the server, wait until it is ready and quiet
+(=--wait= seconds at most), ask, and stop it.
+
+* Not implemented yet
+
+Rename, code actions, signature help, inlay hints, semantic tokens,
+the server's own commands, and edits a server asks to apply
+(=workspace/applyEdit= is refused, and said so in the log) are the
+rest of T3.8.2. Completion items are inserted as plain text: snippet
+placeholders are filled with their default text until the snippet
+engine (T3.8.3). Problems are listed and shown in the status bar, not
+yet underlined in the text. A second server for the same files (a
+linter beside the type server) and the plugin's run and test commands
+are read from the manifest but not used. The server's log (its log
+messages and standard error) is kept in memory, not shown yet; the
+log view is T2.7g.2.

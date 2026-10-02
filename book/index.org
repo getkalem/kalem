@@ -81,6 +81,8 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-4/commands-and-keys.org][Commands, scopes and keys]]
 - [[file:part-4/completers-and-modes.org][Completers, modes and highlighters]]
 - [[file:part-4/plugins.org][Plugins]]
+- [[file:part-4/language-plugins.org][Language plugins]]
+- [[file:part-4/elixir.org][Elixir]]
 
 * Part V. Design
 - [[file:part-5/design-documents.org][Design documents]]

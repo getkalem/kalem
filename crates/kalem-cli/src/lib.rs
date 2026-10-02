@@ -53,6 +53,43 @@ enum TableAction {
 }
 
 #[derive(Debug, Subcommand)]
+enum LspAction {
+    /// The language plugins, and what serves FILE: its language, root and
+    /// server, or why there is none.
+    Status {
+        /// A code file.
+        file: Option<PathBuf>,
+    },
+    /// The diagnostics of the files' language servers, once they settle;
+    /// exits 1 when there are errors.
+    Check {
+        /// Code files.
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = Format::Text)]
+        format: Format,
+        /// Seconds to wait for the server.
+        #[arg(long, default_value_t = 120)]
+        wait: u64,
+    },
+    /// Asks the server about a place: `hover`, `definition`,
+    /// `references`, `symbols` or `format` (prints the formatted text).
+    Ask {
+        /// The request.
+        request: String,
+        /// A code file.
+        file: PathBuf,
+        /// LINE:COLUMN, from 1.
+        #[arg(default_value = "1:1")]
+        place: String,
+        /// Seconds to wait for the server.
+        #[arg(long, default_value_t = 120)]
+        wait: u64,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum LatexAction {
     /// Build the PDF of a LaTeX document: its project's root document,
     /// with `latexmk` or the engine it names, and the problems of the log
@@ -215,6 +252,11 @@ enum Command {
         /// How many commands and environments to list.
         #[arg(long, default_value_t = 200)]
         top: usize,
+    },
+    /// Language servers: `kalem lsp status`, `kalem lsp check FILE`.
+    Lsp {
+        #[command(subcommand)]
+        action: LspAction,
     },
     /// LaTeX documents: `kalem latex build FILE`.
     Latex {
@@ -417,6 +459,20 @@ where
         Command::LatexCoverage { dirs, format, top } => {
             commands::latex_coverage(&dirs, matches!(format, Format::Json), top)
         }
+        Command::Lsp { action } => match action {
+            LspAction::Status { file } => commands::lsp::status(file.as_deref()),
+            LspAction::Check {
+                files,
+                format,
+                wait,
+            } => commands::lsp::check(&files, matches!(format, Format::Json), wait),
+            LspAction::Ask {
+                request,
+                file,
+                place,
+                wait,
+            } => commands::lsp::at(&request, &file, &place, wait),
+        },
         Command::Latex {
             action:
                 LatexAction::Build {

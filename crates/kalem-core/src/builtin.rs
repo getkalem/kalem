@@ -571,6 +571,7 @@ pub(crate) fn commands() -> Vec<Command> {
         crate::command::Scope::only(&["latex"]),
     ));
     all.extend(latex_commands());
+    all.extend(code_commands());
     for c in &mut all {
         c.args_schema = schemas
             .iter()
@@ -3273,6 +3274,165 @@ fn this_file_to(
     )
 }
 
+/// The commands of language servers (D57, T3.8.2), for files a language
+/// plugin serves; the answers arrive later, through `lsp::take_outcomes`.
+fn code_commands() -> Vec<Command> {
+    use crate::lsp::Kind;
+    fn ask(ctx: &mut EditorContext<'_>, kind: Kind) -> CommandResult {
+        crate::lsp::request(ctx.doc()?, kind).map_err(CommandError::new)
+    }
+    fn places(
+        ctx: &mut EditorContext<'_>,
+        title: &str,
+        places: Vec<crate::lsp::Place>,
+    ) -> CommandResult {
+        if places.is_empty() {
+            ctx.messages.push("No problems".into());
+            return Ok(());
+        }
+        let _ = title;
+        request(ctx, Request::Choose(crate::lsp::place_items(&places)))
+    }
+    let server = Some("hasLanguageServer");
+    vec![
+        cmd(
+            "code.documentation",
+            "Show Documentation",
+            "Code",
+            &[],
+            None,
+            |ctx, _| ask(ctx, Kind::Hover),
+        ),
+        cmd(
+            "code.definition",
+            "Go to Definition",
+            "Code",
+            &["f12"],
+            None,
+            |ctx, _| ask(ctx, Kind::Definition),
+        ),
+        cmd(
+            "code.declaration",
+            "Go to Declaration",
+            "Code",
+            &[],
+            server,
+            |ctx, _| ask(ctx, Kind::Declaration),
+        ),
+        cmd(
+            "code.typeDefinition",
+            "Go to Type Definition",
+            "Code",
+            &[],
+            None,
+            |ctx, _| ask(ctx, Kind::TypeDefinition),
+        ),
+        cmd(
+            "code.implementation",
+            "Go to Implementations",
+            "Code",
+            &[],
+            None,
+            |ctx, _| ask(ctx, Kind::Implementation),
+        ),
+        cmd(
+            "code.references",
+            "Find References",
+            "Code",
+            &["shift+f12"],
+            None,
+            |ctx, _| ask(ctx, Kind::References),
+        ),
+        cmd(
+            "code.symbols",
+            "Go to Symbol in Document",
+            "Code",
+            &[],
+            server,
+            |ctx, _| ask(ctx, Kind::Symbols),
+        ),
+        cmd(
+            "code.problems",
+            "List Problems",
+            "Code",
+            &[],
+            None,
+            |ctx, _| {
+                let path = ctx.doc()?.meta.path.clone().unwrap_or_default();
+                let all: Vec<_> = crate::lsp::all_problems()
+                    .into_iter()
+                    .filter(|p| p.path == path)
+                    .collect();
+                places(ctx, "Problems", all)
+            },
+        ),
+        cmd(
+            "code.allProblems",
+            "List Problems of Open Files",
+            "Code",
+            &[],
+            None,
+            |ctx, _| places(ctx, "Problems", crate::lsp::all_problems()),
+        ),
+        cmd(
+            "code.restartServer",
+            "Restart Language Server",
+            "Code",
+            &[],
+            server,
+            |ctx, _| {
+                let m = crate::lsp::restart(ctx.doc()?).map_err(CommandError::new)?;
+                ctx.messages.push(m);
+                Ok(())
+            },
+        ),
+        cmd(
+            "code.serverStatus",
+            "Language Server Status",
+            "Code",
+            &[],
+            None,
+            |ctx, _| {
+                let mut lines = crate::lsp::report();
+                if let Ok(d) = ctx.doc()
+                    && let Some(s) = crate::lsp::describe(d)
+                {
+                    lines.insert(0, s);
+                }
+                for p in crate::languages::problems() {
+                    lines.push(p);
+                }
+                ctx.messages.push(if lines.is_empty() {
+                    "No language servers running".into()
+                } else {
+                    lines.join(" · ")
+                });
+                Ok(())
+            },
+        ),
+        cmd(
+            "code.goto",
+            "Go to Place",
+            "Code",
+            &[],
+            None,
+            |ctx, args| {
+                let path = args["path"]
+                    .as_str()
+                    .ok_or_else(|| CommandError::new("No place"))?;
+                request(
+                    ctx,
+                    Request::OpenAt {
+                        path: path.to_string(),
+                        line: args["line"].as_u64().unwrap_or(1),
+                        column: args["column"].as_u64().unwrap_or(0) as usize,
+                    },
+                )
+            },
+        ),
+    ]
+}
+
 fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
     ctx.requests.push(r);
     Ok(())
@@ -3684,6 +3844,13 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some("editorMode == org || editorMode == latex || hasFormatter"),
             |ctx, _| {
+                // The language server's formatting (D57); its edits come
+                // back through `lsp::take_outcomes`.
+                if crate::lsp::can(ctx.doc()?, crate::lsp::Kind::Format) {
+                    crate::lsp::request(ctx.doc()?, crate::lsp::Kind::Format)
+                        .map_err(CommandError::new)?;
+                    return Ok(());
+                }
                 // A language pack's formatter (T2.7a.7); a syntax error
                 // refuses, at its place.
                 if let Some(f) = crate::packs::format(ctx.doc()?) {

@@ -8,7 +8,7 @@ plugins (D25). This chapter says where each contract stands today.
 | Contract       | State today                                                                                                                    | Code                           | Plugin side       |
 |----------------+--------------------------------------------------------------------------------------------------------------------------------+--------------------------------+-------------------|
 | Completers     | Implemented; three built-in completers use it                                                                                  | =kalem-core/src/completers.rs= | T3.1.9c           |
-| Highlighters   | syntect with the built-in syntax definitions                                                                                   | =kalem-highlight/src/lib.rs=   | T3.1.9g           |
+| Highlighters   | syntect with the built-in syntax definitions, and language plugins' (no code)                                                 | =kalem-highlight/src/lib.rs=   | T3.1.9g           |
 | Document modes | The contract with its conformance check; CSV and the Kalem format on it, the editors still drawing each mode with its own code | =kalem-core/src/modes.rs=      | T2.7c.10, T3.1.9g |
 | Language packs | Implemented and wired; no pack built in                                                                                        | =kalem-core/src/packs.rs=      | T3.1.9c, T3.1.9e  |
 
@@ -207,10 +207,13 @@ kinds with the theme, whose six code colors (=keyword=, =string=,
 =themes/light.toml= and =themes/dark.toml=. In plain text files the
 highlighter keeps its state at each line, so after an edit only the
 changed lines, and those after them until the state is what it was,
-are highlighted again. There is no way today to add a syntax
-definition without rebuilding Kalem; the plugin API will load a
-Sublime syntax definition from a plugin's folder, with no code
-(T3.1.9g).
+are highlighted again. A [[file:language-plugins.org][language plugin]] adds Sublime syntax
+definitions from its folder, with no code: they come before the
+built-in ones for their extensions, and =extends= (which syntect does
+not know, and which Sublime Text's own syntaxes use) is resolved by
+Kalem. The set with the plugins' syntaxes takes most of a second to
+build, so it is built once and kept in Kalem's state folder until a
+plugin changes.
 
 * Language packs
 

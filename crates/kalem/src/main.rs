@@ -12,6 +12,7 @@ use std::process::ExitCode;
 const SUBCOMMANDS: &[&str] = &[
     "parse",
     "check",
+    "lsp",
     "fmt",
     "complete",
     "commands",

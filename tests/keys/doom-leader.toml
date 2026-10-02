@@ -1135,13 +1135,13 @@ reason = "Not yet: a build command per project (a setting)"
 doom = "SPC c d"
 keys = "space c d"
 what = "Definition"
-reason = "Waits for the language packs (3.8)"
+command = "code.definition"
 
 [[key]]
 doom = "SPC c D"
 keys = "space c shift+d"
 what = "References"
-reason = "Waits for the language packs (3.8)"
+command = "code.references"
 
 [[key]]
 doom = "SPC c e"
@@ -1159,7 +1159,7 @@ command = "edit.formatDocument"
 doom = "SPC c i"
 keys = "space c i"
 what = "Implementations"
-reason = "Waits for the language packs (3.8)"
+command = "code.implementation"
 
 [[key]]
 doom = "SPC c j"
@@ -1177,7 +1177,7 @@ reason = "Waits for the language packs (3.8)"
 doom = "SPC c k"
 keys = "space c k"
 what = "Documentation"
-reason = "Waits for the language packs (3.8)"
+command = "code.documentation"
 
 [[key]]
 doom = "SPC c l"
@@ -1195,7 +1195,7 @@ reason = "Waits for the language packs (3.8)"
 doom = "SPC c t"
 keys = "space c t"
 what = "Type definition"
-reason = "Waits for the language packs (3.8)"
+command = "code.typeDefinition"
 
 [[key]]
 doom = "SPC c w"
@@ -1213,13 +1213,13 @@ command = "edit.trimTrailingBlankLines"
 doom = "SPC c x"
 keys = "space c x"
 what = "Diagnostics"
-reason = "Waits for the checks of =kalem check= in the editor, and the language packs (3.8)"
+command = "code.problems"
 
 [[key]]
 doom = "SPC c X"
 keys = "space c shift+x"
 what = "Project diagnostics"
-reason = "Waits for the checks of =kalem check= in the editor, and the language packs (3.8)"
+command = "code.allProblems"
 
 
 # Git =SPC g=: the git plugin of getkalem/plugins.

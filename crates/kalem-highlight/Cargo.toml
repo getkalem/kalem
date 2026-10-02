@@ -9,7 +9,12 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
+syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "regex-fancy", "yaml-load"] }
+# Sublime syntaxes of plugins, read to resolve `extends` before syntect
+# loads them (syntect reads the same YAML with the same crate).
+yaml-rust = "0.4"
+# The cached set of syntaxes with what was registered (`register_cached`).
+serde = { version = "1", features = ["derive"] }
 # bat's syntaxes on top of syntect's (TOML, INI, TypeScript and others).
 two-face = { version = "0.5", default-features = false, features = ["syntect-fancy"] }
 
