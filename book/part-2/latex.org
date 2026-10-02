@@ -14,7 +14,9 @@ LaTeX has no reference grammar. TeX is a macro language whose category
 codes, commands and environments can all be redefined, and the
 structure of a document depends on the class and packages it loads.
 Kalem therefore cannot claim, as its Org mode does, to agree with a
-reference parser on every input. The standard it follows is
+reference parser on every input. What the project established about the
+language itself, independent of Kalem, is written down as a
+specification in the appendix [[file:../appendices/latex-as-written.org][LaTeX as written]]. The standard it follows is
 /standard LaTeX as the TeX engines accept it/: TeX's standard category
 codes, the LaTeX 2ε kernel, the standard classes (=article=, =report=,
 =book=), =amsmath=, and the conventions of the common packages. Its

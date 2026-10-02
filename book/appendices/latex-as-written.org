@@ -1,0 +1,597 @@
+#+TITLE: LaTeX as written: a specification
+
+TeX has a reference implementation and a book, and LaTeX has a kernel
+and its documentation, but neither has a specification of the language
+documents are written in: which characters mean what, what a command
+takes as its arguments, how a document is numbered, what a reader of
+the source must understand to show it as it reads. Every program other
+than TeX that reads LaTeX (converters, editors, checkers) has made its
+own guess. This appendix writes down what the Kalem project established
+while making its LaTeX mode read real documents, so that the guess need
+not be made again. It is descriptive of LaTeX 2ε as authors write it and
+normative for a program that claims to read it as this appendix does.
+
+It is independent of Kalem: it says what a document means, not how an
+editor shows it. Where Kalem's own choices are meant, Part II's
+[[file:../part-2/latex.org][LaTeX]] chapter is the reference.
+
+* Status and scope
+
+This is version 1 of the specification, of 2026-10. It covers:
+
+- documents for the LaTeX 2ε kernel with TeX's standard category codes,
+  compiled by pdfTeX, XeTeX or LuaTeX;
+- the standard classes (=article=, =report=, =book=), the AMS classes,
+  =memoir= and the KOMA-Script classes as far as numbering goes, and the
+  class files of journals that keep LaTeX's commands (=revtex4-2=,
+  =elsarticle=, =IEEEtran=, =acmart=, =llncs=);
+- the packages most papers load: =amsmath=, =amssymb=, =amsthm=,
+  =graphicx=, =hyperref=, =cleveref=, =natbib=, =biblatex= (its citation
+  commands), =xcolor=, =booktabs=, =multirow=, =subcaption=, =subfig=,
+  =enumitem=, =siunitx= (its number and unit commands), =glossaries= and
+  =acronym= (their uses), =xspace=, =pifont=, =tikz= (as pictures).
+
+It does not cover TeX's macro language in general. A document that
+changes category codes, defines its commands with =\csname= loops or
+expands macros to build its structure is outside it; §12 says what a
+reader does with such parts.
+
+* Conventions
+
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are used as in
+RFC 2119.
+
+- A /reader/ is a program that takes LaTeX source and gives its structure:
+  paragraphs, commands with their arguments, environments, formulas,
+  sections with their numbers, labels with what they point at.
+- A /renderer/ is a reader that also shows the text as it is typeset
+  (an editor's view, a converter's output).
+- /Typesets as/ means: pdfLaTeX with the document's preamble puts the
+  same glyphs in the same order in a box (the test of §13.2).
+- /Blank/ means a space or a tab; /line ending/ means LF, CRLF or a lone CR.
+
+Examples are LaTeX source in a fixed-width font; the arrow ⇒ gives what
+it typesets or means.
+
+* Basis
+
+Every rule below is backed by at least one of:
+
+1. *pdfLaTeX.* Generated documents compiled by pdfLaTeX, whose boxes
+   (=\showbox=) or auxiliary files are compared with what the rule
+   predicts: one line per box for text (§13.2), the =.aux= file's labels
+   for numbering (§13.3). The generators are random and seeded; their
+   seeds run in continuous integration, a new seed on every run.
+2. *A corpus.* 925 papers submitted to arXiv in 2024, 179 to 189 per
+   field in biology, computer science, economics, mathematics and
+   physics (the first of each category by date with a LaTeX source, the
+   categories of a field in equal shares), 2,496 files read by their documents, 86 MB of text between
+   =\begin{document}= and =\end{document}=. §11 gives the measures.
+3. *The documented behaviour* of the kernel and the packages
+   (=source2e=, the package manuals), where 1 and 2 agree with it.
+
+* Characters and tokens
+
+** Category codes
+
+A reader MUST read the source with TeX's standard category codes:
+
+| Characters                 | Meaning                                                    |
+|----------------------------+------------------------------------------------------------|
+| =\=                        | escape: a control sequence follows                         |
+| ={= =}=                    | begin and end of a group                                   |
+| =$=                        | math shift                                                 |
+| =&=                        | alignment tab                                              |
+| =#=                        | macro parameter                                            |
+| =^= =_=                    | superscript, subscript (in math)                           |
+| =%=                        | comment: the rest of the line, its line ending included    |
+| =~=                        | an unbreakable space                                       |
+| the letters a to z, A to Z | letters                                                    |
+| everything else            | other characters, typeset as themselves                    |
+
+=@= is a letter between =\makeatletter= and =\makeatother= and other
+characters elsewhere. A reader MUST NOT follow other category code
+changes (=\catcode=, =\ExplSyntaxOn=, active characters); it MAY report
+them.
+
+** Control sequences
+
+A /control word/ is =\= followed by one or more letters; it ends at the
+first character that is not a letter. A /control symbol/ is =\= followed
+by any one other character, a line ending counting as a character (it
+reads as a control space).
+
+*Blanks after a control word.* The blanks after a control word are not
+text: TeX skips them while reading the name. A single line ending among
+them is skipped too; a blank line is a paragraph break and is not.
+
+#+begin_src latex
+\LaTeX is   fine   ⇒ LaTeXis fine
+\LaTeX{} is fine   ⇒ LaTeX is fine
+\LaTeX\ is fine    ⇒ LaTeX is fine
+#+end_src
+
+Blanks after a control symbol are text: =\%= followed by two blanks and
+=x= typesets =% x=, with one space (runs of blanks are one space, §5.1).
+
+** Lines and paragraphs
+
+A line ending is a space in text. One or more blank lines (lines of only
+blanks) end a paragraph, as =\par= does. Blanks at the start of a line
+are skipped. A comment removes the rest of its line and its line ending,
+so =a%= at the end of a line joins it to the next with no space.
+
+* Text
+
+** Spaces
+
+Runs of blanks and a single line ending typeset one interword space.
+Spaces at the start of a paragraph are dropped. =~= is an interword
+space that does not break. The control space, a backslash followed by a blank, is an interword
+space that is not skipped after a control word.
+
+| Source                   | Typesets as                         |
+|--------------------------+-------------------------------------|
+| =\,= =\thinspace=        | a thin space (1/6 em)               |
+| =\:= =\>= =\;=           | medium and thick spaces (in text with amsmath: as in math) |
+| =\!=                     | a negative thin space               |
+| =\enspace= =\quad= =\qquad= | ½ em, 1 em, 2 em                 |
+| =\@= =\/= =\-=           | nothing visible (spacing and hyphenation hints) |
+| =\space=                 | a space                             |
+| =\relax=                 | nothing                             |
+
+*=\ignorespaces= expands.* =\ignorespaces= skips the blanks after it and
+expands macros while it skips, so a macro that expands to a space (=\space=)
+is skipped too. xcolor's =\color{c}= ends with it:
+
+#+begin_src latex
+A{\color{blue} \space x}  ⇒ Ax
+#+end_src
+
+** Ligatures and quotes
+
+In the text fonts of LaTeX's standard encodings (OT1, T1) the characters
+below are ligatures, made by the font:
+
+| Source  | Typesets as |
+|---------+-------------|
+| =``=    | “           |
+| =''=    | ”           |
+| =`=     | ‘           |
+| ='=     | ’           |
+| =--=    | –           |
+| =---=   | —           |
+| =?`=    | ¿           |
+| =!`=    | ¡           |
+| =,,= (T1) | „         |
+| =<<= =>>= (T1) | « » |
+
+A ligature forms only between characters in the same font with nothing
+between them: =-{}-= and =-\relax-= typeset two hyphens. Whether two
+quotes join into one ligature depends on what boxes are between them.
+The typewriter fonts have no ligatures of dashes and quotes in T1.
+
+** Accents and text symbols
+
+The accent commands (=\'= =\`= =\^= =\"= =\~= =\== =\.= =\u= =\v= =\H=
+=\c= =\k= =\r= =\b= =\d= =\t=) take one argument, a group or a single
+token: =\'e= =\'{e}= =\' e= all typeset é. =\i= and =\j= are the dotless
+letters for accenting. The named letters (=\ss= =\ae= =\AE= =\oe= =\OE=
+=\o= =\O= =\aa= =\AA= =\l= =\L=) and the text symbols (=\textohm=,
+=\texteuro=, =\textdegree=, =\textsection=, …) typeset one character.
+With =\textohm= that character is U+2126 OHM SIGN; it is not changed by
+a case change.
+
+** Case changes
+
+| Command                         | What it changes                                                       |
+|---------------------------------+-----------------------------------------------------------------------|
+| =\MakeUppercase= =\MakeLowercase= | LaTeX's: expands its argument first, then changes the case of letters, accented letters and the named letters (=\ss= ⇒ SS) |
+| =\uppercase= =\lowercase=       | TeX's primitives: change the character codes of the letters in their argument as written, without expanding it |
+
+=\romannumeral n= typesets =n= in lower-case Roman numerals (=\romannumeral 4= ⇒
+iv; nothing for 0), so =\MakeUppercase{\romannumeral 4}= ⇒ IV.
+
+A reader SHOULD NOT nest TeX's =\lowercase= around LaTeX's case change of
+an accented letter: =\lowercase{\MakeLowercase{é}}= does not end in
+pdfLaTeX.
+
+** Fonts and colors
+
+The text commands (=\textbf=, =\textit=, =\emph=, =\texttt=, =\textsc=,
+=\textsf=, =\textrm=, =\textsl=, =\textup=, =\textmd=, =\textnormal=,
+=\underline=, =\textsuperscript=, =\textsubscript=) take one argument and
+style it. The declarations (=\bfseries= =\itshape= =\em= =\ttfamily=
+=\scshape= =\sffamily= =\normalfont=, the old =\bf= =\it= =\tt= =\sc=
+=\sf= =\rm=, and the sizes =\tiny= … =\Huge=, =\normalsize=) style the
+rest of their group: to the =}= that closes it, to the end of the
+environment, or, outside both, to the end of the paragraph. =\emph=
+inside italic text is upright.
+
+=\textcolor{c}{x}= colors =x=; =\color{c}= colors the rest of its group
+and skips the blanks after it (§5.1). =\textcolor[model]{spec}{x}= and
+=\color[model]{spec}= give the color by a model (=rgb=, =RGB=, =HTML=,
+=gray=, =cmyk=).
+
+* Groups and arguments
+
+** Groups
+
+={…}= is a group: declarations inside it end at its =}=. A group MAY span
+paragraph breaks. An environment's body is a group.
+
+** Arguments
+
+A command takes its arguments by a /signature/, a string of letters read
+left to right:
+
+| Letter | Argument                                                                                         |
+|--------+--------------------------------------------------------------------------------------------------|
+| =s=, =*= | an optional star, immediately after what precedes it                                           |
+| =o=    | an optional argument: =[…]= with a matching =]=, braces balanced inside, before the end of the paragraph |
+| =O{d}= | an optional argument with the default =d=                                                         |
+| =m=    | a mandatory argument: a group, or else a single token                                             |
+
+Before each argument the reader skips blanks and at most one line
+ending. A mandatory argument that is not a group is one token: a control
+word with the blanks after it, a control symbol, or one character
+(=\frac12= ⇒ ½: two arguments, =1= and =2=). An optional argument that is
+not there leaves the =[= or the text as text.
+
+The signatures of the kernel's and the common packages' commands are
+those of their documentation; Part II's [[file:../part-2/latex.org][LaTeX]] chapter lists the ones a
+reader most needs. A command whose signature is not known takes no
+arguments: =\foo{a}{b}= is the command =\foo= and two groups, which keeps
+what follows it readable.
+
+** Verbatim arguments
+
+=\verb|…|= (any delimiter but a blank, a letter or =*=; =\verb*= shows
+spaces) and =\lstinline= take their text as written, to the delimiter,
+on one line. =\url{…}= and the address of =\href{…}{text}= are verbatim
+in a group, so =%=, =#=, =_= and =~= in them are not special. The
+environments =verbatim=, =verbatim*=, =Verbatim=, =BVerbatim=,
+=lstlisting=, =minted=, =comment=, =filecontents= end at the first
+literal =\end{name}=; nothing before it is a command, a comment or a
+group.
+
+* Documents and projects
+
+** Preamble and body
+
+A document is =\documentclass[options]{class}=, a /preamble/ of
+definitions and =\usepackage= lines, then =\begin{document}= … =\end{document}=,
+the /body/. What follows =\end{document}= is ignored. A file without
+=\begin{document}= is a part of a document (§7.2).
+
+** The root document of a file
+
+A file belongs to the document that reads it. A reader MUST find it in
+this order:
+
+1. a =% !TEX root = file= line among the first lines;
+2. =\documentclass[main.tex]{subfiles}= (the subfiles package);
+3. the file itself, when it has =\documentclass=;
+4. a document with =\documentclass= in the file's folder or a folder
+   above it, within the project, that includes the file (directly or
+   through other files);
+5. any document of the project that includes it.
+
+** Inclusion
+
+| Command                          | Reads                                                                                       |
+|----------------------------------+---------------------------------------------------------------------------------------------|
+| =\input{f}=, =\input f=          | =f= or =f.tex=, relative to the root document's folder (=\input f= reads the name to a blank) |
+| =\include{f}=                    | =f.tex=, on a new page, when =\includeonly= does not leave it out                          |
+| =\subfile{f}=                    | =f.tex=, whose own preamble is ignored inside the root                                     |
+| =\import{dir}{f}=, =\subimport=  | =f= in =dir=, later inputs relative to it (the import package)                             |
+
+A local =.sty= or =.cls= file in the document's folder is part of it:
+its definitions (§8) are the document's.
+
+* Definitions
+
+** Commands
+
+| Form                                                   | Defines                                                                 |
+|--------------------------------------------------------+-------------------------------------------------------------------------|
+| =\newcommand{\c}[n]{body}= (also =\renewcommand=, =\providecommand=, starred) | =\c= with =n= (0–9) mandatory arguments =#1= … =#n=        |
+| =\newcommand{\c}[n][d]{body}=                          | the first argument optional, =d= when it is not given                   |
+| =\def\c#1#2{body}= (also =\gdef=, =\edef=, =\xdef=)    | =\c= with the parameters written; =\edef= expands the body now          |
+| ~\let\c=\d~, ~\let\c\d~                                | =\c= as =\d= is now                                                     |
+| =\DeclareRobustCommand=                                | as =\newcommand=                                                        |
+| =\NewDocumentCommand{\c}{spec}{body}= (xparse; also =\RenewDocumentCommand=, =\ProvideDocumentCommand=, =\DeclareDocumentCommand=) | =\c= with the arguments of =spec= (§6.2's letters) |
+| =\DeclareMathOperator{\op}{text}=                      | =\op= as the operator =text= (upright, operator spacing)                |
+| =\newenvironment{e}[n][d]{begin}{end}=                 | the environment =e=                                                     |
+
+*Expansion is at the use.* A body is a template; it is expanded where
+the command is used, with the definitions in force there. A definition
+MAY use a command defined after it (=\newcommand{\vu}{\vc{u}}= before
+=\vc= is fine). A label, citation or section inside a body counts only
+where the command is used.
+
+*Arguments of the document's own commands.* A reader that does not
+expand macros MUST NOT give the document's commands signatures for
+parsing, but a renderer SHOULD use their definitions: a command whose
+body, its arguments put in, is text typesets that text
+(=\newcommand{\vs}[2]{#1 versus #2}=, =\vs{A}{B}= ⇒ A versus B); a command
+whose body is its first argument alone or in one style or color
+(={#1}=, =\textbf{#1}=, ={\color{black}{#1}}=) typesets its argument.
+
+*=\xspace=* (the xspace package) at the end of a body adds a space unless
+punctuation or a closing brace follows.
+
+*What a reader MUST NOT redefine.* A document or package may redefine
+TeX's own definition commands (=\def=, =\newcommand=, =\begin=, =\left=,
+=\relax=, …) internally. A reader that collects definitions MUST NOT take
+such a redefinition: it would change every definition after it.
+
+** Equation macros
+
+Papers define macros for the opening and closing of a displayed
+equation: =\def\be{\begin{equation}}=, =\def\ee{\end{equation}}=. A reader
+MUST treat a macro whose body opens (closes) a display math environment
+as that opening (closing), so the formula between is math. The pairs
+~\be~ ~\ee~, ~\beq~ ~\eeq~, ~\beqn~ ~\eeqn~, ~\bea~ ~\eea~,
+~\beqa~ ~\eeqa~, ~\beqna~ ~\eeqna~, ~\bes~ ~\ees~, ~\ben~ ~\een~ and
+~\begeq~ ~\endeq~ are so common that a reader SHOULD take them as such
+when the file does not define them (a file of a project whose root does).
+=\begin{equation}= … =\ee= is the same environment.
+
+* Structure and numbering
+
+** Classes
+
+| Class kind | Classes                                 | Chapters | =secnumdepth= | Counters reset by =chapter=                |
+|------------+-----------------------------------------+----------+---------------+--------------------------------------------|
+| book       | =book= =scrbook= =extbook=              | yes      | 2             | =equation= =figure= =table= =footnote=     |
+| report     | =report= =scrreprt= =extreport=         | yes      | 2             | =equation= =figure= =table= =footnote=     |
+| amsbook    | =amsbook=                               | yes      | 3             | =figure= =table= =footnote= (printed without the chapter) |
+| memoir     | =memoir=                                | yes      | 1             | =equation= =figure= =table= =footnote=     |
+| article    | every other class, and no class         | no       | 3             | —                                          |
+
+In book and report, =\theequation=, =\thefigure= and =\thetable= leave
+the chapter out while it is 0 (=Figure 1= before the first chapter).
+
+** Sections
+
+| Level | Command          | Numbered when                    | Printed                                    |
+|-------+------------------+----------------------------------+--------------------------------------------|
+| −1    | =\part=          | =secnumdepth= ≥ −1               | I, II, … (resets nothing)                  |
+| 0     | =\chapter=       | in the main matter               | 1, 2, …; A, B, … after =\appendix=         |
+| 1     | =\section=       | =secnumdepth= ≥ 1                | 1 (article), 1.1 (chaptered); A in an article's appendix |
+| 2     | =\subsection=    | =secnumdepth= ≥ 2                | 1.1, 1.1.1                                 |
+| 3     | =\subsubsection= | =secnumdepth= ≥ 3                | parent's number, a dot, its own            |
+| 4, 5  | =\paragraph=, =\subparagraph= | =secnumdepth= ≥ 4, 5 | the same                              |
+
+A starred sectioning command is not numbered and does not step its
+counter. Each level resets the levels below it; resets cascade (a new
+chapter resets =section=, which resets =subsection=, and so on).
+=\appendix= resets =section= and =subsection= (article) or =chapter= and
+=section= (chaptered) and switches to letters. =\frontmatter= and
+=\backmatter= stop numbering chapters; =\mainmatter= resumes it.
+
+** Counters
+
+=\setcounter{c}{n}= and =\addtocounter{c}{n}= set any counter.
+=\numberwithin{c}{w}= (amsmath) and =\counterwithin{c}{w}= reset =c= with
+=w= and print it as =w='s number, a dot, its own; =\counterwithout=
+undoes it; =\newcounter{c}[w]= resets =c= with =w= but prints it alone.
+=\refstepcounter{c}= steps =c= and makes it what =\label= points at.
+=\renewcommand{\thec}{…}= changes how =c= prints, through =\arabic=,
+=\roman=, =\Roman=, =\alph=, =\Alph= and other =\the…= commands.
+
+** Lists
+
+=enumerate= numbers its items 1., 2., …; nested, (a), i., A. (the standard
+classes' four levels); a =\label= on an item points at =2=, =2a=, =2(b)i=,
+=2(b)iA=. =\item[x]= shows =x= and numbers nothing. =itemize= and
+=description= number nothing. enumitem's =label== option changes the
+printed label and what =\ref= prints.
+
+** Floats and captions
+
+A =\caption= in =figure= (=figure*=, =wrapfigure=) steps =figure=; in
+=table= (=table*=, =wraptable=, =longtable=) it steps =table=. In
+=subfigure= and =subtable= (subcaption) and for =\subfloat[caption]{…}=
+(subfig) the caption is lettered a, b, … within its float, and =\ref=
+prints the float's number and the letter (=1a=). =\captionof{figure}{…}=
+steps =figure= outside a float. A caption elsewhere is not numbered.
+
+** Theorems
+
+=\newtheorem{env}{Title}= declares an environment with its own counter;
+=\newtheorem{env}[other]{Title}= shares =other='s;
+=\newtheorem{env}{Title}[within]= numbers within =within= (=1.1=);
+=\newtheorem*= declares an unnumbered one. thmtools' =\declaretheorem=
+does the same with keys (=name=, =numberwithin=, =sibling=,
+=numbered=no=). The environment's optional argument is its note.
+=proof= (amsthm) is unnumbered and ends with ∎.
+
+** Equations
+
+| Environment                                                           | Numbers                                                       |
+|-----------------------------------------------------------------------+---------------------------------------------------------------|
+| =equation=, =multline=                                                | one                                                           |
+| =align=, =gather=, =flalign=, =alignat=, =eqnarray=                   | one per line; each =\\= ends a line, and so does the environment's end |
+| the starred forms, =\[…\]=, =displaymath=                             | none; =\tag{x}= numbers a line =(x)= (not in =$$…$$=)          |
+| =subequations=                                                        | steps =equation= once; lines inside are =3a=, =3b=, …         |
+| =split=, =aligned=, =gathered=, =cases=, the matrices                 | nothing of their own (inner)                                  |
+
+=\nonumber= and =\notag= take a line's number away; =\tag{x}= replaces it.
+
+** Labels and references
+
+=\label{k}= takes the number of the last thing numbered in its scope by
+=\refstepcounter= (a section, an equation line, a caption, a theorem, an
+enumerated item, a footnote). An environment and a footnote's text are
+groups: at their end what =\label= points at is restored. A label with
+nothing numbered before it points at nothing.
+
+| Command                    | Prints for a label                                   |
+|----------------------------+------------------------------------------------------|
+| =\ref{k}=                  | its number                                           |
+| =\eqref{k}=                | its number in parentheses                            |
+| =\pageref{k}=              | its page                                             |
+| =\autoref{k}= (hyperref)   | the kind's name and the number: Section 2, Figure 3  |
+| =\cref{k}=, =\Cref{k}= (cleveref) | the same, lower- and upper-case; =\cref{a,b}= lists them |
+| =\nameref{k}=              | the title of what it points at                       |
+
+When two labels have the same key, pdfLaTeX writes both to the =.aux=
+file and the last one written is the one =\ref= reads on the next run;
+a reader SHOULD report the clash.
+
+** Citations and the bibliography
+
+=\cite[post]{k1,k2}= and its variants (natbib's =\citet= =\citep=
+=\citeauthor= =\citeyear= =\citealt= =\citealp= with optional pre- and
+post-notes =[pre][post]=; biblatex's =\parencite= =\textcite=
+=\autocite= =\footcite= and their capitalized forms) cite entries of the
+=.bib= files named by =\bibliography{a,b}= or =\addbibresource{a.bib}=,
+or of a =thebibliography= environment's =\bibitem[label]{key}=. The
+label printed follows =\bibliographystyle= (numbers or author–year).
+
+* Mathematics
+
+** Formulas
+
+| Delimiters                     | Formula                   |
+|--------------------------------+---------------------------|
+| =$…$=, =\(…\)=, =\begin{math}= | inline                    |
+| =$$…$$=, =\[…\]=, =\begin{displaymath}= | displayed, unnumbered |
+| the environments of §9.7       | displayed                 |
+
+A formula ends at its closing delimiter; one not closed by the end of
+its paragraph is an error. Inside a formula, =\text{…}=, =\mbox{…}=,
+=\textrm{…}= and the other text commands are text again, and =$= inside
+them opens a formula. =\ensuremath{x}= is math in text and in math.
+
+** What a formula renderer must read
+
+A renderer that draws formulas MUST accept the commands of LaTeX's math
+mode and of =amsmath= and =amssymb=, and SHOULD accept, as their usual
+definitions: =\mathds= =\mathbbm= (as =\mathbb=), =\bm= =\boldsymbol=,
+=\nicefrac= =\sfrac=, =\tfrac= =\dfrac= =\cfrac=, =\xrightarrow=
+=\xleftarrow=, =\operatorname=, =\DeclareMathOperator='s operators,
+=\text=, =\intertext=, =\tag=, =\substack=, the =cases= =dcases= =matrix=
+families, =\overset= =\underset= =\stackrel=, =\overbrace= =\underbrace=,
+the physics package's delimiters and Dirac notation (=\abs= =\norm=
+=\qty= =\ket= =\bra=), and the
+letter families papers define in loops (=\cA= … =\cZ= as =\mathcal=,
+=\bA= … as =\mathbb=, =\sA= … as =\mathscr=, =\fA= … as =\mathfrak=)
+when the document does not define them itself.
+
+The document's own macros (§8.1) apply in formulas: a renderer MUST use
+the definitions that read, in their order, and MUST NOT let one
+definition it cannot read stop the formulas after it. A definition is
+read when it, a formula after it and its use draw nothing but the
+formula: a definition that leaves text behind (an optional argument's
+default the renderer does not take, =\newcommand{\x}[2][]{#2}=, read as
+two arguments and a stray =]#2=) MUST be taken as =\def\x#1{#1}=, the
+default put in the first argument's place.
+
+Commutative diagrams (=tikz-cd=, =xymatrix=), =\buildrel=, plain TeX's
+=\matrix= and =\over=, the size environments and =\textcolor= with a
+model are written in formulas often enough that a renderer SHOULD read
+them or have TeX typeset the formula.
+
+* What the corpus shows
+
+Measured on the corpus of §3 with Kalem's coverage tool (=kalem
+latex-coverage=, §13.1), by bytes of body text:
+
+| Field            | Papers | Files | Body KB | Formulas | Neither text nor a construct this appendix covers |
+|------------------+--------+-------+---------+----------+---------------------------------------------------|
+| biology          |    189 |   588 |  14,375 |   10.43% | 0.14%                                             |
+| computer science |    179 |   869 |  16,220 |   12.63% | 0.43%                                             |
+| economics        |    183 |   484 |  22,225 |   22.72% | 0.14%                                             |
+| mathematics      |    187 |   256 |  18,713 |   38.92% | 0.13%                                             |
+| physics          |    187 |   299 |  14,646 |   16.92% | 0.31%                                             |
+| all              |    925 | 2,496 |  86,181 |   21.30% | 0.22%                                             |
+
+A fifth of what papers write is formulas, a third in mathematics. The
+last column is what remains outside: the long tail of each paper's own
+definitions written in ways a reader that does not expand macros cannot
+follow (=\csname= loops, macros that take arguments and draw pictures),
+packages' environments met in one or two papers, and pictures drawn in
+=picture= or PSTricks.
+
+The commands and environments most papers use, outside formulas, with
+the share of papers that use them:
+
+| Construct                | Papers | Construct                  | Papers |
+|--------------------------+--------+----------------------------+--------|
+| =\section=               |    98% | =\begin{itemize}=          |    47% |
+| =\label=                 |    97% | =\begin{table}=            |    46% |
+| =\ref=                   |    92% | =\begin{enumerate}=        |    41% |
+| =\cite=                  |    91% | =\emph=                    |    41% |
+| =\maketitle=             |    88% | =\eqref=                   |    38% |
+| =\subsection=            |    87% | =\begin{proof}=            |    37% |
+| =\begin{abstract}=       |    84% | =\appendix=                |    37% |
+| =\caption=               |    83% | =\begin{theorem}=          |    29% |
+| =\begin{figure}=         |    77% | =\begin{lemma}=            |    27% |
+| =\includegraphics=       |    73% | =\begin{thebibliography}=  |    26% |
+| =\textbf=                |    64% | =\citep=                   |    26% |
+| =\begin{tabular}=        |    53% | =\url=                     |    25% |
+| =\footnote=              |    49% | =\multicolumn=             |    23% |
+
+A reader that follows §4 to §10 reads all of these.
+
+* Error recovery
+
+Documents as found are not all well formed: braces left open, an
+environment not closed, a formula running past its paragraph. TeX stops
+at the first error; a reader MUST NOT. It MUST:
+
+- keep every byte of the source: what it does not understand is text;
+- close what is open at the end of its container (a group at the end of
+  its environment's body, a formula at the end of its paragraph, an
+  environment at the end of the document), and report it;
+- pair =\end{x}= with the nearest open =x=, as TeX does;
+- read a construct outside §4 to §10 as its source: an unknown command as
+  its name and the groups after it, an unknown environment as its
+  delimiters and its body.
+
+A renderer SHOULD show such a construct as its source rather than guess
+its meaning; when TeX is at hand it MAY have TeX typeset it (a formula
+the renderer cannot read, a picture) and show the result.
+
+* Testing a reader
+
+** Coverage
+
+Take the corpus (=tools/arxiv-sample.py= fetches it; the list of papers is
+fixed by the year and the share per category) and measure, for each
+field, the bytes of the body the reader leaves as source. =kalem
+latex-coverage DIR= does it for Kalem and reports the constructs that
+leave the most. A reader that follows this appendix leaves less than
+0.1% of the body in each field; Kalem's target is the same (Part V,
+decision D30).
+
+** Typesetting
+
+=tools/latex-typeset-fuzz.py= writes random lines of text (words,
+punctuation, dashes, accents, symbols, spaces, fonts, case changes,
+colors, boxes, verbatim) and has pdfLaTeX put each in a box; it writes
+the reader's text of the same lines in a box too and compares the glyphs.
+=--each= runs every construct alone. Every rule of §4 and §5 is checked
+so.
+
+** Numbering
+
+=tools/latex-numbering-fuzz.py= writes random documents of sections,
+equations, floats, theorems, lists, footnotes, counters and labels,
+compiles them, and compares the =.aux= file's numbers with the reader's.
+Every rule of §9 is checked so.
+
+** Parsing
+
+A reader MUST give, for any input, a structure whose leaves are the
+whole source in order. An incremental reader MUST give, after an edit,
+the structure a full read gives (Kalem's fuzz target =latex_reparse=
+checks it).
+
+* Changes
+
+- Version 1 (2026-10): first version, from Kalem's LaTeX mode, its
+  corpus study (arXiv runs 1 to 26) and its differential tests.

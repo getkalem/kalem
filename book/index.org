@@ -102,5 +102,6 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[generated:keymaps][Keymaps]]
 - [[generated:settings][Settings]]
 - [[generated:cli][The command line]]
+- [[file:appendices/latex-as-written.org][LaTeX as written: a specification]]
 - [[file:appendices/glossary.org][Glossary]]
 - [[file:appendices/licenses.org][Licenses]]
