@@ -1692,6 +1692,7 @@ impl DocumentState {
         if let Some(v) = self.viewer.as_deref() {
             c.flag("viewerAnimated", v.structure().animated());
             c.flag("viewerEditable", !v.edits().is_empty());
+            c.flag("viewerGrid", v.is_grid());
         }
         c.flag(
             "wdired",

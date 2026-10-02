@@ -322,6 +322,169 @@ pub struct Link {
     pub target: String,
 }
 
+/// How a cell's text sits in it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Align {
+    /// Text left, numbers right (a spreadsheet's General).
+    #[default]
+    General,
+    /// Left.
+    Left,
+    /// Centered.
+    Center,
+    /// Right.
+    Right,
+}
+
+/// A cell of a grid unit as the host draws it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GridCell {
+    /// The text shown (the value through its number format).
+    pub text: String,
+    /// The value is a number (General alignment puts it right).
+    pub numeric: bool,
+    /// Bold.
+    pub bold: bool,
+    /// Italic.
+    pub italic: bool,
+    /// Underlined.
+    pub underline: bool,
+    /// Struck through.
+    pub strike: bool,
+    /// The text color, RGB.
+    pub color: Option<[u8; 3]>,
+    /// The fill, RGB.
+    pub fill: Option<[u8; 3]>,
+    /// The alignment.
+    pub align: Align,
+    /// The cell holds a formula.
+    pub formula: bool,
+    /// The cell has a note (shown as a mark; [`ViewerDocument::cell_note`] gives it).
+    pub note: bool,
+}
+
+/// The shape of a grid unit: how far it goes and how it is laid out.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GridLayout {
+    /// Rows that hold something (the host shows a margin past them).
+    pub rows: u32,
+    /// Columns that hold something.
+    pub cols: u32,
+    /// The widest the sheet can be scrolled: rows and columns.
+    pub max_rows: u32,
+    /// See [`GridLayout::max_rows`].
+    pub max_cols: u32,
+    /// Column widths in characters of the default font, by column; columns
+    /// past the list have [`GridLayout::default_width`].
+    pub widths: Vec<f32>,
+    /// The default column width in characters.
+    pub default_width: f32,
+    /// Hidden rows and columns.
+    pub hidden_rows: Vec<u32>,
+    /// See [`GridLayout::hidden_rows`].
+    pub hidden_cols: Vec<u32>,
+    /// Merged ranges: first row, first column, last row, last column.
+    pub merged: Vec<[u32; 4]>,
+    /// Frozen rows and columns.
+    pub frozen: (u32, u32),
+    /// Whether cells can be edited.
+    pub editable: bool,
+}
+
+/// A change of a grid's shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GridEdit {
+    /// `count` rows inserted before row `at` (zero-based).
+    InsertRows {
+        /// The first new row.
+        at: u32,
+        /// How many.
+        count: u32,
+    },
+    /// Rows `at..at + count` deleted.
+    DeleteRows {
+        /// The first deleted row.
+        at: u32,
+        /// How many.
+        count: u32,
+    },
+    /// `count` columns inserted before column `at`.
+    InsertCols {
+        /// The first new column.
+        at: u32,
+        /// How many.
+        count: u32,
+    },
+    /// Columns `at..at + count` deleted.
+    DeleteCols {
+        /// The first deleted column.
+        at: u32,
+        /// How many.
+        count: u32,
+    },
+}
+
+/// A macro a document carries (a workbook's VBA).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MacroEntry {
+    /// Its name, `Module1.Name`.
+    pub name: String,
+    /// An event handler: listed, never run by itself.
+    pub event: bool,
+}
+
+/// What a macro asks of the user: the host's dialogs. A host that cannot
+/// answer while the macro runs (its prompts are not modal) returns `None`:
+/// the run stops, is undone, and reports the [`MacroQuestion`]; the host
+/// asks the user and runs the macro again, answering the questions asked
+/// so far from what the user said.
+pub trait MacroUi {
+    /// A message with buttons (VBA's `MsgBox` flags); the button pressed
+    /// (`1` OK, `2` Cancel, `6` Yes, `7` No).
+    fn message(&mut self, prompt: &str, buttons: i64, title: &str) -> Option<i64>;
+    /// A line of text, `Some(None)` when cancelled.
+    fn input(&mut self, prompt: &str, title: &str, default: &str) -> Option<Option<String>>;
+}
+
+/// A question a macro asked that the host must put to the user.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MacroQuestion {
+    /// `MsgBox` with buttons: `buttons & 7` is VBA's set (1 OK/Cancel,
+    /// 2 Abort/Retry/Ignore, 3 Yes/No/Cancel, 4 Yes/No, 5 Retry/Cancel).
+    Message {
+        /// The text.
+        prompt: String,
+        /// VBA's flags.
+        buttons: i64,
+        /// The title.
+        title: String,
+    },
+    /// `InputBox`.
+    Input {
+        /// The text.
+        prompt: String,
+        /// The title.
+        title: String,
+        /// The text offered.
+        default: String,
+    },
+}
+
+/// What a macro's run did.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MacroOutcome {
+    /// `Debug.Print` lines and the messages it showed.
+    pub output: Vec<String>,
+    /// Statements not carried out, with their lines.
+    pub skipped: Vec<String>,
+    /// Why it stopped, when it did not finish.
+    pub error: Option<String>,
+    /// Whether it changed the document.
+    pub changed: bool,
+    /// The run stopped to ask this, and was undone.
+    pub question: Option<MacroQuestion>,
+}
+
 /// A plugin that opens files of some formats (`document-viewer`).
 pub trait Viewer: Send + Sync {
     /// The plugin's identifier, such as `image-viewer`.
@@ -401,6 +564,69 @@ pub trait ViewerDocument: Send {
     /// document counts as saved.
     fn save(&mut self) -> Result<SaveOutput> {
         Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// A grid unit's shape (a sheet, a table); `None` for a unit that is
+    /// not a grid, which the host renders as a bitmap.
+    fn grid(&mut self, _unit: usize) -> Option<GridLayout> {
+        None
+    }
+
+    /// The cells of a grid unit in `rows` × `cols` that hold something.
+    fn grid_cells(
+        &mut self,
+        _unit: usize,
+        _rows: std::ops::Range<u32>,
+        _cols: std::ops::Range<u32>,
+    ) -> Vec<(u32, u32, GridCell)> {
+        Vec::new()
+    }
+
+    /// A cell as it is entered (`=SUM(A1:A3)`, `2026-10-03`), for editing.
+    fn cell_input(&mut self, _unit: usize, _row: u32, _col: u32) -> String {
+        String::new()
+    }
+
+    /// A cell's note.
+    fn cell_note(&mut self, _unit: usize, _row: u32, _col: u32) -> Option<String> {
+        None
+    }
+
+    /// Enters text into a cell as typed; returns the units it changed.
+    fn set_cell(&mut self, _unit: usize, _row: u32, _col: u32, _input: &str) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Changes a grid's shape.
+    fn grid_edit(&mut self, _unit: usize, _edit: GridEdit) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Whether the document keeps its own undo history for
+    /// [`ViewerDocument::set_cell`], [`ViewerDocument::grid_edit`] and
+    /// macros; the host then undoes through [`ViewerDocument::undo`].
+    fn has_history(&self) -> bool {
+        false
+    }
+
+    /// Undoes the document's last change; false when there is none.
+    fn undo(&mut self) -> Result<bool> {
+        Ok(false)
+    }
+
+    /// Redoes the last change undone; false when there is none.
+    fn redo(&mut self) -> Result<bool> {
+        Ok(false)
+    }
+
+    /// The macros the document carries.
+    fn macros(&mut self) -> Vec<MacroEntry> {
+        Vec::new()
+    }
+
+    /// Runs a macro by name, only ever on the user's command.
+    fn run_macro(&mut self, name: &str, _ui: &mut dyn MacroUi) -> Result<MacroOutcome> {
+        Err(ViewerError(format!("No macro {name}")))
     }
 }
 

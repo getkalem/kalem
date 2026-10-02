@@ -2079,28 +2079,41 @@ fn enumitem_keys(s: &str) -> Vec<(String, String)> {
     out
 }
 
-/// The title of a theorem-like environment of a usual name.
+/// The title of a theorem-like environment of a usual name: the name or
+/// a usual short form of it, after `my`, `custom` or `new`
+/// (`myassump`, `lma`, `expl`).
 fn usual_theorem(name: &str) -> Option<&'static str> {
-    Some(match name {
-        "theorem" | "thm" => "Theorem",
-        "lemma" | "lem" => "Lemma",
-        "corollary" | "cor" => "Corollary",
-        "proposition" | "prop" => "Proposition",
-        "definition" | "defn" | "dfn" => "Definition",
-        "remark" | "rem" | "rmk" => "Remark",
-        "example" | "exmp" | "ex" => "Example",
+    let mut base = name.trim_end_matches('*');
+    for prefix in ["my", "custom", "new"] {
+        if let Some(r) = base.strip_prefix(prefix)
+            && r.len() > 1
+        {
+            base = r;
+            break;
+        }
+    }
+    Some(match base {
+        "theorem" | "thm" | "theo" | "thrm" => "Theorem",
+        "lemma" | "lem" | "lma" | "lemm" | "lm" => "Lemma",
+        "corollary" | "cor" | "coro" | "corr" | "crl" | "corol" => "Corollary",
+        "proposition" | "prop" | "propo" | "prp" | "pro" => "Proposition",
+        "definition" | "defn" | "dfn" | "def" | "defi" | "defin" | "df" => "Definition",
+        "remark" | "rem" | "rmk" | "remk" | "rk" => "Remark",
+        "example" | "exmp" | "ex" | "expl" | "exa" | "exam" | "exm" | "eg" => "Example",
         "conjecture" | "conj" => "Conjecture",
-        "claim" => "Claim",
-        "assumption" => "Assumption",
-        "hypothesis" => "Hypothesis",
-        "observation" => "Observation",
+        "claim" | "clm" => "Claim",
+        "assumption" | "assump" | "assum" | "asm" | "assm" | "asmp" | "ass" | "asump" => {
+            "Assumption"
+        }
+        "hypothesis" | "hyp" => "Hypothesis",
+        "observation" | "obs" => "Observation",
         "fact" => "Fact",
-        "notation" => "Notation",
-        "problem" => "Problem",
-        "question" => "Question",
-        "exercise" => "Exercise",
-        "property" => "Property",
-        "condition" => "Condition",
+        "notation" | "nota" | "notn" => "Notation",
+        "problem" | "prob" | "prb" => "Problem",
+        "question" | "ques" | "qn" => "Question",
+        "exercise" | "exer" | "exr" => "Exercise",
+        "property" | "prty" => "Property",
+        "condition" | "cond" => "Condition",
         _ => return None,
     })
 }
