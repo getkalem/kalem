@@ -385,6 +385,10 @@ pub struct Model {
     /// `\nonumber` that no numbered line follows; a `\ref` to them
     /// prints "??" (indices into `labels`).
     pub unwritten_labels: Vec<usize>,
+    /// Labels in a float before its caption: they refer to the section
+    /// around, or with the caption package to nothing (`\ref` prints
+    /// "??") (indices into `labels`).
+    pub labels_before_caption: Vec<usize>,
 }
 
 impl Model {
@@ -740,6 +744,10 @@ struct Numbering<'r> {
     plain: std::collections::HashSet<String>,
     /// The lists around, innermost last: whether each is `enumerate`.
     lists: Vec<bool>,
+    /// Beside each list: enumitem's reference format (`label=`, `ref=`;
+    /// whether `label*=`, after the parent's), and what `\ref` prints for
+    /// its last item.
+    list_refs: Vec<(Option<String>, bool, String)>,
     saved: Vec<(Option<String>, Target)>,
     /// The file being read.
     file: usize,
@@ -785,6 +793,7 @@ impl<'r> Numbering<'r> {
             plain: Default::default(),
             formats: HashMap::new(),
             lists: Vec::new(),
+            list_refs: Vec::new(),
             saved: Vec::new(),
             file: 0,
             len,
@@ -1077,7 +1086,27 @@ impl<'r> Numbering<'r> {
             Event::MainMatter => self.mainmatter = true,
             Event::Label { name, range } => {
                 let index = self.model.labels.len();
-                let (number, target) = self.current.clone();
+                let (mut number, target) = self.current.clone();
+                // In a float (not a subfigure) before its caption.
+                let float = self.envs.iter().rev().find(|e| float_kind(e).is_some());
+                // (After a sub-caption, `\subfloat`'s, it refers to that.)
+                let sub = self.sub_captions > 0 && matches!(self.current.1, Target::Float(_));
+                if float.is_some_and(|f| !f.starts_with("sub"))
+                    && !self.float_captioned
+                    && !sub
+                    && self.eq.is_empty()
+                {
+                    self.model.labels_before_caption.push(index);
+                    // The caption package writes it as `\caption@xref`.
+                    if self
+                        .model
+                        .packages
+                        .iter()
+                        .any(|p| matches!(p.name.as_str(), "caption" | "subcaption" | "subfig"))
+                    {
+                        number = None;
+                    }
+                }
                 self.model.labels.push(Label {
                     name: name.clone(),
                     range: at(range),
@@ -1342,7 +1371,36 @@ impl<'r> Numbering<'r> {
                 if !*explicit && self.lists.last() == Some(&true) && (1..=4).contains(&depth) {
                     let c = ENUM_COUNTERS[depth - 1];
                     self.step(c);
-                    self.current = (Some(self.item_label(depth)), Target::Item);
+                    let n = self.list_refs.len();
+                    // The enumerate around, if any: its last item's reference.
+                    let parent = self.lists[..n - 1]
+                        .iter()
+                        .rposition(|e| *e)
+                        .map(|i| (self.list_refs[i].0.is_some(), self.list_refs[i].2.clone()));
+                    let label = match (&self.list_refs[n - 1], parent) {
+                        // enumitem's format, after the parent's with `label*`.
+                        ((Some(f), star, _), p) => {
+                            let own = self.format(f, depth);
+                            match p {
+                                Some((_, r)) if *star => format!("{r}{own}"),
+                                _ => own,
+                            }
+                        }
+                        // Under an item enumitem formats: its reference and
+                        // this level's number.
+                        ((None, _, _), Some((true, r))) => {
+                            let k = self.get(c);
+                            let own = match depth {
+                                2 => alph(k, false),
+                                3 => roman(k, false),
+                                _ => alph(k, true),
+                            };
+                            format!("{r}{own}")
+                        }
+                        _ => self.item_label(depth),
+                    };
+                    self.list_refs[n - 1].2 = label.clone();
+                    self.current = (Some(label), Target::Item);
                 }
             }
             Event::Include {
@@ -1429,9 +1487,35 @@ impl<'r> Numbering<'r> {
             self.lists.push(name == "enumerate");
             // `\usecounter`: the level's counter from 0.
             let depth = self.lists.iter().filter(|e| **e).count();
+            let keys = note.as_deref().map(enumitem_keys).unwrap_or_default();
+            let mut format = None;
+            let mut star = false;
             if name == "enumerate" && (1..=4).contains(&depth) {
-                self.counters.insert(ENUM_COUNTERS[depth - 1].into(), 0);
+                let c = ENUM_COUNTERS[depth - 1];
+                let start = keys
+                    .iter()
+                    .find(|(k, _)| k == "start")
+                    .and_then(|(_, v)| v.trim().parse::<i64>().ok())
+                    .unwrap_or(1);
+                self.counters.insert(c.into(), start - 1);
+                // enumitem's `\alph*`: the level's counter.
+                let level = |v: &str| {
+                    ["arabic", "alph", "Alph", "roman", "Roman"]
+                        .iter()
+                        .fold(v.to_string(), |acc, f| {
+                            acc.replace(&format!("\\{f}*"), &format!("\\{f}{{{c}}}"))
+                        })
+                };
+                let get = |k: &str| keys.iter().find(|(x, _)| x == k).map(|(_, v)| level(v));
+                format = get("ref").or_else(|| get("label"));
+                if format.is_none()
+                    && let Some(l) = get("label*")
+                {
+                    format = Some(l);
+                    star = true;
+                }
             }
+            self.list_refs.push((format, star, String::new()));
         }
         if name == "document" && self.file == 0 {
             self.model.preamble = 0..range.start;
@@ -1523,6 +1607,7 @@ impl<'r> Numbering<'r> {
         let restore = self.saved.pop();
         if matches!(name.as_str(), "enumerate" | "itemize" | "description") {
             self.lists.pop();
+            self.list_refs.pop();
         }
         if self.eq.last().is_some_and(|e| e.name == name) {
             let end = self.eq.last().map_or(0, |e| e.body_end);
@@ -1632,6 +1717,35 @@ impl<'r> Numbering<'r> {
             file: self.file,
         });
     }
+}
+
+/// The `key=value` pairs of an optional argument (enumitem's
+/// `[label=(\alph*), start=3]`), split at the commas outside braces.
+fn enumitem_keys(s: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut depth = 0;
+    let mut part = String::new();
+    for c in s.chars().chain([',']) {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            ',' if depth == 0 => {
+                if let Some((k, v)) = part.split_once('=') {
+                    let v = v.trim();
+                    let v = v
+                        .strip_prefix('{')
+                        .and_then(|x| x.strip_suffix('}'))
+                        .unwrap_or(v);
+                    out.push((k.trim().to_string(), v.to_string()));
+                }
+                part.clear();
+                continue;
+            }
+            _ => {}
+        }
+        part.push(c);
+    }
+    out
 }
 
 /// The counter of the captions in environment `env`.

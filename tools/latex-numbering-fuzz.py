@@ -34,7 +34,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def document(rng):
     cls = rng.choice(["article", "article", "report", "book", "amsart"])
     chapters = cls in ("report", "book")
-    pre = [f"\\documentclass{{{cls}}}", "\\usepackage{amsmath,amsthm}"]
+    pre = [f"\\documentclass{{{cls}}}", "\\usepackage{amsmath,amsthm,subcaption,enumitem}",
+           "\\newcounter{step}"]
     top = "chapter" if chapters else "section"
     within = rng.choice([None, "section", top])
     if within:
@@ -134,8 +135,37 @@ def document(rng):
                     out.append(s)
                 return "\\begin{enumerate}" + "".join(out) + "\\end{enumerate}"
             body.append(items(1))
-        elif r < 0.88:
+        elif r < 0.85:
             body.append(f"Text\\footnote{{N{label()}}}.")
+        elif r < 0.88:
+            x = rng.random()
+            if x < 0.25:
+                # Subfigures: (a), (b) in their figure.
+                subs = "".join(
+                    f"\\begin{{subfigure}}{{0.3\\textwidth}}\\caption{{S}}{label()}\\end{{subfigure}}"
+                    for _ in range(rng.randint(1, 3)))
+                body.append(f"\\begin{{figure}}{subs}\\caption{{C}}{label()}\\end{{figure}}")
+            elif x < 0.4:
+                # A caption outside a float.
+                f = rng.choice(["figure", "table"])
+                body.append(f"\\begin{{minipage}}{{\\linewidth}}\\captionof{{{f}}}{{C}}{label()}\\end{{minipage}}")
+            elif x < 0.55:
+                # Footnotes in a minipage: a, b, ...
+                notes = "".join(f"x\\footnote{{M{label()}}} " for _ in range(rng.randint(1, 3)))
+                body.append(f"\\begin{{minipage}}{{\\linewidth}}{notes}\\end{{minipage}}")
+            elif x < 0.7:
+                body.append(f"\\refstepcounter{{step}}{label()}")
+            elif x < 0.85:
+                body.append(f"\\begin{{align}}a&=b\\tag*{{S{n}}}{label()}\\end{{align}}")
+            else:
+                fmt = rng.choice(["(\\alph*)", "\\roman*.", "{[\\Alph*]}", "Step \\arabic*",
+                                  "\\textbf{\\alph*}"])
+                key = rng.choice(["label", "label", "label*", "ref"])
+                opts = f"{key}={fmt}" + (f", start={rng.randint(2, 5)}" if rng.random() < 0.3 else "")
+                items = "".join(f"\\item x{label()}" for _ in range(rng.randint(1, 3)))
+                inner = ("\\item y\\begin{enumerate}\\item z" + label() + "\\end{enumerate}"
+                         if rng.random() < 0.4 else "")
+                body.append(f"\\begin{{enumerate}}[{opts}]{items}{inner}\\end{{enumerate}}")
         else:
             c = rng.choice(["section", "equation", "thm", "figure", "footnote"]
                            + (["chapter"] if chapters else []))
@@ -185,6 +215,16 @@ def pdflatex(text, d):
         # `\tag{A}` is written `{A}`: what the reference prints.
         while num.startswith("{") and num.endswith("}"):
             num = num[1:-1]
+        # The caption package's mark of a label before the caption: a
+        # `\\ref` to it prints ??, it has no number.
+        if num.startswith("\\caption@xref"):
+            num = ""
+        # A font in the number (a minipage's footnote, `\\itshape a`):
+        # how `\\ref` prints it, not what.
+        num = re.sub(r"\\(?:it|up|sl|sc|bf|md|rm|sf|tt)(?:shape|series|family) ?", "", num)
+        num = re.sub(r"\\(?:text(?:bf|it|sc|sf|tt|rm|up|sl|md)|emph)\s*\{([^{}]*)\}", r"\1", num)
+        # Braces group; they print nothing.
+        num = num.replace("{", "").replace("}", "")
         out[m.group(1)] = num
     return out
 
