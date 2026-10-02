@@ -44,11 +44,15 @@ fn pandoc_counts(v: &Value) -> Counts {
         levels: &mut Vec<u64>,
         items: &mut usize,
         cites: &mut usize,
+        in_figure: bool,
     ) {
         match v {
             Value::Object(o) => {
                 if let Some(Value::String(t)) = o.get("t") {
-                    *n.entry(t.clone()).or_insert(0) += 1;
+                    // A subfigure is a `Figure` in a `Figure`: one figure.
+                    if t != "Figure" || !in_figure {
+                        *n.entry(t.clone()).or_insert(0) += 1;
+                    }
                     let c = o.get("c");
                     match t.as_str() {
                         "Header" => {
@@ -74,13 +78,14 @@ fn pandoc_counts(v: &Value) -> Counts {
                         _ => {}
                     }
                 }
+                let inside = in_figure || o.get("t").and_then(Value::as_str) == Some("Figure");
                 for x in o.values() {
-                    walk(x, n, levels, items, cites);
+                    walk(x, n, levels, items, cites, inside);
                 }
             }
             Value::Array(a) => {
                 for x in a {
-                    walk(x, n, levels, items, cites);
+                    walk(x, n, levels, items, cites, in_figure);
                 }
             }
             _ => {}
@@ -92,6 +97,7 @@ fn pandoc_counts(v: &Value) -> Counts {
         &mut levels,
         &mut items,
         &mut cites,
+        false,
     );
     let get = |k: &str| n.get(k).copied().unwrap_or(0);
     let mut c = Counts::new();
@@ -130,11 +136,20 @@ fn kalem_counts(file: &Path) -> Counts {
     let project = latex_model::project::ProjectCache::default().load(file, &disk);
     let model = project.model.clone();
     let mut totals = [0usize; 5];
+    // `\thanks` in a title: a note the reader sees, as pandoc counts it.
+    let mut thanks = 0;
     for path in &model.files {
         let Ok(text) = std::fs::read_to_string(path) else {
             continue;
         };
         let parse = latex_syntax::parse(&text);
+        thanks += parse
+            .syntax()
+            .descendants()
+            .filter(|n| {
+                n.kind() == K::COMMAND && latex_syntax::name(n).as_deref() == Some("thanks")
+            })
+            .count();
         // A document's body (the root's, a subfile's), an included file
         // whole.
         let body = latex_model::Model::new(&parse)
@@ -161,14 +176,16 @@ fn kalem_counts(file: &Path) -> Counts {
     c.insert("display-math", display.to_string());
     c.insert(
         "citations",
+        // Not `\nocite`'s: it prints nothing in the text.
         model
             .citations
             .iter()
+            .filter(|c| !c.command.starts_with("nocite"))
             .map(|c| c.keys.len())
             .sum::<usize>()
             .to_string(),
     );
-    c.insert("footnotes", model.footnotes.len().to_string());
+    c.insert("footnotes", (model.footnotes.len() + thanks).to_string());
     c.insert(
         "figures",
         model
@@ -187,11 +204,31 @@ fn kalem_counts(file: &Path) -> Counts {
 /// Inline and displayed formulas, code blocks, tables and list items in
 /// `body` of a tree.
 /// Whether `n` is in the text a reader reads: not inside an index,
-/// glossary or nomenclature entry, nor the second argument of
-/// `\texorpdfstring`.
+/// glossary or nomenclature entry, the second argument of
+/// `\texorpdfstring`, or a picture (TikZ, `picture`, feynmf), which is
+/// drawn, not read.
 fn in_the_text(n: &latex_syntax::SyntaxNode) -> bool {
     let mut child = n.clone();
     for a in n.ancestors().skip(1) {
+        if a.kind() == K::ENVIRONMENT
+            && latex_syntax::name(&a).is_some_and(|e| {
+                matches!(
+                    e.trim_end_matches('*'),
+                    "tikzpicture"
+                        | "picture"
+                        | "pgfpicture"
+                        | "circuitikz"
+                        | "axis"
+                        | "pspicture"
+                        | "fmffile"
+                        | "fmfgraph"
+                        | "feynman"
+                        | "xy"
+                )
+            })
+        {
+            return false;
+        }
         if a.kind() == K::COMMAND {
             let name = latex_syntax::name(&a).unwrap_or_default();
             if matches!(
@@ -227,6 +264,7 @@ fn syntax_counts(root: &latex_syntax::SyntaxNode, body: &std::ops::Range<usize>)
             // `\texorpdfstring`, are not in the text pandoc reads.
             K::INLINE_MATH if !in_the_text(&n) => {}
             K::INLINE_MATH => out[0] += 1,
+            K::DISPLAY_MATH if !in_the_text(&n) => {}
             K::DISPLAY_MATH => out[1] += 1,
             K::ENVIRONMENT => {
                 let name = latex_syntax::name(&n).unwrap_or_default();
@@ -238,18 +276,14 @@ fn syntax_counts(root: &latex_syntax::SyntaxNode, body: &std::ops::Range<usize>)
                         && latex_syntax::name(&a)
                             .is_some_and(|x| latex_syntax::signatures::is_math(&x))
                 });
-                let math = matches!(
-                    base,
-                    "equation"
-                        | "align"
-                        | "gather"
-                        | "multline"
-                        | "eqnarray"
-                        | "alignat"
-                        | "flalign"
-                        | "displaymath"
-                );
-                if math && !nested {
+                // Every displayed one (breqn's, empheq's, `xalignat`), not
+                // `math`, which is inline.
+                let math = latex_syntax::signatures::is_math(&name) && base != "math";
+                let in_formula = n
+                    .ancestors()
+                    .skip(1)
+                    .any(|a| matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH));
+                if math && !nested && !in_formula && in_the_text(&n) {
                     out[1] += 1;
                 }
                 if latex_syntax::signatures::is_verbatim(&name) && name != "comment" {
@@ -296,7 +330,12 @@ pub(crate) fn diff_pandoc(files: &[PathBuf], summary: bool, json: bool) -> Resul
     let mut compared = 0;
     let mut failed = 0;
     for f in files {
-        read(f)?;
+        // A file Kalem cannot read (not UTF-8): reported, left out.
+        if let Err(e) = read(f) {
+            eprintln!("{e}");
+            failed += 1;
+            continue;
+        }
         let theirs = match pandoc_json(&pandoc, f) {
             Ok(j) => pandoc_counts(&j),
             Err(e) => {
@@ -345,7 +384,8 @@ pub(crate) fn diff_pandoc(files: &[PathBuf], summary: bool, json: bool) -> Resul
             .map_err(|e| e.to_string())?;
         }
         if failed > 0 {
-            writeln!(out, "{failed} files pandoc could not read").map_err(|e| e.to_string())?;
+            writeln!(out, "{failed} files Kalem or pandoc could not read")
+                .map_err(|e| e.to_string())?;
         }
     }
     Ok(ExitCode::SUCCESS)

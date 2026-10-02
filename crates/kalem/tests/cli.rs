@@ -437,6 +437,28 @@ fn diff_pandoc() {
         out.trim(),
         "../../tests/latex/model/article.tex: figures: kalem 2, pandoc 1"
     );
+    // Counted as a reader reads: a subfigure in its figure, no `\nocite`.
+    let (code, out, _) = kalem(&[
+        "diff-pandoc",
+        "../../tests/latex/model/subfigures.tex",
+        "../../tests/latex/model/caption-above.tex",
+        "../../tests/latex/citations/plain.tex",
+    ]);
+    assert_eq!((code, out.as_str()), (0, ""));
+    // A file that is not UTF-8 is left out, not the end of the run.
+    let dir = std::env::temp_dir().join(format!("kalem-pandoc-utf16-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad = dir.join("utf16.tex");
+    std::fs::write(&bad, [0xff, 0xfe, b'x', 0, 0xd8, 0x00]).unwrap();
+    let (code, out, _) = kalem(&[
+        "diff-pandoc",
+        "--summary",
+        bad.to_str().unwrap(),
+        "../../tests/latex/model/book.tex",
+    ]);
+    assert_eq!(code, 0);
+    assert!(out.contains("headings: 1 of 1 files agree"), "{out}");
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
