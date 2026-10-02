@@ -73,7 +73,7 @@ pub fn command(name: &str) -> &'static str {
         "parbox" => "ooomm",
         "title" | "caption" | "footnote" | "footnotetext" | "color" | "usepackage"
         | "RequirePackage" | "documentclass" | "addbibresource" | "xrightarrow" | "xleftarrow"
-        | "shortauthor" => "om",
+        | "shortauthor" | "icmltitle" => "om",
         "sqrt" => "om",
         "textcolor" | "colorbox" => "omm",
         "includegraphics" => "*om",
@@ -117,6 +117,8 @@ pub fn environment(name: &str) -> &'static str {
         "IEEEeqnarray" | "IEEEeqnarray*" | "empheq" => "om",
         "dmath" | "dmath*" => "o",
         "multlined" => "oo",
+        "adjustwidth" | "adjustwidth*" => "mm",
+        "figurenotes" | "displayquote" => "o",
         _ => "",
     }
 }
