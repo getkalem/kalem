@@ -8,6 +8,10 @@ name: arXiv coverage
 on:
   workflow_dispatch:
     inputs:
+      debug_macros:
+        description: "Macro names (without backslash) to find the definitions of"
+        required: false
+        default: ""
       per_field:
         description: Papers per field
         default: "200"
@@ -40,6 +44,13 @@ jobs:
         with:
           path: .cache/arxiv
           key: arxiv-2024-${{ github.event.inputs.per_field || '200' }}-${{ github.run_id }}
+      - name: Where the macros the report misses are defined
+        if: ${{ github.event.inputs.debug_macros != '' }}
+        run: |
+          for m in ${{ github.event.inputs.debug_macros }}; do
+            echo "== \\$m"
+            grep -rnE "(newcommand|renewcommand|providecommand|def|DeclareMathOperator)\*?\{?\\\\$m[^a-zA-Z]" .cache/arxiv --include='*.tex' --include='*.sty' --include='*.cls' | head -4 | cut -c1-300 || true
+          done
       - name: Measure
         run: |
           ./target/release/kalem latex-coverage .cache/arxiv > coverage.md
