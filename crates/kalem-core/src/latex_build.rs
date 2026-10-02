@@ -314,8 +314,16 @@ pub struct Built {
     pub problems: Vec<Problem>,
 }
 
-/// The command that builds `root` with `tool`, the output in `out_dir`.
-fn build_command(tool: &Tool, engine: Engine, root: &Path, out_dir: Option<&Path>) -> Command {
+/// The command that builds `root` with `tool`, the output in `out_dir`;
+/// what it prints goes to `output`.
+fn build_command(
+    tool: &Tool,
+    engine: Engine,
+    root: &Path,
+    out_dir: Option<&Path>,
+    output: Option<&std::fs::File>,
+    search: &std::ffi::OsStr,
+) -> Command {
     let name = root.file_name().map(PathBuf::from).unwrap_or_default();
     let mut cmd = match tool {
         Tool::Latexmk(p) => {
@@ -359,10 +367,36 @@ fn build_command(tool: &Tool, engine: Engine, root: &Path, out_dir: Option<&Path
     if let Some(dir) = root.parent().filter(|d| !d.as_os_str().is_empty()) {
         cmd.current_dir(dir);
     }
+    let to = |f: Option<&std::fs::File>| {
+        f.and_then(|f| f.try_clone().ok())
+            .map_or_else(std::process::Stdio::null, std::process::Stdio::from)
+    };
+    // The TeX folders found beyond `PATH`, for the programs latexmk runs.
+    cmd.env("PATH", search);
     cmd.stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
+        .stdout(to(output))
+        .stderr(to(output));
     cmd
+}
+
+/// The last lines a build tool printed that say something (its errors
+/// when it stopped before writing a log).
+fn tail(output: &str) -> String {
+    let lines: Vec<&str> = output
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with("Latexmk: ") || l.contains("rror"))
+        .collect();
+    lines[lines.len().saturating_sub(3)..].join(" ")
+}
+
+/// The program a tool runs, for messages.
+fn tool_name(tool: &Tool) -> String {
+    let (Tool::Latexmk(p) | Tool::Engine(p) | Tool::Tectonic(p)) = tool;
+    p.file_stem().map_or_else(
+        || p.display().to_string(),
+        |s| s.to_string_lossy().into_owned(),
+    )
 }
 
 /// The flag of the build that runs, which [`cancel`] raises.
@@ -380,9 +414,11 @@ pub fn cancel() -> bool {
     }
 }
 
-/// Runs `cmd` to its end, or kills it when `cancelled` is raised.
-fn run_to_end(cmd: &mut Command, cancelled: &AtomicBool) -> Result<(), String> {
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+/// Runs `cmd` to its end, or kills it when `cancelled` is raised; whether
+/// it succeeded.
+fn run_to_end(cmd: &mut Command, cancelled: &AtomicBool) -> Result<bool, String> {
+    let program = cmd.get_program().to_string_lossy().into_owned();
+    let mut child = cmd.spawn().map_err(|e| format!("{program}: {e}"))?;
     loop {
         if cancelled.load(Ordering::SeqCst) {
             let _ = child.kill();
@@ -390,7 +426,7 @@ fn run_to_end(cmd: &mut Command, cancelled: &AtomicBool) -> Result<(), String> {
             return Err(crate::l10n::tr("msg-build-cancelled"));
         }
         match child.try_wait() {
-            Ok(Some(_)) => return Ok(()),
+            Ok(Some(status)) => return Ok(status.success()),
             Ok(None) => std::thread::sleep(std::time::Duration::from_millis(20)),
             Err(e) => return Err(e.to_string()),
         }
@@ -406,7 +442,7 @@ pub fn build(root: &Path, engine: Engine, out_dir: Option<&Path>) -> Result<Buil
     if let Ok(mut c) = CURRENT.lock() {
         *c = Some(flag.clone());
     }
-    let out = build_inner(root, engine, out_dir, &flag);
+    let out = build_inner(root, engine, out_dir, &flag, &pdf::tex_search_path());
     if let Ok(mut c) = CURRENT.lock()
         && c.as_ref().is_some_and(|f| Arc::ptr_eq(f, &flag))
     {
@@ -420,17 +456,46 @@ fn build_inner(
     engine: Engine,
     out_dir: Option<&Path>,
     cancelled: &AtomicBool,
+    search: &std::ffi::OsStr,
 ) -> Result<Built, String> {
-    let search = std::env::var_os("PATH").unwrap_or_default();
-    let tool = pdf::detect(engine, &search).ok_or_else(|| crate::l10n::tr("msg-no-latex"))?;
+    let search = search.to_os_string();
+    let mut tool = pdf::detect(engine, &search).ok_or_else(|| crate::l10n::tr("msg-no-latex"))?;
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     if let Some(d) = out_dir {
         std::fs::create_dir_all(dir.join(d)).map_err(|e| e.to_string())?;
     }
-    let run = || run_to_end(&mut build_command(&tool, engine, root, out_dir), cancelled);
-    run()?;
     let out = out_dir.map_or(dir.clone(), |d| dir.join(d));
     let stem = root.file_stem().map(PathBuf::from).unwrap_or_default();
+    let log_path = out.join(&stem).with_extension("log");
+    let pdf_path = out.join(&stem).with_extension("pdf");
+    // What the tools print, kept for when they stop without a log.
+    static BUILDS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = BUILDS.fetch_add(1, Ordering::SeqCst);
+    let printed = std::env::temp_dir().join(format!("kalem-build-{}-{n}.out", std::process::id()));
+    let output = std::fs::File::create(&printed).ok();
+    let started = std::time::SystemTime::now();
+    let fresh = |p: &Path| {
+        std::fs::metadata(p)
+            .and_then(|m| m.modified())
+            .is_ok_and(|t| t >= started - std::time::Duration::from_secs(2))
+    };
+    let run = |tool: &Tool| {
+        run_to_end(
+            &mut build_command(tool, engine, root, out_dir, output.as_ref(), &search),
+            cancelled,
+        )
+    };
+    let ok = run(&tool)?;
+    // latexmk that could not run (no Perl, as MiKTeX's needs) writes no
+    // log: the engine instead.
+    if !ok
+        && !fresh(&log_path)
+        && matches!(tool, Tool::Latexmk(_))
+        && let Some(p) = pdf::find(engine.program(), &search)
+    {
+        tool = Tool::Engine(p);
+        run(&tool)?;
+    }
     if let Tool::Engine(program) = &tool {
         let aux = out.join(&stem).with_extension("aux");
         let bcf = out.join(&stem).with_extension("bcf");
@@ -468,15 +533,28 @@ fn build_inner(
             }
         }
         for _ in 0..again {
-            run()?;
+            run(&tool)?;
         }
     }
-    let log = std::fs::read(out.join(&stem).with_extension("log"))
+    let printed_text = std::fs::read(&printed)
         .map(|b| String::from_utf8_lossy(&b).into_owned())
         .unwrap_or_default();
-    let pdf = out.join(&stem).with_extension("pdf");
+    let _ = std::fs::remove_file(&printed);
+    // A log from an earlier build is not this one's.
+    if !fresh(&log_path) {
+        let said = tail(&printed_text);
+        return Err(if said.is_empty() {
+            crate::tr!("msg-build-no-log", program = tool_name(&tool))
+        } else {
+            format!("{}: {said}", tool_name(&tool))
+        });
+    }
+    let log = std::fs::read(&log_path)
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
+        .unwrap_or_default();
+    let pdf = pdf_path;
     Ok(Built {
-        pdf: pdf.is_file().then_some(pdf),
+        pdf: (pdf.is_file() && fresh(&pdf)).then_some(pdf),
         problems: problems(&log),
     })
 }
@@ -553,6 +631,61 @@ mod tests {
             p[3].message
                 .starts_with("LaTeX Error: File `nosuch.sty' not found.")
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_tool_that_stops_without_a_log() {
+        use std::os::unix::fs::PermissionsExt;
+        let Some(real) = pdf::find("pdflatex", &std::env::var_os("PATH").unwrap_or_default())
+        else {
+            return;
+        };
+        let dir = std::env::temp_dir().join(format!("kalem-latex-nolog-{}", std::process::id()));
+        let bin = dir.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let script = |name: &str, body: &str| {
+            let p = bin.join(name);
+            std::fs::write(&p, format!("#!/bin/sh\n{body}\n")).unwrap();
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        std::fs::write(
+            dir.join("main.tex"),
+            "\\documentclass{article}\\begin{document}Hi\\end{document}\n",
+        )
+        .unwrap();
+        // latexmk that cannot run (MiKTeX's without Perl): the engine
+        // makes the PDF instead.
+        script("latexmk", "echo 'perl: not found' >&2; exit 1");
+        script("pdflatex", &format!("exec {} \"$@\"", real.display()));
+        let flag = AtomicBool::new(false);
+        let built = build_inner(
+            &dir.join("main.tex"),
+            Engine::PdfLatex,
+            None,
+            &flag,
+            bin.as_os_str(),
+        )
+        .unwrap();
+        assert!(built.pdf.is_some(), "{built:?}");
+        // An engine that stops before a log: what it said, not "no PDF".
+        let _ = std::fs::remove_file(dir.join("main.log"));
+        let _ = std::fs::remove_file(dir.join("main.pdf"));
+        std::fs::remove_file(bin.join("latexmk")).unwrap();
+        script(
+            "pdflatex",
+            "echo 'fatal: cannot find the format file pdflatex.fmt' >&2; exit 1",
+        );
+        let err = build_inner(
+            &dir.join("main.tex"),
+            Engine::PdfLatex,
+            None,
+            &flag,
+            bin.as_os_str(),
+        )
+        .unwrap_err();
+        assert!(err.contains("pdflatex.fmt"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

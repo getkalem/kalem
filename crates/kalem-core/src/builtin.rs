@@ -1072,13 +1072,19 @@ fn csv_fill(ctx: &mut EditorContext<'_>, series: bool) -> CommandResult {
 /// root document, with the engine and output folder the document and the
 /// settings ask for (T2.7h.22).
 fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let save_options = ctx.config.save_options();
     let doc = ctx
         .document
-        .as_deref()
+        .as_deref_mut()
         .ok_or_else(|| CommandError::new(crate::tr!("msg-no-document")))?;
     let Some(path) = doc.meta.path.clone() else {
         return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
     };
+    // LaTeX compiles the file: the text as it is in the editor, saved.
+    if doc.is_modified() {
+        doc.save(save_options, false)
+            .map_err(|e| CommandError::new(crate::tr!("msg-pdf-failed", error = e.to_string())))?;
+    }
     let path = std::path::absolute(&path).unwrap_or(path);
     let text = doc.text().as_str().to_string();
     let disk = latex_model::project::Disk;
@@ -1151,7 +1157,10 @@ fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
                             open: open_after.then(|| crate::input::LinkAction::Url(file_url(&pdf))),
                         },
                         None => crate::jobs::Finished {
-                            message: crate::tr!("msg-pdf-failed", error = "no PDF".to_string()),
+                            message: crate::tr!(
+                                "msg-pdf-failed",
+                                error = crate::l10n::tr("msg-build-no-pdf")
+                            ),
                             error: true,
                             open: None,
                         },
