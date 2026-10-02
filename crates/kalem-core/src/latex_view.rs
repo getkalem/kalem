@@ -4516,9 +4516,80 @@ pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
         // With siunitx, `\qty` is its quantity, not physics' parentheses.
         .filter(|d| !(loaded("siunitx") && d.starts_with("\\newcommand{\\qty}[1]")))
         .collect();
-    out.extend(model.macro_definitions());
+    out.extend(COMMON_MACROS.iter().map(|d| d.to_string()));
+    // The document's own, each kept only if the renderer takes it and a
+    // use of it: one it cannot read would stop every formula after it.
+    let mut kept = org_math::source::macros(&out);
+    for (m, def) in model.macros.iter().zip(model.macro_definitions()) {
+        let with = org_math::source::macros(std::slice::from_ref(&def));
+        let use_it = format!("{}{}", m.name, "{x}".repeat(m.args));
+        let trial = format!("{kept}{with}");
+        if org_math::check(&org_math::source::prepare(&use_it, &trial)).is_ok() {
+            kept = trial;
+            out.push(def);
+        }
+    }
     out
 }
+
+/// Commands of packages that papers use in formulas and the renderer
+/// lacks, as it can draw them (the definitions of `dsfont`, `bbm`,
+/// `nicefrac`, amsmath's capital accents and others).
+const COMMON_MACROS: &[&str] = &[
+    "\\newcommand{\\mathds}[1]{\\mathbb{#1}}",
+    "\\newcommand{\\mathbbm}[1]{\\mathbb{#1}}",
+    "\\newcommand{\\mathbbold}[1]{\\mathbb{#1}}",
+    "\\newcommand{\\Tilde}[1]{\\tilde{#1}}",
+    "\\newcommand{\\Bar}[1]{\\bar{#1}}",
+    "\\newcommand{\\Hat}[1]{\\hat{#1}}",
+    "\\newcommand{\\Vec}[1]{\\vec{#1}}",
+    "\\newcommand{\\Dot}[1]{\\dot{#1}}",
+    "\\newcommand{\\Ddot}[1]{\\ddot{#1}}",
+    "\\newcommand{\\Check}[1]{\\check{#1}}",
+    "\\newcommand{\\Breve}[1]{\\breve{#1}}",
+    "\\newcommand{\\Acute}[1]{\\acute{#1}}",
+    "\\newcommand{\\Grave}[1]{\\grave{#1}}",
+    "\\newcommand{\\nicefrac}[2]{{}^{#1}\\!/_{#2}}",
+    "\\newcommand{\\sfrac}[2]{{}^{#1}\\!/_{#2}}",
+    "\\newcommand{\\hdots}{\\dots}",
+    "\\newcommand{\\ensuremath}[1]{#1}",
+    "\\newcommand{\\scalebox}[2]{#2}",
+    "\\newcommand{\\resizebox}[3]{#3}",
+    "\\newcommand{\\raisebox}[2]{#2}",
+    "\\newcommand{\\mbox}[1]{\\text{#1}}",
+    "\\newcommand{\\hbox}[1]{\\text{#1}}",
+    "\\newcommand{\\parbox}[2]{\\text{#2}}",
+    "\\newcommand{\\textup}[1]{\\text{#1}}",
+    "\\newcommand{\\textsc}[1]{\\text{#1}}",
+    "\\newcommand{\\textsl}[1]{\\textit{#1}}",
+    "\\newcommand{\\textmd}[1]{\\text{#1}}",
+    "\\newcommand{\\textcolor}[2]{\\color{#1}{#2}}",
+    "\\newcommand{\\protect}{}",
+    "\\newcommand{\\nolimits}{}",
+    "\\newcommand{\\displaylimits}{}",
+    "\\newcommand{\\allowbreak}{}",
+    "\\newcommand{\\nobreak}{}",
+    "\\newcommand{\\vphantom}[1]{}",
+    "\\newcommand{\\smash}[1]{#1}",
+    "\\newcommand{\\mathlarger}[1]{#1}",
+    "\\newcommand{\\mathsmaller}[1]{#1}",
+    "\\newcommand{\\upmu}{\\mu}",
+    "\\newcommand{\\updelta}{\\delta}",
+    "\\newcommand{\\uppi}{\\pi}",
+    "\\newcommand{\\leqslant}{\\leq}",
+    "\\newcommand{\\geqslant}{\\geq}",
+    "\\newcommand{\\coloneqq}{\\mathrel{:}=}",
+    "\\newcommand{\\eqqcolon}{=\\mathrel{:}}",
+    "\\newcommand{\\mathclap}[1]{#1}",
+    "\\newcommand{\\mathllap}[1]{#1}",
+    "\\newcommand{\\mathrlap}[1]{#1}",
+    "\\newcommand{\\cancel}[1]{#1}",
+    "\\newcommand{\\xmapsto}[1]{\\overset{#1}{\\longmapsto}}",
+    "\\newcommand{\\bigast}{\\mathop{\\Large *}}",
+    "\\newcommand{\\iddots}{\\cdot^{\\cdot^{\\cdot}}}",
+    "\\newcommand{\\ul}[1]{\\underline{#1}}",
+    "\\newcommand{\\uline}[1]{\\underline{#1}}",
+];
 
 /// The formula the cursor at `pos` is in, as the renderer takes it (the
 /// preview under the cursor, T2.7h.16).
@@ -5166,6 +5237,14 @@ mod tests {
         assert_eq!(f.len(), 1, "{f:?}");
         assert_eq!(&text[f[0].0.clone()], "$\\nosuch{x}$");
         assert_eq!(f[0].1, "Undefined control sequence: \\nosuch");
+        // A definition the renderer cannot read is left out, not the end
+        // of every formula; eqnarray, amsmath's capital accents and
+        // dsfont are read.
+        let text = "\\documentclass{article}\n\\newcommand{\\bad}{\\begin{nosuch}}\n\\newcommand{\\good}{y}\n\\begin{document}\n$x + \\good$ $\\Tilde{O}(\\mathds{1})$\n\\begin{eqnarray}a &=& b\\end{eqnarray}\n$\\bad$\n\\end{document}\n";
+        let d = doc(text);
+        let f = formula_failures(&d);
+        assert_eq!(f.len(), 1, "{f:?}");
+        assert_eq!(&text[f[0].0.clone()], "$\\bad$");
     }
 
     #[test]

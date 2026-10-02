@@ -12,11 +12,12 @@ fn main() {
     let macros_too = std::env::var_os("FULL").is_some();
     for f in std::env::args().skip(1) {
         let path = std::path::PathBuf::from(&f);
-        let Ok(d) =
+        let Ok(mut d) =
             kalem_core::DocumentState::open(&path, Arc::new(org_model::Settings::default()), &base)
         else {
             continue;
         };
+        d.wait_for_latex_project();
         let text = d.text().as_str().to_string();
         for (r, _) in kalem_core::latex_view::formula_failures(&d) {
             let src = kalem_core::latex_view::math_source(&d, r.clone())
