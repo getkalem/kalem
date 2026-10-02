@@ -275,6 +275,9 @@ def main():
         if got[i] != want[i]:
             bad.append(f"{lines[i]}\n  LaTeX {want[i]!r}\n  Kalem {got[i]!r}  (shown {shown[i]!r})")
     print(f"{compiled}/{n} lines typeset; {len(bad)} differ" + (f" (in {keep})" if bad else ""))
+    # Most lines typeset, or the run checked nothing (no T1 fonts, say).
+    if compiled < n * 3 // 4:
+        sys.exit(f"only {compiled} of {n} lines typeset: is pdflatex set up?")
     if bad:
         with open(os.path.join(keep, f"typeset{seed}.diff"), "w", encoding="utf-8") as f:
             f.write("\n".join(bad) + "\n")
