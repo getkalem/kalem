@@ -353,6 +353,105 @@ fn diagrams(s: &str) -> String {
         let tail = tail.to_string();
         out = format!("{}{drawn}{tail}", &out[..i]);
     }
+    while let Some(i) = out.find("\\Qcircuit") {
+        let mut after = &out[i + "\\Qcircuit".len()..];
+        while let Some(a) = after.trim_start().strip_prefix('@') {
+            let end = a.find('{').unwrap_or(a.len());
+            let stop = a[..end].find(char::is_whitespace).unwrap_or(end);
+            after = &a[stop..];
+        }
+        let Some((body, tail)) = group(after.trim_start()) else {
+            break;
+        };
+        let drawn = circuit(body);
+        let tail = tail.to_string();
+        out = format!("{}{drawn}{tail}", &out[..i]);
+    }
+    out
+}
+
+/// qcircuit's circuit as an array: gates boxed, wires as rules, controls
+/// as dots and targets as ⊕.
+fn circuit(body: &str) -> String {
+    let rows = split_top(body, "\\\\");
+    let rows: Vec<Vec<String>> = rows
+        .iter()
+        .filter(|r| !r.trim().is_empty())
+        .map(|r| {
+            split_top(r, "&")
+                .iter()
+                .map(|cell| {
+                    let mut c = cell.trim().to_string();
+                    for (name, args) in [
+                        ("\\gate", 1),
+                        ("\\multigate", 2),
+                        ("\\ghost", 1),
+                        ("\\lstick", 1),
+                        ("\\rstick", 1),
+                        ("\\ctrl", 1),
+                        ("\\ctrlo", 1),
+                        ("\\targ", 0),
+                        ("\\meter", 0),
+                        ("\\measureD", 1),
+                        ("\\qw", 0),
+                        ("\\qwx", 0),
+                        ("\\cw", 0),
+                        ("\\cwx", 0),
+                        ("\\push", 1),
+                    ] {
+                        c = replace_args(&c, name, args, |a| match name {
+                            "\\gate" | "\\measureD" => format!("\\boxed{{{}}}", a[0]),
+                            "\\multigate" => format!("\\boxed{{{}}}", a[1]),
+                            "\\lstick" | "\\rstick" | "\\push" => a[0].clone(),
+                            "\\ctrl" => "\\bullet".into(),
+                            "\\ctrlo" => "\\circ".into(),
+                            "\\targ" => "\\oplus".into(),
+                            "\\meter" => "\\boxed{\\nearrow}".into(),
+                            "\\qw" => "\\text{\u{2014}}".into(),
+                            "\\cw" => "=".into(),
+                            _ => String::new(),
+                        });
+                    }
+                    c
+                })
+                .collect()
+        })
+        .collect();
+    let cols = rows.iter().map(Vec::len).max().unwrap_or(1).max(1);
+    let body: Vec<String> = rows.iter().map(|r| r.join(" & ")).collect();
+    format!(
+        "\\begin{{array}}{{{}}}{}\\end{{array}}",
+        "c".repeat(cols),
+        body.join(" \\\\ ")
+    )
+}
+
+/// Each `name` with `args` arguments (groups or single tokens) in `s` as
+/// `f(arguments)`.
+fn replace_args(s: &str, name: &str, args: usize, f: impl Fn(&[String]) -> String) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = command_at(rest, name, 0) {
+        out.push_str(&rest[..i]);
+        let mut after = &rest[i + name.len()..];
+        let mut got = Vec::new();
+        for _ in 0..args {
+            let t = after.trim_start();
+            if let Some((g, r)) = group(t) {
+                got.push(g.to_string());
+                after = r;
+            } else if let Some(c) = t.chars().next() {
+                got.push(c.to_string());
+                after = &t[c.len_utf8()..];
+            }
+        }
+        while got.len() < args {
+            got.push(String::new());
+        }
+        out.push_str(&f(&got));
+        rest = after;
+    }
+    out.push_str(rest);
     out
 }
 
@@ -1226,6 +1325,12 @@ mod prepare_tests {
             assert!(t.contains(want), "{f}: {t}");
             assert!(crate::check(&t).is_ok(), "{f}: {t}");
         }
+        let q = prepare(
+            "\\Qcircuit @C=2.3em @R=0.7em { & \\lstick{\\ket{0}} & \\gate{H} & \\ctrl{1} & \\qw \\\\ & & \\qw & \\targ & \\meter }",
+            "\\def\\ket#1{|#1\\rangle}",
+        );
+        assert!(q.contains("\\boxed{H}"), "{q}");
+        assert!(crate::check(&q).is_ok(), "{q}");
         // In the definitions too.
         let t = prepare(
             "x \\eqdefa y",
