@@ -847,7 +847,23 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
                                         drawn_to = drawn_to.max(e);
                                         true
                                     }
-                                    None => false,
+                                    // A formula, drawn when the renderer
+                                    // reads it (the document's definitions
+                                    // aside).
+                                    None => match crate::latex_view::own_math(
+                                        &model, &name, text, end, body.end,
+                                    ) {
+                                        Some((src, e))
+                                            if org_math::check(&org_math::source::prepare(
+                                                &src, "",
+                                            ))
+                                            .is_ok() =>
+                                        {
+                                            drawn_to = drawn_to.max(e);
+                                            true
+                                        }
+                                        _ => false,
+                                    },
                                 },
                             }
                         };

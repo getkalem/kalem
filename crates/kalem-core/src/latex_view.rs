@@ -2194,7 +2194,117 @@ pub(crate) fn own_macro_use(
     {
         return None;
     }
-    // Each argument: a group, or one token.
+    let (body, i) = expansion(m, text, at, limit)?;
+    let mut style = Style::default();
+    let mut inner = body.as_str();
+    for (cmd, set) in [
+        ("\\textbf{", 0),
+        ("\\textit{", 1),
+        ("\\emph{", 1),
+        ("\\texttt{", 2),
+    ] {
+        if let Some(r) = inner.strip_prefix(cmd)
+            && let Some(close) = matching_brace(r)
+            && r[close + 1..].trim().is_empty()
+        {
+            inner = &r[..close];
+            match set {
+                0 => style.bold = true,
+                1 => style.italic = true,
+                _ => style.code = true,
+            }
+            break;
+        }
+    }
+    let (out, _) = plain_text(model, inner, 0)?;
+    Some((out, style, i))
+}
+
+/// A use at `at` of the document's own macro `name` that is a formula, or
+/// text with formulas in it (`\newcommand{\qmdd}{\ensuremath{\textsf{SLDD}_{\times}}}`,
+/// `\newcommand{\intvwr}[1]{\textit{I$_{#1}$}}`): the formula to draw in its
+/// place (`$…$`) and where the use ends. The caller checks that the math
+/// renderer reads it.
+pub(crate) fn own_math(
+    model: &latex_model::Model,
+    name: &str,
+    text: &str,
+    at: usize,
+    limit: usize,
+) -> Option<(String, usize)> {
+    let m = model
+        .macros
+        .iter()
+        .rev()
+        .find(|m| m.name.strip_prefix('\\') == Some(name))?;
+    if m.args > 9 || m.default.is_some() || m.body.trim().is_empty() || own_wrapper(model, name) {
+        return None;
+    }
+    if !matches!(
+        m.command.as_str(),
+        "newcommand" | "renewcommand" | "providecommand" | "def"
+    ) {
+        return None;
+    }
+    let (body, mut end) = expansion(m, text, at, limit)?;
+    let body = body.trim();
+    let body = body.strip_suffix("\\xspace").unwrap_or(body).trim_end();
+    // `\qmdd{}`: the group that ends the name, nothing.
+    if m.args == 0 && text[end..limit].starts_with("{}") {
+        end += 2;
+    }
+    if let Some(r) = body.strip_prefix("\\ensuremath{")
+        && let Some(close) = matching_brace(r)
+        && r[close + 1..].trim().is_empty()
+    {
+        return Some((format!("${}$", &r[..close]), end));
+    }
+    if body.contains('$') && !body.contains("$$") && body.matches('$').count() % 2 == 0 {
+        // Text with formulas in it, as one formula: the text in its font
+        // (`\textit{I$_{3}$}` ⇒ `\textit{I}_{3}`).
+        let mut font = "text";
+        let mut inner = body;
+        for (cmd, f) in [
+            ("\\textit{", "textit"),
+            ("\\emph{", "textit"),
+            ("\\textbf{", "textbf"),
+            ("\\textrm{", "textrm"),
+            ("\\textsf{", "textsf"),
+            ("\\texttt{", "texttt"),
+            ("\\mbox{", "text"),
+            ("\\text{", "text"),
+        ] {
+            if let Some(r) = inner.strip_prefix(cmd)
+                && let Some(close) = matching_brace(r)
+                && r[close + 1..].trim().is_empty()
+            {
+                font = f;
+                inner = &r[..close];
+                break;
+            }
+        }
+        let mut out = String::new();
+        for (k, part) in inner.split('$').enumerate() {
+            if k % 2 == 1 {
+                out.push_str(part);
+            } else if !part.is_empty() {
+                out.push_str(&format!("\\{font}{{{part}}}"));
+            }
+        }
+        return Some((format!("${out}$"), end));
+    }
+    None
+}
+
+/// The body of macro `m` with the arguments of its use at `at` put in,
+/// and where the use ends (before `limit`): each argument a group, or one
+/// token.
+fn expansion(
+    m: &latex_model::Macro,
+    text: &str,
+    at: usize,
+    limit: usize,
+) -> Option<(String, usize)> {
     let mut args = Vec::new();
     let mut i = at;
     for _ in 0..m.args {
@@ -2232,29 +2342,7 @@ pub(crate) fn own_macro_use(
         }
         body.push(c);
     }
-    let mut style = Style::default();
-    let mut inner = body.as_str();
-    for (cmd, set) in [
-        ("\\textbf{", 0),
-        ("\\textit{", 1),
-        ("\\emph{", 1),
-        ("\\texttt{", 2),
-    ] {
-        if let Some(r) = inner.strip_prefix(cmd)
-            && let Some(close) = matching_brace(r)
-            && r[close + 1..].trim().is_empty()
-        {
-            inner = &r[..close];
-            match set {
-                0 => style.bold = true,
-                1 => style.italic = true,
-                _ => style.code = true,
-            }
-            break;
-        }
-    }
-    let (out, _) = plain_text(model, inner, 0)?;
-    Some((out, style, i))
+    Some((body, i))
 }
 
 /// What the glossary command `cmd` (`gls`, `acp`, `acrfull`, …) prints
@@ -3924,6 +4012,31 @@ fn unflagged_line_view(
                             {
                                 tok = n.next_token();
                             }
+                        }
+                    }
+                    // A document's own macro that is a formula, or text with
+                    // formulas in it: the formula, when the renderer reads it.
+                    (n, None)
+                        if !renders_command(n)
+                            && let Some((source, end)) =
+                                own_math(&state.model(), n, text, r.end, line.end)
+                            && !near(&(r.start..end))
+                            && renderer_reads(doc, &source) =>
+                    {
+                        b.runs.push(Run {
+                            src: r.start..end,
+                            text: crate::view::PLACEHOLDER.to_string(),
+                            verbatim: false,
+                            style: Style::default(),
+                            widget: Some(crate::view::Widget::Math {
+                                source,
+                                display: false,
+                            }),
+                        });
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
                         }
                     }
                     // A document's own macro with arguments whose definition,
@@ -7036,6 +7149,32 @@ mod tests {
             line(5)
         );
         assert_eq!(line(7).trim_start(), "Body.");
+    }
+
+    #[test]
+    fn own_macros_that_are_formulas() {
+        // A macro that is a formula, or text with one in it: drawn by the
+        // math renderer in its place.
+        let text = "\\documentclass{article}\n\\usepackage{xspace}\n\\newcommand{\\qmdd}{\\ensuremath{\\textsf{SLDD}_{\\times}}\\xspace}\n\\newcommand{\\intvwr}[1]{\\textit{I$_{#1}$}}\n\\begin{document}\nA \\qmdd and \\intvwr{3} here.\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 5, None);
+        let maths: Vec<String> = v
+            .runs
+            .iter()
+            .filter_map(|r| match &r.widget {
+                Some(crate::view::Widget::Math { source, .. }) => Some(source.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            maths,
+            ["$\\textsf{SLDD}_{\\times}$", "$\\textit{I}_{3}$"],
+            "{:?}",
+            v.runs
+        );
+        // The coverage count draws them too.
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
     }
 
     #[test]
