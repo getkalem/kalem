@@ -428,6 +428,50 @@ impl Md {
                 }
             }
         }
+        // A table cell's inline nodes: comrak places them as if each `\|`
+        // had lost its backslash already (each one an earlier byte).
+        for p in 0..md.nodes.len() {
+            if md.nodes[p].kind != MdKind::TableCell {
+                continue;
+            }
+            let pr = md.nodes[p].range.clone();
+            let cell = &text[pr.clone()];
+            // Where each escape would be with the backslashes before it gone.
+            let escapes: Vec<usize> = cell
+                .match_indices("\\|")
+                .enumerate()
+                .map(|(i, (k, _))| pr.start + k - i)
+                .collect();
+            if escapes.is_empty() {
+                continue;
+            }
+            let real = |x: usize| x + escapes.iter().filter(|&&e| e < x).count();
+            for i in p + 1..md.nodes.len() {
+                let mut q = md.nodes[i].parent;
+                let mut inside = false;
+                while let Some(a) = q {
+                    if a as usize == p {
+                        inside = true;
+                        break;
+                    }
+                    q = md.nodes[a as usize].parent;
+                }
+                if !inside {
+                    break;
+                }
+                let n = &mut md.nodes[i];
+                n.range = real(n.range.start).min(pr.end)..real(n.range.end).min(pr.end);
+                n.content = real(n.content.start).min(pr.end)..real(n.content.end).min(pr.end);
+                // A code span's text: inside its backticks, read again.
+                if n.kind == MdKind::Code {
+                    let s = &text[n.range.clone()];
+                    let a = s.bytes().take_while(|&b| b == b'`').count();
+                    let b = s.bytes().rev().take_while(|&b| b == b'`').count();
+                    n.content = (n.range.start + a).min(n.range.end)
+                        ..n.range.end.saturating_sub(b).max(n.range.start + a);
+                }
+            }
+        }
         // Containers' content: from their first child to their last.
         for i in (0..md.nodes.len()).rev() {
             if let Some(p) = md.nodes[i].parent {
@@ -820,7 +864,53 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
                     }
                 }
             }
-            MdKind::Table | MdKind::TableRow => view.mono = true,
+            MdKind::Table => {
+                view.mono = true;
+                // The row under the header (`| --- | :-: |`): markup.
+                if !md.on_line(idx).any(|m| m.kind == MdKind::TableRow) {
+                    pieces.push(Piece::Style(r, |s| s.dim = true));
+                }
+            }
+            MdKind::TableRow => {
+                view.mono = true;
+                // The bars between the cells, dimmed: markup as Org's are
+                // (GFM's escaped `\|`, in code too, is a `|` of the cell).
+                // The header's cells: a row's cells past them are dropped.
+                let columns = n
+                    .parent
+                    .and_then(|t| {
+                        md.nodes
+                            .iter()
+                            .find(|m| m.kind == MdKind::TableRow && m.parent == Some(t))
+                    })
+                    .map(|h| {
+                        let h = &text[h.range.clone()];
+                        h.matches('|').count() - h.matches("\\|").count()
+                    })
+                    .unwrap_or(usize::MAX);
+                let row = &text[r.clone()];
+                let header_bars = if row.starts_with('|') {
+                    columns
+                } else {
+                    columns.saturating_add(1)
+                };
+                let mut prev = 0u8;
+                let mut bars = 0;
+                for (k, c) in row.bytes().enumerate() {
+                    if c == b'|' && prev == b'\\' {
+                        pieces.push(Piece::Hide(r.start + k - 1..r.start + k));
+                    } else if c == b'|' {
+                        pieces.push(Piece::Style(r.start + k..r.start + k + 1, |s| s.dim = true));
+                        bars += 1;
+                        // Past the header's last bar: cells it does not have.
+                        if bars >= header_bars && k + 1 < row.len() {
+                            pieces.push(Piece::Style(r.start + k + 1..r.end, |s| s.dim = true));
+                            break;
+                        }
+                    }
+                    prev = c;
+                }
+            }
             MdKind::FrontMatter => {
                 view.mono = true;
                 pieces.push(Piece::Style(r, |s| s.dim = true));
@@ -921,7 +1011,16 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
                 }
             }
             MdKind::FootnoteRef => pieces.push(Piece::Style(r, |s| s.footnote = true)),
-            MdKind::HtmlInline => pieces.push(Piece::Style(r, |s| s.dim = true)),
+            MdKind::HtmlInline => {
+                // Its tags, as a browser reads them (`<![CDATA[>` ends at
+                // the first `>`: what follows is text).
+                for t in html_tags(&text[n.range.clone()]) {
+                    let t = clip(&(n.range.start + t.start..n.range.start + t.end));
+                    if t.start < t.end {
+                        pieces.push(Piece::Style(t, |s| s.dim = true));
+                    }
+                }
+            }
             MdKind::Image { url }
                 if !revealed(&n.range)
                     && n.range.start >= line.start
@@ -1016,25 +1115,29 @@ fn quote_markers(line: &str) -> Vec<Range<usize>> {
     out
 }
 
-/// The tags, comments, declarations and CDATA of a block of raw HTML.
+/// The tags, comments and declarations of a block of raw HTML, as a
+/// browser reads them: a tag to its `>` outside quoted attribute values,
+/// a comment to `-->`, `<?…` and `<!…` (CDATA too) to the first `>`.
 fn html_tags(html: &str) -> Vec<Range<usize>> {
     let mut out = Vec::new();
     let mut i = 0;
     while let Some(j) = html[i..].find('<') {
         let a = i + j;
         let rest = &html[a..];
-        let close = |open: &str, close: &str| {
-            rest.starts_with(open)
-                .then(|| rest.find(close).map_or(html.len(), |k| a + k + close.len()))
+        let end = if rest.starts_with("<!-->") {
+            // HTML's empty comments, `<!-->` and `<!--->`.
+            Some(a + 5)
+        } else if rest.starts_with("<!--->") {
+            Some(a + 6)
+        } else if let Some(body) = rest.strip_prefix("<!--") {
+            Some(body.find("-->").map_or(html.len(), |k| a + 4 + k + 3))
+        } else if rest.starts_with("<?") || rest.starts_with("<!") {
+            Some(rest.find('>').map_or(html.len(), |k| a + k + 1))
+        } else if rest[1..].starts_with(|c: char| c.is_ascii_alphabetic() || c == '/') {
+            Some(tag_end(rest).map_or(html.len(), |k| a + k))
+        } else {
+            None
         };
-        let end = close("<!--", "-->")
-            .or_else(|| close("<![CDATA[", "]]>"))
-            .or_else(|| close("<?", "?>"))
-            .or_else(|| {
-                rest[1..]
-                    .starts_with(|c: char| c.is_ascii_alphabetic() || c == '/' || c == '!')
-                    .then(|| rest.find('>').map_or(html.len(), |k| a + k + 1))
-            });
         let Some(end) = end else {
             i = a + 1;
             continue;
@@ -1067,6 +1170,21 @@ fn html_tags(html: &str) -> Vec<Range<usize>> {
         i = end;
     }
     out
+}
+
+/// Where the tag `tag` starts with ends: after its `>`, a `>` inside a
+/// quoted attribute value not counting.
+fn tag_end(tag: &str) -> Option<usize> {
+    let mut quote = None;
+    for (k, c) in tag.char_indices() {
+        match (quote, c) {
+            (None, '"' | '\'') => quote = Some(c),
+            (Some(q), _) if c == q => quote = None,
+            (None, '>') => return Some(k + 1),
+            _ => {}
+        }
+    }
+    None
 }
 
 /// The text of node `n`'s content as a browser shows it: its text and
@@ -2813,20 +2931,23 @@ mod spec {
         assert!(kalem_ok >= KNOWN_WITH_EXTENSIONS, "{kalem_ok}/{core}");
     }
 
-    /// The text a browser shows of `html`, without white space.
+    /// The text a browser shows of `html`, without white space: what the
+    /// tags, comments and declarations (read as [`html_tags`] reads them)
+    /// leave, an image's description in its place.
     fn shown(html: &str) -> String {
         let mut out = String::new();
-        let mut rest = html;
-        while let Some(i) = rest.find('<') {
-            out.push_str(&rest[..i]);
-            let end = rest[i..].find('>').map_or(rest.len(), |j| i + j + 1);
-            let tag = &rest[i..end];
-            if let Some(a) = tag.split(" alt=\"").nth(1) {
+        let mut at = 0;
+        for r in html_tags(html) {
+            out.push_str(&html[at..r.start]);
+            let tag = &html[r.clone()];
+            if tag.starts_with("<img")
+                && let Some(a) = tag.split(" alt=\"").nth(1)
+            {
                 out.push_str(a.split('"').next().unwrap_or(""));
             }
-            rest = &rest[end..];
+            at = r.end;
         }
-        out.push_str(rest);
+        out.push_str(&html[at..]);
         let out = out
             .replace("&lt;", "<")
             .replace("&gt;", ">")
@@ -2841,8 +2962,13 @@ mod spec {
         let Some(cm) = spec_text("KALEM_COMMONMARK_SPEC", "commonmark-spec.txt") else {
             return;
         };
+        // GitHub's extensions' examples too, when GFM's specification is
+        // there.
+        let gfm: Vec<Example> = spec_text("KALEM_GFM_SPEC", "gfm-spec.txt")
+            .map(|g| examples(&g).into_iter().filter(uses_extensions).collect())
+            .unwrap_or_default();
         let (mut n, mut ok) = (0, 0);
-        for e in examples(&cm) {
+        for e in examples(&cm).into_iter().chain(gfm) {
             let md = Md::parse(&e.markdown);
             // List markers stand for the bullets and numbers HTML draws.
             let markers: Vec<Range<usize>> = md
@@ -2900,7 +3026,7 @@ mod spec {
     }
 
     /// The CommonMark examples whose view shows the specification's text.
-    const KNOWN_VIEW: usize = 649;
+    const KNOWN_VIEW: usize = 676;
 
     /// The CommonMark examples that agree with every extension of Kalem
     /// read: the others write front matter, a wiki link or a bare address.
