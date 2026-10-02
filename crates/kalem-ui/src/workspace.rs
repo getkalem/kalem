@@ -60,6 +60,9 @@ pub struct Workspace {
     subscriptions: Vec<Subscription>,
     /// The last document shown that is not a file manager, to go back to.
     last_text: Option<Entity<Editor>>,
+    /// The text document (not a listing, not a viewer's file) shown last,
+    /// where a viewer's Insert Link at Point inserts.
+    last_document: Option<Entity<Editor>>,
     /// The document shown before the active one (`SPC b l`).
     previous: Option<Entity<Editor>>,
     /// The window's panes (`SPC w`, T2.7i.5); the focused one shows the
@@ -115,6 +118,7 @@ impl Workspace {
             menubar_closed: None,
             subscriptions: Vec::new(),
             last_text: None,
+            last_document: None,
             previous: None,
             layout: kalem_core::layout::Layout::new(),
             panes: std::collections::HashMap::new(),
@@ -152,6 +156,43 @@ impl Workspace {
                 cx.notify();
             });
         }
+    }
+
+    /// A link to `file` in the text document shown last, which is shown.
+    fn insert_link(
+        &mut self,
+        file: &std::path::Path,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        let text = |e: &Entity<Editor>, cx: &App| {
+            let d = &e.read(cx).doc;
+            d.dired.is_none() && d.viewer.is_none()
+        };
+        let target = self
+            .last_document
+            .clone()
+            .filter(|e| self.editors.contains(e) && text(e, cx))
+            .or_else(|| self.editors.iter().rev().find(|e| text(e, cx)).cloned());
+        let Some(target) = target else {
+            self.editor.update(cx, |e, cx| {
+                e.status = Some((kalem_core::l10n::tr("msg-viewer-no-document"), true));
+                cx.notify();
+            });
+            return;
+        };
+        let file = file.to_path_buf();
+        target.update(cx, |e, cx| {
+            match e
+                .doc
+                .drop_pictures(std::slice::from_ref(&file), std::time::Instant::now())
+            {
+                Ok(()) => e.after_change(cx),
+                Err(m) => e.status = Some((m, true)),
+            }
+            cx.notify();
+        });
+        self.activate(target, window, cx);
     }
 
     /// Back from the file manager to the document shown before it.
@@ -203,8 +244,12 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) {
-        if self.editor.read(cx).doc.dired.is_none() {
+        let doc = &self.editor.read(cx).doc;
+        if doc.dired.is_none() {
             self.last_text = Some(self.editor.clone());
+        }
+        if doc.dired.is_none() && doc.viewer.is_none() {
+            self.last_document = Some(self.editor.clone());
         }
         if self.editor != editor {
             self.previous = Some(self.editor.clone());
@@ -1194,6 +1239,7 @@ impl Workspace {
         match ev.clone() {
             DocEvent::Open { path, at } => self.open(&path, at, window, cx),
             DocEvent::New => self.new_document(window, cx),
+            DocEvent::InsertLink(path) => self.insert_link(&path, window, cx),
             DocEvent::Close => self.close(editor, window, cx),
             DocEvent::Cycle(back) => self.cycle(back, window, cx),
             DocEvent::Activate(i) => {

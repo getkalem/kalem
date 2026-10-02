@@ -77,6 +77,7 @@ pub mod text;
 pub mod theme;
 pub mod toc;
 pub mod view;
+pub mod viewer;
 pub mod vim;
 pub mod when;
 pub mod workspaces;

@@ -19,6 +19,7 @@ org-model.workspace = true
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 crossterm = "0.29"
 ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"] }
+kalem-viewer.workspace = true
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 unicode-width = "0.2"
 unicode-segmentation = "1"
@@ -31,7 +32,8 @@ rustix = { version = "1", features = ["event", "stdio", "std"] }
 
 [dev-dependencies]
 insta = "1"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+kalem-plugin-image-viewer.workspace = true
 
 [lints]
 workspace = true

@@ -126,6 +126,9 @@ pub struct DocumentState {
     /// The file manager's state, in a folder listing
     /// ([`DocumentMode::Directory`]).
     pub dired: Option<Box<crate::dired::DirState>>,
+    /// A file that is not text, opened by a viewer plugin
+    /// ([`DocumentMode::Viewer`]).
+    pub viewer: Option<Box<crate::viewer::ViewerState>>,
     /// A CSV document's filter (view state): only the rows with a field
     /// holding this text show (`crate::csv::filtered`).
     pub csv_filter: Option<String>,
@@ -252,6 +255,7 @@ impl DocumentState {
             disk: None,
             changes: Vec::new(),
             dired: None,
+            viewer: None,
             csv_filter: None,
             csv_sort: None,
             csv_dialect: std::cell::Cell::new(None),
@@ -430,10 +434,110 @@ impl DocumentState {
                 settings,
             ));
         }
+        if let Some(viewer) = crate::viewer::for_file(path) {
+            return DocumentState::viewed(path, viewer, settings);
+        }
         let (text, meta, disk) = files::read(path)?;
         let mut d = DocumentState::with_base(text, meta, settings, base);
         d.disk = Some(disk);
         Ok(d)
+    }
+
+    /// The file at `path` opened by `viewer` (design §11.13): no text, the
+    /// viewer's units.
+    pub fn viewed(
+        path: &Path,
+        viewer: std::sync::Arc<dyn kalem_viewer::Viewer>,
+        settings: Arc<Settings>,
+    ) -> Result<DocumentState, OpenError> {
+        let path = dunce::canonicalize(path)
+            .or_else(|_| std::path::absolute(path))
+            .unwrap_or_else(|_| path.to_path_buf());
+        let state = crate::viewer::ViewerState::open(viewer, &path).map_err(OpenError::Viewer)?;
+        let meta = Metadata {
+            path: Some(path.clone()),
+            mode: DocumentMode::Viewer,
+            line_ending: LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let mut d = DocumentState::new("", meta, settings);
+        d.read_only = true;
+        d.viewer = Some(Box::new(state));
+        d.disk = files::stat(&path).ok();
+        Ok(d)
+    }
+
+    /// Saves a viewer's edits: the bytes the plugin writes, written
+    /// atomically as text is.
+    fn save_viewed(
+        &mut self,
+        path: &Path,
+        options: SaveOptions,
+        force: bool,
+    ) -> Result<(), SaveError> {
+        let Some(v) = self.viewer.as_deref_mut() else {
+            return Ok(());
+        };
+        if !v.modified() {
+            return Ok(());
+        }
+        if !force && let Some(known) = self.disk {
+            match files::check(path, &known).map_err(SaveError::Io)? {
+                DiskChange::Modified => return Err(SaveError::ChangedOnDisk),
+                DiskChange::Unchanged | DiskChange::Touched(_) | DiskChange::Deleted => {}
+            }
+        }
+        let out = v
+            .save()
+            .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
+        for loss in &out.losses {
+            tracing::warn!(path = %path.display(), loss, "lost on save");
+        }
+        self.disk = Some(files::write(path, &out.bytes, options).map_err(SaveError::Io)?);
+        Ok(())
+    }
+
+    /// Shows the file `delta` places after this one among the files of
+    /// its folder the same viewer opens, wrapping around (a viewer's next
+    /// and previous file). Refused while the file has unsaved edits.
+    pub fn viewer_step_file(&mut self, delta: i64) -> Result<(), String> {
+        let Some(v) = self.viewer.as_deref() else {
+            return Ok(());
+        };
+        if v.modified() {
+            return Err(crate::l10n::tr("msg-viewer-unsaved"));
+        }
+        let Some(path) = self.meta.path.clone() else {
+            return Ok(());
+        };
+        let viewer = v.viewer.clone();
+        let files = crate::viewer::siblings(&path, viewer.as_ref());
+        let at = files.iter().position(|p| *p == path).unwrap_or(0) as i64;
+        let n = files.len() as i64;
+        if n < 2 {
+            return Ok(());
+        }
+        let mut i = at;
+        // A file that does not open is passed over.
+        for _ in 1..n {
+            i = (i + delta).rem_euclid(n);
+            let next = &files[i as usize];
+            match crate::viewer::ViewerState::open(viewer.clone(), next) {
+                Ok(mut state) => {
+                    let old = self.viewer.as_deref().expect("checked above");
+                    state.info = old.info;
+                    state.set_area(old.area().0, old.area().1);
+                    self.viewer = Some(Box::new(state));
+                    self.meta.path = Some(next.clone());
+                    self.disk = files::stat(next).ok();
+                    return Ok(());
+                }
+                Err(e) => tracing::info!(path = %next.display(), error = %e, "passed over"),
+            }
+        }
+        Ok(())
     }
 
     /// Saves to the document's file. Unless `force`, fails if another
@@ -443,6 +547,9 @@ impl DocumentState {
             return Ok(());
         }
         let path = self.meta.path.clone().ok_or(SaveError::NoPath)?;
+        if self.viewer.is_some() {
+            return self.save_viewed(&path, options, force);
+        }
         if !force && let Some(known) = self.disk {
             match files::check(&path, &known).map_err(SaveError::Io)? {
                 DiskChange::Modified => return Err(SaveError::ChangedOnDisk),
@@ -560,6 +667,15 @@ impl DocumentState {
             self.refresh_listing();
             return Ok(());
         }
+        if let (Some(old), Some(path)) = (self.viewer.as_deref(), self.meta.path.clone()) {
+            let mut state = crate::viewer::ViewerState::open(old.viewer.clone(), &path)
+                .map_err(OpenError::Viewer)?;
+            state.info = old.info;
+            state.set_area(old.area().0, old.area().1);
+            self.viewer = Some(Box::new(state));
+            self.disk = files::stat(&path).ok();
+            return Ok(());
+        }
         let path = self.meta.path.clone().ok_or_else(|| {
             OpenError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "no file"))
         })?;
@@ -583,7 +699,7 @@ impl DocumentState {
 
     /// Whether there are changes since the last save.
     pub fn is_modified(&self) -> bool {
-        self.version != self.saved_version
+        self.version != self.saved_version || self.viewer.as_ref().is_some_and(|v| v.modified())
     }
 
     /// Records that the current text was saved.
@@ -1188,6 +1304,9 @@ impl DocumentState {
 
     /// Undoes the last step; returns its label.
     pub fn undo(&mut self) -> Option<String> {
+        if let Some(v) = self.viewer.as_deref_mut() {
+            return v.undo().ok().filter(|done| *done).map(|_| String::new());
+        }
         if self.read_only {
             return None;
         }
@@ -1202,6 +1321,9 @@ impl DocumentState {
 
     /// Redoes the last undone step; returns its label.
     pub fn redo(&mut self) -> Option<String> {
+        if let Some(v) = self.viewer.as_deref_mut() {
+            return v.redo().ok().filter(|done| *done).map(|_| String::new());
+        }
         if self.read_only {
             return None;
         }
@@ -1566,6 +1688,10 @@ impl DocumentState {
         }
         if let DocumentMode::Text { language: Some(l) } = &self.meta.mode {
             c.set("editorLanguage", Value::Str(l.clone()));
+        }
+        if let Some(v) = self.viewer.as_deref() {
+            c.flag("viewerAnimated", v.structure().animated());
+            c.flag("viewerEditable", !v.edits().is_empty());
         }
         c.flag(
             "wdired",

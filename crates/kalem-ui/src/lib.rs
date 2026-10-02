@@ -15,6 +15,7 @@ pub mod pictures;
 pub mod preferences;
 pub mod preview;
 pub mod theme;
+pub mod viewer;
 pub mod vim;
 pub mod workspace;
 

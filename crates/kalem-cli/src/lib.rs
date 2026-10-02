@@ -96,6 +96,21 @@ enum BookAction {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Show a file that is not text through the viewer that opens it
+    /// (design §11.13): a unit as PNG, or its text and information.
+    View {
+        /// The file.
+        file: PathBuf,
+        /// The unit (page, frame), from 1.
+        #[arg(long, default_value_t = 1)]
+        unit: usize,
+        /// What to write.
+        #[arg(long, value_enum, default_value_t = ViewFormat::Txt)]
+        to: ViewFormat,
+        /// Where to write the PNG (standard output otherwise).
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
     /// Print the syntax tree of a file.
     Parse {
         /// The Org, Markdown, LaTeX or Kalem file to parse.
@@ -323,6 +338,21 @@ enum DumpFormat {
 }
 
 /// Runs the command line with the given arguments.
+/// What `kalem view` writes.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ViewFormat {
+    /// The unit's text and the file's information.
+    Txt,
+    /// The unit as a PNG picture.
+    Png,
+}
+
+/// Installs the plugins bundled into the binary (D28): the image viewer
+/// of getkalem/plugins, until components load (T3.1.12).
+pub fn bundled_plugins() {
+    kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_image_viewer::ImageViewer));
+}
+
 pub fn run<I, T>(args: I) -> ExitCode
 where
     I: IntoIterator<Item = T>,
@@ -341,6 +371,17 @@ where
     };
     let result = match cli.command {
         Command::Parse { file } => commands::parse(&file),
+        Command::View {
+            file,
+            unit,
+            to,
+            output,
+        } => commands::view(
+            &file,
+            unit,
+            matches!(to, ViewFormat::Png),
+            output.as_deref(),
+        ),
         Command::Check {
             files,
             format,

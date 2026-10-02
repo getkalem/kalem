@@ -114,6 +114,9 @@ static NEXT_DOC: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::ne
 /// What an editor asks of its window: documents to open, show or close.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DocEvent {
+    /// Insert a link to this file in the text document used last (a
+    /// viewer's Insert Link at Point).
+    InsertLink(std::path::PathBuf),
     /// Open `path` (or show it if open), at a line (from 1) and a byte
     /// column.
     Open {
@@ -314,6 +317,8 @@ pub struct Editor {
     pub preview: Option<bool>,
     /// What the preview pane shows, for the file it was read from.
     pub preview_cache: crate::preview::Cache,
+    /// The view of a file a viewer plugin opened.
+    pub viewer_view: crate::viewer::ViewerView,
     /// The command palette, when open.
     pub palette: Option<crate::panels::Palette>,
     /// What to type into the list opening now, resumed.
@@ -462,6 +467,7 @@ impl Editor {
             outline: None,
             preview: None,
             preview_cache: Default::default(),
+            viewer_view: Default::default(),
             palette: None,
             find: None,
             date_picker: None,
@@ -1407,6 +1413,14 @@ impl Editor {
                 }
             }
             Request::CopyText(t) => cx.write_to_clipboard(gpui::ClipboardItem::new_string(t)),
+            Request::CopyImage { png, .. } => {
+                cx.write_to_clipboard(gpui::ClipboardItem::new_image(&gpui::Image::from_bytes(
+                    gpui::ImageFormat::Png,
+                    png,
+                )));
+                self.message(tr!("msg-viewer-copied"), false);
+            }
+            Request::InsertLink(path) => cx.emit(DocEvent::InsertLink(path)),
             Request::Complete => {
                 self.request_completion();
                 cx.notify();
@@ -2095,6 +2109,10 @@ impl Editor {
     /// listing outside Vim's insert mode and command line, the keys it
     /// binds.
     fn listing_key(&self, chord: &kalem_core::keys::KeyChord) -> bool {
+        // A viewer's document has no text for Vim to edit.
+        if self.doc.viewer.is_some() {
+            return true;
+        }
         let Some(v) = &self.vim else { return false };
         if v.takes_text() || v.command_line.is_some() || !v.idle_command() {
             return false;
@@ -4038,10 +4056,13 @@ impl gpui::Render for Editor {
         });
         let outline = self.outline_panel(cx);
         let preview = self.preview_panel(cx);
-        let panes = match other {
-            Some(o) if self.left => vec![active, o.border_l_1().border_color(theme.border)],
-            Some(o) => vec![o, active.border_l_1().border_color(theme.border)],
-            None => vec![active],
+        let panes = match (self.viewer_element(window, cx), other) {
+            (Some(v), _) => vec![v],
+            (None, Some(o)) if self.left => {
+                vec![active, o.border_l_1().border_color(theme.border)]
+            }
+            (None, Some(o)) => vec![o, active.border_l_1().border_color(theme.border)],
+            (None, None) => vec![active],
         };
         div()
             .id("editor")

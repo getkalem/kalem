@@ -1,0 +1,14 @@
+[package]
+name = "kalem-viewer"
+description = "The document-viewer and document-editor contract of the Kalem editor (D54): what a plugin opening a file that is not text implements"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

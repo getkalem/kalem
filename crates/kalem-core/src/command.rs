@@ -225,6 +225,17 @@ pub enum Request {
     Complete,
     /// Put this text on the system clipboard.
     CopyText(String),
+    /// Put a picture on the system clipboard (a viewer's), with its file
+    /// for places that take a path (terminals copy the path).
+    CopyImage {
+        /// The picture as PNG.
+        png: Vec<u8>,
+        /// Its file.
+        path: Option<std::path::PathBuf>,
+    },
+    /// Insert a link to this file at the cursor of the text document
+    /// used last (a viewer's "Insert Link at Point").
+    InsertLink(std::path::PathBuf),
     /// Put rich text on the system clipboard: `html`, with `text` for
     /// places that take plain text.
     CopyRich {
