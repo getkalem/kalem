@@ -12,6 +12,20 @@ not.
 |-------------------------------------------------------------------------------------+-----------------------------------------------------------------+----------------------------------+------------------------------------------------------------------|
 | headings, formulas, … in files brought in by =\subfile=, =\import= and =\subimport= | Read, as LaTeX reads them with the subfiles and import packages | Not read                         | Kalem follows the packages a project uses (T2.7h.4)              |
 | figures                                                                             | =figure*= counts as a figure                                    | Only =figure= becomes a =Figure= | =figure*= is a figure across both columns, with the same counter |
+| displayed formulas                                                                  | =xalignat=, =xxalignat= and empheq's environments are displays   | Not read                         | They are amsmath's and empheq's displays, numbered as LaTeX numbers them |
+| formulas, footnotes, list items in the arguments of a document's own commands        | Read, as LaTeX typesets them                                     | Dropped with the command when its definition is in a file pandoc does not read (OpenLogic's =\olchapter=, =\iftag=) | The text is in the document; the corpus's 103 files that differ in inline formulas are all this kind |
+
+Both sides count what a reader reads: formulas inside a picture (TikZ,
+=picture=, feynmf) are drawn, not read, and are left out; =\thanks= in a
+title is a note; =\nocite= cites nothing in the text; a subfigure is
+part of its figure, not a figure of its own.
+
+On the 394 files of the LaTeX corpus under 400 KB
+(=tests/corpus/fetch-latex.sh=), headings, their levels, citations,
+figures, tables and code blocks agree in every file, footnotes in all
+but two, displayed formulas in all but six and list items in all but
+four, each of them a formula, note or list in a command pandoc drops
+(2026-10-02).
 
 On the fixtures of =tests/latex=, every other category agrees
 (=kalem diff-pandoc --summary tests/latex/model/*.tex tests/latex/project/main.tex=).
