@@ -37,6 +37,8 @@ pub enum OpenError {
     UnknownEncoding(String),
     /// An encoding Kalem cannot read or write (UTF-32).
     UnsupportedEncoding(String),
+    /// The viewer that opens the file failed (`crate::viewer`).
+    Viewer(String),
 }
 
 impl fmt::Display for OpenError {
@@ -50,6 +52,9 @@ impl fmt::Display for OpenError {
             OpenError::UnknownEncoding(name) => write!(f, "Unknown encoding: {name}"),
             OpenError::UnsupportedEncoding(name) => {
                 write!(f, "The file is in {name}, which Kalem cannot read")
+            }
+            OpenError::Viewer(e) => {
+                f.write_str(&crate::tr!("msg-viewer-cannot-open", error = e.as_str()))
             }
         }
     }
@@ -408,6 +413,16 @@ pub const COMMON_ENCODINGS: &[&str] = &[
     "Big5",
     "EUC-KR",
 ];
+
+/// The state of a file on disk, read for its hash (a file a viewer
+/// opened, which is not read as text).
+pub fn stat(path: &Path) -> io::Result<DiskState> {
+    let bytes = std::fs::read(path)?;
+    Ok(DiskState::of(
+        &bytes,
+        std::fs::metadata(path)?.modified().ok(),
+    ))
+}
 
 /// Reads a file.
 pub fn read(path: &Path) -> Result<(String, Metadata, DiskState), OpenError> {

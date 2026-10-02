@@ -1821,6 +1821,19 @@ impl EditorView {
         buf: &mut Buffer,
         area: Rect,
     ) -> Option<(u16, u16)> {
+        // A viewer's document in a pane without focus: its text.
+        if let Some(v) = doc.viewer.as_deref() {
+            for (i, line) in v.text().lines().take(area.height as usize).enumerate() {
+                buf.set_stringn(
+                    area.x,
+                    area.y + i as u16,
+                    line,
+                    area.width as usize,
+                    ratatui::style::Style::default(),
+                );
+            }
+            return None;
+        }
         let area = self.column(area);
         // Line numbers in a gutter.
         // (A CSV grid numbers its rows itself.)

@@ -735,3 +735,51 @@ pub(crate) fn dump(file: &Path) -> Result<ExitCode> {
     println!("{}", org_syntax::debug::emacs_json(&text, &ctx));
     Ok(ExitCode::SUCCESS)
 }
+
+/// `kalem view`: a unit of a file a viewer opens, as PNG or as text.
+pub(crate) fn view(file: &Path, unit: usize, png: bool, output: Option<&Path>) -> Result<ExitCode> {
+    let viewer = {
+        let head = std::fs::read(file)
+            .map(|b| b[..b.len().min(8192)].to_vec())
+            .map_err(|e| format!("{}: {e}", file.display()))?;
+        let name = file
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        kalem_core::viewer::find(&name, &head)
+            .ok_or_else(|| format!("{}: no viewer opens this file", file.display()))?
+    };
+    let mut v = kalem_core::viewer::ViewerState::open(viewer, file)
+        .map_err(|e| format!("{}: {e}", file.display()))?;
+    let n = v.structure().units.len();
+    if unit == 0 || unit > n {
+        return Err(format!("{}: no unit {unit} (it has {n})", file.display()));
+    }
+    v.go_to(unit - 1);
+    if png {
+        let bytes = v
+            .bitmap()
+            .and_then(|b| kalem_core::viewer::png(&b))
+            .map_err(|e| format!("{}: {e}", file.display()))?;
+        match output {
+            Some(o) => std::fs::write(o, bytes).map_err(|e| format!("{}: {e}", o.display()))?,
+            None => std::io::stdout()
+                .write_all(&bytes)
+                .map_err(|e| e.to_string())?,
+        }
+        return Ok(ExitCode::SUCCESS);
+    }
+    let mut out = String::new();
+    out.push_str(&v.text());
+    out.push('\n');
+    for f in v.info_fields() {
+        out.push_str(&format!("{}: {}\n", f.label, f.value));
+    }
+    match output {
+        Some(o) => std::fs::write(o, out).map_err(|e| format!("{}: {e}", o.display()))?,
+        None => std::io::stdout()
+            .write_all(out.as_bytes())
+            .map_err(|e| e.to_string())?,
+    }
+    Ok(ExitCode::SUCCESS)
+}

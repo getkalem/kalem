@@ -556,6 +556,7 @@ pub(crate) fn commands() -> Vec<Command> {
     schemas.extend(crate::dired::schemas());
     let mut all = plain_commands();
     all.extend(crate::dired::commands());
+    all.extend(crate::viewer::commands());
     all.extend(csv_commands());
     all.extend(markdown_commands());
     all.extend(bib_commands());
@@ -3679,6 +3680,10 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd("edit.copy", "Copy", "Edit", &["ctrl+c"], None, |ctx, _| {
+            // A viewer's document has no text: its picture is copied.
+            if ctx.document.as_deref().is_some_and(|d| d.viewer.is_some()) {
+                return crate::viewer::copy(ctx);
+            }
             request(ctx, Request::Copy)
         }),
         cmd("edit.cut", "Cut", "Edit", &["ctrl+x"], None, |ctx, _| {

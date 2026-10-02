@@ -22,8 +22,9 @@ on:
   schedule:
     - cron: "17 3 1 * *"
 
+# Writes the sample's release (see "Keep the sample").
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   coverage:
@@ -34,28 +35,58 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
-      # Restored and saved separately: what was fetched is kept even when
-      # arXiv stops answering partway, and the next run starts from it.
+      # The sample is kept as a release's assets (`arxiv-sample-2024`): the
+      # repository's Actions cache evicted it, and every run then spent
+      # hours asking arXiv for it again. Restored before fetching, and
+      # uploaded again only when the fetch added to it, also when arXiv
+      # stopped answering partway. What the Actions cache still holds,
+      # from before the release kept it, first.
       - uses: actions/cache/restore@v4
         with:
           path: .cache/arxiv
           key: arxiv-2024-${{ github.event.inputs.per_field || '200' }}-
           restore-keys: arxiv-2024-${{ github.event.inputs.per_field || '200' }}-
+      - name: Restore the sample
+        id: restore
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET: sample-${{ github.event.inputs.per_field || '200' }}
+        run: |
+          mkdir -p .cache/arxiv
+          if gh release download arxiv-sample-2024 -p "$ASSET.tar.zst.*" -D "$RUNNER_TEMP/sample"; then
+            cat "$RUNNER_TEMP"/sample/"$ASSET".tar.zst.* | tar --zstd -x -C .cache/arxiv
+            rm -rf "$RUNNER_TEMP/sample"
+            echo "kept=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "hash=$(find .cache/arxiv -type f | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
       - name: Fetch the sample
         run: python3 tools/arxiv-sample.py .cache/arxiv --per-field "${{ github.event.inputs.per_field || '200' }}"
-      # Saved under a key of what the sample holds: an unchanged sample is
-      # not saved again (each copy saved under a new key pushed the older
-      # ones, and Rust's, out of the repository's cache, and the next run
-      # fetched the whole sample again).
-      - name: What the sample holds
-        id: sample
-        if: always()
-        run: echo "hash=$(find .cache/arxiv -type f | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: .cache/arxiv
-          key: arxiv-2024-${{ github.event.inputs.per_field || '200' }}-${{ steps.sample.outputs.hash }}
+      - name: Keep the sample
+        if: always() && steps.restore.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET: sample-${{ github.event.inputs.per_field || '200' }}
+          BEFORE: ${{ steps.restore.outputs.hash }}
+          KEPT: ${{ steps.restore.outputs.kept }}
+        run: |
+          now=$(find .cache/arxiv -type f | sort | sha256sum | cut -c1-16)
+          if [ "$KEPT" = true ] && [ "$now" = "$BEFORE" ]; then
+            echo "The sample is as it was restored."
+            exit 0
+          fi
+          gh release view arxiv-sample-2024 > /dev/null 2>&1 ||
+            gh release create arxiv-sample-2024 --prerelease \
+              --title "arXiv sample (2024)" \
+              --notes "The LaTeX sources the arXiv coverage workflow measures; not a Kalem release."
+          out="$RUNNER_TEMP/out"
+          mkdir -p "$out"
+          # Release assets are at most 2 GiB each: parts of 1.9 GB.
+          tar --zstd -c -C .cache/arxiv . | split -b 1900M -d -a 2 - "$out/$ASSET.tar.zst."
+          old=$(gh release view arxiv-sample-2024 --json assets --jq ".assets[].name | select(startswith(\"$ASSET.tar.zst.\"))")
+          for a in $old; do
+            [ -e "$out/$a" ] || gh release delete-asset arxiv-sample-2024 "$a" -y
+          done
+          gh release upload arxiv-sample-2024 "$out"/* --clobber
       - name: Measure
         env:
           KALEM_COVERAGE_TRACE: ${{ github.event.inputs.debug_macros }}

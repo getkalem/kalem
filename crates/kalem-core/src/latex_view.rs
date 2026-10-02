@@ -545,11 +545,8 @@ impl LatexState {
 }
 
 pub(crate) fn is_list(name: &str) -> bool {
-    // enumitem's inline lists (`enumerate*`) are lists too.
-    matches!(
-        name,
-        "itemize" | "enumerate" | "description" | "itemize*" | "enumerate*" | "description*"
-    )
+    // enumitem's inline lists (`enumerate*`) and paralist's are lists too.
+    latex_model::list_kind(name).is_some()
 }
 
 /// The list environments around `n`, innermost first.
@@ -557,8 +554,9 @@ fn lists_around(n: &SyntaxNode) -> Vec<(SyntaxNode, String)> {
     n.ancestors()
         .filter(|a| a.kind() == K::ENVIRONMENT)
         .filter_map(|a| {
+            // Named by its kind: `compactenum` is an `enumerate`.
             let name = latex_syntax::name(&a)?;
-            is_list(&name).then_some((a, name))
+            latex_model::list_kind(&name).map(|k| (a, k.to_string()))
         })
         .collect()
 }
@@ -1007,7 +1005,8 @@ fn format_style(name: &str) -> Option<Style> {
         "texttt" => s.code = true,
         "underline" | "uline" => s.underline = true,
         "sout" => s.strike = true,
-        "textsuperscript" => s.superscript = true,
+        // Author marks set raised (IEEEtran's, Wiley's and others').
+        "textsuperscript" | "IEEEauthorrefmark" | "authormark" => s.superscript = true,
         "textsubscript" => s.subscript = true,
         "textsc" | "textsf" | "textrm" | "textup" | "textmd" | "textnormal" => {}
         _ => return None,
@@ -1226,6 +1225,20 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         // The harvard package's bibliography entry: its label is not
         // printed in an author-year list.
         "harvarditem" => "ommm",
+        // algorithm2e's settings and keyword declarations.
+        "DontPrintSemicolon" | "PrintSemicolon" | "SetAlgoLined" | "SetAlgoNoLine"
+        | "LinesNumbered" | "SetAlgoVlined" | "SetNlSty" | "SetAlCapSkip" | "SetAlgoNoEnd"
+        | "IncMargin" | "DecMargin" | "SetAlgoSkip" | "SetInd" => "",
+        "SetKwInOut" | "SetKwInput" | "SetKwFunction" | "SetKwProg" | "SetKw" | "SetKwData"
+        | "SetKwComment" | "SetKwBlock" | "SetKwIF" | "SetKwFor" | "SetKwRepeat"
+        | "SetKwSwitch" | "SetKwHangingKw" | "SetKwArray" | "SetArgSty" | "SetFuncSty"
+        | "SetDataSty" | "SetKwSty" | "SetCommentSty" | "SetProgSty" => "mm",
+        // Struts and rules that make room, and array's line end.
+        "rule" => "omm",
+        // TikZ's style declared in the text (`\tikzstyle{box}=[draw]`).
+        "tikzstyle" => "mk",
+        "bigstrut" => "o",
+        "arraybackslash" | "strut" | "mathstrut" => "",
         // A counter stepped, labels to come pointing at it: nothing printed.
         "refstepcounter" | "stepcounter" => "m",
         // Bold formulas from here, and back: a setting.
@@ -1318,7 +1331,10 @@ pub(crate) fn box_args(name: &str) -> Option<&'static str> {
         // REVTeX's bibliography: a link with nothing to link, its text.
         "href@noop" => "m",
         // A link's target and its text; a stack of lines; a sub-caption.
-        "hypertarget" => "m",
+        "hypertarget" | "hyperlink" => "m",
+        // REVTeX's e-print link in a bibliography: its text.
+        "Eprint" => "m",
+        "subcaptionbox" => "o",
         "shortstack" => "o",
         "subcaption" => "o",
         _ => return None,
@@ -1402,6 +1418,17 @@ pub(crate) fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Optio
                     blanks(&mut p);
                 }
                 token(&mut p)?;
+            }
+            // `=` and an optional `[…]` (`\tikzstyle{x}=[draw]`).
+            'k' => {
+                if text[p..limit].starts_with('=') {
+                    p += 1;
+                    blanks(&mut p);
+                }
+                if text[p..limit].starts_with('[') {
+                    let close = text[p..limit].find(']')?;
+                    p += close + 1;
+                }
             }
             // A TeX parameter's value: `=` or not, then a number or a
             // dimension (`-1`, `10000`, `1.2pt plus 1fil`, `-\parindent`,
@@ -1746,7 +1773,10 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
 fn transparent(name: &str) -> bool {
     matches!(
         name,
-        "hypertarget"
+        "Eprint"
+            | "hyperlink"
+            | "subcaptionbox"
+            | "hypertarget"
             | "shortstack"
             | "subcaption"
             | "captionof"
@@ -2083,12 +2113,22 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
                         out.push_str(dingbat(r[1..=close].trim().parse().ok()?)?);
                         i += skipped + close + 2;
                     }
+                    // A link's address, a color's name: the group after it
+                    // skipped, the text in the next one read.
+                    "href" | "textcolor" | "colorbox" => {
+                        let r = inner[i..].trim_start();
+                        let skipped = inner.len() - i - r.len();
+                        let close = matching_brace(r.strip_prefix('{')?)?;
+                        i += skipped + close + 2;
+                    }
                     "textbf" | "textit" | "emph" | "textsc" | "textrm" | "textsf" | "texttt"
                     | "mbox" | "text" | "textnormal" | "textup" | "relax" | "protect"
                     // Old and new font switches, and a formula of text.
                     | "sc" | "bf" | "it" | "rm" | "sf" | "tt" | "em" | "sl" | "scshape"
                     | "bfseries" | "itshape" | "upshape" | "slshape" | "mdseries"
-                    | "normalfont" | "ensuremath" | "mathrm" | "mathsf" | "mathtt" => {}
+                    | "normalfont" | "ensuremath" | "mathrm" | "mathsf" | "mathtt"
+                    | "mathbf" | "boldsymbol" | "bm" | "mathit" | "underline" | "uline"
+                    | "textmd" | "textsl" | "nolinkurl" | "url" => {}
                     _ => {
                         if let Some(w) = word(cname) {
                             out.push_str(w);
@@ -2096,6 +2136,10 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
                             && o.args == 0
                         {
                             out.push_str(&o.text);
+                        } else if own_wrapper(model, cname) {
+                            // The document's macro that prints its argument:
+                            // the group after it read as it is.
+                            continue;
                         } else {
                             return None;
                         }
@@ -2167,7 +2211,117 @@ pub(crate) fn own_macro_use(
     {
         return None;
     }
-    // Each argument: a group, or one token.
+    let (body, i) = expansion(m, text, at, limit)?;
+    let mut style = Style::default();
+    let mut inner = body.as_str();
+    for (cmd, set) in [
+        ("\\textbf{", 0),
+        ("\\textit{", 1),
+        ("\\emph{", 1),
+        ("\\texttt{", 2),
+    ] {
+        if let Some(r) = inner.strip_prefix(cmd)
+            && let Some(close) = matching_brace(r)
+            && r[close + 1..].trim().is_empty()
+        {
+            inner = &r[..close];
+            match set {
+                0 => style.bold = true,
+                1 => style.italic = true,
+                _ => style.code = true,
+            }
+            break;
+        }
+    }
+    let (out, _) = plain_text(model, inner, 0)?;
+    Some((out, style, i))
+}
+
+/// A use at `at` of the document's own macro `name` that is a formula, or
+/// text with formulas in it (`\newcommand{\qmdd}{\ensuremath{\textsf{SLDD}_{\times}}}`,
+/// `\newcommand{\intvwr}[1]{\textit{I$_{#1}$}}`): the formula to draw in its
+/// place (`$…$`) and where the use ends. The caller checks that the math
+/// renderer reads it.
+pub(crate) fn own_math(
+    model: &latex_model::Model,
+    name: &str,
+    text: &str,
+    at: usize,
+    limit: usize,
+) -> Option<(String, usize)> {
+    let m = model
+        .macros
+        .iter()
+        .rev()
+        .find(|m| m.name.strip_prefix('\\') == Some(name))?;
+    if m.args > 9 || m.default.is_some() || m.body.trim().is_empty() || own_wrapper(model, name) {
+        return None;
+    }
+    if !matches!(
+        m.command.as_str(),
+        "newcommand" | "renewcommand" | "providecommand" | "def"
+    ) {
+        return None;
+    }
+    let (body, mut end) = expansion(m, text, at, limit)?;
+    let body = body.trim();
+    let body = body.strip_suffix("\\xspace").unwrap_or(body).trim_end();
+    // `\qmdd{}`: the group that ends the name, nothing.
+    if m.args == 0 && text[end..limit].starts_with("{}") {
+        end += 2;
+    }
+    if let Some(r) = body.strip_prefix("\\ensuremath{")
+        && let Some(close) = matching_brace(r)
+        && r[close + 1..].trim().is_empty()
+    {
+        return Some((format!("${}$", &r[..close]), end));
+    }
+    if body.contains('$') && !body.contains("$$") && body.matches('$').count() % 2 == 0 {
+        // Text with formulas in it, as one formula: the text in its font
+        // (`\textit{I$_{3}$}` ⇒ `\textit{I}_{3}`).
+        let mut font = "text";
+        let mut inner = body;
+        for (cmd, f) in [
+            ("\\textit{", "textit"),
+            ("\\emph{", "textit"),
+            ("\\textbf{", "textbf"),
+            ("\\textrm{", "textrm"),
+            ("\\textsf{", "textsf"),
+            ("\\texttt{", "texttt"),
+            ("\\mbox{", "text"),
+            ("\\text{", "text"),
+        ] {
+            if let Some(r) = inner.strip_prefix(cmd)
+                && let Some(close) = matching_brace(r)
+                && r[close + 1..].trim().is_empty()
+            {
+                font = f;
+                inner = &r[..close];
+                break;
+            }
+        }
+        let mut out = String::new();
+        for (k, part) in inner.split('$').enumerate() {
+            if k % 2 == 1 {
+                out.push_str(part);
+            } else if !part.is_empty() {
+                out.push_str(&format!("\\{font}{{{part}}}"));
+            }
+        }
+        return Some((format!("${out}$"), end));
+    }
+    None
+}
+
+/// The body of macro `m` with the arguments of its use at `at` put in,
+/// and where the use ends (before `limit`): each argument a group, or one
+/// token.
+fn expansion(
+    m: &latex_model::Macro,
+    text: &str,
+    at: usize,
+    limit: usize,
+) -> Option<(String, usize)> {
     let mut args = Vec::new();
     let mut i = at;
     for _ in 0..m.args {
@@ -2205,29 +2359,7 @@ pub(crate) fn own_macro_use(
         }
         body.push(c);
     }
-    let mut style = Style::default();
-    let mut inner = body.as_str();
-    for (cmd, set) in [
-        ("\\textbf{", 0),
-        ("\\textit{", 1),
-        ("\\emph{", 1),
-        ("\\texttt{", 2),
-    ] {
-        if let Some(r) = inner.strip_prefix(cmd)
-            && let Some(close) = matching_brace(r)
-            && r[close + 1..].trim().is_empty()
-        {
-            inner = &r[..close];
-            match set {
-                0 => style.bold = true,
-                1 => style.italic = true,
-                _ => style.code = true,
-            }
-            break;
-        }
-    }
-    let (out, _) = plain_text(model, inner, 0)?;
-    Some((out, style, i))
+    Some((body, i))
 }
 
 /// What the glossary command `cmd` (`gls`, `acp`, `acrfull`, …) prints
@@ -2499,6 +2631,23 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "arcsec" => "\u{2033}",
         "arcmin" => "\u{2032}",
         "arcdeg" => "\u{b0}",
+        // amsthm's end of proof, elsarticle's keyword separator, aastex's
+        // units, harvard's parentheses around a year.
+        "qed" | "qedsymbol" => "\u{220e}",
+        "sep" => ", ",
+        "kms" => "km\u{a0}s\u{207b}\u{b9}",
+        "harvardyearleft" => "(",
+        "harvardyearright" => ")",
+        // wasysym's circles, boxes and marks.
+        "LEFTcircle" => "\u{25d0}",
+        "RIGHTcircle" => "\u{25d1}",
+        "CIRCLE" => "\u{25cf}",
+        "Circle" => "\u{25cb}",
+        "LEFTCIRCLE" => "\u{25d6}",
+        "RIGHTCIRCLE" => "\u{25d7}",
+        "Square" => "\u{2610}",
+        "XBox" => "\u{2612}",
+        "CheckedBox" => "\u{2611}",
         // The harvard package's "and" between authors.
         "harvardand" => "&",
         // Between the authors of `\author{A \and B}`, which LaTeX sets
@@ -2781,7 +2930,8 @@ fn paragraph_line(
                     | "center"
                     | "flushleft"
                     | "flushright"
-            ) || front_environment(&name).is_some()
+            ) || is_list(&name)
+                || front_environment(&name).is_some()
                 || model.theorem_kinds.iter().any(|k| k.env == name);
             if !ok {
                 return None;
@@ -3881,6 +4031,31 @@ fn unflagged_line_view(
                             }
                         }
                     }
+                    // A document's own macro that is a formula, or text with
+                    // formulas in it: the formula, when the renderer reads it.
+                    (n, None)
+                        if !renders_command(n)
+                            && let Some((source, end)) =
+                                own_math(&state.model(), n, text, r.end, line.end)
+                            && !near(&(r.start..end))
+                            && renderer_reads(doc, &source) =>
+                    {
+                        b.runs.push(Run {
+                            src: r.start..end,
+                            text: crate::view::PLACEHOLDER.to_string(),
+                            verbatim: false,
+                            style: Style::default(),
+                            widget: Some(crate::view::Widget::Math {
+                                source,
+                                display: false,
+                            }),
+                        });
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
                     // A document's own macro with arguments whose definition,
                     // with them, is text: the text.
                     (n, None)
@@ -4358,7 +4533,9 @@ fn alignment(root: &SyntaxNode, pos: usize) -> crate::rich::Align {
 fn chip_command(name: &str) -> bool {
     matches!(
         name,
-        "ref"
+        "subref"
+            | "thref"
+            | "ref"
             | "eqref"
             | "pageref"
             | "autoref"
@@ -4914,7 +5091,8 @@ fn chip(
             cref_list(model, &keys, name)
         }
         // The others take one key: `\ref{a,b}` is the label `a,b`.
-        "ref" | "eqref" | "pageref" | "autoref" | "nameref" | "vref" | "Vref" => {
+        "ref" | "eqref" | "pageref" | "autoref" | "nameref" | "vref" | "Vref" | "subref"
+        | "thref" => {
             let k = first.trim();
             let Some(l) = model.label(k) else {
                 return ("??".to_string(), false);
@@ -4924,7 +5102,16 @@ fn chip(
                 "eqref" => format!("({n})"),
                 "pageref" => k.to_string(),
                 "nameref" => nameref(model, l),
-                "autoref" => {
+                // subcaption's: the sub-float's letter alone, `(a)`.
+                "subref" => {
+                    let letter: String = n.chars().skip_while(|c| !c.is_alphabetic()).collect();
+                    if letter.is_empty() {
+                        n
+                    } else {
+                        format!("({letter})")
+                    }
+                }
+                "autoref" | "thref" => {
                     let what = target_name(model, &l.target, &n, name);
                     if what.is_empty() {
                         n
@@ -5376,7 +5563,9 @@ fn front_environment(name: &str) -> Option<&'static str> {
         }
         // Containers: sizes, spacing, page turns, REVTeX's wide text,
         // table notes, boxes and appendices around text the view shows.
-        "frontmatter"
+        "linenomath"
+        | "linenomath*"
+        | "frontmatter"
         | "small"
         | "footnotesize"
         | "scriptsize"
@@ -6885,6 +7074,8 @@ mod tests {
         let text = "\\documentclass{article}\n\\usepackage{tikz}\n\\begin{document}\n\\begin{tikzpicture}\n\\draw (0,0) -- (1,1);\n\\end{tikzpicture}\n\\end{document}\n";
         let d = doc(text);
         // Away from the cursor: the picture on its `\\begin` line.
+        let t = "\\tikzstyle{box}=[draw] A";
+        assert_eq!(args_end(t, 10, t.len(), "mk"), Some(22));
         let v = shown(&d, 3, None);
         let path = v.runs.iter().find_map(|r| match &r.widget {
             Some(crate::view::Widget::Image { path, .. }) => Some(path.clone()),
@@ -6942,6 +7133,70 @@ mod tests {
     }
 
     #[test]
+    fn macros_defined_by_macros() {
+        // A paper's macro that defines macros (`\\defaccr{\\limdd}{…}`): the
+        // macros its calls define, as text where they are used.
+        let text = "\\documentclass{article}\n\\newcommand{\\defaccr}[2]{\\newcommand{#1}{#2\\xspace}}\n\\newcommand{\\impname}[1]{\\textsf{#1}}\n\\defaccr{\\limdd}{\\textsf{LIMDD}}\n\\newcommand{\\oursort}{{\\impname{DTSort}}}\n\\newcommand{\\hl}[2]{\\href{#1}{\\textcolor{blue}{\\underline{#2}}}}\n\\begin{document}\nA \\limdd and \\oursort, \\hl{u}{here}, \\LEFTcircle.\n\\end{document}\n";
+        let d = doc(text);
+        let m = d.latex().unwrap().model();
+        assert!(
+            m.macros.iter().any(|x| x.name == "\\limdd"),
+            "{:?}",
+            m.macros
+        );
+        assert_eq!(
+            shown(&d, 7, None).display(),
+            "A LIMDD and DTSort, here, \u{25d0}."
+        );
+    }
+
+    #[test]
+    fn paralist_lists_qed_and_algorithm_settings() {
+        let text = "\\documentclass{article}\n\\usepackage{paralist}\n\\begin{document}\n\\begin{compactenum}\n\\item One\n\\item Two \\qed\n\\end{compactenum}\n\\DontPrintSemicolon\\SetKwInOut{Input}{In} Body\\rule{0pt}{2ex}.\n\\end{document}\n";
+        let d = doc(text);
+        let line = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert!(
+            line(5).contains("2.") && line(5).contains("Two \u{220e}"),
+            "{:?}",
+            line(5)
+        );
+        assert_eq!(line(7).trim_start(), "Body.");
+    }
+
+    #[test]
+    fn own_macros_that_are_formulas() {
+        // A macro that is a formula, or text with one in it: drawn by the
+        // math renderer in its place.
+        let text = "\\documentclass{article}\n\\usepackage{xspace}\n\\newcommand{\\qmdd}{\\ensuremath{\\textsf{SLDD}_{\\times}}\\xspace}\n\\newcommand{\\intvwr}[1]{\\textit{I$_{#1}$}}\n\\begin{document}\nA \\qmdd and \\intvwr{3} here.\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 5, None);
+        let maths: Vec<String> = v
+            .runs
+            .iter()
+            .filter_map(|r| match &r.widget {
+                Some(crate::view::Widget::Math { source, .. }) => Some(source.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            maths,
+            ["$\\textsf{SLDD}_{\\times}$", "$\\textit{I}_{3}$"],
+            "{:?}",
+            v.runs
+        );
+        // The coverage count draws them too.
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
     fn color_ignores_the_spaces_after_it() {
         // xcolor's `\\color` ends with `\\ignorespaces`, which expands
         // `\\space` too (the typeset fuzz's seed 384).
@@ -6975,6 +7230,28 @@ mod tests {
             (dingbat(51), dingbat(52), dingbat(108)),
             (Some("✓"), Some("✔"), Some("●"))
         );
+    }
+
+    #[test]
+    fn author_marks_eprints_and_tikz_styles() {
+        let text = "\\documentclass{article}\n\\usepackage{tikz}\n\\begin{document}\n\\tikzstyle{box}=[draw] A\\authormark{1} B\\IEEEauthorrefmark{2} \\Eprint{x}{arXiv:1}\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 3, None);
+        let read: String = v
+            .runs
+            .iter()
+            .filter(|r| !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        // Vertical mode: the blank at the paragraph's start prints nothing.
+        assert_eq!(read.trim_start(), "A1 B2 arXiv:1");
+        let raised: String = v
+            .runs
+            .iter()
+            .filter(|r| r.style.superscript && !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        assert_eq!(raised, "12");
     }
 
     #[test]

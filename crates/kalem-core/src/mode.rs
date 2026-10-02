@@ -22,6 +22,9 @@ pub enum DocumentMode {
     },
     /// Not text: not opened for editing.
     Binary,
+    /// A file that is not text, opened by a viewer plugin
+    /// (`crate::viewer`, design §11.13): no text, the plugin's units.
+    Viewer,
     /// A folder in the file manager (`crate::dired`), or the projects.
     Directory,
 }
@@ -163,6 +166,7 @@ impl DocumentMode {
             DocumentMode::Latex => "latex",
             DocumentMode::Text { .. } => "text",
             DocumentMode::Binary => "binary",
+            DocumentMode::Viewer => "viewer",
             DocumentMode::Directory => "directory",
         }
     }
@@ -181,7 +185,7 @@ impl DocumentMode {
     /// highlighting.
     pub fn from_name(name: &str) -> Option<DocumentMode> {
         let name = name.trim().to_lowercase();
-        if name.is_empty() || name == "binary" {
+        if name.is_empty() || name == "binary" || name == "viewer" {
             return None;
         }
         Some(by_name(&name).unwrap_or(match name.as_str() {
@@ -205,6 +209,7 @@ impl DocumentMode {
                 crate::l10n::tr("mode-text")
             }
             DocumentMode::Directory => crate::l10n::tr("mode-directory"),
+            DocumentMode::Viewer => crate::l10n::tr("mode-viewer"),
         }
     }
 
