@@ -487,3 +487,20 @@ fn formulas_of_a_document_s_own() {
         ["\\begin{equation}\na\n\\ee"]
     );
 }
+
+#[test]
+fn fuzz_cases() {
+    // From the fuzzer: an edit at the end of a document with a `\def`
+    // before blank lines and a closing alias (`\ee`).
+    for (doc, range, insert) in [(";\u{b}\\def\n\n\n\\ee", 10..12, "")] {
+        let p = parse(doc);
+        let edit = TextEdit {
+            range,
+            insert: insert.into(),
+        };
+        let new = edit.apply(doc);
+        if let Some(r) = p.reparse_incremental(&new, &edit) {
+            assert_eq!(r, parse(&new), "{doc:?} {edit:?}");
+        }
+    }
+}
