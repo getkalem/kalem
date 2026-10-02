@@ -261,8 +261,12 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                     // A traced macro in a formula that fails otherwise.
                     let text = doc.text().as_str();
                     for name in &trace {
+                        let src = &text[r.clone()];
+                        let used = src.match_indices(name.as_str()).any(|(k, _)| {
+                            !src[k + name.len()..].starts_with(|c: char| c.is_ascii_alphabetic())
+                        });
                         if !kind.contains(name.as_str())
-                            && text[r.clone()].contains(name.as_str())
+                            && used
                             && traced.insert((f.clone(), name.clone()))
                         {
                             eprintln!(
