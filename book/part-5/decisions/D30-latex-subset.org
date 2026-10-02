@@ -1,0 +1,39 @@
+- Status: *Decided* (2026-10-02), from the arXiv study of T2.7h.1
+- Decision: the rendered view of LaTeX covers what the study found papers write: structure, text and its formatting, references and citations (BibTeX's and a document's own bibliography), lists, floats with captions, theorems, tables (as the grid, or as text with their cells apart), formulas through the math renderer, colors and boxes, and every definition and setting as dimmed markup. What it does not render stays as source, never hidden (rule 3 of the standard modes). The coverage target (T2.7h.36) is *97% of the body rendered in every field*; the mode is not released below it.
+- Tasks: T2.7h.1, T2.7h.36
+- Measurement: =tools/arxiv-sample.py= and =kalem latex-coverage= in =.github/workflows/arxiv.yml= (by hand and monthly, the report in the job's summary)
+
+* The sample
+200 papers per field submitted in 2024, five fields, an even share of five categories each, taken in a fixed order so that every run measures the same papers: mathematics (=math.AG=, =math.PR=, =math.CO=, =math.AP=, =math.NT=), physics (=hep-th=, =cond-mat.str-el=, =astro-ph.GA=, =quant-ph=, =physics.optics=), computer science (=cs.LG=, =cs.CL=, =cs.DS=, =cs.CR=, =cs.CV=), biology (five =q-bio= categories) and economics (=econ.EM=, =econ.TH=, =econ.GN=). Papers without a LaTeX source are skipped and the next ones taken. arXiv's sources stay out of the repository: most are not redistributable. The development containers cannot reach arxiv.org, so the study runs in CI.
+
+* What is measured
+The body of every =.tex= file (=\begin{document}= to =\end{document}=, or the whole of an included file), without the files a document brings in before =\begin{document}= (its macros): the bytes the view shows as source, the bytes in formulas (the math renderer's), and every command and environment, ranked by the papers using it and by the bytes it shows as source. "Shown as source" is what the view shows: the outermost command it does not render, whole; for an environment it does not know, its =\begin= and =\end= (the view shows the body as text, each thing in it as it shows that). The arguments the view draws or hides (a picture's options, a label's key) are not text shown as source.
+
+The first run counted otherwise: the body of every unknown environment whole, the arguments of drawn commands, macro files, and a list of rendered commands that had fallen behind the view. It put 19.2% of the body as source, with =\frac= and =\textwidth= near the top. The metric was corrected to what the view shows before any number was used.
+
+* Results
+Run 5 of the workflow (2026-10-02, commit =7bf271e=): 926 papers, 3,184 files, 88 MB of body text.
+
+| Field            | Papers | Files | Body KB | Source | Formulas |
+|------------------+--------+-------+---------+--------+----------|
+| biology          |    189 |   637 |  14,910 |   2.2% |     9.2% |
+| computer science |    180 |   967 |  16,977 |   1.4% |     9.6% |
+| economics        |    183 |   646 |  22,422 |   0.9% |    19.7% |
+| mathematics      |    187 |   261 |  18,728 |   0.7% |    36.1% |
+| physics          |    187 |   673 |  15,174 |   4.0% |    14.1% |
+| all              |    926 | 3,184 |  88,213 |   1.7% |    18.5% |
+
+What showed most as source then: definitions (=\gdef=, =\def=, =\newcommand=), REVTeX's bibliography fields (=\bibinfo=, =\bibnamefont=), =\textcolor=, tables the grid could not take, =\parbox=; all rendered or dimmed since (T2.7h.36's report ranks them by the bytes they show as source).
+
+* The subset
+Rendered, each checked against pdflatex by the differential tests of T2.7h.33 (=tools/latex-typeset-fuzz.py=, =tools/latex-numbering-fuzz.py=, =tools/latex-edit-fuzz.py=, in CI):
+- Structure: sectioning with numbers as the class numbers them, =\appendix=, front matter and =\maketitle=, the abstract, =\tableofcontents=.
+- Text: the font commands and declarations, sizes, accents and the text symbols of LaTeX and textcomp, quotes, dashes and ligatures as TeX makes them, spacing commands, case changes, =\verb=, colors (=\textcolor=, =\color=), boxes (=\mbox=, =\resizebox=, =\parbox=, …).
+- References: =\ref= and its kin with the numbers LaTeX gives (counters, =\numberwithin=, amsmath's equation labels and their clashes, enumitem's labels, subfigures, =\captionof=), citations in the style of =\bibliographystyle= or natbib, and a document's own =thebibliography= (REVTeX's included).
+- Blocks: lists, floats and their captions, theorems as =\newtheorem= declares them (in the document or a package beside it), tables, displayed formulas.
+- Markup that prints nothing where it is (=\newcommand=, =\def=, =\setlength=, =\captionsetup=, …): dimmed.
+
+Left as source, for now: TikZ and other pictures (folded), unknown commands of a document's own whose definitions are not read, and environments the view does not know (their delimiters).
+
+* Why 97%
+The working assumption was nine tenths for mathematics and computer science. Every field is above 97% already, so the target is set there: a fall below it is a regression in the view or in the metric, found by the monthly run.
