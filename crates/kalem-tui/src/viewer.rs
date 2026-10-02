@@ -83,9 +83,13 @@ pub fn draw(
     } else {
         (pic, None)
     };
-    match picker(images, caps) {
-        Some(p) => draw_image(v, image, &p, buf, pic),
-        None => text(&v.text(), buf, pic),
+    if v.is_grid() {
+        draw_grid(v, caps, buf, pic);
+    } else {
+        match picker(images, caps) {
+            Some(p) => draw_image(v, image, &p, buf, pic),
+            None => text(&v.text(), buf, pic),
+        }
     }
     if let Some(r) = info {
         draw_info(v, caps, buf, r);
@@ -99,6 +103,230 @@ pub fn draw(
             status.width as usize,
             Style::default().add_modifier(Modifier::DIM),
         );
+    }
+}
+
+/// A column's width in terminal cells: Excel's width in characters.
+fn col_cells(layout: &kalem_viewer::GridLayout, col: u32) -> u16 {
+    let w = layout
+        .widths
+        .get(col as usize)
+        .copied()
+        .unwrap_or(layout.default_width);
+    (w.round() as u16).clamp(3, 40)
+}
+
+/// The rows or columns in view: the frozen ones, then from `first` on,
+/// hidden ones skipped, until `room` runs out.
+fn in_view(
+    frozen: u32,
+    first: u32,
+    max: u32,
+    hidden: &[u32],
+    room: u16,
+    size: impl Fn(u32) -> u16,
+) -> Vec<(u32, u16)> {
+    let mut out = Vec::new();
+    let mut used = 0u16;
+    let mut push = |i: u32, out: &mut Vec<(u32, u16)>| -> bool {
+        if hidden.contains(&i) {
+            return true;
+        }
+        let w = size(i);
+        if used >= room {
+            return false;
+        }
+        out.push((i, w.min(room - used)));
+        used = used.saturating_add(w);
+        true
+    };
+    for i in 0..frozen.min(max) {
+        if !push(i, &mut out) {
+            return out;
+        }
+    }
+    let mut i = first.max(frozen);
+    while i < max && push(i, &mut out) {
+        i += 1;
+    }
+    out
+}
+
+/// A grid unit (a sheet): letters above, row numbers at the left, the
+/// cursor's cell reversed.
+fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
+    let Some(layout) = v.grid_layout() else {
+        return;
+    };
+    if area.width < 8 || area.height < 3 {
+        return;
+    }
+    let pos = v.grid_pos();
+    let gutter = ((pos.top + u32::from(area.height))
+        .max(layout.rows)
+        .to_string()
+        .len() as u16
+        + 1)
+    .max(4);
+    let room_w = area.width.saturating_sub(gutter);
+    let room_h = area.height.saturating_sub(1);
+    let cols = in_view(
+        layout.frozen.1,
+        pos.left,
+        layout.max_cols,
+        &layout.hidden_cols,
+        room_w,
+        |c| col_cells(&layout, c) + 1,
+    );
+    let rows = in_view(
+        layout.frozen.0,
+        pos.top,
+        layout.max_rows,
+        &layout.hidden_rows,
+        room_h,
+        |_| 1,
+    );
+    // Fully shown ones count for paging and keeping the cursor in view.
+    let full_cols = cols
+        .iter()
+        .filter(|(c, w)| *w > col_cells(&layout, *c))
+        .count() as u32;
+    v.set_grid_visible(rows.len() as u32, full_cols.max(1));
+    // The cursor may have scrolled the view: lay out again if so.
+    if v.grid_pos() != pos {
+        return draw_grid(v, caps, buf, area);
+    }
+    let dim = Style::default().add_modifier(Modifier::DIM);
+    let head = Style::default().add_modifier(Modifier::BOLD);
+    // The cells in view.
+    let mut cells = std::collections::HashMap::new();
+    let ranges = |list: &[(u32, u16)], frozen: u32| -> Vec<std::ops::Range<u32>> {
+        let mut r = Vec::new();
+        let f: Vec<u32> = list.iter().map(|x| x.0).filter(|&i| i < frozen).collect();
+        let s: Vec<u32> = list.iter().map(|x| x.0).filter(|&i| i >= frozen).collect();
+        for part in [f, s] {
+            if let (Some(a), Some(b)) = (part.first(), part.last()) {
+                r.push(*a..*b + 1);
+            }
+        }
+        r
+    };
+    for rr in ranges(&rows, layout.frozen.0) {
+        for cr in ranges(&cols, layout.frozen.1) {
+            for (r, c, cell) in v.grid_cells(rr.clone(), cr) {
+                cells.insert((r, c), cell);
+            }
+        }
+    }
+    // Letters.
+    buf.set_stringn(
+        area.x,
+        area.y,
+        " ".repeat(gutter as usize),
+        gutter as usize,
+        dim,
+    );
+    let mut x = area.x + gutter;
+    for &(c, w) in &cols {
+        let name = kalem_core::csv_tools::column_letters(c as usize);
+        let style = if c == pos.col {
+            head.add_modifier(Modifier::REVERSED)
+        } else {
+            head
+        };
+        let label = format!("{name:^width$}", width = w.saturating_sub(1) as usize);
+        buf.set_stringn(x, area.y, &label, w.saturating_sub(1) as usize, style);
+        x += w;
+    }
+    let sep = if caps.ascii { "|" } else { "│" };
+    for (i, &(r, _)) in rows.iter().enumerate() {
+        let y = area.y + 1 + i as u16;
+        let style = if r == pos.row {
+            head.add_modifier(Modifier::REVERSED)
+        } else {
+            dim
+        };
+        buf.set_stringn(
+            area.x,
+            y,
+            format!("{:>w$} ", r + 1, w = gutter as usize - 1),
+            gutter as usize,
+            style,
+        );
+        let mut x = area.x + gutter;
+        let mut overflow: Option<(String, Style)> = None;
+        for &(c, w) in &cols {
+            let inner = w.saturating_sub(1) as usize;
+            let cell = cells.get(&(r, c));
+            let mut style = Style::default();
+            let text = match cell {
+                Some(cell) => {
+                    overflow = None;
+                    if cell.bold {
+                        style = style.add_modifier(Modifier::BOLD);
+                    }
+                    if cell.italic {
+                        style = style.add_modifier(Modifier::ITALIC);
+                    }
+                    if cell.underline {
+                        style = style.add_modifier(Modifier::UNDERLINED);
+                    }
+                    if cell.strike {
+                        style = style.add_modifier(Modifier::CROSSED_OUT);
+                    }
+                    if !caps.no_color {
+                        if let Some([r, g, b]) = cell.color {
+                            style = style.fg(ratatui::style::Color::Rgb(r, g, b));
+                        }
+                        if let Some([r, g, b]) = cell.fill {
+                            style = style.bg(ratatui::style::Color::Rgb(r, g, b));
+                        }
+                    }
+                    let t: String = cell.text.chars().filter(|ch| !ch.is_control()).collect();
+                    let len = t.chars().count();
+                    let right = matches!(cell.align, kalem_viewer::Align::Right)
+                        || (cell.numeric && matches!(cell.align, kalem_viewer::Align::General));
+                    let center = matches!(cell.align, kalem_viewer::Align::Center);
+                    if len > inner {
+                        if cell.numeric {
+                            "#".repeat(inner)
+                        } else {
+                            let shown: String = t.chars().take(inner).collect();
+                            overflow = Some((t.chars().skip(inner + 1).collect(), style));
+                            shown
+                        }
+                    } else if right {
+                        format!("{t:>inner$}")
+                    } else if center {
+                        format!("{t:^inner$}")
+                    } else {
+                        t
+                    }
+                }
+                // Text runs on into empty cells, as in a spreadsheet.
+                None => match overflow.take() {
+                    Some((rest, st)) if !rest.is_empty() => {
+                        style = st;
+                        let shown: String = rest.chars().take(inner).collect();
+                        if rest.chars().count() > inner + 1 {
+                            overflow = Some((rest.chars().skip(inner + 1).collect(), st));
+                        }
+                        shown
+                    }
+                    _ => String::new(),
+                },
+            };
+            if (r, c) == (pos.row, pos.col) {
+                style = style.add_modifier(Modifier::REVERSED);
+                buf.set_stringn(x, y, " ".repeat(inner), inner, style);
+            }
+            buf.set_stringn(x, y, &text, inner, style);
+            if cell.is_some_and(|c| c.note) && inner > 0 {
+                buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "*" } else { "◥" });
+            }
+            buf.set_stringn(x + inner as u16, y, sep, 1, dim);
+            x += w;
+        }
     }
 }
 
