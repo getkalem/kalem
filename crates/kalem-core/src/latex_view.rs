@@ -4706,6 +4706,7 @@ fn is_display_math(name: &str) -> bool {
             | "dgroup"
             | "darray"
             | "empheq"
+            | "tikzcd"
     )
 }
 
