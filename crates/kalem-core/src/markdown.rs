@@ -235,6 +235,8 @@ impl Md {
             starts: starts.clone(),
             ..Md::default()
         };
+        // The text of each text node, to place it where comrak misplaces it.
+        let mut literals: Vec<Option<String>> = Vec::new();
         // Pre-order, each node with its parent's index.
         let mut stack: Vec<(&comrak::nodes::AstNode<'_>, Option<u32>)> = root
             .children()
@@ -320,6 +322,21 @@ impl Md {
                 V::LineBreak => MdKind::Other("linebreak"),
                 _ => MdKind::Other("other"),
             };
+            let literal = match &data.value {
+                V::Text(t) => Some(t.to_string()),
+                _ => None,
+            };
+            // An inline link whose title is on the next line ends, by
+            // comrak's position, at the end of the first: to its `)`.
+            if matches!(kind, MdKind::Link { .. })
+                && text[range.clone()].starts_with('[')
+                && text[range.clone()].contains("](")
+                && !text[range.clone()].ends_with(')')
+                && let Some(p) = parent
+                && let Some(k) = text[range.end..md.nodes[p as usize].range.end].find(')')
+            {
+                range.end += k + 1;
+            }
             let kids: Vec<_> = node.children().collect();
             drop(data);
             let content = match &kind {
@@ -341,6 +358,7 @@ impl Md {
                 _ => range.clone(),
             };
             let i = md.nodes.len() as u32;
+            literals.push(literal);
             md.nodes.push(MdNode {
                 kind,
                 range,
@@ -349,6 +367,65 @@ impl Md {
             });
             for c in kids.into_iter().rev() {
                 stack.push((c, Some(i)));
+            }
+        }
+        // A paragraph's or heading's text after link reference definitions:
+        // comrak places it from the paragraph's start (`[a]: /u\nbar`, `bar`
+        // at 0..3); moved to where it is.
+        for p in 0..md.nodes.len() {
+            if !matches!(md.nodes[p].kind, MdKind::Paragraph | MdKind::Heading { .. }) {
+                continue;
+            }
+            let pr = md.nodes[p].range.clone();
+            if !text[pr.clone()].trim_start().starts_with('[') {
+                continue;
+            }
+            let inside = |mut i: usize| {
+                while let Some(q) = md.nodes[i].parent {
+                    if q as usize == p {
+                        return true;
+                    }
+                    i = q as usize;
+                }
+                false
+            };
+            let desc: Vec<usize> = (p + 1..md.nodes.len()).take_while(|&i| inside(i)).collect();
+            let Some(&t) = desc.iter().find(|&&i| literals[i].is_some()) else {
+                continue;
+            };
+            let lit = literals[t].as_deref().unwrap_or("");
+            let at = md.nodes[t].range.start;
+            if lit.is_empty() || text[at..].starts_with(lit) {
+                continue;
+            }
+            let Some(k) = text[at..pr.end].find(lit) else {
+                continue;
+            };
+            // comrak counts the lines from the paragraph's first, the
+            // definitions' lines left out: every node of it is that many
+            // lines early, in the right column.
+            let line_of = |o: usize| starts.partition_point(|&s| s <= o).saturating_sub(1);
+            let d = line_of(at + k) - line_of(at);
+            if d == 0 {
+                continue;
+            }
+            let mv = |o: usize| {
+                let l = line_of(o);
+                let col = o - starts[l];
+                starts.get(l + d).map_or(pr.end, |&s| (s + col).min(pr.end))
+            };
+            for &i in &desc {
+                let n = &mut md.nodes[i];
+                n.range = mv(n.range.start)..mv(n.range.end).max(mv(n.range.start));
+                n.content = mv(n.content.start)..mv(n.content.end).max(mv(n.content.start));
+                // A text node's length from its text (comrak's end can be
+                // short there too).
+                if let Some(l) = literals[i].as_deref()
+                    && text[n.range.start..].starts_with(l)
+                {
+                    n.range.end = (n.range.start + l.len()).min(pr.end);
+                    n.content = n.range.clone();
+                }
             }
         }
         // Containers' content: from their first child to their last.
@@ -962,6 +1039,30 @@ fn html_tags(html: &str) -> Vec<Range<usize>> {
             i = a + 1;
             continue;
         };
+        // The tags GFM's tag filter escapes are shown as text on GitHub.
+        let name = rest[1..].trim_start_matches('/');
+        let filtered = [
+            "title",
+            "textarea",
+            "style",
+            "xmp",
+            "iframe",
+            "noembed",
+            "noframes",
+            "script",
+            "plaintext",
+        ]
+        .iter()
+        .any(|t| {
+            name.len() > t.len()
+                && name.is_char_boundary(t.len())
+                && name[..t.len()].eq_ignore_ascii_case(t)
+                && !name.as_bytes()[t.len()].is_ascii_alphanumeric()
+        });
+        if filtered {
+            i = a + 1;
+            continue;
+        }
         out.push(a..end);
         i = end;
     }
@@ -2799,7 +2900,7 @@ mod spec {
     }
 
     /// The CommonMark examples whose view shows the specification's text.
-    const KNOWN_VIEW: usize = 638;
+    const KNOWN_VIEW: usize = 649;
 
     /// The CommonMark examples that agree with every extension of Kalem
     /// read: the others write front matter, a wiki link or a bare address.
