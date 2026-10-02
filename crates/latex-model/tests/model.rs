@@ -396,4 +396,27 @@ fn label_clash() {
         .map(|&i| m.labels[i].name.as_str())
         .collect();
     assert_eq!(clash, ["y"]);
+    // As pdflatex goes on past it: the label before is lost, the last
+    // written; `equation` and `\[…\]` drop a waiting label unwritten.
+    let t = "\\documentclass{article}\\usepackage{amsmath}\\begin{document}\n\\
+             \\begin{align}a&=b\\nonumber\\label{k1}\\\\c&=d\\label{k2}\\end{align}\n\\
+             \\begin{gather}y\\label{k5}\\label{k6}\\end{gather}\n\\
+             \\begin{align*}a&=b\\label{k3}\\end{align*}\n\\
+             \\begin{equation}x\\label{k4}\\end{equation}\n\\
+             \\begin{align*}a&=b\\label{k7}\\end{align*}\\[x\\]\n\\
+             \\begin{gather}z\\end{gather}\n\\end{document}\n";
+    let m = Model::new(&parse(t));
+    let number = |k: &str| {
+        m.labels
+            .iter()
+            .find(|l| l.name == k)
+            .and_then(|l| l.number.clone())
+    };
+    assert_eq!(number("k1"), None);
+    assert_eq!(number("k2").as_deref(), Some("1"));
+    assert_eq!(number("k5"), None);
+    assert_eq!(number("k6").as_deref(), Some("2"));
+    assert_eq!(number("k3"), None);
+    assert_eq!(number("k4").as_deref(), Some("3"));
+    assert_eq!(number("k7"), None);
 }

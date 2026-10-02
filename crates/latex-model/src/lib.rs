@@ -793,7 +793,8 @@ impl<'r> Numbering<'r> {
 
     fn finish(mut self) -> Model {
         let _ = self.len;
-        self.model.unwritten_labels = std::mem::take(&mut self.pending);
+        let left = std::mem::take(&mut self.pending);
+        self.model.unwritten_labels.extend(left);
         self.model
     }
 
@@ -1468,6 +1469,12 @@ impl<'r> Numbering<'r> {
                 | "xxalignat"
                 | "IEEEeqnarray"
         );
+        // `equation`, `equation*` and `\[…\]` start with no label waiting:
+        // one left by `align*` is lost, never written.
+        if matches!(base, "equation" | "displaymath") {
+            let lost = std::mem::take(&mut self.pending);
+            self.model.unwritten_labels.extend(lost);
+        }
         if by_line || matches!(base, "equation" | "multline" | "displaymath" | "dmath") {
             self.eq.push(EqEnv {
                 name: name.to_string(),
@@ -1570,9 +1577,16 @@ impl<'r> Numbering<'r> {
         );
         if amsmath {
             labels.splice(0..0, std::mem::take(&mut self.pending));
-            // amsmath takes one label a line.
+            // amsmath takes one label a line: at each one more it stops
+            // ("Multiple \label's", the clash) and the one before is
+            // lost; the last is written.
             if labels.len() > 1 {
+                let last = labels.len() - 1;
                 self.model.label_clashes.extend(labels[1..].iter().copied());
+                for l in labels.drain(..last) {
+                    self.model.labels[l].number = None;
+                    self.model.unwritten_labels.push(l);
+                }
             }
         }
         if let Some(n) = &number {

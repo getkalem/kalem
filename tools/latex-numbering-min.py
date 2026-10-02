@@ -33,12 +33,16 @@ def diffs_in(text, d):
         return None
     path = os.path.join(d, "t.tex")
     out = subprocess.run([EXE, path], stdout=subprocess.PIPE, text=True).stdout
-    got = {}
+    got = {"!clash": "0"}
     for line in out.splitlines():
         _, key, *num = line.split(" ")
-        got[key] = " ".join(num)
+        if key == "!clash":
+            got[key] = str(int(got[key]) + 1)
+        else:
+            got[key] = " ".join(num)
     return [f"{k}: LaTeX {v!r}, Kalem {got.get(k)!r}" for k, v in latex.items()
-            if got.get(k) != v]
+            if got.get(k) != v] + [f"{k}: LaTeX writes nothing, Kalem {n!r}"
+                                   for k, n in got.items() if k not in latex and n]
 
 
 def main():
