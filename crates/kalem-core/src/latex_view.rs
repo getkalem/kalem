@@ -545,7 +545,11 @@ impl LatexState {
 }
 
 pub(crate) fn is_list(name: &str) -> bool {
-    matches!(name, "itemize" | "enumerate" | "description")
+    // enumitem's inline lists (`enumerate*`) are lists too.
+    matches!(
+        name,
+        "itemize" | "enumerate" | "description" | "itemize*" | "enumerate*" | "description*"
+    )
 }
 
 /// The list environments around `n`, innermost first.
@@ -1219,6 +1223,71 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         "rowcolor" | "cellcolor" | "columncolor" => "om",
         "addcontentsline" => "mmm",
         "newcolumntype" => "mom",
+        // The harvard package's bibliography entry: its label is not
+        // printed in an author-year list.
+        "harvarditem" => "ommm",
+        // A counter stepped, labels to come pointing at it: nothing printed.
+        "refstepcounter" | "stepcounter" => "m",
+        // Bold formulas from here, and back: a setting.
+        "boldmath" | "unboldmath" => "",
+        // IEEEtran's bibliography: spacing of an entry.
+        "BIBentryALTinterwordspacing" | "BIBentrySTDinterwordspacing" => "",
+        // TeX's parameters set in the text (`\looseness=-1`, `\penalty-10000`,
+        // `\baselineskip=12pt`): settings.
+        "looseness"
+        | "penalty"
+        | "baselineskip"
+        | "parskip"
+        | "parindent"
+        | "tolerance"
+        | "emergencystretch"
+        | "hyphenpenalty"
+        | "exhyphenpenalty"
+        | "widowpenalty"
+        | "clubpenalty"
+        | "linepenalty"
+        | "interlinepenalty"
+        | "hbadness"
+        | "vbadness"
+        | "hfuzz"
+        | "vfuzz"
+        | "lineskip"
+        | "lineskiplimit"
+        | "abovedisplayskip"
+        | "belowdisplayskip"
+        | "abovedisplayshortskip"
+        | "belowdisplayshortskip"
+        | "textfloatsep"
+        | "floatsep"
+        | "intextsep"
+        | "dbltextfloatsep"
+        | "columnsep"
+        | "itemsep"
+        | "topsep"
+        | "parsep"
+        | "partopsep"
+        | "labelsep"
+        | "leftmargin"
+        | "tabcolsep"
+        | "arrayrulewidth"
+        | "doublerulesep"
+        | "fboxsep"
+        | "fboxrule"
+        | "jot"
+        | "mathsurround"
+        | "predisplaypenalty"
+        | "postdisplaypenalty"
+        | "displaywidowpenalty"
+        | "brokenpenalty"
+        | "floatpagefraction"
+        | "topfraction"
+        | "bottomfraction"
+        | "textfraction"
+        | "dbltopfraction"
+        | "dblfloatpagefraction" => "n",
+        // Lengths written where a length is an argument: markup.
+        "textwidth" | "linewidth" | "columnwidth" | "textheight" | "paperwidth" | "paperheight"
+        | "hsize" | "vsize" | "baselinestretch" | "maxdimen" | "z@" => "",
         _ => return None,
     })
 }
@@ -1248,6 +1317,10 @@ pub(crate) fn box_args(name: &str) -> Option<&'static str> {
         "fcolorbox" => "omm",
         // REVTeX's bibliography: a link with nothing to link, its text.
         "href@noop" => "m",
+        // A link's target and its text; a stack of lines; a sub-caption.
+        "hypertarget" => "m",
+        "shortstack" => "o",
+        "subcaption" => "o",
         _ => return None,
     })
 }
@@ -1329,6 +1402,69 @@ pub(crate) fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Optio
                     blanks(&mut p);
                 }
                 token(&mut p)?;
+            }
+            // A TeX parameter's value: `=` or not, then a number or a
+            // dimension (`-1`, `10000`, `1.2pt plus 1fil`, `-\parindent`,
+            // `0.5\textwidth`).
+            'n' => {
+                if text[p..limit].starts_with('=') {
+                    p += 1;
+                    blanks(&mut p);
+                }
+                let start = p;
+                while p < limit && matches!(b[p], b'+' | b'-' | b' ') {
+                    p += 1;
+                }
+                let digits = text[p..limit]
+                    .bytes()
+                    .take_while(|c| c.is_ascii_digit() || *c == b'.' || *c == b',')
+                    .count();
+                p += digits;
+                if p < limit && b[p] == b'\\' {
+                    // A register (`\parindent`) or a constant.
+                    token(&mut p)?;
+                } else if digits > 0 {
+                    // A unit, and TeX's `plus`/`minus` stretch.
+                    loop {
+                        blanks(&mut p);
+                        let unit = text[p..limit]
+                            .bytes()
+                            .take_while(u8::is_ascii_alphabetic)
+                            .count();
+                        let word = &text[p..p + unit];
+                        if matches!(
+                            word,
+                            "pt" | "em"
+                                | "ex"
+                                | "cm"
+                                | "mm"
+                                | "in"
+                                | "bp"
+                                | "pc"
+                                | "sp"
+                                | "dd"
+                                | "cc"
+                                | "mu"
+                                | "fil"
+                                | "fill"
+                                | "filll"
+                        ) {
+                            p += unit;
+                        } else if matches!(word, "plus" | "minus") {
+                            p += unit;
+                            blanks(&mut p);
+                            while p < limit
+                                && (b[p].is_ascii_digit() || b[p] == b'.' || b[p] == b'-')
+                            {
+                                p += 1;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                } else if p == start {
+                    return None;
+                }
             }
             _ => return None,
         }
@@ -1610,7 +1746,10 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
 fn transparent(name: &str) -> bool {
     matches!(
         name,
-        "captionof"
+        "hypertarget"
+            | "shortstack"
+            | "subcaption"
+            | "captionof"
             | "hyperref"
             | "colorbox"
             | "fcolorbox"
@@ -1945,7 +2084,11 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
                         i += skipped + close + 2;
                     }
                     "textbf" | "textit" | "emph" | "textsc" | "textrm" | "textsf" | "texttt"
-                    | "mbox" | "text" | "textnormal" | "textup" | "relax" | "protect" => {}
+                    | "mbox" | "text" | "textnormal" | "textup" | "relax" | "protect"
+                    // Old and new font switches, and a formula of text.
+                    | "sc" | "bf" | "it" | "rm" | "sf" | "tt" | "em" | "sl" | "scshape"
+                    | "bfseries" | "itshape" | "upshape" | "slshape" | "mdseries"
+                    | "normalfont" | "ensuremath" | "mathrm" | "mathsf" | "mathtt" => {}
                     _ => {
                         if let Some(w) = word(cname) {
                             out.push_str(w);
@@ -2350,9 +2493,17 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "textnumero" => "\u{2116}",
         "textcelsius" => "\u{2103}",
         "textohm" => "\u{2126}",
-        // amssymb's check mark in text; aastex's micron.
+        // amssymb's check mark in text; aastex's micron and angles.
         "checkmark" => "\u{2713}",
         "micron" => "\u{b5}m",
+        "arcsec" => "\u{2033}",
+        "arcmin" => "\u{2032}",
+        "arcdeg" => "\u{b0}",
+        // The harvard package's "and" between authors.
+        "harvardand" => "&",
+        // Between the authors of `\author{A \and B}`, which LaTeX sets
+        // side by side.
+        "and" | "AND" => "\u{2003}",
         "textleftarrow" => "\u{2190}",
         "textrightarrow" => "\u{2192}",
         "textuparrow" => "\u{2191}",
@@ -3835,6 +3986,13 @@ fn unflagged_line_view(
                             && let Some(end) = args_end(text, r.end, line.end, spec)
                             && !near(&(r.start..end)) =>
                     {
+                        // A name with nothing after it (`\boldmath`): TeX
+                        // takes the blanks after it with it.
+                        let mut end = end;
+                        if end == r.end {
+                            let rest = &text[end..line.end];
+                            end += rest.len() - rest.trim_start_matches([' ', '\t']).len();
+                        }
                         b.verbatim(
                             r.start..end,
                             Style {
@@ -5254,10 +5412,10 @@ fn front_environment(name: &str) -> Option<&'static str> {
 /// What a float is called in its caption.
 fn float_name(kind: &str, turkish: bool) -> Option<&'static str> {
     Some(match (kind.trim_end_matches('*'), turkish) {
-        ("figure" | "wrapfigure" | "subfigure", false) => "Figure",
-        ("figure" | "wrapfigure" | "subfigure", true) => "\u{15e}ekil",
-        ("table" | "wraptable" | "subtable", false) => "Table",
-        ("table" | "wraptable" | "subtable", true) => "Tablo",
+        ("figure" | "wrapfigure" | "subfigure" | "sidewaysfigure", false) => "Figure",
+        ("figure" | "wrapfigure" | "subfigure" | "sidewaysfigure", true) => "\u{15e}ekil",
+        ("table" | "wraptable" | "subtable" | "sidewaystable", false) => "Table",
+        ("table" | "wraptable" | "subtable" | "sidewaystable", true) => "Tablo",
         ("algorithm", false) => "Algorithm",
         ("algorithm", true) => "Algoritma",
         _ => return None,
@@ -5756,8 +5914,56 @@ pub fn explain_macro(doc: &crate::DocumentState, name: &str) -> String {
     let model = state.model();
     let defs = model.macro_definitions();
     let Some(i) = model.macros.iter().position(|m| m.name == name) else {
+        // Where the project's files (and the packages beside them) write
+        // it in a definition, as the model did not read it.
+        let mut written = String::new();
+        let mut paths: Vec<std::path::PathBuf> =
+            model.files.iter().map(std::path::PathBuf::from).collect();
+        if let Some(dir) = paths
+            .first()
+            .and_then(|p| p.parent())
+            .map(std::path::Path::to_path_buf)
+            && let Ok(rd) = std::fs::read_dir(&dir)
+        {
+            paths.extend(rd.flatten().map(|e| e.path()).filter(|p| {
+                p.extension()
+                    .is_some_and(|x| x == "sty" || x == "tex" || x == "cls")
+            }));
+        }
+        'files: for p in &paths {
+            let Ok(t) = std::fs::read_to_string(p) else {
+                continue;
+            };
+            for line in t.lines() {
+                let defines = [
+                    "def",
+                    "command",
+                    "let",
+                    "Acronym",
+                    "acro",
+                    "newacronym",
+                    "Command",
+                ]
+                .iter()
+                .any(|d| line.contains(d));
+                if defines
+                    && line.match_indices(name).any(|(k, _)| {
+                        !line[k + name.len()..].starts_with(|c: char| c.is_ascii_alphabetic())
+                    })
+                {
+                    written = format!(
+                        "; written in {}: {}",
+                        p.file_name()
+                            .map(|f| f.to_string_lossy().to_string())
+                            .unwrap_or_default(),
+                        line.trim().chars().take(200).collect::<String>()
+                    );
+                    break 'files;
+                }
+            }
+        }
         return format!(
-            "not in the model ({} macros, {} files; packages {})",
+            "not in the model{written} ({} macros, {} files; packages {})",
             model.macros.len(),
             model.files.len(),
             model
@@ -6712,6 +6918,27 @@ mod tests {
         let at = text.find("$\\gls").unwrap();
         assert_eq!(math_source(&d, at..at + 1).unwrap(), "${\\gamma} = 1$");
         assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
+    }
+
+    #[test]
+    fn settings_lengths_and_small_commands() {
+        let text = "\\documentclass{article}\n\\begin{document}\n\\looseness=-1 A\\penalty-10000 B \\boldmath C.\nX \\and Y; 2\\arcsec; \\refstepcounter{x}D.\n\\end{document}\n";
+        let d = doc(text);
+        let line = |n| {
+            let v = shown(&d, n, None);
+            v.runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.as_str())
+                .collect::<String>()
+        };
+        // TeX: the blank after a number and those after a control word go.
+        assert_eq!(line(2), "AB C.");
+        assert_eq!(line(3), "X \u{2003}Y; 2\u{2033}; D.");
+        let m = d.latex().unwrap().model();
+        assert!(renders_command("looseness") && renders_command("harvarditem"));
+        assert!(is_list("enumerate*"));
+        let _ = m;
     }
 
     #[test]
