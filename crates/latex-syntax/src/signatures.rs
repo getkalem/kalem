@@ -24,6 +24,10 @@ pub fn command(name: &str) -> &'static str {
         | "state" | "country" | "streetaddress" | "postcode" | "orcid" | "institute" | "inst"
         | "pacs" => "m",
         "IEEEPARstart" => "mm",
+        // algorithmicx's (algpseudocode) and algorithmic's statements.
+        "If" | "ElsIf" | "For" | "ForAll" | "While" | "Until" | "Comment" | "IF" | "ELSIF"
+        | "FOR" | "FORALL" | "WHILE" | "UNTIL" | "COMMENT" => "m",
+        "Procedure" | "Function" | "Call" => "mm",
         "index" => "om",
         "nomenclature" => "omm",
         "glossary" | "ensuremath" | "indexsee" => "m",

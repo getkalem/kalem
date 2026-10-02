@@ -1825,6 +1825,8 @@ fn float_kind(env: &str) -> Option<&'static str> {
     match env.trim_end_matches('*') {
         "figure" | "wrapfigure" | "subfigure" => Some("figure"),
         "table" | "wraptable" | "longtable" | "subtable" => Some("table"),
+        // The algorithm and algorithm2e packages' float.
+        "algorithm" => Some("algorithm"),
         _ => None,
     }
 }
