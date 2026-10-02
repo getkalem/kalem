@@ -5019,6 +5019,15 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\allowdisplaybreaks}{}",
     "\\newcommand{\\intertext}[1]{\\text{#1}}",
     "\\newcommand{\\shortintertext}[1]{\\text{#1}}",
+    "\\newcommand{\\mit}{\\mathit}",
+    "\\newcommand{\\openone}{\\mathbb{1}}",
+    "\\newcommand{\\slash}{/}",
+    "\\newcommand{\\medmath}[1]{#1}",
+    "\\newcommand{\\widebar}[1]{\\overline{#1}}",
+    "\\newcommand{\\smashoperator}[2][]{#2}",
+    "\\newcommand{\\footnote}[1]{}",
+    "\\newcommand{\\ubar}[1]{\\underline{#1}}",
+    "\\newcommand{\\sun}{\\odot}",
 ];
 
 /// The formula the cursor at `pos` is in, as the renderer takes it (the
