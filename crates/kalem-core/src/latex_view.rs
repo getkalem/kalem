@@ -1082,7 +1082,14 @@ fn silent(name: &str) -> Option<&'static str> {
         "counterwithin" | "counterwithout" => "smm",
         "allowdisplaybreaks" => "o",
         "makeatletter" | "makeatother" | "raggedbottom" | "flushbottom" | "sloppy" | "fussy"
-        | "hline" => "",
+        | "hline" | "tabularnewline" | "BibitemOpen" | "EOS" | "ProcessOptions" => "",
+        // A package's or a class's own commands, written in a document.
+        "DeclareOption" => "smm",
+        "ProvidesPackage" | "ProvidesClass" | "NeedsTeXFormat" => "mo",
+        // REVTeX's end of a bibliography entry.
+        "BibitemShut" => "m",
+        // Space as wide as its argument: nothing to read.
+        "phantom" | "hphantom" | "vphantom" => "m",
         // A table's rules: markup.
         "toprule" | "midrule" | "bottomrule" | "addlinespace" => "o",
         "cline" => "m",
@@ -1106,6 +1113,8 @@ fn box_args(name: &str) -> Option<&'static str> {
         "makebox" | "framebox" => "oo",
         // A spanning cell: its count and alignment hidden, its text shown.
         "multicolumn" => "mm",
+        // REVTeX's bibliography fields (`\\bibinfo{author}{…}`): the text.
+        "bibinfo" | "bibfield" => "m",
         "multirow" => "omom",
         "makecell" | "thead" => "o",
         _ => return None,
@@ -1212,6 +1221,7 @@ pub(crate) fn prose(name: &str) -> bool {
                 | "text"
                 | "mbox"
                 | "textcolor"
+                | "footnotetext"
                 | "thanks"
                 | "enquote"
                 | "MakeUppercase"
@@ -1261,7 +1271,7 @@ fn context(t: &SyntaxToken) -> Context {
                 if section {
                     c.heading = true;
                 }
-                if name == "footnote" {
+                if name == "footnote" || name == "footnotetext" {
                     c.style.dim = true;
                 }
                 // `\textcolor{red}{…}`: the text in red.
@@ -1487,6 +1497,14 @@ fn transparent(name: &str) -> bool {
             | "multirow"
             | "makecell"
             | "thead"
+            | "footnotetext"
+            | "bibinfo"
+            | "bibfield"
+            | "bibnamefont"
+            | "bibfnamefont"
+            | "bibsnamefont"
+            | "bibeditornamefont"
+            | "natexlab"
     )
 }
 
@@ -2593,7 +2611,14 @@ fn unflagged_line_view(
                             }) =>
                     {
                         let end = node_span(&cmd).end;
-                        b.replace(r.start..end, &format!("[{}]", item.label), c.style);
+                        // A blank between the label and the entry, as the
+                        // label's box keeps them apart.
+                        let gap = if text[end..].starts_with(char::is_whitespace) {
+                            ""
+                        } else {
+                            " "
+                        };
+                        b.replace(r.start..end, &format!("[{}]{gap}", item.label), c.style);
                         while let Some(n) = &tok
                             && span(n).start < end
                         {
@@ -3801,6 +3826,8 @@ pub fn renders_command(name: &str) -> bool {
                 | "newblock"
                 | "textcolor"
                 | "color"
+                | "footnotetext"
+                | "minipage"
                 | "input"
                 | "include"
                 | "subfile"
@@ -3842,6 +3869,7 @@ pub fn renders_environment(name: &str, model: &latex_model::Model) -> bool {
                 | "verse"
                 | "abstract"
                 | "thebibliography"
+                | "minipage"
         )
         || front_environment(name).is_some()
         || model.theorem_kinds.iter().any(|k| k.env == name)
