@@ -182,6 +182,21 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
     {
         return None;
     }
+    // A usual name (`\ee`) the document took out of the aliases by
+    // defining it, its definition in another paragraph (`\def` with blank
+    // lines before the name): the edit may change which it is.
+    let usual = |text: &str| {
+        text.match_indices('\\').any(|(k, _)| {
+            let w: String = text[k + 1..]
+                .chars()
+                .take_while(char::is_ascii_alphabetic)
+                .collect();
+            crate::tables::usual_alias(&w)
+        })
+    };
+    if usual(region) || usual(&old_region) {
+        return None;
+    }
     let mut p = Parser::new(new_text, rs, new_re, at_letter, defs);
     // In a table's cells, `$$` is an empty formula.
     p.cells = container

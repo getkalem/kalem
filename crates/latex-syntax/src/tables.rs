@@ -193,6 +193,11 @@ const USUAL_ALIASES: &[(&str, &str)] = &[
     ("begeq", "endeq"),
 ];
 
+/// Whether `name` is one of the usual names of [`USUAL_ALIASES`].
+pub(crate) fn usual_alias(name: &str) -> bool {
+    USUAL_ALIASES.iter().any(|(o, c)| *o == name || *c == name)
+}
+
 /// The macros `src` defines as the opening and the closing of a displayed
 /// formula's environment (`\def\be{\begin{equation}}`), with the usual
 /// names it does not define.
