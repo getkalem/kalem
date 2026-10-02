@@ -735,6 +735,9 @@ pub struct Coverage {
     /// Commands (`\foo`) and environments (`\begin{bar}`): how often, and
     /// whether rendered.
     pub names: HashMap<String, (usize, bool)>,
+    /// The bytes shown as source, by the outermost command or
+    /// environment shown so.
+    pub source_by_name: HashMap<String, usize>,
 }
 
 /// [`Coverage`] of `text`, with the project of `file` when given.
@@ -750,13 +753,28 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
     // nested spans counts.
     let mut source_to = 0;
     let mut math_to = 0;
+    // The end of a rendered command whose arguments the view draws or
+    // hides (a picture's options, a label's key): what is inside is not
+    // text shown as source.
+    let mut drawn_to = 0;
     for n in parse.syntax().descendants() {
         let r = n.text_range();
         let (start, end) = (usize::from(r.start()), usize::from(r.end()));
-        if !body.contains(&start) {
+        if !body.contains(&start) || start < drawn_to {
             continue;
         }
         let end = end.min(body.end);
+        // A simple table: the view's grid.
+        if n.kind() == K::ENVIRONMENT && crate::latex_table::simple(text, &n).is_some() {
+            let name = latex_syntax::name(&n).unwrap_or_default();
+            let e = c
+                .names
+                .entry(format!("\\begin{{{name}}}"))
+                .or_insert((0, true));
+            e.0 += 1;
+            drawn_to = end;
+            continue;
+        }
         let is_math_env = n.kind() == K::ENVIRONMENT
             && latex_syntax::name(&n).is_some_and(|x| latex_syntax::signatures::is_math(&x));
         if matches!(n.kind(), K::INLINE_MATH | K::DISPLAY_MATH) || is_math_env {
@@ -786,11 +804,39 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
             },
             _ => continue,
         };
-        let e = c.names.entry(key).or_insert((0, rendered));
+        let e = c.names.entry(key.clone()).or_insert((0, rendered));
         e.0 += 1;
         if !rendered && start >= source_to {
-            c.source += end - start;
-            source_to = end;
+            // An environment the view does not know shows its `\begin`
+            // and `\end` as source and its body as text, each thing in it
+            // as the view shows it.
+            let spans: Vec<(usize, usize)> = if n.kind() == K::ENVIRONMENT {
+                n.children()
+                    .filter(|x| matches!(x.kind(), K::BEGIN | K::END))
+                    .map(|x| {
+                        let r = x.text_range();
+                        (usize::from(r.start()), usize::from(r.end()).min(body.end))
+                    })
+                    .collect()
+            } else {
+                vec![(start, end)]
+            };
+            for (a, b) in spans {
+                if a >= source_to && b > a {
+                    c.source += b - a;
+                    *c.source_by_name.entry(key.clone()).or_insert(0) += b - a;
+                    source_to = b;
+                }
+            }
+            if n.kind() != K::ENVIRONMENT {
+                source_to = end;
+            }
+        }
+        if rendered
+            && n.kind() == K::COMMAND
+            && latex_syntax::name(&n).is_some_and(|x| !crate::latex_view::shows_arguments(&x))
+        {
+            drawn_to = end;
         }
     }
     c

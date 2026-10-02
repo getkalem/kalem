@@ -4,7 +4,8 @@
 //! report gives, overall and by field, the share of the body that shows
 //! as source and the share in formulas, and the most frequent commands
 //! and environments with how many papers use them and whether the view
-//! renders them.
+//! renders them. The files a document brings in before
+//! `\begin{document}` (its macros) are preamble, left out.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
@@ -99,13 +100,59 @@ fn files(dir: &Path) -> Vec<(PathBuf, String, String)> {
     out
 }
 
+/// The files a document brings in before `\\begin{document}` (its
+/// macros, its preamble in parts): preamble, not body text.
+fn preamble_files(files: &[(PathBuf, String, String)]) -> HashSet<PathBuf> {
+    let mut out = HashSet::new();
+    for (f, _, _) in files {
+        let Ok(bytes) = std::fs::read(f) else {
+            continue;
+        };
+        let text = String::from_utf8_lossy(&bytes);
+        let Some(begin) = text.find("\\begin{document}") else {
+            continue;
+        };
+        let dir = f.parent().unwrap_or(Path::new(""));
+        let mut rest = &text[..begin];
+        while let Some(i) = rest.find(['\\']) {
+            rest = &rest[i + 1..];
+            let Some(name) = ["input", "include", "usepackage", "RequirePackage"]
+                .iter()
+                .find(|n| rest.starts_with(*n))
+            else {
+                continue;
+            };
+            let arg = rest[name.len()..].trim_start();
+            let Some(inner) = arg.strip_prefix('{').and_then(|a| a.split_once('}')) else {
+                continue;
+            };
+            for part in inner.0.split(',') {
+                let p = dir.join(part.trim());
+                for cand in [p.clone(), p.with_extension("tex"), p.with_extension("sty")] {
+                    if cand.is_file() {
+                        out.insert(cand);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result<ExitCode> {
     let mut all = Totals::default();
     let mut fields: BTreeMap<String, Totals> = BTreeMap::new();
     // Per name: uses, the papers using it, rendered.
     let mut names: HashMap<String, Use> = HashMap::new();
+    // Per name: the bytes it shows as source.
+    let mut source_bytes: HashMap<String, usize> = HashMap::new();
     for dir in dirs {
-        for (f, field, paper) in files(dir) {
+        let list = files(dir);
+        let preamble = preamble_files(&list);
+        for (f, field, paper) in list {
+            if preamble.contains(&f) {
+                continue;
+            }
             let Ok(bytes) = std::fs::read(&f) else {
                 continue;
             };
@@ -113,6 +160,9 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
             let c = kalem_core::latex_check::coverage_report(&text, Some(&f));
             all.add(&paper, &c);
             fields.entry(field).or_default().add(&paper, &c);
+            for (name, b) in &c.source_by_name {
+                *source_bytes.entry(name.clone()).or_insert(0) += b;
+            }
             for (name, (n, rendered)) in c.names {
                 let e = names
                     .entry(name)
@@ -145,6 +195,9 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
         .take(top)
         .map(row)
         .collect();
+    let mut heaviest: Vec<(&String, &usize)> = source_bytes.iter().collect();
+    heaviest.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+    heaviest.truncate(top);
     let mut out = std::io::stdout().lock();
     if json {
         let list = |v: &[(String, usize, usize, bool)]| -> Vec<serde_json::Value> {
@@ -161,6 +214,10 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
             "fields": by_field,
             "most_frequent": list(&most),
             "most_frequent_unrendered": list(&unrendered),
+            "most_source": heaviest
+                .iter()
+                .map(|(name, b)| serde_json::json!({"name": name, "source_bytes": b, "share": share(**b, all.source)}))
+                .collect::<Vec<_>>(),
         });
         writeln!(
             out,
@@ -213,6 +270,17 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
         &format!("The {} most frequent shown as source", unrendered.len()),
         &unrendered,
     ));
+    s.push_str(&format!(
+        "\nThe {} names showing the most source\n\n| name | source KB | share of source |\n|---|---:|---:|\n",
+        heaviest.len()
+    ));
+    for (name, b) in &heaviest {
+        s.push_str(&format!(
+            "| `{name}` | {} | {} |\n",
+            **b / 1024,
+            pct(**b, all.source)
+        ));
+    }
     write!(out, "{s}").map_err(|e| e.to_string())?;
     Ok(ExitCode::SUCCESS)
 }
