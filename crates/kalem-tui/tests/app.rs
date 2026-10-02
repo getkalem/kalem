@@ -2628,6 +2628,28 @@ fn latex_build_command() {
 }
 
 #[test]
+fn latex_paragraphs_show_as_one() {
+    // The lines of a paragraph wrap as one away from the cursor, as TeX
+    // sets them; at the cursor, the source's lines.
+    let text = "\\documentclass{article}\n\\begin{document}\n\nThe well known theorem was\nproved invalid.\nMeaning this:\n\n\\end{document}\n";
+    let mut t = with_file(text, "p.tex", Config::default(), (70, 12));
+    t.at(text.find("\\end{document}").unwrap());
+    let s = screen(&mut t);
+    assert!(
+        s.iter()
+            .any(|l| l.contains("The well known theorem was proved invalid. Meaning this:")),
+        "{s:#?}"
+    );
+    t.at(text.find("proved").unwrap());
+    let s = screen(&mut t);
+    assert!(
+        s.iter().any(|l| l.trim_end().ends_with("theorem was")),
+        "{s:#?}"
+    );
+    assert!(s.iter().any(|l| l.contains("proved invalid.")), "{s:#?}");
+}
+
+#[test]
 fn latex_build_saves_first() {
     // The PDF is made from the text in the editor: unsaved changes are
     // saved before LaTeX runs.

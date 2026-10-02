@@ -353,6 +353,8 @@ pub struct Editor {
     pub math: bool,
     /// The document's `\newcommand`s for formulas, for a text version.
     pub math_macros: RefCell<(u64, Rc<str>)>,
+    /// LaTeX: the paragraphs over several source lines, by version.
+    paragraphs: RefCell<(u64, std::sync::Arc<Vec<std::ops::Range<usize>>>)>,
     /// Focus mode: only the section holding the cursor shows.
     pub focus_mode: bool,
     /// The Vim layer, with the Vim keymap profile.
@@ -476,6 +478,7 @@ impl Editor {
             menu_hover: None,
             math: true,
             math_macros: RefCell::new((u64::MAX, Rc::from(""))),
+            paragraphs: RefCell::new((u64::MAX, std::sync::Arc::new(Vec::new()))),
             focus_mode: false,
             vim: None,
             wrap: true,
@@ -576,6 +579,31 @@ impl Editor {
         b
     }
 
+    /// LaTeX: the paragraphs TeX sets from several source lines, shown
+    /// as one away from the cursor (the source view: none).
+    fn paragraphs(&self) -> std::sync::Arc<Vec<std::ops::Range<usize>>> {
+        if self.source || self.doc.meta.mode != DocumentMode::Latex {
+            return std::sync::Arc::new(Vec::new());
+        }
+        let version = self.doc.version();
+        let mut p = self.paragraphs.borrow_mut();
+        if p.0 != version {
+            *p = (
+                version,
+                kalem_core::latex_view::joined_paragraphs(&self.doc),
+            );
+        }
+        p.1.clone()
+    }
+
+    /// The joined paragraph holding the cursor, if any.
+    fn cursor_paragraph(&self) -> Option<std::ops::Range<usize>> {
+        let c = self.doc.selection.head;
+        let ps = self.paragraphs();
+        let i = ps.partition_point(|p| p.end < c);
+        ps.get(i).filter(|p| p.start <= c).cloned()
+    }
+
     /// The source lines that show.
     fn compute_visible(&mut self) -> Vec<usize> {
         let lines = self.compute_lines();
@@ -656,6 +684,19 @@ impl Editor {
                 if last > first {
                     out.retain(|l| *l <= first || *l > last);
                 }
+            }
+        }
+        // A LaTeX paragraph over several lines away from the cursor shows
+        // as one, on its first line.
+        let here = self.cursor_paragraph();
+        for p in self.paragraphs().iter() {
+            if here.as_ref() == Some(p) {
+                continue;
+            }
+            let first = text.line_of(p.start);
+            let last = text.line_of(p.end);
+            if last > first {
+                out.retain(|l| *l <= first || *l > last);
             }
         }
         if out.is_empty() {
@@ -750,7 +791,9 @@ impl Editor {
         let block = self
             .block_at(head)
             .filter(|b| b.range.start <= head && head <= b.content_end)
-            .map(|b| b.range.start);
+            .map(|b| b.range.start)
+            // A LaTeX paragraph opens into its lines at the cursor.
+            .or_else(|| self.cursor_paragraph().map(|p| p.start));
         let text = self.doc.text();
         let (old_count, new_count) = (self.line_count, text.line_count());
         // The changed span in the final text.
@@ -2342,6 +2385,18 @@ impl Editor {
         }
         // LaTeX: the document as it reads (the source view shows the text).
         if self.doc.meta.mode == DocumentMode::Latex && !self.source {
+            // A paragraph over several lines, away from the cursor: one.
+            let ps = self.paragraphs();
+            let i = ps.partition_point(|p| p.start < range.start);
+            if let Some(p) = ps.get(i).filter(|p| p.start == range.start)
+                && self.cursor_paragraph().as_ref() != Some(p)
+            {
+                return kalem_core::latex_view::paragraph_view(
+                    &self.doc,
+                    p.clone(),
+                    Some(self.doc.selection.head),
+                );
+            }
             return kalem_core::latex_view::line_view(
                 &self.doc,
                 range,

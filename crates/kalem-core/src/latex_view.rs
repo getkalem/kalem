@@ -46,7 +46,12 @@ pub struct LatexState {
     )>,
     /// The file, and its `% !TEX root` line when the root was looked for.
     file: Option<(std::path::PathBuf, Option<String>)>,
+    /// The paragraphs over several lines, for the text they were found in.
+    paragraphs: RefCell<Option<(Arc<str>, Paragraphs)>>,
 }
+
+/// The paragraphs of a LaTeX document over several source lines.
+pub type Paragraphs = Arc<Vec<Range<usize>>>;
 
 /// The root document `latex.root` names, relative to the project's
 /// folder (or the file's without a project); empty for none.
@@ -271,6 +276,7 @@ impl LatexState {
             project: RefCell::new(None),
             root: None,
             file: None,
+            paragraphs: RefCell::new(None),
         }
     }
 
@@ -1833,10 +1839,276 @@ pub fn line_view(
     line: Range<usize>,
     cursor: Option<usize>,
 ) -> LineView {
-    let mut v = unflagged_line_view(doc, line, cursor);
+    let mut v = unflagged_line_view(doc, line.clone(), cursor);
     if let Some(diags) = doc.latex_diagnostics() {
         flag(&mut v, diags);
     }
+    // A paragraph's first line indented as TeX indents it (`\parindent`,
+    // 1.5 em in the standard classes), away from the cursor.
+    if !cursor.is_some_and(|c| line.start <= c && c <= line.end) && indented(doc, line.clone()) {
+        v.runs.insert(
+            0,
+            Run {
+                src: line.start..line.start,
+                text: "\u{2003}\u{2002}".into(),
+                verbatim: false,
+                // Space, not text: as markup.
+                style: Style {
+                    dim: true,
+                    ..Style::default()
+                },
+                widget: None,
+            },
+        );
+    }
+    v
+}
+
+/// Whether TeX indents source line `line` as a paragraph's first line:
+/// running text of the document after a blank line, not after a heading,
+/// and not `\noindent` or an item.
+fn indented(doc: &crate::DocumentState, line: Range<usize>) -> bool {
+    let Some(state) = doc.latex() else {
+        return false;
+    };
+    let text = doc.text().as_str();
+    let t = text[line.clone()].trim_start();
+    if t.starts_with("\\noindent") || t.starts_with("\\item") || line.start == 0 {
+        return false;
+    }
+    let root = state.parse().syntax();
+    if paragraph_line(state, &root, text, line.clone()).is_none() {
+        return false;
+    }
+    // Directly in the document (lists, centered text, boxes: no indent).
+    let first = line.start + (text[line.clone()].len() - t.len());
+    let in_document = latex_syntax::token_at(&root, first).is_some_and(|tok| {
+        tok.parent_ancestors()
+            .filter(|a| a.kind() == K::ENVIRONMENT)
+            .all(|a| latex_syntax::name(&a).as_deref() == Some("document"))
+    });
+    if !in_document {
+        return false;
+    }
+    // A blank line before it, and before that no heading.
+    let mut lines = text[..line.start - 1].rsplit('\n');
+    if !lines.next().is_some_and(|l| l.trim().is_empty()) {
+        return false;
+    }
+    let before = lines.find(|l| !l.trim().is_empty()).unwrap_or("");
+    let b = before.trim_start();
+    let heading = [
+        "\\part",
+        "\\chapter",
+        "\\section",
+        "\\subsection",
+        "\\subsubsection",
+        "\\paragraph",
+    ]
+    .iter()
+    .any(|h| b.starts_with(h));
+    !heading
+}
+
+/// Whether source line `line` (its line feed out) is running text of a
+/// paragraph, and if so whether the next line follows it in the same
+/// one (its line break a space); `None` for a line TeX does not set as
+/// running text (blank, a comment, a command line of its own, in a table,
+/// a formula, verbatim...).
+fn paragraph_line(
+    state: &LatexState,
+    root: &SyntaxNode,
+    text: &str,
+    line: Range<usize>,
+) -> Option<bool> {
+    let src = &text[line.clone()];
+    let t = src.trim();
+    if t.is_empty() || t.starts_with('%') {
+        return None;
+    }
+    // A line of its own: an environment's edge, a heading, a display.
+    for p in [
+        "\\begin",
+        "\\end",
+        "\\[",
+        "\\]",
+        "$$",
+        "\\caption",
+        "\\centering",
+        "\\label",
+        "\\maketitle",
+        "\\documentclass",
+        "\\usepackage",
+        "\\input",
+        "\\include",
+        "\\bibliography",
+        "\\newcommand",
+        "\\renewcommand",
+        "\\def",
+        "\\clearpage",
+        "\\newpage",
+        "\\noindent",
+        "\\vspace",
+        "\\hline",
+        "\\toprule",
+        "\\midrule",
+        "\\bottomrule",
+        "\\includegraphics",
+        "\\appendix",
+        "\\tableofcontents",
+    ] {
+        if t.starts_with(p) && !(p == "\\noindent" && t.len() > p.len()) {
+            return None;
+        }
+    }
+    let first = line.start + (src.len() - src.trim_start().len());
+    let tok = latex_syntax::token_at(root, first)?;
+    // A heading, or a command whose argument is the whole line.
+    if let Some(cmd) = tok.parent().filter(|p| p.kind() == K::COMMAND)
+        && let Some(name) = latex_syntax::name(&cmd)
+        && (latex_syntax::signatures::is_sectioning(&name)
+            || matches!(name.as_str(), "title" | "author" | "date" | "paragraph"))
+    {
+        return None;
+    }
+    // In running text: the document, a list, a quote, a theorem, a proof,
+    // a box of text; nothing else (tables, formulas, verbatim, pictures).
+    let model = state.model();
+    for a in tok.parent_ancestors() {
+        if matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH) && node_span(&a).start < line.start
+        {
+            return None;
+        }
+        if a.kind() == K::ENVIRONMENT {
+            let name = latex_syntax::name(&a).unwrap_or_default();
+            let ok = matches!(
+                name.as_str(),
+                "document"
+                    | "abstract"
+                    | "quote"
+                    | "quotation"
+                    | "itemize"
+                    | "enumerate"
+                    | "description"
+                    | "proof"
+                    | "minipage"
+                    | "center"
+                    | "flushleft"
+                    | "flushright"
+            ) || model.theorem_kinds.iter().any(|k| k.env == name);
+            if !ok {
+                return None;
+            }
+        }
+    }
+    // The line break is a space unless the line forces one (`\\`,
+    // `\\newline`, `\\par`) or ends in a comment, which takes the break.
+    let code = t.split('%').next().unwrap_or(t).trim_end();
+    let breaks = code.ends_with("\\\\")
+        || code.ends_with("\\newline")
+        || code.ends_with("\\par")
+        || t.contains('%');
+    Some(!breaks)
+}
+
+/// The runs of source lines TeX sets as one paragraph (two lines or more,
+/// one line break a space between them), as byte ranges from the first
+/// line's start to the last line's end (its line feed out).
+pub fn joined_paragraphs(doc: &crate::DocumentState) -> Paragraphs {
+    let Some(state) = doc.latex() else {
+        return Arc::new(Vec::new());
+    };
+    if let Some((t, p)) = state.paragraphs.borrow().as_ref()
+        && Arc::ptr_eq(t, &state.text)
+    {
+        return p.clone();
+    }
+    let found = Arc::new(find_paragraphs(doc, state));
+    *state.paragraphs.borrow_mut() = Some((state.text.clone(), found.clone()));
+    found
+}
+
+fn find_paragraphs(doc: &crate::DocumentState, state: &LatexState) -> Vec<Range<usize>> {
+    let text = doc.text().as_str();
+    let root = state.parse().syntax();
+    let body = state.model().body.clone().unwrap_or(0..text.len());
+    let mut out = Vec::new();
+    let mut run: Option<(usize, usize, bool)> = None;
+    let mut at = body.start;
+    for raw in text[body.start..body.end.min(text.len())].split_inclusive('\n') {
+        let line = at..at + raw.trim_end_matches(['\n', '\r']).len();
+        at += raw.len();
+        let p = paragraph_line(state, &root, text, line.clone());
+        // A line starting with `\\item` begins a run of its own.
+        let item = text[line.clone()].trim_start().starts_with("\\item");
+        match (run, p) {
+            (Some((s, _, true)), Some(joins)) if !item => run = Some((s, line.end, joins)),
+            (prev, p) => {
+                if let Some((s, e, _)) = prev
+                    && text[s..e].contains('\n')
+                {
+                    out.push(s..e);
+                }
+                run = p.map(|joins| (line.start, line.end, joins));
+            }
+        }
+    }
+    if let Some((s, e, _)) = run
+        && text[s..e].contains('\n')
+    {
+        out.push(s..e);
+    }
+    out
+}
+
+/// The paragraph `range` (one of [`joined_paragraphs`]) as one line: its
+/// lines' views one after the other, each line break shown as a space.
+pub fn paragraph_view(
+    doc: &crate::DocumentState,
+    range: Range<usize>,
+    cursor: Option<usize>,
+) -> LineView {
+    let text = doc.text().as_str();
+    let mut out: Option<LineView> = None;
+    let mut at = range.start;
+    for raw in text[range.clone()].split_inclusive('\n') {
+        let content = raw.trim_end_matches(['\n', '\r']).len();
+        let line = at..at + content;
+        let v = line_view(doc, line.clone(), cursor);
+        match &mut out {
+            None => out = Some(v),
+            Some(o) => {
+                // TeX's space for the line break, after what the line before
+                // ends with (blanks at a line's end are TeX's one space too).
+                let prev_end = o.runs.last().map_or(line.start, |r| r.src.end);
+                let gap = prev_end..line.start;
+                let ends_blank = o.runs.last().is_some_and(|r| r.text.ends_with(' '));
+                o.runs.push(Run {
+                    src: gap,
+                    text: if ends_blank {
+                        String::new()
+                    } else {
+                        " ".into()
+                    },
+                    verbatim: false,
+                    style: Style::default(),
+                    widget: None,
+                });
+                // The next line's leading blanks are not more space.
+                let mut runs = v.runs;
+                if let Some(r) = runs.first_mut()
+                    && r.widget.is_none()
+                {
+                    let trimmed = r.text.trim_start().to_string();
+                    r.text = trimmed;
+                }
+                o.runs.extend(runs);
+            }
+        }
+        at += raw.len();
+    }
+    let mut v = out.unwrap_or_default();
+    v.range = range;
     v
 }
 
@@ -5339,6 +5611,49 @@ mod tests {
                 .iter()
                 .any(|r| r.text == "end for" && r.style.bold)
         );
+    }
+
+    #[test]
+    fn paragraphs_as_tex_sets_them() {
+        // The lines of a paragraph are one paragraph, each line break a
+        // space; a blank line, a display, `\\\\` or a comment at a line's
+        // end ends the run.
+        let text = "\\documentclass{article}\n\\begin{document}\n\nThe well known theorem $x^2+y^2=z^2$ was\nproved to be invalid for other exponents.\nMeaning the next equation has no integer solutions:\n\\[x^n + y^n = z^n\\]\nOne line.\n\nForced \\\\\nbreak.\nNo % space\nhere.\n\\section{S}\nA\nB\n\\end{document}\n";
+        let d = doc(text);
+        let runs = joined_paragraphs(&d);
+        let shown: Vec<&str> = runs.iter().map(|r| &text[r.clone()]).collect();
+        assert_eq!(
+            shown,
+            [
+                "The well known theorem $x^2+y^2=z^2$ was\nproved to be invalid for other exponents.\nMeaning the next equation has no integer solutions:",
+                "break.\nNo % space",
+                "A\nB",
+            ]
+        );
+        let v = paragraph_view(&d, runs[0].clone(), None);
+        let t: String = v
+            .runs
+            .iter()
+            .filter(|r| !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        assert_eq!(
+            t,
+            format!(
+                "The well known theorem {} was proved to be invalid for other exponents. Meaning the next equation has no integer solutions:",
+                crate::view::PLACEHOLDER
+            )
+        );
+        // A position in the second line maps back to it.
+        let at = text.find("proved").unwrap();
+        assert_eq!(v.source_offset(v.display_offset(at)), at);
+        // Indented as TeX indents a paragraph: after a blank line, not
+        // after a heading; not at the cursor.
+        assert_eq!(v.runs[0].text, "\u{2003}\u{2002}");
+        let after_heading = paragraph_view(&d, runs[2].clone(), None);
+        assert_ne!(after_heading.runs[0].text, "\u{2003}\u{2002}");
+        let at_cursor = paragraph_view(&d, runs[0].clone(), Some(runs[0].start + 1));
+        assert_ne!(at_cursor.runs[0].text, "\u{2003}\u{2002}");
     }
 
     #[test]
