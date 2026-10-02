@@ -3011,7 +3011,8 @@ fn latex_math_and_inserts(cx: &mut TestAppContext) {
         e.run_command("latex.insert.equation", serde_json::Value::Null, window, cx)
     });
     cx.run_until_parked();
-    assert!(text_of(&e, cx).contains("\\begin{equation}\n  \n  \\label{eq:}\n\\end{equation}\n"));
+    // The formula goes before the label: no empty line in it.
+    assert!(text_of(&e, cx).contains("\\begin{equation}\n   \\label{eq:}\n\\end{equation}\n"));
     e.update_in(cx, |e, window, cx| {
         e.run_command(
             "latex.math.toggleNumbering",

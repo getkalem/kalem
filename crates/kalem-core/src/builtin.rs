@@ -1516,7 +1516,10 @@ fn latex_commands() -> Vec<Command> {
                 // As the document writes its floats (T2.7h.15).
                 let style = crate::latex_edit::Style::infer(text);
                 let inner = format!("{indent}{}", style.step);
-                let label = format!("\\label{{{}{stem}}}", style.prefixes[0]);
+                let label = format!(
+                    "\\label{{{}}}",
+                    crate::latex_edit::unique_label(text, &format!("{}{stem}", style.prefixes[0]))
+                );
                 let (head, tail) = float_caption(&inner, &caption, &label, style.label);
                 let head = format!(
                     "{indent}\\begin{{figure}}[htbp]\n{inner}\\centering\n{inner}\\includegraphics[width={width}]{{{path}}}\n{head}"
@@ -1555,7 +1558,10 @@ fn latex_commands() -> Vec<Command> {
                 let inner = format!("{indent}{}", style.step);
                 let cells = format!("{inner}{}", style.step);
                 let row = format!("{cells}{} \\\\\n", vec![""; columns].join(" & "));
-                let label = format!("\\label{{{}}}", style.prefixes[1]);
+                let label = format!(
+                    "\\label{{{}}}",
+                    crate::latex_edit::unique_label(text, &style.prefixes[1])
+                );
                 let (caption_head, caption_tail) = float_caption(&inner, "", &label, style.label);
                 let head =
                     format!("{indent}\\begin{{table}}[htbp]\n{inner}\\centering\n{caption_head}");
@@ -1581,14 +1587,20 @@ fn latex_commands() -> Vec<Command> {
                 // As the document writes its equations (T2.7h.15).
                 let style = crate::latex_edit::Style::infer(text);
                 let inner = format!("{indent}{}", style.step);
-                let label = format!("\\label{{{}}}", style.prefixes[2]);
+                let label = format!(
+                    "\\label{{{}}}",
+                    crate::latex_edit::unique_label(text, &style.prefixes[2])
+                );
+                // No line of the body left empty: in a formula a blank
+                // line is a paragraph's end, an error. The formula goes
+                // before the label, or after it on the `\begin` line.
                 if style.equation_label_inline {
-                    let head = format!("{indent}\\begin{{equation}}{label}\n{inner}");
+                    let head = format!("{indent}\\begin{{equation}}{label} ");
                     (format!("{head}\n{indent}\\end{{equation}}\n"), head.len())
                 } else {
                     let head = format!("{indent}\\begin{{equation}}\n{inner}");
                     (
-                        format!("{head}\n{inner}{label}\n{indent}\\end{{equation}}\n"),
+                        format!("{head} {label}\n{indent}\\end{{equation}}\n"),
                         head.len(),
                     )
                 }
@@ -1726,6 +1738,10 @@ fn latex_insert_citation(ctx: &mut EditorContext<'_>, args: &Value) -> CommandRe
     })();
     let (at, insert) = match inside {
         Some(end) => (end, format!(",{key}")),
+        // Only in text: not in a name, a label or a formula.
+        None if !crate::latex_edit::in_text(&root, pos) => {
+            return Err(CommandError::new(crate::tr!("msg-latex-not-here")));
+        }
         None => (pos, format!("\\cite{{{key}}}")),
     };
     let mut tx = org_edit::Transaction::new("Insert Citation");
@@ -1796,7 +1812,18 @@ fn latex_insert(
     };
     let model = l.model();
     let text = d.text().as_str();
-    let pos = d.selection.head;
+    // After a float, table, formula or command the cursor is in, and
+    // after one the end of its line is in (a command over lines).
+    let root = l.parse().syntax();
+    let mut pos = crate::latex_edit::block_position(text, &root, d.selection.head);
+    loop {
+        let end = text[pos..].find('\n').map_or(text.len(), |i| pos + i);
+        let after = crate::latex_edit::block_position(text, &root, end);
+        if after <= end {
+            break;
+        }
+        pos = after;
+    }
     let line_start = text[..pos].rfind('\n').map_or(0, |i| i + 1);
     let line_end = text[pos..].find('\n').map_or(text.len(), |i| pos + i);
     let line = &text[line_start..line_end];
@@ -1805,8 +1832,15 @@ fn latex_insert(
         .take_while(|c| *c == ' ' || *c == '\t')
         .collect();
     let (block, cursor) = make(text, &indent, &model);
+    // On a list's `\begin` line: before the list (in it, before its first
+    // `\item`, nothing can go).
+    let opens_list = ["itemize", "enumerate", "description", "thebibliography"]
+        .iter()
+        .any(|l| line.trim_start().starts_with(&format!("\\begin{{{l}}}")));
     let (replace, lead) = if line.trim().is_empty() {
         (line_start..(line_end + 1).min(text.len()), String::new())
+    } else if opens_list {
+        (line_start..line_start, String::new())
     } else if line_end == text.len() {
         (line_end..line_end, "\n".to_string())
     } else {

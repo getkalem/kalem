@@ -123,13 +123,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p latex-model --example labels
-      - run: cargo build --release -p kalem-core --example latex_shown
+      - run: cargo build --release -p kalem-core --example latex_shown --example latex_edits
       # Random documents: every label numbered as pdflatex numbers it.
       - run: python3 tools/latex-numbering-fuzz.py 400 $GITHUB_RUN_NUMBER --keep latex-differences
       # Every construct once, then random lines: the rendered view's text
       # is what pdflatex typesets.
       - run: python3 tools/latex-typeset-fuzz.py --each --keep latex-differences
       - run: python3 tools/latex-typeset-fuzz.py 600 $GITHUB_RUN_NUMBER --keep latex-differences
+      # Random sequences of the editing commands: the document still
+      # compiles, with no new warning.
+      - run: python3 tools/latex-edit-fuzz.py 150 $GITHUB_RUN_NUMBER 6 --keep latex-differences
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
