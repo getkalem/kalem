@@ -340,15 +340,32 @@ pub fn svg_png(svg: &[u8], size: u32) -> Result<Vec<u8>, String> {
     pixmap.encode_png().map_err(|e| e.to_string())
 }
 
+/// The first page of a PDF as SVG.
+pub fn pdf_svg(data: Vec<u8>) -> Result<String, String> {
+    use hayro_svg::hayro_syntax::Pdf;
+    let pdf = Pdf::new(data).map_err(|e| format!("{e:?}"))?;
+    let page = pdf.pages().iter().next().ok_or("a PDF without pages")?;
+    let cache = hayro_svg::RenderCache::new();
+    Ok(hayro_svg::convert(
+        page,
+        &cache,
+        &hayro_svg::hayro_interpret::InterpreterSettings::default(),
+        &hayro_svg::SvgRenderSettings::default(),
+    ))
+}
+
 /// The pixels of the picture `file`, at most `max` pixels on its longer
 /// side (larger pictures are scaled down, keeping their shape); SVG is
 /// drawn at its own size.
 pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
-    let is_svg = file
-        .extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("svg"));
+    let ext = |x: &str| file.extension().is_some_and(|e| e.eq_ignore_ascii_case(x));
+    let is_svg = ext("svg") || ext("pdf");
     let img = if is_svg {
-        let data = std::fs::read(file).map_err(|e| e.to_string())?;
+        let mut data = std::fs::read(file).map_err(|e| e.to_string())?;
+        // A PDF (LaTeX's figures): its first page, as vectors.
+        if ext("pdf") {
+            data = pdf_svg(data)?.into_bytes();
+        }
         let opts = resvg::usvg::Options {
             resources_dir: file.parent().map(Path::to_path_buf),
             ..Default::default()
@@ -472,6 +489,53 @@ mod tests {
         assert_eq!(pasted_paths(&format!("{} and more", pic.display())), None);
         assert_eq!(resolve("a/b.png", Some(&docs)), docs.join("a/b.png"));
         assert_eq!(resolve("/x/b.png", Some(&docs)), PathBuf::from("/x/b.png"));
+    }
+
+    /// A one-page PDF of `w`×`h` points with a black square in it.
+    fn square_pdf(w: u32, h: u32) -> Vec<u8> {
+        let content = "0 0 0 rg 10 10 30 30 re f";
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            format!(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w} {h}] /Contents 4 0 R >>"
+            ),
+            format!("<< /Length {} >>\nstream\n{content}\nendstream", content.len()),
+        ];
+        let mut out = b"%PDF-1.4\n".to_vec();
+        let mut offsets = Vec::new();
+        for (i, o) in objects.iter().enumerate() {
+            offsets.push(out.len());
+            out.extend(format!("{} 0 obj\n{o}\nendobj\n", i + 1).bytes());
+        }
+        let xref = out.len();
+        out.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1).bytes());
+        for o in offsets {
+            out.extend(format!("{o:010} 00000 n \n").bytes());
+        }
+        out.extend(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+                objects.len() + 1
+            )
+            .bytes(),
+        );
+        out
+    }
+
+    #[test]
+    fn pdf_pictures() {
+        // LaTeX's figures are PDFs: drawn at their size, the square black.
+        let dir = std::env::temp_dir().join(format!("kalem-pdf-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("fig.pdf");
+        std::fs::write(&f, square_pdf(50, 40)).unwrap();
+        let img = decode(&f, 1000).unwrap();
+        assert_eq!(img.dimensions(), (50, 40));
+        // PDF's origin is at the bottom: the square is at 10..40 up from it.
+        assert_eq!(img.get_pixel(20, 20).0[3], 255);
+        assert_eq!(img.get_pixel(45, 5).0[3], 0);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
