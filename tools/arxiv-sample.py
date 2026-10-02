@@ -126,6 +126,14 @@ def main():
     ap.add_argument("--per-field", type=int, default=200)
     ap.add_argument("--year", default="2024")
     a = ap.parse_args()
+    # Papers without a LaTeX source, remembered beside the sample so that a
+    # later run does not ask arXiv for them again.
+    os.makedirs(a.out, exist_ok=True)
+    skip_file = os.path.join(a.out, "no-latex.txt")
+    try:
+        no_latex = set(open(skip_file).read().split())
+    except OSError:
+        no_latex = set()
     for field, cats in FIELDS.items():
         want = a.per_field
         share = -(-want // len(cats))
@@ -148,6 +156,8 @@ def main():
                     taken += 1
                     got += 1
                     continue
+                if i in no_latex:
+                    continue
                 try:
                     ok = unpack(get(f"https://arxiv.org/e-print/{i}"), dest)
                 except Exception as e:  # noqa: BLE001 (one paper's error)
@@ -156,6 +166,10 @@ def main():
                 if ok:
                     taken += 1
                     got += 1
+                else:
+                    no_latex.add(i)
+                    with open(skip_file, "a") as f:
+                        f.write(i + "\n")
             print(f"{field} {cat}: {taken}", flush=True)
         print(f"{field}: {got} papers", flush=True)
 
