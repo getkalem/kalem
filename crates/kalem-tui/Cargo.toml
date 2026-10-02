@@ -34,6 +34,7 @@ rustix = { version = "1", features = ["event", "stdio", "std"] }
 insta = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kalem-plugin-image-viewer.workspace = true
+kalem-plugin-xlsx.workspace = true
 
 [lints]
 workspace = true

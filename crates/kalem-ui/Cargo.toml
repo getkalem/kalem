@@ -35,6 +35,7 @@ objc2-foundation = { version = "0.3", default-features = false, features = ["std
 # The terminal editor, for the tests comparing the two editors.
 kalem-tui.workspace = true
 kalem-plugin-image-viewer.workspace = true
+kalem-plugin-xlsx.workspace = true
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 unicode-width = "0.2"
 gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2", features = ["test-support"] }

@@ -456,3 +456,13 @@ fn springer_theorems() {
         Some("2")
     );
 }
+
+/// A theorem declared in a file the model does not read: the usual one
+/// of its name or of a usual short form of it.
+#[test]
+fn undeclared_theorems_of_usual_names() {
+    let t = "\\documentclass{article}\\begin{document}\n\\begin{lma}A\\end{lma}\n\\begin{myassump}B\\end{myassump}\n\\begin{expl}C\\end{expl}\n\\begin{widget}D\\end{widget}\n\\end{document}\n";
+    let m = Model::new(&parse(t));
+    let titles: Vec<&str> = m.theorems.iter().map(|t| t.title.as_str()).collect();
+    assert_eq!(titles, ["Lemma", "Assumption", "Example"]);
+}
