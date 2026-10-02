@@ -25,6 +25,9 @@ pub(crate) struct Tables {
     /// Environments the text defines as a displayed formula
     /// (`\newenvironment{eqn}{\begin{equation}}{\end{equation}}`).
     pub(crate) math_envs: Vec<String>,
+    /// Closing macros (`\\ee`) that end an environment opened by `\\begin`
+    /// (`\\begin{equation} … \\ee`): their positions.
+    pub(crate) alias_ends: std::collections::HashSet<usize>,
 }
 
 impl Tables {
@@ -152,6 +155,17 @@ pub(crate) fn build(
                     n if closers.iter().any(|o| o == n) && !in_definition(src, pos) => {
                         if let Some(o) = alias_open.take() {
                             t.aliases.insert(o, pos);
+                        } else if let Some((open, env)) = envs.last()
+                            && signatures::is_math(env)
+                            && !matches!(
+                                env.trim_end_matches('*'),
+                                "split" | "aligned" | "gathered" | "alignedat" | "math"
+                            )
+                        {
+                            // `\\begin{equation} … \\ee`.
+                            t.envs.insert(*open, pos);
+                            t.alias_ends.insert(pos);
+                            envs.pop();
                         }
                     }
                     _ => {}

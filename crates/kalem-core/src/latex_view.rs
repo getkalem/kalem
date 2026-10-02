@@ -5645,6 +5645,7 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\MakeLowercase}[1]{#1}",
     "\\newcommand{\\scr}[1]{\\mathscr{#1}}",
     "\\newcommand{\\none}{}",
+    "\\newcommand{\\xspace}{}",
     "\\newcommand{\\ifthenelse}[3]{#2}",
     "\\newcommand{\\joinrel}{\\mathrel{\\mkern-3mu}}",
     "\\newcommand{\\IEEEyesnumber}{}",
@@ -5747,11 +5748,29 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
             .first_token()
             .is_some_and(|t| t.kind() == K::CONTROL_WORD);
     if name.is_some() || alias {
-        for e in model
-            .equations
+        // A row whose own `\\tag` is in a macro (`\\explain{…}`): numbered
+        // by it.
+        let tagging: Vec<&str> = model
+            .macros
             .iter()
-            .filter(|e| e.file == 0 && r.start <= e.range.start && e.range.end <= r.end && !e.tag)
-        {
+            .filter(|m| m.body.contains("\\tag"))
+            .map(|m| m.name.as_str())
+            .collect();
+        let tagged = |range: &Range<usize>| {
+            let row = &text[range.start.min(text.len())..range.end.min(text.len())];
+            tagging.iter().any(|n| {
+                row.match_indices(n).any(|(k, _)| {
+                    !row[k + n.len()..].starts_with(|c: char| c.is_ascii_alphabetic())
+                })
+            })
+        };
+        for e in model.equations.iter().filter(|e| {
+            e.file == 0
+                && r.start <= e.range.start
+                && e.range.end <= r.end
+                && !e.tag
+                && !tagged(&e.range)
+        }) {
             if let Some(n) = &e.number {
                 edits.push((e.range.end..e.range.end, format!("\\tag{{{n}}}")));
             }
@@ -5761,6 +5780,13 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
         // Starred, so that only the tags number it (not a diagram, which
         // has no starred form).
         let numbers = !name.ends_with('*') && name != "tikzcd";
+        // Ended by a macro (`\\begin{equation} … \\ee`): `\\end{…}` there.
+        if let Some(end) = node.children().find(|c| c.kind() == K::END)
+            && end.first_token().is_some_and(|t| t.text() != "\\end")
+        {
+            let star = if numbers { "*" } else { "" };
+            edits.push((node_span(&end), format!("\\end{{{name}{star}}}")));
+        }
         if numbers {
             for pat in [format!("\\begin{{{name}}}"), format!("\\end{{{name}}}")] {
                 for (i, _) in text[r.clone()].match_indices(&pat) {
@@ -6633,6 +6659,15 @@ mod tests {
         // xparse's and robust definitions, a macro as a script, a comment
         // in a diagram.
         let text = "\\documentclass{article}\n\\NewDocumentCommand{\\pr}{O{} m}{P_{#1}(#2)}\n\\DeclareRobustCommand{\\one}{\\mathbf{1}}\n\\DeclareMathOperator{\\End}{End}\n\\begin{document}\n$\\pr{A} + \\one_\\End$\n\\begin{tikzcd} A \\ar[r] % \\ar[bend left = 40,\n & B \\end{tikzcd}\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // An equation ended by `\\ee`.
+        let text = "\\documentclass{article}\n\\begin{document}\n\\begin{equation}\na = b\n\\ee\nThen \\[x\\]\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // A size around a part, a color by a model, a tag in a macro.
+        let text = "\\documentclass{article}\n\\newcommand{\\explain}[1]{\\tag{#1}}\n\\newcommand{\\MR}[1]{\\textcolor[rgb]{0.8,0,0}{#1}}\n\\begin{document}\n\\begin{equation}\\begin{small} \\MR{x} \\end{small}\\end{equation}\n\\begin{align}a &= b \\explain{why}\\end{align}\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // A formula in a group in a box, small (`\\sM`), and `\\xspace`.
+        let text = "\\documentclass{article}\n\\newcommand{\\M}{{\\mathbb M}}\n\\newcommand{\\sM}{{\\mbox{\\fontsize{5.2}{5.2}\\selectfont{$\\M$}}}}\n\\newcommand{\\bigO}{\\ensuremath{\\mathcal{O}}\\xspace}\n\\begin{document}\n$D_{\\sM} = \\bigO(n)$\n\\end{document}\n";
         assert_eq!(formula_failures(&doc(text)), Vec::new());
         // One the document defines as an equation: a numbered formula.
         let text = "\\documentclass{article}\n\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n\\begin{document}\n\\begin{eqn}\na = \\frac{1}{2}\n\\end{eqn}\n\\end{document}\n";
