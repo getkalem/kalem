@@ -192,6 +192,13 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
     let mut examples: HashMap<String, String> = HashMap::new();
     let base = kalem_core::settings::Config::default().parse_base();
     let mut unread_count = 0;
+    // `KALEM_COVERAGE_TRACE="vu E"`: why those macros are undefined.
+    let trace: Vec<String> = std::env::var("KALEM_COVERAGE_TRACE")
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(|t| format!("\\{}", t.trim_start_matches('\\')))
+        .collect();
+    let mut traced: HashSet<(PathBuf, String)> = HashSet::new();
     for dir in dirs {
         let list = files(dir);
         let preamble = preamble_files(&list);
@@ -218,6 +225,16 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                     let n = r.len();
                     c.source += n;
                     c.math = c.math.saturating_sub(n);
+                    if let Some(name) = kind.strip_prefix("Undefined control sequence: ")
+                        && trace.iter().any(|t| t == name)
+                        && traced.insert((f.clone(), name.to_string()))
+                    {
+                        eprintln!(
+                            "trace {} {name}: {}",
+                            f.display(),
+                            kalem_core::latex_view::explain_macro(&doc, name)
+                        );
+                    }
                     let key = format!("formula: {kind}");
                     *c.source_by_name.entry(key.clone()).or_insert(0) += n;
                     c.examples.entry(key).or_insert_with(|| {
