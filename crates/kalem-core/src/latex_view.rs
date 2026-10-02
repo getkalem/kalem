@@ -545,11 +545,8 @@ impl LatexState {
 }
 
 pub(crate) fn is_list(name: &str) -> bool {
-    // enumitem's inline lists (`enumerate*`) are lists too.
-    matches!(
-        name,
-        "itemize" | "enumerate" | "description" | "itemize*" | "enumerate*" | "description*"
-    )
+    // enumitem's inline lists (`enumerate*`) and paralist's are lists too.
+    latex_model::list_kind(name).is_some()
 }
 
 /// The list environments around `n`, innermost first.
@@ -557,8 +554,9 @@ fn lists_around(n: &SyntaxNode) -> Vec<(SyntaxNode, String)> {
     n.ancestors()
         .filter(|a| a.kind() == K::ENVIRONMENT)
         .filter_map(|a| {
+            // Named by its kind: `compactenum` is an `enumerate`.
             let name = latex_syntax::name(&a)?;
-            is_list(&name).then_some((a, name))
+            latex_model::list_kind(&name).map(|k| (a, k.to_string()))
         })
         .collect()
 }
@@ -1226,6 +1224,18 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         // The harvard package's bibliography entry: its label is not
         // printed in an author-year list.
         "harvarditem" => "ommm",
+        // algorithm2e's settings and keyword declarations.
+        "DontPrintSemicolon" | "PrintSemicolon" | "SetAlgoLined" | "SetAlgoNoLine"
+        | "LinesNumbered" | "SetAlgoVlined" | "SetNlSty" | "SetAlCapSkip" | "SetAlgoNoEnd"
+        | "IncMargin" | "DecMargin" | "SetAlgoSkip" | "SetInd" => "",
+        "SetKwInOut" | "SetKwInput" | "SetKwFunction" | "SetKwProg" | "SetKw" | "SetKwData"
+        | "SetKwComment" | "SetKwBlock" | "SetKwIF" | "SetKwFor" | "SetKwRepeat"
+        | "SetKwSwitch" | "SetKwHangingKw" | "SetKwArray" | "SetArgSty" | "SetFuncSty"
+        | "SetDataSty" | "SetKwSty" | "SetCommentSty" | "SetProgSty" => "mm",
+        // Struts and rules that make room, and array's line end.
+        "rule" => "omm",
+        "bigstrut" => "o",
+        "arraybackslash" | "strut" | "mathstrut" => "",
         // A counter stepped, labels to come pointing at it: nothing printed.
         "refstepcounter" | "stepcounter" => "m",
         // Bold formulas from here, and back: a setting.
@@ -1318,7 +1328,8 @@ pub(crate) fn box_args(name: &str) -> Option<&'static str> {
         // REVTeX's bibliography: a link with nothing to link, its text.
         "href@noop" => "m",
         // A link's target and its text; a stack of lines; a sub-caption.
-        "hypertarget" => "m",
+        "hypertarget" | "hyperlink" => "m",
+        "subcaptionbox" => "o",
         "shortstack" => "o",
         "subcaption" => "o",
         _ => return None,
@@ -1746,7 +1757,9 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
 fn transparent(name: &str) -> bool {
     matches!(
         name,
-        "hypertarget"
+        "hyperlink"
+            | "subcaptionbox"
+            | "hypertarget"
             | "shortstack"
             | "subcaption"
             | "captionof"
@@ -2513,6 +2526,13 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "arcsec" => "\u{2033}",
         "arcmin" => "\u{2032}",
         "arcdeg" => "\u{b0}",
+        // amsthm's end of proof, elsarticle's keyword separator, aastex's
+        // units, harvard's parentheses around a year.
+        "qed" | "qedsymbol" => "\u{220e}",
+        "sep" => ", ",
+        "kms" => "km\u{a0}s\u{207b}\u{b9}",
+        "harvardyearleft" => "(",
+        "harvardyearright" => ")",
         // wasysym's circles, boxes and marks.
         "LEFTcircle" => "\u{25d0}",
         "RIGHTcircle" => "\u{25d1}",
@@ -2805,7 +2825,8 @@ fn paragraph_line(
                     | "center"
                     | "flushleft"
                     | "flushright"
-            ) || front_environment(&name).is_some()
+            ) || is_list(&name)
+                || front_environment(&name).is_some()
                 || model.theorem_kinds.iter().any(|k| k.env == name);
             if !ok {
                 return None;
@@ -4382,7 +4403,9 @@ fn alignment(root: &SyntaxNode, pos: usize) -> crate::rich::Align {
 fn chip_command(name: &str) -> bool {
     matches!(
         name,
-        "ref"
+        "subref"
+            | "thref"
+            | "ref"
             | "eqref"
             | "pageref"
             | "autoref"
@@ -4938,7 +4961,8 @@ fn chip(
             cref_list(model, &keys, name)
         }
         // The others take one key: `\ref{a,b}` is the label `a,b`.
-        "ref" | "eqref" | "pageref" | "autoref" | "nameref" | "vref" | "Vref" => {
+        "ref" | "eqref" | "pageref" | "autoref" | "nameref" | "vref" | "Vref" | "subref"
+        | "thref" => {
             let k = first.trim();
             let Some(l) = model.label(k) else {
                 return ("??".to_string(), false);
@@ -4948,7 +4972,16 @@ fn chip(
                 "eqref" => format!("({n})"),
                 "pageref" => k.to_string(),
                 "nameref" => nameref(model, l),
-                "autoref" => {
+                // subcaption's: the sub-float's letter alone, `(a)`.
+                "subref" => {
+                    let letter: String = n.chars().skip_while(|c| !c.is_alphabetic()).collect();
+                    if letter.is_empty() {
+                        n
+                    } else {
+                        format!("({letter})")
+                    }
+                }
+                "autoref" | "thref" => {
                     let what = target_name(model, &l.target, &n, name);
                     if what.is_empty() {
                         n
@@ -5400,7 +5433,9 @@ fn front_environment(name: &str) -> Option<&'static str> {
         }
         // Containers: sizes, spacing, page turns, REVTeX's wide text,
         // table notes, boxes and appendices around text the view shows.
-        "frontmatter"
+        "linenomath"
+        | "linenomath*"
+        | "frontmatter"
         | "small"
         | "footnotesize"
         | "scriptsize"
@@ -6981,6 +7016,26 @@ mod tests {
             shown(&d, 7, None).display(),
             "A LIMDD and DTSort, here, \u{25d0}."
         );
+    }
+
+    #[test]
+    fn paralist_lists_qed_and_algorithm_settings() {
+        let text = "\\documentclass{article}\n\\usepackage{paralist}\n\\begin{document}\n\\begin{compactenum}\n\\item One\n\\item Two \\qed\n\\end{compactenum}\n\\DontPrintSemicolon\\SetKwInOut{Input}{In} Body\\rule{0pt}{2ex}.\n\\end{document}\n";
+        let d = doc(text);
+        let line = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert!(
+            line(5).contains("2.") && line(5).contains("Two \u{220e}"),
+            "{:?}",
+            line(5)
+        );
+        assert_eq!(line(7).trim_start(), "Body.");
     }
 
     #[test]

@@ -752,6 +752,20 @@ fn defined_by(body: &str, count: usize, args: &[String]) -> Option<(String, usiz
     Some((args[0].trim().to_string(), n, put(template)))
 }
 
+/// The kind of list environment `name` is (`enumerate`, `itemize` or
+/// `description`): the standard ones, enumitem's inline lists
+/// (`enumerate*`) and paralist's (`inparaenum`, `compactitem`, …).
+pub fn list_kind(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "enumerate" | "enumerate*" | "inparaenum" | "compactenum" | "asparaenum" => "enumerate",
+        "itemize" | "itemize*" | "inparaitem" | "compactitem" | "asparaitem" => "itemize",
+        "description" | "description*" | "compactdesc" | "asparadesc" | "inparadesc" => {
+            "description"
+        }
+        _ => return None,
+    })
+}
+
 /// The counters of the four levels of `enumerate`.
 const ENUM_COUNTERS: [&str; 4] = ["enumi", "enumii", "enumiii", "enumiv"];
 
@@ -1787,14 +1801,14 @@ impl<'r> Numbering<'r> {
         if name == "thebibliography" {
             self.counters.insert("enumiv".into(), 0);
         }
-        if matches!(name, "enumerate" | "itemize" | "description") {
-            self.lists.push(name == "enumerate");
+        if let Some(kind) = list_kind(name) {
+            self.lists.push(kind == "enumerate");
             // `\usecounter`: the level's counter from 0.
             let depth = self.lists.iter().filter(|e| **e).count();
             let keys = note.as_deref().map(enumitem_keys).unwrap_or_default();
             let mut format = None;
             let mut star = false;
-            if name == "enumerate" && (1..=4).contains(&depth) {
+            if kind == "enumerate" && (1..=4).contains(&depth) {
                 let c = ENUM_COUNTERS[depth - 1];
                 let start = keys
                     .iter()
@@ -1922,7 +1936,7 @@ impl<'r> Numbering<'r> {
     fn exit(&mut self) {
         let Some(name) = self.envs.pop() else { return };
         let restore = self.saved.pop();
-        if matches!(name.as_str(), "enumerate" | "itemize" | "description") {
+        if list_kind(&name).is_some() {
             self.lists.pop();
             self.list_refs.pop();
         }
