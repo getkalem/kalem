@@ -199,6 +199,16 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
         .map(|t| format!("\\{}", t.trim_start_matches('\\')))
         .collect();
     let mut traced: HashSet<(PathBuf, String)> = HashSet::new();
+    // `KALEM_COVERAGE_SHOW="Mismatch|got '_'"`: the source, as the view gives
+    // it to the renderer, of the first formulas whose error holds one of
+    // these, three each.
+    let show: Vec<String> = std::env::var("KALEM_COVERAGE_SHOW")
+        .unwrap_or_default()
+        .split('|')
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+    let mut shown: HashMap<String, usize> = HashMap::new();
     for dir in dirs {
         let list = files(dir);
         let preamble = preamble_files(&list);
@@ -234,6 +244,33 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                             f.display(),
                             kalem_core::latex_view::explain_macro(&doc, name)
                         );
+                    }
+                    for pat in show.iter().filter(|p| kind.contains(p.as_str())) {
+                        let n = shown.entry(pat.clone()).or_insert(0);
+                        if *n < 3 {
+                            *n += 1;
+                            let src = kalem_core::latex_view::math_source(&doc, r.clone())
+                                .unwrap_or_default();
+                            eprintln!(
+                                "show {} [{kind}]: {}",
+                                f.display(),
+                                src.chars().take(700).collect::<String>()
+                            );
+                        }
+                    }
+                    // A traced macro in a formula that fails otherwise.
+                    let text = doc.text().as_str();
+                    for name in &trace {
+                        if !kind.contains(name.as_str())
+                            && text[r.clone()].contains(name.as_str())
+                            && traced.insert((f.clone(), name.clone()))
+                        {
+                            eprintln!(
+                                "trace {} {name} [{kind}]: {}",
+                                f.display(),
+                                kalem_core::latex_view::explain_macro(&doc, name)
+                            );
+                        }
                     }
                     let key = format!("formula: {kind}");
                     *c.source_by_name.entry(key.clone()).or_insert(0) += n;

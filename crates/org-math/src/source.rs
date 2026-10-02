@@ -73,7 +73,17 @@ fn plain_array_columns(s: &str) -> String {
                         }
                     }
                 } else {
-                    cleaned.push(c);
+                    // A column type of a package or the document's own
+                    // (`\\newcolumntype{L}`, nicematrix's lines): the
+                    // nearest the renderer has.
+                    cleaned.push(match c {
+                        'l' | 'c' | 'r' | '|' | ':' | '*' | ' ' | '{' | '}' => c,
+                        '0'..='9' => c,
+                        'L' | 'X' | 'J' => 'l',
+                        'R' => 'r',
+                        'I' => '|',
+                        _ => 'c',
+                    });
                 }
             }
             out.push('{');

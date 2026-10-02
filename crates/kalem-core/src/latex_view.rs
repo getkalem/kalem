@@ -1899,7 +1899,7 @@ pub(crate) fn glossary_use(
 /// (`\\newcommand{\\fee}{{\\gls[hyper=false]{fee}}}`) as what they print: the
 /// renderer has no glossary.
 fn glossary_in_definition(model: &latex_model::Model, def: &str) -> String {
-    if model.glossary.is_empty() || !def.contains("\\gls") && !def.contains("\\ac") {
+    if !def.contains("\\gls") && !def.contains("\\ac") {
         return def.to_string();
     }
     let mut out = String::with_capacity(def.len());
@@ -1920,7 +1920,13 @@ fn glossary_in_definition(model: &latex_model::Model, def: &str) -> String {
         }
         let found = tail.strip_prefix('{').and_then(|r| {
             let k = r.find('}')?;
-            let shown = glossary_use(model, name, r[..k].trim(), usize::MAX)?;
+            let key = r[..k].trim();
+            // An entry the model has not read (in a glossary file of its
+            // own): its key, as the closest to its name.
+            let shown = glossary_use(model, name, key, usize::MAX).or_else(|| {
+                matches!(name, "gls" | "Gls" | "glspl" | "ac" | "acs" | "acl" | "acf")
+                    .then(|| key.to_string())
+            })?;
             Some((shown, &r[k + 1..]))
         });
         match found {
@@ -5635,6 +5641,8 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\MakeLowercase}[1]{#1}",
     "\\newcommand{\\scr}[1]{\\mathscr{#1}}",
     "\\newcommand{\\none}{}",
+    "\\newcommand{\\ifthenelse}[3]{#2}",
+    "\\newcommand{\\joinrel}{\\mathrel{\\mkern-3mu}}",
     "\\newcommand{\\IEEEyesnumber}{}",
     "\\newcommand{\\IEEEnonumber}{}",
     "\\newcommand{\\IEEEyessubnumber}{}",
