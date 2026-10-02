@@ -9,6 +9,16 @@ pub mod source;
 pub use cache::Cache;
 pub use engine::Ratex;
 
+/// Whether the engine reads formula `latex` (prepared, see
+/// [`source::prepare`]), without laying it out: its error if not.
+pub fn check(latex: &str) -> Result<(), MathError> {
+    ratex_parser::parse(latex)
+        .map(|_| ())
+        .map_err(|e| MathError {
+            message: format!("{e}"),
+        })
+}
+
 /// What to render.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Request {
