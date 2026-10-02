@@ -173,6 +173,9 @@ pub enum Trigger {
     Strings(&'static [&'static str]),
     /// A word of at least this many letters being typed.
     WordPrefix(usize),
+    /// A word of at least this many letters, or one of these strings
+    /// just before the cursor (a language server's trigger characters).
+    WordOrAfter(usize, &'static [&'static str]),
     /// Only a request (Ctrl+Space).
     Request,
 }
@@ -244,6 +247,10 @@ fn fires(t: Trigger, ctx: &Context) -> bool {
             let (_, w) = ctx.word_prefix();
             w.chars().count() >= if ctx.requested { 1 } else { n }
         }
+        Trigger::WordOrAfter(n, after) => {
+            fires(Trigger::WordPrefix(n), ctx)
+                || after.iter().any(|a| ctx.line_before().ends_with(a))
+        }
         Trigger::Request => ctx.requested,
     }
 }
@@ -291,6 +298,8 @@ impl Registry {
         ];
         // The language packs' (T2.7a.7).
         completers.extend(crate::packs::completers());
+        // The language servers' (D57), for files a language plugin serves.
+        completers.push(Arc::new(crate::lsp::LspCompleter));
         Registry { completers }
     }
 
@@ -341,6 +350,8 @@ impl Registry {
     /// Starts completing at the cursor of `doc`: the fast completers'
     /// items at once, the slow ones' through [`Session::poll`].
     pub fn start(&self, doc: &mut DocumentState, requested: bool) -> Session {
+        // A language server must have the text the cursor is in.
+        crate::lsp::sync(doc);
         let ctx = context(doc, requested);
         let cancel = Cancel::default();
         let mut session = Session {

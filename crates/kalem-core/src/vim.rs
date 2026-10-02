@@ -2705,6 +2705,20 @@ impl Vim {
                         });
                         self.finish_motion(doc, m, host, out);
                     }
+                    // Doom's `gd` and `gD` (`+lookup/definition`,
+                    // `+lookup/references`), where a language server
+                    // serves the file.
+                    Key::Char(c @ ('d' | 'D'))
+                        if !self.visual() && self.op.is_none() && crate::lsp::serves(doc) =>
+                    {
+                        self.count = None;
+                        let id = if c == 'd' {
+                            "code.definition"
+                        } else {
+                            "code.references"
+                        };
+                        out.commands.push((id.into(), Value::Null));
+                    }
                     // `gt` and `gT`: the next and previous document, as
                     // Vim's tabs.
                     Key::Char('t') if !self.visual() && self.op.is_none() => {
@@ -3156,6 +3170,13 @@ impl Vim {
             'J' => {
                 self.join(doc, line, n);
                 self.changed();
+            }
+            // Doom's `K` (`+lookup/documentation`): the language server's
+            // documentation, where one serves the file.
+            'K' if crate::lsp::serves(doc) => {
+                self.count = None;
+                out.commands
+                    .push(("code.documentation".into(), Value::Null));
             }
             '~' => {
                 let e = line_end(doc, line);

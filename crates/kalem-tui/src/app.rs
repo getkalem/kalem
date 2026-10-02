@@ -160,6 +160,8 @@ pub struct App {
     output: Vec<String>,
     /// The open completion menu.
     completion: Option<kalem_core::completers::Menu>,
+    /// A language server's documentation at the cursor, until a key.
+    hover: Option<String>,
     /// The completers (built-ins, and plugins').
     completers: kalem_core::completers::Registry,
     /// The command palette, when open.
@@ -488,6 +490,7 @@ impl App {
             last_command: None,
             output: Vec::new(),
             completion: None,
+            hover: None,
             completers: kalem_core::completers::Registry::with_builtins(),
             palette: None,
             find: None,
@@ -1004,6 +1007,9 @@ impl App {
             .copied()
             .unwrap_or(0);
         self.bus.emit(&Event::DocumentClose { doc: self.doc_id });
+        if let Some(p) = &self.doc.meta.path {
+            kalem_core::lsp::closed(p);
+        }
         let closing_id = self.doc_id;
         if let (Some(w), Some(p)) = (&mut self.watcher, &self.doc.meta.path) {
             let _ = w.unwatch(p);
@@ -1499,6 +1505,9 @@ impl App {
             self.debouncer
                 .record(self.doc_id, self.doc.version(), tx, now);
         }
+        if !changes.is_empty() {
+            kalem_core::lsp::sync(&self.doc);
+        }
         if moved || !changes.is_empty() {
             self.editor.follow = true;
             self.bus.emit(&Event::SelectionChanged {
@@ -1770,6 +1779,9 @@ impl App {
                 p.ordered = true;
                 self.palette = Some(p);
                 self.dirty = true;
+            }
+            Request::OpenAt { path, line, column } => {
+                self.open_path(Path::new(&path), Some((line, column)));
             }
             Request::ExportDialog => {
                 let items = kalem_core::export_dialog_items(&self.config);
@@ -2076,6 +2088,7 @@ impl App {
                     doc: self.doc_id,
                     path: path.clone(),
                 });
+                kalem_core::lsp::saved(&self.doc);
                 self.message(
                     tr!("msg-saved-as", path = path.display().to_string()),
                     false,
@@ -2100,8 +2113,45 @@ impl App {
         }
     }
 
+    /// Shows what a language server answered.
+    fn lsp_outcome(&mut self, o: kalem_core::lsp::Outcome) {
+        use kalem_core::lsp::Outcome;
+        self.dirty = true;
+        match o {
+            Outcome::Message { text, error } => self.message(text, error),
+            Outcome::Hover { path, text } => {
+                if self.doc.meta.path.as_deref() == Some(path.as_path()) {
+                    self.hover = Some(text);
+                }
+            }
+            Outcome::Jump(p) => self.open_path(&p.path, Some((p.line, p.column))),
+            Outcome::Places { places, .. } => {
+                self.request(Request::Choose(kalem_core::lsp::place_items(&places)));
+            }
+            Outcome::Edits {
+                path,
+                version,
+                edits,
+                label,
+            } => {
+                if self.doc.meta.path.as_deref() != Some(path.as_path())
+                    || self.doc.version() != version
+                {
+                    self.message("The document changed meanwhile; formatting skipped", true);
+                    return;
+                }
+                if let Some(tx) = kalem_core::lsp::transaction(&edits, &label) {
+                    self.doc
+                        .apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+                    self.after_change(true);
+                }
+            }
+        }
+    }
+
     fn close(&mut self) {
         self.bus.emit(&Event::DocumentClose { doc: self.doc_id });
+        kalem_core::lsp::shutdown_all();
         self.quit = true;
     }
 
@@ -3188,7 +3238,15 @@ impl App {
     /// Draws the completion menu, or the formula preview, below the cursor.
     fn draw_popup(&self, buf: &mut ratatui::buffer::Buffer, area: Rect, cursor: (u16, u16)) {
         let bg = crate::panels::panel_style(&self.caps);
-        let lines: Vec<(String, bool)> = if let Some(m) = &self.completion {
+        let lines: Vec<(String, bool)> = if let Some(h) = &self.hover
+            && self.completion.is_none()
+        {
+            let width = (area.width.saturating_sub(4) as usize).clamp(20, 80);
+            kalem_core::lsp::hover_lines(h, width, 16)
+                .into_iter()
+                .map(|l| (l, false))
+                .collect()
+        } else if let Some(m) = &self.completion {
             m.rows(8)
                 .into_iter()
                 .map(|(label, _, chosen)| (label, chosen))
@@ -3236,6 +3294,12 @@ impl App {
     pub fn key(&mut self, k: KeyEvent) {
         if k.kind == KeyEventKind::Release {
             return;
+        }
+        if self.hover.take().is_some() {
+            self.dirty = true;
+            if k.code == KeyCode::Esc {
+                return;
+            }
         }
         if self.prompt.is_some() {
             self.prompt_key(k);
@@ -3798,6 +3862,16 @@ impl App {
     /// Background work: parses, file changes, debounced events. Returns
     /// whether something changed on screen.
     pub fn tick(&mut self, now: Instant) {
+        // Language servers: the document in step, their answers shown.
+        kalem_core::lsp::sync(&self.doc);
+        if kalem_core::lsp::tick() {
+            self.dirty = true;
+        }
+        if kalem_core::lsp::serves(&self.doc) {
+            for o in kalem_core::lsp::take_outcomes(self.doc.meta.path.as_deref()) {
+                self.lsp_outcome(o);
+            }
+        }
         // Items of slow completers.
         if let Some(m) = &mut self.completion
             && m.session.waiting()
@@ -3905,6 +3979,15 @@ impl App {
             t = t.min(d);
         }
         if !self.jobs.is_empty() {
+            t = t.min(Duration::from_millis(30));
+        }
+        // A language server's answers and completions as they come.
+        if kalem_core::lsp::busy()
+            || self
+                .completion
+                .as_ref()
+                .is_some_and(|m| m.session.waiting())
+        {
             t = t.min(Duration::from_millis(30));
         }
         if matches!(self.doc.parse(), Some((_, false))) {

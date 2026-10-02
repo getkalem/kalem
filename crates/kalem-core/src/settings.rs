@@ -733,6 +733,8 @@ impl Config {
     /// the settings are loaded and whenever they change.
     pub fn apply_process_settings(&self) {
         crate::l10n::set_language(self.str("ui.language"));
+        crate::languages::set_user_settings(self.get("plugins"));
+        crate::languages::load();
         crate::view::set_source_markers(self.str("editor.show_source_markers"));
         crate::images::set_assets_dir(self.str("org.assets_dir"));
         crate::latex_view::set_root_setting(self.str("latex.root"));

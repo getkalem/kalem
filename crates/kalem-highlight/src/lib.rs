@@ -4,7 +4,11 @@
 //! frontends color kinds with their theme.
 
 use std::ops::Range;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, RwLock};
+
+mod plugins;
+
+pub use plugins::{Registered, SyntaxSource, flatten, register, register_cached};
 
 use syntect::parsing::{ParseState, Scope, ScopeStack, ScopeStackOp, SyntaxReference, SyntaxSet};
 
@@ -47,8 +51,21 @@ pub struct Span {
 }
 
 /// syntect's syntaxes with bat's added (`two-face`): TOML, INI,
-/// TypeScript, and others syntect lacks.
-static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(two_face::syntax::extra_newlines);
+/// TypeScript, and others syntect lacks; then the plugins' ([`register`]).
+/// A set is never changed once built: a registration builds a new one and
+/// leaks it, so a [`Language`] found before keeps working with its own
+/// set (registrations happen a few times per run, when plugins load).
+static SYNTAXES: LazyLock<RwLock<&'static SyntaxSet>> = LazyLock::new(|| RwLock::new(defaults()));
+
+/// The built-in syntaxes.
+fn defaults() -> &'static SyntaxSet {
+    static DEFAULTS: LazyLock<SyntaxSet> = LazyLock::new(two_face::syntax::extra_newlines);
+    &DEFAULTS
+}
+
+fn current() -> &'static SyntaxSet {
+    *SYNTAXES.read().expect("syntaxes")
+}
 
 /// Org's language names (`org-src-lang-modes`) that differ from the syntax
 /// names or extensions.
@@ -107,13 +124,16 @@ const ALIASES: &[(&str, &str)] = &[
 
 /// A language the highlighter knows.
 #[derive(Debug, Clone, Copy)]
-pub struct Language(&'static SyntaxReference);
+pub struct Language {
+    set: &'static SyntaxSet,
+    syntax: &'static SyntaxReference,
+}
 
 impl Language {
     /// The language for an Org source block language (`sh`, `emacs-lisp`,
     /// `python`) or a file extension (`rs`), if known.
     pub fn find(name: &str) -> Option<Language> {
-        let set = &*SYNTAXES;
+        let set = current();
         let lower = name.to_ascii_lowercase();
         let by_alias = ALIASES
             .iter()
@@ -123,12 +143,12 @@ impl Language {
             .or_else(|| set.find_syntax_by_token(&lower))
             .or_else(|| set.find_syntax_by_extension(&lower))
             .filter(|s| s.name != "Plain Text")
-            .map(Language)
+            .map(|syntax| Language { set, syntax })
     }
 
     /// The language's name.
     pub fn name(self) -> &'static str {
-        &self.0.name
+        &self.syntax.name
     }
 }
 
@@ -173,8 +193,12 @@ fn kind(stack: &ScopeStack) -> Option<Kind> {
 
 /// Highlights one line (with its line feed) from `state` and `stack`,
 /// which it moves on to the next line.
-fn highlight_line(state: &mut ParseState, stack: &mut ScopeStack, line: &str) -> Vec<Span> {
-    let set = &*SYNTAXES;
+fn highlight_line(
+    set: &SyntaxSet,
+    state: &mut ParseState,
+    stack: &mut ScopeStack,
+    line: &str,
+) -> Vec<Span> {
     let ops = state.parse_line(line, set).unwrap_or_default();
     let mut spans: Vec<Span> = Vec::new();
     let mut at = 0;
@@ -270,7 +294,7 @@ impl Highlighter {
     ) {
         let starts = line_starts(text);
         let mut state =
-            start.unwrap_or_else(|| (ParseState::new(self.language.0), ScopeStack::new()));
+            start.unwrap_or_else(|| (ParseState::new(self.language.syntax), ScopeStack::new()));
         self.states.truncate(first);
         self.lines.truncate(first);
         for (i, &s) in starts.iter().enumerate().skip(first) {
@@ -289,7 +313,7 @@ impl Highlighter {
             }
             let e = starts.get(i + 1).copied().unwrap_or(text.len());
             self.states.push(state.clone());
-            let spans = highlight_line(&mut state.0, &mut state.1, &text[s..e]);
+            let spans = highlight_line(self.language.set, &mut state.0, &mut state.1, &text[s..e]);
             self.lines.push(spans);
         }
         self.states.truncate(starts.len());
@@ -400,7 +424,8 @@ pub fn highlight_block(language: Language, text: &str) -> std::sync::Arc<Vec<Vec
         static CACHE: std::cell::RefCell<Cache> = const { std::cell::RefCell::new(Vec::new()) };
     }
     let mut h = std::collections::hash_map::DefaultHasher::new();
-    language.0.name.hash(&mut h);
+    language.syntax.name.hash(&mut h);
+    std::ptr::from_ref(language.set).hash(&mut h);
     text.hash(&mut h);
     let key = h.finish();
     CACHE.with(|c| {
@@ -418,8 +443,8 @@ pub fn highlight_block(language: Language, text: &str) -> std::sync::Arc<Vec<Vec
 /// Highlights `text` line by line; the spans of each line are in order
 /// and do not overlap. Lines are split at `\n`.
 pub fn highlight(language: Language, text: &str) -> Vec<Vec<Span>> {
-    let set = &*SYNTAXES;
-    let mut state = ParseState::new(language.0);
+    let set = language.set;
+    let mut state = ParseState::new(language.syntax);
     let mut stack = ScopeStack::new();
     let mut out = Vec::new();
     for line in text.split_inclusive('\n') {

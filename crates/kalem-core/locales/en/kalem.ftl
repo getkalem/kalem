@@ -266,6 +266,7 @@ category-bibtex = BibTeX
 category-csv = CSV
 category-tags = Tags
 category-view = View
+category-code = Code
 
 ## Menus.
 
@@ -1109,4 +1110,16 @@ cmd-markdown-insert-image = Insert Image
 cmd-file-removeUnusedImages = Remove Unused Images
 cmd-pane-closeOrQuit = Close Pane or Quit
 cmd-project-addFolder = Add Project Folder…
+cmd-code-documentation = Show Documentation
+cmd-code-definition = Go to Definition
+cmd-code-declaration = Go to Declaration
+cmd-code-typeDefinition = Go to Type Definition
+cmd-code-implementation = Go to Implementations
+cmd-code-references = Find References
+cmd-code-symbols = Go to Symbol in Document
+cmd-code-problems = List Problems
+cmd-code-allProblems = List Problems of Open Files
+cmd-code-restartServer = Restart Language Server
+cmd-code-serverStatus = Language Server Status
+cmd-code-goto = Go to Place
 fm-menu-remove-project = Remove from Projects (the folder stays)

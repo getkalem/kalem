@@ -7,6 +7,7 @@ mod diff_model;
 mod diff_pandoc;
 mod export;
 mod fmt;
+pub(crate) mod lsp;
 mod table;
 
 use std::io::Write;

@@ -304,6 +304,8 @@ pub struct Editor {
     pub grids: GridCache,
     /// The open completion menu.
     pub completion: Option<kalem_core::completers::Menu>,
+    /// A language server's documentation at the cursor, until a key.
+    pub hover: Option<String>,
     dragging: bool,
     /// Whether this pane is on the left in a split.
     left: bool,
@@ -456,6 +458,7 @@ impl Editor {
             code: RefCell::new((0, HashMap::new())),
             grids: RefCell::new((0, HashMap::new())),
             completion: None,
+            hover: None,
             dragging: false,
             left: true,
             other: None,
@@ -875,6 +878,9 @@ impl Editor {
             self.folds.map(tx);
             self.debouncer
                 .record(self.doc_id, self.doc.version(), tx, now);
+        }
+        if !changes.is_empty() {
+            kalem_core::lsp::sync(&self.doc);
         }
         let sel = (self.doc.selection.anchor, self.doc.selection.head);
         if self.sent_selection != Some(sel) || !changes.is_empty() {
@@ -1425,6 +1431,10 @@ impl Editor {
             }
             // After a setting it changes is applied (`set_setting` defers).
             Request::Choose(items) => self.open_choice(items, cx),
+            Request::OpenAt { path, line, column } => cx.emit(DocEvent::Open {
+                path: std::path::PathBuf::from(path),
+                at: Some((line, column)),
+            }),
             Request::ExportDialog => {
                 let this = cx.entity();
                 cx.defer(move |cx| this.update(cx, |e, cx| e.open_export_dialog(cx)));
@@ -1658,6 +1668,7 @@ impl Editor {
                         doc: self.doc_id,
                         path,
                     });
+                kalem_core::lsp::saved(&self.doc);
                 self.disk_conflict = false;
                 self.message(tr!("msg-saved"), false);
                 // A LaTeX document builds on save when asked to, one build
@@ -1959,6 +1970,13 @@ impl Editor {
         };
         if self.marked.is_some() {
             return;
+        }
+        if self.hover.take().is_some() {
+            cx.notify();
+            if ev.keystroke.key == "escape" {
+                cx.stop_propagation();
+                return;
+            }
         }
         // Escape closes the context menu.
         if self.context_menu.is_some() {
@@ -3025,6 +3043,16 @@ impl Editor {
     /// Background work: a finished background parse restyles the lines.
     pub fn tick(&mut self, cx: &mut Context<'_, Self>) {
         self.tick_palette(cx);
+        // Language servers: the document in step, their answers shown.
+        kalem_core::lsp::sync(&self.doc);
+        if kalem_core::lsp::tick() {
+            cx.notify();
+        }
+        if kalem_core::lsp::serves(&self.doc) {
+            for o in kalem_core::lsp::take_outcomes(self.doc.meta.path.as_deref()) {
+                self.lsp_outcome(o, cx);
+            }
+        }
         // The which-key panel once its delay has passed.
         if !self.pending.is_empty()
             && let Some(d) =
@@ -3317,11 +3345,57 @@ impl Editor {
                 .collect();
             return Some((at, items));
         }
+        if let Some(h) = &self.hover {
+            let lines = kalem_core::lsp::hover_lines(h, 80, 20)
+                .into_iter()
+                .map(|l| (l, false))
+                .collect();
+            return Some((at, lines));
+        }
         let f = self.formula_under_caret()?;
         Some((
             at,
             vec![(format!("= {}", kalem_core::math::unicode(&f)), false)],
         ))
+    }
+
+    /// Shows what a language server answered.
+    fn lsp_outcome(&mut self, o: kalem_core::lsp::Outcome, cx: &mut Context<'_, Self>) {
+        use kalem_core::lsp::Outcome;
+        cx.notify();
+        match o {
+            Outcome::Message { text, error } => self.message(text, error),
+            Outcome::Hover { path, text } => {
+                if self.doc.meta.path.as_deref() == Some(path.as_path()) {
+                    self.hover = Some(text);
+                }
+            }
+            Outcome::Jump(p) => cx.emit(DocEvent::Open {
+                path: p.path,
+                at: Some((p.line, p.column)),
+            }),
+            Outcome::Places { places, .. } => {
+                self.open_choice(kalem_core::lsp::place_items(&places), cx);
+            }
+            Outcome::Edits {
+                path,
+                version,
+                edits,
+                label,
+            } => {
+                if self.doc.meta.path.as_deref() != Some(path.as_path())
+                    || self.doc.version() != version
+                {
+                    self.message("The document changed meanwhile; formatting skipped", true);
+                    return;
+                }
+                if let Some(tx) = kalem_core::lsp::transaction(&edits, &label) {
+                    self.doc
+                        .apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+                    self.after_change(cx);
+                }
+            }
+        }
     }
 
     /// The formula the caret is in: in Org text, or in a LaTeX document
@@ -4123,6 +4197,9 @@ impl gpui::Render for Editor {
 
 impl Drop for Editor {
     fn drop(&mut self) {
+        if let Some(p) = &self.doc.meta.path {
+            kalem_core::lsp::closed(p);
+        }
         if let Ok(mut bus) = self.shared.bus.try_borrow_mut() {
             bus.emit(&kalem_core::events::Event::DocumentClose { doc: self.doc_id });
         }

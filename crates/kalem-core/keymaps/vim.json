@@ -274,6 +274,14 @@
   { "keys": "leader c f", "command": "edit.formatDocument", "when": "vimCommand" },
   { "keys": "leader c j", "command": "search.lines", "args": { "headings": true }, "when": "vimCommand" },
   { "keys": "leader c e", "command": "table.recalculate", "when": "vimCommand && inTable" },
+  // Language servers (D57): the keys of Doom's `+lookup` and `+code` maps.
+  { "keys": "leader c d", "command": "code.definition", "when": "vimCommand" },
+  { "keys": "leader c shift+d", "command": "code.references", "when": "vimCommand" },
+  { "keys": "leader c i", "command": "code.implementation", "when": "vimCommand" },
+  { "keys": "leader c k", "command": "code.documentation", "when": "vimCommand" },
+  { "keys": "leader c t", "command": "code.typeDefinition", "when": "vimCommand" },
+  { "keys": "leader c x", "command": "code.problems", "when": "vimCommand" },
+  { "keys": "leader c shift+x", "command": "code.allProblems", "when": "vimCommand" },
   { "keys": "leader q q", "command": "app.quit", "when": "vimCommand" },
   // The file manager: `-` (vim-vinegar, Doom) and Doom's `SPC o -` open it
   // at the document's folder and come back, `SPC p D` opens the project's

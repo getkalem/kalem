@@ -237,6 +237,15 @@ pub enum Request {
     ExportDialog,
     /// Offer a choice of commands, as the palette shows them.
     Choose(Vec<crate::palette::PaletteItem>),
+    /// Open a file at a place (a definition, a problem).
+    OpenAt {
+        /// The file.
+        path: String,
+        /// The line, from 1.
+        line: u64,
+        /// The byte in the line.
+        column: usize,
+    },
     /// Save `key` in the user's settings and apply the settings.
     SetSetting {
         /// The setting.

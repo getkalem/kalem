@@ -14,6 +14,7 @@ klm-syntax.workspace = true
 org-cite.workspace = true
 org-model.workspace = true
 org-edit.workspace = true
+kalem-lsp.workspace = true
 org-table.workspace = true
 org-export.workspace = true
 kalem-core.workspace = true

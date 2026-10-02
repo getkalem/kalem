@@ -22,6 +22,8 @@ latex-model.workspace = true
 org-table.workspace = true
 kalem-project.workspace = true
 kalem-fs.workspace = true
+kalem-highlight.workspace = true
+kalem-lsp.workspace = true
 org-export.workspace = true
 org-math.workspace = true
 jiff = { version = "0.2", default-features = false, features = ["std"] }
@@ -52,3 +54,9 @@ csv = "1"
 
 [lints]
 workspace = true
+
+# The language server service against a fake server: the test binary
+# started again with `KALEM_LSP_FAKE` set, so it needs its own `main`.
+[[test]]
+name = "lsp_service"
+harness = false
