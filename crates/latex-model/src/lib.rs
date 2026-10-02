@@ -288,6 +288,39 @@ pub struct Macro {
     pub file: usize,
 }
 
+/// A glossary entry (`\newglossaryentry`) or an acronym (`\newacronym`,
+/// `\acro`, `\DeclareAcronym`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GlossaryEntry {
+    /// The key uses name.
+    pub key: String,
+    /// What `\gls` prints: an entry's name, an acronym's short form.
+    pub name: String,
+    /// An acronym's long form.
+    pub long: Option<String>,
+    /// The plural, when it is not the name with an s.
+    pub plural: Option<String>,
+    /// The symbol (`\glssymbol`).
+    pub symbol: Option<String>,
+    /// The file it is in: 0 for the document.
+    pub file: usize,
+}
+
+impl Model {
+    /// The entry of `key`.
+    pub fn glossary_entry(&self, key: &str) -> Option<&GlossaryEntry> {
+        self.glossary.iter().rev().find(|e| e.key == key)
+    }
+
+    /// Whether the use of `key` at `start` of file `file` is its first.
+    pub fn first_use(&self, key: &str, file: usize, start: usize) -> bool {
+        self.glossary_first
+            .iter()
+            .find(|(k, _, _)| k == key)
+            .is_some_and(|(_, f, r)| *f == file && r.start == start)
+    }
+}
+
 /// An environment defined by `\newenvironment` or `\renewenvironment`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewEnvironment {
@@ -404,6 +437,11 @@ pub struct Model {
     pub labels_before_caption: Vec<usize>,
     /// The entries of the document's own bibliography, in order.
     pub bib_items: Vec<BibItem>,
+    /// Glossary entries and acronyms.
+    pub glossary: Vec<GlossaryEntry>,
+    /// The first use (`\gls`, `\ac`) of each entry: its file and range,
+    /// where an acronym prints its long form.
+    pub glossary_first: Vec<(String, usize, Range<usize>)>,
 }
 
 impl Model {
@@ -488,6 +526,8 @@ impl Model {
         m.references.iter_mut().for_each(|x| swap(&mut x.file));
         m.citations.iter_mut().for_each(|x| swap(&mut x.file));
         m.bib_items.iter_mut().for_each(|x| swap(&mut x.file));
+        m.glossary.iter_mut().for_each(|x| swap(&mut x.file));
+        m.glossary_first.iter_mut().for_each(|x| swap(&mut x.1));
         for f in &mut m.floats {
             swap(&mut f.file);
             f.captions.iter_mut().for_each(|c| swap(&mut c.file));
@@ -1182,6 +1222,28 @@ impl<'r> Numbering<'r> {
                 range: at(range),
                 file: self.file,
             }),
+            Event::GlossaryEntry {
+                key,
+                name,
+                long,
+                plural,
+                symbol,
+                ..
+            } => self.model.glossary.push(GlossaryEntry {
+                key: key.clone(),
+                name: name.clone(),
+                long: long.clone(),
+                plural: plural.clone(),
+                symbol: symbol.clone(),
+                file: self.file,
+            }),
+            Event::GlossaryUse { key, range } => {
+                if !self.model.glossary_first.iter().any(|(k, _, _)| k == key) {
+                    self.model
+                        .glossary_first
+                        .push((key.clone(), self.file, at(range)));
+                }
+            }
             Event::BibItem { key, label, range } => {
                 // With a label of its own, an entry does not step the
                 // counter.

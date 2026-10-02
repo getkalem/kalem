@@ -63,6 +63,22 @@ pub(crate) enum Event {
         label: Option<String>,
         range: Range<usize>,
     },
+    /// A glossary entry or an acronym: its key, name (or short form)
+    /// and the long form of an acronym.
+    GlossaryEntry {
+        key: String,
+        name: String,
+        long: Option<String>,
+        plural: Option<String>,
+        symbol: Option<String>,
+        range: Range<usize>,
+    },
+    /// A use of an entry that LaTeX counts (`\gls`, `\ac`): the first
+    /// one of an acronym prints its long form.
+    GlossaryUse {
+        key: String,
+        range: Range<usize>,
+    },
     Caption {
         text: String,
         short: Option<String>,
@@ -183,6 +199,8 @@ impl Event {
             | Event::Ref { range: r, .. }
             | Event::Cite { range: r, .. }
             | Event::BibItem { range: r, .. }
+            | Event::GlossaryEntry { range: r, .. }
+            | Event::GlossaryUse { range: r, .. }
             | Event::Caption { range: r, .. }
             | Event::Footnote { range: r, .. }
             | Event::Macro { range: r, .. }
@@ -600,6 +618,37 @@ fn keys(s: &str) -> Vec<String> {
     k
 }
 
+/// The value of `key` in a key-value list (`name={x, y}, plural=zs`),
+/// its braces taken off.
+fn key_value(s: &str, key: &str) -> Option<String> {
+    let mut depth = 0;
+    let mut start = 0;
+    let mut parts = Vec::new();
+    for (i, c) in s.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(&s[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&s[start..]);
+    parts.iter().find_map(|p| {
+        let (k, v) = p.split_once('=')?;
+        (k.trim() == key).then(|| {
+            let v = v.trim();
+            v.strip_prefix('{')
+                .and_then(|v| v.strip_suffix('}'))
+                .unwrap_or(v)
+                .trim()
+                .to_string()
+        })
+    })
+}
+
 fn list(s: &str) -> Vec<String> {
     s.split(',')
         .map(|k| k.trim().to_string())
@@ -662,6 +711,59 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                 push(Event::BibItem {
                     key: k.trim().to_string(),
                     label: o.first().map(|l| l.trim().to_string()),
+                    range,
+                });
+            }
+        }
+        "newglossaryentry" | "longnewglossaryentry" | "DeclareAcronym" => {
+            if let (Some(k), Some(kv)) = (m.first(), m.get(1)) {
+                let get = |key: &str| key_value(kv, key);
+                let (name, long) = if name == "DeclareAcronym" {
+                    (get("short").unwrap_or_default(), get("long"))
+                } else {
+                    (get("name").unwrap_or_default(), None)
+                };
+                push(Event::GlossaryEntry {
+                    key: k.trim().to_string(),
+                    name,
+                    long,
+                    plural: get("plural").or_else(|| get("short-plural")),
+                    symbol: get("symbol"),
+                    range,
+                });
+            }
+        }
+        "newacronym" => {
+            if let (Some(k), Some(short), Some(long)) = (m.first(), m.get(1), m.get(2)) {
+                push(Event::GlossaryEntry {
+                    key: k.trim().to_string(),
+                    name: short.trim().to_string(),
+                    long: Some(long.trim().to_string()),
+                    plural: None,
+                    symbol: None,
+                    range,
+                });
+            }
+        }
+        "acro" | "acrodef" | "newacro" => {
+            if let (Some(k), Some(long)) = (m.first(), m.get(1)) {
+                let key = k.trim().to_string();
+                push(Event::GlossaryEntry {
+                    name: o
+                        .first()
+                        .map_or_else(|| key.clone(), |s| s.trim().to_string()),
+                    key,
+                    long: Some(long.trim().to_string()),
+                    plural: None,
+                    symbol: None,
+                    range,
+                });
+            }
+        }
+        "gls" | "Gls" | "GLS" | "glspl" | "Glspl" | "GLSpl" | "ac" | "Ac" | "acp" | "Acp" => {
+            if let Some(k) = m.first() {
+                push(Event::GlossaryUse {
+                    key: k.trim().to_string(),
                     range,
                 });
             }
