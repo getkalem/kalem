@@ -52,7 +52,13 @@ fn plain_array_columns(s: &str) -> String {
             let mut cleaned = String::new();
             let mut chars = spec.chars().peekable();
             while let Some(c) = chars.next() {
-                if matches!(c, '@' | '!' | '>' | '<') && chars.peek() == Some(&'{') {
+                if matches!(c, '@' | '!' | '>' | '<' | 'p' | 'm' | 'b')
+                    && chars.peek() == Some(&'{')
+                {
+                    // A paragraph column (`p{3cm}`): left aligned.
+                    if matches!(c, 'p' | 'm' | 'b') {
+                        cleaned.push('l');
+                    }
                     let mut depth = 0;
                     for d in chars.by_ref() {
                         match d {
@@ -418,10 +424,23 @@ fn braced_delimiters(s: &str) -> String {
 fn math_out_of_text(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut rest = s;
-    while let Some(i) = ["\\text{", "\\textrm{", "\\textit{", "\\textbf{", "\\mbox{"]
-        .iter()
-        .filter_map(|p| rest.find(p).map(|i| (i, p.len())))
-        .min()
+    while let Some(i) = [
+        "\\text{",
+        "\\textrm{",
+        "\\textit{",
+        "\\textbf{",
+        "\\textsf{",
+        "\\texttt{",
+        "\\textup{",
+        "\\textnormal{",
+        "\\mbox{",
+        "\\hbox{",
+        "\\intertext{",
+        "\\shortintertext{",
+    ]
+    .iter()
+    .filter_map(|p| rest.find(p).map(|i| (i, p.len())))
+    .min()
     {
         let (at, len) = i;
         let name_end = at + len - 1;
@@ -545,6 +564,325 @@ fn empheq(s: &str) -> String {
         .replace("\\end{empheq}", &format!("\\end{{{inner}}}"))
 }
 
+/// The places of control word `name` (with its backslash) in `s`, not a
+/// longer word's start.
+fn command_at(s: &str, name: &str, from: usize) -> Option<usize> {
+    let mut at = from;
+    while let Some(i) = s[at..].find(name) {
+        let i = at + i;
+        let end = i + name.len();
+        if !s[end..].starts_with(|c: char| c.is_ascii_alphabetic()) {
+            return Some(i);
+        }
+        at = end;
+    }
+    None
+}
+
+/// Each `name{arg}` in `s` (spaces allowed before the group) as `f(arg)`.
+fn replace_command(s: &str, name: &str, f: impl Fn(&str) -> String) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = command_at(rest, name, 0) {
+        let after = &rest[i + name.len()..];
+        match group(after.trim_start()) {
+            Some((arg, tail)) => {
+                out.push_str(&rest[..i]);
+                out.push_str(&f(arg));
+                rest = tail;
+            }
+            None => {
+                out.push_str(&rest[..i + name.len()]);
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// A dimension at the start of `s` (`-2pt`, `.5ex`, `-\nulldelimiterspace`,
+/// `0.3\baselineskip`): its length in bytes, 0 when there is none.
+fn dimension(s: &str) -> usize {
+    let t = s.trim_start();
+    let lead = s.len() - t.len();
+    let b = t.as_bytes();
+    let mut i = 0;
+    while i < b.len() && matches!(b[i], b'-' | b'+' | b' ') {
+        i += 1;
+    }
+    let digits = i;
+    while i < b.len() && (b[i].is_ascii_digit() || b[i] == b'.' || b[i] == b',') {
+        i += 1;
+    }
+    let has_number = i > digits;
+    let r = &t[i..];
+    let r2 = r.trim_start();
+    let gap = r.len() - r2.len();
+    if let Some(reg) = r2.strip_prefix('\\') {
+        let n = reg.chars().take_while(char::is_ascii_alphabetic).count();
+        if n > 0 {
+            return lead + i + gap + 1 + n;
+        }
+    }
+    if has_number {
+        for unit in [
+            "pt", "em", "ex", "mm", "cm", "in", "bp", "mu", "sp", "pc", "dd", "cc",
+        ] {
+            if r2.starts_with(unit) {
+                return lead + i + gap + unit.len();
+            }
+        }
+        // `\penalty 0`: a number alone.
+        return lead + i;
+    }
+    0
+}
+
+/// The rows of a plain TeX alignment (`a & b \cr c & d`) as LaTeX's.
+fn plain_rows(body: &str) -> String {
+    let b = body.trim_end();
+    let b = b.strip_suffix("\\cr").unwrap_or(b);
+    b.replace("\\crcr", "\\\\").replace("\\cr", "\\\\")
+}
+
+/// Plain TeX and packages the renderer does not have, as what it has:
+/// `\aligned…\endaligned`, `\matrix{…}`, `\cases{…}`, `\buildrel…\over`,
+/// spacing and penalties by registers, ytableau, a `tabular` inside the
+/// formula and others.
+fn plain_tex(s: &str) -> String {
+    let mut s = s.to_string();
+    for env in ["aligned", "gathered", "split"] {
+        let begin = format!("\\{env}");
+        let end = format!("\\end{env}");
+        if command_at(&s, &end, 0).is_some() {
+            let mut out = String::new();
+            let mut rest = s.as_str();
+            while let Some(i) = command_at(rest, &end, 0) {
+                out.push_str(&rest[..i]);
+                out.push_str(&format!("\\end{{{env}}}"));
+                rest = &rest[i + end.len()..];
+            }
+            out.push_str(rest);
+            s = out;
+            let mut out = String::new();
+            let mut rest = s.as_str();
+            while let Some(i) = command_at(rest, &begin, 0) {
+                out.push_str(&rest[..i]);
+                out.push_str(&format!("\\begin{{{env}}}"));
+                rest = &rest[i + begin.len()..];
+            }
+            out.push_str(rest);
+            s = out;
+        }
+    }
+    for (name, env) in [
+        ("\\matrix", "matrix"),
+        ("\\pmatrix", "pmatrix"),
+        ("\\bordermatrix", "matrix"),
+        ("\\kbordermatrix", "matrix"),
+        ("\\bbordermatrix", "matrix"),
+    ] {
+        s = replace_command(&s, name, |b| {
+            format!("\\begin{{{env}}}{}\\end{{{env}}}", plain_rows(b))
+        });
+    }
+    // Plain TeX's cases: the second column is text.
+    s = replace_command(&s, "\\cases", |b| {
+        let rows: Vec<String> = split_top(&plain_rows(b), "\\\\")
+            .into_iter()
+            .map(|row| match row.split_once('&') {
+                Some((a, t)) if !t.trim().is_empty() => format!("{a}&\\text{{{}}}", t.trim()),
+                _ => row,
+            })
+            .collect();
+        format!("\\begin{{cases}}{}\\end{{cases}}", rows.join("\\\\"))
+    });
+    // `\buildrel a \over =`: `\overset{a}{=}`.
+    while let Some(i) = command_at(&s, "\\buildrel", 0) {
+        let after = i + "\\buildrel".len();
+        let Some(o) = command_at(&s, "\\over", after) else {
+            break;
+        };
+        let top = s[after..o].trim().to_string();
+        let rest = &s[o + "\\over".len()..];
+        let t = rest.trim_start();
+        let (base, tail) = if let Some((g, tail)) = group(t) {
+            (g.to_string(), tail)
+        } else if let Some(cs) = t.strip_prefix('\\') {
+            let n = cs
+                .chars()
+                .take_while(char::is_ascii_alphabetic)
+                .count()
+                .max(1);
+            let n = cs.char_indices().nth(n).map_or(cs.len(), |(k, _)| k);
+            (t[..1 + n].to_string(), &cs[n..])
+        } else {
+            let n = t.chars().next().map_or(0, char::len_utf8);
+            (t[..n].to_string(), &t[n..])
+        };
+        let tail = tail.to_string();
+        s = format!("{}\\overset{{{top}}}{{{base}}}{tail}", &s[..i]);
+    }
+    // Spacing by a register (`\kern-\nulldelimiterspace`), boxes moved
+    // up or down, penalties: nothing to draw.
+    for name in [
+        "\\kern",
+        "\\mkern",
+        "\\hskip",
+        "\\mskip",
+        "\\lower",
+        "\\raise",
+        "\\penalty",
+        "\\vskip",
+    ] {
+        let mut out = String::new();
+        let mut rest = s.as_str();
+        while let Some(i) = command_at(rest, name, 0) {
+            let after = &rest[i + name.len()..];
+            let n = dimension(after);
+            let register = after[..n].contains('\\');
+            if n > 0 && (register || !matches!(name, "\\kern" | "\\mkern" | "\\hskip" | "\\mskip"))
+            {
+                out.push_str(&rest[..i]);
+                rest = &after[n..];
+            } else {
+                out.push_str(&rest[..i + name.len()]);
+                rest = after;
+            }
+        }
+        out.push_str(rest);
+        s = out;
+    }
+    for name in [
+        "\\noalign",
+        "\\cline",
+        "\\hhline",
+        "\\NiceMatrixOptions",
+        "\\ytableausetup",
+    ] {
+        s = replace_command(&s, name, |_| String::new());
+    }
+    for (from, to) in [
+        ("cases*", "cases"),
+        ("dcases*", "dcases"),
+        ("NiceMatrix", "matrix"),
+        ("pNiceMatrix", "pmatrix"),
+        ("bNiceMatrix", "bmatrix"),
+        ("vNiceMatrix", "vmatrix"),
+        ("NiceArray", "array"),
+    ] {
+        s = rename_env(&s, from, to);
+    }
+    s = rename_env_args(&s, "multlined", "gathered", 0);
+    s = ytableau(&s);
+    s = tabular_in_math(&s);
+    s
+}
+
+/// ytableau's diagrams and tableaux as arrays of boxes.
+fn ytableau(s: &str) -> String {
+    let mut s = replace_command(s, "\\ydiagram", |rows| {
+        let rows: Vec<String> = rows
+            .split(',')
+            .map(|n| {
+                let n = n.trim().rsplit('+').next().unwrap_or("0");
+                vec!["\\boxed{\\phantom{0}}"; n.trim().parse().unwrap_or(0)].join("&")
+            })
+            .collect();
+        format!("\\begin{{matrix}}{}\\end{{matrix}}", rows.join("\\\\"))
+    });
+    let (begin, end) = ("\\begin{ytableau}", "\\end{ytableau}");
+    while let Some(i) = s.find(begin) {
+        let Some(e) = s[i..].find(end).map(|e| i + e) else {
+            break;
+        };
+        let body = &s[i + begin.len()..e];
+        let rows: Vec<String> = split_top(body, "\\\\")
+            .iter()
+            .map(|row| {
+                split_top(row, "&")
+                    .iter()
+                    .map(|cell| {
+                        let mut c = cell.trim();
+                        // `*(color)`: the cell's color.
+                        if let Some(r) = c.strip_prefix("*(")
+                            && let Some(k) = r.find(')')
+                        {
+                            c = r[k + 1..].trim();
+                        }
+                        if c == "\\none" {
+                            String::new()
+                        } else if c.is_empty() {
+                            "\\boxed{\\phantom{0}}".to_string()
+                        } else {
+                            format!("\\boxed{{{c}}}")
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("&")
+            })
+            .collect();
+        s = format!(
+            "{}\\begin{{matrix}}{}\\end{{matrix}}{}",
+            &s[..i],
+            rows.join("\\\\"),
+            &s[e + end.len()..]
+        );
+    }
+    s
+}
+
+/// A `tabular` inside a formula as an `array` of text cells.
+fn tabular_in_math(s: &str) -> String {
+    let (begin, end) = ("\\begin{tabular}", "\\end{tabular}");
+    let mut s = s.to_string();
+    while let Some(i) = s.find(begin) {
+        let Some(e) = s[i..].find(end).map(|e| i + e) else {
+            break;
+        };
+        let mut body = s[i + begin.len()..e].trim_start();
+        if body.starts_with('[')
+            && let Some(k) = body.find(']')
+        {
+            body = body[k + 1..].trim_start();
+        }
+        let Some((spec, body)) = group(body) else {
+            break;
+        };
+        let rows: Vec<String> = split_top(body, "\\\\")
+            .iter()
+            .map(|row| {
+                let mut row = row.trim();
+                let mut lines = String::new();
+                while let Some(r) = row.strip_prefix("\\hline") {
+                    lines.push_str("\\hline ");
+                    row = r.trim_start();
+                }
+                let cells: Vec<String> = split_top(row, "&")
+                    .iter()
+                    .map(|c| {
+                        let c = c.trim();
+                        if c.is_empty() {
+                            String::new()
+                        } else {
+                            format!("\\text{{{c}}}")
+                        }
+                    })
+                    .collect();
+                format!("{lines}{}", cells.join("&"))
+            })
+            .collect();
+        s = format!(
+            "{}\\begin{{array}}{{{spec}}}{}\\end{{array}}{}",
+            &s[..i],
+            rows.join("\\\\"),
+            &s[e + end.len()..]
+        );
+    }
+    s
+}
+
 /// The formula as RaTeX takes it: `\mbox` as `\text`, `multline` as
 /// `gather` (decision D4), after the definitions `macros`.
 pub fn prepare(latex: &str, macros: &str) -> String {
@@ -553,6 +891,7 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     s = rename_env(&s, "multline", "gather");
     // eqnarray's `a &=& b` as an align's columns; flalign as align.
     s = diagrams(&s);
+    s = plain_tex(&s);
     s = plain_array_columns(&s);
     s = math_out_of_text(&s);
     s = inner_dollars(&s);
@@ -606,10 +945,30 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     if macros.is_empty() {
         s
     } else {
-        // A definition's own `$…$` (`\\newcommand{\\minus}{$-$}`): math
-        // already where it is used.
-        format!("{}{s}", inner_dollars(macros))
+        format!("{}{s}", prepared_macros(macros))
     }
+}
+
+/// The definitions as the renderer takes them, remembered: the same
+/// definitions come before each formula of a document.
+fn prepared_macros(macros: &str) -> std::sync::Arc<str> {
+    use std::cell::RefCell;
+    use std::sync::Arc;
+    thread_local! {
+        static LAST: RefCell<Option<(String, Arc<str>)>> = const { RefCell::new(None) };
+    }
+    LAST.with(|last| {
+        if let Some((m, out)) = last.borrow().as_ref()
+            && m == macros
+        {
+            return out.clone();
+        }
+        // A definition's own `$…$` (`\newcommand{\minus}{$-$}`): math
+        // already where it is used.
+        let out: Arc<str> = inner_dollars(&plain_tex(&math_out_of_text(macros))).into();
+        *last.borrow_mut() = Some((macros.to_string(), out.clone()));
+        out
+    })
 }
 
 /// The `\newcommand`, `\renewcommand`, `\def` and `\DeclareMathOperator`
@@ -826,5 +1185,52 @@ mod prepare_tests {
             prepare("1\\minus x", "\\def\\minus{$-$}"),
             "\\def\\minus{-}1\\minus x"
         );
+    }
+
+    #[test]
+    fn plain_tex_and_packages() {
+        // What TeX and its packages read and the renderer does not: each
+        // as what it has.
+        for (f, want) in [
+            (
+                "\\left\\{\\aligned a &= b \\endaligned\\right.",
+                "\\begin{aligned} a",
+            ),
+            (
+                "\\pmatrix{a & b \\cr c & d}",
+                "\\begin{pmatrix}a & b \\\\ c & d\\end{pmatrix}",
+            ),
+            ("\\cases{a & if b \\cr c & else}", "&\\text{if b}"),
+            ("\\buildrel a \\over =", "\\overset{a}{=}"),
+            (
+                "\\left.\\kern-\\nulldelimiterspace f\\right|",
+                "\\left. f\\right|",
+            ),
+            ("\\penalty 0 x", " x"),
+            (
+                "\\begin{cases*} a \\end{cases*}",
+                "\\begin{cases} a \\end{cases}",
+            ),
+            ("\\begin{array}{|l|p{4cm}|}a&b\\end{array}", "{|l|l|}"),
+            ("p ~\\hbox{ [i.e., $p^{x}$]}", "\\hbox{ [i.e., }p^{x}"),
+            (
+                "\\begin{ytableau} *(red) a & \\none \\\\ b \\end{ytableau}",
+                "\\boxed{a}&",
+            ),
+            (
+                "\\begin{tabular}{@{}l@{}l@{}} $0$ & if $s$ \\end{tabular}",
+                "\\begin{array}{ll}",
+            ),
+        ] {
+            let t = prepare(f, "");
+            assert!(t.contains(want), "{f}: {t}");
+            assert!(crate::check(&t).is_ok(), "{f}: {t}");
+        }
+        // In the definitions too.
+        let t = prepare(
+            "x \\eqdefa y",
+            "\\def\\eqdefa{\\buildrel\\hbox{def}\\over =}",
+        );
+        assert!(crate::check(&t).is_ok(), "{t}");
     }
 }
