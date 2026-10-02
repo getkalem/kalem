@@ -49,6 +49,18 @@ pub fn command(name: &str) -> &'static str {
         // subfig's `\subfloat`, the subfigure package's `\subfigure` and
         // `\subtable` (as commands; subcaption's are environments).
         "subfloat" | "subfigure" | "subtable" => "oom",
+        // Glossaries and acronyms (glossaries, acronym, acro): entries
+        // and their uses.
+        "newglossaryentry" | "DeclareAcronym" => "mm",
+        "longnewglossaryentry" => "mmm",
+        "newacronym" => "ommm",
+        "acro" | "acrodef" | "newacro" => "mom",
+        "gls" | "Gls" | "GLS" | "glspl" | "Glspl" | "GLSpl" | "glssymbol" | "glsentryname"
+        | "glsentrytext" | "glsentryshort" | "glsentrylong" | "acrshort" | "acrlong"
+        | "acrfull" | "Acrshort" | "Acrlong" | "Acrfull" | "acrshortpl" | "acrlongpl"
+        | "acrfullpl" | "glsxtrshort" | "glsxtrlong" | "glsxtrfull" => "om",
+        "ac" | "Ac" | "acs" | "acl" | "Acl" | "acf" | "Acf" | "acp" | "Acp" | "acsp" | "aclp"
+        | "Aclp" | "acfp" | "Acfp" | "acused" => "sm",
         "bibitem" | "hyperref" | "includepdf" => "om",
         // amsart's `\author[short]{name}`.
         "author" => "om",

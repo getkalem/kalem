@@ -1778,6 +1778,20 @@ fn own_macro_depth(model: &latex_model::Model, name: &str, depth: usize) -> Opti
             break;
         }
     }
+    let (out, xspace) = plain_text(model, inner, depth)?;
+    Some(OwnMacro {
+        text: out,
+        style,
+        xspace,
+        args: 0,
+        default: false,
+    })
+}
+
+/// The text LaTeX prints for `inner` when it is only text, letters the
+/// view knows, spaces and the document's own text macros; whether it
+/// ends in `\xspace`.
+fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(String, bool)> {
     let mut out = String::new();
     let mut xspace = false;
     let b = inner.as_bytes();
@@ -1834,13 +1848,98 @@ fn own_macro_depth(model: &latex_model::Model, name: &str, depth: usize) -> Opti
             }
         }
     }
-    Some(OwnMacro {
-        text: out,
-        style,
-        xspace,
-        args: 0,
-        default: false,
-    })
+    Some((out, xspace))
+}
+
+/// What the glossary command `cmd` (`gls`, `acp`, `acrfull`, …) prints
+/// for entry `key` used at `start` of the document, as LaTeX: an
+/// acronym's long form and short one at its first use, its short form
+/// after; plurals and capitals as the command asks.
+pub(crate) fn glossary_use(
+    model: &latex_model::Model,
+    cmd: &str,
+    key: &str,
+    start: usize,
+) -> Option<String> {
+    let e = model.glossary_entry(key)?;
+    let lower = cmd.to_lowercase();
+    let plural =
+        lower.ends_with("pl") || matches!(lower.as_str(), "acp" | "acsp" | "aclp" | "acfp");
+    let short = if plural {
+        e.plural.clone().unwrap_or_else(|| format!("{}s", e.name))
+    } else {
+        e.name.clone()
+    };
+    let long = e
+        .long
+        .as_ref()
+        .map(|l| if plural { format!("{l}s") } else { l.clone() });
+    let full = || match &long {
+        Some(l) => format!("{l} ({short})"),
+        None => short.clone(),
+    };
+    let text = match lower.as_str() {
+        "gls" | "glspl" | "ac" | "acp" => {
+            if long.is_some() && model.first_use(key, 0, start) {
+                full()
+            } else {
+                short.clone()
+            }
+        }
+        "acs" | "acsp" | "acrshort" | "acrshortpl" | "glsxtrshort" | "glsentryshort" => short,
+        "acl" | "aclp" | "acrlong" | "acrlongpl" | "glsxtrlong" | "glsentrylong" => {
+            long.clone().unwrap_or(short)
+        }
+        "acf" | "acfp" | "acrfull" | "acrfullpl" | "glsxtrfull" => full(),
+        "glssymbol" => e.symbol.clone().unwrap_or(short),
+        "glsentryname" | "glsentrytext" => e.name.clone(),
+        _ => return None,
+    };
+    Some(
+        if cmd.chars().nth(1).is_some_and(|c| c.is_ascii_uppercase()) {
+            text.to_uppercase()
+        } else if cmd.starts_with(|c: char| c.is_ascii_uppercase()) {
+            let mut c = text.chars();
+            c.next()
+                .map(|f| f.to_uppercase().chain(c).collect())
+                .unwrap_or_default()
+        } else {
+            text
+        },
+    )
+}
+
+/// A glossary command's key: its first group.
+fn glossary_key(cmd: &SyntaxNode) -> Option<String> {
+    cmd.children()
+        .find(|c| c.kind() == K::GROUP)
+        .map(|g| group_text(&g).trim().to_string())
+}
+
+/// What a glossary command prints, for coverage: `None` when the view
+/// does not show it (no such entry).
+pub(crate) fn glossary_shown(model: &latex_model::Model, cmd: &SyntaxNode) -> Option<String> {
+    let name = latex_syntax::name(cmd)?;
+    let key = glossary_key(cmd)?;
+    glossary_use(model, &name, &key, node_span(cmd).start)
+}
+
+/// Whether the view draws a glossary command: as text, or as a formula.
+pub(crate) fn glossary_drawn(model: &latex_model::Model, cmd: &SyntaxNode) -> bool {
+    glossary_shown(model, cmd)
+        .is_some_and(|s| entry_math(&s).is_some() || plain_text(model, &s, 0).is_some())
+}
+
+/// The math of an entry's text (`$\gamma$`, `\ensuremath{\gamma}`), if it
+/// is a formula.
+fn entry_math(text: &str) -> Option<&str> {
+    let t = text.trim();
+    t.strip_prefix('$')
+        .and_then(|r| r.strip_suffix('$'))
+        .or_else(|| {
+            t.strip_prefix("\\ensuremath{")
+                .and_then(|r| r.strip_suffix('}'))
+        })
 }
 
 /// The `}` that closes the group whose `{` is just before `s`.
@@ -3242,6 +3341,36 @@ fn unflagged_line_view(
                 let name = &s[1..];
                 let untitled = name == "maketitle" && state.titles().iter().all(Option::is_none);
                 match (name, word(name)) {
+                    // A glossary entry or an acronym: what LaTeX prints, as
+                    // text, or as a formula when it is one.
+                    (_, None)
+                        if let Some(cmd) = t.parent().filter(|p| p.kind() == K::COMMAND)
+                            && node_span(&cmd).end <= line.end
+                            && !near(&node_span(&cmd))
+                            && let Some(shown) = glossary_shown(&state.model(), &cmd)
+                            && (entry_math(&shown).is_some()
+                                || plain_text(&state.model(), &shown, 0).is_some()) =>
+                    {
+                        let cs = node_span(&cmd);
+                        match plain_text(&state.model(), &shown, 0) {
+                            Some((plain, _)) => b.replace(r.start..cs.end, &plain, c.style),
+                            None => b.runs.push(Run {
+                                src: r.start..cs.end,
+                                text: crate::view::PLACEHOLDER.to_string(),
+                                verbatim: false,
+                                style: Style::default(),
+                                widget: Some(crate::view::Widget::Math {
+                                    source: format!("${}$", entry_math(&shown).unwrap_or("")),
+                                    display: false,
+                                }),
+                            }),
+                        }
+                        while let Some(n) = &tok
+                            && span(n).start < cs.end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
                     // A document's own macro whose definition is text: the
                     // text, as LaTeX prints it.
                     (n, None)
@@ -5400,6 +5529,15 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
     let model = state.model();
     for c in node.descendants().filter(|c| c.kind() == K::COMMAND) {
         let cname = latex_syntax::name(&c);
+        // A glossary entry in a formula: its math, or its text.
+        if let Some(shown) = glossary_shown(&model, &c) {
+            let with = match entry_math(&shown) {
+                Some(m) => format!("{{{m}}}"),
+                None => format!("\\text{{{shown}}}"),
+            };
+            edits.push((node_span(&c), with));
+            continue;
+        }
         if matches!(cname.as_deref(), Some("label" | "nonumber" | "notag")) {
             edits.push((node_span(&c), String::new()));
         }
@@ -5829,6 +5967,28 @@ mod tests {
         let at = text.find("\\draw").unwrap();
         let v = shown(&d, 3, Some(at));
         assert!(v.runs.iter().all(|r| r.widget.is_none()));
+    }
+
+    #[test]
+    fn glossaries_and_acronyms() {
+        let text = "\\documentclass{article}\n\\usepackage{glossaries}\n\\newacronym{cnn}{CNN}{convolutional network}\n\\newglossaryentry{disc}{name={\\ensuremath{\\gamma}},description={discount}}\n\\newglossaryentry{fee}{name=fee,description={a fee}}\n\\begin{document}\nA \\gls{cnn}, then \\gls{cnn} and \\acrlong{cnn}; \\Glspl{fee}.\n$\\gls{disc} = 1$\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 6, None);
+        let shown_text: String = v
+            .runs
+            .iter()
+            .filter(|r| !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        assert_eq!(
+            shown_text,
+            "A convolutional network (CNN), then CNN and convolutional network; Fees."
+        );
+        // In a formula: the entry's math.
+        assert_eq!(formula_failures(&d), Vec::new());
+        let at = text.find("$\\gls").unwrap();
+        assert_eq!(math_source(&d, at..at + 1).unwrap(), "${\\gamma} = 1$");
+        assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
     }
 
     #[test]
