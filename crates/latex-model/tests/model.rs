@@ -451,5 +451,8 @@ fn springer_theorems() {
     assert_eq!(n("l").as_deref(), Some("1"));
     assert_eq!(n("c").as_deref(), Some(""));
     let m = Model::new(&parse(&t.replace("{llncs}", "[envcountsame]{llncs}")));
-    assert_eq!(m.label("l").and_then(|l| l.number.clone()).as_deref(), Some("2"));
+    assert_eq!(
+        m.label("l").and_then(|l| l.number.clone()).as_deref(),
+        Some("2")
+    );
 }
