@@ -2881,8 +2881,21 @@ fn unflagged_line_view(
             .unwrap_or(level);
         v.heading = (level - top + 1).clamp(1, 6) as u8;
     }
+    // A displayed formula alone on its line is centered, as LaTeX
+    // centers it (`fleqn` sets it flush left).
+    let displayed = v.runs.iter().any(|r| {
+        matches!(
+            r.widget,
+            Some(crate::view::Widget::Math { display: true, .. })
+        )
+    }) && v
+        .runs
+        .iter()
+        .all(|r| r.widget.is_some() || r.style.dim || r.text.trim().is_empty());
     v.align = if title_line {
         crate::rich::Align::Center
+    } else if displayed {
+        display_align(doc)
     } else {
         alignment(&root, line.start)
     };
@@ -2898,6 +2911,28 @@ fn latex_model_level(name: &str) -> i8 {
         "subsubsection" => 3,
         "paragraph" => 4,
         _ => 5,
+    }
+}
+
+/// Where a LaTeX document's displayed formulas stand: centered, unless
+/// the class or a package takes `fleqn` (flush left).
+pub fn display_align(doc: &crate::DocumentState) -> crate::rich::Align {
+    let Some(state) = doc.latex() else {
+        return crate::rich::Align::default();
+    };
+    let model = state.model();
+    let fleqn = model
+        .class
+        .as_ref()
+        .is_some_and(|c| c.options.iter().any(|o| o == "fleqn"))
+        || model
+            .packages
+            .iter()
+            .any(|p| p.options.iter().any(|o| o == "fleqn"));
+    if fleqn {
+        crate::rich::Align::Left
+    } else {
+        crate::rich::Align::Center
     }
 }
 
@@ -4929,6 +4964,21 @@ mod tests {
         // A setting and a definition print nothing: markup, dimmed.
         let v = shown(&d, 1, None);
         assert!(v.runs.iter().all(|r| r.style.dim), "{:?}", v.runs);
+    }
+
+    #[test]
+    fn displayed_formulas_are_centered() {
+        // As LaTeX sets them: centered on their line; flush left with
+        // `fleqn`; a formula in the text stays where it is.
+        let text = "\\documentclass{article}\n\\begin{document}\nText $x$ here.\n\\[x^n + y^n = z^n\\]\n$$a$$\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(shown(&d, 2, None).align, crate::rich::Align::default());
+        assert_eq!(shown(&d, 3, None).align, crate::rich::Align::Center);
+        assert_eq!(shown(&d, 4, None).align, crate::rich::Align::Center);
+        assert_eq!(display_align(&d), crate::rich::Align::Center);
+        let d = doc(&text.replace("{article}", "[fleqn]{article}"));
+        assert_eq!(shown(&d, 3, None).align, crate::rich::Align::Left);
+        assert_eq!(display_align(&d), crate::rich::Align::Left);
     }
 
     #[test]

@@ -790,17 +790,29 @@ fn prepare_math_block(
     let mut run = stand_in(range.clone(), PLACEHOLDER);
     run.src = src_range.clone();
     run.widget = Some(widget.clone());
+    // LaTeX centers a displayed formula (flush left with `fleqn`).
+    let align = kalem_core::latex_view::display_align(&editor.doc);
+    let mut pieces = vec![Piece::Widget {
+        len: PLACEHOLDER.len(),
+        size: sz,
+        ascent,
+    }];
+    if align == kalem_core::rich::Align::Center {
+        let spacer = || Piece::Spacer {
+            len: 0,
+            min: px(0.),
+        };
+        pieces.insert(0, spacer());
+        pieces.push(spacer());
+    }
     Some(Prepared {
         view: Rc::new(LineView {
             range,
             runs: vec![run],
+            align,
             ..LineView::default()
         }),
-        pieces: vec![Piece::Widget {
-            len: PLACEHOLDER.len(),
-            size: sz,
-            ascent,
-        }],
+        pieces,
         widgets: vec![(0, src_range, widget, paint)],
         font_size: base,
         hang_at: None,

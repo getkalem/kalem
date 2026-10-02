@@ -1172,17 +1172,28 @@ impl<'a> Layout<'a> {
                     // LaTeX as the document reads; a formula over several
                     // lines without its picture, its Unicode approximation.
                     match self.math_text(&range) {
-                        Some(u) => view::LineView {
-                            range: range.clone(),
-                            runs: vec![view::Run {
-                                src: range.clone(),
-                                text: u,
-                                verbatim: false,
-                                style: view::Style::default(),
-                                widget: None,
-                            }],
-                            ..view::LineView::default()
-                        },
+                        Some(u) => {
+                            // Centered as LaTeX centers it (`fleqn`: flush
+                            // left, indented).
+                            let align = kalem_core::latex_view::display_align(self.doc);
+                            let text = if align == kalem_core::rich::Align::Center {
+                                u.trim_start().to_string()
+                            } else {
+                                u
+                            };
+                            view::LineView {
+                                range: range.clone(),
+                                runs: vec![view::Run {
+                                    src: range.clone(),
+                                    text,
+                                    verbatim: false,
+                                    style: view::Style::default(),
+                                    widget: None,
+                                }],
+                                align,
+                                ..view::LineView::default()
+                            }
+                        }
                         None => kalem_core::latex_view::line_view(
                             self.doc,
                             range.clone(),
