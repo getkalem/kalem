@@ -460,6 +460,31 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
             });
         }
     }
+    // What amsmath stops at, and labels LaTeX never writes.
+    for (list, code, id) in [
+        (
+            &model.label_clashes,
+            "latex-label-clash",
+            "latex-label-clash",
+        ),
+        (
+            &model.unwritten_labels,
+            "latex-label-unwritten",
+            "latex-label-unwritten",
+        ),
+    ] {
+        for &i in list {
+            if let Some(l) = model.labels.get(i).filter(|l| l.file == this) {
+                out.push(Diagnostic {
+                    range: l.range.clone(),
+                    severity: Severity::Warning,
+                    code,
+                    message: crate::tr!(id, key = l.name.as_str()),
+                    fix: None,
+                });
+            }
+        }
+    }
     for r in model.references.iter().filter(|r| r.file == this) {
         for k in &r.keys {
             if !counts.contains_key(k.as_str()) {

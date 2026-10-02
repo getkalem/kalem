@@ -378,6 +378,13 @@ pub struct Model {
     /// The files of a project: the root document first, then the files it
     /// includes, which the `file` fields index (empty for one file).
     pub files: Vec<std::path::PathBuf>,
+    /// Labels amsmath stops at ("Multiple \label's"): a second one while
+    /// another waits for its line (indices into `labels`).
+    pub label_clashes: Vec<usize>,
+    /// Labels LaTeX never writes: on a line of `align*` or with
+    /// `\nonumber` that no numbered line follows; a `\ref` to them
+    /// prints "??" (indices into `labels`).
+    pub unwritten_labels: Vec<usize>,
 }
 
 impl Model {
@@ -617,9 +624,10 @@ const SECTION_COUNTERS: [&str; 7] = [
     "subparagraph",
 ];
 
+/// `\roman`: nothing for zero and below, as `\romannumeral` prints.
 fn roman(mut n: i64, upper: bool) -> String {
     if n <= 0 {
-        return n.to_string();
+        return String::new();
     }
     let table = [
         (1000, "m"),
@@ -646,8 +654,13 @@ fn roman(mut n: i64, upper: bool) -> String {
     if upper { s.to_uppercase() } else { s }
 }
 
+/// `\alph`: nothing for zero (`\appendix` before its first section
+/// numbers an equation `.1`); past `z` LaTeX stops with an error.
 fn alph(n: i64, upper: bool) -> String {
-    if !(1..=26).contains(&n) {
+    if n <= 0 {
+        return String::new();
+    }
+    if n > 26 {
         return n.to_string();
     }
     let c = (b'a' + (n - 1) as u8) as char;
@@ -670,6 +683,9 @@ struct EqEnv {
     tag: Option<String>,
     labels: Vec<usize>,
     lines: usize,
+    /// The label number outside the environment, which a `\label` on an
+    /// unnumbered line of `gather`, `equation*` and their kin gets.
+    outer: Option<String>,
 }
 
 /// Finds an included file: from the file being read, the command and its
@@ -692,6 +708,20 @@ struct Numbering<'r> {
     secnumdepth: Option<i64>,
     counters: HashMap<String, i64>,
     within: HashMap<String, String>,
+    /// Counters `\numberwithin` (or `\counterwithin`) numbered within
+    /// another: their `\the…` is `\the<parent>.\arabic{…}` always, not
+    /// the class's, which leaves out a chapter that is still 0.
+    rewithin: std::collections::HashSet<String>,
+    /// Which counter resets which (`child`, `parent`), as `\@addtoreset`
+    /// and `\counterwithout` keep them: apart from how a counter is
+    /// printed, a counter may be reset by several.
+    resets: Vec<(String, String)>,
+    /// amsmath's label waiting for a line that writes it (`\df@label`):
+    /// one on a line of `align*` or with `\nonumber` goes to the next
+    /// numbered line, of this environment or a later one.
+    pending: Vec<usize>,
+    /// The AMS classes number parts `\arabic`, not `\Roman`.
+    arabic_part: bool,
     appendix: bool,
     mainmatter: bool,
     current: (Option<String>, Target),
@@ -738,6 +768,10 @@ impl<'r> Numbering<'r> {
             secnumdepth: None,
             counters: HashMap::new(),
             within: HashMap::new(),
+            rewithin: std::collections::HashSet::new(),
+            resets: Vec::new(),
+            pending: Vec::new(),
+            arabic_part: false,
             appendix: false,
             mainmatter: true,
             current: (None, Target::None),
@@ -757,25 +791,29 @@ impl<'r> Numbering<'r> {
         }
     }
 
-    fn finish(self) -> Model {
+    fn finish(mut self) -> Model {
         let _ = self.len;
+        self.model.unwritten_labels = std::mem::take(&mut self.pending);
         self.model
     }
 
     fn set_class(&mut self, kind: ClassKind) {
         self.class = kind;
         self.within.clear();
+        self.resets.clear();
         let chaptered = kind != ClassKind::Article;
         for w in SECTION_COUNTERS.windows(2).skip(1) {
             if w[0] == "chapter" && !chaptered {
                 continue;
             }
             self.within.insert(w[1].into(), w[0].into());
+            self.resets.push((w[1].into(), w[0].into()));
         }
         if chaptered {
             for c in ["equation", "figure", "table", "footnote"] {
                 if !(c == "equation" && kind == ClassKind::AmsBook) {
                     self.within.insert(c.into(), "chapter".into());
+                    self.resets.push((c.into(), "chapter".into()));
                 }
             }
         }
@@ -803,7 +841,7 @@ impl<'r> Numbering<'r> {
             if !seen.insert(parent.clone()) {
                 continue;
             }
-            for (k, w) in &self.within {
+            for (k, w) in &self.resets {
                 if *w == parent {
                     self.counters.insert(k.clone(), 0);
                     pending.push(k.clone());
@@ -890,6 +928,7 @@ impl<'r> Numbering<'r> {
         }
         let n = self.get(c);
         match c {
+            "part" if self.arabic_part => n.to_string(),
             "part" => roman(n, true),
             "chapter" if self.appendix => alph(n, true),
             "section" if self.appendix && self.class == ClassKind::Article => alph(n, true),
@@ -900,6 +939,7 @@ impl<'r> Numbering<'r> {
             "equation" | "figure" | "table"
                 if self.class != ClassKind::Article
                     && self.within.get(c).map(String::as_str) == Some("chapter")
+                    && !self.rewithin.contains(c)
                     && self.get("chapter") <= 0 =>
             {
                 n.to_string()
@@ -956,6 +996,7 @@ impl<'r> Numbering<'r> {
                 range,
             } => {
                 self.set_class(class_kind(name));
+                self.arabic_part = matches!(name.as_str(), "amsart" | "amsbook" | "amsproc");
                 self.model.class = Some(DocumentClass {
                     name: name.clone(),
                     options: options.clone(),
@@ -1017,6 +1058,12 @@ impl<'r> Numbering<'r> {
             }
             Event::Appendix => {
                 self.appendix = true;
+                // `\appendix` defines `\thesection` (`\thechapter`) anew.
+                self.formats.remove(if self.class == ClassKind::Article {
+                    "section"
+                } else {
+                    "chapter"
+                });
                 if self.class == ClassKind::Article {
                     self.counters.insert("section".into(), 0);
                     self.counters.insert("subsection".into(), 0);
@@ -1196,6 +1243,7 @@ impl<'r> Numbering<'r> {
                 let counter = shared.clone().unwrap_or_else(|| env.clone());
                 if let (None, Some(w)) = (shared, within) {
                     self.within.insert(counter.clone(), w.clone());
+                    self.resets.push((counter.clone(), w.clone()));
                 }
                 self.model.theorem_kinds.push(TheoremKind {
                     env: env.clone(),
@@ -1234,15 +1282,24 @@ impl<'r> Numbering<'r> {
                     *v = if *add { *v + value } else { *value };
                 }
             }
-            Event::NumberWithin { counter, within } => {
+            Event::NumberWithin {
+                counter,
+                within,
+                remove,
+            } => {
                 self.plain.remove(counter);
-                match within {
-                    Some(w) => {
-                        self.within.insert(counter.clone(), w.clone());
+                if *remove {
+                    self.resets.retain(|(c, w)| !(c == counter && w == within));
+                    self.within.remove(counter);
+                    self.rewithin.remove(counter);
+                    // Printed alone from now on.
+                    self.plain.insert(counter.clone());
+                } else {
+                    if !self.resets.iter().any(|(c, w)| c == counter && w == within) {
+                        self.resets.push((counter.clone(), within.clone()));
                     }
-                    None => {
-                        self.within.remove(counter);
-                    }
+                    self.within.insert(counter.clone(), within.clone());
+                    self.rewithin.insert(counter.clone());
                 }
             }
             Event::EnvEnter {
@@ -1270,6 +1327,7 @@ impl<'r> Numbering<'r> {
             }),
             Event::ResetWithin { counter, within } => {
                 self.within.insert(counter.clone(), within.clone());
+                self.resets.push((counter.clone(), within.clone()));
                 self.plain.insert(counter.clone());
             }
             Event::Step { counter, refer } => {
@@ -1421,6 +1479,7 @@ impl<'r> Numbering<'r> {
                 tag: None,
                 labels: Vec::new(),
                 lines: 0,
+                outer: self.current.0.clone(),
             });
         }
         if let Some(kind) = self
@@ -1501,12 +1560,55 @@ impl<'r> Numbering<'r> {
             }
             None => (None, false),
         };
+        let base = env.trim_end_matches('*');
+        let mut labels = labels;
+        // amsmath's displays write a waiting label (`equation` and
+        // `equation*` label as LaTeX does, and leave it waiting).
+        let amsmath = matches!(
+            base,
+            "align" | "flalign" | "alignat" | "xalignat" | "xxalignat" | "gather" | "multline"
+        );
+        if amsmath {
+            labels.splice(0..0, std::mem::take(&mut self.pending));
+            // amsmath takes one label a line.
+            if labels.len() > 1 {
+                self.model.label_clashes.extend(labels[1..].iter().copied());
+            }
+        }
         if let Some(n) = &number {
             self.current = (Some(n.clone()), Target::Equation);
             for l in labels {
                 self.model.labels[l].number = Some(n.clone());
                 self.model.labels[l].target = Target::Equation;
             }
+        } else if base == "eqnarray" {
+            // `eqnarray` steps the counter at each line and takes it back
+            // when the line has no number: a label there gets the number
+            // the line would have had.
+            let n = self.get("equation");
+            self.counters.insert("equation".into(), n + 1);
+            let would = self.the("equation");
+            self.counters.insert("equation".into(), n);
+            for l in labels {
+                self.model.labels[l].number = Some(would.clone());
+                self.model.labels[l].target = Target::Equation;
+            }
+        } else if matches!(base, "gather" | "equation" | "displaymath" | "dmath") {
+            // A line of `gather` writes its label, numbered or not, and so
+            // does `equation*`: with the number outside them, each being a
+            // group of its own.
+            let outer = self.eq.last().and_then(|e| e.outer.clone());
+            for l in labels {
+                self.model.labels[l].number = outer.clone();
+            }
+        } else {
+            // `align` and its kin write a label on a numbered line only:
+            // it waits for the next one (LaTeX never writes it when none
+            // comes).
+            for &l in &labels {
+                self.model.labels[l].number = None;
+            }
+            self.pending.extend(labels);
         }
         self.model.equations.push(Equation {
             env,

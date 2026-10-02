@@ -30,7 +30,11 @@ fn check_labels(name: &str) -> Model {
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-    assert_eq!(model.labels.len(), expected.lines().count());
+    // Every label LaTeX writes, and no other.
+    assert_eq!(
+        model.labels.len() - model.unwritten_labels.len(),
+        expected.lines().count()
+    );
     model
 }
 
@@ -344,4 +348,52 @@ fn macro_definitions_written_again() {
             "\\DeclareMathOperator{\\tr}{tr}",
         ]
     );
+}
+
+/// What the random documents of `tools/latex-numbering-fuzz.py` found
+/// against pdflatex: a label on a line without a number (amsmath keeps
+/// it for the next numbered line, even of a later environment; `gather`
+/// and `equation*` write it with the number outside; `eqnarray` with the
+/// number the line would have had), `\Alph` of zero, `\numberwithin`
+/// before the first section.
+#[test]
+fn amsmath_labels() {
+    let m = check_labels("amsmath-labels");
+    // `\label{lost}` is never written; nothing clashes.
+    let lost: Vec<&str> = m
+        .unwritten_labels
+        .iter()
+        .map(|&i| m.labels[i].name.as_str())
+        .collect();
+    assert_eq!(lost, ["lost"]);
+    assert!(m.label_clashes.is_empty());
+}
+
+/// Resets that cascade (`\chapter` resets the section, which resets the
+/// equation), `\counterwithout` taking one reset away, `\appendix`
+/// defining `\thechapter` anew over the document's.
+#[test]
+fn counters() {
+    check_labels("counters");
+}
+
+/// The AMS classes number parts in Arabic numerals.
+#[test]
+fn amsart_parts() {
+    check_labels("amsart-parts");
+}
+
+/// A second label while one waits: amsmath stops ("Multiple \label's").
+#[test]
+fn label_clash() {
+    let t = "\\documentclass{article}\\usepackage{amsmath}\\begin{document}\n\
+             \\begin{align*}a&=b\\label{x}\\end{align*}\n\
+             \\begin{align}a&=b\\label{y}\\end{align}\n\\end{document}\n";
+    let m = Model::new(&parse(t));
+    let clash: Vec<&str> = m
+        .label_clashes
+        .iter()
+        .map(|&i| m.labels[i].name.as_str())
+        .collect();
+    assert_eq!(clash, ["y"]);
 }
