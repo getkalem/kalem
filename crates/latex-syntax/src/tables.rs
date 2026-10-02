@@ -19,6 +19,9 @@ pub(crate) struct Tables {
     pub(crate) sections: Vec<usize>,
     /// `\makeatletter` and `\makeatother`, in order.
     pub(crate) toggles: Vec<(usize, bool)>,
+    /// A macro that opens a displayed formula (`\be`, defined as
+    /// `\begin{equation}`) to the one that closes it (`\ee`).
+    pub(crate) aliases: HashMap<usize, usize>,
 }
 
 impl Tables {
@@ -36,6 +39,8 @@ pub(crate) fn build(src: &str, start: usize, end: usize, mut at_letter: bool) ->
     let mut t = Tables::default();
     let mut braces: Vec<usize> = Vec::new();
     let mut envs: Vec<(usize, &str)> = Vec::new();
+    let (openers, closers) = math_aliases(src);
+    let mut alias_open: Option<usize> = None;
     let mut pos = start;
     while pos < end {
         let (tok, e) = lexer::next(src, pos, end, at_letter);
@@ -95,6 +100,14 @@ pub(crate) fn build(src: &str, start: usize, end: usize, mut at_letter: bool) ->
                         }
                     }
                     n if signatures::is_sectioning(n) => t.sections.push(pos),
+                    n if openers.iter().any(|o| o == n) && !in_definition(src, pos) => {
+                        alias_open = Some(pos);
+                    }
+                    n if closers.iter().any(|o| o == n) && !in_definition(src, pos) => {
+                        if let Some(o) = alias_open.take() {
+                            t.aliases.insert(o, pos);
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -103,4 +116,108 @@ pub(crate) fn build(src: &str, start: usize, end: usize, mut at_letter: bool) ->
         pos = e;
     }
     t
+}
+
+/// Names (without the backslash) papers give to the opening and closing
+/// of an equation, taken as such when the text does not define them (a
+/// file of a project whose root does).
+const USUAL_ALIASES: &[(&str, &str)] = &[
+    ("be", "ee"),
+    ("beq", "eeq"),
+    ("beqn", "eeqn"),
+    ("bea", "eea"),
+    ("beqa", "eeqa"),
+    ("beqna", "eeqna"),
+    ("bes", "ees"),
+    ("ben", "een"),
+    ("begeq", "endeq"),
+];
+
+/// The macros `src` defines as the opening and the closing of a displayed
+/// formula's environment (`\def\be{\begin{equation}}`), with the usual
+/// names it does not define.
+pub(crate) fn math_aliases(src: &str) -> (Vec<String>, Vec<String>) {
+    let (mut open, mut close) = (Vec::new(), Vec::new());
+    let mut defined: Vec<String> = Vec::new();
+    for cmd in [
+        "\\def",
+        "\\newcommand",
+        "\\renewcommand",
+        "\\providecommand",
+    ] {
+        for (i, _) in src.match_indices(cmd) {
+            let rest = &src[i + cmd.len()..];
+            let rest = rest.strip_prefix('*').unwrap_or(rest).trim_start();
+            let (name, rest) = match rest.strip_prefix('{') {
+                Some(r) => match r.split_once('}') {
+                    Some((n, r)) => (n.trim(), r),
+                    None => continue,
+                },
+                None => {
+                    let n = rest
+                        .char_indices()
+                        .skip(1)
+                        .find(|(_, c)| !c.is_ascii_alphabetic())
+                        .map_or(rest.len(), |(k, _)| k);
+                    (&rest[..n], &rest[n..])
+                }
+            };
+            let Some(name) = name.strip_prefix('\\') else {
+                continue;
+            };
+            if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphabetic()) {
+                continue;
+            }
+            defined.push(name.to_string());
+            let Some(body) = rest.trim_start().strip_prefix('{') else {
+                continue;
+            };
+            let Some((body, _)) = body.split_once('}') else {
+                continue;
+            };
+            // `{\begin{equation` up to its first `}`: the environment.
+            let body = body.trim();
+            let display = |env: &str| {
+                let e = env.trim_end_matches('*');
+                signatures::is_math(env)
+                    && !matches!(e, "split" | "aligned" | "gathered" | "alignedat" | "math")
+            };
+            if let Some(env) = body.strip_prefix("\\begin{")
+                && display(env)
+            {
+                open.push(name.to_string());
+            } else if let Some(env) = body.strip_prefix("\\end{")
+                && display(env)
+            {
+                close.push(name.to_string());
+            }
+        }
+    }
+    for (o, c) in USUAL_ALIASES {
+        if !defined.iter().any(|d| d == o || d == c) {
+            open.push(o.to_string());
+            close.push(c.to_string());
+        }
+    }
+    (open, close)
+}
+
+/// Whether the control word at `pos` is the name a definition defines
+/// (`\def\be`, `\newcommand{\be}`), not a use.
+fn in_definition(src: &str, pos: usize) -> bool {
+    let before = src[..pos].trim_end();
+    let before = before.strip_suffix('{').unwrap_or(before).trim_end();
+    let before = before.strip_suffix('*').unwrap_or(before);
+    [
+        "\\def",
+        "\\gdef",
+        "\\edef",
+        "\\xdef",
+        "\\let",
+        "\\newcommand",
+        "\\renewcommand",
+        "\\providecommand",
+    ]
+    .iter()
+    .any(|d| before.ends_with(d))
 }

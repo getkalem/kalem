@@ -466,6 +466,32 @@ impl Cache {
                     self.walk(&child, base, out);
                     out.push(Item::Event(Event::EnvExit));
                 }
+                // `\be … \ee`: the environment the macros open and close,
+                // named by the opening macro until the definitions are known.
+                DISPLAY_MATH
+                    if child
+                        .first_token()
+                        .is_some_and(|t| t.kind() == CONTROL_WORD)
+                        && child.last_token().is_some_and(|t| t.kind() == CONTROL_WORD) =>
+                {
+                    let range = rel(child.text_range(), base);
+                    let (Some(open), Some(close)) = (child.first_token(), child.last_token())
+                    else {
+                        continue;
+                    };
+                    let body = rel(open.text_range(), base).end
+                        ..rel(close.text_range(), base)
+                            .start
+                            .max(rel(open.text_range(), base).end);
+                    out.push(Item::Event(Event::EnvEnter {
+                        name: open.text().to_string(),
+                        range,
+                        body,
+                        note: None,
+                    }));
+                    self.walk(&child, base, out);
+                    out.push(Item::Event(Event::EnvExit));
+                }
                 VERB => {}
                 _ => self.walk(&child, base, out),
             }
