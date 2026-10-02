@@ -490,9 +490,10 @@ impl Session {
             .unwrap_or_default();
         let mut all: Vec<(Item, i32)> = self.items.drain(..).map(|i| (i, 0)).collect();
         all.extend(new);
-        // Duplicates: the same insertion once.
+        // Duplicates: the same item once (a language server's `all?/1`
+        // and `all?/2` insert the same text but are two items).
         let mut seen = std::collections::HashSet::new();
-        all.retain(|(i, _)| seen.insert((i.insert.clone(), i.range.clone())));
+        all.retain(|(i, _)| seen.insert((i.label.clone(), i.insert.clone(), i.range.clone())));
         let prefix = self.prefix.clone();
         let rank = |(i, p): &(Item, i32)| {
             let exact = !prefix.is_empty() && i.label.starts_with(prefix.as_str());

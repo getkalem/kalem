@@ -1094,17 +1094,19 @@ impl crate::completers::Completer for LspCompleter {
         let mut items: Vec<_> = items
             .into_iter()
             .map(|i| {
-                let (range, insert) = match &i.edit {
-                    Some((r, t)) => match kalem_lsp::position::byte_range(&text, r, enc) {
+                let fallback = (word_start..point, i.insert_text.clone(), i.cursor);
+                let (range, insert, cursor) = match &i.edit {
+                    Some((r, t, at)) => match kalem_lsp::position::byte_range(&text, r, enc) {
                         Some(r) if r.end == point || r.contains(&point) => {
-                            (r.start..point, t.clone())
+                            (r.start..point, t.clone(), *at)
                         }
-                        _ => (word_start..point, i.insert_text.clone()),
+                        _ => fallback,
                     },
-                    None => (word_start..point, i.insert_text.clone()),
+                    None => fallback,
                 };
                 let mut item =
                     crate::completers::Item::new(i.label.clone(), insert, range, kind_of(i.kind));
+                item.cursor = cursor.unwrap_or(item.insert.len()).min(item.insert.len());
                 item.detail = i.detail.clone().unwrap_or_default();
                 item.source = "lsp";
                 (i.sort_text.clone(), item)

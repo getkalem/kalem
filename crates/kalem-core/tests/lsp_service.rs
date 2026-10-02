@@ -160,7 +160,9 @@ fn main() {
         .iter()
         .find(|i| i.source == "lsp" && i.label == "greet/1")
         .unwrap();
-    assert_eq!(greet.insert, "greet(name)");
+    // The snippet's place to fill left empty, the cursor in it.
+    assert_eq!(greet.insert, "greet()");
+    assert_eq!(greet.cursor, "greet(".len());
     assert_eq!(&doc.text().as_str()[greet.range.clone()], "gr");
     println!("test completion ... ok");
 
