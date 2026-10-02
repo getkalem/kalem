@@ -7586,7 +7586,10 @@ mod tests {
             .map(|r| r.text.as_str())
             .collect();
         // The blank after `\\else`, a control word, is part of it.
-        assert_eq!(read.split_whitespace().collect::<Vec<_>>(), ["AB", "C", "D"]);
+        assert_eq!(
+            read.split_whitespace().collect::<Vec<_>>(),
+            ["AB", "C", "D"]
+        );
     }
 
     #[test]
@@ -7595,7 +7598,11 @@ mod tests {
         let d = doc(text);
         let end = Some(text.len());
         for n in [2, 4, 5, 7, 8, 10] {
-            assert_eq!(shown(&d, n, end).role, crate::view::LineRole::Delimiter, "{n}");
+            assert_eq!(
+                shown(&d, n, end).role,
+                crate::view::LineRole::Delimiter,
+                "{n}"
+            );
         }
         let all: Vec<String> = [3, 6, 9].map(|n| shown(&d, n, end).display()).into();
         assert_eq!(all.concat(), "ABC");
