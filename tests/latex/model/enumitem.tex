@@ -1,0 +1,12 @@
+\documentclass{article}
+\usepackage{enumitem,caption}
+\begin{document}
+\begin{enumerate}[label=(\alph*)]\item a\label{a1}\item b\label{a2}\end{enumerate}
+\begin{enumerate}\item x\item y\begin{enumerate}[label=\roman*.]\item p\label{n1}\end{enumerate}\end{enumerate}
+\begin{enumerate}[label=Step \arabic*, start=3]\item s\label{s1}\end{enumerate}
+\begin{enumerate}[label=(\Alph*), ref=\Alph*]\item r\label{r1}\end{enumerate}
+\begin{enumerate}[label=\arabic*)]\item q\label{q1}\begin{enumerate}\item w\label{q2}\end{enumerate}\end{enumerate}
+\begin{enumerate}[label*=.\arabic*]\item t\label{t1}\end{enumerate}
+\begin{enumerate}[label=\textbf{\alph*}]\item u\label{u1}\end{enumerate}
+\begin{figure}\label{early}\caption{C}\label{late}\end{figure}
+\end{document}

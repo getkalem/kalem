@@ -472,6 +472,11 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
             "latex-label-unwritten",
             "latex-label-unwritten",
         ),
+        (
+            &model.labels_before_caption,
+            "latex-label-before-caption",
+            "latex-label-before-caption",
+        ),
     ] {
         for &i in list {
             if let Some(l) = model.labels.get(i).filter(|l| l.file == this) {
@@ -1031,6 +1036,21 @@ mod tests {
         assert_eq!(next(&diags, text.len(), false), Some(starts[0]));
         assert_eq!(next(&diags, 0, true), starts.last().copied());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn label_before_caption() {
+        crate::l10n::set_language("en");
+        let text = "\\documentclass{article}\n\\begin{document}\n\\begin{figure}\\label{f}\\caption{C}\\label{g}\\end{figure}\n\\end{document}\n";
+        let dir = std::env::temp_dir().join(format!("kalem-latex-lbc-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("p.tex");
+        std::fs::write(&path, text).unwrap();
+        let d = check(&path, text);
+        let _ = std::fs::remove_dir_all(&dir);
+        let found: Vec<(&str, &str)> = d.iter().map(|d| (d.code, &text[d.range.clone()])).collect();
+        assert_eq!(found, [("latex-label-before-caption", "\\label{f}")]);
+        assert!(d[0].message.contains("after \\caption"), "{}", d[0].message);
     }
 
     #[test]

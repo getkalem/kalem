@@ -889,6 +889,7 @@ latex-unknown-label = No label { $key }
 latex-duplicate-label = The label { $key } is defined more than once
 latex-label-clash = A second label on this line: amsmath stops with “Multiple \label's” ({ $key })
 latex-label-unwritten = { $key } is on a line without a number and no numbered line follows: LaTeX never writes it, and \ref prints ??
+latex-label-before-caption = { $key } comes before the caption: it refers to the section, or with the caption package to nothing (\ref prints ??); put it after \caption
 latex-missing-file = No file { $file }
 latex-missing-picture = No picture { $file }
 latex-item-outside-list = \item outside a list: LaTeX stops with "Lonely \item"

@@ -289,6 +289,20 @@ fn subfigures() {
 }
 
 #[test]
+fn enumitem_labels() {
+    // enumitem's `label=`, `ref=`, `label*=` and `start=`, a level under
+    // one it formats; with the caption package, a label before the
+    // caption refers to nothing.
+    let m = check_labels("enumitem");
+    let before: Vec<&str> = m
+        .labels_before_caption
+        .iter()
+        .map(|&i| m.labels[i].name.as_str())
+        .collect();
+    assert_eq!(before, ["early"]);
+}
+
+#[test]
 fn minipage_footnotes() {
     // A minipage numbers its footnotes a, b, … and leaves the main
     // counter alone.

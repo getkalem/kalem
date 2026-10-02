@@ -815,6 +815,7 @@ latex-unknown-label = { $key } etiketi yok
 latex-duplicate-label = { $key } etiketi birden çok kez tanımlanmış
 latex-label-clash = Bu satırda ikinci bir etiket: amsmath “Multiple \label's” diye durur ({ $key })
 latex-label-unwritten = { $key } numarasız bir satırda ve ardından numaralı satır gelmiyor: LaTeX onu hiç yazmaz, \ref ?? basar
+latex-label-before-caption = { $key } altyazıdan önce: bölümü gösterir, caption paketiyle hiçbir şeyi (\ref ?? basar); \caption sonrasına koyun
 latex-missing-file = { $file } dosyası yok
 latex-missing-picture = { $file } resmi yok
 latex-item-outside-list = Liste dışında \item: LaTeX "Lonely \item" hatasıyla durur
