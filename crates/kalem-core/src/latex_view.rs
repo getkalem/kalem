@@ -1126,6 +1126,10 @@ fn algorithm_words(name: &str) -> Option<(&'static str, &'static str, &'static s
 pub(crate) fn silent(name: &str) -> Option<&'static str> {
     Some(match name {
         "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "smoom",
+        "NewDocumentCommand"
+        | "RenewDocumentCommand"
+        | "ProvideDocumentCommand"
+        | "DeclareDocumentCommand" => "mmm",
         "DeclareMathOperator" => "smm",
         "newenvironment" | "renewenvironment" => "smoomm",
         "newtheorem" => "smomo",
@@ -5778,10 +5782,43 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
         at = e.end;
     }
     out.push_str(&text[at..r.end]);
-    Some(optional_argument_macros(
-        &own_environments(&out, &model.environments),
+    Some(braced_scripts(
+        &optional_argument_macros(&own_environments(&out, &model.environments), &model),
         &model,
     ))
+}
+
+/// `_\\End` and `^\\End` with braces when `\\End` is a document's macro
+/// without arguments: TeX takes its expansion as the script, the renderer
+/// would take only its first token (`\\operatorname`).
+fn braced_scripts(src: &str, model: &latex_model::Model) -> String {
+    if !src.contains("_\\") && !src.contains("^\\") {
+        return src.to_string();
+    }
+    let mut out = String::with_capacity(src.len());
+    let mut rest = src;
+    while let Some(i) = rest.find(['_', '^']) {
+        out.push_str(&rest[..=i]);
+        let after = &rest[i + 1..];
+        let n = after
+            .strip_prefix('\\')
+            .map_or(0, |r| r.bytes().take_while(u8::is_ascii_alphabetic).count());
+        if n > 0
+            && model
+                .macros
+                .iter()
+                .any(|m| m.args == 0 && m.name.len() == n + 1 && m.name[1..] == after[1..=n])
+        {
+            out.push('{');
+            out.push_str(&after[..=n]);
+            out.push('}');
+            rest = &after[n + 1..];
+        } else {
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The document's macros with an optional argument used in a formula
@@ -6592,6 +6629,10 @@ mod tests {
         // A macro with an optional argument, `\\ensuremath` in text, a
         // diagram on its own.
         let text = "\\documentclass{article}\n\\newcommand{\\expec}[2][]{\\mathbb{E}_{#1}\\left[#2\\right]}\n\\begin{document}\n$\\frac{\\expec{A}}{\\expec[x]{B}}$\n\\[ v=\\text{ \\ensuremath{\\left(s-\\frac{1}{2}\\right)}} \\]\n\\begin{tikzcd} A \\arrow[r] & B \\end{tikzcd}\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // xparse's and robust definitions, a macro as a script, a comment
+        // in a diagram.
+        let text = "\\documentclass{article}\n\\NewDocumentCommand{\\pr}{O{} m}{P_{#1}(#2)}\n\\DeclareRobustCommand{\\one}{\\mathbf{1}}\n\\DeclareMathOperator{\\End}{End}\n\\begin{document}\n$\\pr{A} + \\one_\\End$\n\\begin{tikzcd} A \\ar[r] % \\ar[bend left = 40,\n & B \\end{tikzcd}\n\\end{document}\n";
         assert_eq!(formula_failures(&doc(text)), Vec::new());
         // One the document defines as an equation: a numbered formula.
         let text = "\\documentclass{article}\n\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n\\begin{document}\n\\begin{eqn}\na = \\frac{1}{2}\n\\end{eqn}\n\\end{document}\n";

@@ -1016,6 +1016,35 @@ fn tabular_in_math(s: &str) -> String {
     s
 }
 
+/// `s` without TeX's comments (`%` to the end of the line, not `\\%`).
+fn without_comments(s: &str) -> std::borrow::Cow<'_, str> {
+    if !s.contains('%') {
+        return std::borrow::Cow::Borrowed(s);
+    }
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                out.push(c);
+                if let Some(d) = chars.next() {
+                    out.push(d);
+                }
+            }
+            '%' => {
+                // To the end of the line and the line end (TeX takes it).
+                for d in chars.by_ref() {
+                    if d == '\n' {
+                        break;
+                    }
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+    std::borrow::Cow::Owned(out)
+}
+
 /// `s` without TeX's italic correction `\\/` (not the `/` after `\\\\`).
 fn no_italic_correction(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -1045,7 +1074,7 @@ fn no_italic_correction(s: &str) -> String {
 /// `gather` (decision D4), after the definitions `macros`.
 pub fn prepare(latex: &str, macros: &str) -> String {
     // Italic correction: nothing to draw here.
-    let mut s = no_italic_correction(&latex.replace("\\mbox{", "\\text{"));
+    let mut s = no_italic_correction(&without_comments(latex).replace("\\mbox{", "\\text{"));
     s = rename_env(&s, "multline*", "gather*");
     s = rename_env(&s, "multline", "gather");
     // eqnarray's `a &=& b` as an align's columns; flalign as align.
@@ -1124,8 +1153,10 @@ fn prepared_macros(macros: &str) -> std::sync::Arc<str> {
         }
         // A definition's own `$…$` (`\newcommand{\minus}{$-$}`): math
         // already where it is used.
-        let out: Arc<str> =
-            inner_dollars(&plain_tex(&math_out_of_text(&no_italic_correction(macros)))).into();
+        let out: Arc<str> = inner_dollars(&plain_tex(&math_out_of_text(&no_italic_correction(
+            &without_comments(macros),
+        ))))
+        .into();
         *last.borrow_mut() = Some((macros.to_string(), out.clone()));
         out
     })

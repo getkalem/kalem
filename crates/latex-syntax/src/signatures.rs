@@ -82,7 +82,11 @@ pub fn command(name: &str) -> &'static str {
         | "Citeauthor" | "citetitle" | "fullcite" | "supercite" | "footcitetext" | "cites"
         | "parencites" | "textcites" | "autocites" | "footcites" | "Cites" | "Parencites"
         | "Textcites" | "Autocites" | "citealt*" | "Citealt" | "Citealp" => "*oom",
-        "newcommand" | "renewcommand" | "providecommand" => "*moom",
+        "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "*moom",
+        "NewDocumentCommand"
+        | "RenewDocumentCommand"
+        | "ProvideDocumentCommand"
+        | "DeclareDocumentCommand" => "mmm",
         "newenvironment" | "renewenvironment" => "*moomm",
         "newtheorem" => "*momo",
         "DeclareMathOperator" => "*mm",
