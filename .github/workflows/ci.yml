@@ -58,6 +58,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
+      # The Markdown conformance tests read CommonMark's and GFM's
+      # specifications (CC BY-SA 4.0, not in the repository); without them
+      # they pass without checking.
+      - name: CommonMark and GFM specifications
+        shell: bash
+        run: |
+          mkdir -p spikes/md-parser/data
+          curl -sSfL -o spikes/md-parser/data/commonmark-spec.txt \
+            https://raw.githubusercontent.com/commonmark/commonmark-spec/0.31.2/spec.txt
+          curl -sSfL -o spikes/md-parser/data/gfm-spec.txt \
+            https://raw.githubusercontent.com/github/cmark-gfm/0.29.0.gfm.13/test/spec.txt
       - run: cargo test --workspace --no-fail-fast
 
   msrv:
