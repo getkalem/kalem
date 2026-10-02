@@ -589,32 +589,63 @@ fn declaration(name: &str, style: &mut Style) -> bool {
 /// The declarations among `node`'s children before `at` (and, in an
 /// environment's body, those of its earlier paragraphs), as a style.
 fn declared_before(node: &SyntaxNode, at: usize) -> Option<Style> {
+    let list = declarations(node);
+    let i = list.partition_point(|(start, _)| *start < at);
+    i.checked_sub(1).map(|i| list[i].1)
+}
+
+/// The declarations among the children of `node` (of each paragraph of an
+/// environment's body): where each starts and the style from there on.
+/// Kept per node: drawing a line asks for those before it, and a long
+/// group or body would be read from its start for every line.
+fn declarations(node: &SyntaxNode) -> std::rc::Rc<Vec<(usize, Style)>> {
+    type Memo = std::collections::HashMap<
+        (usize, usize, usize, u16),
+        (latex_syntax::GreenNode, std::rc::Rc<Vec<(usize, Style)>>),
+    >;
+    thread_local! {
+        static MEMO: std::cell::RefCell<Memo> = std::cell::RefCell::new(Memo::new());
+    }
+    let green = node.green().to_owned();
+    let r = node.text_range();
+    // The green node, kept alive with the entry, so its address names it.
+    let key = (
+        std::ptr::from_ref(&*green).cast::<()>() as usize,
+        usize::from(r.start()),
+        usize::from(r.end()),
+        node.kind() as u16,
+    );
+    if let Some(v) = MEMO.with(|m| m.borrow().get(&key).map(|e| e.1.clone())) {
+        return v;
+    }
     let mut declared = Style::default();
-    let mut any = false;
-    let mut scan = |n: &SyntaxNode, any: &mut bool| {
+    let mut out = Vec::new();
+    let mut scan = |n: &SyntaxNode| {
         for e in n.children() {
-            if usize::from(e.text_range().start()) >= at {
-                break;
-            }
             if e.kind() == K::COMMAND
                 && let Some(name) = latex_syntax::name(&e)
                 && declaration(&name, &mut declared)
             {
-                *any = true;
+                out.push((usize::from(e.text_range().start()), declared));
             }
         }
     };
     if node.kind() == K::BODY {
         for p in node.children() {
-            if usize::from(p.text_range().start()) >= at {
-                break;
-            }
-            scan(&p, &mut any);
+            scan(&p);
         }
     } else {
-        scan(node, &mut any);
+        scan(node);
     }
-    any.then_some(declared)
+    let v = std::rc::Rc::new(out);
+    MEMO.with(|m| {
+        let mut m = m.borrow_mut();
+        if m.len() > 512 {
+            m.clear();
+        }
+        m.insert(key, (green, v.clone()));
+    });
+    v
 }
 
 /// Whether token `t` is inside math.
