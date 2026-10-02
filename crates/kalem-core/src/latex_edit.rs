@@ -29,6 +29,18 @@ fn is_list(name: &str) -> bool {
     matches!(name, "itemize" | "enumerate" | "description")
 }
 
+/// The command each entry of a list environment begins with: `\item`,
+/// `\bibitem` in a bibliography.
+fn item_command(name: &str) -> Option<&'static str> {
+    if is_list(name) {
+        Some("\\item")
+    } else if name == "thebibliography" {
+        Some("\\bibitem")
+    } else {
+        None
+    }
+}
+
 /// The innermost list environment around `pos`, and its name.
 fn list_at(root: &SyntaxNode, pos: usize) -> Option<(SyntaxNode, String)> {
     let t = latex_syntax::token_before(root, pos)?;
@@ -52,7 +64,7 @@ pub fn enter(text: &str, sel: Selection, root: &SyntaxNode) -> Option<Transactio
     let line = &text[lr.clone()];
     let trimmed = line.trim_start();
     if !trimmed.starts_with("\\item") {
-        return None;
+        return first_item(text, pos, root).or_else(|| new_row(text, pos, root));
     }
     let (env, _) = list_at(root, pos)?;
     // Only an item of this list, not a word starting with `\item`.
@@ -83,6 +95,104 @@ pub fn enter(text: &str, sel: Selection, root: &SyntaxNode) -> Option<Transactio
     let insert = format!("\n{indent}\\item ");
     let mut tx = Transaction::new("New Item");
     // The blanks before the cursor stay on this line.
+    tx.replace(pos..pos, insert.clone()).ok()?;
+    Some(tx.select(Selection::caret(pos + insert.len())))
+}
+
+/// Enter at the end of a list's `\begin` line: its first item begun (no
+/// text can go before it).
+fn first_item(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transaction> {
+    let lr = line_range(text, pos);
+    let line = &text[lr.clone()];
+    if text[pos..lr.end].trim() != "" {
+        return None;
+    }
+    let t = latex_syntax::token_before(root, pos)?;
+    let begin = t.parent_ancestors().find(|a| a.kind() == K::BEGIN)?;
+    let env = begin.parent()?;
+    let item = item_command(&latex_syntax::name(&env)?)?;
+    if span(&begin).end > lr.end || span(&begin).end > pos {
+        return None;
+    }
+    let style = Style::infer(text);
+    let inner = format!("{}{}", indent_of(line), style.step);
+    let (insert, back) = if item == "\\bibitem" {
+        (format!("\n{inner}\\bibitem{{}} "), 2)
+    } else {
+        (format!("\n{inner}\\item "), 0)
+    };
+    let mut tx = Transaction::new("New Item");
+    tx.replace(pos..pos, insert.clone()).ok()?;
+    Some(tx.select(Selection::caret(pos + insert.len() - back)))
+}
+
+/// Enter at the end of a row of an environment of rows (`align`,
+/// `gather`, a matrix, `tabular`): the row ended with `\\` and a new one
+/// begun, as Enter on an item begins an item.
+fn new_row(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transaction> {
+    let lr = line_range(text, pos);
+    let line = &text[lr.clone()];
+    let row = line.trim();
+    if text[pos..lr.end].trim() != ""
+        || row.is_empty()
+        || row.starts_with("\\begin")
+        || row.starts_with("\\end")
+        || row.starts_with('%')
+    {
+        return None;
+    }
+    let t = latex_syntax::token_before(root, pos)?;
+    let env = t.parent_ancestors().find(|a| a.kind() == K::ENVIRONMENT)?;
+    let name = latex_syntax::name(&env)?;
+    let n = name.trim_end_matches('*');
+    let rows = matches!(
+        n,
+        "align"
+            | "flalign"
+            | "alignat"
+            | "gather"
+            | "multline"
+            | "eqnarray"
+            | "split"
+            | "aligned"
+            | "gathered"
+            | "alignedat"
+            | "array"
+            | "tabular"
+            | "tabularx"
+            | "tabulary"
+            | "longtable"
+    ) || is_grid(n);
+    // On the body's line, not the `\begin`'s or `\end`'s.
+    let body = env.children().find(|c| c.kind() == K::BODY)?;
+    if !rows || !span(&body).contains(&lr.start.max(span(&body).start)) || pos > span(&body).end {
+        return None;
+    }
+    // A row already ended, or a rule between rows: a line break only.
+    let ended = [
+        "\\\\",
+        "\\hline",
+        "\\toprule",
+        "\\midrule",
+        "\\bottomrule",
+        "\\cr",
+    ]
+    .iter()
+    .any(|e| row.ends_with(e))
+        || row.starts_with("\\cline")
+        || row.starts_with("\\cmidrule");
+    let indent = indent_of(line);
+    let gap = if line[..pos - lr.start].ends_with([' ', '\t']) {
+        ""
+    } else {
+        " "
+    };
+    let insert = if ended {
+        format!("\n{indent}")
+    } else {
+        format!("{gap}\\\\\n{indent}")
+    };
+    let mut tx = Transaction::new("New Row");
     tx.replace(pos..pos, insert.clone()).ok()?;
     Some(tx.select(Selection::caret(pos + insert.len())))
 }
@@ -200,6 +310,31 @@ pub fn toggle(text: &str, sel: Selection, root: &SyntaxNode, command: &str) -> O
     // so that the braces stay balanced: `a \emph{b| c} d|` wraps the
     // whole `\emph{b c}`.
     let (a, b) = balanced(root, a, b);
+    // Only text: not a word of `\end{itemize}` or of a label.
+    if !in_text(root, a) || !in_text(root, b) {
+        return None;
+    }
+    // Within a paragraph, and no environment's edge, item or heading in
+    // it: `\textbf{…}` around those does not compile.
+    let crosses = root
+        .descendants_with_tokens()
+        .filter(|e| {
+            let r = usize::from(e.text_range().start())..usize::from(e.text_range().end());
+            a < r.end && r.start < b
+        })
+        .any(|e| match e.kind() {
+            // (Nor a table's cell or row's end.)
+            K::PAR_BREAK | K::BEGIN | K::END | K::AMPERSAND => true,
+            K::CONTROL_SYMBOL => e.as_token().is_some_and(|t| t.text() == "\\\\"),
+            K::COMMAND => e
+                .as_node()
+                .and_then(latex_syntax::name)
+                .is_some_and(|x| block_command(&x)),
+            _ => false,
+        });
+    if crosses {
+        return None;
+    }
     let open = format!("\\{command}{{");
     let mut tx = Transaction::new("Formatting");
     tx.replace(a..a, open.clone()).ok()?;
@@ -447,6 +582,28 @@ pub fn set_level(
     let indent = indent_of(line);
     let body = line.trim();
     let start = lr.start + indent.len();
+    // A line of text in the document's body: not in an environment (a
+    // list's item, a float, math), not holding one's edge.
+    let in_env = latex_syntax::token_at(root, start).is_some_and(|t| {
+        t.parent_ancestors().any(|a| {
+            a.kind() == K::ENVIRONMENT && latex_syntax::name(&a).is_some_and(|n| n != "document")
+        })
+    });
+    let before_body = text
+        .find("\\begin{document}")
+        .is_some_and(|b| start < b + "\\begin{document}".len());
+    let unbalanced = body.matches('{').count() != body.matches('}').count();
+    if body.is_empty()
+        || in_env
+        || before_body
+        || unbalanced
+        || ["\\begin{", "\\end{", "\\item", "\\\\"]
+            .iter()
+            .any(|m| body.contains(m))
+        || !in_text(root, start)
+    {
+        return None;
+    }
     tx.replace(start..lr.end, format!("\\{name}{{{body}}}"))
         .ok()?;
     Some(tx.select(Selection::caret(start + name.len() + 2 + body.len())))
@@ -673,13 +830,206 @@ pub fn indent_item(text: &str, pos: usize, root: &SyntaxNode, deeper: bool) -> O
 fn in_math(root: &SyntaxNode, pos: usize) -> bool {
     latex_syntax::token_before(root, pos).is_some_and(|t| {
         t.parent_ancestors().any(|a| {
-            matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH)
+            // Right after a formula's closing `$`: out of it.
+            let closed = a.last_token().as_ref() == Some(&t)
+                && a.first_token().as_ref() != Some(&t)
+                && usize::from(t.text_range().end()) == pos
+                && matches!(t.text(), "$" | "$$" | "\\)" | "\\]");
+            (matches!(a.kind(), K::INLINE_MATH | K::DISPLAY_MATH) && !closed)
                 || (a.kind() == K::BODY
                     && a.parent()
                         .and_then(|e| latex_syntax::name(&e))
                         .is_some_and(|n| latex_syntax::signatures::is_math(&n)))
         })
     })
+}
+
+/// Whether `pos` is in running text, where text can be added or
+/// formatted: not in math, code or a comment, not inside a command's or
+/// an environment's name, and not in an argument that is not text (a
+/// label, a citation key, `\\begin`'s name, a package).
+pub(crate) fn in_text(root: &SyntaxNode, pos: usize) -> bool {
+    if in_math(root, pos) {
+        return false;
+    }
+    let Some(t) =
+        latex_syntax::token_at(root, pos).or_else(|| latex_syntax::token_before(root, pos))
+    else {
+        return true;
+    };
+    let ts = usize::from(t.text_range().start())..usize::from(t.text_range().end());
+    // Inside a name: `\beg|in`, `\begin{tab|ular}`.
+    if ts.start < pos
+        && pos < ts.end
+        && matches!(t.kind(), K::CONTROL_WORD | K::CONTROL_SYMBOL | K::ENV_NAME)
+    {
+        return false;
+    }
+    if t.kind() == K::COMMENT && ts.start < pos {
+        return false;
+    }
+    // Before a rule between a table's rows: no row has begun.
+    let text = root.text().to_string();
+    let rest = text[pos.min(text.len())..].trim_start();
+    if [
+        "\\hline",
+        "\\toprule",
+        "\\midrule",
+        "\\bottomrule",
+        "\\cline",
+        "\\cmidrule",
+    ]
+    .iter()
+    .any(|r| rest.starts_with(r))
+    {
+        return false;
+    }
+    // In a list before its first item: nothing but items can go there.
+    if let Some(env) = t.parent_ancestors().find(|a| a.kind() == K::ENVIRONMENT)
+        && let Some(name) = latex_syntax::name(&env)
+        && let Some(item) = item_command(&name)
+        && let Some(body) = env.children().find(|c| c.kind() == K::BODY)
+    {
+        let b = span(&body);
+        let first = root.text().slice(body.text_range()).to_string().find(item);
+        if b.contains(&pos) && first.is_none_or(|i| pos <= b.start + i) {
+            return false;
+        }
+    }
+    !t.parent_ancestors().any(|a| match a.kind() {
+        K::BEGIN | K::END | K::VERB => true,
+        K::ENVIRONMENT => {
+            latex_syntax::name(&a).is_some_and(|n| latex_syntax::signatures::is_verbatim(&n))
+        }
+        // In a command's arguments (not at its name's edge): text only
+        // where the command typesets its argument as text.
+        K::COMMAND => {
+            let name_end = a
+                .first_token()
+                .map_or(0, |f| usize::from(f.text_range().end()));
+            // Between the name and the arguments: `\section|{A}`.
+            (pos == name_end && span(&a).end > name_end)
+                || (pos > name_end
+                    && latex_syntax::name(&a).is_some_and(|n| !crate::latex_view::prose(&n)))
+        }
+        _ => false,
+    })
+}
+
+/// Commands that do not go in a formatting command's argument: an item,
+/// a heading, a caption, what sets a paragraph or a page, a table's rule
+/// or spanning cell.
+fn block_command(name: &str) -> bool {
+    latex_syntax::signatures::is_sectioning(name)
+        || matches!(
+            name,
+            "item"
+                | "bibitem"
+                | "caption"
+                | "centering"
+                | "raggedright"
+                | "raggedleft"
+                | "par"
+                | "maketitle"
+                | "tableofcontents"
+                | "listoffigures"
+                | "listoftables"
+                | "bibliography"
+                | "bibliographystyle"
+                | "printbibliography"
+                | "appendix"
+                | "newpage"
+                | "clearpage"
+                | "cleardoublepage"
+                | "pagebreak"
+                | "hline"
+                | "toprule"
+                | "midrule"
+                | "bottomrule"
+                | "cline"
+                | "cmidrule"
+                | "multicolumn"
+        )
+}
+
+/// Whether an environment holds its body in a box, where no float can
+/// go: floats, tables, minipages, pictures, math and verbatim.
+fn boxed(name: &str) -> bool {
+    let n = name.trim_end_matches('*');
+    matches!(
+        n,
+        "figure"
+            | "table"
+            | "wrapfigure"
+            | "wraptable"
+            | "sidewaysfigure"
+            | "sidewaystable"
+            | "subfigure"
+            | "subtable"
+            | "minipage"
+            | "tabular"
+            | "tabularx"
+            | "tabulary"
+            | "longtable"
+            | "array"
+            | "tikzpicture"
+            | "picture"
+            | "algorithm"
+            | "lstlisting"
+            | "minted"
+    ) || is_grid(n)
+        || latex_syntax::signatures::is_math(name)
+        || latex_syntax::signatures::is_verbatim(name)
+}
+
+/// Where a block (a figure, a table, an equation) asked for at `pos` can
+/// go: after the outermost box or command around `pos` (a float in a
+/// float, an equation in a caption do not compile), inside the document's
+/// body.
+pub fn block_position(text: &str, root: &SyntaxNode, pos: usize) -> usize {
+    let mut pos = pos;
+    if let Some(begin) = text.find("\\begin{document}") {
+        pos = pos.max(begin + "\\begin{document}".len());
+    }
+    if let Some(end) = text.rfind("\\end{document}") {
+        pos = pos.min(end.saturating_sub(1));
+    }
+    let Some(t) =
+        latex_syntax::token_at(root, pos).or_else(|| latex_syntax::token_before(root, pos))
+    else {
+        return pos;
+    };
+    let mut out = None;
+    for a in t.parent_ancestors() {
+        let s = span(&a);
+        let inside = match a.kind() {
+            K::ENVIRONMENT => latex_syntax::name(&a).is_some_and(|n| boxed(&n)),
+            K::COMMAND | K::INLINE_MATH | K::DISPLAY_MATH => s.start < pos && pos < s.end,
+            _ => false,
+        };
+        if inside {
+            out = Some(s.end);
+        }
+    }
+    out.unwrap_or(pos)
+}
+
+/// `base` as a label the document does not have yet: `fig:cat`, then
+/// `fig:cat-2`; `eq:`, then `eq:2`.
+pub fn unique_label(text: &str, base: &str) -> String {
+    let taken = |l: &str| text.contains(&format!("\\label{{{l}}}"));
+    if !taken(base) {
+        return base.to_string();
+    }
+    let sep = if base.ends_with([':', '-', '_', '.']) {
+        ""
+    } else {
+        "-"
+    };
+    (2..)
+        .map(|n| format!("{base}{sep}{n}"))
+        .find(|l| !taken(l))
+        .unwrap_or_default()
 }
 
 /// Whether `pos` is in running text where `"` means quotes: not in math,
@@ -1049,6 +1399,68 @@ mod tests {
         let m = mirror(&root(t), at..at + 3).unwrap();
         assert_eq!(&t[m.clone()], "ize");
         assert!(m.start > t.find("\\end").unwrap());
+    }
+
+    #[test]
+    fn edits_that_compile() {
+        // Found by `tools/latex-edit-fuzz.py`: each would have left a
+        // document pdflatex rejects.
+        // Not a word of markup, nor across an environment's edge, a
+        // paragraph, an item, a table's cell or a caption.
+        let t = "\\begin{itemize}\n\\item a\n\\end{itemize}\nx\n\ny \\caption{C} z\n";
+        let at = |s: &str| t.find(s).unwrap();
+        for (a, b) in [
+            (at("end{") + 5, at("end{") + 5),
+            (at("item a") + 6, at("x")),
+            (at("x"), at("y")),
+            (at("y"), at("z")),
+        ] {
+            assert!(toggle(t, Selection { anchor: a, head: b }, &root(t), "textbf").is_none());
+        }
+        let t = "\\begin{tabular}{ll}\na & b \\\\\n\\end{tabular}\n";
+        let sel = Selection {
+            anchor: t.find('a').unwrap(),
+            head: t.find('b').unwrap() + 1,
+        };
+        assert!(toggle(t, sel, &root(t), "emph").is_none());
+        // Where text can go.
+        let t = "\\section{A} x \\label{k} $y$ \\begin{tabular}{l}\n\\hline\n\\end{tabular}\n";
+        let r = root(t);
+        assert!(in_text(&r, t.find(" x").unwrap() + 1));
+        assert!(!in_text(&r, t.find("{A}").unwrap()));
+        assert!(!in_text(&r, t.find("{k}").unwrap() + 1));
+        assert!(!in_text(&r, t.find('y').unwrap()));
+        assert!(in_text(&r, t.find("$ ").unwrap() + 1));
+        assert!(!in_text(&r, t.find("tabular}").unwrap() + 3));
+        assert!(!in_text(&r, t.find("\\hline").unwrap()));
+        let t = "\\begin{itemize}\n  \\item a\n\\end{itemize}\n";
+        assert!(!in_text(&root(t), t.find("  \\item").unwrap() + 1));
+        // A block goes after a float or a command it is asked for in.
+        let t =
+            "\\begin{document}\n\\begin{figure}\n\\caption{C}\n\\end{figure}\nx\n\\end{document}\n";
+        let r = root(t);
+        let end = t.find("\\end{figure}").unwrap() + "\\end{figure}".len();
+        assert_eq!(block_position(t, &r, t.find('C').unwrap()), end);
+        assert_eq!(block_position(t, &r, 0), t.find('\n').unwrap());
+        // Labels not taken twice.
+        let t = "\\label{eq:} \\label{fig:a} \\label{fig:a-2}";
+        assert_eq!(unique_label(t, "eq:"), "eq:2");
+        assert_eq!(unique_label(t, "fig:a"), "fig:a-3");
+        assert_eq!(unique_label(t, "tab:"), "tab:");
+        // Enter ends a row of rows, and begins a list's first item.
+        let t = "\\begin{align}\na &= b\n\\end{align}\n";
+        let pos = t.find("= b").unwrap() + 3;
+        let tx = enter(t, Selection::caret(pos), &root(t)).unwrap();
+        assert_eq!(
+            apply(t, &tx).0,
+            "\\begin{align}\na &= b \\\\\n\n\\end{align}\n"
+        );
+        let t = "\\begin{enumerate}\n\\end{enumerate}\n";
+        let tx = enter(t, Selection::caret(17), &root(t)).unwrap();
+        assert_eq!(
+            apply(t, &tx).0,
+            "\\begin{enumerate}\n  \\item \n\\end{enumerate}\n"
+        );
     }
 
     #[test]

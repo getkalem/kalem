@@ -1,0 +1,55 @@
+\documentclass{article}
+\usepackage{amsmath,graphicx,booktabs}
+\begin{document}
+\section{Introduction}\label{sec:intro}
+This is plain text with \emph{emphasis}, some \textbf{bold words} and
+inline math $a^2 + b^2 = c^2$ in the middle of a sentence.
+See Section~\ref{sec:intro} and the work of~\cite{knuth}.
+
+A second paragraph, longer, so that a selection can span words and
+lines, and so that an edit lands in the middle of running text.
+\subsection{Lists}
+\begin{itemize}
+  \item First item
+  \item Second item with $x$
+  \begin{enumerate}
+    \item Nested one
+    \item Nested two
+  \end{enumerate}
+  \item Third item
+\end{itemize}
+\begin{description}
+  \item[Term] Its description.
+\end{description}
+\section{Mathematics}
+\begin{equation}\label{eq:one}
+  e^{i\pi} + 1 = 0
+\end{equation}
+\begin{align}
+  a &= b + c \\
+  d &= e \nonumber
+\end{align}
+\[ \int_0^1 x\,dx = \frac{1}{2} \]
+\subsection{Floats}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.3\linewidth]{example-image}
+  \caption{A picture.}\label{fig:one}
+\end{figure}
+\begin{table}[htbp]
+  \centering
+  \begin{tabular}{ll}
+    \toprule
+    A & B \\
+    \midrule
+    1 & 2 \\
+    \bottomrule
+  \end{tabular}
+  \caption{A table.}\label{tab:one}
+\end{table}
+\subsubsection{Last}
+Text at the end, referring to Figure~\ref{fig:one} and Table~\ref{tab:one}.
+\begin{thebibliography}{9}
+\bibitem{knuth} D. E. Knuth, \emph{The \TeX book}, 1984.
+\end{thebibliography}
+\end{document}

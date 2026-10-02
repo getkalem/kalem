@@ -3359,7 +3359,9 @@ fn latex_inserts_follow_the_document_style() {
         .run_command("latex.insert.equation", serde_json::json!({}));
     let text = t.text();
     assert!(
-        text.contains("\\begin{equation}\\label{e-}\n\t\n\\end{equation}\n"),
+        // (The formula after the label: an empty line in a formula
+        // would not compile.)
+        text.contains("\\begin{equation}\\label{e-} \n\\end{equation}\n"),
         "{text}"
     );
 }

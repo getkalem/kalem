@@ -1002,7 +1002,7 @@ fn merge(a: &mut Style, b: &Style) {
 }
 
 /// Commands whose arguments are text a reader reads (typography applies).
-fn prose(name: &str) -> bool {
+pub(crate) fn prose(name: &str) -> bool {
     format_style(name).is_some()
         || front_style(name).is_some()
         || accent_mark(name).is_some()
