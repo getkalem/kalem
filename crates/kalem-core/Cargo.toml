@@ -47,6 +47,8 @@ hayro-svg = "0.7"
 
 [dev-dependencies]
 proptest = "1"
+# The reference RFC 4180 reader and writer of the CSV conformance test.
+csv = "1"
 
 [lints]
 workspace = true
