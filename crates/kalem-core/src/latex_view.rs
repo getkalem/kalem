@@ -2083,12 +2083,22 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
                         out.push_str(dingbat(r[1..=close].trim().parse().ok()?)?);
                         i += skipped + close + 2;
                     }
+                    // A link's address, a color's name: the group after it
+                    // skipped, the text in the next one read.
+                    "href" | "textcolor" | "colorbox" => {
+                        let r = inner[i..].trim_start();
+                        let skipped = inner.len() - i - r.len();
+                        let close = matching_brace(r.strip_prefix('{')?)?;
+                        i += skipped + close + 2;
+                    }
                     "textbf" | "textit" | "emph" | "textsc" | "textrm" | "textsf" | "texttt"
                     | "mbox" | "text" | "textnormal" | "textup" | "relax" | "protect"
                     // Old and new font switches, and a formula of text.
                     | "sc" | "bf" | "it" | "rm" | "sf" | "tt" | "em" | "sl" | "scshape"
                     | "bfseries" | "itshape" | "upshape" | "slshape" | "mdseries"
-                    | "normalfont" | "ensuremath" | "mathrm" | "mathsf" | "mathtt" => {}
+                    | "normalfont" | "ensuremath" | "mathrm" | "mathsf" | "mathtt"
+                    | "mathbf" | "boldsymbol" | "bm" | "mathit" | "underline" | "uline"
+                    | "textmd" | "textsl" | "nolinkurl" | "url" => {}
                     _ => {
                         if let Some(w) = word(cname) {
                             out.push_str(w);
@@ -2096,6 +2106,10 @@ fn plain_text(model: &latex_model::Model, inner: &str, depth: usize) -> Option<(
                             && o.args == 0
                         {
                             out.push_str(&o.text);
+                        } else if own_wrapper(model, cname) {
+                            // The document's macro that prints its argument:
+                            // the group after it read as it is.
+                            continue;
                         } else {
                             return None;
                         }
@@ -2499,6 +2513,16 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "arcsec" => "\u{2033}",
         "arcmin" => "\u{2032}",
         "arcdeg" => "\u{b0}",
+        // wasysym's circles, boxes and marks.
+        "LEFTcircle" => "\u{25d0}",
+        "RIGHTcircle" => "\u{25d1}",
+        "CIRCLE" => "\u{25cf}",
+        "Circle" => "\u{25cb}",
+        "LEFTCIRCLE" => "\u{25d6}",
+        "RIGHTCIRCLE" => "\u{25d7}",
+        "Square" => "\u{2610}",
+        "XBox" => "\u{2612}",
+        "CheckedBox" => "\u{2611}",
         // The harvard package's "and" between authors.
         "harvardand" => "&",
         // Between the authors of `\author{A \and B}`, which LaTeX sets
@@ -6939,6 +6963,24 @@ mod tests {
         assert!(renders_command("looseness") && renders_command("harvarditem"));
         assert!(is_list("enumerate*"));
         let _ = m;
+    }
+
+    #[test]
+    fn macros_defined_by_macros() {
+        // A paper's macro that defines macros (`\\defaccr{\\limdd}{…}`): the
+        // macros its calls define, as text where they are used.
+        let text = "\\documentclass{article}\n\\newcommand{\\defaccr}[2]{\\newcommand{#1}{#2\\xspace}}\n\\newcommand{\\impname}[1]{\\textsf{#1}}\n\\defaccr{\\limdd}{\\textsf{LIMDD}}\n\\newcommand{\\oursort}{{\\impname{DTSort}}}\n\\newcommand{\\hl}[2]{\\href{#1}{\\textcolor{blue}{\\underline{#2}}}}\n\\begin{document}\nA \\limdd and \\oursort, \\hl{u}{here}, \\LEFTcircle.\n\\end{document}\n";
+        let d = doc(text);
+        let m = d.latex().unwrap().model();
+        assert!(
+            m.macros.iter().any(|x| x.name == "\\limdd"),
+            "{:?}",
+            m.macros
+        );
+        assert_eq!(
+            shown(&d, 7, None).display(),
+            "A LIMDD and DTSort, here, \u{25d0}."
+        );
     }
 
     #[test]

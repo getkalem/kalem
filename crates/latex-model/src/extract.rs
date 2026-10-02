@@ -100,6 +100,14 @@ pub(crate) enum Event {
         body: String,
         range: Range<usize>,
     },
+    /// A command the parser does not know, written with a control
+    /// sequence in its first group (`\defaccr{\limdd}{LIMDD}`): what a
+    /// macro that defines macros is called with.
+    Call {
+        name: String,
+        args: Vec<String>,
+        range: Range<usize>,
+    },
     NewEnvironment {
         name: String,
         args: usize,
@@ -204,6 +212,7 @@ impl Event {
             | Event::Caption { range: r, .. }
             | Event::Footnote { range: r, .. }
             | Event::Macro { range: r, .. }
+            | Event::Call { range: r, .. }
             | Event::NewEnvironment { range: r, .. }
             | Event::Bibliography { range: r, .. }
             | Event::ContentsLine { range: r, .. }
@@ -1236,6 +1245,40 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                     short: o.first().map(|s| s.to_string()),
                     range,
                 });
+            } else if a.is_empty() {
+                // An unknown command and the groups after it, when the
+                // first holds one control sequence: perhaps a macro that
+                // defines one (resolved once the definitions are known).
+                let mut groups = Vec::new();
+                let mut end = cmd.text_range().end();
+                let mut next = cmd.next_sibling_or_token();
+                while let Some(el) = next {
+                    match &el {
+                        NodeOrToken::Node(g) if g.kind() == GROUP && groups.len() < 9 => {
+                            groups.push(inner(g));
+                            end = g.text_range().end();
+                        }
+                        NodeOrToken::Token(t) if matches!(t.kind(), WHITESPACE | NEWLINE) => {}
+                        _ => break,
+                    }
+                    next = el.next_sibling_or_token();
+                }
+                let first = groups
+                    .first()
+                    .map(|g| g.trim().to_string())
+                    .unwrap_or_default();
+                if first.len() > 1
+                    && first.starts_with('\\')
+                    && first[1..]
+                        .chars()
+                        .all(|c| c.is_ascii_alphabetic() || c == '@')
+                {
+                    push(Event::Call {
+                        name: format!("\\{name}"),
+                        args: groups,
+                        range: rel(rowan::TextRange::new(cmd.text_range().start(), end), base),
+                    });
+                }
             }
         }
     }
