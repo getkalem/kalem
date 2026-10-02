@@ -724,7 +724,11 @@ fn view_model(parse: &latex_syntax::Parse, file: Option<&std::path::Path>) -> la
     match file {
         Some(f) => {
             let disk = latex_model::project::Disk;
-            let project = latex_model::project::ProjectCache::default().load(f, &disk);
+            // The project from its root, as the view reads it: a file a
+            // root document `\input`s has the root's definitions.
+            let text = parse.syntax().text().to_string();
+            let root = crate::latex_view::find_root(f, &text);
+            let project = latex_model::project::ProjectCache::default().load(&root, &disk);
             let mut m = (*project.model).clone();
             // The body is this file's.
             m.body = latex_model::Model::new(parse).body;
@@ -820,6 +824,7 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
                 Some(name) if name.chars().all(|c| c.is_ascii_alphabetic() || c == '@') => {
                     let r = crate::latex_view::renders_command(&name)
                         || crate::latex_view::glossary_drawn(&model, &n)
+                        || crate::latex_view::own_wrapper(&model, &name)
                         || {
                             // A document's own text macro, shown as its text;
                             // a note to self's argument, hidden.
@@ -1016,6 +1021,24 @@ pub fn coverage_in(text: &str, file: Option<&std::path::Path>) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_file_the_root_inputs_has_its_definitions() {
+        // `\model` defined in the root, used in a file it `\input`s: drawn
+        // (the count read the file alone and found it undefined).
+        let dir = std::env::temp_dir().join(format!("kalem-cov-root-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("main.tex"),
+            "\\documentclass{article}\n\\newcommand{\\model}{xTrimo}\n\\newcommand{\\showedits}[1]{{#1}}\n\\begin{document}\n\\input{intro}\n\\end{document}\n",
+        )
+        .unwrap();
+        let intro = "We train \\model{} on \\showedits{data}.\n";
+        std::fs::write(dir.join("intro.tex"), intro).unwrap();
+        let c = super::coverage_report(intro, Some(&dir.join("intro.tex")));
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     use super::*;
 
     #[test]
