@@ -3538,8 +3538,14 @@ fn csv_filter_and_header(cx: &mut TestAppContext) {
     // The column letters above it, as a spreadsheet has them.
     let letters = cx.debug_bounds("csv-letters").expect("the letters bar");
     let header = cx.debug_bounds("csv-header").unwrap();
+    // The bar at the pane's top, the header right under it and at the
+    // pane's left edge with the bar (no margin over or beside the grid).
     assert!(
-        letters.bottom() <= header.top() + gpui::px(16.),
+        (letters.bottom() - header.top()).abs() < gpui::px(1.),
+        "{letters:?} {header:?}"
+    );
+    assert!(
+        (letters.left() - header.left()).abs() < gpui::px(1.),
         "{letters:?} {header:?}"
     );
     // A filter keeps the header, the matching rows and the cursor's.

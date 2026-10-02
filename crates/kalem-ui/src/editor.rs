@@ -3815,6 +3815,7 @@ impl gpui::Render for Editor {
             && !self.source
             && kalem_core::csv::layout(&self.doc).dialect.header;
         let background = theme.background;
+        let foreground = theme.foreground;
         let border = theme.border;
         // A spreadsheet-looking CSV grid: the column letters in a bar above
         // the rows, the cursor's column marked.
@@ -3859,15 +3860,18 @@ impl gpui::Render for Editor {
             let pinned = header
                 && visible.first() == Some(&0)
                 && (top.item_ix > 0 || top.offset_in_item > px(0.));
-            let top = if sheet.is_some() {
-                px(16.) + bar_height
+            // A spreadsheet starts at the pane's top left: its letters bar
+            // at the top, its row numbers at the left edge.
+            let (top, left) = if sheet.is_some() {
+                (bar_height, px(0.))
             } else {
-                px(16.)
+                (px(16.), px(48.))
             };
             let mut text = div()
                 .h_full()
                 .w_full()
-                .px(px(48.))
+                .pl(left)
+                .pr(px(48.))
                 .pt(top)
                 .pb(px(16.))
                 .relative();
@@ -3877,6 +3881,7 @@ impl gpui::Render for Editor {
                     shade(kalem_core::csv::SHEET_ACTIVE),
                     border,
                 );
+                let fg = foreground;
                 let edge = if dark {
                     crate::theme::color(kalem_core::theme::Color(0x21a366ff))
                 } else {
@@ -3905,10 +3910,12 @@ impl gpui::Render for Editor {
                             .border_color(line)
                             .child(SharedString::from(kalem_core::csv_tools::column_letters(j)));
                         if on {
+                            // Marked by its color and a green line under
+                            // it; the letter stays as readable as the rest.
                             d = d
                                 .bg(green)
                                 .font_weight(gpui::FontWeight::BOLD)
-                                .text_color(edge)
+                                .text_color(fg)
                                 .border_b_2()
                                 .border_color(edge);
                         }
@@ -3918,7 +3925,7 @@ impl gpui::Render for Editor {
                     div()
                         .debug_selector(|| "csv-letters".into())
                         .absolute()
-                        .top(px(16.))
+                        .top(px(0.))
                         .left(px(0.))
                         .right(px(0.))
                         .h(bar_height)
@@ -3926,13 +3933,18 @@ impl gpui::Render for Editor {
                         .border_b_1()
                         .border_color(line)
                         .overflow_hidden()
-                        .flex()
-                        .flex_row()
-                        .pl(px(48.) - hscroll)
                         .font_family(mono.clone())
                         .text_size(size)
-                        .child(div().flex_none().w(corner).h_full())
-                        .children(columns),
+                        .child(
+                            div()
+                                .relative()
+                                .left(-hscroll)
+                                .h_full()
+                                .flex()
+                                .flex_row()
+                                .child(div().flex_none().w(corner).h_full())
+                                .children(columns),
+                        ),
                 );
             }
             if let Some(w) = column {
@@ -3989,10 +4001,10 @@ impl gpui::Render for Editor {
                     div()
                         .debug_selector(|| "csv-header".into())
                         .absolute()
-                        .top(top - px(16.))
-                        .left(px(48.))
+                        .top(if sheet.is_some() { top } else { top - px(16.) })
+                        .left(left)
                         .right(px(48.))
-                        .pt(px(16.))
+                        .pt(if sheet.is_some() { px(0.) } else { px(16.) })
                         .bg(background)
                         .border_b_1()
                         .border_color(border)

@@ -1294,7 +1294,7 @@ pub fn line_view(
         let here = active.is_some();
         runs.push(Run {
             src: line.start..line.start,
-            text: format!(" {:>w$} ", row + 1, w = layout.gutter),
+            text: format!(" {:<w$} ", row + 1, w = layout.gutter),
             verbatim: false,
             style: Style {
                 bold: here,
