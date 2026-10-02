@@ -69,6 +69,10 @@ def main():
         sys.exit("the template does not compile")
     subprocess.run([EXE, TEMPLATE, work, str(variants), str(seed), str(count)], check=True,
                    stdout=subprocess.DEVNULL)
+    done = sum(1 for v in range(variants)
+               if os.path.exists(os.path.join(work, f"edit-{seed}-{v}.tex")))
+    if done != variants:
+        sys.exit(f"only {done} of {variants} variants written")
     bad = 0
     for v in range(variants):
         tex = os.path.join(work, f"edit-{seed}-{v}.tex")
