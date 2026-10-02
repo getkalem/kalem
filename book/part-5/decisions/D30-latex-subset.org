@@ -11,7 +11,7 @@ The body of every =.tex= file (=\begin{document}= to =\end{document}=, or the wh
 
 The first run counted otherwise: the body of every unknown environment whole, the arguments of drawn commands, macro files, and a list of rendered commands that had fallen behind the view. It put 19.2% of the body as source, with =\frac= and =\textwidth= near the top. The metric was corrected to what the view shows before any number was used.
 
-Since run 9 a formula counts as source when the math renderer cannot read it, prepared as the editor prepares it (the document's definitions, the packages' commands the renderer lacks, references as their numbers): the view shows such a formula as its source in a red frame. The files no document of the paper reads (old versions, unused sections) are left out.
+Since run 9 a formula counts as source when the math renderer cannot read it, prepared as the editor prepares it (the document's definitions, the packages' commands the renderer lacks, references as their numbers): the view shows such a formula as its source in a red frame. Since run 25, when TeX is installed, the view has it typeset such a formula on its own (a =standalone= document with the paper's preamble) and draws the result in the text's color, as it draws TikZ pictures. The report counts these formulas apart ("by TeX") with the renderer messages behind them: they are what a reader without TeX still sees as source, and what the renderer's preparation should learn next. The files no document of the paper reads (old versions, unused sections) are left out.
 
 * Results
 Run 17 of the workflow (2026-10-02, commit =b06b512=), formulas counted: 925 papers, 2,496 files, 86 MB of body text.
@@ -37,7 +37,7 @@ Rendered, each checked against pdflatex by the differential tests of T2.7h.33 (=
 - Blocks: lists, floats and their captions, theorems as =\newtheorem= declares them (in the document or a package beside it), tables, displayed formulas.
 - Markup that prints nothing where it is (=\newcommand=, =\def=, =\setlength=, =\captionsetup=, …): dimmed.
 
-Left as source, for now: TikZ and other pictures (folded), unknown commands of a document's own whose definitions are not read, and environments the view does not know (their delimiters).
+Drawn by the TeX installed, when there is one: TikZ and pgfplots pictures, and formulas the math renderer cannot read; without TeX they stay as source (pictures folded). Left as source, for now: unknown commands of a document's own whose definitions are not read, and environments the view does not know (their delimiters).
 
 * Why 99.9%
 The first target, 97%, was set when every field was above 99% by the view's commands alone. Counting formulas showed what a reader meets: a formula in a red frame is as unread as a command shown as source, and mathematics, where a third of the body is formulas, was the field furthest from the PDF. The target is a thousandth of the body in every field, so that a paper opened in Kalem reads as its PDF does; a fall below it is a regression in the view, the renderer's preparation or the metric, found by the monthly run.
