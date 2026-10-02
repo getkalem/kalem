@@ -823,6 +823,11 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
             K::ENVIRONMENT => match latex_syntax::name(&n) {
                 Some(name) => {
                     let r = crate::latex_view::renders_environment(&name, &model);
+                    // A rendered environment's `\\begin` line is markup, its
+                    // arguments with it (`{0.48\\textwidth}`).
+                    if r && let Some(b) = n.children().find(|c| c.kind() == K::BEGIN) {
+                        drawn_to = drawn_to.max(usize::from(b.text_range().end()));
+                    }
                     (format!("\\begin{{{name}}}"), r)
                 }
                 None => continue,

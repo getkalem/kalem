@@ -439,3 +439,17 @@ fn label_clash() {
     assert_eq!(number("k4").as_deref(), Some("3"));
     assert_eq!(number("k7"), None);
 }
+
+/// Springer's classes declare their theorems: each numbered on its own
+/// counter, or the theorem's with `envcountsame`.
+#[test]
+fn springer_theorems() {
+    let t = "\\documentclass{llncs}\\begin{document}\n\\begin{theorem}\\label{t}A\\end{theorem}\n\\begin{lemma}\\label{l}B\\end{lemma}\n\\begin{claim}\\label{c}C\\end{claim}\n\\end{document}\n";
+    let m = Model::new(&parse(t));
+    let n = |k: &str| m.label(k).and_then(|l| l.number.clone());
+    assert_eq!(n("t").as_deref(), Some("1"));
+    assert_eq!(n("l").as_deref(), Some("1"));
+    assert_eq!(n("c").as_deref(), Some(""));
+    let m = Model::new(&parse(&t.replace("{llncs}", "[envcountsame]{llncs}")));
+    assert_eq!(m.label("l").and_then(|l| l.number.clone()).as_deref(), Some("2"));
+}
