@@ -5489,7 +5489,8 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
         let use_it = format!("{name}{}", "{x}".repeat((*args).max(3)));
         if let Err(e) = org_math::check(&org_math::source::prepare(&use_it, &trial))
             && (e.message.contains("Undefined control sequence")
-                || e.message.contains("Too many expansions"))
+                || e.message.contains("Too many expansions")
+                || e.message.contains("Recursion limit"))
         {
             continue;
         }
@@ -5633,6 +5634,7 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\MakeUppercase}[1]{#1}",
     "\\newcommand{\\MakeLowercase}[1]{#1}",
     "\\newcommand{\\scr}[1]{\\mathscr{#1}}",
+    "\\newcommand{\\none}{}",
     "\\newcommand{\\IEEEyesnumber}{}",
     "\\newcommand{\\IEEEnonumber}{}",
     "\\newcommand{\\IEEEyessubnumber}{}",
@@ -5744,8 +5746,10 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
         }
     }
     if let Some(name) = &name {
-        // Starred, so that only the tags number it.
-        if !name.ends_with('*') {
+        // Starred, so that only the tags number it (not a diagram, which
+        // has no starred form).
+        let numbers = !name.ends_with('*') && name != "tikzcd";
+        if numbers {
             for pat in [format!("\\begin{{{name}}}"), format!("\\end{{{name}}}")] {
                 for (i, _) in text[r.clone()].match_indices(&pat) {
                     let at = r.start + i + pat.len() - 1;
@@ -5766,7 +5770,74 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
         at = e.end;
     }
     out.push_str(&text[at..r.end]);
-    Some(own_environments(&out, &model.environments))
+    Some(optional_argument_macros(
+        &own_environments(&out, &model.environments),
+        &model,
+    ))
+}
+
+/// The document's macros with an optional argument used in a formula
+/// (`\\expec[x]{B}`, `\\expec{B}`) as their definitions, arguments put in:
+/// the renderer's macros have no optional arguments.
+fn optional_argument_macros(src: &str, model: &latex_model::Model) -> String {
+    let mut s = src.to_string();
+    for m in model
+        .macros
+        .iter()
+        .rev()
+        .filter(|m| m.default.is_some() && m.args > 0)
+    {
+        let name = m.name.as_str();
+        let mut out = String::new();
+        let mut rest = s.as_str();
+        let mut changed = false;
+        while let Some(i) = rest.find(name) {
+            let after = &rest[i + name.len()..];
+            if after.starts_with(|c: char| c.is_ascii_alphabetic()) {
+                out.push_str(&rest[..i + name.len()]);
+                rest = after;
+                continue;
+            }
+            out.push_str(&rest[..i]);
+            let mut args: Vec<String> = Vec::new();
+            let mut tail = after;
+            let t = tail.trim_start();
+            if t.starts_with('[')
+                && let Some(k) = t.find(']')
+            {
+                args.push(t[1..k].to_string());
+                tail = &t[k + 1..];
+            } else {
+                args.push(m.default.clone().unwrap_or_default());
+            }
+            while args.len() < m.args {
+                let t = tail.trim_start();
+                if let Some(r) = t.strip_prefix('{')
+                    && let Some(k) = matching_brace(r)
+                {
+                    args.push(r[..k].to_string());
+                    tail = &r[k + 1..];
+                } else if let Some(c) = t.chars().next() {
+                    args.push(c.to_string());
+                    tail = &t[c.len_utf8()..];
+                } else {
+                    break;
+                }
+            }
+            let mut body = m.body.clone();
+            for (k, a) in args.iter().enumerate() {
+                body = body.replace(&format!("#{}", k + 1), a);
+            }
+            out.push_str(&format!("{{{body}}}"));
+            rest = tail;
+            changed = true;
+        }
+        out.push_str(rest);
+        if changed {
+            s = out;
+        }
+    }
+    s
 }
 
 /// The document's own environments inside a formula
@@ -6509,6 +6580,10 @@ mod tests {
         // A package's internals read wrongly (`\\def\\def{@}`) do not end
         // the definitions after them.
         let text = "\\documentclass{article}\n\\def\\def{@}\n\\def\\fancy@head{x}\n\\newcommand{\\E}{\\mathbb{E}}\n\\begin{document}\n$\\E[x]$\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // A macro with an optional argument, `\\ensuremath` in text, a
+        // diagram on its own.
+        let text = "\\documentclass{article}\n\\newcommand{\\expec}[2][]{\\mathbb{E}_{#1}\\left[#2\\right]}\n\\begin{document}\n$\\frac{\\expec{A}}{\\expec[x]{B}}$\n\\[ v=\\text{ \\ensuremath{\\left(s-\\frac{1}{2}\\right)}} \\]\n\\begin{tikzcd} A \\arrow[r] & B \\end{tikzcd}\n\\end{document}\n";
         assert_eq!(formula_failures(&doc(text)), Vec::new());
         // One the document defines as an equation: a numbered formula.
         let text = "\\documentclass{article}\n\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n\\begin{document}\n\\begin{eqn}\na = \\frac{1}{2}\n\\end{eqn}\n\\end{document}\n";
