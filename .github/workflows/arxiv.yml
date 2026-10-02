@@ -12,6 +12,10 @@ on:
         description: "Macro names (without backslash) to trace: why formulas find them undefined"
         required: false
         default: ""
+      show_errors:
+        description: "Formula errors (|-separated parts) to print the prepared source of"
+        required: false
+        default: ""
       per_field:
         description: Papers per field
         default: "200"
@@ -47,6 +51,7 @@ jobs:
       - name: Measure
         env:
           KALEM_COVERAGE_TRACE: ${{ github.event.inputs.debug_macros }}
+          KALEM_COVERAGE_SHOW: ${{ github.event.inputs.show_errors }}
         run: |
           ./target/release/kalem latex-coverage .cache/arxiv > coverage.md
           cat coverage.md
