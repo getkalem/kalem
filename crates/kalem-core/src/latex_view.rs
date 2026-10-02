@@ -1106,7 +1106,7 @@ fn algorithm_words(name: &str) -> Option<(&'static str, &'static str, &'static s
 
 /// Commands that print nothing where they are (a definition, a setting):
 /// their arguments, as [`args_end`] reads them.
-fn silent(name: &str) -> Option<&'static str> {
+pub(crate) fn silent(name: &str) -> Option<&'static str> {
     Some(match name {
         "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "smoom",
         "DeclareMathOperator" => "smm",
@@ -1144,13 +1144,48 @@ fn silent(name: &str) -> Option<&'static str> {
         "cmidrule" => "pm",
         "def" | "gdef" | "edef" | "xdef" => "d",
         "let" | "global" => "l",
+        // Layout, spacing and page settings: nothing printed where they are.
+        "onecolumn"
+        | "FloatBarrier"
+        | "raggedright"
+        | "raggedleft"
+        | "onehalfspacing"
+        | "doublespacing"
+        | "singlespacing"
+        | "IEEEpeerreviewmaketitle"
+        | "endfirsthead"
+        | "endhead"
+        | "endfoot"
+        | "endlastfoot"
+        | "selectfont"
+        | "begingroup"
+        | "endgroup"
+        | "protect"
+        | "expandafter"
+        | "relax"
+        | "balance"
+        | "IEEEoverridecommandlockouts"
+        | "nolinenumbers"
+        | "linenumbers" => "",
+        "twocolumn" => "o",
+        "setstretch" | "authorrunning" | "titlerunning" | "pagerange" | "preprint"
+        | "IEEEmembership" | "JournalTitle" | "corref" | "fnref" | "tnoteref" | "pubyear"
+        | "volume" | "issue" | "jyear" | "jvol" | "jnum" | "received" | "revised" | "accepted"
+        | "published" | "articletype" | "copyrightyear" | "acmDOI" | "acmISBN"
+        | "acmConference" | "acmBooktitle" | "acmYear" | "setcopyright" | "ccsdesc"
+        | "shorttitle" | "shortauthors" | "runningauthor" | "runningtitle" => "m",
+        "markboth" | "markright" | "fontsize" => "mm",
+        "cortext" | "fntext" | "tnotetext" => "om",
+        "rowcolor" | "cellcolor" | "columncolor" => "om",
+        "addcontentsline" => "mmm",
+        "newcolumntype" => "mom",
         _ => return None,
     })
 }
 
 /// Commands that box their text: the arguments before the text (sizes,
 /// angles, positions), as [`args_end`] reads them.
-fn box_args(name: &str) -> Option<&'static str> {
+pub(crate) fn box_args(name: &str) -> Option<&'static str> {
     Some(match name {
         "resizebox" => "smm",
         "scalebox" => "mo",
@@ -1165,6 +1200,14 @@ fn box_args(name: &str) -> Option<&'static str> {
         "bibinfo" | "bibfield" => "m",
         "multirow" => "omom",
         "makecell" | "thead" => "o",
+        // A caption outside a float, a link to a label, a colored box:
+        // their text.
+        "captionof" => "sm",
+        "hyperref" => "o",
+        "colorbox" => "om",
+        "fcolorbox" => "omm",
+        // REVTeX's bibliography: a link with nothing to link, its text.
+        "href@noop" => "m",
         _ => return None,
     })
 }
@@ -1174,7 +1217,7 @@ fn box_args(name: &str) -> Option<&'static str> {
 /// `(…)`, `m` a group or one token, `d` what `\def` takes (a name, its
 /// parameters and the body), `l` what `\let` takes (two names, `=` between
 /// them or not).
-fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Option<usize> {
+pub(crate) fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Option<usize> {
     let b = text.as_bytes();
     let mut p = at;
     let blanks = |p: &mut usize| {
@@ -1191,9 +1234,11 @@ fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Option<usize> {
             b'{' => *p = group_end(text, *p, limit)?,
             b'\\' => {
                 *p += 1;
+                // `@` a letter: the names defined and let are a package's
+                // (`\let\auto@bib@innerbib\@empty`).
                 let n = text[*p..limit]
                     .bytes()
-                    .take_while(u8::is_ascii_alphabetic)
+                    .take_while(|c| c.is_ascii_alphabetic() || *c == b'@')
                     .count()
                     .max(1);
                 *p = (*p + n).min(limit);
@@ -1525,7 +1570,25 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
 fn transparent(name: &str) -> bool {
     matches!(
         name,
-        "mbox"
+        "captionof"
+            | "hyperref"
+            | "colorbox"
+            | "fcolorbox"
+            | "href@noop"
+            // Springer Nature's and others' parts of an author's name and
+            // affiliation, and a class's `\abstract{…}`.
+            | "fnm"
+            | "sur"
+            | "orgname"
+            | "orgdiv"
+            | "orgaddress"
+            | "street"
+            | "city"
+            | "postcode"
+            | "state"
+            | "country"
+            | "abstract"
+            | "mbox"
             | "hbox"
             | "makebox"
             | "fbox"
@@ -1995,7 +2058,8 @@ fn paragraph_line(
                     | "center"
                     | "flushleft"
                     | "flushright"
-            ) || model.theorem_kinds.iter().any(|k| k.env == name);
+            ) || front_environment(&name).is_some()
+                || model.theorem_kinds.iter().any(|k| k.env == name);
             if !ok {
                 return None;
             }
@@ -4389,7 +4453,40 @@ fn front_environment(name: &str) -> Option<&'static str> {
     Some(match name {
         "IEEEkeywords" => "Index Terms\u{2014}",
         "keyword" | "keywords" => "Keywords: ",
-        "frontmatter" => "",
+        "acknowledgments" | "acknowledgements" | "acknowledgment" | "acknowledgement" => {
+            "Acknowledgments. "
+        }
+        // Containers: sizes, spacing, page turns, REVTeX's wide text,
+        // table notes, boxes and appendices around text the view shows.
+        "frontmatter"
+        | "small"
+        | "footnotesize"
+        | "scriptsize"
+        | "tiny"
+        | "large"
+        | "Large"
+        | "normalsize"
+        | "centering"
+        | "landscape"
+        | "spacing"
+        | "singlespace"
+        | "onehalfspace"
+        | "doublespace"
+        | "widetext"
+        | "threeparttable"
+        | "tablenotes"
+        | "adjustbox"
+        | "appendices"
+        | "appendix"
+        | "sloppypar"
+        | "IEEEbiography"
+        | "IEEEbiographynophoto"
+        | "biography"
+        | "restatable"
+        | "mdframed"
+        | "tcolorbox"
+        | "framed"
+        | "fullwidth" => "",
         _ => return None,
     })
 }

@@ -871,6 +871,24 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
         {
             drawn_to = end;
         }
+        // A box's size and placement (`\resizebox{\textwidth}{!}{…}`): hidden,
+        // its contents shown; a setting's arguments, read past the node
+        // when the parser does not know them (`\let\a\b`), hidden.
+        if rendered
+            && n.kind() == K::COMMAND
+            && let Some(spec) = latex_syntax::name(&n).and_then(|x| {
+                crate::latex_view::box_args(&x).or_else(|| crate::latex_view::silent(&x))
+            })
+            && let Some(word) = n.first_token()
+            && let Some(e) = crate::latex_view::args_end(
+                text,
+                usize::from(word.text_range().end()),
+                body.end,
+                spec,
+            )
+        {
+            drawn_to = drawn_to.max(e);
+        }
     }
     c
 }

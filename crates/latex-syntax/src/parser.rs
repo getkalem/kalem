@@ -408,6 +408,8 @@ impl<'a> Parser<'a> {
                             self.blanks(p);
                             self.group(limit, mode);
                         }
+                        // `\url` with its braced address is a command; alone
+                        // (`\providecommand \url [0]{…}`) a name.
                         Tok::ControlWord
                             if !matches!(
                                 &self.src[p + 1..e],
@@ -415,11 +417,10 @@ impl<'a> Parser<'a> {
                                     | "end"
                                     | "verb"
                                     | "lstinline"
-                                    | "url"
-                                    | "href"
                                     | "makeatletter"
                                     | "makeatother"
-                            ) =>
+                            ) && !(matches!(&self.src[p + 1..e], "url" | "href")
+                                && lexer::raw_braces(self.b, e, limit).is_some()) =>
                         {
                             self.blanks(p);
                             self.token(CONTROL_WORD, e);
