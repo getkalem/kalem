@@ -238,6 +238,19 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
             ) {
                 // The definitions of the files the document reads.
                 doc.wait_for_latex_project();
+                // A traced macro shown as source in the text: its
+                // definition as the model read it.
+                for name in &trace {
+                    if c.source_by_name.contains_key(name)
+                        && traced.insert((f.clone(), format!("text {name}")))
+                    {
+                        eprintln!(
+                            "trace {} {name} [text]: {}",
+                            f.display(),
+                            kalem_core::latex_view::explain_macro(&doc, name)
+                        );
+                    }
+                }
                 for (r, kind) in kalem_core::latex_view::formula_failures(&doc) {
                     // Typeset by TeX in the view (when it is installed):
                     // counted apart, not as source.
