@@ -40,6 +40,8 @@ KEEP = (".tex", ".sty", ".cls", ".bib", ".bbl")
 AGENT = "kalem-coverage/1.0 (https://github.com/getkalem/kalem)"
 DELAY = 3.1
 last = 0.0
+# Where listings are remembered (set from the output folder).
+LISTINGS = None
 
 
 def get(url):
@@ -71,7 +73,12 @@ def get(url):
 
 
 def listing(cat, year, n):
-    """IDs of papers of `cat` submitted in `year`, the first `n` by date."""
+    """IDs of papers of `cat` submitted in `year`, the first `n` by date;
+    remembered in `LISTINGS` (beside the sample, which CI caches), so that
+    a later run asks arXiv's API, which throttles hard, only once."""
+    cached = os.path.join(LISTINGS, f"{cat}-{year}-{n}.txt") if LISTINGS else None
+    if cached and os.path.exists(cached):
+        return open(cached).read().split()
     q = f"cat:{cat} AND submittedDate:[{year}01010000 TO {year}12312359]"
     url = "https://export.arxiv.org/api/query?" + urllib.parse.urlencode(
         {"search_query": q, "start": 0, "max_results": n,
@@ -82,6 +89,9 @@ def listing(cat, year, n):
     for e in feed.findall("a:entry", ns):
         i = e.find("a:id", ns).text.rsplit("/abs/", 1)[-1]
         ids.append(i.rsplit("v", 1)[0] if "v" in i.split(".")[-1] else i)
+    if cached and ids:
+        with open(cached, "w") as f:
+            f.write("\n".join(ids) + "\n")
     return ids
 
 
@@ -129,6 +139,9 @@ def main():
     # Papers without a LaTeX source, remembered beside the sample so that a
     # later run does not ask arXiv for them again.
     os.makedirs(a.out, exist_ok=True)
+    global LISTINGS
+    LISTINGS = os.path.join(a.out, "listings")
+    os.makedirs(LISTINGS, exist_ok=True)
     skip_file = os.path.join(a.out, "no-latex.txt")
     try:
         no_latex = set(open(skip_file).read().split())
