@@ -384,16 +384,32 @@ fn quoted_fields(sample: &str, crlf: bool, delimiter: u8, quote: u8) -> usize {
     n
 }
 
-type DelimiterKey = (usize, usize, std::cmp::Reverse<usize>, usize);
+type DelimiterKey = (
+    std::cmp::Reverse<usize>,
+    usize,
+    usize,
+    std::cmp::Reverse<usize>,
+    usize,
+);
 
 /// The delimiter for `sample` with `quote` as its quote, and how well it
 /// splits it.
 fn best_delimiter(sample: &str, crlf: bool, quote: u8) -> (DelimiterKey, u8) {
-    // The delimiter that splits the most records into the same number of
+    // The delimiter that reads the fewest fields as malformed, then that
+    // splits the most records into the same number of
     // fields (more than one), a first line of one field (a title) left
     // aside; on a tie, the one whose fields read as numbers more often
     // (`1,5;2,5` splits at `;`), then `,` `;` tab `|` in that order.
-    let mut best = ((0usize, 0usize, std::cmp::Reverse(0usize), 0usize), b',');
+    let mut best = (
+        (
+            std::cmp::Reverse(usize::MAX),
+            0usize,
+            0usize,
+            std::cmp::Reverse(0usize),
+            0usize,
+        ),
+        b',',
+    );
     for delim in *b",;\t|" {
         let d = Dialect {
             delimiter: delim,
@@ -402,12 +418,16 @@ fn best_delimiter(sample: &str, crlf: bool, quote: u8) -> (DelimiterKey, u8) {
             ..Dialect::default()
         };
         let mut counts = Vec::new();
+        // Malformed fields read so: a wrong delimiter puts quotes inside
+        // fields (`a\t"b,c"` read at tabs is fine, at commas is not).
+        let mut malformed = 0;
         let mut at = 0;
         while at < sample.len() && counts.len() < 50 {
             let r = scan(sample, at, &d);
             if r.next == at {
                 break;
             }
+            malformed += record_problems(sample, &r, &d).len();
             if !(r.range.is_empty() && r.next >= sample.len()) {
                 counts.push(r.fields.len());
             }
@@ -450,7 +470,13 @@ fn best_delimiter(sample: &str, crlf: bool, quote: u8) -> (DelimiterKey, u8) {
             }
             at = r.next;
         }
-        let key = (same, numbers, std::cmp::Reverse(mixed), modal);
+        let key = (
+            std::cmp::Reverse(malformed),
+            same,
+            numbers,
+            std::cmp::Reverse(mixed),
+            modal,
+        );
         if key > best.0 {
             best = (key, delim);
         }
