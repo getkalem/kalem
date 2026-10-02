@@ -17,6 +17,7 @@ org-edit.workspace = true
 org-table.workspace = true
 org-export.workspace = true
 kalem-core.workspace = true
+kalem-plugin-image-viewer.workspace = true
 latex-syntax.workspace = true
 latex-model.workspace = true
 jiff = "0.2"

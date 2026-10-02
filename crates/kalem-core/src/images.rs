@@ -104,6 +104,14 @@ fn link_in(document: &Path, file: &Path, style: LinkStyle) -> String {
 
 /// [`import`] for a document linking in `style`.
 pub fn import_as(document: &Path, file: &Path, style: LinkStyle) -> Result<String, String> {
+    // Both as the file system names them (`/var` is `/private/var` on
+    // macOS), so a file beside the document is seen to be.
+    let canonical = |p: &Path| dunce::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let document = &match (document.parent(), document.file_name()) {
+        (Some(d), Some(n)) if !d.as_os_str().is_empty() => canonical(d).join(n),
+        _ => document.to_path_buf(),
+    };
+    let file = &canonical(file);
     let dir = document.parent().unwrap_or(Path::new(""));
     if file.starts_with(dir) && !dir.as_os_str().is_empty() {
         return Ok(link_in(document, file, style));

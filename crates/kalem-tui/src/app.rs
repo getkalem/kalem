@@ -225,6 +225,11 @@ pub struct App {
     tree_spots: Vec<(Rect, usize)>,
     /// The last document shown that is not a file manager, to go back to.
     last_text: Option<DocumentId>,
+    /// The text document (not a listing, not a viewer's file) shown last,
+    /// where a viewer's Insert Link at Point inserts.
+    last_document: Option<DocumentId>,
+    /// The image a viewer's document shows.
+    viewer_image: crate::viewer::ViewerImage,
     /// The document shown before the active one (`SPC b l`).
     previous: Option<DocumentId>,
     /// The next keys are described, not run (`SPC h k`).
@@ -510,6 +515,8 @@ impl App {
             tree_rows: Vec::new(),
             tree_spots: Vec::new(),
             last_text: None,
+            last_document: None,
+            viewer_image: Default::default(),
             previous: None,
             describing: false,
             task: None,
@@ -692,6 +699,9 @@ impl App {
         let Some(b) = self.docs[i].take() else { return };
         if self.doc.dired.is_none() {
             self.last_text = Some(self.doc_id);
+        }
+        if self.doc.dired.is_none() && self.doc.viewer.is_none() {
+            self.last_document = Some(self.doc_id);
         }
         self.previous = Some(self.doc_id);
         let old = Buffer {
@@ -1758,6 +1768,15 @@ impl App {
                 self.clipboard.record(t.clone());
                 self.write_terminal(&osc52(&t));
             }
+            // The terminal's clipboard takes text: the picture's path.
+            Request::CopyImage { path, .. } => {
+                if let Some(p) = path {
+                    let t = p.display().to_string();
+                    self.clipboard.record(t.clone());
+                    self.write_terminal(&osc52(&t));
+                }
+            }
+            Request::InsertLink(path) => self.insert_link(&path),
             Request::Complete => self.request_completion(),
             // The terminal's clipboard takes plain text only.
             Request::CopyRich { text, .. } => {
@@ -3336,6 +3355,10 @@ impl App {
     /// Whether the keymap takes `k` before Vim: in a file manager listing
     /// outside Vim's insert mode and command line, the keys it binds.
     fn listing_key(&self, k: &KeyEvent) -> bool {
+        // A viewer's document has no text for Vim to edit.
+        if self.doc.viewer.is_some() {
+            return true;
+        }
         let Some(v) = &self.vim else { return false };
         if v.takes_text() || v.command_line.is_some() || !v.idle_command() {
             return false;
@@ -3930,6 +3953,54 @@ impl App {
     /// Draws the frame.
     /// Draws the panes in `area`, a rule between them; the cursor of the
     /// focused one.
+    /// Draws the active document into `area`: its text, or what a viewer
+    /// shows.
+    fn draw_document(
+        &mut self,
+        buf: &mut ratatui::buffer::Buffer,
+        area: Rect,
+    ) -> Option<(u16, u16)> {
+        if self.doc.viewer.is_none() {
+            return self.editor.draw(&self.doc, &self.caps, buf, area);
+        }
+        let picker = self.editor.images.borrow().picker.clone();
+        crate::viewer::draw(
+            &mut self.doc,
+            &mut self.viewer_image,
+            picker.as_ref(),
+            &self.caps,
+            buf,
+            area,
+        );
+        None
+    }
+
+    /// Inserts a link to `file` in the text document shown last, which is
+    /// shown.
+    fn insert_link(&mut self, file: &std::path::Path) {
+        let text = |d: &DocumentState| d.dired.is_none() && d.viewer.is_none();
+        let target = self
+            .last_document
+            .and_then(|id| self.doc_index(id))
+            .filter(|&i| i != self.active && self.docs[i].as_ref().is_some_and(|b| text(&b.doc)))
+            .or_else(|| {
+                (0..self.docs.len()).rev().find(|&i| {
+                    i != self.active && self.docs[i].as_ref().is_some_and(|b| text(&b.doc))
+                })
+            });
+        let Some(i) = target else {
+            self.message(kalem_core::l10n::tr("msg-viewer-no-document"), true);
+            return;
+        };
+        self.activate(i);
+        if let Err(e) = self
+            .doc
+            .drop_pictures(std::slice::from_ref(&file.to_path_buf()), Instant::now())
+        {
+            self.message(e, true);
+        }
+    }
+
     fn draw_panes(&mut self, buf: &mut ratatui::buffer::Buffer, area: Rect) -> Option<(u16, u16)> {
         use kalem_core::layout::Rect as R;
         let rects = self.layout.rects(R {
@@ -3971,7 +4042,7 @@ impl App {
             }
             self.pane_areas.push((p, a));
             if p == focus {
-                cursor = self.editor.draw(&self.doc, &self.caps, buf, a);
+                cursor = self.draw_document(buf, a);
                 continue;
             }
             // A pane an undo brought back shows the active document.
@@ -4122,8 +4193,7 @@ impl App {
             self.draw_panes(f.buffer_mut(), text_area)
         } else {
             self.pane_areas.clear();
-            self.editor
-                .draw(&self.doc, &self.caps, f.buffer_mut(), text_area)
+            self.draw_document(f.buffer_mut(), text_area)
         };
         if let Some(c) = cursor {
             self.draw_popup(f.buffer_mut(), text_area, c);
@@ -4309,6 +4379,12 @@ impl App {
                 Some(d) => d.list_title(),
                 None => tr!("mode-directory"),
             },
+            // A viewer's file: the plugin's name (Image).
+            DocumentMode::Viewer => self
+                .doc
+                .viewer
+                .as_deref()
+                .map_or_else(|| tr!("mode-viewer"), |v| v.viewer.name().to_string()),
             _ => tr!("mode-text"),
         };
         let view = if self.editor.source { " source" } else { "" };

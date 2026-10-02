@@ -9,6 +9,7 @@ pub mod input;
 pub mod panels;
 pub mod render;
 pub mod terminal;
+pub mod viewer;
 
 use std::io;
 use std::path::Path;
