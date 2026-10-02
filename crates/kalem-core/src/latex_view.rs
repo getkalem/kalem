@@ -4808,6 +4808,55 @@ pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
     out
 }
 
+/// Why a formula of `doc` finds `name` undefined, for the coverage
+/// report's trace: the definition the model read, and what the renderer
+/// said to it.
+pub fn explain_macro(doc: &crate::DocumentState, name: &str) -> String {
+    let Some(state) = doc.latex() else {
+        return "not LaTeX".into();
+    };
+    let model = state.model();
+    let defs = model.macro_definitions();
+    let Some(i) = model.macros.iter().position(|m| m.name == name) else {
+        return format!(
+            "not in the model ({} macros, {} files)",
+            model.macros.len(),
+            model.files.len()
+        );
+    };
+    let m = &model.macros[i];
+    let mut before: Vec<String> = PACKAGE_MACROS
+        .iter()
+        .filter(|(p, _)| model.packages.iter().any(|x| x.name == *p))
+        .flat_map(|(_, d)| d.iter().map(|d| d.to_string()))
+        .collect();
+    before.extend(COMMON_MACROS.iter().map(|d| d.to_string()));
+    let own: Vec<(String, usize, String)> = model
+        .macros
+        .iter()
+        .zip(defs.iter().cloned())
+        .map(|(m, d)| (m.name.clone(), m.args, d))
+        .take(i)
+        .collect();
+    let kept = org_math::source::macros(&{
+        let mut b = before.clone();
+        b.extend(accepted_definitions(&before, &own));
+        b
+    });
+    let with = org_math::source::macros(std::slice::from_ref(&defs[i]));
+    let trial = format!("{kept}{with}");
+    let x = org_math::check(&org_math::source::prepare("x", &trial)).err();
+    let use_it = format!("{name}{}", "{x}".repeat(m.args.max(3)));
+    let u = org_math::check(&org_math::source::prepare(&use_it, &trial)).err();
+    format!(
+        "{} (file {}): x -> {:?}; use -> {:?}",
+        defs[i],
+        m.file,
+        x.map(|e| e.message),
+        u.map(|e| e.message)
+    )
+}
+
 /// The document's own definitions `own` (name, arguments, definition)
 /// the renderer takes after `before` and with a use of each: one it
 /// cannot read would stop every formula after it. Remembered, since the
