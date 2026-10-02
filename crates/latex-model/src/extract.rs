@@ -868,6 +868,16 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                 .skip(1)
                 .filter(|c| !matches!(c.kind(), WHITESPACE | NEWLINE | COMMENT));
             let n = toks.next().map(|t| t.to_string()).unwrap_or_default();
+            // `\def\fancy@head` read with `@` not a letter: a package's
+            // internal name, cut short; not a definition of `\fancy`.
+            let cut = cmd
+                .children_with_tokens()
+                .skip(2)
+                .next()
+                .is_some_and(|t| t.kind() == TEXT && t.to_string().starts_with('@'));
+            if cut {
+                return false;
+            }
             let mut params = 0;
             let mut body = String::new();
             for t in toks {
