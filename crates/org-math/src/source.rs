@@ -982,10 +982,36 @@ fn tabular_in_math(s: &str) -> String {
     s
 }
 
+/// `s` without TeX's italic correction `\\/` (not the `/` after `\\\\`).
+fn no_italic_correction(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.peek() {
+                Some('/') => {
+                    chars.next();
+                    continue;
+                }
+                Some(&d) => {
+                    out.push(c);
+                    out.push(d);
+                    chars.next();
+                    continue;
+                }
+                None => {}
+            }
+        }
+        out.push(c);
+    }
+    out
+}
+
 /// The formula as RaTeX takes it: `\mbox` as `\text`, `multline` as
 /// `gather` (decision D4), after the definitions `macros`.
 pub fn prepare(latex: &str, macros: &str) -> String {
-    let mut s = latex.replace("\\mbox{", "\\text{");
+    // Italic correction: nothing to draw here.
+    let mut s = no_italic_correction(&latex.replace("\\mbox{", "\\text{"));
     s = rename_env(&s, "multline*", "gather*");
     s = rename_env(&s, "multline", "gather");
     // eqnarray's `a &=& b` as an align's columns; flalign as align.
@@ -1064,7 +1090,8 @@ fn prepared_macros(macros: &str) -> std::sync::Arc<str> {
         }
         // A definition's own `$…$` (`\newcommand{\minus}{$-$}`): math
         // already where it is used.
-        let out: Arc<str> = inner_dollars(&plain_tex(&math_out_of_text(macros))).into();
+        let out: Arc<str> =
+            inner_dollars(&plain_tex(&math_out_of_text(&no_italic_correction(macros)))).into();
         *last.borrow_mut() = Some((macros.to_string(), out.clone()));
         out
     })

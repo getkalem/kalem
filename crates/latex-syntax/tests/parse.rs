@@ -338,6 +338,8 @@ fn piece() -> impl Strategy<Value = String> {
         Just("\\makeatletter".to_string()),
         Just("\\makeatother".to_string()),
         Just("\\def\\x#1".to_string()),
+        Just("\\let\\a\\overline".to_string()),
+        Just("\\let\\b=".to_string()),
         Just("\\left".to_string()),
         Just("\\\\".to_string()),
         Just("\\(".to_string()),

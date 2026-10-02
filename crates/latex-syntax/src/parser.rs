@@ -522,6 +522,7 @@ impl<'a> Parser<'a> {
                 self.at_letter = name == "makeatletter";
             }
             "def" | "gdef" | "edef" | "xdef" => return self.def(name_end, limit, mode),
+            "let" => return self.let_(name_end, limit),
             "left" | "right" | "middle" => {
                 self.builder.start_node(COMMAND.into());
                 self.token(CONTROL_WORD, name_end);
@@ -567,6 +568,55 @@ impl<'a> Parser<'a> {
         self.builder.start_node(COMMAND.into());
         self.token(CONTROL_WORD, name_end);
         self.args(sig, limit, mode, false);
+        self.builder.finish_node();
+    }
+
+    /// `\let\name\other` or `\let\name=\other`: the two names as they
+    /// are (the second takes no arguments here).
+    fn let_(&mut self, name_end: usize, limit: usize) {
+        self.builder.start_node(COMMAND.into());
+        self.token(CONTROL_WORD, name_end);
+        let raw = |s: &str| {
+            matches!(
+                s,
+                "begin"
+                    | "end"
+                    | "verb"
+                    | "lstinline"
+                    | "url"
+                    | "href"
+                    | "makeatletter"
+                    | "makeatother"
+            )
+        };
+        let mut names = 0;
+        let mut equals = false;
+        while self.pos < limit && names < 2 {
+            let (tok, e) = self.lex(limit);
+            match tok {
+                Tok::Whitespace => self.token(WHITESPACE, e),
+                Tok::Text if names == 1 && !equals && self.b[self.pos] == b'=' => {
+                    equals = true;
+                    let e = self.pos + 1;
+                    self.token(TEXT, e);
+                }
+                Tok::ControlWord if !raw(&self.src[self.pos + 1..e]) => {
+                    self.token(CONTROL_WORD, e);
+                    names += 1;
+                }
+                Tok::ControlSymbol => {
+                    self.token(CONTROL_SYMBOL, e);
+                    names += 1;
+                }
+                // `\let\x=a`: a character.
+                Tok::Text if names == 1 => {
+                    let e = self.pos + lexer::char_len(self.b[self.pos]);
+                    self.token(TEXT, e);
+                    names += 1;
+                }
+                _ => break,
+            }
+        }
         self.builder.finish_node();
     }
 
