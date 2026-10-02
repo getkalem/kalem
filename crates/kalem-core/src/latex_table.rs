@@ -63,32 +63,73 @@ pub(crate) struct Simple {
 
 /// The alignment of each column of `spec`, if it has only `l`, `c`, `r`,
 /// `p{}`, `m{}`, `b{}`, `X` and `|`.
-fn spec(spec: &str) -> Option<Vec<char>> {
+fn spec(text: &str) -> Option<Vec<char>> {
     let mut out = Vec::new();
-    let mut chars = spec.chars().peekable();
+    let mut chars = text.chars().peekable();
+    // The text of the braced group next (blanks before it skipped).
+    fn group(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) -> Option<String> {
+        while chars.peek().is_some_and(|c| c.is_whitespace()) {
+            chars.next();
+        }
+        if chars.next() != Some('{') {
+            return None;
+        }
+        let mut depth = 1;
+        let mut text = String::new();
+        for c in chars.by_ref() {
+            match c {
+                '{' => depth += 1,
+                '}' => depth -= 1,
+                _ => {}
+            }
+            if depth == 0 {
+                return Some(text);
+            }
+            text.push(c);
+        }
+        None
+    }
     while let Some(c) = chars.next() {
         match c {
             'l' | 'c' | 'r' => out.push(c),
             'X' | 'L' | 'C' | 'R' | 'J' => out.push('l'),
             'p' | 'm' | 'b' => {
-                if chars.next() != Some('{') {
-                    return None;
-                }
-                let mut depth = 1;
-                for c in chars.by_ref() {
-                    match c {
-                        '{' => depth += 1,
-                        '}' => depth -= 1,
-                        _ => {}
-                    }
-                    if depth == 0 {
-                        break;
-                    }
-                }
-                if depth != 0 {
-                    return None;
-                }
+                group(&mut chars)?;
                 out.push('l');
+            }
+            // siunitx's and dcolumn's numbers, aligned on their point.
+            'S' => out.push('r'),
+            'D' => {
+                for _ in 0..3 {
+                    group(&mut chars)?;
+                }
+                out.push('r');
+            }
+            // array's `w{align}{width}`.
+            'w' | 'W' => {
+                let align = group(&mut chars)?;
+                group(&mut chars)?;
+                out.push(
+                    align
+                        .trim()
+                        .chars()
+                        .next()
+                        .filter(|a| "lcr".contains(*a))
+                        .unwrap_or('l'),
+                );
+            }
+            // Between columns (`@{}`, `!{}`), before or after a column's
+            // cells (`>{\bfseries}`): not columns.
+            '@' | '!' | '>' | '<' => {
+                group(&mut chars)?;
+            }
+            // `*{3}{c}`: the columns repeated.
+            '*' => {
+                let n: usize = group(&mut chars)?.trim().parse().ok()?;
+                let inner = spec(&group(&mut chars)?)?;
+                for _ in 0..n.min(64) {
+                    out.extend(inner.iter().copied());
+                }
             }
             '|' | ' ' | '\t' | '\n' => {}
             _ => return None,
@@ -538,6 +579,24 @@ mod tests {
         let text = "\\begin{tabularx}{\\linewidth}{lX}\na & b\n\\end{tabularx}\n";
         let (_p, e) = env(text);
         assert_eq!(simple(text, &e).unwrap().align, vec!['l', 'l']);
+        // Material between columns is not a column.
+        let text = "\\begin{tabular}{@{}l@{\\quad}r@{}}\na & b \\\\\n\\end{tabular}\n";
+        let (_p, e) = env(text);
+        assert_eq!(simple(text, &e).unwrap().align, vec!['l', 'r']);
+    }
+
+    #[test]
+    fn column_specifications() {
+        assert_eq!(spec("|l|c|p{2cm}|"), Some(vec!['l', 'c', 'l']));
+        // Material between columns, `*{n}{…}`, siunitx's and dcolumn's
+        // numbers, array's `w`.
+        assert_eq!(spec("@{}l@{\\quad}c@{}"), Some(vec!['l', 'c']));
+        assert_eq!(spec(">{\\bfseries}l<{x}r!{\\vrule}"), Some(vec!['l', 'r']));
+        assert_eq!(spec("l*{3}{c}"), Some(vec!['l', 'c', 'c', 'c']));
+        assert_eq!(spec("lSD{.}{.}{2}"), Some(vec!['l', 'r', 'r']));
+        assert_eq!(spec("w{c}{1cm}"), Some(vec!['c']));
+        assert_eq!(spec("l*{x}{c}"), None);
+        assert_eq!(spec("lq"), None);
     }
 
     #[test]
@@ -622,7 +681,8 @@ mod tests {
     #[test]
     fn complex_tables_stay_source() {
         for text in [
-            "\\begin{tabular}{@{}ll}\na & b \\\\\n\\end{tabular}\n",
+            // A column type Kalem does not know.
+            "\\begin{tabular}{lq}\na & b \\\\\n\\end{tabular}\n",
             "\\begin{tabular}{ll}\n\\multicolumn{3}{c}{x} \\\\\n\\end{tabular}\n",
             "\\begin{tabular}{ll}\na \\multicolumn{2}{c}{x} \\\\\n\\end{tabular}\n",
             "\\begin{tabular}{ll}\na & b \\\\ c & d \\\\\n\\end{tabular}\n",
