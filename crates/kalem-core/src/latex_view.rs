@@ -5451,10 +5451,6 @@ fn own_environments(src: &str, envs: &[latex_model::NewEnvironment]) -> String {
             if !s.contains(&begin) {
                 continue;
             }
-            // Its use as the formula's own environment is the parser's.
-            if s.trim_start().starts_with(&begin) && s.trim_end().ends_with(&end) {
-                continue;
-            }
             let mut out = String::new();
             let mut rest = s.as_str();
             while let Some(i) = rest.find(&begin) {
@@ -6127,6 +6123,14 @@ mod tests {
         // An environment of the document's own inside a formula.
         let text = "\\documentclass{article}\n\\newenvironment{smallmat}{\\left(\\begin{smallmatrix}}{\\end{smallmatrix}\\right)}\n\\begin{document}\n$A = \\begin{smallmat}1 & 0\\end{smallmat}$\n\\end{document}\n";
         assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // One the document defines as an equation: a numbered formula.
+        let text = "\\documentclass{article}\n\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n\\begin{document}\n\\begin{eqn}\na = \\frac{1}{2}\n\\end{eqn}\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(formula_failures(&d), Vec::new());
+        let at = text.find("\\begin{eqn}\n").unwrap();
+        let src = math_source(&d, at..at + 1).unwrap();
+        assert!(src.contains("\\tag{1}"), "{src}");
+        assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
         assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
     }
 

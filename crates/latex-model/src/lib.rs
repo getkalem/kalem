@@ -1431,7 +1431,29 @@ impl<'r> Numbering<'r> {
                             Some(b.split('}').next()?.to_string())
                         })
                         .unwrap_or_else(|| "equation".into()),
-                    None => name.clone(),
+                    // An environment of the document's own that is an
+                    // equation: numbered as the one its begin code opens.
+                    None => self
+                        .model
+                        .environments
+                        .iter()
+                        .rev()
+                        .find(|e| &e.name == name)
+                        .and_then(|e| {
+                            let b = e.begin.trim().strip_prefix("\\begin{")?;
+                            let inner = b.split('}').next()?;
+                            matches!(
+                                inner.trim_end_matches('*'),
+                                "equation"
+                                    | "align"
+                                    | "gather"
+                                    | "multline"
+                                    | "eqnarray"
+                                    | "flalign"
+                            )
+                            .then(|| inner.to_string())
+                        })
+                        .unwrap_or_else(|| name.clone()),
                 };
                 self.enter(&name, at(range), at(body), note)
             }

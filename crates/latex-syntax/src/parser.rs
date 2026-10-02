@@ -616,9 +616,16 @@ impl<'a> Parser<'a> {
         let src = self.src;
         let name = &src[s..k];
         let verbatim = signatures::is_verbatim(name);
-        let math = signatures::is_math(name);
+        // An environment the text defines as a displayed formula: the
+        // formula around it.
+        let own_math =
+            !signatures::is_math(name) && self.tables.math_envs.iter().any(|e| e == name);
+        let math = signatures::is_math(name) || own_math;
         let sig = signatures::environment(name);
         let closed = self.tables.envs.get(&begin).copied().filter(|&e| e < limit);
+        if own_math {
+            self.builder.start_node(DISPLAY_MATH.into());
+        }
         self.builder.start_node(ENVIRONMENT.into());
         self.builder.start_node(BEGIN.into());
         self.token(CONTROL_WORD, name_end);
@@ -656,6 +663,9 @@ impl<'a> Parser<'a> {
             self.end(e + 4, open, s, k);
         }
         self.builder.finish_node();
+        if own_math {
+            self.builder.finish_node();
+        }
     }
 
     /// The arguments of a verbatim environment: right after `\begin{…}`,
