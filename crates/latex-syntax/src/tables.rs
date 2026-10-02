@@ -35,15 +35,57 @@ impl Tables {
     }
 }
 
+/// What a text defines that changes how it parses: macros for an
+/// equation's opening and closing (`\\be`, `\\ee`) and environments that
+/// are displayed formulas.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct Definitions {
+    pub(crate) openers: Vec<String>,
+    pub(crate) closers: Vec<String>,
+    pub(crate) math_envs: Vec<String>,
+}
+
+impl Definitions {
+    /// Those of `src`.
+    pub(crate) fn of(src: &str) -> Definitions {
+        let (openers, closers) = math_aliases(src);
+        Definitions {
+            openers,
+            closers,
+            math_envs: math_environments(src),
+        }
+    }
+}
+
+/// Whether `s` holds a definition that [`Definitions`] reads.
+pub(crate) fn defines(s: &str) -> bool {
+    [
+        "\\def",
+        "\\newcommand",
+        "\\renewcommand",
+        "\\providecommand",
+        "\\newenvironment",
+        "\\renewenvironment",
+    ]
+    .iter()
+    .any(|d| s.contains(d))
+}
+
 /// The tables of `src[start..end]`, with `@` a letter at the start when
-/// `at_letter`.
-pub(crate) fn build(src: &str, start: usize, end: usize, mut at_letter: bool) -> Tables {
+/// `at_letter`, and the definitions `defs` of the whole text.
+pub(crate) fn build(
+    src: &str,
+    start: usize,
+    end: usize,
+    mut at_letter: bool,
+    defs: &Definitions,
+) -> Tables {
     let b = src.as_bytes();
     let mut t = Tables::default();
     let mut braces: Vec<usize> = Vec::new();
     let mut envs: Vec<(usize, &str)> = Vec::new();
-    let (openers, closers) = math_aliases(src);
-    t.math_envs = math_environments(src);
+    let (openers, closers) = (&defs.openers, &defs.closers);
+    t.math_envs = defs.math_envs.clone();
     let mut alias_open: Option<usize> = None;
     let mut pos = start;
     while pos < end {

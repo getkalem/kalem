@@ -84,7 +84,13 @@ fn kind(t: Tok) -> SyntaxKind {
 
 impl<'a> Parser<'a> {
     /// A parser of `src[start..end]`.
-    pub(crate) fn new(src: &'a str, start: usize, end: usize, at_letter: bool) -> Parser<'a> {
+    pub(crate) fn new(
+        src: &'a str,
+        start: usize,
+        end: usize,
+        at_letter: bool,
+        defs: &tables::Definitions,
+    ) -> Parser<'a> {
         Parser {
             depth: 0,
             cells: 0,
@@ -92,7 +98,7 @@ impl<'a> Parser<'a> {
             b: src.as_bytes(),
             pos: start,
             at_letter,
-            tables: tables::build(src, start, end, at_letter),
+            tables: tables::build(src, start, end, at_letter, defs),
             builder: GreenNodeBuilder::new(),
             diagnostics: Vec::new(),
             unclosed_env: false,

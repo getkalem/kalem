@@ -160,20 +160,29 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
         .rev()
         .find(|&&(p, _)| p < rs)
         .is_some_and(|&(_, on)| on);
-    // Macros for an equation (`\be … \ee`) pair across paragraphs: only
-    // a full parse pairs them.
-    let (openers, closers) = crate::tables::math_aliases(new_text);
+    // A definition edited may change how the whole text parses; macros
+    // for an equation (`\be … \ee`) pair across paragraphs: only a full
+    // parse knows.
     let region = &new_text[rs..new_re];
+    if crate::tables::defines(region) || crate::tables::defines(&old_region) {
+        return None;
+    }
+    let defs = &old.defs;
     let uses = |text: &str, n: &String| {
         let pat = format!("\\{n}");
         text.match_indices(&pat)
             .any(|(k, _)| !text[k + pat.len()..].starts_with(|c: char| c.is_ascii_alphabetic()))
     };
     let old_region_has = |n: &String| uses(region, n) || uses(&old_region, n);
-    if openers.iter().chain(closers.iter()).any(old_region_has) {
+    if defs
+        .openers
+        .iter()
+        .chain(defs.closers.iter())
+        .any(old_region_has)
+    {
         return None;
     }
-    let mut p = Parser::new(new_text, rs, new_re, at_letter);
+    let mut p = Parser::new(new_text, rs, new_re, at_letter, defs);
     // In a table's cells, `$$` is an empty formula.
     p.cells = container
         .ancestors()
@@ -230,6 +239,7 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
         diagnostics,
         toggles,
         unclosed_env: old.unclosed_env,
+        defs: old.defs.clone(),
     })
 }
 
