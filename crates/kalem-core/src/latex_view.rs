@@ -4698,6 +4698,14 @@ fn is_display_math(name: &str) -> bool {
             | "flalign"
             | "displaymath"
             | "math"
+            | "xalignat"
+            | "xxalignat"
+            | "IEEEeqnarray"
+            | "dmath"
+            | "dseries"
+            | "dgroup"
+            | "darray"
+            | "empheq"
     )
 }
 
