@@ -1056,6 +1056,48 @@ fn in_text_table(text: &str, t: &SyntaxToken) -> bool {
         })
 }
 
+/// Whether command `cmd` is in an algorithm's statements.
+fn in_algorithm(cmd: &SyntaxNode) -> bool {
+    cmd.ancestors().any(|a| {
+        a.kind() == K::ENVIRONMENT && latex_syntax::name(&a).is_some_and(|n| n == "algorithmic")
+    })
+}
+
+/// What a statement of algpseudocode or algorithmic prints: before its
+/// first argument, between two, after the last, and whether that is bold
+/// (keywords are).
+fn algorithm_words(name: &str) -> Option<(&'static str, &'static str, &'static str, bool)> {
+    Some(match name {
+        "State" | "Statex" | "STATE" | "STATEX" => ("", "", "", false),
+        "If" | "IF" => ("if ", "", " then", true),
+        "ElsIf" | "ELSIF" => ("else if ", "", " then", true),
+        "Else" | "ELSE" => ("else", "", "", true),
+        "EndIf" | "ENDIF" => ("end if", "", "", true),
+        "For" | "FOR" => ("for ", "", " do", true),
+        "ForAll" | "FORALL" => ("for all ", "", " do", true),
+        "EndFor" | "ENDFOR" => ("end for", "", "", true),
+        "While" | "WHILE" => ("while ", "", " do", true),
+        "EndWhile" | "ENDWHILE" => ("end while", "", "", true),
+        "Repeat" | "REPEAT" => ("repeat", "", "", true),
+        "Until" | "UNTIL" => ("until ", "", "", true),
+        "Loop" | "LOOP" => ("loop", "", "", true),
+        "EndLoop" | "ENDLOOP" => ("end loop", "", "", true),
+        "Require" | "REQUIRE" => ("Require:", "", "", true),
+        "Ensure" | "ENSURE" => ("Ensure:", "", "", true),
+        "Return" | "RETURN" => ("return", "", "", true),
+        "PRINT" => ("print", "", "", true),
+        "Procedure" => ("procedure ", "(", ")", true),
+        "EndProcedure" => ("end procedure", "", "", true),
+        "Function" => ("function ", "(", ")", true),
+        "EndFunction" => ("end function", "", "", true),
+        "Call" => ("", "(", ")", false),
+        // algpseudocode: ▷ and the comment; algorithmic: {the comment}.
+        "Comment" => ("\u{25b7} ", "", "", false),
+        "COMMENT" => ("{", "", "}", false),
+        _ => return None,
+    })
+}
+
 /// Commands that print nothing where they are (a definition, a setting):
 /// their arguments, as [`args_end`] reads them.
 fn silent(name: &str) -> Option<&'static str> {
@@ -1929,6 +1971,7 @@ fn unflagged_line_view(
                             | "quotation"
                             | "verse"
                             | "abstract"
+                            | "subequations"
                     )
                     || front_environment(&n).is_some()
             })
@@ -2008,7 +2051,7 @@ fn unflagged_line_view(
     let mut hidden: Vec<Range<usize>> = Vec::new();
     // Source ranges shown as other text (the break between a
     // sub-caption and its body).
-    let mut replaced: Vec<(Range<usize>, &'static str)> = Vec::new();
+    let mut replaced: Vec<(Range<usize>, &'static str, Style)> = Vec::new();
     // The arguments of case changes: whether to upper case, and whether
     // by TeX's primitive (which changes characters, not `\\ss` or `\\i`).
     let mut cases: Vec<(Range<usize>, bool, bool)> = Vec::new();
@@ -2121,13 +2164,13 @@ fn unflagged_line_view(
             let _ = skip;
             continue;
         }
-        if let Some((range, with)) = replaced
+        if let Some((range, with, style)) = replaced
             .iter()
-            .find(|(h, _)| h.start <= r.start && r.end <= h.end)
+            .find(|(h, _, _)| h.start <= r.start && r.end <= h.end)
             .cloned()
         {
             if r.start == range.start {
-                b.replace(range.clone(), with, Style::default());
+                b.replace(range.clone(), with, style);
             }
             continue;
         }
@@ -2346,6 +2389,90 @@ fn unflagged_line_view(
                     }
                     continue;
                 }
+                // A statement of an algorithm (algorithmicx's algpseudocode,
+                // algorithmic): its keywords, bold, as the package prints
+                // them; `\\State` nothing.
+                name if in_algorithm(&cmd)
+                    && let Some((before, between, after, bold_words)) =
+                        algorithm_words(&name[1..]) =>
+                {
+                    let bold = Style {
+                        bold: bold_words,
+                        ..Style::default()
+                    };
+                    let groups: Vec<SyntaxNode> =
+                        cmd.children().filter(|c| c.kind() == K::GROUP).collect();
+                    match groups.as_slice() {
+                        // `\\State x`: the blanks after it eaten, as TeX
+                        // eats them after a command's name.
+                        [] if before.is_empty() => {
+                            let rest = &text[cs.end..line.end];
+                            let blanks = rest.len() - rest.trim_start_matches([' ', '\t']).len();
+                            b.replace(cs.start..cs.end + blanks, "", bold);
+                        }
+                        [] => b.replace(cs.clone(), before, bold),
+                        [g] => {
+                            let gs = node_span(g);
+                            b.replace(cs.start..gs.start + 1, before, bold);
+                            if text[..gs.end].ends_with('}') {
+                                replaced.push((gs.end - 1..gs.end, after, bold));
+                            }
+                        }
+                        [g, h, ..] => {
+                            let (gs, hs) = (node_span(g), node_span(h));
+                            b.replace(cs.start..gs.start + 1, before, bold);
+                            replaced.push((gs.end - 1..hs.start + 1, between, Style::default()));
+                            if text[..hs.end].ends_with('}') {
+                                replaced.push((hs.end - 1..hs.end, after, Style::default()));
+                            }
+                        }
+                    }
+                    let skip = match groups.first() {
+                        Some(g) => node_span(g).start + 1,
+                        None if before.is_empty() => {
+                            let rest = &text[cs.end..line.end];
+                            cs.end + rest.len() - rest.trim_start_matches([' ', '\t']).len()
+                        }
+                        None => cs.end,
+                    };
+                    while let Some(n) = &tok
+                        && span(n).start < skip
+                    {
+                        tok = n.next_token();
+                    }
+                    continue;
+                }
+                // csquotes' `\\enquote{…}`: “…”, ‘…’ inside another and for
+                // `\\enquote*`.
+                "\\enquote" => {
+                    if let Some(g) = cmd.children().find(|c| c.kind() == K::GROUP) {
+                        let gs = node_span(&g);
+                        let starred = text[cs.start..gs.start].contains('*');
+                        let depth = cmd
+                            .ancestors()
+                            .skip(1)
+                            .filter(|a| {
+                                a.kind() == K::COMMAND
+                                    && latex_syntax::name(a).as_deref() == Some("enquote")
+                            })
+                            .count();
+                        let (open, close) = if (depth % 2 == 1) != starred {
+                            ("\u{2018}", "\u{2019}")
+                        } else {
+                            ("\u{201c}", "\u{201d}")
+                        };
+                        b.replace(cs.start..gs.start + 1, open, Style::default());
+                        if text[..gs.end].ends_with('}') {
+                            replaced.push((gs.end - 1..gs.end, close, Style::default()));
+                        }
+                        while let Some(n) = &tok
+                            && span(n).start < gs.start + 1
+                        {
+                            tok = n.next_token();
+                        }
+                        continue;
+                    }
+                }
                 // subfig's `\\subfloat[list][caption]{body}`: `(a) `, the
                 // caption, then the body; no caption without an optional
                 // argument, the label alone with an empty one.
@@ -2369,8 +2496,11 @@ fn unflagged_line_view(
                                 let os = node_span(o);
                                 b.replace(cs.start..os.start + 1, &format!("({n}) "), bold);
                                 let empty = text[os.start + 1..os.end - 1].trim().is_empty();
-                                replaced
-                                    .push((os.end - 1..gs.start + 1, if empty { "" } else { " " }));
+                                replaced.push((
+                                    os.end - 1..gs.start + 1,
+                                    if empty { "" } else { " " },
+                                    Style::default(),
+                                ));
                                 while let Some(n) = &tok
                                     && span(n).start < os.start + 1
                                 {
@@ -2418,9 +2548,14 @@ fn unflagged_line_view(
                             a.kind() == K::ENVIRONMENT
                                 && latex_syntax::name(&a).is_some_and(|n| n.starts_with("sub"))
                         });
+                        // The algorithm package's ruled style: no colon
+                        // (algorithm2e has one).
+                        let colon = kind != "algorithm"
+                            || model.packages.iter().any(|p| p.name == "algorithm2e");
                         let label = match number {
                             // In `subfigure`: `(a) `.
                             Some(n) if sub => format!("({n}) "),
+                            Some(n) if !colon => format!("{name} {n} "),
                             Some(n) => format!("{name} {n}: "),
                             None => format!("{name}: "),
                         };
@@ -3845,7 +3980,8 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
 /// Whether the view renders command `name` (for the report of what a
 /// document leaves as source).
 pub fn renders_command(name: &str) -> bool {
-    silent(name).is_some()
+    algorithm_words(name).is_some()
+        || silent(name).is_some()
         || box_args(name).is_some()
         || format_style(name).is_some()
         || front_style(name).is_some()
@@ -3921,6 +4057,7 @@ pub fn renders_command(name: &str) -> bool {
                 | "subfloat"
                 | "subfigure"
                 | "subtable"
+                | "enquote"
                 | "textcolor"
                 | "color"
                 | "footnotetext"
@@ -3967,6 +4104,8 @@ pub fn renders_environment(name: &str, model: &latex_model::Model) -> bool {
                 | "abstract"
                 | "thebibliography"
                 | "minipage"
+                | "subequations"
+                | "algorithmic"
         )
         || front_environment(name).is_some()
         || model.theorem_kinds.iter().any(|k| k.env == name)
@@ -3990,6 +4129,8 @@ fn float_name(kind: &str, turkish: bool) -> Option<&'static str> {
         ("figure" | "wrapfigure" | "subfigure", true) => "\u{15e}ekil",
         ("table" | "wraptable" | "subtable", false) => "Table",
         ("table" | "wraptable" | "subtable", true) => "Tablo",
+        ("algorithm", false) => "Algorithm",
+        ("algorithm", true) => "Algoritma",
         _ => return None,
     })
 }
@@ -5025,6 +5166,41 @@ mod tests {
         assert_eq!(f.len(), 1, "{f:?}");
         assert_eq!(&text[f[0].0.clone()], "$\\nosuch{x}$");
         assert_eq!(f[0].1, "Undefined control sequence: \\nosuch");
+    }
+
+    #[test]
+    fn quotes_and_algorithms() {
+        let text = "\\usepackage{csquotes,algorithm,algpseudocode}\nSay \\enquote{a \\enquote{b}} and \\enquote*{c}.\n\\begin{algorithm}\n\\caption{Search}\n\\begin{algorithmic}\n\\Procedure{Find}{$x$}\n\\State y\n\\For{all}\n\\Return z \\Comment{done}\n\\EndFor\n\\EndProcedure\n\\end{algorithmic}\n\\end{algorithm}\n";
+        let d = doc(text);
+        let text_of = |line: usize| -> String {
+            shown(&d, line, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.as_str())
+                .collect()
+        };
+        assert_eq!(
+            text_of(1),
+            "Say \u{201c}a \u{2018}b\u{2019}\u{201d} and \u{2018}c\u{2019}."
+        );
+        assert_eq!(text_of(3), "Algorithm 1 Search");
+        assert_eq!(
+            text_of(5),
+            format!("procedure Find({})", crate::view::PLACEHOLDER)
+        );
+        assert_eq!(text_of(6), "y");
+        assert_eq!(text_of(7), "for all do");
+        assert_eq!(text_of(8), "return z \u{25b7} done");
+        assert_eq!(text_of(9), "end for");
+        assert_eq!(text_of(10), "end procedure");
+        // Keywords bold, as the package sets them.
+        assert!(
+            shown(&d, 9, None)
+                .runs
+                .iter()
+                .any(|r| r.text == "end for" && r.style.bold)
+        );
     }
 
     #[test]
