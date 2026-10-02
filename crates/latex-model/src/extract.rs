@@ -887,6 +887,28 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             });
             return false;
         }
+        // `\let\ov\overline` (or `\let\ov=\overline`): `\ov` means what
+        // `\overline` means, as a definition without arguments.
+        "let" => {
+            let mut names = cmd
+                .children_with_tokens()
+                .skip(1)
+                .filter(|t| matches!(t.kind(), CONTROL_WORD | CONTROL_SYMBOL | TEXT))
+                .filter(|t| t.to_string() != "=");
+            if let (Some(a), Some(b)) = (names.next(), names.next())
+                && a.kind() == CONTROL_WORD
+            {
+                push(Event::Macro {
+                    name: a.to_string(),
+                    command: "def".into(),
+                    args: 0,
+                    default: None,
+                    body: b.to_string(),
+                    range,
+                });
+            }
+            return false;
+        }
         "newenvironment" | "renewenvironment" => {
             if let (Some(n), Some(b), Some(e)) = (m.first(), m.get(1), m.get(2)) {
                 push(Event::NewEnvironment {

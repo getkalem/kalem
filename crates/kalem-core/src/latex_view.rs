@@ -1886,6 +1886,53 @@ pub(crate) fn glossary_use(
     )
 }
 
+/// A definition with the glossary entries it uses
+/// (`\\newcommand{\\fee}{{\\gls[hyper=false]{fee}}}`) as what they print: the
+/// renderer has no glossary.
+fn glossary_in_definition(model: &latex_model::Model, def: &str) -> String {
+    if model.glossary.is_empty() || !def.contains("\\gls") && !def.contains("\\ac") {
+        return def.to_string();
+    }
+    let mut out = String::with_capacity(def.len());
+    let mut rest = def;
+    while let Some(i) = rest.find('\\') {
+        out.push_str(&rest[..i]);
+        let after = &rest[i + 1..];
+        let n = after.bytes().take_while(u8::is_ascii_alphabetic).count();
+        let name = &after[..n];
+        let mut tail = after[n..].trim_start();
+        if tail.starts_with('*') {
+            tail = &tail[1..];
+        }
+        if tail.starts_with('[')
+            && let Some(k) = tail.find(']')
+        {
+            tail = &tail[k + 1..];
+        }
+        let found = tail.strip_prefix('{').and_then(|r| {
+            let k = r.find('}')?;
+            let shown = glossary_use(model, name, r[..k].trim(), usize::MAX)?;
+            Some((shown, &r[k + 1..]))
+        });
+        match found {
+            Some((shown, r)) => {
+                match entry_math(&shown) {
+                    Some(m) => out.push_str(&format!("{{{m}}}")),
+                    None => out.push_str(&format!("\\text{{{shown}}}")),
+                }
+                rest = r;
+            }
+            None => {
+                out.push('\\');
+                out.push_str(name);
+                rest = &after[n..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// A glossary command's key: its first group.
 fn glossary_key(cmd: &SyntaxNode) -> Option<String> {
     cmd.children()
@@ -5269,7 +5316,7 @@ pub fn math_definitions(doc: &crate::DocumentState) -> Vec<String> {
         .macros
         .iter()
         .zip(model.macro_definitions())
-        .map(|(m, d)| (m.name.clone(), m.args, d))
+        .map(|(m, d)| (m.name.clone(), m.args, glossary_in_definition(&model, &d)))
         .collect();
     out.extend(accepted_definitions(&out, &own));
     out
@@ -5516,6 +5563,13 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\footnote}[1]{}",
     "\\newcommand{\\ubar}[1]{\\underline{#1}}",
     "\\newcommand{\\sun}{\\odot}",
+    "\\newcommand{\\fontsize}[2]{}",
+    "\\newcommand{\\selectfont}{}",
+    "\\newcommand{\\uppercase}[1]{#1}",
+    "\\newcommand{\\lowercase}[1]{#1}",
+    "\\newcommand{\\MakeUppercase}[1]{#1}",
+    "\\newcommand{\\MakeLowercase}[1]{#1}",
+    "\\newcommand{\\scr}[1]{\\mathscr{#1}}",
     "\\newcommand{\\IEEEyesnumber}{}",
     "\\newcommand{\\IEEEnonumber}{}",
     "\\newcommand{\\IEEEyessubnumber}{}",
@@ -6384,6 +6438,10 @@ mod tests {
         assert!(src.contains("\\tag{1}"), "{src}");
         // An environment of the document's own inside a formula.
         let text = "\\documentclass{article}\n\\newenvironment{smallmat}{\\left(\\begin{smallmatrix}}{\\end{smallmatrix}\\right)}\n\\begin{document}\n$A = \\begin{smallmat}1 & 0\\end{smallmat}$\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // Definitions as papers write them: `\\let`, a font size, an italic
+        // correction, a glossary entry in the body.
+        let text = "\\documentclass{article}\n\\usepackage{glossaries}\n\\newglossaryentry{fee}{name={\\ensuremath{f}},description={x}}\n\\let\\ov\\overline\n\\newcommand{\\oL}{\\ov{L}}\n\\newcommand{\\sM}{{\\mbox{\\fontsize{5}{5}\\selectfont{$M$}}}}\n\\newcommand{\\E}{\\mathop{\\bf E\\/}}\n\\newcommand{\\fee}{{\\gls[hyper=false]{fee}}}\n\\begin{document}\n$\\oL + D_\\sM + \\E[\\fee]$\n\\end{document}\n";
         assert_eq!(formula_failures(&doc(text)), Vec::new());
         // One the document defines as an equation: a numbered formula.
         let text = "\\documentclass{article}\n\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n\\begin{document}\n\\begin{eqn}\na = \\frac{1}{2}\n\\end{eqn}\n\\end{document}\n";
