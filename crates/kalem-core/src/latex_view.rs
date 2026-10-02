@@ -1045,6 +1045,17 @@ fn latex_color(spec: &str) -> Option<crate::theme::Color> {
     }))
 }
 
+/// Whether token `t` is in a table of the text the grid does not draw
+/// (a simple one is drawn as the grid).
+fn in_text_table(text: &str, t: &SyntaxToken) -> bool {
+    t.parent_ancestors()
+        .find(|a| a.kind() == K::ENVIRONMENT)
+        .is_some_and(|e| {
+            latex_syntax::name(&e).is_some_and(|n| crate::latex_table::is_table(&n))
+                && crate::latex_table::simple(text, &e).is_none()
+        })
+}
+
 /// Commands that print nothing where they are (a definition, a setting):
 /// their arguments, as [`args_end`] reads them.
 fn silent(name: &str) -> Option<&'static str> {
@@ -1070,7 +1081,12 @@ fn silent(name: &str) -> Option<&'static str> {
         "numberwithin" => "omm",
         "counterwithin" | "counterwithout" => "smm",
         "allowdisplaybreaks" => "o",
-        "makeatletter" | "makeatother" | "raggedbottom" | "flushbottom" | "sloppy" | "fussy" => "",
+        "makeatletter" | "makeatother" | "raggedbottom" | "flushbottom" | "sloppy" | "fussy"
+        | "hline" => "",
+        // A table's rules: markup.
+        "toprule" | "midrule" | "bottomrule" | "addlinespace" => "o",
+        "cline" => "m",
+        "cmidrule" => "pm",
         "def" | "gdef" | "edef" | "xdef" => "d",
         "let" | "global" => "l",
         _ => return None,
@@ -1088,14 +1104,19 @@ fn box_args(name: &str) -> Option<&'static str> {
         "adjustbox" => "m",
         "parbox" => "ooom",
         "makebox" | "framebox" => "oo",
+        // A spanning cell: its count and alignment hidden, its text shown.
+        "multicolumn" => "mm",
+        "multirow" => "omom",
+        "makecell" | "thead" => "o",
         _ => return None,
     })
 }
 
 /// Where the arguments after `at` end (before `limit`), read as `spec`
-/// says: `s` an optional star, `o` an optional `[…]`, `m` a group or one
-/// token, `d` what `\def` takes (a name, its parameters and the body), `l`
-/// what `\let` takes (two names, `=` between them or not).
+/// says: `s` an optional star, `o` an optional `[…]`, `p` an optional
+/// `(…)`, `m` a group or one token, `d` what `\def` takes (a name, its
+/// parameters and the body), `l` what `\let` takes (two names, `=` between
+/// them or not).
 fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Option<usize> {
     let b = text.as_bytes();
     let mut p = at;
@@ -1138,6 +1159,15 @@ fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Option<usize> {
             'o' => {
                 if text[p..limit].starts_with('[') {
                     let close = text[p..limit].find(']')?;
+                    p += close + 1;
+                } else {
+                    p = before;
+                }
+            }
+            // booktabs' `(lr)`.
+            'p' => {
+                if text[p..limit].starts_with('(') {
+                    let close = text[p..limit].find(')')?;
                     p += close + 1;
                 } else {
                     p = before;
@@ -1453,6 +1483,10 @@ fn transparent(name: &str) -> bool {
             | "parbox"
             | "centerline"
             | "textcolor"
+            | "multicolumn"
+            | "multirow"
+            | "makecell"
+            | "thead"
     )
 }
 
@@ -2687,6 +2721,11 @@ fn unflagged_line_view(
                 }
             }
             K::TILDE if !c.math && !near(&r) => b.replace(r, "\u{a0}", c.style),
+            // A table the grid does not draw: its cells apart, a rule
+            // between them.
+            K::AMPERSAND if !c.math && !near(&r) && in_text_table(text, &t) => {
+                b.replace(r, " \u{2502} ", dim);
+            }
             // A group's braces typeset nothing: markup, dimmed.
             K::L_BRACE | K::R_BRACE if !c.math && brace_is_markup(&t) => {
                 b.verbatim(
@@ -4798,6 +4837,34 @@ mod tests {
         // A setting and a definition print nothing: markup, dimmed.
         let v = shown(&d, 1, None);
         assert!(v.runs.iter().all(|r| r.style.dim), "{:?}", v.runs);
+    }
+
+    #[test]
+    fn tables_the_grid_does_not_draw() {
+        // A row over two lines: text, its cells apart, rules and spans'
+        // arguments markup.
+        let text = "\\begin{tabular}{lcc}\n\\toprule\n\\multirow{2}{*}{Model} & \\multicolumn{2}{c}{Score} \\\\\n\\cmidrule(lr){2-3}\n & A &\n B \\\\ \\bottomrule\n\\end{tabular}\n";
+        let d = doc(text);
+        let text_of = |line: usize| -> String {
+            shown(&d, line, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.as_str())
+                .collect()
+        };
+        assert_eq!(text_of(1), "");
+        assert_eq!(
+            text_of(2).split_whitespace().collect::<Vec<_>>(),
+            ["Model", "Score"]
+        );
+        assert_eq!(text_of(3), "");
+        let v = shown(&d, 4, None);
+        assert!(
+            v.runs
+                .iter()
+                .any(|r| r.text.contains('\u{2502}') && r.style.dim)
+        );
     }
 
     #[test]
