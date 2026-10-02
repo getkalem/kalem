@@ -5,7 +5,8 @@
 //! as source and the share in formulas, and the most frequent commands
 //! and environments with how many papers use them and whether the view
 //! renders them. The files a document brings in before
-//! `\begin{document}` (its macros) are preamble, left out.
+//! `\begin{document}` (its macros) are preamble, left out, and so are
+//! the files no document of the paper reads (drafts, leftovers).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
@@ -139,6 +140,46 @@ fn preamble_files(files: &[(PathBuf, String, String)]) -> HashSet<PathBuf> {
     out
 }
 
+/// The files of `list` no document of their paper reads: a paper's roots
+/// (`\\documentclass` and `\\begin{document}`) and what each brings in
+/// are the document; drafts and leftovers beside it are not typeset by
+/// anyone. A paper without a root keeps all its files.
+fn unread_files(list: &[(PathBuf, String, String)]) -> HashSet<PathBuf> {
+    let canon = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let mut by_paper: BTreeMap<&str, Vec<&PathBuf>> = BTreeMap::new();
+    for (f, _, paper) in list {
+        by_paper.entry(paper.as_str()).or_default().push(f);
+    }
+    let mut out = HashSet::new();
+    for files in by_paper.values() {
+        let roots: Vec<&&PathBuf> = files
+            .iter()
+            .filter(|f| {
+                std::fs::read(f).is_ok_and(|b| {
+                    let t = String::from_utf8_lossy(&b);
+                    t.contains("\\documentclass") && t.contains("\\begin{document}")
+                })
+            })
+            .collect();
+        if roots.is_empty() {
+            continue;
+        }
+        let mut read: HashSet<PathBuf> = HashSet::new();
+        for r in roots {
+            let project =
+                latex_model::project::ProjectCache::default().load(r, &latex_model::project::Disk);
+            read.insert(canon(r));
+            read.extend(project.model.files.iter().map(|f| canon(f)));
+        }
+        for f in files {
+            if !read.contains(&canon(f)) {
+                out.insert((*f).clone());
+            }
+        }
+    }
+    out
+}
+
 pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result<ExitCode> {
     let mut all = Totals::default();
     let mut fields: BTreeMap<String, Totals> = BTreeMap::new();
@@ -150,11 +191,14 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
     let mut source_papers: HashMap<String, HashSet<String>> = HashMap::new();
     let mut examples: HashMap<String, String> = HashMap::new();
     let base = kalem_core::settings::Config::default().parse_base();
+    let mut unread_count = 0;
     for dir in dirs {
         let list = files(dir);
         let preamble = preamble_files(&list);
+        let unread = unread_files(&list);
+        unread_count += unread.len();
         for (f, field, paper) in list {
-            if preamble.contains(&f) {
+            if preamble.contains(&f) || unread.contains(&f) {
                 continue;
             }
             let Ok(bytes) = std::fs::read(&f) else {
@@ -257,15 +301,16 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
         .map_err(|e| e.to_string())?;
         return Ok(ExitCode::SUCCESS);
     }
-    let pct = |a: usize, b: usize| format!("{:.1}%", share(a, b) * 100.);
+    let pct = |a: usize, b: usize| format!("{:.2}%", share(a, b) * 100.);
     let mut s = String::new();
     s.push_str(&format!(
-        "{} papers, {} files, {} KB of body text: {} shows as source, {} is formulas\n\n",
+        "{} papers, {} files, {} KB of body text: {} shows as source, {} is formulas ({} files no document reads left out)\n\n",
         all.papers.len(),
         all.files,
         all.body / 1024,
         pct(all.source, all.body),
-        pct(all.math, all.body)
+        pct(all.math, all.body),
+        unread_count
     ));
     s.push_str("| field | papers | files | body KB | source | formulas |\n|---|---:|---:|---:|---:|---:|\n");
     for (k, t) in &fields {
