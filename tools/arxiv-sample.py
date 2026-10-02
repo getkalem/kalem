@@ -135,6 +135,8 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--per-field", type=int, default=200)
     ap.add_argument("--year", default="2024")
+    ap.add_argument("--complete", action="store_true",
+                    help="ask for the missing papers of a field that is nearly whole")
     a = ap.parse_args()
     # Papers without a LaTeX source, remembered beside the sample so that a
     # later run does not ask arXiv for them again.
@@ -151,6 +153,14 @@ def main():
         want = a.per_field
         share = -(-want // len(cats))
         got = 0
+        # A field whose sample is nine tenths there already is not asked
+        # for more: its last papers are those arXiv has no LaTeX of or
+        # throttles, and asking for them again held runs up for an hour.
+        have = os.path.join(a.out, field)
+        held = len(os.listdir(have)) if os.path.isdir(have) else 0
+        if held * 10 >= want * 9 and not a.complete:
+            print(f"{field}: {held} papers (kept)", flush=True)
+            continue
         for cat in cats:
             if got >= want:
                 break
