@@ -575,7 +575,13 @@ fn math_out_of_text(s: &str) -> String {
                         "}" => "\\ensuremath{".len(),
                         _ => 2,
                     };
-                    match inner[start..].find(close) {
+                    // `\ensuremath{…}` ends at its matching brace.
+                    let end = if close == "}" {
+                        group(&inner[start - 1..]).map(|(g, _)| g.len())
+                    } else {
+                        inner[start..].find(close)
+                    };
+                    match end {
                         Some(e) => {
                             pieces
                                 .push_str(&format!("{{{text}}}{}{name}", &inner[start..start + e]));
@@ -872,6 +878,24 @@ fn plain_tex(s: &str) -> String {
         ("NiceArray", "array"),
     ] {
         s = rename_env(&s, from, to);
+    }
+    // nicematrix's arrays with delimiters.
+    for (env, l, r) in [
+        ("pNiceArray", "(", ")"),
+        ("bNiceArray", "[", "]"),
+        ("BNiceArray", "\\{", "\\}"),
+        ("vNiceArray", "|", "|"),
+        ("VNiceArray", "\\|", "\\|"),
+    ] {
+        s = s
+            .replace(
+                &format!("\\begin{{{env}}}"),
+                &format!("\\left{l}\\begin{{array}}"),
+            )
+            .replace(
+                &format!("\\end{{{env}}}"),
+                &format!("\\end{{array}}\\right{r}"),
+            );
     }
     s = rename_env_args(&s, "multlined", "gathered", 0);
     s = ytableau(&s);
