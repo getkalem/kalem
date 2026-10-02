@@ -5333,9 +5333,15 @@ pub fn explain_macro(doc: &crate::DocumentState, name: &str) -> String {
     let defs = model.macro_definitions();
     let Some(i) = model.macros.iter().position(|m| m.name == name) else {
         return format!(
-            "not in the model ({} macros, {} files)",
+            "not in the model ({} macros, {} files; packages {})",
             model.macros.len(),
-            model.files.len()
+            model.files.len(),
+            model
+                .packages
+                .iter()
+                .map(|p| p.name.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
         );
     };
     let m = &model.macros[i];
