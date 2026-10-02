@@ -226,6 +226,55 @@ fn math_out_of_text(s: &str) -> String {
     out
 }
 
+/// `\\begin{from}[opt]{arg}…\\end{from}` as `\\begin{to}…\\end{to}`, the
+/// optional argument and `args` mandatory ones after `\\begin` left out.
+fn rename_env_args(s: &str, from: &str, to: &str, args: usize) -> String {
+    let begin = format!("\\begin{{{from}}}");
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find(&begin) {
+        out.push_str(&rest[..i]);
+        out.push_str(&format!("\\begin{{{to}}}"));
+        let mut after = &rest[i + begin.len()..];
+        let t = after.trim_start();
+        if t.starts_with('[')
+            && let Some(close) = t.find(']')
+        {
+            after = &t[close + 1..];
+        }
+        for _ in 0..args {
+            match group(after.trim_start()) {
+                Some((_, a)) => after = a,
+                None => break,
+            }
+        }
+        rest = after;
+    }
+    out.push_str(rest);
+    out.replace(&format!("\\end{{{from}}}"), &format!("\\end{{{to}}}"))
+}
+
+/// empheq's `\\begin{empheq}[box]{align}…\\end{empheq}` as the environment
+/// it names.
+fn empheq(s: &str) -> String {
+    let Some(i) = s.find("\\begin{empheq}") else {
+        return s.to_string();
+    };
+    let mut after = &s[i + "\\begin{empheq}".len()..];
+    let t = after.trim_start();
+    if t.starts_with('[')
+        && let Some(close) = t.find(']')
+    {
+        after = &t[close + 1..];
+    }
+    let Some((inner, after)) = group(after.trim_start()) else {
+        return s.to_string();
+    };
+    let inner = inner.trim();
+    format!("{}\\begin{{{inner}}}{after}", &s[..i])
+        .replace("\\end{empheq}", &format!("\\end{{{inner}}}"))
+}
+
 /// The formula as RaTeX takes it: `\mbox` as `\text`, `multline` as
 /// `gather` (decision D4), after the definitions `macros`.
 pub fn prepare(latex: &str, macros: &str) -> String {
@@ -237,6 +286,28 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     s = math_out_of_text(&s);
     s = inner_dollars(&s);
     s = braced_delimiters(&s);
+    // Environments of packages, as the renderer's: IEEEtran's
+    // eqnarray with its columns, xalignat with its count, breqn's,
+    // empheq with the one it names.
+    for (from, to, args) in [
+        ("IEEEeqnarray*", "align*", 1),
+        ("IEEEeqnarray", "align", 1),
+        ("xalignat*", "align*", 1),
+        ("xalignat", "align", 1),
+        ("xxalignat", "align*", 1),
+        ("dseries*", "gather*", 0),
+        ("dseries", "gather", 0),
+        ("dgroup*", "gather*", 0),
+        ("dgroup", "gather", 0),
+        ("darray*", "align*", 0),
+        ("darray", "align", 0),
+    ] {
+        s = rename_env_args(&s, from, to, args);
+    }
+    s = empheq(&s);
+    for env in ["dmath*", "dmath"] {
+        s = rename_env_args(&s, env, "equation*", 0);
+    }
     s = rename_env(&s, "eqnarray*", "align*");
     s = rename_env(&s, "eqnarray", "align");
     s = rename_env(&s, "flalign*", "align*");
@@ -248,6 +319,7 @@ pub fn prepare(latex: &str, macros: &str) -> String {
         "displaymath",
         "displaymath*",
         "math",
+        "math*",
     ] {
         let begin = format!("\\begin{{{env}}}");
         let end = format!("\\end{{{env}}}");
@@ -436,5 +508,18 @@ mod prepare_tests {
             prepare("\\begin{eqnarray*}a&=&b\\end{eqnarray*}", ""),
             "\\begin{align*}a&=&b\\end{align*}"
         );
+        assert_eq!(
+            prepare("\\begin{IEEEeqnarray}{rCl}a&=&b\\end{IEEEeqnarray}", ""),
+            "\\begin{align}a&=&b\\end{align}"
+        );
+        assert_eq!(
+            prepare(
+                "\\begin{empheq}[left=\\empheqlbrace]{align}a&=b\\end{empheq}",
+                ""
+            ),
+            "\\begin{align}a&=b\\end{align}"
+        );
+        assert_eq!(prepare("\\begin{dmath}x=1\\end{dmath}", ""), "x=1");
+        assert_eq!(prepare("\\begin{math*}x\\end{math*}", ""), "x");
     }
 }
