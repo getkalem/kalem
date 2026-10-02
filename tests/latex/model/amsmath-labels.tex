@@ -1,0 +1,31 @@
+\documentclass{article}
+\usepackage{amsmath}
+\numberwithin{equation}{section}
+\begin{document}
+% Before the first section: 0.1 (\numberwithin writes \thesection always).
+\begin{equation}a\label{before}\end{equation}
+\section{Lines}\label{sec1}
+% amsmath: a label on a line with \nonumber waits for the next numbered one.
+\begin{align}a&=b\\a&=b\nonumber\label{carried}\\a&=b\end{align}
+% ... even in the next environment, from align*.
+\begin{align*}a&=b\label{fromstar}\end{align*}
+\begin{align}a&=b\end{align}
+\begin{align}a&=b\label{own}\end{align}
+% gather writes it at once, with the number outside: the section's.
+\begin{gather}a=b\nonumber\label{gathered}\\a=b\end{gather}
+% equation* likewise.
+\begin{equation*}a\label{starred}\end{equation*}
+% eqnarray: the number the line would have had.
+\begin{eqnarray}a&=&b\label{eqn1}\\a&=&b\nonumber\label{eqnwould}\\a&=&b\end{eqnarray}
+\begin{eqnarray*}a&=&b\label{eqnstar}\end{eqnarray*}
+% Never written: \ref{lost} prints ??.
+\begin{align}a&=b\nonumber\label{lost}\end{align}
+\section{Appendix}
+\appendix
+% \Alph{0} is empty: .1
+\begin{equation}c\label{appeq}\end{equation}
+\section{First}\label{appA}
+\begin{equation}d\label{appeq2}\end{equation}
+\ref{before} \ref{carried} \ref{fromstar} \ref{own} \ref{gathered} \ref{starred}
+\ref{eqn1} \ref{eqnwould} \ref{eqnstar} \ref{appeq} \ref{appA} \ref{appeq2}
+\end{document}

@@ -104,9 +104,13 @@ pub(crate) enum Event {
         value: i64,
         add: bool,
     },
+    /// `\numberwithin`, `\counterwithin` (reset by `within`, printed
+    /// after it) or `\counterwithout` (`remove`: no longer reset by it,
+    /// printed alone).
     NumberWithin {
         counter: String,
-        within: Option<String>,
+        within: String,
+        remove: bool,
     },
     EnvEnter {
         name: String,
@@ -887,7 +891,8 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             if let (Some(c), Some(w)) = (m.first(), m.get(1)) {
                 push(Event::NumberWithin {
                     counter: c.trim().to_string(),
-                    within: (name != "counterwithout").then(|| w.trim().to_string()),
+                    within: w.trim().to_string(),
+                    remove: name == "counterwithout",
                 });
             }
         }

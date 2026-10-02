@@ -114,6 +114,23 @@ jobs:
       # the test suite holds Kalem's Vim layer to them.
       - run: python3 tools/vim-expected.py --check
 
+  pdflatex:
+    name: differential test against pdflatex
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-latex-extra
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p latex-model --example labels
+      # Random documents: every label numbered as pdflatex numbers it.
+      - run: python3 tools/latex-numbering-fuzz.py 400 $GITHUB_RUN_NUMBER --keep numbering-differences
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: numbering-differences
+          path: numbering-differences
+
   emacs:
     name: differential test against Emacs
     runs-on: ubuntu-latest

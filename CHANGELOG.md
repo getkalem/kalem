@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- LaTeX numbering as pdflatex numbers, checked against it on random documents in CI: labels on lines without a number (`align`, `gather`, `eqnarray`, `equation*`), `\appendix` before its first section, `\numberwithin` before the first chapter, cascading resets, `\counterwithout`, parts in the AMS classes. `kalem check` warns of a label amsmath stops at, and of one LaTeX never writes.
 - `kalem parse` parses a Markdown file as Markdown (it parsed it as Org), and LaTeX as LaTeX; `kalem check` takes folders, and checks Markdown as Markdown: links to files that are not there.
 - Vim: `>>` and `<<` follow `shiftwidth`; `.` repeats a visual change on as much text; each command is its own undo step.
 - The file manager's menu marks the item under the pointer in the selection's color (it was too faint to see).

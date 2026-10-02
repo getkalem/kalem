@@ -1,0 +1,18 @@
+\documentclass{book}
+\usepackage{amsmath}
+\numberwithin{equation}{section}
+\counterwithout{equation}{chapter}
+\renewcommand{\thesection}{\Roman{section}}
+\begin{document}
+\begin{equation}a\label{e0}\end{equation}
+\chapter{One}\label{c1}
+% \chapter resets section, and resetting section resets equation.
+\begin{equation}b\label{e1}\end{equation}
+\section{S}\label{s1}
+\begin{equation}c\label{e2}\end{equation}
+\appendix
+% \appendix defines \thechapter anew: A.
+\chapter{App}\label{ca}
+\section{T}\label{sa}
+\ref{e0} \ref{c1} \ref{e1} \ref{s1} \ref{e2} \ref{ca} \ref{sa}
+\end{document}
