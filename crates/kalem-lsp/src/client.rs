@@ -793,14 +793,19 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
             }
         }
     }
-    let code = inner
-        .child
-        .lock()
-        .expect("child")
-        .try_wait()
-        .ok()
-        .flatten()
-        .and_then(|s| s.code());
+    // The output closes as the process ends; its exit status follows a
+    // moment later.
+    let mut code = None;
+    for _ in 0..40 {
+        match inner.child.lock().expect("child").try_wait() {
+            Ok(Some(status)) => {
+                code = status.code();
+                break;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+            Err(_) => break,
+        }
+    }
     {
         let mut st = inner.state.write().expect("state");
         st.exited = true;

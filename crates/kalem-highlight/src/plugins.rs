@@ -196,9 +196,12 @@ fn resolve(
     Ok(out)
 }
 
-/// `sources` with `extends` resolved, as YAML syntect reads; the bases
-/// only for `extends` are left out.
-pub fn flatten(sources: &[SyntaxSource]) -> (Vec<(String, String)>, Vec<(String, String)>) {
+/// Pairs of a file's name and a text: its YAML, or why it failed.
+pub type Files = Vec<(String, String)>;
+
+/// `sources` with `extends` resolved, as YAML syntect reads, and the
+/// files that failed; the bases only for `extends` are left out.
+pub fn flatten(sources: &[SyntaxSource]) -> (Files, Files) {
     let mut docs: HashMap<String, Hash> = HashMap::new();
     let mut errors = Vec::new();
     for s in sources {

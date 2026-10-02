@@ -433,7 +433,7 @@ pub fn server_settings(plugin: &Plugin, server: &ServerSpec) -> Value {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Resolved {
     /// The server, its program and arguments.
-    Found(ServerSpec, PathBuf, Vec<String>),
+    Found(Box<ServerSpec>, PathBuf, Vec<String>),
     /// The user turned servers off for the plugin.
     Off,
     /// None of the servers is installed: what to do.
@@ -477,7 +477,7 @@ pub fn resolve_server(plugin: &Plugin, lang: &LanguageSpec, root: Option<&Path>)
         match found {
             Some(path) => {
                 let args = args.to_vec();
-                return Resolved::Found(spec, path, args);
+                return Resolved::Found(Box::new(spec), path, args);
             }
             None => missing.push(match &spec.install {
                 Some(how) => format!("{} is not installed ({how})", spec.name),
@@ -532,7 +532,11 @@ mod tests {
     fn languages_and_servers() {
         let dir = std::env::temp_dir().join(format!("kalem-lang-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("lang")).unwrap();
-        std::fs::write(dir.join("lang/plugin.json"), MANIFEST).unwrap();
+        // Server `b` is this test's own program: found on every system.
+        let exe = std::env::current_exe().unwrap();
+        let exe_json = serde_json::to_string(&exe).unwrap();
+        let manifest = MANIFEST.replace(r#"["sh"]"#, &format!("[{exe_json}]"));
+        std::fs::write(dir.join("lang/plugin.json"), manifest).unwrap();
         load_from(std::slice::from_ref(&dir));
         let (p, l) = for_path(Path::new("/x/a.html.lg"), None).unwrap();
         assert_eq!(l.id, "lang");
@@ -552,11 +556,11 @@ mod tests {
             "lang"
         );
         assert!(for_path(Path::new("/x/a.txt"), None).is_none());
-        // `a` is missing, `b` (sh) is found.
+        // `a` is missing, `b` is found.
         match resolve_server(&p, &l, None) {
             Resolved::Found(s, path, _) => {
                 assert_eq!(s.key, "b");
-                assert!(path.ends_with("sh"));
+                assert_eq!(path, exe);
             }
             r => panic!("{r:?}"),
         }

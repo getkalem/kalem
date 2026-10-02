@@ -34,16 +34,28 @@ settings to change it.
 
 | Server   | How                                                                                         |
 |----------+---------------------------------------------------------------------------------------------|
-| Expert   | A release from [[https://github.com/elixir-lang/expert/releases][elixir-lang/expert]], with =expert= on the =PATH=          |
+| Expert   | A release from [[https://github.com/expert-lsp/expert/releases][expert-lsp/expert]] (one file per platform, checksums beside it), renamed =expert= and put on the =PATH= |
 | ElixirLS | =brew install elixir-ls=, or a release unzipped to =~/.elixir-ls/release=                 |
 
 =kalem lsp status FILE= says which is used and where it was found.
 
 * Known differences
 
+Checked against Expert 0.1.11 and ElixirLS 0.27.2, on Elixir 1.20 with
+OTP 28, with the plugin's corpus project.
+
+- Expert starts by building its engine for the project's Elixir (about
+  forty seconds the first time, cached after), then compiles and
+  indexes the project; until the index is built it answers
+  documentation, definitions and references about the project's own
+  code with nothing (the standard library's at once). It reports this
+  work in its log, not as progress, so the status bar shows no
+  progress meanwhile.
+- Expert names files by their real paths (=/private/tmp= for =/tmp= on
+  macOS); Kalem sends servers the real path and maps places in their
+  answers back to the path a file was opened under.
 - ElixirLS 0.27 on Elixir 1.20 answers the document symbols request
-  with modules only, without their functions; Kalem lists what it
-  receives.
+  with modules only, without their functions; Expert lists both.
 - Regular expressions in =~r= are highlighted as strings: the
   package's PCRE syntax uses subroutine calls, which the pure-Rust
   regular expressions of Kalem's highlighter (=fancy-regex=) do not

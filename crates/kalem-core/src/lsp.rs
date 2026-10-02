@@ -38,6 +38,10 @@ struct Slot {
 
 struct Doc {
     uri: String,
+    /// The file with links resolved, as servers name it (`/tmp` is
+    /// `/private/tmp` on macOS): the URI is made from it, and places in
+    /// answers are mapped back to the path the editor opened.
+    real: PathBuf,
     language: LanguageSpec,
     plugin: Arc<Plugin>,
     /// `None` when no server serves it (the reason is in `missing`).
@@ -228,18 +232,18 @@ fn start_client(
         Resolved::Found(spec, program, args) => {
             let mut folders = Vec::new();
             // An umbrella project's applications are folders of its own.
-            if spec.root_outermost {
-                if let Ok(rd) = std::fs::read_dir(root.join("apps")) {
-                    let mut apps: Vec<PathBuf> = rd
-                        .filter_map(Result::ok)
-                        .map(|e| e.path())
-                        .filter(|p| spec.root_markers.iter().any(|m| p.join(m).exists()))
-                        .collect();
-                    apps.sort();
-                    if !apps.is_empty() {
-                        folders.push(root.to_path_buf());
-                        folders.extend(apps);
-                    }
+            if spec.root_outermost
+                && let Ok(rd) = std::fs::read_dir(root.join("apps"))
+            {
+                let mut apps: Vec<PathBuf> = rd
+                    .filter_map(Result::ok)
+                    .map(|e| e.path())
+                    .filter(|p| spec.root_markers.iter().any(|m| p.join(m).exists()))
+                    .collect();
+                apps.sort();
+                if !apps.is_empty() {
+                    folders.push(root.to_path_buf());
+                    folders.extend(apps);
                 }
             }
             let config = ServerConfig {
@@ -322,14 +326,16 @@ impl Service {
         let Some((plugin, language)) = languages::for_path(path, first) else {
             return;
         };
-        let root = root_of(path, &plugin, &language);
+        let real = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let root = root_of(&real, &plugin, &language);
         let (key, missing) = match languages::resolve_server(&plugin, &language, Some(&root)) {
             Resolved::Found(spec, ..) => (Some((plugin.id.clone(), spec.key, root)), None),
             Resolved::Off => (None, None),
             Resolved::Missing(m) => (None, Some(m)),
         };
         let mut doc = Doc {
-            uri: kalem_lsp::uri::from_path(path),
+            uri: kalem_lsp::uri::from_path(&real),
+            real,
             language,
             plugin,
             key,
@@ -561,7 +567,12 @@ pub fn tick() -> bool {
                 None => i += 1,
                 Some(r) => {
                     let a = s.actions.remove(i);
-                    let out = outcome(&a, r);
+                    let aliases: HashMap<PathBuf, PathBuf> = s
+                        .docs
+                        .iter()
+                        .map(|(p, d)| (d.real.clone(), p.clone()))
+                        .collect();
+                    let out = outcome(&a, r, &aliases);
                     s.outcomes.push((Some(a.path.clone()), out));
                     changed = true;
                 }
@@ -637,7 +648,13 @@ fn place(loc: &features::Location, texts: &HashMap<PathBuf, String>, enc: Encodi
     }
 }
 
-fn outcome(a: &Action, r: Result<Value, kalem_lsp::RpcError>) -> Outcome {
+/// What a request's answer shows; `aliases` maps the files servers name
+/// to the paths the editor opened them under.
+fn outcome(
+    a: &Action,
+    r: Result<Value, kalem_lsp::RpcError>,
+    aliases: &HashMap<PathBuf, PathBuf>,
+) -> Outcome {
     let v = match r {
         Ok(v) => v,
         Err(e) => {
@@ -703,7 +720,12 @@ fn outcome(a: &Action, r: Result<Value, kalem_lsp::RpcError>) -> Outcome {
             }
         }
         _ => {
-            let locs = features::locations(&v);
+            let mut locs = features::locations(&v);
+            for l in &mut locs {
+                if let Some(p) = aliases.get(&l.path) {
+                    l.path = p.clone();
+                }
+            }
             let mut texts: HashMap<PathBuf, String> =
                 HashMap::from([(a.path.clone(), a.text.clone())]);
             let places: Vec<Place> = locs
@@ -1038,7 +1060,8 @@ impl crate::completers::Completer for LspCompleter {
                 json!({
                     "textDocument": { "uri": d.uri },
                     "position": kalem_lsp::position::position(&d.text, point, enc).to_json(),
-                    "context": { "triggerKind": if ctx.requested { 1 } else { 1 } },
+                    // Invoked: the editor asks at a word or after a trigger string.
+                    "context": { "triggerKind": 1 },
                 }),
             );
             Some((c, pending, d.text.clone(), enc, point))

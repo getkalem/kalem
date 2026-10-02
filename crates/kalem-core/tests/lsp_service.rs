@@ -54,7 +54,14 @@ fn setup() -> (PathBuf, PathBuf) {
                           "rootMarkers": ["root.marker"], "settings": {"elixirLS": {"x": 1}}}}
     });
     std::fs::write(plug.join("plugin.json"), manifest.to_string()).unwrap();
+    // The project is reached through a link, as `/tmp` is on macOS: the
+    // fake server names files by their real paths, as Expert does.
+    let real = dir.join("real-project");
+    std::fs::create_dir_all(real.join("src")).unwrap();
     let project = dir.join("project");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&real, &project).unwrap();
+    #[cfg(not(unix))]
     std::fs::create_dir_all(project.join("src")).unwrap();
     std::fs::write(project.join("root.marker"), "").unwrap();
     let file = project.join("src/a.fk");

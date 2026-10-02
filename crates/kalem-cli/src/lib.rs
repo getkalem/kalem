@@ -72,6 +72,10 @@ enum LspAction {
         /// Seconds to wait for the server.
         #[arg(long, default_value_t = 120)]
         wait: u64,
+        /// Print the server's log (its messages and standard error) to
+        /// standard error.
+        #[arg(long)]
+        log: bool,
     },
     /// Asks the server about a place: `hover`, `definition`,
     /// `references`, `symbols` or `format` (prints the formatted text).
@@ -506,7 +510,8 @@ where
                 files,
                 format,
                 wait,
-            } => commands::lsp::check(&files, matches!(format, Format::Json), wait),
+                log,
+            } => commands::lsp::check(&files, matches!(format, Format::Json), wait, log),
             LspAction::Ask {
                 request,
                 file,
