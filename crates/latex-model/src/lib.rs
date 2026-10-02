@@ -672,6 +672,86 @@ pub fn has_chapters(name: &str) -> bool {
     class_kind(name) != ClassKind::Article
 }
 
+/// What a call of a macro that defines macros defines: the macro's
+/// `body` (with `count` parameters) is `\newcommand{#1}[n]{template}`, its
+/// kin or `\def#1{template}`, and `args` are the call's groups. The new
+/// macro's name, its number of arguments and its body, the call's
+/// arguments put in.
+fn defined_by(body: &str, count: usize, args: &[String]) -> Option<(String, usize, String)> {
+    if count == 0 || args.len() < count {
+        return None;
+    }
+    let put = |t: &str| {
+        let mut out = String::new();
+        let mut chars = t.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '#'
+                && let Some(k) = chars.peek().and_then(|c| c.to_digit(10))
+                && (1..=count as u32).contains(&k)
+            {
+                chars.next();
+                out.push_str(args[k as usize - 1].trim());
+                continue;
+            }
+            // `##1` in the template is the new macro's own `#1`.
+            if c == '#' && chars.peek() == Some(&'#') {
+                chars.next();
+                out.push('#');
+                continue;
+            }
+            out.push(c);
+        }
+        out
+    };
+    let b = body.trim();
+    let rest = [
+        "\\newcommand",
+        "\\renewcommand",
+        "\\providecommand",
+        "\\DeclareRobustCommand",
+    ]
+    .iter()
+    .find_map(|c| b.strip_prefix(c))
+    .map(|r| r.strip_prefix('*').unwrap_or(r).trim_start());
+    let (name_part, rest) = match rest {
+        Some(r) => {
+            let r = r.strip_prefix("{#1}").or_else(|| r.strip_prefix("#1"))?;
+            ("#1", r.trim_start())
+        }
+        None => {
+            let r = b.strip_prefix("\\def")?.trim_start();
+            ("#1", r.strip_prefix("#1")?.trim_start())
+        }
+    };
+    let _ = name_part;
+    // `[n]` arguments of the new macro.
+    let (n, rest) = match rest.strip_prefix('[') {
+        Some(r) => {
+            let (num, r) = r.split_once(']')?;
+            (num.trim().parse().ok()?, r.trim_start())
+        }
+        None => (0, rest),
+    };
+    let inner = rest.strip_prefix('{')?;
+    let mut depth = 1usize;
+    let mut close = None;
+    for (i, c) in inner.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let template = &inner[..close?];
+    Some((args[0].trim().to_string(), n, put(template)))
+}
+
 /// The counters of the four levels of `enumerate`.
 const ENUM_COUNTERS: [&str; 4] = ["enumi", "enumii", "enumiii", "enumiv"];
 
@@ -1388,6 +1468,23 @@ impl<'r> Numbering<'r> {
                     range: at(range),
                     file: self.file,
                 })
+            }
+            Event::Call { name, args, range } => {
+                // A macro whose body defines one (`\newcommand{\defaccr}[2]
+                // {\newcommand{#1}{#2\xspace}}`): the macro its call defines.
+                if let Some(m) = self.model.macros.iter().rev().find(|m| m.name == *name)
+                    && let Some((new, n, body)) = defined_by(&m.body, m.args, args)
+                {
+                    self.model.macros.push(Macro {
+                        name: new,
+                        command: "newcommand".into(),
+                        args: n,
+                        default: None,
+                        body,
+                        range: at(range),
+                        file: self.file,
+                    });
+                }
             }
             Event::NewEnvironment {
                 name,
