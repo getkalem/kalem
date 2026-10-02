@@ -1035,11 +1035,17 @@ mod tests {
         // A theorem declared in an `\input` preamble renders.
         let dir = std::env::temp_dir().join(format!("kalem-latex-cover-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("defs.tex"), "\\newtheorem{lemma}{Lemma}\n").unwrap();
-        let text = "\\documentclass{article}\n\\input{defs}\n\\begin{document}\n\\begin{lemma}\nTrue.\n\\end{lemma}\n\\end{document}\n";
+        // (A name of its own: `lemma` and the usual names render without
+        // their declaration.)
+        std::fs::write(dir.join("defs.tex"), "\\newtheorem{keyfact}{Key fact}\n").unwrap();
+        let text = "\\documentclass{article}\n\\input{defs}\n\\begin{document}\n\\begin{keyfact}\nTrue.\n\\end{keyfact}\n\\end{document}\n";
         let path = dir.join("main.tex");
         std::fs::write(&path, text).unwrap();
-        assert!(unrendered(text).iter().any(|(n, _)| n == "\\begin{lemma}"));
+        assert!(
+            unrendered(text)
+                .iter()
+                .any(|(n, _)| n == "\\begin{keyfact}")
+        );
         assert!(
             unrendered_in(text, Some(&path)).is_empty(),
             "{:?}",

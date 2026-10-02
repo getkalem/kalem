@@ -46,8 +46,8 @@ fn plain_array_columns(s: &str) -> String {
         {
             skip += close + 1;
         }
-        out.push_str(&rest[..skip]);
-        rest = &rest[skip..];
+        // The position (`[c]`) left out: the renderer does not take it.
+        rest = rest[skip..].trim_start();
         if let Some((spec, after)) = group(rest) {
             let mut cleaned = String::new();
             let mut chars = spec.chars().peekable();
@@ -71,12 +71,75 @@ fn plain_array_columns(s: &str) -> String {
                 }
             }
             out.push('{');
-            out.push_str(&cleaned);
+            out.push_str(&repeat_columns(&cleaned));
             out.push('}');
             rest = after;
         }
     }
     out.push_str(rest);
+    out
+}
+
+/// `*{3}{c}` in a column specification as `ccc`.
+fn repeat_columns(spec: &str) -> String {
+    let mut out = String::new();
+    let mut rest = spec;
+    while let Some(i) = rest.find("*{") {
+        out.push_str(&rest[..i]);
+        let Some((n, after)) = group(&rest[i + 1..]) else {
+            out.push_str(&rest[i..]);
+            return out;
+        };
+        let Some((cols, after)) = group(after) else {
+            out.push_str(&rest[i..]);
+            return out;
+        };
+        let n: usize = n.trim().parse().unwrap_or(1);
+        out.push_str(&repeat_columns(cols).repeat(n.min(64)));
+        rest = after;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Math delimiters inside a formula (`\\ch{->[ $\\mu$ ]}`, left after the
+/// text is taken care of): the formula is math already.
+fn inner_dollars(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => match chars.peek() {
+                Some('(' | ')') => {
+                    chars.next();
+                }
+                Some(&d) => {
+                    out.push(c);
+                    out.push(d);
+                    chars.next();
+                }
+                None => out.push(c),
+            },
+            '$' => {}
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// `\\Big{(}`, as old papers write it: `\\Big(`.
+fn braced_delimiters(s: &str) -> String {
+    let mut out = s.to_string();
+    for size in [
+        "\\bigl", "\\bigr", "\\Bigl", "\\Bigr", "\\biggl", "\\biggr", "\\Biggl", "\\Biggr",
+        "\\bigg", "\\Bigg", "\\big", "\\Big",
+    ] {
+        for d in [
+            "(", ")", "[", "]", "|", ".", "/", "\\{", "\\}", "\\|", "\\langle", "\\rangle",
+        ] {
+            out = out.replace(&format!("{size}{{{d}}}"), &format!("{size}{d}"));
+        }
+    }
     out
 }
 
@@ -108,12 +171,22 @@ fn math_out_of_text(s: &str) -> String {
             } else if c == '\\' && inner[k..].starts_with("\\(") {
                 chars.next();
                 Some("\\)")
+            } else if c == '\\' && inner[k..].starts_with("\\ensuremath{") {
+                // `\\ensuremath{x}` in text: x as math.
+                for _ in 0.."\\ensuremath".len() - 1 {
+                    chars.next();
+                }
+                Some("}")
             } else {
                 None
             };
             match close {
                 Some(close) => {
-                    let start = k + if close == "$" { 1 } else { 2 };
+                    let start = k + match close {
+                        "$" => 1,
+                        "}" => "\\ensuremath{".len(),
+                        _ => 2,
+                    };
                     match inner[start..].find(close) {
                         Some(e) => {
                             pieces
@@ -162,6 +235,8 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     // eqnarray's `a &=& b` as an align's columns; flalign as align.
     s = plain_array_columns(&s);
     s = math_out_of_text(&s);
+    s = inner_dollars(&s);
+    s = braced_delimiters(&s);
     s = rename_env(&s, "eqnarray*", "align*");
     s = rename_env(&s, "eqnarray", "align");
     s = rename_env(&s, "flalign*", "align*");

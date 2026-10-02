@@ -4832,7 +4832,8 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
         // follows it (`\\def\\f{\\frac}`, `\\def\\lb{\\left(}`) is kept.
         let use_it = format!("{name}{}", "{x}".repeat((*args).max(3)));
         if let Err(e) = org_math::check(&org_math::source::prepare(&use_it, &trial))
-            && e.message.contains("Undefined control sequence")
+            && (e.message.contains("Undefined control sequence")
+                || e.message.contains("Too many expansions"))
         {
             continue;
         }
@@ -4893,8 +4894,6 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\upmu}{\\mu}",
     "\\newcommand{\\updelta}{\\delta}",
     "\\newcommand{\\uppi}{\\pi}",
-    "\\newcommand{\\leqslant}{\\leq}",
-    "\\newcommand{\\geqslant}{\\geq}",
     "\\newcommand{\\coloneqq}{\\mathrel{:}=}",
     "\\newcommand{\\eqqcolon}{=\\mathrel{:}}",
     "\\newcommand{\\mathclap}[1]{#1}",
@@ -4907,6 +4906,35 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\ul}[1]{\\underline{#1}}",
     "\\newcommand{\\uline}[1]{\\underline{#1}}",
     "\\newcommand{\\lefteqn}[1]{#1}",
+    "\\newcommand{\\bm}[1]{\\boldsymbol{#1}}",
+    "\\newcommand{\\boldmath}{}",
+    "\\newcommand{\\unboldmath}{}",
+    "\\newcommand{\\qedhere}{}",
+    "\\newcommand{\\numberthis}{}",
+    "\\newcommand{\\cite}[1]{\\text{[#1]}}",
+    "\\newcommand{\\citep}[1]{\\text{[#1]}}",
+    "\\newcommand{\\Tr}{\\operatorname{Tr}}",
+    "\\newcommand{\\tr}{\\operatorname{tr}}",
+    "\\newcommand{\\dd}{\\mathrm{d}}",
+    "\\newcommand{\\eval}[1]{\\left.#1\\right|}",
+    "\\newcommand{\\pqty}[1]{\\left(#1\\right)}",
+    "\\newcommand{\\bqty}[1]{\\left[#1\\right]}",
+    "\\newcommand{\\Bqty}[1]{\\left\\{#1\\right\\}}",
+    "\\newcommand{\\vqty}[1]{\\left|#1\\right|}",
+    "\\newcommand{\\mathpzc}[1]{\\mathcal{#1}}",
+    "\\newcommand{\\bigints}{\\int}",
+    "\\newcommand{\\bigintss}{\\int}",
+    "\\newcommand{\\bigintsss}{\\int}",
+    "\\newcommand{\\bigintssss}{\\int}",
+    "\\newcommand{\\makebox}[1]{\\text{#1}}",
+    "\\newcommand{\\framebox}[1]{\\boxed{\\text{#1}}}",
+    "\\newcommand{\\uppsi}{\\psi}",
+    "\\newcommand{\\upphi}{\\phi}",
+    "\\newcommand{\\upgamma}{\\gamma}",
+    "\\newcommand{\\upeta}{\\eta}",
+    "\\newcommand{\\uplambda}{\\lambda}",
+    "\\newcommand{\\upepsilon}{\\epsilon}",
+    "\\newcommand{\\upomega}{\\omega}",
     "\\newcommand{\\sideset}[2]{}",
     "\\newcommand{\\slashed}[1]{\\not{#1}}",
     "\\newcommand{\\numprint}[1]{#1}",
@@ -5427,7 +5455,8 @@ mod tests {
         let defs = math_definitions(&d);
         assert!(defs.iter().any(|x| x.contains("\\pdv")));
         assert!(defs.iter().any(|x| x.contains("\\SI")));
-        assert!(!defs.iter().any(|x| x.contains("\\bm")));
+        // bm's `\\bm` is defined with or without the package.
+        assert!(defs.iter().any(|x| x.contains("\\bm")));
         // The document's own definition comes last and wins.
         assert_eq!(
             defs.last().map(String::as_str),
