@@ -397,6 +397,7 @@ enum ViewFormat {
 /// of getkalem/plugins, until components load (T3.1.12).
 pub fn bundled_plugins() {
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_image_viewer::ImageViewer));
+    kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_xlsx::XlsxViewer));
 }
 
 pub fn run<I, T>(args: I) -> ExitCode

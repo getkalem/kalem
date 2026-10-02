@@ -117,6 +117,9 @@ impl Editor {
         self.viewer_schedule(cx);
         let theme = self.theme.clone();
         let entity = cx.entity();
+        if self.doc.viewer.as_deref().is_some_and(|v| v.is_grid()) {
+            return Some(self.grid_element(window, cx));
+        }
         let area = match self.viewer_image(window, cx) {
             Ok(image) => {
                 let prepaint = entity.clone();
@@ -252,5 +255,295 @@ impl Editor {
                 .child(area)
                 .children(info),
         )
+    }
+
+    /// A grid unit (a sheet): letters above, row numbers at the left, the
+    /// cells in view with their styles, the cursor's cell outlined; a click
+    /// moves the cursor, a double click edits, the wheel scrolls.
+    fn grid_element(&mut self, window: &mut Window, cx: &mut Context<'_, Editor>) -> Div {
+        let theme = self.theme.clone();
+        let entity = cx.entity();
+        let run = |text: &str| gpui::TextRun {
+            len: text.len(),
+            font: gpui::font(SharedString::from(theme.font.clone())),
+            color: theme.foreground,
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        // A digit's width: Excel's column widths count them.
+        let digit = f32::from(
+            window
+                .text_system()
+                .shape_line("0".into(), px(theme.size), &[run("0")], None)
+                .width,
+        );
+        let row_h = (theme.size * 1.6).round();
+        let bounds = self.viewer_view.bounds.map_or((900.0, 600.0), |b| {
+            (f32::from(b.size.width), f32::from(b.size.height))
+        });
+        let Some(v) = self.doc.viewer.as_deref_mut() else {
+            return div();
+        };
+        let Some(layout) = v.grid_layout() else {
+            return div();
+        };
+        let col_px = |c: u32| -> f32 {
+            let w = layout
+                .widths
+                .get(c as usize)
+                .copied()
+                .unwrap_or(layout.default_width);
+            (w * digit + 10.0).clamp(24.0, 800.0)
+        };
+        let pos = v.grid_pos();
+        let gutter =
+            ((pos.top + 200).max(layout.rows).to_string().len() as f32 * digit + 16.0).max(40.0);
+        // Rows and columns in view: the frozen ones, then from the scroll on.
+        let pick = |frozen: u32,
+                    first: u32,
+                    max: u32,
+                    hidden: &[u32],
+                    room: f32,
+                    size: &dyn Fn(u32) -> f32|
+         -> (Vec<(u32, f32)>, u32) {
+            let mut out = Vec::new();
+            let mut used = 0.0;
+            let mut full = 0;
+            let mut i = 0;
+            while i < max && used < room {
+                if i == frozen.min(max) || (i >= frozen && i < first.max(frozen)) {
+                    i = i.max(first.max(frozen));
+                    if i >= max {
+                        break;
+                    }
+                }
+                if !hidden.contains(&i) {
+                    let w = size(i);
+                    out.push((i, w));
+                    used += w;
+                    if used <= room {
+                        full += 1;
+                    }
+                }
+                i += 1;
+            }
+            (out, full)
+        };
+        let (cols, full_cols) = pick(
+            layout.frozen.1,
+            pos.left,
+            layout.max_cols,
+            &layout.hidden_cols,
+            bounds.0 - gutter,
+            &col_px,
+        );
+        let (rows, full_rows) = pick(
+            layout.frozen.0,
+            pos.top,
+            layout.max_rows,
+            &layout.hidden_rows,
+            bounds.1 - row_h,
+            &|_| row_h,
+        );
+        v.set_grid_visible(full_rows.max(1), full_cols.max(1));
+        if v.grid_pos() != pos {
+            // The cursor scrolled the view: lay out once more.
+            return self.grid_element(window, cx);
+        }
+        let Some(v) = self.doc.viewer.as_deref_mut() else {
+            return div();
+        };
+        let mut cells = std::collections::HashMap::new();
+        let split = |list: &[(u32, f32)], frozen: u32| -> Vec<std::ops::Range<u32>> {
+            let mut out = Vec::new();
+            for part in [
+                list.iter()
+                    .map(|x| x.0)
+                    .filter(|&i| i < frozen)
+                    .collect::<Vec<_>>(),
+                list.iter()
+                    .map(|x| x.0)
+                    .filter(|&i| i >= frozen)
+                    .collect::<Vec<_>>(),
+            ] {
+                if let (Some(a), Some(b)) = (part.first(), part.last()) {
+                    out.push(*a..*b + 1);
+                }
+            }
+            out
+        };
+        for rr in split(&rows, layout.frozen.0) {
+            for cr in split(&cols, layout.frozen.1) {
+                for (r, c, cell) in v.grid_cells(rr.clone(), cr) {
+                    cells.insert((r, c), cell);
+                }
+            }
+        }
+        let rgb = |c: [u8; 3]| -> gpui::Hsla {
+            gpui::rgb(u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2])).into()
+        };
+        let header_bg = theme.bar;
+        let cursor = theme.caret;
+        let letters = div()
+            .flex()
+            .flex_row()
+            .flex_none()
+            .h(px(row_h))
+            .bg(header_bg)
+            .border_b_1()
+            .border_color(theme.border)
+            .child(div().w(px(gutter)).flex_none())
+            .children(cols.iter().map(|&(c, w)| {
+                let name = kalem_core::csv_tools::column_letters(c as usize);
+                div()
+                    .w(px(w))
+                    .flex_none()
+                    .h_full()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .border_r_1()
+                    .border_color(theme.border)
+                    .text_color(if c == pos.col {
+                        theme.foreground
+                    } else {
+                        theme.muted
+                    })
+                    .font_weight(if c == pos.col {
+                        gpui::FontWeight::BOLD
+                    } else {
+                        gpui::FontWeight::NORMAL
+                    })
+                    .child(SharedString::from(name))
+            }));
+        let body = rows.iter().map(|&(r, _)| {
+            let number = div()
+                .w(px(gutter))
+                .flex_none()
+                .h_full()
+                .flex()
+                .items_center()
+                .justify_end()
+                .pr(px(6.))
+                .bg(header_bg)
+                .border_r_1()
+                .border_color(theme.border)
+                .text_color(if r == pos.row {
+                    theme.foreground
+                } else {
+                    theme.muted
+                })
+                .font_weight(if r == pos.row {
+                    gpui::FontWeight::BOLD
+                } else {
+                    gpui::FontWeight::NORMAL
+                })
+                .child(SharedString::from((r + 1).to_string()));
+            let row_cells = cols.iter().map(|&(c, w)| {
+                let cell = cells.get(&(r, c));
+                let here = (r, c) == (pos.row, pos.col);
+                let mut d = div()
+                    .id(SharedString::from(format!("cell-{r}-{c}")))
+                    .w(px(w))
+                    .flex_none()
+                    .h_full()
+                    .px(px(4.))
+                    .flex()
+                    .items_center()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .border_r_1()
+                    .border_b_1()
+                    .border_color(theme.border);
+                if let Some(cell) = cell {
+                    let right = matches!(cell.align, kalem_viewer::Align::Right)
+                        || (cell.numeric && matches!(cell.align, kalem_viewer::Align::General));
+                    if right {
+                        d = d.justify_end();
+                    } else if matches!(cell.align, kalem_viewer::Align::Center) {
+                        d = d.justify_center();
+                    }
+                    if let Some(f) = cell.fill {
+                        d = d.bg(rgb(f));
+                    }
+                    if let Some(c) = cell.color {
+                        d = d.text_color(rgb(c));
+                    }
+                    if cell.bold {
+                        d = d.font_weight(gpui::FontWeight::BOLD);
+                    }
+                    if cell.italic {
+                        d = d.italic();
+                    }
+                    if cell.underline {
+                        d = d.underline();
+                    }
+                    if cell.strike {
+                        d = d.line_through();
+                    }
+                    if cell.note {
+                        d = d.border_t_2().border_color(theme.todo);
+                    }
+                    d = d.child(SharedString::from(cell.text.clone()));
+                }
+                if here {
+                    d = d.border_2().border_color(cursor);
+                }
+                d.on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
+                        if let Some(v) = this.doc.viewer.as_deref_mut() {
+                            v.grid_move_to(r, c);
+                        }
+                        let handle = gpui::Focusable::focus_handle(this, cx);
+                        window.focus(&handle, cx);
+                        if ev.click_count >= 2 {
+                            this.run_command("viewer.grid.edit", serde_json::json!({}), window, cx);
+                        }
+                        cx.notify();
+                    }),
+                )
+            });
+            div()
+                .flex()
+                .flex_row()
+                .flex_none()
+                .h(px(row_h))
+                .child(number)
+                .children(row_cells)
+        });
+        let prepaint = entity.clone();
+        div()
+            .debug_selector(|| "viewer-grid".into())
+            .size_full()
+            .relative()
+            .overflow_hidden()
+            .bg(theme.background)
+            .text_size(px(theme.size))
+            .font_family(SharedString::from(theme.font.clone()))
+            .child(
+                gpui::canvas(
+                    move |bounds, _window, cx| {
+                        prepaint.update(cx, |e, _| e.viewer_view.bounds = Some(bounds));
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
+            .child(div().flex().flex_col().child(letters).children(body))
+            .on_scroll_wheel(cx.listener(move |this, ev: &ScrollWheelEvent, _, cx| {
+                let d = ev.delta.pixel_delta(px(row_h));
+                if let Some(v) = this.doc.viewer.as_deref_mut() {
+                    let rows = (-f32::from(d.y) / row_h).round() as i64;
+                    let cols = (-f32::from(d.x) / (digit * 9.0)).round() as i64;
+                    if rows != 0 || cols != 0 {
+                        v.grid_scroll(rows, cols);
+                        cx.notify();
+                    }
+                }
+                cx.stop_propagation();
+            }))
     }
 }

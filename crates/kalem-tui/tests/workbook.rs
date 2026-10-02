@@ -1,0 +1,159 @@
+//! An Excel workbook in the terminal editor through the xlsx plugin
+//! (T3.7.4): the sheet as a grid, the cursor's keys, a cell edited, a row
+//! inserted, undo, the next sheet, and the file saved as itself.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use kalem_core::DocumentMode;
+use kalem_core::settings::Config;
+use kalem_tui::app::App;
+use kalem_tui::caps::Caps;
+use ratatui::Terminal;
+use ratatui::backend::TestBackend;
+use serde_json::json;
+
+struct T {
+    app: App,
+    term: Terminal<TestBackend>,
+    dir: PathBuf,
+}
+
+impl Drop for T {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+impl T {
+    fn open(name: &str) -> T {
+        kalem_core::viewer::register(Arc::new(kalem_plugin_xlsx::XlsxViewer));
+        let dir =
+            std::env::temp_dir().join(format!("kalem-tui-xlsx-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/budget.xlsx");
+        std::fs::copy(data, dir.join("budget.xlsx")).unwrap();
+        let app = App::with_keymap(
+            Some(&dir.join("budget.xlsx")),
+            Config::default(),
+            Caps::full(),
+            &[],
+            Vec::new(),
+        )
+        .unwrap();
+        let mut t = T {
+            app,
+            term: Terminal::new(TestBackend::new(80, 12)).unwrap(),
+            dir,
+        };
+        t.screen();
+        t
+    }
+
+    fn screen(&mut self) -> String {
+        let app = &mut self.app;
+        self.term.draw(|f| app.draw(f)).unwrap();
+        let buf = self.term.backend().buffer().clone();
+        (0..buf.area.height)
+            .map(|y| {
+                (0..buf.area.width)
+                    .map(|x| buf[(x, y)].symbol().to_string())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn key(&mut self, code: KeyCode) {
+        self.app
+            .event(Event::Key(KeyEvent::new(code, KeyModifiers::NONE)));
+        self.screen();
+    }
+
+    fn status(&mut self) -> String {
+        self.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .map(|v| v.status())
+            .unwrap_or_default()
+    }
+}
+
+#[test]
+fn a_workbook_opens_as_a_grid() {
+    let mut t = T::open("grid");
+    assert_eq!(t.app.doc.meta.mode, DocumentMode::Viewer);
+    let s = t.screen();
+    assert!(
+        s.contains("Item") && s.contains("1,200.00") && s.contains("4,293.75"),
+        "{s}"
+    );
+    assert!(s.contains(" A ") && s.contains(" D "), "{s}");
+    assert!(
+        t.status().starts_with("Budget · A1 · 1/3"),
+        "{}",
+        t.status()
+    );
+    // The note on A2 shows in the status line.
+    t.key(KeyCode::Down);
+    assert!(
+        t.status().contains("A2") && t.status().contains("Paid on the first"),
+        "{}",
+        t.status()
+    );
+    t.key(KeyCode::Right);
+    assert!(t.status().contains("B2"), "{}", t.status());
+}
+
+#[test]
+fn cells_rows_undo_and_save() {
+    let mut t = T::open("edit");
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 1, "col": 1, "value": "1300" }),
+    );
+    let s = t.screen();
+    assert!(
+        s.contains("1,300.00") && s.contains("2,500.00") && s.contains("4,393.75"),
+        "{s}"
+    );
+    // Enter moved the cursor down.
+    assert!(t.status().contains("B3"), "{}", t.status());
+    t.app.run_command("viewer.grid.insertRow", json!({}));
+    let s = t.screen();
+    assert!(s.contains("Food"), "{s}");
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().cell_input(), "");
+    let input = |t: &mut T, row: u32, col: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(row, col);
+        v.cell_input()
+    };
+    assert_eq!(input(&mut t, 3, 0), "Food");
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 2, 0), "Food");
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 1, 1), "1200");
+    assert!(!t.app.doc.viewer.as_deref().unwrap().modified());
+    t.app.run_command("edit.redo", json!({}));
+    assert_eq!(input(&mut t, 1, 1), "1300");
+    t.app.run_command("app.save", json!({}));
+    let saved = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(saved).unwrap();
+    assert_eq!(
+        wb.display(0, kalem_plugin_xlsx::CellRef::new(1, 1))
+            .unwrap(),
+        "1,300.00"
+    );
+    // The next sheet.
+    t.app.run_command("viewer.grid.nextSheet", json!({}));
+    assert!(t.status().starts_with("Dates"), "{}", t.status());
+    // A date wider than its column shows as #, as in a spreadsheet.
+    assert!(t.screen().contains("########"));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().cell_input(),
+        "2026-10-03"
+    );
+}

@@ -12,8 +12,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use kalem_viewer::{
-    Bitmap, Edit, FileHandle, InfoField, RenderRequest, Rendered, SaveOutput, Structure, UnitKind,
-    Viewer, ViewerDocument,
+    Bitmap, Edit, FileHandle, GridCell, GridEdit, GridLayout, InfoField, MacroEntry, MacroOutcome,
+    MacroQuestion, MacroUi, RenderRequest, Rendered, SaveOutput, Structure, UnitKind, Viewer,
+    ViewerDocument,
 };
 
 use crate::command::{
@@ -142,6 +143,53 @@ pub struct ViewerState {
     redo: Vec<(String, String)>,
     generation: u64,
     cache: Option<(usize, u8, u64, Bitmap)>,
+    /// Which units are grids (sheets, tables).
+    grids: Vec<bool>,
+    /// Each grid unit's cursor and scroll.
+    grid_pos: std::collections::HashMap<usize, GridPos>,
+    /// The layout of the grid shown, by unit and generation.
+    grid_cache: Option<(usize, u64, GridLayout)>,
+    /// How many rows and columns the frontend shows, frozen ones included.
+    grid_visible: (u32, u32),
+}
+
+/// A grid unit's cursor and the first row and column scrolled to (past
+/// the frozen ones), zero-based.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct GridPos {
+    /// The cursor's row.
+    pub row: u32,
+    /// The cursor's column.
+    pub col: u32,
+    /// The first row shown below the frozen rows.
+    pub top: u32,
+    /// The first column shown right of the frozen columns.
+    pub left: u32,
+}
+
+/// Answers a macro's questions from the user's answers so far; plain
+/// messages are collected; a question past the answers stops the run.
+struct Answers<'a> {
+    answers: &'a [String],
+    next: usize,
+}
+
+impl MacroUi for Answers<'_> {
+    fn message(&mut self, _prompt: &str, buttons: i64, _title: &str) -> Option<i64> {
+        if buttons & 7 == 0 {
+            return Some(1);
+        }
+        let a = self.answers.get(self.next)?.parse().ok()?;
+        self.next += 1;
+        Some(a)
+    }
+
+    fn input(&mut self, _prompt: &str, _title: &str, _default: &str) -> Option<Option<String>> {
+        let a = self.answers.get(self.next)?.clone();
+        self.next += 1;
+        // The palette's Escape answers nothing: VBA's Cancel is an empty string.
+        Some(Some(a))
+    }
 }
 
 impl std::fmt::Debug for ViewerState {
@@ -166,6 +214,10 @@ impl ViewerState {
             return Err("The file has nothing to show".into());
         }
         let playing = structure.animated();
+        let mut doc = doc;
+        let grids = (0..structure.units.len())
+            .map(|u| doc.grid(u).is_some())
+            .collect();
         Ok(ViewerState {
             viewer,
             doc,
@@ -181,6 +233,10 @@ impl ViewerState {
             redo: Vec::new(),
             generation: next_generation(),
             cache: None,
+            grids,
+            grid_pos: std::collections::HashMap::new(),
+            grid_cache: None,
+            grid_visible: (30, 10),
         })
     }
 
@@ -417,6 +473,11 @@ impl ViewerState {
 
     /// Undoes the last edit; false when there is none.
     pub fn undo(&mut self) -> Result<bool, String> {
+        if self.doc.has_history() {
+            let done = self.doc.undo().map_err(|e| e.to_string())?;
+            self.refresh();
+            return Ok(done);
+        }
         let Some((inverse, again)) = self.undo.pop() else {
             return Ok(false);
         };
@@ -428,6 +489,11 @@ impl ViewerState {
 
     /// Redoes the last edit undone; false when there is none.
     pub fn redo(&mut self) -> Result<bool, String> {
+        if self.doc.has_history() {
+            let done = self.doc.redo().map_err(|e| e.to_string())?;
+            self.refresh();
+            return Ok(done);
+        }
         let Some((inverse, again)) = self.redo.pop() else {
             return Ok(false);
         };
@@ -447,8 +513,26 @@ impl ViewerState {
         self.doc.save().map_err(|e| e.to_string())
     }
 
-    /// What the status bar says: the size, the zoom, the unit.
+    /// What the status bar says: the size, the zoom, the unit; for a grid,
+    /// the sheet, the cell and its note.
     pub fn status(&mut self) -> String {
+        if self.is_grid() {
+            let p = self.grid_pos();
+            let mut parts = vec![self.structure.units[self.unit].label.clone()];
+            parts.push(format!(
+                "{}{}",
+                crate::csv_tools::column_letters(p.col as usize),
+                p.row + 1
+            ));
+            let n = self.structure.units.len();
+            if n > 1 {
+                parts.push(format!("{}/{n}", self.unit + 1));
+            }
+            if let Some(note) = self.doc.cell_note(self.unit, p.row, p.col) {
+                parts.push(note.lines().next().unwrap_or_default().to_string());
+            }
+            return parts.join(" · ");
+        }
         let mut parts = Vec::new();
         if let Ok(b) = self.bitmap() {
             parts.push(format!("{} × {}", b.width, b.height));
@@ -459,6 +543,183 @@ impl ViewerState {
             parts.push(format!("{}/{n}", self.unit + 1));
         }
         parts.join(" · ")
+    }
+}
+
+impl ViewerState {
+    /// After the document changed: its units, which are grids, the cache.
+    fn refresh(&mut self) {
+        self.structure = self.doc.structure();
+        let n = self.structure.units.len();
+        self.grids = (0..n).map(|u| self.doc.grid(u).is_some()).collect();
+        if self.unit >= n {
+            self.unit = n.saturating_sub(1);
+        }
+        self.grid_cache = None;
+        self.changed();
+    }
+
+    /// Whether the unit shown is a grid (a sheet, a table).
+    pub fn is_grid(&self) -> bool {
+        self.grids.get(self.unit).copied().unwrap_or(false)
+    }
+
+    /// The grid shown's layout.
+    pub fn grid_layout(&mut self) -> Option<GridLayout> {
+        if !self.is_grid() {
+            return None;
+        }
+        if let Some((u, g, l)) = &self.grid_cache
+            && (*u, *g) == (self.unit, self.generation)
+        {
+            return Some(l.clone());
+        }
+        let l = self.doc.grid(self.unit)?;
+        self.grid_cache = Some((self.unit, self.generation, l.clone()));
+        Some(l)
+    }
+
+    /// Whether the grid shown can be edited.
+    pub fn grid_editable(&mut self) -> bool {
+        self.grid_layout().is_some_and(|l| l.editable)
+    }
+
+    /// The cells of the grid shown in `rows` × `cols`.
+    pub fn grid_cells(
+        &mut self,
+        rows: std::ops::Range<u32>,
+        cols: std::ops::Range<u32>,
+    ) -> Vec<(u32, u32, GridCell)> {
+        self.doc.grid_cells(self.unit, rows, cols)
+    }
+
+    /// The cursor and scroll of the grid shown.
+    pub fn grid_pos(&self) -> GridPos {
+        self.grid_pos.get(&self.unit).copied().unwrap_or_default()
+    }
+
+    /// Tells the state how many rows and columns the frontend shows,
+    /// frozen ones included, for paging and keeping the cursor in view.
+    pub fn set_grid_visible(&mut self, rows: u32, cols: u32) {
+        self.grid_visible = (rows.max(1), cols.max(1));
+        let p = self.grid_pos();
+        self.grid_move_to(p.row, p.col);
+    }
+
+    /// Scrolls by whole rows and columns, the cursor kept.
+    pub fn grid_scroll(&mut self, rows: i64, cols: i64) {
+        let Some(l) = self.grid_layout() else { return };
+        let mut p = self.grid_pos();
+        p.top = (i64::from(p.top) + rows).clamp(
+            i64::from(l.frozen.0),
+            i64::from(l.max_rows.saturating_sub(1)),
+        ) as u32;
+        p.left = (i64::from(p.left) + cols).clamp(
+            i64::from(l.frozen.1),
+            i64::from(l.max_cols.saturating_sub(1)),
+        ) as u32;
+        self.grid_pos.insert(self.unit, p);
+    }
+
+    /// Puts the cursor on a cell and scrolls it into view.
+    pub fn grid_move_to(&mut self, row: u32, col: u32) {
+        let Some(l) = self.grid_layout() else { return };
+        let mut p = self.grid_pos();
+        p.row = row.min(l.max_rows.saturating_sub(1));
+        p.col = col.min(l.max_cols.saturating_sub(1));
+        let (fr, fc) = l.frozen;
+        let rows = self.grid_visible.0.saturating_sub(fr).max(1);
+        let cols = self.grid_visible.1.saturating_sub(fc).max(1);
+        p.top = p.top.max(fr);
+        p.left = p.left.max(fc);
+        if p.row >= fr {
+            if p.row < p.top {
+                p.top = p.row;
+            } else if p.row >= p.top + rows {
+                p.top = p.row + 1 - rows;
+            }
+        }
+        if p.col >= fc {
+            if p.col < p.left {
+                p.left = p.col;
+            } else if p.col >= p.left + cols {
+                p.left = p.col + 1 - cols;
+            }
+        }
+        self.grid_pos.insert(self.unit, p);
+    }
+
+    /// Moves the cursor by rows and columns, over hidden ones.
+    pub fn grid_move_by(&mut self, rows: i64, cols: i64) {
+        let Some(l) = self.grid_layout() else { return };
+        let p = self.grid_pos();
+        let step = |v: u32, d: i64, max: u32, hidden: &[u32]| -> u32 {
+            let mut x = i64::from(v);
+            let dir = d.signum();
+            let mut left = d.abs();
+            while left > 0 {
+                let n = x + dir;
+                if n < 0 || n >= i64::from(max) {
+                    break;
+                }
+                x = n;
+                if !hidden.contains(&(n as u32)) {
+                    left -= 1;
+                }
+            }
+            x as u32
+        };
+        let r = step(p.row, rows, l.max_rows, &l.hidden_rows);
+        let c = step(p.col, cols, l.max_cols, &l.hidden_cols);
+        self.grid_move_to(r, c);
+    }
+
+    /// Moves a page down (`1`) or up (`-1`).
+    pub fn grid_page(&mut self, dir: i64) {
+        let fr = self.grid_layout().map_or(0, |l| l.frozen.0);
+        let page = i64::from(self.grid_visible.0.saturating_sub(fr).max(1));
+        self.grid_scroll(dir * page, 0);
+        self.grid_move_by(dir * page, 0);
+    }
+
+    /// The cursor's cell as entered, for editing.
+    pub fn cell_input(&mut self) -> String {
+        let p = self.grid_pos();
+        self.doc.cell_input(self.unit, p.row, p.col)
+    }
+
+    /// Enters text into a cell of the grid shown.
+    pub fn set_cell(&mut self, row: u32, col: u32, input: &str) -> Result<(), String> {
+        self.doc
+            .set_cell(self.unit, row, col, input)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Changes the grid's shape.
+    pub fn grid_edit(&mut self, edit: GridEdit) -> Result<(), String> {
+        self.doc
+            .grid_edit(self.unit, edit)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The document's macros.
+    pub fn macros(&mut self) -> Vec<MacroEntry> {
+        self.doc.macros()
+    }
+
+    /// Runs a macro, answering its questions from `answers` in order.
+    pub fn run_macro(&mut self, name: &str, answers: &[String]) -> Result<MacroOutcome, String> {
+        let mut ui = Answers { answers, next: 0 };
+        let out = self
+            .doc
+            .run_macro(name, &mut ui)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(out)
     }
 }
 
@@ -501,6 +762,10 @@ pub fn png(bitmap: &Bitmap) -> Result<Vec<u8>, String> {
 }
 
 const IN_VIEWER: &str = "editorMode == viewer";
+/// A unit drawn as a picture: zoom, pan and turn apply.
+const IN_IMAGE: &str = "editorMode == viewer && !viewerGrid";
+/// A unit drawn as a grid of cells.
+const IN_GRID: &str = "editorMode == viewer && viewerGrid";
 
 fn cmd(
     id: &str,
@@ -588,6 +853,18 @@ pub(crate) fn copy(ctx: &mut EditorContext<'_>) -> CommandResult {
     let Some(v) = doc.viewer.as_deref_mut() else {
         return Ok(());
     };
+    if v.is_grid() {
+        // A grid copies the cell's text.
+        let p = v.grid_pos();
+        let text = v
+            .grid_cells(p.row..p.row + 1, p.col..p.col + 1)
+            .into_iter()
+            .next()
+            .map(|c| c.2.text)
+            .unwrap_or_default();
+        ctx.requests.push(Request::CopyText(text));
+        return Ok(());
+    }
     let png = v
         .bitmap()
         .and_then(|b| png(&b))
@@ -603,7 +880,7 @@ pub(crate) fn commands() -> Vec<Command> {
             "viewer.zoomIn",
             "Zoom In",
             &["=", "+"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| {
                 with(ctx, |v| {
                     v.zoom_by(ZOOM_STEP);
@@ -611,7 +888,7 @@ pub(crate) fn commands() -> Vec<Command> {
                 })
             },
         ),
-        cmd("viewer.zoomOut", "Zoom Out", &["-"], IN_VIEWER, |ctx, _| {
+        cmd("viewer.zoomOut", "Zoom Out", &["-"], IN_IMAGE, |ctx, _| {
             with(ctx, |v| {
                 v.zoom_by(1.0 / ZOOM_STEP);
                 Ok(())
@@ -621,7 +898,7 @@ pub(crate) fn commands() -> Vec<Command> {
             "viewer.fit",
             "Fit to Window",
             &["0", "f"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| {
                 with(ctx, |v| {
                     v.fit();
@@ -633,7 +910,7 @@ pub(crate) fn commands() -> Vec<Command> {
             "viewer.actualSize",
             "Actual Size",
             &["1"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| {
                 with(ctx, |v| {
                     v.actual_size();
@@ -645,35 +922,35 @@ pub(crate) fn commands() -> Vec<Command> {
             "viewer.panLeft",
             "Pan Left",
             &["left", "h"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| pan(ctx, -1.0, 0.0),
         ),
         cmd(
             "viewer.panRight",
             "Pan Right",
             &["right", "l"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| pan(ctx, 1.0, 0.0),
         ),
         cmd(
             "viewer.panUp",
             "Pan Up",
             &["up", "k"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| pan(ctx, 0.0, -1.0),
         ),
         cmd(
             "viewer.panDown",
             "Pan Down",
             &["down", "j"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| pan(ctx, 0.0, 1.0),
         ),
         cmd(
             "viewer.rotateRight",
             "Rotate View Right",
             &["r"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| {
                 with(ctx, |v| {
                     v.rotate(1);
@@ -685,7 +962,7 @@ pub(crate) fn commands() -> Vec<Command> {
             "viewer.rotateLeft",
             "Rotate View Left",
             &["shift+r"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| {
                 with(ctx, |v| {
                     v.rotate(-1);
@@ -697,14 +974,14 @@ pub(crate) fn commands() -> Vec<Command> {
             "viewer.next",
             "Next",
             &["n", "pagedown"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| turn(ctx, 1, false),
         ),
         cmd(
             "viewer.previous",
             "Previous",
             &["p", "pageup"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| turn(ctx, -1, false),
         ),
         cmd(
@@ -721,7 +998,7 @@ pub(crate) fn commands() -> Vec<Command> {
             IN_VIEWER,
             |ctx, _| turn(ctx, -1, true),
         ),
-        cmd("viewer.first", "First", &["home"], IN_VIEWER, |ctx, _| {
+        cmd("viewer.first", "First", &["home"], IN_IMAGE, |ctx, _| {
             with(ctx, |v| {
                 v.go_to(0);
                 Ok(())
@@ -731,7 +1008,7 @@ pub(crate) fn commands() -> Vec<Command> {
             "viewer.last",
             "Last",
             &["end", "shift+g"],
-            IN_VIEWER,
+            IN_IMAGE,
             |ctx, _| {
                 with(ctx, |v| {
                     let n = v.structure().units.len();
@@ -764,13 +1041,9 @@ pub(crate) fn commands() -> Vec<Command> {
                 })
             },
         ),
-        cmd(
-            "viewer.copy",
-            "Copy Picture",
-            &["y"],
-            IN_VIEWER,
-            |ctx, _| copy(ctx),
-        ),
+        cmd("viewer.copy", "Copy Picture", &["y"], IN_IMAGE, |ctx, _| {
+            copy(ctx)
+        }),
         cmd(
             "viewer.insertLink",
             "Insert Link at Point",
@@ -802,6 +1075,7 @@ pub(crate) fn commands() -> Vec<Command> {
             },
         ),
     ];
+    all.extend(grid_commands());
     for c in &mut all {
         if c.id == "viewer.edit" {
             c.args_schema = Some(serde_json::json!({
@@ -811,6 +1085,427 @@ pub(crate) fn commands() -> Vec<Command> {
             }));
         }
     }
+    all
+}
+
+fn grid_move(ctx: &mut EditorContext<'_>, rows: i64, cols: i64) -> CommandResult {
+    with(ctx, |v| {
+        v.grid_move_by(rows, cols);
+        Ok(())
+    })
+}
+
+fn grid_struct(ctx: &mut EditorContext<'_>, f: fn(GridPos) -> GridEdit) -> CommandResult {
+    with(ctx, |v| {
+        if !v.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = v.grid_pos();
+        v.grid_edit(f(p))
+    })
+}
+
+fn arg_u32(args: &serde_json::Value, key: &str) -> Option<u32> {
+    args.get(key)
+        .and_then(serde_json::Value::as_u64)
+        .map(|v| v as u32)
+}
+
+/// Asks for a cell's new text, starting from `start` (the cell as
+/// entered, or what was typed).
+fn ask_cell(ctx: &mut EditorContext<'_>, start: Option<&str>) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if !v.grid_editable() {
+        ctx.messages.push("This file is shown, not edited".into());
+        return Ok(());
+    }
+    let p = v.grid_pos();
+    let current = match start {
+        Some(s) => s.to_string(),
+        None => v.cell_input(),
+    };
+    ctx.requests.push(Request::Ask {
+        command: "viewer.grid.setCell".into(),
+        args: serde_json::json!({ "row": p.row, "col": p.col, "value_default": current }),
+        arg: "value".into(),
+    });
+    Ok(())
+}
+
+/// A macro's run, with the answers given so far; a question asked again
+/// through the palette and the run made again.
+fn run_macro(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(name) = args
+        .get("name")
+        .and_then(|n| n.as_str())
+        .map(str::to_string)
+    else {
+        // Which macro: the list.
+        let items: Vec<crate::palette::PaletteItem> = v
+            .macros()
+            .into_iter()
+            .filter(|m| !m.event)
+            .map(|m| crate::palette::PaletteItem {
+                id: crate::palette::invocation(
+                    "viewer.grid.runMacro",
+                    &serde_json::json!({ "name": m.name }),
+                ),
+                title: m.name.clone(),
+                category: "Macro".into(),
+                keys: String::new(),
+                also: m.name,
+            })
+            .collect();
+        if items.is_empty() {
+            ctx.messages.push("This file has no macros".into());
+        } else {
+            ctx.requests.push(Request::Choose(items));
+        }
+        return Ok(());
+    };
+    let mut answers: Vec<String> = args
+        .get("answers")
+        .and_then(|a| a.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    // An answer typed into the prompt comes under the question's own key.
+    if let Some(key) = args.get("ask").and_then(|k| k.as_str())
+        && let Some(answer) = args.get(key).and_then(|a| a.as_str())
+    {
+        answers.push(answer.to_string());
+    }
+    let out = v
+        .run_macro(&name, &answers)
+        .map_err(crate::command::CommandError::new)?;
+    let again = |answers: &[String], extra: serde_json::Value| {
+        let mut a = serde_json::json!({ "name": name, "answers": answers });
+        if let (Some(obj), serde_json::Value::Object(more)) = (a.as_object_mut(), extra) {
+            obj.extend(more);
+        }
+        a
+    };
+    match out.question {
+        Some(MacroQuestion::Message {
+            prompt,
+            buttons,
+            title,
+        }) => {
+            let choices: &[(&str, i64)] = match buttons & 7 {
+                1 => &[("OK", 1), ("Cancel", 2)],
+                2 => &[("Abort", 3), ("Retry", 4), ("Ignore", 5)],
+                3 => &[("Yes", 6), ("No", 7), ("Cancel", 2)],
+                4 => &[("Yes", 6), ("No", 7)],
+                5 => &[("Retry", 4), ("Cancel", 2)],
+                _ => &[("OK", 1)],
+            };
+            let items = choices
+                .iter()
+                .map(|(label, code)| {
+                    let mut a = answers.clone();
+                    a.push(code.to_string());
+                    crate::palette::PaletteItem {
+                        id: crate::palette::invocation(
+                            "viewer.grid.runMacro",
+                            &again(&a, serde_json::json!({})),
+                        ),
+                        title: (*label).to_string(),
+                        category: format!("{title}: {prompt}"),
+                        keys: String::new(),
+                        also: prompt.clone(),
+                    }
+                })
+                .collect();
+            ctx.requests.push(Request::Choose(items));
+        }
+        Some(MacroQuestion::Input {
+            prompt,
+            title: _,
+            default,
+        }) => {
+            let key = if prompt.trim().is_empty() {
+                "answer".to_string()
+            } else {
+                prompt.trim().to_string()
+            };
+            ctx.requests.push(Request::Ask {
+                command: "viewer.grid.runMacro".into(),
+                args: again(
+                    &answers,
+                    serde_json::json!({ "ask": key, format!("{key}_default"): default }),
+                ),
+                arg: key,
+            });
+        }
+        None => {
+            for line in out.output.iter().chain(&out.skipped) {
+                ctx.messages.push(line.clone());
+            }
+            match out.error {
+                Some(e) => return Err(crate::command::CommandError::new(e)),
+                None if out.changed => ctx.messages.push(format!("{name} ran")),
+                None => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The commands of grid units (a workbook's sheets).
+fn grid_commands() -> Vec<Command> {
+    let all = vec![
+        cmd(
+            "viewer.grid.up",
+            "Cell Up",
+            &["up", "k"],
+            IN_GRID,
+            |ctx, _| grid_move(ctx, -1, 0),
+        ),
+        cmd(
+            "viewer.grid.down",
+            "Cell Down",
+            &["down", "j"],
+            IN_GRID,
+            |ctx, _| grid_move(ctx, 1, 0),
+        ),
+        cmd(
+            "viewer.grid.left",
+            "Cell Left",
+            &["left", "h", "shift+tab"],
+            IN_GRID,
+            |ctx, _| grid_move(ctx, 0, -1),
+        ),
+        cmd(
+            "viewer.grid.right",
+            "Cell Right",
+            &["right", "l", "tab"],
+            IN_GRID,
+            |ctx, _| grid_move(ctx, 0, 1),
+        ),
+        cmd(
+            "viewer.grid.pageDown",
+            "Page Down",
+            &["pagedown"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.grid_page(1);
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.pageUp",
+            "Page Up",
+            &["pageup"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.grid_page(-1);
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.rowStart",
+            "First Column",
+            &["home", "0"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    let p = v.grid_pos();
+                    v.grid_move_to(p.row, 0);
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.start",
+            "First Cell",
+            &["ctrl+home", "g g"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.grid_move_to(0, 0);
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.end",
+            "Last Cell",
+            &["ctrl+end", "shift+g"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    let l = v.grid_layout().unwrap_or_default();
+                    v.grid_move_to(l.rows.saturating_sub(1), l.cols.saturating_sub(1));
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.nextSheet",
+            "Next Sheet",
+            &["ctrl+pagedown", "g t"],
+            IN_GRID,
+            |ctx, _| turn(ctx, 1, false),
+        ),
+        cmd(
+            "viewer.grid.previousSheet",
+            "Previous Sheet",
+            &["ctrl+pageup", "g shift+t"],
+            IN_GRID,
+            |ctx, _| turn(ctx, -1, false),
+        ),
+        cmd(
+            "viewer.grid.edit",
+            "Edit Cell",
+            &["enter", "f2", "i"],
+            IN_GRID,
+            |ctx, _| ask_cell(ctx, None),
+        ),
+        cmd(
+            "viewer.grid.editFormula",
+            "Enter a Formula",
+            &["="],
+            IN_GRID,
+            |ctx, _| ask_cell(ctx, Some("=")),
+        ),
+        cmd(
+            "viewer.grid.setCell",
+            "Set Cell",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let (Some(row), Some(col)) = (arg_u32(args, "row"), arg_u32(args, "col")) else {
+                    return Err(crate::command::CommandError::new("Which cell?"));
+                };
+                let value = args
+                    .get("value")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                with(ctx, |v| {
+                    v.set_cell(row, col, &value)?;
+                    // Enter moves down, as in a spreadsheet.
+                    v.grid_move_to(row, col);
+                    v.grid_move_by(1, 0);
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.clear",
+            "Clear Cell",
+            &["delete", "backspace", "x"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    if !v.grid_editable() {
+                        return Err("This file is shown, not edited".into());
+                    }
+                    let p = v.grid_pos();
+                    v.set_cell(p.row, p.col, "")
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.copy",
+            "Copy Cell",
+            &["y"],
+            IN_GRID,
+            |ctx, _| {
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                let p = v.grid_pos();
+                let text = v
+                    .grid_cells(p.row..p.row + 1, p.col..p.col + 1)
+                    .into_iter()
+                    .next()
+                    .map(|c| c.2.text)
+                    .unwrap_or_default();
+                ctx.requests.push(Request::CopyText(text));
+                Ok(())
+            },
+        ),
+        cmd(
+            "viewer.grid.insertRow",
+            "Insert Row Above",
+            &["shift+o"],
+            IN_GRID,
+            |ctx, _| {
+                grid_struct(ctx, |p| GridEdit::InsertRows {
+                    at: p.row,
+                    count: 1,
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.deleteRow",
+            "Delete Row",
+            &["d d"],
+            IN_GRID,
+            |ctx, _| {
+                grid_struct(ctx, |p| GridEdit::DeleteRows {
+                    at: p.row,
+                    count: 1,
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.insertColumn",
+            "Insert Column Left",
+            &["c o"],
+            IN_GRID,
+            |ctx, _| {
+                grid_struct(ctx, |p| GridEdit::InsertCols {
+                    at: p.col,
+                    count: 1,
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.deleteColumn",
+            "Delete Column",
+            &["d c"],
+            IN_GRID,
+            |ctx, _| {
+                grid_struct(ctx, |p| GridEdit::DeleteCols {
+                    at: p.col,
+                    count: 1,
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.runMacro",
+            "Run Macro",
+            &["alt+f8"],
+            IN_GRID,
+            run_macro,
+        ),
+    ];
     all
 }
 

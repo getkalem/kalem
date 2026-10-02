@@ -20,6 +20,10 @@
   { "keys": "enter", "command": "latex.enter", "when": "editorMode == latex" },
   // In Markdown, Enter continues list items and quotes.
   { "keys": "enter", "command": "markdown.newline", "when": "editorMode == markdown && inMarkdownList" },
+  // In a spreadsheet, Enter edits the cell and Tab moves to the next one.
+  { "keys": "enter", "command": "viewer.grid.edit", "when": "editorMode == viewer && viewerGrid" },
+  { "keys": "tab", "command": "viewer.grid.right", "when": "editorMode == viewer && viewerGrid" },
+  { "keys": "shift+tab", "command": "viewer.grid.left", "when": "editorMode == viewer && viewerGrid" },
   { "keys": "ctrl+1", "command": "latex.section.setLevel", "args": { "level": 1 }, "when": "editorMode == latex" },
   { "keys": "ctrl+2", "command": "latex.section.setLevel", "args": { "level": 2 }, "when": "editorMode == latex" },
   { "keys": "ctrl+3", "command": "latex.section.setLevel", "args": { "level": 3 }, "when": "editorMode == latex" },
