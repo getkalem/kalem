@@ -22,6 +22,9 @@ pub(crate) struct Tables {
     /// A macro that opens a displayed formula (`\be`, defined as
     /// `\begin{equation}`) to the one that closes it (`\ee`).
     pub(crate) aliases: HashMap<usize, usize>,
+    /// Environments the text defines as a displayed formula
+    /// (`\newenvironment{eqn}{\begin{equation}}{\end{equation}}`).
+    pub(crate) math_envs: Vec<String>,
 }
 
 impl Tables {
@@ -40,6 +43,7 @@ pub(crate) fn build(src: &str, start: usize, end: usize, mut at_letter: bool) ->
     let mut braces: Vec<usize> = Vec::new();
     let mut envs: Vec<(usize, &str)> = Vec::new();
     let (openers, closers) = math_aliases(src);
+    t.math_envs = math_environments(src);
     let mut alias_open: Option<usize> = None;
     let mut pos = start;
     while pos < end {
@@ -220,4 +224,46 @@ fn in_definition(src: &str, pos: usize) -> bool {
     ]
     .iter()
     .any(|d| before.ends_with(d))
+}
+
+/// The environments `src` defines whose begin code opens a displayed
+/// formula (`\newenvironment{eqn}{\begin{equation}}{\end{equation}}`,
+/// `{\[}{\]}`).
+pub(crate) fn math_environments(src: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for cmd in ["\\newenvironment", "\\renewenvironment"] {
+        for (i, _) in src.match_indices(cmd) {
+            let rest = &src[i + cmd.len()..];
+            let rest = rest.strip_prefix('*').unwrap_or(rest).trim_start();
+            let Some((name, rest)) = rest.strip_prefix('{').and_then(|r| r.split_once('}')) else {
+                continue;
+            };
+            let mut rest = rest.trim_start();
+            // `[n]` and `[default]`.
+            while rest.starts_with('[') {
+                match rest.find(']') {
+                    Some(k) => rest = rest[k + 1..].trim_start(),
+                    None => break,
+                }
+            }
+            let Some(code) = rest.strip_prefix('{') else {
+                continue;
+            };
+            let code = code.trim_start();
+            let display = if let Some(env) = code.strip_prefix("\\begin{") {
+                let env = env.split('}').next().unwrap_or("");
+                signatures::is_math(env)
+                    && !matches!(
+                        env.trim_end_matches('*'),
+                        "split" | "aligned" | "gathered" | "alignedat" | "math"
+                    )
+            } else {
+                code.starts_with("\\[") || code.starts_with("$$")
+            };
+            if display && !signatures::is_math(name) {
+                out.push(name.trim().to_string());
+            }
+        }
+    }
+    out
 }
