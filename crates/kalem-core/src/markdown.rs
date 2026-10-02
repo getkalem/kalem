@@ -46,6 +46,9 @@ pub enum MdKind {
         fenced: bool,
         /// The info string's first word.
         language: Option<String>,
+        /// Fenced and closed by a fence (an unclosed one runs to the end
+        /// of its container, its last line code).
+        closed: bool,
     },
     /// Raw HTML as a block.
     HtmlBlock,
@@ -289,6 +292,7 @@ impl Md {
                 V::CodeBlock(c) => MdKind::CodeBlock {
                     fenced: c.fenced,
                     language: c.info.split_whitespace().next().map(str::to_string),
+                    closed: c.fenced && c.closed,
                 },
                 V::HtmlBlock(_) => MdKind::HtmlBlock,
                 V::ThematicBreak => MdKind::Rule,
@@ -699,11 +703,15 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
         let r = clip(&n.range);
         match &n.kind {
             MdKind::Heading { level, setext } => {
-                let title = md.line_of(n.content.start) == idx || n.content == n.range;
+                // A setext heading's title lines, all before its underline.
+                let title = !*setext || n.content == n.range || line.start < n.content.end;
                 if title {
                     view.heading = *level;
                     pieces.push(Piece::Style(clip(&n.content), |s| s.bold = true));
-                    if !*setext && !on_line && markers != crate::view::Markers::Always {
+                    if !*setext && n.content == n.range {
+                        // Empty (`##`): dimmed.
+                        pieces.push(Piece::Style(r.clone(), |s| s.dim = true));
+                    } else if !*setext && !on_line && markers != crate::view::Markers::Always {
                         // `## ` before the title, closing `#`s after it.
                         around(n, &mut pieces);
                     }
@@ -713,10 +721,11 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
                     pieces.push(Piece::Style(r, |s| s.dim = true));
                 }
             }
-            MdKind::CodeBlock { fenced, .. } => {
+            MdKind::CodeBlock { fenced, closed, .. } => {
                 view.mono = true;
                 let first = md.line_of(n.range.start) == idx;
-                let last = md.line_of(n.range.end.saturating_sub(1).max(n.range.start)) == idx;
+                let last =
+                    *closed && md.line_of(n.range.end.saturating_sub(1).max(n.range.start)) == idx;
                 if *fenced && (first || last) {
                     view.role = LineRole::Delimiter;
                     pieces.push(Piece::Style(r, |s| s.dim = true));
@@ -724,21 +733,64 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
                     pieces.push(Piece::Style(r, |s| s.code = true));
                 }
             }
-            MdKind::HtmlBlock | MdKind::Table | MdKind::TableRow => view.mono = true,
+            MdKind::HtmlBlock => {
+                view.mono = true;
+                // The tags and comments, which a browser does not show.
+                for t in html_tags(&text[n.range.clone()]) {
+                    let t = clip(&(n.range.start + t.start..n.range.start + t.end));
+                    if t.start < t.end {
+                        pieces.push(Piece::Style(t, |s| s.dim = true));
+                    }
+                }
+            }
+            MdKind::Table | MdKind::TableRow => view.mono = true,
             MdKind::FrontMatter => {
                 view.mono = true;
                 pieces.push(Piece::Style(r, |s| s.dim = true));
             }
             MdKind::Rule => pieces.push(Piece::Style(r, |s| s.dim = true)),
             MdKind::Quote => {
-                // The `>` of this line, dimmed.
-                let s = &text[line.clone()];
-                let k = s
+                // The `>`s of this line among its containers' markers
+                // (`> 1. > x`), dimmed.
+                for r in quote_markers(&text[line.clone()]) {
+                    pieces.push(Piece::Style(
+                        line.start + r.start..line.start + r.end,
+                        |s| s.dim = true,
+                    ));
+                }
+            }
+            MdKind::Text
+                if !revealed(&n.range)
+                    && !n.parent.is_some_and(|p| {
+                        let p = &md.nodes[p as usize];
+                        // An autolink's text is read as written.
+                        matches!(p.kind, MdKind::Link { .. })
+                            && !text[p.range.clone()].starts_with('[')
+                    }) =>
+            {
+                let r = clip(&n.range);
+                // The parser starts the text after an escape's backslash.
+                let before = text[line.start..r.start]
                     .bytes()
-                    .take_while(|b| matches!(b, b' ' | b'>' | b'\t'))
+                    .rev()
+                    .take_while(|&b| b == b'\\')
                     .count();
-                if k > 0 {
-                    pieces.push(Piece::Style(line.start..line.start + k, |s| s.dim = true));
+                let escaped = before % 2 == 1
+                    && text[r.start..]
+                        .bytes()
+                        .next()
+                        .is_some_and(|b| b.is_ascii_punctuation());
+                if escaped {
+                    pieces.push(Piece::Hide(r.start - 1..r.start));
+                }
+                let from = if escaped { r.start + 1 } else { r.start };
+                escapes_and_entities(text, from.min(r.end)..r.end, &mut pieces);
+            }
+            MdKind::Other("linebreak") if !revealed(&n.range) => {
+                // The `\` of a hard line break.
+                let r = clip(&n.range);
+                if text[r.clone()].starts_with('\\') {
+                    pieces.push(Piece::Hide(r.start..r.start + 1));
                 }
             }
             MdKind::TaskItem { checked, boxed } if !on_line && !boxed.is_empty() => {
@@ -779,6 +831,12 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
                     around(n, &mut pieces);
                 }
             }
+            MdKind::Link { .. } | MdKind::WikiLink { .. }
+                if n.content == n.range && text[n.range.clone()].starts_with('[') =>
+            {
+                // No text (`[](url)`): shown, dimmed, as it would not be.
+                pieces.push(Piece::Style(r, |s| s.dim = true));
+            }
             MdKind::Link { .. } | MdKind::WikiLink { .. } => {
                 pieces.push(Piece::Style(clip(&n.content), |s| s.link = true));
                 if !revealed(&n.range) {
@@ -792,7 +850,7 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
                     && n.range.start >= line.start
                     && n.range.end <= line.end =>
             {
-                let alt = text[n.content.clone()].to_string();
+                let alt = plain_text(md, text, n);
                 pieces.push(Piece::Replace(
                     n.range.clone(),
                     alt,
@@ -821,8 +879,214 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
             _ => {}
         }
     }
+    let before_text = md.on_line(idx).any(|n| {
+        matches!(
+            n.kind,
+            MdKind::Paragraph | MdKind::Heading { setext: true, .. }
+        ) && n.content != n.range
+            && n.content.start >= line.end
+    });
+    if before_text
+        || !text[line.clone()].trim().is_empty()
+            && !md.on_line(idx).any(|n| {
+                !matches!(
+                    n.kind,
+                    MdKind::List { .. }
+                        | MdKind::Item
+                        | MdKind::TaskItem { .. }
+                        | MdKind::Quote
+                        | MdKind::FootnoteDefinition
+                )
+            })
+    {
+        // A line no leaf block covers, or before a paragraph's text: a
+        // link reference definition, which prints nothing.
+        pieces.push(Piece::Style(line.clone(), |s| s.dim = true));
+    }
     view.runs = runs(text, line, &pieces);
     view
+}
+
+/// The `>` markers among the container markers at the start of `line`.
+fn quote_markers(line: &str) -> Vec<Range<usize>> {
+    let b = line.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    loop {
+        while i < b.len() && matches!(b[i], b' ' | b'\t') {
+            i += 1;
+        }
+        if i < b.len() && b[i] == b'>' {
+            out.push(i..i + 1);
+            i += 1;
+            continue;
+        }
+        // A list marker followed by a space.
+        let d = b[i..].iter().take_while(|c| c.is_ascii_digit()).count();
+        let m = if d > 0 && d <= 9 && matches!(b.get(i + d), Some(b'.' | b')')) {
+            d + 1
+        } else if d == 0 && matches!(b.get(i), Some(b'-' | b'+' | b'*')) {
+            1
+        } else {
+            break;
+        };
+        if matches!(b.get(i + m), Some(b' ' | b'\t')) {
+            i += m;
+        } else {
+            break;
+        }
+    }
+    out
+}
+
+/// The tags, comments, declarations and CDATA of a block of raw HTML.
+fn html_tags(html: &str) -> Vec<Range<usize>> {
+    let mut out = Vec::new();
+    let mut i = 0;
+    while let Some(j) = html[i..].find('<') {
+        let a = i + j;
+        let rest = &html[a..];
+        let close = |open: &str, close: &str| {
+            rest.starts_with(open)
+                .then(|| rest.find(close).map_or(html.len(), |k| a + k + close.len()))
+        };
+        let end = close("<!--", "-->")
+            .or_else(|| close("<![CDATA[", "]]>"))
+            .or_else(|| close("<?", "?>"))
+            .or_else(|| {
+                rest[1..]
+                    .starts_with(|c: char| c.is_ascii_alphabetic() || c == '/' || c == '!')
+                    .then(|| rest.find('>').map_or(html.len(), |k| a + k + 1))
+            });
+        let Some(end) = end else {
+            i = a + 1;
+            continue;
+        };
+        out.push(a..end);
+        i = end;
+    }
+    out
+}
+
+/// The text of node `n`'s content as a browser shows it: its text and
+/// code without markup (an image's description).
+fn plain_text(md: &Md, text: &str, n: &MdNode) -> String {
+    let mut out = String::new();
+    for m in &md.nodes {
+        if m.range.start >= n.content.start && m.range.end <= n.content.end {
+            match m.kind {
+                MdKind::Text => out.push_str(&unescaped(&text[m.range.clone()])),
+                MdKind::Code => out.push_str(&text[m.content.clone()]),
+                _ => {}
+            }
+        }
+    }
+    if out.is_empty() && n.content != n.range {
+        out = text[n.content.clone()].to_string();
+    }
+    out
+}
+
+/// `s` with its backslash escapes and character references read.
+fn unescaped(s: &str) -> String {
+    let mut pieces = Vec::new();
+    escapes_and_entities(s, 0..s.len(), &mut pieces);
+    let mut out = String::new();
+    let mut at = 0;
+    for p in &pieces {
+        match p {
+            Piece::Hide(r) => {
+                out.push_str(&s[at..r.start]);
+                at = r.end;
+            }
+            Piece::Replace(r, shown, ..) => {
+                out.push_str(&s[at..r.start]);
+                out.push_str(shown);
+                at = r.end;
+            }
+            Piece::Style(..) => {}
+        }
+    }
+    out.push_str(&s[at..]);
+    out
+}
+
+/// In text `r` of `text`: the backslash of each escape hidden, each
+/// character reference (`&copy;`, `&#35;`) shown as its character.
+fn escapes_and_entities(text: &str, r: Range<usize>, pieces: &mut Vec<Piece>) {
+    let s = &text[r.clone()];
+    let b = s.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'\\' && b.get(i + 1).is_some_and(u8::is_ascii_punctuation) {
+            pieces.push(Piece::Hide(r.start + i..r.start + i + 1));
+            i += 2;
+            continue;
+        }
+        if b[i] == b'&'
+            && let Some((c, len)) = character_reference(&s[i..])
+        {
+            pieces.push(Piece::Replace(
+                r.start + i..r.start + i + len,
+                c,
+                None,
+                Style::default(),
+            ));
+            i += len;
+            continue;
+        }
+        i += 1;
+    }
+}
+
+/// The character of the reference `s` starts with, and its length.
+fn character_reference(s: &str) -> Option<(String, usize)> {
+    let end = s.find(';')?;
+    let name = &s[1..end];
+    if let Some(num) = name.strip_prefix('#') {
+        let (digits, radix) = match num.strip_prefix(['x', 'X']) {
+            Some(h) if (1..=6).contains(&h.len()) && h.bytes().all(|c| c.is_ascii_hexdigit()) => {
+                (h, 16)
+            }
+            None if (1..=7).contains(&num.len()) && num.bytes().all(|c| c.is_ascii_digit()) => {
+                (num, 10)
+            }
+            _ => return None,
+        };
+        let n = u32::from_str_radix(digits, radix).ok()?;
+        let c = if n == 0 {
+            '\u{FFFD}'
+        } else {
+            char::from_u32(n).unwrap_or('\u{FFFD}')
+        };
+        return Some((c.to_string(), end + 1));
+    }
+    if name.is_empty() || name.len() > 32 || !name.bytes().all(|c| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    // The named ones as the parser reads them.
+    thread_local! {
+        static NAMED: std::cell::RefCell<std::collections::HashMap<String, Option<String>>> = Default::default();
+    }
+    let shown = NAMED.with(|m| {
+        m.borrow_mut()
+            .entry(name.to_string())
+            .or_insert_with(|| {
+                let arena = comrak::Arena::new();
+                let o = comrak::Options::default();
+                let src = format!("&{name};");
+                let root = comrak::parse_document(&arena, &src, &o);
+                let mut out = String::new();
+                for d in root.descendants() {
+                    if let comrak::nodes::NodeValue::Text(t) = &d.data.borrow().value {
+                        out.push_str(t);
+                    }
+                }
+                (out != src).then_some(out)
+            })
+            .clone()
+    })?;
+    Some((shown, end + 1))
 }
 
 /// The runs of `line` from its pieces: every boundary cuts, hidden bytes
@@ -853,11 +1117,21 @@ fn runs(text: &str, line: Range<usize>, pieces: &[Piece]) -> Vec<Run> {
             .iter()
             .find(|p| matches!(p, Piece::Replace(r, ..) if inside(r)))
         {
+            // The styles around it too (a character reference in bold).
+            let mut style = *style;
+            for p in pieces {
+                if let Piece::Style(s, f) = p
+                    && s.start <= r.start
+                    && r.end <= s.end
+                {
+                    f(&mut style);
+                }
+            }
             out.push(Run {
                 src: r.clone(),
                 text: shown.clone(),
                 verbatim: false,
-                style: *style,
+                style,
                 widget: widget.clone(),
             });
             skip_to = r.end;
@@ -927,15 +1201,20 @@ pub fn code_block_on_line(
         MdKind::CodeBlock {
             fenced: true,
             language: Some(l),
+            closed,
         } => {
             let first = md.line_of(n.range.start);
             let last = md.line_of(n.range.end.saturating_sub(1).max(n.range.start));
-            if !(idx > first && idx < last) {
+            if !(idx > first && (idx < last || (!closed && idx == last))) {
                 return None;
             }
             let text = doc.text();
             let start = text.line_start(first + 1);
-            let end = text.line_start(last);
+            let end = if *closed {
+                text.line_start(last)
+            } else {
+                n.range.end
+            };
             Some((start..end, idx - first - 1, l.clone()))
         }
         _ => None,
@@ -949,10 +1228,12 @@ fn code_lines(md: &Md, line: Range<usize>) -> Vec<(Range<usize>, String)> {
             MdKind::CodeBlock {
                 fenced: true,
                 language: Some(l),
+                closed,
             } => {
                 let first = md.line_of(n.range.start);
                 let last = md.line_of(n.range.end.saturating_sub(1).max(n.range.start));
-                (idx > first && idx < last).then(|| vec![(line.clone(), l.clone())])
+                (idx > first && (idx < last || (!closed && idx == last)))
+                    .then(|| vec![(line.clone(), l.clone())])
             }
             _ => None,
         })
@@ -2262,11 +2543,61 @@ mod spec {
         e.extension.as_deref().is_some_and(|x| x != "disabled") || e.section.contains("(extension)")
     }
 
-    /// The HTML as GitHub renders it, raw HTML kept, with Kalem's
-    /// extensions.
+    /// The HTML as GitHub renders it, raw HTML kept (its tag filter
+    /// applied), with Kalem's extensions.
     fn html(md: &str) -> String {
+        tag_filter(&html_with(md, options()))
+    }
+
+    /// The HTML of CommonMark's own examples: the options of [`html`]
+    /// without the extensions that change what the core specification
+    /// says (front matter, wiki links, bare addresses as links; GFM's
+    /// test runner runs these examples so).
+    fn core_html(md: &str) -> String {
+        let mut o = options_with(false);
+        o.extension.autolink = false;
+        o.extension.wikilinks_title_after_pipe = false;
+        html_with(md, o)
+    }
+
+    /// GFM's tag filter, which GitHub applies to the HTML it renders
+    /// (Kalem renders no raw HTML): the tags that change how what follows
+    /// is read lose their `<`.
+    fn tag_filter(html: &str) -> String {
+        const TAGS: [&str; 9] = [
+            "title",
+            "textarea",
+            "style",
+            "xmp",
+            "iframe",
+            "noembed",
+            "noframes",
+            "script",
+            "plaintext",
+        ];
+        let mut out = String::new();
+        let mut rest = html;
+        while let Some(i) = rest.find('<') {
+            out.push_str(&rest[..i]);
+            let after = rest[i + 1..].strip_prefix('/').unwrap_or(&rest[i + 1..]);
+            let filtered = TAGS.iter().any(|t| {
+                after.len() > t.len()
+                    && after.is_char_boundary(t.len())
+                    && after[..t.len()].eq_ignore_ascii_case(t)
+                    && matches!(
+                        after.as_bytes()[t.len()],
+                        b'>' | b'/' | b' ' | b'\t' | b'\n'
+                    )
+            });
+            out.push_str(if filtered { "&lt;" } else { "<" });
+            rest = &rest[i + 1..];
+        }
+        out.push_str(rest);
+        out
+    }
+
+    fn html_with(md: &str, mut o: comrak::Options<'static>) -> String {
         let arena = comrak::Arena::new();
-        let mut o = options();
         o.render.r#unsafe = true;
         let root = comrak::parse_document(&arena, md, &o);
         let mut out = String::new();
@@ -2274,41 +2605,67 @@ mod spec {
         out
     }
 
+    /// A specification's text: from the variable `var`, or the spike's
+    /// download `file`.
+    fn spec_text(var: &str, file: &str) -> Option<String> {
+        let path = std::env::var(var).unwrap_or_else(|_| {
+            format!(
+                "{}/../../spikes/md-parser/data/{file}",
+                env!("CARGO_MANIFEST_DIR")
+            )
+        });
+        std::fs::read_to_string(&path).ok()
+    }
+
     #[test]
     #[allow(clippy::print_stderr)]
     fn spec_examples() {
-        let path = std::env::var("KALEM_GFM_SPEC").unwrap_or_else(|_| {
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../spikes/md-parser/data/gfm-spec.txt"
-            )
-            .into()
-        });
-        let Ok(spec) = std::fs::read_to_string(&path) else {
-            eprintln!("skipped: no {path} (see spikes/md-parser/README.md)");
+        // CommonMark's examples from its current specification (0.31.2,
+        // which comrak follows: GFM's copy is of 0.29), GitHub's
+        // extensions from GFM's.
+        let (Some(cm), Some(gfm)) = (
+            spec_text("KALEM_COMMONMARK_SPEC", "commonmark-spec.txt"),
+            spec_text("KALEM_GFM_SPEC", "gfm-spec.txt"),
+        ) else {
+            eprintln!("skipped: no specifications (see spikes/md-parser/README.md)");
             return;
         };
-        let ex = examples(&spec);
-        let (mut core, mut core_ok, mut ext, mut ext_ok) = (0, 0, 0, 0);
+        let core_ex = examples(&cm);
+        let ext_ex: Vec<Example> = examples(&gfm).into_iter().filter(uses_extensions).collect();
+        let (mut core_ok, mut ext_ok, mut kalem_ok) = (0, 0, 0);
         let mut differ = Vec::new();
-        for e in &ex {
-            let ok = normalize(&html(&e.markdown)) == normalize(&e.html);
-            if uses_extensions(e) {
-                ext += 1;
-                ext_ok += usize::from(ok);
+        let show = std::env::var("KALEM_SHOW").is_ok();
+        for (e, core) in core_ex
+            .iter()
+            .map(|e| (e, true))
+            .chain(ext_ex.iter().map(|e| (e, false)))
+        {
+            let got = if core {
+                core_html(&e.markdown)
             } else {
-                core += 1;
+                html(&e.markdown)
+            };
+            let ok = normalize(&got) == normalize(&e.html);
+            if core {
                 core_ok += usize::from(ok);
+                // With every extension Kalem reads, as the editor does.
+                let full = normalize(&html(&e.markdown)) == normalize(&e.html);
+                kalem_ok += usize::from(full);
+                if !full && show {
+                    eprintln!(
+                        "--- with Kalem's extensions: {}\n{:?}\n{:?}",
+                        e.section, e.markdown, e.html
+                    );
+                }
+            } else {
+                ext_ok += usize::from(ok);
             }
             if !ok {
                 differ.push(e.section.clone());
-                if std::env::var("KALEM_SHOW").is_ok() && !e.section.starts_with("Emphasis") {
+                if show {
                     eprintln!(
                         "--- {}\n{:?}\n{:?}\n{:?}",
-                        e.section,
-                        e.markdown,
-                        e.html,
-                        html(&e.markdown)
+                        e.section, e.markdown, e.html, got
                     );
                 }
             }
@@ -2345,15 +2702,106 @@ mod spec {
                 e.markdown
             );
         }
-        eprintln!("{core_ok}/{core} CommonMark, {ext_ok}/{ext} extensions; differing: {differ:?}");
-        // The counts only go up (`docs`: the known differences).
-        assert!(
-            core_ok >= KNOWN_CORE && ext_ok >= KNOWN_EXT,
-            "{core_ok}/{core}, {ext_ok}/{ext}"
+        let (core, ext) = (core_ex.len(), ext_ex.len());
+        eprintln!(
+            "{core_ok}/{core} CommonMark, {ext_ok}/{ext} GFM extensions, {kalem_ok}/{core} CommonMark with Kalem's extensions; differing: {differ:?}"
         );
+        assert_eq!((core_ok, ext_ok), (core, ext), "differing: {differ:?}");
+        // Kalem's extensions (front matter, wiki links, GFM's bare
+        // addresses) change only the examples they are about.
+        assert!(kalem_ok >= KNOWN_WITH_EXTENSIONS, "{kalem_ok}/{core}");
     }
 
-    /// The examples that agree today.
-    const KNOWN_CORE: usize = 632;
-    const KNOWN_EXT: usize = 23;
+    /// The text a browser shows of `html`, without white space.
+    fn shown(html: &str) -> String {
+        let mut out = String::new();
+        let mut rest = html;
+        while let Some(i) = rest.find('<') {
+            out.push_str(&rest[..i]);
+            let end = rest[i..].find('>').map_or(rest.len(), |j| i + j + 1);
+            let tag = &rest[i..end];
+            if let Some(a) = tag.split(" alt=\"").nth(1) {
+                out.push_str(a.split('"').next().unwrap_or(""));
+            }
+            rest = &rest[end..];
+        }
+        out.push_str(rest);
+        let out = out
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&amp;", "&");
+        out.chars().filter(|c| !c.is_whitespace()).collect()
+    }
+
+    #[test]
+    #[allow(clippy::print_stderr)]
+    fn the_view_shows_what_the_specification_shows() {
+        let Some(cm) = spec_text("KALEM_COMMONMARK_SPEC", "commonmark-spec.txt") else {
+            return;
+        };
+        let (mut n, mut ok) = (0, 0);
+        for e in examples(&cm) {
+            let md = Md::parse(&e.markdown);
+            // List markers stand for the bullets and numbers HTML draws.
+            let markers: Vec<Range<usize>> = md
+                .nodes
+                .iter()
+                .filter(|n| matches!(n.kind, MdKind::Item | MdKind::TaskItem { .. }))
+                .map(|n| {
+                    let t = &e.markdown[n.range.clone()];
+                    let k = t.bytes().take_while(u8::is_ascii_digit).count();
+                    let k = if t[k..].starts_with(['-', '+', '*', '.', ')']) {
+                        k + 1
+                    } else {
+                        k
+                    };
+                    n.range.start..n.range.start + k
+                })
+                .collect();
+            let mut got = String::new();
+            let mut s = 0;
+            for l in e.markdown.split_inclusive('\n') {
+                let line = s..s + l.trim_end_matches(['\n', '\r']).len();
+                let v = view_line(&md, &e.markdown, line, None);
+                if v.role == crate::view::LineRole::Content {
+                    for r in &v.runs {
+                        if matches!(r.widget, Some(Widget::Image { .. })) {
+                            got.push_str(&r.text);
+                        } else if !r.style.dim && r.widget.is_none() {
+                            for (i, c) in r.text.char_indices() {
+                                let at = r.src.start + i;
+                                if !(r.verbatim && markers.iter().any(|m| m.contains(&at))) {
+                                    got.push(c);
+                                }
+                            }
+                        }
+                    }
+                }
+                s += l.len();
+            }
+            let got: String = got.chars().filter(|c| !c.is_whitespace()).collect();
+            let want = shown(&html(&e.markdown));
+            n += 1;
+            if got == want {
+                ok += 1;
+            } else if std::env::var("KALEM_SHOW").is_ok() {
+                eprintln!(
+                    "--- {}\n{:?}\n want {want:?}\n got  {got:?}",
+                    e.section, e.markdown
+                );
+            }
+        }
+        eprintln!("view: {ok}/{n} examples show the specification's text");
+        // The counts only go up (the rest: raw HTML's text a browser
+        // hides, definitions over several lines, a title on its own line).
+        assert!(ok >= KNOWN_VIEW, "{ok}/{n}");
+    }
+
+    /// The CommonMark examples whose view shows the specification's text.
+    const KNOWN_VIEW: usize = 638;
+
+    /// The CommonMark examples that agree with every extension of Kalem
+    /// read: the others write front matter, a wiki link or a bare address.
+    const KNOWN_WITH_EXTENSIONS: usize = 639;
 }
