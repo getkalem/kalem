@@ -160,7 +160,32 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
         .rev()
         .find(|&&(p, _)| p < rs)
         .is_some_and(|&(_, on)| on);
-    let p = Parser::new(new_text, rs, new_re, at_letter);
+    // Macros for an equation (`\be … \ee`) pair across paragraphs: only
+    // a full parse pairs them.
+    let (openers, closers) = crate::tables::math_aliases(new_text);
+    let region = &new_text[rs..new_re];
+    let uses = |text: &str, n: &String| {
+        let pat = format!("\\{n}");
+        text.match_indices(&pat)
+            .any(|(k, _)| !text[k + pat.len()..].starts_with(|c: char| c.is_ascii_alphabetic()))
+    };
+    let old_region_has = |n: &String| uses(region, n) || uses(&old_region, n);
+    if openers.iter().chain(closers.iter()).any(old_region_has) {
+        return None;
+    }
+    let mut p = Parser::new(new_text, rs, new_re, at_letter);
+    // In a table's cells, `$$` is an empty formula.
+    p.cells = container
+        .ancestors()
+        .filter(|a| a.kind() == ENVIRONMENT)
+        .filter_map(|a| crate::name(&a))
+        .filter(|n| {
+            matches!(
+                n.as_str(),
+                "tabular" | "tabular*" | "tabularx" | "tabulary" | "longtable" | "longtable*"
+            )
+        })
+        .count();
     if !p.toggles().is_empty() || (old.unclosed_env && p.has_sections()) {
         return None;
     }
