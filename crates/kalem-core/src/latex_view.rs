@@ -1005,6 +1005,8 @@ fn merge(a: &mut Style, b: &Style) {
 fn prose(name: &str) -> bool {
     format_style(name).is_some()
         || front_style(name).is_some()
+        || accent_mark(name).is_some()
+        || transparent(name)
         || latex_syntax::signatures::is_sectioning(name)
         || matches!(
             name,
@@ -1019,6 +1021,16 @@ fn prose(name: &str) -> bool {
                 | "textcolor"
                 | "thanks"
                 | "enquote"
+                | "MakeUppercase"
+                | "MakeLowercase"
+                | "uppercase"
+                | "lowercase"
+                | "MakeTextUppercase"
+                | "MakeTextLowercase"
+                | "textsuperscript"
+                | "textsubscript"
+                | "underline"
+                | "uline"
                 | "\\"
         )
 }
@@ -1207,14 +1219,13 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
     let word = name.chars().all(|c| c.is_ascii_alphabetic());
     let mut p = at;
     let rest = &text[p..limit.max(p)];
-    // A word accent takes the letter after blanks; a symbol one at once.
-    if word {
-        let blanks = rest.len() - rest.trim_start_matches([' ', '\t']).len();
-        if blanks == 0 && !rest.starts_with('{') {
-            return None;
-        }
-        p += blanks;
+    // The letter is an argument: TeX skips the blanks before it (after a
+    // word accent, at least one ends its name).
+    let blanks = rest.len() - rest.trim_start_matches([' ', '\t']).len();
+    if word && blanks == 0 && !rest.starts_with('{') {
+        return None;
     }
+    p += blanks;
     let rest = &text[p..limit.max(p)];
     let (letter, end) = if let Some(inner) = rest.strip_prefix('{') {
         let close = inner.find('}')?;
@@ -1231,7 +1242,8 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
         .strip_prefix("\\i")
         .filter(|r| !r.starts_with(|c: char| c.is_ascii_alphabetic()))
     {
-        ('ı', limit - r.len())
+        // With the blanks the control word `\\i` eats.
+        ('ı', limit - r.trim_start_matches([' ', '\t']).len())
     } else {
         let l = rest.chars().next().filter(|c| c.is_alphabetic())?;
         (l, p + l.len_utf8())
@@ -1246,6 +1258,73 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
     Some((end, composed))
 }
 
+/// Commands that typeset their argument as it is (in a box): the name
+/// and the braces are markup.
+fn transparent(name: &str) -> bool {
+    matches!(
+        name,
+        "mbox" | "hbox" | "makebox" | "fbox" | "framebox" | "text" | "textnormal" | "nolinkurl"
+    )
+}
+
+/// Whether brace token `t` only groups: a plain group's (`{\bf x}`), an
+/// empty group's (`\LaTeX{}`), or the argument's of a command that
+/// typesets it as it is (`\mbox{x}`).
+fn brace_is_markup(t: &SyntaxToken) -> bool {
+    let Some(g) = t.parent().filter(|g| g.kind() == K::GROUP) else {
+        return false;
+    };
+    if g.children_with_tokens().count() == 2 {
+        return true;
+    }
+    match g.parent() {
+        Some(p) if p.kind() == K::COMMAND => {
+            latex_syntax::name(&p).is_some_and(|n| transparent(&n))
+        }
+        Some(p) => matches!(p.kind(), K::PARAGRAPH | K::GROUP | K::BODY),
+        None => false,
+    }
+}
+
+/// `s` upper or lower cased as LaTeX's `\\MakeUppercase` does: not the
+/// micro sign, a symbol (not a Greek letter) to LaTeX.
+fn change_case(s: &str, upper: bool) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\u{b5}' => c.to_string(),
+            _ if upper => c.to_uppercase().collect(),
+            _ => c.to_lowercase().collect(),
+        })
+        .collect()
+}
+
+/// Where the group at `at` ends, when it does before `limit`: the
+/// argument of `\MakeUppercase{x {y}}`.
+fn group_end(text: &str, at: usize, limit: usize) -> Option<usize> {
+    let rest = text.get(at..limit)?;
+    if !rest.starts_with('{') {
+        return None;
+    }
+    let mut depth = 0;
+    let mut escaped = false;
+    for (i, ch) in rest.char_indices() {
+        match ch {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(at + i + 1);
+                }
+            }
+            '%' | '$' => return None,
+            _ => {}
+        }
+    }
+    None
+}
+
 /// What a control symbol typesets in text.
 fn symbol(s: &str) -> Option<&'static str> {
     Some(match s {
@@ -1257,7 +1336,12 @@ fn symbol(s: &str) -> Option<&'static str> {
         "\\{" => "{",
         "\\}" => "}",
         "\\," => "\u{2009}",
-        "\\ " => " ",
+        // LaTeX's thick and medium spaces, in text as in math.
+        "\\;" => "\u{2005}",
+        "\\:" | "\\>" => "\u{205f}",
+        "\\!" => "",
+        // A control space: also a backslash before a line's end or a tab.
+        "\\ " | "\\\t" | "\\\n" | "\\\r\n" | "\\\r" => " ",
         "\\@" => "",
         "\\/" => "",
         "\\-" => "",
@@ -1352,6 +1436,66 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "thinspace" => "\u{2009}",
         "LaTeXe" => "LaTeX2\u{3b5}",
         "METAFONT" => "METAFONT",
+        "textexclamdown" => "\u{a1}",
+        "textquestiondown" => "\u{bf}",
+        "textparagraph" => "\u{b6}",
+        "textordfeminine" => "\u{aa}",
+        "textordmasculine" => "\u{ba}",
+        "textbrokenbar" => "\u{a6}",
+        "textasteriskcentered" => "\u{2217}",
+        "textquotedbl" => "\"",
+        "textasciigrave" => "`",
+        "textunderscore" => "_",
+        "textbraceleft" => "{",
+        "textbraceright" => "}",
+        "textnumero" => "\u{2116}",
+        "textcelsius" => "\u{2103}",
+        "textohm" => "\u{2126}",
+        "textleftarrow" => "\u{2190}",
+        "textrightarrow" => "\u{2192}",
+        "textuparrow" => "\u{2191}",
+        "textdownarrow" => "\u{2193}",
+        "textestimated" => "\u{212e}",
+        "textreferencemark" => "\u{203b}",
+        "textmusicalnote" => "\u{266a}",
+        "textlira" => "\u{20a4}",
+        "textwon" => "\u{20a9}",
+        "textnaira" => "\u{20a6}",
+        "textpeso" => "\u{20b1}",
+        "textflorin" => "\u{192}",
+        "textcurrency" => "\u{a4}",
+        "textonesuperior" => "\u{b9}",
+        "texttwosuperior" => "\u{b2}",
+        "textthreesuperior" => "\u{b3}",
+        "textlnot" => "\u{ac}",
+        "textminus" => "\u{2212}",
+        "textfractionsolidus" => "\u{2044}",
+        "textdblhyphen" => "\u{2e40}",
+        "textinterrobang" => "\u{203d}",
+        "textopenbullet" => "\u{25e6}",
+        "textbigcircle" => "\u{25ef}",
+        "textdied" => "\u{2020}",
+        "textborn" => "\u{2605}",
+        "textmarried" => "\u{26ad}",
+        "textdivorced" => "\u{26ae}",
+        "textleaf" => "\u{1f343}",
+        "textrecipe" => "\u{211e}",
+        "textservicemark" => "\u{2120}",
+        "textdiscount" => "\u{2052}",
+        "textpertenthousand" => "\u{2031}",
+        "textperthousand" => "\u{2030}",
+        "textsurd" => "\u{221a}",
+        "textbaht" => "\u{e3f}",
+        "textdong" => "\u{20ab}",
+        "textguarani" => "\u{20b2}",
+        "textcolonmonetary" => "\u{20a1}",
+        "textsci" => "\u{29c}",
+        "textquotestraightbase" => "\u{201a}",
+        "textquotestraightdblbase" | "quotedblbase" => "\u{201e}",
+        "quotesinglbase" => "\u{201a}",
+        "space" => " ",
+        "nobreakspace" => "\u{a0}",
+        "relax" | "leavevmode" | "nolinebreak" | "nopagebreak" | "allowbreak" => "",
         _ => return None,
     })
 }
@@ -1621,6 +1765,9 @@ fn unflagged_line_view(
     let mut heading_command: Option<SyntaxNode> = None;
     // Source ranges not shown (a caption's closing brace).
     let mut hidden: Vec<Range<usize>> = Vec::new();
+    // The arguments of case changes: whether to upper case, and whether
+    // by TeX's primitive (which changes characters, not `\\ss` or `\\i`).
+    let mut cases: Vec<(Range<usize>, bool, bool)> = Vec::new();
     while let Some(t) = tok {
         let r = span(&t);
         if r.start >= line.end {
@@ -2063,7 +2210,17 @@ fn unflagged_line_view(
                     let ns = span(&n);
                     if ns.end > end {
                         // The rest of a word the letter began.
-                        b.verbatim(end..ns.end.min(line.end), c.style);
+                        let rest = end..ns.end.min(line.end);
+                        let mut at = rest.start;
+                        if n.kind() == K::TEXT && c.typography {
+                            for (rr, rep) in typography(&text[rest.clone()]) {
+                                let src = rest.start + rr.start..rest.start + rr.end;
+                                b.verbatim(at..src.start, c.style);
+                                b.replace(src.clone(), rep, c.style);
+                                at = src.end;
+                            }
+                        }
+                        b.verbatim(at..rest.end, c.style);
                     }
                     tok = n.next_token();
                 }
@@ -2071,7 +2228,9 @@ fn unflagged_line_view(
             K::CONTROL_SYMBOL if !c.math && !near(&r) => {
                 let is_break = s == "\\\\";
                 match symbol(s) {
-                    Some(rep) => b.replace(r, rep, c.style),
+                    // (A control space at the line's end: its newline is not
+                    // the line's.)
+                    Some(rep) => b.replace(r.start..r.end.min(line.end), rep, c.style),
                     None if is_break => {
                         // `\\` and its star and spacing argument.
                         let cmd = t.parent().filter(|p| p.kind() == K::COMMAND);
@@ -2206,21 +2365,81 @@ fn unflagged_line_view(
                         }
                         b.replace(r.start..end, rep, c.style);
                     }
+                    // A case change of plain text: the text changed.
+                    (
+                        "MakeUppercase" | "uppercase" | "MakeTextUppercase" | "MakeLowercase"
+                        | "lowercase" | "MakeTextLowercase",
+                        _,
+                    ) if let Some(end) = group_end(text, r.end, line.end)
+                        && !near(&(r.start..end)) =>
+                    {
+                        cases.push((r.end..end, name.contains("pper"), !name.starts_with("Make")));
+                        b.verbatim(
+                            r,
+                            Style {
+                                dim: true,
+                                ..c.style
+                            },
+                        );
+                    }
                     _ => {
                         let known = format_style(name).is_some()
                             || !latex_syntax::signatures::command(name).is_empty();
                         let mut st = c.style;
-                        st.dim = !known;
-                        b.verbatim(r, st);
+                        st.dim = !known || transparent(name);
+                        // TeX eats the blanks after a control word: markup
+                        // too, after a name shown as markup.
+                        let mut end = r.end;
+                        if st.dim
+                            && let Some(n) = tok.clone()
+                            && n.kind() == K::WHITESPACE
+                            && span(&n).end <= line.end
+                        {
+                            end = span(&n).end;
+                            tok = n.next_token();
+                        }
+                        b.verbatim(r.start..end, st);
                     }
                 }
             }
             K::TILDE if !c.math && !near(&r) => b.replace(r, "\u{a0}", c.style),
+            // A group's braces typeset nothing: markup, dimmed.
+            K::L_BRACE | K::R_BRACE if !c.math && brace_is_markup(&t) => {
+                b.verbatim(
+                    r,
+                    Style {
+                        dim: true,
+                        ..c.style
+                    },
+                );
+            }
             K::COMMENT => b.verbatim(r, dim),
             _ => b.verbatim(r, c.style),
         }
     }
     v.runs = b.runs;
+    for (range, upper, primitive) in &cases {
+        for r in &mut v.runs {
+            // A letter a command typesets, under the primitive: unchanged.
+            let letter = || {
+                let src = &text[r.src.clone()];
+                let name: String = src
+                    .trim_start_matches('\\')
+                    .chars()
+                    .take_while(char::is_ascii_alphabetic)
+                    .collect();
+                src.contains("\\i") || src.contains("\\j") || word(&name).is_some()
+            };
+            if range.start <= r.src.start
+                && r.src.end <= range.end
+                && !r.style.dim
+                && !(*primitive && !r.verbatim && letter())
+            {
+                r.text = change_case(&r.text, *upper);
+                r.verbatim &= r.text.len() == r.src.len();
+            }
+        }
+    }
     for r in &mut v.runs {
         if dimmed
             || skipped
@@ -4100,6 +4319,43 @@ mod tests {
     }
 
     #[test]
+    fn typeset_as_pdflatex() {
+        // Found by `tools/latex-typeset-fuzz.py`: each line shows (its
+        // markup dimmed aside) what pdflatex typesets.
+        let cases = [
+            ("a \\textexclamdown{} \\textparagraph b", "a ¡ ¶b"),
+            ("\\textnumero\\ \\textcelsius{} \\textohm", "№ ℃ \u{2126}"),
+            ("a {\\' e} \\^ o \\`{\\i} b", "a é ô ì b"),
+            ("\\^\\i {x}", "îx"),
+            ("a\\;b\\:c\\!d", "a\u{2005}b\u{205f}cd"),
+            ("a {\\bfseries x y} b {} c", "a x y b  c"),
+            ("{\\small /}", "/"),
+            ("a \\mbox{x y} \\fbox{z}", "a x y z"),
+            ("\\MakeUppercase{x \\ss{} \\aa\\ ---}", "X SS Å —"),
+            ("\\uppercase{x \\ss{} \\'e}", "X ß É"),
+            ("\\MakeUppercase{\\textmu}", "µ"),
+            ("\\c C---x", "Ç—x"),
+            ("x \\S\\", "x § "),
+        ];
+        let mut wrong = Vec::new();
+        for (src, want) in cases {
+            let text = format!("{src}\n");
+            let d = doc(&text);
+            let v = shown(&d, 0, None);
+            let got: String = v
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.as_str())
+                .collect();
+            if got != want {
+                wrong.push(format!("{src}: want {want:?}, got {got:?}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
+    #[test]
     fn font_declarations() {
         let text = "Plain {\\bf bold {\\it both}} and {\\em it \\normalfont up}.\n";
         let d = doc(text);
@@ -4107,14 +4363,15 @@ mod tests {
         let style_of = |w: &str| {
             v.runs
                 .iter()
-                .find(|r| r.text.contains(w))
+                .find(|r| r.text.contains(w) && !r.style.dim)
                 .map(|r| r.style)
                 .unwrap()
         };
         assert!(style_of("bold").bold && !style_of("bold").italic);
         assert!(style_of("both").bold && style_of("both").italic);
-        assert!(style_of(" it ").italic);
-        assert!(!style_of(" up").italic);
+        // (The blank after a declaration is eaten, with it.)
+        assert!(style_of("it ").italic);
+        assert!(!style_of("up").italic);
         assert!(!style_of("Plain").bold);
     }
 

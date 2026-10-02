@@ -119,17 +119,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-latex-extra
+      - run: sudo apt-get update && sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p latex-model --example labels
+      - run: cargo build --release -p kalem-core --example latex_shown
       # Random documents: every label numbered as pdflatex numbers it.
-      - run: python3 tools/latex-numbering-fuzz.py 400 $GITHUB_RUN_NUMBER --keep numbering-differences
+      - run: python3 tools/latex-numbering-fuzz.py 400 $GITHUB_RUN_NUMBER --keep latex-differences
+      # Every construct once, then random lines: the rendered view's text
+      # is what pdflatex typesets.
+      - run: python3 tools/latex-typeset-fuzz.py --each --keep latex-differences
+      - run: python3 tools/latex-typeset-fuzz.py 600 $GITHUB_RUN_NUMBER --keep latex-differences
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: numbering-differences
-          path: numbering-differences
+          name: latex-differences
+          path: latex-differences
 
   emacs:
     name: differential test against Emacs
