@@ -1495,7 +1495,7 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "quotesinglbase" => "\u{201a}",
         "space" => " ",
         "nobreakspace" => "\u{a0}",
-        "relax" | "leavevmode" | "nolinebreak" | "nopagebreak" | "allowbreak" => "",
+        "relax" | "leavevmode" | "nolinebreak" | "nopagebreak" | "allowbreak" | "newblock" => "",
         _ => return None,
     })
 }
@@ -1774,6 +1774,39 @@ fn unflagged_line_view(
             break;
         }
         tok = t.next_token();
+        // A bibliography's `\begin`: its heading, as LaTeX prints it
+        // (`\section*{References}`, `\chapter*{Bibliography}`).
+        if t.kind() == K::CONTROL_WORD
+            && t.text() == "\\begin"
+            && let Some(begin) = t.parent().filter(|p| p.kind() == K::BEGIN)
+            && begin
+                .parent()
+                .and_then(|e| latex_syntax::name(&e))
+                .as_deref()
+                == Some("thebibliography")
+            && !near(&node_span(&begin))
+        {
+            let bs = node_span(&begin);
+            let chapters = state
+                .model()
+                .class
+                .as_ref()
+                .is_some_and(|c| latex_model::has_chapters(&c.name));
+            let title = if chapters {
+                "Bibliography"
+            } else {
+                "References"
+            };
+            b.replace(bs.start..bs.end.min(line.end), title, Style::default());
+            v.heading = 1;
+            v.role = crate::view::LineRole::Content;
+            while let Some(n) = &tok
+                && span(n).start < bs.end
+            {
+                tok = n.next_token();
+            }
+            continue;
+        }
         // `\verb|…|` and `\lstinline{…}` away from the cursor: the code,
         // monospace, the command and delimiters hidden.
         if t.kind() == K::CONTROL_WORD
@@ -2276,6 +2309,24 @@ fn unflagged_line_view(
                     {
                         let end = node_span(&cmd).end;
                         b.replace(r.start..end, &shown, c.style);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
+                    // An entry of the document's own bibliography: its label,
+                    // as LaTeX prints it ([1], [LL90]).
+                    ("bibitem", _)
+                        if let Some(cmd) = t.parent().filter(|p| p.kind() == K::COMMAND)
+                            && node_span(&cmd).end <= line.end
+                            && !near(&node_span(&cmd))
+                            && let Some(item) = state.model().bib_items.iter().find(|i| {
+                                i.file == 0 && i.range.start == node_span(&cmd).start
+                            }) =>
+                    {
+                        let end = node_span(&cmd).end;
+                        b.replace(r.start..end, &format!("[{}]", item.label), c.style);
                         while let Some(n) = &tok
                             && span(n).start < end
                         {
@@ -2798,6 +2849,99 @@ fn nameref(model: &latex_model::Model, l: &latex_model::Label) -> String {
     }
 }
 
+/// A citation of the document's own bibliography (`thebibliography`): the
+/// entries' labels as LaTeX prints them, `[1, LL90]`, with natbib's
+/// author-year labels (`\bibitem[Knuth(1984)]{knuth}`) as natbib prints
+/// them, a key it does not have as `?`; `None` without one.
+fn manual_citation(
+    model: &latex_model::Model,
+    command: &str,
+    opts: &[String],
+    keys: &str,
+) -> Option<(String, bool)> {
+    if model.bib_items.is_empty() {
+        return None;
+    }
+    if command.starts_with("nocite") {
+        return Some((String::new(), true));
+    }
+    // A key the bibliography does not have prints `?`, as LaTeX does.
+    let mut found = true;
+    let labels: Vec<&str> = keys
+        .split(',')
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+        .map(|k| {
+            model.bib_items.iter().find(|i| i.key == k).map_or_else(
+                || {
+                    found = false;
+                    "?"
+                },
+                |i| i.label.as_str(),
+            )
+        })
+        .collect();
+    let tilde = |s: &str| s.replace('~', "\u{a0}");
+    let (pre, post) = match opts {
+        [post] => (None, Some(tilde(post))),
+        [pre, post, ..] => (Some(tilde(pre)), Some(tilde(post))),
+        [] => (None, None),
+    };
+    let pre = pre.filter(|p| !p.trim().is_empty());
+    let post = post.filter(|p| !p.trim().is_empty());
+    let natbib = model.packages.iter().any(|p| p.name == "natbib");
+    // natbib's `Author(Year)` labels.
+    let author_year: Option<Vec<(&str, &str)>> = natbib
+        .then(|| {
+            labels
+                .iter()
+                .map(|l| {
+                    let (who, rest) = l.split_once('(')?;
+                    let (year, _) = rest.split_once(')')?;
+                    Some((who.trim(), year.trim()))
+                })
+                .collect()
+        })
+        .flatten();
+    let wrap = |body: String| {
+        let body = match &pre {
+            Some(p) => format!("{p} {body}"),
+            None => body,
+        };
+        match &post {
+            Some(p) => format!("{body}, {p}"),
+            None => body,
+        }
+    };
+    let shown = match author_year {
+        Some(ay) => match command {
+            "citep" | "Citep" => format!(
+                "({})",
+                wrap(
+                    ay.iter()
+                        .map(|(w, y)| format!("{w}, {y}"))
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                )
+            ),
+            "citeauthor" | "Citeauthor" => {
+                ay.iter().map(|(w, _)| *w).collect::<Vec<_>>().join(", ")
+            }
+            "citeyear" => ay.iter().map(|(_, y)| *y).collect::<Vec<_>>().join(", "),
+            _ => ay
+                .iter()
+                .map(|(w, y)| format!("{w} ({y})"))
+                .collect::<Vec<_>>()
+                .join("; "),
+        },
+        None => match command {
+            "citenum" => labels.join(", "),
+            _ => format!("[{}]", wrap(labels.join(", "))),
+        },
+    };
+    Some((shown, found))
+}
+
 /// The keys a document cites, in the order of their first citation
 /// (`\nocite` too; `\nocite{*}` adds the rest of the bibliography there).
 fn cited_keys(model: &latex_model::Model, bib: &org_cite::Bibliography) -> Vec<String> {
@@ -3023,6 +3167,9 @@ fn chip(
                 .unwrap_or_default();
             let bib = crate::cite::load(&files);
             if let Some(shown) = styled_citation(model, &bib, name, &opts, &first) {
+                return shown;
+            }
+            if let Some(shown) = manual_citation(model, name, &opts, &first) {
                 return shown;
             }
             let mut all = true;
@@ -3376,6 +3523,8 @@ pub fn renders_command(name: &str) -> bool {
                 | "lowercase"
                 | "MakeTextUppercase"
                 | "MakeTextLowercase"
+                | "bibitem"
+                | "newblock"
                 | "num"
                 | "si"
                 | "SI"
@@ -3411,6 +3560,7 @@ pub fn renders_environment(name: &str, model: &latex_model::Model) -> bool {
                 | "quotation"
                 | "verse"
                 | "abstract"
+                | "thebibliography"
         )
         || front_environment(name).is_some()
         || model.theorem_kinds.iter().any(|k| k.env == name)
@@ -4517,7 +4667,17 @@ mod tests {
         // pdflatex and bibtex print for it.
         let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/latex/citations/");
         let mut wrong = Vec::new();
-        for style in ["plain", "unsrt", "alpha", "abbrv", "ieeetr", "plainnat"] {
+        // (`manual`, `manual-natbib`: a document's own `thebibliography`.)
+        for style in [
+            "plain",
+            "unsrt",
+            "alpha",
+            "abbrv",
+            "ieeetr",
+            "plainnat",
+            "manual",
+            "manual-natbib",
+        ] {
             let text = std::fs::read_to_string(format!("{dir}{style}.tex")).unwrap();
             let expected = std::fs::read_to_string(format!("{dir}{style}.expected")).unwrap();
             let mut d = doc(&text);

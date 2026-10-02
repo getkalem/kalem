@@ -162,6 +162,19 @@ pub struct Citation {
     pub file: usize,
 }
 
+/// An entry of a document's own bibliography (`thebibliography`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BibItem {
+    /// The key `\cite` uses.
+    pub key: String,
+    /// What `\cite` prints: the optional argument, or the entry's number.
+    pub label: String,
+    /// The `\bibitem` command.
+    pub range: Range<usize>,
+    /// The file it is in (as [`Citation::file`]).
+    pub file: usize,
+}
+
 /// A caption.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Caption {
@@ -389,6 +402,8 @@ pub struct Model {
     /// around, or with the caption package to nothing (`\ref` prints
     /// "??") (indices into `labels`).
     pub labels_before_caption: Vec<usize>,
+    /// The entries of the document's own bibliography, in order.
+    pub bib_items: Vec<BibItem>,
 }
 
 impl Model {
@@ -430,6 +445,7 @@ impl Model {
         each!(self.labels);
         each!(self.references);
         each!(self.citations);
+        each!(self.bib_items);
         for fl in &mut self.floats {
             if fl.file == file {
                 ok &= f(&mut fl.range);
@@ -471,6 +487,7 @@ impl Model {
         m.labels.iter_mut().for_each(|x| swap(&mut x.file));
         m.references.iter_mut().for_each(|x| swap(&mut x.file));
         m.citations.iter_mut().for_each(|x| swap(&mut x.file));
+        m.bib_items.iter_mut().for_each(|x| swap(&mut x.file));
         for f in &mut m.floats {
             swap(&mut f.file);
             f.captions.iter_mut().for_each(|c| swap(&mut c.file));
@@ -1128,6 +1145,24 @@ impl<'r> Numbering<'r> {
                 range: at(range),
                 file: self.file,
             }),
+            Event::BibItem { key, label, range } => {
+                // With a label of its own, an entry does not step the
+                // counter.
+                let label = match label {
+                    Some(l) => l.clone(),
+                    None => {
+                        self.step("enumiv");
+                        self.get("enumiv").to_string()
+                    }
+                };
+                self.current = (Some(label.clone()), Target::Item);
+                self.model.bib_items.push(BibItem {
+                    key: key.clone(),
+                    label,
+                    range: at(range),
+                    file: self.file,
+                });
+            }
             Event::Cite {
                 command,
                 keys,
@@ -1482,6 +1517,10 @@ impl<'r> Numbering<'r> {
         self.saved.push(self.current.clone());
         if name == "minipage" {
             self.counters.insert("mpfootnote".into(), 0);
+        }
+        // `\usecounter{enumiv}`: the entries numbered from 1.
+        if name == "thebibliography" {
+            self.counters.insert("enumiv".into(), 0);
         }
         if matches!(name, "enumerate" | "itemize" | "description") {
             self.lists.push(name == "enumerate");
