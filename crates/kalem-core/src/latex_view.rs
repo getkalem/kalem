@@ -4822,12 +4822,22 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
     let mut out = Vec::new();
     for (name, args, def) in own {
         let with = org_math::source::macros(std::slice::from_ref(def));
-        let use_it = format!("{name}{}", "{x}".repeat(*args));
         let trial = format!("{kept}{with}");
-        if org_math::check(&org_math::source::prepare(&use_it, &trial)).is_ok() {
-            kept = trial;
-            out.push(def.clone());
+        // The definition read, a formula after it still read.
+        if org_math::check(&org_math::source::prepare("x", &trial)).is_err() {
+            continue;
         }
+        // A use of it: dropped only for a command the renderer lacks in
+        // its body (`\\todo`, `\\marginpar`); a body that wants what
+        // follows it (`\\def\\f{\\frac}`, `\\def\\lb{\\left(}`) is kept.
+        let use_it = format!("{name}{}", "{x}".repeat((*args).max(3)));
+        if let Err(e) = org_math::check(&org_math::source::prepare(&use_it, &trial))
+            && e.message.contains("Undefined control sequence")
+        {
+            continue;
+        }
+        kept = trial;
+        out.push(def.clone());
     }
     if let Ok(mut m) = MEMO.lock() {
         let m = m.get_or_insert_with(Memo::new);
@@ -4896,6 +4906,33 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\iddots}{\\cdot^{\\cdot^{\\cdot}}}",
     "\\newcommand{\\ul}[1]{\\underline{#1}}",
     "\\newcommand{\\uline}[1]{\\underline{#1}}",
+    "\\newcommand{\\lefteqn}[1]{#1}",
+    "\\newcommand{\\sideset}[2]{}",
+    "\\newcommand{\\slashed}[1]{\\not{#1}}",
+    "\\newcommand{\\numprint}[1]{#1}",
+    "\\newcommand{\\multicolumn}[3]{#3}",
+    "\\newcommand{\\multirow}[3]{#3}",
+    "\\newcommand{\\vspace}[1]{}",
+    "\\newcommand{\\hspace}[1]{\\quad}",
+    "\\newcommand{\\normalfont}{}",
+    "\\newcommand{\\upvarphi}{\\varphi}",
+    "\\newcommand{\\upalpha}{\\alpha}",
+    "\\newcommand{\\upbeta}{\\beta}",
+    "\\newcommand{\\upsigma}{\\sigma}",
+    "\\newcommand{\\uptau}{\\tau}",
+    "\\newcommand{\\fullmoon}{\\circ}",
+    "\\newcommand{\\newmoon}{\\bullet}",
+    "\\newcommand{\\label}[1]{}",
+    "\\newcommand{\\nonumber}{}",
+    "\\newcommand{\\notag}{}",
+    "\\newcommand{\\tabularnewline}{\\\\}",
+    "\\newcommand{\\arraybackslash}{}",
+    "\\newcommand{\\centering}{}",
+    "\\newcommand{\\noindent}{}",
+    "\\newcommand{\\displaybreak}{}",
+    "\\newcommand{\\allowdisplaybreaks}{}",
+    "\\newcommand{\\intertext}[1]{\\text{#1}}",
+    "\\newcommand{\\shortintertext}[1]{\\text{#1}}",
 ];
 
 /// The formula the cursor at `pos` is in, as the renderer takes it (the

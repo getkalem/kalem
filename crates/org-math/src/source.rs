@@ -80,6 +80,79 @@ fn plain_array_columns(s: &str) -> String {
     out
 }
 
+/// `\\text{a $x$ b}` as `\\text{a }x\\text{ b}`: the renderer does not take
+/// math inside its text (`$…$`, `\\(…\\)`).
+fn math_out_of_text(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = ["\\text{", "\\textrm{", "\\textit{", "\\textbf{", "\\mbox{"]
+        .iter()
+        .filter_map(|p| rest.find(p).map(|i| (i, p.len())))
+        .min()
+    {
+        let (at, len) = i;
+        let name_end = at + len - 1;
+        out.push_str(&rest[..name_end]);
+        let Some((inner, after)) = group(&rest[name_end..]) else {
+            out.push_str(&rest[name_end..]);
+            return out;
+        };
+        let name = &rest[at..name_end];
+        let mut text = String::new();
+        let mut chars = inner.char_indices().peekable();
+        let mut changed = false;
+        let mut pieces = String::new();
+        while let Some((k, c)) = chars.next() {
+            let close = if c == '$' {
+                Some("$")
+            } else if c == '\\' && inner[k..].starts_with("\\(") {
+                chars.next();
+                Some("\\)")
+            } else {
+                None
+            };
+            match close {
+                Some(close) => {
+                    let start = k + if close == "$" { 1 } else { 2 };
+                    match inner[start..].find(close) {
+                        Some(e) => {
+                            pieces
+                                .push_str(&format!("{{{text}}}{}{name}", &inner[start..start + e]));
+                            text.clear();
+                            changed = true;
+                            let stop = start + e + close.len();
+                            while chars.peek().is_some_and(|(j, _)| *j < stop) {
+                                chars.next();
+                            }
+                        }
+                        None => text.push(c),
+                    }
+                }
+                None => {
+                    if c == '\\' {
+                        // A control sequence stays whole (`\\$` is a dollar).
+                        text.push(c);
+                        if let Some((_, d)) = chars.next() {
+                            text.push(d);
+                        }
+                    } else {
+                        text.push(c);
+                    }
+                }
+            }
+        }
+        if changed {
+            out.push_str(&pieces);
+            out.push_str(&format!("{{{text}}}"));
+        } else {
+            out.push_str(&format!("{{{inner}}}"));
+        }
+        rest = after;
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The formula as RaTeX takes it: `\mbox` as `\text`, `multline` as
 /// `gather` (decision D4), after the definitions `macros`.
 pub fn prepare(latex: &str, macros: &str) -> String {
@@ -88,6 +161,7 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     s = rename_env(&s, "multline", "gather");
     // eqnarray's `a &=& b` as an align's columns; flalign as align.
     s = plain_array_columns(&s);
+    s = math_out_of_text(&s);
     s = rename_env(&s, "eqnarray*", "align*");
     s = rename_env(&s, "eqnarray", "align");
     s = rename_env(&s, "flalign*", "align*");
@@ -265,5 +339,27 @@ mod tests {
             "\\newcommand{\\v}[2][x]{#1_#2}"
         );
         assert_eq!(prepare("x \\in \\R", &m), format!("{m}x \\in \\R"));
+    }
+}
+
+#[cfg(test)]
+mod prepare_tests {
+    use super::*;
+
+    #[test]
+    fn what_the_renderer_does_not_take() {
+        assert_eq!(
+            prepare("\\text{if $x>0$ and \\(y\\)}", ""),
+            "\\text{if }x>0\\text{ and }y\\text{}"
+        );
+        assert_eq!(prepare("\\text{costs \\$5}", ""), "\\text{costs \\$5}");
+        assert_eq!(
+            prepare("\\begin{array}{@{}c@{\\quad}>{\\bf}l@{}}a\\end{array}", ""),
+            "\\begin{array}{cl}a\\end{array}"
+        );
+        assert_eq!(
+            prepare("\\begin{eqnarray*}a&=&b\\end{eqnarray*}", ""),
+            "\\begin{align*}a&=&b\\end{align*}"
+        );
     }
 }
