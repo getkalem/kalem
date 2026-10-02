@@ -4615,12 +4615,28 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
         .filter(|n| node_span(n).start >= range.start)?;
     let r = node_span(&node);
     let mut edits: Vec<(Range<usize>, String)> = Vec::new();
+    let model = state.model();
     for c in node.descendants().filter(|c| c.kind() == K::COMMAND) {
-        if matches!(
-            latex_syntax::name(&c).as_deref(),
-            Some("label" | "nonumber" | "notag")
-        ) {
+        let cname = latex_syntax::name(&c);
+        if matches!(cname.as_deref(), Some("label" | "nonumber" | "notag")) {
             edits.push((node_span(&c), String::new()));
+        }
+        // A reference in a formula: the number LaTeX prints, as text.
+        if let Some(n @ ("ref" | "eqref" | "autoref" | "cref" | "Cref" | "pageref")) =
+            cname.as_deref()
+            && let Some(g) = c.children().find(|x| x.kind() == K::GROUP)
+        {
+            let key = group_text(&g);
+            let number = model
+                .label(key.trim())
+                .and_then(|l| l.number.clone())
+                .unwrap_or_else(|| "??".into());
+            let shown = if n == "eqref" {
+                format!("({number})")
+            } else {
+                number
+            };
+            edits.push((node_span(&c), format!("\\text{{{shown}}}")));
         }
     }
     let name = (node.kind() == K::ENVIRONMENT)
@@ -5245,6 +5261,14 @@ mod tests {
         let f = formula_failures(&d);
         assert_eq!(f.len(), 1, "{f:?}");
         assert_eq!(&text[f[0].0.clone()], "$\\bad$");
+        // A reference in a formula, mathtools' paired delimiters, an
+        // array's `@{}`.
+        let text = "\\documentclass{article}\n\\usepackage{mathtools}\n\\DeclarePairedDelimiter{\\abs}{\\lvert}{\\rvert}\n\\begin{document}\n\\begin{equation}a\\label{e}\\end{equation}\n$\\eqref{e} + \\abs{x}$ $\\begin{array}{@{}c@{\\quad}c@{}}1&2\\end{array}$\n\\end{document}\n";
+        let d = doc(text);
+        assert_eq!(formula_failures(&d), Vec::new());
+        let at = text.find("$\\eqref").unwrap();
+        let src = math_source(&d, at..at + 1).unwrap();
+        assert!(src.contains("\\text{(1)}"), "{src}");
     }
 
     #[test]

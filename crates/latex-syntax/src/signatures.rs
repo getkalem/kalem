@@ -74,6 +74,7 @@ pub fn command(name: &str) -> &'static str {
         "newenvironment" | "renewenvironment" => "*moomm",
         "newtheorem" => "*momo",
         "DeclareMathOperator" => "*mm",
+        "DeclarePairedDelimiter" => "mmm",
         "item" => "o",
         "\\" => "*o",
         "makebox" | "framebox" => "oom",
