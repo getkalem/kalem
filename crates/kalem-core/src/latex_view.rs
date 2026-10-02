@@ -3232,7 +3232,7 @@ fn unflagged_line_view(
                         if near(&(r.start..end)) {
                             b.verbatim(r, c.style);
                         } else {
-                            let mut st = c.style.clone();
+                            let mut st = c.style;
                             st.bold |= own.style.bold;
                             st.italic |= own.style.italic;
                             st.code |= own.style.code;
