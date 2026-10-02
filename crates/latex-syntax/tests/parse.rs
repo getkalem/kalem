@@ -480,4 +480,10 @@ fn formulas_of_a_document_s_own() {
         ["\\be x \\ee", "\\begin{eqn}y\\end{eqn}"]
     );
     assert_eq!(texts(&p, SyntaxKind::INLINE_MATH), ["$$", "$a$", "$$"]);
+    // `\\begin{equation} … \\ee`: one environment.
+    let p = parse("\\begin{equation}\na\n\\ee\nb\n");
+    assert_eq!(
+        texts(&p, SyntaxKind::ENVIRONMENT),
+        ["\\begin{equation}\na\n\\ee"]
+    );
 }

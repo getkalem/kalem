@@ -528,6 +528,29 @@ fn braced_delimiters(s: &str) -> String {
     out
 }
 
+/// `{$x$}` (and `{\\selectfont{$x$}}` groups around a formula) as
+/// `$x$`: the groups hold nothing else.
+fn unbrace_math(s: &str) -> String {
+    let mut out = s.to_string();
+    loop {
+        let mut changed = false;
+        if let Some(i) = out.find("{$")
+            && let Some((g, _)) = group(&out[i..])
+            && g.starts_with('$')
+            && g.ends_with('$')
+            && g.len() >= 2
+            && !g[1..g.len() - 1].contains('$')
+        {
+            let inner = g.to_string();
+            out = format!("{}{inner}{}", &out[..i], &out[i + g.len() + 2..]);
+            changed = true;
+        }
+        if !changed {
+            return out;
+        }
+    }
+}
+
 /// `\\text{a $x$ b}` as `\\text{a }x\\text{ b}`: the renderer does not take
 /// math inside its text (`$…$`, `\\(…\\)`).
 fn math_out_of_text(s: &str) -> String {
@@ -559,6 +582,10 @@ fn math_out_of_text(s: &str) -> String {
             return out;
         };
         let name = &rest[at..name_end];
+        // `{$x$}` inside the text: the formula without its group, so that
+        // the text around it stays balanced.
+        let unbraced = unbrace_math(inner);
+        let inner = unbraced.as_str();
         let mut text = String::new();
         let mut chars = inner.char_indices().peekable();
         let mut changed = false;
@@ -861,6 +888,48 @@ fn plain_tex(s: &str) -> String {
             {
                 out.push_str(&rest[..i]);
                 rest = &after[n..];
+            } else {
+                out.push_str(&rest[..i + name.len()]);
+                rest = after;
+            }
+        }
+        out.push_str(rest);
+        s = out;
+    }
+    // Sizes as environments around a formula's part: nothing to draw.
+    for env in [
+        "tiny",
+        "scriptsize",
+        "footnotesize",
+        "small",
+        "normalsize",
+        "large",
+        "Large",
+        "LARGE",
+        "huge",
+        "Huge",
+    ] {
+        s = s
+            .replace(&format!("\\begin{{{env}}}"), "")
+            .replace(&format!("\\end{{{env}}}"), "");
+    }
+    // A color by a model (`\\textcolor[rgb]{0.8,0,0}{x}`): the text, as the
+    // renderer takes only named colors.
+    for name in ["\\textcolor", "\\color"] {
+        let mut out = String::new();
+        let mut rest = s.as_str();
+        while let Some(i) = command_at(rest, name, 0) {
+            let after = &rest[i + name.len()..];
+            let t = after.trim_start();
+            if t.starts_with('[')
+                && let Some(k) = t.find(']')
+                && let Some((_, tail)) = group(t[k + 1..].trim_start())
+            {
+                out.push_str(&rest[..i]);
+                if name == "\\textcolor" {
+                    out.push_str("\\textcolor{black}");
+                }
+                rest = tail;
             } else {
                 out.push_str(&rest[..i + name.len()]);
                 rest = after;

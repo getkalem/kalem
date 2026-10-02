@@ -725,8 +725,17 @@ impl<'a> Parser<'a> {
         }
         self.builder.finish_node();
         if let Some(e) = closed {
-            let (open, s, k) = lexer::env_name(self.b, e + 4, limit).expect("paired by the tables");
-            self.end(e + 4, open, s, k);
+            if self.tables.alias_ends.contains(&e) {
+                // Ended by a macro (`\\ee`): its control word.
+                let (_, end) = lexer::next(self.src, e, limit, self.at_letter);
+                self.builder.start_node(END.into());
+                self.token(CONTROL_WORD, end);
+                self.builder.finish_node();
+            } else {
+                let (open, s, k) =
+                    lexer::env_name(self.b, e + 4, limit).expect("paired by the tables");
+                self.end(e + 4, open, s, k);
+            }
         }
         self.builder.finish_node();
         if own_math {
