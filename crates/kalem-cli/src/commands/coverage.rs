@@ -146,6 +146,7 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
     let mut names: HashMap<String, Use> = HashMap::new();
     // Per name: the bytes it shows as source.
     let mut source_bytes: HashMap<String, usize> = HashMap::new();
+    let base = kalem_core::settings::Config::default().parse_base();
     for dir in dirs {
         let list = files(dir);
         let preamble = preamble_files(&list);
@@ -157,7 +158,22 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                 continue;
             };
             let text = String::from_utf8_lossy(&bytes);
-            let c = kalem_core::latex_check::coverage_report(&text, Some(&f));
+            let mut c = kalem_core::latex_check::coverage_report(&text, Some(&f));
+            // Formulas the renderer cannot read are shown as source.
+            if let Ok(doc) = kalem_core::DocumentState::open(
+                &f,
+                std::sync::Arc::new(org_model::Settings::default()),
+                &base,
+            ) {
+                for (r, kind) in kalem_core::latex_view::formula_failures(&doc) {
+                    let n = r.len();
+                    c.source += n;
+                    c.math = c.math.saturating_sub(n);
+                    *c.source_by_name
+                        .entry(format!("formula: {kind}"))
+                        .or_insert(0) += n;
+                }
+            }
             all.add(&paper, &c);
             fields.entry(field).or_default().add(&paper, &c);
             for (name, b) in &c.source_by_name {

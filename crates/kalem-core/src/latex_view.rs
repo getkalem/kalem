@@ -4220,6 +4220,57 @@ fn math_node(t: &SyntaxToken) -> Option<SyntaxNode> {
         .last()
 }
 
+/// The formulas of the document's body the math renderer cannot read
+/// (shown as their source in a red frame): each one's range and the
+/// renderer's message, without the position it gives.
+pub fn formula_failures(doc: &crate::DocumentState) -> Vec<(Range<usize>, String)> {
+    let Some(state) = doc.latex() else {
+        return Vec::new();
+    };
+    let text = doc.text().as_str();
+    let root = state.parse().syntax();
+    let body = state.model().body.clone().unwrap_or(0..text.len());
+    let macros = org_math::source::macros(&math_definitions(doc));
+    let mut out = Vec::new();
+    let mut after = 0;
+    for n in root.descendants() {
+        let r = node_span(&n);
+        if r.start < after || !body.contains(&r.start) {
+            continue;
+        }
+        let math = match n.kind() {
+            K::INLINE_MATH | K::DISPLAY_MATH => true,
+            K::ENVIRONMENT => latex_syntax::name(&n).is_some_and(|x| is_display_math(&x)),
+            _ => false,
+        };
+        if !math {
+            continue;
+        }
+        after = r.end;
+        let src = math_source(doc, r.clone()).unwrap_or_else(|| text[r.clone()].to_string());
+        let (inner, _) = org_math::source::body(&src);
+        if inner.trim().is_empty() {
+            continue;
+        }
+        if let Err(e) = org_math::check(&org_math::source::prepare(inner, &macros)) {
+            out.push((r, error_kind(&e.message)));
+        }
+    }
+    out
+}
+
+/// A renderer's message without what changes from formula to formula
+/// (positions, the text around): `Undefined control sequence: \foo`.
+fn error_kind(message: &str) -> String {
+    let m = message.lines().next().unwrap_or("").trim();
+    // `ParseError at position 12: Undefined control sequence: \foo`.
+    let m = match m.split_once(": ") {
+        Some((head, rest)) if head.starts_with("ParseError") => rest,
+        _ => m,
+    };
+    m.chars().take(80).collect()
+}
+
 /// Environments that are displayed formulas of their own (not `split`,
 /// `aligned` and the others that live inside one).
 fn is_display_math(name: &str) -> bool {
@@ -4964,6 +5015,16 @@ mod tests {
         // A setting and a definition print nothing: markup, dimmed.
         let v = shown(&d, 1, None);
         assert!(v.runs.iter().all(|r| r.style.dim), "{:?}", v.runs);
+    }
+
+    #[test]
+    fn formulas_the_renderer_cannot_read() {
+        let text = "\\documentclass{article}\n\\newcommand{\\R}{\\mathbb{R}}\n\\begin{document}\n$x \\in \\R$ and $\\nosuch{x}$ and $$\\frac{a}{b}$$\n\\end{document}\n";
+        let d = doc(text);
+        let f = formula_failures(&d);
+        assert_eq!(f.len(), 1, "{f:?}");
+        assert_eq!(&text[f[0].0.clone()], "$\\nosuch{x}$");
+        assert_eq!(f[0].1, "Undefined control sequence: \\nosuch");
     }
 
     #[test]
