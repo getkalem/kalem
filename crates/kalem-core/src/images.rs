@@ -340,6 +340,17 @@ pub fn svg_png(svg: &[u8], size: u32) -> Result<Vec<u8>, String> {
     pixmap.encode_png().map_err(|e| e.to_string())
 }
 
+/// `img` in one color, `rgb`, its shading kept as transparency: a formula
+/// TeX typeset in black, drawn in the text's color.
+pub fn tint(img: &mut image::RgbaImage, rgb: [u8; 3]) {
+    for p in img.pixels_mut() {
+        // Dark ink is opaque; white paper, none.
+        let ink = 255 - ((u32::from(p[0]) + u32::from(p[1]) + u32::from(p[2])) / 3) as u8;
+        let a = (u32::from(p[3]) * u32::from(ink) / 255) as u8;
+        *p = image::Rgba([rgb[0], rgb[1], rgb[2], a]);
+    }
+}
+
 /// The first page of a PDF as SVG.
 pub fn pdf_svg(data: Vec<u8>) -> Result<String, String> {
     use hayro_svg::hayro_syntax::Pdf;
@@ -372,7 +383,13 @@ pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
         };
         let tree = resvg::usvg::Tree::from_data(&data, &opts).map_err(|e| e.to_string())?;
         let sz = tree.size();
-        let k = (max as f32 / sz.width().max(sz.height())).min(1.0);
+        // A formula TeX typeset (10pt) at the size of the editor's text.
+        let grow = if crate::tex_pictures::is_formula(file) {
+            1.5
+        } else {
+            1.0
+        };
+        let k = (max as f32 / sz.width().max(sz.height())).min(grow);
         let (w, h) = (
             (sz.width() * k).ceil().max(1.0) as u32,
             (sz.height() * k).ceil().max(1.0) as u32,

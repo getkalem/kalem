@@ -971,7 +971,13 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 }
             }
             Some(Widget::Image { path, width })
-                if let Some((image, w, h)) = editor.picture(path) =>
+                if let Some((image, w, h)) = editor.picture_in(
+                    path,
+                    Some({
+                        let [r, g, b, _] = crate::math::rgba(theme.foreground);
+                        [r, g, b]
+                    }),
+                ) =>
             {
                 // The picture at its size, or the width `#+ATTR_ORG` (or
                 // LaTeX's `width=`, `height=`, `scale=`) asks for; fitted to

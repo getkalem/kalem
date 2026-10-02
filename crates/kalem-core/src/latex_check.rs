@@ -749,6 +749,9 @@ pub struct Coverage {
     pub source: usize,
     /// The bytes of the body in formulas.
     pub math: usize,
+    /// The bytes of the formulas the math renderer cannot read, which the
+    /// view has TeX typeset when it is installed.
+    pub tex: usize,
     /// Commands (`\foo`) and environments (`\begin{bar}`): how often, and
     /// whether rendered.
     pub names: HashMap<String, (usize, bool)>,

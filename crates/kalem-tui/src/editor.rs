@@ -201,9 +201,23 @@ impl Images {
     /// size of the terminal's text, on its background.
     fn load(&self, key: &ImageKey, cell_height: f32) -> Option<image::DynamicImage> {
         match key {
-            ImageKey::File(f, _) => kalem_core::images::decode(f, 2400)
-                .ok()
-                .map(image::DynamicImage::ImageRgba8),
+            ImageKey::File(f, _) => kalem_core::images::decode(f, 2400).ok().map(|mut img| {
+                // A formula TeX typeset: in the text's color, on the
+                // background (sixel has no transparency).
+                if kalem_core::tex_pictures::is_formula(f) {
+                    let (fg, bg) = self.math_colors;
+                    kalem_core::images::tint(&mut img, [fg[0], fg[1], fg[2]]);
+                    for px in img.pixels_mut() {
+                        let a = u32::from(px[3]);
+                        for i in 0..3 {
+                            px[i] =
+                                ((u32::from(px[i]) * a + u32::from(bg[i]) * (255 - a)) / 255) as u8;
+                        }
+                        px[3] = 255;
+                    }
+                }
+                image::DynamicImage::ImageRgba8(img)
+            }),
             ImageKey::Math { source, macros } => {
                 use org_math::MathEngine;
                 let (body, display) = org_math::source::body(source);
