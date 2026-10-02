@@ -163,11 +163,13 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
             let text = String::from_utf8_lossy(&bytes);
             let mut c = kalem_core::latex_check::coverage_report(&text, Some(&f));
             // Formulas the renderer cannot read are shown as source.
-            if let Ok(doc) = kalem_core::DocumentState::open(
+            if let Ok(mut doc) = kalem_core::DocumentState::open(
                 &f,
                 std::sync::Arc::new(org_model::Settings::default()),
                 &base,
             ) {
+                // The definitions of the files the document reads.
+                doc.wait_for_latex_project();
                 for (r, kind) in kalem_core::latex_view::formula_failures(&doc) {
                     let n = r.len();
                     c.source += n;

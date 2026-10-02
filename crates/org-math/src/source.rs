@@ -34,8 +34,19 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     let mut s = latex.replace("\\mbox{", "\\text{");
     s = rename_env(&s, "multline*", "gather*");
     s = rename_env(&s, "multline", "gather");
+    // eqnarray's `a &=& b` as an align's columns; flalign as align.
+    s = rename_env(&s, "eqnarray*", "align*");
+    s = rename_env(&s, "eqnarray", "align");
+    s = rename_env(&s, "flalign*", "align*");
+    s = rename_env(&s, "flalign", "align");
     // Environments that are not math in themselves.
-    for env in ["equation", "equation*", "displaymath", "math"] {
+    for env in [
+        "equation",
+        "equation*",
+        "displaymath",
+        "displaymath*",
+        "math",
+    ] {
         let begin = format!("\\begin{{{env}}}");
         let end = format!("\\end{{{env}}}");
         if let Some(inner) = s
