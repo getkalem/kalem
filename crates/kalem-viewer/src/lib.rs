@@ -1,0 +1,446 @@
+//! The contract of a plugin that opens a file that is not text (design
+//! §11.13, D54): `document-viewer`, and `document-editor` on top of it for
+//! a format the plugin writes faithfully.
+//!
+//! These are the Rust traits the core uses (D28): a plugin implementing
+//! them builds as a bundled plugin inside the binary today, and as a
+//! sandboxed WebAssembly component once the WIT world of T3.1.3 carries
+//! the same functions. A plugin never draws: it returns what the host
+//! paints ([`Rendered`]), and it sees the file only through the
+//! [`FileHandle`] the host gives it.
+
+use std::fmt;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+/// Why a viewer failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewerError(pub String);
+
+impl fmt::Display for ViewerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ViewerError {}
+
+impl From<std::io::Error> for ViewerError {
+    fn from(e: std::io::Error) -> ViewerError {
+        ViewerError(e.to_string())
+    }
+}
+
+/// The result of a viewer's function.
+pub type Result<T> = std::result::Result<T, ViewerError>;
+
+/// The file a viewer opened, read lazily: the host's handle, the only
+/// thing of the file system the plugin sees.
+#[derive(Debug, Clone)]
+pub struct FileHandle {
+    path: PathBuf,
+}
+
+impl FileHandle {
+    /// A handle on the file at `path`.
+    pub fn new(path: impl Into<PathBuf>) -> FileHandle {
+        FileHandle { path: path.into() }
+    }
+
+    /// The file's name, for its extension and for labels.
+    pub fn name(&self) -> &str {
+        self.path.file_name().and_then(|n| n.to_str()).unwrap_or("")
+    }
+
+    /// The file's extension, in lower case.
+    pub fn extension(&self) -> String {
+        self.path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase()
+    }
+
+    /// The file's path. The host uses it; a sandboxed plugin gets only
+    /// the name.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The file's size in bytes.
+    pub fn len(&self) -> Result<u64> {
+        Ok(std::fs::metadata(&self.path)?.len())
+    }
+
+    /// Whether the file is empty.
+    pub fn is_empty(&self) -> Result<bool> {
+        Ok(self.len()? == 0)
+    }
+
+    /// Up to `len` bytes from `offset`.
+    pub fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
+        let mut f = std::fs::File::open(&self.path)?;
+        f.seek(SeekFrom::Start(offset))?;
+        let mut buf = Vec::with_capacity(len);
+        f.take(len as u64).read_to_end(&mut buf)?;
+        Ok(buf)
+    }
+
+    /// The whole file.
+    pub fn read_all(&self) -> Result<Vec<u8>> {
+        Ok(std::fs::read(&self.path)?)
+    }
+}
+
+/// How sure a viewer is that it opens a file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Detection {
+    /// It does not.
+    No,
+    /// By the extension alone.
+    Extension,
+    /// By the file's first bytes (its magic number).
+    Magic,
+}
+
+/// What a document is made of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnitKind {
+    /// A picture, the whole of an image file.
+    Image,
+    /// A frame of an animation: the host plays frames, it does not page
+    /// through them.
+    Frame,
+    /// A page (PDF).
+    Page,
+    /// A sheet (a workbook).
+    Sheet,
+    /// A slide (a presentation).
+    Slide,
+    /// A table (a database).
+    Table,
+}
+
+/// One unit of a document.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Unit {
+    /// What it is.
+    pub kind: UnitKind,
+    /// Its label: a page's number as printed, a sheet's name.
+    pub label: String,
+    /// How long a frame shows, in milliseconds.
+    pub duration_ms: Option<u32>,
+}
+
+/// An entry of a document's outline.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutlineEntry {
+    /// The title.
+    pub title: String,
+    /// The unit it points to.
+    pub unit: usize,
+    /// The level, 1 at the top.
+    pub level: u8,
+}
+
+/// A document's units and outline.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Structure {
+    /// The units, in order; at least one.
+    pub units: Vec<Unit>,
+    /// The outline, possibly empty.
+    pub outline: Vec<OutlineEntry>,
+}
+
+impl Structure {
+    /// Whether the units are frames the host plays.
+    pub fn animated(&self) -> bool {
+        self.units.len() > 1 && self.units.iter().all(|u| u.kind == UnitKind::Frame)
+    }
+}
+
+/// The theme a unit is rendered for: a page's paper may follow it, a
+/// photograph does not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Theme {
+    /// A dark theme.
+    pub dark: bool,
+    /// The background, RGB.
+    pub background: [u8; 3],
+    /// The text color, RGB.
+    pub foreground: [u8; 3],
+}
+
+impl Default for Theme {
+    fn default() -> Theme {
+        Theme {
+            dark: false,
+            background: [255, 255, 255],
+            foreground: [0, 0, 0],
+        }
+    }
+}
+
+/// Pixels the host paints: 8-bit RGBA, not premultiplied, rows top to
+/// bottom.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Bitmap {
+    /// The width in pixels.
+    pub width: u32,
+    /// The height in pixels.
+    pub height: u32,
+    /// `width * height * 4` bytes.
+    pub rgba: Arc<Vec<u8>>,
+}
+
+impl fmt::Debug for Bitmap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Bitmap({}x{})", self.width, self.height)
+    }
+}
+
+impl Bitmap {
+    /// A bitmap of `rgba`, which holds `width * height * 4` bytes.
+    pub fn new(width: u32, height: u32, rgba: Vec<u8>) -> Bitmap {
+        debug_assert_eq!(rgba.len(), width as usize * height as usize * 4);
+        Bitmap {
+            width,
+            height,
+            rgba: Arc::new(rgba),
+        }
+    }
+
+    /// The bitmap turned clockwise by `quarters` quarter turns.
+    pub fn rotated(&self, quarters: u8) -> Bitmap {
+        let (w, h) = (self.width as usize, self.height as usize);
+        let src = &self.rgba;
+        match quarters % 4 {
+            0 => self.clone(),
+            2 => {
+                let mut out = vec![0; src.len()];
+                for (i, px) in src.as_chunks::<4>().0.iter().enumerate() {
+                    let j = w * h - 1 - i;
+                    out[j * 4..j * 4 + 4].copy_from_slice(px);
+                }
+                Bitmap::new(self.width, self.height, out)
+            }
+            q => {
+                let mut out = vec![0; src.len()];
+                for y in 0..h {
+                    for x in 0..w {
+                        // A clockwise turn sends (x, y) to (h - 1 - y, x);
+                        // a counter-clockwise one to (y, w - 1 - x).
+                        let (nx, ny) = if q == 1 {
+                            (h - 1 - y, x)
+                        } else {
+                            (y, w - 1 - x)
+                        };
+                        let i = (y * w + x) * 4;
+                        let j = (ny * h + nx) * 4;
+                        out[j..j + 4].copy_from_slice(&src[i..i + 4]);
+                    }
+                }
+                Bitmap::new(self.height, self.width, out)
+            }
+        }
+    }
+}
+
+/// What a unit renders to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Rendered {
+    /// Pixels.
+    Bitmap(Bitmap),
+}
+
+/// What the host asks a unit to be rendered at.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RenderRequest {
+    /// The scale: 1 for the unit's own size (a picture's pixels, a page at
+    /// 72 dpi).
+    pub scale: f32,
+    /// The theme.
+    pub theme: Theme,
+}
+
+impl Default for RenderRequest {
+    fn default() -> RenderRequest {
+        RenderRequest {
+            scale: 1.0,
+            theme: Theme::default(),
+        }
+    }
+}
+
+/// A line of a document's information: a size, a color space, a camera.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InfoField {
+    /// What it is.
+    pub label: String,
+    /// Its value.
+    pub value: String,
+}
+
+impl InfoField {
+    /// A field.
+    pub fn new(label: impl Into<String>, value: impl Into<String>) -> InfoField {
+        InfoField {
+            label: label.into(),
+            value: value.into(),
+        }
+    }
+}
+
+/// An edit the format allows at a place (`document-editor`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Edit {
+    /// Its identifier, given back to [`ViewerDocument::apply`].
+    pub id: String,
+    /// Its title in menus.
+    pub title: String,
+    /// The edit that undoes it, when there is one: the host's undo stack
+    /// applies it.
+    pub inverse: Option<String>,
+}
+
+/// The bytes a document saves to, and what the format could not keep.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SaveOutput {
+    /// The new file, written atomically by the host.
+    pub bytes: Vec<u8>,
+    /// What is lost by the save; empty for a faithful one.
+    pub losses: Vec<String>,
+}
+
+/// A link inside a unit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Link {
+    /// Where it is, in the unit's pixels at scale 1: x, y, width, height.
+    pub rect: [f32; 4],
+    /// A URL or another unit (`#3`).
+    pub target: String,
+}
+
+/// A plugin that opens files of some formats (`document-viewer`).
+pub trait Viewer: Send + Sync {
+    /// The plugin's identifier, such as `image-viewer`.
+    fn id(&self) -> &str;
+
+    /// The plugin's name for people.
+    fn name(&self) -> &str;
+
+    /// The extensions it opens, in lower case, without the dot.
+    fn extensions(&self) -> &[&str];
+
+    /// Whether it opens the file named `name` that starts with `head`
+    /// (its first few kilobytes).
+    fn detect(&self, name: &str, head: &[u8]) -> Detection;
+
+    /// Opens a file.
+    fn open(&self, file: FileHandle) -> Result<Box<dyn ViewerDocument>>;
+}
+
+/// A file a [`Viewer`] opened.
+pub trait ViewerDocument: Send {
+    /// The units and the outline.
+    fn structure(&self) -> Structure;
+
+    /// A unit rendered.
+    fn render(&mut self, unit: usize, request: RenderRequest) -> Result<Rendered>;
+
+    /// A unit's text, for search, copy and the terminal.
+    fn text(&self, unit: usize) -> String;
+
+    /// What the information panel shows.
+    fn info(&self) -> Vec<InfoField> {
+        Vec::new()
+    }
+
+    /// The places `query` is found, as units and byte ranges of their
+    /// [`ViewerDocument::text`].
+    fn search(&self, query: &str) -> Vec<(usize, std::ops::Range<usize>)> {
+        if query.is_empty() {
+            return Vec::new();
+        }
+        let query = query.to_lowercase();
+        let mut found = Vec::new();
+        for unit in 0..self.structure().units.len() {
+            let text = self.text(unit).to_lowercase();
+            found.extend(
+                text.match_indices(&query)
+                    .map(|(i, m)| (unit, i..i + m.len())),
+            );
+        }
+        found
+    }
+
+    /// The links of a unit.
+    fn links(&self, _unit: usize) -> Vec<Link> {
+        Vec::new()
+    }
+
+    /// The edits the format allows on a unit (`document-editor`); none
+    /// for a viewer only.
+    fn edits(&self, _unit: usize) -> Vec<Edit> {
+        Vec::new()
+    }
+
+    /// Applies an edit of [`ViewerDocument::edits`], returning the units
+    /// it changed.
+    fn apply(&mut self, edit: &str) -> Result<Vec<usize>> {
+        Err(ViewerError(format!("No edit {edit}")))
+    }
+
+    /// Whether there are edits not saved.
+    fn modified(&self) -> bool {
+        false
+    }
+
+    /// The file with the edits, for the host to write; afterwards the
+    /// document counts as saved.
+    fn save(&mut self) -> Result<SaveOutput> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn numbered(w: u32, h: u32) -> Bitmap {
+        let rgba = (0..w * h).flat_map(|i| [i as u8, 0, 0, 255]).collect();
+        Bitmap::new(w, h, rgba)
+    }
+
+    fn red(b: &Bitmap) -> Vec<u8> {
+        b.rgba.as_chunks::<4>().0.iter().map(|p| p[0]).collect()
+    }
+
+    #[test]
+    fn rotations() {
+        // 0 1 2
+        // 3 4 5
+        let b = numbered(3, 2);
+        let cw = b.rotated(1);
+        assert_eq!((cw.width, cw.height), (2, 3));
+        assert_eq!(red(&cw), [3, 0, 4, 1, 5, 2]);
+        assert_eq!(red(&b.rotated(2)), [5, 4, 3, 2, 1, 0]);
+        assert_eq!(red(&b.rotated(3)), [2, 5, 1, 4, 0, 3]);
+        assert_eq!(b.rotated(1).rotated(3), b);
+    }
+
+    #[test]
+    fn the_handle_reads_lazily() {
+        let dir = std::env::temp_dir().join(format!("kalem-viewer-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("a.BIN");
+        std::fs::write(&p, b"0123456789").unwrap();
+        let h = FileHandle::new(&p);
+        assert_eq!(h.extension(), "bin");
+        assert_eq!(h.len().unwrap(), 10);
+        assert_eq!(h.read_at(3, 4).unwrap(), b"3456");
+        assert_eq!(h.read_at(8, 10).unwrap(), b"89");
+        std::fs::remove_dir_all(dir).ok();
+    }
+}
