@@ -2018,8 +2018,9 @@ const SPRINGER_THEOREMS: &[(&str, &str, bool)] = &[
 /// The counter of the captions in environment `env`.
 fn float_kind(env: &str) -> Option<&'static str> {
     match env.trim_end_matches('*') {
-        "figure" | "wrapfigure" | "subfigure" => Some("figure"),
-        "table" | "wraptable" | "longtable" | "subtable" => Some("table"),
+        // rotating's sideways floats step the same counters.
+        "figure" | "wrapfigure" | "subfigure" | "sidewaysfigure" => Some("figure"),
+        "table" | "wraptable" | "longtable" | "subtable" | "sidewaystable" => Some("table"),
         // The algorithm and algorithm2e packages' float.
         "algorithm" => Some("algorithm"),
         _ => None,
