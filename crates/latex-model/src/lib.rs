@@ -1030,6 +1030,26 @@ impl<'r> Numbering<'r> {
                     range: at(range),
                     file: self.file,
                 });
+                // Springer's classes declare their theorems themselves, each
+                // with its own counter (`envcountsame`: the theorem's).
+                if matches!(
+                    name.as_str(),
+                    "llncs" | "svjour" | "svjour3" | "svmult" | "svproc"
+                ) {
+                    let same = options.iter().any(|o| o == "envcountsame");
+                    for (env, title, numbered) in SPRINGER_THEOREMS {
+                        self.model.theorem_kinds.push(TheoremKind {
+                            env: env.to_string(),
+                            title: title.to_string(),
+                            counter: if same && *numbered {
+                                "theorem".into()
+                            } else {
+                                env.to_string()
+                            },
+                            numbered: *numbered,
+                        });
+                    }
+                }
             }
             Event::Package {
                 name,
@@ -1819,6 +1839,27 @@ fn enumitem_keys(s: &str) -> Vec<(String, String)> {
     }
     out
 }
+
+/// The theorems Springer's classes (llncs, svjour3) declare: the
+/// environment, its title, whether it is numbered.
+const SPRINGER_THEOREMS: &[(&str, &str, bool)] = &[
+    ("theorem", "Theorem", true),
+    ("lemma", "Lemma", true),
+    ("corollary", "Corollary", true),
+    ("proposition", "Proposition", true),
+    ("definition", "Definition", true),
+    ("example", "Example", true),
+    ("exercise", "Exercise", true),
+    ("problem", "Problem", true),
+    ("property", "Property", true),
+    ("question", "Question", true),
+    ("remark", "Remark", true),
+    ("note", "Note", true),
+    ("solution", "Solution", true),
+    ("conjecture", "Conjecture", true),
+    ("case", "Case", true),
+    ("claim", "Claim", false),
+];
 
 /// The counter of the captions in environment `env`.
 fn float_kind(env: &str) -> Option<&'static str> {
