@@ -5311,6 +5311,10 @@ const COMMON_MACROS: &[&str] = &[
     "\\newcommand{\\footnote}[1]{}",
     "\\newcommand{\\ubar}[1]{\\underline{#1}}",
     "\\newcommand{\\sun}{\\odot}",
+    "\\newcommand{\\IEEEyesnumber}{}",
+    "\\newcommand{\\IEEEnonumber}{}",
+    "\\newcommand{\\IEEEyessubnumber}{}",
+    "\\newcommand{\\IEEEnosubnumber}{}",
 ];
 
 /// The formula the cursor at `pos` is in, as the renderer takes it (the
@@ -5431,7 +5435,74 @@ pub fn math_source(doc: &crate::DocumentState, range: Range<usize>) -> Option<St
         at = e.end;
     }
     out.push_str(&text[at..r.end]);
-    Some(out)
+    Some(own_environments(&out, &model.environments))
+}
+
+/// The document's own environments inside a formula
+/// (`\newenvironment{smallmat}{\left(\begin{smallmatrix}}{\end{smallmatrix}\right)}`)
+/// as their definitions, arguments put in.
+fn own_environments(src: &str, envs: &[latex_model::NewEnvironment]) -> String {
+    let mut s = src.to_string();
+    for _ in 0..4 {
+        let mut changed = false;
+        for e in envs.iter().rev() {
+            let begin = format!("\\begin{{{}}}", e.name);
+            let end = format!("\\end{{{}}}", e.name);
+            if !s.contains(&begin) {
+                continue;
+            }
+            // Its use as the formula's own environment is the parser's.
+            if s.trim_start().starts_with(&begin) && s.trim_end().ends_with(&end) {
+                continue;
+            }
+            let mut out = String::new();
+            let mut rest = s.as_str();
+            while let Some(i) = rest.find(&begin) {
+                out.push_str(&rest[..i]);
+                let mut after = &rest[i + begin.len()..];
+                let mut args: Vec<String> = Vec::new();
+                if e.args > 0 {
+                    let t = after.trim_start();
+                    if let Some(d) = e.default.as_ref() {
+                        if t.starts_with('[')
+                            && let Some(k) = t.find(']')
+                        {
+                            args.push(t[1..k].to_string());
+                            after = &t[k + 1..];
+                        } else {
+                            args.push(d.clone());
+                        }
+                    }
+                    while args.len() < e.args {
+                        let t = after.trim_start();
+                        match t
+                            .strip_prefix('{')
+                            .and_then(|r| matching_brace(r).map(|k| (r, k)))
+                        {
+                            Some((r, k)) => {
+                                args.push(r[..k].to_string());
+                                after = &r[k + 1..];
+                            }
+                            None => break,
+                        }
+                    }
+                }
+                let mut code = e.begin.clone();
+                for (k, a) in args.iter().enumerate() {
+                    code = code.replace(&format!("#{}", k + 1), a);
+                }
+                out.push_str(&code);
+                rest = after;
+            }
+            out.push_str(rest);
+            s = out.replace(&end, &e.end);
+            changed = true;
+        }
+        if !changed {
+            break;
+        }
+    }
+    s
 }
 
 /// The blocks of a LaTeX document for the editors' line layout: its
@@ -6053,6 +6124,9 @@ mod tests {
         let src = math_source(&d, at..at + 1).unwrap();
         assert!(src.starts_with("\\begin{eqnarray*}"), "{src}");
         assert!(src.contains("\\tag{1}"), "{src}");
+        // An environment of the document's own inside a formula.
+        let text = "\\documentclass{article}\n\\newenvironment{smallmat}{\\left(\\begin{smallmatrix}}{\\end{smallmatrix}\\right)}\n\\begin{document}\n$A = \\begin{smallmat}1 & 0\\end{smallmat}$\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
         assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
     }
 
