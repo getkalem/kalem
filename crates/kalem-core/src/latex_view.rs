@@ -622,10 +622,23 @@ fn declarations(node: &SyntaxNode) -> std::rc::Rc<Vec<(usize, Style)>> {
     let mut out = Vec::new();
     let mut scan = |n: &SyntaxNode| {
         for e in n.children() {
-            if e.kind() == K::COMMAND
-                && let Some(name) = latex_syntax::name(&e)
-                && declaration(&name, &mut declared)
+            if e.kind() != K::COMMAND {
+                continue;
+            }
+            let Some(name) = latex_syntax::name(&e) else {
+                continue;
+            };
+            // `\color{red}`: what follows in red (its name is the group
+            // after it).
+            if name == "color"
+                && let Some(g) = e
+                    .children()
+                    .find(|x| x.kind() == K::GROUP)
+                    .or_else(|| e.next_sibling().filter(|x| x.kind() == K::GROUP))
             {
+                declared.rich.color = latex_color(&group_text(&g));
+                out.push((usize::from(e.text_range().start()), declared));
+            } else if declaration(&name, &mut declared) {
                 out.push((usize::from(e.text_range().start()), declared));
             }
         }
@@ -995,10 +1008,160 @@ fn merge(a: &mut Style, b: &Style) {
     a.strike |= b.strike;
     a.superscript |= b.superscript;
     a.subscript |= b.subscript;
-    // The innermost size wins.
+    // The innermost size and color win.
     if a.rich.size.is_none() {
         a.rich.size = b.rich.size;
     }
+    if a.rich.color.is_none() {
+        a.rich.color = b.rich.color;
+    }
+}
+
+/// An xcolor color by name (a mix, `red!50`, as its first color):
+/// xcolor's base colors.
+fn latex_color(spec: &str) -> Option<crate::theme::Color> {
+    let name = spec.split('!').next()?.trim();
+    Some(crate::theme::Color(match name {
+        "red" => 0xff0000,
+        "green" => 0x00ff00,
+        "blue" => 0x0000ff,
+        "cyan" => 0x00ffff,
+        "magenta" => 0xff00ff,
+        "yellow" => 0xffff00,
+        "black" => 0x000000,
+        "white" => 0xffffff,
+        "gray" => 0x808080,
+        "darkgray" => 0x404040,
+        "lightgray" => 0xbfbfbf,
+        "brown" => 0xbf8040,
+        "lime" => 0xbfff00,
+        "olive" => 0x808000,
+        "orange" => 0xff8000,
+        "pink" => 0xffbfbf,
+        "purple" => 0xbf0040,
+        "teal" => 0x008080,
+        "violet" => 0x800080,
+        _ => return None,
+    }))
+}
+
+/// Commands that print nothing where they are (a definition, a setting):
+/// their arguments, as [`args_end`] reads them.
+fn silent(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "smoom",
+        "DeclareMathOperator" => "smm",
+        "newenvironment" | "renewenvironment" => "smoomm",
+        "newtheorem" => "smomo",
+        "theoremstyle"
+        | "thispagestyle"
+        | "pagestyle"
+        | "pagenumbering"
+        | "date"
+        | "hypersetup"
+        | "graphicspath"
+        | "linespread"
+        | "DeclareGraphicsExtensions" => "m",
+        "newcounter" => "mo",
+        "setcounter" | "addtocounter" | "setlength" | "addtolength" => "mm",
+        "definecolor" => "ommm",
+        "colorlet" => "omm",
+        "captionsetup" => "om",
+        "numberwithin" => "omm",
+        "counterwithin" | "counterwithout" => "smm",
+        "allowdisplaybreaks" => "o",
+        "makeatletter" | "makeatother" | "raggedbottom" | "flushbottom" | "sloppy" | "fussy" => "",
+        "def" | "gdef" | "edef" | "xdef" => "d",
+        "let" | "global" => "l",
+        _ => return None,
+    })
+}
+
+/// Commands that box their text: the arguments before the text (sizes,
+/// angles, positions), as [`args_end`] reads them.
+fn box_args(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "resizebox" => "smm",
+        "scalebox" => "mo",
+        "rotatebox" => "om",
+        "raisebox" => "moo",
+        "adjustbox" => "m",
+        "parbox" => "ooom",
+        "makebox" | "framebox" => "oo",
+        _ => return None,
+    })
+}
+
+/// Where the arguments after `at` end (before `limit`), read as `spec`
+/// says: `s` an optional star, `o` an optional `[…]`, `m` a group or one
+/// token, `d` what `\def` takes (a name, its parameters and the body), `l`
+/// what `\let` takes (two names, `=` between them or not).
+fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Option<usize> {
+    let b = text.as_bytes();
+    let mut p = at;
+    let blanks = |p: &mut usize| {
+        while *p < limit && matches!(b[*p], b' ' | b'\t') {
+            *p += 1;
+        }
+    };
+    // One token: a control sequence, a group or a character.
+    let token = |p: &mut usize| -> Option<()> {
+        if *p >= limit {
+            return None;
+        }
+        match b[*p] {
+            b'{' => *p = group_end(text, *p, limit)?,
+            b'\\' => {
+                *p += 1;
+                let n = text[*p..limit]
+                    .bytes()
+                    .take_while(u8::is_ascii_alphabetic)
+                    .count()
+                    .max(1);
+                *p = (*p + n).min(limit);
+            }
+            _ => *p += text[*p..].chars().next()?.len_utf8(),
+        }
+        Some(())
+    };
+    for c in spec.chars() {
+        let before = p;
+        blanks(&mut p);
+        match c {
+            's' => {
+                if text[p..limit].starts_with('*') {
+                    p += 1;
+                } else {
+                    p = before;
+                }
+            }
+            'o' => {
+                if text[p..limit].starts_with('[') {
+                    let close = text[p..limit].find(']')?;
+                    p += close + 1;
+                } else {
+                    p = before;
+                }
+            }
+            'm' => token(&mut p)?,
+            'd' => {
+                token(&mut p)?;
+                let open = text[p..limit].find('{')?;
+                p = group_end(text, p + open, limit)?;
+            }
+            'l' => {
+                token(&mut p)?;
+                blanks(&mut p);
+                if text[p..limit].starts_with('=') {
+                    p += 1;
+                    blanks(&mut p);
+                }
+                token(&mut p)?;
+            }
+            _ => return None,
+        }
+    }
+    Some(p)
 }
 
 /// Commands whose arguments are text a reader reads (typography applies).
@@ -1070,6 +1233,17 @@ fn context(t: &SyntaxToken) -> Context {
                 }
                 if name == "footnote" {
                     c.style.dim = true;
+                }
+                // `\textcolor{red}{…}`: the text in red.
+                if name == "textcolor"
+                    && let Some(g) = &child
+                    && g.kind() == K::GROUP
+                {
+                    let groups: Vec<SyntaxNode> =
+                        a.children().filter(|x| x.kind() == K::GROUP).collect();
+                    if groups.len() == 2 && groups[1] == *g && c.style.rich.color.is_none() {
+                        c.style.rich.color = latex_color(&group_text(&groups[0]));
+                    }
                 }
                 if !prose(&name) {
                     c.typography = false;
@@ -1263,7 +1437,22 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
 fn transparent(name: &str) -> bool {
     matches!(
         name,
-        "mbox" | "hbox" | "makebox" | "fbox" | "framebox" | "text" | "textnormal" | "nolinkurl"
+        "mbox"
+            | "hbox"
+            | "makebox"
+            | "fbox"
+            | "framebox"
+            | "text"
+            | "textnormal"
+            | "nolinkurl"
+            | "resizebox"
+            | "scalebox"
+            | "rotatebox"
+            | "raisebox"
+            | "adjustbox"
+            | "parbox"
+            | "centerline"
+            | "textcolor"
     )
 }
 
@@ -2309,6 +2498,50 @@ fn unflagged_line_view(
                     {
                         let end = node_span(&cmd).end;
                         b.replace(r.start..end, &shown, c.style);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
+                    // What prints nothing here (a definition, a setting):
+                    // markup, dimmed.
+                    (n, _)
+                        if let Some(spec) = silent(n)
+                            && let Some(end) = args_end(text, r.end, line.end, spec)
+                            && !near(&(r.start..end)) =>
+                    {
+                        b.verbatim(
+                            r.start..end,
+                            Style {
+                                dim: true,
+                                ..c.style
+                            },
+                        );
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
+                    // A box around text, and a color: the sizes, angles and
+                    // color hidden as a format's markup is, the text shown
+                    // (`\textcolor`'s in its color, `\color`'s after it).
+                    (n, _)
+                        if let Some(spec) = box_args(n).or(match n {
+                            "textcolor" | "color" => Some("om"),
+                            _ => None,
+                        }) && let Some(end) = args_end(text, r.end, line.end, spec)
+                            && !near(&(r.start..end)) =>
+                    {
+                        // xcolor's `\color` ignores the blanks after it.
+                        let end = if n == "color" {
+                            let rest = &text[end..line.end];
+                            end + rest.len() - rest.trim_start_matches([' ', '\t']).len()
+                        } else {
+                            end
+                        };
+                        b.replace(r.start..end, "", c.style);
                         while let Some(n) = &tok
                             && span(n).start < end
                         {
@@ -3454,7 +3687,9 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
 /// Whether the view renders command `name` (for the report of what a
 /// document leaves as source).
 pub fn renders_command(name: &str) -> bool {
-    format_style(name).is_some()
+    silent(name).is_some()
+        || box_args(name).is_some()
+        || format_style(name).is_some()
         || front_style(name).is_some()
         || declaration(name, &mut Style::default())
         || accent_mark(name).is_some()
@@ -3525,6 +3760,11 @@ pub fn renders_command(name: &str) -> bool {
                 | "MakeTextLowercase"
                 | "bibitem"
                 | "newblock"
+                | "textcolor"
+                | "color"
+                | "input"
+                | "include"
+                | "subfile"
                 | "num"
                 | "si"
                 | "SI"
@@ -4531,6 +4771,33 @@ mod tests {
             }
         }
         assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
+    #[test]
+    fn colors_boxes_and_settings() {
+        let text = "A \\textcolor{red}{warm} and {\\color{blue} cool} \\resizebox{2cm}{!}{boxed}.\n\\setlength{\\tabcolsep}{3pt}\\def\\foo#1{bar}\n";
+        let d = doc(text);
+        let v = shown(&d, 0, None);
+        let run = |w: &str| v.runs.iter().find(|r| r.text.contains(w)).unwrap();
+        assert_eq!(
+            run("warm").style.rich.color,
+            Some(crate::theme::Color(0xff0000))
+        );
+        assert_eq!(
+            run("cool").style.rich.color,
+            Some(crate::theme::Color(0x0000ff))
+        );
+        assert_eq!(run(" and ").style.rich.color, None);
+        let shown_text: String = v
+            .runs
+            .iter()
+            .filter(|r| !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        assert_eq!(shown_text, "A warm and cool boxed.");
+        // A setting and a definition print nothing: markup, dimmed.
+        let v = shown(&d, 1, None);
+        assert!(v.runs.iter().all(|r| r.style.dim), "{:?}", v.runs);
     }
 
     #[test]

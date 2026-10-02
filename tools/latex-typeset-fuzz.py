@@ -34,7 +34,7 @@ EXE = os.path.join(ROOT, "target", "release", "examples", "latex_shown")
 PREAMBLE = r"""\documentclass{article}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage{textcomp}
+\usepackage{textcomp,xcolor,graphicx}
 """
 
 WORDS = ["word", "office", "flow", "Text", "AVA", "naïve", "café", "x", "1990", "a.b.", "e.g.",
@@ -67,10 +67,11 @@ SPACES = [r"\,", r"\;", r"\:", r"\!", r"\ ", "~", r"\quad", r"\qquad", r"\@", r"
 FONTS = [r"\emph", r"\textbf", r"\textit", r"\textsc", r"\textsf", r"\textrm",
          r"\textup", r"\textsl", r"\textmd", r"\textnormal", r"\mbox", r"\textsuperscript",
          r"\textsubscript", r"\MakeUppercase", r"\MakeLowercase", r"\uppercase", r"\lowercase",
-         r"\underline", r"\hbox", r"\makebox", r"\text"]
+         r"\underline", r"\hbox", r"\makebox", r"\text", r"\textcolor{red}",
+         r"\scalebox{0.8}", r"\resizebox{2cm}{!}", r"\centerline"]
 DECLS = [r"\bfseries", r"\itshape", r"\scshape", r"\sffamily", r"\em", r"\bf",
          r"\it", r"\sc", r"\upshape", r"\normalfont", r"\small", r"\large", r"\Huge",
-         r"\slshape", r"\mdseries", r"\rmfamily"]
+         r"\slshape", r"\mdseries", r"\rmfamily", r"\color{blue}"]
 
 
 def atom(rng, depth):
