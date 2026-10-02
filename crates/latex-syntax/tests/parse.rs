@@ -492,7 +492,8 @@ fn formulas_of_a_document_s_own() {
 fn fuzz_cases() {
     // From the fuzzer: an edit at the end of a document with a `\def`
     // before blank lines and a closing alias (`\ee`).
-    for (doc, range, insert) in [(";\u{b}\\def\n\n\n\\ee", 10..12, "")] {
+    let cases: &[(&str, std::ops::Range<usize>, &str)] = &[(";\u{b}\\def\n\n\n\\ee", 10..12, "")];
+    for (doc, range, insert) in cases.iter().cloned() {
         let p = parse(doc);
         let edit = TextEdit {
             range,

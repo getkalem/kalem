@@ -105,6 +105,11 @@ def atom(rng, depth):
         inner = phrase(rng, depth + 1, 1, 3)
         if f in (r"\hbox", r"\makebox", r"\text"):
             f = r"\mbox"
+        # TeX's \lowercase around LaTeX's \MakeUppercase of an accented
+        # letter loops forever (`\lowercase{\MakeLowercase{é}}`): LaTeX's
+        # case change there.
+        if f in (r"\uppercase", r"\lowercase") and r"\Make" in inner:
+            f = r"\MakeUppercase" if f == r"\uppercase" else r"\MakeLowercase"
         return f"{f}{{{inner}}}"
     if r < 0.95 and depth < 3:
         return "{" + rng.choice(DECLS) + " " + phrase(rng, depth + 1, 1, 3) + "}"
