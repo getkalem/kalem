@@ -226,8 +226,17 @@ impl ProjectView {
         own: &latex_model::Model,
         cache: &latex_model::Cache,
     ) -> Option<Arc<latex_model::Model>> {
-        // The root document that includes nothing needs no project.
-        if self.root == self.path && own.includes.is_empty() {
+        // The root document that includes nothing needs no project; a
+        // package of its own beside it (`\\usepackage{macros}`) is
+        // included.
+        let dir = self.root.parent().unwrap_or(std::path::Path::new(""));
+        if self.root == self.path
+            && own.includes.is_empty()
+            && !own
+                .packages
+                .iter()
+                .any(|p| dir.join(format!("{}.sty", p.name)).is_file())
+        {
             return None;
         }
         if let Some((g, m)) = &self.last
@@ -5228,6 +5237,16 @@ fn is_display_math(name: &str) -> bool {
 /// for the formula renderer, which does not know them (T2.7h.7).
 const PACKAGE_MACROS: &[(&str, &[&str])] = &[
     ("bm", &["\\newcommand{\\bm}[1]{\\boldsymbol{#1}}"]),
+    // delimset's delimiters (its sizes and kinds of `\\brk` aside).
+    (
+        "delimset",
+        &[
+            "\\newcommand{\\brk}[1]{\\left(#1\\right)}",
+            "\\newcommand{\\abs}[1]{\\left|#1\\right|}",
+            "\\newcommand{\\norm}[1]{\\left\\|#1\\right\\|}",
+            "\\newcommand{\\set}[1]{\\left\\{#1\\right\\}}",
+        ],
+    ),
     (
         "physics",
         &[
@@ -5365,7 +5384,11 @@ pub fn explain_macro(doc: &crate::DocumentState, name: &str) -> String {
     });
     let with = org_math::source::macros(std::slice::from_ref(&defs[i]));
     let trial = format!("{kept}{with}");
-    let x = org_math::check(&org_math::source::prepare("x", &trial)).err();
+    let x = org_math::check(&org_math::source::prepare(
+        "\\def\\kalemprobe{x}\\kalemprobe",
+        &trial,
+    ))
+    .err();
     let use_it = format!("{name}{}", "{x}".repeat(m.args.max(3)));
     let u = org_math::check(&org_math::source::prepare(&use_it, &trial)).err();
     // The prepared text around where the renderer stopped.
@@ -5393,7 +5416,13 @@ pub fn explain_macro(doc: &crate::DocumentState, name: &str) -> String {
             None => String::new(),
         }
     };
-    let xs = x.map(|e| format!("{}{}", e.message, near(&e.message, "x")));
+    let xs = x.map(|e| {
+        format!(
+            "{}{}",
+            e.message,
+            near(&e.message, "\\def\\kalemprobe{x}\\kalemprobe")
+        )
+    });
     let us = u.map(|e| format!("{}{}", e.message, near(&e.message, &use_it)));
     format!("{} (file {}): x -> {xs:?}; use -> {us:?}", defs[i], m.file)
 }
@@ -5420,10 +5449,38 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
     let mut kept = org_math::source::macros(before);
     let mut out = Vec::new();
     for (name, args, def) in own {
+        // TeX's own definition commands are not redefined (a package's
+        // `\def\def` read wrongly would end every definition after it).
+        if matches!(
+            name.as_str(),
+            "\\def"
+                | "\\gdef"
+                | "\\edef"
+                | "\\xdef"
+                | "\\let"
+                | "\\newcommand"
+                | "\\renewcommand"
+                | "\\providecommand"
+                | "\\begin"
+                | "\\end"
+                | "\\relax"
+                | "\\left"
+                | "\\right"
+                | "\\over"
+                | "\\\\"
+        ) {
+            continue;
+        }
         let with = org_math::source::macros(std::slice::from_ref(def));
         let trial = format!("{kept}{with}");
-        // The definition read, a formula after it still read.
-        if org_math::check(&org_math::source::prepare("x", &trial)).is_err() {
+        // The definition read, a formula and a definition after it still
+        // read.
+        if org_math::check(&org_math::source::prepare(
+            "\\def\\kalemprobe{x}\\kalemprobe",
+            &trial,
+        ))
+        .is_err()
+        {
             continue;
         }
         // A use of it: dropped only for a command the renderer lacks in
@@ -6449,6 +6506,10 @@ mod tests {
         // correction, a glossary entry in the body.
         let text = "\\documentclass{article}\n\\usepackage{glossaries}\n\\newglossaryentry{fee}{name={\\ensuremath{f}},description={x}}\n\\let\\ov\\overline\n\\newcommand{\\oL}{\\ov{L}}\n\\newcommand{\\sM}{{\\mbox{\\fontsize{5}{5}\\selectfont{$M$}}}}\n\\newcommand{\\E}{\\mathop{\\bf E\\/}}\n\\newcommand{\\fee}{{\\gls[hyper=false]{fee}}}\n\\begin{document}\n$\\oL + D_\\sM + \\E[\\fee]$\n\\end{document}\n";
         assert_eq!(formula_failures(&doc(text)), Vec::new());
+        // A package's internals read wrongly (`\\def\\def{@}`) do not end
+        // the definitions after them.
+        let text = "\\documentclass{article}\n\\def\\def{@}\n\\def\\fancy@head{x}\n\\newcommand{\\E}{\\mathbb{E}}\n\\begin{document}\n$\\E[x]$\n\\end{document}\n";
+        assert_eq!(formula_failures(&doc(text)), Vec::new());
         // One the document defines as an equation: a numbered formula.
         let text = "\\documentclass{article}\n\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n\\begin{document}\n\\begin{eqn}\na = \\frac{1}{2}\n\\end{eqn}\n\\end{document}\n";
         let d = doc(text);
@@ -6708,6 +6769,32 @@ mod tests {
         // `width=` wins over the others.
         assert_eq!(size("scale=2, width=1cm"), Some(ImageWidth::Pixels(38)));
         assert_eq!(size("angle=90"), None);
+    }
+
+    #[test]
+    fn a_package_of_the_document_s_own() {
+        // `\\usepackage{macros}` with `macros.sty` beside a document that
+        // includes nothing: its definitions reach the formulas.
+        let dir = std::env::temp_dir().join(format!("kalem-latex-sty-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("macros.sty"),
+            "\\ProvidesPackage{macros}\n\\newcommand{\\floor}[1]{\\lfloor #1\\rfloor}\n",
+        )
+        .unwrap();
+        let text = "\\documentclass{article}\n\\usepackage{macros}\n\\begin{document}\n$\\floor{x}$\n\\end{document}\n";
+        let f = dir.join("main.tex");
+        std::fs::write(&f, text).unwrap();
+        let base = crate::settings::Config::default().parse_base();
+        let mut d = crate::DocumentState::open(
+            &f,
+            std::sync::Arc::new(org_model::Settings::default()),
+            &base,
+        )
+        .unwrap();
+        d.wait_for_latex_project();
+        assert_eq!(formula_failures(&d), Vec::new());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
