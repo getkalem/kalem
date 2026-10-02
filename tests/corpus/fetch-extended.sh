@@ -9,12 +9,16 @@ CACHE="$ROOT/.cache"
 mkdir -p "$CACHE"
 
 ORG_REPO="https://git.savannah.gnu.org/git/emacs/org-mode.git"
+# A mirror with the same tags, for when Savannah does not answer.
+ORG_MIRROR="https://github.com/emacs-straight/org-mode.git"
 ORG_REF="release_9.7.11"
 WORG_REPO="https://git.sr.ht/~bzg/worg"
 WORG_COMMIT="22fc063138eb48facd235093bb7e20fe3c53a0bd"
 
 if [ ! -d "$CACHE/org-mode/.git" ]; then
-  git clone --quiet --depth 1 --branch "$ORG_REF" "$ORG_REPO" "$CACHE/org-mode"
+  git clone --quiet --depth 1 --branch "$ORG_REF" "$ORG_REPO" "$CACHE/org-mode" ||
+    { rm -rf "$CACHE/org-mode"
+      git clone --quiet --depth 1 --branch "$ORG_REF" "$ORG_MIRROR" "$CACHE/org-mode"; }
 fi
 
 if [ ! -d "$CACHE/worg/.git" ]; then
