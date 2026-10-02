@@ -5577,13 +5577,8 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
         let with = org_math::source::macros(std::slice::from_ref(def));
         let trial = format!("{kept}{with}");
         // The definition read, a formula and a definition after it still
-        // read.
-        if org_math::check(&org_math::source::prepare(
-            "\\def\\kalemprobe{x}\\kalemprobe",
-            &trial,
-        ))
-        .is_err()
-        {
+        // read, and nothing of it left to be drawn before every formula.
+        if !prints_nothing(&trial) {
             continue;
         }
         // A use of it: dropped only for a command the renderer lacks in
@@ -5608,7 +5603,7 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
         let trial = format!("{kept}{with}");
         let use_it = format!("{name}{{x}}{{x}}{{x}}");
         let ok = |src: &str| org_math::check(&org_math::source::prepare(src, &trial));
-        let fine = ok("\\def\\kalemprobe{x}\\kalemprobe").is_ok()
+        let fine = prints_nothing(&trial)
             && match ok(&use_it) {
                 Ok(()) => true,
                 Err(e) => {
@@ -5630,6 +5625,16 @@ fn accepted_definitions(before: &[String], own: &[(String, usize, String)]) -> V
         m.insert(key, out.clone());
     }
     out
+}
+
+/// Whether definitions `macros` (as [`org_math::source::macros`] makes
+/// them) read, with a definition and a formula after them, and draw
+/// nothing themselves: the probe formula is all there is to draw.
+fn prints_nothing(macros: &str) -> bool {
+    org_math::top_level_nodes(&org_math::source::prepare(
+        "\\def\\kalemprobe{x}\\kalemprobe",
+        macros,
+    )) == Ok(1)
 }
 
 /// Commands of packages that papers use in formulas and the renderer
@@ -6384,6 +6389,53 @@ mod tests {
         let at = text.find("$\\gls").unwrap();
         assert_eq!(math_source(&d, at..at + 1).unwrap(), "${\\gamma} = 1$");
         assert_eq!(crate::latex_check::coverage_report(text, None).source, 0);
+    }
+
+    #[test]
+    fn built_in_definitions_draw_nothing() {
+        // Each definition the editor gives the renderer, alone and all
+        // together, leaves the formula after it as it is: one that the
+        // renderer reads only in part (`\\newcommand{\\x}[2][]{…}`) put
+        // `]#2` before every formula.
+        let mut all: Vec<String> = PACKAGE_MACROS
+            .iter()
+            .flat_map(|(_, d)| d.iter().map(|d| d.to_string()))
+            .collect();
+        all.extend(COMMON_MACROS.iter().map(|d| d.to_string()));
+        all.extend(letter_families());
+        for d in &all {
+            let m = org_math::source::macros(std::slice::from_ref(d));
+            assert!(prints_nothing(&m), "{d} -> {m}");
+        }
+        // Packages' definitions may replace the common ones: each package
+        // with the common ones.
+        for (p, defs) in PACKAGE_MACROS {
+            let mut v: Vec<String> = defs.iter().map(|d| d.to_string()).collect();
+            v.extend(COMMON_MACROS.iter().map(|d| d.to_string()));
+            v.extend(letter_families());
+            assert!(prints_nothing(&org_math::source::macros(&v)), "{p}");
+        }
+    }
+
+    #[test]
+    fn formulas_of_a_document_draw_only_themselves() {
+        // The formulas of a document without definitions, and of one with
+        // a definition the renderer reads only in part, are read as the
+        // formula alone is.
+        for text in [
+            "\\documentclass{article}\n\\begin{document}\nThe theorem $x^2+y^2=z^2$ holds.\n\\[ x^n + y^n = z^n \\]\n\\end{document}\n",
+            "\\documentclass{article}\n\\usepackage{amsmath,amssymb,physics,siunitx,mathtools,nicefrac,bm}\n\\newcommand{\\expec}[2][]{\\mathbb{E}_{#1}[#2]}\n\\newcommand\\opt[1][a]{#1}\n\\begin{document}\nThe theorem $x^2+y^2=z^2$ holds.\n\\[ x^n + y^n = z^n \\]\n\\end{document}\n",
+        ] {
+            let d = doc(text);
+            let m = org_math::source::macros(&math_definitions(&d));
+            for f in ["x^2+y^2=z^2", " x^n + y^n = z^n "] {
+                assert_eq!(
+                    org_math::top_level_nodes(&org_math::source::prepare(f, &m)),
+                    org_math::top_level_nodes(&org_math::source::prepare(f, "")),
+                    "{f} in {text}"
+                );
+            }
+        }
     }
 
     #[test]
