@@ -142,3 +142,28 @@ fn includeonly_cycles_and_markers() {
         PathBuf::from("/q/thesis.tex")
     );
 }
+
+#[test]
+fn a_package_beside_the_document() {
+    // `\usepackage{mymacros}` with `mymacros.sty` beside the document:
+    // its theorems and commands are the document's; a package of TeX's
+    // own is not read, and neither is listed as an included file.
+    let mut fs = Memory::default();
+    fs.0.insert(
+        PathBuf::from("/p/main.tex"),
+        "\\documentclass{article}\\usepackage{amsmath,mymacros}\\begin{document}\n\
+         \\begin{proposition}\\label{p}A\\end{proposition}\n\\end{document}\n"
+            .to_string(),
+    );
+    fs.0.insert(
+        PathBuf::from("/p/mymacros.sty"),
+        "\\ProvidesPackage{mymacros}\n\\newtheorem{proposition}{Proposition}\n\\newcommand{\\R}{\\mathbb{R}}\n"
+            .to_string(),
+    );
+    let p = ProjectCache::default().load(Path::new("/p/main.tex"), &fs);
+    let m = &p.model;
+    assert!(m.theorem_kinds.iter().any(|k| k.env == "proposition"));
+    assert_eq!(m.label("p").unwrap().number.as_deref(), Some("1"));
+    assert!(m.macros.iter().any(|x| x.name == "\\R"));
+    assert!(m.includes.is_empty());
+}

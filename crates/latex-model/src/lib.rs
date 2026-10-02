@@ -1035,12 +1035,15 @@ impl<'r> Numbering<'r> {
                 name,
                 options,
                 range,
-            } => self.model.packages.push(Package {
-                name: name.clone(),
-                options: options.clone(),
-                range: at(range),
-                file: self.file,
-            }),
+            } => {
+                self.model.packages.push(Package {
+                    name: name.clone(),
+                    options: options.clone(),
+                    range: at(range),
+                    file: self.file,
+                });
+                self.local_package(name);
+            }
             Event::Section {
                 level,
                 command,
@@ -1465,6 +1468,28 @@ impl<'r> Numbering<'r> {
                 }
             }
         }
+    }
+
+    /// A package beside the document (`\usepackage{mymacros}` and its
+    /// `mymacros.sty`): its definitions read, its theorems and commands
+    /// the document's; not an included file.
+    fn local_package(&mut self, name: &str) {
+        let from = self.file;
+        let found = match self.resolver.as_mut() {
+            Some(r) if self.active.len() < 32 => r(from, "usepackage", &[name.to_string()]),
+            _ => None,
+        };
+        let Some((id, items)) = found.filter(|(id, _)| !self.active.contains(id)) else {
+            return;
+        };
+        let skipping = self.skipping;
+        self.skipping = false;
+        self.active.push(id);
+        self.file = id;
+        self.run(&items, 0);
+        self.active.pop();
+        self.file = from;
+        self.skipping = skipping;
     }
 
     fn include(&mut self, command: &str, args: &[String], range: Range<usize>) {

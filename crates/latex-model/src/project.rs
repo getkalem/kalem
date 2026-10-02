@@ -451,6 +451,8 @@ impl ProjectCache {
                 let name = args.last()?.as_str();
                 let candidates = match command {
                     "include" => vec![bases[from].join(format!("{name}.tex"))],
+                    // A package of the document's own, beside it.
+                    "usepackage" => vec![root_dir.join(format!("{name}.sty"))],
                     "input" => with_tex(&bases[from], name),
                     "subfile" => {
                         let p = normalize(&here.join(name));
