@@ -133,14 +133,121 @@ pub struct CompletionItem {
     pub documentation: Option<String>,
     /// The text inserted, when there is no edit.
     pub insert_text: String,
-    /// The replacement, with the range the server gave.
-    pub edit: Option<(Value, String)>,
+    /// Where the cursor goes in `insert_text` (a snippet's first place
+    /// to fill); the end when `None`.
+    pub cursor: Option<usize>,
+    /// The replacement, with the range the server gave, and where the
+    /// cursor goes in it.
+    pub edit: Option<(Value, String, Option<usize>)>,
     /// The server's sort key.
     pub sort_text: String,
     /// The server's filter key.
     pub filter_text: String,
     /// The item as sent, for `completionItem/resolve`.
     pub raw: Value,
+}
+
+/// A snippet as plain text to insert, until the snippet engine of T3.8.3
+/// exists: the places to fill left empty, brackets left with only
+/// separators in them emptied (`all?(${1:enumerable})` is `all?()`,
+/// `reduce(${1:e}, ${2:acc})` is `reduce()`), and the cursor at the first
+/// place (`$1`, else `$0`, else the end).
+pub fn snippet_insert(s: &str) -> (String, usize) {
+    // The cursor is a marker character in the text until the end.
+    const MARK: char = '\u{1}';
+    let mut out = String::new();
+    let mut first: Option<(u32, usize)> = None;
+    let mut chars = s.chars().peekable();
+    let place = |n: u32, at: usize, first: &mut Option<(u32, usize)>| {
+        let better = match *first {
+            None => true,
+            Some((m, _)) => n != 0 && (m == 0 || n < m),
+        };
+        if better {
+            *first = Some((n, at));
+        }
+    };
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                if let Some(n) = chars.next() {
+                    out.push(n);
+                }
+            }
+            '$' => match chars.peek().copied() {
+                Some(d) if d.is_ascii_digit() => {
+                    let mut n = 0u32;
+                    while let Some(d) = chars.peek().and_then(|d| d.to_digit(10)) {
+                        n = n * 10 + d;
+                        chars.next();
+                    }
+                    place(n, out.len(), &mut first);
+                }
+                Some('{') => {
+                    chars.next();
+                    let mut n: Option<u32> = None;
+                    while let Some(d) = chars.peek().and_then(|d| d.to_digit(10)) {
+                        n = Some(n.unwrap_or(0) * 10 + d);
+                        chars.next();
+                    }
+                    if let Some(n) = n {
+                        place(n, out.len(), &mut first);
+                    }
+                    // Skip the rest of the place, nested ones included.
+                    let mut depth = 1;
+                    for c in chars.by_ref() {
+                        match c {
+                            '{' => depth += 1,
+                            '}' => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => out.push('$'),
+            },
+            c => out.push(c),
+        }
+    }
+    let at = first.map_or(out.len(), |(_, at)| at);
+    out.insert(at, MARK);
+    // Brackets holding only separators (and the cursor) are emptied.
+    loop {
+        let mut changed = false;
+        for (open, close) in [('(', ')'), ('[', ']'), ('{', '}')] {
+            let mut i = 0;
+            while let Some(o) = out[i..].find(open).map(|k| i + k) {
+                let rest = &out[o + 1..];
+                let Some(c) = rest.find(close) else { break };
+                let inner = &rest[..c];
+                if !inner.is_empty()
+                    && inner
+                        .chars()
+                        .all(|ch| ch == ',' || ch == MARK || ch.is_whitespace())
+                    && inner.chars().any(|ch| ch != MARK)
+                {
+                    let keep = if inner.contains(MARK) {
+                        MARK.to_string()
+                    } else {
+                        String::new()
+                    };
+                    out.replace_range(o + 1..o + 1 + c, &keep);
+                    changed = true;
+                }
+                i = o + 1;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    let cursor = out.find(MARK).unwrap_or(out.len());
+    out.remove(cursor);
+    (out, cursor)
 }
 
 /// Removes snippet syntax (`$1`, `${1:x}`, `$0`), keeping placeholders'
@@ -236,17 +343,21 @@ pub fn completion_items(answer: &Value) -> (Vec<CompletionItem>, bool) {
             let snippet = i["insertTextFormat"].as_u64() == Some(2);
             let fix = |s: &str| {
                 if snippet {
-                    strip_snippet(s)
+                    let (text, at) = snippet_insert(s);
+                    (text, Some(at))
                 } else {
-                    s.to_string()
+                    (s.to_string(), None)
                 }
             };
             let edit = i.get("textEdit").and_then(|e| {
                 let range = e.get("range").or_else(|| e.get("replace"))?.clone();
-                Some((range, fix(e["newText"].as_str()?)))
+                let (text, at) = fix(e["newText"].as_str()?);
+                Some((range, text, at))
             });
+            let (insert_text, cursor) = fix(i["insertText"].as_str().unwrap_or(&label));
             Some(CompletionItem {
-                insert_text: fix(i["insertText"].as_str().unwrap_or(&label)),
+                insert_text,
+                cursor,
                 detail: i["detail"].as_str().map(str::to_string),
                 kind: i["kind"].as_u64().map(|k| k as u8),
                 documentation: i.get("documentation").and_then(doc_text),
@@ -347,6 +458,26 @@ mod tests {
             "```elixir\ndef f\n```\n\ndoc"
         );
         assert!(hover_text(&json!({"contents": ""})).is_none());
+    }
+
+    #[test]
+    fn snippets_inserted() {
+        assert_eq!(
+            snippet_insert("all?(${1:enumerable})"),
+            ("all?()".into(), 5)
+        );
+        assert_eq!(
+            snippet_insert("reduce(${1:e}, ${2:acc}, ${3:fun})$0"),
+            ("reduce()".into(), 7)
+        );
+        assert_eq!(snippet_insert("now()"), ("now()".into(), 5));
+        assert_eq!(
+            snippet_insert("if ${1:cond} do\n  $0\nend"),
+            ("if  do\n  \nend".into(), 3)
+        );
+        assert_eq!(snippet_insert("x$0 ${2:b} ${1:a}"), ("x  ".into(), 3));
+        assert_eq!(snippet_insert("\\$1 é$1"), ("$1 é".into(), 5));
+        assert_eq!(snippet_insert("%{${1:k}: ${2:v}}"), ("%{: }".into(), 2));
     }
 
     #[test]

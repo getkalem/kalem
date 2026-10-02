@@ -217,7 +217,9 @@ pub(crate) fn check(files: &[PathBuf], json: bool, wait: u64, log: bool) -> Resu
 /// `kalem lsp hover|definition|references FILE LINE:COL`.
 pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<ExitCode> {
     load_settings(Some(file));
+    let completion = kind == "completion";
     let kind = match kind {
+        "completion" => Kind::Hover,
         "hover" => Kind::Hover,
         "definition" => Kind::Definition,
         "references" => Kind::References,
@@ -244,6 +246,22 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
         Duration::from_secs(3),
         Duration::from_secs(wait),
     )?;
+    if completion {
+        // As typing does: not asked for, the trigger decides.
+        let reg = kalem_core::completers::Registry::with_builtins();
+        let t = Instant::now();
+        let items = reg.complete(&mut doc, false, Duration::from_secs(wait.min(10)));
+        eprintln!("{} items in {} ms", items.len(), t.elapsed().as_millis());
+        for i in &items {
+            println!("{}\t{}\t{}", i.label, i.insert, i.source);
+        }
+        lsp::shutdown_all();
+        return Ok(if items.iter().any(|i| i.source == "lsp") {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::from(1)
+        });
+    }
     lsp::request(&doc, kind)?;
     let path = doc.meta.path.clone();
     let start = Instant::now();
