@@ -1020,7 +1020,7 @@ fn format_style(name: &str) -> Option<Style> {
 fn front_style(name: &str) -> Option<(Style, &'static str)> {
     let mut s = Style::default();
     let prefix = match name {
-        "title" => {
+        "title" | "icmltitle" => {
             s.title = true;
             ""
         }
@@ -1245,6 +1245,16 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         | "SetDataSty" | "SetKwSty" | "SetCommentSty" | "SetProgSty" => "mm",
         // Struts and rules that make room, and array's line end.
         "rule" => "omm",
+        // TeX's conditionals written in the text: their tests and ends
+        // markup, the text of both branches shown.
+        "ifx" => "mm",
+        "ifdefined" => "m",
+        "ifcsname" | "csname" => "c",
+        "else" | "fi" => "",
+        // ICML's footnote of affiliations and correspondence, and the
+        // affiliations it lists.
+        "icmlcorrespondingauthor" | "icmlaffiliation" => "mm",
+        "printAffiliationsAndNotice" | "icmlkeywords" | "icmlsetsymbol" => "m",
         // TikZ's style declared in the text (`\tikzstyle{box}=[draw]`).
         "tikzstyle" => "mk",
         "bigstrut" => "o",
@@ -1428,6 +1438,12 @@ pub(crate) fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Optio
                     blanks(&mut p);
                 }
                 token(&mut p)?;
+            }
+            // A name built by `\csname…\endcsname`: up to its end.
+            'c' => {
+                p = before;
+                let close = text[p..limit].find("\\endcsname")?;
+                p += close + "\\endcsname".len();
             }
             // `=` and an optional `[…]` (`\tikzstyle{x}=[draw]`).
             'k' => {
@@ -4227,6 +4243,26 @@ fn unflagged_line_view(
                             tok = n.next_token();
                         }
                     }
+                    // ICML's author: the name, the keys of the affiliations
+                    // hidden.
+                    ("icmlauthor", _)
+                        if let Some(end) = args_end(text, r.end, line.end, "mm")
+                            && let Some(first) = args_end(text, r.end, line.end, "m")
+                            && !near(&(r.start..end)) =>
+                    {
+                        let name = text[r.end..first].trim().trim_start_matches('{');
+                        let name = name.strip_suffix('}').unwrap_or(name);
+                        let st = Style {
+                            byline: true,
+                            ..c.style
+                        };
+                        b.replace(r.start..end, name, st);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
                     // A&A's ion (`\ion{H}{ii}`): the element, a thin space
                     // and the stage in small capitals.
                     ("ion", _)
@@ -5570,6 +5606,7 @@ pub fn renders_command(name: &str) -> bool {
             "item"
                 | "ding"
                 | "ion"
+                | "icmlauthor"
                 | "caption"
                 | "includegraphics"
                 | "index"
@@ -5700,6 +5737,7 @@ fn front_environment(name: &str) -> Option<&'static str> {
         // Containers: sizes, spacing, page turns, REVTeX's wide text,
         // table notes, boxes and appendices around text the view shows.
         "linenomath"
+        | "icmlauthorlist"
         | "linenomath*"
         | "frontmatter"
         | "small"
@@ -5729,6 +5767,26 @@ fn front_environment(name: &str) -> Option<&'static str> {
         | "mdframed"
         | "tcolorbox"
         | "framed"
+        // Font switches as environments (`\begin{sc}`), csquotes' quote,
+        // columns, margins, a footnote written as one, figure notes.
+        | "sc"
+        | "bf"
+        | "it"
+        | "em"
+        | "sf"
+        | "tt"
+        | "bfseries"
+        | "itshape"
+        | "scshape"
+        | "displayquote"
+        | "multicols"
+        | "multicols*"
+        | "adjustwidth"
+        | "adjustwidth*"
+        | "justify"
+        | "footnote"
+        | "figurenotes"
+        | "tablenotes*"
         | "fullwidth" => "",
         _ => return None,
     })
@@ -7497,6 +7555,50 @@ mod tests {
         };
         assert_eq!(read(2), "Mathematics Subject Classification: 05C10");
         assert_eq!(read(3), "Also at MIT");
+    }
+
+    #[test]
+    fn icml_front_matter() {
+        let text = "\\documentclass{article}\n\\usepackage{icml2024}\n\\begin{document}\n\\icmltitle{On X}\n\\begin{icmlauthorlist}\n\\icmlauthor{Ada Lovelace}{lab}\n\\end{icmlauthorlist}\n\\icmlaffiliation{lab}{The Lab}\n\\icmlcorrespondingauthor{Ada}{ada@lab}\n\\printAffiliationsAndNotice{}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert_eq!(read(3), "On X");
+        assert_eq!(read(5), "Ada Lovelace");
+        assert_eq!(read(7) + &read(8) + &read(9), "");
+    }
+
+    #[test]
+    fn conditionals_in_the_text() {
+        let text = "\\documentclass{article}\n\\begin{document}\n\\ifx\\csname foo\\endcsname\\relax A\\else B\\fi{} C \\ifdefined\\x D\\fi\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 2, None);
+        let read: String = v
+            .runs
+            .iter()
+            .filter(|r| !r.style.dim)
+            .map(|r| r.text.as_str())
+            .collect();
+        // The blank after `\\else`, a control word, is part of it.
+        assert_eq!(read.split_whitespace().collect::<Vec<_>>(), ["AB", "C", "D"]);
+    }
+
+    #[test]
+    fn containers_with_arguments() {
+        let text = "\\documentclass{article}\n\\begin{document}\n\\begin{multicols}{3}\nA\n\\end{multicols}\n\\begin{adjustwidth}{-0in}{-0.25in}\nB\n\\end{adjustwidth}\n\\begin{sc}\nC\n\\end{sc}\n\\end{document}\n";
+        let d = doc(text);
+        let end = Some(text.len());
+        for n in [2, 4, 5, 7, 8, 10] {
+            assert_eq!(shown(&d, n, end).role, crate::view::LineRole::Delimiter, "{n}");
+        }
+        let all: Vec<String> = [3, 6, 9].map(|n| shown(&d, n, end).display()).into();
+        assert_eq!(all.concat(), "ABC");
     }
 
     #[test]
