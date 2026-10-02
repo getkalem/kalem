@@ -5,34 +5,25 @@
       <stop offset="0" stop-color="#2b4c7e"/>
       <stop offset="1" stop-color="#162a4a"/>
     </linearGradient>
-    <linearGradient id="nib" x1="0" y1="0" x2="1" y2="0">
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#f6d98a"/>
       <stop offset="0.5" stop-color="#e8b84a"/>
       <stop offset="1" stop-color="#c8922a"/>
     </linearGradient>
-    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#3a3f4b"/>
-      <stop offset="0.45" stop-color="#1c1f26"/>
-      <stop offset="1" stop-color="#0e1014"/>
-    </linearGradient>
   </defs>
   <!-- The tile, as macOS draws app icons: 824 points on a 1024 grid. -->
   <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
-  <!-- A line of ink the pen has written. -->
-  <path d="M296 732 C 360 690, 400 790, 470 740 S 580 700, 640 728"
-        fill="none" stroke="#f6d98a" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
-  <!-- The fountain pen, its nib down to the left. -->
-  <g transform="rotate(45 512 512)">
-    <!-- Barrel and cap end. -->
-    <rect x="452" y="170" width="120" height="330" rx="22" fill="url(#body)"/>
-    <rect x="452" y="470" width="120" height="34" fill="#e8b84a"/>
-    <!-- Grip section. -->
-    <path d="M462 504 L562 504 L548 590 L476 590 Z" fill="#23262e"/>
-    <!-- The nib, with its slit and breather hole. -->
-    <path d="M476 590 L548 590 L560 690 L512 820 L464 690 Z" fill="url(#nib)"/>
-    <path d="M512 690 L512 812" stroke="#5a3d0c" stroke-width="7" stroke-linecap="round"/>
-    <circle cx="512" cy="680" r="13" fill="#5a3d0c"/>
-    <!-- A highlight along the barrel. -->
-    <rect x="472" y="190" width="14" height="270" rx="7" fill="#ffffff" opacity="0.18"/>
-  </g>
+  <!-- The letter nūn (ن), as a reed pen writes it: a bowl, thick at its
+       bottom and thin at its two ends, and its dot above. Drawn as
+       outlines, so that no font is needed. -->
+  <path d="M286 452
+           C 262 650, 372 782, 512 782
+           C 664 782, 778 664, 750 424
+           C 744 412, 726 410, 718 422
+           C 716 604, 628 694, 512 694
+           C 404 694, 330 622, 316 466
+           C 312 450, 292 444, 286 452 Z"
+        fill="url(#ink)"/>
+  <!-- The dot: a diamond, a nib's width on each side. -->
+  <path d="M512 262 L 572 322 L 512 382 L 452 322 Z" fill="url(#ink)"/>
 </svg>
