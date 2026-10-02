@@ -42,7 +42,9 @@ pub fn command(name: &str) -> &'static str {
         "SIrange" | "qtyrange" => "ommm",
         "addcontentsline" => "mmm",
         "declaretheorem" => "omo",
-        "subfloat" => "oom",
+        // subfig's `\subfloat`, the subfigure package's `\subfigure` and
+        // `\subtable` (as commands; subcaption's are environments).
+        "subfloat" | "subfigure" | "subtable" => "oom",
         "bibitem" | "hyperref" | "includepdf" => "om",
         // amsart's `\author[short]{name}`.
         "author" => "om",
