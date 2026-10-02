@@ -31,6 +31,12 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 resvg = { version = "0.45", default-features = false }
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 serde_json = "1"
+# Plugins installed from inside Kalem (`plugin_store`): the index and the
+# archives over HTTPS (pure Rust TLS), unpacked and checked.
+ureq = "3"
+tar = { version = "0.4", default-features = false }
+flate2 = "1"
+sha2 = "0.10"
 fluent-bundle = "0.16"
 unic-langid = "0.9"
 sys-locale = "0.3"
@@ -60,4 +66,10 @@ workspace = true
 # started again with `KALEM_LSP_FAKE` set, so it needs its own `main`.
 [[test]]
 name = "lsp_service"
+harness = false
+
+# Installing plugins through the commands: the test binary runs itself
+# again with its own settings and state folders.
+[[test]]
+name = "plugin_install"
 harness = false

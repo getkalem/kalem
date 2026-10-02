@@ -130,6 +130,18 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[("path", "string", false), ("prompt", "boolean", false)]),
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
+        ("plugin.install", object(&[("source", "string", false)])),
+        (
+            "plugin.confirmInstall",
+            object(&[("staging", "string", true), ("source", "string", false)]),
+        ),
+        (
+            "plugin.cancelInstall",
+            object(&[("staging", "string", true)]),
+        ),
+        ("plugin.manage", object(&[("id", "string", true)])),
+        ("plugin.remove", object(&[("id", "string", true)])),
+        ("plugin.removeConfirmed", object(&[("id", "string", true)])),
         ("file.rename", object(&[("target", "string", false)])),
         ("app.terminal", object(&[("project", "boolean", false)])),
         ("settings.set", object(&[("key", "string", true)])),
@@ -573,6 +585,7 @@ pub(crate) fn commands() -> Vec<Command> {
     ));
     all.extend(latex_commands());
     all.extend(code_commands());
+    all.extend(plugin_commands());
     for c in &mut all {
         c.args_schema = schemas
             .iter()
@@ -3429,6 +3442,280 @@ fn code_commands() -> Vec<Command> {
                         column: args["column"].as_u64().unwrap_or(0) as usize,
                     },
                 )
+            },
+        ),
+    ]
+}
+
+/// Plugins installed, updated and removed from inside Kalem
+/// (`plugin_store`, T3.3.3). Downloads run as background jobs; what was
+/// found is offered as a list to confirm, with its permissions.
+fn plugin_commands() -> Vec<Command> {
+    use crate::palette::{PaletteItem, invocation};
+    use serde_json::json;
+    fn item(id: String, title: String, category: String) -> PaletteItem {
+        PaletteItem {
+            also: title.clone(),
+            id,
+            title,
+            category,
+            keys: String::new(),
+        }
+    }
+    fn index_url(ctx: &EditorContext<'_>) -> String {
+        match ctx.config.str("plugins.index") {
+            "" => crate::plugin_store::DEFAULT_INDEX.to_string(),
+            s => s.to_string(),
+        }
+    }
+    /// Downloads `source` in the background, then offers to install it.
+    fn start_install(ctx: &mut EditorContext<'_>, source: String) -> CommandResult {
+        let index = index_url(ctx);
+        crate::jobs::spawn(format!("Fetching the plugin {source}…"), move || {
+            match crate::plugin_store::prepare(&source, &index) {
+                Ok(p) => {
+                    let lines = crate::plugin_store::summary(&p);
+                    let staging = p.staging.to_string_lossy().into_owned();
+                    let verb = if p.replaces.is_some() {
+                        "Update"
+                    } else {
+                        "Install"
+                    };
+                    let mut items = vec![item(
+                        invocation(
+                            "plugin.confirmInstall",
+                            &json!({ "staging": staging, "source": p.source }),
+                        ),
+                        format!("{verb} {}", lines[0]),
+                        lines[1..].join(" · "),
+                    )];
+                    items.push(item(
+                        invocation("plugin.cancelInstall", &json!({ "staging": staging })),
+                        "Cancel".into(),
+                        String::new(),
+                    ));
+                    crate::jobs::offer(items);
+                    crate::jobs::Finished {
+                        message: format!("{} {} is ready to install", p.name, p.version),
+                        error: false,
+                        open: None,
+                    }
+                }
+                Err(e) => crate::jobs::Finished {
+                    message: e,
+                    error: true,
+                    open: None,
+                },
+            }
+        });
+        Ok(())
+    }
+    vec![
+        cmd(
+            "plugin.browse",
+            "Browse Plugins",
+            "Plugins",
+            &[],
+            None,
+            |ctx, _| {
+                let index = index_url(ctx);
+                crate::jobs::spawn("Reading the plugin index…".into(), move || {
+                    match crate::plugin_store::fetch_index(&index) {
+                        Ok(entries) => {
+                            let installed = crate::plugin_store::installed();
+                            let items: Vec<PaletteItem> = entries
+                                .iter()
+                                .map(|e| {
+                                    let state = match installed.iter().find(|i| i.id == e.id) {
+                                        Some(i) if i.version == e.version => {
+                                            format!("installed {}", i.version)
+                                        }
+                                        Some(i) => format!(
+                                            "installed {}, {} available",
+                                            i.version, e.version
+                                        ),
+                                        None if !e.declarative => "needs the plugin runtime".into(),
+                                        None => e.version.clone(),
+                                    };
+                                    item(
+                                        invocation("plugin.install", &json!({ "source": e.id })),
+                                        format!("{} — {}", e.name, e.description),
+                                        state,
+                                    )
+                                })
+                                .collect();
+                            let n = items.len();
+                            crate::jobs::offer(items);
+                            crate::jobs::Finished {
+                                message: format!("{n} plugins in the index"),
+                                error: false,
+                                open: None,
+                            }
+                        }
+                        Err(e) => crate::jobs::Finished {
+                            message: e,
+                            error: true,
+                            open: None,
+                        },
+                    }
+                });
+                Ok(())
+            },
+        ),
+        cmd(
+            "plugin.install",
+            "Install Plugin…",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| match args["source"]
+                .as_str()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                Some(s) => start_install(ctx, s.to_string()),
+                None => request(
+                    ctx,
+                    Request::Ask {
+                        command: "plugin.install".into(),
+                        args: json!({}),
+                        arg: "source".into(),
+                    },
+                ),
+            },
+        ),
+        cmd(
+            "plugin.confirmInstall",
+            "Confirm Plugin Installation",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                let staging =
+                    std::path::PathBuf::from(args["staging"].as_str().unwrap_or_default());
+                let source = args["source"].as_str().unwrap_or_default();
+                // Read again from the staging folder: what is installed is
+                // what the user was shown.
+                let p = crate::plugin_store::prepared_at(&staging, source)
+                    .map_err(CommandError::new)?;
+                let dir = crate::plugin_store::install(&p).map_err(CommandError::new)?;
+                ctx.messages.push(format!(
+                    "Installed {} {} in {}",
+                    p.name,
+                    p.version,
+                    dir.display()
+                ));
+                Ok(())
+            },
+        ),
+        cmd(
+            "plugin.cancelInstall",
+            "Cancel Plugin Installation",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                crate::plugin_store::discard(std::path::Path::new(
+                    args["staging"].as_str().unwrap_or_default(),
+                ));
+                ctx.messages.push("Not installed".into());
+                Ok(())
+            },
+        ),
+        cmd(
+            "plugin.list",
+            "Installed Plugins",
+            "Plugins",
+            &[],
+            None,
+            |ctx, _| {
+                let items: Vec<PaletteItem> = crate::plugin_store::installed()
+                    .into_iter()
+                    .map(|p| {
+                        item(
+                            invocation("plugin.manage", &json!({ "id": p.id })),
+                            format!("{} {}", p.name, p.version),
+                            p.source.unwrap_or_else(|| p.dir.display().to_string()),
+                        )
+                    })
+                    .collect();
+                if items.is_empty() {
+                    ctx.messages
+                        .push("No plugins installed: Browse Plugins lists them".into());
+                    return Ok(());
+                }
+                request(ctx, Request::Choose(items))
+            },
+        ),
+        cmd(
+            "plugin.manage",
+            "Manage Plugin",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                let id = args["id"].as_str().unwrap_or_default();
+                let p = crate::plugin_store::installed()
+                    .into_iter()
+                    .find(|p| p.id == id)
+                    .ok_or_else(|| CommandError::new(format!("{id} is not installed")))?;
+                let mut items = Vec::new();
+                if let Some(src) = &p.source {
+                    items.push(item(
+                        invocation("plugin.install", &json!({ "source": src })),
+                        format!("Update {}", p.name),
+                        format!("from {src}"),
+                    ));
+                }
+                items.push(item(
+                    invocation("plugin.remove", &json!({ "id": p.id })),
+                    format!("Remove {}", p.name),
+                    "asks first".into(),
+                ));
+                items.push(item(
+                    invocation("file.open", &json!({ "path": p.dir })),
+                    "Show Its Folder".into(),
+                    p.dir.display().to_string(),
+                ));
+                request(ctx, Request::Choose(items))
+            },
+        ),
+        cmd(
+            "plugin.remove",
+            "Remove Plugin",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                let id = args["id"].as_str().unwrap_or_default();
+                let p = crate::plugin_store::installed()
+                    .into_iter()
+                    .find(|p| p.id == id)
+                    .ok_or_else(|| CommandError::new(format!("{id} is not installed")))?;
+                request(
+                    ctx,
+                    Request::Choose(vec![
+                        item(
+                            invocation("plugin.removeConfirmed", &json!({ "id": p.id })),
+                            format!("Remove {} {}", p.name, p.version),
+                            format!("deletes {}", p.dir.display()),
+                        ),
+                        item("plugin.list".into(), "Cancel".into(), String::new()),
+                    ]),
+                )
+            },
+        ),
+        cmd(
+            "plugin.removeConfirmed",
+            "Remove Plugin Now",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                let name = crate::plugin_store::remove(args["id"].as_str().unwrap_or_default())
+                    .map_err(CommandError::new)?;
+                ctx.messages.push(format!("Removed {name}"));
+                Ok(())
             },
         ),
     ]

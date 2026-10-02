@@ -267,6 +267,7 @@ category-csv = CSV
 category-tags = Tags
 category-view = View
 category-code = Code
+category-plugins = Plugins
 
 ## Menus.
 
@@ -1122,6 +1123,14 @@ cmd-code-allProblems = List Problems of Open Files
 cmd-code-restartServer = Restart Language Server
 cmd-code-serverStatus = Language Server Status
 cmd-code-goto = Go to Place
+cmd-plugin-browse = Browse Plugins
+cmd-plugin-install = Install Plugin…
+cmd-plugin-confirmInstall = Confirm Plugin Installation
+cmd-plugin-cancelInstall = Cancel Plugin Installation
+cmd-plugin-list = Installed Plugins
+cmd-plugin-manage = Manage Plugin
+cmd-plugin-remove = Remove Plugin
+cmd-plugin-removeConfirmed = Remove Plugin Now
 fm-menu-remove-project = Remove from Projects (the folder stays)
 
 # The viewer of files that are not text (design §11.13).

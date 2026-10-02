@@ -14,6 +14,7 @@ const SUBCOMMANDS: &[&str] = &[
     "view",
     "check",
     "lsp",
+    "plugin",
     "fmt",
     "complete",
     "commands",

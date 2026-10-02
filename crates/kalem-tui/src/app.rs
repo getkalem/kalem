@@ -3902,6 +3902,10 @@ impl App {
         {
             self.dirty = true;
         }
+        // Lists background work offers (a plugin to confirm).
+        for items in kalem_core::jobs::take_offers() {
+            self.request(Request::Choose(items));
+        }
         // Work commands started in the background (a PDF compiling).
         for f in kalem_core::jobs::take_finished() {
             self.message(f.message, f.error);

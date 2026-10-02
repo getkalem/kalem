@@ -15,16 +15,51 @@ runtime and works today. The first is [[file:elixir.org][Elixir]].
 | Syntaxes with =extends= | =kalem-highlight/src/plugins.rs= | Implemented                                              |
 | The plugins           | =getkalem/plugins=              | =elixir=                                                    |
 
+* Installing a plugin
+
+From the editor: the *Kalem* menu (and the command palette) has
+*Browse Plugins*, *Install Plugin…* and *Installed Plugins*.
+
+- *Browse Plugins* reads the index of =getkalem/plugins= and lists its
+  plugins with what is installed; choosing one installs it.
+- *Install Plugin…* asks for a plugin: a name from the index
+  (=elixir=), a link, or a folder or archive on disk. Links Kalem
+  understands: a folder of a GitHub repository,
+  =https://github.com/getkalem/plugins/tree/main/plugins/elixir=; a
+  repository whose root is the plugin, =https://github.com/OWNER/REPO=;
+  an archive, =https://…/NAME.tar.gz=.
+- Kalem downloads it in the background, then shows what it is before
+  anything is installed: name, version, the languages it serves, the
+  programs it may run (its language servers) and its permissions, and
+  where it came from. *Install* puts it in =~/.config/kalem/plugins/ID=
+  and records it in =~/.config/kalem/plugins.toml= (version, source,
+  date, permissions); it works at once, in the files already open.
+  *Cancel* leaves nothing behind.
+- *Installed Plugins* lists them; choosing one offers *Update* (from
+  where it came), *Remove* (asked once more) and *Show Its Folder*.
+
+On the command line the same: =kalem plugin browse=, =kalem plugin
+install NAME|LINK|PATH= (=--yes= not to be asked), =kalem plugin list=,
+=kalem plugin remove ID=. The index is read from the setting
+=plugins.index=, the index of =getkalem/plugins= by default; a
+=file://= link reads a copy on disk.
+
+Only language plugins install today. A plugin with a WebAssembly
+component needs the plugin runtime (group 3.1) and is refused with
+that reason. A plugin is not signed yet: the index's SHA-256 is checked
+when a plugin is published as an archive, and a plugin from a link is
+installed as it is, which is why Kalem shows where it comes from.
+
 * Where plugins are found
 
 A plugin is a folder holding a =plugin.json=. Kalem looks in
 =~/.config/kalem/plugins/= (the =plugins= folder of the settings
-folder) and in the folders of the environment variable
-=KALEM_PLUGIN_PATH=, a list like =PATH= whose entries are plugin
-folders or folders of plugins. Until the installer exists (group
-3.3), installing a plugin means copying or linking its folder there.
-Plugins load when the settings load, before the first file opens;
-=kalem lsp status= lists them and the problems met loading them.
+folder), where it installs them, and in the folders of the environment
+variable =KALEM_PLUGIN_PATH=, a list like =PATH= whose entries are
+plugin folders or folders of plugins (for developing a plugin in its
+repository). Plugins load when the settings load, before the first
+file opens; =kalem lsp status= lists them and the problems met loading
+them.
 
 * The manifest
 

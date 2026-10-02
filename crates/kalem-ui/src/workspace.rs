@@ -1306,6 +1306,7 @@ impl Workspace {
             DocEvent::Workspace(op) => self.workspace_op(op, window, cx),
             DocEvent::QuitWithoutSaving => self.quit_without_saving(window, cx),
             DocEvent::CloseWindow => self.close_window(window, cx),
+            DocEvent::Choose(items) => self.editor.update(cx, |e, cx| e.open_choice(items, cx)),
             DocEvent::Restart(restore) => self.restart(restore, window, cx),
             DocEvent::SaveSession(name) => {
                 let msg = match kalem_core::sessions::save(&name, &self.session(cx)) {

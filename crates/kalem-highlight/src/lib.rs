@@ -63,6 +63,27 @@ fn defaults() -> &'static SyntaxSet {
     &DEFAULTS
 }
 
+/// How many times the set changed: frontends that keep a highlighter per
+/// document make it again when this moves (a plugin installed).
+static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// The set's generation ([`GENERATION`]).
+pub fn generation() -> u64 {
+    GENERATION.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+fn replace_set(set: &'static SyntaxSet) {
+    *SYNTAXES.write().expect("syntaxes") = set;
+    GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Back to the built-in syntaxes (the last plugin removed).
+pub fn reset() {
+    if !std::ptr::eq(current(), defaults()) {
+        replace_set(defaults());
+    }
+}
+
 fn current() -> &'static SyntaxSet {
     *SYNTAXES.read().expect("syntaxes")
 }
@@ -122,12 +143,21 @@ const ALIASES: &[(&str, &str)] = &[
     ("erlang", "Erlang"),
 ];
 
-/// A language the highlighter knows.
+/// A language the highlighter knows. Two are equal when they are the
+/// same syntax of the same set: a plugin's Elixir is not the built-in one.
 #[derive(Debug, Clone, Copy)]
 pub struct Language {
     set: &'static SyntaxSet,
     syntax: &'static SyntaxReference,
 }
+
+impl PartialEq for Language {
+    fn eq(&self, other: &Language) -> bool {
+        std::ptr::eq(self.syntax, other.syntax)
+    }
+}
+
+impl Eq for Language {}
 
 impl Language {
     /// The language for an Org source block language (`sh`, `emacs-lisp`,
