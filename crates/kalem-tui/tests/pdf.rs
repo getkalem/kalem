@@ -89,5 +89,12 @@ fn a_pdf_opens_page_by_page() {
     screen(&mut app);
     let s = status(&mut app);
     assert!(s.ends_with(" · 3/3"), "{s}");
+    // Opened at a "line" (Show in PDF, T2.7h.24): that page.
+    let pdf = dir.join("pages.pdf");
+    for page in [1, 2] {
+        app.open_path(&pdf, Some((page, 0)));
+        let s = status(&mut app);
+        assert!(s.ends_with(&format!(" · {page}/3")), "{s}");
+    }
     let _ = std::fs::remove_dir_all(&dir);
 }

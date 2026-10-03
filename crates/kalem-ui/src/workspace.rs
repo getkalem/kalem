@@ -342,6 +342,12 @@ impl Workspace {
         }
         if let Some((line, column)) = at {
             editor.update(cx, |e, cx| {
+                // A PDF or another paged file: the line is the page.
+                if let Some(v) = e.doc.viewer.as_deref_mut() {
+                    v.go_to(line.max(1) as usize - 1);
+                    cx.notify();
+                    return;
+                }
                 let text = e.doc.text();
                 let l = (line.max(1) as usize - 1).min(text.line_count().saturating_sub(1));
                 let r = text.line_range(l);

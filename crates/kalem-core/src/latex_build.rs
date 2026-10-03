@@ -409,6 +409,8 @@ fn build_command(
                 "-interaction=nonstopmode",
                 "-file-line-error",
                 "-halt-on-error",
+                // Where each line is typeset, for Show in PDF and back.
+                "-synctex=1",
             ]);
             c.arg(match engine {
                 Engine::PdfLatex => "-pdflatex",
@@ -424,7 +426,7 @@ fn build_command(
         }
         Tool::Engine(p) => {
             let mut c = Command::new(p);
-            c.args(["-interaction=nonstopmode", "-file-line-error"]);
+            c.args(["-interaction=nonstopmode", "-file-line-error", "-synctex=1"]);
             if let Some(d) = out_dir {
                 c.arg(format!("-output-directory={}", d.display()));
             }
@@ -432,7 +434,7 @@ fn build_command(
         }
         Tool::Tectonic(p) => {
             let mut c = Command::new(p);
-            c.arg("--keep-logs");
+            c.args(["--keep-logs", "--synctex"]);
             if let Some(d) = out_dir {
                 c.arg(format!("--outdir={}", d.display()));
             }

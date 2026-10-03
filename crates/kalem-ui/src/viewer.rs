@@ -275,9 +275,28 @@ impl Editor {
                             .bounds
                             .map(|b| b.origin)
                             .unwrap_or_default();
+                    let pdf = this.doc.meta.path.clone();
                     let Some(v) = this.doc.viewer.as_deref_mut() else {
                         return;
                     };
+                    // Ctrl-click (Cmd on macOS) on a PDF LaTeX built: the
+                    // source line typeset there, by its SyncTeX file.
+                    if ev.modifiers.secondary()
+                        && let Some(pdf) = pdf
+                    {
+                        let (x, y) = v.unit_point(f32::from(at.x), f32::from(at.y));
+                        let found = kalem_core::synctex::Synctex::for_pdf(&pdf)
+                            .and_then(|f| kalem_core::synctex::Synctex::load(&f).ok())
+                            .and_then(|st| st.inverse(v.unit() + 1, f64::from(x), f64::from(y)));
+                        if let Some((file, line)) = found {
+                            let file = pdf.parent().map_or(file.clone(), |d| d.join(&file));
+                            cx.emit(crate::editor::DocEvent::Open {
+                                path: file,
+                                at: Some((line as u64, 0)),
+                            });
+                        }
+                        return;
+                    }
                     let Some(target) = v.link_at(f32::from(at.x), f32::from(at.y)) else {
                         return;
                     };

@@ -644,6 +644,57 @@ pub(crate) fn commands() -> Vec<Command> {
         ),
         crate::command::Scope::only(&["latex"]),
     ));
+    all.push(scoped(
+        cmd(
+            "latex.showInPdf",
+            "Show in PDF",
+            "LaTeX",
+            &[],
+            None,
+            |ctx, _| {
+                // The built PDF at the page where the cursor's line is
+                // typeset, by the build's SyncTeX file.
+                let doc = ctx
+                    .document
+                    .as_deref()
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-no-document")))?;
+                let Some(path) = doc.meta.path.clone() else {
+                    return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+                };
+                let path = std::path::absolute(&path).unwrap_or(path);
+                let line = doc.text().line_of(doc.selection.head) + 1;
+                let root = crate::latex_view::find_root(&path, doc.text().as_str());
+                let out = ctx.config.str("latex.output_directory").trim().to_string();
+                let dir = root
+                    .parent()
+                    .map(std::path::Path::to_path_buf)
+                    .unwrap_or_default();
+                let dir = if out.is_empty() { dir } else { dir.join(out) };
+                let stem = root
+                    .file_stem()
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_default();
+                let pdf = dir.join(stem).with_extension("pdf");
+                if !pdf.is_file() {
+                    return Err(CommandError::new(crate::l10n::tr("msg-no-pdf-yet")));
+                }
+                let page = crate::synctex::Synctex::for_pdf(&pdf)
+                    .and_then(|f| crate::synctex::Synctex::load(&f).ok())
+                    .and_then(|st| st.forward(&path, line))
+                    .map(|p| p.page);
+                if page.is_none() {
+                    ctx.messages.push(crate::l10n::tr("msg-no-synctex"));
+                }
+                ctx.requests.push(Request::OpenAt {
+                    path: pdf.display().to_string(),
+                    line: page.unwrap_or(1) as u64,
+                    column: 0,
+                });
+                Ok(())
+            },
+        ),
+        crate::command::Scope::only(&["latex"]),
+    ));
     all.extend(latex_commands());
     all.extend(code_commands());
     all.extend(plugin_commands());
@@ -8447,6 +8498,57 @@ mod tests {
             crate::formulas::selection_stats(&d).as_deref(),
             Some("No value: oops")
         );
+    }
+
+    #[test]
+    fn show_in_pdf_goes_to_the_lines_page() {
+        // T2.7h.24: the built PDF, at the page SyncTeX gives the cursor's
+        // line.
+        let dir = std::env::temp_dir().join(format!("kalem-show-pdf-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let tex = dir.join("main.tex");
+        let text =
+            "\\documentclass{article}\n\\begin{document}\nOne.\n\\newpage\nTwo.\n\\end{document}\n";
+        std::fs::write(&tex, text).unwrap();
+        std::fs::write(dir.join("main.pdf"), "%PDF-1.4\n").unwrap();
+        std::fs::write(
+            dir.join("main.synctex"),
+            format!(
+                "SyncTeX Version:1\nInput:1:{}\nUnit:1\nContent:\n{{1\n(1,3:100,100:1000,10,0\n)\n}}1\n{{2\n(1,5:100,100:1000,10,0\n)\n}}2\n",
+                dir.join("./main.tex").display()
+            ),
+        )
+        .unwrap();
+        let reg = CommandRegistry::with_builtins();
+        let mut d = DocumentState::open(
+            &tex,
+            std::sync::Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        d.move_cursor(text.find("Two").unwrap(), false);
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 3).at(10, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("latex.showInPdf", &mut ctx, &json!({}))
+            .unwrap();
+        assert_eq!(
+            ctx.requests,
+            vec![Request::OpenAt {
+                path: dir.join("main.pdf").display().to_string(),
+                line: 2,
+                column: 0,
+            }]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

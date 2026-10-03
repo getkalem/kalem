@@ -840,6 +840,12 @@ impl App {
         if target.is_file() {
             self.projects.opened(&target);
         }
+        // A PDF or another paged file: the line is the page.
+        if let (Some((line, _)), Some(v)) = (at, self.doc.viewer.as_deref_mut()) {
+            v.go_to(line.max(1) as usize - 1);
+            self.dirty = true;
+            return;
+        }
         if let Some((line, column)) = at {
             let text = self.doc.text();
             let l = (line.max(1) as usize - 1).min(text.line_count().saturating_sub(1));

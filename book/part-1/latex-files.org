@@ -132,6 +132,13 @@ the command that installs it; /Cancel Build/ stops a build.
 FILE= does the same from the command line (=--format json= for the
 problems as data).
 
+Builds write a SyncTeX file beside the PDF, which says where each
+source line is typeset. /Show in PDF/ opens the PDF at the page of the
+cursor's line, in the files a root document includes too; in the PDF,
+Ctrl-click (Cmd-click on macOS) on a line of text opens the source file
+at the line it came from. A PDF built before has no SyncTeX file:
+build it again.
+
 * Beside Overleaf and co-authors
 
 Kalem works on the files of a project, so a project shared through Git
