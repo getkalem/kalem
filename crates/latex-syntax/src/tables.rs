@@ -267,6 +267,36 @@ pub(crate) fn math_aliases(src: &str) -> (Vec<String>, Vec<String>) {
     (open, close)
 }
 
+/// The lines of `src` holding a definition [`Definitions`] reads: a macro
+/// whose body opens or closes a displayed formula's environment, or an
+/// environment whose begin code opens one.
+pub(crate) fn definition_lines(src: &str) -> String {
+    let mut out = String::new();
+    if !defines(src) {
+        return out;
+    }
+    for line in src.lines() {
+        let code = line.split('%').next().unwrap_or("");
+        if !defines(code) {
+            continue;
+        }
+        let (open, close) = math_aliases(code);
+        // The usual names come back from `math_aliases` undefined: only
+        // the names this line writes.
+        let written = |n: &String| {
+            let pat = format!("\\{n}");
+            code.match_indices(&pat)
+                .any(|(k, _)| !code[k + pat.len()..].starts_with(|c: char| c.is_ascii_alphabetic()))
+        };
+        let alias = open.iter().chain(close.iter()).any(written);
+        if alias || !math_environments(code).is_empty() {
+            out.push_str(code.trim());
+            out.push('\n');
+        }
+    }
+    out
+}
+
 /// Whether the control word at `pos` is the name a definition defines
 /// (`\def\be`, `\newcommand{\be}`), not a use.
 fn in_definition(src: &str, pos: usize) -> bool {

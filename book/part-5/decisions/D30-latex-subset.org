@@ -4,7 +4,7 @@
 - Measurement: =tools/arxiv-sample.py= and =kalem latex-coverage= in =.github/workflows/arxiv.yml= (by hand and monthly, the report in the job's summary)
 
 * The sample
-200 papers per field submitted in 2024, five fields, an even share of five categories each, taken in a fixed order so that every run measures the same papers: mathematics (=math.AG=, =math.PR=, =math.CO=, =math.AP=, =math.NT=), physics (=hep-th=, =cond-mat.str-el=, =astro-ph.GA=, =quant-ph=, =physics.optics=), computer science (=cs.LG=, =cs.CL=, =cs.DS=, =cs.CR=, =cs.CV=), biology (five =q-bio= categories) and economics (=econ.EM=, =econ.TH=, =econ.GN=). Papers without a LaTeX source are skipped and the next ones taken. arXiv's sources stay out of the repository: most are not redistributable. The development containers cannot reach arxiv.org, so the study runs in CI.
+200 papers per field submitted in 2024, five fields, an even share of five categories each, taken in a fixed order so that every run measures the same papers: mathematics (=math.AG=, =math.PR=, =math.CO=, =math.AP=, =math.NT=), physics (=hep-th=, =cond-mat.str-el=, =astro-ph.GA=, =quant-ph=, =physics.optics=), computer science (=cs.LG=, =cs.CL=, =cs.DS=, =cs.CR=, =cs.CV=), biology (five =q-bio= categories) and economics (=econ.EM=, =econ.TH=, =econ.GN=). Papers without a LaTeX source are skipped and the next ones taken. arXiv's sources stay out of the repository: most are not redistributable. The development containers cannot reach arxiv.org, so the study runs in CI; the sample it fetched is kept as the assets of a draft release, which only the repository's writers see, so that a run does not ask arXiv for it again (the Actions cache evicted it) and a writer can measure it locally.
 
 * What is measured
 The body of every =.tex= file (=\begin{document}= to =\end{document}=, or the whole of an included file), without the files a document brings in before =\begin{document}= (its macros): the bytes the view shows as source, the bytes in formulas (the math renderer's), and every command and environment, ranked by the papers using it and by the bytes it shows as source. "Shown as source" is what the view shows: the outermost command it does not render, whole; for an environment it does not know, its =\begin= and =\end= (the view shows the body as text, each thing in it as it shows that). The arguments the view draws or hides (a picture's options, a label's key) are not text shown as source.
@@ -14,18 +14,20 @@ The first run counted otherwise: the body of every unknown environment whole, th
 Since run 9 a formula counts as source when the math renderer cannot read it, prepared as the editor prepares it (the document's definitions, the packages' commands the renderer lacks, references as their numbers): the view shows such a formula as its source in a red frame. Since run 25, when TeX is installed, the view has it typeset such a formula on its own (a =standalone= document with the paper's preamble) and draws the result in the text's color, as it draws TikZ pictures. The report counts these formulas apart ("by TeX") with the renderer messages behind them: they are what a reader without TeX still sees as source, and what the renderer's preparation should learn next. The files no document of the paper reads (old versions, unused sections) are left out.
 
 * Results
-Run 30 of the workflow (2026-10-02, commit =a1d8fbb=): 925 papers, 2,496 files, 86 MB of body text.
+Run 36 of the workflow (2026-10-03, commit =2603aa5=): 925 papers, 2,496 files, 86 MB of body text.
 
 | Field            | Papers | Files | Body KB | Source | Formulas | By TeX |
 |------------------+--------+-------+---------+--------+----------+--------|
-| biology          |    189 |   588 |  14,375 |  0.08% |   10.52% |  0.03% |
-| computer science |    179 |   869 |  16,220 |  0.26% |   12.64% |  0.34% |
-| economics        |    183 |   484 |  22,225 |  0.09% |   22.76% |  0.15% |
-| mathematics      |    187 |   256 |  18,713 |  0.12% |   38.95% |  0.45% |
-| physics          |    187 |   299 |  14,646 |  0.23% |   16.92% |  0.52% |
-| all              |    925 | 2,496 |  86,181 |  0.15% |   21.34% |  0.29% |
+| biology          |    189 |   588 |  14,375 |  0.05% |   10.65% |  0.03% |
+| computer science |    179 |   869 |  16,220 |  0.09% |   12.69% |  0.34% |
+| economics        |    183 |   484 |  22,225 |  0.06% |   22.87% |  0.15% |
+| mathematics      |    187 |   256 |  18,713 |  0.06% |   39.30% |  0.45% |
+| physics          |    187 |   299 |  14,646 |  0.09% |   16.97% |  0.52% |
+| all              |    925 | 2,496 |  86,181 |  0.07% |   21.48% |  0.29% |
 
-Biology and economics are under the target; mathematics, physics and computer science are not yet. Run 17 had 1.67% (0.64% to 2.54% by field). What shows most as source now is the long tail of each paper's own definitions: macros that draw figures and tables, definitions written in loops, packages' environments met in one or two papers (=deluxetable=, =diagram=, =barticle=), and =picture=.
+Every field is under the target. Run 30 (2026-10-02) had 0.15% (0.08% to 0.26% by field), run 17 had 1.67% (0.64% to 2.54%). What shows as source now is the long tail: each paper's own macros that neither print text nor draw what a reader can follow, packages' environments met in one paper, tables whose columns are formulas (=>{$}l<{$}=), quantum circuits (=\Qcircuit=).
+
+The runs between 30 and 36 added: files not in UTF-8 (=inputenc= with =latin1= or =applemac=; one such file lost a paper all its theorems), equation macros a project's other files define (=\def\ba{\begin{eqnarray}}= in its package), a document's own macros that are references, space, displayed formulas or boxes, or that draw pictures and read files (twoopt's included), =\ifmmode='s text branch, the usual short names of theorems, algorithm2e's statements, aastex's tables, words and front matter, REVTeX's, ICML's and amsart's front matter, A&A's =\ion=, TeX's conditionals in the text, and =picture=, =diagram=, =xy=, =ytableau= and =overpic= drawn by TeX.
 
 The runs between 17 and 30 added, from their traces: the root's definitions in the files it includes, macros that print their argument, macros with arguments that make text, macros that define macros, macros that are formulas, equation macros, letter families, glossaries, pifont's and wasysym's symbols, TeX's parameter settings, the lists of enumitem and paralist, algorithm2e's settings, and formulas TeX typesets when the renderer cannot read them.
 

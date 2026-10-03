@@ -31,7 +31,7 @@ Every decision of the design, with the task that closes it and its state, as the
 | D27 | Command scope: one axis, the type of the text at the cursor (§11.2) | T2.7a.9 | *Decided (owner, 2026-09-28)* |
 | D28 | Plugin ABI and language: WASM components on a WIT API, Rust the only language, no scripting engine; the engine by the spike | T3.1.0, T3.1.1, T3.1.2 | *Decided (owner, 2026-09-28)*, engine open |
 | D29 | Small core: Org, Markdown, CSV and LaTeX (2.7h), the text engine, the two frontends, the infrastructure before plugins; the rest bundled or community plugins | T3.3.2a | *Decided (owner, 2026-09-28)*; new modes and file types in ~getkalem/plugins~ (T3.3.7) |
-| D30 | The rendered subset of LaTeX and its coverage target, from a study of arXiv sources (record =D30-latex-subset.org=) | T2.7h.1, T2.7h.36 | *Decided (2026-10-02):* the subset the study found papers write; 97% of the body rendered in every field |
+| D30 | The rendered subset of LaTeX and its coverage target, from a study of arXiv sources (record =D30-latex-subset.org=) | T2.7h.1, T2.7h.36 | *Decided (2026-10-02):* the subset the study found papers write; 99.9% of the body rendered in every field, met by run 36 (2026-10-03) |
 | D31 | The Kalem format: heading marker (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
 | D32 | The Kalem format: emphasis markers (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |
 | D33 | The Kalem format: attribute syntax (docs/design_doc2.md §14) | RFC 0003, T2.13.1 | *Decided (owner, 2026-09-30)* in RFC 0003 draft 0.2 |

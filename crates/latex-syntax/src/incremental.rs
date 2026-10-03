@@ -255,6 +255,7 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
         toggles,
         unclosed_env: old.unclosed_env,
         defs: old.defs.clone(),
+        extra: old.extra.clone(),
     })
 }
 

@@ -24,6 +24,17 @@ pub fn command(name: &str) -> &'static str {
         | "department" | "city" | "state" | "country" | "streetaddress" | "postcode" | "orcid"
         | "institute" | "inst" | "pacs" => "m",
         "subjclass" | "altaffiliation" => "om",
+        "correspondingauthor"
+        | "software"
+        | "facilities"
+        | "facility"
+        | "orcidlink"
+        | "epsscale" => "m",
+        "added" => "om",
+        "tablenotemark" | "Romanbar" | "romanbar" | "plotone" => "m",
+        "tablecaption" | "tablehead" | "colhead" | "tablecomments" | "tablerefs"
+        | "tabletypesize" | "tablecolumns" | "tablewidth" | "tablenum" => "m",
+        "tablenotetext" => "mm",
         "IEEEPARstart" => "mm",
         // algorithmicx's (algpseudocode) and algorithmic's statements.
         "If" | "ElsIf" | "For" | "ForAll" | "While" | "Until" | "Comment" | "IF" | "ELSIF"
@@ -80,11 +91,12 @@ pub fn command(name: &str) -> &'static str {
         "cite" | "citep" | "citet" | "parencite" | "textcite" | "autocite" | "footcite"
         | "citeauthor" | "citeyear" | "citealt" | "citealp" | "citetalias" | "citepalias"
         | "nocite" | "smartcite" | "Cite" | "Citep" | "Citet" | "Parencite" | "Textcite"
-        | "Autocite" | "citeyearpar" | "citenum" | "Citeauthor" | "citetitle" | "fullcite"
-        | "supercite" | "footcitetext" | "cites" | "parencites" | "textcites" | "autocites"
-        | "footcites" | "Cites" | "Parencites" | "Textcites" | "Autocites" | "citealt*"
-        | "Citealt" | "Citealp" => "*oom",
+        | "Autocite" | "citeyearpar" | "citenum" | "onlinecite" | "Citeauthor" | "citetitle"
+        | "fullcite" | "supercite" | "footcitetext" | "cites" | "parencites" | "textcites"
+        | "autocites" | "footcites" | "Cites" | "Parencites" | "Textcites" | "Autocites"
+        | "citealt*" | "Citealt" | "Citealp" => "*oom",
         "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "*moom",
+        "newcommandtwoopt" | "renewcommandtwoopt" | "providecommandtwoopt" => "*mooom",
         "NewDocumentCommand"
         | "RenewDocumentCommand"
         | "ProvideDocumentCommand"
@@ -118,6 +130,7 @@ pub fn environment(name: &str) -> &'static str {
         "dmath" | "dmath*" => "o",
         "multlined" => "oo",
         "adjustwidth" | "adjustwidth*" => "mm",
+        "deluxetable" | "deluxetable*" => "om",
         "figurenotes" | "displayquote" => "o",
         _ => "",
     }

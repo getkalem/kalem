@@ -207,6 +207,13 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
         .map(|t| format!("\\{}", t.trim_start_matches('\\')))
         .collect();
     let mut traced: HashSet<(PathBuf, String)> = HashSet::new();
+    // `KALEM_COVERAGE_WHERE="alpha begin{prof}"`: the files showing those
+    // names as source, and how much.
+    let wanted: Vec<String> = std::env::var("KALEM_COVERAGE_WHERE")
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(|t| format!("\\{}", t.trim_start_matches('\\')))
+        .collect();
     // `KALEM_COVERAGE_SHOW="Mismatch|got '_'"`: the source, as the view gives
     // it to the renderer, of the first formulas whose error holds one of
     // these, three each.
@@ -231,6 +238,11 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
             };
             let text = String::from_utf8_lossy(&bytes);
             let mut c = kalem_core::latex_check::coverage_report(&text, Some(&f));
+            for name in &wanted {
+                if let Some(n) = c.source_by_name.get(name) {
+                    eprintln!("where {name}: {} ({n} bytes)", f.display());
+                }
+            }
             // Formulas the renderer cannot read are shown as source.
             if let Ok(mut doc) = kalem_core::DocumentState::open(
                 &f,

@@ -167,3 +167,22 @@ fn a_package_beside_the_document() {
     assert!(m.macros.iter().any(|x| x.name == "\\R"));
     assert!(m.includes.is_empty());
 }
+
+/// A file in another encoding than UTF-8 (`\usepackage[latin1]{inputenc}`)
+/// is read: its commands, its theorems with them.
+#[test]
+fn files_not_in_utf8() {
+    let dir = std::env::temp_dir().join(format!("kalem-latin1-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let root = dir.join("main.tex");
+    let mut bytes = b"\\documentclass{article}\n\\usepackage[latin1]{inputenc}\n\\newtheorem{definition}{Definition}\n\\begin{document}\nCaf".to_vec();
+    bytes.push(0xe9);
+    bytes.extend_from_slice(b".\n\\begin{definition}A\\end{definition}\n\\end{document}\n");
+    std::fs::write(&root, bytes).unwrap();
+    let text = latex_model::project::Files::read(&latex_model::project::Disk, &root).unwrap();
+    assert!(text.contains("Caf\u{fffd}."));
+    let project =
+        latex_model::project::ProjectCache::default().load(&root, &latex_model::project::Disk);
+    assert_eq!(project.model.theorems.len(), 1);
+    std::fs::remove_dir_all(&dir).ok();
+}
