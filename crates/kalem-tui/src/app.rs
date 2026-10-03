@@ -3012,6 +3012,17 @@ impl App {
     /// Moves to the next (or previous) match; `from_origin`: from where
     /// the search started, for typing in the query.
     fn search(&mut self, backward: bool, from_origin: bool) {
+        // A file a viewer shows: its units' text, searched on a thread.
+        if let Some(v) = self.doc.viewer.as_deref_mut() {
+            let Some(f) = &self.find else { return };
+            if from_origin {
+                v.search_start(&f.query);
+            } else {
+                v.search_next(backward);
+            }
+            self.dirty = true;
+            return;
+        }
         let Some(f) = &mut self.find else { return };
         match kalem_core::find::find_with(self.doc.text().as_str(), &f.query, f.options()) {
             Ok(m) => {
@@ -3052,6 +3063,9 @@ impl App {
                 self.last_query = f.query.clone();
                 self.last_regex = f.regex;
                 self.find = None;
+                if let Some(v) = self.doc.viewer.as_deref_mut() {
+                    v.search_end();
+                }
                 self.editor.highlights.clear();
                 self.dirty = true;
             }
@@ -4037,6 +4051,12 @@ impl App {
             }
         }
         self.sync_watches();
+        // A viewer's search: its matches as they are found.
+        if let Some(v) = self.doc.viewer.as_deref_mut()
+            && v.search_poll()
+        {
+            self.dirty = true;
+        }
         if self.doc.poll() {
             self.dirty = true;
         }
@@ -4098,7 +4118,7 @@ impl App {
         {
             t = t.min(d);
         }
-        if !self.jobs.is_empty() {
+        if !self.jobs.is_empty() || self.doc.viewer.as_deref().is_some_and(|v| v.searching()) {
             t = t.min(Duration::from_millis(30));
         }
         // A language server's answers and completions as they come.
@@ -4398,7 +4418,10 @@ impl App {
         if let Some(fd) = &self.find {
             let s = self.doc.selection;
             let sel = s.anchor.min(s.head)..s.anchor.max(s.head);
-            let text = fd.line(Some(&sel));
+            let text = match self.doc.viewer.as_deref() {
+                Some(v) => fd.line_counted(v.search_status()),
+                None => fd.line(Some(&sel)),
+            };
             buf.set_stringn(
                 area.x + 1,
                 y,

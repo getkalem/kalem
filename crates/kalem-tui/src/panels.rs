@@ -579,10 +579,16 @@ impl Find {
         let n = current
             .and_then(|c| self.matches.iter().position(|m| m == c))
             .map_or(0, |i| i + 1);
+        self.line_counted(format!("{n}/{}", self.matches.len()))
+    }
+
+    /// The status line text with `count` as the matches' count (a
+    /// viewer's search counts its own).
+    pub fn line_counted(&self, count: String) -> String {
         let count = match &self.error {
             Some(e) => format!("  {e}"),
             None if self.query.is_empty() => String::new(),
-            None => format!("  {n}/{}", self.matches.len()),
+            None => format!("  {count}"),
         };
         let find = kalem_core::l10n::tr(if self.regex {
             "find-regex-label"

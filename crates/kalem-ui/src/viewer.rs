@@ -140,10 +140,18 @@ impl Editor {
         Ok(img)
     }
 
-    /// Draws again soon while a page renders on a thread.
+    /// Draws again soon while a page renders or a search runs on a thread.
     fn viewer_poll(&mut self, cx: &mut Context<'_, Editor>) {
-        let rendering = self.doc.viewer.as_deref().is_some_and(|v| v.rendering());
-        if !rendering || self.viewer_view.render_poll.is_some() {
+        // The find bar's search: matches taken, the first one shown.
+        if let Some(v) = self.doc.viewer.as_deref_mut() {
+            v.search_poll();
+        }
+        let busy = self
+            .doc
+            .viewer
+            .as_deref()
+            .is_some_and(|v| v.rendering() || v.searching());
+        if !busy || self.viewer_view.render_poll.is_some() {
             return;
         }
         self.viewer_view.render_poll = Some(cx.spawn(async move |this, cx| {

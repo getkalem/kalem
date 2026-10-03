@@ -1,6 +1,6 @@
 //! A PDF file in the terminal editor through the pdf-viewer plugin
 //! (T3.7.3): the page as an image with kitty's protocol, the next page,
-//! the page's text, the outline panel.
+//! the page's text, the outline panel, the find bar.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -89,5 +89,35 @@ fn a_pdf_opens_page_by_page() {
     screen(&mut app);
     let s = status(&mut app);
     assert!(s.ends_with(" · 3/3"), "{s}");
+
+    // The find bar searches the pages on a thread from the page shown on;
+    // Enter goes round to page one.
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('f'),
+        KeyModifiers::CONTROL,
+    )));
+    for c in "page".chars() {
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Char(c),
+            KeyModifiers::NONE,
+        )));
+    }
+    let settle = |app: &mut App| {
+        while app.doc.viewer.as_deref().is_some_and(|v| v.searching()) {
+            app.tick(std::time::Instant::now());
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        app.tick(std::time::Instant::now());
+    };
+    settle(&mut app);
+    let s = screen(&mut app);
+    assert!(s.contains("page  3/3"), "{s}");
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+    )));
+    let s = screen(&mut app);
+    assert!(s.contains("page  1/3"), "{s}");
+    assert_eq!(app.doc.viewer.as_deref().unwrap().unit, 0);
     let _ = std::fs::remove_dir_all(&dir);
 }

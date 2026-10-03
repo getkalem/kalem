@@ -86,6 +86,21 @@ pub fn outline_position(doc: &crate::DocumentState) -> usize {
     doc.viewer.as_deref().map_or(doc.selection.head, |v| v.unit)
 }
 
+/// The byte ranges of `needle` (lower case) in `text`, case folded where
+/// folding keeps the text's length (it does not for `İ`; such a text is
+/// searched as it is).
+fn find_folded(text: &str, needle: &str) -> Vec<std::ops::Range<usize>> {
+    let lower = text.to_lowercase();
+    let hay = if lower.len() == text.len() {
+        lower.as_str()
+    } else {
+        text
+    };
+    hay.match_indices(needle)
+        .map(|(i, m)| i..i + m.len())
+        .collect()
+}
+
 /// Renders `key` (unit, rotation, generation, scale) of `doc`, turned.
 fn render(
     doc: &Mutex<Box<dyn ViewerDocument>>,
@@ -168,6 +183,26 @@ const MAX_SCALE: f32 = 64.0;
 /// (its bits).
 type RenderKey = (usize, u8, u64, u32);
 
+/// A search of a document's text, run a unit at a time on a thread so
+/// that the document's lock is held for one unit only and matches show as
+/// they are found.
+#[derive(Debug)]
+struct Search {
+    query: String,
+    /// The matches found so far, by unit and byte range of its text, in
+    /// document order.
+    hits: Vec<(usize, std::ops::Range<usize>)>,
+    /// The match shown.
+    current: Option<usize>,
+    /// The unit shown when the search started: the first match shown is
+    /// the first from there on.
+    origin: usize,
+    /// The units searched so far.
+    scanned: usize,
+    /// What the thread finds, each unit's matches; gone when it is done.
+    rx: Option<Receiver<(usize, Vec<std::ops::Range<usize>>)>>,
+}
+
 /// A file opened by a viewer, and how it is shown.
 pub struct ViewerState {
     /// The viewer.
@@ -206,6 +241,8 @@ pub struct ViewerState {
     cache: Option<(RenderKey, Bitmap)>,
     /// The neighbors of the unit shown, rendered ahead (at most two).
     ahead: Vec<(RenderKey, Bitmap)>,
+    /// The find bar's search of the units' text.
+    search: Option<Search>,
     /// Which units are grids (sheets, tables).
     grids: Vec<bool>,
     /// Each grid unit's cursor and scroll.
@@ -298,6 +335,7 @@ impl ViewerState {
             sizes,
             pending: None,
             ahead: Vec::new(),
+            search: None,
             unit: 0,
             zoom,
             center: None,
@@ -726,6 +764,127 @@ impl ViewerState {
             }
             None => Some(target.to_string()),
         }
+    }
+
+    /// Searches the units' text for `query` (case folded) on a thread,
+    /// from the unit shown on; a search of another query stops. An empty
+    /// query clears the search.
+    pub fn search_start(&mut self, query: &str) {
+        if self.search.as_ref().is_some_and(|s| s.query == query) {
+            return;
+        }
+        // The old thread stops when its receiver is gone.
+        self.search = None;
+        if query.is_empty() {
+            return;
+        }
+        let (tx, rx) = channel();
+        let doc = self.doc.clone();
+        let n = self.structure.units.len();
+        let origin = self.unit;
+        let needle = query.to_lowercase();
+        std::thread::spawn(move || {
+            for i in 0..n {
+                let unit = (origin + i) % n;
+                // The lock for one unit's text at a time.
+                let text = doc.lock().unwrap_or_else(|e| e.into_inner()).text(unit);
+                if tx.send((unit, find_folded(&text, &needle))).is_err() {
+                    return;
+                }
+            }
+        });
+        self.search = Some(Search {
+            query: query.to_string(),
+            hits: Vec::new(),
+            current: None,
+            origin,
+            scanned: 0,
+            rx: Some(rx),
+        });
+    }
+
+    /// Takes what the search thread found; the first match from the unit
+    /// the search started at is shown as soon as it is found. True when
+    /// anything changed.
+    pub fn search_poll(&mut self) -> bool {
+        let Some(s) = &mut self.search else {
+            return false;
+        };
+        let Some(rx) = &s.rx else {
+            return false;
+        };
+        let mut changed = false;
+        loop {
+            match rx.try_recv() {
+                Ok((unit, ranges)) => {
+                    s.scanned += 1;
+                    changed = true;
+                    if ranges.is_empty() {
+                        continue;
+                    }
+                    // Kept in document order; the shown match follows.
+                    let shown = s.current.map(|i| s.hits[i].clone());
+                    s.hits.extend(ranges.into_iter().map(|r| (unit, r)));
+                    s.hits.sort_by_key(|(u, r)| (*u, r.start));
+                    s.current = shown.and_then(|h| s.hits.iter().position(|x| *x == h));
+                }
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    s.rx = None;
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if s.current.is_none() && !s.hits.is_empty() {
+            // The first match at or after the origin, else the first one.
+            let i = s.hits.iter().position(|(u, _)| *u >= s.origin).unwrap_or(0);
+            s.current = Some(i);
+            let unit = s.hits[i].0;
+            self.go_to(unit);
+        }
+        changed
+    }
+
+    /// Whether the search thread is still reading units.
+    pub fn searching(&self) -> bool {
+        self.search.as_ref().is_some_and(|s| s.rx.is_some())
+    }
+
+    /// Shows the next match (the previous one with `backward`), round the
+    /// document.
+    pub fn search_next(&mut self, backward: bool) {
+        let Some(s) = &mut self.search else {
+            return;
+        };
+        let n = s.hits.len();
+        if n == 0 {
+            return;
+        }
+        let i = match (s.current, backward) {
+            (None, _) => 0,
+            (Some(i), false) => (i + 1) % n,
+            (Some(i), true) => (i + n - 1) % n,
+        };
+        s.current = Some(i);
+        let unit = s.hits[i].0;
+        self.go_to(unit);
+    }
+
+    /// The find bar's count: the match shown and how many there are, with
+    /// "…" while units are still being read.
+    pub fn search_status(&self) -> String {
+        let Some(s) = &self.search else {
+            return String::new();
+        };
+        let at = s.current.map_or(0, |i| i + 1);
+        let more = if s.rx.is_some() { "…" } else { "" };
+        format!("{at}/{}{more}", s.hits.len())
+    }
+
+    /// Ends the search (the find bar closed).
+    pub fn search_end(&mut self) {
+        self.search = None;
     }
 
     /// Turns the view by `quarters` clockwise.
@@ -2806,6 +2965,39 @@ mod tests {
         assert_eq!(parse_tsv("1,300.00"), vec![vec!["1,300.00"]]);
         assert!(parse_tsv("").is_empty());
         assert_eq!(parse_tsv("a\t\tc"), vec![vec!["a", "", "c"]]);
+    }
+
+    #[test]
+    fn a_search_runs_on_a_thread_and_goes_to_its_matches() {
+        let mut v = state(12);
+        v.go_to(4);
+        v.search_start("PAGE 1");
+        let wait = |v: &mut ViewerState| {
+            while v.searching() {
+                v.search_poll();
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            v.search_poll();
+        };
+        wait(&mut v);
+        // "page 1", "page 10", "page 11", "page 12": from page 5 on, the
+        // first is page 10.
+        assert_eq!(v.search_status(), "2/4");
+        assert_eq!(v.unit, 9);
+        v.search_next(false);
+        assert_eq!((v.unit, v.search_status().as_str()), (10, "3/4"));
+        v.search_next(false);
+        v.search_next(false);
+        // Round the document to page 1.
+        assert_eq!((v.unit, v.search_status().as_str()), (0, "1/4"));
+        v.search_next(true);
+        assert_eq!(v.unit, 11);
+        // Another query replaces it; an empty one clears it.
+        v.search_start("nothing");
+        wait(&mut v);
+        assert_eq!(v.search_status(), "0/0");
+        v.search_start("");
+        assert_eq!(v.search_status(), "");
     }
 
     #[test]

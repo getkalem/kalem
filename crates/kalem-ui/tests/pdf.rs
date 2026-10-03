@@ -1,6 +1,6 @@
 //! A PDF file in the graphical editor through the pdf-viewer plugin
 //! (T3.7.3): its page fitted to the area and rendered at the scale shown,
-//! the next page, the page's text, a link clicked, the outline.
+//! the next page, the page's text, a link clicked, the outline, the find bar.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -58,7 +58,10 @@ fn settle(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
     for _ in 0..500 {
         cx.run_until_parked();
         let busy = e.read_with(cx, |e, _| {
-            e.doc.viewer.as_deref().is_some_and(|v| v.rendering())
+            e.doc
+                .viewer
+                .as_deref()
+                .is_some_and(|v| v.rendering() || v.searching())
         });
         if !busy {
             break;
@@ -70,7 +73,10 @@ fn settle(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
     cx.run_until_parked();
     // The renders end, neighbors included: the editor stops drawing again.
     let busy = e.read_with(cx, |e, _| {
-        e.doc.viewer.as_deref().is_some_and(|v| v.rendering())
+        e.doc
+            .viewer
+            .as_deref()
+            .is_some_and(|v| v.rendering() || v.searching())
     });
     assert!(!busy, "a render never ended");
 }
@@ -136,4 +142,24 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     let (status, _, text) = state(&ws, cx);
     assert!(status.ends_with(" · 2/3"), "{status}");
     assert_eq!(text, "Page two");
+
+    // The find bar searches the pages on a thread, from the page shown on;
+    // Enter goes on, round to page one.
+    cx.simulate_keystrokes(&format!("{primary}-f"));
+    cx.simulate_input("page");
+    settle(&ws, cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let found = |cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| {
+            let v = e.doc.viewer.as_deref_mut().unwrap();
+            (v.unit, v.search_status())
+        })
+    };
+    assert_eq!(found(cx), (1, "2/3".to_string()));
+    cx.simulate_keystrokes("enter");
+    settle(&ws, cx);
+    assert_eq!(found(cx), (2, "3/3".to_string()));
+    cx.simulate_keystrokes("enter");
+    settle(&ws, cx);
+    assert_eq!(found(cx), (0, "1/3".to_string()));
 }
