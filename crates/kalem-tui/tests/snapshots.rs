@@ -79,14 +79,19 @@ fn style_of(cell: &ratatui::buffer::Cell) -> char {
 }
 
 fn screen(caps: Caps, width: u16, height: u16, cursor: usize) -> String {
+    screen_of("snap.org", DOC, caps, width, height, cursor)
+}
+
+/// The screen of file `name` holding `text`.
+fn screen_of(name: &str, text: &str, caps: Caps, width: u16, height: u16, cursor: usize) -> String {
     let dir = std::env::temp_dir().join(format!(
-        "kalem-snap-{}-{width}-{cursor}-{}",
+        "kalem-snap-{}-{name}-{width}-{cursor}-{}",
         std::process::id(),
         caps.ascii
     ));
     std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("snap.org");
-    std::fs::write(&path, DOC).unwrap();
+    let path = dir.join(name);
+    std::fs::write(&path, text).unwrap();
     let mut app = App::with_keymap(Some(&path), Config::default(), caps, &[], Vec::new()).unwrap();
     app.doc.move_cursor(cursor, false);
     app.editor.follow = true;
@@ -135,4 +140,62 @@ fn ascii_without_color() {
         ..Caps::full()
     };
     insta::assert_snapshot!(screen(caps, 44, 30, DOC.len()));
+}
+
+/// A Markdown document (T2.7c.8): front matter, headings, emphasis,
+/// links and wiki links, lists and tasks, a quote, a table, code, a
+/// footnote and a formula.
+const MD: &str = "---
+title: Snapshot
+tags: [a, b]
+---
+# Heading one
+
+Some *emphasis*, **strong**, ~~struck~~, `code`, a [link](https://example.com) and [[Another Note]].
+
+## Lists
+
+- a list item
+- [ ] a task
+- [x] done
+  1. nested
+
+> A quoted line
+> and another.
+
+| Name  | Qty |
+|:------|----:|
+| apple |   3 |
+
+```rust
+fn main() { println!(\"hi\"); }
+```
+
+A footnote[^1], a formula $E=mc^2$ and a long line that wraps around the edge of the narrow screen.
+
+---
+
+[^1]: The note.
+";
+
+#[test]
+fn markdown_document() {
+    insta::assert_snapshot!(screen_of("snap.md", MD, Caps::full(), 60, 34, MD.len()));
+}
+
+#[test]
+fn markdown_cursor_in_markup_table_and_code() {
+    let at = |s: &str| MD.find(s).unwrap() + 2;
+    insta::assert_snapshot!(
+        "markdown_cursor_in_strong",
+        screen_of("snap.md", MD, Caps::full(), 60, 34, at("**strong"))
+    );
+    insta::assert_snapshot!(
+        "markdown_cursor_in_table",
+        screen_of("snap.md", MD, Caps::full(), 60, 34, at("| apple"))
+    );
+    insta::assert_snapshot!(
+        "markdown_cursor_in_code",
+        screen_of("snap.md", MD, Caps::full(), 60, 34, at("fn main"))
+    );
 }

@@ -109,3 +109,70 @@ fn front_matter_folds_away_from_the_cursor() {
     let _ = std::fs::remove_dir_all(path.parent().unwrap());
     let _ = std::fs::remove_dir_all(p2.parent().unwrap());
 }
+
+/// Real READMEs and a vault of notes with wiki links (`tests/corpus/
+/// markdown`, T2.7c.8): every line drawn with the cursor on it and away,
+/// every shown character from its line, every heading in the outline, and
+/// each file saved unedited byte for byte.
+#[test]
+fn the_markdown_corpus_reads_and_saves_as_it_was() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/markdown");
+    let mut files = Vec::new();
+    let mut stack = vec![root.clone()];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p.extension().is_some_and(|x| x == "md") {
+                files.push(p);
+            }
+        }
+    }
+    files.sort();
+    assert!(files.len() > 90, "{}", files.len());
+    let mut wiki = 0;
+    for f in files {
+        let bytes = std::fs::read_to_string(&f).unwrap();
+        let name = f
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace(['/', '\\'], "_");
+        let (path, mut d) = open(&name, &bytes);
+        assert_eq!(d.meta.mode, DocumentMode::Markdown, "{name}");
+        let text = d.text().as_str().to_string();
+        for l in 0..d.text().line_count() {
+            let r = d.text().line_range(l);
+            for cursor in [None, Some(r.start)] {
+                let v = kalem_core::markdown::line_view(&d, r.clone(), cursor);
+                for run in &v.runs {
+                    assert!(
+                        r.start <= run.src.start && run.src.end <= r.end,
+                        "{name} line {l}: {run:?} in {r:?}"
+                    );
+                    if run.verbatim {
+                        assert_eq!(run.text, text[run.src.clone()], "{name} line {l}");
+                    }
+                }
+            }
+        }
+        // The outline has a heading for each ATX heading line outside code.
+        let outline = kalem_core::markdown::outline_items(&d);
+        if text.lines().any(|l| l.starts_with("# ")) {
+            assert!(!outline.is_empty(), "{name}");
+        }
+        let md = kalem_core::markdown::Md::parse(&text);
+        wiki += md
+            .nodes
+            .iter()
+            .filter(|n| matches!(n.kind, kalem_core::markdown::MdKind::WikiLink { .. }))
+            .count();
+        d.save(kalem_core::files::SaveOptions::default(), true)
+            .unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), bytes, "{name}");
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+    // The vault's notes link to each other.
+    assert!(wiki > 100, "{wiki} wiki links");
+}

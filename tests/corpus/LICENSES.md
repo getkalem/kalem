@@ -18,6 +18,18 @@ Rules:
 | `org-mode/examples/**` | Org mode `testing/examples/` | release_9.7.11 (6a5d0ed3) | GPL-3.0-or-later (part of Org mode) |
 | `worg/org-syntax.org` | Worg `org-syntax.org` (the Org Syntax specification) | 22fc0631 | GFDL-1.3-or-later (text), GPL-3.0-or-later (code examples) |
 | `synthetic/*.org` | Written for Kalem | – | MIT OR Apache-2.0 |
+| `markdown/readmes/ripgrep.md` | `README.md` of github.com/BurntSushi/ripgrep | 3fce3b5b | Unlicense OR MIT |
+| `markdown/readmes/rust.md` | `README.md` of github.com/rust-lang/rust | b6e4b5c4 | MIT OR Apache-2.0 |
+| `markdown/readmes/serde.md` | `README.md` of github.com/serde-rs/serde | 6693a89c | MIT OR Apache-2.0 |
+| `markdown/readmes/tokio.md` | `README.md` of github.com/tokio-rs/tokio | 86678437 | MIT |
+| `markdown/readmes/bat.md` | `README.md` of github.com/sharkdp/bat | 4608fc95 | MIT OR Apache-2.0 |
+| `markdown/readmes/fd.md` | `README.md` of github.com/sharkdp/fd | 3460b1e9 | MIT OR Apache-2.0 |
+| `markdown/readmes/fzf.md` | `README.md` of github.com/junegunn/fzf | b1be3a8b | MIT |
+| `markdown/readmes/react.md` | `README.md` of github.com/facebook/react | 278794d7 | MIT |
+| `markdown/readmes/vscode.md` | `README.md` of github.com/microsoft/vscode | 253b7648 | MIT |
+| `markdown/readmes/mermaid.md` | `README.md` of github.com/mermaid-js/mermaid | 97b34515 | MIT |
+| `markdown/readmes/kubernetes.md` | `README.md` of github.com/kubernetes/kubernetes | 12eb5840 | Apache-2.0 |
+| `markdown/vault/foam-docs/**` | `docs/` of github.com/foambubble/foam, a Foam vault of notes with wiki links (images left out); its licence is `markdown/vault/foam-docs/LICENSE.txt` | 2a02ccd | MIT |
 
 ## Extended corpus
 

@@ -7,9 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Changed
-
 - The LaTeX mode is on the document mode contract that plugin modes will use (`latex_mode::LatexMode`): its tree in the contract's kinds, outline, formatter, diagnostics and keys; every file of the arXiv sample passes the conformance check.
-
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
