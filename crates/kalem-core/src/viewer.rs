@@ -9,7 +9,8 @@
 //! ([`ViewerState::set_area`]); the commands work in that area's pixels.
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::mpsc::{Receiver, TryRecvError, channel};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use kalem_viewer::{
     Bitmap, Edit, FileHandle, GridCell, GridEdit, GridLayout, InfoField, MacroEntry, MacroOutcome,
@@ -85,6 +86,23 @@ pub fn outline_position(doc: &crate::DocumentState) -> usize {
     doc.viewer.as_deref().map_or(doc.selection.head, |v| v.unit)
 }
 
+/// Renders `key` (unit, rotation, generation, scale) of `doc`, turned.
+fn render(
+    doc: &Mutex<Box<dyn ViewerDocument>>,
+    (unit, rotation, _, scale): RenderKey,
+) -> Result<Bitmap, String> {
+    let request = RenderRequest {
+        scale: f32::from_bits(scale),
+        ..RenderRequest::default()
+    };
+    let Rendered::Bitmap(b) = doc
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .render(unit, request)
+        .map_err(|e| e.to_string())?;
+    Ok(b.rotated(rotation))
+}
+
 /// The viewer for the file at `path` when it is not text (design §2.6):
 /// text files open in a document mode even when a viewer could show them
 /// (an SVG drawing is XML).
@@ -146,12 +164,22 @@ const ZOOM_STEP: f32 = 1.25;
 const MIN_SCALE: f32 = 0.01;
 const MAX_SCALE: f32 = 64.0;
 
+/// What a bitmap was rendered for: unit, rotation, generation and scale
+/// (its bits).
+type RenderKey = (usize, u8, u64, u32);
+
 /// A file opened by a viewer, and how it is shown.
 pub struct ViewerState {
     /// The viewer.
     pub viewer: Arc<dyn Viewer>,
-    doc: Box<dyn ViewerDocument>,
+    /// The document, shared with the thread that renders it.
+    doc: Arc<Mutex<Box<dyn ViewerDocument>>>,
     structure: Structure,
+    /// Each unit's size at scale 1, when the viewer knows it (a page).
+    sizes: Vec<Option<(f32, f32)>>,
+    /// A render running on a thread: what it renders (unit, rotation,
+    /// generation, scale) and where its result comes.
+    pending: Option<(RenderKey, Receiver<Result<Bitmap, String>>)>,
     /// The unit shown.
     pub unit: usize,
     /// The zoom.
@@ -175,7 +203,7 @@ pub struct ViewerState {
     redo: Vec<(String, String)>,
     generation: u64,
     /// The last render: unit, rotation, generation, scale.
-    cache: Option<(usize, u8, u64, u32, Bitmap)>,
+    cache: Option<(RenderKey, Bitmap)>,
     /// Which units are grids (sheets, tables).
     grids: Vec<bool>,
     /// Each grid unit's cursor and scroll.
@@ -254,6 +282,7 @@ impl ViewerState {
         let grids = (0..structure.units.len())
             .map(|u| doc.grid(u).is_some())
             .collect();
+        let sizes = (0..structure.units.len()).map(|u| doc.size(u)).collect();
         // Pages are read as wide as the area, from the top.
         let zoom = if doc.size(0).is_some() {
             Zoom::FitWidth
@@ -262,8 +291,10 @@ impl ViewerState {
         };
         Ok(ViewerState {
             viewer,
-            doc,
+            doc: Arc::new(Mutex::new(doc)),
             structure,
+            sizes,
+            pending: None,
             unit: 0,
             zoom,
             center: None,
@@ -303,35 +334,89 @@ impl ViewerState {
     /// [`ViewerState::render_scale`], so a page is as sharp as it is
     /// shown.
     pub fn bitmap(&mut self) -> Result<Bitmap, String> {
-        let scale = self.render_scale();
-        if let Some((u, r, g, s, b)) = &self.cache
-            && (*u, *r, *g, *s) == (self.unit, self.rotation, self.generation, scale.to_bits())
+        let key = self.render_key();
+        if let Some((k, b)) = &self.cache
+            && *k == key
         {
             return Ok(b.clone());
         }
-        let request = RenderRequest {
-            scale,
-            ..RenderRequest::default()
-        };
-        let Rendered::Bitmap(b) = self
-            .doc
-            .render(self.unit, request)
-            .map_err(|e| e.to_string())?;
-        let b = b.rotated(self.rotation);
-        self.cache = Some((
-            self.unit,
-            self.rotation,
-            self.generation,
-            scale.to_bits(),
-            b.clone(),
-        ));
+        // A thread renders it already: wait for it.
+        if let Some((k, rx)) = self.pending.take()
+            && let Ok(done) = rx.recv()
+        {
+            let b = done?;
+            self.cache = Some((k, b.clone()));
+            if k == key {
+                return Ok(b);
+            }
+        }
+        let b = render(&self.doc, key)?;
+        self.cache = Some((key, b.clone()));
         Ok(b)
+    }
+
+    /// The unit shown as far as it is rendered, for a frontend that must
+    /// not wait: the bitmap at [`ViewerState::render_scale`] when it is
+    /// ready, else, while a thread renders it, the last bitmap of the same
+    /// unit and turn (at another scale, drawn stretched to the
+    /// placement), or `None` for a unit not rendered yet. With the scale
+    /// it was rendered at, for keying textures.
+    pub fn bitmap_now(&mut self) -> Result<Option<(Bitmap, f32)>, String> {
+        // A picture or a frame is quick, and an animation must not blink:
+        // rendered here.
+        if self.vector_size().is_none() {
+            return self.bitmap().map(|b| Some((b, 1.0)));
+        }
+        let key = self.render_key();
+        if let Some((k, rx)) = &self.pending {
+            match rx.try_recv() {
+                Ok(done) => {
+                    let k = *k;
+                    self.pending = None;
+                    self.cache = Some((k, done?));
+                }
+                Err(TryRecvError::Disconnected) => self.pending = None,
+                Err(TryRecvError::Empty) => {}
+            }
+        }
+        if let Some((k, b)) = &self.cache
+            && *k == key
+        {
+            return Ok(Some((b.clone(), f32::from_bits(k.3))));
+        }
+        // One render at a time; the latest wish starts when it ends.
+        if self.pending.is_none() {
+            let (tx, rx) = channel();
+            let doc = self.doc.clone();
+            std::thread::spawn(move || {
+                let _ = tx.send(render(&doc, key));
+            });
+            self.pending = Some((key, rx));
+        }
+        Ok(self.cache.as_ref().and_then(|(k, b)| {
+            ((k.0, k.1, k.2) == (key.0, key.1, key.2)).then(|| (b.clone(), f32::from_bits(k.3)))
+        }))
+    }
+
+    /// Whether a thread is rendering: the frontend looks again soon.
+    pub fn rendering(&self) -> bool {
+        self.pending.is_some()
+    }
+
+    fn render_key(&mut self) -> RenderKey {
+        let scale = self.render_scale();
+        (self.unit, self.rotation, self.generation, scale.to_bits())
+    }
+
+    /// The document, waited for while a thread renders it.
+    fn doc(&self) -> MutexGuard<'_, Box<dyn ViewerDocument>> {
+        self.doc.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     /// The unit's size at scale 1 as turned, when the viewer knows it
     /// without rendering (a page).
     fn vector_size(&self) -> Option<(f32, f32)> {
-        let (w, h) = self.doc.size(self.unit)?;
+        let (w, h) = self.sizes.get(self.unit).copied().flatten()?;
         Some(if self.rotation % 2 == 1 {
             (h, w)
         } else {
@@ -533,7 +618,7 @@ impl ViewerState {
             3 => (th - uy, ux),
             _ => (ux, uy),
         };
-        self.doc
+        self.doc()
             .links(self.unit)
             .into_iter()
             .find(|l| {
@@ -614,17 +699,17 @@ impl ViewerState {
 
     /// The information panel's fields.
     pub fn info_fields(&self) -> Vec<InfoField> {
-        self.doc.info()
+        self.doc().info()
     }
 
     /// The unit's text.
     pub fn text(&self) -> String {
-        self.doc.text(self.unit)
+        self.doc().text(self.unit)
     }
 
     /// The edits the format allows on the unit shown.
     pub fn edits(&self) -> Vec<Edit> {
-        self.doc.edits(self.unit)
+        self.doc().edits(self.unit)
     }
 
     /// Applies edit `id`, recording its inverse for undo.
@@ -634,7 +719,7 @@ impl ViewerState {
             .into_iter()
             .find(|e| e.id == id)
             .ok_or_else(|| format!("No edit {id}"))?;
-        self.doc.apply(id).map_err(|e| e.to_string())?;
+        self.doc().apply(id).map_err(|e| e.to_string())?;
         if let Some(inv) = edit.inverse {
             self.undo.push((inv, id.to_string()));
         } else {
@@ -642,22 +727,23 @@ impl ViewerState {
             self.undo.clear();
         }
         self.redo.clear();
-        self.structure = self.doc.structure();
+        let structure = self.doc().structure();
+        self.structure = structure;
         self.changed();
         Ok(())
     }
 
     /// Undoes the last edit; false when there is none.
     pub fn undo(&mut self) -> Result<bool, String> {
-        if self.doc.has_history() {
-            let done = self.doc.undo().map_err(|e| e.to_string())?;
+        if self.doc().has_history() {
+            let done = self.doc().undo().map_err(|e| e.to_string())?;
             self.refresh();
             return Ok(done);
         }
         let Some((inverse, again)) = self.undo.pop() else {
             return Ok(false);
         };
-        self.doc.apply(&inverse).map_err(|e| e.to_string())?;
+        self.doc().apply(&inverse).map_err(|e| e.to_string())?;
         self.redo.push((inverse, again));
         self.changed();
         Ok(true)
@@ -665,15 +751,15 @@ impl ViewerState {
 
     /// Redoes the last edit undone; false when there is none.
     pub fn redo(&mut self) -> Result<bool, String> {
-        if self.doc.has_history() {
-            let done = self.doc.redo().map_err(|e| e.to_string())?;
+        if self.doc().has_history() {
+            let done = self.doc().redo().map_err(|e| e.to_string())?;
             self.refresh();
             return Ok(done);
         }
         let Some((inverse, again)) = self.redo.pop() else {
             return Ok(false);
         };
-        self.doc.apply(&again).map_err(|e| e.to_string())?;
+        self.doc().apply(&again).map_err(|e| e.to_string())?;
         self.undo.push((inverse, again));
         self.changed();
         Ok(true)
@@ -681,12 +767,12 @@ impl ViewerState {
 
     /// Whether there are edits not saved.
     pub fn modified(&self) -> bool {
-        self.doc.modified()
+        self.doc().modified()
     }
 
     /// The file with the edits.
     pub fn save(&mut self) -> Result<SaveOutput, String> {
-        self.doc.save().map_err(|e| e.to_string())
+        self.doc().save().map_err(|e| e.to_string())
     }
 
     /// What the status bar says: the size, the zoom, the unit; for a grid,
@@ -700,7 +786,7 @@ impl ViewerState {
             if n > 1 {
                 parts.push(format!("{}/{n}", self.unit + 1));
             }
-            if let Some(note) = self.doc.cell_note(self.unit, p.row, p.col) {
+            if let Some(note) = self.doc().cell_note(self.unit, p.row, p.col) {
                 parts.push(note.lines().next().unwrap_or_default().to_string());
             }
             return parts.join(" · ");
@@ -720,9 +806,11 @@ impl ViewerState {
 impl ViewerState {
     /// After the document changed: its units, which are grids, the cache.
     fn refresh(&mut self) {
-        self.structure = self.doc.structure();
+        let structure = self.doc().structure();
+        self.structure = structure;
         let n = self.structure.units.len();
-        self.grids = (0..n).map(|u| self.doc.grid(u).is_some()).collect();
+        self.grids = (0..n).map(|u| self.doc().grid(u).is_some()).collect();
+        self.sizes = (0..n).map(|u| self.doc().size(u)).collect();
         if self.unit >= n {
             self.unit = n.saturating_sub(1);
         }
@@ -745,7 +833,7 @@ impl ViewerState {
         {
             return Some(l.clone());
         }
-        let l = self.doc.grid(self.unit)?;
+        let l = self.doc().grid(self.unit)?;
         self.grid_cache = Some((self.unit, self.generation, l.clone()));
         Some(l)
     }
@@ -761,7 +849,7 @@ impl ViewerState {
         rows: std::ops::Range<u32>,
         cols: std::ops::Range<u32>,
     ) -> Vec<(u32, u32, GridCell)> {
-        self.doc.grid_cells(self.unit, rows, cols)
+        self.doc().grid_cells(self.unit, rows, cols)
     }
 
     /// The cursor and scroll of the grid shown.
@@ -939,7 +1027,7 @@ impl ViewerState {
     /// merging clears.
     pub fn selection_loses_values(&mut self) -> bool {
         let s = self.selection();
-        self.doc
+        self.doc()
             .grid_cells(self.unit, s[0]..s[2] + 1, s[1]..s[3] + 1)
             .iter()
             .any(|(r, c, cell)| (*r, *c) != (s[0], s[1]) && !cell.text.is_empty())
@@ -993,7 +1081,7 @@ impl ViewerState {
         if (s[0], s[1]) == (s[2], s[3]) {
             return Err("Select the cells to merge (Shift and the arrows, or drag)".into());
         }
-        self.doc
+        self.doc()
             .merge_cells(self.unit, s, center)
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1007,7 +1095,7 @@ impl ViewerState {
             return Err("This file is shown, not edited".into());
         }
         let p = self.grid_pos();
-        self.doc
+        self.doc()
             .unmerge_cells(self.unit, p.row, p.col)
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1025,12 +1113,12 @@ impl ViewerState {
     /// The cursor's cell as entered, for editing.
     pub fn cell_input(&mut self) -> String {
         let p = self.grid_pos();
-        self.doc.cell_input(self.unit, p.row, p.col)
+        self.doc().cell_input(self.unit, p.row, p.col)
     }
 
     /// Enters text into a cell of the grid shown.
     pub fn set_cell(&mut self, row: u32, col: u32, input: &str) -> Result<(), String> {
-        self.doc
+        self.doc()
             .set_cell(self.unit, row, col, input)
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1039,7 +1127,7 @@ impl ViewerState {
 
     /// Changes the grid's shape.
     pub fn grid_edit(&mut self, edit: GridEdit) -> Result<(), String> {
-        self.doc
+        self.doc()
             .grid_edit(self.unit, edit)
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1057,7 +1145,7 @@ impl ViewerState {
             return Err("This file is shown, not edited".into());
         }
         let widest = self
-            .doc
+            .doc()
             .grid_cells(self.unit, 0..layout.rows.max(1), col..col + 1)
             .into_iter()
             .map(|(_, _, c)| measure(&c.text))
@@ -1068,7 +1156,7 @@ impl ViewerState {
         } else {
             layout.default_width
         };
-        self.doc
+        self.doc()
             .set_col_width(self.unit, col, width)
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1080,7 +1168,7 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
-        self.doc
+        self.doc()
             .set_col_width(self.unit, col, width.clamp(0.0, 255.0))
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1115,7 +1203,7 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
-        self.doc
+        self.doc()
             .set_row_height(self.unit, row, height.clamp(0.0, 409.0))
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1131,7 +1219,7 @@ impl ViewerState {
         measure: &dyn Fn(&str) -> f32,
     ) -> Result<(), String> {
         let cols = self.used_cols().max(1);
-        let cells = self.doc.grid_cells(self.unit, row..row + 1, 0..cols);
+        let cells = self.doc().grid_cells(self.unit, row..row + 1, 0..cols);
         let mut lines = 1.0_f32;
         for (_, c, cell) in cells
             .into_iter()
@@ -1158,11 +1246,11 @@ impl ViewerState {
         }
         let p = self.grid_pos();
         let on = !self
-            .doc
+            .doc()
             .grid_cells(self.unit, p.row..p.row + 1, p.col..p.col + 1)
             .first()
             .is_some_and(|c| c.2.wrap);
-        self.doc
+        self.doc()
             .set_wrap(self.unit, p.row, p.col, on)
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1189,14 +1277,14 @@ impl ViewerState {
 
     /// The document's macros.
     pub fn macros(&mut self) -> Vec<MacroEntry> {
-        self.doc.macros()
+        self.doc().macros()
     }
 
     /// Runs a macro, answering its questions from `answers` in order.
     pub fn run_macro(&mut self, name: &str, answers: &[String]) -> Result<MacroOutcome, String> {
         let mut ui = Answers { answers, next: 0 };
         let out = self
-            .doc
+            .doc()
             .run_macro(name, &mut ui)
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -2452,6 +2540,38 @@ mod tests {
         let p = v.placement();
         let (x, y) = (p.x + (50.0 - 15.0) * p.scale, p.y + 15.0 * p.scale);
         assert_eq!(v.link_at(x, y).as_deref(), Some("#2"));
+    }
+
+    #[test]
+    fn a_page_renders_on_a_thread() {
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Vector(3)), &dir.join("x.vector")).unwrap();
+        v.set_area(200.0, 100.0);
+        let ready = |v: &mut ViewerState| loop {
+            if let Some(b) = v.bitmap_now().unwrap()
+                && !v.rendering()
+            {
+                return b;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        };
+        // Nothing yet: a thread renders the page.
+        assert!(v.bitmap_now().unwrap().is_none());
+        assert!(v.rendering());
+        let (b, s) = ready(&mut v);
+        assert_eq!((b.width, s), (200, 2.0));
+        // Zoomed: the page at its old scale while the new one renders.
+        v.zoom_by(2.0);
+        let (b, s) = v.bitmap_now().unwrap().expect("the old render");
+        assert_eq!((b.width, s), (200, 2.0));
+        assert!(v.rendering());
+        let (b, s) = ready(&mut v);
+        assert_eq!((b.width, s), (400, 4.0));
+        // Another page: nothing until it is rendered.
+        v.go_to(1);
+        assert!(v.bitmap_now().unwrap().is_none());
+        // The waiting call takes the thread's result.
+        assert_eq!(v.bitmap().unwrap().width, 400);
     }
 
     #[test]

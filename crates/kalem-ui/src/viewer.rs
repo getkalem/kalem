@@ -35,6 +35,8 @@ pub struct ViewerView {
     pub bounds: Option<Bounds<Pixels>>,
     /// The next frame's timer.
     timer: Option<Task<()>>,
+    /// The timer that looks again while a page renders.
+    render_poll: Option<Task<()>>,
     /// A column's edge being dragged in a grid.
     col_drag: Option<ColDrag>,
     /// A row's edge being dragged in a grid.
@@ -99,16 +101,24 @@ impl Editor {
             return Err(String::new());
         };
         v.set_pixel_ratio(window.scale_factor());
-        let key = (
+        let want = (
             v.generation(),
             v.unit,
             v.rotation,
             v.render_scale().to_bits(),
         );
+        if let Some((_, img)) = self.viewer_view.images.iter().find(|(k, _)| *k == want) {
+            return Ok(img.clone());
+        }
+        // A page renders on a thread: until it is done, the same page at
+        // another scale (stretched), or nothing for a page not seen yet.
+        let Some((bitmap, scale)) = v.bitmap_now()? else {
+            return Err(String::new());
+        };
+        let key = (want.0, want.1, want.2, scale.to_bits());
         if let Some((_, img)) = self.viewer_view.images.iter().find(|(k, _)| *k == key) {
             return Ok(img.clone());
         }
-        let bitmap = v.bitmap()?;
         let img = render_image(&bitmap).ok_or("a broken bitmap")?;
         // An animation keeps its frames; anything else, the one shown.
         let animated = v.structure().animated();
@@ -123,6 +133,23 @@ impl Editor {
         }
         self.viewer_view.images.push((key, img.clone()));
         Ok(img)
+    }
+
+    /// Draws again soon while a page renders on a thread.
+    fn viewer_poll(&mut self, cx: &mut Context<'_, Editor>) {
+        let rendering = self.doc.viewer.as_deref().is_some_and(|v| v.rendering());
+        if !rendering || self.viewer_view.render_poll.is_some() {
+            return;
+        }
+        self.viewer_view.render_poll = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(16))
+                .await;
+            let _ = this.update(cx, |e, cx| {
+                e.viewer_view.render_poll = None;
+                cx.notify();
+            });
+        }));
     }
 
     /// Plays the next frame after the frame shown has had its time.
@@ -164,7 +191,9 @@ impl Editor {
         if self.doc.viewer.as_deref().is_some_and(|v| v.is_grid()) {
             return Some(self.grid_element(window, cx));
         }
-        let area = match self.viewer_image(window, cx) {
+        let image = self.viewer_image(window, cx);
+        self.viewer_poll(cx);
+        let area = match image {
             Ok(image) => {
                 let prepaint = entity.clone();
                 div()
