@@ -95,11 +95,27 @@ pub struct Parse {
     /// What the text defines that changes how it parses, kept for
     /// reparsing.
     defs: std::sync::Arc<tables::Definitions>,
+    /// The definitions of the project's other files given to
+    /// [`parse_with`], kept for reparsing.
+    extra: std::sync::Arc<str>,
 }
 
 /// Parses `text`.
 pub fn parse(text: &str) -> Parse {
-    let defs = std::sync::Arc::new(tables::Definitions::of(text));
+    parse_with(text, "")
+}
+
+/// Parses `text` with the definitions `extra` of the project's other files
+/// that change how it parses (its macros for an equation's opening and
+/// closing, `\def\ba{\begin{eqnarray}}` in a package of its own; see
+/// [`alias_definitions`]); the text's own come after them.
+pub fn parse_with(text: &str, extra: &str) -> Parse {
+    let defs = if extra.is_empty() {
+        tables::Definitions::of(text)
+    } else {
+        tables::Definitions::of(&format!("{extra}\n{text}"))
+    };
+    let defs = std::sync::Arc::new(defs);
     let p = parser::Parser::new(text, 0, text.len(), false, &defs);
     let (green, p) = p.finish(SyntaxKind::ROOT, text.len(), parser::Mode::Text);
     Parse {
@@ -108,7 +124,16 @@ pub fn parse(text: &str) -> Parse {
         diagnostics: p.diagnostics,
         unclosed_env: p.unclosed_env,
         defs,
+        extra: std::sync::Arc::from(extra),
     }
+}
+
+/// The definitions of `src` that change how a text parses (macros for an
+/// equation's opening and closing, environments that are displayed
+/// formulas), one per line, for [`parse_with`] in the project's other
+/// files.
+pub fn alias_definitions(src: &str) -> String {
+    tables::definition_lines(src)
 }
 
 impl Parse {
@@ -122,6 +147,11 @@ impl Parse {
         &self.green
     }
 
+    /// The other files' definitions it was parsed with ([`parse_with`]).
+    pub fn extra(&self) -> &str {
+        &self.extra
+    }
+
     /// What the parser closed or skipped, in order.
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
@@ -131,7 +161,7 @@ impl Parse {
     /// incremental where it can be, always the same as [`parse`].
     pub fn reparse(&self, new_text: &str, edit: &TextEdit) -> Parse {
         self.reparse_incremental(new_text, edit)
-            .unwrap_or_else(|| parse(new_text))
+            .unwrap_or_else(|| parse_with(new_text, &self.extra))
     }
 
     /// The incremental part of [`Parse::reparse`]: `None` when the edit
