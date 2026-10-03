@@ -71,6 +71,10 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     );
     assert!(cx.debug_bounds("viewer").is_none(), "not as a picture");
     assert!(
+        cx.debug_bounds("viewer-grid-formula").is_some(),
+        "the formula bar"
+    );
+    assert!(
         status(&ws, cx).starts_with("Budget · A1"),
         "{}",
         status(&ws, cx)
