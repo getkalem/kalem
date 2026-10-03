@@ -7184,6 +7184,36 @@ fn plain_commands() -> Vec<Command> {
             Ok(())
         }),
         cmd(
+            "link.insertFiles",
+            "Insert Links to Files",
+            "Insert",
+            &[],
+            None,
+            |ctx, args| {
+                // Files dropped on a document: a link to each, in the
+                // document's syntax, at the cursor.
+                let paths: Vec<std::path::PathBuf> = args
+                    .get("paths")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(Value::as_str).map(Into::into).collect())
+                    .unwrap_or_default();
+                if paths.is_empty() {
+                    return Err(CommandError::new(crate::tr!("msg-no-stored-link")));
+                }
+                let now = ctx.now;
+                let d = ctx.doc()?;
+                let text = crate::links::text_for(&d.meta.mode, &paths, d.meta.path.as_deref());
+                let s = d.selection;
+                let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
+                let mut tx = org_edit::Transaction::new("Insert Links to Files");
+                tx.replace(a..b, text.as_str())
+                    .map_err(|e| CommandError::new(e.to_string()))?;
+                let tx = tx.select(org_edit::Selection::caret(a + text.len()));
+                d.apply(&tx, org_edit::ChangeKind::Command, now);
+                Ok(())
+            },
+        ),
+        cmd(
             "org.link.insertStored",
             "Insert Stored Link",
             "Insert",

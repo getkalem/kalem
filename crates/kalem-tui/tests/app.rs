@@ -4567,3 +4567,30 @@ fn csv_frozen_and_hidden_columns_in_the_terminal() {
     );
     assert_eq!(t.app.doc.text().as_str(), text);
 }
+
+#[test]
+fn file_manager_opens_in_a_new_pane() {
+    // T2.7e.17: Open in New Pane puts the file beside the listing.
+    let (mut t, dir) = project_app(Config::default());
+    let sub = dir.join("proj/sub");
+    t.app.run_command(
+        "file.open",
+        serde_json::json!({ "path": sub.display().to_string() }),
+    );
+    let at = t.app.doc.text().as_str().find("b.org").expect("listed");
+    t.at(at);
+    let listing = title(&t);
+    t.app
+        .run_command("dired.openInPane", serde_json::Value::Null);
+    assert_eq!(title(&t), "b.org");
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("beta") && rows.contains("b.org"), "{rows}");
+    assert_eq!(
+        rows.lines().next().unwrap().matches('│').count(),
+        2,
+        "{rows}"
+    );
+    t.app
+        .run_command("pane.focus", serde_json::json!({ "dir": "left" }));
+    assert_eq!(title(&t), listing);
+}

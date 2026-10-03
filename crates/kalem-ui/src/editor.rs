@@ -229,6 +229,34 @@ pub type Popup = (Point<Pixels>, Vec<(String, bool)>);
 /// version.
 pub type PlainCache = RefCell<Option<(u64, Option<kalem_highlight::Highlighter>, usize)>>;
 
+/// Entries of a file manager listing being dragged: to another listing
+/// (moved, or copied with Alt) or into a document (linked).
+#[derive(Debug, Clone)]
+pub struct DraggedFiles {
+    /// The files.
+    pub paths: Vec<std::path::PathBuf>,
+    /// The drag preview's text: the name, or how many.
+    pub label: SharedString,
+}
+
+struct FilesPreview(SharedString, Theme);
+
+impl gpui::Render for FilesPreview {
+    fn render(&mut self, _: &mut Window, _: &mut Context<'_, Self>) -> impl gpui::IntoElement {
+        use gpui::{ParentElement, Styled};
+        gpui::div()
+            .px(px(8.))
+            .py(px(2.))
+            .rounded(px(4.))
+            .border_1()
+            .border_color(self.1.border)
+            .bg(self.1.bar)
+            .text_color(self.1.foreground)
+            .text_size(px(self.1.size * 0.9))
+            .child(self.0.clone())
+    }
+}
+
 /// What is under the mouse.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hit {
@@ -2975,6 +3003,40 @@ impl Editor {
         self.after_change(cx);
     }
 
+    /// Entries dragged from a file manager listing and dropped here: on a
+    /// listing, moved into the folder under the pointer or the listing's
+    /// (copied with Alt or Option); on a document, linked at the pointer.
+    pub fn drop_files(
+        &mut self,
+        paths: &[std::path::PathBuf],
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        if let Some(Hit { pos, .. }) = self.hit(window.mouse_position()) {
+            self.doc.move_cursor(pos, false);
+        }
+        let list: Vec<Value> = paths
+            .iter()
+            .map(|p| Value::String(p.display().to_string()))
+            .collect();
+        if self.doc.dired.is_some() {
+            let copy = window.modifiers().alt;
+            self.run_command(
+                "dired.dropFiles",
+                serde_json::json!({ "paths": list, "copy": copy }),
+                window,
+                cx,
+            );
+        } else {
+            self.run_command(
+                "link.insertFiles",
+                serde_json::json!({ "paths": list }),
+                window,
+                cx,
+            );
+        }
+    }
+
     /// The picture an image link's `path` names, relative to the
     /// document's folder.
     pub fn picture(&self, path: &str) -> Option<crate::pictures::Picture> {
@@ -4163,10 +4225,37 @@ impl gpui::Render for Editor {
                             line,
                             other,
                         };
-                        if indent == px(0.) {
+                        // A file manager's entry: dragged to another
+                        // listing or into a document.
+                        let (drag, theme) = entity.read_with(cx, |e, _| {
+                            (kalem_core::dired::drag_paths(&e.doc, line), e.theme.clone())
+                        });
+                        let element = if indent == px(0.) {
                             element.into_any_element()
                         } else {
                             div().pl(indent).child(element).into_any_element()
+                        };
+                        if drag.is_empty() {
+                            element
+                        } else {
+                            let label: SharedString = match drag.as_slice() {
+                                [one] => one
+                                    .file_name()
+                                    .map_or_else(
+                                        || one.display().to_string(),
+                                        |n| n.to_string_lossy().into_owned(),
+                                    )
+                                    .into(),
+                                many => tr!("fm-drag-count", count = many.len()).into(),
+                            };
+                            div()
+                                .id(("file-drag", line))
+                                .child(element)
+                                .on_drag(DraggedFiles { paths: drag, label }, move |d, _, _, cx| {
+                                    let t = theme.clone();
+                                    cx.new(|_| FilesPreview(d.label.clone(), t))
+                                })
+                                .into_any_element()
                         }
                     })
                     .size_full(),
@@ -4230,6 +4319,9 @@ impl gpui::Render for Editor {
                     this.drop_paths(paths.paths(), window, cx);
                 }),
             )
+            .on_drop(cx.listener(|this, d: &DraggedFiles, window, cx| {
+                this.drop_files(&d.paths, window, cx);
+            }))
             .size_full()
             .relative()
             .flex()

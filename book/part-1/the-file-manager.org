@@ -77,8 +77,18 @@ overwrite, skip, or keep both (=name (2).ext=), for that file or for
 all that are left. Ctrl+Z takes back the renames, moves and moves to
 the trash of this session, the last first. Cut and Copy keep the
 paths in Kalem's own file clipboard and put them on the system
-clipboard as text; dragging entries, and pasting a file list into
-Finder or Explorer, do not work yet.
+clipboard as text; pasting a file list into Finder or Explorer does not
+work yet.
+
+In the graphical editor, entries can be dragged (the marked ones when
+the line is marked): dropped on a listing, in another pane or the same
+one, they move into the folder under the pointer, or the listing's
+folder, with the same questions as Paste; with Alt (Option on macOS)
+held they are copied. Dropped on a document they are linked at the
+pointer, in its syntax: =[[file:sub/b.org][b.org]]= in Org,
+=[b.org](sub/b.org)= in Markdown, =\href{…}{…}= in LaTeX, relative to the
+document's folder when they are in it or below. /Open in New Pane/ in
+the menu opens the entry beside the listing.
 
 =e= makes the names editable, as Emacs's wdired does: change them with
 any editing command (=old/a.txt= moves the file there), then Ctrl+S
