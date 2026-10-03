@@ -1127,6 +1127,7 @@ cmd-viewer-grid-narrowColumn = Sütunu Daralt
 cmd-viewer-grid-tallerRow = Satırı Yükselt
 cmd-viewer-grid-wrapText = Metni Kaydır
 cmd-viewer-grid-cancel = Seçimi Kaldır
+cmd-viewer-grid-pasteText = Hücrelere Yapıştır
 cmd-viewer-grid-selectUp = Yukarı Seç
 cmd-viewer-grid-selectDown = Aşağı Seç
 cmd-viewer-grid-selectLeft = Sola Seç

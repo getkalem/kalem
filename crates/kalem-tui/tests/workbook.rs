@@ -281,6 +281,24 @@ fn cells_rows_undo_and_save() {
     assert_eq!(input(&mut t, 2, 1), "431.5");
     assert_eq!(input(&mut t, 3, 2), "950");
 
+    // Pasted text: rows into cells in one step; one value fills a selection.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 0);
+    t.app.paste("Books\t1,000.50\nTea\t=B10*2\n", false);
+    assert_eq!(input(&mut t, 9, 0), "Books");
+    assert_eq!(input(&mut t, 9, 1), "1000.5");
+    assert_eq!(input(&mut t, 10, 1), "=B10*2");
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 9, 0), "");
+    assert_eq!(input(&mut t, 10, 1), "");
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(11, 2);
+        v.grid_extend_to(12, 3);
+    }
+    t.app.paste("7", false);
+    assert_eq!(input(&mut t, 12, 3), "7");
+    assert_eq!(input(&mut t, 11, 2), "7");
+
     // Wrap Text on a long text: the row grows to its lines.
     let long = "Paid on the first of every month, by bank transfer";
     t.app.run_command(

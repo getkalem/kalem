@@ -2510,6 +2510,11 @@ impl App {
         if text.is_empty() {
             return;
         }
+        // A spreadsheet takes the text as rows of cells.
+        if self.doc.viewer.as_deref().is_some_and(|v| v.is_grid()) {
+            self.run_command("viewer.grid.pasteText", serde_json::json!({ "text": text }));
+            return;
+        }
         self.doc.paste(text, None, plain, Instant::now());
         self.editor.viewport.goal_x = None;
         self.after_change(true);
