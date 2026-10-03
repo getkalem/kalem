@@ -1808,6 +1808,17 @@ impl App {
                 self.dirty = true;
             }
             Request::SetSetting { key, value, quiet } => self.set_setting(&key, &value, quiet),
+            Request::Copy | Request::Cut
+                if !self.editor.source && kalem_core::csv::cell_rectangle(&self.doc).is_some() =>
+            {
+                // A rectangle of cells copies as cells.
+                let id = if r == Request::Cut {
+                    "csv.cutCells"
+                } else {
+                    "csv.copyCells"
+                };
+                self.run_command(id, serde_json::json!({}));
+            }
             Request::Copy | Request::Cut => {
                 let Some(text) = self.doc.copy_text() else {
                     self.message(tr!("msg-nothing-selected"), false);
@@ -4354,6 +4365,12 @@ impl App {
             .vim
             .as_ref()
             .and_then(|v| v.block_ranges(&self.doc))
+            .or_else(|| {
+                // A CSV grid's rectangle of cells.
+                (!self.editor.source)
+                    .then(|| kalem_core::csv::rectangle_ranges(&self.doc))
+                    .flatten()
+            })
             .unwrap_or_else(|| {
                 // More cursors: their selections, and a cell for each caret.
                 self.doc

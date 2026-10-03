@@ -311,9 +311,12 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("csv.narrowColumn"),
                 item("csv.resetWidths"),
                 MenuEntry::Separator,
+                item("csv.copyCells"),
+                item("csv.cutCells"),
                 item("csv.pasteBlock"),
                 item("csv.recordView"),
                 item("csv.frequencies"),
+                item("csv.histogram"),
             ],
         },
         MenuSpec {
