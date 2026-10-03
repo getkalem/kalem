@@ -4410,3 +4410,94 @@ fn projects_view_menu_removes_and_adds() {
     assert_eq!(t.app.projects.list.list.len(), 1);
     assert!(screen(&mut t).join("\n").contains("proj"));
 }
+
+/// A completer like a language server's: program symbols, slow.
+struct Symbols;
+
+impl kalem_core::completers::Completer for Symbols {
+    fn id(&self) -> &'static str {
+        "symbols"
+    }
+    fn applies(&self, _: &kalem_core::completers::Context) -> bool {
+        true
+    }
+    fn trigger(&self) -> kalem_core::completers::Trigger {
+        kalem_core::completers::Trigger::WordOrAfter(1, &["."])
+    }
+    fn slow(&self) -> bool {
+        true
+    }
+    fn complete(
+        &self,
+        ctx: &kalem_core::completers::Context,
+        _: Option<&kalem_core::DocumentState>,
+        _: &kalem_core::completers::Cancel,
+    ) -> Vec<kalem_core::completers::Item> {
+        let (start, _) = ctx.word_prefix();
+        let mut i = kalem_core::completers::Item::new(
+            "map(enumerable, fun)",
+            "map()",
+            start..ctx.point,
+            kalem_core::completers::Kind::Symbol,
+        );
+        i.cursor = 4;
+        vec![i]
+    }
+}
+
+/// Enter and Tab take a program symbol from the menu, in both profiles;
+/// in Vim's insert mode too, and one Escape there closes the menu and
+/// leaves insert mode.
+#[test]
+fn code_completions_taken() {
+    let wait = |t: &mut T| {
+        for _ in 0..400 {
+            t.app.tick(std::time::Instant::now());
+            if t.app.completion_ready() {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("no completion items");
+    };
+    for (vim, key) in [
+        (false, KeyCode::Enter),
+        (false, KeyCode::Tab),
+        (true, KeyCode::Enter),
+        (true, KeyCode::Tab),
+    ] {
+        let profile = if vim {
+            "editor.keymap_profile = \"vim\"\n"
+        } else {
+            ""
+        };
+        let config = Config::from_layers(&[(Layer::User, None, profile)]);
+        let mut t = with_file("x = 1\n", "t.ex", config, (60, 10));
+        t.app.register_completer(std::sync::Arc::new(Symbols));
+        t.at(6);
+        if vim {
+            t.typ("i");
+        }
+        t.typ("Enum.");
+        wait(&mut t);
+        t.key(key, KeyModifiers::NONE);
+        assert_eq!(t.text(), "x = 1\nEnum.map()", "vim {vim}, {key:?}");
+        assert_eq!(
+            t.app.doc.selection.head,
+            "x = 1\nEnum.map(".len(),
+            "vim {vim}, {key:?}"
+        );
+    }
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_file("x = 1\n", "t.ex", config, (60, 10));
+    t.app.register_completer(std::sync::Arc::new(Symbols));
+    t.at(6);
+    t.typ("iEnum.");
+    wait(&mut t);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(!t.app.completion_ready());
+    assert_eq!(
+        t.app.vim.as_ref().map(|v| v.mode),
+        Some(kalem_core::vim::Mode::Normal)
+    );
+}

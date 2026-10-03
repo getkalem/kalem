@@ -164,6 +164,12 @@ fn main() {
     assert_eq!(greet.insert, "greet()");
     assert_eq!(greet.cursor, "greet(".len());
     assert_eq!(&doc.text().as_str()[greet.range.clone()], "gr");
+    let before = doc.text().as_str().to_string();
+    kalem_core::completers::apply(&mut doc, greet, Instant::now());
+    let after = doc.text().as_str().to_string();
+    println!("APPLIED {before:?} -> {after:?} kind {:?}", greet.kind);
+    assert_eq!(after, before.replacen(" gr", " greet()", 1));
+    assert_eq!(doc.selection.head, end + 1 + "greet(".len());
     println!("test completion ... ok");
 
     // A crash: restarted, the document opened again.

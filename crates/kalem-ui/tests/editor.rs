@@ -1094,6 +1094,143 @@ fn vim_keys(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn vim_insert_takes_completions(cx: &mut TestAppContext) {
+    // In insert mode, Enter and Tab choose from an open completion menu
+    // before the Vim layer sees them (a new line, a tab).
+    let (e, cx) = open_vim("* Intro\n\n", cx);
+    at(&e, 8, cx);
+    cx.simulate_keystrokes("i");
+    cx.simulate_input("#+ti");
+    assert!(e.read_with(cx, |e, _| e.completion.is_some()));
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("Doc");
+    assert_eq!(text(&e, cx), "* Intro\n#+title: Doc\n");
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("see [[In");
+    assert!(e.read_with(cx, |e, _| e.completion.is_some()));
+    cx.simulate_keystrokes("down up tab");
+    assert_eq!(text(&e, cx), "* Intro\n#+title: Doc\nsee [[*Intro]]\n");
+}
+
+/// A completer like a language server's: program symbols, slow.
+struct Symbols;
+
+impl kalem_core::completers::Completer for Symbols {
+    fn id(&self) -> &'static str {
+        "symbols"
+    }
+    fn applies(&self, _: &kalem_core::completers::Context) -> bool {
+        true
+    }
+    fn trigger(&self) -> kalem_core::completers::Trigger {
+        kalem_core::completers::Trigger::WordOrAfter(1, &["."])
+    }
+    fn slow(&self) -> bool {
+        true
+    }
+    fn complete(
+        &self,
+        ctx: &kalem_core::completers::Context,
+        _: Option<&kalem_core::DocumentState>,
+        _: &kalem_core::completers::Cancel,
+    ) -> Vec<kalem_core::completers::Item> {
+        let (start, _) = ctx.word_prefix();
+        let mut i = kalem_core::completers::Item::new(
+            "map(enumerable, fun)",
+            "map()",
+            start..ctx.point,
+            kalem_core::completers::Kind::Symbol,
+        );
+        i.cursor = 4;
+        vec![i]
+    }
+}
+
+/// `text` as an Elixir file with the [`Symbols`] completer, in the Vim
+/// profile or the Word-like one.
+fn open_code<'a>(
+    text: &str,
+    vim: bool,
+    cx: &'a mut TestAppContext,
+) -> (Entity<Editor>, &'a mut VisualTestContext) {
+    let (e, cx) = open_named(text, "t.ex", || None, cx);
+    e.update(cx, |e, _| {
+        let profile = if vim {
+            "editor.keymap_profile = \"vim\"\n"
+        } else {
+            ""
+        };
+        let mut shared = kalem_ui::shared(Config::from_layers(&[(
+            kalem_core::settings::Layer::User,
+            None,
+            profile,
+        )]));
+        shared.html_clipboard = || None;
+        shared.settings_path = e.shared.settings_path.clone();
+        shared.completers.register(std::sync::Arc::new(Symbols));
+        e.shared = Rc::new(shared);
+        e.refresh_vim();
+    });
+    (e, cx)
+}
+
+/// Waits for the slow completers' items, as the editor's timer does.
+fn completion_items(e: &Entity<Editor>, cx: &mut VisualTestContext) -> usize {
+    for _ in 0..200 {
+        let n = e.update(cx, |e, cx| {
+            e.tick(cx);
+            e.completion
+                .as_ref()
+                .filter(|m| !m.session.waiting())
+                .map(|m| m.items().len())
+        });
+        if let Some(n) = n {
+            return n;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    0
+}
+
+#[gpui::test]
+fn code_completions_taken(cx: &mut TestAppContext) {
+    for (vim, key) in [
+        (false, "enter"),
+        (false, "tab"),
+        (true, "enter"),
+        (true, "tab"),
+    ] {
+        let (e, cx) = open_code("x = 1\n", vim, cx);
+        at(&e, 6, cx);
+        if vim {
+            cx.simulate_keystrokes("i");
+        }
+        cx.simulate_input("Enum.");
+        assert!(completion_items(&e, cx) > 0, "vim {vim}: no items");
+        cx.simulate_keystrokes(key);
+        assert_eq!(text(&e, cx), "x = 1\nEnum.map()", "vim {vim}, {key}");
+        let head = e.read_with(cx, |e, _| e.doc.selection.head);
+        assert_eq!(
+            head,
+            "x = 1\nEnum.map(".len(),
+            "vim {vim}, {key}: the cursor"
+        );
+    }
+    // In Vim, one Escape closes the menu and leaves insert mode.
+    let (e, cx) = open_code("x = 1\n", true, cx);
+    at(&e, 6, cx);
+    cx.simulate_keystrokes("i");
+    cx.simulate_input("Enum.");
+    assert!(completion_items(&e, cx) > 0);
+    cx.simulate_keystrokes("escape");
+    let (open, mode) = e.read_with(cx, |e, _| {
+        (e.completion.is_some(), e.vim.as_ref().map(|v| v.mode))
+    });
+    assert!(!open);
+    assert_eq!(mode, Some(kalem_core::vim::Mode::Normal));
+}
+
+#[gpui::test]
 fn vim_block_selection(cx: &mut TestAppContext) {
     let (e, cx) = open_vim("abcd\nefgh\n", cx);
     at(&e, 1, cx);

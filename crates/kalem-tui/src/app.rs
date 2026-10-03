@@ -3231,12 +3231,23 @@ impl App {
             KeyCode::Char('n') if ctrl => m.step(true),
             KeyCode::Up => m.step(false),
             KeyCode::Char('p') if ctrl => m.step(false),
+            // In Vim, one Escape closes the menu and leaves insert mode.
+            KeyCode::Esc if self.vim.is_some() => {
+                self.completion = None;
+                return false;
+            }
             KeyCode::Esc => self.completion = None,
             // Words are taken with Tab: Enter goes on writing prose.
             KeyCode::Enter
                 if m.current()
                     .is_some_and(|i| i.kind == kalem_core::completers::Kind::Word) =>
             {
+                self.completion = None;
+                return false;
+            }
+            // Nothing to choose yet (a server still answering): the key
+            // does what it does without a menu.
+            KeyCode::Enter | KeyCode::Tab if m.current().is_none() => {
                 self.completion = None;
                 return false;
             }
@@ -3884,6 +3895,18 @@ impl App {
 
     /// Background work: parses, file changes, debounced events. Returns
     /// whether something changed on screen.
+    /// A completion menu is open with its items in (none still coming).
+    pub fn completion_ready(&self) -> bool {
+        self.completion
+            .as_ref()
+            .is_some_and(|m| !m.session.waiting() && !m.items().is_empty())
+    }
+
+    /// Adds a completer (a plugin's, a test's).
+    pub fn register_completer(&mut self, c: std::sync::Arc<dyn kalem_core::completers::Completer>) {
+        self.completers.register(c);
+    }
+
     pub fn tick(&mut self, now: Instant) {
         // Language servers: the document in step, their answers shown.
         kalem_core::lsp::sync(&self.doc);
