@@ -349,8 +349,19 @@ pub fn expand(
     root: Option<&org_syntax::SyntaxNode>,
     sel: Selection,
 ) -> Option<Selection> {
+    expand_with(text, root, Vec::new(), sel)
+}
+
+/// [`expand`] with more ranges to grow to: a mode's own structure (a
+/// LaTeX group, command, environment and section).
+pub fn expand_with(
+    text: &str,
+    root: Option<&org_syntax::SyntaxNode>,
+    extra: Vec<std::ops::Range<usize>>,
+    sel: Selection,
+) -> Option<Selection> {
     let (a, b) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
-    let mut candidates: Vec<std::ops::Range<usize>> = Vec::new();
+    let mut candidates: Vec<std::ops::Range<usize>> = extra;
     if let Some(w) = word_at(text, a) {
         candidates.push(w);
     }
@@ -409,6 +420,54 @@ pub fn expand(
         })
 }
 
+/// The LaTeX structure around byte `at` of a LaTeX document, to grow a
+/// selection to: the groups, commands and environments holding it, then
+/// its sections (to the next one of the same level or above).
+fn latex_ranges(doc: &crate::DocumentState, at: usize) -> Vec<std::ops::Range<usize>> {
+    let Some(state) = doc.latex() else {
+        return Vec::new();
+    };
+    let text = doc.text().as_str();
+    if text.is_empty() {
+        return Vec::new();
+    }
+    let trim = |r: std::ops::Range<usize>| {
+        let end = r.start
+            + text[r.clone()]
+                .trim_end_matches([' ', '\t', '\n', '\r'])
+                .len();
+        r.start..end.max(r.start)
+    };
+    let mut out = Vec::new();
+    let root = state.parse().syntax();
+    if let Ok(off) = latex_syntax::TextSize::try_from(at.min(text.len() - 1))
+        && let Some(tok) = root.token_at_offset(off).right_biased()
+    {
+        for n in tok.parent_ancestors() {
+            let r = n.text_range();
+            out.push(trim(usize::from(r.start())..usize::from(r.end())));
+        }
+    }
+    let model = state.model();
+    let own: Vec<_> = model.sections.iter().filter(|s| s.file == 0).collect();
+    for (i, s) in own.iter().enumerate() {
+        if s.range.start > at {
+            break;
+        }
+        let end = own[i + 1..]
+            .iter()
+            .find(|n| n.level <= s.level)
+            .map_or_else(
+                || text.find("\\end{document}").unwrap_or(text.len()),
+                |n| n.range.start,
+            );
+        if at < end {
+            out.push(trim(s.range.start..end));
+        }
+    }
+    out
+}
+
 impl crate::DocumentState {
     /// Expand Selection: the next larger selection by syntax.
     pub fn expand_selection(&mut self) -> bool {
@@ -417,7 +476,8 @@ impl crate::DocumentState {
             _ => None,
         };
         let before = self.selection;
-        let Some(after) = expand(self.text().as_str(), root.as_ref(), before) else {
+        let extra = latex_ranges(self, before.anchor.min(before.head));
+        let Some(after) = expand_with(self.text().as_str(), root.as_ref(), extra, before) else {
             return false;
         };
         if self.expansions.last().is_some_and(|(_, a)| *a != before) {
@@ -545,6 +605,42 @@ mod tests {
         assert!(trim_trailing("a\nb\n").is_none());
         assert_eq!(word_at("foo_bar baz", 3), Some(0..7));
         assert_eq!(word_at("a  b", 2), None);
+    }
+
+    #[test]
+    fn expanding_latex() {
+        // By LaTeX's structure: the group, the command, the environment,
+        // then the section to the next one.
+        let text = "\\documentclass{article}\n\\begin{document}\n\\section{One}\n\\begin{itemize}\n\\item an \\emph{odd word} here\n\\end{itemize}\n\\subsection{Sub}\nmore\n\\section{Two}\nend\n\\end{document}\n";
+        let dir = std::env::temp_dir().join(format!("kalem-expand-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("e.tex");
+        std::fs::write(&file, text).unwrap();
+        let mut d = crate::DocumentState::open(
+            &file,
+            std::sync::Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        d.selection = Selection::caret(text.find("word").unwrap());
+        let mut seen = Vec::new();
+        while d.expand_selection() {
+            let s = d.selection;
+            seen.push(text[s.anchor..s.head].to_string());
+        }
+        let has = |x: &str| seen.iter().any(|s| s == x);
+        assert!(has("\\emph{odd word}"), "{seen:#?}");
+        assert!(
+            has("\\begin{itemize}\n\\item an \\emph{odd word} here\n\\end{itemize}"),
+            "{seen:#?}"
+        );
+        let section =
+            &text[text.find("\\section{One}").unwrap()..text.find("\\section{Two}").unwrap()];
+        assert!(has(section.trim_end()), "{seen:#?}");
+        // The section comes after the environment, before the whole text.
+        let at = |x: &str| seen.iter().position(|s| s == x).unwrap();
+        assert!(at("\\emph{odd word}") < at(section.trim_end()));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
