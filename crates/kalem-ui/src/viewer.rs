@@ -31,6 +31,10 @@ pub struct ViewerView {
     press: Option<Point<Pixels>>,
     /// The pointer is over a link.
     over_link: bool,
+    /// The pointer is over the page's text.
+    over_text: bool,
+    /// A drag that began on the page's text selects it.
+    selecting_text: bool,
     /// The area as last laid out.
     pub bounds: Option<Bounds<Pixels>>,
     /// The next frame's timer.
@@ -211,6 +215,7 @@ impl Editor {
                 let prepaint = entity.clone();
                 let mark = theme.mark.opacity(0.45);
                 let mark_shown = theme.selection.opacity(0.6);
+                let selection = theme.selection.opacity(0.45);
                 div()
                     .debug_selector(|| "viewer".into())
                     .size_full()
@@ -225,11 +230,13 @@ impl Editor {
                                         f32::from(bounds.size.width),
                                         f32::from(bounds.size.height),
                                     );
-                                    Some((v.placement(), v.search_marks()))
+                                    Some((v.placement(), v.search_marks(), v.selection_marks()))
                                 })
                             },
                             move |bounds, placed, window, _cx| {
-                                let Some((p, marks)) = placed else { return };
+                                let Some((p, marks, selected)) = placed else {
+                                    return;
+                                };
                                 let at = Bounds {
                                     origin: bounds.origin + point(px(p.x), px(p.y)),
                                     size: size(px(p.width), px(p.height)),
@@ -245,6 +252,16 @@ impl Editor {
                                 // The find bar's matches over the page, the
                                 // one shown in the selection's color; seen
                                 // through, so the text stays readable.
+                                // The text selected, as text is selected.
+                                for [x, y, w, h] in selected {
+                                    window.paint_quad(gpui::fill(
+                                        Bounds::new(
+                                            bounds.origin + point(px(x), px(y)),
+                                            size(px(w), px(h)),
+                                        ),
+                                        selection,
+                                    ));
+                                }
                                 for ([x, y, w, h], shown) in marks {
                                     let color = if shown { mark_shown } else { mark };
                                     window.paint_quad(gpui::fill(
@@ -271,11 +288,30 @@ impl Editor {
         let area = area
             .id("viewer-area")
             .when(self.viewer_view.over_link, |d| d.cursor_pointer())
+            .when(
+                !self.viewer_view.over_link && self.viewer_view.over_text,
+                |d| d.cursor_text(),
+            )
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, ev: &MouseDownEvent, window, cx| {
-                    this.viewer_view.drag = Some(ev.position);
+                    // On the page's text a drag selects it; elsewhere it
+                    // pans.
+                    let at = ev.position
+                        - this
+                            .viewer_view
+                            .bounds
+                            .map(|b| b.origin)
+                            .unwrap_or_default();
+                    let selecting = this
+                        .doc
+                        .viewer
+                        .as_deref_mut()
+                        .is_some_and(|v| v.select_from(f32::from(at.x), f32::from(at.y)));
+                    this.viewer_view.selecting_text = selecting;
+                    this.viewer_view.drag = (!selecting).then_some(ev.position);
                     this.viewer_view.press = Some(ev.position);
+                    cx.notify();
                     let handle = gpui::Focusable::focus_handle(this, cx);
                     window.focus(&handle, cx);
                 }),
@@ -284,12 +320,17 @@ impl Editor {
                 MouseButton::Left,
                 cx.listener(|this, ev: &MouseUpEvent, _, cx| {
                     this.viewer_view.drag = None;
+                    this.viewer_view.selecting_text = false;
                     let Some(down) = this.viewer_view.press.take() else {
                         return;
                     };
                     let moved = ev.position - down;
                     if f32::from(moved.x).hypot(f32::from(moved.y)) > 4.0 {
                         return;
+                    }
+                    // A click selects nothing.
+                    if let Some(v) = this.doc.viewer.as_deref_mut() {
+                        v.clear_text_selection();
                     }
                     // A click: a link goes to its page, or opens outside.
                     let at = ev.position
@@ -331,22 +372,35 @@ impl Editor {
                 }),
             )
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
+                let at = ev.position
+                    - this
+                        .viewer_view
+                        .bounds
+                        .map(|b| b.origin)
+                        .unwrap_or_default();
+                let (x, y) = (f32::from(at.x), f32::from(at.y));
+                if this.viewer_view.selecting_text {
+                    if ev.pressed_button != Some(MouseButton::Left) {
+                        this.viewer_view.selecting_text = false;
+                    } else if let Some(v) = this.doc.viewer.as_deref_mut() {
+                        v.select_to(x, y);
+                        cx.notify();
+                    }
+                    return;
+                }
                 let Some(from) = this.viewer_view.drag else {
-                    // Over a link, the pointer is a hand.
-                    let at = ev.position
-                        - this
-                            .viewer_view
-                            .bounds
-                            .map(|b| b.origin)
-                            .unwrap_or_default();
-                    let over = this
-                        .doc
-                        .viewer
-                        .as_deref_mut()
-                        .and_then(|v| v.link_at(f32::from(at.x), f32::from(at.y)))
-                        .is_some();
-                    if over != this.viewer_view.over_link {
-                        this.viewer_view.over_link = over;
+                    // Over a link, the pointer is a hand; over text, a
+                    // text cursor.
+                    let Some(v) = this.doc.viewer.as_deref_mut() else {
+                        return;
+                    };
+                    let over_link = v.link_at(x, y).is_some();
+                    let over_text = !over_link && v.text_hit(x, y);
+                    if (over_link, over_text)
+                        != (this.viewer_view.over_link, this.viewer_view.over_text)
+                    {
+                        this.viewer_view.over_link = over_link;
+                        this.viewer_view.over_text = over_text;
                         cx.notify();
                     }
                     return;

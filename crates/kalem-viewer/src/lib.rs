@@ -573,6 +573,20 @@ pub trait ViewerDocument: Send {
         Vec::new()
     }
 
+    /// The glyph of a unit's text at (`x`, `y`) of the unit's pixels at
+    /// scale 1, or the nearest one (on the point's line first): its byte
+    /// range of [`ViewerDocument::text`] and its box (x, y, width,
+    /// height); `None` for a unit without text, or a viewer that does not
+    /// know where its text stands. The host selects text with it.
+    fn text_at(
+        &self,
+        _unit: usize,
+        _x: f32,
+        _y: f32,
+    ) -> Option<(std::ops::Range<usize>, [f32; 4])> {
+        None
+    }
+
     /// The edits the format allows on a unit (`document-editor`); none
     /// for a viewer only.
     fn edits(&self, _unit: usize) -> Vec<Edit> {
