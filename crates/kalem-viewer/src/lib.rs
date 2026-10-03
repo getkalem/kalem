@@ -391,6 +391,59 @@ pub enum CompareOp {
     NotBetween,
 }
 
+/// What kind of chart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ChartKind {
+    /// Vertical bars.
+    #[default]
+    Column,
+    /// Horizontal bars.
+    Bar,
+    /// Lines through the points.
+    Line,
+    /// Lines with the area under them filled.
+    Area,
+    /// Slices of a circle.
+    Pie,
+    /// Slices of a ring.
+    Doughnut,
+    /// Points at their x and y.
+    Scatter,
+    /// A kind drawn as a placeholder (radar, stock, surface, bubble…).
+    Other,
+}
+
+/// One series of a chart.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ChartSeries {
+    /// Its name, for the legend.
+    pub name: String,
+    /// Its values; `None` where a cell holds no number.
+    pub values: Vec<Option<f64>>,
+    /// A scatter chart's x values.
+    pub x: Vec<Option<f64>>,
+    /// Its color, when the file gives one.
+    pub color: Option<[u8; 3]>,
+}
+
+/// A chart on a sheet, as it reads now: values from the cells it names.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Chart {
+    /// What kind.
+    pub kind: ChartKind,
+    /// Its title.
+    pub title: Option<String>,
+    /// The categories (the labels along the axis, or of the slices).
+    pub categories: Vec<String>,
+    /// The series.
+    pub series: Vec<ChartSeries>,
+    /// Where it stands: first row, first column, last row, last column
+    /// of the cells it covers.
+    pub anchor: [u32; 4],
+    /// Bars or areas stacked.
+    pub stacked: bool,
+}
+
 /// How a pivot table summarizes a value field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Aggregate {
@@ -886,6 +939,28 @@ pub trait ViewerDocument: Send {
         _unit: usize,
         _range: Option<[u32; 4]>,
     ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The charts on a unit.
+    fn charts(&mut self, _unit: usize) -> Vec<Chart> {
+        Vec::new()
+    }
+
+    /// Inserts a chart of a range (its first row or column naming the
+    /// series and categories, as a spreadsheet reads it) beside it.
+    fn insert_chart(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _kind: ChartKind,
+        _title: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Removes the chart at `index` of [`ViewerDocument::charts`].
+    fn delete_chart(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
