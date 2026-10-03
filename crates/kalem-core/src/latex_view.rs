@@ -1050,6 +1050,19 @@ fn front_style(name: &str) -> Option<(Style, &'static str)> {
             s.byline = true;
             "Keywords: "
         }
+        // aastex's.
+        "correspondingauthor" => {
+            s.byline = true;
+            "Corresponding author: "
+        }
+        "software" => {
+            s.byline = true;
+            "Software: "
+        }
+        "facilities" | "facility" => {
+            s.byline = true;
+            "Facilities: "
+        }
         "ccsdesc" => {
             s.byline = true;
             "CCS: "
@@ -1157,6 +1170,59 @@ fn in_algorithm(cmd: &SyntaxNode) -> bool {
     })
 }
 
+/// What statement `name` of an algorithm prints where `cmd` is (see
+/// [`algorithm_words`] and [`algorithm2e_words`]).
+fn statement_words(
+    cmd: &SyntaxNode,
+    name: &str,
+    model: &latex_model::Model,
+) -> Option<(&'static str, &'static str, &'static str, bool)> {
+    if in_algorithm(cmd) {
+        return algorithm_words(name);
+    }
+    let words = algorithm2e_words(name)?;
+    let in_2e = model.packages.iter().any(|p| p.name == "algorithm2e")
+        && cmd.ancestors().any(|a| {
+            a.kind() == K::ENVIRONMENT
+                && latex_syntax::name(&a).is_some_and(|n| {
+                    matches!(
+                        n.trim_end_matches('*'),
+                        "algorithm" | "algorithm2e" | "procedure" | "function"
+                    )
+                })
+        });
+    in_2e.then_some(words)
+}
+
+/// What a statement of algorithm2e prints: before its first argument,
+/// between two (a condition and its block), after the last, and whether
+/// that is bold.
+fn algorithm2e_words(name: &str) -> Option<(&'static str, &'static str, &'static str, bool)> {
+    Some(match name {
+        "KwIn" | "Input" => ("Input: ", "", "", true),
+        "KwOut" | "Output" => ("Output: ", "", "", true),
+        "KwData" | "Data" => ("Data: ", "", "", true),
+        "KwResult" | "Result" => ("Result: ", "", "", true),
+        "KwRet" | "Return" => ("return ", "", "", true),
+        "KwTo" => ("to", "", "", true),
+        "If" | "uIf" => ("if ", " then ", "", true),
+        "eIf" => ("if ", " then ", "", true),
+        "ElseIf" | "uElseIf" => ("else if ", " then ", "", true),
+        "Else" | "uElse" => ("else ", "", "", true),
+        "For" => ("for ", " do ", "", true),
+        "ForEach" | "ForAll" => ("foreach ", " do ", "", true),
+        "While" => ("while ", " do ", "", true),
+        "Repeat" => ("repeat ", " until ", "", true),
+        "Switch" => ("switch ", " do ", "", true),
+        "Case" | "uCase" => ("case ", " do ", "", true),
+        "Other" => ("otherwise ", "", "", true),
+        "Begin" => ("begin ", "", " end", true),
+        "tcp" | "tcp*" => ("// ", "", "", false),
+        "tcc" | "tcc*" => ("/* ", "", " */", false),
+        _ => return None,
+    })
+}
+
 /// What a statement of algpseudocode or algorithmic prints: before its
 /// first argument, between two, after the last, and whether that is bold
 /// (keywords are).
@@ -1261,6 +1327,14 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         | "SetDataSty" | "SetKwSty" | "SetCommentSty" | "SetProgSty" => "mm",
         // Struts and rules that make room, and array's line end.
         "rule" => "omm",
+        // REVTeX's switches between one and two columns, ORCID's icon,
+        // cleveref's names, aastex's figure scale, a thick rule.
+        "onecolumngrid" | "twocolumngrid" | "thickhline" => "",
+        // aastex's table settings and the edges of its data.
+        "startdata" | "enddata" | "tableline" | "nodata" => "",
+        "tabletypesize" | "tablecolumns" | "tablewidth" | "tablenum" => "m",
+        "orcidlink" | "epsscale" => "m",
+        "crefname" | "Crefname" => "mmm",
         // TeX's conditionals written in the text: their tests and ends
         // markup, the text of both branches shown.
         "ifx" => "mm",
@@ -1370,6 +1444,11 @@ pub(crate) fn box_args(name: &str) -> Option<&'static str> {
         "hypertarget" | "hyperlink" => "m",
         // REVTeX's e-print link in a bibliography: its text.
         "Eprint" => "m",
+        // The changes package's mark of text added: the text.
+        "added" => "o",
+        // aastex's table: its caption, head and notes, their text.
+        "tablecaption" | "tablehead" | "colhead" | "tablecomments" | "tablerefs" => "",
+        "tablenotetext" => "m",
         "subcaptionbox" => "o",
         "shortstack" => "o",
         "subcaption" => "o",
@@ -1815,7 +1894,14 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
 fn transparent(name: &str) -> bool {
     matches!(
         name,
-        "Eprint"
+        "tablecaption"
+            | "tablehead"
+            | "colhead"
+            | "tablecomments"
+            | "tablerefs"
+            | "tablenotetext"
+            | "Eprint"
+            | "added"
             | "hyperlink"
             | "subcaptionbox"
             | "hypertarget"
@@ -2367,6 +2453,18 @@ pub(crate) fn own_math(
     {
         return Some((format!("${}$", &r[..close]), end));
     }
+    // A displayed formula around the arguments
+    // (`\newcommand{\eq}[1]{\begin{align}#1\end{align}}`, `\[#1\]`).
+    if let Some(r) = body.strip_prefix("\\begin{")
+        && let Some((env, _)) = r.split_once('}')
+        && latex_syntax::signatures::is_math(env)
+        && body.ends_with(&format!("\\end{{{env}}}"))
+    {
+        return Some((body.to_string(), end));
+    }
+    if body.starts_with("\\[") && body.ends_with("\\]") {
+        return Some((body.to_string(), end));
+    }
     if body.contains('$') && !body.contains("$$") && body.matches('$').count() % 2 == 0 {
         // Text with formulas in it, as one formula: the text in its font
         // (`\textit{I$_{3}$}` ⇒ `\textit{I}_{3}`).
@@ -2803,6 +2901,34 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "qed" | "qedsymbol" => "\u{220e}",
         "sep" => ", ",
         "kms" => "km\u{a0}s\u{207b}\u{b9}",
+        // aastex's angles with their decimal point (`1\fdg5`), its section
+        // of thanks, and the journals of its bibliographies.
+        "fdg" => "\u{b0}.",
+        "farcm" => "\u{2032}.",
+        "farcs" => "\u{2033}.",
+        "acknowledgments" | "acknowledgements" => "Acknowledgments. ",
+        "apj" => "ApJ",
+        "apjl" => "ApJL",
+        "apjs" => "ApJS",
+        "aj" => "AJ",
+        "mnras" => "MNRAS",
+        "aap" | "astap" => "A&A",
+        "aaps" => "A&AS",
+        "pasp" => "PASP",
+        "pasj" => "PASJ",
+        "araa" => "ARA&A",
+        "apss" => "Ap&SS",
+        "nat" => "Nature",
+        "jcap" => "JCAP",
+        "icarus" => "Icarus",
+        "procspie" => "Proc.\u{a0}SPIE",
+        "physrep" => "Phys.\u{a0}Rep.",
+        "prd" => "Phys.\u{a0}Rev.\u{a0}D",
+        "lq" => "\u{2018}",
+        "rq" => "\u{2019}",
+        // bbding's check marks.
+        "CheckmarkBold" | "Checkmark" => "\u{2714}",
+        "XSolidBrush" | "XSolid" => "\u{2718}",
         "harvardyearleft" => "(",
         "harvardyearright" => ")",
         // wasysym's circles, boxes and marks.
@@ -3793,16 +3919,30 @@ fn unflagged_line_view(
                 // A statement of an algorithm (algorithmicx's algpseudocode,
                 // algorithmic): its keywords, bold, as the package prints
                 // them; `\\State` nothing.
-                name if in_algorithm(&cmd)
-                    && let Some((before, between, after, bold_words)) =
-                        algorithm_words(&name[1..]) =>
+                name if let Some((before, between, after, bold_words)) =
+                    statement_words(&cmd, &name[1..], &state.model()) =>
                 {
                     let bold = Style {
                         bold: bold_words,
                         ..Style::default()
                     };
-                    let groups: Vec<SyntaxNode> =
+                    let mut groups: Vec<SyntaxNode> =
                         cmd.children().filter(|c| c.kind() == K::GROUP).collect();
+                    // algorithm2e's block (`\\ForEach{…}{…}`), a group of
+                    // its own after the condition when the parser does not
+                    // know the command.
+                    if !between.is_empty() && groups.len() < 2 {
+                        let mut end = node_span(&cmd).end;
+                        let mut next = cmd.next_sibling();
+                        while groups.len() < 2
+                            && let Some(g) = next.filter(|g| g.kind() == K::GROUP)
+                            && node_span(&g).start == end
+                        {
+                            end = node_span(&g).end;
+                            next = g.next_sibling();
+                            groups.push(g);
+                        }
+                    }
                     match groups.as_slice() {
                         // `\\State x`: the blanks after it eaten, as TeX
                         // eats them after a command's name.
@@ -4207,15 +4347,13 @@ fn unflagged_line_view(
                             && !near(&(r.start..end))
                             && renderer_reads(doc, &source) =>
                     {
+                        let display = !source.starts_with('$');
                         b.runs.push(Run {
                             src: r.start..end,
                             text: crate::view::PLACEHOLDER.to_string(),
                             verbatim: false,
                             style: Style::default(),
-                            widget: Some(crate::view::Widget::Math {
-                                source,
-                                display: false,
-                            }),
+                            widget: Some(crate::view::Widget::Math { source, display }),
                         });
                         while let Some(n) = &tok
                             && span(n).start < end
@@ -5641,6 +5779,7 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
 /// document leaves as source).
 pub fn renders_command(name: &str) -> bool {
     algorithm_words(name).is_some()
+        || algorithm2e_words(name).is_some()
         || silent(name).is_some()
         || box_args(name).is_some()
         || format_style(name).is_some()
@@ -5836,6 +5975,11 @@ fn front_environment(name: &str) -> Option<&'static str> {
         | "justify"
         | "footnote"
         | "figurenotes"
+        | "titlepage"
+        | "sideways"
+        | "graphicalabstract"
+        | "highlights"
+        | "highlight"
         | "tablenotes*"
         | "fullwidth" => "",
         _ => return None,
@@ -7660,6 +7804,95 @@ mod tests {
         }
         let all: Vec<String> = [3, 6, 9].map(|n| shown(&d, n, end).display()).into();
         assert_eq!(all.concat(), "ABC");
+    }
+
+    #[test]
+    fn algorithm2e_statements() {
+        let text = "\\documentclass{article}\n\\usepackage[ruled]{algorithm2e}\n\\SetKwInOut{Input}{Input}\n\\begin{document}\n\\begin{algorithm}\n\\Input{a graph $G$}\n\\ForEach{$v \\in V$}{\n\\tcp{visit}\n\\KwRet{$v$}\n}\n\\end{algorithm}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| {
+                    if r.widget.is_some() {
+                        "$".to_string()
+                    } else {
+                        r.text.clone()
+                    }
+                })
+                .collect::<String>()
+        };
+        assert_eq!(read(5), "Input: a graph $");
+        assert_eq!(read(6), "foreach $ do ");
+        assert_eq!(read(7), "// visit");
+        assert_eq!(read(8), "return $");
+    }
+
+    #[test]
+    fn aastex_words_and_front_matter() {
+        let text = "\\documentclass{aastex631}\n\\begin{document}\n\\correspondingauthor{Ada}\n1\\fdg5 and 2\\farcs3 in \\apj\n\\onecolumngrid\n\\acknowledgments We thank \\added{you}.\n\\software{astropy}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert_eq!(read(2), "Corresponding author: Ada");
+        assert_eq!(read(3), "1\u{b0}.5 and 2\u{2033}.3 in ApJ");
+        assert_eq!(read(4), "");
+        assert_eq!(read(5), "Acknowledgments. We thank you.");
+        assert_eq!(read(6), "Software: astropy");
+    }
+
+    #[test]
+    fn own_macros_of_displayed_formulas() {
+        let text = "\\documentclass{article}\n\\usepackage{amsmath}\n\\newcommand{\\eq}[1]{\\begin{align}#1\\end{align}}\n\\begin{document}\n\\eq{x &= 1}\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 4, None);
+        assert!(
+            v.runs.iter().any(|r| matches!(
+                &r.widget,
+                Some(crate::view::Widget::Math { source, .. }) if source == "\\begin{align}x &= 1\\end{align}"
+            )),
+            "{:?}",
+            v.runs
+        );
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
+    fn aastex_tables() {
+        let text = "\\documentclass{aastex631}\n\\begin{document}\n\\begin{deluxetable*}{lc}\n\\tabletypesize{\\scriptsize}\n\\tablecaption{Sources}\n\\tablehead{\\colhead{Name} & \\colhead{Flux}}\n\\startdata\nA & 1 \\\\\n\\enddata\n\\tablecomments{Fluxes in Jy.}\n\\end{deluxetable*}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        let lines: Vec<String> = (3..10).map(read).collect();
+        assert_eq!(
+            lines,
+            [
+                "",
+                "Sources",
+                "Name  Flux",
+                "",
+                "A  1 ",
+                "",
+                "Fluxes in Jy."
+            ]
+        );
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
     }
 
     #[test]
