@@ -992,6 +992,86 @@ pub fn frequencies(text: &str, d: &Dialect, col: usize) -> Vec<(String, usize)> 
     v
 }
 
+/// One range of a histogram: values from `low` up to `high` (`high`
+/// itself only in the last range), how many rows hold one, and the first
+/// such row (counted with the header).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bin {
+    pub low: f64,
+    pub high: f64,
+    pub count: usize,
+    pub first: usize,
+}
+
+/// The numbers of column `col` (the header left out) in ranges of a round
+/// width (1, 2 or 5 times a power of ten), about as many ranges as
+/// Sturges' rule gives, at most 20; empty when the column holds no
+/// numbers. Fields that are not numbers are left out.
+pub fn histogram(text: &str, d: &Dialect, col: usize) -> Vec<Bin> {
+    let comma = d.delimiter == b';';
+    let values: Vec<(usize, f64)> = rows(text, d)
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| !(*i == 0 && d.header))
+        .filter_map(|(i, row)| {
+            number(row.get(col)?, comma)
+                .filter(|v| v.is_finite())
+                .map(|v| (i, v))
+        })
+        .collect();
+    let Some(min) = values.iter().map(|v| v.1).reduce(f64::min) else {
+        return Vec::new();
+    };
+    let max = values.iter().map(|v| v.1).fold(min, f64::max);
+    let wanted = ((values.len() as f64).log2().ceil() as usize + 1).clamp(1, 20);
+    let width = round_width((max - min) / wanted as f64);
+    let low = (min / width).floor() * width;
+    let n = (((max - low) / width).floor() as usize + 1).min(64);
+    let mut bins: Vec<Bin> = (0..n)
+        .map(|k| Bin {
+            low: low + k as f64 * width,
+            high: low + (k + 1) as f64 * width,
+            count: 0,
+            first: usize::MAX,
+        })
+        .collect();
+    for (row, v) in values {
+        let k = (((v - low) / width).floor().max(0.0) as usize).min(n - 1);
+        bins[k].count += 1;
+        bins[k].first = bins[k].first.min(row);
+    }
+    bins
+}
+
+/// The round width (1, 2 or 5 times a power of ten) at or above `w`; 1 for
+/// a column of one value.
+fn round_width(w: f64) -> f64 {
+    if w.is_nan() || w <= 0.0 || !w.is_finite() {
+        return 1.0;
+    }
+    let p = 10f64.powf(w.log10().floor());
+    [1.0, 2.0, 5.0, 10.0]
+        .into_iter()
+        .map(|m| m * p)
+        .find(|&r| r >= w * (1.0 - 1e-9))
+        .unwrap_or(10.0 * p)
+}
+
+/// A histogram range's bounds as text: `10 – 20`, without the rounding
+/// noise of floating point.
+pub fn bin_label(b: &Bin) -> String {
+    let f = |v: f64| {
+        let s = format!("{:.10}", v);
+        let s = s.trim_end_matches('0').trim_end_matches('.');
+        if s == "-0" {
+            "0".to_string()
+        } else {
+            s.to_string()
+        }
+    };
+    format!("{} – {}", f(b.low), f(b.high))
+}
+
 /// A bar of `n` out of `max` in at most `width` cells, for the frequency
 /// table's histogram.
 pub fn bar(n: usize, max: usize, width: usize) -> String {
@@ -1573,12 +1653,59 @@ pub fn frozen_width(layout: &Layout) -> Option<usize> {
 /// The cell at the cursor of the CSV document `doc`: the layout, the row,
 /// its record and the column.
 pub fn cell_at(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Layout>, usize, Record, usize)> {
+    cell_at_offset(doc, doc.selection.head)
+}
+
+/// Rows and columns of a rectangle of cells, each as first and last.
+pub type Rectangle = ((usize, usize), (usize, usize));
+
+/// The rows and columns of the rectangle of cells a selection spans in a
+/// CSV document: from the anchor's cell to the cursor's, when they are in
+/// different rows (a selection within one row stays text).
+pub fn cell_rectangle(doc: &crate::DocumentState) -> Option<Rectangle> {
+    let sel = doc.selection;
+    if sel.anchor == sel.head || !doc.extra.is_empty() {
+        return None;
+    }
+    let (_, r1, _, c1) = cell_at(doc)?;
+    let (_, r0, _, c0) = cell_at_offset(doc, sel.anchor)?;
+    (r0 != r1).then_some(((r0.min(r1), r0.max(r1)), (c0.min(c1), c0.max(c1))))
+}
+
+/// The byte ranges of the cells of [`cell_rectangle`], one per row, from
+/// its first column's field to its last (shorter rows to their end), to
+/// paint as selected.
+pub fn rectangle_ranges(doc: &crate::DocumentState) -> Option<Vec<Range<usize>>> {
+    let ((r0, r1), (c0, c1)) = cell_rectangle(doc)?;
+    let layout = layout(doc);
+    let text = doc.text().as_str();
+    let mut idx = layout.index.borrow_mut();
+    let mut out = Vec::new();
+    for row in r0..=r1 {
+        let Some(rec) = idx.record(text, row, &layout.dialect) else {
+            break;
+        };
+        let (Some(first), Some(last)) =
+            (rec.fields.get(c0), rec.fields.get(c1).or(rec.fields.last()))
+        else {
+            continue;
+        };
+        out.push(first.range.start..last.range.end.max(first.range.start));
+    }
+    Some(out)
+}
+
+/// The cell at byte `pos`, as [`cell_at`] gives the cursor's.
+pub fn cell_at_offset(
+    doc: &crate::DocumentState,
+    pos: usize,
+) -> Option<(std::rc::Rc<Layout>, usize, Record, usize)> {
     if doc.meta.mode != crate::DocumentMode::Csv {
         return None;
     }
     let layout = layout(doc);
     let text = doc.text().as_str();
-    let pos = doc.selection.head.min(text.len());
+    let pos = pos.min(text.len());
     let (row, rec) = {
         let mut idx = layout.index.borrow_mut();
         let row = idx.row_at(text, pos, &layout.dialect);
@@ -2294,6 +2421,28 @@ mod tests {
 #[cfg(test)]
 mod spreadsheet_tests {
     use super::*;
+
+    #[test]
+    fn histogram_of_a_numeric_column() {
+        let d = Dialect {
+            delimiter: b',',
+            header: true,
+            ..Dialect::default()
+        };
+        let text = "n,v\na,1\nb,3\nc,12\nd,x\ne,19\nf,20\n";
+        let h = histogram(text, &d, 1);
+        let labels: Vec<String> = h.iter().map(bin_label).collect();
+        assert_eq!(labels, ["0 – 5", "5 – 10", "10 – 15", "15 – 20", "20 – 25"]);
+        let counts: Vec<usize> = h.iter().map(|b| b.count).collect();
+        assert_eq!(counts, [2, 0, 1, 1, 1]);
+        assert_eq!(h[0].first, 1);
+        assert_eq!(h[2].first, 3);
+        assert!(histogram(text, &d, 0).is_empty());
+        // One value: one range.
+        let h = histogram("v\n2.5\n2.5\n", &d, 0);
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].count, 2);
+    }
 
     #[test]
     fn frequencies_and_column_replace() {

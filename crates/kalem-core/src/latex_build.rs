@@ -314,6 +314,82 @@ pub struct Built {
     pub problems: Vec<Problem>,
 }
 
+/// What LaTeX and its tools write beside a document, which a repository
+/// shared with co-authors or Overleaf leaves out.
+pub const BUILD_OUTPUTS: &[&str] = &[
+    "*.aux",
+    "*.log",
+    "*.out",
+    "*.toc",
+    "*.lof",
+    "*.lot",
+    "*.fls",
+    "*.fdb_latexmk",
+    "*.synctex.gz",
+    "*.synctex(busy)",
+    "*.bbl",
+    "*.blg",
+    "*.bcf",
+    "*.run.xml",
+    "*.nav",
+    "*.snm",
+    "*.vrb",
+    "*.xdv",
+    "*.dvi",
+];
+
+/// The repository holding `root` (a `.git` in its folder or one above),
+/// its `.gitignore`, and the patterns of [`BUILD_OUTPUTS`], the root's
+/// PDF and the output folder it lacks; `None` outside a repository or
+/// when it lacks none.
+pub fn ignore_missing(root: &Path, out_dir: Option<&Path>) -> Option<(PathBuf, Vec<String>)> {
+    let dir = root.parent()?;
+    let repo = dir.ancestors().find(|d| d.join(".git").exists())?;
+    let file = repo.join(".gitignore");
+    let have: std::collections::HashSet<String> = std::fs::read_to_string(&file)
+        .unwrap_or_default()
+        .lines()
+        .map(|l| l.trim().to_string())
+        .collect();
+    // Paths from the repository's top, as `.gitignore` reads them.
+    let rel = |p: &Path| {
+        let p = p.strip_prefix(repo).unwrap_or(p);
+        format!("/{}", p.to_string_lossy().replace('\\', "/"))
+    };
+    let mut want: Vec<String> = BUILD_OUTPUTS.iter().map(|s| s.to_string()).collect();
+    want.push(rel(&root.with_extension("pdf")));
+    if let Some(o) = out_dir {
+        want.push(format!("{}/", rel(&dir.join(o))));
+    }
+    let missing: Vec<String> = want.into_iter().filter(|w| !have.contains(w)).collect();
+    (!missing.is_empty()).then_some((file, missing))
+}
+
+/// Adds what [`ignore_missing`] finds to the repository's `.gitignore`
+/// (made if there is none): how many patterns, and the file.
+pub fn ignore_build_outputs(
+    root: &Path,
+    out_dir: Option<&Path>,
+) -> Result<(usize, PathBuf), String> {
+    let Some((file, missing)) = ignore_missing(root, out_dir) else {
+        return Ok((0, root.to_path_buf()));
+    };
+    let mut text = std::fs::read_to_string(&file).unwrap_or_default();
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    if !text.is_empty() {
+        text.push('\n');
+    }
+    text.push_str("# LaTeX build outputs\n");
+    for m in &missing {
+        text.push_str(m);
+        text.push('\n');
+    }
+    std::fs::write(&file, text).map_err(|e| e.to_string())?;
+    Ok((missing.len(), file))
+}
+
 /// The command that builds `root` with `tool`, the output in `out_dir`;
 /// what it prints goes to `output`.
 fn build_command(
@@ -333,6 +409,8 @@ fn build_command(
                 "-interaction=nonstopmode",
                 "-file-line-error",
                 "-halt-on-error",
+                // Where each line is typeset, for Show in PDF and back.
+                "-synctex=1",
             ]);
             c.arg(match engine {
                 Engine::PdfLatex => "-pdflatex",
@@ -348,7 +426,7 @@ fn build_command(
         }
         Tool::Engine(p) => {
             let mut c = Command::new(p);
-            c.args(["-interaction=nonstopmode", "-file-line-error"]);
+            c.args(["-interaction=nonstopmode", "-file-line-error", "-synctex=1"]);
             if let Some(d) = out_dir {
                 c.arg(format!("-output-directory={}", d.display()));
             }
@@ -356,7 +434,7 @@ fn build_command(
         }
         Tool::Tectonic(p) => {
             let mut c = Command::new(p);
-            c.arg("--keep-logs");
+            c.args(["--keep-logs", "--synctex"]);
             if let Some(d) = out_dir {
                 c.arg(format!("--outdir={}", d.display()));
             }
@@ -581,6 +659,34 @@ pub fn report(root: &Path, problems: &[Problem]) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn build_outputs_kept_out_of_git() {
+        let dir = std::env::temp_dir().join(format!("kalem-ignore-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("paper")).unwrap();
+        let root = dir.join("paper/main.tex");
+        std::fs::write(&root, "\\documentclass{article}\n").unwrap();
+        // Outside a repository: nothing to offer.
+        assert!(ignore_missing(&root, None).is_none());
+        std::fs::create_dir_all(dir.join(".git")).unwrap();
+        std::fs::write(dir.join(".gitignore"), "*.log\nnode_modules/").unwrap();
+        let (file, missing) = ignore_missing(&root, Some(Path::new("build"))).unwrap();
+        assert_eq!(file, dir.join(".gitignore"));
+        assert!(!missing.contains(&"*.log".to_string()));
+        assert!(missing.contains(&"/paper/main.pdf".to_string()));
+        assert!(missing.contains(&"/paper/build/".to_string()));
+        let (n, _) = ignore_build_outputs(&root, Some(Path::new("build"))).unwrap();
+        assert_eq!(n, missing.len());
+        let text = std::fs::read_to_string(dir.join(".gitignore")).unwrap();
+        assert!(
+            text.starts_with("*.log\nnode_modules/\n\n# LaTeX build outputs\n*.aux\n"),
+            "{text}"
+        );
+        // Done once: nothing left to add.
+        assert!(ignore_missing(&root, Some(Path::new("build"))).is_none());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     use super::*;
 
     #[cfg(unix)]

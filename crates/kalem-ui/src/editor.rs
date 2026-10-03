@@ -415,6 +415,10 @@ pub struct Editor {
     /// The width of a CSV grid's frozen first column, painted unscrolled
     /// over the rows' left edge (set when rendering; zero when none).
     pub frozen: std::cell::Cell<Pixels>,
+    /// A CSV column's edge being dragged in the letters bar: the column,
+    /// where the drag started, its width then in characters, a
+    /// character's width.
+    pub column_drag: Option<(usize, Pixels, usize, Pixels)>,
     /// A plain text document's highlighting and indentation step.
     pub plain: PlainCache,
     /// The highlighting of a file too large for [`Editor::plain`]'s: the
@@ -537,6 +541,7 @@ impl Editor {
             sent_selection: None,
             hscroll: px(0.),
             frozen: std::cell::Cell::new(px(0.)),
+            column_drag: None,
             plain: RefCell::default(),
             windowed: RefCell::default(),
             disk_checked: Instant::now(),
@@ -1089,6 +1094,34 @@ impl Editor {
             }
             return;
         }
+        // Files pasted into a listing: those copied in another application
+        // too, from the system clipboard's file list or text.
+        let args = if id == "dired.paste" && args.get("system").is_none() {
+            let mut args = if args.is_null() {
+                serde_json::json!({})
+            } else {
+                args
+            };
+            if let (Some(item), Some(map)) = (cx.read_from_clipboard(), args.as_object_mut()) {
+                let paths: Vec<String> = item
+                    .entries()
+                    .iter()
+                    .filter_map(|e| match e {
+                        gpui::ClipboardEntry::ExternalPaths(p) => Some(p.paths().to_vec()),
+                        _ => None,
+                    })
+                    .flatten()
+                    .map(|p| p.display().to_string())
+                    .collect();
+                map.insert("paths".into(), serde_json::json!(paths));
+                if let Some(text) = item.text() {
+                    map.insert("system".into(), Value::String(text));
+                }
+            }
+            args
+        } else {
+            args
+        };
         let now = Instant::now();
         let clock = jiff::Zoned::now().datetime();
         self.clipboard.registers = self
@@ -1165,6 +1198,17 @@ impl Editor {
             Request::Save => self.save(window, cx),
             Request::SaveAs => self.save_as(window, cx),
             Request::Quit => cx.emit(DocEvent::Quit),
+            Request::Copy | Request::Cut
+                if !self.source && kalem_core::csv::cell_rectangle(&self.doc).is_some() =>
+            {
+                // A rectangle of cells copies as cells.
+                let id = if r == Request::Cut {
+                    "csv.cutCells"
+                } else {
+                    "csv.copyCells"
+                };
+                self.run_command(id, serde_json::json!({}), window, cx);
+            }
             Request::Copy | Request::Cut => {
                 let Some(text) = self.doc.copy_text() else {
                     return;
@@ -3076,6 +3120,21 @@ impl Editor {
         _window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) {
+        // A CSV column's edge dragged: its width follows the mouse (view
+        // state, as Column Width sets it).
+        if let Some((col, x0, w0, char_w)) = self.column_drag {
+            if ev.pressed_button != Some(MouseButton::Left) {
+                self.column_drag = None;
+                return;
+            }
+            let delta = ((ev.position.x - x0) / char_w).round() as i64;
+            let w = (w0 as i64 + delta).clamp(2, 500) as usize;
+            if self.doc.csv_columns.widths.get(&col) != Some(&w) {
+                self.doc.csv_columns.widths.insert(col, w);
+                cx.notify();
+            }
+            return;
+        }
         if !self.dragging || ev.pressed_button != Some(MouseButton::Left) {
             self.dragging = false;
             // The entry a citation under the mouse cites, or a footnote's
@@ -4126,8 +4185,39 @@ impl gpui::Render for Editor {
                 let next = widths.last().map_or(0, |(j, _)| j + 1);
                 let letter_cell = |j: usize, w: usize| {
                     let on = *current == Some(j);
+                    // The column's right edge: dragged, its width; double
+                    // clicked, its width fitted to its values.
+                    let drag = entity.clone();
+                    let handle = div()
+                        .debug_selector(move || format!("csv-edge-{j}"))
+                        .absolute()
+                        .top(px(0.))
+                        .right(px(-3.))
+                        .w(px(6.))
+                        .h_full()
+                        .cursor(gpui::CursorStyle::ResizeLeftRight)
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            move |ev: &MouseDownEvent, window, cx| {
+                                cx.stop_propagation();
+                                drag.update(cx, |e, cx| {
+                                    if ev.click_count >= 2 {
+                                        e.column_drag = None;
+                                        e.run_command(
+                                            "csv.autosizeColumn",
+                                            serde_json::json!({ "column": j }),
+                                            window,
+                                            cx,
+                                        );
+                                    } else {
+                                        e.column_drag = Some((j, ev.position.x, w, char_w));
+                                    }
+                                });
+                            },
+                        );
                     let mut d = div()
                         .flex_none()
+                        .relative()
                         .w(char_w * (w as f32 + 3.))
                         .h_full()
                         .flex()
@@ -4135,7 +4225,8 @@ impl gpui::Render for Editor {
                         .justify_center()
                         .border_l_1()
                         .border_color(line)
-                        .child(SharedString::from(kalem_core::csv_tools::column_letters(j)));
+                        .child(SharedString::from(kalem_core::csv_tools::column_letters(j)))
+                        .child(handle);
                     if on {
                         // Marked by its color and a green line under it;
                         // the letter stays as readable as the rest.

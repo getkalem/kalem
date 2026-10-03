@@ -63,12 +63,33 @@ fn main() {
     let at = d.text().line_start(mid + 3);
     d.selection = org_edit::Selection::caret(at);
     let mut keys = Vec::new();
-    for _ in 0..50 {
+    let rounds: usize = std::env::var("KEYS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(50);
+    let mut parts = [Vec::new(), Vec::new(), Vec::new()];
+    for _ in 0..rounds {
         let t = Instant::now();
         d.type_text("x", false, Instant::now());
+        let typed = t.elapsed();
         screen(&d, mid);
+        let screened = t.elapsed();
         std::hint::black_box(kalem_core::latex_view::blocks(&d));
         keys.push(t.elapsed());
+        parts[0].push(typed);
+        parts[1].push(screened - typed);
+        parts[2].push(t.elapsed() - screened);
+    }
+    for p in &mut parts {
+        p.sort();
+    }
+    if std::env::var("PARTS").is_ok() {
+        println!(
+            "p50 of the parts: typing {:?}, the screen {:?}, the blocks {:?}",
+            parts[0][parts[0].len() / 2],
+            parts[1][parts[1].len() / 2],
+            parts[2][parts[2].len() / 2]
+        );
     }
     keys.sort();
     println!(

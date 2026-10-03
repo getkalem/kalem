@@ -225,6 +225,7 @@
   { "keys": "leader m e", "command": "latex.insert.equation", "when": "vimCommand && editorMode == latex" },
   { "keys": "leader m f", "command": "latex.format.italic", "when": "vimCommand && editorMode == latex" },
   { "keys": "leader m s", "command": "latex.section.setLevel", "when": "vimCommand && editorMode == latex" },
+  { "keys": "leader m v", "command": "latex.showInPdf", "when": "vimCommand && editorMode == latex" },
   { "keys": "leader m =", "command": "view.outline", "when": "vimCommand && editorMode == latex" },
   { "keys": "leader m *", "command": "view.toggleMath", "when": "vimCommand && editorMode == latex" },
   { "keys": "leader m p", "command": "latex.nextProblem", "when": "vimCommand && editorMode == latex" },

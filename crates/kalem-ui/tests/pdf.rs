@@ -163,3 +163,54 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     settle(&ws, cx);
     assert_eq!(found(cx), (0, "1/3".to_string()));
 }
+
+/// SyncTeX (T2.7h.24): opened at a line, a PDF shows that page; a
+/// Ctrl-click (Cmd on macOS) on a page opens the source line typeset
+/// there.
+#[gpui::test]
+fn synctex_both_ways(cx: &mut TestAppContext) {
+    let (ws, cx) = open(cx);
+    settle(&ws, cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let pdf = e.read_with(cx, |e, _| e.doc.meta.path.clone().unwrap());
+    let dir = pdf.parent().unwrap().to_path_buf();
+    // Page 2: a line of text from line 1 of notes.org, 72–300 points
+    // across, 90–110 down.
+    let sp = |bp: f64| (bp * 72.27 / 72.0 * 65536.0).round() as i64;
+    std::fs::write(
+        dir.join("pages.synctex"),
+        format!(
+            "SyncTeX Version:1\nInput:1:{}\nUnit:1\nContent:\n{{1\n}}1\n{{2\n(1,1:{},{}:{},{},0\nx1,1:{},{}\n)\n}}2\n",
+            dir.join("notes.org").display(),
+            sp(72.0),
+            sp(110.0),
+            sp(228.0),
+            sp(20.0),
+            sp(80.0),
+            sp(110.0)
+        ),
+    )
+    .unwrap();
+    // Opened at "line" 2: page 2.
+    ws.update_in(cx, |ws, window, cx| ws.open(&pdf, Some((2, 0)), window, cx));
+    settle(&ws, cx);
+    let (status, _, _) = state(&ws, cx);
+    assert!(status.ends_with(" · 2/3"), "{status}");
+    // Ctrl-click in that line of text: notes.org.
+    let at = e.update(cx, |e, _| {
+        let origin = e.viewer_view.bounds.expect("laid out").origin;
+        let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+        origin
+            + gpui::point(
+                gpui::px(p.x + 150.0 * p.scale),
+                gpui::px(p.y + 100.0 * p.scale),
+            )
+    });
+    cx.simulate_click(at, gpui::Modifiers::secondary_key());
+    cx.run_until_parked();
+    let path = ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.meta.path.clone());
+    assert_eq!(
+        path.and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())),
+        Some("notes.org".to_string())
+    );
+}

@@ -4594,3 +4594,65 @@ fn file_manager_opens_in_a_new_pane() {
         .run_command("pane.focus", serde_json::json!({ "dir": "left" }));
     assert_eq!(title(&t), listing);
 }
+
+#[test]
+fn csv_rectangle_of_cells_in_the_terminal() {
+    // T2.7d.9: a selection across rows of a grid is a rectangle of cells,
+    // painted as one and copied as TSV.
+    let text = "a,b,c\n11,22,33\n44,55,66\n";
+    let mut t = with_file(text, "r.csv", Config::default(), (40, 8));
+    t.at(text.find("22").unwrap());
+    t.app.doc.move_cursor(text.find("55").unwrap() + 1, true);
+    let buf = t.draw();
+    let find = |s: &str| {
+        let rows: Vec<String> = (0..buf.area.height)
+            .map(|y| {
+                (0..buf.area.width)
+                    .map(|x| buf[(x, y)].symbol().to_string())
+                    .collect()
+            })
+            .collect();
+        rows.iter()
+            .enumerate()
+            .find_map(|(y, r)| r.find(s).map(|i| (r[..i].chars().count() as u16, y as u16)))
+            .unwrap_or_else(|| panic!("{s} drawn: {rows:#?}"))
+    };
+    let reversed = |(x, y): (u16, u16)| buf[(x, y)].modifier.contains(Modifier::REVERSED);
+    assert!(
+        reversed(find("22")) && reversed(find("55")),
+        "the column's cells"
+    );
+    for s in ["11", "33", "44", "66"] {
+        assert!(!reversed(find(s)), "{s} is outside the rectangle");
+    }
+    t.app.take_output();
+    t.app.run_command("edit.copy", serde_json::Value::Null);
+    // "22\n55\n", through OSC 52.
+    assert_eq!(t.app.take_output(), ["\x1b]52;c;MjIKNTUK\x07"]);
+    assert_eq!(t.text(), text);
+}
+
+#[test]
+fn file_menu_separators_in_the_terminal() {
+    // T2.7e.17: the file menu's groups are parted by rules, as in the
+    // graphical editor's menu, while nothing is typed.
+    let (mut t, dir) = project_app(Config::default());
+    t.app.run_command(
+        "file.open",
+        serde_json::json!({ "path": dir.join("proj").display().to_string() }),
+    );
+    let at = t.app.doc.text().as_str().find("a.org").expect("listed");
+    t.at(at);
+    t.app
+        .run_command("dired.contextMenu", serde_json::Value::Null);
+    let rows = screen(&mut t);
+    let rules = rows.iter().filter(|r| r.contains("────────")).count();
+    assert!(rules >= 2, "{rows:#?}");
+    let open = rows.iter().position(|r| r.contains("Open")).expect("Open");
+    let rule = rows.iter().position(|r| r.contains("────────")).unwrap();
+    assert!(open < rule, "{rows:#?}");
+    // Typed: the matches only.
+    t.typ("cop");
+    let rows = screen(&mut t);
+    assert!(!rows.iter().any(|r| r.contains("────────")), "{rows:#?}");
+}

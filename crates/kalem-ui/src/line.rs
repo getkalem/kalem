@@ -1501,7 +1501,14 @@ impl gpui::Element for LineElement {
             .vim
             .as_ref()
             .and_then(|v| v.block_ranges(&editor.doc))
+            .or_else(|| {
+                // A CSV grid's rectangle of cells.
+                (!editor.source)
+                    .then(|| kalem_core::csv::rectangle_ranges(&editor.doc))
+                    .flatten()
+            })
             .unwrap_or_default();
+        let rectangle = !editor.source && kalem_core::csv::cell_rectangle(&editor.doc).is_some();
         let marked = editor.marked.clone();
         let view = p.view.clone();
         let sheet = (editor.doc.meta.mode == kalem_core::DocumentMode::Csv && !editor.source)
@@ -1683,7 +1690,7 @@ impl gpui::Element for LineElement {
             }
             // The selection, under the text.
             let (sa, sb) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
-            if sa < sb && sa <= le && sb >= ls {
+            if sa < sb && sa <= le && sb >= ls && !rectangle {
                 let (a, b) = (
                     view.display_offset(sa.max(ls)),
                     view.display_offset(sb.min(le)),

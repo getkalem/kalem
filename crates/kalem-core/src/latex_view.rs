@@ -1488,8 +1488,13 @@ pub(crate) fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Optio
                 let n = text[*p..limit]
                     .bytes()
                     .take_while(|c| c.is_ascii_alphabetic() || *c == b'@')
-                    .count()
-                    .max(1);
+                    .count();
+                // A control symbol: one character, however many bytes.
+                let n = if n == 0 {
+                    text[*p..limit].chars().next().map_or(1, char::len_utf8)
+                } else {
+                    n
+                };
                 *p = (*p + n).min(limit);
             }
             _ => *p += text[*p..].chars().next()?.len_utf8(),
@@ -4853,7 +4858,37 @@ fn unflagged_line_view(
                                 _ => {}
                             }
                         }
-                        b.replace(r.start..end, rep, c.style);
+                        // `!` or `?` and the left quote make the Spanish
+                        // ligature, as `` !` `` does: TeX joins the font's
+                        // characters however they were written.
+                        let lig = match (name, b.runs.last()) {
+                            ("textquoteleft", Some(last))
+                                if !c.style.code
+                                    && last.verbatim
+                                    && last.src.end == r.start
+                                    && last.src.len() == last.text.len() =>
+                            {
+                                match last.text.as_bytes().last() {
+                                    Some(b'!') => Some("\u{a1}"),
+                                    Some(b'?') => Some("\u{bf}"),
+                                    _ => None,
+                                }
+                            }
+                            _ => None,
+                        };
+                        match lig {
+                            Some(lig) => {
+                                if let Some(last) = b.runs.last_mut() {
+                                    last.src.end -= 1;
+                                    last.text.pop();
+                                    if last.src.is_empty() {
+                                        b.runs.pop();
+                                    }
+                                }
+                                b.replace(r.start - 1..end, lig, c.style);
+                            }
+                            None => b.replace(r.start..end, rep, c.style),
+                        }
                     }
                     // A case change of plain text: the text changed.
                     (
@@ -8086,6 +8121,13 @@ mod tests {
     }
 
     #[test]
+    fn control_symbols_outside_ascii() {
+        // `\😀`: one control symbol, four bytes.
+        let t = "\\x\\😀 rest";
+        assert_eq!(args_end(t, 2, t.len(), "m"), Some(2 + "\\😀".len()));
+    }
+
+    #[test]
     fn own_macros_of_pictures_and_files() {
         let text = "\\documentclass{article}\n\\usepackage{graphicx,twoopt}\n\\newcommandtwoopt{\\twographs}[4][][]{\\begin{figure}\\includegraphics{#3.png}\\includegraphics{#4.png}\\caption{#1}\\label{fig:#2}\\end{figure}}\n\\newcommand{\\twotables}[2]{\\begin{center}\\input{#1}\\input{#2}\\end{center}}\n\\begin{document}\n\\twographs[Two \\emph{plots}.][ab]{a}{b}\n\\twotables{t1}{t2}\n\\end{document}\n";
         let d = doc(text);
@@ -9115,6 +9157,14 @@ mod tests {
             shown(&d, 0, Some(text.len())).display(),
             // Declarations stay as source, dimmed.
             "\u{a1}Hola! \u{bf}Qué? a\u{2013}b a--b ``c'' {\\tt x--y}"
+        );
+        // The quote written as a command makes the ligature too, as
+        // pdflatex typesets it; apart, it does not.
+        let text = "x !\\textquoteleft y ?\\textquoteleft{}z ! \\textquoteleft w\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 0, Some(text.len())).display(),
+            "x \u{a1}y \u{bf}z ! \u{2018}w"
         );
     }
 
