@@ -1256,6 +1256,7 @@ cmd-viewer-grid-insertPivot = Insert PivotTable
 cmd-viewer-grid-refreshPivots = Refresh All PivotTables
 cmd-viewer-grid-insertChart = Insert Chart
 cmd-viewer-grid-deleteChart = Delete Chart
+cmd-viewer-grid-chartTitle = Chart Title
 cmd-viewer-grid-moveChartUp = Move Chart Up
 cmd-viewer-grid-moveChartDown = Move Chart Down
 cmd-viewer-grid-moveChartLeft = Move Chart Left
