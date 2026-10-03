@@ -545,6 +545,7 @@ impl Editor {
         let sel_name = v.selection_name();
         let sel = v.selection();
         let selecting = v.grid_pos().sel.is_some();
+        let cut = v.cut_range();
         let in_sel = move |r: u32, c: u32| {
             selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c)
         };
@@ -685,6 +686,32 @@ impl Editor {
             row_y.insert(r, (y, h));
             y += h;
         }
+        // Cells cut: a dashed frame around the part in view, as Excel's.
+        let cut_mark = cut.and_then(|m| {
+            let xs: Vec<(f32, f32)> = (m[1]..=m[3])
+                .filter_map(|c| col_x.get(&c).copied())
+                .collect();
+            let ys: Vec<(f32, f32)> = (m[0]..=m[2])
+                .filter_map(|r| row_y.get(&r).copied())
+                .collect();
+            let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+            let (w, h) = (
+                xs.iter().map(|v| v.1).sum::<f32>(),
+                ys.iter().map(|v| v.1).sum::<f32>(),
+            );
+            Some(
+                div()
+                    .debug_selector(|| "viewer-grid-cut".into())
+                    .absolute()
+                    .left(px(x0))
+                    .top(px(y0))
+                    .w(px(w))
+                    .h(px(h))
+                    .border_2()
+                    .border_dashed()
+                    .border_color(theme.link),
+            )
+        });
         let merges: Vec<_> = layout
             .merged
             .iter()
@@ -1035,7 +1062,8 @@ impl Editor {
                     .child(formula_bar)
                     .child(letters)
                     .children(body)
-                    .children(merges),
+                    .children(merges)
+                    .children(cut_mark),
             )
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
                 if let Some(d) = this.viewer_view.row_drag.as_mut() {
