@@ -108,6 +108,7 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("file.import"),
                 // LaTeX: the PDF, and the project through pandoc.
                 item("latex.build"),
+                item("latex.showInPdf"),
                 item("latex.cancelBuild"),
                 item("latex.export.html"),
                 item("latex.export.markdown"),

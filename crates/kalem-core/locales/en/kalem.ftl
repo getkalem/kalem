@@ -911,6 +911,9 @@ latex-quotes = Use `` and '' for quotation marks
 latex-install-texlive = Install it with: tlmgr install { $package }
 latex-install-miktex = Install it with the MiKTeX Console, or: mpm --install={ $package }
 cmd-latex-build = Build PDF
+cmd-latex-showInPdf = Show in PDF
+msg-no-pdf-yet = No PDF yet: build it first (F5)
+msg-no-synctex = The PDF has no SyncTeX file: build it again to go to the line's page
 category-latex = LaTeX
 msg-latex-built = Built { $path }{ $count ->
     [0] {""}

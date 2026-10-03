@@ -837,6 +837,9 @@ latex-quotes = Tırnak için `` ve '' kullanın
 latex-install-texlive = Kurmak için: tlmgr install { $package }
 latex-install-miktex = MiKTeX Console ile ya da şununla kurun: mpm --install={ $package }
 cmd-latex-build = PDF Oluştur
+cmd-latex-showInPdf = PDF'de Göster
+msg-no-pdf-yet = Henüz PDF yok: önce derleyin (F5)
+msg-no-synctex = PDF'nin SyncTeX dosyası yok: satırın sayfasına gitmek için yeniden derleyin
 category-latex = LaTeX
 msg-latex-built = Oluşturuldu: { $path }{ $count ->
     [0] {""}

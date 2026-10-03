@@ -694,19 +694,29 @@ impl ViewerState {
         self.center = Some(c);
     }
 
-    /// The target of the link under (`x`, `y`) of the area, if any: a
-    /// URL, a file, or `#N` for unit N.
-    pub fn link_at(&mut self, x: f32, y: f32) -> Option<String> {
+    /// The point of the unit under (`x`, `y`) of the area, in the unit's
+    /// own pixels before the view's turn (PDF points for a PDF's page).
+    pub fn unit_point(&mut self, x: f32, y: f32) -> (f32, f32) {
         let p = self.placement();
         let (ux, uy) = ((x - p.x) / p.scale, (y - p.y) / p.scale);
-        // Back to the unit's own pixels, before the view's turn.
         let (tw, th) = self.unit_size();
-        let (ox, oy) = match self.rotation % 4 {
+        match self.rotation % 4 {
             1 => (uy, tw - ux),
             2 => (tw - ux, th - uy),
             3 => (th - uy, ux),
             _ => (ux, uy),
-        };
+        }
+    }
+
+    /// The unit shown, counted from 0.
+    pub fn unit(&self) -> usize {
+        self.unit
+    }
+
+    /// The target of the link under (`x`, `y`) of the area, if any: a
+    /// URL, a file, or `#N` for unit N.
+    pub fn link_at(&mut self, x: f32, y: f32) -> Option<String> {
+        let (ox, oy) = self.unit_point(x, y);
         self.doc()
             .links(self.unit)
             .into_iter()
