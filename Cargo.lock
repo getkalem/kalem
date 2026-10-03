@@ -4288,7 +4288,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-xlsx"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=d3fdd54736d816a6b4ad3dc82a07b39b5790cbf9#d3fdd54736d816a6b4ad3dc82a07b39b5790cbf9"
+source = "git+https://github.com/getkalem/plugins?rev=36efee63d867e7ede6b57e7a545f940333cfebff#36efee63d867e7ede6b57e7a545f940333cfebff"
 dependencies = [
  "calamine",
  "cfb",
