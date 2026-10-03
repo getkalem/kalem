@@ -306,6 +306,8 @@ pub struct ViewerState {
     search: Option<Search>,
     /// Text selected on the unit shown by dragging over it.
     text_sel: Option<TextSelection>,
+    /// The information panel's fields, for a generation.
+    info_cache: Mutex<Option<(u64, Vec<InfoField>)>>,
     /// Which units are grids (sheets, tables).
     grids: Vec<bool>,
     /// Each grid unit's cursor and scroll.
@@ -410,6 +412,7 @@ impl ViewerState {
             ahead: Vec::new(),
             search: None,
             text_sel: None,
+            info_cache: Mutex::new(None),
             unit: 0,
             zoom,
             center: None,
@@ -1265,8 +1268,24 @@ impl ViewerState {
     }
 
     /// The information panel's fields.
+    /// The information panel's fields: read again after a change, and
+    /// while a render holds the document the last ones (the panel is
+    /// drawn every frame and must not wait).
     pub fn info_fields(&self) -> Vec<InfoField> {
-        self.doc().info()
+        let mut cache = self.info_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((g, fields)) = &*cache
+            && *g == self.generation
+        {
+            return fields.clone();
+        }
+        match self.doc.try_lock() {
+            Ok(doc) => {
+                let fields = doc.info();
+                *cache = Some((self.generation, fields.clone()));
+                fields
+            }
+            Err(_) => cache.as_ref().map(|(_, f)| f.clone()).unwrap_or_default(),
+        }
     }
 
     /// The unit's text.
@@ -2385,12 +2404,12 @@ fn turn(ctx: &mut EditorContext<'_>, delta: i64, files: bool) -> CommandResult {
         && !files
         && v.paged()
     {
+        // A book stops at its first and last page (Page Down held to the
+        // end must not open the folder's next file); `N` and `P` go to it.
         let n = v.structure().units.len() as i64;
-        let u = v.unit as i64 + delta;
-        if (0..n).contains(&u) {
-            v.go_to(u as usize);
-            return Ok(());
-        }
+        let u = (v.unit as i64 + delta).clamp(0, n - 1);
+        v.go_to(u as usize);
+        return Ok(());
     }
     if let Err(e) = doc.viewer_step_file(delta) {
         ctx.messages.push(e);
