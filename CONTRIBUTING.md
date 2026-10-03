@@ -22,7 +22,7 @@ Thank you for your interest in Kalem. This page says how to set up, what the rul
 - **Unknown constructs stay visible**, shown as source, never hidden or guessed.
 - **The core has no UI dependencies.** The `org-*`, `latex-*` and `kalem-core` crates do not depend on a GUI or terminal library.
 - **Both editors, or the gap recorded.** A feature is done when it works in both editors; what the terminal cannot show is listed in `book/part-5/terminal-parity.org`.
-- **The Book changes with the code.** A pull request that changes behavior changes `book/` too, and `kalem book check` passes.
+- **The Book changes with the code.** A pull request that changes behavior changes `book/` too, and `kalem book check` passes. `book/chapters.toml` maps code to the chapter that describes it; on a pull request the Book's workflow runs `kalem book check book --changed origin/main` and fails when mapped code changed without its chapter, unless the pull request carries the label `book-unchanged` and its description says why.
 - **Every user action is a command**, reached through the command registry, with a configurable key.
 
 ## Code and tests
