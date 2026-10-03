@@ -68,6 +68,11 @@ fn settle(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
             .advance_clock(std::time::Duration::from_millis(20));
     }
     cx.run_until_parked();
+    // The renders end, neighbors included: the editor stops drawing again.
+    let busy = e.read_with(cx, |e, _| {
+        e.doc.viewer.as_deref().is_some_and(|v| v.rendering())
+    });
+    assert!(!busy, "a render never ended");
 }
 
 #[gpui::test]
