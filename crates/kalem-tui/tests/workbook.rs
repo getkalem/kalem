@@ -146,6 +146,17 @@ fn a_workbook_opens_as_a_grid() {
     t.key(KeyCode::Char('c'));
     t.key(KeyCode::Char('-'));
     assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().col_width(0), 17.0);
+    // `r +` and `r -`: three points taller, shorter.
+    let h = t.app.doc.viewer.as_deref_mut().unwrap().row_height(1);
+    t.key(KeyCode::Char('r'));
+    t.key(KeyCode::Char('+'));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().row_height(1),
+        h + 3.0
+    );
+    t.key(KeyCode::Char('r'));
+    t.key(KeyCode::Char('-'));
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().row_height(1), h);
 }
 
 #[test]

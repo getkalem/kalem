@@ -1187,3 +1187,5 @@ cmd-viewer-grid-autofitColumn = Fit Column Width
 cmd-viewer-grid-autofitColumns = Fit All Column Widths
 cmd-viewer-grid-widenColumn = Widen Column
 cmd-viewer-grid-narrowColumn = Narrow Column
+cmd-viewer-grid-tallerRow = Taller Row
+cmd-viewer-grid-shorterRow = Shorter Row

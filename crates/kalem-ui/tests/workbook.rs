@@ -171,6 +171,32 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     let undone = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().col_width(1));
     assert_eq!(undone, before);
 
+    // Row 2's edge dragged 30 pixels down: taller, written, undone.
+    let before = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().row_height(1)
+    });
+    let edge = cx
+        .debug_bounds("viewer-grid-row-edge-1")
+        .expect("row 2's edge");
+    let at = edge.center();
+    let to = at + gpui::point(gpui::px(0.), gpui::px(30.));
+    cx.simulate_mouse_down(at, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.simulate_mouse_move(to, Some(gpui::MouseButton::Left), gpui::Modifiers::none());
+    cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.run_until_parked();
+    let after = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().row_height(1)
+    });
+    assert!(after > before + 10.0, "{before} → {after}");
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    let undone = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().row_height(1)
+    });
+    assert_eq!(undone, before);
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"
