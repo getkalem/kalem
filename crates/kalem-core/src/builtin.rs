@@ -599,15 +599,9 @@ pub(crate) fn commands() -> Vec<Command> {
             "LaTeX",
             &["f5"],
             None,
-            |ctx, _| {
-                if ctx.document.as_deref().is_some_and(crate::typst::is_typst) {
-                    typst_build(ctx)
-                } else {
-                    latex_build(ctx)
-                }
-            },
+            |ctx, _| latex_build(ctx),
         ),
-        crate::command::Scope::only(&["latex", "typst"]),
+        crate::command::Scope::only(&["latex"]),
     ));
     all.push(scoped(
         cmd(
@@ -1302,80 +1296,6 @@ fn csv_fill(ctx: &mut EditorContext<'_>, series: bool) -> CommandResult {
             .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-series")))?
     };
     d.apply(&tx, org_edit::ChangeKind::Command, now);
-    Ok(())
-}
-
-/// Builds the PDF of the Typst document in the background with `typst
-/// compile` (T2.7h.25), into `latex.output_directory` when it is set.
-fn typst_build(ctx: &mut EditorContext<'_>) -> CommandResult {
-    let save_options = ctx.config.save_options();
-    let doc = ctx
-        .document
-        .as_deref_mut()
-        .ok_or_else(|| CommandError::new(crate::tr!("msg-no-document")))?;
-    let Some(path) = doc.meta.path.clone() else {
-        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
-    };
-    if doc.is_modified() {
-        doc.save(save_options, false)
-            .map_err(|e| CommandError::new(crate::tr!("msg-pdf-failed", error = e.to_string())))?;
-    }
-    let path = std::path::absolute(&path).unwrap_or(path);
-    let out = ctx.config.str("latex.output_directory").trim().to_string();
-    let open_after = ctx.config.bool("export.open_after");
-    let status = crate::l10n::tr("msg-compiling-pdf");
-    ctx.messages.push(status.clone());
-    crate::jobs::spawn(status, move || {
-        let out_dir = (!out.is_empty()).then(|| std::path::PathBuf::from(&out));
-        match crate::typst::build(&path, out_dir.as_deref()) {
-            Err(e) => crate::jobs::Finished {
-                message: crate::tr!("msg-pdf-failed", error = e),
-                error: true,
-                open: None,
-            },
-            Ok(b) => {
-                crate::latex_build::record(&path, &b.problems);
-                let errors: Vec<_> = b
-                    .problems
-                    .iter()
-                    .filter(|p| p.severity == crate::latex_build::Severity::Error)
-                    .collect();
-                let warnings = b.problems.len() - errors.len();
-                match (errors.first(), b.pdf) {
-                    (Some(first), _) => crate::jobs::Finished {
-                        message: crate::tr!(
-                            "msg-pdf-error",
-                            place = match (&first.file, first.line) {
-                                (Some(f), Some(n)) => format!("{f}:{n}"),
-                                _ => path.display().to_string(),
-                            },
-                            error = first.message.clone(),
-                            count = errors.len() - 1
-                        ),
-                        error: true,
-                        open: None,
-                    },
-                    (None, Some(pdf)) => crate::jobs::Finished {
-                        message: crate::tr!(
-                            "msg-latex-built",
-                            path = pdf.display().to_string(),
-                            count = warnings
-                        ),
-                        error: false,
-                        open: open_after.then(|| crate::input::LinkAction::Url(file_url(&pdf))),
-                    },
-                    (None, None) => crate::jobs::Finished {
-                        message: crate::tr!(
-                            "msg-pdf-failed",
-                            error = crate::l10n::tr("msg-build-no-pdf")
-                        ),
-                        error: true,
-                        open: None,
-                    },
-                }
-            }
-        }
-    });
     Ok(())
 }
 

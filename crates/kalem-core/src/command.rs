@@ -549,7 +549,6 @@ pub fn canonical_type(name: &str) -> String {
         "yml" => "yaml",
         "htm" | "xhtml" => "html",
         "tex" | "ltx" => "latex",
-        "typ" => "typst",
         "c++" | "cc" | "cxx" | "hpp" | "hh" | "hxx" => "cpp",
         "h" => "c",
         "cs" => "csharp",
