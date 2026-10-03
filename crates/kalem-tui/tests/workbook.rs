@@ -441,6 +441,48 @@ fn sorting_and_filtering() {
         s.contains('▼') && s.contains("Food") && !s.contains("Rent"),
         "{s}"
     );
+    // Two values at once: Food and Travel.
+    t.app.run_command(
+        "viewer.grid.setColumnFilter",
+        json!({ "col": 0, "values": ["Food", "Travel"] }),
+    );
+    let l = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_layout()
+        .unwrap();
+    assert_eq!(l.hidden_rows, vec![1, 4]);
+    // The checklist in the palette: the values shown checked.
+    t.app
+        .run_command("viewer.grid.filterColumn", json!({ "col": 0 }));
+    let s = t.screen();
+    assert!(
+        s.contains("☑ Food") && s.contains("☐ Rent") && s.contains("☑ Travel"),
+        "{s}"
+    );
+    // Rent checked from the palette, then applied.
+    for ch in "Rent".chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    let s = t.screen();
+    assert!(s.contains("☑ Rent"), "{s}");
+    for ch in "apply".chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    let l = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_layout()
+        .unwrap();
+    assert_eq!(l.hidden_rows, vec![4], "only Sum is hidden");
     t.app.run_command("viewer.grid.clearFilters", json!({}));
     assert!(
         t.app
