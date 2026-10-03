@@ -109,12 +109,13 @@ fn lower(word: &str) -> bool {
 
 /// The names of a BibTeX `author` or `editor` field.
 fn names(field: &str) -> Vec<Name> {
+    // Compared as bytes: `i` may be inside a character.
     let and = |s: &str, i: usize| {
-        let rest = &s[i..];
+        let rest = &s.as_bytes()[i..];
         (rest.len() > 5
-            && rest.as_bytes()[0].is_ascii_whitespace()
-            && rest[1..4].eq_ignore_ascii_case("and")
-            && rest.as_bytes()[4].is_ascii_whitespace())
+            && rest[0].is_ascii_whitespace()
+            && rest[1..4].eq_ignore_ascii_case(b"and")
+            && rest[4].is_ascii_whitespace())
         .then_some(5)
     };
     split_top(field, and)
@@ -524,6 +525,14 @@ pub fn labels(kind: Kind, cited: &[String], bib: &Bibliography) -> HashMap<Strin
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn names_with_letters_outside_ascii() {
+        // A byte inside `š` is not where `and` is looked for (a corpus
+        // file made it panic).
+        let n = names("Šimon Ďurček and Ölçer, Ayşe and Zoë Ž");
+        assert_eq!(n.len(), 3);
+    }
+
     use super::*;
 
     #[test]

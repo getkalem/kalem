@@ -1488,8 +1488,13 @@ pub(crate) fn args_end(text: &str, at: usize, limit: usize, spec: &str) -> Optio
                 let n = text[*p..limit]
                     .bytes()
                     .take_while(|c| c.is_ascii_alphabetic() || *c == b'@')
-                    .count()
-                    .max(1);
+                    .count();
+                // A control symbol: one character, however many bytes.
+                let n = if n == 0 {
+                    text[*p..limit].chars().next().map_or(1, char::len_utf8)
+                } else {
+                    n
+                };
                 *p = (*p + n).min(limit);
             }
             _ => *p += text[*p..].chars().next()?.len_utf8(),
@@ -8083,6 +8088,13 @@ mod tests {
         );
         let c = crate::latex_check::coverage_report(text, None);
         assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
+    fn control_symbols_outside_ascii() {
+        // `\😀`: one control symbol, four bytes.
+        let t = "\\x\\😀 rest";
+        assert_eq!(args_end(t, 2, t.len(), "m"), Some(2 + "\\😀".len()));
     }
 
     #[test]
