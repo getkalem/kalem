@@ -720,6 +720,20 @@ pub fn unrendered(text: &str) -> Vec<(String, usize)> {
 /// The model the view renders `text` with: its project's, when the file
 /// is known (theorems and environments declared in an `\input` preamble
 /// count), else the text's own.
+/// The parse of `text`, the file `file` of a project, with the
+/// definitions of the project's files that change how it parses
+/// ([`latex_model::project::alias_source`]), as the view parses it.
+fn parse_in(text: &str, file: Option<&std::path::Path>) -> latex_syntax::Parse {
+    match file {
+        Some(f) => {
+            let root = crate::latex_view::find_root(f, text);
+            let extra = latex_model::project::alias_source(&root, &latex_model::project::Disk);
+            latex_syntax::parse_with(text, &extra)
+        }
+        None => latex_syntax::parse(text),
+    }
+}
+
 fn view_model(parse: &latex_syntax::Parse, file: Option<&std::path::Path>) -> latex_model::Model {
     match file {
         Some(f) => {
@@ -728,7 +742,9 @@ fn view_model(parse: &latex_syntax::Parse, file: Option<&std::path::Path>) -> la
             // root document `\input`s has the root's definitions.
             let text = parse.syntax().text().to_string();
             let root = crate::latex_view::find_root(f, &text);
-            let project = latex_model::project::ProjectCache::default().load(&root, &disk);
+            let mut cache = latex_model::project::ProjectCache::default();
+            cache.set_extra(parse.extra());
+            let project = cache.load(&root, &disk);
             let mut m = (*project.model).clone();
             // The body is this file's.
             m.body = latex_model::Model::new(parse).body;
@@ -774,7 +790,7 @@ pub fn example(s: &str) -> String {
 
 /// [`Coverage`] of `text`, with the project of `file` when given.
 pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
-    let parse = latex_syntax::parse(text);
+    let parse = parse_in(text, file);
     let model = view_model(&parse, file);
     let body = model.body.clone().unwrap_or(0..text.len());
     let mut c = Coverage {
@@ -950,7 +966,7 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
 
 /// [`unrendered`] with the project of `file`.
 pub fn unrendered_in(text: &str, file: Option<&std::path::Path>) -> Vec<(String, usize)> {
-    let parse = latex_syntax::parse(text);
+    let parse = parse_in(text, file);
     let model = view_model(&parse, file);
     let body = model.body.clone().unwrap_or(0..text.len());
     let mut counts: HashMap<String, usize> = HashMap::new();
@@ -1004,7 +1020,7 @@ pub fn coverage(text: &str) -> f64 {
 
 /// [`coverage`] with the project of `file`.
 pub fn coverage_in(text: &str, file: Option<&std::path::Path>) -> f64 {
-    let parse = latex_syntax::parse(text);
+    let parse = parse_in(text, file);
     let model = view_model(&parse, file);
     let body = model.body.clone().unwrap_or(0..text.len());
     let solid = |r: std::ops::Range<usize>| text[r].chars().filter(|c| !c.is_whitespace()).count();
@@ -1064,6 +1080,50 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn equation_macros_of_the_project_s_package() {
+        // `\def\ba{\begin{eqnarray}}` in the document's own package: the
+        // formula between `\ba` and `\ea` drawn, in the count and in the
+        // view, and numbered.
+        let dir = std::env::temp_dir().join(format!("kalem-cov-alias-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("macros.sty"),
+            "\\def \\ba  {\\begin{eqnarray}}\n\\def \\ea  {\\end{eqnarray}}\n",
+        )
+        .unwrap();
+        let main = "\\documentclass{article}\n\\usepackage{macros}\n\\begin{document}\nSee\n\\ba\nx &=& \\frac{1}{2}\\label{e}\n\\ea\nby (\\ref{e}).\n\\end{document}\n";
+        let path = dir.join("main.tex");
+        std::fs::write(&path, main).unwrap();
+        let c = super::coverage_report(main, Some(&path));
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+        let base = crate::settings::Config::default().parse_base();
+        let mut doc = crate::DocumentState::open(
+            &path,
+            std::sync::Arc::new(org_model::Settings::default()),
+            &base,
+        )
+        .unwrap();
+        doc.wait_for_latex_project();
+        let state = doc.latex().unwrap();
+        assert!(
+            state
+                .parse()
+                .syntax()
+                .descendants()
+                .any(|n| n.kind() == K::DISPLAY_MATH)
+        );
+        assert_eq!(
+            state
+                .model()
+                .label("e")
+                .and_then(|l| l.number.clone())
+                .as_deref(),
+            Some("1")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn lonely_items_and_deep_lists() {

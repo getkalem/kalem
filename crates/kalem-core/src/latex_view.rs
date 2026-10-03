@@ -39,10 +39,11 @@ pub struct LatexState {
     pub diagnostics: crate::latex_check::Live,
     /// The project the document belongs to, once its root is found.
     project: RefCell<Option<ProjectView>>,
-    /// The root document, being found on a thread.
+    /// The root document, being found on a thread, with the definitions
+    /// of the project's files that change how a file parses.
     root: Option<(
         std::path::PathBuf,
-        std::sync::mpsc::Receiver<std::path::PathBuf>,
+        std::sync::mpsc::Receiver<(std::path::PathBuf, String)>,
     )>,
     /// The file, and its `% !TEX root` line when the root was looked for.
     file: Option<(std::path::PathBuf, Option<String>)>,
@@ -124,7 +125,8 @@ pub fn find_root(file: &std::path::Path, text: &str) -> std::path::PathBuf {
         if canon(&c) == this {
             continue;
         }
-        let has_class = std::fs::read_to_string(&c).is_ok_and(|t| t.contains("\\documentclass"));
+        let has_class =
+            std::fs::read(&c).is_ok_and(|t| t.windows(14).any(|w| w == b"\\documentclass"));
         if has_class
             && cache
                 .load(&c, &Disk)
@@ -211,7 +213,12 @@ impl latex_model::project::Files for Overlay<'_> {
             f.checked = std::time::Instant::now();
             return Some(f.text.clone());
         }
-        let text: Arc<str> = Arc::from(std::fs::read_to_string(path).ok()?);
+        // Not UTF-8 (`\usepackage[applemac]{inputenc}`): read as the
+        // model reads it.
+        let text: Arc<str> = Arc::from(latex_model::project::Files::read(
+            &latex_model::project::Disk,
+            path,
+        )?);
         files.insert(
             path.to_path_buf(),
             DiskFile {
@@ -316,7 +323,7 @@ impl LatexState {
                 };
                 self.parse.reparse(text, &edit)
             }
-            None => latex_syntax::parse(text),
+            None => latex_syntax::parse_with(text, self.parse.extra()),
         };
         self.text = Arc::from(text);
     }
@@ -379,7 +386,8 @@ impl LatexState {
         let (p, t) = (path.to_path_buf(), text.to_string());
         std::thread::spawn(move || {
             let root = find_root(&p, &t);
-            let _ = tx.send(root);
+            let extra = latex_model::project::alias_source(&root, &latex_model::project::Disk);
+            let _ = tx.send((root, extra));
         });
         self.root = Some((path.to_path_buf(), rx));
         self.file = Some((path.to_path_buf(), magic_root_line(text)));
@@ -408,13 +416,21 @@ impl LatexState {
             return false;
         };
         match rx.try_recv() {
-            Ok(root) => {
+            Ok((root, extra)) => {
                 let path = dunce::canonicalize(path).unwrap_or_else(|_| path.clone());
                 let root = dunce::canonicalize(&root).unwrap_or(root);
+                // Macros for an equation the project's other files define
+                // (`\def\ba{\begin{eqnarray}}` in its package): parsed
+                // again with them.
+                if extra != self.parse.extra() {
+                    self.parse = latex_syntax::parse_with(&self.text, &extra);
+                }
+                let mut cache = latex_model::project::ProjectCache::default();
+                cache.set_extra(&extra);
                 *self.project.borrow_mut() = Some(ProjectView {
                     root,
                     path,
-                    cache: latex_model::project::ProjectCache::default(),
+                    cache,
                     disk: DiskCache::default(),
                     last: None,
                 });
@@ -2425,6 +2441,40 @@ fn text_mode(body: &str) -> String {
         };
         let keep = else_at.map_or(String::new(), |e| s[e + 5..fi].to_string());
         s.replace_range(at..fi + 3, &keep);
+    }
+    // A box around the text (`\scalebox{0.7}[#1]{$\blacksquare$}`): its
+    // sizes go, its text stays.
+    for name in [
+        "scalebox",
+        "resizebox",
+        "rotatebox",
+        "raisebox",
+        "makebox",
+        "framebox",
+    ] {
+        let head = format!("\\{name}");
+        while let Some(at) = s.find(&head) {
+            let after = at + head.len();
+            if s[after..].starts_with(|c: char| c.is_ascii_alphabetic()) {
+                break;
+            }
+            let spec = box_args(name).unwrap_or("");
+            let Some(end) = args_end(&s, after, s.len(), spec) else {
+                break;
+            };
+            s.replace_range(at..end, "");
+        }
+    }
+    // Braces around all of it.
+    loop {
+        let t = s.trim();
+        match t
+            .strip_prefix('{')
+            .and_then(|r| matching_brace(r).map(|c| (r, c)))
+        {
+            Some((r, close)) if r[close + 1..].trim().is_empty() => s = r[..close].to_string(),
+            _ => break,
+        }
     }
     s
 }
@@ -7538,6 +7588,10 @@ mod tests {
         assert_eq!(
             text_mode("a\\ifmmode b\\ifx c\\else d\\fi\\else e\\fi f"),
             "a e f"
+        );
+        assert_eq!(
+            text_mode("\\scalebox{0.7}[#1]{$\\blacksquare$}"),
+            "$\\blacksquare$"
         );
     }
 

@@ -41,7 +41,13 @@ pub struct Disk;
 
 impl Files for Disk {
     fn read(&self, path: &Path) -> Option<String> {
-        std::fs::read_to_string(path).ok()
+        // A file in another encoding (`\usepackage[latin1]{inputenc}`):
+        // its letters outside ASCII replaced, its commands read.
+        let bytes = std::fs::read(path).ok()?;
+        Some(match String::from_utf8(bytes) {
+            Ok(s) => s,
+            Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
+        })
     }
 
     fn list(&self, dir: &Path) -> Vec<PathBuf> {
@@ -56,6 +62,51 @@ impl Files for Disk {
         v.sort();
         v
     }
+}
+
+/// The definitions in the files of the project of root document `root`
+/// (its folder's `.tex` and `.sty` files and those of the folders in it)
+/// that change how a file parses: macros for an equation's opening and
+/// closing (`\def\ba{\begin{eqnarray}}` in a package of the document's
+/// own), environments that are displayed formulas. A file of the project
+/// is parsed with them ([`latex_syntax::parse_with`]).
+pub fn alias_source(root: &Path, files: &dyn Files) -> String {
+    let Some(dir) = root.parent() else {
+        return String::new();
+    };
+    let mut dirs = vec![dir.to_path_buf()];
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        let mut subs: Vec<PathBuf> = rd
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.is_dir())
+            .collect();
+        subs.sort();
+        dirs.extend(subs.into_iter().take(32));
+    }
+    let mut out = String::new();
+    let mut read = 0;
+    for d in dirs {
+        for p in files.list(&d) {
+            if read >= 400 {
+                return out;
+            }
+            if !p
+                .extension()
+                .is_some_and(|x| x == "tex" || x == "sty" || x == "cls")
+            {
+                continue;
+            }
+            if std::fs::metadata(&p).is_ok_and(|m| m.len() > 2_000_000) {
+                continue;
+            }
+            read += 1;
+            if let Some(t) = files.read_shared(&p) {
+                out.push_str(&latex_syntax::alias_definitions(&t));
+            }
+        }
+    }
+    out
 }
 
 /// `% !TEX root = FILE` among the first lines of `text`.
@@ -199,6 +250,9 @@ pub struct Project {
 pub struct ProjectCache {
     /// Each file's text, parse, events cache and last events.
     files: HashMap<PathBuf, CachedFile>,
+    /// The definitions of the project's files that change how they parse
+    /// (see [`alias_source`]), each file parsed with them.
+    extra: Arc<str>,
     /// The last project loaded, with the events of each of its files.
     last: Option<Loaded>,
 }
@@ -265,6 +319,16 @@ impl CachedFile {
 }
 
 impl ProjectCache {
+    /// Parses the project's files with `extra` (see [`alias_source`]):
+    /// all of them again when it changed.
+    pub fn set_extra(&mut self, extra: &str) {
+        if *self.extra != *extra {
+            self.extra = Arc::from(extra);
+            self.files.clear();
+            self.last = None;
+        }
+    }
+
     /// The events of `path` with text `text`: from the cache while the text
     /// is the same allocation or the same bytes.
     fn items(&mut self, path: &Path, text: Arc<str>) -> Arc<Vec<Item>> {
@@ -274,7 +338,7 @@ impl ProjectCache {
             .or_insert_with(CachedFile::new);
         if !Arc::ptr_eq(&entry.text, &text) {
             if *entry.text != *text {
-                let parse = latex_syntax::parse(&text);
+                let parse = latex_syntax::parse_with(&text, &self.extra);
                 entry.replace(text, parse);
             } else {
                 entry.text = text;
