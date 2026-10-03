@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- File manager: entries dragged in the graphical editor move into the folder they are dropped on (copied with Alt or Option), in the same listing or another pane, and dropped on a document they are linked in its syntax; Open in New Pane in the menu.
 - Completion shows the chosen item's documentation beside the list, from the language server (`Enum.` in Elixir: each function's description and spec), in both editors.
 - Kalem says in the status bar when an installed plugin has a newer version (checked once a day, `plugins.check_updates`), and restarts a plugin's language servers after it is updated or removed.
 - CSV grids: columns hidden and shown, autosized, widened, narrowed or set to a width (a longer value cut with `…`, whole at the cursor), the first column frozen while the rows scroll sideways, Paste as Block (a range from a spreadsheet written over the cells from the cursor), previews before Split Column and Join with Next Column, and Doom's local leader keys for CSV; all view state, never written to the file. In both editors.

@@ -122,8 +122,77 @@ pub fn org_text(links: &[Stored], doc_path: Option<&Path>) -> String {
         .join("\n")
 }
 
+/// Links to `paths` in the syntax of a document in `mode` at `doc_path`,
+/// one a line, relative to its folder when they are in it or below: Org's
+/// `[[file:…][name]]`, Markdown's `[name](…)`, LaTeX's `\href{…}{name}`,
+/// and the bare path elsewhere (files dropped on a document).
+pub fn text_for(mode: &crate::DocumentMode, paths: &[PathBuf], doc_path: Option<&Path>) -> String {
+    let links: Vec<Stored> = paths
+        .iter()
+        .map(|p| Stored {
+            description: p.file_name().map_or_else(
+                || p.display().to_string(),
+                |n| n.to_string_lossy().into_owned(),
+            ),
+            path: p.clone(),
+            search: None,
+        })
+        .collect();
+    if *mode == crate::DocumentMode::Org {
+        return org_text(&links, doc_path);
+    }
+    let dir = doc_path
+        .map(|p| std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf()))
+        .and_then(|p| p.parent().map(Path::to_path_buf));
+    links
+        .iter()
+        .map(|l| {
+            let path = std::path::absolute(&l.path).unwrap_or_else(|_| l.path.clone());
+            let target = file_target(&path, dir.as_deref(), None);
+            let target = target.strip_prefix("file:").unwrap_or(&target).to_string();
+            match mode {
+                crate::DocumentMode::Markdown => {
+                    let t = if target.contains([' ', '(', ')']) {
+                        format!("<{target}>")
+                    } else {
+                        target
+                    };
+                    format!("[{}]({t})", l.description)
+                }
+                crate::DocumentMode::Latex => format!("\\href{{{target}}}{{{}}}", l.description),
+                _ => target,
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn links_to_dropped_files_in_each_syntax() {
+        use crate::DocumentMode as M;
+        let dir = std::path::absolute("/tmp/notes").unwrap();
+        let doc = dir.join("doc.md");
+        let files = vec![dir.join("img/a b.png"), dir.join("r.pdf")];
+        assert_eq!(
+            text_for(&M::Markdown, &files, Some(&doc)),
+            "[a b.png](<img/a b.png>)\n[r.pdf](r.pdf)"
+        );
+        assert_eq!(
+            text_for(&M::Org, &files[1..], Some(&dir.join("doc.org"))),
+            "[[file:r.pdf][r.pdf]]"
+        );
+        assert_eq!(
+            text_for(&M::Latex, &files[1..], Some(&dir.join("doc.tex"))),
+            "\\href{r.pdf}{r.pdf}"
+        );
+        assert_eq!(
+            text_for(&M::Csv, &files[1..], Some(&dir.join("x.csv"))),
+            "r.pdf"
+        );
+    }
+
     use super::*;
 
     #[test]
