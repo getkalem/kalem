@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- A PDF, picture or other viewed file that changes on disk (a PDF built again) reloads at the page, zoom and place it was shown at, not at its first page.
 - LaTeX view: `!` or `?` before `\textquoteleft` shows as `¡` or `¿`, the ligature pdflatex makes of them (found by the typeset fuzz).
 - LaTeX: two crashes on letters outside ASCII found by running the editor over the arXiv sample: a BibTeX author list with letters like `š`, and a control symbol made of a character outside ASCII (`\😀`).
 
