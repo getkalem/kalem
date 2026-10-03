@@ -180,10 +180,22 @@ ranges), the language pack hooks =outline=, =format= and
 the text, never text, so it cannot break the byte-exact round trip;
 =modes::check= is the conformance check every mode runs: every range
 inside the text and inside its parent, two parses equal, an
-incremental parse equal to a full one. CSV and the Kalem format are
-written against it (T2.7c.10). Still to come: the editors drawing
-every mode from its tree, Markdown and LaTeX on the contract, and the
-plugin side, =kalem::modes::register= (T3.1.9g).
+incremental parse equal to a full one. CSV, the Kalem format, Markdown
+and LaTeX are written against it (T2.7c.10). LaTeX maps its syntax tree
+to the kinds: sectioning commands as headings, levels counted from the
+document's highest (a book's chapters, an article's sections are level
+1); =itemize=, =enumerate= and =description= as lists, each item from
+its =\item= to the next with what it holds; tables with rows ended by
+=\\= and cells split by =&=; code environments with their language
+(=minted='s argument, =lstlisting='s =language==); displayed and inline
+mathematics; =\emph=, =\textbf=, =\texttt=, =\verb=, =\href= and =\url=
+with their targets, =\includegraphics= with its file, =\footnote=; any
+other command or environment by its name. Its outline is the
+headings' titles, its formatter =kalem fmt='s, its diagnostics =kalem
+check='s, Enter and Tab those of the editor; every file of the arXiv
+sample passes =modes::check=. Still to come: the editors drawing every
+mode from its tree, and the plugin side, =kalem::modes::register=
+(T3.1.9g).
 
 * Highlighters
 
