@@ -1175,6 +1175,7 @@ cmd-viewer-grid-insertPivot = PivotTable Ekle
 cmd-viewer-grid-refreshPivots = Tüm PivotTable'ları Yenile
 cmd-viewer-grid-insertChart = Grafik Ekle
 cmd-viewer-grid-deleteChart = Grafiği Sil
+cmd-viewer-grid-chartTitle = Grafik Başlığı
 cmd-viewer-grid-moveChartUp = Grafiği Yukarı Taşı
 cmd-viewer-grid-moveChartDown = Grafiği Aşağı Taşı
 cmd-viewer-grid-moveChartLeft = Grafiği Sola Taşı
