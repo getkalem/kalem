@@ -68,6 +68,19 @@ enum PluginAction {
     },
     /// The installed plugins.
     List,
+    /// Starts a plugin: in a checkout of getkalem/plugins its template as
+    /// `plugins/NAME`, elsewhere a crate of its own in `NAME/`.
+    New {
+        /// Its name: lower-case letters, digits and hyphens.
+        name: String,
+    },
+    /// Builds the plugin in DIR (the current folder by default): Cargo
+    /// compiles it for wasm32-unknown-unknown, and the module becomes the
+    /// component `main` names in plugin.json.
+    Build {
+        /// The plugin's folder.
+        dir: Option<std::path::PathBuf>,
+    },
     /// Removes an installed plugin.
     Remove {
         /// Its ID.
@@ -301,7 +314,7 @@ enum Command {
         top: usize,
     },
     /// Plugins: `kalem plugin browse`, `install NAME|URL|PATH`, `list`,
-    /// `remove ID`.
+    /// `remove ID`, `new NAME`, `build [DIR]`.
     Plugin {
         #[command(subcommand)]
         action: PluginAction,
@@ -548,6 +561,8 @@ where
             PluginAction::Browse => commands::plugin::browse(),
             PluginAction::Install { source, yes } => commands::plugin::install(&source, yes),
             PluginAction::List => commands::plugin::list(),
+            PluginAction::New { name } => commands::plugin::new(&name),
+            PluginAction::Build { dir } => commands::plugin::build(dir.as_deref()),
             PluginAction::Remove { id } => commands::plugin::remove(&id),
         },
         Command::Lsp { action } => match action {
