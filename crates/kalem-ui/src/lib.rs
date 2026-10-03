@@ -2,6 +2,7 @@
 //! commands, keymaps, settings and view model as the terminal frontend,
 //! drawn with Kalem's own inline layout.
 
+pub mod chart;
 pub mod clipboard;
 pub mod datepicker;
 pub mod editor;

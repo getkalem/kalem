@@ -732,3 +732,53 @@ fn pivot_tables() {
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(units(&mut t), before);
 }
+
+#[test]
+fn charts() {
+    let mut t = T::open("chart");
+    // Q1 and Q2 by item, from the table at the cursor: the kinds offered.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app
+        .event(Event::Key(KeyEvent::new(KeyCode::F(1), KeyModifiers::ALT)));
+    let s = t.screen();
+    assert!(s.contains("Column Chart") && s.contains("Pie Chart"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.insertChart",
+        json!({ "kind": "column", "title": "Spending" }),
+    );
+    let charts = t.app.doc.viewer.as_deref_mut().unwrap().charts();
+    let c = charts.last().unwrap().clone();
+    assert_eq!(c.series.len(), 3, "Q1, Q2 and Total");
+    // Drawn over the cells it covers, with its title.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    let s = t.screen();
+    assert!(s.contains("Spending"), "{s}");
+    // Deleted from a cell it covers; undo brings it back.
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(c.anchor[0] + 1, c.anchor[1] + 1);
+    t.app.run_command("viewer.grid.deleteChart", json!({}));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts().len(),
+        charts.len() - 1
+    );
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts().len(),
+        charts.len()
+    );
+    // A line chart in braille.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app
+        .run_command("viewer.grid.insertChart", json!({ "kind": "line" }));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    let s = t.screen();
+    assert!(
+        s.chars().any(|c| ('\u{2801}'..='\u{28FF}').contains(&c)),
+        "{s}"
+    );
+}
