@@ -397,6 +397,11 @@ pub struct GridLayout {
     pub frozen: (u32, u32),
     /// Whether cells can be edited.
     pub editable: bool,
+    /// The range under a filter (a spreadsheet's AutoFilter), its first
+    /// row the headers: first row, first column, last row, last column.
+    pub filter: Option<[u32; 4]>,
+    /// The columns whose filter hides rows.
+    pub filtered: Vec<u32>,
 }
 
 /// A change of a grid's shape.
@@ -641,6 +646,37 @@ pub trait ViewerDocument: Send {
             }
         }
         Ok(changed)
+    }
+
+    /// Sorts a range's rows by column `key` (a spreadsheet's Sort), the
+    /// first row kept in place when `header`.
+    fn sort_range(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _key: u32,
+        _descending: bool,
+        _header: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Puts a filter on a range (its first row the headers), or takes the
+    /// filter off with `None`, its hidden rows shown again.
+    fn set_filter(&mut self, _unit: usize, _range: Option<[u32; 4]>) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Filters column `col` of the filter to rows showing one of `values`
+    /// (as shown; an empty text for empty cells), or clears its filter with
+    /// `None`.
+    fn filter_column(
+        &mut self,
+        _unit: usize,
+        _col: u32,
+        _values: Option<Vec<String>>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
     }
 
     /// Moves a range's cells (first row, first column, last row, last
