@@ -1035,6 +1035,20 @@ impl ViewerState {
         true
     }
 
+    /// Brings height `y` of the unit (its own pixels from the top, PDF
+    /// points for a PDF's page) to the middle of the area when the unit is
+    /// larger than the area (zoomed in); the view as it is otherwise.
+    pub fn show_height(&mut self, y: f32) {
+        if !self.rotation.is_multiple_of(4) {
+            return;
+        }
+        let (cx, _) = self.shown_center();
+        self.center = Some((cx, y));
+        // Kept inside the unit, as panning keeps it.
+        let c = self.shown_center();
+        self.center = Some(c);
+    }
+
     /// The next frame of an animation, and how long the frame shown now
     /// stays; `None` when nothing plays.
     pub fn frame_delay(&self) -> Option<u32> {

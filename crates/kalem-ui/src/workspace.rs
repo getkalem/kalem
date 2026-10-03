@@ -345,6 +345,9 @@ impl Workspace {
                 // A PDF or another paged file: the line is the page.
                 if let Some(v) = e.doc.viewer.as_deref_mut() {
                     v.go_to(line.max(1) as usize - 1);
+                    if column > 0 {
+                        v.show_height(column as f32);
+                    }
                     cx.notify();
                     return;
                 }
