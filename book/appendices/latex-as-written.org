@@ -289,6 +289,12 @@ this order:
 A local =.sty= or =.cls= file in the document's folder is part of it:
 its definitions (§8) are the document's.
 
+A file need not be UTF-8: =\usepackage[latin1]{inputenc}= and
+=[applemac]= files are common in older papers. A reader MUST read such a
+file's commands and definitions all the same (its letters outside ASCII
+decoded in its encoding, or replaced); a file it cannot decode MUST NOT
+lose the project its definitions.
+
 * Definitions
 
 ** Commands
@@ -297,6 +303,7 @@ its definitions (§8) are the document's.
 |--------------------------------------------------------+-------------------------------------------------------------------------|
 | =\newcommand{\c}[n]{body}= (also =\renewcommand=, =\providecommand=, starred) | =\c= with =n= (0–9) mandatory arguments =#1= … =#n=        |
 | =\newcommand{\c}[n][d]{body}=                          | the first argument optional, =d= when it is not given                   |
+| =\newcommandtwoopt{\c}[n][d1][d2]{body}= (twoopt)       | the first two arguments optional                                        |
 | =\def\c#1#2{body}= (also =\gdef=, =\edef=, =\xdef=)    | =\c= with the parameters written; =\edef= expands the body now          |
 | ~\let\c=\d~, ~\let\c\d~                                | =\c= as =\d= is now                                                     |
 | =\DeclareRobustCommand=                                | as =\newcommand=                                                        |
@@ -317,6 +324,22 @@ body, its arguments put in, is text typesets that text
 (=\newcommand{\vs}[2]{#1 versus #2}=, =\vs{A}{B}= ⇒ A versus B); a command
 whose body is its first argument alone or in one style or color
 (={#1}=, =\textbf{#1}=, ={\color{black}{#1}}=) typesets its argument.
+The same holds for bodies of other kinds, read as TeX reads them in
+running text:
+
+- a reference (=\newcommand{\eq}{\eqref}=, =\newcommand{\rife}[1]{(\ref{#1})}=)
+  prints what the reference prints;
+- space between lines (=\vspace{2mm}=, =\vskip.075in=) prints nothing in
+  the line;
+- a formula (=\ensuremath{…}=, text with =$…$= in it, =\(…\)=) is a
+  formula; a displayed formula around the arguments
+  (=\begin{align}#1\end{align}=, =\[#1\]=) is a displayed formula;
+- of =\ifmmode A\else B\fi= only =B= counts, the text-mode branch;
+- a box around the text (=\scalebox{0.7}[#1]{…}=, =\resizebox=,
+  =\raisebox=) is its text;
+- a body that draws pictures or reads files (=\includegraphics=, =\input=
+  inside a =figure= or =minipage=) shows those pictures and names those
+  files, with its caption.
 
 *=\xspace=* (the xspace package) at the end of a body adds a space unless
 punctuation or a closing brace follows.
@@ -337,6 +360,14 @@ as that opening (closing), so the formula between is math. The pairs
 ~\begeq~ ~\endeq~ are so common that a reader SHOULD take them as such
 when the file does not define them (a file of a project whose root does).
 =\begin{equation}= … =\ee= is the same environment.
+
+Such macros are often defined in another file of the project: a package
+of the document's own (=\def \ba {\begin{eqnarray}}= in =macros.sty=) or a
+file of definitions the root reads. A reader MUST parse each file of a
+project with the equation macros and formula environments that the
+project's files define (the root document's folder and the folders in
+it, =.tex=, =.sty= and =.cls= files), the file's own definitions after
+them.
 
 * Structure and numbering
 
@@ -407,6 +438,15 @@ steps =figure= outside a float. A caption elsewhere is not numbered.
 does the same with keys (=name=, =numberwithin=, =sibling=,
 =numbered=no=). The environment's optional argument is its note.
 =proof= (amsthm) is unnumbered and ends with ∎.
+
+Journals' classes declare theorems themselves (llncs, svjour3, acmart,
+SIAM's), and papers use theorems declared in files a reader may not have.
+A reader SHOULD take an undeclared environment of a usual name as that
+theorem on its own counter: =theorem=, =lemma=, =corollary=,
+=proposition=, =definition=, =remark=, =example=, =conjecture=, =claim=,
+=assumption= and the like, their usual short forms (=thm=, =lem=, =lma=,
+=cor=, =prop=, =defn=, =rmk=, =expl=, =assump=, …), and those after =my=,
+=custom= or =new= (=myassump=).
 
 ** Equations
 
@@ -502,19 +542,20 @@ latex-coverage=, §13.1), by bytes of body text:
 
 | Field            | Papers | Files | Body KB | Formulas | Neither text nor a construct this appendix covers |
 |------------------+--------+-------+---------+----------+---------------------------------------------------|
-| biology          |    189 |   588 |  14,375 |   10.43% | 0.14%                                             |
-| computer science |    179 |   869 |  16,220 |   12.63% | 0.43%                                             |
-| economics        |    183 |   484 |  22,225 |   22.72% | 0.14%                                             |
-| mathematics      |    187 |   256 |  18,713 |   38.92% | 0.13%                                             |
-| physics          |    187 |   299 |  14,646 |   16.92% | 0.31%                                             |
-| all              |    925 | 2,496 |  86,181 |   21.30% | 0.22%                                             |
+| biology          |    189 |   588 |  14,375 |   10.65% | 0.05%                                             |
+| computer science |    179 |   869 |  16,220 |   12.69% | 0.09%                                             |
+| economics        |    183 |   484 |  22,225 |   22.87% | 0.06%                                             |
+| mathematics      |    187 |   256 |  18,713 |   39.30% | 0.06%                                             |
+| physics          |    187 |   299 |  14,646 |   16.97% | 0.09%                                             |
+| all              |    925 | 2,496 |  86,181 |   21.48% | 0.07%                                             |
 
 A fifth of what papers write is formulas, a third in mathematics. The
-last column is what remains outside: the long tail of each paper's own
-definitions written in ways a reader that does not expand macros cannot
-follow (=\csname= loops, macros that take arguments and draw pictures),
-packages' environments met in one or two papers, and pictures drawn in
-=picture= or PSTricks.
+last column is what remains outside, less than a thousandth of the body
+in every field: the long tail of each paper's own definitions written in
+ways a reader that does not expand macros cannot follow (=\csname=
+loops), packages' environments and commands met in one paper, tables
+whose columns are formulas (=>{$}l<{$}=), quantum circuits
+(=\Qcircuit=) and PSTricks.
 
 The commands and environments most papers use, outside formulas, with
 the share of papers that use them:
@@ -595,3 +636,7 @@ checks it).
 
 - Version 1 (2026-10): first version, from Kalem's LaTeX mode, its
   corpus study (arXiv runs 1 to 26) and its differential tests.
+- Version 1.1 (2026-10): from arXiv runs 27 to 36: equation macros
+  another file of the project defines (§8.2), files not in UTF-8 (§7.3),
+  more kinds of a document's own commands (§8.1), theorems of usual names
+  undeclared (§9.6); the corpus measured again (§11).
