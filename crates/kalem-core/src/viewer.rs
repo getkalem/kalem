@@ -2045,6 +2045,21 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Sets or removes the title of the chart under the cursor.
+    pub fn set_chart_title(&mut self, title: Option<String>) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to give it a title")?;
+        self.doc()
+            .set_chart_title(self.unit, i, title)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -4628,6 +4643,42 @@ fn grid_commands() -> Vec<Command> {
             &["h shift+left"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(0, -1, true)),
+        ),
+        cmd(
+            "viewer.grid.chartTitle",
+            "Chart Title",
+            &["h t"],
+            IN_GRID,
+            |ctx, args| {
+                // Asked for, starting from the title it has; empty removes it.
+                let Some(value) = args
+                    .get("value")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+                else {
+                    let Some(v) = ctx
+                        .document
+                        .as_deref_mut()
+                        .and_then(|d| d.viewer.as_deref_mut())
+                    else {
+                        return Ok(());
+                    };
+                    let Some((i, _)) = v.chart_at_cursor() else {
+                        ctx.messages
+                            .push("Put the cursor on a chart to give it a title".into());
+                        return Ok(());
+                    };
+                    let current = v.charts()[i].title.clone().unwrap_or_default();
+                    return ask_more(
+                        ctx,
+                        "viewer.grid.chartTitle",
+                        &serde_json::json!({ "value_default": current }),
+                        "value",
+                    );
+                };
+                let title = Some(value.trim().to_string()).filter(|t| !t.is_empty());
+                with(ctx, |v| v.set_chart_title(title))
+            },
         ),
         cmd(
             "viewer.grid.deleteChart",

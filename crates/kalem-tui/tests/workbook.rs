@@ -798,6 +798,25 @@ fn charts() {
     assert_eq!(anchor(&mut t)[3], a[3] + 1);
     t.app.run_command("viewer.grid.chartShorter", json!({}));
     assert_eq!(anchor(&mut t)[2], a[2] - 1);
+    // Retitled through the prompt, starting from the title it has.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('t'));
+    let s = t.screen();
+    assert!(s.contains("Chart Title") && s.contains("Spending"), "{s}");
+    t.app
+        .run_command("viewer.grid.chartTitle", json!({ "value": "Costs" }));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .title
+            .as_deref(),
+        Some("Costs")
+    );
+    t.app
+        .run_command("viewer.grid.chartTitle", json!({ "value": "" }));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].title,
+        None
+    );
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app
