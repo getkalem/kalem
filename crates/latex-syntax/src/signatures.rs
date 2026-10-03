@@ -95,6 +95,7 @@ pub fn command(name: &str) -> &'static str {
         | "footcites" | "Cites" | "Parencites" | "Textcites" | "Autocites" | "citealt*"
         | "Citealt" | "Citealp" => "*oom",
         "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "*moom",
+        "newcommandtwoopt" | "renewcommandtwoopt" | "providecommandtwoopt" => "*mooom",
         "NewDocumentCommand"
         | "RenewDocumentCommand"
         | "ProvideDocumentCommand"

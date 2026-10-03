@@ -911,6 +911,21 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             }
             return false;
         }
+        // twoopt's `\newcommandtwoopt{\name}[n][a][b]{…}`: two optional
+        // arguments (the second's default not kept).
+        "newcommandtwoopt" | "renewcommandtwoopt" | "providecommandtwoopt" => {
+            if let (Some(n), Some(body)) = (m.first(), m.get(1)) {
+                push(Event::Macro {
+                    name: n.trim().to_string(),
+                    command: "newcommandtwoopt".into(),
+                    args: o.first().and_then(|s| s.trim().parse().ok()).unwrap_or(0),
+                    default: Some(o.get(1).map(|s| s.to_string()).unwrap_or_default()),
+                    body: body.to_string(),
+                    range,
+                });
+            }
+            return false;
+        }
         // mathtools' `\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}`.
         "DeclarePairedDelimiter" => {
             if let (Some(n), Some(l), Some(r)) = (m.first(), m.get(1), m.get(2)) {
@@ -1286,6 +1301,9 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
     !matches!(
         name.as_str(),
         "newcommand"
+            | "newcommandtwoopt"
+            | "renewcommandtwoopt"
+            | "providecommandtwoopt"
             | "renewcommand"
             | "providecommand"
             | "newenvironment"

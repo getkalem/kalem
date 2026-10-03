@@ -562,7 +562,8 @@ impl Model {
                         let params: String = (1..=m.args).map(|i| format!("#{i}")).collect();
                         format!("\\{cmd}{}{params}{{{}}}", m.name, m.body)
                     }
-                    "newcommand" | "renewcommand" | "providecommand" => {
+                    "newcommand" | "renewcommand" | "providecommand" | "newcommandtwoopt" => {
+                        let cmd = cmd.trim_end_matches("twoopt");
                         let mut out = format!("\\{cmd}{{{}}}", m.name);
                         if m.args > 0 {
                             out.push_str(&format!("[{}]", m.args));
