@@ -672,6 +672,37 @@ pub trait ViewerDocument: Send {
         Ok(changed)
     }
 
+    /// Moves a range's cells from unit `from` to start at (`row`, `col`)
+    /// of unit `to`, as Cut on one sheet and Paste on another. By default
+    /// [`ViewerDocument::move_cells`] on one unit, and across units the
+    /// entries copied and the cells left cleared.
+    fn move_cells_between(
+        &mut self,
+        from: usize,
+        range: [u32; 4],
+        to: usize,
+        row: u32,
+        col: u32,
+    ) -> Result<Vec<usize>> {
+        if from == to {
+            return self.move_cells(from, range, row, col);
+        }
+        let values: Vec<Vec<String>> = (range[0]..=range[2])
+            .map(|r| {
+                (range[1]..=range[3])
+                    .map(|c| self.cell_input(from, r, c))
+                    .collect()
+            })
+            .collect();
+        let mut changed = self.set_cells(to, row, col, &values)?;
+        for u in self.clear_cells(from, range)? {
+            if !changed.contains(&u) {
+                changed.push(u);
+            }
+        }
+        Ok(changed)
+    }
+
     /// Clears the values of a range (first row, first column, last row,
     /// last column), their formats kept, as a spreadsheet's Delete. By
     /// default cell by cell through [`ViewerDocument::set_cell`]; a format
