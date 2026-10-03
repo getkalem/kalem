@@ -1,0 +1,21 @@
+[package]
+name = "spike-guest"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.57"
+pulldown-cmark = { version = "0.13", default-features = false }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[workspace]

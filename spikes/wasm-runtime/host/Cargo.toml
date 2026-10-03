@@ -1,0 +1,27 @@
+[package]
+name = "spike-host"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Spike: WebAssembly engines measured for decision D28 (task T3.1.0)"
+
+[features]
+# One engine a build, so that each build's size is that engine's.
+cranelift = ["dep:wasmtime", "wasmtime/cranelift"]
+pulley = ["dep:wasmtime", "wasmtime/pulley", "wasmtime/cranelift"]
+wasmi = ["dep:wasm_component_layer", "dep:wasmi_runtime_layer"]
+
+[dependencies]
+anyhow = "1"
+pulldown-cmark = { version = "0.13", default-features = false }
+wasmtime = { version = "49", default-features = false, features = ["runtime", "component-model", "std", "anyhow"], optional = true }
+wasm_component_layer = { version = "0.1.18", optional = true }
+wasmi_runtime_layer = { version = "=0.40.0", optional = true }
+
+# Kalem's release profile, so that the sizes are what Kalem would ship.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[workspace]
