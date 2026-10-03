@@ -278,14 +278,26 @@ impl Editor {
             underline: None,
             strikethrough: None,
         };
+        // The grid's text is a little smaller than the body's, its rows
+        // roomier, so that a sheet reads as a sheet.
+        let text_size = (theme.size * 0.93).round();
+        let measure = |t: &str| -> f32 {
+            f32::from(
+                window
+                    .text_system()
+                    .shape_line(
+                        SharedString::from(t.to_string()),
+                        px(text_size),
+                        &[run(t)],
+                        None,
+                    )
+                    .width,
+            )
+        };
         // A digit's width: Excel's column widths count them.
-        let digit = f32::from(
-            window
-                .text_system()
-                .shape_line("0".into(), px(theme.size), &[run("0")], None)
-                .width,
-        );
-        let row_h = (theme.size * 1.6).round();
+        let digit = measure("0");
+        let row_h = (text_size * 1.9).round();
+        const PAD: f32 = 6.0;
         let bounds = self.viewer_view.bounds.map_or((900.0, 600.0), |b| {
             (f32::from(b.size.width), f32::from(b.size.height))
         });
@@ -301,7 +313,7 @@ impl Editor {
                 .get(c as usize)
                 .copied()
                 .unwrap_or(layout.default_width);
-            (w * digit + 10.0).clamp(24.0, 800.0)
+            (w * digit + 2.0 * PAD).clamp(24.0, 800.0)
         };
         let pos = v.grid_pos();
         let gutter =
@@ -350,7 +362,8 @@ impl Editor {
             pos.top,
             layout.max_rows,
             &layout.hidden_rows,
-            bounds.1 - row_h,
+            // The formula bar and the letters.
+            bounds.1 - 2.0 * row_h,
             &|_| row_h,
         );
         v.set_grid_visible(full_rows.max(1), full_cols.max(1));
@@ -387,11 +400,50 @@ impl Editor {
                 }
             }
         }
+        // The cursor's cell in full, as entered: the formula bar.
+        let input = v.cell_input();
         let rgb = |c: [u8; 3]| -> gpui::Hsla {
             gpui::rgb(u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2])).into()
         };
         let header_bg = theme.bar;
         let cursor = theme.caret;
+        let name = format!(
+            "{}{}",
+            kalem_core::csv_tools::column_letters(pos.col as usize),
+            pos.row + 1
+        );
+        let formula_bar = div()
+            .debug_selector(|| "viewer-grid-formula".into())
+            .flex()
+            .flex_row()
+            .flex_none()
+            .h(px(row_h))
+            .items_center()
+            .bg(header_bg)
+            .border_b_1()
+            .border_color(theme.border)
+            .child(
+                div()
+                    .w(px(gutter.max(80.0)))
+                    .flex_none()
+                    .h_full()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .border_r_1()
+                    .border_color(theme.border)
+                    .font_weight(gpui::FontWeight::BOLD)
+                    .child(SharedString::from(name)),
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .px(px(PAD + 2.0))
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_ellipsis()
+                    .child(SharedString::from(input)),
+            );
         let letters = div()
             .flex()
             .flex_row()
@@ -400,7 +452,13 @@ impl Editor {
             .bg(header_bg)
             .border_b_1()
             .border_color(theme.border)
-            .child(div().w(px(gutter)).flex_none())
+            .child(
+                div()
+                    .w(px(gutter))
+                    .flex_none()
+                    .border_r_1()
+                    .border_color(theme.border),
+            )
             .children(cols.iter().map(|&(c, w)| {
                 let name = kalem_core::csv_tools::column_letters(c as usize);
                 div()
@@ -424,6 +482,7 @@ impl Editor {
                     })
                     .child(SharedString::from(name))
             }));
+        let empty = |r: u32, c: u32| cells.get(&(r, c)).is_none_or(|x| x.text.is_empty());
         let body = rows.iter().map(|&(r, _)| {
             let number = div()
                 .w(px(gutter))
@@ -432,9 +491,10 @@ impl Editor {
                 .flex()
                 .items_center()
                 .justify_end()
-                .pr(px(6.))
+                .pr(px(PAD))
                 .bg(header_bg)
                 .border_r_1()
+                .border_b_1()
                 .border_color(theme.border)
                 .text_color(if r == pos.row {
                     theme.foreground
@@ -447,15 +507,49 @@ impl Editor {
                     gpui::FontWeight::NORMAL
                 })
                 .child(SharedString::from((r + 1).to_string()));
+            // Text wider than its cell runs on over the empty cells at its
+            // right, as in a spreadsheet; drawn above them.
+            let mut overflow: Vec<(f32, f32, u32)> = Vec::new();
+            let mut x = gutter;
+            for (k, &(c, w)) in cols.iter().enumerate() {
+                if let Some(cell) = cells.get(&(r, c))
+                    && !cell.numeric
+                    && !cell.text.is_empty()
+                    && matches!(
+                        cell.align,
+                        kalem_viewer::Align::General | kalem_viewer::Align::Left
+                    )
+                {
+                    let need = measure(&cell.text) + 2.0 * PAD;
+                    if need > w {
+                        let mut span = w;
+                        for &(c2, w2) in &cols[k + 1..] {
+                            if span >= need
+                                || !empty(r, c2)
+                                || c2 < layout.frozen.1 && c >= layout.frozen.1
+                            {
+                                break;
+                            }
+                            span += w2;
+                        }
+                        if span > w {
+                            overflow.push((x, span, c));
+                        }
+                    }
+                }
+                x += w;
+            }
+            let spilled: Vec<u32> = overflow.iter().map(|o| o.2).collect();
             let row_cells = cols.iter().map(|&(c, w)| {
                 let cell = cells.get(&(r, c));
                 let here = (r, c) == (pos.row, pos.col);
                 let mut d = div()
                     .id(SharedString::from(format!("cell-{r}-{c}")))
+                    .relative()
                     .w(px(w))
                     .flex_none()
                     .h_full()
-                    .px(px(4.))
+                    .px(px(PAD))
                     .flex()
                     .items_center()
                     .overflow_hidden()
@@ -489,13 +583,35 @@ impl Editor {
                     if cell.strike {
                         d = d.line_through();
                     }
-                    if cell.note {
-                        d = d.border_t_2().border_color(theme.todo);
+                    if !spilled.contains(&c) {
+                        // A number too wide shows as #, as Excel shows it;
+                        // text ends in an ellipsis.
+                        let text = if cell.numeric && measure(&cell.text) + 2.0 * PAD > w {
+                            "#".repeat(((w - 2.0 * PAD) / measure("#")).max(1.0) as usize)
+                        } else {
+                            cell.text.clone()
+                        };
+                        d = d.child(
+                            div()
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .child(SharedString::from(text)),
+                        );
                     }
-                    d = d.child(SharedString::from(cell.text.clone()));
+                    if cell.note {
+                        // A note: a mark in the corner, as Excel's red triangle.
+                        d = d.child(
+                            div()
+                                .absolute()
+                                .top_0()
+                                .right_0()
+                                .size(px(6.))
+                                .bg(theme.todo),
+                        );
+                    }
                 }
                 if here {
-                    d = d.border_2().border_color(cursor);
+                    d = d.child(div().absolute().inset_0().border_2().border_color(cursor));
                 }
                 d.on_mouse_down(
                     MouseButton::Left,
@@ -512,13 +628,46 @@ impl Editor {
                     }),
                 )
             });
+            let spills = overflow.into_iter().filter_map(|(x, span, c)| {
+                let cell = cells.get(&(r, c))?;
+                let mut d = div()
+                    .absolute()
+                    .top_0()
+                    .left(px(x))
+                    .w(px(span))
+                    .h(px(row_h))
+                    .px(px(PAD))
+                    .flex()
+                    .items_center()
+                    .overflow_hidden()
+                    .whitespace_nowrap();
+                if let Some(c) = cell.color {
+                    d = d.text_color(rgb(c));
+                }
+                if cell.bold {
+                    d = d.font_weight(gpui::FontWeight::BOLD);
+                }
+                if cell.italic {
+                    d = d.italic();
+                }
+                Some(
+                    d.child(
+                        div()
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .child(SharedString::from(cell.text.clone())),
+                    ),
+                )
+            });
             div()
+                .relative()
                 .flex()
                 .flex_row()
                 .flex_none()
                 .h(px(row_h))
                 .child(number)
                 .children(row_cells)
+                .children(spills)
         });
         let prepaint = entity.clone();
         div()
@@ -527,7 +676,7 @@ impl Editor {
             .relative()
             .overflow_hidden()
             .bg(theme.background)
-            .text_size(px(theme.size))
+            .text_size(px(text_size))
             .font_family(SharedString::from(theme.font.clone()))
             .child(
                 gpui::canvas(
@@ -539,7 +688,14 @@ impl Editor {
                 .absolute()
                 .size_full(),
             )
-            .child(div().flex().flex_col().child(letters).children(body))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .child(formula_bar)
+                    .child(letters)
+                    .children(body),
+            )
             .on_scroll_wheel(cx.listener(move |this, ev: &ScrollWheelEvent, _, cx| {
                 let d = ev.delta.pixel_delta(px(row_h));
                 if let Some(v) = this.doc.viewer.as_deref_mut() {
