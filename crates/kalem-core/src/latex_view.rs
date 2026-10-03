@@ -6526,13 +6526,28 @@ fn math_node(t: &SyntaxToken) -> Option<SyntaxNode> {
 /// (shown as their source in a red frame): each one's range and the
 /// renderer's message, without the position it gives.
 pub fn formula_failures(doc: &crate::DocumentState) -> Vec<(Range<usize>, String)> {
+    let macros = org_math::source::macros(&math_definitions(doc));
+    formulas(doc)
+        .into_iter()
+        .filter_map(|(r, inner, _)| {
+            org_math::check(&org_math::source::prepare(&inner, &macros))
+                .err()
+                .map(|e| (r, error_kind(&e.message)))
+        })
+        .collect()
+}
+
+/// The formulas of the document's body: their range, their source
+/// without delimiters as the view reads it (glossary entries and the like
+/// put in), and whether they are displayed. The math renderer gets them
+/// through `org_math::source::prepare` with the document's macros.
+pub fn formulas(doc: &crate::DocumentState) -> Vec<(Range<usize>, String, bool)> {
     let Some(state) = doc.latex() else {
         return Vec::new();
     };
     let text = doc.text().as_str();
     let root = state.parse().syntax();
     let body = state.model().body.clone().unwrap_or(0..text.len());
-    let macros = org_math::source::macros(&math_definitions(doc));
     let mut out = Vec::new();
     let mut after = 0;
     for n in root.descendants() {
@@ -6550,13 +6565,11 @@ pub fn formula_failures(doc: &crate::DocumentState) -> Vec<(Range<usize>, String
         }
         after = r.end;
         let src = math_source(doc, r.clone()).unwrap_or_else(|| text[r.clone()].to_string());
-        let (inner, _) = org_math::source::body(&src);
+        let (inner, display) = org_math::source::body(&src);
         if inner.trim().is_empty() {
             continue;
         }
-        if let Err(e) = org_math::check(&org_math::source::prepare(inner, &macros)) {
-            out.push((r, error_kind(&e.message)));
-        }
+        out.push((r, inner.to_string(), display));
     }
     out
 }
