@@ -215,6 +215,40 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     assert!(wrapped && height > 15.0, "{wrapped} {height}");
 
+    // B2 to C3 selected by dragging, then merged.
+    let from = cx
+        .debug_bounds("viewer-grid-cell-1-1")
+        .expect("B2")
+        .center();
+    let to = cx
+        .debug_bounds("viewer-grid-cell-2-2")
+        .expect("C3")
+        .center();
+    cx.simulate_mouse_down(from, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.simulate_mouse_move(to, Some(gpui::MouseButton::Left), gpui::Modifiers::none());
+    cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.run_until_parked();
+    assert!(status(&ws, cx).contains("B2:C3"), "{}", status(&ws, cx));
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.mergeCenter",
+            serde_json::json!({ "confirmed": true }),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let merged = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .merged
+    });
+    assert!(merged.contains(&[1, 1, 2, 2]), "{merged:?}");
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"

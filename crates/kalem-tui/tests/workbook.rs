@@ -198,6 +198,68 @@ fn cells_rows_undo_and_save() {
             .unwrap(),
         "1,300.00"
     );
+    // B2:C3 selected with Shift and the arrows, merged and centered after
+    // the question (its other cells hold values), stepped over, unmerged.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Right,
+        KeyModifiers::SHIFT,
+    )));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Down,
+        KeyModifiers::SHIFT,
+    )));
+    let s = t.screen();
+    assert!(s.contains("B2:C3"), "{s}");
+    t.key(KeyCode::Char('m'));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .merged
+            .iter()
+            .all(|m| *m != [1, 1, 2, 2])
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.mergeCenter", json!({ "confirmed": true }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.grid_layout().unwrap().merged.contains(&[1, 1, 2, 2]));
+    assert_eq!((v.grid_pos().row, v.grid_pos().col), (1, 1));
+    v.grid_move_by(0, 1);
+    assert_eq!(v.grid_pos().col, 3, "the merged cell is stepped over");
+    v.grid_move_to(2, 2);
+    assert_eq!(
+        (v.grid_pos().row, v.grid_pos().col),
+        (1, 1),
+        "inside it is its first cell"
+    );
+    t.key(KeyCode::Char('M'));
+    assert!(
+        !t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .merged
+            .contains(&[1, 1, 2, 2])
+    );
+    t.app.run_command("edit.undo", json!({}));
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().cell_input(),
+        "1300"
+    );
+
     // Wrap Text on a long text: the row grows to its lines.
     let long = "Paid on the first of every month, by bank transfer";
     t.app.run_command(
