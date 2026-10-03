@@ -619,6 +619,30 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Enters rows of texts into the cells from (`row`, `col`) on, each as
+    /// typed, as a spreadsheet's Paste. By default cell by cell through
+    /// [`ViewerDocument::set_cell`]; a format with its own history makes it
+    /// one step.
+    fn set_cells(
+        &mut self,
+        unit: usize,
+        row: u32,
+        col: u32,
+        values: &[Vec<String>],
+    ) -> Result<Vec<usize>> {
+        let mut changed = Vec::new();
+        for (i, line) in values.iter().enumerate() {
+            for (j, v) in line.iter().enumerate() {
+                for u in self.set_cell(unit, row + i as u32, col + j as u32, v)? {
+                    if !changed.contains(&u) {
+                        changed.push(u);
+                    }
+                }
+            }
+        }
+        Ok(changed)
+    }
+
     /// Clears the values of a range (first row, first column, last row,
     /// last column), their formats kept, as a spreadsheet's Delete. By
     /// default cell by cell through [`ViewerDocument::set_cell`]; a format

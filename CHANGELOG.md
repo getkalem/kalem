@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Changed
-
+- The LaTeX mode is on the document mode contract that plugin modes will use (`latex_mode::LatexMode`): its tree in the contract's kinds, outline, formatter, diagnostics and keys; every file of the arXiv sample passes the conformance check.
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Large Markdown files: a keystroke in a 10 MB file reparses in 10 ms (was 215 ms), and files over 2 MiB are parsed in the background when they open instead of staying as source.
 - File manager: entries dragged in the graphical editor move into the folder they are dropped on (copied with Alt or Option), in the same listing or another pane, and dropped on a document they are linked in its syntax; Open in New Pane in the menu.
 - Completion shows the chosen item's documentation beside the list, from the language server (`Enum.` in Elixir: each function's description and spec), in both editors.
 - Kalem says in the status bar when an installed plugin has a newer version (checked once a day, `plugins.check_updates`), and restarts a plugin's language servers after it is updated or removed.

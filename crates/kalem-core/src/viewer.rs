@@ -1138,7 +1138,6 @@ impl ViewerState {
         let s = self.selection();
         let mut grid =
             vec![vec![String::new(); (s[3] - s[1] + 1) as usize]; (s[2] - s[0] + 1) as usize];
-        // Read first: the lock is not held through the loop.
         let cells = self
             .doc()
             .grid_cells(self.unit, s[0]..s[2] + 1, s[1]..s[3] + 1);

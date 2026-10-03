@@ -276,6 +276,7 @@ impl Modes {
         m.register(Box::new(CsvMode));
         m.register(Box::new(crate::klm::KlmMode::default()));
         m.register(Box::new(crate::markdown::MarkdownMode));
+        m.register(Box::new(crate::latex_mode::LatexMode));
         m
     }
 
