@@ -1,5 +1,6 @@
 //! `kalem plugin`: browse the index, install, list and remove plugins,
-//! as the editor's Plugins menu does (T3.3.3).
+//! as the editor's Plugins menu does (T3.3.3); start and build one
+//! (T3.1.2).
 
 #![allow(clippy::print_stdout)]
 
@@ -91,5 +92,32 @@ pub(crate) fn remove(id: &str) -> Result<ExitCode> {
     config();
     let name = plugin_store::remove(id)?;
     println!("Removed {name}");
+    Ok(ExitCode::SUCCESS)
+}
+
+/// `kalem plugin new NAME`.
+pub(crate) fn new(name: &str) -> Result<ExitCode> {
+    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+    let dir = kalem_core::plugin_build::new(name, &cwd)?;
+    println!("Started {name} in {}", dir.display());
+    println!("Build it with `kalem plugin build {}`.", dir.display());
+    Ok(ExitCode::SUCCESS)
+}
+
+/// `kalem plugin build [DIR]`.
+pub(crate) fn build(dir: Option<&std::path::Path>) -> Result<ExitCode> {
+    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+    let dir = dir.map_or(cwd.clone(), |d| cwd.join(d));
+    let b = kalem_core::plugin_build::build(&dir)?;
+    println!("Built {} ({} kB)", b.path.display(), b.size.div_ceil(1024));
+    let list = |v: &[String]| {
+        if v.is_empty() {
+            "nothing".to_string()
+        } else {
+            v.join(", ")
+        }
+    };
+    println!("  imports {}", list(&b.imports));
+    println!("  exports {}", list(&b.exports));
     Ok(ExitCode::SUCCESS)
 }

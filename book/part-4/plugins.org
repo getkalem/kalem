@@ -103,8 +103,21 @@ workspace with a crate per plugin, a template that =kalem plugin new=
 copies, and an index Kalem reads as a static file. Its skeleton exists
 (T3.3.7). Components are never committed: CI builds every plugin
 against the current WIT, and a tag builds, signs and publishes each
-=.wasm=. The planned commands are =kalem plugin new=, =build=,
-=install=, =verify=, =list= and =remove=. The first plugins planned:
+=.wasm=. =kalem plugin install=, =list= and =remove= work today for
+declarative plugins, and two commands start and build a component:
+
+- =kalem plugin new NAME= starts a plugin. Inside a checkout of
+  =getkalem/plugins= it copies =template/= to =plugins/NAME= and renames
+  it; anywhere else it writes a crate of its own in =NAME/= that builds
+  alone.
+- =kalem plugin build [DIR]= runs Cargo for =wasm32-unknown-unknown=
+  (=rustup target add wasm32-unknown-unknown= once) and wraps the module
+  as the component =main= names in =plugin.json=, with =wasm-tools=
+  (=cargo install --locked wasm-tools= once; Kalem calls the tool rather
+  than carrying its 2.3 MB). It prints what the component imports and
+  exports: a plugin imports only what its WIT world names.
+
+=kalem plugin verify= is planned. The first plugins planned:
 word count, Pomodoro, an export filter, a table function, a =jira:=
 link type, a Mermaid renderer, the kanban board, and modes for
 todo.txt, TaskPaper, Fountain, gemtext, Djot and more, with the
