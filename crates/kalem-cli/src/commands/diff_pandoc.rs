@@ -340,13 +340,13 @@ fn pandoc_json(pandoc: &Path, file: &Path) -> Result<Value> {
         if let Some(s) = child.try_wait().map_err(|e| format!("pandoc: {e}"))? {
             break s;
         }
-        if start.elapsed() > PANDOC_TIMEOUT {
+        if start.elapsed() > timeout() {
             let _ = child.kill();
             let _ = child.wait();
             return Err(format!(
                 "{}: pandoc took more than {} s",
                 file.display(),
-                PANDOC_TIMEOUT.as_secs()
+                timeout().as_secs()
             ));
         }
         std::thread::sleep(std::time::Duration::from_millis(20));
@@ -365,8 +365,47 @@ fn pandoc_json(pandoc: &Path, file: &Path) -> Result<Value> {
     serde_json::from_slice(&out).map_err(|e| format!("{}: {e}", file.display()))
 }
 
-/// How long pandoc may take over one file.
-const PANDOC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+/// How long pandoc may take over one file: 30 seconds, or
+/// `KALEM_PANDOC_TIMEOUT` seconds.
+fn timeout() -> std::time::Duration {
+    let secs = std::env::var("KALEM_PANDOC_TIMEOUT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(30);
+    std::time::Duration::from_secs(secs)
+}
+
+/// What pandoc reads in each file, a pandoc for each processor at a time,
+/// in the files' order.
+fn pandoc_all(pandoc: &Path, files: &[PathBuf]) -> Vec<Result<Counts>> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let slots: Vec<std::sync::Mutex<Option<Result<Counts>>>> =
+        files.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    let workers = std::thread::available_parallelism().map_or(1, |n| n.get());
+    std::thread::scope(|scope| {
+        for _ in 0..workers.min(files.len()) {
+            scope.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(f) = files.get(i) else { break };
+                    let r = pandoc_json(pandoc, f).map(|j| pandoc_counts(&j));
+                    if let Ok(mut slot) = slots[i].lock() {
+                        *slot = Some(r);
+                    }
+                }
+            });
+        }
+    });
+    slots
+        .into_iter()
+        .map(|s| {
+            s.into_inner()
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| Err("pandoc did not run".into()))
+        })
+        .collect()
+}
 
 /// `kalem diff-pandoc FILE... [--summary] [--format json]`.
 pub(crate) fn diff_pandoc(files: &[PathBuf], summary: bool, json: bool) -> Result<ExitCode> {
@@ -379,6 +418,8 @@ pub(crate) fn diff_pandoc(files: &[PathBuf], summary: bool, json: bool) -> Resul
     // still compared.
     let mut compared = 0;
     let mut failed = 0;
+    let readable: Vec<PathBuf> = files.iter().filter(|f| read(f).is_ok()).cloned().collect();
+    let mut theirs_all = readable.iter().cloned().zip(pandoc_all(&pandoc, &readable));
     for f in files {
         // A file Kalem cannot read (not UTF-8): reported, left out.
         if let Err(e) = read(f) {
@@ -386,8 +427,12 @@ pub(crate) fn diff_pandoc(files: &[PathBuf], summary: bool, json: bool) -> Resul
             failed += 1;
             continue;
         }
-        let theirs = match pandoc_json(&pandoc, f) {
-            Ok(j) => pandoc_counts(&j),
+        let theirs = match theirs_all
+            .next()
+            .filter(|(p, _)| p == f)
+            .map_or_else(|| Err("pandoc did not run".to_string()), |(_, r)| r)
+        {
+            Ok(c) => c,
             Err(e) => {
                 eprintln!(
                     "{}: pandoc cannot read it: {}",
