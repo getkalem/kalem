@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- File manager: Paste in the graphical editor takes files copied in another application (Finder's or Explorer's file list, or paths and `file://` URIs as text); the terminal's file menu parts its groups with rules.
 - CSV: a selection across rows is a rectangle of cells, painted as one in both editors, copied as tab-separated values and cut empty (Copy Cells, Cut Cells), so it pastes back with Paste as Block; Histogram of Column puts a column's numbers in ranges; in the graphical editor a column's edge in the letters bar sets its width by dragging and fits it by a double click.
 - `kalem diff-pandoc` gives pandoc 60 seconds a file: a file it takes longer over is reported and left out, so one file cannot stall a corpus run. The `latex_timing` example takes `KEYS` (keystrokes) and `PARTS` (the time of typing, the screen and the blocks apart); the Book's performance page has 10 MB papers.
 - LaTeX beside Overleaf and co-authors: Ignore Build Outputs in Git adds LaTeX's outputs to the repository's `.gitignore` (a build offers it), and the manual says how to work on an Overleaf or GitHub project.

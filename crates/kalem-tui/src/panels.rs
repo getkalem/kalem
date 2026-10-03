@@ -58,12 +58,17 @@ pub struct Palette {
     /// index, its source in the search, and the selection's anchor and
     /// head, to go back to.
     pub origin: Option<(usize, usize, usize, usize)>,
+    /// The items a menu's separator comes before, drawn as a rule while
+    /// nothing is typed.
+    breaks: Vec<usize>,
 }
 
 impl Palette {
     /// A palette of `items`.
     pub fn new(items: Vec<PaletteItem>) -> Palette {
+        let (items, breaks) = kalem_core::palette::split_separators(items);
         Palette {
+            breaks,
             input: String::new(),
             back: 0,
             selected: 0,
@@ -192,7 +197,21 @@ impl Palette {
                 })
                 .collect(),
         };
-        let h = (lines.len() as u16 + 1)
+        // Rows: the lines, with a rule where a menu's group ends while
+        // nothing is typed (`None`).
+        let rules = self.ordered
+            && self.input.trim().is_empty()
+            && self.pick.is_none()
+            && self.search.is_none()
+            && self.lines.is_none();
+        let mut rows: Vec<Option<usize>> = Vec::with_capacity(lines.len());
+        for n in 0..lines.len() {
+            if rules && self.breaks.binary_search(&n).is_ok() {
+                rows.push(None);
+            }
+            rows.push(Some(n));
+        }
+        let h = (rows.len() as u16 + 1)
             .min(area.height.saturating_sub(2))
             .max(1);
         let bg = panel_style(caps);
@@ -264,9 +283,25 @@ impl Palette {
                 bg.add_modifier(Modifier::DIM),
             );
         }
-        let first = self.selected.saturating_sub(h.saturating_sub(2) as usize);
-        for (n, (title, detail, keys)) in lines.iter().enumerate().skip(first).take(h as usize) {
-            let y = y0 + 1 + (n - first) as u16;
+        let at = rows
+            .iter()
+            .position(|r| *r == Some(self.selected))
+            .unwrap_or(0);
+        let first = at.saturating_sub(h.saturating_sub(2) as usize);
+        for (r, row) in rows.iter().enumerate().skip(first).take(h as usize) {
+            let y = y0 + 1 + (r - first) as u16;
+            let Some(n) = *row else {
+                let rule = "─".repeat((w - 2) as usize);
+                buf.set_stringn(
+                    x + 1,
+                    y,
+                    &rule,
+                    (w - 2) as usize,
+                    bg.add_modifier(Modifier::DIM),
+                );
+                continue;
+            };
+            let (title, detail, keys) = &lines[n];
             let style = if n == self.selected {
                 selected_style(caps, bg)
             } else {

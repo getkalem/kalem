@@ -67,7 +67,8 @@ Ctrl on macOS:
 
 A right click (Shift+F10 or the Menu key from the keyboard) opens a
 menu with the usual entries of a file manager, from Open to
-Properties; the terminal shows it as a list to pick from. /Delete for
+Properties; the terminal shows it as a list to pick from, its groups
+parted by rules until something is typed. /Delete for
 Good/, /Copy Paths/, /Reverse Order/, /Show in System File Manager/
 and /Stop File Operations/ are in the palette.
 
@@ -77,8 +78,14 @@ overwrite, skip, or keep both (=name (2).ext=), for that file or for
 all that are left. Ctrl+Z takes back the renames, moves and moves to
 the trash of this session, the last first. Cut and Copy keep the
 paths in Kalem's own file clipboard and put them on the system
-clipboard as text; pasting a file list into Finder or Explorer does not
-work yet.
+clipboard as text. In the graphical editor Paste also takes files copied
+in another application: the file list Finder or Explorer puts on the
+clipboard, or text whose every line is a file that exists, as a path or
+a =file://= URI (what the Linux file managers give as text, with GNOME's
+=cut= line making it a move); Kalem's own copy wins when the clipboard
+holds the same paths. Pasting Kalem's files into Finder or Explorer as
+files does not work yet: the toolkit writes only text and pictures to
+the clipboard, so they paste there as their paths.
 
 In the graphical editor, entries can be dragged (the marked ones when
 the line is marked): dropped on a listing, in another pane or the same

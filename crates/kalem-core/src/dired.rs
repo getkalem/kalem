@@ -2827,10 +2827,43 @@ pub(crate) fn commands() -> Vec<Command> {
             "Paste Files",
             &[],
             Some(IN_LISTING),
-            |ctx, _| {
+            |ctx, args| {
                 let doc = listing(ctx)?;
                 let dir = the_dir(doc)?;
-                let Some((paths, cut)) = FILE_CLIPBOARD.lock().ok().and_then(|c| c.clone()) else {
+                // Files copied in another application: the system
+                // clipboard's file list (`paths`) or its text (`system`),
+                // when it is not what Kalem put there.
+                let system = args
+                    .get("paths")
+                    .and_then(Value::as_array)
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(Value::as_str)
+                            .map(PathBuf::from)
+                            .collect::<Vec<_>>()
+                    })
+                    .filter(|p| !p.is_empty())
+                    .map(|p| (p, false))
+                    .or_else(|| {
+                        args.get("system")
+                            .and_then(Value::as_str)
+                            .and_then(paths_in_text)
+                    });
+                let own = FILE_CLIPBOARD.lock().ok().and_then(|c| c.clone());
+                let from_system = match (&system, &own) {
+                    (Some((p, _)), Some((o, _))) => p != o,
+                    (Some(_), None) => true,
+                    _ => false,
+                };
+                if from_system && let Some((paths, cut)) = system {
+                    let kind = if cut {
+                        kalem_fs::OpKind::Move
+                    } else {
+                        kalem_fs::OpKind::Copy
+                    };
+                    return file_op(ctx, kind, paths, Some(dir));
+                }
+                let Some((paths, cut)) = own else {
                     return Err(CommandError::new(tr("fm-clipboard-empty")));
                 };
                 if cut && let Ok(mut c) = FILE_CLIPBOARD.lock() {
@@ -2915,6 +2948,7 @@ pub(crate) fn commands() -> Vec<Command> {
                 let items = context_menu(doc, on_entry)
                     .into_iter()
                     .filter_map(|i| match i {
+                        ContextItem::Separator => Some(crate::palette::PaletteItem::separator()),
                         ContextItem::Command {
                             label,
                             id,
@@ -2994,6 +3028,64 @@ fn clip_files(ctx: &mut EditorContext<'_>, cut: bool) -> CommandResult {
         count = n
     ));
     Ok(())
+}
+
+/// The files a clipboard's text names, as file managers put them there:
+/// each line an absolute path or a `file://` URI (percent-encoded) of a
+/// file that exists, a first line `copy` or `cut` allowed (GNOME's
+/// `x-special/gnome-copied-files`); with whether they were cut. `None`
+/// when any line is something else.
+pub fn paths_in_text(text: &str) -> Option<(Vec<PathBuf>, bool)> {
+    let mut lines = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .peekable();
+    let cut = match lines.peek() {
+        Some(&"cut") => {
+            lines.next();
+            true
+        }
+        Some(&"copy") => {
+            lines.next();
+            false
+        }
+        _ => false,
+    };
+    let mut out = Vec::new();
+    for line in lines {
+        let p = match line.strip_prefix("file://") {
+            Some(rest) => {
+                let rest = rest.strip_prefix("localhost").unwrap_or(rest);
+                PathBuf::from(percent_decode(rest)?)
+            }
+            None => PathBuf::from(line),
+        };
+        if !p.is_absolute() || !p.exists() {
+            return None;
+        }
+        out.push(p);
+    }
+    (!out.is_empty()).then_some((out, cut))
+}
+
+/// `%20` and the like as the bytes they stand for; `None` when they do
+/// not make UTF-8.
+fn percent_decode(s: &str) -> Option<String> {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            let hex = std::str::from_utf8(&b[i + 1..i + 3]).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(b[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
 }
 
 /// Whether files wait on the file clipboard.
@@ -3246,6 +3338,28 @@ mod tests {
             .expect("listed")
             + 1;
         doc.move_cursor(at, false);
+    }
+
+    #[test]
+    fn file_lists_in_clipboard_text() {
+        let d = std::env::temp_dir().join(format!("kalem-paths-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("a b")).unwrap();
+        let p = d.join("a b");
+        let uri = format!("file://{}", p.display()).replace(' ', "%20");
+        assert_eq!(paths_in_text(&uri), Some((vec![p.clone()], false)));
+        assert_eq!(
+            paths_in_text(&format!("cut\n{uri}\n")),
+            Some((vec![p.clone()], true))
+        );
+        assert_eq!(
+            paths_in_text(&p.display().to_string()),
+            Some((vec![p.clone()], false))
+        );
+        assert_eq!(paths_in_text("a b"), None);
+        assert_eq!(paths_in_text(&format!("{}\nnot a path", p.display())), None);
+        assert_eq!(paths_in_text(&format!("{}/missing", d.display())), None);
+        assert_eq!(paths_in_text(""), None);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]
@@ -3907,6 +4021,36 @@ mod tests {
             })]
         ));
         assert!(!file_clipboard_full());
+        // Files copied in another application: the system clipboard's text,
+        // as a file manager writes it, pasted as a copy.
+        let uri = format!("file://{}", d.join("a.org").display()).replace(' ', "%20");
+        let (_, req) = run(&mut doc, "dired.paste", json!({ "system": uri }));
+        assert!(
+            matches!(
+                req.as_slice(),
+                [Request::FileOp(FileOp { kind: kalem_fs::OpKind::Copy, sources, .. })]
+                    if sources == &vec![d.join("a.org")]
+            ),
+            "{req:?}"
+        );
+        // Text that is not a file list is no paste of files.
+        let (r, _) = run(&mut doc, "dired.paste", json!({ "system": "hello" }));
+        assert!(r.is_err());
+        // Kalem's own copy wins over the same paths as text.
+        goto(&mut doc, "a.org");
+        run(&mut doc, "dired.cutFiles", json!({})).0.unwrap();
+        let mine = d.join("a.org").display().to_string();
+        let (_, req) = run(&mut doc, "dired.paste", json!({ "system": mine }));
+        assert!(
+            matches!(
+                req.as_slice(),
+                [Request::FileOp(FileOp {
+                    kind: kalem_fs::OpKind::Move,
+                    ..
+                })]
+            ),
+            "{req:?}"
+        );
         // Duplicate: `a copy.org` beside it.
         goto(&mut doc, "a.org");
         let (_, req) = run(&mut doc, "dired.duplicate", json!({}));

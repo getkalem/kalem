@@ -4129,4 +4129,15 @@ fn file_manager_entries_dropped(cx: &mut TestAppContext) {
     settle_jobs(&ws, cx);
     assert!(proj.join("sub/x.txt").exists());
     assert!(!proj.join("x.txt").exists());
+    // A file copied in a system file manager (its URI as text) pastes into
+    // the listing as a copy.
+    let loose = dir.join("loose.org");
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string(format!(
+        "file://{}",
+        loose.display()
+    )));
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("dired.paste"));
+    settle_jobs(&ws, cx);
+    assert!(proj.join("loose.org").exists());
+    assert!(loose.exists());
 }

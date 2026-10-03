@@ -1094,6 +1094,34 @@ impl Editor {
             }
             return;
         }
+        // Files pasted into a listing: those copied in another application
+        // too, from the system clipboard's file list or text.
+        let args = if id == "dired.paste" && args.get("system").is_none() {
+            let mut args = if args.is_null() {
+                serde_json::json!({})
+            } else {
+                args
+            };
+            if let (Some(item), Some(map)) = (cx.read_from_clipboard(), args.as_object_mut()) {
+                let paths: Vec<String> = item
+                    .entries()
+                    .iter()
+                    .filter_map(|e| match e {
+                        gpui::ClipboardEntry::ExternalPaths(p) => Some(p.paths().to_vec()),
+                        _ => None,
+                    })
+                    .flatten()
+                    .map(|p| p.display().to_string())
+                    .collect();
+                map.insert("paths".into(), serde_json::json!(paths));
+                if let Some(text) = item.text() {
+                    map.insert("system".into(), Value::String(text));
+                }
+            }
+            args
+        } else {
+            args
+        };
         let now = Instant::now();
         let clock = jiff::Zoned::now().datetime();
         self.clipboard.registers = self
