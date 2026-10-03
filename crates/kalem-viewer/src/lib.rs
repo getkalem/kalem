@@ -457,6 +457,23 @@ pub struct Chart {
     pub horizontal_title: Option<String>,
     /// The vertical axis's title.
     pub vertical_title: Option<String>,
+    /// Where its legend is; `None` for no legend.
+    pub legend: Option<LegendPosition>,
+}
+
+/// Where a chart's legend stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LegendPosition {
+    /// Under the plot.
+    Bottom,
+    /// Above the plot.
+    Top,
+    /// Left of the plot.
+    Left,
+    /// Right of the plot.
+    Right,
+    /// In the top right corner.
+    TopRight,
 }
 
 /// One of a chart's axes, by where it is drawn.
@@ -1010,6 +1027,17 @@ pub trait ViewerDocument: Send {
         _index: usize,
         _axis: ChartAxis,
         _title: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Puts the legend of the chart at `index` of [`ViewerDocument::charts`]
+    /// at `position`, or takes it away (`None`).
+    fn set_legend(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _position: Option<LegendPosition>,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
