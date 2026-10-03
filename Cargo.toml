@@ -39,6 +39,7 @@ gpui-rich-text = { path = "crates/gpui-rich-text", version = "0.0.1" }
 latex-syntax = { path = "crates/latex-syntax", version = "0.0.1" }
 latex-model = { path = "crates/latex-model", version = "0.0.1" }
 kalem-viewer = { path = "crates/kalem-viewer", version = "0.0.1" }
+kalem-script = { path = "crates/kalem-script", version = "0.0.1" }
 # The image viewer, a plugin of getkalem/plugins bundled into the binary
 # (D28) until components load (T3.1.12).
 kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "1d34eef4f98a9392d3316f2467f6a008d675c689" }
