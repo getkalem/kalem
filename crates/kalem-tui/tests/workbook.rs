@@ -137,6 +137,15 @@ fn a_workbook_opens_as_a_grid() {
         .unwrap()
         .widths[0];
     assert_eq!(w, 18.0);
+    // `c +` and `c -`: a digit wider, narrower.
+    t.key(KeyCode::Char('c'));
+    t.key(KeyCode::Char('+'));
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().col_width(0), 19.0);
+    t.key(KeyCode::Char('c'));
+    t.key(KeyCode::Char('-'));
+    t.key(KeyCode::Char('c'));
+    t.key(KeyCode::Char('-'));
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().col_width(0), 17.0);
 }
 
 #[test]
