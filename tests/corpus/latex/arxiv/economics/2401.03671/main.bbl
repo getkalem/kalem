@@ -1,0 +1,157 @@
+\begin{thebibliography}{10}
+\providecommand{\bibitemdeclare}[2]{}
+\providecommand{\surnamestart}{}
+\providecommand{\surnameend}{}
+\providecommand{\urlprefix}{Available at }
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\href}[2]{\texttt{#2}}
+\providecommand{\urlalt}[2]{\href{#1}{#2}}
+\providecommand{\doi}[1]{doi:\urlalt{https://doi.org/#1}{#1}}
+\providecommand{\eprint}[1]{arXiv:\urlalt{https://arxiv.org/abs/#1}{#1}}
+\providecommand{\bibinfo}[2]{#2}
+
+\bibitemdeclare{inproceedings}{arieli2023mediated}
+\bibitem{arieli2023mediated}
+\bibinfo{author}{Itai \surnamestart Arieli\surnameend}, \bibinfo{author}{Ivan
+  \surnamestart Geffner\surnameend} \& \bibinfo{author}{Moshe \surnamestart
+  Tennenholtz\surnameend} (\bibinfo{year}{2023}):
+  \emph{\bibinfo{title}{Mediated cheap talk design}}.
+\newblock In: {\slshape \bibinfo{booktitle}{Proceedings of the AAAI Conference
+  on Artificial Intelligence}}, \bibinfo{volume}{37}, pp.
+  \bibinfo{pages}{5456--5463}, \doi{10.1609/aaai.v37i5.25678}.
+
+\bibitemdeclare{inproceedings}{arieli2023resilient}
+\bibitem{arieli2023resilient}
+\bibinfo{author}{Itai \surnamestart Arieli\surnameend}, \bibinfo{author}{Ivan
+  \surnamestart Geffner\surnameend} \& \bibinfo{author}{Moshe \surnamestart
+  Tennenholtz\surnameend} (\bibinfo{year}{2023}):
+  \emph{\bibinfo{title}{Resilient Information Aggregation}}.
+\newblock In: {\slshape \bibinfo{booktitle}{Proceedings of the 2023 Conference
+  on Theoretical Aspects of Rationality and Knowledge (TARK)}}, {\slshape
+  \bibinfo{series}{{EPTCS}}} \bibinfo{volume}{379}, pp.
+  \bibinfo{pages}{31--45}, \doi{10.4204/EPTCS.379.6}.
+
+\bibitemdeclare{article}{bergemann2015limits}
+\bibitem{bergemann2015limits}
+\bibinfo{author}{Dirk \surnamestart Bergemann\surnameend},
+  \bibinfo{author}{Benjamin \surnamestart Brooks\surnameend} \&
+  \bibinfo{author}{Stephen \surnamestart Morris\surnameend}
+  (\bibinfo{year}{2015}): \emph{\bibinfo{title}{The limits of price
+  discrimination}}.
+\newblock {\slshape \bibinfo{journal}{American Economic Review}}
+  \bibinfo{volume}{105}(\bibinfo{number}{3}), pp. \bibinfo{pages}{921--957},
+  \doi{10.2139/ssrn.2501403}.
+
+\bibitemdeclare{article}{blume2013language}
+\bibitem{blume2013language}
+\bibinfo{author}{Andreas \surnamestart Blume\surnameend} \&
+  \bibinfo{author}{Oliver \surnamestart Board\surnameend}
+  (\bibinfo{year}{2013}): \emph{\bibinfo{title}{Language barriers}}.
+\newblock {\slshape \bibinfo{journal}{Econometrica}}
+  \bibinfo{volume}{81}(\bibinfo{number}{2}), pp. \bibinfo{pages}{781--812},
+  \doi{10.3982/ecta9183}.
+
+\bibitemdeclare{inproceedings}{corrao2023mediated}
+\bibitem{corrao2023mediated}
+\bibinfo{author}{Roberto \surnamestart Corrao\surnameend} \&
+  \bibinfo{author}{Yifan \surnamestart Dai\surnameend} (\bibinfo{year}{2023}):
+  \emph{\bibinfo{title}{Mediated Communication with Transparent Motives}}.
+\newblock In: {\slshape \bibinfo{booktitle}{Proceedings of the 24th ACM
+  Conference on Economics and Computation}}, pp. \bibinfo{pages}{489--489},
+  \doi{10.1145/3580507.3597808}.
+
+\bibitemdeclare{article}{de2003game}
+\bibitem{de2003game}
+\bibinfo{author}{Kris \surnamestart De~Jaegher\surnameend}
+  (\bibinfo{year}{2003}): \emph{\bibinfo{title}{A game-theoretic rationale for
+  vagueness}}.
+\newblock {\slshape \bibinfo{journal}{Linguistics and Philosophy}}
+  \bibinfo{volume}{26}(\bibinfo{number}{5}), pp. \bibinfo{pages}{637--659},
+  \doi{10.1023/A:1025853728992}.
+
+\bibitemdeclare{article}{glukhov2023llm}
+\bibitem{glukhov2023llm}
+\bibinfo{author}{David \surnamestart Glukhov\surnameend}, \bibinfo{author}{Ilia
+  \surnamestart Shumailov\surnameend}, \bibinfo{author}{Yarin \surnamestart
+  Gal\surnameend}, \bibinfo{author}{Nicolas \surnamestart Papernot\surnameend}
+  \& \bibinfo{author}{Vardan \surnamestart Papyan\surnameend}
+  (\bibinfo{year}{2023}): \emph{\bibinfo{title}{Llm censorship: A machine
+  learning challenge or a computer security problem?}}
+\newblock {\slshape \bibinfo{journal}{arXiv preprint arXiv:2307.10719}},
+  \doi{10.48550/arXiv.2307.10719}.
+
+\bibitemdeclare{article}{hagenbach2020cheap}
+\bibitem{hagenbach2020cheap}
+\bibinfo{author}{Jeanne \surnamestart Hagenbach\surnameend} \&
+  \bibinfo{author}{Fr{\'e}d{\'e}ric \surnamestart Koessler\surnameend}
+  (\bibinfo{year}{2020}): \emph{\bibinfo{title}{Cheap talk with coarse
+  understanding}}.
+\newblock {\slshape \bibinfo{journal}{Games and Economic Behavior}}
+  \bibinfo{volume}{124}, pp. \bibinfo{pages}{105--121},
+  \doi{10.1016/j.geb.2020.07.015}.
+
+\bibitemdeclare{article}{ichihashi2019limiting}
+\bibitem{ichihashi2019limiting}
+\bibinfo{author}{Shota \surnamestart Ichihashi\surnameend}
+  (\bibinfo{year}{2019}): \emph{\bibinfo{title}{Limiting Sender's information
+  in Bayesian persuasion}}.
+\newblock {\slshape \bibinfo{journal}{Games and Economic Behavior}}
+  \bibinfo{volume}{117}, pp. \bibinfo{pages}{276--288},
+  \doi{10.2139/ssrn.3233072}.
+
+\bibitemdeclare{article}{jager2011voronoi}
+\bibitem{jager2011voronoi}
+\bibinfo{author}{Gerhard \surnamestart J{\"a}ger\surnameend},
+  \bibinfo{author}{Lars~P \surnamestart Metzger\surnameend} \&
+  \bibinfo{author}{Frank \surnamestart Riedel\surnameend}
+  (\bibinfo{year}{2011}): \emph{\bibinfo{title}{Voronoi languages: Equilibria
+  in cheap-talk games with high-dimensional types and few signals}}.
+\newblock {\slshape \bibinfo{journal}{Games and economic behavior}}
+  \bibinfo{volume}{73}(\bibinfo{number}{2}), pp. \bibinfo{pages}{517--537},
+  \doi{10.1016/j.geb.2011.03.008}.
+
+\bibitemdeclare{article}{kamenica2011bayesian}
+\bibitem{kamenica2011bayesian}
+\bibinfo{author}{Emir \surnamestart Kamenica\surnameend} \&
+  \bibinfo{author}{Matthew \surnamestart Gentzkow\surnameend}
+  (\bibinfo{year}{2011}): \emph{\bibinfo{title}{Bayesian persuasion}}.
+\newblock {\slshape \bibinfo{journal}{American Economic Review}}
+  \bibinfo{volume}{101}(\bibinfo{number}{6}), pp. \bibinfo{pages}{2590--2615},
+  \doi{10.3386/w15540}.
+
+\bibitemdeclare{article}{lipnowski2020cheap}
+\bibitem{lipnowski2020cheap}
+\bibinfo{author}{Elliot \surnamestart Lipnowski\surnameend} \&
+  \bibinfo{author}{Doron \surnamestart Ravid\surnameend}
+  (\bibinfo{year}{2020}): \emph{\bibinfo{title}{Cheap talk with transparent
+  motives}}.
+\newblock {\slshape \bibinfo{journal}{Econometrica}}
+  \bibinfo{volume}{88}(\bibinfo{number}{4}), pp. \bibinfo{pages}{1631--1660},
+  \doi{10.3982/ecta15674}.
+
+\bibitemdeclare{article}{liu2024protecting}
+\bibitem{liu2024protecting}
+\bibinfo{author}{Zichuan \surnamestart Liu\surnameend}, \bibinfo{author}{Zefan
+  \surnamestart Wang\surnameend}, \bibinfo{author}{Linjie \surnamestart
+  Xu\surnameend}, \bibinfo{author}{Jinyu \surnamestart Wang\surnameend},
+  \bibinfo{author}{Lei \surnamestart Song\surnameend},
+  \bibinfo{author}{Tianchun \surnamestart Wang\surnameend},
+  \bibinfo{author}{Chunlin \surnamestart Chen\surnameend}, \bibinfo{author}{Wei
+  \surnamestart Cheng\surnameend} \& \bibinfo{author}{Jiang \surnamestart
+  Bian\surnameend} (\bibinfo{year}{2024}): \emph{\bibinfo{title}{Protecting
+  your llms with information bottleneck}}.
+\newblock {\slshape \bibinfo{journal}{Advances in Neural Information Processing
+  Systems}} \bibinfo{volume}{37}, pp. \bibinfo{pages}{29723--29753},
+  \doi{10.48550/arXiv.2404.13968}.
+
+\bibitemdeclare{article}{patil2023can}
+\bibitem{patil2023can}
+\bibinfo{author}{Vaidehi \surnamestart Patil\surnameend},
+  \bibinfo{author}{Peter \surnamestart Hase\surnameend} \&
+  \bibinfo{author}{Mohit \surnamestart Bansal\surnameend}
+  (\bibinfo{year}{2023}): \emph{\bibinfo{title}{Can sensitive information be
+  deleted from llms? objectives for defending against extraction attacks}}.
+\newblock {\slshape \bibinfo{journal}{arXiv preprint arXiv:2309.17410}},
+  \doi{10.48550/arXiv.2309.17410}.
+
+\end{thebibliography}

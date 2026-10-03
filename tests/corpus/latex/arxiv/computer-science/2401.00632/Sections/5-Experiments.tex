@@ -1,0 +1,182 @@
+
+\section{Experiment and Evaluation}
+\label{section: experiment}
+
+
+
+We experimentally assess the DRL-based sharding approach regarding convergence performance and stability under various environment settings, including the number of shards, the number of nodes, the resource distribution, and other practical settings. Note that the parameters in the following experiments align with real-world IoT scenarios, such as Mobile Edge Computing (MEC), where edge servers on vehicles or drones collect data from end devices such as sensors. These servers initiate re-sharding to optimize data processing by redistributing workload when moving across regions. 
+
+% 在下面的实验场景中，我们下面的实验参数的设定的场景是符合真实IOT场景 reference
+% 我们只有 sever 来跑这些节点，其他 sever用来收集数据等，
+
+
+\begin{table}[t]
+    \centering
+    \caption{Hyperparameters}
+    \label{table2}
+    \renewcommand\arraystretch{1.5}
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{c|l|c}
+        \hline
+        \textbf{Notation} & \textbf{Description} & \textbf{Value} \\ \hline
+        $e_{max}$       & The number of epoches in DRL     & $\left [ 30, 100\right ]$ \\ 
+        $F$        & The probability of node failing to vote      & $20\%$ \\ 
+        $A$         & The fraction of dishonest nodes within one shard & $\left [ 0, 30\right ]$ \\ 
+        $\tau$         & The threshold for triggering colluding strategy    & $10\%$ \\
+        $\gamma$        &The discount factor for calculating $OT$ of each leader        & $0.9$ \\
+        $\rho_{t}$          &The threshold of differentiating low-risky nodes and & 0.67 \\
+        & high-risky nodes in terms of trust& \\
+        $f_{intra}$      & The threshold of faulty tolerance within one shard & $\lfloor (N_x-1)/3 \rfloor$ \\ 
+        $\rho_{cr}$       & The threshold of triggering resharding in terms of CST ratio & 0.4 \\ 
+        % $E_a$       &The shard load balance reward & 2 \\ 
+        % $E_b$       &The number of corrupted shard reward & 2 \\ 
+        % $\lambda_a$ &The $1$-th parameter for calculating the CST reward & 5 \\ 
+        % $\lambda_b$ &The $2$-nd parameter for calculating the CST reward  & 1.1 \\ 
+        % $\lambda_c$ &The $3$-rd parameter for calculating the CST reward &30 \\ 
+        \hline
+        
+    \end{tabular}%
+    }
+% \vspace{-0.5cm}
+\end{table}
+
+\subsection{Experiment Framework}
+
+An experimental framework is implemented in a local environment with 2.00 Ghz, 2 $\times$ 40 cores, 2 $\times$ Intel(R) Xeon(R) Gold 6138 CPU, NVIDIA PCIe A100, 8 $\times$ 40GB GPU, 250GB memory and 1000Mb/s to evaluate a proposed blockchain sharding scheme. We create a virtual machine using Ubuntu 18.04.6 LTS in Python 3.7.13 and Pytorch 1.13.1. In this setting, we use the discrete DRL algorithms, DQN and PPO, and run over $30-100$ epochs. We set the range of total nodes from $0-16$ in our environment. The transaction distribution model between nodes follows the normal distribution. The trustworthy coordinator is implemented by deploying the smart contract. 
+
+In our experimental setup, we assess the blockchain sharding system \textsc{TBDD} against other sharding techniques such as random-based sharding~\cite{luu2016secure}, community-based sharding~\cite{zhang2022community}, and trust-based sharding~\cite{yun2019trust}. We account for dishonest nodes in the range of $0-5$, which employ collusion strategies during block verification. These nodes may produce deceptive block verifications and send CSTs across different shards. Initially, these dishonest nodes are scattered randomly across shards. To model interactions between dishonest nodes in distinct shards, positive noises are introduced to their transaction counts. The resulting transaction distribution table is influenced by normally distributed transactions. The experiments' hyperparameters are detailed in Table~\ref{table2}.
+
+As the intra-shard fault tolerance threshold $f_{intra}$ is set to $\lfloor (N_x-1)/3\rfloor$, we also evaluate the relationship between the total number of nodes $N$ in the network, the number of shards $D$, and the total fault tolerance $f_{total}$, as given by
+\begin{equation}
+    \label{eq:24}
+    f_{total} = \left \lfloor \left( \left\lfloor \frac{N}{D} \right\rfloor - 1 \right) / 3 \right\rfloor \times D,
+\end{equation}
+by which one can realize whether the entire network has failed.
+
+
+\subsection{Experiment Results}
+In the experimental evaluations, we compared the performance of the \textsc{TBDD} system with random-based, community-based, and trust-based sharding approaches using metrics such as CST ratio, shard risk variance, corrupted shard number, and convergence speed. Through these evaluations, we validate the effectiveness and robustness of our proposed approach. In the following figures, we label each figure in terms of the number of nodes $N$, shards $D$, and dishonest nodes $h$, respectively. 
+
+
+
+\begin{figure*}[t]
+    \centering
+    % \vspace{-0.3cm}
+    \setlength{\belowcaptionskip}{-0.3cm} 
+    \subfigure[$N=16, D=2, h=4$.]{\label{fig.5a}\includegraphics[width=2.3in]{./fig/exp1.png}}
+    \subfigure[$N=\lbrace10,12,14,16\rbrace, D=2, h=2$.]
+    {\label{fig.5b}\includegraphics[width=2.3in]{./fig/exp1_DQN.png}}
+    \subfigure[$N=\lbrace10,12,14,16\rbrace, D=2, h=2$.]
+    {\label{fig.5c}\includegraphics[width=2.3in]{./fig/exp1_PPO.png}}
+    
+    \caption{Fig.~\ref{fig.5a} represents the comparison among Random-based, Community-based, Trust-based, \textsc{TBDD-DQN} and \textsc{TBDD-PPO} across $100$ epochs. Figs.~\ref{fig.5b} and \ref{fig.5c}  represent the reward performance between \textsc{TBDD-DQN} and \textsc{TBDD-PPO} across varying node numbers in the environment settings across $30$ epochs, respectively.}
+    \label{fig.5}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \vspace{-0.3cm}
+    \setlength{\belowcaptionskip}{-0.3cm} 
+    \subfigure[Random-based]{\label{fig.6a}\includegraphics[width=0.19\linewidth]{./fig/exp2sr_random.png}}
+    \subfigure[Community-based]{\label{fig.6b}\includegraphics[width=0.19\linewidth]{./fig/exp2sr_graph.png}}
+    \subfigure[Trust-based]{\label{fig.6c}\includegraphics[width=0.19\linewidth]{./fig/exp2sr_trust.png}}
+    \subfigure[TBDD-DQN]{\label{fig.6d}\includegraphics[width=0.19\linewidth]
+    {./fig/exp2sr_DQN.png}}
+    \subfigure[TBDD-PPO]{\label{fig.6e}\includegraphics[width=0.19\linewidth]
+    {./fig/exp2sr_PPO.png}}
+
+    \subfigure[Random-based]{\label{fig.6f}\includegraphics[width=0.19\linewidth]{./fig/exp2nmr_random.png}}
+    \subfigure[Community-based]{\label{fig.6g}\includegraphics[width=0.19\linewidth]{./fig/exp2nmr_graph.png}}
+    \subfigure[Trust-based]{\label{fig.6h}\includegraphics[width=0.19\linewidth]{./fig/exp2nmr_trust.png}}
+    \subfigure[TBDD-DQN]{\label{fig.6i}\includegraphics[width=0.19\linewidth]
+    {./fig/exp2nmr_DQN.png}}
+    \subfigure[TBDD-PPO]{\label{fig.6j}\includegraphics[width=0.19\linewidth]
+    {./fig/exp2nmr_PPO.png}}
+
+    \caption{The comparison of different sharding schemes with same setting $N=16, D=2, h=4$ across $100$ epochs. }
+    \label{fig.6}
+\end{figure*}
+
+
+\begin{figure}[h]
+    \centering
+    % \vspace{-0.3cm}
+    \setlength{\belowcaptionskip}{-0.3cm} 
+    \subfigure[$N=16, D=2, h=\lbrace0,1,2,3,4,5\rbrace$, TBDD-DQN]{\label{fig.3DQN}\includegraphics[width=0.48\columnwidth]{./fig/exp3_DQN.png}}
+    \subfigure[$N=16, D=2, h=\lbrace0,1,2,3,4,5\rbrace$, TBDD-PPO]
+    {\label{fig.3PPO}\includegraphics[width=0.48\columnwidth]{./fig/exp3_PPO.png}}
+	\caption{Tracing of the impact of the number of dishonest nodes for node trust with DRL approach, $N=16, D=2, h=\lbrace0,1,2,3,4,5\rbrace$. The left subfigure uses the DQN algorithm. The right subfigure uses the PPO algorithm.}
+	\label{fig.7}
+\end{figure}
+
+Fig.~\ref{fig.5a} illustrates the average rewards achieved in a single epoch with different sharding schemes. The community-based sharding technique recorded the lowest reward. While this scheme can significantly minimize cross-shard transactions, it is vulnerable to adaptive collusion attacks. This is because it tends to cluster a high number of dishonest nodes within the same shard, compromising the shard's security. The random-based scheme fares slightly better, with its rewards hovering around zero. The trust-based sharding technique is more proficient at evenly distributing dishonest nodes across different shards, mitigating the risk of a single shard being dominated. However, it leads to a higher number of cross-shard transactions. Consequently, its rewards are marginally less than those of DQN and PPO. Upon reaching the $10^{th}$ epoch, both \textsc{TBDD-PPO} and \textsc{TBDD-DQN} consistently outperform the other sharding schemes, exhibiting consistently high rewards. This indicates that the agent received the maximum reward associated with the action. 
+
+Figs.~\ref{fig.5b}--\ref{fig.5c} depict the convergence of rewards under various node numbers for TBDD-DQN and TBDD-PPO, respectively. The reward becomes more stable as the number of nodes increases. Across Figs.~\ref{fig.5a}--\ref{fig.5c}, a consistent trend emerges caused by the constrained approach in the policy update process. PPO achieves more stable rewards. The instability of DQN is because it combines the direct value function estimation method and $\epsilon$ greedy exploration strategy.
+
+
+\begin{figure*}[h]
+    \centering
+    \vspace{-0.3cm}
+    \setlength{\belowcaptionskip}{-0.3cm} 
+    \subfigure[h=0]{\label{fig.8a}\includegraphics[width=0.32\columnwidth]{./fig/exp3a_DQN.png}}
+    \subfigure[h=1]{\label{fig.8b}\includegraphics[width=0.32\columnwidth]{./fig/exp3b_DQN.png}}
+    \subfigure[h=2]{\label{fig.8c}\includegraphics[width=0.32\columnwidth]{./fig/exp3c_DQN.png}}
+    \subfigure[h=3]{\label{fig.8d}\includegraphics[width=0.32\columnwidth]{./fig/exp3d_DQN.png}}
+    \subfigure[h=4]{\label{fig.8e}\includegraphics[width=0.32\columnwidth]{./fig/exp3e_DQN.png}}
+    \subfigure[h=5]{\label{fig.8f}\includegraphics[width=0.32\columnwidth]{./fig/exp3f_DQN.png}}
+    
+    \subfigure[h=0]{\label{fig.8g}\includegraphics[width=0.32\columnwidth]{./fig/exp3a_PPO.png}}
+    \subfigure[h=1]{\label{fig.8h}\includegraphics[width=0.32\columnwidth]{./fig/exp3b_PPO.png}}
+    \subfigure[h=2]{\label{fig.8i}\includegraphics[width=0.32\columnwidth]{./fig/exp3c_PPO.png}}
+    \subfigure[h=3]{\label{fig.8j}\includegraphics[width=0.32\columnwidth]{./fig/exp3d_PPO.png}}
+    \subfigure[h=4]{\label{fig.8k}\includegraphics[width=0.32\columnwidth]{./fig/exp3e_PPO.png}}
+    \subfigure[h=5]{\label{fig.8l}\includegraphics[width=0.32\columnwidth]{./fig/exp3f_PPO.png}}
+    \caption{Tracking global trusts $\mathcal{G}$ between honest and dishonest nodes as the number of dishonest nodes escalates within the DRL scheme. Figs.~\ref{fig.8a}--\ref{fig.8f} represent the trust variation in the DQN algorithm, while Figs.~\ref{fig.8g}--\ref{fig.8l} represent the trust variation in the PPO algorithm. $N=16, D=2, h=\lbrace0,1,2,3,4,5\rbrace$.}
+    \label{fig.8}
+\end{figure*}
+
+\begin{figure*}[htbp]
+    \centering
+    % \vspace{-0.3cm}
+    \setlength{\belowcaptionskip}{-0.3cm} 
+    \subfigure[$N=16, D=2, h=\lbrace0,1,2,3,4,5\rbrace$]{\label{fig.9a}\includegraphics[width=0.44\linewidth]{./fig/exp4.png}}
+    \subfigure[$N=16, D=2, h=\lbrace0,1,2,3,4,5\rbrace$]
+    {\label{fig.9b}\includegraphics[width=0.48\linewidth]{./fig/exp5.png}}
+    \caption{Fig.~\ref{fig.9a} shows the relationship between the number of dishonest nodes, system throughput, and corrupted shards is interconnected. Fig.~\ref{fig.9b} compares corrupted shard ratio with different sharding techniques across $100$ epochs.}
+	\label{fig.9}
+\end{figure*}
+
+
+Figs.~\ref{fig.6a}--\ref{fig.6e} depict the relationship between the CST and shard risk variance. The shard risk variance closer to $0$ indicates a more balanced distribution of malicious nodes, enhancing shard security. The CST closer to $0$ suggests better shard scalability. The results from random-based sharding demonstrate scattered and unpredictable in the scatter plot. Community-based sharding focuses on scalability, overlooking security, leading to a relatively higher shard risk ratio. Trust-based sharding emphasizes security at the expense of scalability, resulting in a relatively larger cross-shard transaction ratio. In contrast, the proposed \textsc{\textsc{TbDd}-DQN} and \textsc{\textsc{TbDd}-PPO} consider both security and scalability. Compared to community-based and trust-based methods, \textsc{\textsc{TbDd}-DQN} and \textsc{\textsc{TbDd}-PPO} are closer to the bottom-left corner, which means that these two sharding methods improve system security while ensuring that the system scalability. This proves the effectiveness of this method, thereby approving the effectiveness of the \textsc{TbDd} framework. Furthermore, consistent with the findings from Fig.~\ref{fig.5}, the \textsc{\textsc{TbDd}-PPO} method demonstrates higher stability than the \textsc{\textsc{TbDd}-DQN} method.
+
+
+Figs.~\ref{fig.6f}--\ref{fig.6j} illustrate the relationship between CST and node movement ratio. A node movement ratio closer to $0$ indicates fewer node movements, thus reducing system overhead. The outcomes from random-based sharding are unpredictable and uncontrollable. Both Community-based sharding and trust-based sharding methods have a higher number of node movements compared to \textsc{TbDd}-DQN and \textsc{TbDd}-PPO, leading to higher system overhead. Among these, the PPO method results in the fewest node movements. Through Fig.~\ref{fig.6}, we can deduce the following: the \textsc{TbDd}-DQN and \textsc{TbDd}-PPO sharding proposed in this paper achieve an optimal balance between security, scalability, and system overhead, thereby affirming their effectiveness.
+
+
+
+In Fig.~\ref{fig.7}, it is shown that the average trust of dishonest nodes surpasses that of honest nodes as the number of dishonest nodes increases. The uppermost horizontal line in each column represents the maximum trust value among all nodes, while the bottom horizontal line represents the minimum trust value. The horizontal line at the midpoint signifies the median trust value of all nodes. When the total number of nodes is $16$, and the total shard number is $2$, the overall fault tolerance threshold $f_{total}$ is $4$ based on \eqref{eq:13}. Consequently, a shard becomes vulnerable and is corrupted when the number of dishonest nodes $h \geq 5$.
+
+
+As shown in Figs.~\ref{fig.8a}--\ref{fig.8l}, the blue curves represent the average trust of honest nodes, and the red curves are dishonest nodes. Consistent results from Fig.~\ref{fig.7} reveal that the system can effectively perform sharding if the proportion of dishonest nodes remains below $f_{total}$ of the total node count. However, if the number of dishonest nodes exceeds the $f_{total}$ threshold, any sharding approaches, including the proposed schemes \textsc{\textsc{TbDd}-DQN} and \textsc{\textsc{TbDd}-PPO}, cannot safely execute sharding and are vulnerable to the $1\%$ attack, which is beyond the scope of our investigation. On the other hand, having a lower count of dishonest nodes still enables the implementation of more shards within the system, leading to improved overall performance and scalability.
+
+
+
+To evaluate throughput across different sharding methods influenced by dishonest nodes, we use the normalized throughput metric. This metric compares the throughput with and without dishonest nodes. A higher ratio suggests dishonest nodes have minimal impact on transaction throughput, while a lower one indicates a significant negative effect. Additionally, we highlight the benefits of our system by comparing the shard corruption ratio over the last $100$ rounds among various sharding approaches. As depicted in Figs.~\ref{fig.9a}--\ref{fig.9b}, random-based sharding exhibits the lowest throughput and compromised security. As dishonest node counts rise, there's a pronounced decline in scalability, coupled with an increased number of corrupted shards. The Community-based sharding method has the best scalability and maintains a high throughput. Yet, its oversight on the security front results in a higher rate of shard corruption. In comparison, the trust-based sharding method reduces the chances of shard corruption but lags in throughput, signaling its scalability constraints. Without collusion attacks and within the tolerable limit of dishonest nodes, the proposed \textsc{\textsc{TbDd}-DQN} and \textsc{\textsc{TbDd}-PPO} in this article achieves approximately a $10\%$ throughput improvement over random-based sharding method and a $13\%$ increase compared to the trust-based method.
+
+
+
+
+\subsection{Discussion}
+
+\noindent\textbf{Latency.}
+In \textsc{TbDd}, managing latency is crucial across block verification, sharding strategy optimization, and resharding phases. Tolerating delay during block verification is a necessary trade-off to prevent double-spending issues~\cite{nakamoto2008bitcoin}. However, a prolonged offline DRL learning phase for the sharding strategy is undesirable. 
+This could be mitigated by synchronizing online sharding strategy learning with resharding execution. Latency concerns during resharding, due to extensive node synchronization, can be alleviated through state channels~\cite{miller2019sprites} that expedite off-chain transactions, reducing blockchain load and hastening resharding.
+Integrating state channels into \textsc{TbDd} enables certain IoT transactions to be executed off-chain during proposed block verification, which lessens the node verification load and boosts overall system responsiveness.
+
+\smallskip
+\noindent\textbf{Edge-Driven Protocol.}
+The architecture of \textsc{TbDd} uniquely operates on edge servers, not directly on IoT sensor end nodes. This strategic placement ensures that the system can manage extensive computations associated with blockchain operations without overwhelming individual IoT devices. As a result, the scaling exhibited in our experiments is consistent and realistic, representing a practical implementation in real-world IoT networks. This edge-driven approach aligns with the broader move towards edge computing in IoT, capitalizing on its benefits to improve scalability and responsiveness.
+
+\smallskip
+\noindent\textbf{Decentralized Coordination.}
+Our design leverages a decentralized TC, acting as a trustworthy third-party coordinator, eliminating the vulnerabilities associated with a single centralized coordinator. This approach significantly mitigates the risks of a single point of failure in the system. The intra-consensus security within the decentralized TC ensures robust and reliable decision-making processes. Such a structure has been mirrored in existing studies~\cite{luu2016secure, kokoris2018omniledger}, affirming its practicality and security. By embedding this design, \textsc{TbDd} further ensures system robustness, sustaining its promises of trustworthiness and integrity in diverse IoT settings.

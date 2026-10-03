@@ -1,0 +1,31 @@
+\subsection{Moment embedding for the leaky integrate-and-fire neuron model}
+The moment embedding approach~\cite{Feng2006, Lu2010, Qi2023} begins with mapping the fluctuating activity of spiking neurons to their respective first- and second-order moments
+\begin{equation}
+\mu_i = \lim_{\Delta t\to\infty} \dfrac{\mathbb{E}[n_i(\Delta t)]}{\Delta t}, 
+\label{eq:def_mean}
+\end{equation}
+and
+\begin{equation}
+\Sigma_{ij} = \lim_{\Delta t\to\infty} \dfrac{{\rm Cov}[n_i(\Delta t),n_j(\Delta t)]}{\Delta t}, 
+\label{eq:def_cov}
+\end{equation}
+where $n_i(\Delta t)$ is the spike count of neuron $i$ over a time window $\Delta t$. 
+In practice, the limit of $\Delta t\to\infty$ is interpreted as a sufficiently large time window relative to the timescale of neural fluctuations. 
+We refer to the moments $\mu_i$ and $\Sigma_{ij}$ as the mean firing rate and the firing covariability in the context of MNN, respectively. 
+
+For the LIF neuron model [equation (\ref{eq:LIF})], the statistical moments of the synaptic current are equal to~\cite{Feng2006, Lu2010}
+\begin{numcases}{}
+\hat{\mu}_i = \textstyle\sum_kw_{ik}\mu_k + \hat{\mu}_i^{\rm ext},\label{eq:sum_mean}
+\\
+\hat{\Sigma}_{ij}=\textstyle\sum_{kl} w_{ik}C_{kl}w_{jl} + \hat{C}_{ij}^{\rm ext},\label{eq:sum_cov}
+\end{numcases}
+where $w_{ik}$ is the synaptic weight and $\hat{\mu}_i^{\rm ext}$ and $\hat{\Sigma}_{ij}^{\rm ext}$ are the mean and covariance of an external current, respectively.  
+Note that from equation (\ref{eq:sum_cov}), it becomes evident that the synaptic current is correlated even if the presynaptic spike trains are not. 
+Next, the first- and second-order moments of the synaptic current are mapped to that of the spiking activity of the post-synaptic neurons. For the LIF neuron model, this mapping can be obtained in closed form through a mathematical technique known as the diffusion approximation~\cite{Feng2006, Lu2010} as
+\begin{numcases}{}
+\mu_i = \phi_\mu(\bar{\mu}_i,\bar{\sigma}_i),\label{eq:ma_mu}\\
+\sigma_i = \phi_\sigma(\bar{\mu}_i,\bar{\sigma}_i),\label{eq:ma_sig}\\
+\rho_{ij} = \chi(\bar{\mu}_i,\bar{\sigma}_i)\chi(\bar{\mu}_j,\bar{\sigma}_j)\bar{\rho}_{ij},\label{eq:ma_chi}
+\end{numcases}
+where the correlation coefficient $\rho_{ij}$ is related to the covariance as $\Sigma_{ij}=\sigma_i\sigma_j\rho_{ij}$. The mapping given by equation (\ref{eq:ma_mu})-(\ref{eq:ma_chi}) is called the moment activation, which is differentiable so that gradient-based learning algorithms can be implemented and the learning framework is known as the moment neural network (MNN)~\cite{Qi2023}.
+

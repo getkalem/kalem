@@ -1,0 +1,9 @@
+\begin{figure*}[t]
+\setlength{\abovecaptionskip}{0cm}
+\small
+\centering
+\includegraphics[width=1.0\linewidth]{./Figure/Diff3DE_.pdf}
+\vspace{-4mm}
+\caption{\textbf{Overview of the FINE-STAGE method Diff3DE for including out-distribution details from the pre-trained diffusion model~\cite{rombach2022LatentDiff,zhang2023addingControlNet} (\S~\ref{fine_stage_Diff3DE}).} We first fix $N_k$ dense keyframes around the dome. Then, for each target view, we select $3$ neighbor keyframes based on the cosine similarity. For each diffusion time step and attention block, the output tokens of the target view are the barycentric interpolation of the propagated tokens from neighbor keyframes, using the correspondence calculated during DDIM inversion. The global 3D consistency is primarily achieved by the 3D-consistent constraint from OPP and further approximated by enforcing the local consistency for each neighbor area.}
+\label{fig_diff3de}
+\end{figure*}

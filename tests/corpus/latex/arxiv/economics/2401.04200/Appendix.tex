@@ -1,0 +1,196 @@
+\appendix
+
+\section{\texorpdfstring{Proof \Cref{prop:ols}}{proof}}\label{sec:proof_ols}
+
+We start with $\delta^m$ from the balancing regression equation \eqref{eqn:balancing}. Using \Cref{ass:classical} we derive 
+\begin{align}
+    \delta^m=&\Bigg(\frac{\mathrm{Cov}[\widetilde{\lambda} (s_t+m_t), SES]}{\mathrm{Var}[SES]}\Bigg)= \Bigg(\frac{\mathrm{Cov}[ s_t+m_t, SES]} {\mathrm{Var}[SES]}\Bigg)\widetilde{\lambda} = \Bigg(\frac{\mathrm{Cov}[ s_t, SES]} {\mathrm{Var}[SES]}\Bigg) \widetilde{\lambda} \\ \notag
+    =& \delta \widetilde{\lambda}. 
+\end{align}
+Hence, we can write the balancing regression equation as
+\begin{align}
+ \begin{pmatrix} s_t \\ s_{t}^m  \end{pmatrix}= \begin{pmatrix} s_t \\ \widetilde{\lambda} (s_t+m_t)  \end{pmatrix}= 
+\begin{pmatrix} \delta \\ \widetilde{\lambda} \delta \end{pmatrix} SES +  \begin{pmatrix} u_{t} \\ \widetilde{\lambda}(u_{t}+m_t) \end{pmatrix}.
+\end{align} 
+Applying the Frisch-Waugh logic and \Cref{ass:classical}, we can now derive the expression for $\gamma^m$ as follows,
+\begin{align}
+    \gamma^m=&\Bigg(\frac{\mathrm{Cov}[y_t,u^m_t]}{\mathrm{Var}[u^m_t]}\Bigg)=\Bigg(\frac{\mathrm{Cov}[y_t, \widetilde{\lambda}(u_{t}+m_t)]}{\mathrm{Var}[ \widetilde{\lambda}(u_{t}+m_t)]}\Bigg)=\Bigg(\frac{\mathrm{Cov}[y_t, (u_{t}+m_t)]}{\mathrm{Var}[ u_{t}+m_t]}\Bigg) \Bigg(\frac{\widetilde{\lambda}}{\widetilde{\lambda}^2}\Bigg) \\ \notag
+    =& \Bigg(\frac{\mathrm{Cov}[y_t,u_{t}]}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}\Bigg)\Bigg(\frac{1}{\widetilde{\lambda}}\Bigg)= \Bigg(\frac{\mathrm{Cov}[y_t,u_{t}]}{\sigma_{u_{t}}^2} \Bigg) \Bigg(\frac{\sigma_{u_{t}}^2}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2} \Bigg) \Bigg(\frac{1}{\widetilde{\lambda}}\Bigg) \\ \notag
+    =&\gamma \Bigg(\frac{\lambda}{\widetilde{\lambda}}\Bigg), 
+\end{align}
+where $\lambda=\Bigg(\frac{\sigma_{u_{t}}^2}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2} \Bigg)$.
+%
+To derive the expression for $\beta^m$, we first introduce the short regression equation:
+\begin{align}\label{eqn:short}
+    y_t=\beta^s SES+e_t^s.
+\end{align}
+Next, we use the omitted variable bias formula for $\beta^s$ to write
+\begin{align}
+\beta^{m}+\gamma^{m}\delta^{m}=\beta+\gamma\delta.
+\end{align}
+Rewriting for $\beta^m$, substituting for $\delta^{m}=\delta\widetilde{\lambda}$ and  $\gamma^{m}=\gamma \Bigg(\frac{\lambda}{\widetilde{\lambda}
+}\Bigg)$, and simplifying yields
+\begin{align}
+\beta^{m}=&\beta+\gamma\delta\bigg(1-\lambda\bigg).
+\end{align}
+
+\section{\texorpdfstring{Proof \Cref{prop:iv}}{proof}}\label{sec:proof_iv}
+
+We first derive results using only \Cref{ass:classical}. Subsequently, we simplify these results by additionally invoking \Cref{ass:fs} and \ref{ass:rf} in Appendix Sections B.1 and B.2, respectively.
+
+We start with $\delta^m_{t-1}$ from balancing regression equation \eqref{eqn:balancing_tmin1}. Using \Cref{ass:classical} we derive
+\begin{align}
+    \delta^m_{t-1}=&\Bigg(\frac{\mathrm{Cov}[\widetilde{\lambda} (s_{t-1}+m_{t-1}), SES]}{\mathrm{Var}[SES]}\Bigg) \\ \notag
+    =& \delta_{t-1} \widetilde{\lambda}. 
+\end{align}
+Hence, we can write the balancing regression equation as
+\begin{align}
+ \begin{pmatrix} s_{t-1} \\ s_{t-1}^m \end{pmatrix}= \begin{pmatrix} s_{t-1} \\ \widetilde{\lambda}(s_{t-1}+m_{t-1}) \end{pmatrix}= \begin{pmatrix} \delta_{t-1} \\ \widetilde{\lambda}\delta_{t-1}  \end{pmatrix} SES +  \begin{pmatrix}  u_{t-1}  \\  \widetilde{\lambda} (u_{t-1} + m_{t-1}) \end{pmatrix}.
+\end{align} 
+%
+Applying the Frisch-Waugh logic and \Cref{ass:classical}, we can now derive the expression for the first stage coefficient $\pi$ as follows,
+\begin{align}\label{eqn:fs_noass}
+    \notag
+    \pi=&\Bigg(\frac{\mathrm{Cov}[s_{t}^m,u^m_{t-1}]}{\mathrm{Var}[u^m_{t-1}]}\Bigg)=
+    \Bigg(\frac{\mathrm{Cov}[\widetilde{\lambda}(s_{t}+m_{t}),\widetilde{\lambda} (u_{t-1}+m_{t-1})]}{\mathrm{Var}[\widetilde{\lambda} (u_{t-1}+m_{t-1})]} \Bigg)  =\Bigg(\frac{\mathrm{Cov}[s_{t},u_{t-1}]}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2} \Bigg) \Bigg(\frac{\widetilde{\lambda}\widetilde{\lambda}}{\widetilde{\lambda}^2}\Bigg)\\
+    =& \Bigg(\frac{\mathrm{Cov}[s_{t},u_{t-1}]}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}\Bigg) \Bigg( \frac{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}\Bigg) \\ \notag
+     =& \Bigg(\frac{\sigma_{u_{t}}^2}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}\Bigg)\Bigg( \frac{\mathrm{Cov}[s_{t},u_{t-1}]}{\sigma_{u_{t}}^2}\Bigg) \Bigg( \frac{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}\Bigg) \\ \notag
+    =& \Bigg(\frac{\sigma_{u_{t}}^2}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}\Bigg)\Bigg( \frac{\mathrm{Cov}[\delta SES + u_{t},u_{t-1}]}{\sigma_{u_{t}}^2}\Bigg) \Bigg( \frac{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}\Bigg)  \\ \notag
+    =& \lambda \Bigg( \frac{\mathrm{Cov}[u_{t},u_{t-1}]}{\sigma_{u_{t}}^2}\Bigg) \Bigg( \frac{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}\Bigg).
+\end{align}
+%
+Next rewrite the second stage equation \eqref{eqn:ss} to obtain the reduced form regression equation,  
+\begin{align}\label{eqn:rf}
+    y_t= \theta_0 SES +  \theta_1 s_{t-1}^m+e_t^{iv},
+\end{align}
+where $\frac{\theta_1}{\pi}=\frac{\gamma^{iv} \pi}{\pi}=\gamma^{iv}$. Applying the Frisch-Waugh logic and \Cref{ass:classical}, we can similarly derive an expression for the reduced form coefficient $\theta_1$,
+\begin{align}\label{eqn:rf_noass}
+    \theta_1=&\Bigg(\frac{\mathrm{Cov}[y_{t},u^m_{t-1}]}{\mathrm{Var}[u^m_{t-1}]}\Bigg)=\Bigg(\frac{\mathrm{Cov}[y_{t},\widetilde{\lambda}(u_{t-1}+m_{t-1})]}{\mathrm{Var}[\widetilde{\lambda}(u_{t-1}+m_{t-1})]}\Bigg)=
+    \Bigg(\frac{\mathrm{Cov}[y_{t} ,u_{t-1}]}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}\Bigg) \Bigg(\frac{\widetilde{\lambda}}{\widetilde{\lambda}^2}\Bigg)  \\ \notag
+    =& \Bigg(\frac{\mathrm{Cov}[y_{t},u_{t-1}]}{\sigma_{u_{t}}^2}\Bigg) \Bigg( \frac{\sigma_{u_{t}}^2}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}\Bigg) \Bigg(\frac{1}{\widetilde{\lambda}}\Bigg)  \\ \notag
+     =& \Bigg(\frac{\mathrm{Cov}[y_{t},u_{t}]}{\sigma_{u_{t}}^2}\Bigg) \Bigg(\frac{\mathrm{Cov}[y_{t},u_{t-1}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg)  \Bigg( \frac{\sigma_{u_{t}}^2}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}\Bigg) \Bigg( \frac{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}\Bigg) \Bigg(\frac{1}{\widetilde{\lambda}}\Bigg)  \\ \notag
+     =& \gamma  \Bigg(\frac{\lambda}{\widetilde{\lambda}}\Bigg) \Bigg(\frac{\mathrm{Cov}[y_{t},u_{t-1}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg) \Bigg( \frac{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}\Bigg).
+\end{align}
+%
+We can now combine the results in \eqref{eqn:fs_noass} and \eqref{eqn:rf_noass} to derive an expression for the second stage estimate $\gamma^{iv}$,
+\begin{align}\label{eqn:gammaiv_noass}
+    \gamma^{iv}=&\frac{\theta_1}{\pi}=\gamma \Bigg(\frac{1}{\widetilde{\lambda}}\Bigg)\Bigg(\frac{\mathrm{Cov}[y_{t},u_{t-1}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg)\Bigg( \frac{\sigma_{u_{t}}^2}{\mathrm{Cov}[u_{t},u_{t-1}]}\Bigg).
+\end{align}
+To derive an expression for the second stage estimate $\beta^{iv}$, we first introduce the balancing regression equation for $\widehat{s}_{t}^m$,
+\begin{align}\label{eqn:balancing_shat}
+ \begin{pmatrix} s_t^m \\ \widehat{s}_{t}^m   \end{pmatrix}= \begin{pmatrix} s_t^m \\ s_t^m - e_{t}^{fs} \end{pmatrix}=\begin{pmatrix} \delta^m \\ \delta^{iv}  \end{pmatrix} SES +  \begin{pmatrix} u^m_{t}\\ u^{iv}_t  \end{pmatrix}.
+\end{align} 
+We have that $\delta^{iv}=\delta^m$,
+\begin{align}
+    \delta^{iv} =&\Bigg(\frac{\mathrm{Cov}[\widehat{s}_{t}^m,SES]}{\mathrm{Var}[SES]}\Bigg)=\Bigg(\frac{\mathrm{Cov}[ s_t^m - e_{t}^{fs},SES]}{\sigma_{SES}^2}\Bigg) = \Bigg(\frac{\mathrm{Cov}[s_{t}^m,SES]}{\sigma_{SES}^2}\Bigg) \\ \notag
+    =&\delta^m,
+\end{align}
+and from \Cref{prop:ols} we know that under \Cref{ass:classical}, $\delta^{iv}=\delta^m=\delta \widetilde{\lambda}$. We use the omitted variable bias formula for $\beta^s$ from \eqref{eqn:short} to write
+\begin{align}
+    \beta^{iv}+\gamma^{iv}\delta^{iv}=&\beta+\gamma\delta.
+\end{align}
+Rewriting for $\beta^{iv}$ and substituting for $\delta^{iv}=\delta\widetilde{\lambda}$ and $\gamma^{iv}$ from \eqref{eqn:gammaiv_noass},  it follows that,
+\begin{align}\label{eqn:betaiv_noass}
+    \beta^{iv}=& \beta+ \gamma\delta \Bigg(1-\Bigg(\frac{\mathrm{Cov}[y_{t},u_{t-1}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg)\Bigg( \frac{\sigma_{u_{t}}^2}{\mathrm{Cov}[u_{t},u_{t-1}]}\Bigg)\Bigg).
+\end{align}
+
+\subsection{Case (i)}
+
+Here we use the results above derived under \Cref{ass:classical} to simplify the expressions while additionally invoking \Cref{ass:fs}.
+%
+First, we use \Cref{ass:fs} to find a link between $u_{t-1}$ and $u_{t}$. We can write,
+\begin{align} \label{eqn:alpha}
+    \delta =&\Bigg(\frac{\mathrm{Cov}[s_{t},SES]}{\mathrm{Var}[SES]}\Bigg)
+    =\Bigg(\frac{\mathrm{Cov}[s_{t-1}+\Delta_{s_{t}},SES]}{\sigma_{SES}^2}\Bigg)  
+    = \Bigg(\frac{\mathrm{Cov}[s_{t-1},SES]}{\sigma_{SES}^2}\Bigg) + \Bigg(\frac{\mathrm{Cov}[\Delta_{s_{t}},SES]}{\sigma_{SES}^2}\Bigg) \\ \notag
+     =& \delta_{t-1} + \alpha,
+\end{align}
+with $\alpha=\Bigg(\frac{\mathrm{Cov}[\Delta_{s_{t}},SES]}{\sigma_{SES}^2}\Bigg)$. \Cref{ass:fs}(a) guarantees that $\delta=\delta_{t-1}$. This allows us to write \eqref{eqn:balancing} and \eqref{eqn:balancing_tmin1} as
+\begin{align} \label{eqn:balancing_both}
+ \begin{pmatrix} s_{t} \\ s_{t-1} \end{pmatrix}= \begin{pmatrix} s_{t} \\ s_{t}-\Delta{s_{t}} \end{pmatrix}= \delta SES +  \begin{pmatrix}  u_{t}  \\ u_{t}-\big(\Delta_{s_{t}}-\overline{\Delta}_{s_{t}}\big) \end{pmatrix}.
+\end{align} 
+The mean of  $\Delta_{s_{t}}$, denoted by $\overline{\Delta}_{s_{t}}$, will be absorbed by the intercept of \eqref{eqn:balancing_tmin1}, so that $u_{t-1}=u_{t}-\big(\Delta_{s_{t}}-\overline{\Delta}_{s_{t}}\big)$. We use this to write $\mathrm{Cov}[u_{t},u_{t-1}]=\sigma_{u_{t}}^2-\mathrm{Cov}[u_{t},\Delta_{s_{t}}]$. Subsequently, \Cref{ass:fs}(a)-(b) together guarantee that $\mathrm{Cov}[u_{t},\Delta_{s_{t}}]=\mathrm{Cov}[s_t-\delta SES,\Delta_{s_{t}}]=0$. Thus \Cref{ass:fs} allows us to write $\mathrm{Cov}[u_{t},u_{t-1}]=\sigma_{u_{t}}^2$. 
+%
+\Cref{ass:fs} further allows to derive an expression for $\sigma_{u_{t-1}}^2$. In particular, we can write $\sigma_{u_{t-1}}^2=\mathrm{Var}[u_{t}-\big(\Delta_{s_{t}}-\overline{\Delta}_{s_{t}}\big)]=\mathrm{Var}[u_{t}-\Delta_{s_t}]=\sigma_{u_{t}}^2+ \sigma_{\Delta_{s_t}}^2 -2 \times \mathrm{cov}[u_{t},\Delta_{s_t}]=\sigma_{u_{t}}^2+ \sigma_{\Delta_{s_t}}^2$. In short, $\sigma_{u_{t-1}}^2=\sigma_{u_{t}}^2+ \sigma_{\Delta_{s_t}}^2$.
+
+We can use these two results to write the first stage coefficient $\pi$ from \eqref{eqn:fs_noass} as follows,
+\begin{align}\label{eqn:fs_ass2}
+    \pi=&\lambda \Bigg( \frac{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}{\sigma_{u_{t}}^2+ \sigma_{\Delta_{s_t}}^2+\sigma_{m_{t-1}}^2}\Bigg).
+\end{align}
+%
+For the second stage estimate $\gamma^{iv}$, we first use that $u_{t-1}=u_{t}-\big(\Delta_{s_{t}}-\overline{\Delta}_{s_{t}}\big)$ to additionally simplify the following term,
+\begin{align}
+    \Bigg(\frac{\mathrm{Cov}[y_{t},u_{t-1}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg)=&  \Bigg(\frac{\mathrm{Cov}[y_{t},u_{t}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg) - \Bigg(\frac{\mathrm{Cov}[y_{t},\Delta_{s_t}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg) \\ \notag
+     =&1-\Bigg(\frac{\mathrm{Cov}[\beta SES + \gamma s_{t}+e_{t},\Delta_{s_{t}}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg) \\ \notag
+    =&1 -\Bigg(\frac{\mathrm{Cov}[e_{t},\Delta_{s_{t}}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg). 
+\end{align}
+We can now write $\gamma^{iv}$ from \eqref{eqn:gammaiv_noass} as
+\begin{align}\label{eqn:gammaiv_ass2}
+    \gamma^{iv}=\gamma \Bigg(\frac{1}{\widetilde{\lambda}}\Bigg)\Bigg(1 -\Bigg(\frac{\mathrm{Cov}[e_{t},\Delta_{s_{t}}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg)\Bigg),
+\end{align}
+and $\beta^{iv}$ from \eqref{eqn:betaiv_noass} as,
+\begin{align}\label{eqn:betaiv_ass2}
+    \beta^{iv}=& \beta+\gamma\delta\Bigg(\frac{\mathrm{Cov}[e_{t},\Delta_{s_{t}}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg).
+\end{align}
+
+\subsection{Case (ii)}
+
+Here we use the results above derived under \Cref{ass:classical} to simplify the expressions while additionally invoking \Cref{ass:rf}.
+%
+First, we use \Cref{ass:rf} to find a link between $u_{t-1}$ and $u_{t}$. Similar to \eqref{eqn:alpha}, we write
+\begin{align}
+    \delta =& \delta_{t-1} + \alpha,
+\end{align}
+with $\alpha=\Bigg(\frac{\mathrm{Cov}[\Delta_{s_{t}},SES]}{\sigma_{SES}^2}\Bigg)$. \Cref{ass:rf} guarantees again that $\delta=\delta_{t-1}$. Moreover, we can write \eqref{eqn:balancing} and \eqref{eqn:balancing_tmin1} as
+\begin{align} 
+ \begin{pmatrix} s_{t} \\ s_{t-1} \end{pmatrix}= \begin{pmatrix} s_{t} \\ s_{t}-\Delta{s_{t}} \end{pmatrix}= \delta SES +  \begin{pmatrix}  u_{t}  \\ u_{t} \end{pmatrix},
+\end{align} 
+where the constant $\Delta{s_{t}}$ is completely absorbed by the intercept of \eqref{eqn:balancing_tmin1}, so that $u_{t-1}=u_{t}$. We use this to write $\mathrm{Cov}[u_{t},u_{t-1}]=\sigma_{u_{t}}^2$ and $\sigma_{u_{t-1}}^2=\sigma_{u_{t}}^2$.
+
+We can use these two results to write the first stage coefficient $\pi$ from \eqref{eqn:fs_noass} as follows,
+\begin{align}\label{eqn:fs_ass}
+    \pi=&\lambda \Bigg( \frac{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}{\sigma_{u_{t}}^2+\sigma_{m_{t-1}}^2}\Bigg).
+\end{align}
+%
+For the second stage estimate $\gamma^{iv}$, we also use that $u_{t-1}=u_{t}$ additionally implies that $\Bigg(\frac{\mathrm{Cov}[y_{t},u_{t-1}]}{\mathrm{Cov}[y_{t},u_{t}]}\Bigg)=1$. We can now write $\gamma^{iv}$ from \eqref{eqn:gammaiv_noass} as
+\begin{align}\label{eqn:gammaiv_ass}
+    \gamma^{iv}=& \gamma \Bigg(\frac{1}{\widetilde{\lambda}}\Bigg),
+\end{align}
+and $\beta^{iv}$ from \eqref{eqn:betaiv_noass} as,
+\begin{align}\label{eqn:betaiv_ass}
+    \beta^{iv}=& \beta.
+\end{align}
+
+\section{\texorpdfstring{Proof \Cref{prop:fs}}{proof}}\label{sec:proof_fs}
+
+\Cref{prop:iv} shows that under \Cref{ass:classical} and \ref{ass:fs} we have that ${\pi}'=\lambda$. It immediately follows that,
+\begin{align}
+    \gamma^{eiv}&=\frac{\gamma^m}{\pi'} =\gamma^m \Bigg(\frac{1}{\lambda} \Bigg)=\gamma\Bigg(\frac{\lambda}{\widetilde{\lambda}}\Bigg)\Bigg(\frac{1}{\lambda} \Bigg) \\ \notag
+    &=\gamma\Bigg(\frac{1}{\widetilde{\lambda}}\Bigg),
+\end{align}
+and that
+\begin{align}
+    \beta^{eiv}=&\beta^m-\gamma^m \delta^m\Bigg(\frac{1-\pi'}{\pi'}\Bigg)=\beta + \gamma\delta \big(1-\lambda \big) -\gamma^m \delta^m\Bigg(\frac{1-\lambda}{\lambda}\Bigg) \\ \notag
+    =&\beta + \gamma\delta \big(1-\lambda \big) -\gamma\Bigg(\frac{\lambda}{\widetilde{\lambda}}\Bigg) \delta \widetilde{\lambda} \Bigg(\frac{1-\lambda}{\lambda}\Bigg)= \beta + \gamma\delta \big(1-\lambda \big) -\gamma\delta \big(1-\lambda \big) \\ \notag
+    =& \beta.
+\end{align}
+
+\newpage
+
+\section{Additional empirical results}\label{sec:additionalresults}
+
+\input{FiguresTables/DescrStats_Tests.tex}
+
+\input{FiguresTables/OLS_Controls}
+
+\input{FiguresTables/Assumption2and3.tex}
+
+\input{FiguresTables/AssumptionTH.tex}
+
+\input{FiguresTables/OLS_IV_EIV_rob_recom.tex}
+
+\input{FiguresTables/OLS_IV_EIV_rob_ses.tex}
+
+\input{FiguresTables/OLS_IV_EIV_hetero_cohorts.tex}
+
+\input{FiguresTables/OLS_IV_EIV_hetero_immnat.tex}

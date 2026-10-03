@@ -1,0 +1,27 @@
+\begin{table}[t]
+\setlength{\abovecaptionskip}{0cm}
+\footnotesize
+    \caption{\textbf{Effectiveness of DPS (\S~\ref{sec:ablation_OPP}).} Compared with the independently trained generative and OG-NeRF models, the jointly optimized ones from DPS can achieve better performance. }
+    \label{tab:ablation_dps}
+    % \vspace{-2mm}
+    % \resizebox{\linewidth}{!}{
+    \setlength\tabcolsep{8.6pt}
+        \begin{tabular}{l|cccc}
+        \rowcolor[gray]{.9}
+        \hline
+         & \multicolumn{2}{c}{Fidelity}       & \multicolumn{2}{c}{Sharpness}                       \\
+ \rowcolor[gray]{.9}
+        Methods           & $\uparrow$ PSNR                & $\uparrow$ SSIM               & $\downarrow$ LPIPS      & $\downarrow$ FID \\ \hline \hline
+        
+                                                   
+        Generative  &  23.61   & 0.907           & 0.113            & {69.85}   \\
+        \textbf{Generative (DPS)}  &  \cb{ 23.64 }                     &     \cb{ 0.909}              &    \cb{0.108}         &   \cb{61.07}  \\ \hline  \hline
+        OG-NeRF  &    23.11                &  0.900                  &   0.086          &  \cb{40.00}  \\
+        \textbf{OG-NeRF (DPS)} &  \cb{23.16}                      &    \cb{0.902}                &  \cb{0.085}           &  41.35  \\ 
+        \hline
+        \end{tabular}
+    % }
+    %{-3mm}
+
+    %{-3mm}
+\end{table}

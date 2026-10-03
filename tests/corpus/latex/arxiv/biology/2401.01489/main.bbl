@@ -1,0 +1,454 @@
+\begin{thebibliography}{89}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Barlow(2001)]{barlow2001redundancy}
+Horace Barlow.
+\newblock Redundancy reduction revisited.
+\newblock \emph{Network: computation in neural systems}, 12\penalty0 (3):\penalty0 241, 2001.
+
+\bibitem[Srinivasan et~al.(1982)Srinivasan, Laughlin, and Dubs]{srinivasan1982predictive}
+Mandyam~Veerambudi Srinivasan, Simon~Barry Laughlin, and Andreas Dubs.
+\newblock Predictive coding: a fresh view of inhibition in the retina.
+\newblock \emph{Proceedings of the Royal Society of London. Series B. Biological Sciences}, 216\penalty0 (1205):\penalty0 427--459, 1982.
+
+\bibitem[Atick(1992)]{atick1992could}
+Joseph~J Atick.
+\newblock Could information theory provide an ecological theory of sensory processing?
+\newblock \emph{Network: Computation in neural systems}, 3\penalty0 (2):\penalty0 213--251, 1992.
+
+\bibitem[van Hateren(1992)]{van1992theoretical}
+Johannes~H van Hateren.
+\newblock Theoretical predictions of spatiotemporal receptive fields of fly lmcs, and experimental validation.
+\newblock \emph{Journal of Comparative Physiology A}, 171:\penalty0 157--170, 1992.
+
+\bibitem[Simoncelli and Olshausen(2001)]{simoncelli2001natural}
+Eero~P Simoncelli and Bruno~A Olshausen.
+\newblock Natural image statistics and neural representation.
+\newblock \emph{Annual review of neuroscience}, 24\penalty0 (1):\penalty0 1193--1216, 2001.
+
+\bibitem[Rao and Ballard(1999)]{rao1999predictive}
+Rajesh~PN Rao and Dana~H Ballard.
+\newblock Predictive coding in the visual cortex: a functional interpretation of some extra-classical receptive-field effects.
+\newblock \emph{Nature neuroscience}, 2\penalty0 (1):\penalty0 79--87, 1999.
+
+\bibitem[Jun et~al.(2022)Jun, Field, and Pearson]{jun2022efficient}
+Na~Young Jun, Greg Field, and John Pearson.
+\newblock Efficient coding, channel capacity, and the emergence of retinal mosaics.
+\newblock \emph{Advances in neural information processing systems}, 35:\penalty0 32311--32324, 2022.
+
+\bibitem[Palmer et~al.(2015)Palmer, Marre, Berry, and Bialek]{palmer2015predictive}
+Stephanie~E Palmer, Olivier Marre, Michael~J Berry, and William Bialek.
+\newblock Predictive information in a sensory population.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 112\penalty0 (22):\penalty0 6908--6913, 2015.
+
+\bibitem[Rust and Palmer(2021)]{rust2021remembering}
+Nicole~C Rust and Stephanie~E Palmer.
+\newblock Remembering the past to see the future.
+\newblock \emph{Annual review of vision science}, 7:\penalty0 349--365, 2021.
+
+\bibitem[Wang et~al.(2021)Wang, Segev, Borst, and Palmer]{wang2021maximally}
+Siwei Wang, Idan Segev, Alexander Borst, and Stephanie Palmer.
+\newblock Maximally efficient prediction in the early fly visual system may support evasive flight maneuvers.
+\newblock \emph{PLoS computational biology}, 17\penalty0 (5):\penalty0 e1008965, 2021.
+
+\bibitem[Tishby et~al.(2000)Tishby, Pereira, and Bialek]{tishby2000information}
+Naftali Tishby, Fernando~C Pereira, and William Bialek.
+\newblock The information bottleneck method.
+\newblock \emph{arXiv preprint physics/0004057}, 2000.
+
+\bibitem[Chalk et~al.(2018)Chalk, Marre, and Tka{\v{c}}ik]{chalk2018toward}
+Matthew Chalk, Olivier Marre, and Ga{\v{s}}per Tka{\v{c}}ik.
+\newblock Toward a unified theory of efficient, predictive, and sparse coding.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 115\penalty0 (1):\penalty0 186--191, 2018.
+
+\bibitem[Bryant and Segundo(1976)]{bryant1976spike}
+Hugh~L Bryant and Jos{\'e}~P Segundo.
+\newblock Spike initiation by transmembrane current: a white-noise analysis.
+\newblock \emph{The Journal of physiology}, 260\penalty0 (2):\penalty0 279--314, 1976.
+
+\bibitem[Mainen and Sejnowski(1995)]{mainen1995reliability}
+Zachary~F Mainen and Terrence~J Sejnowski.
+\newblock Reliability of spike timing in neocortical neurons.
+\newblock \emph{Science}, 268\penalty0 (5216):\penalty0 1503--1506, 1995.
+
+\bibitem[Bell(1999)]{bell1999levels}
+Anthony~J Bell.
+\newblock Levels and loops: the future of artificial intelligence and neuroscience.
+\newblock \emph{Philosophical Transactions of the Royal Society of London. Series B: Biological Sciences}, 354\penalty0 (1392):\penalty0 2013--2020, 1999.
+
+\bibitem[Song et~al.(2005)Song, Sj{\"o}str{\"o}m, Reigl, Nelson, and Chklovskii]{song2005highly}
+Sen Song, Per~Jesper Sj{\"o}str{\"o}m, Markus Reigl, Sacha Nelson, and Dmitri~B Chklovskii.
+\newblock Highly nonrandom features of synaptic connectivity in local cortical circuits.
+\newblock \emph{PLoS biology}, 3\penalty0 (3):\penalty0 e68, 2005.
+
+\bibitem[Varshney et~al.(2011)Varshney, Chen, Paniagua, Hall, and Chklovskii]{varshney2011structural}
+Lav~R Varshney, Beth~L Chen, Eric Paniagua, David~H Hall, and Dmitri~B Chklovskii.
+\newblock Structural properties of the caenorhabditis elegans neuronal network.
+\newblock \emph{PLoS computational biology}, 7\penalty0 (2):\penalty0 e1001066, 2011.
+
+\bibitem[Winding et~al.(2023)Winding, Pedigo, Barnes, Patsolic, Park, Kazimiers, Fushiki, Andrade, Khandelwal, Valdes-Aleman, et~al.]{winding2023connectome}
+Michael Winding, Benjamin~D Pedigo, Christopher~L Barnes, Heather~G Patsolic, Youngser Park, Tom Kazimiers, Akira Fushiki, Ingrid~V Andrade, Avinash Khandelwal, Javier Valdes-Aleman, et~al.
+\newblock The connectome of an insect brain.
+\newblock \emph{Science}, 379\penalty0 (6636):\penalty0 eadd9330, 2023.
+
+\bibitem[Katayama et~al.(2005)]{katayama2005subspace}
+Tohru Katayama et~al.
+\newblock \emph{Subspace methods for system identification}, volume~1.
+\newblock Springer, 2005.
+
+\bibitem[{\AA}str{\"o}m and Murray(2021)]{aastrom2021feedback}
+Karl~Johan {\AA}str{\"o}m and Richard~M Murray.
+\newblock \emph{Feedback systems: an introduction for scientists and engineers}.
+\newblock Princeton university press, 2021.
+
+\bibitem[Willems et~al.(2005)Willems, Rapisarda, Markovsky, and De~Moor]{willems2005note}
+Jan~C Willems, Paolo Rapisarda, Ivan Markovsky, and Bart~LM De~Moor.
+\newblock A note on persistency of excitation.
+\newblock \emph{Systems \& Control Letters}, 54\penalty0 (4):\penalty0 325--329, 2005.
+
+\bibitem[De~Persis and Tesi(2019)]{de2019formulas}
+Claudio De~Persis and Pietro Tesi.
+\newblock Formulas for data-driven control: Stabilization, optimality, and robustness.
+\newblock \emph{IEEE Transactions on Automatic Control}, 65\penalty0 (3):\penalty0 909--924, 2019.
+
+\bibitem[Markovsky et~al.(2022)Markovsky, Huang, and D{\"o}rfler]{markovsky2022data}
+Ivan Markovsky, Linbin Huang, and Florian D{\"o}rfler.
+\newblock Data-driven control based on the behavioral approach: From theory to applications in power systems.
+\newblock \emph{IEEE Control Syst.}, 2022.
+
+\bibitem[Markram et~al.(1997)Markram, L{\"u}bke, Frotscher, and Sakmann]{markram1997regulation}
+Henry Markram, Joachim L{\"u}bke, Michael Frotscher, and Bert Sakmann.
+\newblock Regulation of synaptic efficacy by coincidence of postsynaptic aps and epsps.
+\newblock \emph{Science}, 275\penalty0 (5297):\penalty0 213--215, 1997.
+
+\bibitem[Bi and Poo(1998)]{bi1998synaptic}
+Guo-qiang Bi and Mu-ming Poo.
+\newblock Synaptic modifications in cultured hippocampal neurons: dependence on spike timing, synaptic strength, and postsynaptic cell type.
+\newblock \emph{Journal of neuroscience}, 18\penalty0 (24):\penalty0 10464--10472, 1998.
+
+\bibitem[Zhang et~al.(1998)Zhang, Tao, Holt, Harris, and Poo]{zhang1998critical}
+Li~I Zhang, Huizhong~W Tao, Christine~E Holt, William~A Harris, and Mu-ming Poo.
+\newblock A critical window for cooperation and competition among developing retinotectal synapses.
+\newblock \emph{Nature}, 395\penalty0 (6697):\penalty0 37--44, 1998.
+
+\bibitem[Rule et~al.(2019)Rule, O’Leary, and Harvey]{rule2019causes}
+Michael~E Rule, Timothy O’Leary, and Christopher~D Harvey.
+\newblock Causes and consequences of representational drift.
+\newblock \emph{Current opinion in neurobiology}, 58:\penalty0 141--147, 2019.
+
+\bibitem[Dobrunz and Stevens(1997)]{dobrunz1997heterogeneity}
+Lynn~E Dobrunz and Charles~F Stevens.
+\newblock Heterogeneity of release probability, facilitation, and depletion at central synapses.
+\newblock \emph{Neuron}, 18\penalty0 (6):\penalty0 995--1008, 1997.
+
+\bibitem[Gordus et~al.(2015)Gordus, Pokala, Levy, Flavell, and Bargmann]{gordus2015feedback}
+Andrew Gordus, Navin Pokala, Sagi Levy, Steven~W Flavell, and Cornelia~I Bargmann.
+\newblock Feedback from network states generates variability in a probabilistic olfactory circuit.
+\newblock \emph{Cell}, 161\penalty0 (2):\penalty0 215--227, 2015.
+
+\bibitem[{\"O}lveczky et~al.(2005){\"O}lveczky, Andalman, and Fee]{olveczky2005vocal}
+Bence~P {\"O}lveczky, Aaron~S Andalman, and Michale~S Fee.
+\newblock Vocal experimentation in the juvenile songbird requires a basal ganglia circuit.
+\newblock \emph{PLoS biology}, 3\penalty0 (5):\penalty0 e153, 2005.
+
+\bibitem[Deitch et~al.(2021)Deitch, Rubin, and Ziv]{deitch2021representational}
+Daniel Deitch, Alon Rubin, and Yaniv Ziv.
+\newblock Representational drift in the mouse visual cortex.
+\newblock \emph{Current biology}, 31\penalty0 (19):\penalty0 4327--4339, 2021.
+
+\bibitem[Schoonover et~al.(2021)Schoonover, Ohashi, Axel, and Fink]{schoonover2021representational}
+Carl~E Schoonover, Sarah~N Ohashi, Richard Axel, and Andrew~JP Fink.
+\newblock Representational drift in primary olfactory cortex.
+\newblock \emph{Nature}, 594\penalty0 (7864):\penalty0 541--546, 2021.
+
+\bibitem[Niell and Stryker(2010)]{niell2010modulation}
+Cristopher~M Niell and Michael~P Stryker.
+\newblock Modulation of visual responses by behavioral state in mouse visual cortex.
+\newblock \emph{Neuron}, 65\penalty0 (4):\penalty0 472--479, 2010.
+
+\bibitem[Musall et~al.(2019)Musall, Kaufman, Juavinett, Gluf, and Churchland]{musall2019single}
+Simon Musall, Matthew~T Kaufman, Ashley~L Juavinett, Steven Gluf, and Anne~K Churchland.
+\newblock Single-trial neural dynamics are dominated by richly varied movements.
+\newblock \emph{Nature neuroscience}, 22\penalty0 (10):\penalty0 1677--1686, 2019.
+
+\bibitem[Zagha et~al.(2022)Zagha, Erlich, Lee, Lur, O'Connor, Steinmetz, Stringer, and Yang]{zagha2022importance}
+Edward Zagha, Jeffrey~C Erlich, Soohyun Lee, Gyorgy Lur, Daniel~H O'Connor, Nicholas~A Steinmetz, Carsen Stringer, and Hongdian Yang.
+\newblock The importance of accounting for movement when relating neuronal activity to sensory and cognitive processes.
+\newblock \emph{Journal of Neuroscience}, 42\penalty0 (8):\penalty0 1375--1382, 2022.
+
+\bibitem[McCulloch and Pitts(1943)]{mcculloch1943logical}
+Warren~S McCulloch and Walter Pitts.
+\newblock A logical calculus of the ideas immanent in nervous activity.
+\newblock \emph{The bulletin of mathematical biophysics}, 5:\penalty0 115--133, 1943.
+
+\bibitem[Rosenblatt(1961)]{rosenblatt1961principles}
+Frank Rosenblatt.
+\newblock Principles of neurodynamics. perceptrons and the theory of brain mechanisms.
+\newblock Technical report, Cornell Aeronautical Lab Inc Buffalo NY, 1961.
+
+\bibitem[Coulson et~al.(2019)Coulson, Lygeros, and D{\"o}rfler]{coulson2019data}
+Jeremy Coulson, John Lygeros, and Florian D{\"o}rfler.
+\newblock Data-enabled predictive control: In the shallows of the deepc.
+\newblock In \emph{2019 18th European Control Conference (ECC)}, pages 307--312. IEEE, 2019.
+
+\bibitem[Berberich et~al.(2022)Berberich, K{\"o}hler, M{\"u}ller, and Allg{\"o}wer]{berberich2022linear}
+Julian Berberich, Johannes K{\"o}hler, Matthias~A M{\"u}ller, and Frank Allg{\"o}wer.
+\newblock Linear tracking mpc for nonlinear systems—part ii: The data-driven case.
+\newblock \emph{IEEE Transactions on Automatic Control}, 67\penalty0 (9):\penalty0 4406--4421, 2022.
+
+\bibitem[van Waarde(2021)]{van2021beyond}
+Henk~J van Waarde.
+\newblock Beyond persistent excitation: Online experiment design for data-driven modeling and control.
+\newblock \emph{IEEE Control Systems Letters}, 6:\penalty0 319--324, 2021.
+
+\bibitem[Rotulo et~al.(2022)Rotulo, De~Persis, and Tesi]{rotulo2022online}
+Monica Rotulo, Claudio De~Persis, and Pietro Tesi.
+\newblock Online learning of data-driven controllers for unknown switched linear systems.
+\newblock \emph{Automatica}, 145:\penalty0 110519, 2022.
+
+\bibitem[Pehlevan and Chklovskii(2019)]{pehlevan2019neuroscience}
+Cengiz Pehlevan and Dmitri~B Chklovskii.
+\newblock Neuroscience-inspired online unsupervised learning algorithms: Artificial neural networks.
+\newblock \emph{IEEE Signal Processing Magazine}, 36\penalty0 (6):\penalty0 88--96, 2019.
+
+\bibitem[Hebb(1949)]{hebb1949}
+Donald~O. Hebb.
+\newblock \emph{The organization of behavior: {A} neuropsychological theory}.
+\newblock Wiley, New York, 1949.
+
+\bibitem[Gilson and Fukai(2011)]{gilson2011stability}
+Matthieu Gilson and Tomoki Fukai.
+\newblock Stability versus neuronal specialization for stdp: long-tail weight distributions solve the dilemma.
+\newblock \emph{PloS one}, 6\penalty0 (10):\penalty0 e25339, 2011.
+
+\bibitem[Aceituno et~al.(2023)Aceituno, Farinha, Loidl, and Grewe]{aceituno2023learning}
+Pau~Vilimelis Aceituno, Matilde~Tristany Farinha, Reinhard Loidl, and Benjamin~F Grewe.
+\newblock Learning cortical hierarchies with temporal hebbian updates.
+\newblock \emph{Frontiers in Computational Neuroscience}, 17:\penalty0 1136010, 2023.
+
+\bibitem[Caporale and Dan(2008)]{caporale2008spike}
+Natalia Caporale and Yang Dan.
+\newblock Spike timing--dependent plasticity: a hebbian learning rule.
+\newblock \emph{Annu. Rev. Neurosci.}, 31:\penalty0 25--46, 2008.
+
+\bibitem[Pritchard(1961)]{pritchard1961stabilized}
+Roy~M Pritchard.
+\newblock Stabilized images on the retina.
+\newblock \emph{Scientific American}, 204\penalty0 (6):\penalty0 72--79, 1961.
+
+\bibitem[Ko et~al.(2010)Ko, Poletti, and Rucci]{ko2010microsaccades}
+Hee-kyoung Ko, Martina Poletti, and Michele Rucci.
+\newblock Microsaccades precisely relocate gaze in a high visual acuity task.
+\newblock \emph{Nature neuroscience}, 13\penalty0 (12):\penalty0 1549--1553, 2010.
+
+\bibitem[Lewen et~al.(2001)Lewen, Bialek, and Van~Steveninck]{lewen2001neural}
+GD~Lewen, W~Bialek, and RR~De~Ruyter Van~Steveninck.
+\newblock Neural coding of naturalistic motion stimuli.
+\newblock \emph{Network: Computation in Neural Systems}, 12\penalty0 (3):\penalty0 317, 2001.
+
+\bibitem[Teeter et~al.(2018)Teeter, Iyer, Menon, Gouwens, Feng, Berg, Szafer, Cain, Zeng, Hawrylycz, et~al.]{teeter2018generalized}
+Corinne Teeter, Ramakrishnan Iyer, Vilas Menon, Nathan Gouwens, David Feng, Jim Berg, Aaron Szafer, Nicholas Cain, Hongkui Zeng, Michael Hawrylycz, et~al.
+\newblock Generalized leaky integrate-and-fire models classify multiple neuron types.
+\newblock \emph{Nature communications}, 9\penalty0 (1):\penalty0 709, 2018.
+
+\bibitem[Gorur-Shandilya et~al.(2017)Gorur-Shandilya, Demir, Long, Clark, and Emonet]{gorur2017olfactory}
+Srinivas Gorur-Shandilya, Mahmut Demir, Junjiajia Long, Damon~A Clark, and Thierry Emonet.
+\newblock Olfactory receptor neurons use gain control and complementary kinetics to encode intermittent odorant stimuli.
+\newblock \emph{Elife}, 6:\penalty0 e27670, 2017.
+
+\bibitem[Rauch et~al.(2003)Rauch, La~Camera, Luscher, Senn, and Fusi]{rauch_lacamera_fusi2003noise}
+Alexander Rauch, Giancarlo La~Camera, Hans-Rudolf Luscher, Walter Senn, and Stefano Fusi.
+\newblock Neocortical pyramidal cells respond as integrate-and-fire neurons to in vivo-like input currents.
+\newblock \emph{J. Neurophysiol}, 90\penalty0 (3):\penalty0 1598--1612, 2003.
+
+\bibitem[Rieke et~al.(1999)Rieke, Warland, de~Ruyter~van Steveninck, and Bialek]{rieke1999spikes}
+Fred Rieke, Davd Warland, Rob de~Ruyter~van Steveninck, and William Bialek.
+\newblock Spikes: exploring the neural code, 1999.
+
+\bibitem[Keat et~al.(2001)Keat, Reinagel, Reid, and Meister]{keat2001predicting}
+Justin Keat, Pamela Reinagel, R~Clay Reid, and Markus Meister.
+\newblock Predicting every spike: a model for the responses of visual neurons.
+\newblock \emph{Neuron}, 30\penalty0 (3):\penalty0 803--817, 2001.
+
+\bibitem[Pillow et~al.(2008)Pillow, Shlens, Paninski, Sher, Litke, Chichilnisky, and Simoncelli]{pillow2008spatio}
+Jonathan~W Pillow, Jonathon Shlens, Liam Paninski, Alexander Sher, Alan~M Litke, EJ~Chichilnisky, and Eero~P Simoncelli.
+\newblock Spatio-temporal correlations and visual signalling in a complete neuronal population.
+\newblock \emph{Nature}, 454\penalty0 (7207):\penalty0 995--999, 2008.
+
+\bibitem[Schneidman et~al.(1998)Schneidman, Freedman, and Segev]{schneidman1998ion}
+Elad Schneidman, Barry Freedman, and Idan Segev.
+\newblock Ion channel stochasticity may be critical in determining the reliability and precision of spike timing.
+\newblock \emph{Neural computation}, 10\penalty0 (7):\penalty0 1679--1703, 1998.
+
+\bibitem[Jack et~al.(1975)Jack, Noble, and Tsien]{jack1975electric}
+James Julian~Bennett Jack, Denis Noble, and Richard~W Tsien.
+\newblock Electric current flow in excitable cells.
+\newblock 1975.
+
+\bibitem[Sarpeshkar(1998)]{sarpeshkar1998analog}
+Rahul Sarpeshkar.
+\newblock Analog versus digital: extrapolating from electronics to neurobiology.
+\newblock \emph{Neural computation}, 10\penalty0 (7):\penalty0 1601--1638, 1998.
+
+\bibitem[Laughlin et~al.(1998)Laughlin, de~Ruyter~van Steveninck, and Anderson]{laughlin1998metabolic}
+Simon~B Laughlin, Rob~R de~Ruyter~van Steveninck, and John~C Anderson.
+\newblock The metabolic cost of neural information.
+\newblock \emph{Nature neuroscience}, 1\penalty0 (1):\penalty0 36--41, 1998.
+
+\bibitem[Kamien and Schwartz(2012)]{kamien2012dynamic}
+Morton~I Kamien and Nancy~Lou Schwartz.
+\newblock \emph{Dynamic optimization: the calculus of variations and optimal control in economics and management}.
+\newblock courier corporation, 2012.
+
+\bibitem[Koch(2004)]{koch2004biophysics}
+Christof Koch.
+\newblock \emph{Biophysics of computation: information processing in single neurons}.
+\newblock Oxford university press, 2004.
+
+\bibitem[Maass et~al.(2002)Maass, Natschl{\"a}ger, and Markram]{maass2002real}
+Wolfgang Maass, Thomas Natschl{\"a}ger, and Henry Markram.
+\newblock Real-time computing without stable states: A new framework for neural computation based on perturbations.
+\newblock \emph{Neural computation}, 14\penalty0 (11):\penalty0 2531--2560, 2002.
+
+\bibitem[Beggs and Plenz(2003)]{beggs2003neuronal}
+John~M Beggs and Dietmar Plenz.
+\newblock Neuronal avalanches in neocortical circuits.
+\newblock \emph{Journal of neuroscience}, 23\penalty0 (35):\penalty0 11167--11177, 2003.
+
+\bibitem[Seung(1996)]{seung1996brain}
+HS~Seung.
+\newblock How the brain keeps the eyes still.
+\newblock \emph{Proc. Natl. Acad. Sci. USA}, 93:\penalty0 13339--13344, 1996.
+
+\bibitem[Zilberter(2000)]{zilberter2000dendritic}
+Y~Zilberter.
+\newblock Dendritic release of glutamate suppresses synaptic inhibition of pyramidal neurons in rat neocortex.
+\newblock \emph{The Journal of Physiology}, 528\penalty0 (Pt 3):\penalty0 489, 2000.
+
+\bibitem[Dudman et~al.(2007)Dudman, Tsay, and Siegelbaum]{dudman2007role}
+Joshua~T Dudman, David Tsay, and Steven~A Siegelbaum.
+\newblock A role for synaptic inputs at distal dendrites: instructive signals for hippocampal long-term plasticity.
+\newblock \emph{Neuron}, 56\penalty0 (5):\penalty0 866--879, 2007.
+
+\bibitem[Suvrathan et~al.(2016)Suvrathan, Payne, and Raymond]{suvrathan2016timing}
+Aparna Suvrathan, Hannah~L Payne, and Jennifer~L Raymond.
+\newblock Timing rules for synaptic plasticity matched to behavioral function.
+\newblock \emph{Neuron}, 92\penalty0 (5):\penalty0 959--967, 2016.
+
+\bibitem[Jayabal et~al.(2022)Jayabal, Bhasin, Suvrathan, DiSanto, Goldman, and Raymond]{Jayabal2022.11.28.518128}
+Sriram Jayabal, Brandon~J. Bhasin, Aparna Suvrathan, Jennifer DiSanto, Mark~S. Goldman, and Jennifer~L. Raymond.
+\newblock Experience adaptively tunes the timing rules for associative plasticity.
+\newblock \emph{bioRxiv}, 2022.
+\newblock \doi{10.1101/2022.11.28.518128}.
+\newblock URL \url{https://www.biorxiv.org/content/early/2022/11/29/2022.11.28.518128}.
+
+\bibitem[London et~al.(2010)London, Roth, Beeren, H{\"a}usser, and Latham]{london2010sensitivity}
+Michael London, Arnd Roth, Lisa Beeren, Michael H{\"a}usser, and Peter~E Latham.
+\newblock Sensitivity to perturbations in vivo implies high noise and suggests rate coding in cortex.
+\newblock \emph{Nature}, 466\penalty0 (7302):\penalty0 123--127, 2010.
+
+\bibitem[Monteforte and Wolf(2012)]{monteforte2012dynamic}
+Michael Monteforte and Fred Wolf.
+\newblock Dynamic flux tubes form reservoirs of stability in neuronal circuits.
+\newblock \emph{Physical Review X}, 2\penalty0 (4):\penalty0 041007, 2012.
+
+\bibitem[Wolfe et~al.(2010)Wolfe, Houweling, and Brecht]{wolfe2010sparse}
+Jason Wolfe, Arthur~R Houweling, and Michael Brecht.
+\newblock Sparse and powerful cortical spikes.
+\newblock \emph{Current opinion in neurobiology}, 20\penalty0 (3):\penalty0 306--312, 2010.
+
+\bibitem[Houweling and Brecht(2008)]{houweling2008behavioural}
+Arthur~R Houweling and Michael Brecht.
+\newblock Behavioural report of single neuron stimulation in somatosensory cortex.
+\newblock \emph{Nature}, 451\penalty0 (7174):\penalty0 65--68, 2008.
+
+\bibitem[Brecht et~al.(2004)Brecht, Schneider, Sakmann, and Margrie]{brecht2004whisker}
+Michael Brecht, Miriam Schneider, Bert Sakmann, and Troy~W Margrie.
+\newblock Whisker movements evoked by stimulation of single pyramidal cells in rat motor cortex.
+\newblock \emph{Nature}, 427\penalty0 (6976):\penalty0 704--710, 2004.
+
+\bibitem[Wainwright et~al.(2002)Wainwright, Schwartz, and Simoncelli]{wainwright200210}
+Martin~J Wainwright, Odelia Schwartz, and Eero~P Simoncelli.
+\newblock 10 natural image statistics and divisive normalization.
+\newblock \emph{Probabilistic models of the brain}, page 203, 2002.
+
+\bibitem[Carandini and Heeger(2012)]{carandini2012normalization}
+Matteo Carandini and David~J Heeger.
+\newblock Normalization as a canonical neural computation.
+\newblock \emph{Nature Reviews Neuroscience}, 13\penalty0 (1):\penalty0 51--62, 2012.
+
+\bibitem[Brenner et~al.(2000)Brenner, Bialek, and Van~Steveninck]{brenner2000adaptive}
+Naama Brenner, William Bialek, and Rob de~Ruyter Van~Steveninck.
+\newblock Adaptive rescaling maximizes information transmission.
+\newblock \emph{Neuron}, 26\penalty0 (3):\penalty0 695--702, 2000.
+
+\bibitem[Boerlin et~al.(2013)Boerlin, Machens, and Den{\`e}ve]{boerlin2013predictive}
+Martin Boerlin, Christian~K Machens, and Sophie Den{\`e}ve.
+\newblock Predictive coding of dynamical variables in balanced spiking networks.
+\newblock \emph{PLoS computational biology}, 9\penalty0 (11):\penalty0 e1003258, 2013.
+
+\bibitem[Baggio et~al.(2021)Baggio, Bassett, and Pasqualetti]{baggio2021data}
+Giacomo Baggio, Danielle~S Bassett, and Fabio Pasqualetti.
+\newblock Data-driven control of complex networks.
+\newblock \emph{Nature communications}, 12\penalty0 (1):\penalty0 1429, 2021.
+
+\bibitem[Lapicque(1907)]{lapicque1907recherches}
+Louis Lapicque.
+\newblock Recherches quantitatives sur l'excitation electrique des nerfs traitee comme une polarization.
+\newblock \emph{Journal de physiologie et de pathologie g{\'e}n{\'e}rale}, 9:\penalty0 620--635, 1907.
+
+\bibitem[Sutton and Barto(2018)]{sutton2018reinforcement}
+Richard~S Sutton and Andrew~G Barto.
+\newblock \emph{Reinforcement learning: An introduction}.
+\newblock MIT press, 2018.
+
+\bibitem[Dayan(2002)]{dayan2002matters}
+Peter Dayan.
+\newblock Matters temporal.
+\newblock \emph{Trends in Cognitive Sciences}, 6\penalty0 (3):\penalty0 105--106, 2002.
+
+\bibitem[Cisek(1999)]{cisek1999beyond}
+Paul Cisek.
+\newblock Beyond the computer metaphor: Behaviour as interaction.
+\newblock \emph{Journal of Consciousness Studies}, 6\penalty0 (11-12):\penalty0 125--142, 1999.
+
+\bibitem[Cisek and Kalaska(2010)]{cisek2010neural}
+Paul Cisek and John~F Kalaska.
+\newblock Neural mechanisms for interacting with a world full of action choices.
+\newblock \emph{Annual review of neuroscience}, 33:\penalty0 269--298, 2010.
+
+\bibitem[Ahissar and Assa(2016)]{ahissar2016perception}
+Ehud Ahissar and Eldad Assa.
+\newblock Perception as a closed-loop convergence process.
+\newblock \emph{elife}, 5:\penalty0 e12830, 2016.
+
+\bibitem[Li et~al.(2022)Li, Sarma, Sejnowski, and Doyle]{li2022internal}
+Jing~Shuang Li, Anish~A Sarma, Terrence~J Sejnowski, and John~C Doyle.
+\newblock Why internal feedback is necessary in the perception-action loop.
+\newblock \emph{arXiv preprint arXiv:2211.05922}, 2022.
+
+\bibitem[Robinson(1981)]{robinson1981use}
+DA~Robinson.
+\newblock The use of control systems analysis in the neurophysiology of eye movements.
+\newblock \emph{Annual review of neuroscience}, 4\penalty0 (1):\penalty0 463--503, 1981.
+
+\bibitem[Miles and Lisberger(1981)]{miles1981plasticity}
+FA~Miles and SG~Lisberger.
+\newblock Plasticity in the vestibulo-ocular reflex: a new hypothesis.
+\newblock \emph{Annual review of neuroscience}, 4\penalty0 (1):\penalty0 273--299, 1981.
+
+\bibitem[Haruno et~al.(2001)Haruno, Wolpert, and Kawato]{haruno2001mosaic}
+Masahiko Haruno, Daniel~M Wolpert, and Mitsuo Kawato.
+\newblock Mosaic model for sensorimotor learning and control.
+\newblock \emph{Neural computation}, 13\penalty0 (10):\penalty0 2201--2220, 2001.
+
+\bibitem[Williams et~al.(2018)Williams, Massey, and Maharbiz]{williams2018blowfly}
+Rhys~D Williams, Travis~L Massey, and Michel~M Maharbiz.
+\newblock Blowfly yaw control via electrical stimulation of the h1 lobula plate tangential cell.
+\newblock In \emph{2018 40th Annual International Conference of the IEEE Engineering in Medicine and Biology Society (EMBC)}, pages 1685--1688. IEEE, 2018.
+
+\end{thebibliography}

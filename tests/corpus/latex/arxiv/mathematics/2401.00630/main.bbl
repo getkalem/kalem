@@ -1,0 +1,426 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.2 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated as
+% required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+\datalist[entry]{nty/global//global/global}
+  \entry{strong-approx}{thesis}{}
+    \name{author}{1}{}{%
+      {{hash=BA}{%
+         family={Baragar},
+         familyi={B\bibinitperiod},
+         given={Arthur},
+         giveni={A\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{BA1}
+    \strng{fullhash}{BA1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{B}
+    \field{sortinithash}{B}
+    \field{title}{The Markoff equation and equations of Hurwitz}
+    \list{institution}{1}{%
+      {Brown University}%
+    }
+    \field{year}{1991}
+  \endentry
+
+  \entry{bounding-lifts}{misc}{}
+    \name{author}{4}{}{%
+      {{hash=BE}{%
+         family={Bellah},
+         familyi={B\bibinitperiod},
+         given={Elisa},
+         giveni={E\bibinitperiod},
+      }}%
+      {{hash=CS}{%
+         family={Chen},
+         familyi={C\bibinitperiod},
+         given={Siran},
+         giveni={S\bibinitperiod},
+      }}%
+      {{hash=FE}{%
+         family={Fuchs},
+         familyi={F\bibinitperiod},
+         given={Elena},
+         giveni={E\bibinitperiod},
+      }}%
+      {{hash=YL}{%
+         family={Ye},
+         familyi={Y\bibinitperiod},
+         given={Lynnelle},
+         giveni={L\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{BECSFEYL1}
+    \strng{fullhash}{BECSFEYL1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{B}
+    \field{sortinithash}{B}
+    \verb{eprint}
+    \verb 2311.11468
+    \endverb
+    \field{title}{Bounding Lifts of Markoff Triples mod $p$}
+    \field{eprinttype}{arxiv}
+    \field{eprintclass}{math.NT}
+    \field{year}{2023}
+  \endentry
+
+  \entry{bgs}{misc}{}
+    \name{author}{3}{}{%
+      {{hash=BJ}{%
+         family={Bourgain},
+         familyi={B\bibinitperiod},
+         given={Jean},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=GA}{%
+         family={Gamburd},
+         familyi={G\bibinitperiod},
+         given={Alexander},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=SP}{%
+         family={Sarnak},
+         familyi={S\bibinitperiod},
+         given={Peter},
+         giveni={P\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{BJGASP1}
+    \strng{fullhash}{BJGASP1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{B}
+    \field{sortinithash}{B}
+    \verb{eprint}
+    \verb 1607.01530
+    \endverb
+    \field{title}{Markoff Surfaces and Strong Approximation: 1}
+    \field{eprinttype}{arxiv}
+    \field{eprintclass}{math.NT}
+    \field{year}{2016}
+  \endentry
+
+  \entry{chen}{article}{}
+    \name{author}{1}{}{%
+      {{hash=CW}{%
+         family={Chen},
+         familyi={C\bibinitperiod},
+         given={William},
+         giveni={W\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{CW1}
+    \strng{fullhash}{CW1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{C}
+    \field{sortinithash}{C}
+    \field{title}{Nonabelian level structures, Nielsen equivalence, and Markoff
+  triples}
+    \field{journaltitle}{Annals of Mathematics}
+    \field{year}{forthcoming}
+  \endentry
+
+  \entry{gcd-finite-fields}{article}{}
+    \name{author}{2}{}{%
+      {{hash=CP}{%
+         family={Corvaja},
+         familyi={C\bibinitperiod},
+         given={Pietro},
+         giveni={P\bibinitperiod},
+      }}%
+      {{hash=ZU}{%
+         family={Zannier},
+         familyi={Z\bibinitperiod},
+         given={Umberto},
+         giveni={U\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{CPZU1}
+    \strng{fullhash}{CPZU1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{C}
+    \field{sortinithash}{C}
+    \verb{doi}
+    \verb 10.4171/JEMS/409
+    \endverb
+    \field{number}{5}
+    \field{pages}{1927\bibrangedash 1942}
+    \field{title}{Greatest common divisors of $u - 1$, $v - 1$ in positive
+  characteristic and rational points on curves over finite fields}
+    \field{volume}{15}
+    \field{journaltitle}{Journal of the European Mathematical Society}
+    \field{year}{2013}
+  \endentry
+
+  \entry{experiments}{article}{}
+    \name{author}{2}{}{%
+      {{hash=DCIM}{%
+         family={De\bibnamedelima Courcy-Ireland},
+         familyi={D\bibinitperiod\bibinitdelim C\bibinithyphendelim
+  I\bibinitperiod},
+         given={Matthew},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=LS}{%
+         family={Lee},
+         familyi={L\bibinitperiod},
+         given={Seugjae},
+         giveni={S\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{DCIMLS1}
+    \strng{fullhash}{DCIMLS1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{D}
+    \field{sortinithash}{D}
+    \field{number}{3}
+    \field{pages}{814\bibrangedash 829}
+    \field{title}{Experiments with the Markoff Surface}
+    \field{volume}{31}
+    \field{journaltitle}{Experimental mathematics}
+    \field{year}{2022}
+  \endentry
+
+  \entry{fuchs}{misc}{}
+    \name{author}{6}{}{%
+      {{hash=EJ}{%
+         family={Eddy},
+         familyi={E\bibinitperiod},
+         given={Jillian},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=FE}{%
+         family={Fuchs},
+         familyi={F\bibinitperiod},
+         given={Elena},
+         giveni={E\bibinitperiod},
+      }}%
+      {{hash=LM}{%
+         family={Litman},
+         familyi={L\bibinitperiod},
+         given={Matthew},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=MD}{%
+         family={Martin},
+         familyi={M\bibinitperiod},
+         given={Daniel},
+         giveni={D\bibinitperiod},
+      }}%
+      {{hash=TN}{%
+         family={Tripeny},
+         familyi={T\bibinitperiod},
+         given={Nico},
+         giveni={N\bibinitperiod},
+      }}%
+      {{hash=VD}{%
+         family={Vanyo},
+         familyi={V\bibinitperiod},
+         given={Devin},
+         giveni={D\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{EJFELMMDTNVD1}
+    \strng{fullhash}{EJFELMMDTNVD1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{E}
+    \field{sortinithash}{E}
+    \verb{eprint}
+    \verb 2308.07579
+    \endverb
+    \field{title}{Connectivity of Markoff Mod-$P$ Graphs and Maximal Divisors}
+    \field{eprinttype}{arxiv}
+    \field{eprintclass}{math.NT}
+    \field{year}{2023}
+  \endentry
+
+  \entry{theory-of-numbers}{book}{}
+    \name{author}{2}{}{%
+      {{hash=HGH}{%
+         family={Hardy},
+         familyi={H\bibinitperiod},
+         given={G.\bibnamedelima H.},
+         giveni={G\bibinitperiod\bibinitdelim H\bibinitperiod},
+      }}%
+      {{hash=WEM}{%
+         family={Wright},
+         familyi={W\bibinitperiod},
+         given={E.\bibnamedelima M.},
+         giveni={E\bibinitperiod\bibinitdelim M\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {Oxford University Press}%
+    }
+    \strng{namehash}{HGHWEM1}
+    \strng{fullhash}{HGHWEM1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{H}
+    \field{sortinithash}{H}
+    \field{title}{An Introduction to the Theory of Numbers}
+    \field{year}{1975}
+  \endentry
+
+  \entry{rust-language}{online}{}
+    \name{author}{2}{}{%
+      {{hash=KS}{%
+         family={Klabnik},
+         familyi={K\bibinitperiod},
+         given={Steve},
+         giveni={S\bibinitperiod},
+      }}%
+      {{hash=NC}{%
+         family={Nichols},
+         familyi={N\bibinitperiod},
+         given={Carol},
+         giveni={C\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{KSNC1}
+    \strng{fullhash}{KSNC1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{K}
+    \field{sortinithash}{K}
+    \field{title}{The Rust Programming Language}
+    \verb{url}
+    \verb https://doc.rust-lang.org/book
+    \endverb
+    \field{year}{2022}
+    \field{urlday}{29}
+    \field{urlmonth}{11}
+    \field{urlyear}{2023}
+  \endentry
+
+  \entry{on-the-structure}{article}{}
+    \name{author}{4}{}{%
+      {{hash=KSV}{%
+         family={Konyagin},
+         familyi={K\bibinitperiod},
+         given={Sergei\bibnamedelima V.},
+         giveni={S\bibinitperiod\bibinitdelim V\bibinitperiod},
+      }}%
+      {{hash=MSV}{%
+         family={Makarychev},
+         familyi={M\bibinitperiod},
+         given={Sergey\bibnamedelima V.},
+         giveni={S\bibinitperiod\bibinitdelim V\bibinitperiod},
+      }}%
+      {{hash=SIE}{%
+         family={Shparlinski},
+         familyi={S\bibinitperiod},
+         given={Igor\bibnamedelima E.},
+         giveni={I\bibinitperiod\bibinitdelim E\bibinitperiod},
+      }}%
+      {{hash=VIV}{%
+         family={Vyugin},
+         familyi={V\bibinitperiod},
+         given={Ilya\bibnamedelima V.},
+         giveni={I\bibinitperiod\bibinitdelim V\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{KSVMSVSIEVIV1}
+    \strng{fullhash}{KSVMSVSIEVIV1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{K}
+    \field{sortinithash}{K}
+    \field{title}{On the structure of graphs of Markoff triples}
+    \field{volume}{71}
+    \field{journaltitle}{The Quarterly Journal of Mathematics}
+    \field{year}{2020}
+  \endentry
+
+  \entry{generators}{article}{}
+    \name{author}{1}{}{%
+      {{hash=LF}{%
+         family={L\"ubeck},
+         familyi={L\bibinitperiod},
+         given={Frank},
+         giveni={F\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{LF1}
+    \strng{fullhash}{LF1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{L}
+    \field{sortinithash}{L}
+    \field{number}{51-67}
+    \field{title}{Standard generators of finite fields and their cyclic
+  subgroups}
+    \field{volume}{117}
+    \field{journaltitle}{Journal of Symbolic Computation}
+    \field{year}{2023}
+  \endentry
+
+  \entry{markoff}{article}{}
+    \name{author}{1}{}{%
+      {{hash=MA}{%
+         family={Markoff},
+         familyi={M\bibinitperiod},
+         given={A.},
+         giveni={A\bibinitperiod},
+      }}%
+    }
+    \list{language}{1}{%
+      {fe}%
+    }
+    \strng{namehash}{MA1}
+    \strng{fullhash}{MA1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{M}
+    \field{sortinithash}{M}
+    \field{number}{3-4}
+    \field{title}{Sur les formes quadratiques binaires ind\'efinies}
+    \field{volume}{15}
+    \field{journaltitle}{Mathematische annalen}
+    \field{year}{1879}
+  \endentry
+
+  \entry{hackers-delight}{book}{}
+    \name{author}{1}{}{%
+      {{hash=WJHS}{%
+         family={Warner\bibnamedelima Jr.},
+         familyi={W\bibinitperiod\bibinitdelim J\bibinitperiod},
+         given={Henry\bibnamedelima S.},
+         giveni={H\bibinitperiod\bibinitdelim S\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {Addison-wesley Professional}%
+    }
+    \strng{namehash}{WJHS1}
+    \strng{fullhash}{WJHS1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{W}
+    \field{sortinithash}{W}
+    \field{title}{Hacker's Delight, Second Edition}
+    \field{year}{2012}
+  \endentry
+\enddatalist
+\endinput

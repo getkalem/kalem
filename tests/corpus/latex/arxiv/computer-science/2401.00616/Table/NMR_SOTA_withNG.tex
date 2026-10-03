@@ -1,0 +1,38 @@
+
+\begin{table*}[t]
+  
+  \begin{adjustbox}{width=\linewidth,center}
+      \begin{tabular}{l| l c c c c c c c c c c c c c c}
+        \rowcolor[gray]{.9}
+        \hline
+        Metrics & Methods & plane & bench & cbnt. & car & chair & disp. & lamp & spkr. & rifle & sofa & table & phone & boat & average \\
+         \hline \hline
+        \multirow{6}{*}{$\uparrow$ PSNR}    & SRN       & 26.62 & 22.20 & 23.42 & 24.40 & 21.85 & 19.07 & 22.17 & 21.04 & 24.95 & 23.65 & 22.45 & 20.87 & 25.86 & 23.28 \\
+                                           & PixelNeRF & 29.76 & 26.35 & 27.72 & 27.58 & 23.84 & 24.22 & 28.58 & 24.44 & 30.60 & 26.94 & 25.59 & 27.13 & 29.18 & 26.80\\
+                                           & FE-NVS    & 30.15 & 27.01 & 28.77 & 27.74 & 24.13 & 24.13 & 28.19 & 24.85 & 30.23 & 27.32 & 26.18 & 27.25 & 28.91 & 27.08 \\ \cline{2-16}
+                                         &\textbf{OPP-N}& \underline{31.05} & \underline{28.06} & {29.24} & \underline{28.52} & \underline{25.16} & {25.31} & {28.76} & {25.44} & \underline{31.44} & \underline{28.19} & {27.21} & {27.91} & \underline{30.06} & \underline{28.00} \\
+                                         &\textbf{OPP-G}& {30.83} & {27.92} & \underline{29.33} & {28.17} & {25.10} & \underline{25.35} & \textbf{29.22} & \underline{25.49} & {31.11} & {28.05} & \underline{27.29} & \underline{28.06} & {29.76} & {27.90} \\
+                                         &\textbf{OPP-RVBA}& \textbf{31.27} & \textbf{28.24} & \textbf{29.49} & \textbf{28.62} & \textbf{25.32} & \textbf{25.46} & \underline{29.15} & \textbf{25.58} & \textbf{31.54} & \textbf{28.30} & \textbf{27.43} & \textbf{28.11} & \textbf{30.11} & \textbf{28.16} \\
+         \hline
+        \multirow{6}{*}{$\uparrow$ SSIM}    & SRN       & 0.901 & 0.837 & 0.831 & 0.897 & 0.814 & 0.744 & 0.801 & 0.779 & 0.913 & 0.851 & 0.828 & 0.811 & 0.898 & 0.849 \\
+                                           & PixelNeRF & 0.947 & 0.911 & 0.910 & 0.942 & 0.858 & 0.867 & 0.913 & 0.855 & 0.968 & 0.908 & 0.898 & 0.922 & 0.939 & 0.910 \\
+                                           & FE-NVS    & 0.957 & 0.930 & 0.925 & 0.948 & 0.877 & 0.871 & 0.916 & 0.869 & 0.970 & 0.920 & 0.914 & 0.926 & 0.941 & 0.920 \\
+                                        \cline{2-16}
+                                        &\textbf{OPP-N}& \underline{0.961} & \underline{0.937} & {0.926} & \underline{0.953} & {0.890} & \underline{0.886} & \underline{0.921} & {0.873} & {0.974} & \underline{0.926} & {0.924} & {0.929} & \underline{0.950} & {0.929} \\
+                                         &\textbf{OPP-G}& {0.960} & {0.937} & \underline{0.928} & {0.951} & \underline{0.892} & \textbf{0.890} & \textbf{0.925} & \underline{0.877} & \underline{0.975} & \underline{0.926} & \underline{0.927} & \underline{0.932} & {0.949} & \underline{0.930} \\
+                                         &\textbf{OPP-RVBA}& \textbf{0.962} & \textbf{0.940} & \textbf{0.931} & \textbf{0.954} & \textbf{0.894} & \textbf{0.890} & \textbf{0.925} & \textbf{0.879} & \textbf{0.976} & \textbf{0.929} & \textbf{0.928} & \textbf{0.933} & \textbf{0.951} & \textbf{0.932} \\
+         \hline
+        \multirow{6}{*}{$\downarrow$ LPIPS} & SRN       & 0.111 & 0.150 & 0.147 & 0.115 & 0.152 & 0.197 & 0.210 & 0.178 & 0.111 & 0.129 & 0.135 & 0.165 & 0.134 & 0.139 \\
+                                           & PixelNeRF & 0.084 & 0.116 & 0.105 & 0.095 & 0.146 & 0.129 & 0.114 & 0.141 & 0.066 & 0.116 & 0.098 & 0.097 & 0.111 & 0.108 \\
+                                           & FE-NVS    & 0.061 & 0.080 & 0.076 & 0.085 & 0.103 & 0.105 & 0.091 & 0.116 & 0.048 & 0.081 & 0.071 & 0.080 & 0.094 & 0.082 \\
+                                         \cline{2-16} &\textbf{OPP-N}& {0.051} & {0.075} & {0.077} & {0.068} & {0.096} & {0.097} & {0.084} & {0.110} & {0.045} & {0.076} & {0.061} & {0.074} & {0.077} & {0.073} \\
+                                         &\textbf{OPP-G}& \textbf{0.035} & \textbf{0.050} & \textbf{0.058} & \textbf{0.040} & \textbf{0.068} & \textbf{0.073} & \textbf{0.052} & \textbf{0.088} & \textbf{0.027} & \textbf{0.052} & \textbf{0.044} & \textbf{0.057} & \textbf{0.048} & \textbf{0.050} \\
+                                         &\textbf{OPP-RBVA}& 
+                            \underline{0.041} & \underline{0.058} & \underline{0.062} & \underline{0.049} & \underline{0.076} & \underline{0.080} & \underline{0.062} & \underline{0.094} & \underline{0.033} & \underline{0.059} & \underline{0.049} & \underline{0.061} & \underline{0.059} & \underline{0.057} \\
+         \hline
+      \end{tabular}
+  \end{adjustbox}
+  
+  {\caption{\textbf{Comparisons with the state-of-the-art methods under category-agnostic setting.} } 
+  \label{tab:category_agnostic}}
+\end{table*}

@@ -1,0 +1,42 @@
+\begin{table}[t]
+\setlength{\abovecaptionskip}{0cm}
+\footnotesize
+% \scriptsize
+    \caption{\textbf{Out-distribution comparisons between our fine-stage method Diff3DE and Zero123-NVS on ShapeNet and DTU (\S~\ref{sec:compari_sota}).} The 3D-consistency of our Diff3DE outperforms Zero123-NVS by nearly two times. }
+    \label{tab:3d_consistency}
+    \setlength\tabcolsep{7.5pt}
+    
+%      \begin{tabular}{l|cc|cc}
+%      \rowcolor[gray]{.9}
+%         \hline
+%         & \multicolumn{2}{c|}{\textbf{SRN-Cars}}           & \multicolumn{2}{c}{\textbf{SRN-Chairs}}        \\
+%         \rowcolor[gray]{.9}
+%         & \textbf{Pixel-MSE $\downarrow$} & \textbf{CLIP-Image $\uparrow$} & \textbf{Pixel-MSE $\downarrow$} & \textbf{CLIP-Image $\uparrow$} \\ \hline \hline
+%         Zero123-NVS~\cite{liu2023zero123} & 939.67                & 0.8633                 & 642.67              & 0.8818                 \\
+%         Diff3DE (ours) & \textbf{489.30}       & \textbf{0.8657}        & \textbf{330.81}     & \textbf{0.8882}        \\ \hline
+% \end{tabular}
+
+% \begin{tabular}{lcc}
+% \rowcolor[gray]{.9}
+% \hline
+% \multicolumn{1}{l}{{Method}} & {Pixel-MSE $\downarrow$} & {CLIP-Image $\uparrow$} \\ \hline \hline
+% \multicolumn{3}{c}{\textit{ShapeNet Cars}}                                                 \\ 
+% \multicolumn{1}{l}{Zero123-NVS~\cite{liu2023zero123}}         & 939.67              & 0.8633                 \\
+% \multicolumn{1}{l}{\textbf{Diff3DE (ours})}         & \cb{489.30}     & \cb{0.8657}        \\ \hline \hline
+% \multicolumn{3}{c}{\textit{ShapeNet Chairs}}                                               \\ 
+% \multicolumn{1}{l}{Zero123-NVS~\cite{liu2023zero123}}         & 642.67              & 0.8818                 \\
+% \multicolumn{1}{l}{\textbf{Diff3DE (ours)}}         & \cb{330.81}     & \cb{0.8882}        \\ \hline
+% \end{tabular}
+
+\begin{tabular}{l|ccc}
+ \rowcolor[gray]{.9}
+\hline
+                & \multicolumn{3}{c}{$\downarrow${Pixel-MSE}}                            \\  \rowcolor[gray]{.9}
+{Methods} & {ShapeNet Cars} & {ShapeNet Chairs} & {DTU}     \\
+
+ \hline \hline
+Zero123-NVS         & 939.67                 & 642.67                   & 4350.70          \\
+\textbf{Diff3DE (Ours)}         & \cb{489.30}        & \cb{330.81}          & \cb{2352.69} \\ \hline
+\end{tabular}
+
+\end{table} 

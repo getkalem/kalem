@@ -1,0 +1,373 @@
+\section{\textsc{TbDd}: A Trust-Driven and DRL-based Approach to Optimize Throughput and Security}
+\label{section: TBDD}
+
+Based on the results and analysis in Section~\ref{section: system model}, we propose \textsc{TbDd}, composed of the Block Verification Table (BVT), Local Trust Table (LTT), and Global Trust Table (GTT), Shard Risk evaluator and Shard reconfiguration.
+
+ \begin{figure}[t]
+	\centering
+	\includegraphics[width=1\columnwidth]{fig/fig3.pdf}
+	\caption{The flow diagram of the proposed computing trust score system comprises BVT, LTT and GTT. }
+	\label{fig.3}
+\end{figure}
+
+\begin{table}[t]
+    \centering
+    \caption{Notation and Definition Used in The Trust Table}
+    \label{table1}
+    \renewcommand\arraystretch{1.2}
+    \begin{tabular}{c|p{6cm}}
+        \hline
+        \textbf{Notation}               & \textbf{Description}  
+\\         \hline
+$N$     &Total number of nodes in the network
+\\
+$N_x^\varepsilon$       &Number of nodes in the $x$-th shard in episode $\varepsilon$
+\\
+$\mathbb{N}$        &The set of all nodes in the network
+\\
+$n_i \in \mathbb{N}$        &The $i$-th node in the network 
+\\
+$\iota_j^\varepsilon$       &The times of the $j$-th node
+being elected as the leader in episode $\varepsilon$
+\\
+$D$     & The number of shards 
+\\
+$\varepsilon$       &The trust table update in episode $\varepsilon$
+\\
+$e$     &The $e$-th epoch during the DRL iteration
+\\
+
+$\mathcal{F}_{i,j}^\varepsilon$     &The indirected feedback of $j$-th leader from the $i$-th node in episode $\varepsilon$
+\\
+
+$\hat{\mathcal{F}}_{i,j}^\varepsilon$     &The directed feedback from the $j$-th node to the $i$-th leader in episode $\varepsilon$
+\\
+
+$\mathcal{L}_{i,j}^\varepsilon$      &The local trust from the $i$-th node to the $j$-th node in episode $\varepsilon$
+\\
+
+$\mathbb{L}_{i}^\varepsilon$     &The local trust table for the $i$-th node in episode $\varepsilon$
+\\
+
+$\mathbb{L}^\varepsilon$    &The concatenated local trust tables across all nodes in episode $\varepsilon$
+\\
+
+$\mathcal{G}_{i}^\varepsilon$   &The global trust for the $i$-th node in episode $\varepsilon$
+\\
+
+$\mathbb{G}^\varepsilon$         &The global trust table in episode $\varepsilon$
+\\
+
+$\mathbf{G}_i$         &The normalized trust score of the $i$-th node
+\\
+$\theta_{x}^\varepsilon$    &The average global trust of $x$-th shard in episode $\varepsilon$
+\\
+$\bar \theta^\varepsilon$  &The average value of all $\theta_{x}^\varepsilon$
+\\
+$h_x$       & The list of high-risk nodes in the $x$-th shard
+\\
+$f_{total}$     &The entire network's fault tolerance threshold for dishonest nodes
+\\
+$f_{intra}$     &The shard's fault tolerance threshold for dishonest nodes
+\\
+$\phi_{in}$   & The number of intra-shard transactions (ISTs)
+\\ 
+$\phi_{cr}$   & The number of cross-shard transactions (CSTs)
+\\ \hline 
+    \end{tabular}
+% \vspace{-0.5cm} 
+\end{table}
+
+
+% {\color{blue}
+% \subsection{Background of the DRL algorithm}
+% Deep Reinforcement Learning (DRL)~\cite{} represents a potent amalgamation of deep learning's capacity to handle vast and intricate datasets with reinforcement learning's ability to make optimal decisions in uncertain environments. Traditional reinforcement learning techniques often stumble when confronted with high-dimensional state and action spaces, making them unsuitable for complex tasks. DRL, on the other hand, thrives in these situations by employing neural networks to approximate value functions or policies, thereby facilitating learning in environments that were once considered intractable. The allure of DRL is not just its ability to handle complexity, but also its adaptability. In dynamic and ever-evolving settings, DRL can recalibrate its strategies, proving invaluable in real-world applications where change is the only constant. This adaptability, combined with its capacity to navigate intricate problems, makes DRL a compelling choice for a myriad of challenges, and it is this potential that motivated our exploration and subsequent application in our study.
+
+
+
+% \subsubsection{Motivation for Using DRL}
+
+% \begin{figure}[htbp]
+% 	\centering
+% 	\includegraphics[width=1\columnwidth]{fig/picture3.pdf}
+% 	\caption{The flow diagram of the proposed DRL algorithm.}
+% 	\label{fig.3}
+% \end{figure}
+
+% The allure of DRL is not just its ability to handle complexity but also its adaptability. In dynamic and ever-evolving settings, DRL can recalibrate its strategies, proving invaluable in real-world applications where change is the only constant. This adaptability, combined with its capacity to navigate intricate problems, makes DRL a compelling choice for a myriad of challenges, and it is this potential that motivated our exploration and subsequent application in our study.
+
+% \subsubsection{DRL Setting}
+% For our problem, the decision variables being discrete and the operation of the Markov Decision Process (MDP) over a finite time horizon perfectly aligns with the capabilities of DRL. The deterministic nature of the policy derived from our MDP formulation further underscores the suitability of DRL algorithms like DQN and PPO.
+
+% }
+
+\subsection{Trust Scheme}
+\subsubsection{Block Verification Table (BVT) }
+The BVT aims to record the validation results for each shard. The verification table for the $x$-th shard in the $\varepsilon$-th episode is denoted as $VT_x^\varepsilon$. The size of $VT_x^\varepsilon$ is determined by the number of nodes in the shard, with dimensions of $N_x \times N_x$, where $N_x$ represents the number of nodes in the $x$-th shard. The verification result table can be visualized as a two-dimensional matrix where each cell corresponds to the set of verification results generated by the node that proposed a block. The size of each cell in the matrix corresponds to the number of times the leader produced blocks. During the trust table update episode, assume that there are sufficient votes to guarantee that each node within the shard will be elected as a leader at least once, resulting in block production. In this assumption, the leader can expect to obtain a minimum of one ballot from himself. Furthermore, we assume that the consensus process complies with the weak synchrony assumption~\cite{castro1999practical}, indicating a finite upper limit on message delays.
+
+
+\subsubsection{Trust Table}
+In \textsc{TbDd}, two distinct trust tables are utilized: LTT and GTT. These tables are dynamic and regularly refreshed to capture the latest data on each node’s performance and behaviors within the network. By constantly monitoring and evaluating the LTT and GTT, the \textsc{TbDd} system can make strategic and informed shard allocation decisions, ensuring a reliable and secure network operation.
+
+
+The local trust table is denoted as $\mathbb{L}^\varepsilon$. Each row of this table is specifically assigned to a node within the shard, and these nodes are represented as $1\times N$ entries within the table, which we term as the local trust table of the $i$-th node at the $\varepsilon$ epoch, denoted as $\mathbb{L}_{i}^\varepsilon$. When these individual local trust tables are concatenated, we represent it as $\mathbb{L}^\varepsilon$, forming a comprehensive $N \times N$ table where $i,j \leq N$. Within this table, each element represents the trust score sent from the $i$-th node to the $j$-th node, denoted as $\mathcal{L}_{i,j}^\varepsilon$. The computation of each element in the LTT of $i$-th node is shown in \eqref{eq:7}:
+\begin{equation} 
+\label{eq:7}
+   \mathcal{L}_{i,j}^\varepsilon = \begin{cases}
+    \alpha \mathcal{F}_{i,j}^\varepsilon + \beta \hat{\mathcal{F}}_{i,j}^\varepsilon + \mu 
+    \mathcal{G}_{i}^{\varepsilon-1}, \\ \qquad\qquad\qquad\quad \text{if } n_i,n_j \text{ in the same shard}\\
+    \mathcal{G}_{i}^{\varepsilon-1}, \\ \qquad\qquad\qquad\quad \text{if } n_i,n_j \text{ in different shards}
+   \end{cases}
+\end{equation}
+\noindent when calculating the trust score in the same shard, three feedbacks are included: Indirected feedback $\mathcal{F}_{i,j}^\varepsilon$, Directed feedback $\hat{\mathcal{F}}_{i,j}^\varepsilon$ and Global trust score from the last episode $\mathcal{G}_{i}^{\varepsilon-1}$. Each component has a distinct proportion represented by $\alpha, \beta, \mu$. These proportions sum up to $1$ (i.e., $\alpha + \beta + \mu = 1$). Only the global trust score from the previous episode is considered for calculating the trust scores of nodes in different shards.
+
+
+\smallskip
+\noindent\textbf{Indirected feedback of each leader.}  
+The proportion of verification that the $j$-th node passes when he is the leader at $\varepsilon$ episode is shown in \eqref{eq:8}:
+\begin{equation} 
+\label{eq:8}
+V_{j}^\varepsilon = \frac{\sum\nolimits_{{i}=1}^{N_x^\varepsilon}v_{{i},{j}}^\varepsilon }{\iota_{j}^\varepsilon N_x^\varepsilon},
+\end{equation}
+where $\iota_{j}^\varepsilon$ represents the times of the $j$-th node being elected as the leader in the $\varepsilon$-th episode, and $v_{{i},{j}}^\varepsilon$ signifies the total number of valid votes $v$ cast by the $i$-th node for the $j$-th leader. Then, the indirected feedback $\mathcal{F}_{i,j}^\varepsilon$ is calculated as follows \eqref{eq:9}:
+\begin{equation} 
+\mathcal{F}_{i,j}^\varepsilon = 
+\gamma V_{{j}}^\varepsilon +  \frac{\gamma^2}{N_x^{\varepsilon}-2} \sum\limits_{p \in {\{{i},{j}\}^\text{C}}} \delta_{{p},{j}}^\varepsilon \left( V_{p}^{\varepsilon} \right)^{\iota^\varepsilon_{{j}}-\delta_{{p},{j}}^\varepsilon + 1},
+\label{eq:9}
+\end{equation}
+where the node, denoted as $n_p$, provides indirect feedback and participates in the voting process for the current leader $l_j$. The $n_p$ node does not include block proposer $l_j$ and the voter $n_i$ itself. ${\delta^\varepsilon_{p,j}}$ refers to the ratio of non-empty votes (both valid and non-valid votes) cast from the $p$-th node for the $j$-th leader. $\gamma$ is a discount rate similar to that used in reinforcement learning.
+
+\smallskip
+\noindent\textbf{Directed feedback of each leader.} The direct feedback of trust score is calculated as shown in \eqref{eq:10}:
+
+\begin{equation} 
+\label{eq:10}
+\hat{\mathcal{F}}_{i,j}^\varepsilon = \frac{v_{{j},{i}}^\varepsilon} {\iota_{i}^\varepsilon},
+\end{equation}
+where $v_{{j},{i}}^\varepsilon$ denotes the count of valid votes $v$ cast by the $j$-th node for the $i$-th node when $n_i$ is leader. $\iota_{i}^\varepsilon$ indicates that the number of times of the $i$-th node being elected as the leader during the $\varepsilon$-th episode.
+
+\smallskip
+\noindent\textbf{Global trust of each leader from the history.} The historical trust of each leader 
+$\mathcal{G}_{i}^{\varepsilon-1}$ is inherited from the last episode.
+
+The global trust table is denoted as $\mathbb{G}^\varepsilon$. Inspired by federated learning principles, the coordinator enhances credibility by updating the LTT according to the GTT's outcome after every iteration. 
+
+\smallskip
+\noindent\textbf{Cosine similarity calculation.} Comparisons of cosine similarity among LTT rows reflect deviations in node-scoring behavior \eqref{eq:11}:
+
+\begin{equation}
+    \label{eq:11}
+    Sim^\varepsilon_{i,j}=cos(\mathbb{L}^\varepsilon_{i},\mathbb{L}^\varepsilon_{j}), \quad i,j<N.
+\end{equation}
+
+The global trust score for each node is determined by computing the mean of the cosine similarity between the node's scoring behavior in the LTT and the entire LTT \eqref{eq:12}:
+\begin{equation}
+    \label{eq:12}
+    \mathcal{G}_{i}^\varepsilon = \frac{1}{N}\sum_{j=1}^{N} Sim^\varepsilon_{i,j},
+\end{equation}
+$\mathcal{G}^\varepsilon$ is a $1 \times N$ vector capturing the global trust, where element $\mathcal{G}_{i}^\varepsilon$ is the global trust of the $i$-th node in the current shard. 
+
+
+\subsection{Resharding Trigger: The Shard Risk Evaluator}
+The resharding process is triggered when certain conditions are met, leading to the trigger phase (the green block in Fig.~\ref{fig.2}), as shown in Algo.~\ref{alg:1}. We define a global trust threshold $\rho_{t}$ to differentiate between low-risk and high-risk nodes. Nodes are high-risk and possibly dishonest if their $\mathcal{G}^\varepsilon$ are lower than $\rho_{t}$. Nodes are \textit{more likely} to be honest if their global trust exceeds $\rho_{t}$. 
+We define the fault tolerance threshold $f_{intra}$ within each shard.
+If the number of dishonest nodes exceeds the threshold $f_{intra}$ in the shard, the shard is labeled as corrupted and triggers resharding. Furthermore, resharding is also triggered when the ratio of CST surpasses the setting threshold $\rho_{cr}$. The ratio of the CST is calculated as follows:
+\begin{equation}
+    \label{eq:13}
+    \varphi_{cr} = \frac{\phi_{cr}} {\phi_{cr} + \phi_{in}},
+\end{equation}
+where $\phi_{cr}$ represents the CST count, as given by:
+\begin{equation}
+    \label{eq:14}
+    \phi_{cr} = \frac{1}{2} \left (\sum_{i=1}^{N} \sum_{j=1}^{N} \phi_{i, j} - \sum_{x=1}^{D} \sum_{i=1}^{N_x^\varepsilon} \sum_{k=1}^{N_x^\varepsilon} \phi_{i, k} \right ),
+\end{equation}
+where $\phi_{i, j}$ represents the transaction count between the $i$-th and $j$-th nodes in the network. $\phi_{i,k}$ represents the transaction count between the $i$-th node and the $k$-th node in the shard, which equals the sum of the Intra-Shard Transaction (IST). The $\phi_{cr}$ is obtained by subtracting the IST count from the total transactions count among network nodes.
+
+
+\begin{algorithm}[t]  
+\footnotesize
+\caption{Shard risk evaluator}
+\label{alg:1}
+\LinesNumbered
+
+\KwIn{\\
+\quad $x$: The $x$-th shard;\\
+\quad $N_x^\varepsilon$: Number of nodes in the $x$-th shard at $\varepsilon$ episode;\\
+\quad $\mathcal{G}_{i}^\varepsilon$: Global trust of the $i$-th node;\\
+\quad $f_{intra}$: The faulty tolerance of dishonest nodes in any shard;\\
+\quad $\varphi_{cr}$: The CST ratio since last episode;\\
+\quad $\rho_{t}$: The threshold of differentiating a low-risky or high-risky node in terms of trust score;\\
+% \quad $\rho_{m}$: The fault tolerance within $x$-th shard ;\\
+\quad $\rho_{cr}$ : The threshold in terms of CST;\\
+}
+
+\KwOut{\\
+\quad \{\textit{Trigger}, \textit{Not trigger}\}\
+}
+
+% $\rho_{m} :=N_{x}^\varepsilon f$ 
+
+$\rho_{cr} := 0$ 
+
+$h_x := []$ \textbf{for each shard} $x$
+
+\For{$x \in [1, D) $ }
+    {
+    \For{$n_i\in x \textbf{ and } i \in [1, N) $} 
+    {   
+        \If{$\mathcal{G}_{i}^\varepsilon <  \rho_{t} $}
+        {$h_x\leftarrow n_i$}
+    }
+    \If {$ \left| h_x \right| / N_x > f_{intra}$}
+    {\textbf{return} \textit{Trigger}}     
+}
+
+\If {$ \varphi_{cr} >\rho_{cr}$}
+            {\textbf{return} \textit{Trigger}}
+
+\Return \textit{Not Trigger}
+
+\end{algorithm}
+
+
+\subsection{DRL Framework}
+\subsubsection{Optimizations, Rewards, and DRL}
+The DRL-based model enhances blockchain sharding systems by dynamically allocating nodes depending on network conditions and automating complex decision-making procedures. The reward function optimizes node allocation while maintaining security constraints through DRL adaptation. In \textsc{TbDd}, the agent aims to maximize earnings by calculating the objective function that is composed of $6$ reward components, where $E_{a}, E_{b}, \lambda_a, \lambda_a$, and $\lambda_c$ are all constant.
+
+\smallskip
+\noindent\textbf{Shard load balance ($\xi$).}
+As shown in~(\ref{eq:15}), we aim to distribute the number of nodes across each shard evenly. If there is a significant disparity in the node count per shard, resharding is augmented to counteract potential $1\%$ attacks~\cite{han2022analysing}.
+\begin{equation}
+    \label{eq:15}
+    \xi=\left\{\begin{array}{ll}
+    E_{a}, & \text {shard load balance}  \\
+    -E_{a}, & \text {shard load unbalance}
+\end{array}\right.
+\end{equation}
+
+
+
+\smallskip
+\noindent\textbf{Corrupted shards portion ($\varrho$).}
+As shown in ~(\ref{eq:16}), the agent receives a reward if no shard is occupied. Otherwise, the agent receives a penalty.
+\begin{equation}
+    \label{eq:16}
+    \varrho=\left\{\begin{array}{ll}
+    E_{b}, & \text {no shard is corrupted} \\
+    -E_{b}, & \text {at least one shard is corrupted}
+\end{array}\right.
+\end{equation}
+
+
+
+\smallskip
+\noindent\textbf{CST ratio ($\eta$).}
+As shown in ~(\ref{eq:17}), if the CST ratio is less than the specified threshold $\rho_{cr}$, the agent gets rewarded; otherwise, it receives a penalty.
+
+\begin{equation}
+    \label{eq:17}
+    \eta= \lambda_a \left (\rho_{cr}-\varphi_{cr} \right ) \lambda_b^{\lambda_c \left | \varphi_{cr}- \rho_{cr} \right | },
+\end{equation}
+
+\smallskip
+\noindent\textbf{Nodes shifting ratio ($\psi$).}
+As shown in ~(\ref{eq:18}), if a node switches the shard, its action is noted as 1; otherwise, it is 0. The overall count of shifted nodes corresponds with the penalty score. The more nodes relocate, the more computational resources are consumed by shard synchronization, resulting in a higher level of punishment.
+\begin{equation}
+    \label{eq:18}
+    \psi = \frac{1}{N} \sum_{j=1}^{N} \upsilon_{j}, \quad
+    \upsilon_{j} =\left\{\begin{array}{ll}
+    1, & \text { nodes moving } \\
+    0, & \text { nodes staying }
+    \end{array}\right.
+\end{equation}
+
+\noindent\textbf{Intra-shard's trust variance ($\Omega_{in}$).}
+As shown in~(\ref{eq:19}), trust variance represents the trust distribution within each shard. A larger trust variance of a shard indicates a better distinction between trustworthy and untrustworthy participants. Thus, a larger intra-shard trust variance collected by the agent serves as a reward to indicate a clearer differentiation between honest and dishonest nodes.
+
+\begin{equation}
+    \label{eq:19}
+    \Omega_{in} = \frac{1}{D} \sum_{x=1}^{D} \frac{1}{N_{x}^\varepsilon} \sum_{k=1}^{N_{x}^{\varepsilon}} \left | \mathcal{G}_{k}^\varepsilon - \theta_{x}^{\varepsilon} \right |^2,
+\end{equation} % $\Omega_{intra}$这个值要尽量大，因为体现了每个shard内的trust分布，值越大，表示trust分布越分明，越能区分出好人和坏人
+where $\mathcal{G}_{k}^\varepsilon$ is the global trust value of nodes in the $x$-th shard and $\theta_{x}^{\varepsilon}$ is the average of global trust in the $x$-th shard. 
+
+\smallskip
+\noindent\textbf{Cross-shard's trust variance ($\Omega_{cr}$).}
+As shown in~(\ref{eq:20}), it represents the deviation of trust value among different shards. A minor cross-shard trust variance indicates a more uniform distribution of dishonest nodes.
+
+\begin{equation}
+    \label{eq:20}
+    \Omega_{cr} = \frac{1}{D} \sum_{x=1}^D \left | \theta_{x}^{\varepsilon} -  \bar\theta^{\varepsilon}  \right |^2,
+\end{equation} % $\Omega_{cross}$表示不同分片之间trust的分布情况，越小说明分得越均匀，即越好。
+where $\bar\theta^{\varepsilon}$ is the average value of all $\theta_{x}^{\varepsilon}, x \in D$. 
+Thus, the objective function can be defined as:
+\begin{equation}
+\label{eq:21}
+    R = \xi +\varrho + \eta - \psi + \Omega_{in} -\Omega_{cr},
+\end{equation}
+
+\begin{equation}
+    \begin{aligned}
+    \label{eq:22}
+    &\text{Let } \mathbf{R} = [\xi, \varrho, \eta, \psi, \Omega_{in},\Omega_{cr}],\\
+    &\text{objective: } \max_{\mathbf{R}} \sum^{e_{max}} R(\mathbf{R}),\\
+    &\text{s.t. } \quad |h_x| < N_x f_{intra},\\ 
+    &\quad\quad\quad N_x \geq N_{min},
+    \end{aligned}
+\end{equation}
+% {\color{red} \text{Do not show the exact value, hyper-parameterize $N_x$ please}}
+where $\xi$ is the balance reward for shard load; $\varrho$ is the reward for the number of corrupted shards; $\eta$ signifies the reward for low-level CST; $\psi$ indicates the reward for the number of shifted nodes; $\Omega_{in}$ stands for the reward of intra-shard trust variance; and $\Omega_{cr}$ represents the reward of cross-shard trust variance. We define $\mathbf{R}$ as the set of all rewards. Restrictions of the objective function $R$ ensure the dishonest node count stays below the shard's fault tolerance. $N_{min}$ denotes the minimum node requirement for each shard. Each shard mandates a minimum of four nodes in our setting, i.e., $N_{min} = 4$.
+
+
+
+\subsubsection{DRL-based Sharding Optimization Model}
+
+We use the DRL model to assist in the blockchain reconfiguration process. The agent of the DRL model is acted by the TC, a committee elected by all peers in the network. The agent obtains the state from the node allocation. Then, the agent gains the reward by virtually resharding, deciding the optimal allocation strategy and executing the action for the new node allocation.
+
+\smallskip
+\noindent\textbf{Agent:}
+The agent is perceived as the TC, which consists of several nodes. These nodes implement the PBFT protocol to achieve consensus, representing the collective action of the TC. The agent executes a learning process and decides shard allocation based on real-time network conditions. 
+
+
+\smallskip
+\noindent\textbf{Environment:}
+As illustrated in Fig.~\ref{fig.1}, the environment is viewed as a black box that executes the \textbf{Action} of the agents and obtains the \textbf{State}. In this paper, the sharding reconfiguration process in the blockchain sharding network is the environment.
+
+
+
+
+\smallskip
+We consider that the agent obtains a state $s \in \mathcal{S}$ based on the node allocation at the current episode $\varepsilon$. $s$ denotes the distribution of all nodes across various shards in the current episode, while $m$ precisely identifies the specific node present within a particular shard.
+\begin{equation}
+    \label{eq:23}
+    s = \left [ m_{x,1}, \cdots, m_{x,i}, \cdots, m_{x,N} \right ], x \in D, i \in N,
+\end{equation}
+where $m_{x,i}$ is the $x$-shard to which the $i$-th node belongs.
+
+
+
+% \smallskip
+% \noindent\textbf{States ($\mathcal{S}$):}
+% We consider that the agent obtains a state $s \in \mathcal{S}$ based on the node allocation at the current episode $\varepsilon$. 
+
+% \begin{equation}
+%     \label{eq:23}
+%     s = \left [ m_{x,1}, \cdots, m_{x,i}, \cdots, m_{x,N} \right ], x \in D, i \in N  
+% \end{equation}
+% where $m_{x,i}$ represents the $x$-shard to which the $i$-th node belongs.
+
+
+
+\smallskip
+\noindent\textbf{Actions ($\mathcal{A}$).} 
+The agent executes an action $a \in \mathcal{A}$ based on its decision produced by its local DRL-based learning during the current episode $\varepsilon$. The valid action space for the agent is formatted identically to $\mathcal{S}$, as given by
+$\mathcal{A}=\mathcal{S}$ with $s^{\varepsilon+1}=a^{\varepsilon}$.
+
+\smallskip
+\noindent\textbf{Policy ($\pi$).}
+A policy determines what action the agent should take next based on a set of rules. In our case, the process of nodes assigned to different shards is based on the policy that is continually updated and trained.  i.e., $ \pi (s, a): \mathcal{S} \rightarrow \mathcal{A}$.
+
+\smallskip
+\noindent\textbf{Reward function ($r$).}
+The reward function is inherited from the objective function, $r: R(\xi, \varrho, \phi_{cr}, \psi, \Omega_{in}, \Omega_{cr} )$.
+
+DRL is a versatile method that allows agents to make decisions in dynamic environments effectively. Its ability to handle complex data and its proactive defense against malicious attacks make it an ideal solution for managing node and transaction interactions in sharding systems. The sharding optimization problem, which involves assigning each node to a specific shard, is a known non-convex, NP-hard problem due to the binary nature of decision variables~\cite{9500403}. This makes DRL a more suitable approach to address this challenge than traditional methods such as convex optimization, underlining its significance in managing the complexities of sharded blockchain systems.

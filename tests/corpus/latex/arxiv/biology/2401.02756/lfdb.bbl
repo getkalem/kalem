@@ -1,0 +1,40 @@
+\begin{thebibliography}{1}
+
+\bibitem{benson2000genbank}
+D.~A. Benson, I.~Karsch-Mizrachi, D.~J. Lipman, J.~Ostell, B.~A. Rapp, and
+  D.~L. Wheeler.
+\newblock Genbank.
+\newblock {\em Nucleic acids research}, 28(1):15--18, 2000.
+
+\bibitem{gurevich2013quast}
+A.~Gurevich, V.~Saveliev, N.~Vyahhi, and G.~Tesler.
+\newblock Quast: quality assessment tool for genome assemblies.
+\newblock {\em Bioinformatics}, 29(8):1072--1075, 2013.
+
+\bibitem{josuttis2012c++}
+N.~M. Josuttis.
+\newblock The c++ standard library: a tutorial and reference.
+\newblock 2012.
+
+\bibitem{10.1093/bioinformatics/btab309}
+J.~Khan and R.~Patro.
+\newblock {Cuttlefish: fast, parallel and low-memory compaction of de Bruijn
+  graphs from large-scale genome collections}.
+\newblock {\em Bioinformatics}, 37(Supplement 1):i177--i186, 07 2021.
+
+\bibitem{pevzner2004novo}
+P.~A. Pevzner, H.~Tang, and G.~Tesler.
+\newblock De novo repeat classification and fragment assembly.
+\newblock {\em Genome research}, 14(9):1786--1796, 2004.
+
+\bibitem{raymond2003art}
+E.~S. Raymond.
+\newblock {\em The art of Unix programming}.
+\newblock Addison-Wesley Professional, 2003.
+
+\bibitem{schaling2011boost}
+B.~Sch{\"a}ling.
+\newblock {\em The boost C++ libraries}.
+\newblock Boris Sch{\"a}ling, 2011.
+
+\end{thebibliography}

@@ -1,0 +1,63 @@
+\begin{proof}[Proof of Proposition~\ref{prop:solution-ou}]
+    We first derive an expression for~$R_n$.
+    Now~$R_1=\Var(\theta(t_1))=\sigma_0^2$ by definition, so suppose~$n>1$.
+    The OU process is a Gauss-Markov process, so we can use Lemma~\ref{lem:residual-variance-markov} to characterize~$R_n$.
+    Define~$\beta_n$ and~$\gamma_n$ as in that lemma.
+    Then
+    %
+    \begin{align*}
+        \beta_n^2
+        % &= \frac{\Cov(\theta(t_n),\theta(t_{n-1}))}{\Var(\theta(t_{n-1}))} \\
+        &= \left(\frac{\sigma_0^2\exp\left(-\frac{\sigma^2}{2\sigma_0^2}\abs{t_n-t_{n-1}}\right)}{\sigma_0^2}\right)^2 \\
+        &= \exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-1})\right)
+    \end{align*}
+    %
+    and
+    %
+    \begin{align*}
+        \gamma_n
+        &\overset{\star}{=} \Var(\theta(t_n))-\frac{\left(\Cov(\theta(t_n),\theta(t_{n-1}))\right)^2}{\Var(\theta(t_{n-1}))} \\
+        &= \sigma_0^2-\frac{\left(\sigma_0^2\exp\left(-\frac{\sigma^2}{2\sigma_0^2}\abs{t_n-t_{n-1}}\right)\right)^2}{\sigma_0^2} \\
+        &= \left[1-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-1})\right)\right]\sigma_0^2,
+    \end{align*}
+    %
+    where~$\star$ holds by Lemma~\ref{lem:multivariate-normal-conditional}.
+    So
+    %
+    \begin{align*}
+        \prod_{j=0}^{n-2}\beta_{n-j}^2
+        &= \prod_{j=0}^{n-2}\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-1})\right) \\
+        &= \exp\left(-\frac{\sigma^2}{\sigma_0^2}\sum_{j=0}^{n-2}(t_{n-j}-t_{n-j-1})\right) \\
+        &= \exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_1)\right)
+    \end{align*}
+    %
+    and
+    %
+    \begin{align*}
+        \sum_{j=0}^{n-2}\gamma_{n-j}\prod_{k=0}^{j-1}\beta_{n-k}^2
+        &= \sum_{j=0}^{n-2}\left[1-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_{n-j}-t_{n-j-1})\right)\right]\sigma_0^2\prod_{k=0}^{j-1}\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_{n-k}-t_{n-k-1})\right) \\
+        &= \sigma_0^2\sum_{j=0}^{n-2}\left[1-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_{n-j}-t_{n-j-1})\right)\right]\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_{n}-t_{n-j})\right) \\
+        &= \sigma_0^2\sum_{j=0}^{n-2}\left[\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_{n}-t_{n-j})\right)-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-j-1})\right)\right] \\
+        &= \sigma_0^2\left[\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_{n}-t_{n})\right)-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_1)\right)\right] \\
+        &= \sigma_0^2\left(1-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_1)\right)\right),
+    \end{align*}
+    %
+    and similarly
+    \[ \prod_{j=0}^{i-1}\beta_{n-j}^2=\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-i})\right) \]
+    and
+    \[ \sum_{j=0}^{i-1}\gamma_{n-j}\prod_{k=0}^{j-1}\beta_{n-k}^2=\sigma_0^2\left(1-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-i})\right)\right) \]
+    for each~~$i<n$.
+    Thus, if~$p_i=p_i^*$ for each~$i<n$, then
+    %
+    \begin{align*}
+        R_n
+        &= \min\left\{\Var(\theta(t_1))\prod_{j=0}^{n-2}\beta_{n-j}^2+\sum_{j=0}^{n-2}\gamma_{n-j}\prod_{k=0}^{j-1}\beta_{n-k}^2\right\}\cup\left\{\sqrt{c}\prod_{j=0}^{i-1}\beta_{n-j}^2+\sum_{j=0}^{i-1}\gamma_{n-j}\prod_{k=0}^{j-1}\beta_{n-k}^2\right\}_{i=1}^{n-1} \\
+        % &= \min\left\{\sigma_0^2\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_1)\right)+\sigma_0^2\left(1-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_1)\right)\right)\right\} \\
+        % &\quad\qquad \cup\left\{\sqrt{c}\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-i})\right)+\sigma_0^2\left(1-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-i})\right)\right)\right\}_{i=1}^{n-1} \\
+        &= \min\left\{\sigma_0^2\right\}\cup\left\{\sqrt{c}\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-i})\right)+\sigma_0^2\left(1-\exp\left(-\frac{\sigma^2}{\sigma_0^2}(t_n-t_{n-i})\right)\right)\right\}_{i=1}^{n-1} \\
+        &= \min\left\{\sigma_0^2,\rho_n^2\sqrt{c}+(1-\rho_n^2)\sigma_0^2\right\}
+    \end{align*}
+    %
+    by Lemma~\ref{lem:residual-variance-markov} and the definition of~$\rho_n$.
+    The result follows from Lemma~\ref{lem:solution}.
+\end{proof}

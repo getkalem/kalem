@@ -1,0 +1,139 @@
+
+
+\section{System Model: Mining in Permissioned Shared Blockchain Networks}
+\label{section: system model}
+
+
+In this section, we present the architecture of the proposed sharded blockchain designed to support an IoT network, followed by roles involved in the system, providing a workflow overview and elucidating the system assumptions. 
+
+\subsection{System Overview}
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=1\columnwidth]{fig/system_modelr.png}
+	\caption{System model.}
+        \label{fig.15}
+\end{figure}
+
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=1\textwidth]{fig/fig1r.pdf}
+	\caption{The proposed blockchain sharding system architecture - \textsc{TbDd}.}
+        \label{fig.1}
+\end{figure*}
+
+
+\noindent\textbf{System Model.} Fig.~\ref{fig.15} illustrates the proposed sharding framework used in IoT deployments. This framework aims to enhance the scalability and efficiency of blockchain applications within the vast and interconnected realm of IoT devices. Central to the architecture is the sharding mechanism that partitions the broader network into smaller, more manageable shards. Each shard handles a subset of the overall transactions, allowing for simultaneous processing and increasing throughput. Additionally, the design ensures a balanced distribution of nodes across shards to mitigate adaptive collusion attacks.
+
+
+
+\smallskip
+\noindent\textbf{Architecture.} Fig.~\ref{fig.1} illustrates \textsc{TbDd}'s architecture. Within each shard managed by an edge server, any node can propose a block as a leader. Each node maintains a local trust table with trust scores assigned to other network nodes. We've introduced the \textsc{TbDd Committee} (TC), composed of members democratically selected by the network's users. Drawing inspiration from Elastico\cite{luu2016secure}, the TC ensures decentralized and reliable oversight. This design prevents single points of failure and minimizes risks from a centralized authority.
+The TC serves as a decentralized, trusted coordinator, overseeing the user list for the entire network and designating nodes to shards. It aggregates nodes' local trust tables to derive a global trust metric per node, safeguarding trust and node distribution. Essential to \textsc{TbDd} is the resharding mechanism, regularly redistributing nodes among shards. This adaptability ensures the system remains scalable and secure, accommodating a higher transaction volume without compromising on security.
+
+
+
+\smallskip
+\noindent\textbf{Roles.} In \textsc{TbDd}, the users can take two roles: \textit{validator} and \textit{leader}. A user is a node in the network, which represents a server. All nodes within this network can play the role of validators, participating in the verification process of proposed blocks. There are $N$ participated nodes in the considered blockchains sharding network $\mathbb{N} = \{ 1,\cdots, N \}$. A blockchain sharding network is divided into $D$ shards to verify blocks during the episode of $\varepsilon$. The block proposer is regarded as the leader. The leader broadcasts its proposed block to other peers in the shard for validation. It is important to note that in this system, the role of the leader is trivial because the consensus algorithm is not considered.  
+
+
+\subsection{Workflow Overview}
+
+The proposed \textsc{TbDd} framework follows the workflow in Fig.~\ref{fig.2}. 
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=1\columnwidth]{fig/fig2.pdf}
+	\caption{The proposed blockchain sharding system flowchart - \textsc{TbDd}, including four steps. \textcircled{1} Trust table updated: update the Block Verification Table (BVT) and Global Trust Table (GTT), checking whether triggering Algo.~\ref{alg:1}. \textcircled{2} Train the DRL algorithm: use the DRL-based model to virtually resharding through several epochs and output a new node allocation result. \textcircled{3} Update shard allocation: allocate nodes to the shards according to the DRL-based training result. \textcircled{4} Monitor network performance: monitor and step into retraining.}
+	\label{fig.2}
+\end{figure}
+
+\noindent\hangindent 1em  \textbf{\textit{Step-1.}}
+\noindent\textit{Trust table updated.} 
+The first step in the workflow is updating the trust table.  The trust table shows the global trust scores for individual users. Then, the system checks if conditions for triggering Algo.~\ref{alg:1} are met.
+
+\noindent\hangindent 1em  \textbf{\textit{Step-2.}}
+\noindent\textit{Train the DRL algorithm.} This step trains the DRL algorithm using the collected network data. This involves running simulations to optimize shard allocation policies based on real-time network conditions. After initiating the DRL training process, the system enters a waiting state and dedicates its computational resources to the training procedure. Note that the TC conducts ``virtual resharding'' trials to evaluate outcomes and rewards for different actions; however, these trials occur solely within the TC, and the final sharding action is not implemented until it has fully converged.
+
+\noindent\hangindent 1em  \textbf{\textit{Step-3.}}
+\noindent\textit{Update shard allocation.} TC updates shard allocation policies in real time once the DRL model completes training and allocates nodes to shards based on the result. 
+
+\noindent\hangindent 1em  \textbf{\textit{Step-4.}}
+\noindent\textit{Monitor network performance.} As shard allocation policies are updated, monitoring network performance is important. This involves tracking network metrics such as transaction distribution and volume, node location, and colluding risk.
+
+\noindent After \textbf{\textit{Step-4}}, the TC moves on to the retraining phase of the DRL model, incorporating the latest information from the trust table obtained in \textbf{\textit{Step-1}}. Subsequently, the TC updates the shard allocation strategy in \textbf{\textit{Step-3}} based on the new insights gained from the retrained DRL algorithm. This cyclical process follows a similar set of steps, beginning from \textbf{\textit{Step-1}} and progressing through \textbf{\textit{Step-4}}.
+
+
+\subsection{System Assumptions}
+We have several assumptions. These assumptions are considered from multiple perspectives, such as attack and system environment. 
+
+\subsubsection{Attack assumption}
+The collusion behavior of nodes refers to the situation where multiple nodes work together to manipulate the network and gain some unfair advantage. This dishonest behavior can overload the network, leading to delays and service disruptions. We design an attack model focusing on collusion attacks in blockchain sharding, and we consider two types of participants: \textbf{dishonest nodes} and \textbf{honest nodes}. 
+
+
+
+\smallskip
+\noindent\textbf{Dishonest nodes.}
+Dishonest nodes aim to be allocated in the same shard and then intentionally propose invalid results to honest nodes' blocks. This is achieved by sending many invalid transactions across dishonest nodes, regardless of whether they are cross-shard or intra-shard transactions. Suppose a dishonest node finds no other teammates in the same shard. In that case, it may hide by pretending to be honest and following honest nodes' behavior, avoiding suspicion. Dishonest nodes can also utilize the global trust table's information to enhance their trust by imitating the conduct of honest nodes, selectively endorsing or opposing blocks according to proposers' trust scores. 
+
+
+In \eqref{eq:1}, we normalize the trust score $\mathcal{G}_{i}^\varepsilon$ of the $i$-th node to a range of $\left[0,1\right]$. Let $\mathcal{G}^\varepsilon_{min}$ and $\mathcal{G}^\varepsilon_{max}$ be the minimum and maximum possible raw trust scores. We calculate the current episode's normalized value $\mathbf{G}_i$ by the previous episode's global trust score.
+
+
+\begin{equation}
+    \label{eq:1}
+    \mathbf{G}_i = \frac{\mathcal{G}_{i}^{\varepsilon-1} - \mathcal{G}_{min}^{\varepsilon-1}}{\mathcal{G}_{max}^{\varepsilon-1} - \mathcal{G}_{min}^{\varepsilon-1}}.
+\end{equation} 
+
+
+We utilize probabilities related to voting behavior, in which the probability of a node voting for a block is denoted as $P_\text{vote}$, while the probability of voting against a block is represented by $P_\text{not\_vote}$. We further distinguish probabilities of voting behavior between dishonest and honest nodes. The probability of dishonest nodes engaging in honest voting and dishonest voting is respectively denoted as $P_\text{vote}^\text{dishonest}$ and $P_\text{not\_vote}^\text{dishonest}$. Let $F$ be the probability of a node's vote failing to reach others due to network issues, with $F \in [0, 1]$. Assume $A$ is the proportion of dishonest nodes in the shard, with $A \in [0, 1]$. We can define a strategy threshold $\tau$, with $\tau \in [0, 1]$, determining when a dishonest node would try to hide by pretending to be honest. If $A < \tau$, the dishonest nodes pretend to be honest and follow honest nodes' behavior; otherwise, they follow the collusion strategy and favor their conspirators. A block verification result, denoted by $U$, takes a $U = 1$ if it matches the local version and $U = 0$ otherwise. We can define a weighting factor $w_G$ based on the normalized trust score $\mathbf{G}$ and a weighting factor $w_U$ based on the block verification result in $U$. We can define the probability distribution for dishonest nodes \eqref{eq:2} and \eqref{eq:3} as follows:
+
+
+\begin{equation}
+    P_\text{vote}^{\text{dishonest}} = 
+    \begin{cases}
+        (1-F) \cdot w_G \cdot \mathbf{G}_i \cdot  w_U \cdot U, & \text{if}\ A < \tau \\
+        (1-F) \cdot \textbf{CollusionStrategy }(\kappa), & \text{otherwise}
+    \end{cases}
+    \label{eq:2}
+\end{equation}
+%小于阈值是伪装，大于阈值时，有概率去给好人投票
+
+\begin{equation}
+    P_\text{not\_vote}^{\text{dishonest}} = 1 - P_\text{vote}^{\text{dishonest}},
+    \label{eq:3}
+\end{equation}
+where $\textbf{CollusionStrategy }(\kappa)$ signifies a strategy in which attackers consistently vote in favor of their teammates while voting against honest leaders with a probability denoted by $\kappa \in [0,1]$. The collusion strategy \eqref{eq:4} is to give valid results to all dishonest partners, attack honest nodes according to a particular proportion, and give them non-valid.
+
+
+\begin{equation}
+     \textbf{CollusionStrategy }(\kappa)= 
+    \begin{cases}
+        1, & \text{dishonest nodes} \\
+        1-\kappa, & \text{honest nodes}
+    \end{cases}
+    \label{eq:4}
+\end{equation}
+
+
+
+\smallskip
+\noindent\textbf{Honest nodes.}
+Honest nodes rely on the global trust table, providing an overview of high-risk or low-risk users without explicitly identifying dishonest nodes. During the intra-consensus phase, honest nodes rely on block verification, voting for a block only if it matches their local version. We propose a composite probability distribution considering the trust-based voting distribution and the block verification distribution. This is achieved by weighting the probability of voting for a block based on the proposer's trust score and adjusting the weight according to the block verification result. This composite distribution allows honest nodes to make more informed decisions when voting for or against proposed blocks, considering both the proposer's trust score and the consistency of the proposed block with their local version. The combined probability distribution for honest nodes \eqref{eq:5} and \eqref{eq:6} can be calculated as follows:
+\begin{equation}
+    P_\text{vote}^{\text{honest}} = (1-F) \cdot w_G \cdot \mathbf{G}_i \cdot  w_U \cdot U,
+    \label{eq:5}
+\end{equation}
+\begin{equation}
+    P_\text{not\_vote}^{\text{honest}} = 1 - P_\text{vote}^{\text{honest}}.
+    \label{eq:6}
+\end{equation}
+The block verification table can be obtained as desired by simulating honest and dishonest nodes' behavior using these attack models. We can analyze the effects of collusion attacks on the overall system's security and performance in blockchain sharding systems.
+
+
+% {\color{red}Where do you define the \textbf{high-risky nodes} and \textbf{low-risky nodes}???}
+In our proposed system, along with honest and dishonest nodes, we introduce the concept of high-risk and low-risk nodes. It is important to clarify that high-risk and low-risk nodes differ from honest and dishonest nodes. Our node evaluation principle classifies nodes as high-risk when their trust scores fall below a specific threshold, while nodes with trust scores above this threshold are categorized as low-risk nodes. These classifications do not necessarily mean high-risk or low-risk nodes are inherently honest or dishonest. Instead, they indicate the level of trustworthiness based on our evaluation criteria. By considering the presence of high-risk and low-risk nodes in the network, our system can better identify and respond to potential collusion attacks, improving the security and integrity of the blockchain sharding framework.
+
+
+\subsubsection{Environment assumption}
+
+The system operates within permissioned blockchain systems, restricting network access to specific nodes. Despite this limitation, the system remains decentralized as it is maintained by the TC, a committee fairly elected by all peers within the network. For the training process to be considered trustworthy, it is important that the TC is reliable and has a transparent record when training the DRL model. Furthermore, Assumptions involve at least a certain number of members per shard, and the claim that the count of dishonest nodes in each shard does not surpass a certain number of the overall node count is based on the Byzantine Fault Tolerance (BFT) principle~\cite{clement2009making}. In case of node failure or a dishonest node attack, the system continues functioning with the remaining nodes.

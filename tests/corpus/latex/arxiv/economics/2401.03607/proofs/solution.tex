@@ -1,0 +1,63 @@
+\begin{proof}[Proof of Lemma~\ref{lem:solution}]
+    Let~$z_n\equiv\theta(t_n)\mid\Hcal_n\setminus\{s_n\}$ and~$s_n'\equiv s_n\mid\Hcal_n\setminus\{s_n\}$ be the components of~$\theta(t_n)$ and~$s_n$ that are not explained by the signals in~$\Hcal_n\setminus\{s_n\}$.
+    Then~$\Var(z_n)=R_n$ by definition, while
+    %
+    \begin{align*}
+        \Cov(z_n,s_n')
+        &= \Cov(\theta(t_n),s_n\mid\Hcal_n\setminus\{s_n\}) \\
+        &= \Cov(\theta(t_n),\theta(t_n)+\epsilon_n\mid\Hcal_n\setminus\{s_n\}) \\
+        &= \Var(\theta(t_n)\mid\Hcal_n\setminus\{s_n\}) \\
+        &= R_n
+    \end{align*}
+    %
+    and
+    %
+    \begin{align*}
+        \Var(s_n')
+        &= \Var(\theta(t_n)+\epsilon_n\mid\Hcal_n\setminus\{s_n\}) \\
+        &= \Var(\theta(t_n)\mid\Hcal_n\setminus\{s_n\})+\Var(\epsilon_n) \\
+        &= R_n+\frac{1}{p_n}
+    \end{align*}
+    %
+    because the error~$\epsilon_n$ is independent of~$\theta(t_n)$ and~$\Hcal_n\setminus\{s_n\}$.
+    So, by Lemma~\ref{lem:multivariate-normal-conditional}, we have
+    %
+    \begin{align*}
+        \Var(\theta(t_n)\mid\Hcal_n)
+        &= \Var(z_n\mid s_n') \\
+        &= \Var(z_n)-\frac{\left(\Cov(z_n,s_n')\right)^2}{\Var(s_n')} \\
+        &= R_n-\frac{R_n^2}{R_n+1/p_n} \\
+        &= \frac{R_n}{1+p_nR_n}
+    \end{align*}
+    %
+    and therefore
+    \[ \psi_n(p_n)=\frac{R_n}{1+p_nR_n}+cp_n. \]
+    Differentiating twice with respect to~$p_n$ gives
+    \[ \psi_n'(p_n)=-\left(\frac{R_n}{1+p_nR_n}\right)^2+c \]
+    and
+    \[ \psi_n''(p_n)=2\left(\frac{R_n}{1+p_nR_n}\right)^3. \]
+    If~$R_n=0$ then~$\psi_n'(p_n)>0$ for all~$p_n\in\R$, and so~$\psi_n(p_n)$ attains its constrained minimum at~$p_n=0$.
+    So suppose~$R_n>0$.
+    Then~$\psi_n(p_n)$ is strictly convex in~$p_n\ge0$ and its unique constrained minimizer equals zero precisely when
+    %
+    \begin{align*}
+        0
+        &\le \psi_n'(0) \\
+        &= c-R_n^2,
+    \end{align*}
+    %
+    which holds if and only if~$\sqrt{c}\ge R_n$.
+    Otherwise, this minimizer is strictly positive and satisfies the first-order condition~$\psi'(p_n)=0$.
+    Solving this equation for~$p_n$ yields
+    \[ p_n=\frac{1}{\sqrt{c}}-\frac{1}{R_n}. \]
+    Equation~\eqref{eq:optimal-precision} follows.
+    Moreover,
+    \[ \Var(\theta(t_n)\mid\Hcal_n)\big\rvert_{p_n=0}=R_n \]
+    and
+    %
+    \begin{align*}
+        \Var(\theta(t_n)\mid\Hcal_n)\big\rvert_{p_n=\frac{1}{\sqrt{c}}-\frac{1}{R_n}}
+        &= \frac{R_n}{1+\left(\frac{1}{\sqrt{c}}-\frac{1}{R_n}\right)R_n} \\
+        &= \sqrt{c}.\qedhere
+    \end{align*}
+\end{proof}

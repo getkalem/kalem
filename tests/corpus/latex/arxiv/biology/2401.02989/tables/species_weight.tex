@@ -1,0 +1,18 @@
+\begin{table}[]
+\centering
+\caption{Different values for the species weights $w_s$, with $\lambda_1=1$ and $\lambda_2=0.8$. $w_s$ is required to address the strong class imbalance between presences and pseudo-absences. The clamp operation here restricts low frequencies to a minimum threshold of $0.25$. The best mean AUC obtained for each column is highlighted in bold.}
+
+\setlength{\tabcolsep}{0.46\tabcolsep}  % for the horizontal padding
+\renewcommand{\arraystretch}{1.2} % for the vertical padding
+\begin{tabular}{l|cccccc|c}
+                                                & AWT   & CAN   & NSW   & NZ    & SA    & SWI   & avg   \\ 
+    \hline \hline
+    no species weights                          & 0.653 & \textbf{0.719} & 0.652 & 0.702 & 0.741 & \textbf{0.840} & 0.718 \\
+    $w_s = 1/\text{freq(}s\text{)}$             & \textbf{0.704} & 0.696 & \textbf{0.719} & \textbf{0.741} & \textbf{0.815} & 0.836 & \textbf{0.752} \\
+    $w_s = 1/\text{clamp(freq(}s\text{))}$       & 0.678 & 0.709 & 0.689 & 0.727 & 0.791 & \textbf{0.840} & 0.739 \\
+    $w_s = 1/\sqrt{\text{freq(}s\text{)}}$      & 0.697 & 0.704 & 0.710 & 0.737 & 0.799 & 0.839 & 0.748 \\
+    \hline
+\end{tabular}
+
+\label{tab:speciesweight}
+\end{table}

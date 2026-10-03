@@ -1,0 +1,266 @@
+
+\section{\textbf{Preliminary}}
+% \subsection{Preliminaries}
+%{-2mm}
+\noindent\textbf{Overview.} In this section, we first briefly introduce the Neural Radiance Fields (NeRF)~\cite{NeRF_mildenhall2020nerf} in \S~\ref{sec:nerf} and its one-shot generalizable variant~\cite{PixelNeRF_yu2021pixelnerf} in \S~\ref{sec:ognerf}. Then, we analysis the limitation of esisting OG-NeRF in \S~\ref{sec:ognerf_limit}. Finally, we introduce the GAN model in \S~\ref{sec:gan_model} and diffusion model in \S~\ref{sec:diff_model}.
+
+
+\vspace{-2mm}
+\subsection{\textbf{Neural Radiance Fields}}
+\label{sec:nerf}
+%{-2mm}
+NeRF parameterizes the 3D volume space as a continuous implicit function $f_{nerf}(\cdot)$ represented by a neural network, \eg, multi-layer perceptron (MLP). Given a target view with pose $\textbf{P}_t$, it queries the 3D volume space via marching a ray $\textbf{r}(z) = \textbf{o} + z \textbf{d}$ for each pixel on its image plane, where $\textbf{o} \in  \mathbb{R}^3$ represents the camera center, $\textbf{d} \in  \mathbb{R}^3 $ represents the ray unit vector, and $z \in  \mathbb{R}^1$ is the depth between a pre-defined bounds $[z_n, z_f]$. Then, for each 3D point $\textbf{x} \in  \mathbb{R}^3 $ on a marched ray, its density $\sigma \in  \mathbb{R}^1$ and RGB color $\textbf{c} \in  \mathbb{R}^3$ is predicted by:
+%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{equation}
+% \begin{linenomath}
+    % (\sigma, \textbf{c}) = f(\gamma(\textbf{x}), \textbf{d}),
+    (\sigma, \textbf{c}) = f_{nerf }(\textbf{x}, \textbf{d}).
+% \end{linenomath}
+\end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%
+% where $\gamma(\textbf{x})$ is the position encoding: 
+%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{equation}
+%     \small
+%     \gamma(\textbf{x}) = [sin(\textbf{x}), cos(\textbf{x}), ..., sin(2^{L-1}\textbf{x}), cos(2^{L-1}\textbf{x})]^T.
+% \end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%
+After that, the predicted RGB color $\textbf{c}$ along a ray $\textbf{r}$ is accumulated via the differentiable volumetric rendering operation: 
+%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{equation}
+% \begin{linenomath}
+    \label{accumulate}
+    \hat{\textbf{C}}(\textbf{r}) = \int_{z_n}^{z_f} T(z) \sigma (z) \textbf{c}(z) dz,
+% \end{linenomath}
+\end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%
+where $T(z) = exp (- \int_{z_n}^z \sigma(s) ds )$ represents the probability that the ray travels from $z$ to $z_n$. 
+NeRF employs a hierarchical coarse-to-fine strategy for sampling discrete 3D points along rays and then approximates the integral using numerical quadrature~\cite{max1995optical}. 
+Finally, for each pixel, the accumulated RGB color $\hat{\textbf{C}}(\textbf{r})$ is supervised by the ground truth color $\textbf{C}(\textbf{r})$ through the mean squared error:
+% \footnote{We omit the coarse and fine formulation here for simplicity.}
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{equation}
+% \begin{linenomath}
+    \label{eq_photometricloss}
+    \mathcal{L}_{NeRF} = \frac{1}{| \mathcal{R}(\textbf{P}_t)|} \sum_{\textbf{r} \in \mathcal{R}(\textbf{P}_t)} ||\hat{\textbf{C}}(\textbf{r}) - \textbf{C}(\textbf{r})||_{2}^2 , 
+% \end{linenomath}
+\end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%
+where $\mathcal{R}(\textbf{P}_t)$ is the set of all marched rays from target pose $\textbf{P}_t$.
+
+
+\vspace{-2mm}
+
+\subsection{\textbf{One-shot Generalizable NeRF}}
+\label{sec:ognerf}
+%{-2mm}
+NeRF is optimized per scene and requires tens or hundreds of posed input views and a time-consuming optimization process to memorize the scene. To relieve this issue and realize O-NVS, One-shot Generalizable Neural Radiance Fields (OG-NeRF)~\cite{PixelNeRF_yu2021pixelnerf} is proposed to learn the general 3D prior across multiple scenes. At the core of OG-NeRF is to take an additional condition feature extracted from the reference image $\textbf{I}_s$ as input. A typically used method for getting the condition feature~\cite{PixelNeRF_yu2021pixelnerf,lin2023visionnerf} is to project the query point $\textbf{x}$ back to the feature map of the reference image, and fetch a feature via interpolation:
+% ~\footnote{Note that we focus on the one-shot setting, therefore the sophisticated aggregation of multiple reference images~\cite{IBRNet_wang2021ibrnet,MVSNeRF_chen2021mvsnerf} is out of the scope of this paper. }
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{equation}
+\label{eq:ognerf}
+    (\sigma, \textbf{c}) = f_{ognerf}(\textbf{x}, \textbf{d}, W(\pi(\textbf{x}))),
+\end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%
+where $W=E({\textbf{I}_s})$ is the extracted feature map via encoder $E$, and $\pi(\textbf{x})$ indicates the projection of $\textbf{x}$ on the reference image plane. Note that, for better generalization ability, $\textbf{x}$ and $\textbf{d}$ here are under the coordinate of the reference view, \ie, the relative one, instead of the world coordinate. 
+% For instance, in PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}, ResNet~\cite{ResNet_he2016deep} is employed as the encoder $E(\cdot)$. Then, the condition feature for each 3D point $\textbf{x}$ is indexed by the projection from $\textbf{x}$ to the camera center of the reference image.
+
+% based on $\textbf{P}_s$ and $\textbf{P}_t$ is applied for indexing the pixel-wise condition feature from $E(\textbf{I}_s)$. 
+
+
+% \subsection{Limitations of }
+\vspace{-2mm}
+%{-6mm}
+% \noindent\textbf{Limitations of Existing OG-NeRF Methods.}
+\subsection{\textbf{Limitations of Existing OG-NeRF Methods}}
+\label{sec:ognerf_limit}
+%{-3mm}
+The main drawback of such an encoder-only paradigm is the high reliance on the reference image, which 
+may include misleading information, especially for the projection-based ones~\cite{PixelNeRF_yu2021pixelnerf,lin2023visionnerf} (see the upper part of Fig. \ref{fig_idea}).
+To address this issue, 
+% we take a step back and ask the questions: Is the reference image the only information source that can be exploited? Can the abundant training data further help improve the details of the rendered images? For instance, though the accurate right-view color is hard to obtain by simply projecting to the left view, it should be feasible to infer via observing plenty of other images from different views (see the bottom part of Fig. \ref{fig_idea}). Based on this intuition, 
+we propose the coarse-to-fine generative detail compensation perspective. Specifically, at the coarse stage, we first propose the OPP that efficiently insert a GAN model into the existing OG-NeRF pipeline for capturing the in-distribution object details. Then, at the fine stage, with Diff3DE we further leverage the out-distribution detail priors from the pre-trained diffusion model~\cite{rombach2022LatentDiff,zhang2023addingControlNet} in a 3D-consistency manner for more vivid outputs with plausible details. 
+
+
+\subsection{\textbf{GAN Model}}
+\label{sec:gan_model}
+
+We inject the GAN model to the OG-NeRF pipeline at the coarse stage for capturing primary in-distribution detail priors from the training dataset. For the training of the GAN model, we employ the commonly used  non-saturating GAN objective~\cite{GAN_goodfellow2014generative} with $R_1$ gradient penalty~\cite{R1reg_mescheder2018training}:
+%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{equation}
+\small
+\begin{split}
+    & \mathcal{L}_{GAN} = 
+    \mathbb{E}_{\textbf{I}_{in} \sim p_{in}} [ D(G(  \textbf{I}_{in} )) ]   +  \mathbb{E}_{\textbf{I}_{real} \sim p_{real}} [-D(\textbf{I}_{real})], 
+    % \\
+    % & \text{where} \quad \textbf{I}_m = \eta (E(\textbf{I}_s),  \textbf{P}_s, \textbf{P}_t)),
+\end{split}
+\end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+ where $p_{in}$ represents the distribution of the generator input, $p_{real}$ indicates the distribution of the training data, and the formulation of $R1$ penalty  is omitted here for simplicity.
+
+ Except for the GAN objective, we also employ the perceptual loss $\mathcal{L}_{PER}$~\cite{Perceptual_wu2020unsupervised}   and MSE loss $\mathcal{L}_{MSE}$~\cite{GIRAFFE_niemeyer2021giraffe} for the reconstruction from $G(\textbf{I}_{in})$ to its corresponding ground truth $\textbf{I}_{real}$. Therefore, the overall objective  $\mathcal{L}_{G}$ for the GAN training is:
+ \begin{equation}
+ \label{eq:generative_objectives}
+     \mathcal{L}_{G} = \lambda_{GAN} \mathcal{L}_{GAN} +\lambda_{PER} \mathcal{L}_{PER} + \mathcal{L}_{MSE},
+ \end{equation}
+ where $\lambda_{GAN}$ and $\lambda_{PER}$ are the weights for GAN loss and perceptual loss, separately. 
+
+ 
+\subsection{\textbf{Diffusion Model}}
+\label{sec:diff_model}
+
+Diffusion probabilistic model has been broadly researched recently~\cite{croitoru2023diffusion0,dhariwal2021diffusion1,rombach2022LatentDiff,zhang2023addingControlNet} due to its strong generative power. It approximates the data distribution via progressively removing noises from a Gaussian \textit{i.i.d} noised image. Stable Diffusion~\cite{rombach2022LatentDiff} makes the early attempt to operate on the latent space of a pre-trained auto-encoder to efficiently get high-resolution results. Building on this, ControlNet~\cite{zhang2023addingControlNet} enables more accurate and flexible controls via incorporating additional condition signals with a residual architecture, \eg, edge, pose, etc. 
+
+\vspace{0.1cm}
+\noindent\textbf{DDIM Inversion.} DDIM is a deterministic denoising-stage sampling algorithm proposed by~\cite{song2020DDIM}. It can be used in a reversed order to find the corresponding noises of an image in a \textit{non-optimization manner}, which is commonly used in image/video editing tasks~\cite{yang2023rerender,geyer2023tokenflow,Tumanyan_2023_CVPR_PnP} for primarily maintaining the original contents of input images.
+
+\vspace{0.1cm}
+\noindent\textbf{Inflated Self-attention.} Usually, a U-Net $\epsilon_{\theta}$ with attention blocks~\cite{rombach2022LatentDiff,zhang2023addingControlNet} is employed for predicting the noise. To improve the temporal consistency when processing a sequence of frames, recent methods~\cite{wu2023tune-a-video,yang2023rerender,geyer2023tokenflow} inflate the original self-attention to incorporate information from other frames. In detail, given the sequence of projected query features $\{\textbf{Q}_i\}_{i=1}^{k}$, key features $\{\textbf{K}_i\}_{i=1}^{k}$, and value features $\{\textbf{V}_i\}_{i=1}^{k}$, the Inflated Self-Attention (ISA) is calculated as follows: 
+\begin{equation}
+    \phi_{i} = Softmax(\frac{\textbf{Q}_i[\textbf{K}_1, ...,\textbf{K}_k]^T}{\sqrt{d}}) [\textbf{V}_1, ..., \textbf{V}_k],
+\end{equation}
+where $\phi_{i}$ is the ISA output tokens of the $i$-th frame.
+
+\section{\textbf{Coarse Stage: From Tandem to Parallel Pipelines}}
+\label{sec:coarse_stage_opp}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%
+\input{./Figure/Simple_Pipelines}
+%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%
+\input{Figure/pipelines}
+%%%%%%%%%%%%%%%%%%%%%%
+
+
+% \subsection{Tandem Pipelines}
+\noindent\textbf{Overview.} This section introduces the coarse stage method that injects the GAN model into the OG-NeRF pipeline. We first briefly analyze two basic tandem pipelines that directly build the GAN model on top of the OG-NeRF model (\S~\ref{sec:ttp}, \S~\ref{sec:otp}), as shown by Fig.~\ref{fig_simple_pipelines}. Then, in \S~\ref{sec:opp}, we further present a stronger One-stage Parallel Pipeline (OPP)  that solves the contradiction between sharpness and fidelity efficiently. The pipeline of OPP is illustrated in Fig. \ref{fig_pipelines}.
+
+
+
+\subsection{\textbf{Two-stage Tandem Pipeline}}
+\label{sec:ttp}
+%{-2mm}
+Different from OG-NeRF which supervises at the pixel level, the GAN model requires the input to be semantically complete at the image level, ideally, the full-sized image. However, rendering out the full-sized image during training is intractable considering the memory-intensive rendering process. A naive solution is to independently train the OG-NeRF at the first stage. Then, in the second stage, the full-sized novel view images are rendered with the previously trained OG-NeRF (fixed and inference only) pixel by pixel, and a GAN model is trained with these prepared full-sized images and their corresponding ground truth images, as illustrated by the first row in Fig.~\ref{fig_simple_pipelines}. 
+
+The main drawbacks of such a pipeline are two-fold: (i) Though the sharpness (\ie, details) can be improved with such a pipeline, the fidelity of the generated details can hardly be guaranteed. The independently trained GAN model is easily biased towards the sharpness details without the joint optimization with the OG-NeRF model which constrains the fidelity. (ii) The two-stage training procedure is tedious. 
+
+\vspace{-2mm}
+\subsection{\textbf{One-stage Tandem Pipeline}}
+\label{sec:otp}
+To relieve the memory cost and facilitate the end-to-end training, the key is to reduce the rendered output size from $H \times W$ to $H_m \times W_m$. However, directly reducing the output size will inevitably cause the loss of 3D information from the volume space. To compensate for it, a feasible solution is to simultaneously improve the output dimension from $\textbf{c} \in \mathbb{R}^3$ to a higher value $\textbf{c}_m \in \mathbb{R}^{h_m}, h_m > 3$, as in~\cite{GIRAFFE_niemeyer2021giraffe} and illustrated by the second row of Fig.~\ref{fig_simple_pipelines}. Then, similar as Eq. \ref{accumulate}, $\textbf{c}_m$ is accumulated along the ray $\textbf{r}$ as follows:
+\begin{equation}
+\label{Cm_accumulate}
+    \hat{\textbf{C}}_m(\textbf{r}) = \int_{z_n}^{z_f} T(z) \sigma (z) \textbf{c}_m(z) dz.
+\end{equation}
+Notably, for the sampling of rays, different from the pixel-wise supervision method \cite{PixelNeRF_yu2021pixelnerf} which randomly samples rays among all target poses around the object, we employ the \textit{grid sampling strategy} which first randomly samples a target pose, and then split its corresponding image plane of size $H \times W$ into $H_m \times W_m$ grids. After that, the rays tracing through the grid centers are sampled for accumulating with Eq. \ref{Cm_accumulate} and get the intermediate low-resolution yet high-dimensional feature map $\hat{\textbf{I}}_m \in \mathbb{R}^{H_m \times W_m \times h_m}$ via reshaping. 
+Finally, $\hat{\textbf{I}}_m$ is sent to a light-weight up-sampling model $G(\cdot)$ for the full-sized output $ \hat{\textbf{I}}_t^{G} \in \mathbb{R}^ {H \times W \times 3}$, which is finally supervised with a discriminator $D(\cdot)$. 
+
+Compared with the naive two-stage tandem pipeline, this end-to-end fashion makes the GAN model benefits more fidelity from the OG-NeRF model which extracts 3D information directly from the volume space. Therefore, it performs better than the two-stage tandem pipeline, especially at the fidelity metrics, \eg, PSNR, SSIM. 
+
+\vspace{-2mm}
+\subsection{\textbf{One-stage Parallel Pipeline}}
+\label{sec:opp}
+%{-2mm}
+After including the GAN model as a tandem pipeline, the \textit{sharpness} (\eg, LPIPS, FID) is significantly improved since the GAN model can capture the prior object details from the abundant training data. However, we find it hard to maintain the \textit{fidelity} (\eg, PSNR, SSIM) as well as the independently trained OG-NeRF model, even with the more coherent one-stage tandem pipeline. 
+
+
+To tackle such contradiction between two paradigms, we further present the simple yet effective One-stage Parallel Pipeline (OPP) that is built on the one-stage tandem pipeline with the proposed Dual-Paradigm Structure (DPS), Confidence Radiance Fields (CoRF), and Dual-Paradigm Fusion (DPF), as illustrated in Fig. \ref{fig_pipelines}. 
+DPS makes it possible for these two paradigms to be optimized in parallel within a single framework, and CoRF further learns a confidence map that can adaptively give the blurry part with lower confidence. Finally, DPF integrates the outputs from two paradigms effectively with the learned confidence map. 
+
+\vspace{0.1cm}
+\noindent\textbf{Dual-Paradigm Structure.}
+ In the one-stage tandem pipeline,  the output of the OG-NeRF MLP is represented as $[\textbf{c}_m;\sigma] \in \mathbb{R}^{h_m + 1}$, where $[;]$ indicates the concatenation operation, $\textbf{c}_m \in \mathbb{R}^{h_m} $ is the high-dimensional hidden color, and $\sigma \in \mathbb{R}^{1}$ is the density. Then, we send $\textbf{c}_m$ to an additional fully connected layer $FC(\cdot): \mathbb{R}^{h_m} \rightarrow \mathbb{R}^{3} $ as follows:
+ %%%%%%%%%%%%%%%%%%%%%
+\begin{equation}
+    % \vspace{-1mm}
+    \textbf{c} = FC(\textbf{c}_m),
+    % \vspace{-1mm}
+\end{equation}
+ %%%%%%%%%%%%%%%%%%%%%
+where $\textbf{c} \in \mathbb{R}^{3}$ is the RGB color. After that, $\textbf{c}$ and $\textbf{c}_m$ are accumulated by Eq. \ref{accumulate} and Eq. \ref{Cm_accumulate} with the shared density $\sigma$ and get $\hat{\textbf{C}} \in \mathbb{R}^{3}$ and $\hat{\textbf{C}}_m \in \mathbb{R}^{h_m}$, separately. Finally, $\hat{\textbf{C}}$ is supervised with the ground truth pixel color with Eq. \ref{eq_photometricloss}, and $\hat{\textbf{C}}_m$ marched from the same target pose formulates the intermediate feature map $\hat{\textbf{I}}_m$, which is sent to the up-sampling module for the GAN supervision.
+
+
+With DPS, the OG-NeRF and GAN model can be optimized in parallel with a single training process. Intuitively, $\textbf{c}_m$ can be seen as the mapping of RGB color $\textbf{c}$ in a high-dimensional feature space. We inverse it back to the RGB space with a lightweight fully connected layer for the NeRF-style supervision.
+The shared density also profits the communications between two paradigms.
+
+\vspace{0.1cm}
+\noindent\textbf{Confidence Radiance Fields.}
+An ideal solution to integrate the two paradigms is to automatically detect the blurry part on the OG-NeRF output and then complement the corresponding details from the GAN output. Motivated by this, we propose the novel Confidence Radiance Fields (CoRF) that gives each pixel a confidence score reflecting the degree of clarity. 
+
+
+Specifically, for each sampled point $\textbf{x}$, 
+we assume that the reliability of
+the projected condition feature 
+is determined by the distance between $\textbf{x}$ and the projected surface point $\textbf{s}$ since it reflects the occlusion information, as shown in Fig.~\ref{fig_pipelines}. Therefore, we define reliability as
+% \begin{equation}
+    $r = \mathcal{G}(z_{\textbf{x}} - z_{\textbf{s}})$,
+% \end{equation}
+where $\mathcal{G}$ is a gaussian function, and $z_{\textbf{x}}$, $z_{\textbf{s}}$ are the depth of $\textbf{x}$ and $\textbf{s}$ from the reference view, respectively. Notably, $z_{\textbf{x}}$ can be achieved by simply using the pose information of the reference view,  while for $z_{\textbf{s}}$, we first render a coarse depth map (\eg, $16\times16$) from the reference view and resize it to the full size (\eg, $128\times128$), then index the depth via projection.
+
+
+In a nutshell, the final CoRF is represented as:
+\begin{equation}
+    \alpha  =  f_{corf}(r, \textbf{d}, W(\pi(\textbf{x})),
+\end{equation}
+where $\alpha \in [0,1]$ represents the confidence score. Then, similar to Eq.~\ref{accumulate}, the confidence score along a ray $\textbf{r}$ is accumulated with the differentiable volumetric rendering using the same density value as in DPS, and get the final confidence score $\hat{\alpha}(\textbf{r}) \in \mathbb{R}^1$.
+
+\vspace{0.1cm}
+\noindent\textbf{Dual-Paradigm Fusion.}
+After that, for each ray $\textbf{r}$, we fuse the RGB values from two paradigms with:
+\begin{equation}
+    \hat{\textbf{C}}^{'}(\textbf{r}) = \hat{\textbf{C}}(\textbf{r}) * \hat{\alpha}(\textbf{r})  +  \hat{\textbf{I}}_t^{G}(\textbf{r}) * (1 - \hat{\alpha}(\textbf{r}) ), 
+\end{equation}
+where $\hat{\textbf{C}}(\textbf{r})$, $\hat{\textbf{I}}_t^{G}(\textbf{r}) \in \mathbb{R}^3$ are the RGB values from OG-NeRF and GAN model, respectively, and $\hat{\textbf{C}}^{'}(\textbf{r})$ is the final fused one where we conduct CoRF training objectives on. 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \input{Table/NMR_SOTA}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{0.1cm}
+\noindent\textbf{Training \& Inference.} During the training stage, since we expect the DPF output to have both high sharpness and fidelity, except for the \textit{grid sampling} used for DPS training, we additionally employ a \textit{random patch sampling strategy} for the CoRF learning, which can output a semantic patch that supports the perceptual supervision, as illustrated by Fig.~\ref{fig_pipelines}. The overall loss for the training of OPP is:
+\begin{equation}
+    \mathcal{L}_{OPP} = \mathcal{L}_{G} + \mathcal{L}_{NeRF} + \mathcal{L}_{CoRF} ,
+\end{equation}
+where $\mathcal{L}_{CoRF} = \mathcal{L}_{PER} + \mathcal{L}_{MSE}$. Considering the training stability, we empirically first train the two paradigms till convergence and then finetune the CoRF for several epochs with the two paradigms frozen. 
+
+During the inference stage of coarse-stage OPP, we have $\hat{\textbf{I}}_t^{G}$ from the GAN model via grid sampling, $\hat{\textbf{I}}_t^{N}$ from the OG-NeRF paradigm and the confidence map $M$ from the CoRF with the full-sized sampling. Then, they are aggregated via DPF for the final output, as shown in Fig. \ref{fig_pipelines}. We emphasize that the rendering of grid sampling (\eg, $16\times16$) is quite efficient (over $40$ times faster) compared with the full-sized rendering (\eg, $128\times128$), and the CoRF MLP is rather lightweight ($0.09M$), therefore the additional computational cost compared with the original OG-NeRF is rather small, which will be discussed in detail in the appendix. 
+
+\section{\textbf{Fine Stage: Diffusion-based 3D Enhancer}}
+\label{fine_stage_Diff3DE}
+
+\input{./Figure/Diff3DE}
+\noindent\textbf{Motivation.} With OPP, the coarse in-distribution details have been primarily compensated. However, considering the limited size and quality of the training dataset, the results are still unsatisfying in vivid detail. Thus, to break through such limitation, we turn to the rich out-distribution priors from the diffusion models~\cite{rombach2022LatentDiff,zhang2023addingControlNet} pre-trained on billions of high-quality images. 
+
+A naive solution of using such an image diffusion model is to perform super-resolution~\cite{rombach2022LatentDiff,zhang2023addingControlNet} on each rendered view from the OPP individually. Nevertheless, due to the lack of 3D constraints, this will lead to significant inconsistency between different views. Although the recent zero-shot video editing method~\cite{geyer2023tokenflow} has explored maintaining the temporal consistency between edited video frames, it simply assumes the input video to contain very similar contents, and 
+directly employing it in the 3D NVS task will lead to the following issues: 
+
+
+
+(i) \textit{Dispersed sparse keyframes lead to blurry outputs.} At the core of ~\cite{geyer2023tokenflow} is to first maintain the consistency between several keyframes (\eg, 5) using Inflated Self-Attention (ISA)~\cite{wu2023tune-a-video} and then propagate the U-Net self-attention output tokens of keyframes to nearby ones. A possible naive adaptation is to uniformly disperse the keyframes around the dome, however, due to the large variance of contents from dispersed sparse views, the ISA tends to get blurry outputs, as illustrated by Fig.~\ref{fig_ablation_Nk}. On the other hand, simply increasing the keyframe number will greatly increase memory usage, which is unaffordable. 
+
+(ii) \textit{Unable to process arbitrary views.} A 3D enhancer should support the processing of an arbitrary given view. However, as a video processing method, \cite{geyer2023tokenflow} simply assumes the input videos are consecutive and calculates the propagation weights via the frame index, which is not suitable for the arbitrary view processing case.
+
+
+\vspace{0.1cm}
+\noindent\textbf{Diffusion-based 3D Enhancer.} Targeting the aforementioned issues, we propose the fine-stage method Diffusion-based 3D Enhancer (Diff3DE), a 3D extension of ~\cite{geyer2023tokenflow}, as illustrated in Fig.~\ref{fig_diff3de}.  The main idea of Diff3DE is to relax the input of the original ISA from all the keyframes to \textit{neighbor keyframe sets}  selected based on \textit{view distance}.
+
+
+In detail, we first fix $N_k$ dense keyframes $\{\textbf{I}_i^{d} \}_{i=1}^{N_k}$ uniformly dispersed around the dome. Then, given a target view $\textbf{I}^{g}$, we select its $3$ neighbors $\{ \textbf{I}_{c_1}^{d}, \textbf{I}_{c_2}^{d}, \textbf{I}_{c_3}^{d}\}$ from $\{ \textbf{I}_i^{d}\}$ using the cosine similarity, which can be calculated by the provided camera poses. After that, the neighbor set $\{ \textbf{I}_{c_1}^{d}, \textbf{I}_{c_2}^{d}, \textbf{I}_{c_3}^{d}\}$ are taken as the input of the ISA to ensure the local consistency, and for each diffusion time step and U-Net attention block layer, their output tokens of the ISA module $\{ \phi_{c_1}^{d}, \phi_{c_2}^{d}, \phi_{c_3}^{d}\}$  are further propagated to the target view using the correspondence calculated with original input frames during the DDIM inversion stage (see~\cite{geyer2023tokenflow} for more details), formulating the propagated tokens $\{\phi_{c_1}^{d \rightarrow t},\phi_{c_2}^{d \rightarrow t}, \phi_{c_3}^{d \rightarrow t}\}$. Finally, we perform a weighted sum on  the propagated tokens using the barycentric interpolation:
+\begin{equation}
+\begin{aligned}
+   &  w_{c_1}, w_{c_2}, w_{c_3} = Bary(l^{g}, l^{d}_{c_1}, l^{d}_{c_2}, l^{d}_{c_3}), \\
+    & \phi^{t} = w_{c_1} * \phi_{c_1}^{d \rightarrow g} + w_{c_2} * \phi_{c_2}^{d \rightarrow g} + w_{c_3} * \phi_{c_3}^{d \rightarrow g}  ,
+\end{aligned}
+\end{equation}
+where $l$ indicates the camera location, $Bary(\cdot,\cdot,\cdot,\cdot)$ is the function for calculating barycentric weights, and $\phi^t$ is the final aggregated ISA output tokens for $\textbf{I}^{g}$.
+
+
+
+With Diff3DE, the processing of each view is determined by its pose instead of the frame index as in~\cite{geyer2023tokenflow}, making it work in a 3D manner. Notably, though the global consistency between all the keyframes is not explicitly constrained in Diff3DE, \ie, we do not send all the keyframes to ISA considering the computation cost, it is approximately maintained by: 1) the input frames are from the 3D-consistent OPP, which naturally provides certain 3D constraints, and 2) enforcing the local consistency for each neighbor area approximates the global consistency.

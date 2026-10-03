@@ -1,0 +1,32 @@
+\begin{table}[]
+\centering
+\caption{Mean area under the precision-recall gain curve (AUPRG) over the species. The best mean AUPRG in each column is highlighted in bold, while the second-best mean AUPRG is underlined.}
+
+\setlength{\tabcolsep}{0.46\tabcolsep}  % for the horizontal padding
+\renewcommand{\arraystretch}{1.2} % for the vertical padding
+\begin{tabular}{lccccccc}
+                                                                          & AWT   & CAN   & NSW   & NZ    & SA    & SWI   & \textbf{avg}   \\ 
+    \hline \hline
+    \textbf{\cite{cole2023spatial} losses} \\
+    SSDL loss, i.e., $\lambda_1 = 1$ and $\lambda_2=0$                    & 0.285 & -1.825 & -0.495 & -0.138 & 0.526 & 0.764 & -1.470 \\
+    SLDS loss, i.e., $\lambda_1 = 1$ and $\lambda_2=1$                    & 0.198 & -0.505 & -0.687 & -0.546 & 0.511 & 0.843 & -0.031 \\
+    Full loss, i.e., $\lambda_1 = S/2$ and $\lambda_2=0.5$                & 0.410 & -0.552 & \textbf{0.203} & \textbf{0.404} & 0.721 & 0.833 & 0.337 \\
+    \hline \hline
+    \textbf{Full weighted loss (ours)} \\  
+    $\lambda_1=1 $ and $ \lambda_2=0.8$, without $w_s$                         & 0.339 & \textbf{-0.036} & -0.300 & -0.451 & 0.602 & \underline{0.846} & 0.167 \\
+    \hline
+    $\lambda_1=1 $ and $ \lambda_2=0$, with $w_s$                         & 0.291 & -1.267 & -0.107 & 0.320 & 0.690 & 0.759 & 0.114 \\
+    $\lambda_1=1 $ and $ \lambda_2=0.2$, with $w_s$                       & 0.340 & -1.057 & 0.123 & 0.355 & 0.710 & 0.800 & 0.212 \\
+    $\lambda_1=1 $ and $ \lambda_2=0.4$, with $w_s$                       & 0.385 & -0.782 & 0.186 & 0.374 & 0.722 & 0.816 & 0.284 \\
+    $\lambda_1=1 $ and $ \lambda_2=0.6$, with $w_s$                       & 0.427 & -0.629 & \underline{0.202} & 0.384 & \underline{0.728} & 0.829 & 0.324 \\
+    $\lambda_1=1 $ and $ \lambda_2=0.8$, with $w_s$                       & \underline{0.456} & -0.430 & 0.166 & \underline{0.388} & \textbf{0.730} & 0.839 & \underline{0.358} \\
+    $\lambda_1=1 $ and $ \lambda_2=1$, with $w_s$                         & \textbf{0.461} & \underline{-0.427} & 0.076 & \underline{0.388} & \textbf{0.730} & \textbf{0.847} & 0.346 \\
+    \hline
+    $\lambda_1=1 $ and fine-tuned $\lambda_2$, with $w_s$                 & \underline{0.456} & \underline{-0.427} & 0.166 & \underline{0.388} & \textbf{0.730} & \textbf{0.847} & \textbf{0.360} \\
+    \hline
+\end{tabular}
+\vspace{0.1cm} \\
+%\footnotesize{}
+
+\label{tab:comparison_aucprg}
+\end{table}

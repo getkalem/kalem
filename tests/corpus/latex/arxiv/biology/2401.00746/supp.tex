@@ -1,0 +1,21 @@
+\setcounter{figure}{0}
+\renewcommand{\figurename}{Extended Data Fig.}
+\begin{figure}
+    \includegraphics[width=\linewidth]{supplimentary/s1_sorted_weight_correlation.pdf}
+    \caption{\textbf{Analysis of noise correlation among the hidden neurons under the high contrast condition.}
+    \textbf{a.} Distribution of noise correlation \(\rho_{ij}\) for pairs of hidden neurons (\(i\neq j\)) plotted against the difference in their preferred directions (\(\Delta\theta_{ij}^{\rm prefer} = \theta_i^{\rm prefer} - \theta_j^{\rm prefer}\)). The color bar represents the joint probability of \(\Delta\theta_{ij}^{\rm prefer}\) and \(\rho_{ij}\).
+    \textbf{b.} Average noise correlation among hidden neurons as motion directions vary. 
+    \textbf{c.} Correlation patterns in the trained connection strengths \(W_{\rm in}\) from all sensory neurons to individual hidden neurons.
+    In both \textbf{b} and \textbf{c}, hidden neuron indices are sorted based on their preferred directions, ranging from \(-\pi\) to \(\pi\), and color bars indicate the strength of correlation coefficients. 
+    All results are obtained at the high contrast level where \(c = 0.8\).
+    \label{fig_s1: correlation_vs_preferred_direction}}
+\end{figure}
+
+%\begin{figure}
+%    \includegraphics[width=\linewidth]{supplimentary/s2_mutual_information_supplimentary.pdf}
+%    \caption{Information breakdown of the network's readouts. 
+%    \textbf{a.} The information increment rates of each component, which are first-order derivatives of cumulative information displayed in Fig.~\ref{fig:visual_orientation_snn}\textbf{e}. We set a limited display range to highlight early-stage nuances during the readout.
+%    \textbf{b.} Information breakdown using the same spike train data as used in Fig.~\ref{fig:visual_orientation_snn}\textbf{e} and \textbf{a}. Here we employ Eq.~(\ref{eq:theory_define_mean})-(\ref{eq:theory_define_cov}) to empirically estimate mean and covariance across the whole readout stage with varying observation time windows \(\Delta t\).
+%    Components: \textit{tot} - total mutual information between stimuli and decoded results; \textit{lin} - the summation of mutual information from individual neuron responses; \textit{sigsim} - the difference in entropy between population and individual responses; \textit{cor} - information from correlated neuron activities.
+%    \label{fig_s2: information_breakdown}}
+%\end{figure}

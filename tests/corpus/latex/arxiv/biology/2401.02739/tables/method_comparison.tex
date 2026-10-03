@@ -1,0 +1,57 @@
+\begin{table*}[htbp!]
+\adjustbox{max width=\textwidth}{
+\centering
+\renewcommand{\arraystretch}{1.5}
+\setlength\tabcolsep{4pt} % control the horizontal spacing between columns
+    \definecolor{OliveGreen}{HTML}{808000}    % Define OliveGreen
+    \definecolor{bloodred}{HTML}{B00000}      % Define bloodred
+    \definecolor{cautionyellow}{HTML}{EED202} % Define cautionyellow
+
+    % Command to create a colored checkmark
+    \newcommand*\colourcheck[1]{%
+      \expandafter\newcommand\csname #1check\endcsname{%
+        \textcolor{#1}{\ding{51}}% \ding{51} is a checkmark
+      }%
+    }
+    
+    % Command to create a colored x-mark
+    \newcommand*\colourxmark[1]{%
+      \expandafter\newcommand\csname #1xmark\endcsname{%
+        \textcolor{#1}{\ding{55}}% \ding{55} is an x-mark
+      }%
+    }
+    
+    % Command to create a colored alternative checkmark (if needed)
+    \newcommand*\colourcheckodd[1]{%
+      \expandafter\newcommand\csname #1checkodd\endcsname{%
+        \textcolor{#1}{\ding{53}}% \ding{53} can be another style of checkmark
+      }%
+    }
+
+    \colourcheck{OliveGreen}       % Defines \OliveGreencheck
+    \colourcheck{cautionyellow}    % Defines \cautionyellowcheck
+    \colourcheckodd{cautionyellow}% Defines \cautionyellowcheckodd (if needed)
+    \colourxmark{bloodred}         % Defines \bloodredxmark
+    
+    % Create your custom commands using the newly defined commands
+    \newcommand{\ourxmark}{\bloodredxmark}%
+    \newcommand{\ourcheckmark}{\OliveGreencheck}%
+
+    \newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\begin{tabular}{C{2cm} C{2.3cm} C{2.6cm} C{2cm} C{1.5cm} C{3cm} C{3.5cm}}
+\toprule
+Model & Training Objective & Approximating Family & Sample-based Prior & Auxiliary Variable & Tasks & Simplified Graphical Illustration \\
+\midrule
+AEVB & ELBO & Diagonal Gaussian & \ourxmark & \ourxmark & Density estimation & $\mathbf{x} \rightarrow \mathbf{z} \rightarrow \mathbf{x}$ \\
+AEVB-IAF & ELBO & Normalizing flow & \ourxmark & \ourcheckmark & Density estimation / Visualization & $\mathbf{x} \rightarrow \mathbf{z}_0 \rightarrow \mathbf{z}_T \rightarrow \mathbf{x}$ \\
+AAEB & Adversarial training & Adversarial generator & \ourcheckmark & \ourxmark & Visualization & $\mathbf{x} \rightarrow \mathbf{z} \rightarrow \mathbf{x}$ \\
+H-AEVB-(IAF) & ELBO & Factorial Normal / Normalizing flow & \ourxmark & \ourcheckmark & Density estimation / High-quality sample generation & $\mathbf{x} \rightarrow \mathbf{z}_0 \rightarrow \mathbf{z}_T \rightarrow \mathbf{z}_0 \rightarrow \mathbf{x}$ \\
+ADGM & ELBO & Non-Gaussian & \ourxmark & \ourcheckmark & Density estimation & $\mathbf{x} \rightarrow \mathbf{a} \rightarrow \mathbf{z} \rightarrow \mathbf{x}$ \\
+LDM & ELBO & Diagonal Gaussian & \ourxmark & \ourcheckmark & High-quality sample generation & $\mathbf{x} \rightarrow \mathbf{z}_0 \rightarrow \mathbf{z}_T \rightarrow \mathbf{z}_0 \rightarrow \mathbf{x}$ \\
+LSGM & ELBO \& score matching & Diagonal Gaussian & \ourxmark & \ourcheckmark & High-quality sample generation & $\mathbf{x} \rightarrow \mathbf{z}_0 \rightarrow \mathbf{z}_T \rightarrow \mathbf{z}_0 \rightarrow \mathbf{x}$ \\
+DDVI & ELBO \& sleep term & Denoising diffusion & \ourcheckmark & \ourcheckmark & Density estimation / Visualization & $\mathbf{x} \rightarrow \mathbf{z}_T (\mathbf{y}) \rightarrow \mathbf{z}_0 (\mathbf{z}) \rightarrow \mathbf{x}$ \\
+\bottomrule
+\end{tabular}}
+\caption{Comparison of DDVI to other relevant methods. $\mathbf{x}$ represents the original data input to the model. $\mathbf{z}$ denotes the latent (hidden) representation of the input data. $\mathbf{a}$ represents an auxiliary variable introduced in some models (like ADGM) to capture additional aspects of the data distribution or to assist in the model's learning process.}
+\label{tab:method_comparsion}
+\end{table*}

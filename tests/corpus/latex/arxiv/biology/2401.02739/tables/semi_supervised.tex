@@ -1,0 +1,21 @@
+\begin{table*}[ht]
+\centering
+\adjustbox{max width=1\textwidth}{
+\centering
+\setlength\tabcolsep{4pt} % control the horizontal spacing between columns
+\begin{tabular}{c@{\hspace{5pt}}c@{\hspace{5pt}}c@{\hspace{5pt}}c@{\hspace{5pt}}c@{\hspace{5pt}}c@{\hspace{5pt}}c@{\hspace{5pt}}c@{\hspace{5pt}}c@{\hspace{5pt}}c}
+\toprule
+Method & \multicolumn{3}{c}{Pinwheel} & \multicolumn{3}{c}{Swiss Roll} & \multicolumn{3}{c}{Square}\\ 
+\cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}  
+& ELBO & Acc & Latent NLL & ELBO & Acc & Latent NLL & ELBO & Acc & Latent NLL \\ 
+\midrule
+AEVB & $-11.15 \pm 0.53$ & $0.93 \pm 0.01$ & $1.36 \pm 0.03$ & $-15.29 \pm 1.33$ & $0.68 \pm 0.01$ & $4.60 \pm 0.23$ & $-10.26 \pm 0.25$ & $0.86 \pm 0.01$ & $1.68 \pm 0.02$\\ 
+AEVB-IAF & $-2.10 \pm 0.26$ & $\mathbf{0.95 \pm 0.00}$ & $\mathbf{1.06 \pm 0.03}$ & $-5.38 \pm 1.78$ & $0.90 \pm 0.02$ & $2.75 \pm 0.14$ & $-2.67 \pm 0.83$ & $\mathbf{0.91 \pm 0.01}$ & $\mathbf{0.90 \pm 0.02}$\\ 
+AAEB & $N/A$ & $0.89 \pm 0.01$ & $1.55 \pm 0.01$ & $N/A$ & $0.88 \pm 0.01$ & $3.07 \pm 0.05$ & $N/A$ & $1.94 \pm 0.38$ & $0.76 \pm 0.13$ \\ 
+DDVI & $\mathbf{-0.24 \pm 0.13}$ & $\mathbf{0.95 \pm 0.00}$ & $\mathbf{1.06 \pm 0.01}$ & $\mathbf{-2.89 \pm 0.33}$ & $\mathbf{0.92 \pm 0.01}$ & $\mathbf{2.09 \pm 0.00}$ & $\mathbf{0.02 \pm 0.09}$ & $0.90 \pm 0.01$ & $1.49 \pm 0.03$\\ 
+\bottomrule
+\end{tabular}}
+\caption{Semi-supervised learning on MNIST (1,000 labels). We report ELBO, accuracy using KNN (K=20) classifier (Acc), and latent negative log-likelihood (Latent NLL) with pinwheel, swiss roll, and square priors.}
+% \vspace{-2pt}
+\label{tab:semi-supervised}
+\end{table*}

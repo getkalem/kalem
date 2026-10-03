@@ -1,0 +1,369 @@
+\begin{thebibliography}{10}
+\urlstyle{rm}
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+\expandafter\ifx\csname doiprefix\endcsname\relax\def\doiprefix{DOI: }\fi
+\providecommand{\bibinfo}[2]{#2}
+\providecommand{\eprint}[2][]{\url{#2}}
+
+\bibitem{reed2022generalist}
+\bibinfo{author}{Reed, S.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{A generalist agent}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2205.06175}}}  (\bibinfo{year}{2022}).
+
+\bibitem{brohan2022rt}
+\bibinfo{author}{Brohan, A.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Rt-1: Robotics transformer for real-world control at scale}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2212.06817}}}  (\bibinfo{year}{2022}).
+
+\bibitem{brohan2023rt}
+\bibinfo{author}{Brohan, A.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Rt-2: Vision-language-action models transfer web knowledge to robotic control}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2307.15818}}}  (\bibinfo{year}{2023}).
+
+\bibitem{open_x_embodiment_rt_x_2023}
+\bibinfo{author}{Collaboration, O. X.-E.} \emph{et~al.}
+\newblock \bibinfo{title}{Open {X-E}mbodiment: Robotic learning datasets and {RT-X} models}.
+\newblock \bibinfo{howpublished}{\url{https://robotics-transformer-x.github.io}} (\bibinfo{year}{2023}).
+
+\bibitem{hu2023Toward}
+\bibinfo{author}{Hu, Y.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Toward general-purpose robots via foundation models: A survey and meta-analysis}}.
+\newblock {\emph{\JournalTitle{arxiv}}}  (\bibinfo{year}{2023}).
+
+\bibitem{cleary2001state}
+\bibinfo{author}{Cleary, K.} \& \bibinfo{author}{Nguyen, C.}
+\newblock \bibinfo{journal}{\bibinfo{title}{State of the art in surgical robotics: clinical applications and technology challenges}}.
+\newblock {\emph{\JournalTitle{Computer Aided Surgery}}} \textbf{\bibinfo{volume}{6}}, \bibinfo{pages}{312--328} (\bibinfo{year}{2001}).
+
+\bibitem{richter2019open}
+\bibinfo{author}{Richter, F.}, \bibinfo{author}{Orosco, R.~K.} \& \bibinfo{author}{Yip, M.~C.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Open-sourced reinforcement learning environments for surgical robotics}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:1903.02090}}}  (\bibinfo{year}{2019}).
+
+\bibitem{bhagat2019deep}
+\bibinfo{author}{Bhagat, S.}, \bibinfo{author}{Banerjee, H.}, \bibinfo{author}{Ho~Tse, Z.~T.} \& \bibinfo{author}{Ren, H.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Deep reinforcement learning for soft, flexible robots: Brief review with impending challenges}}.
+\newblock {\emph{\JournalTitle{Robotics}}} \textbf{\bibinfo{volume}{8}}, \bibinfo{pages}{4} (\bibinfo{year}{2019}).
+
+\bibitem{datta2021reinforcement}
+\bibinfo{author}{Datta, S.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Reinforcement learning in surgery}}.
+\newblock {\emph{\JournalTitle{Surgery}}} \textbf{\bibinfo{volume}{170}}, \bibinfo{pages}{329--332} (\bibinfo{year}{2021}).
+
+\bibitem{scheikl2023lapgym}
+\bibinfo{author}{Scheikl, P.~M.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Lapgym--an open source framework for reinforcement learning in robot-assisted laparoscopic surgery}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2302.09606}}}  (\bibinfo{year}{2023}).
+
+\bibitem{LaGanga1985}
+\bibinfo{author}{La~Ganga, M.~L.}
+\newblock \bibinfo{journal}{\bibinfo{title}{L.b. surgeon uses robot in operation}}.
+\newblock {\emph{\JournalTitle{Los Angeles Times}}}  (\bibinfo{year}{1985}).
+
+\bibitem{seo2016comparison}
+\bibinfo{author}{Seo, H.-J.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Comparison of robot-assisted radical prostatectomy and open radical prostatectomy outcomes: a systematic review and meta-analysis}}.
+\newblock {\emph{\JournalTitle{Yonsei medical journal}}} \textbf{\bibinfo{volume}{57}}, \bibinfo{pages}{1165--1177} (\bibinfo{year}{2016}).
+
+\bibitem{sheetz2020trends}
+\bibinfo{author}{Sheetz, K.~H.}, \bibinfo{author}{Claflin, J.} \& \bibinfo{author}{Dimick, J.~B.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Trends in the adoption of robotic surgery for common surgical procedures}}.
+\newblock {\emph{\JournalTitle{JAMA network open}}} \textbf{\bibinfo{volume}{3}}, \bibinfo{pages}{e1918911--e1918911} (\bibinfo{year}{2020}).
+
+\bibitem{dhanani2021evidence}
+\bibinfo{author}{Dhanani, N.~H.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{The evidence behind robot-assisted abdominopelvic surgery: a systematic review}}.
+\newblock {\emph{\JournalTitle{Annals of internal medicine}}} \textbf{\bibinfo{volume}{174}}, \bibinfo{pages}{1110--1117} (\bibinfo{year}{2021}).
+
+\bibitem{lotan2012robotic}
+\bibinfo{author}{Lotan, Y.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Is robotic surgery cost-effective: no}}.
+\newblock {\emph{\JournalTitle{Current opinion in urology}}} \textbf{\bibinfo{volume}{22}}, \bibinfo{pages}{66--69} (\bibinfo{year}{2012}).
+
+\bibitem{shademan2016supervised}
+\bibinfo{author}{Shademan, A.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Supervised autonomous robotic soft tissue surgery}}.
+\newblock {\emph{\JournalTitle{Science translational medicine}}} \textbf{\bibinfo{volume}{8}}, \bibinfo{pages}{337ra64--337ra64} (\bibinfo{year}{2016}).
+
+\bibitem{saeidi2022autonomous}
+\bibinfo{author}{Saeidi, H.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Autonomous robotic laparoscopic surgery for intestinal anastomosis}}.
+\newblock {\emph{\JournalTitle{Science robotics}}} \textbf{\bibinfo{volume}{7}}, \bibinfo{pages}{eabj2908} (\bibinfo{year}{2022}).
+
+\bibitem{kuntz2023autonomous}
+\bibinfo{author}{Kuntz, A.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Autonomous medical needle steering in vivo}}.
+\newblock {\emph{\JournalTitle{Science Robotics}}} \textbf{\bibinfo{volume}{8}}, \bibinfo{pages}{eadf7614} (\bibinfo{year}{2023}).
+
+\bibitem{richter2021autonomous}
+\bibinfo{author}{Richter, F.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Autonomous robotic suction to clear the surgical field for hemostasis using image-based blood flow detection}}.
+\newblock {\emph{\JournalTitle{IEEE Robotics and Automation Letters}}} \textbf{\bibinfo{volume}{6}}, \bibinfo{pages}{1383--1390} (\bibinfo{year}{2021}).
+
+\bibitem{arulkumaran2017brief}
+\bibinfo{author}{Arulkumaran, K.}, \bibinfo{author}{Deisenroth, M.~P.}, \bibinfo{author}{Brundage, M.} \& \bibinfo{author}{Bharath, A.~A.}
+\newblock \bibinfo{journal}{\bibinfo{title}{A brief survey of deep reinforcement learning}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:1708.05866}}}  (\bibinfo{year}{2017}).
+
+\bibitem{lee2020learning}
+\bibinfo{author}{Lee, J.}, \bibinfo{author}{Hwangbo, J.}, \bibinfo{author}{Wellhausen, L.}, \bibinfo{author}{Koltun, V.} \& \bibinfo{author}{Hutter, M.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Learning quadrupedal locomotion over challenging terrain}}.
+\newblock {\emph{\JournalTitle{Science robotics}}} \textbf{\bibinfo{volume}{5}}, \bibinfo{pages}{eabc5986} (\bibinfo{year}{2020}).
+
+\bibitem{agarwal2023legged}
+\bibinfo{author}{Agarwal, A.}, \bibinfo{author}{Kumar, A.}, \bibinfo{author}{Malik, J.} \& \bibinfo{author}{Pathak, D.}
+\newblock \bibinfo{title}{Legged locomotion in challenging terrains using egocentric vision}.
+\newblock In \emph{\bibinfo{booktitle}{Conference on Robot Learning}}, \bibinfo{pages}{403--415} (\bibinfo{organization}{PMLR}, \bibinfo{year}{2023}).
+
+\bibitem{liu2021deep}
+\bibinfo{author}{Liu, R.}, \bibinfo{author}{Nageotte, F.}, \bibinfo{author}{Zanne, P.}, \bibinfo{author}{de~Mathelin, M.} \& \bibinfo{author}{Dresp-Langley, B.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Deep reinforcement learning for the control of robotic manipulation: a focussed mini-review}}.
+\newblock {\emph{\JournalTitle{Robotics}}} \textbf{\bibinfo{volume}{10}}, \bibinfo{pages}{22} (\bibinfo{year}{2021}).
+
+\bibitem{zhao2023learning}
+\bibinfo{author}{Zhao, T.~Z.}, \bibinfo{author}{Kumar, V.}, \bibinfo{author}{Levine, S.} \& \bibinfo{author}{Finn, C.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Learning fine-grained bimanual manipulation with low-cost hardware}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2304.13705}}}  (\bibinfo{year}{2023}).
+
+\bibitem{yip2019robot}
+\bibinfo{author}{Yip, M.} \& \bibinfo{author}{Das, N.}
+\newblock \bibinfo{title}{Robot autonomy for surgery}.
+\newblock In \emph{\bibinfo{booktitle}{The Encyclopedia of MEDICAL ROBOTICS: Volume 1 Minimally Invasive Surgical Robotics}}, \bibinfo{pages}{281--313} (\bibinfo{publisher}{World Scientific}, \bibinfo{year}{2019}).
+
+\bibitem{zhang2018study}
+\bibinfo{author}{Zhang, C.}, \bibinfo{author}{Vinyals, O.}, \bibinfo{author}{Munos, R.} \& \bibinfo{author}{Bengio, S.}
+\newblock \bibinfo{journal}{\bibinfo{title}{A study on overfitting in deep reinforcement learning}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:1804.06893}}}  (\bibinfo{year}{2018}).
+
+\bibitem{van2010superhuman}
+\bibinfo{author}{Van Den~Berg, J.} \emph{et~al.}
+\newblock \bibinfo{title}{Superhuman performance of surgical tasks by robots using iterative learning from human-guided demonstrations}.
+\newblock In \emph{\bibinfo{booktitle}{2010 IEEE International Conference on Robotics and Automation}}, \bibinfo{pages}{2074--2081} (\bibinfo{organization}{IEEE}, \bibinfo{year}{2010}).
+
+\bibitem{hu2023model}
+\bibinfo{author}{Hu, Y.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Model predictive optimization for imitation learning from demonstrations}}.
+\newblock {\emph{\JournalTitle{Robotics and Autonomous Systems}}} \textbf{\bibinfo{volume}{163}}, \bibinfo{pages}{104381} (\bibinfo{year}{2023}).
+
+\bibitem{huang2023guided}
+\bibinfo{author}{Huang, T.}, \bibinfo{author}{Chen, K.}, \bibinfo{author}{Li, B.}, \bibinfo{author}{Liu, Y.-H.} \& \bibinfo{author}{Dou, Q.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Guided reinforcement learning with efficient exploration for task automation of surgical robot}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2302.09772}}}  (\bibinfo{year}{2023}).
+
+\bibitem{osa2018algorithmic}
+\bibinfo{author}{Osa, T.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{An algorithmic perspective on imitation learning}}.
+\newblock {\emph{\JournalTitle{Foundations and Trends in Robotics}}} \textbf{\bibinfo{volume}{7}}, \bibinfo{pages}{1--179} (\bibinfo{year}{2018}).
+
+\bibitem{ibarz2021train}
+\bibinfo{author}{Ibarz, J.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{How to train your robot with deep reinforcement learning: lessons we have learned}}.
+\newblock {\emph{\JournalTitle{The International Journal of Robotics Research}}} \textbf{\bibinfo{volume}{40}}, \bibinfo{pages}{698--721} (\bibinfo{year}{2021}).
+
+\bibitem{octo_2023}
+\bibinfo{author}{{Octo Model Team}} \emph{et~al.}
+\newblock \bibinfo{title}{Octo: An open-source generalist robot policy}.
+\newblock \bibinfo{howpublished}{\url{https://octo-models.github.io}} (\bibinfo{year}{2023}).
+
+\bibitem{bommasani2021opportunities}
+\bibinfo{author}{Bommasani, R.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{On the opportunities and risks of foundation models}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2108.07258}}}  (\bibinfo{year}{2021}).
+
+\bibitem{moor2023foundation}
+\bibinfo{author}{Moor, M.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Foundation models for generalist medical artificial intelligence}}.
+\newblock {\emph{\JournalTitle{Nature}}} \textbf{\bibinfo{volume}{616}}, \bibinfo{pages}{259--265} (\bibinfo{year}{2023}).
+
+\bibitem{touvron2023llama}
+\bibinfo{author}{Touvron, H.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Llama 2: Open foundation and fine-tuned chat models}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2307.09288}}}  (\bibinfo{year}{2023}).
+
+\bibitem{vaswani2017attention}
+\bibinfo{author}{Vaswani, A.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Attention is all you need}}.
+\newblock {\emph{\JournalTitle{Advances in neural information processing systems}}} \textbf{\bibinfo{volume}{30}} (\bibinfo{year}{2017}).
+
+\bibitem{dosovitskiy2020image}
+\bibinfo{author}{Dosovitskiy, A.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{An image is worth 16x16 words: Transformers for image recognition at scale}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2010.11929}}}  (\bibinfo{year}{2020}).
+
+\bibitem{zemmar2020rise}
+\bibinfo{author}{Zemmar, A.}, \bibinfo{author}{Lozano, A.~M.} \& \bibinfo{author}{Nelson, B.~J.}
+\newblock \bibinfo{journal}{\bibinfo{title}{The rise of robots in surgical environments during covid-19}}.
+\newblock {\emph{\JournalTitle{Nature Machine Intelligence}}} \textbf{\bibinfo{volume}{2}}, \bibinfo{pages}{566--572} (\bibinfo{year}{2020}).
+
+\bibitem{wang2017review}
+\bibinfo{author}{Wang, K.}, \bibinfo{author}{Ho, C.-C.}, \bibinfo{author}{Zhang, C.} \& \bibinfo{author}{Wang, B.}
+\newblock \bibinfo{journal}{\bibinfo{title}{A review on the 3d printing of functional structures for medical phantoms and regenerated tissue and organ applications}}.
+\newblock {\emph{\JournalTitle{Engineering}}} \textbf{\bibinfo{volume}{3}}, \bibinfo{pages}{653--662} (\bibinfo{year}{2017}).
+
+\bibitem{ghazi2022call}
+\bibinfo{author}{Ghazi, A.}
+\newblock \bibinfo{journal}{\bibinfo{title}{A call for change. can 3d printing replace cadavers for surgical training?}}
+\newblock {\emph{\JournalTitle{Urologic Clinics}}} \textbf{\bibinfo{volume}{49}}, \bibinfo{pages}{39--56} (\bibinfo{year}{2022}).
+
+\bibitem{kumar2020conservative}
+\bibinfo{author}{Kumar, A.}, \bibinfo{author}{Zhou, A.}, \bibinfo{author}{Tucker, G.} \& \bibinfo{author}{Levine, S.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Conservative q-learning for offline reinforcement learning}}.
+\newblock {\emph{\JournalTitle{Advances in Neural Information Processing Systems}}} \textbf{\bibinfo{volume}{33}}, \bibinfo{pages}{1179--1191} (\bibinfo{year}{2020}).
+
+\bibitem{chebotar2023q}
+\bibinfo{author}{Chebotar, Y.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Q-transformer: Scalable offline reinforcement learning via autoregressive q-functions}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2309.10150}}}  (\bibinfo{year}{2023}).
+
+\bibitem{angelopoulos2021gentle}
+\bibinfo{author}{Angelopoulos, A.~N.} \& \bibinfo{author}{Bates, S.}
+\newblock \bibinfo{journal}{\bibinfo{title}{A gentle introduction to conformal prediction and distribution-free uncertainty quantification}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2107.07511}}}  (\bibinfo{year}{2021}).
+
+\bibitem{ren2023robots}
+\bibinfo{author}{Ren, A.~Z.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Robots that ask for help: Uncertainty alignment for large language model planners}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2307.01928}}}  (\bibinfo{year}{2023}).
+
+\bibitem{ac97-8m18-21}
+\bibinfo{author}{ALHAJJ, H.}, \bibinfo{author}{Lamard, M.}, \bibinfo{author}{Conze, P.-h.}, \bibinfo{author}{Cochener, B.} \& \bibinfo{author}{Quellec, G.}
+\newblock \bibinfo{title}{Cataracts}, \doiprefix\url{10.21227/ac97-8m18} (\bibinfo{year}{2021}).
+
+\bibitem{schoeffmann2018cataract}
+\bibinfo{author}{Schoeffmann, K.} \emph{et~al.}
+\newblock \bibinfo{title}{Cataract-101: video dataset of 101 cataract surgeries}.
+\newblock In \emph{\bibinfo{booktitle}{Proceedings of the 9th ACM multimedia systems conference}}, \bibinfo{pages}{421--425} (\bibinfo{year}{2018}).
+
+\bibitem{bouget2015detecting}
+\bibinfo{author}{Bouget, D.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Detecting surgical tools by modelling local appearance and global shape}}.
+\newblock {\emph{\JournalTitle{IEEE transactions on medical imaging}}} \textbf{\bibinfo{volume}{34}}, \bibinfo{pages}{2603--2617} (\bibinfo{year}{2015}).
+
+\bibitem{twinanda2016endonet}
+\bibinfo{author}{Twinanda, A.~P.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Endonet: a deep architecture for recognition tasks on laparoscopic videos}}.
+\newblock {\emph{\JournalTitle{IEEE transactions on medical imaging}}} \textbf{\bibinfo{volume}{36}}, \bibinfo{pages}{86--97} (\bibinfo{year}{2016}).
+
+\bibitem{hong2020cholecseg8k}
+\bibinfo{author}{Hong, W.-Y.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Cholecseg8k: a semantic segmentation dataset for laparoscopic cholecystectomy based on cholec80}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2012.12453}}}  (\bibinfo{year}{2020}).
+
+\bibitem{nwoye2022rendezvous}
+\bibinfo{author}{Nwoye, C.~I.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Rendezvous: Attention mechanisms for the recognition of surgical action triplets in endoscopic videos}}.
+\newblock {\emph{\JournalTitle{Medical Image Analysis}}} \textbf{\bibinfo{volume}{78}}, \bibinfo{pages}{102433} (\bibinfo{year}{2022}).
+
+\bibitem{maier2021heidelberg}
+\bibinfo{author}{Maier-Hein, L.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Heidelberg colorectal data set for surgical data science in the sensor operating room}}.
+\newblock {\emph{\JournalTitle{Scientific data}}} \textbf{\bibinfo{volume}{8}}, \bibinfo{pages}{101} (\bibinfo{year}{2021}).
+
+\bibitem{valderrama2022towards}
+\bibinfo{author}{Valderrama, N.} \emph{et~al.}
+\newblock \bibinfo{title}{Towards holistic surgical scene understanding}.
+\newblock In \emph{\bibinfo{booktitle}{International conference on medical image computing and computer-assisted intervention}}, \bibinfo{pages}{442--452} (\bibinfo{organization}{Springer}, \bibinfo{year}{2022}).
+
+\bibitem{gao2014jhu}
+\bibinfo{author}{Gao, Y.} \emph{et~al.}
+\newblock \bibinfo{title}{Jhu-isi gesture and skill assessment working set (jigsaws): A surgical activity dataset for human motion modeling}.
+\newblock In \emph{\bibinfo{booktitle}{MICCAI workshop: M2cai}}, vol.~\bibinfo{volume}{3} (\bibinfo{year}{2014}).
+
+\bibitem{madapana2019desk}
+\bibinfo{author}{Madapana, N.} \emph{et~al.}
+\newblock \bibinfo{title}{Desk: A robotic activity dataset for dexterous surgical skills transfer to medical robots}.
+\newblock In \emph{\bibinfo{booktitle}{2019 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}}, \bibinfo{pages}{6928--6934} (\bibinfo{organization}{IEEE}, \bibinfo{year}{2019}).
+
+\bibitem{huaulme2022peg}
+\bibinfo{author}{Huaulm{\'e}, A.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Peg transfer workflow recognition challenge report: Does multi-modal data improve recognition?}}
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2202.05821}}}  (\bibinfo{year}{2022}).
+
+\bibitem{rivas2023surgical}
+\bibinfo{author}{Rivas-Blanco, I.}, \bibinfo{author}{Del-Pulgar, C. J.~P.}, \bibinfo{author}{Mariani, A.}, \bibinfo{author}{Tortora, G.} \& \bibinfo{author}{Reina, A.~J.}
+\newblock \bibinfo{title}{A surgical dataset from the da vinci research kit for task automation and recognition}.
+\newblock In \emph{\bibinfo{booktitle}{2023 3rd International Conference on Electrical, Computer, Communications and Mechatronics Engineering (ICECCME)}}, \bibinfo{pages}{1--6} (\bibinfo{organization}{IEEE}, \bibinfo{year}{2023}).
+
+\bibitem{goodman2021real}
+\bibinfo{author}{Goodman, E.~D.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{A real-time spatiotemporal ai model analyzes skill in open surgical videos}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2112.07219}}}  (\bibinfo{year}{2021}).
+
+\bibitem{kim2019medical}
+\bibinfo{author}{Kim, H.-S.}, \bibinfo{author}{Kim, D.-J.} \& \bibinfo{author}{Yoon, K.-H.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Medical big data is not yet available: why we need realism rather than exaggeration}}.
+\newblock {\emph{\JournalTitle{Endocrinology and Metabolism}}} \textbf{\bibinfo{volume}{34}}, \bibinfo{pages}{349--354} (\bibinfo{year}{2019}).
+
+\bibitem{gabelica2022many}
+\bibinfo{author}{Gabelica, M.}, \bibinfo{author}{Boj{\v{c}}i{\'c}, R.} \& \bibinfo{author}{Puljak, L.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Many researchers were not compliant with their published data sharing statement: a mixed-methods study}}.
+\newblock {\emph{\JournalTitle{Journal of Clinical Epidemiology}}} \textbf{\bibinfo{volume}{150}}, \bibinfo{pages}{33--41} (\bibinfo{year}{2022}).
+
+\bibitem{hamilton2023prevalence}
+\bibinfo{author}{Hamilton, D.~G.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Prevalence and predictors of data and code sharing in the medical and health sciences: systematic review with meta-analysis of individual participant data}}.
+\newblock {\emph{\JournalTitle{bmj}}} \textbf{\bibinfo{volume}{382}} (\bibinfo{year}{2023}).
+
+\bibitem{lin2022automatic}
+\bibinfo{author}{Lin, J.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Automatic analysis of available source code of top artificial intelligence conference papers}}.
+\newblock {\emph{\JournalTitle{International Journal of Software Engineering and Knowledge Engineering}}} \textbf{\bibinfo{volume}{32}}, \bibinfo{pages}{947--970} (\bibinfo{year}{2022}).
+
+\bibitem{rives2021biological}
+\bibinfo{author}{Rives, A.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Biological structure and function emerge from scaling unsupervised learning to 250 million protein sequences}}.
+\newblock {\emph{\JournalTitle{Proceedings of the National Academy of Sciences}}} \textbf{\bibinfo{volume}{118}}, \bibinfo{pages}{e2016239118} (\bibinfo{year}{2021}).
+
+\bibitem{jumper2021highly}
+\bibinfo{author}{Jumper, J.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Highly accurate protein structure prediction with alphafold}}.
+\newblock {\emph{\JournalTitle{Nature}}} \textbf{\bibinfo{volume}{596}}, \bibinfo{pages}{583--589} (\bibinfo{year}{2021}).
+
+\bibitem{wu2023towards}
+\bibinfo{author}{Wu, C.}, \bibinfo{author}{Zhang, X.}, \bibinfo{author}{Zhang, Y.}, \bibinfo{author}{Wang, Y.} \& \bibinfo{author}{Xie, W.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Towards generalist foundation model for radiology}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2308.02463}}}  (\bibinfo{year}{2023}).
+
+\bibitem{wang2023medfmc}
+\bibinfo{author}{Wang, D.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Medfmc: A real-world dataset and benchmark for foundation model adaptation in medical image classification}}.
+\newblock {\emph{\JournalTitle{arXiv preprint arXiv:2306.09579}}}  (\bibinfo{year}{2023}).
+
+\bibitem{hsu1998nonsurgical}
+\bibinfo{author}{Hsu, L.~G.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Nonsurgical factors that influence the outcome of bariatric surgery: a review}}.
+\newblock {\emph{\JournalTitle{Psychosomatic medicine}}} \textbf{\bibinfo{volume}{60}}, \bibinfo{pages}{338--346} (\bibinfo{year}{1998}).
+
+\bibitem{benoist2000impact}
+\bibinfo{author}{Benoist, S.}, \bibinfo{author}{Panis, Y.}, \bibinfo{author}{Alves, A.} \& \bibinfo{author}{Valleur, P.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Impact of obesity on surgical outcomes after colorectal resection}}.
+\newblock {\emph{\JournalTitle{The American journal of surgery}}} \textbf{\bibinfo{volume}{179}}, \bibinfo{pages}{275--281} (\bibinfo{year}{2000}).
+
+\bibitem{rosenberger2006psychosocial}
+\bibinfo{author}{Rosenberger, P.~H.}, \bibinfo{author}{Jokl, P.} \& \bibinfo{author}{Ickovics, J.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Psychosocial factors and surgical outcomes: an evidence-based literature review}}.
+\newblock {\emph{\JournalTitle{JAAOS-Journal of the American Academy of Orthopaedic Surgeons}}} \textbf{\bibinfo{volume}{14}}, \bibinfo{pages}{397--405} (\bibinfo{year}{2006}).
+
+\bibitem{lam2022machine}
+\bibinfo{author}{Lam, K.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Machine learning for technical skill assessment in surgery: a systematic review}}.
+\newblock {\emph{\JournalTitle{NPJ digital medicine}}} \textbf{\bibinfo{volume}{5}}, \bibinfo{pages}{24} (\bibinfo{year}{2022}).
+
+\bibitem{khalid2020evaluation}
+\bibinfo{author}{Khalid, S.}, \bibinfo{author}{Goldenberg, M.}, \bibinfo{author}{Grantcharov, T.}, \bibinfo{author}{Taati, B.} \& \bibinfo{author}{Rudzicz, F.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Evaluation of deep learning models for identifying surgical actions and measuring performance}}.
+\newblock {\emph{\JournalTitle{JAMA network open}}} \textbf{\bibinfo{volume}{3}}, \bibinfo{pages}{e201664--e201664} (\bibinfo{year}{2020}).
+
+\bibitem{haque2022assessment}
+\bibinfo{author}{Haque, T.~F.} \emph{et~al.}
+\newblock \bibinfo{journal}{\bibinfo{title}{An assessment tool to provide targeted feedback to robotic surgical trainees: development and validation of the end-to-end assessment of suturing expertise (ease)}}.
+\newblock {\emph{\JournalTitle{Urology practice}}} \textbf{\bibinfo{volume}{9}}, \bibinfo{pages}{532--539} (\bibinfo{year}{2022}).
+
+\bibitem{moon2022early}
+\bibinfo{author}{Moon, M.~R.}
+\newblock \bibinfo{journal}{\bibinfo{title}{Early-and late-career surgeon deficiencies in complex cases}}.
+\newblock {\emph{\JournalTitle{The Journal of Thoracic and Cardiovascular Surgery}}} \textbf{\bibinfo{volume}{164}}, \bibinfo{pages}{1023--1025} (\bibinfo{year}{2022}).
+
+\end{thebibliography}
