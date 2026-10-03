@@ -1033,6 +1033,36 @@ impl ViewerState {
             .any(|(r, c, cell)| (*r, *c) != (s[0], s[1]) && !cell.text.is_empty())
     }
 
+    /// Pastes tab-separated text (what spreadsheets copy) from the
+    /// selection's first cell on, each value as typed; one value into a
+    /// larger selection fills it, as in Excel. The pasted cells are
+    /// selected afterwards.
+    pub fn paste_text(&mut self, text: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let mut values = parse_tsv(text);
+        if values.is_empty() {
+            return Ok(());
+        }
+        let s = self.selection();
+        if values.len() == 1 && values[0].len() == 1 && (s[0], s[1]) != (s[2], s[3]) {
+            let v = values[0][0].clone();
+            values = vec![vec![v; (s[3] - s[1] + 1) as usize]; (s[2] - s[0] + 1) as usize];
+        }
+        self.doc()
+            .set_cells(self.unit, s[0], s[1], &values)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        let rows = values.len() as u32;
+        let cols = values.iter().map(Vec::len).max().unwrap_or(1) as u32;
+        self.grid_move_to(s[0], s[1]);
+        if rows > 1 || cols > 1 {
+            self.grid_extend_to(s[0] + rows - 1, s[1] + cols - 1);
+        }
+        Ok(())
+    }
+
     /// Clears the selection's values, formats kept (Delete).
     pub fn clear_selection(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -1899,6 +1929,63 @@ fn merge(ctx: &mut EditorContext<'_>, args: &serde_json::Value, center: bool) ->
     with(ctx, |v| v.merge_selection(center))
 }
 
+/// Tab-separated text as rows of values: a field in double quotes may hold
+/// tabs, line breaks and doubled quotes; the line break ending the last
+/// row is not a row.
+pub fn parse_tsv(text: &str) -> Vec<Vec<String>> {
+    let text = text
+        .strip_suffix("\r\n")
+        .or_else(|| text.strip_suffix('\n'))
+        .unwrap_or(text);
+    if text.is_empty() {
+        return Vec::new();
+    }
+    let mut rows = vec![Vec::new()];
+    let mut field = String::new();
+    let mut chars = text.chars().peekable();
+    let mut at_start = true;
+    while let Some(c) = chars.next() {
+        match c {
+            '"' if at_start => {
+                // A quoted field, up to its closing quote.
+                while let Some(q) = chars.next() {
+                    if q == '"' {
+                        if chars.peek() == Some(&'"') {
+                            chars.next();
+                            field.push('"');
+                        } else {
+                            break;
+                        }
+                    } else {
+                        field.push(q);
+                    }
+                }
+                at_start = false;
+            }
+            '\t' => {
+                rows.last_mut()
+                    .expect("a row")
+                    .push(std::mem::take(&mut field));
+                at_start = true;
+            }
+            '\r' if chars.peek() == Some(&'\n') => {}
+            '\n' => {
+                rows.last_mut()
+                    .expect("a row")
+                    .push(std::mem::take(&mut field));
+                rows.push(Vec::new());
+                at_start = true;
+            }
+            c => {
+                field.push(c);
+                at_start = false;
+            }
+        }
+    }
+    rows.last_mut().expect("a row").push(field);
+    rows
+}
+
 /// A row three points taller or shorter: the terminal's drag.
 fn grid_height(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     with(ctx, |v| {
@@ -2140,6 +2227,20 @@ fn grid_commands() -> Vec<Command> {
                     let col = v.grid_pos().col;
                     v.autofit_col(col, &text_cells)
                 })
+            },
+        ),
+        cmd(
+            "viewer.grid.pasteText",
+            "Paste into Cells",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let text = args
+                    .get("text")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string();
+                with(ctx, |v| v.paste_text(&text))
             },
         ),
         cmd(
@@ -2572,6 +2673,24 @@ mod tests {
         assert!(v.bitmap_now().unwrap().is_none());
         // The waiting call takes the thread's result.
         assert_eq!(v.bitmap().unwrap().width, 400);
+    }
+
+    #[test]
+    fn tab_separated_text() {
+        assert_eq!(
+            parse_tsv("a\tb\r\nc\td\r\n"),
+            vec![vec!["a", "b"], vec!["c", "d"]]
+        );
+        assert_eq!(
+            parse_tsv("\"x\ty\"\t\"say \"\"hi\"\"\"\n\"two\nlines\""),
+            vec![
+                vec!["x\ty".to_string(), "say \"hi\"".into()],
+                vec!["two\nlines".into()],
+            ]
+        );
+        assert_eq!(parse_tsv("1,300.00"), vec![vec!["1,300.00"]]);
+        assert!(parse_tsv("").is_empty());
+        assert_eq!(parse_tsv("a\t\tc"), vec![vec!["a", "", "c"]]);
     }
 
     #[test]

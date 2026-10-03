@@ -1178,6 +1178,19 @@ impl Editor {
             }
             Request::Paste { plain } => {
                 let item = cx.read_from_clipboard();
+                // A spreadsheet takes the text as rows of cells.
+                if self.doc.viewer.as_deref().is_some_and(|v| v.is_grid()) {
+                    let text = item
+                        .and_then(|i| i.text())
+                        .unwrap_or_else(|| self.clipboard.text.clone());
+                    self.run_command(
+                        "viewer.grid.pasteText",
+                        serde_json::json!({ "text": text }),
+                        window,
+                        cx,
+                    );
+                    return;
+                }
                 // A picture without text (a screenshot), or copied picture
                 // files: kept beside the document and linked.
                 if !plain && let Some(item) = &item {

@@ -139,6 +139,24 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let copied = cx.read_from_clipboard().and_then(|c| c.text());
     assert_eq!(copied.as_deref(), Some("Item\tQ1\nRent\t1,300.00"));
+    // Pasted at A12: the rows land in cells, the numbers as numbers.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(11, 0);
+        e.run_command("edit.paste", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    let (a12, b13, sel) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let name = v.selection_name();
+        v.grid_move_to(11, 0);
+        let a = v.cell_input();
+        v.grid_move_to(12, 1);
+        (a, v.cell_input(), name)
+    });
+    assert_eq!(
+        (a12.as_str(), b13.as_str(), sel.as_str()),
+        ("Item", "1300", "A12:B13")
+    );
 
     // Every column fitted to its text, in the grid's font.
     e.update_in(cx, |e, window, cx| {
