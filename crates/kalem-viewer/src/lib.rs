@@ -977,6 +977,17 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Gives the chart at `index` of [`ViewerDocument::charts`] a title, or
+    /// takes its title away (`None`).
+    fn set_chart_title(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _title: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Removes the chart at `index` of [`ViewerDocument::charts`].
     fn delete_chart(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
