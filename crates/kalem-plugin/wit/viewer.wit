@@ -1,0 +1,183 @@
+package kalem:plugin@0.1.0;
+
+/// A plugin that opens files that are not text (design §11.13, D54):
+/// the `document-viewer` contract, and the `document-editor` half on top
+/// of it for a format the plugin writes faithfully. A plugin never draws:
+/// it returns what the host paints.
+///
+/// The grid of spreadsheets and databases (sheets, cells, charts, pivot
+/// tables, macros) is to come in an interface of its own; `coverage.toml`
+/// says where each extension point stands.
+interface viewer {
+    use files.{file};
+
+    /// How sure the plugin is that it opens a file.
+    enum detection {
+        /// It does not.
+        no,
+        /// By the extension alone.
+        extension,
+        /// By the file's first bytes.
+        magic,
+    }
+
+    /// What a document is made of.
+    enum unit-kind {
+        image,
+        frame,
+        page,
+        sheet,
+        slide,
+        table,
+    }
+
+    /// One unit of a document.
+    record unit {
+        kind: unit-kind,
+        /// A page's number as printed, a sheet's name.
+        label: string,
+        /// How long a frame shows.
+        duration-ms: option<u32>,
+    }
+
+    /// An entry of a document's outline.
+    record outline-entry {
+        title: string,
+        /// The unit it goes to, from 0.
+        unit: u32,
+        /// From 1 at the top.
+        level: u8,
+    }
+
+    /// A document's units and outline.
+    record structure {
+        units: list<unit>,
+        outline: list<outline-entry>,
+    }
+
+    /// An sRGB colour.
+    record rgb {
+        r: u8,
+        g: u8,
+        b: u8,
+    }
+
+    /// The theme a unit is rendered for: a page's paper may follow it.
+    record theme {
+        dark: bool,
+        background: rgb,
+        foreground: rgb,
+    }
+
+    /// What a unit is rendered at.
+    record render-request {
+        /// 1 for the unit's own size: a picture's pixels, a page at 72 dpi.
+        scale: f32,
+        theme: theme,
+    }
+
+    /// Pixels the host paints: 8-bit RGBA, not premultiplied, rows top to
+    /// bottom, `width * height * 4` bytes.
+    record bitmap {
+        width: u32,
+        height: u32,
+        rgba: list<u8>,
+    }
+
+    /// A rectangle in a unit's pixels at scale 1.
+    record rect {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+    }
+
+    /// A byte range of a unit's text.
+    record span {
+        start: u32,
+        end: u32,
+    }
+
+    /// Where a search's match is.
+    record hit {
+        unit: u32,
+        span: span,
+    }
+
+    /// A link inside a unit.
+    record link {
+        rect: rect,
+        /// A URL, a file, or `#N` for unit N.
+        target: string,
+    }
+
+    /// A line of the information panel.
+    record info-field {
+        label: string,
+        value: string,
+    }
+
+    /// An edit the format allows at a place.
+    record edit {
+        id: string,
+        title: string,
+        /// The edit that undoes it.
+        inverse: option<string>,
+    }
+
+    /// The file with the edits, written atomically by the host, and what
+    /// the format could not keep.
+    record save-output {
+        bytes: list<u8>,
+        losses: list<string>,
+    }
+
+    /// The plugin's description of itself.
+    record description {
+        /// Such as `pdf-viewer`.
+        id: string,
+        /// For people.
+        name: string,
+        /// Lower case, without the dot.
+        extensions: list<string>,
+    }
+
+    describe: func() -> description;
+
+    /// Whether it opens the file `name` that starts with `head`.
+    detect: func(name: string, head: list<u8>) -> detection;
+
+    /// Opens a file; the document keeps the handle.
+    open: func(file: file) -> result<document, string>;
+
+    /// A file the plugin opened.
+    resource document {
+        structure: func() -> structure;
+        /// A unit's size at scale 1, when known without rendering it.
+        size: func(unit: u32) -> option<tuple<f32, f32>>;
+        render: func(unit: u32, request: render-request) -> result<bitmap, string>;
+        /// A unit's text, for search, copy and the terminal.
+        text: func(unit: u32) -> string;
+        /// Where a span of a unit's text stands.
+        text-rects: func(unit: u32, span: span) -> list<rect>;
+        /// The glyph at a point, or the nearest one.
+        text-at: func(unit: u32, x: f32, y: f32) -> option<tuple<span, rect>>;
+        info: func() -> list<info-field>;
+        search: func(query: string) -> list<hit>;
+        links: func(unit: u32) -> list<link>;
+
+        // The editor half (`document-editor`); a viewer only lists no
+        // edits and refuses to save.
+        edits: func(unit: u32) -> list<edit>;
+        /// The units it changed.
+        apply: func(edit: string) -> result<list<u32>, string>;
+        modified: func() -> bool;
+        save: func() -> result<save-output, string>;
+    }
+}
+
+/// A plugin opening files that are not text.
+world document-viewer {
+    import files;
+    export viewer;
+}

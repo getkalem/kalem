@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- The plugin API is defined in WIT (`crates/kalem-plugin/wit/`), the one source the `kalem-plugin` crate a plugin builds against and Kalem's host are both generated from; its first world, `document-viewer`, lets a plugin open files that are not text, reading only the file Kalem hands it.
 - `kalem plugin new NAME` starts a plugin (inside a checkout of getkalem/plugins, from its template) and `kalem plugin build [DIR]` builds it: Cargo for `wasm32-unknown-unknown`, then `wasm-tools` wraps the module as the component the manifest names, and the command says what it imports and exports.
 - Fifty arXiv papers under CC BY 4.0 or CC0 in the LaTeX test corpus (`tests/corpus/latex/arxiv`), ten per field, each parsed back to its bytes and drawn in the tests.
 - A nightly fuzzing workflow: the Org and LaTeX parsers and their incremental reparses a quarter of an hour each, the corpus kept between nights.

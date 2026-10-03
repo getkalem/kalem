@@ -1,0 +1,86 @@
+# Every extension point of the design document's §11.10 to §11.13, and
+# where it stands in the WIT definition: `interface` names the WIT
+# interface that defines it, `planned` the open task that will. The test
+# `tests/coverage.rs` checks both, and that no point of the design is
+# missing here.
+
+[[point]]
+name = "Commands, keybindings"
+planned = "T3.1.4"
+
+[[point]]
+name = "Link types"
+planned = "T3.1.9a"
+
+[[point]]
+name = "Block renderers"
+planned = "T3.1.9b"
+
+[[point]]
+name = "Decorations"
+planned = "T3.1.9c"
+
+[[point]]
+name = "Completers and hover"
+planned = "T3.1.9c"
+
+[[point]]
+name = "Input rules"
+planned = "T3.1.9c"
+
+[[point]]
+name = "Highlighters and document modes"
+planned = "T3.1.9g"
+
+[[point]]
+name = "Views"
+planned = "T3.1.9d"
+
+[[point]]
+name = "Panels"
+planned = "T3.1.5"
+
+[[point]]
+name = "Diagnostics"
+planned = "T3.1.9e"
+
+[[point]]
+name = "Export backends and filters"
+planned = "T3.1.8"
+
+[[point]]
+name = "Importers, paste handlers"
+planned = "T3.1.9e"
+
+[[point]]
+name = "Babel languages"
+planned = "T3.1.8"
+
+[[point]]
+name = "Table functions"
+planned = "T3.1.8"
+
+[[point]]
+name = "Dynamic blocks"
+planned = "T3.1.9d"
+
+[[point]]
+name = "Agenda views, capture templates"
+planned = "T3.1.9f"
+
+[[point]]
+name = "CLI subcommands"
+planned = "T3.1.9f"
+
+[[point]]
+name = "Themes"
+planned = "T3.1.9f"
+
+# §11.13.
+[[point]]
+name = "Viewers and editors of files that are not text"
+interface = "viewer"
+
+[[point]]
+name = "Grids of spreadsheets and databases"
+planned = "T3.7.4"
