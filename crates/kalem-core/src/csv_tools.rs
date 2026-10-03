@@ -382,6 +382,33 @@ pub fn block_rows(block: &str, d: &Dialect) -> Vec<Vec<String>> {
     }
 }
 
+/// The cells of rows `rows` and columns `cols` (both inclusive, in any
+/// order) as TSV, as spreadsheets copy a range: a tab between fields, a
+/// line feed after each row, tabs and line breaks inside a value as
+/// spaces. Cells past a short row are empty.
+pub fn rectangle_tsv(
+    text: &str,
+    d: &Dialect,
+    rows: (usize, usize),
+    cols: (usize, usize),
+) -> String {
+    let (r0, r1) = (rows.0.min(rows.1), rows.0.max(rows.1));
+    let (c0, c1) = (cols.0.min(cols.1), cols.0.max(cols.1));
+    let mut out = String::new();
+    for row in crate::csv::rows(text, d).iter().take(r1 + 1).skip(r0) {
+        let cells: Vec<String> = (c0..=c1)
+            .map(|c| {
+                row.get(c)
+                    .map(|v| v.replace("\r\n", " ").replace(['\t', '\n', '\r'], " "))
+                    .unwrap_or_default()
+            })
+            .collect();
+        out.push_str(&cells.join("\t"));
+        out.push('\n');
+    }
+    out
+}
+
 /// Paste as Block: the clipboard's rows written over the cells from row
 /// `row`, column `col` down and to the right, as a spreadsheet pastes a
 /// range; rows past the end are added. Only the cells the block covers
@@ -446,6 +473,17 @@ pub fn paste_block(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_rectangle_of_cells_as_tsv() {
+        let d = Dialect::default();
+        let text = "a,b,c\n1,\"x\ty\",3\n4,5\n";
+        assert_eq!(rectangle_tsv(text, &d, (2, 1), (1, 2)), "x y\t3\n5\t\n");
+        assert_eq!(rectangle_tsv(text, &d, (0, 0), (0, 0)), "a\n");
+        // Copied and pasted as a block elsewhere, the same cells.
+        let block = block_rows(&rectangle_tsv(text, &d, (0, 2), (0, 1)), &d);
+        assert_eq!(block, [["a", "b"], ["1", "x y"], ["4", "5"]]);
+    }
 
     #[test]
     fn paste_block_writes_over_cells() {

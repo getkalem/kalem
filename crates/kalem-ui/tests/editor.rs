@@ -4029,6 +4029,69 @@ fn csv_frozen_column(cx: &mut TestAppContext) {
     assert_eq!(e.read_with(cx, |e, _| e.frozen.get()), gpui::px(0.));
 }
 
+/// A selection across rows of a CSV grid copies its rectangle of cells as
+/// TSV, and cuts them empty (T2.7d.9).
+#[gpui::test]
+fn csv_rectangle_of_cells(cx: &mut TestAppContext) {
+    let text = "a,b,c\n11,22,33\n44,55,66\n";
+    let (e, cx) = open_named(text, "r.csv", || None, cx);
+    e.update(cx, |e, _| {
+        e.doc.move_cursor(text.find("22").unwrap(), false);
+        e.doc.move_cursor(text.find("66").unwrap() + 1, true);
+    });
+    cx.run_until_parked();
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("edit.copy"));
+    cx.run_until_parked();
+    let copied = cx.read_from_clipboard().and_then(|c| c.text());
+    assert_eq!(copied.as_deref(), Some("22\t33\n55\t66\n"));
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("edit.cut"));
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string()),
+        "a,b,c\n11,,\n44,,\n"
+    );
+}
+
+/// A column's edge dragged in the letters bar sets its width; double
+/// clicked, the width fits the values (T2.7d.9). The file is untouched.
+#[gpui::test]
+fn csv_column_width_dragged(cx: &mut TestAppContext) {
+    let text = "name,note\nAda,a rather long note here\nBob,short\n";
+    let (e, cx) = open_named(text, "d.csv", || None, cx);
+    cx.run_until_parked();
+    let edge = cx.debug_bounds("csv-edge-1").expect("B's edge").center();
+    let left = gpui::MouseButton::Left;
+    let none = gpui::Modifiers::none();
+    cx.simulate_mouse_down(edge, left, none);
+    let to = gpui::point(edge.x + gpui::px(200.), edge.y);
+    cx.simulate_mouse_move(to, left, none);
+    cx.simulate_mouse_up(to, left, none);
+    cx.run_until_parked();
+    let wide = e
+        .read_with(cx, |e, _| e.doc.csv_columns.widths.get(&1).copied())
+        .expect("a width set");
+    assert!(wide > 25, "{wide}");
+    // Double clicked: as long as the longest value.
+    let edge = cx.debug_bounds("csv-edge-1").expect("B's edge").center();
+    cx.simulate_event(gpui::MouseDownEvent {
+        button: left,
+        position: edge,
+        modifiers: none,
+        click_count: 2,
+        first_mouse: false,
+    });
+    cx.simulate_mouse_up(edge, left, none);
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.csv_columns.widths.get(&1).copied()),
+        Some("a rather long note here".len())
+    );
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string()),
+        text
+    );
+}
+
 /// Entries dragged from a listing (T2.7e.10, T2.7e.17): dropped on a
 /// document they are linked; dropped on a folder they move into it.
 #[gpui::test]
