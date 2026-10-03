@@ -861,6 +861,37 @@ fn charts() {
     t.app
         .run_command("viewer.grid.chartLegend", json!({ "position": "none" }));
     assert!(!t.screen().contains("■ Q1"));
+    // Data labels: the checklist, Value checked from the palette and
+    // applied; the bars show their values.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('d'));
+    let s = t.screen();
+    assert!(s.contains("☐ Value") && s.contains("Apply"), "{s}");
+    for ch in "Value".chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    assert!(t.screen().contains("☑ Value"));
+    for ch in "apply".chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    assert!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .labels
+            .value
+    );
+    let s = t.screen();
+    assert!(s.contains("1200"), "{s}");
+    t.app.run_command(
+        "viewer.grid.dataLabels",
+        json!({ "value": false, "category": false, "series": false, "percent": false, "apply": true }),
+    );
+    assert!(
+        !t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .labels
+            .any()
+    );
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app

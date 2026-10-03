@@ -26,6 +26,7 @@ pub fn chart_view(
     background: Hsla,
     border: Hsla,
     text: Hsla,
+    font: SharedString,
 ) -> gpui::Div {
     let axes = !matches!(
         chart.kind,
@@ -61,7 +62,7 @@ pub fn chart_view(
     let canvas = div().flex_1().min_h(px(10.)).relative().child(
         gpui::canvas(
             |_, _, _| {},
-            move |bounds, (), window, _| paint(&plot, bounds, border, window),
+            move |bounds, (), window, cx| paint(&plot, bounds, border, (&font, text), window, cx),
         )
         .absolute()
         .size_full(),
@@ -219,7 +220,52 @@ pub fn chart_view(
     d
 }
 
-fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window) {
+/// Where a data label goes against its point.
+#[derive(Clone, Copy)]
+enum Place {
+    Above,
+    Right,
+    Center,
+}
+
+/// A data label's text: the parts the chart asks for, as Excel joins them.
+fn label_text(chart: &Chart, series: usize, i: usize, v: f64, total: f64) -> Option<String> {
+    let l = chart.labels;
+    let mut parts = Vec::new();
+    if l.series {
+        parts.push(chart.series.get(series)?.name.clone());
+    }
+    if l.category {
+        parts.push(
+            chart
+                .categories
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| (i + 1).to_string()),
+        );
+    }
+    if l.value {
+        parts.push(if v.fract() == 0.0 {
+            format!("{v}")
+        } else {
+            format!("{v:.2}").trim_end_matches('0').to_owned()
+        });
+    }
+    if l.percent && total > 0.0 {
+        parts.push(format!("{:.0}%", v / total * 100.0));
+    }
+    (!parts.is_empty()).then(|| parts.join(", "))
+}
+
+fn paint(
+    chart: &Chart,
+    b: Bounds<Pixels>,
+    grid: Hsla,
+    (font, ink): (&SharedString, Hsla),
+    window: &mut gpui::Window,
+    cx: &mut gpui::App,
+) {
+    let mut marks: Vec<(f32, f32, String, Place)> = Vec::new();
     let (x0, y0) = (f32::from(b.origin.x), f32::from(b.origin.y));
     let (w, h) = (f32::from(b.size.width), f32::from(b.size.height));
     if w < 4.0 || h < 4.0 {
@@ -276,6 +322,13 @@ fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window
                     } else {
                         rect(x0 + start, y0 + h - z, bar, z - a, c, window);
                     }
+                    if let Some(t) = label_text(chart, j, i, v, 0.0) {
+                        if horizontal {
+                            marks.push((x0 + z + 3.0, y0 + start + bar / 2.0, t, Place::Right));
+                        } else {
+                            marks.push((x0 + start + bar / 2.0, y0 + h - z - 2.0, t, Place::Above));
+                        }
+                    }
                 }
             }
         }
@@ -312,6 +365,13 @@ fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window
                     .enumerate()
                     .filter_map(|(i, v)| Some((px_of(i, s)?, py((*v)?))))
                     .collect();
+                for (i, v) in s.values.iter().enumerate() {
+                    if let (Some(v), Some(x)) = (v, px_of(i, s))
+                        && let Some(t) = label_text(chart, j, i, *v, 0.0)
+                    {
+                        marks.push((x, py(*v) - 4.0, t, Place::Above));
+                    }
+                }
                 match chart.kind {
                     ChartKind::Scatter => {
                         for (x, y) in &pts {
@@ -371,6 +431,20 @@ fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window
                 if let Ok(path) = p.build() {
                     window.paint_path(path, color(None, i));
                 }
+                if let Some(t) = label_text(chart, 0, i, v, total) {
+                    let mid = angle + sweep / 2.0;
+                    let at = if chart.kind == ChartKind::Doughnut {
+                        0.75
+                    } else {
+                        0.62
+                    };
+                    marks.push((
+                        cx + r * at * mid.cos(),
+                        cy + r * at * mid.sin(),
+                        t,
+                        Place::Center,
+                    ));
+                }
                 angle += sweep;
             }
             if chart.kind == ChartKind::Doughnut {
@@ -390,5 +464,33 @@ fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window
             }
         }
         ChartKind::Other => {}
+    }
+    // The data labels over what was drawn.
+    let fs = px(10.);
+    let lh = fs * 1.2;
+    for (x, y, t, place) in marks {
+        let run = gpui::TextRun {
+            len: t.len(),
+            font: gpui::font(font.clone()),
+            color: ink,
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let shaped = window.text_system().shape_line(t.into(), fs, &[run], None);
+        let tw = f32::from(shaped.width);
+        let (ox, oy) = match place {
+            Place::Above => (x - tw / 2.0, y - f32::from(lh)),
+            Place::Right => (x, y - f32::from(lh) / 2.0),
+            Place::Center => (x - tw / 2.0, y - f32::from(lh) / 2.0),
+        };
+        let _ = shaped.paint(
+            point(px(ox), px(oy)),
+            lh,
+            gpui::TextAlign::Left,
+            None,
+            window,
+            cx,
+        );
     }
 }

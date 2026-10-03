@@ -3768,7 +3768,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4505,7 +4505,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-xlsx"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=9e0172fafa7e67196a2d91aed2535577358f1388#9e0172fafa7e67196a2d91aed2535577358f1388"
+source = "git+https://github.com/getkalem/plugins?rev=ca79fc6ae84be5bfe731aa85b4b8da1b00947084#ca79fc6ae84be5bfe731aa85b4b8da1b00947084"
 dependencies = [
  "calamine",
  "cfb",

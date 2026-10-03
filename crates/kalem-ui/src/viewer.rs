@@ -878,6 +878,7 @@ impl Editor {
                         theme.background,
                         theme.border,
                         theme.foreground,
+                        SharedString::from(theme.font.clone()),
                     )
                     .cursor_move()
                     .on_mouse_down(

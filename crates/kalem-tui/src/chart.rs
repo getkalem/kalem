@@ -183,7 +183,15 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                             let v = s.values.get(i).copied().flatten().unwrap_or(0.0);
                             Bar::default()
                                 .value(v.max(0.0).round() as u64)
-                                .text_value(String::new())
+                                .text_value(if chart.labels.value {
+                                    if v.fract() == 0.0 {
+                                        format!("{v}")
+                                    } else {
+                                        format!("{v:.1}")
+                                    }
+                                } else {
+                                    String::new()
+                                })
                                 .style(color(caps, s.color, j))
                         })
                         .collect();
@@ -192,10 +200,17 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                         .bars(&bars)
                 })
                 .collect();
+            let top = chart
+                .series
+                .iter()
+                .flat_map(|s| s.values.iter().flatten())
+                .fold(0f64, |m, v| m.max(v.round()))
+                .max(1.0) as u64;
             let mut bc = BarChart::default()
                 .bar_width(bar_width)
                 .group_gap(1)
-                .bar_gap(0);
+                .bar_gap(0)
+                .max(top);
             if horizontal {
                 bc = bc.direction(ratatui::layout::Direction::Horizontal);
             }
@@ -203,6 +218,32 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                 bc = bc.data(g);
             }
             bc.render(plot, buf);
+            // Values over their columns, where the bars are too narrow to
+            // hold them.
+            if chart.labels.value && !horizontal && plot.height > 2 {
+                let rows = plot.height - 1;
+                let group_w = bar_width * k + 1;
+                for i in 0..n {
+                    for (j, s) in chart.series.iter().enumerate() {
+                        let Some(v) = s.values.get(i).copied().flatten() else {
+                            continue;
+                        };
+                        let text = if v.fract() == 0.0 {
+                            format!("{v}")
+                        } else {
+                            format!("{v:.1}")
+                        };
+                        let x = plot.x + i as u16 * group_w + j as u16 * bar_width;
+                        let cells = ((v.max(0.0) / top as f64) * f64::from(rows)).ceil() as u16;
+                        let y = (plot.y + rows).saturating_sub(cells + 1).max(plot.y);
+                        let w = text.chars().count() as u16;
+                        let x = (x + bar_width / 2).saturating_sub(w / 2).max(plot.x);
+                        if x + w <= plot.x + plot.width {
+                            buf.set_string(x, y, &text, Style::default());
+                        }
+                    }
+                }
+            }
         }
         ChartKind::Line | ChartKind::Area | ChartKind::Scatter => {
             if caps.ascii {
@@ -298,7 +339,14 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                 let v = v.unwrap_or(0.0).max(0.0);
                 let share = v / total;
                 let name = short(&label(i), 10);
-                let text = format!("{name:<10} {:>3.0}% ", share * 100.0);
+                // The value beside the share when the labels ask for it.
+                let text = if chart.labels.value && !chart.labels.percent {
+                    format!("{name:<10} {v:>6} ")
+                } else if chart.labels.value {
+                    format!("{name:<10} {v} {:>3.0}% ", share * 100.0)
+                } else {
+                    format!("{name:<10} {:>3.0}% ", share * 100.0)
+                };
                 let room = width.saturating_sub(text.chars().count());
                 let n = (share * room as f64).round() as usize;
                 let y = plot.y + i as u16;
