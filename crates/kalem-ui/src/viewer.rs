@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     App, Bounds, Context, Corners, Div, InteractiveElement, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, ParentElement, Pixels, Point, RenderImage, ScrollWheelEvent,
@@ -26,6 +27,10 @@ pub struct ViewerView {
     images: Vec<(Key, Arc<RenderImage>)>,
     /// Where a drag started, or last moved to.
     drag: Option<Point<Pixels>>,
+    /// Where the button went down: released near it, it is a click.
+    press: Option<Point<Pixels>>,
+    /// The pointer is over a link.
+    over_link: bool,
     /// The area as last laid out.
     pub bounds: Option<Bounds<Pixels>>,
     /// The next frame's timer.
@@ -206,22 +211,67 @@ impl Editor {
         };
         let area = area
             .id("viewer-area")
+            .when(self.viewer_view.over_link, |d| d.cursor_pointer())
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, ev: &MouseDownEvent, window, cx| {
                     this.viewer_view.drag = Some(ev.position);
+                    this.viewer_view.press = Some(ev.position);
                     let handle = gpui::Focusable::focus_handle(this, cx);
                     window.focus(&handle, cx);
                 }),
             )
             .on_mouse_up(
                 MouseButton::Left,
-                cx.listener(|this, _: &MouseUpEvent, _, _| {
+                cx.listener(|this, ev: &MouseUpEvent, _, cx| {
                     this.viewer_view.drag = None;
+                    let Some(down) = this.viewer_view.press.take() else {
+                        return;
+                    };
+                    let moved = ev.position - down;
+                    if f32::from(moved.x).hypot(f32::from(moved.y)) > 4.0 {
+                        return;
+                    }
+                    // A click: a link goes to its page, or opens outside.
+                    let at = ev.position
+                        - this
+                            .viewer_view
+                            .bounds
+                            .map(|b| b.origin)
+                            .unwrap_or_default();
+                    let Some(v) = this.doc.viewer.as_deref_mut() else {
+                        return;
+                    };
+                    let Some(target) = v.link_at(f32::from(at.x), f32::from(at.y)) else {
+                        return;
+                    };
+                    if let Some(url) = v.follow(&target)
+                        && (url.contains("://") || url.starts_with("mailto:"))
+                    {
+                        cx.open_url(&url);
+                    }
+                    cx.notify();
                 }),
             )
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
                 let Some(from) = this.viewer_view.drag else {
+                    // Over a link, the pointer is a hand.
+                    let at = ev.position
+                        - this
+                            .viewer_view
+                            .bounds
+                            .map(|b| b.origin)
+                            .unwrap_or_default();
+                    let over = this
+                        .doc
+                        .viewer
+                        .as_deref_mut()
+                        .and_then(|v| v.link_at(f32::from(at.x), f32::from(at.y)))
+                        .is_some();
+                    if over != this.viewer_view.over_link {
+                        this.viewer_view.over_link = over;
+                        cx.notify();
+                    }
                     return;
                 };
                 if ev.pressed_button != Some(MouseButton::Left) {
