@@ -164,10 +164,38 @@ fn main() {
     assert_eq!(greet.insert, "greet()");
     assert_eq!(greet.cursor, "greet(".len());
     assert_eq!(&doc.text().as_str()[greet.range.clone()], "gr");
+    // Documentation: given with an item, or fetched when it is chosen.
+    assert_eq!(greet.documentation.as_deref(), Some("Greets `name`."));
+    let goodbye = items.iter().find(|i| i.label == "goodbye/0").unwrap();
+    assert!(goodbye.documentation.is_none() && goodbye.data.is_some());
+    use kalem_core::completers::Completer;
+    assert_eq!(
+        lsp::LspCompleter.resolve(goodbye).as_deref(),
+        Some("Docs of goodbye/0.")
+    );
+    let mut menu = kalem_core::completers::Menu::open(&reg, &mut doc, true, 0).unwrap();
+    let t = Instant::now();
+    while menu.session.waiting() || menu.items().len() < 2 {
+        menu.session.poll();
+        assert!(t.elapsed() < Duration::from_secs(5), "no items");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    while menu.current().map(|i| i.label.as_str()) != Some("goodbye/0") {
+        menu.step(true);
+    }
+    while menu.documentation().is_none() {
+        menu.fetch_documentation();
+        assert!(
+            t.elapsed() < Duration::from_secs(5),
+            "no documentation fetched"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(menu.documentation(), Some("Docs of goodbye/0."));
+    drop(menu);
     let before = doc.text().as_str().to_string();
     kalem_core::completers::apply(&mut doc, greet, Instant::now());
     let after = doc.text().as_str().to_string();
-    println!("APPLIED {before:?} -> {after:?} kind {:?}", greet.kind);
     assert_eq!(after, before.replacen(" gr", " greet()", 1));
     assert_eq!(doc.selection.head, end + 1 + "greet(".len());
     println!("test completion ... ok");
@@ -189,6 +217,17 @@ fn main() {
         lsp::report()
     );
     println!("test restart ... ok");
+
+    // The plugin updated: its server stops, and starts again for the
+    // document with the plugin as it is now.
+    lsp::plugin_changed("org.example.fake");
+    assert!(!lsp::serves(&doc));
+    lsp::sync(&doc);
+    assert!(lsp::serves(&doc));
+    until("the server again", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    println!("test plugin changed ... ok");
 
     // No server for other files, said with the reason.
     let other = dir.join("project/notes.txt");

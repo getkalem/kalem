@@ -1142,6 +1142,8 @@ impl kalem_core::completers::Completer for Symbols {
             kalem_core::completers::Kind::Symbol,
         );
         i.cursor = 4;
+        i.documentation =
+            Some("Returns a list where each element is the result of invoking `fun`.".into());
         vec![i]
     }
 }
@@ -1207,6 +1209,19 @@ fn code_completions_taken(cx: &mut TestAppContext) {
         }
         cx.simulate_input("Enum.");
         assert!(completion_items(&e, cx) > 0, "vim {vim}: no items");
+        // The chosen item's documentation shows beside the list.
+        let doc = e.read_with(cx, |e, _| {
+            e.completion
+                .as_ref()
+                .and_then(|m| m.documentation())
+                .map(str::to_string)
+        });
+        assert!(doc.is_some_and(|d| d.starts_with("Returns a list")));
+        cx.run_until_parked();
+        assert!(
+            cx.debug_bounds("completion-doc").is_some(),
+            "the panel is drawn"
+        );
         cx.simulate_keystrokes(key);
         assert_eq!(text(&e, cx), "x = 1\nEnum.map()", "vim {vim}, {key}");
         let head = e.read_with(cx, |e, _| e.doc.selection.head);

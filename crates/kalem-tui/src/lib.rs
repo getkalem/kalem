@@ -34,6 +34,8 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
         let _ = std::io::Write::write_fmt(&mut io::stderr(), format_args!("kalem: {e}\n"));
     }
     config.apply_process_settings();
+    // Newer versions of the installed plugins, once a day.
+    kalem_core::plugin_store::check_updates(&config);
     terminal::raw_mode()?;
     let mut caps = caps::query(Duration::from_millis(500));
     // Theme colors where the terminal shows them; its light or dark

@@ -152,6 +152,51 @@ fn child(work: &Path) {
     choose(&reg, &update[1]);
     println!("test manage ... ok");
 
+    // A newer version in the index: found once a day, said, and shown in
+    // the list.
+    let index = work.join("index.json");
+    std::fs::write(
+        &index,
+        json!({"schema": 1, "plugins": [{
+            "id": "org.example.zedtest", "name": "Zed Test", "version": "2.0.0", "api": "^0.1",
+            "description": "A test language", "source": plugin, "download": null, "sha256": null,
+            "kind": "declarative"
+        }]})
+        .to_string(),
+    )
+    .unwrap();
+    let config = kalem_core::Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        &format!("[plugins]\nindex = \"file://{}\"\n", index.display()),
+    )]);
+    kalem_core::plugin_store::check_updates(&config);
+    let t = Instant::now();
+    let notice = loop {
+        if let Some(n) = kalem_core::jobs::take_notices().into_iter().next() {
+            break n.0;
+        }
+        assert!(t.elapsed() < Duration::from_secs(10), "no update notice");
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert!(notice.contains("Zed Test 2.0.0"), "{notice}");
+    kalem_core::plugin_store::check_updates(&config);
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(
+        kalem_core::jobs::take_notices().is_empty(),
+        "checked once a day"
+    );
+    let (_, req) = run(&reg, "plugin.list", json!({}));
+    let Request::Choose(items) = &req[0] else {
+        panic!("{req:?}")
+    };
+    assert!(
+        items[0].category.starts_with("2.0.0 available"),
+        "{}",
+        items[0].category
+    );
+    println!("test update notice ... ok");
+
     // Removed after a confirmation: the plugin and its syntax gone.
     let (_, req) = choose(&reg, &actions[1]);
     let Request::Choose(confirm) = &req[0] else {

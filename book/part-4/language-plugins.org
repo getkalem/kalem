@@ -35,8 +35,16 @@ From the editor: the *Kalem* menu (and the command palette) has
   and records it in =~/.config/kalem/plugins.toml= (version, source,
   date, permissions); it works at once, in the files already open.
   *Cancel* leaves nothing behind.
-- *Installed Plugins* lists them; choosing one offers *Update* (from
-  where it came), *Remove* (asked once more) and *Show Its Folder*.
+- *Installed Plugins* lists them, with a newer version when the index
+  has one; choosing one offers *Update* (from where it came), *Remove*
+  (asked once more) and *Show Its Folder*. After an update or a removal
+  the plugin's language servers stop and start again for the open files
+  with the plugin as it is now.
+- Once a day, when Kalem starts, it reads the index in the background
+  and says in the status bar which installed plugins have a newer
+  version (the setting =plugins.check_updates= turns this off). Only the
+  version in =plugin.json= counts: a change published without a new
+  version is found by *Update*, not by the check.
 
 On the command line the same: =kalem plugin browse=, =kalem plugin
 install NAME|LINK|PATH= (=--yes= not to be asked), =kalem plugin list=,
@@ -150,7 +158,7 @@ stays stopped, and the status bar says so.
 
 | Feature                          | Vim profile        | Word-like profile | Command                                 |
 |----------------------------------+--------------------+-------------------+-----------------------------------------|
-| Completion                       | as you type        | as you type       | the =lsp= completer                     |
+| Completion, with the chosen item's documentation beside the list | as you type | as you type | the =lsp= completer |
 | Documentation at the cursor      | =K=, =SPC c k=     |                   | =code.documentation=                    |
 | Definition                       | =gd=, =SPC c d=    | F12               | =code.definition=                       |
 | Declaration                      |                    |                   | =code.declaration=                      |
@@ -190,12 +198,17 @@ kalem lsp ask format lib/hello.ex      # the formatted text
 
 * Not implemented yet
 
+A completion item's documentation is the server's: given with the
+items (Expert, ElixirLS), or fetched with =completionItem/resolve= when
+an item is chosen, from servers that answer it.
+
 Rename, code actions, signature help, inlay hints, semantic tokens,
 the server's own commands, and edits a server asks to apply
 (=workspace/applyEdit= is refused, and said so in the log) are the
 rest of T3.8.2. Completion items are inserted as plain text: snippet
 placeholders are filled with their default text until the snippet
-engine (T3.8.3). Problems are listed and shown in the status bar, not
+engine (T3.8.3); a function is inserted as =name()= with the cursor
+between the brackets. Problems are listed and shown in the status bar, not
 yet underlined in the text. A second server for the same files (a
 linter beside the type server) and the plugin's run and test commands
 are read from the manifest but not used. The server's log (its log

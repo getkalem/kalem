@@ -99,3 +99,22 @@ pub fn take_offers() -> Vec<Vec<crate::palette::PaletteItem>> {
         .map(|mut o| std::mem::take(&mut *o))
         .unwrap_or_default()
 }
+
+/// Lines for the status bar from background work that is not a job of
+/// the user's (a plugin update found): text, and whether an error.
+static NOTICES: Mutex<Vec<(String, bool)>> = Mutex::new(Vec::new());
+
+/// Tells the user `text`, from any thread.
+pub fn notice(text: String, error: bool) {
+    if let Ok(mut n) = NOTICES.lock() {
+        n.push((text, error));
+    }
+}
+
+/// The notices since the last call.
+pub fn take_notices() -> Vec<(String, bool)> {
+    NOTICES
+        .lock()
+        .map(|mut n| std::mem::take(&mut *n))
+        .unwrap_or_default()
+}

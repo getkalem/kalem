@@ -567,6 +567,8 @@ pub fn install(p: &Prepared) -> Result<PathBuf, String> {
     let _ = std::fs::remove_dir_all(&old);
     record(p)?;
     crate::languages::reload();
+    // Its servers start again with the plugin as it is now.
+    crate::lsp::plugin_changed(&p.id);
     Ok(dest)
 }
 
@@ -671,12 +673,125 @@ pub fn remove(id: &str) -> Result<String, String> {
         let _ = save_record(&doc);
     }
     crate::languages::reload();
+    crate::lsp::plugin_changed(id);
     Ok(p.name)
+}
+
+/// The versions the index listed when it was last read, by plugin ID.
+static LATEST: std::sync::Mutex<Option<std::collections::HashMap<String, String>>> =
+    std::sync::Mutex::new(None);
+
+/// Whether version `a` is newer than `b`: dotted numbers compared as
+/// numbers (`0.10.0` after `0.9.1`), anything else as text.
+pub fn newer(a: &str, b: &str) -> bool {
+    let parts = |v: &str| -> Option<Vec<u64>> {
+        v.trim_start_matches('v')
+            .split(['.', '-', '+'])
+            .take(3)
+            .map(|p| p.parse().ok())
+            .collect()
+    };
+    match (parts(a), parts(b)) {
+        (Some(x), Some(y)) => x > y,
+        _ => a != b && a > b,
+    }
+}
+
+/// The installed plugins the index has a newer version of: the plugin
+/// and that version.
+pub fn updates(index: &[IndexEntry]) -> Vec<(Installed, String)> {
+    let mut latest = std::collections::HashMap::new();
+    for e in index {
+        latest.insert(e.id.clone(), e.version.clone());
+    }
+    if let Ok(mut l) = LATEST.lock() {
+        *l = Some(latest);
+    }
+    installed()
+        .into_iter()
+        .filter_map(|i| {
+            let e = index.iter().find(|e| e.id == i.id && e.declarative)?;
+            newer(&e.version, &i.version).then(|| (i, e.version.clone()))
+        })
+        .collect()
+}
+
+/// The newer version of plugin `id` the index listed when last read.
+pub fn available(id: &str, installed: &str) -> Option<String> {
+    let l = LATEST.lock().ok()?;
+    let v = l.as_ref()?.get(id)?;
+    newer(v, installed).then(|| v.clone())
+}
+
+/// What the status bar says about `updates`.
+pub fn updates_notice(updates: &[(Installed, String)]) -> Option<String> {
+    if updates.is_empty() {
+        return None;
+    }
+    let list: Vec<String> = updates
+        .iter()
+        .map(|(i, v)| format!("{} {v}", i.name))
+        .collect();
+    Some(format!(
+        "Plugin updates: {} (Kalem menu, Installed Plugins)",
+        list.join(", ")
+    ))
+}
+
+/// How often the editor looks for updates.
+const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
+
+/// Looks for updates of the installed plugins in the background, at most
+/// once a day (the time kept in the state folder), unless
+/// `plugins.check_updates` is off; a newer version is said in the status
+/// bar ([`crate::jobs::notice`]). Called when an editor starts.
+pub fn check_updates(config: &crate::Config) {
+    if !config.bool("plugins.check_updates") || installed().is_empty() {
+        return;
+    }
+    let stamp = crate::logging::state_dir().map(|d| d.join("plugin-update-check"));
+    let due = stamp
+        .as_ref()
+        .and_then(|p| std::fs::metadata(p).ok())
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.elapsed().ok())
+        .is_none_or(|age| age >= CHECK_EVERY);
+    if !due {
+        return;
+    }
+    let index = match config.str("plugins.index") {
+        "" => DEFAULT_INDEX.to_string(),
+        s => s.to_string(),
+    };
+    std::thread::spawn(move || {
+        let Ok(entries) = fetch_index(&index) else {
+            // Offline: tried again at the next start.
+            return;
+        };
+        if let Some(p) = &stamp {
+            if let Some(d) = p.parent() {
+                let _ = std::fs::create_dir_all(d);
+            }
+            let _ = std::fs::write(p, "");
+        }
+        if let Some(n) = updates_notice(&updates(&entries)) {
+            crate::jobs::notice(n, false);
+        }
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn versions() {
+        assert!(newer("0.10.0", "0.9.1"));
+        assert!(newer("1.0.0", "0.99"));
+        assert!(!newer("0.1.0", "0.1.0"));
+        assert!(!newer("0.1.0", "0.2.0"));
+        assert!(newer("v2.0.0", "1.9.9"));
+    }
 
     #[test]
     fn sources() {

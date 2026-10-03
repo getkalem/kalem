@@ -3522,6 +3522,8 @@ fn plugin_commands() -> Vec<Command> {
                 crate::jobs::spawn("Reading the plugin index…".into(), move || {
                     match crate::plugin_store::fetch_index(&index) {
                         Ok(entries) => {
+                            // Remembers the versions for Installed Plugins.
+                            let _ = crate::plugin_store::updates(&entries);
                             let installed = crate::plugin_store::installed();
                             let items: Vec<PaletteItem> = entries
                                 .iter()
@@ -3632,10 +3634,18 @@ fn plugin_commands() -> Vec<Command> {
                 let items: Vec<PaletteItem> = crate::plugin_store::installed()
                     .into_iter()
                     .map(|p| {
+                        let from = p
+                            .source
+                            .clone()
+                            .unwrap_or_else(|| p.dir.display().to_string());
+                        let category = match crate::plugin_store::available(&p.id, &p.version) {
+                            Some(v) => format!("{v} available · {from}"),
+                            None => from,
+                        };
                         item(
                             invocation("plugin.manage", &json!({ "id": p.id })),
                             format!("{} {}", p.name, p.version),
-                            p.source.unwrap_or_else(|| p.dir.display().to_string()),
+                            category,
                         )
                     })
                     .collect();
