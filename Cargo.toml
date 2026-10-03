@@ -125,6 +125,8 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package."kalem-plugin-pdf-viewer"]
 opt-level = 3
+[profile.dev.package."kalem-viewer"]
+opt-level = 3
 
 [profile.bench]
 debug = true
