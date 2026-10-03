@@ -211,6 +211,17 @@ impl Bitmap {
         }
     }
 
+    /// The pixels as BGRA, the order GPUs and gpui take them. Here rather
+    /// than in a frontend so that debug builds, which build this crate
+    /// optimized, convert a page of tens of megabytes in milliseconds.
+    pub fn bgra(&self) -> Vec<u8> {
+        let mut out = self.rgba.to_vec();
+        for p in out.as_chunks_mut::<4>().0 {
+            p.swap(0, 2);
+        }
+        out
+    }
+
     /// The bitmap turned clockwise by `quarters` quarter turns.
     pub fn rotated(&self, quarters: u8) -> Bitmap {
         let (w, h) = (self.width as usize, self.height as usize);
@@ -389,6 +400,59 @@ pub enum CompareOp {
     Between,
     /// Outside two values.
     NotBetween,
+}
+
+/// What kind of chart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ChartKind {
+    /// Vertical bars.
+    #[default]
+    Column,
+    /// Horizontal bars.
+    Bar,
+    /// Lines through the points.
+    Line,
+    /// Lines with the area under them filled.
+    Area,
+    /// Slices of a circle.
+    Pie,
+    /// Slices of a ring.
+    Doughnut,
+    /// Points at their x and y.
+    Scatter,
+    /// A kind drawn as a placeholder (radar, stock, surface, bubble…).
+    Other,
+}
+
+/// One series of a chart.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ChartSeries {
+    /// Its name, for the legend.
+    pub name: String,
+    /// Its values; `None` where a cell holds no number.
+    pub values: Vec<Option<f64>>,
+    /// A scatter chart's x values.
+    pub x: Vec<Option<f64>>,
+    /// Its color, when the file gives one.
+    pub color: Option<[u8; 3]>,
+}
+
+/// A chart on a sheet, as it reads now: values from the cells it names.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Chart {
+    /// What kind.
+    pub kind: ChartKind,
+    /// Its title.
+    pub title: Option<String>,
+    /// The categories (the labels along the axis, or of the slices).
+    pub categories: Vec<String>,
+    /// The series.
+    pub series: Vec<ChartSeries>,
+    /// Where it stands: first row, first column, last row, last column
+    /// of the cells it covers.
+    pub anchor: [u32; 4],
+    /// Bars or areas stacked.
+    pub stacked: bool,
 }
 
 /// How a pivot table summarizes a value field.
@@ -889,6 +953,28 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// The charts on a unit.
+    fn charts(&mut self, _unit: usize) -> Vec<Chart> {
+        Vec::new()
+    }
+
+    /// Inserts a chart of a range (its first row or column naming the
+    /// series and categories, as a spreadsheet reads it) beside it.
+    fn insert_chart(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _kind: ChartKind,
+        _title: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Removes the chart at `index` of [`ViewerDocument::charts`].
+    fn delete_chart(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Inserts a pivot table of a range of `unit` on a new unit; the new
     /// unit's index.
     fn insert_pivot(&mut self, _unit: usize, _spec: PivotSpec) -> Result<usize> {
@@ -1121,6 +1207,12 @@ mod tests {
 
     fn red(b: &Bitmap) -> Vec<u8> {
         b.rgba.as_chunks::<4>().0.iter().map(|p| p[0]).collect()
+    }
+
+    #[test]
+    fn bgra() {
+        let b = Bitmap::new(1, 2, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(b.bgra(), [3, 2, 1, 4, 7, 6, 5, 8]);
     }
 
     #[test]
