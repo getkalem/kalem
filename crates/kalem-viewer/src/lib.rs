@@ -391,6 +391,37 @@ pub enum CompareOp {
     NotBetween,
 }
 
+/// How a pivot table summarizes a value field.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Aggregate {
+    /// The numbers' sum.
+    #[default]
+    Sum,
+    /// How many values.
+    Count,
+    /// The numbers' average.
+    Average,
+    /// The largest number.
+    Max,
+    /// The smallest number.
+    Min,
+}
+
+/// A pivot table to insert, as a spreadsheet's PivotTable dialog makes it:
+/// fields are columns of the source range, counted from its first.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PivotSpec {
+    /// The source: first row, first column, last row, last column; its
+    /// first row holds the fields' names.
+    pub range: [u32; 4],
+    /// The row fields, outermost first.
+    pub rows: Vec<u32>,
+    /// The column fields.
+    pub cols: Vec<u32>,
+    /// The value fields and how each is summarized.
+    pub values: Vec<(u32, Aggregate)>,
+}
+
 /// What a cell's data validation allows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ValidationKind {
@@ -855,6 +886,18 @@ pub trait ViewerDocument: Send {
         _unit: usize,
         _range: Option<[u32; 4]>,
     ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Inserts a pivot table of a range of `unit` on a new unit; the new
+    /// unit's index.
+    fn insert_pivot(&mut self, _unit: usize, _spec: PivotSpec) -> Result<usize> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Computes every pivot table again from its source (Refresh All); the
+    /// units that changed.
+    fn refresh_pivots(&mut self) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
