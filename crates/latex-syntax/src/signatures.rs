@@ -24,6 +24,16 @@ pub fn command(name: &str) -> &'static str {
         | "department" | "city" | "state" | "country" | "streetaddress" | "postcode" | "orcid"
         | "institute" | "inst" | "pacs" => "m",
         "subjclass" | "altaffiliation" => "om",
+        "correspondingauthor"
+        | "software"
+        | "facilities"
+        | "facility"
+        | "orcidlink"
+        | "epsscale" => "m",
+        "added" => "om",
+        "tablecaption" | "tablehead" | "colhead" | "tablecomments" | "tablerefs"
+        | "tabletypesize" | "tablecolumns" | "tablewidth" | "tablenum" => "m",
+        "tablenotetext" => "mm",
         "IEEEPARstart" => "mm",
         // algorithmicx's (algpseudocode) and algorithmic's statements.
         "If" | "ElsIf" | "For" | "ForAll" | "While" | "Until" | "Comment" | "IF" | "ELSIF"
@@ -118,6 +128,7 @@ pub fn environment(name: &str) -> &'static str {
         "dmath" | "dmath*" => "o",
         "multlined" => "oo",
         "adjustwidth" | "adjustwidth*" => "mm",
+        "deluxetable" | "deluxetable*" => "om",
         "figurenotes" | "displayquote" => "o",
         _ => "",
     }
