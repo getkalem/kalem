@@ -101,6 +101,11 @@ impl Editor {
             return Err(String::new());
         };
         v.set_pixel_ratio(window.scale_factor());
+        // A thread's render that ended is taken, and the next neighbor
+        // started, even when the page shown is already drawn.
+        if v.rendering() {
+            v.bitmap_now()?;
+        }
         let want = (
             v.generation(),
             v.unit,

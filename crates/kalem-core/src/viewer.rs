@@ -204,6 +204,8 @@ pub struct ViewerState {
     generation: u64,
     /// The last render: unit, rotation, generation, scale.
     cache: Option<(RenderKey, Bitmap)>,
+    /// The neighbors of the unit shown, rendered ahead (at most two).
+    ahead: Vec<(RenderKey, Bitmap)>,
     /// Which units are grids (sheets, tables).
     grids: Vec<bool>,
     /// Each grid unit's cursor and scroll.
@@ -295,6 +297,7 @@ impl ViewerState {
             structure,
             sizes,
             pending: None,
+            ahead: Vec::new(),
             unit: 0,
             zoom,
             center: None,
@@ -340,6 +343,9 @@ impl ViewerState {
         {
             return Ok(b.clone());
         }
+        if let Some(b) = self.take_ahead(key) {
+            return Ok(b);
+        }
         // A thread renders it already: wait for it.
         if let Some((k, rx)) = self.pending.take()
             && let Ok(done) = rx.recv()
@@ -373,29 +379,108 @@ impl ViewerState {
                 Ok(done) => {
                     let k = *k;
                     self.pending = None;
-                    self.cache = Some((k, done?));
+                    if k == key {
+                        self.cache = Some((k, done?));
+                    } else if let Ok(b) = done {
+                        // A neighbor rendered ahead.
+                        self.ahead.push((k, b));
+                    }
                 }
                 Err(TryRecvError::Disconnected) => self.pending = None,
                 Err(TryRecvError::Empty) => {}
             }
         }
-        if let Some((k, b)) = &self.cache
-            && *k == key
-        {
-            return Ok(Some((b.clone(), f32::from_bits(k.3))));
+        let shown = match &self.cache {
+            Some((k, b)) if *k == key => Some(b.clone()),
+            _ => self.take_ahead(key),
+        };
+        self.prune_ahead();
+        if let Some(b) = shown {
+            // The page is shown: render its neighbors while the reader reads.
+            if self.pending.is_none()
+                && let Some(next) = self.neighbor_to_render()
+            {
+                self.spawn_render(next);
+            }
+            return Ok(Some((b, f32::from_bits(key.3))));
         }
         // One render at a time; the latest wish starts when it ends.
         if self.pending.is_none() {
-            let (tx, rx) = channel();
-            let doc = self.doc.clone();
-            std::thread::spawn(move || {
-                let _ = tx.send(render(&doc, key));
-            });
-            self.pending = Some((key, rx));
+            self.spawn_render(key);
         }
         Ok(self.cache.as_ref().and_then(|(k, b)| {
             ((k.0, k.1, k.2) == (key.0, key.1, key.2)).then(|| (b.clone(), f32::from_bits(k.3)))
         }))
+    }
+
+    fn spawn_render(&mut self, key: RenderKey) {
+        let (tx, rx) = channel();
+        let doc = self.doc.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(render(&doc, key));
+        });
+        self.pending = Some((key, rx));
+    }
+
+    /// The render of `key` made ahead, made the one shown; the bitmap
+    /// shown before it is kept as a neighbor (the page just left).
+    fn take_ahead(&mut self, key: RenderKey) -> Option<Bitmap> {
+        let i = self.ahead.iter().position(|(k, _)| *k == key)?;
+        let (k, b) = self.ahead.remove(i);
+        if let Some(old) = self.cache.replace((k, b.clone())) {
+            self.ahead.push(old);
+        }
+        Some(b)
+    }
+
+    /// The key a neighbor of the unit shown renders at: its own fit, the
+    /// same turn and edits.
+    fn key_for(&mut self, unit: usize) -> RenderKey {
+        let shown = self.unit;
+        self.unit = unit;
+        let key = self.render_key();
+        self.unit = shown;
+        key
+    }
+
+    /// The next page, then the previous one, when not rendered yet.
+    fn neighbor_to_render(&mut self) -> Option<RenderKey> {
+        if !self.paged() {
+            return None;
+        }
+        let n = self.structure.units.len();
+        let mut near = vec![self.unit + 1];
+        if self.unit > 0 {
+            near.push(self.unit - 1);
+        }
+        for u in near {
+            if u >= n || self.sizes.get(u).copied().flatten().is_none() {
+                continue;
+            }
+            let k = self.key_for(u);
+            if !self.ahead.iter().any(|(a, _)| *a == k) {
+                return Some(k);
+            }
+        }
+        None
+    }
+
+    /// Keeps the renders of the shown unit's two neighbors at the scale
+    /// they are shown at, nothing else: a page at a Retina display's size
+    /// is tens of megabytes.
+    fn prune_ahead(&mut self) {
+        let n = self.structure.units.len();
+        let mut wanted: Vec<RenderKey> = Vec::new();
+        for u in [self.unit.checked_sub(1), Some(self.unit + 1)]
+            .into_iter()
+            .flatten()
+        {
+            if u < n {
+                wanted.push(self.key_for(u));
+            }
+        }
+        self.ahead.retain(|(k, _)| wanted.contains(k));
+        self.ahead.dedup_by_key(|(k, _)| *k);
     }
 
     /// Whether a thread is rendering: the frontend looks again soon.
@@ -2668,11 +2753,41 @@ mod tests {
         assert!(v.rendering());
         let (b, s) = ready(&mut v);
         assert_eq!((b.width, s), (400, 4.0));
-        // Another page: nothing until it is rendered.
-        v.go_to(1);
+        // A page that is not a neighbor: nothing until it is rendered.
+        v.go_to(2);
         assert!(v.bitmap_now().unwrap().is_none());
         // The waiting call takes the thread's result.
         assert_eq!(v.bitmap().unwrap().width, 400);
+    }
+
+    #[test]
+    fn neighbors_are_rendered_ahead() {
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Vector(3)), &dir.join("x.vector")).unwrap();
+        v.set_area(200.0, 100.0);
+        // Shown, then its neighbor rendered while it is read.
+        let settle = |v: &mut ViewerState| {
+            for _ in 0..1000 {
+                let _ = v.bitmap_now().unwrap();
+                if !v.rendering() {
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        };
+        settle(&mut v);
+        // The next page is there at once, and the first stays near.
+        v.go_to(1);
+        let (b, s) = v.bitmap_now().unwrap().expect("rendered ahead");
+        assert_eq!((b.width, s), (200, 2.0));
+        settle(&mut v);
+        v.go_to(0);
+        assert!(v.bitmap_now().unwrap().is_some(), "the page just left");
+        // Zoomed, the neighbors at the old scale are dropped.
+        v.zoom_by(2.0);
+        let _ = v.bitmap_now();
+        assert!(v.ahead.iter().all(|(k, _)| f32::from_bits(k.3) == 4.0));
+        assert!(v.ahead.len() <= 2);
     }
 
     #[test]
