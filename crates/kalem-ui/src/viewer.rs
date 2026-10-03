@@ -287,7 +287,7 @@ impl Editor {
                         let (x, y) = v.unit_point(f32::from(at.x), f32::from(at.y));
                         let found = kalem_core::synctex::Synctex::for_pdf(&pdf)
                             .and_then(|f| kalem_core::synctex::Synctex::load(&f).ok())
-                            .and_then(|st| st.inverse(v.unit() + 1, f64::from(x), f64::from(y)));
+                            .and_then(|st| st.inverse(v.unit + 1, f64::from(x), f64::from(y)));
                         if let Some((file, line)) = found {
                             let file = pdf.parent().map_or(file.clone(), |d| d.join(&file));
                             cx.emit(crate::editor::DocEvent::Open {

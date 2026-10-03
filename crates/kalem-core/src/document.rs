@@ -680,6 +680,11 @@ impl DocumentState {
                 .map_err(OpenError::Viewer)?;
             state.info = old.info;
             state.set_area(old.area().0, old.area().1);
+            // A PDF built again: the same page, zoom and place on it.
+            state.go_to(old.unit);
+            state.zoom = old.zoom;
+            state.rotation = old.rotation;
+            state.center = old.center;
             self.viewer = Some(Box::new(state));
             self.disk = files::stat(&path).ok();
             return Ok(());

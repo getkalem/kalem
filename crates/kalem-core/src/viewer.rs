@@ -708,11 +708,6 @@ impl ViewerState {
         }
     }
 
-    /// The unit shown, counted from 0.
-    pub fn unit(&self) -> usize {
-        self.unit
-    }
-
     /// The target of the link under (`x`, `y`) of the area, if any: a
     /// URL, a file, or `#N` for unit N.
     pub fn link_at(&mut self, x: f32, y: f32) -> Option<String> {
