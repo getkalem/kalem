@@ -1143,6 +1143,7 @@ msg-viewer-cannot-open = The file cannot be shown: { $error }
 cmd-viewer-zoomIn = Zoom In
 cmd-viewer-zoomOut = Zoom Out
 cmd-viewer-fit = Fit to Window
+cmd-viewer-fitWidth = Fit to Width
 cmd-viewer-actualSize = Actual Size
 cmd-viewer-panLeft = Pan Left
 cmd-viewer-panRight = Pan Right

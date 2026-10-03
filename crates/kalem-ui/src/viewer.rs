@@ -221,7 +221,7 @@ impl Editor {
                     let factor = 1.005_f32.powf(f32::from(d.y));
                     v.zoom_at(factor, f32::from(at.x), f32::from(at.y));
                 } else {
-                    v.pan(-f32::from(d.x), -f32::from(d.y));
+                    v.scroll(-f32::from(d.x), -f32::from(d.y));
                 }
                 cx.stop_propagation();
                 cx.notify();
