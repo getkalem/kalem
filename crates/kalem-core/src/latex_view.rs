@@ -39,10 +39,11 @@ pub struct LatexState {
     pub diagnostics: crate::latex_check::Live,
     /// The project the document belongs to, once its root is found.
     project: RefCell<Option<ProjectView>>,
-    /// The root document, being found on a thread.
+    /// The root document, being found on a thread, with the definitions
+    /// of the project's files that change how a file parses.
     root: Option<(
         std::path::PathBuf,
-        std::sync::mpsc::Receiver<std::path::PathBuf>,
+        std::sync::mpsc::Receiver<(std::path::PathBuf, String)>,
     )>,
     /// The file, and its `% !TEX root` line when the root was looked for.
     file: Option<(std::path::PathBuf, Option<String>)>,
@@ -124,7 +125,8 @@ pub fn find_root(file: &std::path::Path, text: &str) -> std::path::PathBuf {
         if canon(&c) == this {
             continue;
         }
-        let has_class = std::fs::read_to_string(&c).is_ok_and(|t| t.contains("\\documentclass"));
+        let has_class =
+            std::fs::read(&c).is_ok_and(|t| t.windows(14).any(|w| w == b"\\documentclass"));
         if has_class
             && cache
                 .load(&c, &Disk)
@@ -211,7 +213,12 @@ impl latex_model::project::Files for Overlay<'_> {
             f.checked = std::time::Instant::now();
             return Some(f.text.clone());
         }
-        let text: Arc<str> = Arc::from(std::fs::read_to_string(path).ok()?);
+        // Not UTF-8 (`\usepackage[applemac]{inputenc}`): read as the
+        // model reads it.
+        let text: Arc<str> = Arc::from(latex_model::project::Files::read(
+            &latex_model::project::Disk,
+            path,
+        )?);
         files.insert(
             path.to_path_buf(),
             DiskFile {
@@ -316,7 +323,7 @@ impl LatexState {
                 };
                 self.parse.reparse(text, &edit)
             }
-            None => latex_syntax::parse(text),
+            None => latex_syntax::parse_with(text, self.parse.extra()),
         };
         self.text = Arc::from(text);
     }
@@ -379,7 +386,8 @@ impl LatexState {
         let (p, t) = (path.to_path_buf(), text.to_string());
         std::thread::spawn(move || {
             let root = find_root(&p, &t);
-            let _ = tx.send(root);
+            let extra = latex_model::project::alias_source(&root, &latex_model::project::Disk);
+            let _ = tx.send((root, extra));
         });
         self.root = Some((path.to_path_buf(), rx));
         self.file = Some((path.to_path_buf(), magic_root_line(text)));
@@ -408,13 +416,21 @@ impl LatexState {
             return false;
         };
         match rx.try_recv() {
-            Ok(root) => {
+            Ok((root, extra)) => {
                 let path = dunce::canonicalize(path).unwrap_or_else(|_| path.clone());
                 let root = dunce::canonicalize(&root).unwrap_or(root);
+                // Macros for an equation the project's other files define
+                // (`\def\ba{\begin{eqnarray}}` in its package): parsed
+                // again with them.
+                if extra != self.parse.extra() {
+                    self.parse = latex_syntax::parse_with(&self.text, &extra);
+                }
+                let mut cache = latex_model::project::ProjectCache::default();
+                cache.set_extra(&extra);
                 *self.project.borrow_mut() = Some(ProjectView {
                     root,
                     path,
-                    cache: latex_model::project::ProjectCache::default(),
+                    cache,
                     disk: DiskCache::default(),
                     last: None,
                 });
@@ -1006,7 +1022,9 @@ fn format_style(name: &str) -> Option<Style> {
         "underline" | "uline" => s.underline = true,
         "sout" => s.strike = true,
         // Author marks set raised (IEEEtran's, Wiley's and others').
-        "textsuperscript" | "IEEEauthorrefmark" | "authormark" => s.superscript = true,
+        "textsuperscript" | "IEEEauthorrefmark" | "authormark" | "tablenotemark" => {
+            s.superscript = true
+        }
         "textsubscript" => s.subscript = true,
         "textsc" | "textsf" | "textrm" | "textup" | "textmd" | "textnormal" => {}
         _ => return None,
@@ -1033,6 +1051,19 @@ fn front_style(name: &str) -> Option<(Style, &'static str)> {
         "keywords" => {
             s.byline = true;
             "Keywords: "
+        }
+        // aastex's.
+        "correspondingauthor" => {
+            s.byline = true;
+            "Corresponding author: "
+        }
+        "software" => {
+            s.byline = true;
+            "Software: "
+        }
+        "facilities" | "facility" => {
+            s.byline = true;
+            "Facilities: "
         }
         "ccsdesc" => {
             s.byline = true;
@@ -1141,6 +1172,59 @@ fn in_algorithm(cmd: &SyntaxNode) -> bool {
     })
 }
 
+/// What statement `name` of an algorithm prints where `cmd` is (see
+/// [`algorithm_words`] and [`algorithm2e_words`]).
+fn statement_words(
+    cmd: &SyntaxNode,
+    name: &str,
+    model: &latex_model::Model,
+) -> Option<(&'static str, &'static str, &'static str, bool)> {
+    if in_algorithm(cmd) {
+        return algorithm_words(name);
+    }
+    let words = algorithm2e_words(name)?;
+    let in_2e = model.packages.iter().any(|p| p.name == "algorithm2e")
+        && cmd.ancestors().any(|a| {
+            a.kind() == K::ENVIRONMENT
+                && latex_syntax::name(&a).is_some_and(|n| {
+                    matches!(
+                        n.trim_end_matches('*'),
+                        "algorithm" | "algorithm2e" | "procedure" | "function"
+                    )
+                })
+        });
+    in_2e.then_some(words)
+}
+
+/// What a statement of algorithm2e prints: before its first argument,
+/// between two (a condition and its block), after the last, and whether
+/// that is bold.
+fn algorithm2e_words(name: &str) -> Option<(&'static str, &'static str, &'static str, bool)> {
+    Some(match name {
+        "KwIn" | "Input" => ("Input: ", "", "", true),
+        "KwOut" | "Output" => ("Output: ", "", "", true),
+        "KwData" | "Data" => ("Data: ", "", "", true),
+        "KwResult" | "Result" => ("Result: ", "", "", true),
+        "KwRet" | "Return" => ("return ", "", "", true),
+        "KwTo" => ("to", "", "", true),
+        "If" | "uIf" => ("if ", " then ", "", true),
+        "eIf" => ("if ", " then ", "", true),
+        "ElseIf" | "uElseIf" => ("else if ", " then ", "", true),
+        "Else" | "uElse" => ("else ", "", "", true),
+        "For" => ("for ", " do ", "", true),
+        "ForEach" | "ForAll" => ("foreach ", " do ", "", true),
+        "While" => ("while ", " do ", "", true),
+        "Repeat" => ("repeat ", " until ", "", true),
+        "Switch" => ("switch ", " do ", "", true),
+        "Case" | "uCase" => ("case ", " do ", "", true),
+        "Other" => ("otherwise ", "", "", true),
+        "Begin" => ("begin ", "", " end", true),
+        "tcp" | "tcp*" => ("// ", "", "", false),
+        "tcc" | "tcc*" => ("/* ", "", " */", false),
+        _ => return None,
+    })
+}
+
 /// What a statement of algpseudocode or algorithmic prints: before its
 /// first argument, between two, after the last, and whether that is bold
 /// (keywords are).
@@ -1181,6 +1265,7 @@ fn algorithm_words(name: &str) -> Option<(&'static str, &'static str, &'static s
 pub(crate) fn silent(name: &str) -> Option<&'static str> {
     Some(match name {
         "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "smoom",
+        "newcommandtwoopt" | "renewcommandtwoopt" | "providecommandtwoopt" => "smooom",
         "NewDocumentCommand"
         | "RenewDocumentCommand"
         | "ProvideDocumentCommand"
@@ -1245,6 +1330,16 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         | "SetDataSty" | "SetKwSty" | "SetCommentSty" | "SetProgSty" => "mm",
         // Struts and rules that make room, and array's line end.
         "rule" => "omm",
+        // REVTeX's switches between one and two columns, ORCID's icon,
+        // cleveref's names, aastex's figure scale, a thick rule.
+        "onecolumngrid" | "twocolumngrid" | "thickhline" => "",
+        // The plain TeX ends of environments (`\minipage … \endminipage`).
+        "endminipage" | "endcenter" | "endtabular" | "endfigure" | "endtable" => "",
+        // aastex's table settings and the edges of its data.
+        "startdata" | "enddata" | "tableline" | "nodata" => "",
+        "tabletypesize" | "tablecolumns" | "tablewidth" | "tablenum" => "m",
+        "orcidlink" | "epsscale" => "m",
+        "crefname" | "Crefname" => "mmm",
         // TeX's conditionals written in the text: their tests and ends
         // markup, the text of both branches shown.
         "ifx" => "mm",
@@ -1354,6 +1449,11 @@ pub(crate) fn box_args(name: &str) -> Option<&'static str> {
         "hypertarget" | "hyperlink" => "m",
         // REVTeX's e-print link in a bibliography: its text.
         "Eprint" => "m",
+        // The changes package's mark of text added: the text.
+        "added" => "o",
+        // aastex's table: its caption, head and notes, their text.
+        "tablecaption" | "tablehead" | "colhead" | "tablecomments" | "tablerefs" => "",
+        "tablenotetext" => "m",
         "subcaptionbox" => "o",
         "shortstack" => "o",
         "subcaption" => "o",
@@ -1799,7 +1899,14 @@ fn accented(text: &str, name: &str, at: usize, limit: usize) -> Option<(usize, S
 fn transparent(name: &str) -> bool {
     matches!(
         name,
-        "Eprint"
+        "tablecaption"
+            | "tablehead"
+            | "colhead"
+            | "tablecomments"
+            | "tablerefs"
+            | "tablenotetext"
+            | "Eprint"
+            | "added"
             | "hyperlink"
             | "subcaptionbox"
             | "hypertarget"
@@ -2351,6 +2458,18 @@ pub(crate) fn own_math(
     {
         return Some((format!("${}$", &r[..close]), end));
     }
+    // A displayed formula around the arguments
+    // (`\newcommand{\eq}[1]{\begin{align}#1\end{align}}`, `\[#1\]`).
+    if let Some(r) = body.strip_prefix("\\begin{")
+        && let Some((env, _)) = r.split_once('}')
+        && latex_syntax::signatures::is_math(env)
+        && body.ends_with(&format!("\\end{{{env}}}"))
+    {
+        return Some((body.to_string(), end));
+    }
+    if body.starts_with("\\[") && body.ends_with("\\]") {
+        return Some((body.to_string(), end));
+    }
     if body.contains('$') && !body.contains("$$") && body.matches('$').count() % 2 == 0 {
         // Text with formulas in it, as one formula: the text in its font
         // (`\textit{I$_{3}$}` ⇒ `\textit{I}_{3}`).
@@ -2386,6 +2505,93 @@ pub(crate) fn own_math(
         return Some((format!("${out}$"), end));
     }
     None
+}
+
+/// A use at `at` of the document's own macro `name` whose definition
+/// draws pictures or reads files (`\newcommand{\twographs}[2]{\begin{figure}
+/// … \includegraphics{#1} … \includegraphics{#2} … \end{figure}}`): its
+/// definition with the arguments put in, and where the use ends.
+pub(crate) fn own_block(
+    model: &latex_model::Model,
+    name: &str,
+    text: &str,
+    at: usize,
+    limit: usize,
+) -> Option<(String, usize)> {
+    let m = model
+        .macros
+        .iter()
+        .rev()
+        .find(|m| m.name.strip_prefix('\\') == Some(name))?;
+    if m.args > 9 || !(m.body.contains("\\includegraphics") || m.body.contains("\\input")) {
+        return None;
+    }
+    match &m.default {
+        None => expansion(m, text, at, limit),
+        // The optional first argument, its default when it is not given.
+        Some(default) => {
+            let mut i = at;
+            let first = match text[i..limit].strip_prefix('[') {
+                Some(r) => {
+                    let close = r.find(']')?;
+                    i += close + 2;
+                    r[..close].to_string()
+                }
+                None => default.clone(),
+            };
+            let rest = latex_model::Macro {
+                args: m.args - 1,
+                body: m.body.replace("#1", "\u{0}"),
+                ..m.clone()
+            };
+            // #2… become #1…, #1 the optional argument.
+            let mut body = String::new();
+            let mut chars = rest.body.chars().peekable();
+            while let Some(c) = chars.next() {
+                if c == '\u{0}' {
+                    body.push_str(&first);
+                } else if c == '#'
+                    && let Some(k) = chars.peek().and_then(|c| c.to_digit(10))
+                {
+                    chars.next();
+                    body.push_str(&format!("#{}", k - 1));
+                } else {
+                    body.push(c);
+                }
+            }
+            let mut rest = latex_model::Macro { body, ..rest };
+            // twoopt's second optional argument (`#2`, now `#1`).
+            if m.command == "newcommandtwoopt" {
+                let second = match text[i..limit].strip_prefix('[') {
+                    Some(r) => {
+                        let close = r.find(']')?;
+                        i += close + 2;
+                        r[..close].to_string()
+                    }
+                    None => String::new(),
+                };
+                let mut body = String::new();
+                let mut chars = rest.body.chars().peekable();
+                while let Some(c) = chars.next() {
+                    if c == '#'
+                        && let Some(k) = chars.peek().and_then(|c| c.to_digit(10))
+                    {
+                        chars.next();
+                        if k == 1 {
+                            body.push_str(&second);
+                        } else {
+                            body.push_str(&format!("#{}", k - 1));
+                        }
+                    } else {
+                        body.push(c);
+                    }
+                }
+                rest.body = body;
+                rest.args = rest.args.saturating_sub(1);
+            }
+            expansion(&rest, text, i, limit)
+        }
+    }
 }
 
 /// What a macro's body does in running text: of `\ifmmode A\else B\fi`
@@ -2425,6 +2631,40 @@ fn text_mode(body: &str) -> String {
         };
         let keep = else_at.map_or(String::new(), |e| s[e + 5..fi].to_string());
         s.replace_range(at..fi + 3, &keep);
+    }
+    // A box around the text (`\scalebox{0.7}[#1]{$\blacksquare$}`): its
+    // sizes go, its text stays.
+    for name in [
+        "scalebox",
+        "resizebox",
+        "rotatebox",
+        "raisebox",
+        "makebox",
+        "framebox",
+    ] {
+        let head = format!("\\{name}");
+        while let Some(at) = s.find(&head) {
+            let after = at + head.len();
+            if s[after..].starts_with(|c: char| c.is_ascii_alphabetic()) {
+                break;
+            }
+            let spec = box_args(name).unwrap_or("");
+            let Some(end) = args_end(&s, after, s.len(), spec) else {
+                break;
+            };
+            s.replace_range(at..end, "");
+        }
+    }
+    // Braces around all of it.
+    loop {
+        let t = s.trim();
+        match t
+            .strip_prefix('{')
+            .and_then(|r| matching_brace(r).map(|c| (r, c)))
+        {
+            Some((r, close)) if r[close + 1..].trim().is_empty() => s = r[..close].to_string(),
+            _ => break,
+        }
     }
     s
 }
@@ -2753,6 +2993,34 @@ pub(crate) fn word(name: &str) -> Option<&'static str> {
         "qed" | "qedsymbol" => "\u{220e}",
         "sep" => ", ",
         "kms" => "km\u{a0}s\u{207b}\u{b9}",
+        // aastex's angles with their decimal point (`1\fdg5`), its section
+        // of thanks, and the journals of its bibliographies.
+        "fdg" => "\u{b0}.",
+        "farcm" => "\u{2032}.",
+        "farcs" => "\u{2033}.",
+        "acknowledgments" | "acknowledgements" => "Acknowledgments. ",
+        "apj" => "ApJ",
+        "apjl" => "ApJL",
+        "apjs" => "ApJS",
+        "aj" => "AJ",
+        "mnras" => "MNRAS",
+        "aap" | "astap" => "A&A",
+        "aaps" => "A&AS",
+        "pasp" => "PASP",
+        "pasj" => "PASJ",
+        "araa" => "ARA&A",
+        "apss" => "Ap&SS",
+        "nat" => "Nature",
+        "jcap" => "JCAP",
+        "icarus" => "Icarus",
+        "procspie" => "Proc.\u{a0}SPIE",
+        "physrep" => "Phys.\u{a0}Rep.",
+        "prd" => "Phys.\u{a0}Rev.\u{a0}D",
+        "lq" => "\u{2018}",
+        "rq" => "\u{2019}",
+        // bbding's check marks.
+        "CheckmarkBold" | "Checkmark" => "\u{2714}",
+        "XSolidBrush" | "XSolid" => "\u{2718}",
         "harvardyearleft" => "(",
         "harvardyearright" => ")",
         // wasysym's circles, boxes and marks.
@@ -3622,7 +3890,7 @@ fn unflagged_line_view(
             let cs = node_span(&cmd);
             match &text[r.clone()] {
                 // A picture: drawn, at the width its options ask for.
-                "\\includegraphics" => {
+                "\\includegraphics" | "\\plotone" => {
                     if let Some(path) = picture_path(doc, &state.model(), &cmd) {
                         b.runs.push(Run {
                             src: cs.clone(),
@@ -3743,16 +4011,30 @@ fn unflagged_line_view(
                 // A statement of an algorithm (algorithmicx's algpseudocode,
                 // algorithmic): its keywords, bold, as the package prints
                 // them; `\\State` nothing.
-                name if in_algorithm(&cmd)
-                    && let Some((before, between, after, bold_words)) =
-                        algorithm_words(&name[1..]) =>
+                name if let Some((before, between, after, bold_words)) =
+                    statement_words(&cmd, &name[1..], &state.model()) =>
                 {
                     let bold = Style {
                         bold: bold_words,
                         ..Style::default()
                     };
-                    let groups: Vec<SyntaxNode> =
+                    let mut groups: Vec<SyntaxNode> =
                         cmd.children().filter(|c| c.kind() == K::GROUP).collect();
+                    // algorithm2e's block (`\\ForEach{…}{…}`), a group of
+                    // its own after the condition when the parser does not
+                    // know the command.
+                    if !between.is_empty() && groups.len() < 2 {
+                        let mut end = node_span(&cmd).end;
+                        let mut next = cmd.next_sibling();
+                        while groups.len() < 2
+                            && let Some(g) = next.filter(|g| g.kind() == K::GROUP)
+                            && node_span(&g).start == end
+                        {
+                            end = node_span(&g).end;
+                            next = g.next_sibling();
+                            groups.push(g);
+                        }
+                    }
                     match groups.as_slice() {
                         // `\\State x`: the blanks after it eaten, as TeX
                         // eats them after a command's name.
@@ -4150,6 +4432,71 @@ fn unflagged_line_view(
                     }
                     // A document's own macro that is a formula, or text with
                     // formulas in it: the formula, when the renderer reads it.
+                    // A document's own macro that draws pictures or reads
+                    // files: the pictures, the files' names and the
+                    // captions of its definition.
+                    (n, None)
+                        if !renders_command(n)
+                            && let Some((body, end)) =
+                                own_block(&state.model(), n, text, r.end, line.end)
+                            && !near(&(r.start..end)) =>
+                    {
+                        let model = state.model();
+                        let p = latex_syntax::parse(&body);
+                        let mut src = r.start..end;
+                        for node in p.syntax().descendants().filter(|x| x.kind() == K::COMMAND) {
+                            let cname = latex_syntax::name(&node).unwrap_or_default();
+                            let arg = || {
+                                node.children()
+                                    .find(|g| g.kind() == K::GROUP)
+                                    .map(|g| group_text(&g).trim().to_string())
+                            };
+                            match cname.as_str() {
+                                "includegraphics" => match picture_path(doc, &model, &node) {
+                                    Some(path) => b.runs.push(Run {
+                                        src: src.clone(),
+                                        text: crate::view::PLACEHOLDER.to_string(),
+                                        verbatim: false,
+                                        style: Style::default(),
+                                        widget: Some(crate::view::Widget::Image {
+                                            path,
+                                            width: picture_width(&node),
+                                        }),
+                                    }),
+                                    None => {
+                                        let link = Style {
+                                            link: true,
+                                            ..Style::default()
+                                        };
+                                        b.replace(src.clone(), &arg().unwrap_or_default(), link);
+                                    }
+                                },
+                                "input" | "include" => {
+                                    let link = Style {
+                                        link: true,
+                                        ..Style::default()
+                                    };
+                                    b.replace(src.clone(), &arg().unwrap_or_default(), link);
+                                }
+                                "caption" => {
+                                    let caption = arg().unwrap_or_default();
+                                    let shown =
+                                        plain_text(&model, &caption, 0).map_or(caption, |(t, _)| t);
+                                    b.replace(src.clone(), &format!(" {shown}"), c.style);
+                                }
+                                _ => continue,
+                            }
+                            src = end..end;
+                        }
+                        if src.start != end {
+                            b.verbatim(r.start..end, c.style);
+                        }
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
                     (n, None)
                         if !renders_command(n)
                             && let Some((source, end)) =
@@ -4157,15 +4504,13 @@ fn unflagged_line_view(
                             && !near(&(r.start..end))
                             && renderer_reads(doc, &source) =>
                     {
+                        let display = !source.starts_with('$');
                         b.runs.push(Run {
                             src: r.start..end,
                             text: crate::view::PLACEHOLDER.to_string(),
                             verbatim: false,
                             style: Style::default(),
-                            widget: Some(crate::view::Widget::Math {
-                                source,
-                                display: false,
-                            }),
+                            widget: Some(crate::view::Widget::Math { source, display }),
                         });
                         while let Some(n) = &tok
                             && span(n).start < end
@@ -4257,6 +4602,28 @@ fn unflagged_line_view(
                             ..c.style
                         };
                         b.replace(r.start..end, name, st);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
+                    // romanbar's numerals (`\Romanbar{4}`): IV.
+                    ("Romanbar" | "romanbar", _)
+                        if let Some(end) = args_end(text, r.end, line.end, "m")
+                            && !near(&(r.start..end))
+                            && let Ok(n) = text[r.end..end]
+                                .trim()
+                                .trim_start_matches('{')
+                                .trim_end_matches('}')
+                                .trim()
+                                .parse::<u32>() =>
+                    {
+                        let mut shown = roman(n);
+                        if name == "Romanbar" {
+                            shown = shown.to_uppercase();
+                        }
+                        b.replace(r.start..end, &shown, c.style);
                         while let Some(n) = &tok
                             && span(n).start < end
                         {
@@ -5092,7 +5459,7 @@ fn manual_citation(
                 .join("; "),
         },
         None => match command {
-            "citenum" => labels.join(", "),
+            "citenum" | "onlinecite" => labels.join(", "),
             _ => format!("[{}]", wrap(labels.join(", "))),
         },
     };
@@ -5188,7 +5555,7 @@ fn styled_citation(
                     .collect::<Vec<_>>()
                     .join(", "),
                 "citealt" | "citealp" if natbib => wrap(marks.join(", ")),
-                "citenum" => marks.join(", "),
+                "citenum" | "onlinecite" => marks.join(", "),
                 _ => format!("[{}]", wrap(marks.join(", "))),
             }
         }
@@ -5591,6 +5958,7 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
 /// document leaves as source).
 pub fn renders_command(name: &str) -> bool {
     algorithm_words(name).is_some()
+        || algorithm2e_words(name).is_some()
         || silent(name).is_some()
         || box_args(name).is_some()
         || format_style(name).is_some()
@@ -5606,6 +5974,9 @@ pub fn renders_command(name: &str) -> bool {
             "item"
                 | "ding"
                 | "ion"
+                | "Romanbar"
+                | "romanbar"
+                | "plotone"
                 | "icmlauthor"
                 | "caption"
                 | "includegraphics"
@@ -5786,6 +6157,12 @@ fn front_environment(name: &str) -> Option<&'static str> {
         | "justify"
         | "footnote"
         | "figurenotes"
+        | "titlepage"
+        | "ruledtabular"
+        | "sideways"
+        | "graphicalabstract"
+        | "highlights"
+        | "highlight"
         | "tablenotes*"
         | "fullwidth" => "",
         _ => return None,
@@ -5857,7 +6234,14 @@ pub(crate) fn tex_picture(name: &str) -> bool {
     // Young tableaux too.
     matches!(
         name,
-        "tikzpicture" | "pgfpicture" | "circuitikz" | "picture" | "diagram" | "xy" | "ytableau"
+        "tikzpicture"
+            | "pgfpicture"
+            | "circuitikz"
+            | "picture"
+            | "diagram"
+            | "xy"
+            | "ytableau"
+            | "overpic"
     )
 }
 
@@ -7539,6 +7923,10 @@ mod tests {
             text_mode("a\\ifmmode b\\ifx c\\else d\\fi\\else e\\fi f"),
             "a e f"
         );
+        assert_eq!(
+            text_mode("\\scalebox{0.7}[#1]{$\\blacksquare$}"),
+            "$\\blacksquare$"
+        );
     }
 
     #[test]
@@ -7606,6 +7994,133 @@ mod tests {
         }
         let all: Vec<String> = [3, 6, 9].map(|n| shown(&d, n, end).display()).into();
         assert_eq!(all.concat(), "ABC");
+    }
+
+    #[test]
+    fn algorithm2e_statements() {
+        let text = "\\documentclass{article}\n\\usepackage[ruled]{algorithm2e}\n\\SetKwInOut{Input}{Input}\n\\begin{document}\n\\begin{algorithm}\n\\Input{a graph $G$}\n\\ForEach{$v \\in V$}{\n\\tcp{visit}\n\\KwRet{$v$}\n}\n\\end{algorithm}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| {
+                    if r.widget.is_some() {
+                        "$".to_string()
+                    } else {
+                        r.text.clone()
+                    }
+                })
+                .collect::<String>()
+        };
+        assert_eq!(read(5), "Input: a graph $");
+        assert_eq!(read(6), "foreach $ do ");
+        assert_eq!(read(7), "// visit");
+        assert_eq!(read(8), "return $");
+    }
+
+    #[test]
+    fn aastex_words_and_front_matter() {
+        let text = "\\documentclass{aastex631}\n\\begin{document}\n\\correspondingauthor{Ada}\n1\\fdg5 and 2\\farcs3 in \\apj\n\\onecolumngrid\n\\acknowledgments We thank \\added{you}.\n\\software{astropy}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert_eq!(read(2), "Corresponding author: Ada");
+        assert_eq!(read(3), "1\u{b0}.5 and 2\u{2033}.3 in ApJ");
+        assert_eq!(read(4), "");
+        assert_eq!(read(5), "Acknowledgments. We thank you.");
+        assert_eq!(read(6), "Software: astropy");
+    }
+
+    #[test]
+    fn own_macros_of_displayed_formulas() {
+        let text = "\\documentclass{article}\n\\usepackage{amsmath}\n\\newcommand{\\eq}[1]{\\begin{align}#1\\end{align}}\n\\begin{document}\n\\eq{x &= 1}\n\\end{document}\n";
+        let d = doc(text);
+        let v = shown(&d, 4, None);
+        assert!(
+            v.runs.iter().any(|r| matches!(
+                &r.widget,
+                Some(crate::view::Widget::Math { source, .. }) if source == "\\begin{align}x &= 1\\end{align}"
+            )),
+            "{:?}",
+            v.runs
+        );
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
+    fn aastex_tables() {
+        let text = "\\documentclass{aastex631}\n\\begin{document}\n\\begin{deluxetable*}{lc}\n\\tabletypesize{\\scriptsize}\n\\tablecaption{Sources}\n\\tablehead{\\colhead{Name} & \\colhead{Flux}}\n\\startdata\nA & 1 \\\\\n\\enddata\n\\tablecomments{Fluxes in Jy.}\n\\end{deluxetable*}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        let lines: Vec<String> = (3..10).map(read).collect();
+        assert_eq!(
+            lines,
+            [
+                "",
+                "Sources",
+                "Name  Flux",
+                "",
+                "A  1 ",
+                "",
+                "Fluxes in Jy."
+            ]
+        );
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
+    fn own_macros_of_pictures_and_files() {
+        let text = "\\documentclass{article}\n\\usepackage{graphicx,twoopt}\n\\newcommandtwoopt{\\twographs}[4][][]{\\begin{figure}\\includegraphics{#3.png}\\includegraphics{#4.png}\\caption{#1}\\label{fig:#2}\\end{figure}}\n\\newcommand{\\twotables}[2]{\\begin{center}\\input{#1}\\input{#2}\\end{center}}\n\\begin{document}\n\\twographs[Two \\emph{plots}.][ab]{a}{b}\n\\twotables{t1}{t2}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        // No picture files beside the document: their names.
+        assert_eq!(read(5), "a.pngb.png Two plots.");
+        assert_eq!(read(6), "t1t2");
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
+    fn revtex_and_aastex_odds() {
+        let text = "\\documentclass{revtex4-2}\n\\usepackage{romanbar}\n\\begin{document}\nPhase \\Romanbar{4} and \\romanbar{2}, see Ref.~\\onlinecite{k}.\nA\\tablenotemark{a}\n\\begin{ruledtabular}\nB\n\\end{ruledtabular}\n\\begin{thebibliography}{1}\n\\bibitem{k} K.\n\\end{thebibliography}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert_eq!(read(3), "Phase IV and ii, see Ref.\u{a0}1.");
+        let v = shown(&d, 4, None);
+        assert!(v.runs.iter().any(|r| r.text == "a" && r.style.superscript));
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
     }
 
     #[test]

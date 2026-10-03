@@ -16,6 +16,9 @@ const TABLES: &[&str] = &[
     "tabulary",
     "array",
     "longtable",
+    // aastex's, its rows one by one (its caption and head come before them).
+    "deluxetable",
+    "deluxetable*",
 ];
 
 /// Commands that may stand on a row's line besides its cells.
@@ -358,7 +361,8 @@ fn span_cell(text: &str, cell: Range<usize>) -> Option<(Range<usize>, usize, usi
 /// `env` as a simple table: its specification plain and every line of
 /// its body a rule or one row.
 pub(crate) fn simple(text: &str, env: &SyntaxNode) -> Option<Simple> {
-    if !is_table(&latex_syntax::name(env)?) {
+    let name = latex_syntax::name(env)?;
+    if !is_table(&name) || name.starts_with("deluxetable") {
         return None;
     }
     let begin = env.children().find(|c| c.kind() == K::BEGIN)?;

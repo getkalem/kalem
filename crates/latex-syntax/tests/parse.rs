@@ -505,3 +505,36 @@ fn fuzz_cases() {
         }
     }
 }
+
+#[test]
+fn formulas_of_names_another_file_defines() {
+    // `\def\ba{\begin{eqnarray}}` in a package of the document's own: its
+    // definitions read from there, the formula between the names found.
+    let sty = "% macros\n\\def \\ba  {\\begin{eqnarray}}\n\\def \\ea  {\\end{eqnarray}}\n\\def\\R{\\mathbb{R}}\n\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n";
+    let extra = latex_syntax::alias_definitions(sty);
+    assert_eq!(
+        extra,
+        "\\def \\ba  {\\begin{eqnarray}}\n\\def \\ea  {\\end{eqnarray}}\n\\newenvironment{eqn}{\\begin{equation}}{\\end{equation}}\n"
+    );
+    let text = "Text\n\\ba\nx &=& 1\n\\ea\nmore \\begin{eqn}y\\end{eqn}\n";
+    assert!(texts(&parse(text), SyntaxKind::DISPLAY_MATH).is_empty());
+    let p = latex_syntax::parse_with(text, &extra);
+    assert_eq!(
+        texts(&p, SyntaxKind::DISPLAY_MATH),
+        ["\\ba\nx &=& 1\n\\ea", "\\begin{eqn}y\\end{eqn}"]
+    );
+    // A reparse keeps them, incremental or whole.
+    let edit = TextEdit {
+        range: 0..4,
+        insert: "\\ba z\\ea".into(),
+    };
+    let new = edit.apply(text);
+    assert_eq!(
+        p.reparse(&new, &edit),
+        latex_syntax::parse_with(&new, &extra)
+    );
+    assert_eq!(
+        texts(&p.reparse(&new, &edit), SyntaxKind::DISPLAY_MATH).len(),
+        3
+    );
+}
