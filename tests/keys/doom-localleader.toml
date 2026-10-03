@@ -1,5 +1,5 @@
 # Doom Emacs's local leader `SPC m` (`:lang org`, `:lang latex`,
-# `:lang markdown`) and what each key does in Kalem with Vim keys
+# `:lang markdown`, `:lang data` for CSV) and what each key does in Kalem with Vim keys
 # (T2.7i.16, T2.7i.17). `mode` is the kind of document the key is for;
 # the rest is as in doom-leader.toml. The test in
 # `kalem_core::key_tables` checks each row against the Vim keymap in a
@@ -871,3 +871,96 @@ mode = "markdown"
 keys = "space m i 6"
 what = "Insert a level 6 heading"
 reason = "Type ###### and a space"
+
+
+# csv (`:lang data`, csv-mode; and the table keys of `:lang org`).
+[[key]]
+doom = "SPC m a"
+mode = "csv"
+keys = "space m a"
+what = "Align the fields: every column as wide as its widest value"
+command = "csv.autosizeColumns"
+
+[[key]]
+doom = "SPC m u"
+mode = "csv"
+keys = "space m u"
+what = "Unalign the fields: the widths the grid chooses"
+command = "csv.resetWidths"
+
+[[key]]
+doom = "SPC m s"
+mode = "csv"
+keys = "space m s"
+what = "Sort the rows by columns"
+command = "csv.sortFileBy"
+
+[[key]]
+doom = "SPC m S"
+mode = "csv"
+keys = "space m shift+s"
+what = "Sort the rows by the column at point"
+command = "csv.sortFile"
+
+[[key]]
+doom = "SPC m k"
+mode = "csv"
+keys = "space m k"
+what = "Kill the column"
+command = "csv.deleteColumn"
+
+[[key]]
+doom = "SPC m t"
+mode = "csv"
+keys = "space m t"
+what = "Transpose"
+command = "csv.transpose"
+
+[[key]]
+doom = "SPC m b a"
+mode = "csv"
+keys = "space m b a"
+what = "Align the table"
+command = "csv.autosizeColumns"
+
+[[key]]
+doom = "SPC m b e"
+mode = "csv"
+keys = "space m b e"
+what = "Edit the field"
+command = "csv.editField"
+
+[[key]]
+doom = "SPC m b s"
+mode = "csv"
+keys = "space m b s"
+what = "Sort the rows"
+command = "csv.sortFile"
+
+[[key]]
+doom = "SPC m b i c"
+mode = "csv"
+keys = "space m b i c"
+what = "Insert a column"
+command = "csv.insertColumn"
+
+[[key]]
+doom = "SPC m b i r"
+mode = "csv"
+keys = "space m b i r"
+what = "Insert a row"
+command = "csv.insertRow"
+
+[[key]]
+doom = "SPC m b d c"
+mode = "csv"
+keys = "space m b d c"
+what = "Delete the column"
+command = "csv.deleteColumn"
+
+[[key]]
+doom = "SPC m b d r"
+mode = "csv"
+keys = "space m b d r"
+what = "Delete the row"
+command = "csv.deleteRow"

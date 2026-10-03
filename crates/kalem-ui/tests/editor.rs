@@ -1891,10 +1891,10 @@ fn file_manager_context_menu(cx: &mut TestAppContext) {
     });
     assert_eq!(first.as_deref(), Some("Open"));
     // The item under the pointer is marked.
-    let copy = cx.debug_bounds("context-3").expect("Copy");
+    let copy = cx.debug_bounds("context-4").expect("Copy");
     cx.simulate_mouse_move(copy.center(), None, gpui::Modifiers::default());
     cx.run_until_parked();
-    assert_eq!(e.read_with(cx, |e, _| e.menu_hover), Some(3));
+    assert_eq!(e.read_with(cx, |e, _| e.menu_hover), Some(4));
     // Its Copy item puts the file on the file clipboard.
     cx.simulate_click(copy.center(), gpui::Modifiers::default());
     cx.run_until_parked();
@@ -3984,4 +3984,86 @@ fn closing_the_last_document_keeps_the_window(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(active_title(&ws, cx), "Untitled");
     assert_eq!(ws.read_with(cx, |ws, _| ws.editors.len()), 1);
+}
+
+/// A CSV grid's frozen first column stays at the left edge when the rows
+/// scroll sideways; hidden columns leave the letters bar; the file stays.
+#[gpui::test]
+fn csv_frozen_column(cx: &mut TestAppContext) {
+    let mut text = String::from("name");
+    for j in 0..30 {
+        text.push_str(&format!(",column{j}"));
+    }
+    text.push_str("\nAda");
+    for j in 0..30 {
+        text.push_str(&format!(",value{j:02}"));
+    }
+    text.push('\n');
+    let (e, cx) = open_named(&text, "w.csv", || None, cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.toggleFrozen"));
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.frozen.get()) > gpui::px(0.));
+    at(&e, text.find("value29").unwrap(), cx);
+    cx.run_until_parked();
+    let scrolled = e.read_with(cx, |e, _| e.hscroll);
+    assert!(scrolled > gpui::px(0.));
+    // The frozen column shows: going to it does not scroll back.
+    at(&e, text.find("Ada").unwrap(), cx);
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.hscroll), scrolled);
+    // A column hidden; the file as it was.
+    at(&e, text.find("value00").unwrap(), cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.hideColumn"));
+    cx.run_until_parked();
+    let shown = e.read_with(cx, |e, _| e.line_view(1).display());
+    assert!(
+        !shown.contains("value00") && shown.contains("value01"),
+        "{shown}"
+    );
+    assert_eq!(
+        text,
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string())
+    );
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.toggleFrozen"));
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.frozen.get()), gpui::px(0.));
+}
+
+/// Entries dragged from a listing (T2.7e.10, T2.7e.17): dropped on a
+/// document they are linked; dropped on a folder they move into it.
+#[gpui::test]
+fn file_manager_entries_dropped(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(false, cx);
+    let proj = dir.join("proj");
+    std::fs::write(proj.join("x.txt"), "x").unwrap();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    // On a.org: a link to the file, relative to the document.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.move_cursor(e.doc.text().len(), false);
+        e.drop_files(&[proj.join("sub/b.org")], window, cx);
+    });
+    cx.run_until_parked();
+    let text = e.read_with(cx, |e, _| e.doc.text().as_str().to_string());
+    assert!(text.contains("[[file:sub/b.org][b.org]]"), "{text}");
+    // The listing: the entry dragged from a line takes that file, and
+    // dropped on `sub` it moves there.
+    cx.simulate_keystrokes(&format!("{}-alt-d", primary()));
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let (x_line, sub_at) = e.read_with(cx, |e, _| {
+        let t = e.doc.text();
+        (
+            t.line_of(t.as_str().find(" x.txt").unwrap()),
+            t.as_str().find(" sub").unwrap() + 1,
+        )
+    });
+    let dragged = e.read_with(cx, |e, _| kalem_core::dired::drag_paths(&e.doc, x_line));
+    assert_eq!(dragged, vec![proj.join("x.txt")]);
+    e.update_in(cx, |e, window, cx| {
+        e.doc.move_cursor(sub_at, false);
+        e.drop_files(&dragged, window, cx);
+    });
+    settle_jobs(&ws, cx);
+    assert!(proj.join("sub/x.txt").exists());
+    assert!(!proj.join("x.txt").exists());
 }

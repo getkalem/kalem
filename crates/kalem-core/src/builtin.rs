@@ -247,7 +247,13 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("csv.sortView", object(&[("reverse", "boolean", false)])),
         ("csv.setDelimiter", object(&[("delimiter", "string", true)])),
         ("csv.setQuote", object(&[("quote", "string", true)])),
-        ("csv.splitColumn", object(&[("separator", "string", true)])),
+        (
+            "csv.splitColumn",
+            object(&[
+                ("separator", "string", true),
+                ("confirmed", "boolean", false),
+            ]),
+        ),
         ("bookmark.set", object(&[("name", "string", false)])),
         ("session.save", object(&[("name", "string", false)])),
         (
@@ -291,9 +297,16 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("session.restoreNamed", object(&[("name", "string", false)])),
         ("bookmark.goto", object(&[("name", "string", true)])),
         ("bookmark.delete", object(&[("name", "string", false)])),
-        ("csv.joinColumns", object(&[("separator", "string", true)])),
+        (
+            "csv.joinColumns",
+            object(&[
+                ("separator", "string", true),
+                ("confirmed", "boolean", false),
+            ]),
+        ),
         ("csv.sortFileBy", object(&[("columns", "string", true)])),
         ("csv.goToCell", object(&[("cell", "string", true)])),
+        ("csv.setColumnWidth", object(&[("width", "string", true)])),
         ("csv.sumColumn", object(&[("insert", "boolean", false)])),
         (
             "bib.sortView",
@@ -1023,6 +1036,72 @@ fn csv_edit(
                 .map_or(r.range.start, csv_caret);
             d.selection = org_edit::Selection::caret(at);
         }
+    }
+    Ok(())
+}
+
+/// A preview of a CSV edit before it is made: the first rows as they
+/// would be, each a choice that makes the edit (`command` again with
+/// `confirmed`).
+fn csv_preview(
+    ctx: &mut EditorContext<'_>,
+    command: &str,
+    args: &Value,
+    edit: impl FnOnce(&str, &crate::csv::Layout, usize) -> Result<org_edit::Transaction, CommandError>,
+) -> CommandResult {
+    let d = ctx.doc()?;
+    let (layout, _, _, col) =
+        crate::csv::cell_at(d).ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+    let text = d.text().as_str();
+    let tx = edit(text, &layout, col)?;
+    let after = tx.apply(text);
+    let rows = crate::csv::rows(&after, &layout.dialect);
+    let mut confirmed = args.clone();
+    confirmed["confirmed"] = Value::Bool(true);
+    let id = crate::palette::invocation(command, &confirmed);
+    let category = crate::tr!("category-preview");
+    let items = rows
+        .iter()
+        .take(8)
+        .map(|r| crate::palette::PaletteItem {
+            id: id.clone(),
+            title: r.join("  │  "),
+            category: category.clone(),
+            keys: String::new(),
+            also: String::new(),
+        })
+        .collect();
+    request(ctx, Request::Choose(items))
+}
+
+/// Changes the columns the CSV grid shows and their widths, given the
+/// layout and the column at the cursor.
+fn csv_columns(
+    ctx: &mut EditorContext<'_>,
+    f: impl FnOnce(&mut crate::csv::Columns, &crate::csv::Layout, usize) -> CommandResult,
+) -> CommandResult {
+    let d = ctx.doc()?;
+    let (layout, _, _, col) =
+        crate::csv::cell_at(d).ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+    let mut cols = d.csv_columns.clone();
+    f(&mut cols, &layout, col)?;
+    d.csv_columns = cols;
+    Ok(())
+}
+
+/// The cursor out of a hidden column: to the next one that shows, else
+/// the one before.
+fn csv_to_shown_column(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let d = ctx.doc()?;
+    let Some((_, _, rec, col)) = crate::csv::cell_at(d) else {
+        return Ok(());
+    };
+    let hidden = &d.csv_columns.hidden;
+    let to = (col..rec.fields.len())
+        .find(|j| !hidden.contains(j))
+        .or_else(|| (0..col).rev().find(|j| !hidden.contains(j)));
+    if let Some(f) = to.and_then(|j| rec.fields.get(j)) {
+        d.selection = org_edit::Selection::caret(csv_caret(f));
     }
     Ok(())
 }
@@ -2969,6 +3048,101 @@ fn csv_commands() -> Vec<Command> {
         c("csv.toggleCoordinates", "Coordinate Grid", &[], |ctx, _| {
             csv_view(ctx, |v| v.coordinates = !v.coordinates)
         }),
+        // Columns as the grid shows them (never written to the file).
+        c("csv.hideColumn", "Hide Column", &[], |ctx, _| {
+            csv_columns(ctx, |cols, l, col| {
+                let shown = (0..l.widths.len())
+                    .filter(|j| !cols.hidden.contains(j))
+                    .count();
+                if shown <= 1 {
+                    return Err(CommandError::new(crate::tr!("msg-csv-last-column")));
+                }
+                cols.hidden.insert(col);
+                Ok(())
+            })?;
+            // The cursor to a column that shows.
+            csv_to_shown_column(ctx)
+        }),
+        c("csv.showColumns", "Show All Columns", &[], |ctx, _| {
+            csv_columns(ctx, |cols, _, _| {
+                cols.hidden.clear();
+                Ok(())
+            })
+        }),
+        c("csv.widenColumn", "Widen Column", &[], |ctx, _| {
+            csv_columns(ctx, |cols, l, col| {
+                let w = l.widths.get(col).copied().unwrap_or(1);
+                cols.widths.insert(col, w + 2);
+                Ok(())
+            })
+        }),
+        c("csv.narrowColumn", "Narrow Column", &[], |ctx, _| {
+            csv_columns(ctx, |cols, l, col| {
+                let w = l.widths.get(col).copied().unwrap_or(1);
+                cols.widths.insert(col, w.saturating_sub(2).max(2));
+                Ok(())
+            })
+        }),
+        c("csv.setColumnWidth", "Column Width", &[], |ctx, args| {
+            let w: usize = arg_str(args, "width")?
+                .trim()
+                .parse()
+                .ok()
+                .filter(|w| (2..=500).contains(w))
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-bad-width")))?;
+            csv_columns(ctx, |cols, _, col| {
+                cols.widths.insert(col, w);
+                Ok(())
+            })
+        }),
+        c("csv.autosizeColumn", "Autosize Column", &[], |ctx, _| {
+            let text = ctx.doc()?.text().as_str().to_string();
+            csv_columns(ctx, |cols, l, col| {
+                let w = crate::csv::natural_widths(&text, &l.dialect)
+                    .get(col)
+                    .copied()
+                    .unwrap_or(1);
+                cols.widths.insert(col, w.clamp(2, 500));
+                Ok(())
+            })
+        }),
+        c(
+            "csv.autosizeColumns",
+            "Autosize All Columns",
+            &[],
+            |ctx, _| {
+                let text = ctx.doc()?.text().as_str().to_string();
+                csv_columns(ctx, |cols, l, _| {
+                    for (j, w) in crate::csv::natural_widths(&text, &l.dialect)
+                        .into_iter()
+                        .enumerate()
+                    {
+                        cols.widths.insert(j, w.clamp(2, 500));
+                    }
+                    Ok(())
+                })
+            },
+        ),
+        c("csv.resetWidths", "Reset Column Widths", &[], |ctx, _| {
+            csv_columns(ctx, |cols, _, _| {
+                cols.widths.clear();
+                Ok(())
+            })
+        }),
+        c("csv.toggleFrozen", "Freeze First Column", &[], |ctx, _| {
+            csv_columns(ctx, |cols, _, _| {
+                cols.frozen = !cols.frozen;
+                Ok(())
+            })
+        }),
+        c("csv.pasteBlock", "Paste as Block", &[], |ctx, _| {
+            let d = ctx.doc()?;
+            if d.meta.mode != crate::DocumentMode::Csv {
+                return Err(CommandError::new(crate::tr!("msg-not-csv")));
+            }
+            d.csv_paste_block = true;
+            request(ctx, Request::Paste { plain: false })
+        }),
         c("csv.fillDown", "Fill Down", &[], |ctx, _| {
             csv_fill(ctx, false)
         }),
@@ -3004,6 +3178,16 @@ fn csv_commands() -> Vec<Command> {
         c("csv.splitColumn", "Split Column", &[], |ctx, args| {
             let sep = arg_str(args, "separator")?.to_string();
             let sep = if sep.is_empty() { " ".to_string() } else { sep };
+            if !arg_bool(args, "confirmed") {
+                return csv_preview(ctx, "csv.splitColumn", args, |text, l, col| {
+                    crate::csv_tools::split_column(text, &l.dialect, col, &sep).ok_or_else(|| {
+                        CommandError::new(crate::tr!(
+                            "msg-csv-nothing-to-split",
+                            separator = sep.as_str()
+                        ))
+                    })
+                });
+            }
             csv_edit(ctx, |text, l, row, _, col| {
                 let tx = crate::csv_tools::split_column(text, &l.dialect, col, &sep).ok_or_else(
                     || {
@@ -3022,6 +3206,12 @@ fn csv_commands() -> Vec<Command> {
             &[],
             |ctx, args| {
                 let sep = arg_str(args, "separator")?.to_string();
+                if !arg_bool(args, "confirmed") {
+                    return csv_preview(ctx, "csv.joinColumns", args, |text, l, col| {
+                        crate::csv_tools::join_columns(text, &l.dialect, col, &sep)
+                            .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-column")))
+                    });
+                }
                 csv_edit(ctx, |text, l, row, _, col| {
                     let tx = crate::csv_tools::join_columns(text, &l.dialect, col, &sep)
                         .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-column")))?;
@@ -6994,6 +7184,36 @@ fn plain_commands() -> Vec<Command> {
             Ok(())
         }),
         cmd(
+            "link.insertFiles",
+            "Insert Links to Files",
+            "Insert",
+            &[],
+            None,
+            |ctx, args| {
+                // Files dropped on a document: a link to each, in the
+                // document's syntax, at the cursor.
+                let paths: Vec<std::path::PathBuf> = args
+                    .get("paths")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(Value::as_str).map(Into::into).collect())
+                    .unwrap_or_default();
+                if paths.is_empty() {
+                    return Err(CommandError::new(crate::tr!("msg-no-stored-link")));
+                }
+                let now = ctx.now;
+                let d = ctx.doc()?;
+                let text = crate::links::text_for(&d.meta.mode, &paths, d.meta.path.as_deref());
+                let s = d.selection;
+                let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
+                let mut tx = org_edit::Transaction::new("Insert Links to Files");
+                tx.replace(a..b, text.as_str())
+                    .map_err(|e| CommandError::new(e.to_string()))?;
+                let tx = tx.select(org_edit::Selection::caret(a + text.len()));
+                d.apply(&tx, org_edit::ChangeKind::Command, now);
+                Ok(())
+            },
+        ),
+        cmd(
             "org.link.insertStored",
             "Insert Stored Link",
             "Insert",
@@ -8099,10 +8319,24 @@ mod tests {
         let (t, _) = run("csv.sortFileBy", json!({"columns": "B, -A"})).unwrap();
         assert_eq!(t, "name,n\nCy,1\nBob,1\nAda,1\n");
         assert!(run("csv.sortFileBy", json!({"columns": "?"})).is_err());
+        // Join and split show the first rows as they would be first.
         let (t, _) = run("csv.joinColumns", json!({"separator": "-"})).unwrap();
+        assert_eq!(t, "name,n\nCy,1\nBob,1\nAda,1\n");
+        let (t, _) = run(
+            "csv.joinColumns",
+            json!({"separator": "-", "confirmed": true}),
+        )
+        .unwrap();
         assert_eq!(t, "name-n\nCy-1\nBob-1\nAda-1\n");
         let (t, _) = run("csv.splitColumn", json!({"separator": "-"})).unwrap();
+        assert_eq!(t, "name-n\nCy-1\nBob-1\nAda-1\n");
+        let (t, _) = run(
+            "csv.splitColumn",
+            json!({"separator": "-", "confirmed": true}),
+        )
+        .unwrap();
         assert_eq!(t, "name,n\nCy,1\nBob,1\nAda,1\n");
+        assert!(run("csv.splitColumn", json!({"separator": "#"})).is_err());
         run("csv.cellCoordinates", json!({})).unwrap();
         // The view changes; the file does not.
         let before = run("csv.toggleRainbow", json!({})).unwrap().0;
@@ -8122,7 +8356,115 @@ mod tests {
             "{msgs:?}"
         );
         assert!(msgs.iter().any(|m| m.contains("duplicate")), "{msgs:?}");
-        assert!(matches!(ctx.requests.last(), Some(Request::CopyText(t)) if t == "4"));
+        assert!(
+            ctx.requests
+                .iter()
+                .any(|r| matches!(r, Request::CopyText(t) if t == "4"))
+        );
+        let previews: Vec<_> = ctx
+            .requests
+            .iter()
+            .filter_map(|r| match r {
+                Request::Choose(items) => Some(items),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(previews.len(), 2);
+        assert_eq!(previews[0][0].title, "name-n");
+        assert_eq!(previews[0][1].title, "Cy-1");
+        assert_eq!(previews[1][0].title, "name  │  n");
+        assert!(previews[1][0].id.contains("confirmed"));
+    }
+
+    #[test]
+    fn csv_columns_view() {
+        let reg = CommandRegistry::with_builtins();
+        let text = "name,note,n\nAda,a long note here,1\nBob,x,2\n";
+        let mut d = doc(text, 9);
+        d.set_mode(
+            DocumentMode::Csv,
+            &crate::settings::Config::default().parse_base(),
+        );
+        d.csv_view = crate::csv::View {
+            align_numbers: false,
+            rainbow: false,
+            coordinates: false,
+            sheet: false,
+        };
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let clock = jiff::civil::date(2026, 10, 3).at(10, 0, 0, 0);
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock,
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        let mut run = |id: &str, args: serde_json::Value| reg.execute(id, &mut ctx, &args);
+        // The note column: hidden, then shown, then narrowed and autosized.
+        run("csv.goToCell", json!({"cell": "B2"})).unwrap();
+        run("csv.hideColumn", json!({})).unwrap();
+        run("csv.goToCell", json!({"cell": "A2"})).unwrap();
+        run("csv.hideColumn", json!({})).unwrap();
+        // The last column that shows stays.
+        assert!(run("csv.hideColumn", json!({})).is_err());
+        let d = ctx.document.as_deref_mut().unwrap();
+        assert_eq!(
+            d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(),
+            vec![0, 1]
+        );
+        let line = |d: &crate::DocumentState, n: usize| {
+            let t = d.text();
+            let r = t.line_range(n);
+            crate::csv::line_view(&crate::csv::layout(d), t.as_str(), r, None).display()
+        };
+        assert_eq!(line(d, 1), "1");
+        d.csv_columns.hidden.clear();
+        d.csv_columns.widths.insert(1, 6);
+        assert_eq!(line(d, 1), "Ada  │ a lon… │ 1");
+        assert_eq!(line(d, 2), "Bob  │ x      │ 2");
+        d.csv_columns.hidden.insert(2);
+        assert_eq!(line(d, 2), "Bob  │ x");
+        d.csv_columns.frozen = true;
+        assert_eq!(crate::csv::frozen_width(&crate::csv::layout(d)), Some(6));
+        // Autosize: the widest value, uncut.
+        d.csv_columns = crate::csv::Columns::default();
+        assert_eq!(d.text().as_str(), text);
+        let mut clip2 = Clipboard::default();
+        let mut ctx = EditorContext {
+            document: Some(d),
+            clipboard: &mut clip2,
+            config: &config,
+            now: Instant::now(),
+            clock,
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("csv.goToCell", &mut ctx, &json!({"cell": "B2"}))
+            .unwrap();
+        reg.execute("csv.autosizeColumn", &mut ctx, &json!({}))
+            .unwrap();
+        reg.execute("csv.narrowColumn", &mut ctx, &json!({}))
+            .unwrap();
+        let d = ctx.document.as_deref().unwrap();
+        assert_eq!(d.csv_columns.widths.get(&1), Some(&14));
+        assert_eq!(d.text().as_str(), text);
+        // Paste as Block: the next paste writes over the cells.
+        reg.execute("csv.pasteBlock", &mut ctx, &json!({})).unwrap();
+        assert!(matches!(
+            ctx.requests.last(),
+            Some(Request::Paste { plain: false })
+        ));
+        let d = ctx.document.as_deref_mut().unwrap();
+        d.paste("p\tq\nr\ts\n", None, false, Instant::now());
+        assert_eq!(d.text().as_str(), "name,note,n\nAda,p,q\nBob,r,s\n");
+        assert!(!d.csv_paste_block);
+        // Once: the next paste inserts as before.
+        d.paste("z", None, false, Instant::now());
+        assert!(d.text().as_str().contains('z'));
     }
 
     #[test]
