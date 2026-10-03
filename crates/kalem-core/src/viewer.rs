@@ -86,6 +86,40 @@ pub fn outline_position(doc: &crate::DocumentState) -> usize {
     doc.viewer.as_deref().map_or(doc.selection.head, |v| v.unit)
 }
 
+/// The word around the glyph at `r` of `text`: the letters, digits and
+/// `_` on either side; the glyph alone when it is none of them.
+fn word_around(text: &str, r: std::ops::Range<usize>) -> std::ops::Range<usize> {
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    let Some(glyph) = text.get(r.clone()) else {
+        return r;
+    };
+    if !glyph.chars().all(word) {
+        return r;
+    }
+    let start = text[..r.start]
+        .char_indices()
+        .rev()
+        .take_while(|&(_, c)| word(c))
+        .last()
+        .map_or(r.start, |(i, _)| i);
+    let end = text[r.end..]
+        .char_indices()
+        .find(|&(_, c)| !word(c))
+        .map_or(text.len(), |(i, _)| r.end + i);
+    start..end
+}
+
+/// The line of `text` the glyph at `r` is on.
+fn line_around(text: &str, r: std::ops::Range<usize>) -> std::ops::Range<usize> {
+    let start = text[..r.start.min(text.len())]
+        .rfind('\n')
+        .map_or(0, |i| i + 1);
+    let end = text[r.end.min(text.len())..]
+        .find('\n')
+        .map_or(text.len(), |i| r.end + i);
+    start..end
+}
+
 /// The byte ranges of `needle` (lower case) in `text`, case folded where
 /// folding keeps the text's length (it does not for `İ`; such a text is
 /// searched as it is).
@@ -811,6 +845,37 @@ impl ViewerState {
             .is_some_and(|(_, [bx, by, bw, bh])| {
                 ux >= bx - 1.0 && ux <= bx + bw + 1.0 && uy >= by - 1.0 && uy <= by + bh + 1.0
             })
+    }
+
+    /// Selects the word at (`x`, `y`) of the area (a double click):
+    /// letters, digits and `_` around the glyph there, or the glyph alone
+    /// when it is none of them; with `line`, the whole line (a triple
+    /// click). True when the point is on the unit's text.
+    pub fn select_word(&mut self, x: f32, y: f32, line: bool) -> bool {
+        self.text_sel = None;
+        if !self.text_hit(x, y) {
+            return false;
+        }
+        let (ux, uy) = self.unit_point(x, y);
+        let (hit, text) = {
+            let doc = self.doc();
+            (doc.text_at(self.unit, ux, uy), doc.text(self.unit))
+        };
+        let Some((r, _)) = hit else {
+            return false;
+        };
+        let range = if line {
+            line_around(&text, r)
+        } else {
+            word_around(&text, r)
+        };
+        self.text_sel = Some(TextSelection {
+            unit: self.unit,
+            anchor: range.clone(),
+            head: range,
+            rects: None,
+        });
+        true
     }
 
     /// Starts selecting text at (`x`, `y`) of the area, when it is on the
@@ -4665,6 +4730,24 @@ mod tests {
         v.go_to(1);
         assert_eq!(v.selected_text(), None);
         assert!(v.selection_marks().is_empty());
+    }
+
+    #[test]
+    fn a_double_click_selects_a_word_and_a_triple_one_the_line() {
+        assert_eq!(word_around("say hello, world", 6..7), 4..9);
+        assert_eq!(word_around("say hello, world", 9..10), 9..10);
+        assert_eq!(word_around("çağrı_2 x", 0..2), 0..10);
+        assert_eq!(line_around("one\ntwo three\nfour", 5..6), 4..13);
+        let mut v = state(1);
+        v.set_area(100.0, 50.0);
+        // "page 1": a double click on the g (x 25) selects "page".
+        assert!(v.select_word(25.0, 35.0, false));
+        assert_eq!(v.selected_text().as_deref(), Some("page"));
+        assert!(v.select_word(25.0, 35.0, true));
+        assert_eq!(v.selected_text().as_deref(), Some("page 1"));
+        // Off the text: nothing.
+        assert!(!v.select_word(5.0, 5.0, false));
+        assert_eq!(v.selected_text(), None);
     }
 
     #[test]

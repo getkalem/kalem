@@ -270,3 +270,61 @@ fn text_is_selected_by_dragging_and_copied(cx: &mut TestAppContext) {
     let selected = e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().selected_text());
     assert_eq!(selected, None);
 }
+
+#[gpui::test]
+fn a_double_click_selects_a_word_and_a_triple_one_the_line(cx: &mut TestAppContext) {
+    let (ws, cx) = open(cx);
+    settle(&ws, cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    // Page two (page one's text is a link): on "two" of "Page two" (x 72,
+    // baseline 112, 36 points).
+    cx.simulate_keystrokes("n");
+    settle(&ws, cx);
+    let at = e.update(cx, |e, _| {
+        let origin = e.viewer_view.bounds.expect("laid out").origin;
+        let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+        origin
+            + gpui::point(
+                gpui::px(p.x + 180.0 * p.scale),
+                gpui::px(p.y + 100.0 * p.scale),
+            )
+    });
+    let click = |n: usize, cx: &mut VisualTestContext| {
+        cx.simulate_mouse_move(at, None, gpui::Modifiers::default());
+        cx.simulate_event(gpui::MouseDownEvent {
+            button: gpui::MouseButton::Left,
+            position: at,
+            modifiers: gpui::Modifiers::default(),
+            click_count: n,
+            first_mouse: false,
+        });
+        cx.simulate_event(gpui::MouseUpEvent {
+            button: gpui::MouseButton::Left,
+            position: at,
+            modifiers: gpui::Modifiers::default(),
+            click_count: n,
+        });
+        cx.run_until_parked();
+    };
+    let selected = |cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().selected_text())
+    };
+    click(1, cx);
+    click(2, cx);
+    assert_eq!(selected(cx).as_deref(), Some("two"));
+    let primary = if cfg!(target_os = "macos") {
+        "cmd"
+    } else {
+        "ctrl"
+    };
+    cx.simulate_keystrokes(&format!("{primary}-c"));
+    assert_eq!(
+        cx.read_from_clipboard().and_then(|c| c.text()).as_deref(),
+        Some("two")
+    );
+    click(3, cx);
+    assert_eq!(selected(cx).as_deref(), Some("Page two"));
+    // A single click drops it.
+    click(1, cx);
+    assert_eq!(selected(cx), None);
+}
