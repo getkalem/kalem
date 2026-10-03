@@ -373,16 +373,67 @@ pub fn pdf_svg(data: Vec<u8>) -> Result<String, String> {
     ))
 }
 
+/// An EPS or PostScript picture as PDF: converted once by Ghostscript
+/// (which `epstopdf` and LaTeX use too), found where TeX's programs are,
+/// and kept in the pictures' cache by the file's path, size and time.
+pub fn eps_pdf(file: &Path) -> Result<Vec<u8>, String> {
+    use std::hash::{Hash, Hasher};
+    let meta = std::fs::metadata(file).map_err(|e| e.to_string())?;
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    file.hash(&mut h);
+    meta.len().hash(&mut h);
+    meta.modified().ok().hash(&mut h);
+    let cache = std::env::temp_dir().join("kalem-pictures");
+    std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+    let pdf = cache.join(format!("eps-{:016x}.pdf", h.finish()));
+    if !pdf.is_file() {
+        let search = crate::pdf::tex_search_path();
+        let gs = ["gs", "gswin64c", "gswin32c"]
+            .iter()
+            .find_map(|p| crate::pdf::find(p, &search))
+            .ok_or("Ghostscript is not installed")?;
+        // Written under another name and moved in place when whole.
+        let part = pdf.with_extension("part");
+        let ok = std::process::Command::new(gs)
+            .args([
+                "-q",
+                "-dSAFER",
+                "-dBATCH",
+                "-dNOPAUSE",
+                "-dEPSCrop",
+                "-sDEVICE=pdfwrite",
+            ])
+            .arg(format!("-sOutputFile={}", part.display()))
+            .arg(file)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success());
+        if !ok || std::fs::rename(&part, &pdf).is_err() {
+            let _ = std::fs::remove_file(&part);
+            return Err("Ghostscript could not convert the picture".into());
+        }
+    }
+    std::fs::read(&pdf).map_err(|e| e.to_string())
+}
+
 /// The pixels of the picture `file`, at most `max` pixels on its longer
 /// side (larger pictures are scaled down, keeping their shape); SVG is
 /// drawn at its own size.
 pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
     let ext = |x: &str| file.extension().is_some_and(|e| e.eq_ignore_ascii_case(x));
-    let is_svg = ext("svg") || ext("pdf");
+    let postscript = ext("eps") || ext("ps");
+    let is_svg = ext("svg") || ext("pdf") || postscript;
     let img = if is_svg {
-        let mut data = std::fs::read(file).map_err(|e| e.to_string())?;
+        // An EPS figure (older papers'): as PDF, by Ghostscript.
+        let mut data = if postscript {
+            eps_pdf(file)?
+        } else {
+            std::fs::read(file).map_err(|e| e.to_string())?
+        };
         // A PDF (LaTeX's figures): its first page, as vectors.
-        if ext("pdf") {
+        if ext("pdf") || postscript {
             data = pdf_svg(data)?.into_bytes();
         }
         let opts = resvg::usvg::Options {
@@ -447,6 +498,29 @@ pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn eps_figures_drawn_through_ghostscript() {
+        let search = crate::pdf::tex_search_path();
+        if crate::pdf::find("gs", &search).is_none() {
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("kalem-eps-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let eps = dir.join("square.eps");
+        std::fs::write(
+            &eps,
+            "%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 40 20\n0 0 1 setrgbcolor\nnewpath 0 0 moveto 40 0 lineto 40 20 lineto 0 20 lineto closepath fill\nshowpage\n",
+        )
+        .unwrap();
+        let img = decode(&eps, 2400).expect("drawn");
+        let (w, h) = img.dimensions();
+        assert!(w > h && h > 0, "{w}x{h}");
+        // Blue where the square is.
+        let p = img.get_pixel(w / 2, h / 2);
+        assert!(p[2] > 200 && p[0] < 60 && p[3] > 200, "{p:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     use super::*;
 
     #[test]

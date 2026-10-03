@@ -820,8 +820,10 @@ the first of these options present:
 | =height= | a length as above; the width follows the picture's proportions                                                                                                                                                      |
 | =scale=  | a share of the picture's own size                                                                                                                                                                                   |
 
-The graphical editor draws PNG, JPEG and SVG; a PDF or EPS picture shows
-as its name. The terminal editor draws pictures through the kitty,
+The graphical editor draws PNG, JPEG, SVG and PDF (its first page, as
+vectors, through hayro); an EPS or PostScript picture is converted to
+PDF once by Ghostscript, found where TeX's programs are, and drawn the
+same way, or shows as its name where Ghostscript is not installed. The terminal editor draws pictures through the kitty,
 iTerm2 or sixel protocols where the terminal has one, and =[image: …]=
 otherwise.
 
@@ -1464,8 +1466,6 @@ work breakdown (group 2.7h of =docs/todo.md=):
   ranges of the model's macros, so in a file of a multi-file project
   macros defined in other files (the root's preamble) are not applied
   reliably. =\newenvironment= definitions are not given to the renderer.
-- *Pictures.* PDF pictures (which need pdfium, T4.3.2) and EPS
-  conversion are placeholders (T2.7h.8).
 - *Tables.* =\multirow= is not drawn across its rows (T2.7h.9).
 - *References and citations.* =\pageref= shows the key, as there are no
   pages; =\cpageref= stays source. In the view, bibliography files are
