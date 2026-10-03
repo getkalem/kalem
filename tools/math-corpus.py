@@ -52,7 +52,7 @@ def main():
         both[2 * k + r] += 1
         if k and not r:
             print("renderer fails where KaTeX does not:", d["file"], d["ratex"], repr(d["tex"][:120]))
-        t = d["tex"].strip("\n")
+        t = d["tex"].replace("\r", "").strip("\n")
         if not k or not t.strip() or t in seen or len(t) > 600:
             continue
         if any(x.startswith("%%") for x in t.split("\n")):
