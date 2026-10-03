@@ -130,6 +130,27 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     let copied = cx.read_from_clipboard().and_then(|c| c.text());
     assert_eq!(copied.as_deref(), Some("431.50"));
 
+    // Every column fitted to its text, in the grid's font.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.autofitColumns",
+            serde_json::json!({}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let widths = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .widths
+    });
+    assert!(widths[0] < 18.0 && widths[0] > 3.0, "{widths:?}");
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"

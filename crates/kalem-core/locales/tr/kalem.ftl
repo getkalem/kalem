@@ -1101,3 +1101,5 @@ cmd-viewer-grid-deleteRow = Satırı Sil
 cmd-viewer-grid-insertColumn = Sola Sütun Ekle
 cmd-viewer-grid-deleteColumn = Sütunu Sil
 cmd-viewer-grid-runMacro = Makro Çalıştır
+cmd-viewer-grid-autofitColumn = Sütun Genişliğini Sığdır
+cmd-viewer-grid-autofitColumns = Tüm Sütunları Sığdır
