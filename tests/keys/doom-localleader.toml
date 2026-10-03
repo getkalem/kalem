@@ -637,7 +637,7 @@ doom = "SPC m v"
 mode = "latex"
 keys = "space m v"
 what = "View the PDF"
-reason = "Planned: T2.7h.24 (the PDF panel)"
+command = "latex.showInPdf"
 
 [[key]]
 doom = "SPC m ="

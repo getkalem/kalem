@@ -149,6 +149,9 @@ the status bar gives the first error at its file and line, and the
 errors show on their lines in the text, as LaTeX's do. Kalem never
 turns a LaTeX file into Typst or back.
 
+Coming from Emacs, [[file:latex-for-auctex-users.org][LaTeX for AUCTeX users]] maps AUCTeX's and RefTeX's commands
+to Kalem's.
+
 * Beside Overleaf and co-authors
 
 Kalem works on the files of a project, so a project shared through Git
