@@ -492,6 +492,41 @@ impl ViewerState {
         self.center = Some(c);
     }
 
+    /// The target of the link under (`x`, `y`) of the area, if any: a
+    /// URL, a file, or `#N` for unit N.
+    pub fn link_at(&mut self, x: f32, y: f32) -> Option<String> {
+        let p = self.placement();
+        let (ux, uy) = ((x - p.x) / p.scale, (y - p.y) / p.scale);
+        // Back to the unit's own pixels, before the view's turn.
+        let (tw, th) = self.unit_size();
+        let (ox, oy) = match self.rotation % 4 {
+            1 => (uy, tw - ux),
+            2 => (tw - ux, th - uy),
+            3 => (th - uy, ux),
+            _ => (ux, uy),
+        };
+        self.doc
+            .links(self.unit)
+            .into_iter()
+            .find(|l| {
+                let [lx, ly, lw, lh] = l.rect;
+                ox >= lx && ox <= lx + lw && oy >= ly && oy <= ly + lh
+            })
+            .map(|l| l.target)
+    }
+
+    /// Follows a link's target: `#N` shows unit N (from its top) and gives
+    /// `None`; anything else is given back for the frontend to open.
+    pub fn follow(&mut self, target: &str) -> Option<String> {
+        match target.strip_prefix('#').and_then(|n| n.parse::<usize>().ok()) {
+            Some(unit) => {
+                self.go_to(unit);
+                None
+            }
+            None => Some(target.to_string()),
+        }
+    }
+
     /// Turns the view by `quarters` clockwise.
     pub fn rotate(&mut self, quarters: i8) {
         self.rotation = (self.rotation as i8 + quarters).rem_euclid(4) as u8;
@@ -1917,6 +1952,18 @@ mod tests {
         fn text(&self, _: usize) -> String {
             String::new()
         }
+        fn links(&self, _: usize) -> Vec<kalem_viewer::Link> {
+            vec![
+                kalem_viewer::Link {
+                    rect: [10.0, 10.0, 10.0, 10.0],
+                    target: "#2".into(),
+                },
+                kalem_viewer::Link {
+                    rect: [70.0, 10.0, 20.0, 10.0],
+                    target: "https://example.org/".into(),
+                },
+            ]
+        }
     }
 
     #[test]
@@ -1971,6 +2018,31 @@ mod tests {
         assert_eq!(v.scale(), 0.8);
         v.fit_width();
         assert_eq!(v.scale(), 2.0);
+    }
+
+    #[test]
+    fn a_click_on_a_link_follows_it() {
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Vector(3)), &dir.join("x.vector")).unwrap();
+        // The page is drawn at twice its size in a 200 × 100 area.
+        v.set_area(200.0, 100.0);
+        assert_eq!(v.link_at(30.0, 30.0).as_deref(), Some("#2"));
+        assert_eq!(v.link_at(150.0, 30.0).as_deref(), Some("https://example.org/"));
+        assert_eq!(v.link_at(100.0, 90.0), None);
+        assert_eq!(v.follow("#2"), None);
+        assert_eq!(v.unit, 2);
+        assert_eq!(
+            v.follow("https://example.org/").as_deref(),
+            Some("https://example.org/")
+        );
+        // Turned a quarter: the unit's (10, 10) is now at the area's
+        // right; its first link is there.
+        v.go_to(0);
+        v.rotate(1);
+        v.fit_width();
+        let p = v.placement();
+        let (x, y) = (p.x + (50.0 - 15.0) * p.scale, p.y + 15.0 * p.scale);
+        assert_eq!(v.link_at(x, y).as_deref(), Some("#2"));
     }
 
     #[test]

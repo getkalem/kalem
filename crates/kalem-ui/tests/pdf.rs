@@ -1,6 +1,6 @@
 //! A PDF file in the graphical editor through the pdf-viewer plugin
 //! (T3.7.3): its page fitted to the area and rendered at the scale shown,
-//! the next page, the page's text.
+//! the next page, the page's text, a link clicked.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -77,4 +77,19 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     let (status, _, text) = state(&ws, cx);
     assert!(status.ends_with(" · 2/3"), "{status}");
     assert_eq!(text, "Page two");
+
+    // Page one's link (at 72–300 × 72–122 of the page) goes to page three.
+    cx.simulate_keystrokes("p");
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let at = e.update(cx, |e, _| {
+        let origin = e.viewer_view.bounds.expect("laid out").origin;
+        let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+        origin + gpui::point(gpui::px(p.x + 150.0 * p.scale), gpui::px(p.y + 97.0 * p.scale))
+    });
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    let (status, _, text) = state(&ws, cx);
+    assert!(status.ends_with(" · 3/3"), "{status}");
+    assert_eq!(text, "Page three");
 }
