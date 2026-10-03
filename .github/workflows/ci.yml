@@ -50,7 +50,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      # The target and wasm-tools build the fake viewer of tests/plugins
+      # into a component for kalem-script's tests of the WIT API; without
+      # them those tests pass without checking.
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-tools
       - uses: Swatinem/rust-cache@v2
       - name: Linux libraries for the graphical editor (gpui)
         if: runner.os == 'Linux'

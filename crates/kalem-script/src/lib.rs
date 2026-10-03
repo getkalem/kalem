@@ -31,6 +31,8 @@ use wasmtime::{Config, Engine, ResourceLimiter, Store, Trap};
 
 pub use wasmtime::component::Linker;
 
+pub mod viewer;
+
 /// How often the time budget's clock ticks.
 pub const TICK: Duration = Duration::from_millis(10);
 
@@ -405,6 +407,25 @@ impl<T: Send + 'static> Instance<T> {
         self.store.set_epoch_deadline(ticks(self.limits.time));
         let out = f.call(&mut self.store, params);
         out.map_err(|e| classify(e, &self.store, self.limits))
+    }
+
+    /// Typed bindings of the instance (a world's `bindgen!` exports),
+    /// made from the instance as instantiated.
+    pub fn bindings<B>(
+        &mut self,
+        make: impl FnOnce(&mut Store<Data<T>>, &wasmtime::component::Instance) -> wasmtime::Result<B>,
+    ) -> Result<B> {
+        make(&mut self.store, &self.instance).map_err(|e| Error::Invalid(format!("{e:#}")))
+    }
+
+    /// Runs `f` on the store, a call of typed bindings, within the time
+    /// budget, its failures told apart as [`Instance::call`]'s are.
+    pub fn run<R>(
+        &mut self,
+        f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
+    ) -> Result<R> {
+        self.store.set_epoch_deadline(ticks(self.limits.time));
+        f(&mut self.store).map_err(|e| classify(e, &self.store, self.limits))
     }
 
     /// The host's data.

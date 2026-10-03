@@ -1,0 +1,16 @@
+package kalem:plugin@0.1.0;
+
+/// Files the host opens for a plugin. A plugin holds the handle of the
+/// file it was given and reads that file, lazily, and nothing else: no
+/// path, no folder, no other file (D28's capabilities).
+interface files {
+    /// A file opened by the host.
+    resource file {
+        /// Its name, for its extension and for labels; never its path.
+        name: func() -> string;
+        /// Its size in bytes.
+        len: func() -> u64;
+        /// Up to `len` bytes from `offset`; fewer at the end.
+        read: func(offset: u64, len: u32) -> list<u8>;
+    }
+}

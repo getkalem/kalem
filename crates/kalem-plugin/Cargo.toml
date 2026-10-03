@@ -1,0 +1,20 @@
+[package]
+name = "kalem-plugin"
+description = "The API of Kalem editor plugins: the WIT definition and the Rust bindings a plugin builds against (D6, D28)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+# The WIT files travel with the crate: they are the definition.
+include = ["src/", "wit/", "coverage.toml", "README.md"]
+
+[dependencies]
+wit-bindgen = "0.57"
+
+[dev-dependencies]
+toml_edit = { version = "0.25", default-features = false, features = ["parse"] }
+
+[lints]
+workspace = true

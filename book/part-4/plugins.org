@@ -33,6 +33,28 @@ going. What you can extend today is in [[file:overview.org][The extension model]
   From phase 4, a power user may compile plugins into their own Kalem
   binary, with native speed and no sandbox, by their own choice.
 
+* The API
+
+The API is defined in WIT, in =crates/kalem-plugin/wit/= (D6): the one
+source both sides are generated from. A plugin builds against the
+=kalem-plugin= crate (wit-bindgen); Kalem's host generates its side from
+the same files (wasmtime). Today the definition holds one world:
+
+- =document-viewer= (§11.13): a plugin opening files that are not text.
+  It exports =describe=, =detect= and =open=, and a =document= resource
+  with the viewers' contract (design §11.13): =structure=, =size=,
+  =render= (a bitmap the host paints), =text=, =text-rects=, =text-at=,
+  =info=, =search=, =links=, and the editor half (=edits=, =apply=,
+  =modified=, =save=). It imports =files= only: the =file= resource of
+  the one file the host opened for it, with its name, its size and the
+  bytes the plugin asks for, never a path.
+
+=crates/kalem-plugin/coverage.toml= lists every extension point of the
+design (§11.10 to §11.13) with the WIT interface that defines it or the
+open task that will; a test keeps it in step with the design document
+and the task list. The grid of spreadsheets and databases, commands,
+panels, modes, completers and the rest are planned there.
+
 * The host
 
 =kalem-script= runs components in wasmtime with its Cranelift compiler,
