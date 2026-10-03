@@ -30,6 +30,36 @@ pub struct ViewerView {
     pub bounds: Option<Bounds<Pixels>>,
     /// The next frame's timer.
     timer: Option<Task<()>>,
+    /// A column's edge being dragged in a grid.
+    col_drag: Option<ColDrag>,
+    /// A row's edge being dragged in a grid.
+    row_drag: Option<RowDrag>,
+}
+
+/// A grid row resized by dragging its number's bottom edge.
+#[derive(Debug, Clone, Copy)]
+struct RowDrag {
+    /// The row.
+    row: u32,
+    /// The pointer's y where the drag began.
+    start_y: f32,
+    /// The row's height then, in pixels.
+    start_px: f32,
+    /// Its height now, as drawn.
+    px: f32,
+}
+
+/// A grid column resized by dragging its letter's right edge.
+#[derive(Debug, Clone, Copy)]
+struct ColDrag {
+    /// The column.
+    col: u32,
+    /// The pointer's x where the drag began.
+    start_x: f32,
+    /// The column's width then, in pixels.
+    start_px: f32,
+    /// Its width now, as drawn.
+    px: f32,
 }
 
 impl std::fmt::Debug for ViewerView {
@@ -307,12 +337,36 @@ impl Editor {
         let Some(layout) = v.grid_layout() else {
             return div();
         };
+        let drag = self.viewer_view.col_drag;
+        let row_drag = self.viewer_view.row_drag;
+        // Rows in points, drawn so that a default row is `row_h` high.
+        let default_pt = if layout.default_height > 0.0 {
+            layout.default_height
+        } else {
+            15.0
+        };
+        let heights: std::collections::HashMap<u32, f32> = layout.heights.iter().copied().collect();
+        let row_px = |r: u32| -> f32 {
+            if let Some(d) = row_drag
+                && d.row == r
+            {
+                return d.px;
+            }
+            heights
+                .get(&r)
+                .map_or(row_h, |h| (h / default_pt * row_h).clamp(4.0, 600.0))
+        };
         let col_px = |c: u32| -> f32 {
             let w = layout
                 .widths
                 .get(c as usize)
                 .copied()
                 .unwrap_or(layout.default_width);
+            if let Some(d) = drag
+                && d.col == c
+            {
+                return d.px;
+            }
             (w * digit + 2.0 * PAD).clamp(24.0, 800.0)
         };
         let pos = v.grid_pos();
@@ -364,7 +418,7 @@ impl Editor {
             &layout.hidden_rows,
             // The formula bar and the letters.
             bounds.1 - 2.0 * row_h,
-            &|_| row_h,
+            &row_px,
         );
         v.set_grid_visible(full_rows.max(1), full_cols.max(1));
         if v.grid_pos() != pos {
@@ -480,7 +534,39 @@ impl Editor {
                     } else {
                         gpui::FontWeight::NORMAL
                     })
+                    .relative()
                     .child(SharedString::from(name))
+                    // The right edge: dragged to resize, double-clicked to fit.
+                    .child(
+                        div()
+                            .debug_selector(move || format!("viewer-grid-edge-{c}"))
+                            .id(SharedString::from(format!("column-edge-{c}")))
+                            .absolute()
+                            .top_0()
+                            .right(px(-3.))
+                            .w(px(7.))
+                            .h_full()
+                            .cursor_col_resize()
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
+                                    cx.stop_propagation();
+                                    if ev.click_count >= 2 {
+                                        this.viewer_view.col_drag = None;
+                                        this.grid_autofit(c, window, cx);
+                                        return;
+                                    }
+                                    let x = f32::from(ev.position.x);
+                                    this.viewer_view.col_drag = Some(ColDrag {
+                                        col: c,
+                                        start_x: x,
+                                        start_px: w,
+                                        px: w,
+                                    });
+                                    cx.notify();
+                                }),
+                            ),
+                    )
                     .id(SharedString::from(format!("column-{c}")))
                     // A click goes to the column; a double click fits its width.
                     .on_mouse_down(
@@ -497,7 +583,7 @@ impl Editor {
                     )
             }));
         let empty = |r: u32, c: u32| cells.get(&(r, c)).is_none_or(|x| x.text.is_empty());
-        let body = rows.iter().map(|&(r, _)| {
+        let body = rows.iter().map(|&(r, rh)| {
             let number = div()
                 .w(px(gutter))
                 .flex_none()
@@ -520,7 +606,44 @@ impl Editor {
                 } else {
                     gpui::FontWeight::NORMAL
                 })
-                .child(SharedString::from((r + 1).to_string()));
+                .relative()
+                .child(SharedString::from((r + 1).to_string()))
+                // The bottom edge: dragged to resize, double-clicked to reset.
+                .child(
+                    div()
+                        .debug_selector(move || format!("viewer-grid-row-edge-{r}"))
+                        .id(SharedString::from(format!("row-edge-{r}")))
+                        .absolute()
+                        .left_0()
+                        .bottom(px(-3.))
+                        .w_full()
+                        .h(px(7.))
+                        .cursor_row_resize()
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                                cx.stop_propagation();
+                                if ev.click_count >= 2 {
+                                    this.viewer_view.row_drag = None;
+                                    if let Some(v) = this.doc.viewer.as_deref_mut() {
+                                        let h = v.default_row_height();
+                                        if let Err(e) = v.set_row_height(r, h) {
+                                            this.message(e, true);
+                                        }
+                                    }
+                                    cx.notify();
+                                    return;
+                                }
+                                this.viewer_view.row_drag = Some(RowDrag {
+                                    row: r,
+                                    start_y: f32::from(ev.position.y),
+                                    start_px: rh,
+                                    px: rh,
+                                });
+                                cx.notify();
+                            }),
+                        ),
+                );
             // Text wider than its cell runs on over the empty cells at its
             // right, as in a spreadsheet; drawn above them.
             let mut overflow: Vec<(f32, f32, u32)> = Vec::new();
@@ -649,7 +772,7 @@ impl Editor {
                     .top_0()
                     .left(px(x))
                     .w(px(span))
-                    .h(px(row_h))
+                    .h(px(rh))
                     .px(px(PAD))
                     .flex()
                     .items_center()
@@ -678,7 +801,7 @@ impl Editor {
                 .flex()
                 .flex_row()
                 .flex_none()
-                .h(px(row_h))
+                .h(px(rh))
                 .child(number)
                 .children(row_cells)
                 .children(spills)
@@ -709,6 +832,57 @@ impl Editor {
                     .child(formula_bar)
                     .child(letters)
                     .children(body),
+            )
+            .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
+                if let Some(d) = this.viewer_view.row_drag.as_mut() {
+                    if ev.pressed_button != Some(MouseButton::Left) {
+                        this.viewer_view.row_drag = None;
+                    } else {
+                        d.px = (d.start_px + f32::from(ev.position.y) - d.start_y).max(4.0);
+                    }
+                    cx.notify();
+                    return;
+                }
+                let Some(d) = this.viewer_view.col_drag.as_mut() else {
+                    return;
+                };
+                if ev.pressed_button != Some(MouseButton::Left) {
+                    this.viewer_view.col_drag = None;
+                } else {
+                    d.px = (d.start_px + f32::from(ev.position.x) - d.start_x).max(2.0 * PAD + 4.0);
+                }
+                cx.notify();
+            }))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(move |this, _: &MouseUpEvent, _, cx| {
+                    if let Some(d) = this.viewer_view.row_drag.take() {
+                        if (d.px - d.start_px).abs() >= 1.0
+                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                        {
+                            // Back to points, as the file counts them.
+                            let pt = (d.px / row_h * default_pt * 4.0).round() / 4.0;
+                            if let Err(e) = v.set_row_height(d.row, pt) {
+                                this.message(e, true);
+                            }
+                        }
+                        cx.notify();
+                        return;
+                    }
+                    let Some(d) = this.viewer_view.col_drag.take() else {
+                        return;
+                    };
+                    if (d.px - d.start_px).abs() >= 1.0
+                        && let Some(v) = this.doc.viewer.as_deref_mut()
+                    {
+                        // Back to the spreadsheet's unit: digits of the grid's font.
+                        let width = ((d.px - 2.0 * PAD) / digit * 100.0).round() / 100.0;
+                        if let Err(e) = v.set_col_width(d.col, width) {
+                            this.message(e, true);
+                        }
+                    }
+                    cx.notify();
+                }),
             )
             .on_scroll_wheel(cx.listener(move |this, ev: &ScrollWheelEvent, _, cx| {
                 let d = ev.delta.pixel_delta(px(row_h));

@@ -2,6 +2,7 @@
 //! notation, its numbers and functions, and its display of results.
 
 mod algebra;
+mod cplx;
 pub mod date;
 pub mod eval;
 pub mod expr;
@@ -49,7 +50,7 @@ fn is_constant(e: &expr::Expr) -> bool {
         expr::Expr::Num(_) | expr::Expr::Date(_) => true,
         expr::Expr::Vec(v) => v.iter().all(is_constant),
         expr::Expr::Intv(_, a, b) => is_constant(a) && is_constant(b),
-        e => algebra::mod_form(e).is_some(),
+        e => algebra::mod_form(e).is_some() || cplx::parts(e).is_some(),
     }
 }
 

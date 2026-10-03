@@ -152,9 +152,15 @@ where noted here.
   stay symbolic with Calc's basic simplifications (=x + 2=, =2 a=,
   =n / (42 a)=), but deeper algebra (the variance of a column with text,
   expanded) may be written differently.
-- Complex numbers (=sqrt(-4)=), factorials of fractions (the gamma
-  function), sines of very large arguments, and radix, HMS and error forms
-  (=16#FF=, =2@ 30' 0"=, =3 +/- 0.1=) are left as formulas.
+- Complex numbers in polar form (=(2; 30)=), the trigonometric and
+  hyperbolic functions of complex numbers, factorials of fractions (the
+  gamma function), sines of very large arguments, and radix, HMS and error
+  forms (=16#FF=, =2@ 30' 0"=, =3 +/- 0.1=) are left as formulas.
+  Complex numbers in rectangular form (=sqrt(-4)= is =(0, 2)=) follow
+  Calc.
+- Formulas over text fields with modulo forms (=(x - 4) mod 3=) follow
+  Calc's coefficients, but where Calc leaves a sum or a product
+  unsimplified Kalem may combine its terms or order them differently.
 - A formula Emacs cannot evaluate because Calc overflows its stack (a
   number divided by a vector) shows =#ERROR= instead of stopping the
   recalculation.
