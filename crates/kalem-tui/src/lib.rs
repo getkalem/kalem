@@ -4,6 +4,7 @@
 
 pub mod app;
 pub mod caps;
+pub mod chart;
 pub mod editor;
 pub mod input;
 pub mod panels;
