@@ -59,7 +59,16 @@ pub fn normalize(e: &Expr, env: &Env) -> Expr {
         ),
         Expr::Vec(v) => Expr::Vec(v.iter().map(|x| normalize(x, env)).collect()),
         Expr::Intv(m, a, b) => {
-            Expr::Intv(*m, Box::new(normalize(a, env)), Box::new(normalize(b, env)))
+            let (a, b) = (normalize(a, env), normalize(b, env));
+            // `math-make-intv`: a reversed interval of numbers is empty,
+            // its high end its low one.
+            if let (Expr::Num(x), Expr::Num(y)) = (&a, &b)
+                && num::cmp(x, y, &env.prec) == std::cmp::Ordering::Greater
+            {
+                let m = if *m == 3 { 2 } else { *m };
+                return Expr::Intv(m, Box::new(a.clone()), Box::new(a));
+            }
+            Expr::Intv(*m, Box::new(a), Box::new(b))
         }
         Expr::Call(f, args) if f == "if" && args.len() == 3 => normalize_if(args, env),
         Expr::Call(f, args) => {
