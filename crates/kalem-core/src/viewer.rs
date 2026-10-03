@@ -1501,6 +1501,40 @@ impl ViewerState {
         out
     }
 
+    /// The values a column of the filter shows now (in rows no filter
+    /// hides), each once: the checked ones of its checklist.
+    pub fn shown_filter_values(&mut self, col: u32) -> Vec<String> {
+        let Some(l) = self.grid_layout() else {
+            return Vec::new();
+        };
+        let Some(f) = l.filter else {
+            return Vec::new();
+        };
+        if !l.filtered.contains(&col)
+            && l.hidden_rows.iter().all(|r| !(f[0] + 1..=f[2]).contains(r))
+        {
+            return self.filter_values(col);
+        }
+        let cells = self
+            .doc()
+            .grid_cells(self.unit, f[0] + 1..f[2] + 1, col..col + 1);
+        let mut out: Vec<String> = Vec::new();
+        for r in f[0] + 1..=f[2] {
+            if l.hidden_rows.contains(&r) {
+                continue;
+            }
+            let t = cells
+                .iter()
+                .find(|c| c.0 == r)
+                .map(|c| c.2.text.clone())
+                .unwrap_or_default();
+            if !out.contains(&t) {
+                out.push(t);
+            }
+        }
+        out
+    }
+
     /// Filters a column of the filter to some values, or clears it.
     pub fn set_column_filter(
         &mut self,
@@ -2476,8 +2510,10 @@ pub fn parse_tsv(text: &str) -> Vec<Vec<String>> {
     rows
 }
 
-/// Offers a filter column's values in the palette; choosing one filters
-/// to it.
+/// A filter column's values as a checklist in the palette, as Excel's
+/// filter menu: choosing a value checks or unchecks it and offers the list
+/// again; Apply filters to the checked values. The list starts from the
+/// values the column shows now.
 fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     let Some(v) = ctx
         .document
@@ -2496,33 +2532,64 @@ fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
         .and_then(serde_json::Value::as_u64)
         .map_or(v.grid_pos().col, |c| c as u32)
         .clamp(f[1], f[3]);
+    let values: Vec<String> = v.filter_values(col).into_iter().take(500).collect();
+    let checked: Vec<String> = match args.get("checked").and_then(serde_json::Value::as_array) {
+        Some(list) => list
+            .iter()
+            .filter_map(|x| x.as_str().map(str::to_string))
+            .collect(),
+        None => v.shown_filter_values(col),
+    };
     let header = crate::csv_tools::column_letters(col as usize);
-    let mut items = vec![crate::palette::PaletteItem {
-        id: crate::palette::invocation(
-            "viewer.grid.setColumnFilter",
-            &serde_json::json!({ "col": col, "all": true }),
-        ),
-        title: "(Show All)".into(),
-        category: format!("Filter column {header}"),
+    let category = format!(
+        "Filter column {header}: {} of {} shown",
+        values.iter().filter(|x| checked.contains(x)).count(),
+        values.len()
+    );
+    let item = |id: String, title: String, also: String| crate::palette::PaletteItem {
+        id,
+        title,
+        category: category.clone(),
         keys: String::new(),
-        also: String::new(),
-    }];
-    for value in v.filter_values(col).into_iter().take(500) {
-        let title = if value.is_empty() {
-            "(Empty)".to_string()
-        } else {
-            value.clone()
-        };
-        items.push(crate::palette::PaletteItem {
-            id: crate::palette::invocation(
+        also,
+    };
+    let again = |checked: &[String]| {
+        crate::palette::invocation(
+            "viewer.grid.filterColumn",
+            &serde_json::json!({ "col": col, "checked": checked }),
+        )
+    };
+    let mut items = vec![
+        item(
+            crate::palette::invocation(
                 "viewer.grid.setColumnFilter",
-                &serde_json::json!({ "col": col, "value": value }),
+                &serde_json::json!({ "col": col, "values": checked }),
             ),
-            title,
-            category: format!("Filter column {header}"),
-            keys: String::new(),
-            also: value,
-        });
+            "✓ Apply".into(),
+            "apply".into(),
+        ),
+        item(again(&values), "Select All".into(), "all".into()),
+        item(again(&[]), "Select None".into(), "none".into()),
+    ];
+    for value in &values {
+        let on = checked.contains(value);
+        let toggled: Vec<String> = if on {
+            checked.iter().filter(|x| *x != value).cloned().collect()
+        } else {
+            let mut t = checked.clone();
+            t.push(value.clone());
+            t
+        };
+        let shown = if value.is_empty() {
+            "(Empty)"
+        } else {
+            value.as_str()
+        };
+        items.push(item(
+            again(&toggled),
+            format!("{} {shown}", if on { "☑" } else { "☐" }),
+            value.clone(),
+        ));
     }
     ctx.requests.push(Request::Choose(items));
     Ok(())
@@ -2811,8 +2878,19 @@ fn grid_commands() -> Vec<Command> {
                 let Some(col) = args.get("col").and_then(serde_json::Value::as_u64) else {
                     return Err(crate::command::CommandError::new("Which column?"));
                 };
+                let list = |key: &str| {
+                    args.get(key)
+                        .and_then(serde_json::Value::as_array)
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect::<Vec<String>>()
+                        })
+                };
                 let values = if args.get("all").and_then(serde_json::Value::as_bool) == Some(true) {
                     None
+                } else if let Some(vs) = list("values") {
+                    Some(vs)
                 } else {
                     Some(vec![
                         args.get("value")
@@ -2821,7 +2899,14 @@ fn grid_commands() -> Vec<Command> {
                             .to_string(),
                     ])
                 };
-                with(ctx, |v| v.set_column_filter(col as u32, values))
+                with(ctx, |v| {
+                    // Every value checked is no filter at all.
+                    let values = values.filter(|vs| {
+                        let all = v.filter_values(col as u32);
+                        !all.iter().all(|x| vs.contains(x))
+                    });
+                    v.set_column_filter(col as u32, values)
+                })
             },
         ),
         cmd(
