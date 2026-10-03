@@ -671,17 +671,12 @@ impl Editor {
                         .cursor_row_resize()
                         .on_mouse_down(
                             MouseButton::Left,
-                            cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                            cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
                                 cx.stop_propagation();
                                 if ev.click_count >= 2 {
+                                    // Fitted to its wrapped text, as Excel does.
                                     this.viewer_view.row_drag = None;
-                                    if let Some(v) = this.doc.viewer.as_deref_mut() {
-                                        let h = v.default_row_height();
-                                        if let Err(e) = v.set_row_height(r, h) {
-                                            this.message(e, true);
-                                        }
-                                    }
-                                    cx.notify();
+                                    this.grid_fit_row(r, window, cx);
                                     return;
                                 }
                                 this.viewer_view.row_drag = Some(RowDrag {
@@ -701,6 +696,7 @@ impl Editor {
             for (k, &(c, w)) in cols.iter().enumerate() {
                 if let Some(cell) = cells.get(&(r, c))
                     && !cell.numeric
+                    && !cell.wrap
                     && !cell.text.is_empty()
                     && matches!(
                         cell.align,
@@ -740,10 +736,12 @@ impl Editor {
                     .flex()
                     .items_center()
                     .overflow_hidden()
-                    .whitespace_nowrap()
                     .border_r_1()
                     .border_b_1()
                     .border_color(theme.border);
+                if cell.is_none_or(|c| !c.wrap) {
+                    d = d.whitespace_nowrap();
+                }
                 if let Some(cell) = cell {
                     let right = matches!(cell.align, kalem_viewer::Align::Right)
                         || (cell.numeric && matches!(cell.align, kalem_viewer::Align::General));
@@ -778,12 +776,22 @@ impl Editor {
                         } else {
                             cell.text.clone()
                         };
-                        d = d.child(
-                            div()
-                                .overflow_hidden()
-                                .text_ellipsis()
-                                .child(SharedString::from(text)),
-                        );
+                        d = if cell.wrap {
+                            // Wrapped: lines within the cell's width.
+                            d.child(
+                                div()
+                                    .w_full()
+                                    .overflow_hidden()
+                                    .child(SharedString::from(text)),
+                            )
+                        } else {
+                            d.child(
+                                div()
+                                    .overflow_hidden()
+                                    .text_ellipsis()
+                                    .child(SharedString::from(text)),
+                            )
+                        };
                     }
                     if cell.note {
                         // A note: a mark in the corner, as Excel's red triangle.
@@ -979,6 +987,42 @@ impl Editor {
             return;
         };
         if let Err(e) = v.autofit_col(col, &|t| width(t) / digit) {
+            self.message(e, true);
+        }
+        cx.notify();
+    }
+
+    /// Fits row `row` to its wrapped cells' lines, measured in the grid's font.
+    pub(crate) fn grid_fit_row(
+        &mut self,
+        row: u32,
+        window: &mut Window,
+        cx: &mut Context<'_, Editor>,
+    ) {
+        let theme = self.theme.clone();
+        let size = px((theme.size * 0.93).round());
+        let font = gpui::font(SharedString::from(theme.font.clone()));
+        let width = |t: &str| -> f32 {
+            let run = gpui::TextRun {
+                len: t.len(),
+                font: font.clone(),
+                color: theme.foreground,
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            f32::from(
+                window
+                    .text_system()
+                    .shape_line(SharedString::from(t.to_string()), size, &[run], None)
+                    .width,
+            )
+        };
+        let digit = width("0").max(1.0);
+        let Some(v) = self.doc.viewer.as_deref_mut() else {
+            return;
+        };
+        if let Err(e) = v.fit_row_height(row, &|t| width(t) / digit) {
             self.message(e, true);
         }
         cx.notify();
