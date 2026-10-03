@@ -1,6 +1,6 @@
 //! A PDF file in the terminal editor through the pdf-viewer plugin
 //! (T3.7.3): the page as an image with kitty's protocol, the next page,
-//! the page's text.
+//! the page's text, the outline panel.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -73,5 +73,21 @@ fn a_pdf_opens_page_by_page() {
     let s = status(&mut app);
     assert!(s.ends_with(" · 2/3"), "{s}");
     assert_eq!(app.doc.viewer.as_deref().unwrap().text(), "Page two");
+
+    // The outline panel lists the PDF's outline; Enter on Chapter 2 goes
+    // to page three.
+    app.editor.images.borrow_mut().picker = None;
+    app.run_command("view.outline", serde_json::Value::Null);
+    let s = screen(&mut app);
+    assert!(
+        s.contains("Chapter 1") && s.contains("Section") && s.contains("Chapter 2"),
+        "{s}"
+    );
+    for code in [KeyCode::Down, KeyCode::Enter] {
+        app.event(Event::Key(KeyEvent::new(code, KeyModifiers::NONE)));
+    }
+    screen(&mut app);
+    let s = status(&mut app);
+    assert!(s.ends_with(" · 3/3"), "{s}");
     let _ = std::fs::remove_dir_all(&dir);
 }

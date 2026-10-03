@@ -60,6 +60,31 @@ pub fn find(name: &str, head: &[u8]) -> Option<Arc<dyn Viewer>> {
     best.map(|(_, v)| v)
 }
 
+/// The outline of the document a viewer shows, for the outline panel:
+/// each item's `start` is the unit it goes to.
+pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::OutlineItem>> {
+    let v = doc.viewer.as_deref()?;
+    Some(
+        v.structure()
+            .outline
+            .iter()
+            .map(|e| crate::view::OutlineItem {
+                level: e.level as usize,
+                todo: None,
+                title: e.title.clone(),
+                start: e.unit,
+                file: None,
+            })
+            .collect(),
+    )
+}
+
+/// Where the outline panel marks the reader: the unit a viewer shows,
+/// else the cursor.
+pub fn outline_position(doc: &crate::DocumentState) -> usize {
+    doc.viewer.as_deref().map_or(doc.selection.head, |v| v.unit)
+}
+
 /// The viewer for the file at `path` when it is not text (design §2.6):
 /// text files open in a document mode even when a viewer could show them
 /// (an SVG drawing is XML).
@@ -518,7 +543,10 @@ impl ViewerState {
     /// Follows a link's target: `#N` shows unit N (from its top) and gives
     /// `None`; anything else is given back for the frontend to open.
     pub fn follow(&mut self, target: &str) -> Option<String> {
-        match target.strip_prefix('#').and_then(|n| n.parse::<usize>().ok()) {
+        match target
+            .strip_prefix('#')
+            .and_then(|n| n.parse::<usize>().ok())
+        {
             Some(unit) => {
                 self.go_to(unit);
                 None
@@ -2085,7 +2113,10 @@ mod tests {
         // The page is drawn at twice its size in a 200 × 100 area.
         v.set_area(200.0, 100.0);
         assert_eq!(v.link_at(30.0, 30.0).as_deref(), Some("#2"));
-        assert_eq!(v.link_at(150.0, 30.0).as_deref(), Some("https://example.org/"));
+        assert_eq!(
+            v.link_at(150.0, 30.0).as_deref(),
+            Some("https://example.org/")
+        );
         assert_eq!(v.link_at(100.0, 90.0), None);
         assert_eq!(v.follow("#2"), None);
         assert_eq!(v.unit, 2);
