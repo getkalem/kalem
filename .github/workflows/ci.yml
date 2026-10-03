@@ -146,6 +146,12 @@ jobs:
       - run: python3 tools/latex-edit-fuzz.py 150 $GITHUB_RUN_NUMBER 6 --keep latex-differences
       # SyncTeX both ways, against TeX Live's synctex program.
       - run: cargo test --release -p kalem-core --test synctex -- --nocapture
+      # Kalem's builds with pdfLaTeX and Tectonic: the same PDF twice
+      # with SOURCE_DATE_EPOCH, a SyncTeX file beside it.
+      - name: Reproducible builds
+        run: |
+          curl -sSfL https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-x86_64-unknown-linux-musl.tar.gz | tar xz
+          PATH="$PWD:$PATH" cargo test --release -p kalem-core --test latex_compile -- --nocapture
       # Typst files built with typst compile, their problems in the text.
       - name: Typst
         run: |
