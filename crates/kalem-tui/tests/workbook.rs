@@ -106,6 +106,11 @@ fn a_workbook_opens_as_a_grid() {
     );
     t.key(KeyCode::Right);
     assert!(t.status().contains("B2"), "{}", t.status());
+    // The formula bar shows the cell in full: a long name, a formula.
+    t.key(KeyCode::Right);
+    t.key(KeyCode::Right);
+    let s = t.screen();
+    assert!(s.contains("D2    │ =B2+C2"), "{s}");
 }
 
 #[test]
