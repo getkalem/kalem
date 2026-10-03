@@ -102,7 +102,9 @@ pub fn for_document(doc: &DocumentState) -> Option<Arc<dyn LanguagePack>> {
 
 /// The outline of a text document from its pack.
 pub fn outline_items(doc: &DocumentState) -> Option<Vec<OutlineItem>> {
-    for_document(doc)?.outline(doc.text().as_str())
+    for_document(doc)
+        .and_then(|p| p.outline(doc.text().as_str()))
+        .or_else(|| crate::typst::outline_items(doc))
 }
 
 /// Whether the document's pack formats it (for Format Document's
@@ -118,7 +120,10 @@ pub fn format(doc: &DocumentState) -> Option<Formatted> {
 
 /// The diagnostics of a text document from its pack.
 pub fn diagnostics(doc: &DocumentState) -> Vec<ModeDiagnostic> {
-    for_document(doc).map_or_else(Vec::new, |p| p.diagnostics(doc.text().as_str()))
+    let mut d = for_document(doc).map_or_else(Vec::new, |p| p.diagnostics(doc.text().as_str()));
+    // A Typst file's last build.
+    d.extend(crate::typst::diagnostics(doc));
+    d
 }
 
 /// What the status bar says about a text document's problems: the one on
