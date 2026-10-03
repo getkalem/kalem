@@ -245,7 +245,7 @@ fn walk_body(env: &SyntaxNode, parent: Option<u32>, top: i8, tree: &mut Tree, bo
             for e in &elements {
                 let r = usize::from(e.text_range().start())..usize::from(e.text_range().end());
                 let amp = e.as_token().is_some_and(|t| t.kind() == K::AMPERSAND);
-                let end = e.as_node().is_some_and(&is_row_end);
+                let end = e.as_node().is_some_and(is_row_end);
                 if amp {
                     cells.push(cell_start..r.start);
                     cell_start = r.end;
