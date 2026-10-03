@@ -596,6 +596,47 @@ pub(crate) fn commands() -> Vec<Command> {
         ),
         crate::command::Scope::only(&["latex"]),
     ));
+    all.push(scoped(
+        cmd(
+            "latex.ignoreBuildOutputs",
+            "Ignore Build Outputs in Git",
+            "LaTeX",
+            &[],
+            None,
+            |ctx, _| {
+                let doc = ctx
+                    .document
+                    .as_deref()
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-no-document")))?;
+                let Some(path) = doc.meta.path.clone() else {
+                    return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+                };
+                let path = std::path::absolute(&path).unwrap_or(path);
+                let root = crate::latex_view::find_root(&path, doc.text().as_str());
+                let out = ctx.config.str("latex.output_directory").trim().to_string();
+                let out = (!out.is_empty()).then(|| std::path::PathBuf::from(out));
+                let in_git = root
+                    .parent()
+                    .is_some_and(|d| d.ancestors().any(|a| a.join(".git").exists()));
+                if !in_git {
+                    return Err(CommandError::new(crate::l10n::tr("msg-not-in-git")));
+                }
+                let message = match crate::latex_build::ignore_build_outputs(&root, out.as_deref())
+                    .map_err(CommandError::new)?
+                {
+                    (0, _) => crate::l10n::tr("msg-outputs-ignored-already"),
+                    (n, file) => crate::tr!(
+                        "msg-ignored-outputs",
+                        count = n,
+                        path = file.display().to_string()
+                    ),
+                };
+                ctx.messages.push(message);
+                Ok(())
+            },
+        ),
+        crate::command::Scope::only(&["latex"]),
+    ));
     all.extend(latex_commands());
     all.extend(code_commands());
     all.extend(plugin_commands());
@@ -1240,13 +1281,19 @@ fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
                         open: None,
                     }
                 } else {
+                    // In a repository that does not leave the build
+                    // outputs out: the command that does, offered.
+                    let hint = crate::latex_build::ignore_missing(&root, out_dir.as_deref())
+                        .map_or_else(String::new, |_| {
+                            format!(" {}", crate::l10n::tr("msg-latex-ignore-hint"))
+                        });
                     match b.pdf {
                         Some(pdf) => crate::jobs::Finished {
                             message: crate::tr!(
                                 "msg-latex-built",
                                 path = pdf.display().to_string(),
                                 count = warnings
-                            ),
+                            ) + &hint,
                             error: false,
                             open: open_after.then(|| crate::input::LinkAction::Url(file_url(&pdf))),
                         },

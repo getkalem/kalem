@@ -132,6 +132,33 @@ the command that installs it; /Cancel Build/ stops a build.
 FILE= does the same from the command line (=--format json= for the
 problems as data).
 
+* Beside Overleaf and co-authors
+
+Kalem works on the files of a project, so a project shared through Git
+is edited as it is: an Overleaf project cloned with Overleaf's Git
+integration (=git clone https://git.overleaf.com/…=, on the plans that
+include it) or a repository on GitHub that co-authors use, edited in
+Kalem, built on this computer, and pushed back.
+
+- Only what you change changes. Kalem keeps every byte it was not asked
+  to change (line endings, spaces, comments, the order of the preamble),
+  so a co-author's diff shows your edits and nothing else.
+- Files that change on disk while open (after =git pull=, or a
+  co-author's edit synced) are read again; a file you have changed too
+  asks which version to keep.
+- The root document: Overleaf's "main document" setting is not in the
+  files, so Kalem finds the root from them ([[file:../part-2/latex.org::*The root document][The root document]]);
+  a =% !TEX root = main.tex= line in a chapter file names it for every
+  editor.
+- The engine: Overleaf builds with pdfLaTeX unless the project's menu
+  says otherwise. A =% !TEX program = xelatex= line, or the setting
+  =latex.engine=, makes Kalem's build use the same engine, so the PDF
+  matches the one co-authors see.
+- Build outputs: /Ignore Build Outputs in Git/ adds what LaTeX writes
+  beside the document (=*.aux=, =*.log=, =*.synctex.gz=, …, the root's
+  PDF and =latex.output_directory=) to the repository's =.gitignore=, so
+  they are not pushed; a build in a repository without them offers it.
+
 * BibTeX files
 
 A =.bib= file opens as a grid: each entry one row with its key, type,

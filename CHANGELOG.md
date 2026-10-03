@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- LaTeX beside Overleaf and co-authors: Ignore Build Outputs in Git adds LaTeX's outputs to the repository's `.gitignore` (a build offers it), and the manual says how to work on an Overleaf or GitHub project.
 - LaTeX: EPS and PostScript figures are drawn, converted to PDF once by Ghostscript where it is installed (it comes with TeX).
 - Large Markdown files: a keystroke in a 10 MB file reparses in 10 ms (was 215 ms), and files over 2 MiB are parsed in the background when they open instead of staying as source.
 - File manager: entries dragged in the graphical editor move into the folder they are dropped on (copied with Alt or Option), in the same listing or another pane, and dropped on a document they are linked in its syntax; Open in New Pane in the menu.
