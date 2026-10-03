@@ -1631,6 +1631,71 @@ fn open(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
     Ok(())
 }
 
+/// Files dropped on a listing (dragged from another listing or pane):
+/// moved, or with `copy` copied, into the folder at the cursor when it is
+/// one, else into the listing's folder, with the conflict dialog of
+/// Paste. Files already there are left alone.
+fn drop_files(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    let doc = listing(ctx)?;
+    let line = cursor_line(doc);
+    let s = state(doc);
+    let dir = match s.entry(line) {
+        Some(e) if e.is_dir() => e.path.clone(),
+        _ => the_dir(doc)?,
+    };
+    let copy = args.get("copy").and_then(Value::as_bool) == Some(true);
+    let sources: Vec<PathBuf> = args
+        .get("paths")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(PathBuf::from)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+        .into_iter()
+        // Not into itself or below, and not where it already is.
+        .filter(|p| !dir.starts_with(p) && (copy || p.parent() != Some(dir.as_path())))
+        .collect();
+    if sources.is_empty() {
+        return Ok(());
+    }
+    let kind = if copy {
+        kalem_fs::OpKind::Copy
+    } else {
+        kalem_fs::OpKind::Move
+    };
+    file_op(ctx, kind, sources, Some(dir))
+}
+
+/// The files a drag from line `line` of the listing `doc` takes: the
+/// marked ones when that line is marked, else its entry.
+pub fn drag_paths(doc: &DocumentState, line: usize) -> Vec<PathBuf> {
+    match doc.dired.as_deref() {
+        Some(s) if matches!(s.place, Place::Dir(_)) && s.entry(line).is_some() => s.targets(line),
+        _ => Vec::new(),
+    }
+}
+
+/// Open in New Pane: the entry at the cursor in a new pane beside the
+/// listing (a folder as its listing), the listing staying.
+fn open_in_pane(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
+    let doc = listing(ctx)?;
+    let line = cursor_line(doc);
+    let Some(e) = state(doc).entry(line).cloned() else {
+        return Err(CommandError::new(crate::tr!("msg-no-file-here")));
+    };
+    ctx.requests
+        .push(Request::Pane(crate::layout::PaneOp::Split(
+            crate::layout::Axis::Row,
+        )));
+    ctx.requests.push(Request::Open {
+        path: Some(e.path.display().to_string()),
+    });
+    Ok(())
+}
+
 /// The cursor on the name of the line `by` lines down (up when
 /// negative).
 fn step(ctx: &mut EditorContext<'_>, by: isize) -> CommandResult {
@@ -2107,6 +2172,20 @@ pub(crate) fn commands() -> Vec<Command> {
         ),
         // Moving around.
         cmd("dired.open", "Open", &[], Some(IN_LISTING), open),
+        cmd(
+            "dired.dropFiles",
+            "Drop Files",
+            &[],
+            Some(IN_LISTING),
+            drop_files,
+        ),
+        cmd(
+            "dired.openInPane",
+            "Open in New Pane",
+            &[],
+            Some(IN_LISTING),
+            open_in_pane,
+        ),
         cmd("dired.up", "Parent Folder", &[], Some(IN_LISTING), up),
         cmd(
             "dired.insertSubdir",
@@ -3055,6 +3134,7 @@ pub fn context_menu(doc: &DocumentState, on_entry: bool) -> Vec<ContextItem> {
                 one || s.place == Place::Projects,
             ),
             item(tr("fm-menu-open-system"), "dired.openExternal", has),
+            titled("dired.openInPane", one),
             sep.clone(),
             item(tr("fm-menu-cut"), "dired.cutFiles", has),
             item(tr("fm-menu-copy"), "dired.copyFiles", has),
@@ -3862,10 +3942,11 @@ mod tests {
         let on = labels(true, &doc);
         let names: Vec<&str> = on.iter().map(|(l, _)| l.as_str()).collect();
         assert_eq!(
-            &names[..6],
+            &names[..7],
             [
                 "Open",
                 "Open with System Application",
+                "Open in New Pane",
                 "Cut",
                 "Copy",
                 "Paste",
@@ -3886,6 +3967,48 @@ mod tests {
         let off = labels(false, &doc);
         assert!(!off.iter().any(|(l, _)| l == "Open" || l == "Rename"));
         assert!(off.iter().any(|(l, e)| l == "New Folder…" && *e));
+        // Open in New Pane: a split, then the file.
+        goto(&mut doc, "a.org");
+        let (_, req) = run(&mut doc, "dired.openInPane", json!({}));
+        assert!(
+            matches!(req.as_slice(), [Request::Pane(_), Request::Open { path: Some(p) }] if p.ends_with("a.org"))
+        );
+        // Dragging takes the entry, or the marked ones from a marked line.
+        let line = cursor_line(&doc);
+        assert_eq!(drag_paths(&doc, line), vec![d.join("a.org")]);
+        // Dropped on the folder `sub`: moved into it; with `copy`, copied.
+        goto(&mut doc, "sub");
+        let paths = json!([d.join("a.org").display().to_string()]);
+        let (_, req) = run(&mut doc, "dired.dropFiles", json!({ "paths": paths }));
+        assert_eq!(
+            req,
+            vec![Request::FileOp(FileOp {
+                kind: kalem_fs::OpKind::Move,
+                sources: vec![d.join("a.org")],
+                target: Some(d.join("sub")),
+            })]
+        );
+        let (_, req) = run(
+            &mut doc,
+            "dired.dropFiles",
+            json!({ "paths": paths, "copy": true }),
+        );
+        assert!(matches!(
+            req.as_slice(),
+            [Request::FileOp(FileOp {
+                kind: kalem_fs::OpKind::Copy,
+                ..
+            })]
+        ));
+        // On a file of its own folder: nothing to move; a folder never
+        // into itself.
+        goto(&mut doc, "b.txt");
+        let (_, req) = run(&mut doc, "dired.dropFiles", json!({ "paths": paths }));
+        assert!(req.is_empty(), "{req:?}");
+        goto(&mut doc, "sub");
+        let sub = json!([d.join("sub").display().to_string()]);
+        let (_, req) = run(&mut doc, "dired.dropFiles", json!({ "paths": sub }));
+        assert!(req.is_empty(), "{req:?}");
     }
 
     /// The owner's two symptoms (T2.7e.19): the File Manager showing the

@@ -229,6 +229,34 @@ pub type Popup = (Point<Pixels>, Vec<(String, bool)>);
 /// version.
 pub type PlainCache = RefCell<Option<(u64, Option<kalem_highlight::Highlighter>, usize)>>;
 
+/// Entries of a file manager listing being dragged: to another listing
+/// (moved, or copied with Alt) or into a document (linked).
+#[derive(Debug, Clone)]
+pub struct DraggedFiles {
+    /// The files.
+    pub paths: Vec<std::path::PathBuf>,
+    /// The drag preview's text: the name, or how many.
+    pub label: SharedString,
+}
+
+struct FilesPreview(SharedString, Theme);
+
+impl gpui::Render for FilesPreview {
+    fn render(&mut self, _: &mut Window, _: &mut Context<'_, Self>) -> impl gpui::IntoElement {
+        use gpui::{ParentElement, Styled};
+        gpui::div()
+            .px(px(8.))
+            .py(px(2.))
+            .rounded(px(4.))
+            .border_1()
+            .border_color(self.1.border)
+            .bg(self.1.bar)
+            .text_color(self.1.foreground)
+            .text_size(px(self.1.size * 0.9))
+            .child(self.0.clone())
+    }
+}
+
 /// What is under the mouse.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hit {
@@ -384,6 +412,9 @@ pub struct Editor {
     sent_selection: Option<(usize, usize)>,
     /// How far lines are scrolled sideways when they do not wrap.
     pub hscroll: Pixels,
+    /// The width of a CSV grid's frozen first column, painted unscrolled
+    /// over the rows' left edge (set when rendering; zero when none).
+    pub frozen: std::cell::Cell<Pixels>,
     /// A plain text document's highlighting and indentation step.
     pub plain: PlainCache,
     /// The highlighting of a file too large for [`Editor::plain`]'s: the
@@ -505,6 +536,7 @@ impl Editor {
             )),
             sent_selection: None,
             hscroll: px(0.),
+            frozen: std::cell::Cell::new(px(0.)),
             plain: RefCell::default(),
             windowed: RefCell::default(),
             disk_checked: Instant::now(),
@@ -2382,7 +2414,9 @@ impl Editor {
     /// Keeps the caret in view sideways when lines do not wrap, from the
     /// last frame's layout; `true` if the view moved.
     fn follow_sideways(&mut self) -> bool {
-        if self.wrap {
+        // A CSV grid's rows never wrap.
+        let grid = self.doc.meta.mode == DocumentMode::Csv && !self.source;
+        if self.wrap && !grid {
             let moved = self.hscroll != px(0.);
             self.hscroll = px(0.);
             return moved;
@@ -2396,7 +2430,13 @@ impl Editor {
         let x = p.layout.caret(p.view.display_offset(head)).origin.x;
         let w = p.bounds.size.width;
         let old = self.hscroll;
-        let new = if x < old + px(8.) {
+        let left = self.frozen.get();
+        let new = if left > px(0.) && x < left {
+            // In the frozen column, which always shows.
+            old
+        } else if left > px(0.) && x < old + left + px(8.) {
+            (x - left - w / 4.).max(px(0.))
+        } else if x < old + px(8.) {
             (x - w / 4.).max(px(0.))
         } else if x > old + w - px(16.) {
             x - w + w / 4.
@@ -2961,6 +3001,40 @@ impl Editor {
             self.message(e, true);
         }
         self.after_change(cx);
+    }
+
+    /// Entries dragged from a file manager listing and dropped here: on a
+    /// listing, moved into the folder under the pointer or the listing's
+    /// (copied with Alt or Option); on a document, linked at the pointer.
+    pub fn drop_files(
+        &mut self,
+        paths: &[std::path::PathBuf],
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        if let Some(Hit { pos, .. }) = self.hit(window.mouse_position()) {
+            self.doc.move_cursor(pos, false);
+        }
+        let list: Vec<Value> = paths
+            .iter()
+            .map(|p| Value::String(p.display().to_string()))
+            .collect();
+        if self.doc.dired.is_some() {
+            let copy = window.modifiers().alt;
+            self.run_command(
+                "dired.dropFiles",
+                serde_json::json!({ "paths": list, "copy": copy }),
+                window,
+                cx,
+            );
+        } else {
+            self.run_command(
+                "link.insertFiles",
+                serde_json::json!({ "paths": list }),
+                window,
+                cx,
+            );
+        }
     }
 
     /// The picture an image link's `path` names, relative to the
@@ -3955,7 +4029,13 @@ impl gpui::Render for Editor {
             .filter(|l| l.view.sheet)
             .map(|l| {
                 let current = kalem_core::csv::cell_at(&self.doc).map(|(_, _, _, c)| c);
-                (l.gutter, kalem_core::csv::sheet_widths(&l), current)
+                // The columns that show, with their widths.
+                let widths: Vec<(usize, usize)> = kalem_core::csv::sheet_widths(&l)
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(j, _)| !l.columns.hidden.contains(j))
+                    .collect();
+                (l.gutter, widths, current)
             });
         let bar_height = px(theme.size * 1.6);
         // A character's width in the grid's font, to line the letters up
@@ -3974,6 +4054,13 @@ impl gpui::Render for Editor {
                 .shape_line("0".into(), px(theme.size), &[run], None)
                 .width
         };
+        // A CSV grid's frozen first column, in pixels.
+        self.frozen.set(
+            (self.doc.meta.mode == DocumentMode::Csv && !self.source)
+                .then(|| kalem_core::csv::frozen_width(&kalem_core::csv::layout(&self.doc)))
+                .flatten()
+                .map_or(px(0.), |w| char_w * w as f32),
+        );
         let (mono, size, hscroll, dark) = (
             SharedString::from(theme.mono.clone()),
             px(theme.size),
@@ -4023,35 +4110,52 @@ impl gpui::Render for Editor {
                 // middles of its bars, and empty columns to the edge.
                 let corner = char_w * (*gutter as f32 + 2.5);
                 let extra = kalem_core::csv::SHEET_MIN_WIDTH;
+                let next = widths.last().map_or(0, |(j, _)| j + 1);
+                let letter_cell = |j: usize, w: usize| {
+                    let on = *current == Some(j);
+                    let mut d = div()
+                        .flex_none()
+                        .w(char_w * (w as f32 + 3.))
+                        .h_full()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .border_l_1()
+                        .border_color(line)
+                        .child(SharedString::from(kalem_core::csv_tools::column_letters(j)));
+                    if on {
+                        // Marked by its color and a green line under it;
+                        // the letter stays as readable as the rest.
+                        d = d
+                            .bg(green)
+                            .font_weight(gpui::FontWeight::BOLD)
+                            .text_color(fg)
+                            .border_b_2()
+                            .border_color(edge);
+                    }
+                    d
+                };
+                // The frozen column's letters, over the scrolled bar.
+                let frozen_letters = (self.frozen.get() > px(0.) && hscroll > px(0.))
+                    .then(|| widths.first().copied())
+                    .flatten()
+                    .map(|(j, w)| {
+                        div()
+                            .absolute()
+                            .top(px(0.))
+                            .left(px(0.))
+                            .h_full()
+                            .flex()
+                            .flex_row()
+                            .bg(gray)
+                            .child(div().flex_none().w(corner).h_full())
+                            .child(letter_cell(j, w))
+                    });
                 let columns = widths
                     .iter()
                     .copied()
-                    .chain(std::iter::repeat_n(extra, 60))
-                    .enumerate()
-                    .map(|(j, w)| {
-                        let on = *current == Some(j);
-                        let mut d = div()
-                            .flex_none()
-                            .w(char_w * (w as f32 + 3.))
-                            .h_full()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .border_l_1()
-                            .border_color(line)
-                            .child(SharedString::from(kalem_core::csv_tools::column_letters(j)));
-                        if on {
-                            // Marked by its color and a green line under
-                            // it; the letter stays as readable as the rest.
-                            d = d
-                                .bg(green)
-                                .font_weight(gpui::FontWeight::BOLD)
-                                .text_color(fg)
-                                .border_b_2()
-                                .border_color(edge);
-                        }
-                        d
-                    });
+                    .chain((next..next + 60).map(|j| (j, extra)))
+                    .map(|(j, w)| letter_cell(j, w));
                 text = text.child(
                     div()
                         .debug_selector(|| "csv-letters".into())
@@ -4075,7 +4179,8 @@ impl gpui::Render for Editor {
                                 .flex_row()
                                 .child(div().flex_none().w(corner).h_full())
                                 .children(columns),
-                        ),
+                        )
+                        .children(frozen_letters),
                 );
             }
             if let Some(w) = column {
@@ -4120,10 +4225,37 @@ impl gpui::Render for Editor {
                             line,
                             other,
                         };
-                        if indent == px(0.) {
+                        // A file manager's entry: dragged to another
+                        // listing or into a document.
+                        let (drag, theme) = entity.read_with(cx, |e, _| {
+                            (kalem_core::dired::drag_paths(&e.doc, line), e.theme.clone())
+                        });
+                        let element = if indent == px(0.) {
                             element.into_any_element()
                         } else {
                             div().pl(indent).child(element).into_any_element()
+                        };
+                        if drag.is_empty() {
+                            element
+                        } else {
+                            let label: SharedString = match drag.as_slice() {
+                                [one] => one
+                                    .file_name()
+                                    .map_or_else(
+                                        || one.display().to_string(),
+                                        |n| n.to_string_lossy().into_owned(),
+                                    )
+                                    .into(),
+                                many => tr!("fm-drag-count", count = many.len()).into(),
+                            };
+                            div()
+                                .id(("file-drag", line))
+                                .child(element)
+                                .on_drag(DraggedFiles { paths: drag, label }, move |d, _, _, cx| {
+                                    let t = theme.clone();
+                                    cx.new(|_| FilesPreview(d.label.clone(), t))
+                                })
+                                .into_any_element()
                         }
                     })
                     .size_full(),
@@ -4187,6 +4319,9 @@ impl gpui::Render for Editor {
                     this.drop_paths(paths.paths(), window, cx);
                 }),
             )
+            .on_drop(cx.listener(|this, d: &DraggedFiles, window, cx| {
+                this.drop_files(&d.paths, window, cx);
+            }))
             .size_full()
             .relative()
             .flex()
