@@ -2060,6 +2060,25 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Sets or removes an axis title of the chart under the cursor.
+    pub fn set_axis_title(
+        &mut self,
+        axis: kalem_viewer::ChartAxis,
+        title: Option<String>,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to title its axes")?;
+        self.doc()
+            .set_axis_title(self.unit, i, axis, title)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -3199,6 +3218,52 @@ fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     }
     ctx.requests.push(Request::Choose(items));
     Ok(())
+}
+
+/// Chart Title and the axis titles: asked for, starting from the title
+/// the chart has; an empty one removes it.
+fn chart_text(
+    ctx: &mut EditorContext<'_>,
+    args: &serde_json::Value,
+    id: &str,
+    axis: Option<kalem_viewer::ChartAxis>,
+) -> CommandResult {
+    use kalem_viewer::ChartAxis;
+    let Some(value) = args
+        .get("value")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+    else {
+        let Some(v) = ctx
+            .document
+            .as_deref_mut()
+            .and_then(|d| d.viewer.as_deref_mut())
+        else {
+            return Ok(());
+        };
+        let Some((i, _)) = v.chart_at_cursor() else {
+            ctx.messages
+                .push("Put the cursor on a chart to give it a title".into());
+            return Ok(());
+        };
+        let c = v.charts()[i].clone();
+        let current = match axis {
+            None => c.title,
+            Some(ChartAxis::Horizontal) => c.horizontal_title,
+            Some(ChartAxis::Vertical) => c.vertical_title,
+        };
+        return ask_more(
+            ctx,
+            id,
+            &serde_json::json!({ "value_default": current.unwrap_or_default() }),
+            "value",
+        );
+    };
+    let title = Some(value.trim().to_string()).filter(|t| !t.is_empty());
+    match axis {
+        None => with(ctx, |v| v.set_chart_title(title)),
+        Some(a) => with(ctx, |v| v.set_axis_title(a, title)),
+    }
 }
 
 /// Insert Chart: the kinds offered, then the chart of the selection.
@@ -4649,35 +4714,34 @@ fn grid_commands() -> Vec<Command> {
             "Chart Title",
             &["h t"],
             IN_GRID,
+            |ctx, args| chart_text(ctx, args, "viewer.grid.chartTitle", None),
+        ),
+        cmd(
+            "viewer.grid.horizontalAxisTitle",
+            "Horizontal Axis Title",
+            &["h x"],
+            IN_GRID,
             |ctx, args| {
-                // Asked for, starting from the title it has; empty removes it.
-                let Some(value) = args
-                    .get("value")
-                    .and_then(|v| v.as_str())
-                    .map(str::to_string)
-                else {
-                    let Some(v) = ctx
-                        .document
-                        .as_deref_mut()
-                        .and_then(|d| d.viewer.as_deref_mut())
-                    else {
-                        return Ok(());
-                    };
-                    let Some((i, _)) = v.chart_at_cursor() else {
-                        ctx.messages
-                            .push("Put the cursor on a chart to give it a title".into());
-                        return Ok(());
-                    };
-                    let current = v.charts()[i].title.clone().unwrap_or_default();
-                    return ask_more(
-                        ctx,
-                        "viewer.grid.chartTitle",
-                        &serde_json::json!({ "value_default": current }),
-                        "value",
-                    );
-                };
-                let title = Some(value.trim().to_string()).filter(|t| !t.is_empty());
-                with(ctx, |v| v.set_chart_title(title))
+                chart_text(
+                    ctx,
+                    args,
+                    "viewer.grid.horizontalAxisTitle",
+                    Some(kalem_viewer::ChartAxis::Horizontal),
+                )
+            },
+        ),
+        cmd(
+            "viewer.grid.verticalAxisTitle",
+            "Vertical Axis Title",
+            &["h y"],
+            IN_GRID,
+            |ctx, args| {
+                chart_text(
+                    ctx,
+                    args,
+                    "viewer.grid.verticalAxisTitle",
+                    Some(kalem_viewer::ChartAxis::Vertical),
+                )
             },
         ),
         cmd(

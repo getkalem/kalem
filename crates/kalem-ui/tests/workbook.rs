@@ -550,6 +550,28 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
     cx.run_until_parked();
     let resized = anchor(cx);
+    // A pie has no axes: an axis title is refused.
+    e.update_in(cx, |e, window, cx| {
+        let a = e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].anchor;
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.horizontalAxisTitle",
+            serde_json::json!({ "value": "Items" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let titled = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1]
+            .horizontal_title
+            .clone()
+    });
+    assert_eq!(titled, None, "a pie has no axes");
     assert_eq!(resized[..2], moved[..2]);
     assert_eq!(resized[2], moved[2] - 3, "{moved:?} → {resized:?}");
     let _ = std::fs::remove_dir_all(dir);
