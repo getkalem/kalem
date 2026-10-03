@@ -391,6 +391,93 @@ pub enum CompareOp {
     NotBetween,
 }
 
+/// What a cell's data validation allows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ValidationKind {
+    /// Any value: only an input message.
+    #[default]
+    Any,
+    /// Whole numbers.
+    Whole,
+    /// Numbers.
+    Decimal,
+    /// One of a list's values.
+    List,
+    /// Dates.
+    Date,
+    /// Times.
+    Time,
+    /// Text of a length.
+    TextLength,
+    /// What a formula accepts.
+    Custom,
+}
+
+/// What a spreadsheet does with a value its validation refuses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ErrorStyle {
+    /// Refuses it.
+    #[default]
+    Stop,
+    /// Asks whether to keep it.
+    Warning,
+    /// Keeps it and says so.
+    Information,
+}
+
+/// A data validation, as a spreadsheet's Data Validation dialog sets it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Validation {
+    /// What is allowed.
+    pub kind: ValidationKind,
+    /// How a value compares with `value` (and `value2`); not for lists and
+    /// formulas.
+    pub op: CompareOp,
+    /// As typed: `10`, `=A1`, a date; a list's values separated by commas
+    /// or `=` and a range; a formula for Custom.
+    pub value: String,
+    /// The second value, for Between and Not Between.
+    pub value2: Option<String>,
+    /// An empty cell is accepted.
+    pub allow_blank: bool,
+    /// A list offers its values to choose from.
+    pub dropdown: bool,
+    /// Shown while the cell is selected: title, text.
+    pub prompt: Option<(String, String)>,
+    /// Said when a value is refused: style, title, text; `None` for no
+    /// alert, the value kept.
+    pub error: Option<(ErrorStyle, String, String)>,
+    /// A list's values as they read now (read only).
+    pub list: Vec<String>,
+}
+
+impl Default for Validation {
+    fn default() -> Self {
+        Self {
+            kind: ValidationKind::Any,
+            op: CompareOp::Between,
+            value: String::new(),
+            value2: None,
+            allow_blank: true,
+            dropdown: true,
+            prompt: None,
+            error: Some((ErrorStyle::Stop, String::new(), String::new())),
+            list: Vec::new(),
+        }
+    }
+}
+
+/// A value a validation refused, and what to say.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValidationError {
+    /// Refuse, ask or tell.
+    pub style: ErrorStyle,
+    /// The alert's title.
+    pub title: String,
+    /// Its text.
+    pub message: String,
+}
+
 /// A conditional format's rule, as a spreadsheet's Conditional Formatting
 /// menu offers them.
 #[derive(Debug, Clone, PartialEq)]
@@ -769,6 +856,45 @@ pub trait ViewerDocument: Send {
         _range: Option<[u32; 4]>,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The data validation of a cell.
+    fn validation(&mut self, _unit: usize, _row: u32, _col: u32) -> Option<Validation> {
+        None
+    }
+
+    /// Sets the data validation of a range (`None`: removes it), replacing
+    /// what its cells had.
+    fn set_validation(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _validation: Option<Validation>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// What the cell's validation says of a value about to be entered, as
+    /// typed; `None` when it is accepted.
+    fn check_input(
+        &mut self,
+        _unit: usize,
+        _row: u32,
+        _col: u32,
+        _input: &str,
+    ) -> Option<ValidationError> {
+        None
+    }
+
+    /// The cells in `rows` × `cols` whose values their validation refuses
+    /// (a spreadsheet's Circle Invalid Data).
+    fn invalid_cells(
+        &mut self,
+        _unit: usize,
+        _rows: std::ops::Range<u32>,
+        _cols: std::ops::Range<u32>,
+    ) -> Vec<(u32, u32)> {
+        Vec::new()
     }
 
     /// Sorts a range's rows by column `key` (a spreadsheet's Sort), the
