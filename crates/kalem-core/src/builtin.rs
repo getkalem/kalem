@@ -678,16 +678,19 @@ pub(crate) fn commands() -> Vec<Command> {
                 if !pdf.is_file() {
                     return Err(CommandError::new(crate::l10n::tr("msg-no-pdf-yet")));
                 }
-                let page = crate::synctex::Synctex::cached(&pdf)
-                    .and_then(|st| st.forward(&path, line))
-                    .map(|p| p.page);
-                if page.is_none() {
+                let place =
+                    crate::synctex::Synctex::cached(&pdf).and_then(|st| st.forward(&path, line));
+                if place.is_none() {
                     ctx.messages.push(crate::l10n::tr("msg-no-synctex"));
                 }
+                // A paged file's "line" is the page, its "column" the
+                // height of the line's middle on it, in points.
                 ctx.requests.push(Request::OpenAt {
                     path: pdf.display().to_string(),
-                    line: page.unwrap_or(1) as u64,
-                    column: 0,
+                    line: place.as_ref().map_or(1, |p| p.page) as u64,
+                    column: place
+                        .as_ref()
+                        .map_or(0, |p| (p.y + p.height / 2.0).round().max(0.0) as usize),
                 });
                 Ok(())
             },
@@ -8513,7 +8516,7 @@ mod tests {
         std::fs::write(
             dir.join("main.synctex"),
             format!(
-                "SyncTeX Version:1\nInput:1:{}\nUnit:1\nContent:\n{{1\n(1,3:100,100:1000,10,0\n)\n}}1\n{{2\n(1,5:100,100:1000,10,0\n)\n}}2\n",
+                "SyncTeX Version:1\nInput:1:{}\nUnit:1\nContent:\n{{1\n(1,3:100,100:1000,10,0\n)\n}}1\n{{2\n(1,5:100,6578176:1000,0,0\n)\n}}2\n",
                 dir.join("./main.tex").display()
             ),
         )
@@ -8544,7 +8547,7 @@ mod tests {
             vec![Request::OpenAt {
                 path: dir.join("main.pdf").display().to_string(),
                 line: 2,
-                column: 0,
+                column: 100,
             }]
         );
         std::fs::remove_dir_all(&dir).unwrap();
