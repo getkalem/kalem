@@ -337,6 +337,36 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     assert!(merged.contains(&[1, 1, 2, 2]), "{merged:?}");
 
+    // The filter on, its button offering the column's values.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+        e.run_command(
+            "viewer.grid.toggleFilter",
+            serde_json::json!({}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let button = cx
+        .debug_bounds("viewer-grid-filter-0")
+        .expect("A1's filter button");
+    cx.simulate_click(button.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    let offered = e.read_with(cx, |e, _| e.palette.is_some());
+    assert!(offered, "the column's values are offered");
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.toggleFilter",
+            serde_json::json!({}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"
