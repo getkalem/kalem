@@ -29,7 +29,7 @@ claims are narrower and each has an oracle.
 | Numbers (sections, equations, floats, theorems, footnotes, items) are the ones LaTeX prints on the documents tested | The =.aux= files pdflatex writes for the documents of =tests/latex/model= (the standard classes, amsbook, memoir, counters, lists, sub-figures, theorems, math environments; =tools/latex-labels.sh=) and =tests/latex/project/main.tex=: every =\label= gets the number in the matching =*.labels= file; references and citations against what pdflatex and bibtex typeset (=tests/latex/references=, =tests/latex/citations=) | Holds on those documents; a document using a package or a class the tests do not cover may be numbered otherwise  |
 | On the structure it reads, Kalem agrees with pandoc's LaTeX reader                                                  | =kalem diff-pandoc=, which counts ten categories on both sides (below)                                                                                                                                                                                                                                                                                                                                                          | All categories agree on the fixtures of =tests/latex= but two deliberate differences, listed in [[file:latex-known-differences.org][Known differences]] |
 | What an editing command generates compiles                                                                          | Compiling with a TeX engine; every template is compiled with pdflatex in the tests, the Turkish thesis only where babel's Turkish is installed (it is skipped, with a note, where it is not)                                                                                                                                                                                                                                    | Templates compiled; compile-and-compare on a corpus (T2.7h.33) is open                                            |
-| Formulas are laid out as KaTeX lays them out                                                                        | org-math renders with RaTeX and the KaTeX fonts; image snapshots in =crates/org-math/tests/render.rs=                                                                                                                                                                                                                                                                                                                           | 25 formulas; the corpus of a thousand (T2.7h.34) is open                                                          |
+| Formulas are laid out as KaTeX lays them out                                                                        | org-math renders with RaTeX and the KaTeX fonts; image snapshots in =crates/org-math/tests/render.rs=                                                                                                                                                                                                                                                                                                                           | 25 image snapshots; a thousand formulas KaTeX renders read by the renderer (T2.7h.34)                          |
 | A stated share of a document's body is rendered rather than shown as source                                         | The coverage metric of =kalem check --unrendered=                                                                                                                                                                                                                                                                                                                                                                               | Measured per document; the target and the corpus (T2.7h.1, T2.7h.36) are open                                     |
 
 ** pandoc's reader: =kalem diff-pandoc=
@@ -1083,6 +1083,21 @@ space; none before =\degree=, =\arcminute=, =\arcsecond=), =\ang{1;2;3}=
 unit repeated, =\numlist= with ", " and " and ". siunitx is not in
 the test machine's TeX installation, so these follow its manual, not a
 comparison with its output.
+
+** Formulas against KaTeX
+
+The renderer is held to KaTeX on real formulas: =tools/math-corpus.py=
+reads every formula of two openly licensed books (the Open Logic
+Project and the HoTT book, 57,460 formulas) as Kalem's view reads them,
+and asks KaTeX 0.16 and the renderer about each, without the books' own
+macros. KaTeX renders 31,873 of them, and the renderer reads every one
+of those (the last one it did not, a control space ending a formula,
+=L\ =, is handled since); it also reads 649 that KaTeX refuses, mostly
+=bussproofs= trees, =xymatrix= diagrams and =eqnarray= that Kalem maps
+for it. A thousand of KaTeX's formulas, chosen by their hash, are kept
+in =tests/corpus/math/katex-corpus.txt= (CC BY-SA), and
+=crates/org-math/tests/katex.rs= checks that the renderer reads them all
+and renders a sample.
 
 ** Macros the renderer leaves as source
 

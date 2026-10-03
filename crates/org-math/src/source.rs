@@ -1154,6 +1154,15 @@ pub fn prepare(latex: &str, macros: &str) -> String {
     s = math_out_of_text(&s);
     s = inner_dollars(&s);
     s = braced_delimiters(&s);
+    // A control space at the very end (`L\ `), which RaTeX's lexer cannot
+    // end on: an empty group after it.
+    let trailing = s.trim_end_matches(['\n', '\r', '\t']);
+    let slashes = trailing
+        .strip_suffix(' ')
+        .map_or(0, |t| t.len() - t.trim_end_matches('\\').len());
+    if slashes % 2 == 1 {
+        s = format!("{trailing}{{}}");
+    }
     // Environments of packages, as the renderer's: IEEEtran's
     // eqnarray with its columns, xalignat with its count, breqn's,
     // empheq with the one it names.
@@ -1419,6 +1428,11 @@ mod tests {
     #[test]
     fn preparing() {
         assert_eq!(prepare("\\mbox{if } x", ""), "\\text{if } x");
+        // A control space ending the formula: an empty group after it,
+        // since the renderer cannot end on it.
+        assert_eq!(prepare("L\\ ", ""), "L\\ {}");
+        assert!(crate::check(&prepare("L\\ ", "")).is_ok());
+        assert_eq!(prepare("L\\\\ ", ""), "L\\\\ ");
         assert_eq!(
             prepare("\\begin{multline}a\\\\b\\end{multline}", ""),
             "\\begin{gather}a\\\\b\\end{gather}"

@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- A formula ending in a control space (`$L\ $`) renders instead of showing an error.
 - A PDF, picture or other viewed file that changes on disk (a PDF built again) reloads at the page, zoom and place it was shown at, not at its first page.
 - LaTeX view: `!` or `?` before `\textquoteleft` shows as `¡` or `¿`, the ligature pdflatex makes of them (found by the typeset fuzz).
 - LaTeX: two crashes on letters outside ASCII found by running the editor over the arXiv sample: a BibTeX author list with letters like `š`, and a control symbol made of a character outside ASCII (`\😀`).
@@ -23,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- A math corpus against KaTeX: the renderer reads every formula KaTeX 0.16 renders among the 57,460 of the Open Logic Project and the HoTT book; a thousand are kept as a test (`tests/corpus/math/katex-corpus.txt`).
 - `kalem latex-coverage` reports coverage per paper: how many papers of each field meet the target, and those showing the most source (every paper in `--format json`); the Book's limitations page shows them.
 - The Book's "LaTeX for AUCTeX users" maps AUCTeX's, RefTeX's and preview-latex's commands to Kalem's. In LaTeX, Expand Selection grows by the document's structure: group, command, environment, then section; with Vim keys, `SPC m v` shows the PDF.
 - LaTeX builds checked to be reproducible: the editing template built twice with pdfLaTeX and with Tectonic under `SOURCE_DATE_EPOCH` gives the same PDF (CI).
