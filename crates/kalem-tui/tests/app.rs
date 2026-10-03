@@ -4631,3 +4631,28 @@ fn csv_rectangle_of_cells_in_the_terminal() {
     assert_eq!(t.app.take_output(), ["\x1b]52;c;MjIKNTUK\x07"]);
     assert_eq!(t.text(), text);
 }
+
+#[test]
+fn file_menu_separators_in_the_terminal() {
+    // T2.7e.17: the file menu's groups are parted by rules, as in the
+    // graphical editor's menu, while nothing is typed.
+    let (mut t, dir) = project_app(Config::default());
+    t.app.run_command(
+        "file.open",
+        serde_json::json!({ "path": dir.join("proj").display().to_string() }),
+    );
+    let at = t.app.doc.text().as_str().find("a.org").expect("listed");
+    t.at(at);
+    t.app
+        .run_command("dired.contextMenu", serde_json::Value::Null);
+    let rows = screen(&mut t);
+    let rules = rows.iter().filter(|r| r.contains("────────")).count();
+    assert!(rules >= 2, "{rows:#?}");
+    let open = rows.iter().position(|r| r.contains("Open")).expect("Open");
+    let rule = rows.iter().position(|r| r.contains("────────")).unwrap();
+    assert!(open < rule, "{rows:#?}");
+    // Typed: the matches only.
+    t.typ("cop");
+    let rows = screen(&mut t);
+    assert!(!rows.iter().any(|r| r.contains("────────")), "{rows:#?}");
+}

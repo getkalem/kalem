@@ -175,7 +175,9 @@ impl Editor {
     pub fn open_choice(&mut self, items: Vec<PaletteItem>, cx: &mut Context<'_, Self>) {
         self.completion = None;
         let mut p = Palette::new(String::new());
-        p.items = items;
+        // The menu's separators are drawn by its popup at the mouse; the
+        // list goes without them.
+        p.items = kalem_core::palette::split_separators(items).0;
         p.ordered = true;
         self.palette = Some(p);
         cx.notify();

@@ -22,6 +22,43 @@ pub struct PaletteItem {
     pub also: String,
 }
 
+impl PaletteItem {
+    /// A line between groups of a menu's items, nothing to choose: no
+    /// command and no title.
+    pub fn separator() -> PaletteItem {
+        PaletteItem {
+            id: String::new(),
+            title: String::new(),
+            category: String::new(),
+            keys: String::new(),
+            also: String::new(),
+        }
+    }
+
+    /// Whether this is a [`PaletteItem::separator`].
+    pub fn is_separator(&self) -> bool {
+        self.id.is_empty() && self.title.is_empty()
+    }
+}
+
+/// The items without their separators, and the indices of the items a
+/// separator came before (none first or twice).
+pub fn split_separators(items: Vec<PaletteItem>) -> (Vec<PaletteItem>, Vec<usize>) {
+    let mut out = Vec::with_capacity(items.len());
+    let mut breaks: Vec<usize> = Vec::new();
+    for it in items {
+        if it.is_separator() {
+            if !out.is_empty() && breaks.last() != Some(&out.len()) {
+                breaks.push(out.len());
+            }
+        } else {
+            out.push(it);
+        }
+    }
+    breaks.retain(|&b| b < out.len());
+    (out, breaks)
+}
+
 /// The commands that apply in `ctx`, with their first key written by
 /// `show`.
 pub fn items(
