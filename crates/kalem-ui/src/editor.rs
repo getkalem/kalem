@@ -2048,15 +2048,17 @@ impl Editor {
                 return;
             }
         }
+        // An open completion menu takes its keys first: in Vim's insert
+        // mode Enter and Tab choose an item, not a new line or a tab.
+        if self.completion.is_some() && self.completion_key(&ev.keystroke, cx) {
+            cx.stop_propagation();
+            return;
+        }
         if !self.describing
             && self.pending.is_empty()
             && !self.listing_key(&chord)
             && self.vim_key_down(ev, window, cx)
         {
-            cx.stop_propagation();
-            return;
-        }
-        if self.completion.is_some() && self.completion_key(&ev.keystroke, cx) {
             cx.stop_propagation();
             return;
         }
@@ -3291,12 +3293,23 @@ impl Editor {
         match k.key.as_str() {
             "down" => m.step(true),
             "up" => m.step(false),
+            // In Vim, one Escape closes the menu and leaves insert mode.
+            "escape" if self.vim.is_some() => {
+                self.completion = None;
+                return false;
+            }
             "escape" => self.completion = None,
             // Words are taken with Tab: Enter goes on writing prose.
             "enter"
                 if m.current()
                     .is_some_and(|i| i.kind == kalem_core::completers::Kind::Word) =>
             {
+                self.completion = None;
+                return false;
+            }
+            // Nothing to choose yet (a server still answering): the key
+            // does what it does without a menu.
+            "enter" | "tab" if m.current().is_none() => {
                 self.completion = None;
                 return false;
             }
