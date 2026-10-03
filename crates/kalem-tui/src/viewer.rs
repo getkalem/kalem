@@ -501,6 +501,46 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             x += w;
         }
     }
+    // Charts over the cells they cover.
+    let charts = v.charts();
+    if !charts.is_empty() {
+        let x0 = area.x + gutter;
+        let mut col_x = std::collections::HashMap::new();
+        let mut x = x0;
+        for &(c, w) in &cols {
+            col_x.insert(c, (x, w));
+            x += w;
+        }
+        let row_y: std::collections::HashMap<u32, u16> = rows
+            .iter()
+            .enumerate()
+            .map(|(i, (r, _))| (*r, area.y + 1 + i as u16))
+            .collect();
+        for chart in &charts {
+            let a = chart.anchor;
+            let xs: Vec<(u16, u16)> = (a[1]..=a[3])
+                .filter_map(|c| col_x.get(&c).copied())
+                .collect();
+            let ys: Vec<u16> = (a[0]..=a[2])
+                .filter_map(|r| row_y.get(&r).copied())
+                .collect();
+            let (Some(first_x), Some(last_x), Some(first_y), Some(last_y)) =
+                (xs.first(), xs.last(), ys.first(), ys.last())
+            else {
+                continue;
+            };
+            let rect = Rect::new(
+                first_x.0,
+                *first_y,
+                (last_x.0 + last_x.1).saturating_sub(first_x.0),
+                (last_y + 1).saturating_sub(*first_y),
+            )
+            .intersection(area);
+            if rect.width >= 6 && rect.height >= 3 {
+                crate::chart::draw(chart, caps, rect, buf);
+            }
+        }
+    }
 }
 
 /// An icon set's icon in a terminal without Unicode symbols.

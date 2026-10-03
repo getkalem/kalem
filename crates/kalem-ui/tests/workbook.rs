@@ -484,5 +484,29 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .is_some()
     });
     assert!(total, "the pivot table's total row");
+
+    // A chart of the budget: drawn over the cells beside the table.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().go_to(0);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+        e.run_command(
+            "viewer.grid.insertChart",
+            serde_json::json!({ "kind": "pie", "title": "Rent and the rest" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.run_until_parked();
+    let n = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().charts().len()
+    });
+    assert!(
+        cx.debug_bounds(Box::leak(
+            format!("viewer-grid-chart-{}", n - 1).into_boxed_str()
+        ))
+        .is_some(),
+        "the new chart drawn"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
