@@ -50,6 +50,7 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-2/org-known-differences.org][Org: known differences from Emacs]]
 - [[file:part-2/latex.org][LaTeX]]
 - [[file:part-2/latex-known-differences.org][LaTeX: known differences]]
+- [[file:part-2/latex-limitations.org][LaTeX: what shows as source]]
 - [[file:part-2/bibtex.org][BibTeX]]
 - [[file:part-2/csv.org][CSV]]
 - [[file:part-2/markdown.org][Markdown]]
