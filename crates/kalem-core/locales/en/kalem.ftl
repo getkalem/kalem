@@ -912,6 +912,7 @@ latex-install-texlive = Install it with: tlmgr install { $package }
 latex-install-miktex = Install it with the MiKTeX Console, or: mpm --install={ $package }
 cmd-latex-build = Build PDF
 cmd-latex-showInPdf = Show in PDF
+msg-no-typst = Typst is not installed: install it from typst.app (or with your package manager) and build again
 msg-no-pdf-yet = No PDF yet: build it first (F5)
 msg-no-synctex = The PDF has no SyncTeX file: build it again to go to the line's page
 category-latex = LaTeX

@@ -139,6 +139,16 @@ Ctrl-click (Cmd-click on macOS) on a line of text opens the source file
 at the line it came from. A PDF built before has no SyncTeX file:
 build it again.
 
+* Typst
+
+Typst files (=.typ=) open as text with Typst's highlighting and an
+outline of their headings (=== Title=, ==== Section=; not those in raw
+blocks or comments). /Build PDF/ (F5) runs =typst compile= on the file
+when Typst is installed, into =latex.output_directory= when it is set;
+the status bar gives the first error at its file and line, and the
+errors show on their lines in the text, as LaTeX's do. Kalem never
+turns a LaTeX file into Typst or back.
+
 * Beside Overleaf and co-authors
 
 Kalem works on the files of a project, so a project shared through Git

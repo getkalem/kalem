@@ -146,6 +146,11 @@ jobs:
       - run: python3 tools/latex-edit-fuzz.py 150 $GITHUB_RUN_NUMBER 6 --keep latex-differences
       # SyncTeX both ways, against TeX Live's synctex program.
       - run: cargo test --release -p kalem-core --test synctex -- --nocapture
+      # Typst files built with typst compile, their problems in the text.
+      - name: Typst
+        run: |
+          curl -sSfL https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz | tar xJ
+          PATH="$PWD/typst-x86_64-unknown-linux-musl:$PATH" cargo test --release -p kalem-core --test typst
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
