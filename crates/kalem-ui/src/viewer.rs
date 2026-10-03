@@ -794,6 +794,36 @@ impl Editor {
             row_y.insert(r, (y, h));
             y += h;
         }
+        // Charts over the cells they cover, the part in view.
+        let charts: Vec<_> = v
+            .charts()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, chart)| {
+                let a = chart.anchor;
+                let xs: Vec<(f32, f32)> = (a[1]..=a[3])
+                    .filter_map(|c| col_x.get(&c).copied())
+                    .collect();
+                let ys: Vec<(f32, f32)> = (a[0]..=a[2])
+                    .filter_map(|r| row_y.get(&r).copied())
+                    .collect();
+                let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+                let (w, h) = (
+                    xs.iter().map(|v| v.1).sum::<f32>(),
+                    ys.iter().map(|v| v.1).sum::<f32>(),
+                );
+                (w > 20.0 && h > 20.0).then(|| {
+                    crate::chart::chart_view(
+                        chart,
+                        i,
+                        (x0, y0, w, h),
+                        theme.background,
+                        theme.border,
+                        theme.foreground,
+                    )
+                })
+            })
+            .collect();
         // Cells cut: a dashed frame around the part in view, as Excel's.
         let cut_mark = cut.and_then(|m| {
             let xs: Vec<(f32, f32)> = (m[1]..=m[3])
@@ -1272,6 +1302,7 @@ impl Editor {
                     .child(letters)
                     .children(body)
                     .children(merges)
+                    .children(charts)
                     .children(cut_mark),
             )
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {

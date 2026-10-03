@@ -1949,6 +1949,53 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The charts of the sheet shown.
+    pub fn charts(&mut self) -> Vec<kalem_viewer::Chart> {
+        if !self.is_grid() {
+            return Vec::new();
+        }
+        self.doc().charts(self.unit)
+    }
+
+    /// Inserts a chart of the selection, or of the table at the cursor,
+    /// beside it.
+    pub fn insert_chart(
+        &mut self,
+        kind: kalem_viewer::ChartKind,
+        title: Option<String>,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (r, _) = self.table_target();
+        self.doc()
+            .insert_chart(self.unit, r, kind, title)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Removes the chart over the cursor's cell.
+    pub fn delete_chart(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        let at = self
+            .charts()
+            .iter()
+            .rposition(|c| {
+                (c.anchor[0]..=c.anchor[2]).contains(&p.row)
+                    && (c.anchor[1]..=c.anchor[3]).contains(&p.col)
+            })
+            .ok_or("Put the cursor on a chart to delete it")?;
+        self.doc()
+            .delete_chart(self.unit, at)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The range a pivot table would summarize (the selection, or the
     /// table at the cursor) and its fields' names (its first row).
     pub fn pivot_source(&mut self) -> ([u32; 4], Vec<String>) {
@@ -3067,6 +3114,42 @@ fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     }
     ctx.requests.push(Request::Choose(items));
     Ok(())
+}
+
+/// Insert Chart: the kinds offered, then the chart of the selection.
+fn insert_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::ChartKind;
+    let kinds = [
+        ("column", ChartKind::Column, "Column"),
+        ("bar", ChartKind::Bar, "Bar"),
+        ("line", ChartKind::Line, "Line"),
+        ("area", ChartKind::Area, "Area"),
+        ("pie", ChartKind::Pie, "Pie"),
+        ("doughnut", ChartKind::Doughnut, "Doughnut"),
+        ("scatter", ChartKind::Scatter, "Scatter"),
+    ];
+    let Some(kind) = args
+        .get("kind")
+        .and_then(|k| k.as_str())
+        .and_then(|k| kinds.iter().find(|x| x.0 == k))
+        .map(|x| x.1)
+    else {
+        let items = kinds
+            .iter()
+            .map(|(key, _, title)| {
+                menu_item(
+                    "viewer.grid.insertChart",
+                    serde_json::json!({ "kind": key }),
+                    &format!("{title} Chart"),
+                    "Insert Chart",
+                )
+            })
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let title = text_arg(args, "title");
+    with(ctx, |v| v.insert_chart(kind, title))
 }
 
 /// Insert PivotTable, a step at a time in the palette as Excel's field
@@ -4412,6 +4495,20 @@ fn grid_commands() -> Vec<Command> {
             &[],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.clear_conditional_formats(true)),
+        ),
+        cmd(
+            "viewer.grid.insertChart",
+            "Insert Chart",
+            &["alt+f1"],
+            IN_GRID,
+            insert_chart,
+        ),
+        cmd(
+            "viewer.grid.deleteChart",
+            "Delete Chart",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.delete_chart()),
         ),
         cmd(
             "viewer.grid.insertPivot",
