@@ -1355,6 +1355,185 @@ impl ViewerState {
         self.cut = None;
     }
 
+    /// The block of filled cells around the cursor, bounded by empty rows
+    /// and columns, as Excel's current region: first row, first column,
+    /// last row, last column.
+    pub fn current_region(&mut self) -> [u32; 4] {
+        let p = self.grid_pos();
+        let Some(l) = self.grid_layout() else {
+            return [p.row, p.col, p.row, p.col];
+        };
+        let filled: std::collections::HashSet<(u32, u32)> = self
+            .doc()
+            .grid_cells(self.unit, 0..l.rows.max(1), 0..l.cols.max(1))
+            .into_iter()
+            .filter(|(_, _, c)| !c.text.is_empty())
+            .map(|(r, c, _)| (r, c))
+            .collect();
+        let mut b = [p.row, p.col, p.row, p.col];
+        loop {
+            let mut g = b;
+            let row_has = |r: i64, c0: u32, c1: u32| {
+                r >= 0 && (c0.saturating_sub(1)..=c1 + 1).any(|c| filled.contains(&(r as u32, c)))
+            };
+            let col_has = |c: i64, r0: u32, r1: u32| {
+                c >= 0 && (r0.saturating_sub(1)..=r1 + 1).any(|r| filled.contains(&(r, c as u32)))
+            };
+            if row_has(i64::from(b[0]) - 1, b[1], b[3]) {
+                g[0] = b[0] - 1;
+            }
+            if row_has(i64::from(b[2]) + 1, b[1], b[3]) {
+                g[2] = b[2] + 1;
+            }
+            if col_has(i64::from(b[1]) - 1, b[0], b[2]) {
+                g[1] = b[1] - 1;
+            }
+            if col_has(i64::from(b[3]) + 1, b[0], b[2]) {
+                g[3] = b[3] + 1;
+            }
+            if g == b {
+                return b;
+            }
+            b = g;
+        }
+    }
+
+    /// What Sort and Filter work on: the selection when it is more than a
+    /// cell, the filter's range when the cursor is in it, else the current
+    /// region; and whether its first row is the headers.
+    fn table_target(&mut self) -> ([u32; 4], bool) {
+        let p = self.grid_pos();
+        let s = self.selection();
+        if p.sel.is_some() && (s[0], s[1]) != (s[2], s[3]) {
+            return (s, self.looks_like_header(s));
+        }
+        if let Some(f) = self.grid_layout().and_then(|l| l.filter)
+            && (f[0]..=f[2]).contains(&p.row)
+            && (f[1]..=f[3]).contains(&p.col)
+        {
+            return (f, true);
+        }
+        let r = self.current_region();
+        (r, self.looks_like_header(r))
+    }
+
+    /// Excel's guess: the first row is headers when it holds only text
+    /// over a row that holds something else, or is bold over a row that
+    /// is not.
+    fn looks_like_header(&mut self, r: [u32; 4]) -> bool {
+        if r[0] == r[2] {
+            return false;
+        }
+        let cells = self
+            .doc()
+            .grid_cells(self.unit, r[0]..r[0] + 2, r[1]..r[3] + 1);
+        let first: Vec<_> = cells
+            .iter()
+            .filter(|c| c.0 == r[0] && !c.2.text.is_empty())
+            .collect();
+        let second: Vec<_> = cells
+            .iter()
+            .filter(|c| c.0 == r[0] + 1 && !c.2.text.is_empty())
+            .collect();
+        if first.is_empty() {
+            return false;
+        }
+        let all_text = first.iter().all(|c| !c.2.numeric);
+        let bold = first.iter().all(|c| c.2.bold) && !second.iter().all(|c| c.2.bold);
+        (all_text && second.iter().any(|c| c.2.numeric)) || bold
+    }
+
+    /// Sorts the table at the cursor by the cursor's column.
+    pub fn sort(&mut self, descending: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (r, header) = self.table_target();
+        // The active cell's column: where a selection began, as in Excel.
+        let p = self.grid_pos();
+        let key = p.sel.map_or(p.col, |s| s.1).clamp(r[1], r[3]);
+        self.doc()
+            .sort_range(self.unit, r, key, descending, header)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Turns the filter on (on the table at the cursor) or off.
+    pub fn toggle_filter(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let on = self.grid_layout().and_then(|l| l.filter).is_none();
+        let range = if on {
+            let (r, _) = self.table_target();
+            if r[0] == r[2] {
+                return Err("A filter needs a header row and rows under it".into());
+            }
+            Some(r)
+        } else {
+            None
+        };
+        self.doc()
+            .set_filter(self.unit, range)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The values a column of the filter shows, each once, for choosing:
+    /// the cells under its header as shown, an empty text for empty cells.
+    pub fn filter_values(&mut self, col: u32) -> Vec<String> {
+        let Some(f) = self.grid_layout().and_then(|l| l.filter) else {
+            return Vec::new();
+        };
+        let cells = self
+            .doc()
+            .grid_cells(self.unit, f[0] + 1..f[2] + 1, col..col + 1);
+        let filled: Vec<u32> = cells.iter().map(|c| c.0).collect();
+        let mut out: Vec<String> = cells.into_iter().map(|c| c.2.text).collect();
+        if (f[0] + 1..=f[2]).any(|r| !filled.contains(&r)) {
+            out.push(String::new());
+        }
+        let mut seen = std::collections::HashSet::new();
+        out.retain(|v| seen.insert(v.clone()));
+        out.sort_by_key(|v| (v.is_empty(), v.to_lowercase()));
+        out
+    }
+
+    /// Filters a column of the filter to some values, or clears it.
+    pub fn set_column_filter(
+        &mut self,
+        col: u32,
+        values: Option<Vec<String>>,
+    ) -> Result<(), String> {
+        self.doc()
+            .filter_column(self.unit, col, values)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        // The cursor leaves a row the filter hid: the next one shown.
+        if let Some(l) = self.grid_layout() {
+            let p = self.grid_pos();
+            if l.hidden_rows.contains(&p.row) {
+                let next = (p.row..l.max_rows)
+                    .find(|r| !l.hidden_rows.contains(r))
+                    .or_else(|| (0..p.row).rev().find(|r| !l.hidden_rows.contains(r)))
+                    .unwrap_or(0);
+                self.grid_move_to(next, p.col);
+            }
+        }
+        Ok(())
+    }
+
+    /// Clears every column's filter, the filter kept.
+    pub fn clear_filters(&mut self) -> Result<(), String> {
+        let cols = self.grid_layout().map(|l| l.filtered).unwrap_or_default();
+        for c in cols {
+            self.set_column_filter(c, None)?;
+        }
+        Ok(())
+    }
+
     /// Clears the selection's values, formats kept (Delete).
     pub fn clear_selection(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -2297,6 +2476,58 @@ pub fn parse_tsv(text: &str) -> Vec<Vec<String>> {
     rows
 }
 
+/// Offers a filter column's values in the palette; choosing one filters
+/// to it.
+fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(f) = v.grid_layout().and_then(|l| l.filter) else {
+        ctx.messages
+            .push("No filter here: turn it on with Filter (f)".into());
+        return Ok(());
+    };
+    let col = args
+        .get("col")
+        .and_then(serde_json::Value::as_u64)
+        .map_or(v.grid_pos().col, |c| c as u32)
+        .clamp(f[1], f[3]);
+    let header = crate::csv_tools::column_letters(col as usize);
+    let mut items = vec![crate::palette::PaletteItem {
+        id: crate::palette::invocation(
+            "viewer.grid.setColumnFilter",
+            &serde_json::json!({ "col": col, "all": true }),
+        ),
+        title: "(Show All)".into(),
+        category: format!("Filter column {header}"),
+        keys: String::new(),
+        also: String::new(),
+    }];
+    for value in v.filter_values(col).into_iter().take(500) {
+        let title = if value.is_empty() {
+            "(Empty)".to_string()
+        } else {
+            value.clone()
+        };
+        items.push(crate::palette::PaletteItem {
+            id: crate::palette::invocation(
+                "viewer.grid.setColumnFilter",
+                &serde_json::json!({ "col": col, "value": value }),
+            ),
+            title,
+            category: format!("Filter column {header}"),
+            keys: String::new(),
+            also: value,
+        });
+    }
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
 /// A row three points taller or shorter: the terminal's drag.
 fn grid_height(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     with(ctx, |v| {
@@ -2543,6 +2774,63 @@ fn grid_commands() -> Vec<Command> {
         cmd("viewer.grid.cut", "Cut Cells", &[], IN_GRID, |ctx, _| {
             cut(ctx)
         }),
+        cmd(
+            "viewer.grid.sortAscending",
+            "Sort A to Z",
+            &["s a"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.sort(false)),
+        ),
+        cmd(
+            "viewer.grid.sortDescending",
+            "Sort Z to A",
+            &["s d"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.sort(true)),
+        ),
+        cmd(
+            "viewer.grid.toggleFilter",
+            "Filter",
+            &["f"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.toggle_filter()),
+        ),
+        cmd(
+            "viewer.grid.filterColumn",
+            "Filter Column",
+            &["shift+f"],
+            IN_GRID,
+            choose_filter,
+        ),
+        cmd(
+            "viewer.grid.setColumnFilter",
+            "Set Column Filter",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let Some(col) = args.get("col").and_then(serde_json::Value::as_u64) else {
+                    return Err(crate::command::CommandError::new("Which column?"));
+                };
+                let values = if args.get("all").and_then(serde_json::Value::as_bool) == Some(true) {
+                    None
+                } else {
+                    Some(vec![
+                        args.get("value")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or_default()
+                            .to_string(),
+                    ])
+                };
+                with(ctx, |v| v.set_column_filter(col as u32, values))
+            },
+        ),
+        cmd(
+            "viewer.grid.clearFilters",
+            "Clear Filters",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.clear_filters()),
+        ),
         cmd(
             "viewer.grid.pasteText",
             "Paste into Cells",

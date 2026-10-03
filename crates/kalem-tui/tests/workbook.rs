@@ -377,3 +377,92 @@ fn cells_rows_undo_and_save() {
         "2026-10-03"
     );
 }
+
+#[test]
+fn sorting_and_filtering() {
+    let mut t = T::open("sort");
+    let name = |t: &mut T, row: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(row, 0);
+        v.cell_input()
+    };
+    // A1:D4 selected from A1: sorted Z to A by Item, the header kept.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(0, 0);
+        v.grid_extend_to(3, 3);
+    }
+    t.key(KeyCode::Char('s'));
+    t.key(KeyCode::Char('d'));
+    let names: Vec<String> = (0..4).map(|r| name(&mut t, r)).collect();
+    assert_eq!(names, ["Item", "Travel", "Rent", "Food"]);
+    // Rent's total moved with it, reading its own row.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 3);
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().cell_input(),
+        "=B3+C3"
+    );
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(name(&mut t, 1), "Rent");
+
+    // The filter on the table at the cursor, a column filtered to Food.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.key(KeyCode::Char('f'));
+    let f = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_layout()
+        .unwrap()
+        .filter;
+    assert_eq!(f, Some([0, 0, 4, 3]));
+    assert!(t.screen().contains('▾'), "{}", t.screen());
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().filter_values(0),
+        ["Food", "Rent", "Sum", "Travel"]
+    );
+    t.app.run_command(
+        "viewer.grid.setColumnFilter",
+        json!({ "col": 0, "value": "Food" }),
+    );
+    let l = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_layout()
+        .unwrap();
+    assert_eq!(l.hidden_rows, vec![1, 3, 4]);
+    let s = t.screen();
+    assert!(
+        s.contains('▼') && s.contains("Food") && !s.contains("Rent"),
+        "{s}"
+    );
+    t.app.run_command("viewer.grid.clearFilters", json!({}));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .hidden_rows
+            .is_empty()
+    );
+    t.key(KeyCode::Char('f'));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .filter
+            .is_none()
+    );
+}
