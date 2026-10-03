@@ -678,8 +678,7 @@ pub(crate) fn commands() -> Vec<Command> {
                 if !pdf.is_file() {
                     return Err(CommandError::new(crate::l10n::tr("msg-no-pdf-yet")));
                 }
-                let page = crate::synctex::Synctex::for_pdf(&pdf)
-                    .and_then(|f| crate::synctex::Synctex::load(&f).ok())
+                let page = crate::synctex::Synctex::cached(&pdf)
                     .and_then(|st| st.forward(&path, line))
                     .map(|p| p.page);
                 if page.is_none() {
