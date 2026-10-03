@@ -19,6 +19,10 @@ use super::Result;
 /// the view renders it.
 type Use = (usize, HashSet<String>, bool);
 
+/// The share of a paper's body that may show as source at the target of
+/// D30 (97% rendered).
+const TARGET_SOURCE: f64 = 0.03;
+
 /// Files larger than this are left out (generated data, not prose).
 const MAX_FILE: u64 = 2 * 1024 * 1024;
 
@@ -186,6 +190,8 @@ fn unread_files(list: &[(PathBuf, String, String)]) -> HashSet<PathBuf> {
 pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result<ExitCode> {
     let mut all = Totals::default();
     let mut fields: BTreeMap<String, Totals> = BTreeMap::new();
+    // Per paper, by field and paper (T2.7h.36).
+    let mut papers: BTreeMap<(String, String), Totals> = BTreeMap::new();
     // Per name: uses, the papers using it, rendered.
     let mut names: HashMap<String, Use> = HashMap::new();
     // Per name: the bytes it shows as source.
@@ -326,6 +332,10 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
                 }
             }
             all.add(&paper, &c);
+            papers
+                .entry((field.clone(), paper.clone()))
+                .or_default()
+                .add(&paper, &c);
             fields.entry(field).or_default().add(&paper, &c);
             for (name, b) in &c.source_by_name {
                 *source_bytes.entry(name.clone()).or_insert(0) += b;
@@ -372,6 +382,25 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
     let mut heaviest: Vec<(&String, &usize)> = source_bytes.iter().collect();
     heaviest.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
     heaviest.truncate(top);
+    // The papers by the share of their body shown as source, the most
+    // first; those with less than 2 KB of body are too short to say.
+    let mut by_paper: Vec<(&(String, String), &Totals)> =
+        papers.iter().filter(|(_, t)| t.body >= 2048).collect();
+    by_paper.sort_by(|a, b| {
+        share(b.1.source, b.1.body)
+            .total_cmp(&share(a.1.source, a.1.body))
+            .then(a.0.cmp(b.0))
+    });
+    // How many papers of each field show less than 3% as source (the
+    // target of D30, 97% rendered).
+    let mut met: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    for ((field, _), t) in &by_paper {
+        let e = met.entry(field.as_str()).or_default();
+        e.1 += 1;
+        if share(t.source, t.body) < TARGET_SOURCE {
+            e.0 += 1;
+        }
+    }
     let mut out = std::io::stdout().lock();
     if json {
         let list = |v: &[(String, usize, usize, bool)]| -> Vec<serde_json::Value> {
@@ -386,6 +415,15 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
         let v = serde_json::json!({
             "total": all.json(),
             "fields": by_field,
+            "papers": by_paper
+                .iter()
+                .map(|((field, paper), t)| {
+                    let mut v = t.json();
+                    v["field"] = serde_json::json!(field);
+                    v["paper"] = serde_json::json!(paper);
+                    v
+                })
+                .collect::<Vec<_>>(),
             "most_frequent": list(&most),
             "most_frequent_unrendered": list(&unrendered),
             "most_source": heaviest
@@ -424,6 +462,27 @@ pub(crate) fn latex_coverage(dirs: &[PathBuf], json: bool, top: usize) -> Result
             t.body / 1024,
             pct(t.source, t.body),
             pct(t.math, t.body),
+            pct(t.tex, t.body)
+        ));
+    }
+    s.push_str(&format!(
+        "\nPapers at the target (less than {:.0}% of the body shown as source), by field\n\n| field | papers | at the target | share |\n|---|---:|---:|---:|\n",
+        TARGET_SOURCE * 100.
+    ));
+    for (field, (ok, n)) in &met {
+        s.push_str(&format!("| {field} | {n} | {ok} | {} |\n", pct(*ok, *n)));
+    }
+    s.push_str(&format!(
+        "\nThe {} papers showing the most source\n\n| paper | field | body KB | source | by TeX |\n|---|---|---:|---:|---:|\n",
+        by_paper.len().min(top)
+    ));
+    for ((field, paper), t) in by_paper.iter().take(top) {
+        // The paper's folder name (`2401.01034`), not its path.
+        let paper = paper.rsplit(['/', '\\']).next().unwrap_or(paper);
+        s.push_str(&format!(
+            "| {paper} | {field} | {} | {} | {} |\n",
+            t.body / 1024,
+            pct(t.source, t.body),
             pct(t.tex, t.body)
         ));
     }

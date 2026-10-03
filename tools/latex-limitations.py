@@ -94,6 +94,33 @@ def main():
         "read are typeset by TeX when it is installed; without TeX they show as source too."
     )
     print()
+    target = next(
+        (rows for title, rows in t.items() if title and title.startswith("Papers at the target")), None
+    )
+    worst = next(
+        (rows for title, rows in t.items() if title and "papers showing the most source" in title), None
+    )
+    if target:
+        print("* By paper")
+        print()
+        print(
+            "The papers whose body shows less than 3% as source, the target of D30 for "
+            "each paper (papers with less than 2 KB of body left out):"
+        )
+        print()
+        print("| Field | Papers | At the target | Share |")
+        print("|-------+--------+---------------+-------|")
+        for r in target[1:]:
+            print("| " + " | ".join([r[0].replace("-", " ")] + r[1:]) + " |")
+        print()
+        if worst and len(worst) > 1:
+            print("The papers that show the most source, with the share of their body:")
+            print()
+            print("| Paper | Field | Body KB | Shown as source | Formulas TeX typesets |")
+            print("|-------+-------+---------+-----------------+-----------------------|")
+            for r in worst[1:21]:
+                print("| " + " | ".join([r[0], r[1].replace("-", " ")] + r[2:]) + " |")
+            print()
     print("* The constructs that show the most source")
     print()
     print(
