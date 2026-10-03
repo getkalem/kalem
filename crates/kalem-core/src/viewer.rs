@@ -1930,6 +1930,43 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The range a pivot table would summarize (the selection, or the
+    /// table at the cursor) and its fields' names (its first row).
+    pub fn pivot_source(&mut self) -> ([u32; 4], Vec<String>) {
+        let (r, _) = self.table_target();
+        let mut names = vec![String::new(); (r[3] - r[1] + 1) as usize];
+        for (_, c, cell) in self.grid_cells(r[0]..r[0] + 1, r[1]..r[3] + 1) {
+            names[(c - r[1]) as usize] = cell.text;
+        }
+        (r, names)
+    }
+
+    /// Inserts a pivot table on a new sheet and shows it, the cursor on
+    /// its first cell.
+    pub fn insert_pivot(&mut self, spec: kalem_viewer::PivotSpec) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let unit = self
+            .doc()
+            .insert_pivot(self.unit, spec)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        self.go_to(unit);
+        self.grid_move_to(2, 0);
+        Ok(())
+    }
+
+    /// Computes every pivot table of the file again (Refresh All).
+    pub fn refresh_pivots(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc().refresh_pivots().map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The data validation of the cursor's cell.
     pub fn cursor_validation(&mut self) -> Option<Validation> {
         let p = self.grid_pos();
@@ -3008,6 +3045,207 @@ fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
             format!("{} {shown}", if on { "☑" } else { "☐" }),
             value.clone(),
         ));
+    }
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Insert PivotTable, a step at a time in the palette as Excel's field
+/// list: a row field, a column field or none, a value field and how it is
+/// summarized, then Create, another row field or another value field.
+fn insert_pivot(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{Aggregate, PivotSpec};
+    const ID: &str = "viewer.grid.insertPivot";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if !v.grid_editable() {
+        ctx.messages.push("This file is shown, not edited".into());
+        return Ok(());
+    }
+    let (range, names) = match args.get("range").and_then(|r| r.as_array()) {
+        Some(r) if r.len() == 4 => {
+            let r: Vec<u32> = r.iter().map(|x| x.as_u64().unwrap_or(0) as u32).collect();
+            let (_, names) = v.pivot_source();
+            ([r[0], r[1], r[2], r[3]], names)
+        }
+        _ => v.pivot_source(),
+    };
+    if range[0] == range[2] {
+        ctx.messages
+            .push("A pivot table needs a header row and rows under it".into());
+        return Ok(());
+    }
+    let list = |key: &str| -> Vec<u32> {
+        args.get(key)
+            .and_then(|x| x.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_u64().map(|n| n as u32))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let rows = list("rows");
+    let cols = list("cols");
+    let aggs = ["sum", "count", "average", "max", "min"];
+    let values: Vec<(u32, Aggregate)> = args
+        .get("values")
+        .and_then(|x| x.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|p| {
+                    let f = p.get(0)?.as_u64()? as u32;
+                    let agg = match p.get(1)?.as_str()? {
+                        "count" => Aggregate::Count,
+                        "average" => Aggregate::Average,
+                        "max" => Aggregate::Max,
+                        "min" => Aggregate::Min,
+                        _ => Aggregate::Sum,
+                    };
+                    Some((f, agg))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut base = args.clone();
+    base["range"] = serde_json::json!(range);
+    let arg = |key: &str, value: serde_json::Value| {
+        let mut a = base.clone();
+        a[key] = value;
+        if key != "step" {
+            a.as_object_mut().map(|o| o.remove("step"));
+        }
+        a
+    };
+    let name = |f: u32| {
+        let n = names.get(f as usize).cloned().unwrap_or_default();
+        if n.trim().is_empty() {
+            crate::csv_tools::column_letters((range[1] + f) as usize)
+        } else {
+            n
+        }
+    };
+    let fields: Vec<u32> = (0..names.len() as u32).collect();
+    let step = args.get("step").and_then(|s| s.as_str()).unwrap_or("");
+    let mut items = Vec::new();
+    if rows.is_empty() || step == "row" {
+        for &f in fields
+            .iter()
+            .filter(|f| !rows.contains(f) && !cols.contains(f))
+        {
+            let mut r = rows.clone();
+            r.push(f);
+            items.push(menu_item(
+                ID,
+                arg("rows", serde_json::json!(r)),
+                &name(f),
+                "Row Field",
+            ));
+        }
+    } else if args.get("cols").is_none() {
+        items.push(menu_item(
+            ID,
+            arg("cols", serde_json::json!([])),
+            "(No Column Field)",
+            "Column Field",
+        ));
+        for &f in fields.iter().filter(|f| !rows.contains(f)) {
+            items.push(menu_item(
+                ID,
+                arg("cols", serde_json::json!([f])),
+                &name(f),
+                "Column Field",
+            ));
+        }
+    } else if let Some(f) = args.get("value").and_then(|x| x.as_u64()) {
+        for (agg, title) in aggs.iter().zip(["Sum", "Count", "Average", "Max", "Min"]) {
+            let mut vals: Vec<serde_json::Value> = args
+                .get("values")
+                .and_then(|x| x.as_array())
+                .cloned()
+                .unwrap_or_default();
+            vals.push(serde_json::json!([f, agg]));
+            let mut a = arg("values", serde_json::json!(vals));
+            a.as_object_mut().map(|o| o.remove("value"));
+            items.push(menu_item(
+                ID,
+                a,
+                &format!("{title} of {}", name(f as u32)),
+                "Summarize Values By",
+            ));
+        }
+    } else if values.is_empty() || step == "value" {
+        for &f in fields
+            .iter()
+            .filter(|f| !rows.contains(f) && !cols.contains(f))
+        {
+            items.push(menu_item(
+                ID,
+                arg("value", serde_json::json!(f)),
+                &name(f),
+                "Value Field",
+            ));
+        }
+    } else if step == "create" {
+        let spec = PivotSpec {
+            range,
+            rows,
+            cols,
+            values,
+        };
+        return with(ctx, |v| v.insert_pivot(spec));
+    } else {
+        let what: Vec<String> = values
+            .iter()
+            .map(|(f, a)| {
+                let t = aggs[*a as usize];
+                format!("{t} of {}", name(*f))
+            })
+            .collect();
+        let summary = format!(
+            "Rows: {}{} · Values: {}",
+            rows.iter()
+                .map(|f| name(*f))
+                .collect::<Vec<_>>()
+                .join(" > "),
+            cols.first()
+                .map_or(String::new(), |f| format!(" · Columns: {}", name(*f))),
+            what.join(", ")
+        );
+        items.push(menu_item(
+            ID,
+            arg("step", serde_json::json!("create")),
+            "✓ Create PivotTable",
+            &summary,
+        ));
+        if fields
+            .iter()
+            .any(|f| !rows.contains(f) && !cols.contains(f))
+        {
+            items.push(menu_item(
+                ID,
+                arg("step", serde_json::json!("row")),
+                "Add a Row Field…",
+                &summary,
+            ));
+            if cols.is_empty() {
+                items.push(menu_item(
+                    ID,
+                    arg("step", serde_json::json!("value")),
+                    "Add a Value Field…",
+                    &summary,
+                ));
+            }
+        }
+    }
+    if items.is_empty() {
+        ctx.messages.push("No field is left to use".into());
+        return Ok(());
     }
     ctx.requests.push(Request::Choose(items));
     Ok(())
@@ -4155,6 +4393,20 @@ fn grid_commands() -> Vec<Command> {
             &[],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.clear_conditional_formats(true)),
+        ),
+        cmd(
+            "viewer.grid.insertPivot",
+            "Insert PivotTable",
+            &["shift+t"],
+            IN_GRID,
+            insert_pivot,
+        ),
+        cmd(
+            "viewer.grid.refreshPivots",
+            "Refresh All PivotTables",
+            &["alt+f5"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.refresh_pivots()),
         ),
         cmd(
             "viewer.grid.dataValidation",
