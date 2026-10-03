@@ -303,6 +303,20 @@ impl Editor {
                             .bounds
                             .map(|b| b.origin)
                             .unwrap_or_default();
+                    // A double click selects the word, a triple one the
+                    // line; the release is no click then.
+                    if ev.click_count >= 2
+                        && let Some(v) = this.doc.viewer.as_deref_mut()
+                        && v.select_word(f32::from(at.x), f32::from(at.y), ev.click_count >= 3)
+                    {
+                        this.viewer_view.selecting_text = false;
+                        this.viewer_view.drag = None;
+                        this.viewer_view.press = None;
+                        let handle = gpui::Focusable::focus_handle(this, cx);
+                        window.focus(&handle, cx);
+                        cx.notify();
+                        return;
+                    }
                     let selecting = this
                         .doc
                         .viewer
