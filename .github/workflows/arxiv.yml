@@ -19,6 +19,10 @@ on:
       per_field:
         description: Papers per field
         default: "200"
+      licences:
+        description: "Look up each paper's licence (about 45 minutes): the CC BY ones may be committed to the corpus"
+        type: boolean
+        default: false
   schedule:
     - cron: "17 3 1 * *"
 
@@ -35,6 +39,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
+      - run: cargo build --release -p kalem-core --example latex_corpus
       # The sample is kept as the assets of a draft release
       # (`arxiv-sample-2024`), which only the repository's writers see:
       # arXiv's sources are not ours to redistribute. The repository's
@@ -99,7 +104,44 @@ jobs:
           ./target/release/kalem latex-coverage .cache/arxiv > coverage.md
           cat coverage.md
           cat coverage.md >> "$GITHUB_STEP_SUMMARY"
+      # The page of what shows as source, from this measurement (the Book's
+      # copy is regenerated from a run's report by hand).
+      - name: Limitations page
+        run: |
+          python3 tools/latex-limitations.py coverage.md "run ${{ github.run_number }}" "$(date -u +%F)" > latex-limitations.org
+      # Every file's parse gives back its bytes, every line is drawn, and
+      # random edits reparsed incrementally equal a full parse (T2.7h.31).
+      - name: Round trip
+        run: |
+          EDITS=5 ./target/release/examples/latex_corpus .cache/arxiv > roundtrip.txt 2>&1 || status=$?
+          tail -n 40 roundtrip.txt
+          { echo; echo '## Round trip and incremental parse'; echo; echo '```'; tail -n 20 roundtrip.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit ${status:-0}
+      # Kalem's reading against pandoc's on the root documents (T2.7h.32).
+      - name: Against pandoc
+        run: |
+          sudo apt-get install -y -qq pandoc > /dev/null
+          grep -rl --include=*.tex '\\documentclass' .cache/arxiv | while read -r f; do
+            [ "$(stat -c %s "$f")" -lt 400000 ] && echo "$f"
+          done > roots.txt
+          xargs -a roots.txt -d '\n' ./target/release/kalem diff-pandoc --summary > pandoc.txt 2>&1 || true
+          tail -n 30 pandoc.txt
+          { echo; echo '## Against pandoc'; echo; echo '```'; tail -n 30 pandoc.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      # The licence of each paper (T2.7h.30), in the log and the summary:
+      # the papers under CC BY, CC BY-SA or CC0 may be committed to the
+      # corpus with the licence register.
+      - name: Licences
+        if: github.event.inputs.licences == 'true'
+        run: |
+          python3 tools/arxiv-licences.py .cache/arxiv > licences.tsv
+          grep -E 'creativecommons.org/(licenses/by/|licenses/by-sa/|publicdomain/zero/)' licences.tsv | tee free.tsv
+          { echo; echo '## Papers that may be committed'; echo; echo '```'; cat free.tsv; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: arxiv-coverage
-          path: coverage.md
+          path: |
+            coverage.md
+            latex-limitations.org
+            roundtrip.txt
+            pandoc.txt
+            licences.tsv

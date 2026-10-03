@@ -1,0 +1,64 @@
+#+TITLE: LaTeX for AUCTeX users
+
+Kalem edits LaTeX files as they are, byte for byte, as AUCTeX does in
+Emacs: no conversion, no project format of its own. This page maps what
+AUCTeX, RefTeX and preview-latex do to Kalem's commands. The keys are
+those of the default profile and, after the slash, of the Vim profile
+with Doom Emacs's local leader (=SPC m=); a command without a key is in
+the palette (Ctrl+Shift+P) and the LaTeX menu.
+
+Kalem keeps Ctrl+C for Copy in LaTeX files, so AUCTeX's =C-c= chords are
+not bound; with the Vim profile, Doom's =SPC m= keys are.
+
+* Building and viewing
+
+| AUCTeX                                   | Kalem                                                              |
+|------------------------------------------+--------------------------------------------------------------------|
+| =C-c C-c= =TeX-command-master= (LaTeX)   | /Build PDF/: F5 / =SPC m b=, =SPC m a=; latexmk when installed     |
+| =C-c C-a= =TeX-command-run-all=          | /Build PDF/ (latexmk runs BibTeX or Biber and LaTeX as needed)     |
+| =C-c C-k= =TeX-kill-job=                 | /Cancel Build/                                                     |
+| =C-c C-v= =TeX-view=                     | /Show in PDF/: =SPC m v=; at the page of the cursor's line         |
+| =TeX-source-correlate-mode= (SyncTeX)    | always on: builds write SyncTeX; Ctrl-click on a page goes back    |
+| =C-c `= =TeX-next-error=                 | /Next Problem/: Alt+F8 / =SPC m p=; /Previous Problem/: Alt+Shift+F8 |
+| =C-c C-l= the output buffer              | /Show Problems/: =SPC m l=; the problems also show in the text      |
+| =TeX-engine=, =%%% TeX-engine:= lines    | =% !TEX program = xelatex=, or the =latex.engine= setting          |
+| =TeX-master= in a file's local variables | =%!TEX root = main.tex=, or the file that includes it, found alone |
+
+* Writing
+
+| AUCTeX                                 | Kalem                                                                   |
+|----------------------------------------+-------------------------------------------------------------------------|
+| =C-c C-e= =LaTeX-environment=          | /Insert Equation/ (=SPC m e=), /Insert Figure/, /Insert Table/; typing =\begin{name}= adds its =\end{name}=, and renaming one end renames the other |
+| =C-c C-s= =LaTeX-section=              | /Heading Level/ (=SPC m s=); /Promote Section/ and /Demote Section/: Alt+Shift+Left and Right |
+| =C-c C-j=, =M-RET= =LaTeX-insert-item= | Enter in a list continues =\item=; on an empty item it ends the list; Tab and Shift+Tab nest and unnest |
+| =C-c C-f C-b= bold                     | /Bold/: Ctrl+B                                                          |
+| =C-c C-f C-e= emphasis                 | /Emphasis/: Ctrl+I / =SPC m f=                                          |
+| =C-c C-f C-t= typewriter               | /Typewriter/: Ctrl+Shift+K                                              |
+| =C-c C-f C-u= underline                | /Underline/: Ctrl+U                                                     |
+| =C-c ;= =TeX-comment-or-uncomment-region= | /Toggle Comment/: Ctrl+Alt+C                                         |
+| =C-c .= =LaTeX-mark-environment=, =C-c *= =LaTeX-mark-section= | /Expand Selection/: Ctrl+Alt+Right, again for the next enclosing group, environment or section |
+| =M-q=, =LaTeX-fill-paragraph=          | the view wraps a paragraph's lines as one away from the cursor; the source keeps its lines |
+| =TeX-insert-macro=, =C-c RET=          | /Complete/: Ctrl+Space / =SPC m c=; commands and environments with their arguments, from the packages the preamble loads |
+| =LaTeX-math-mode= (=`a= for =\alpha=)  | /Complete/ inside math; formulas render in place away from the cursor    |
+
+* References and citations (RefTeX)
+
+| RefTeX                           | Kalem                                                                            |
+|----------------------------------+----------------------------------------------------------------------------------|
+| =C-c [= =reftex-citation=        | /Insert Citation/, or typing in =\cite{…}=: keys from the bibliography, matched on key, authors and title |
+| =C-c )= =reftex-reference=       | typing in =\ref{…}= and =\eqref{…}=: the project's labels, with their kind and number |
+| =C-c (= =reftex-label=           | inserted with the figures, tables and equations Kalem inserts                    |
+| =C-c == =reftex-toc=             | /Outline/: Ctrl+Shift+O / =SPC m ==; the project's sections, the included files' too |
+| =reftex-view-crossref=           | the view shows a reference as its number; /Open Link/ (Ctrl-click, Cmd-click on macOS) on it goes to its =\label= |
+
+* Seeing the document (preview-latex, folding)
+
+| AUCTeX                               | Kalem                                                                              |
+|--------------------------------------+------------------------------------------------------------------------------------|
+| =C-c C-p C-d= =preview-document=     | always on: formulas, figures, tables, sections and references render in the text away from the cursor; /Toggle Math/ (=SPC m *=) shows the formulas as source |
+| =TeX-fold-mode= (=C-c C-o C-b=)      | the rendered view folds commands into what they print; Tab on a section's line folds the section |
+| =prettify-symbols-mode=              | the rendered view: =\alpha= shows as α, accents as their letters, =--= as a dash    |
+
+What the rendered view leaves as source is listed, with the arXiv
+measurement behind it, in [[file:../part-2/latex-limitations.org][LaTeX: what shows as source]]; the full
+reference of the LaTeX mode is [[file:../part-2/latex.org][LaTeX]] in Part II.

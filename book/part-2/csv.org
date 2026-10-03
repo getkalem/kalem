@@ -404,9 +404,12 @@ to Org Table, Open as Plain Text) and in the palette of both editors.
 | =csv.replaceInColumn=  | Replace in Column                 |                 | Yes, the changed cells   |
 | =csv.killField=        | Kill Field                        |                 | Yes, the cell            |
 | =csv.yankField=        | Yank Field                        |                 | Yes, the cell            |
+| =csv.copyCells=        | Copy Cells                        |                 | No                       |
+| =csv.cutCells=         | Cut Cells                         |                 | Yes, the cells emptied   |
 | =csv.pasteBlock=       | Paste as Block                    |                 | Yes, the covered cells   |
 | =csv.recordView=       | Record View                       |                 | No                       |
 | =csv.frequencies=      | Frequency Table                   |                 | No                       |
+| =csv.histogram=        | Histogram of Column               |                 | No                       |
 | =csv.hideColumn=       | Hide Column                       |                 | No                       |
 | =csv.showColumns=      | Show All Columns                  |                 | No                       |
 | =csv.autosizeColumn=   | Autosize Column                   |                 | No                       |
@@ -574,6 +577,14 @@ keeps its dialect and every byte the command does not name.
   short records get the fields they lack, and only the cells the block
   covers change (=csv_tools::paste_block=). An ordinary paste inserts the
   text at the cursor.
+- A selection from a cell in one row to a cell in another is a
+  rectangle of cells, as in a spreadsheet: both editors paint the cells
+  between the two corners, not the text between them. Copy (and /Copy
+  Cells/) copies them as tab-separated values, a line a row, what a
+  spreadsheet pastes as a range and what /Paste as Block/ writes back;
+  Cut (and /Cut Cells/) copies them and empties them, the rows and
+  columns staying. A selection within one row stays text. In the source
+  view a selection is always text.
 - /Sort File by Columns/ (=columns=) sorts by several columns in order,
   named by letter or number with =-= for descending (=B, -A= or =2 -1=);
   values compare as /Sort File by Column/ compares them.
@@ -636,6 +647,11 @@ Two views list the data in the palette:
 - /Frequency Table/ lists the values of the cursor's column with how
   many records hold each, the most frequent first, with a bar of their
   share; choosing one filters the rows to it.
+- /Histogram of Column/ puts the numbers of the cursor's column in
+  ranges of a round width (1, 2 or 5 times a power of ten, about as many
+  ranges as Sturges' rule gives, at most twenty), each with how many
+  records fall in it and a bar; fields that are not numbers are left
+  out. Choosing a range goes to its first record.
 
 ** Columns
 
@@ -654,6 +670,8 @@ open.
   cut, its last character =…=, but whole in the cell at the cursor.
   /Reset Column Widths/ goes back to the widths the grid chooses (the
   widest value of the first thousand records, at most forty characters).
+  In the graphical editor a column's right edge in the letters bar sets
+  its width by dragging, and fits it to its values by a double click.
 - /Freeze First Column/ keeps the first column that shows, with the row
   numbers, at the left edge when the rows scroll sideways, as a frozen
   pane in a spreadsheet; its letter stays over it in the letters bar.

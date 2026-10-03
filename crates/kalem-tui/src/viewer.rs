@@ -271,6 +271,7 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let sep = if caps.ascii { "|" } else { "│" };
     let sel = v.selection();
     let selecting = v.grid_pos().sel.is_some();
+    let cut = v.cut_range();
     let merged = layout.merged.clone();
     let merge_of = |r: u32, c: u32| {
         merged
@@ -304,7 +305,15 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                 merge.is_some_and(|m| c < m[3] && cols.iter().any(|(cc, _)| *cc == c + 1));
             let in_sel =
                 selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c);
+            let in_cut =
+                cut.is_some_and(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c));
             let sel_style = |st: Style| {
+                // Cut cells are underlined until they are pasted.
+                let st = if in_cut {
+                    st.add_modifier(Modifier::UNDERLINED)
+                } else {
+                    st
+                };
                 if !in_sel {
                     st
                 } else if caps.no_color {

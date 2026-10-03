@@ -306,7 +306,14 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("csv.sortFileBy", object(&[("columns", "string", true)])),
         ("csv.goToCell", object(&[("cell", "string", true)])),
-        ("csv.setColumnWidth", object(&[("width", "string", true)])),
+        (
+            "csv.setColumnWidth",
+            object(&[("width", "string", true), ("column", "integer", false)]),
+        ),
+        (
+            "csv.autosizeColumn",
+            object(&[("column", "integer", false)]),
+        ),
         ("csv.sumColumn", object(&[("insert", "boolean", false)])),
         (
             "bib.sortView",
@@ -593,6 +600,98 @@ pub(crate) fn commands() -> Vec<Command> {
             &["f5"],
             None,
             |ctx, _| latex_build(ctx),
+        ),
+        crate::command::Scope::only(&["latex"]),
+    ));
+    all.push(scoped(
+        cmd(
+            "latex.ignoreBuildOutputs",
+            "Ignore Build Outputs in Git",
+            "LaTeX",
+            &[],
+            None,
+            |ctx, _| {
+                let doc = ctx
+                    .document
+                    .as_deref()
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-no-document")))?;
+                let Some(path) = doc.meta.path.clone() else {
+                    return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+                };
+                let path = std::path::absolute(&path).unwrap_or(path);
+                let root = crate::latex_view::find_root(&path, doc.text().as_str());
+                let out = ctx.config.str("latex.output_directory").trim().to_string();
+                let out = (!out.is_empty()).then(|| std::path::PathBuf::from(out));
+                let in_git = root
+                    .parent()
+                    .is_some_and(|d| d.ancestors().any(|a| a.join(".git").exists()));
+                if !in_git {
+                    return Err(CommandError::new(crate::l10n::tr("msg-not-in-git")));
+                }
+                let message = match crate::latex_build::ignore_build_outputs(&root, out.as_deref())
+                    .map_err(CommandError::new)?
+                {
+                    (0, _) => crate::l10n::tr("msg-outputs-ignored-already"),
+                    (n, file) => crate::tr!(
+                        "msg-ignored-outputs",
+                        count = n,
+                        path = file.display().to_string()
+                    ),
+                };
+                ctx.messages.push(message);
+                Ok(())
+            },
+        ),
+        crate::command::Scope::only(&["latex"]),
+    ));
+    all.push(scoped(
+        cmd(
+            "latex.showInPdf",
+            "Show in PDF",
+            "LaTeX",
+            &[],
+            None,
+            |ctx, _| {
+                // The built PDF at the page where the cursor's line is
+                // typeset, by the build's SyncTeX file.
+                let doc = ctx
+                    .document
+                    .as_deref()
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-no-document")))?;
+                let Some(path) = doc.meta.path.clone() else {
+                    return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+                };
+                let path = std::path::absolute(&path).unwrap_or(path);
+                let line = doc.text().line_of(doc.selection.head) + 1;
+                let root = crate::latex_view::find_root(&path, doc.text().as_str());
+                let out = ctx.config.str("latex.output_directory").trim().to_string();
+                let dir = root
+                    .parent()
+                    .map(std::path::Path::to_path_buf)
+                    .unwrap_or_default();
+                let dir = if out.is_empty() { dir } else { dir.join(out) };
+                let stem = root
+                    .file_stem()
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_default();
+                let pdf = dir.join(stem).with_extension("pdf");
+                if !pdf.is_file() {
+                    return Err(CommandError::new(crate::l10n::tr("msg-no-pdf-yet")));
+                }
+                let page = crate::synctex::Synctex::for_pdf(&pdf)
+                    .and_then(|f| crate::synctex::Synctex::load(&f).ok())
+                    .and_then(|st| st.forward(&path, line))
+                    .map(|p| p.page);
+                if page.is_none() {
+                    ctx.messages.push(crate::l10n::tr("msg-no-synctex"));
+                }
+                ctx.requests.push(Request::OpenAt {
+                    path: pdf.display().to_string(),
+                    line: page.unwrap_or(1) as u64,
+                    column: 0,
+                });
+                Ok(())
+            },
         ),
         crate::command::Scope::only(&["latex"]),
     ));
@@ -1074,6 +1173,14 @@ fn csv_preview(
     request(ctx, Request::Choose(items))
 }
 
+/// The optional `column` argument (counted from 0) of the commands on a
+/// column's width.
+fn arg_column(args: &Value) -> Option<usize> {
+    args.get("column")
+        .and_then(Value::as_u64)
+        .and_then(|c| usize::try_from(c).ok())
+}
+
 /// Changes the columns the CSV grid shows and their widths, given the
 /// layout and the column at the cursor.
 fn csv_columns(
@@ -1114,6 +1221,36 @@ fn csv_view(ctx: &mut EditorContext<'_>, f: impl FnOnce(&mut crate::csv::View)) 
     }
     f(&mut d.csv_view);
     Ok(())
+}
+
+/// The rows and columns of the selection's rectangle of cells, or the
+/// cursor's cell.
+fn rectangle_or_cell(d: &crate::DocumentState) -> Result<crate::csv::Rectangle, CommandError> {
+    if let Some(r) = crate::csv::cell_rectangle(d) {
+        return Ok(r);
+    }
+    let (_, r1, _, c1) =
+        crate::csv::cell_at(d).ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+    let (_, r0, _, c0) = crate::csv::cell_at_offset(d, d.selection.anchor)
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+    Ok(((r0.min(r1), r0.max(r1)), (c0.min(c1), c0.max(c1))))
+}
+
+/// The selection's cells as TSV, recorded on the clipboard, with a message
+/// of how many.
+fn csv_copy_cells(ctx: &mut EditorContext<'_>) -> Result<String, CommandError> {
+    let d = ctx.doc()?;
+    let ((r0, r1), (c0, c1)) = rectangle_or_cell(d)?;
+    let layout = crate::csv::layout(d);
+    let tsv =
+        crate::csv_tools::rectangle_tsv(d.text().as_str(), &layout.dialect, (r0, r1), (c0, c1));
+    ctx.messages.push(crate::tr!(
+        "msg-csv-copied-cells",
+        rows = r1 - r0 + 1,
+        columns = c1 - c0 + 1
+    ));
+    ctx.clipboard.record(tsv.clone());
+    Ok(tsv)
 }
 
 /// Fill Down and Fill Series in the column at the cursor: the rows the
@@ -1240,13 +1377,19 @@ fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
                         open: None,
                     }
                 } else {
+                    // In a repository that does not leave the build
+                    // outputs out: the command that does, offered.
+                    let hint = crate::latex_build::ignore_missing(&root, out_dir.as_deref())
+                        .map_or_else(String::new, |_| {
+                            format!(" {}", crate::l10n::tr("msg-latex-ignore-hint"))
+                        });
                     match b.pdf {
                         Some(pdf) => crate::jobs::Finished {
                             message: crate::tr!(
                                 "msg-latex-built",
                                 path = pdf.display().to_string(),
                                 count = warnings
-                            ),
+                            ) + &hint,
                             error: false,
                             open: open_after.then(|| crate::input::LinkAction::Url(file_url(&pdf))),
                         },
@@ -2895,6 +3038,51 @@ fn csv_commands() -> Vec<Command> {
                 .collect();
             request(ctx, Request::Choose(items))
         }),
+        c("csv.histogram", "Histogram of Column", &[], |ctx, _| {
+            // The column's numbers in ranges; choosing one goes to its
+            // first row.
+            let d = ctx.doc()?;
+            let (layout, _, _, col) = crate::csv::cell_at(d)
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+            let bins = crate::csv::histogram(d.text().as_str(), &layout.dialect, col);
+            if bins.is_empty() {
+                return Err(CommandError::new(crate::tr!("msg-csv-no-numbers")));
+            }
+            let max = bins.iter().map(|b| b.count).max().unwrap_or(0);
+            let width = bins
+                .iter()
+                .map(|b| crate::csv::bin_label(b).chars().count())
+                .max()
+                .unwrap_or(0);
+            let category = crate::tr!("category-histogram");
+            let items = bins
+                .iter()
+                .map(|b| {
+                    let label = crate::csv::bin_label(b);
+                    let pad = width - label.chars().count();
+                    crate::palette::PaletteItem {
+                        id: if b.count == 0 {
+                            crate::palette::invocation("csv.histogram", &serde_json::json!({}))
+                        } else {
+                            crate::palette::invocation(
+                                "csv.goToCell",
+                                &serde_json::json!({ "cell": format!("@{}${}", b.first + 1, col + 1) }),
+                            )
+                        },
+                        title: format!(
+                            "{label}{}  {:>6}  {}",
+                            " ".repeat(pad),
+                            b.count,
+                            crate::csv::bar(b.count, max, 20)
+                        ),
+                        category: category.clone(),
+                        keys: String::new(),
+                        also: String::new(),
+                    }
+                })
+                .collect();
+            request(ctx, Request::Choose(items))
+        }),
         c("csv.killField", "Kill Field", &[], |ctx, _| {
             let mut killed = String::new();
             csv_edit(ctx, |text, l, row, rec, col| {
@@ -3090,14 +3278,19 @@ fn csv_commands() -> Vec<Command> {
                 .ok()
                 .filter(|w| (2..=500).contains(w))
                 .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-bad-width")))?;
+            // The cursor's column, or the one given (a column's edge
+            // dragged in the letters bar).
+            let given = arg_column(args);
             csv_columns(ctx, |cols, _, col| {
-                cols.widths.insert(col, w);
+                cols.widths.insert(given.unwrap_or(col), w);
                 Ok(())
             })
         }),
-        c("csv.autosizeColumn", "Autosize Column", &[], |ctx, _| {
+        c("csv.autosizeColumn", "Autosize Column", &[], |ctx, args| {
             let text = ctx.doc()?.text().as_str().to_string();
+            let given = arg_column(args);
             csv_columns(ctx, |cols, l, col| {
+                let col = given.unwrap_or(col);
                 let w = crate::csv::natural_widths(&text, &l.dialect)
                     .get(col)
                     .copied()
@@ -3134,6 +3327,28 @@ fn csv_commands() -> Vec<Command> {
                 cols.frozen = !cols.frozen;
                 Ok(())
             })
+        }),
+        c("csv.copyCells", "Copy Cells", &[], |ctx, _| {
+            // The rectangle from the selection's anchor cell to the
+            // cursor's, as TSV; Paste as Block writes it back as cells.
+            let tsv = csv_copy_cells(ctx)?;
+            request(ctx, Request::CopyText(tsv))
+        }),
+        c("csv.cutCells", "Cut Cells", &[], |ctx, _| {
+            // Copied as Copy Cells does, then emptied: the rows and columns
+            // stay.
+            let tsv = csv_copy_cells(ctx)?;
+            let now = ctx.now;
+            let d = ctx.doc()?;
+            let ((r0, r1), (c0, c1)) = rectangle_or_cell(d)?;
+            let layout = crate::csv::layout(d);
+            let blank = vec![vec![String::new(); c1 - c0 + 1]; r1 - r0 + 1];
+            if let Some(tx) =
+                crate::csv_tools::paste_block(d.text().as_str(), &layout.dialect, r0, c0, &blank)
+            {
+                d.apply(&tx, org_edit::ChangeKind::Command, now);
+            }
+            request(ctx, Request::CopyText(tsv))
         }),
         c("csv.pasteBlock", "Paste as Block", &[], |ctx, _| {
             let d = ctx.doc()?;
@@ -4174,6 +4389,15 @@ fn plain_commands() -> Vec<Command> {
             request(ctx, Request::Copy)
         }),
         cmd("edit.cut", "Cut", "Edit", &["ctrl+x"], None, |ctx, _| {
+            // A spreadsheet's cells are cut to be moved where they are pasted.
+            if ctx
+                .document
+                .as_deref()
+                .and_then(|d| d.viewer.as_deref())
+                .is_some_and(|v| v.is_grid())
+            {
+                return crate::viewer::cut(ctx);
+            }
             request(ctx, Request::Cut)
         }),
         cmd(
@@ -8277,6 +8501,57 @@ mod tests {
     }
 
     #[test]
+    fn show_in_pdf_goes_to_the_lines_page() {
+        // T2.7h.24: the built PDF, at the page SyncTeX gives the cursor's
+        // line.
+        let dir = std::env::temp_dir().join(format!("kalem-show-pdf-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let tex = dir.join("main.tex");
+        let text =
+            "\\documentclass{article}\n\\begin{document}\nOne.\n\\newpage\nTwo.\n\\end{document}\n";
+        std::fs::write(&tex, text).unwrap();
+        std::fs::write(dir.join("main.pdf"), "%PDF-1.4\n").unwrap();
+        std::fs::write(
+            dir.join("main.synctex"),
+            format!(
+                "SyncTeX Version:1\nInput:1:{}\nUnit:1\nContent:\n{{1\n(1,3:100,100:1000,10,0\n)\n}}1\n{{2\n(1,5:100,100:1000,10,0\n)\n}}2\n",
+                dir.join("./main.tex").display()
+            ),
+        )
+        .unwrap();
+        let reg = CommandRegistry::with_builtins();
+        let mut d = DocumentState::open(
+            &tex,
+            std::sync::Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        d.move_cursor(text.find("Two").unwrap(), false);
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 3).at(10, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("latex.showInPdf", &mut ctx, &json!({}))
+            .unwrap();
+        assert_eq!(
+            ctx.requests,
+            vec![Request::OpenAt {
+                path: dir.join("main.pdf").display().to_string(),
+                line: 2,
+                column: 0,
+            }]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn csv_spreadsheet_commands() {
         let reg = CommandRegistry::with_builtins();
         let mut d = doc("name,n\nAda,1\nBob,\nCy,\nAda,1\n", 0);
@@ -8315,6 +8590,11 @@ mod tests {
         assert_eq!(t, "name,n\nAda,1\nBob,1\nCy,1\nAda,1\n");
         let (t, _) = run("csv.removeDuplicates", json!({})).unwrap();
         assert_eq!(t, "name,n\nAda,1\nBob,1\nCy,1\n");
+        // A histogram of the numbers; none in the names.
+        run("csv.goToCell", json!({"cell": "B2"})).unwrap();
+        assert!(run("csv.histogram", json!({})).is_ok());
+        run("csv.goToCell", json!({"cell": "A2"})).unwrap();
+        assert!(run("csv.histogram", json!({})).is_err());
         run("csv.goToCell", json!({"cell": "A1"})).unwrap();
         let (t, _) = run("csv.sortFileBy", json!({"columns": "B, -A"})).unwrap();
         assert_eq!(t, "name,n\nCy,1\nBob,1\nAda,1\n");
@@ -8369,6 +8649,16 @@ mod tests {
                 _ => None,
             })
             .collect();
+        let (histograms, previews): (Vec<_>, Vec<_>) = previews
+            .into_iter()
+            .partition(|items| items[0].title.contains('–'));
+        assert_eq!(histograms.len(), 1);
+        assert!(
+            histograms[0][0].title.starts_with("1 – 2"),
+            "{:?}",
+            histograms[0][0].title
+        );
+        assert!(histograms[0][0].title.contains("     3"));
         assert_eq!(previews.len(), 2);
         assert_eq!(previews[0][0].title, "name-n");
         assert_eq!(previews[0][1].title, "Cy-1");
@@ -8451,6 +8741,16 @@ mod tests {
             .unwrap();
         let d = ctx.document.as_deref().unwrap();
         assert_eq!(d.csv_columns.widths.get(&1), Some(&14));
+        // A column given, as dragging its edge gives it.
+        reg.execute(
+            "csv.setColumnWidth",
+            &mut ctx,
+            &json!({"width": "7", "column": 2}),
+        )
+        .unwrap();
+        let d = ctx.document.as_deref().unwrap();
+        assert_eq!(d.csv_columns.widths.get(&2), Some(&7));
+        assert_eq!(d.csv_columns.widths.get(&1), Some(&14));
         assert_eq!(d.text().as_str(), text);
         // Paste as Block: the next paste writes over the cells.
         reg.execute("csv.pasteBlock", &mut ctx, &json!({})).unwrap();
@@ -8462,6 +8762,29 @@ mod tests {
         d.paste("p\tq\nr\ts\n", None, false, Instant::now());
         assert_eq!(d.text().as_str(), "name,note,n\nAda,p,q\nBob,r,s\n");
         assert!(!d.csv_paste_block);
+        // Copy Cells: the rectangle from the anchor's cell to the cursor's.
+        d.selection = org_edit::Selection {
+            anchor: d.text().as_str().find("p,").unwrap(),
+            head: d.text().as_str().find('s').unwrap(),
+        };
+        reg.execute("csv.copyCells", &mut ctx, &json!({})).unwrap();
+        assert!(matches!(
+            ctx.requests.last(),
+            Some(Request::CopyText(t)) if t == "p\tq\nr\ts\n"
+        ));
+        let d = ctx.document.as_deref().unwrap();
+        let t = d.text().as_str();
+        let ranges: Vec<&str> = crate::csv::rectangle_ranges(d)
+            .unwrap()
+            .into_iter()
+            .map(|r| &t[r])
+            .collect();
+        assert_eq!(ranges, ["p,q", "r,s"]);
+        // Cut Cells: copied, then emptied.
+        reg.execute("csv.cutCells", &mut ctx, &json!({})).unwrap();
+        let d = ctx.document.as_deref_mut().unwrap();
+        assert_eq!(d.text().as_str(), "name,note,n\nAda,,\nBob,,\n");
+        d.selection = org_edit::Selection::caret(d.text().len());
         // Once: the next paste inserts as before.
         d.paste("z", None, false, Instant::now());
         assert!(d.text().as_str().contains('z'));

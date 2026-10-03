@@ -251,6 +251,9 @@ pub struct ViewerState {
     grid_cache: Option<(usize, u64, GridLayout)>,
     /// How many rows and columns the frontend shows, frozen ones included.
     grid_visible: (u32, u32),
+    /// Cells cut: the unit, the range and the text put on the clipboard;
+    /// pasting that text moves them.
+    cut: Option<(usize, [u32; 4], String)>,
 }
 
 /// A grid unit's cursor and the first row and column scrolled to (past
@@ -353,6 +356,7 @@ impl ViewerState {
             grid_pos: std::collections::HashMap::new(),
             grid_cache: None,
             grid_visible: (30, 10),
+            cut: None,
         })
     }
 
@@ -728,19 +732,24 @@ impl ViewerState {
         self.center = Some(c);
     }
 
-    /// The target of the link under (`x`, `y`) of the area, if any: a
-    /// URL, a file, or `#N` for unit N.
-    pub fn link_at(&mut self, x: f32, y: f32) -> Option<String> {
+    /// The point of the unit under (`x`, `y`) of the area, in the unit's
+    /// own pixels before the view's turn (PDF points for a PDF's page).
+    pub fn unit_point(&mut self, x: f32, y: f32) -> (f32, f32) {
         let p = self.placement();
         let (ux, uy) = ((x - p.x) / p.scale, (y - p.y) / p.scale);
-        // Back to the unit's own pixels, before the view's turn.
         let (tw, th) = self.unit_size();
-        let (ox, oy) = match self.rotation % 4 {
+        match self.rotation % 4 {
             1 => (uy, tw - ux),
             2 => (tw - ux, th - uy),
             3 => (th - uy, ux),
             _ => (ux, uy),
-        };
+        }
+    }
+
+    /// The target of the link under (`x`, `y`) of the area, if any: a
+    /// URL, a file, or `#N` for unit N.
+    pub fn link_at(&mut self, x: f32, y: f32) -> Option<String> {
+        let (ox, oy) = self.unit_point(x, y);
         self.doc()
             .links(self.unit)
             .into_iter()
@@ -1290,6 +1299,24 @@ impl ViewerState {
             return Ok(());
         }
         let s = self.selection();
+        // The text of a cut on this sheet: the cells move.
+        let norm = |t: &str| t.replace("\r\n", "\n").trim_end_matches('\n').to_string();
+        if let Some((unit, range, cut_text)) = self.cut.clone()
+            && unit == self.unit
+            && norm(&cut_text) == norm(text)
+        {
+            self.doc()
+                .move_cells(self.unit, range, s[0], s[1])
+                .map_err(|e| e.to_string())?;
+            self.cut = None;
+            self.refresh();
+            self.grid_move_to(s[0], s[1]);
+            let (rows, cols) = (range[2] - range[0], range[3] - range[1]);
+            if rows > 0 || cols > 0 {
+                self.grid_extend_to(s[0] + rows, s[1] + cols);
+            }
+            return Ok(());
+        }
         if values.len() == 1 && values[0].len() == 1 && (s[0], s[1]) != (s[2], s[3]) {
             let v = values[0][0].clone();
             values = vec![vec![v; (s[3] - s[1] + 1) as usize]; (s[2] - s[0] + 1) as usize];
@@ -1305,6 +1332,27 @@ impl ViewerState {
             self.grid_extend_to(s[0] + rows - 1, s[1] + cols - 1);
         }
         Ok(())
+    }
+
+    /// Cuts the selection: its text for the clipboard, the range kept so
+    /// that pasting that text moves the cells, as in Excel.
+    pub fn cut_selection(&mut self) -> Result<String, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let text = self.selection_tsv();
+        self.cut = Some((self.unit, self.selection(), text.clone()));
+        Ok(text)
+    }
+
+    /// The range cut on the unit shown, until it is pasted or cancelled.
+    pub fn cut_range(&self) -> Option<[u32; 4]> {
+        self.cut.as_ref().filter(|c| c.0 == self.unit).map(|c| c.1)
+    }
+
+    /// Forgets the cut (Escape).
+    pub fn cancel_cut(&mut self) {
+        self.cut = None;
     }
 
     /// Clears the selection's values, formats kept (Delete).
@@ -1684,6 +1732,25 @@ fn turn(ctx: &mut EditorContext<'_>, delta: i64, files: bool) -> CommandResult {
     if let Err(e) = doc.viewer_step_file(delta) {
         ctx.messages.push(e);
     }
+    Ok(())
+}
+
+/// Cuts a grid's selection (Cut in a spreadsheet): on the clipboard, and
+/// moved where it is pasted.
+pub(crate) fn cut(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let text = v
+        .cut_selection()
+        .map_err(crate::command::CommandError::new)?;
+    let name = v.selection_name();
+    ctx.requests.push(Request::CopyText(text));
+    ctx.messages.push(format!("{name} cut: paste to move it"));
     Ok(())
 }
 
@@ -2473,6 +2540,9 @@ fn grid_commands() -> Vec<Command> {
                 })
             },
         ),
+        cmd("viewer.grid.cut", "Cut Cells", &[], IN_GRID, |ctx, _| {
+            cut(ctx)
+        }),
         cmd(
             "viewer.grid.pasteText",
             "Paste into Cells",
@@ -2496,6 +2566,7 @@ fn grid_commands() -> Vec<Command> {
                 with(ctx, |v| {
                     let p = v.grid_pos();
                     v.grid_move_to(p.row, p.col);
+                    v.cancel_cut();
                     Ok(())
                 })
             },

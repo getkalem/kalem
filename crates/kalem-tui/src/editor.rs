@@ -1982,7 +1982,12 @@ impl EditorView {
         };
         let options = Options {
             cursor: sel.head,
-            selection: sel.anchor.min(sel.head)..sel.anchor.max(sel.head),
+            // A CSV grid's rectangle of cells is painted as the block.
+            selection: if !self.source && kalem_core::csv::cell_rectangle(doc).is_some() {
+                sel.head..sel.head
+            } else {
+                sel.anchor.min(sel.head)..sel.anchor.max(sel.head)
+            },
             marks,
             mark_style,
             margin: 1,

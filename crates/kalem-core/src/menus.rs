@@ -108,6 +108,7 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("file.import"),
                 // LaTeX: the PDF, and the project through pandoc.
                 item("latex.build"),
+                item("latex.showInPdf"),
                 item("latex.cancelBuild"),
                 item("latex.export.html"),
                 item("latex.export.markdown"),
@@ -311,9 +312,12 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("csv.narrowColumn"),
                 item("csv.resetWidths"),
                 MenuEntry::Separator,
+                item("csv.copyCells"),
+                item("csv.cutCells"),
                 item("csv.pasteBlock"),
                 item("csv.recordView"),
                 item("csv.frequencies"),
+                item("csv.histogram"),
             ],
         },
         MenuSpec {

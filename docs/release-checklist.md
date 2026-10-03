@@ -52,6 +52,16 @@ release issue.
 - [ ] Insert Date: the calendar by keys and by mouse, typed dates such as `+3d` and `fri 10:00`.
 - [ ] Split view: both views follow edits; each scrolls on its own.
 
+## LaTeX
+
+- [ ] Build PDF (F5) on a paper and a thesis from the corpus, with TeX Live on macOS, Linux and Windows and with MiKTeX on Windows: the PDF appears, the first error lands at its file and line, a missing package names its install command.
+- [ ] Tectonic on a clean machine (no TeX installed): `latex.engine = "tectonic"` builds, fetching what it needs on the first build.
+- [ ] SyncTeX both ways: Show in PDF opens the PDF at the page of the cursor's line, in the root file and an included one; Ctrl-click (Cmd-click on macOS) on a line of the PDF opens its source line.
+- [ ] An input method inside math (Japanese or Pinyin in `\text{…}`, Turkish dead keys in a formula): the composition shows at the caret, the formula renders when the cursor leaves.
+- [ ] A screen reader on a rendered document: citations, references and formulas are read as their text (the formula's source), not skipped.
+- [ ] The terminal editor over SSH (`kalem tui` on a remote machine): a LaTeX file renders its headings, lists and Unicode math; formulas as images where the local terminal has graphics.
+- [ ] Overleaf: a project cloned through Overleaf's Git, edited and pushed; the co-author sees no difference beyond the edit.
+
 ## Accessibility
 
 - [ ] VoiceOver (macOS), Orca (Linux) and NVDA or Narrator (Windows) read the text, follow the caret and announce the selection.

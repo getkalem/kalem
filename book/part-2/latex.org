@@ -820,8 +820,10 @@ the first of these options present:
 | =height= | a length as above; the width follows the picture's proportions                                                                                                                                                      |
 | =scale=  | a share of the picture's own size                                                                                                                                                                                   |
 
-The graphical editor draws PNG, JPEG and SVG; a PDF or EPS picture shows
-as its name. The terminal editor draws pictures through the kitty,
+The graphical editor draws PNG, JPEG, SVG and PDF (its first page, as
+vectors, through hayro); an EPS or PostScript picture is converted to
+PDF once by Ghostscript, found where TeX's programs are, and drawn the
+same way, or shows as its name where Ghostscript is not installed. The terminal editor draws pictures through the kitty,
 iTerm2 or sixel protocols where the terminal has one, and =[image: …]=
 otherwise.
 
@@ -1333,6 +1335,30 @@ the background; =latex.build_on_save= builds on each save, one build at
 a time; /Cancel Build/ (=latex.cancelBuild=) kills the program that runs.
 =kalem latex build FILE= does the same on the command line.
 
+** SyncTeX
+
+Builds ask for SyncTeX (=-synctex=1= to latexmk and the engines,
+=--synctex= to tectonic), so a =NAME.synctex.gz= lies beside the PDF.
+=kalem_core::synctex= reads it: its input files, then each page's
+boxes and points with the file and line they come from, in scaled
+points from the page's top left corner, given in PDF points.
+
+- /Show in PDF/ (=latex.showInPdf=) opens the root document's PDF (in
+  =latex.output_directory= when set) at the first page holding a line of
+  text from the cursor's line, or from the next line that typesets
+  anything (a blank line or a comment typesets nothing).
+- Ctrl-click (Cmd-click on macOS) on a page of a PDF that has a SyncTeX
+  file opens the source at the line of the material nearest the point,
+  in the line of text nearest it. A paragraph's lines of text carry the
+  line where the paragraph ends and boundaries (=x= records) often do
+  too; the material in them (kerns, glue, boxes) carries the line it was
+  written on, so it is preferred, as =synctex edit= does.
+
+Both are checked against TeX Live's =synctex= program on a compiled
+document of six sections and an included file
+(=kalem-core/tests/synctex.rs=, in the pdflatex job of CI): every line's
+page and box, and every line found again from a point in it.
+
 ** The engine
 
 The first of these that applies:
@@ -1464,8 +1490,6 @@ work breakdown (group 2.7h of =docs/todo.md=):
   ranges of the model's macros, so in a file of a multi-file project
   macros defined in other files (the root's preamble) are not applied
   reliably. =\newenvironment= definitions are not given to the renderer.
-- *Pictures.* PDF pictures (which need pdfium, T4.3.2) and EPS
-  conversion are placeholders (T2.7h.8).
 - *Tables.* =\multirow= is not drawn across its rows (T2.7h.9).
 - *References and citations.* =\pageref= shows the key, as there are no
   pages; =\cpageref= stays source. In the view, bibliography files are
