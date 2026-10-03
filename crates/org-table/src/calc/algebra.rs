@@ -213,6 +213,14 @@ fn term(e: &Expr) -> (Num, Expr) {
 
 /// `k x`, simplified.
 fn scaled(k: Num, x: Expr, env: &Env) -> Expr {
+    // A coefficient that is a modulo form takes the number in.
+    if let Expr::Call(f, xs) = &x
+        && f == "*"
+        && xs.len() == 2
+        && mod_form(&xs[0]).is_some()
+    {
+        return mul(&mul(&Expr::Num(k), &xs[0], env), &xs[1], env);
+    }
     if x == Expr::int(1) {
         return Expr::Num(k);
     }
@@ -230,6 +238,36 @@ fn scaled(k: Num, x: Expr, env: &Env) -> Expr {
 
 /// `a + b` for like terms: `(k + m) x`.
 fn combine(a: &Expr, b: &Expr, sign: i8, env: &Env) -> Option<Expr> {
+    // Terms whose coefficients are modulo forms or numbers, one of them a
+    // modulo form: `(5 mod 7) y + 4 y` is `(2 mod 7) y`.
+    let modterm = |e: &Expr| match e {
+        Expr::Call(f, xs) if f == "*" && xs.len() == 2 && mod_form(&xs[0]).is_some() => {
+            Some((xs[0].clone(), xs[1].clone()))
+        }
+        _ => None,
+    };
+    if let Some(((ka, xa), (kb, xb))) = match (modterm(a), modterm(b)) {
+        (Some(p), Some(q)) => Some((p, q)),
+        (Some(p), None) => {
+            let (k, x) = term(b);
+            Some((p, (Expr::Num(k), x)))
+        }
+        (None, Some(q)) => {
+            let (k, x) = term(a);
+            Some(((Expr::Num(k), x), q))
+        }
+        _ => None,
+    } {
+        if xa != xb {
+            return None;
+        }
+        let k = if sign > 0 {
+            add(&ka, &kb, env)
+        } else {
+            sub(&ka, &kb, env)
+        };
+        return Some(mul(&k, &xa, env));
+    }
     let (ka, xa) = term(a);
     let (kb, xb) = term(b);
     if xa != xb {
@@ -305,6 +343,9 @@ pub(crate) fn modular(op: &str, a: &Expr, b: &Expr, env: &Env) -> Option<Expr> {
 /// `math-add`.
 pub(crate) fn add(a: &Expr, b: &Expr, env: &Env) -> Expr {
     if let Some(r) = modular("+", a, b, env) {
+        return r;
+    }
+    if let Some(r) = super::cplx::arith("+", a, b, env) {
         return r;
     }
     match (a, b) {
@@ -401,13 +442,23 @@ pub(crate) fn add(a: &Expr, b: &Expr, env: &Env) -> Expr {
 /// Whether a scalar is spread over a vector's elements: numbers and
 /// infinities are, formulas are not (`[1] + x` stays).
 fn distributes(e: &Expr) -> bool {
-    matches!(e, Expr::Num(_)) || infinity(e).is_some()
+    matches!(e, Expr::Num(_)) || infinity(e).is_some() || super::cplx::parts(e).is_some()
 }
 
 /// `math-sub`.
 pub(crate) fn sub(a: &Expr, b: &Expr, env: &Env) -> Expr {
     if let Some(r) = modular("-", a, b, env) {
         return r;
+    }
+    if let Some(r) = super::cplx::arith("-", a, b, env) {
+        return r;
+    }
+    // Less a modulo form, or a term with one as its coefficient, is plus
+    // its negation (`- 1 mod 3` is `+ 2 mod 3`).
+    if mod_form(b).is_some()
+        || matches!(b, Expr::Call(f, xs) if f == "*" && xs.len() == 2 && mod_form(&xs[0]).is_some())
+    {
+        return add(a, &neg(b, env), env);
     }
     match (a, b) {
         (Expr::Date(x), Expr::Date(y)) => return Expr::Num(num::sub(x, y, &env.prec)),
@@ -463,6 +514,9 @@ pub(crate) fn sub(a: &Expr, b: &Expr, env: &Env) -> Expr {
 
 /// `math-neg`.
 pub(crate) fn neg(a: &Expr, env: &Env) -> Expr {
+    if let Some(r) = super::cplx::neg(a) {
+        return r;
+    }
     if let Some((x, m)) = mod_form(a)
         && let Some(r) = make_mod(&x.neg(), m, env)
     {
@@ -473,6 +527,9 @@ pub(crate) fn neg(a: &Expr, env: &Env) -> Expr {
         Expr::Vec(v) => Expr::Vec(v.iter().map(|x| neg(x, env)).collect()),
         Expr::Var(v) if v == "nan" || v == "uinf" => a.clone(),
         Expr::Call(f, xs) if f == "neg" => xs[0].clone(),
+        Expr::Call(f, xs) if f == "*" && xs.len() == 2 && mod_form(&xs[0]).is_some() => {
+            mul(&neg(&xs[0], env), &xs[1], env)
+        }
         Expr::Call(f, xs) if f == "*" && num_of(&xs[0]).is_some() => {
             let k = num_of(&xs[0]).expect("a number").neg();
             scaled(k, xs[1].clone(), env)
@@ -502,6 +559,40 @@ fn power(e: &Expr) -> (Expr, Expr) {
 pub(crate) fn mul(a: &Expr, b: &Expr, env: &Env) -> Expr {
     if let Some(r) = modular("*", a, b, env) {
         return r;
+    }
+    if let Some(r) = super::cplx::arith("*", a, b, env) {
+        return r;
+    }
+    // `math-mul-zero`: a zero modulo form times a formula is 0.
+    let zero_mod = |e: &Expr| mod_form(e).is_some_and(|(k, _)| k.is_zero());
+    let formula = |e: &Expr| {
+        !matches!(
+            e,
+            Expr::Num(_) | Expr::Vec(_) | Expr::Date(_) | Expr::Intv(..)
+        ) && mod_form(e).is_none()
+            && super::cplx::parts(e).is_none()
+            && infinity(e).is_none()
+    };
+    if (zero_mod(a) && formula(b)) || (zero_mod(b) && formula(a)) {
+        return Expr::int(0);
+    }
+    // A number or modulo form times `(k mod m) x`: one coefficient.
+    let modcoef = |e: &Expr| match e {
+        Expr::Call(f, xs) if f == "*" && xs.len() == 2 && mod_form(&xs[0]).is_some() => {
+            Some((xs[0].clone(), xs[1].clone()))
+        }
+        _ => None,
+    };
+    let scalar = |e: &Expr| matches!(e, Expr::Num(_)) || mod_form(e).is_some();
+    if scalar(a)
+        && let Some((c, x)) = modcoef(b)
+    {
+        return mul(&mul(a, &c, env), &x, env);
+    }
+    if scalar(b)
+        && let Some((c, x)) = modcoef(a)
+    {
+        return mul(&mul(b, &c, env), &x, env);
     }
     match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => return Expr::Num(num::mul(x, y, &env.prec)),
@@ -650,6 +741,9 @@ fn mul_infinite(a: &Expr, b: &Expr) -> Option<Expr> {
 /// `math-div`.
 pub(crate) fn div(a: &Expr, b: &Expr, env: &Env) -> Expr {
     if let Some(r) = modular("/", a, b, env) {
+        return r;
+    }
+    if let Some(r) = super::cplx::arith("/", a, b, env) {
         return r;
     }
     match (a, b) {

@@ -111,6 +111,7 @@ pub(crate) fn apply(f: &str, args: &[Expr], env: &Env) -> Option<Expr> {
                 _ => rot(a, n, w)?,
             }))
         }
+        ("random", 1) => random(&args[0], env),
         ("vec", _) => Some(Expr::Vec(args.to_vec())),
         ("cvec", 2) | ("cvec", 3) => {
             let mut v = args[0].clone();
@@ -914,4 +915,104 @@ fn vfloor(a: &Expr, env: &Env) -> Option<Vec<Span>> {
         }
     }
     Some(out)
+}
+
+/// A random 64-bit word: xorshift64*, seeded from the clock once per
+/// thread.
+fn random_word() -> u64 {
+    use std::cell::Cell;
+    thread_local! {
+        static STATE: Cell<u64> = Cell::new({
+            let t = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos() as u64);
+            t | 1
+        });
+    }
+    STATE.with(|s| {
+        let mut x = s.get();
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        s.set(x);
+        x.wrapping_mul(0x2545_F491_4F6C_DD1D)
+    })
+}
+
+/// A random integer of `digits` decimal digits.
+fn random_digits(digits: usize) -> BigInt {
+    let mut r = BigInt::zero();
+    for _ in 0..digits.div_ceil(18) {
+        r = r * BigInt::from(1_000_000_000_000_000_000u64)
+            + BigInt::from(random_word() % 1_000_000_000_000_000_000);
+    }
+    r
+}
+
+/// `math-random-float`: in [0, 1), to the working precision.
+fn random_float(env: &Env) -> Num {
+    let d = env.prec.digits.max(1) as usize;
+    num::make_float(
+        random_digits(d) % BigInt::from(10).pow(d as u32),
+        -(d as i64),
+        &env.prec,
+    )
+}
+
+/// `calcFunc-random`: an integer below `n` (above it when negative), a
+/// real times a random float, a point of an interval, an element of a
+/// vector, a Gaussian float for 0.
+fn random(max: &Expr, env: &Env) -> Option<Expr> {
+    match max {
+        Expr::Num(n) if n.is_zero() => {
+            // Box–Muller.
+            let u = (random_word() >> 11) as f64 / (1u64 << 53) as f64;
+            let v = (random_word() >> 11) as f64 / (1u64 << 53) as f64;
+            let g = (-2. * (1. - u).ln()).sqrt() * (std::f64::consts::TAU * v).cos();
+            super::eval::from_f64(g, env).map(Expr::Num)
+        }
+        Expr::Num(Num::Int(n)) => {
+            let digs = n.abs().to_string().len();
+            Some(int(random_digits(digs + 3).mod_floor(n)))
+        }
+        Expr::Num(x) => Some(Expr::Num(num::mul(&random_float(env), x, &env.prec))),
+        Expr::Intv(m, lo, hi) => {
+            let (Expr::Num(a), Expr::Num(b)) = (&**lo, &**hi) else {
+                return None;
+            };
+            if cmp_code(lo, hi, env) != -1 {
+                return None;
+            }
+            if a.is_float() || b.is_float() {
+                loop {
+                    let p = &env.prec;
+                    let v = num::add(&num::mul(&random_float(env), &num::sub(b, a, p), p), a, p);
+                    let open_low = m & 2 == 0 && num::cmp(&v, a, p).is_eq();
+                    let open_high = m & 1 == 0 && num::cmp(&v, b, p).is_eq();
+                    if !open_low && !open_high {
+                        return Some(Expr::Num(v));
+                    }
+                }
+            }
+            let lo = if m & 2 == 0 {
+                add(lo, &Expr::int(1), env)
+            } else {
+                (**lo).clone()
+            };
+            let hi = if m & 1 != 0 {
+                add(hi, &Expr::int(1), env)
+            } else {
+                (**hi).clone()
+            };
+            if cmp_code(&lo, &hi, env) != -1 {
+                return None;
+            }
+            Some(add(&random(&sub(&hi, &lo, env), env)?, &lo, env))
+        }
+        Expr::Vec(v) if !v.is_empty() => {
+            let k = (random_word() % v.len() as u64) as usize;
+            Some(v[k].clone())
+        }
+        _ => None,
+    }
 }
