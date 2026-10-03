@@ -1,0 +1,62 @@
+#+title: D28: Plugin ABI and its engine
+- Status: *ABI decided* (owner, 2026-09-28): WebAssembly components on a WIT API, Rust the only plugin language, no scripting engine. *Engine decided* (owner, 2026-10-03, on this spike): *wasmtime with Cranelift in the binary*, components compiled on first load and cached; epochs for the time budget.
+- Tasks: T3.1.0 (this spike), T3.1.1 (the host), T3.1.2 (guest toolchain)
+- Evaluation code: =spikes/wasm-runtime= (standalone Cargo projects, not part of the workspace)
+
+* What was built
+One guest component and one host per engine. The guest is a Markdown parser (pulldown-cmark 0.13) behind a WIT world of three functions: =parse= (text in, element spans out, as a mode's parse would cross the boundary), =spin= (an endless loop, for the time budget) and =grow= (allocations, for the memory limit). The host loads it, instantiates it, calls it on 10 MB and on 10 kB of the repository's Markdown, and tries the limits. A second, minimal host per engine measures what the engine adds to a binary.
+
+Engines:
+- *wasmtime 49* with *Cranelift*, its optimizing compiler;
+- *wasmtime 49* with *Pulley*, its portable interpreter;
+- *wasmi*, an interpreter, through *wasm_component_layer 0.1.18*, the only component model implementation for engines other than wasmtime.
+
+* Results
+Apple M1 Max; medians.
+
+| | wasmtime, Cranelift | wasmtime, Pulley | wasmi 0.40 + component layer |
+|-
+| Added to a binary | 7.9 MB; 0.86 MB without the compiler (precompiled components only) | 0.96 MB | 4.0 MB |
+| Compile the 213 kB guest | 109 ms | 124 ms | 4 ms (translated lazily) |
+| Load it precompiled (468 kB) | 0.19 ms | 0.15 ms | not offered |
+| Instantiate | 0.10 ms first, 0.02 ms after | 0.09 ms, 0.02 ms | 0.21 ms, 0.02 ms |
+| Parse 10 MB (native: 40 ms) | 54 ms (1.4×) | 1,176 ms (29×) | 684 ms (17×) |
+| Parse 10 kB, a keystroke (native: 0.02 ms) | 0.04 ms | 1.07 ms | 0.56 ms |
+| Fuel: cost on the parse; stops an endless loop | +31%; yes | +35%; yes | not reachable through the layer |
+| Epochs: cost on the parse; stops an endless loop | +21%; yes, at the next tick | +24%; yes | not reachable |
+| Memory limit of 64 MB | 100 MB refused, 10 MB allowed | the same | not reachable |
+| Four threads, an instance each, 10 MB each | 69 ms | 1,223 ms | 1,631 ms |
+| Component model | native, maintained with the WASI specifications | native | a third-party layer that builds only against wasmi 0.40 (October 2024) |
+
+** The size of Kalem
+The design's target for the full binary is 40 MB (§15). Kalem's release build of 2026-10-03 (=ee46ec0=, thin LTO, stripped, macOS arm64) is *48.9 MB* before any engine; without the three viewers bundled until components load (images, PDF, workbooks) it is *42.6 MB*. So the target is already missed by the core, not by the engine:
+
+| Kalem with | Size |
+|-
+| the viewers bundled, as today | 48.9 MB |
+| the viewers as components, wasmtime with Cranelift | about 50.5 MB |
+| the viewers as components, wasmtime without the compiler | about 43.5 MB |
+| as today, with fat LTO instead of thin | 45.0 MB |
+
+* Findings that shape the design
+- *Only wasmtime runs components.* wasmi has no component model; the layer that adds one (=wasm_component_layer=) leaves its runtime layer unpinned (=>=0.4.0=), and its last release fails to build against the runtime layer's 0.5, 0.6 and 0.7. It builds only with wasmi 0.40, two years and two major versions old. With WIT decided (D6), wasmi would mean dropping components for a hand-written ABI.
+- *Interpreters are too slow for modes.* A keystroke's parse of 10 kB takes 0.56 ms in wasmi and 1.07 ms in Pulley against 0.04 ms compiled; a 10 MB document's parse, 0.7 to 1.2 s against 54 ms. The keystroke budget of §15 is 2 ms for everything, highlighting and drawing included.
+- *Compiled is near native.* Cranelift's parse of 10 MB is 1.4× native, the boundary included: the text and 101,682 spans cross it.
+- *Epochs, not fuel, for the time budget.* Both stop an endless loop. Epochs cost less (21% against 31%), and a deadline counts wall-clock time, which is what the 100 ms synchronous budget of §11 means; fuel counts instructions and needs calibrating per machine.
+- *The memory limit works per store* through a resource limiter: a guest asking for more than 64 MB gets an allocation failure, not the host's memory.
+- *One instance per thread scales.* Four instances on four threads parse 40 MB in 69 ms, about the time of one.
+- *Precompile and cache.* A component compiles once (109 ms for 213 kB) and loads in 0.19 ms; the cache keyed by the component's hash and the engine's version and settings, in the state directory, makes a plugin's start free after its first.
+- *Build plugins without WASI.* Built for =wasm32-wasip2=, the guest imports fifteen WASI interfaces (stdin, stdout, environment, exit, clocks, random) though it uses none, so the host would have to provide or stub them. Built for =wasm32-unknown-unknown= and wrapped as a component (=wasm-tools component new=), it imports only what its WIT world names, as D28's capabilities require, and is smaller (213 kB against 249 kB). =kalem plugin build= (T3.1.2) does this, with the =wit-component= crate rather than the external tool.
+- *jco* (JavaScript tooling for components) does not matter: guests are Rust only (D28).
+
+* The compiler in the binary
+Whether Kalem carries the compiler; the owner chose option 1 on 2026-10-03:
+
+1. *Cranelift in the binary* (+7.9 MB). Any component runs: from the registry, from a folder during development (=kalem plugin build=), sideloaded. The first load of a plugin compiles it once and caches the result.
+2. *The runtime only* (+0.86 MB). Kalem loads components precompiled by =getkalem/plugins='s release workflow for each target. A precompiled component is valid for one wasmtime version and one set of engine settings, so every Kalem release that updates wasmtime needs every plugin rebuilt for it, and a plugin built locally needs a separate compiling tool.
+
+This record recommends *option 1*: the 7 MB buy the simplicity the plugin ecosystem needs (one artifact per plugin, any Kalem version that accepts its API), and the size problem is the core's, to be solved in the core (T2.9.11). Fat LTO helps but does not suffice: the same build is *45.0 MB* with =lto = "fat"= against 48.9 MB with thin LTO.
+
+* Alternatives not measured
+- *wasm3* and *wamr* (C interpreters and runtimes): no component model, and a C dependency, against the pure-Rust rule of D54.
+- *An out-of-process host* (plugins as processes): removed by the owner as contrary to D28 (T4.1.3).

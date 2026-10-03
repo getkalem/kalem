@@ -1,0 +1,26 @@
+[package]
+name = "spike-size"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Spike: what each WebAssembly engine adds to a binary (T3.1.0)"
+
+[features]
+# Each build the least that loads the guest and calls it once.
+cranelift = ["dep:wasmtime", "wasmtime/cranelift"]
+# Precompiled components only: the runtime, no compiler.
+runtime = ["dep:wasmtime"]
+pulley-runtime = ["dep:wasmtime", "wasmtime/pulley"]
+wasmi = ["dep:wasm_component_layer", "dep:wasmi_runtime_layer"]
+
+[dependencies]
+wasmtime = { version = "49", default-features = false, features = ["runtime", "component-model", "std", "anyhow"], optional = true }
+wasm_component_layer = { version = "0.1.18", optional = true }
+wasmi_runtime_layer = { version = "=0.40.0", optional = true }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[workspace]

@@ -1,0 +1,19 @@
+package kalem:spike;
+
+/// What the spike's guest exports: a parser across the boundary, and two
+/// functions that test the host's limits.
+world parser {
+    /// A Markdown element: its byte range and its kind.
+    record span {
+        start: u32,
+        end: u32,
+        kind: u8,
+    }
+
+    /// Every element of `text`, as a mode's parse crosses the boundary.
+    export parse: func(text: string) -> list<span>;
+    /// Loops `n` times: the fuel limit stops it.
+    export spin: func(n: u64) -> u64;
+    /// Allocates `mb` megabytes: the memory limit stops it.
+    export grow: func(mb: u32) -> u32;
+}
