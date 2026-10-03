@@ -1062,6 +1062,7 @@ msg-viewer-cannot-open = Dosya gösterilemiyor: { $error }
 cmd-viewer-zoomIn = Yakınlaştır
 cmd-viewer-zoomOut = Uzaklaştır
 cmd-viewer-fit = Pencereye Sığdır
+cmd-viewer-fitWidth = Genişliğe Sığdır
 cmd-viewer-actualSize = Gerçek Boyut
 cmd-viewer-panLeft = Sola Kaydır
 cmd-viewer-panRight = Sağa Kaydır
