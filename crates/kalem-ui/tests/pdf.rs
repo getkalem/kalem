@@ -156,6 +156,16 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
         })
     };
     assert_eq!(found(cx), (1, "2/3".to_string()));
+    // The match is marked on the page where "Page" stands, at x 72.
+    let (marks, p) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        (v.search_marks(), v.placement())
+    });
+    assert_eq!(marks.len(), 1, "{marks:?}");
+    let ([x, _, w, _], shown) = marks[0];
+    assert!(shown);
+    assert!((x - (p.x + 72.0 * p.scale)).abs() < 1.0, "{x} for {p:?}");
+    assert!(w > 50.0 * p.scale, "{w}");
     cx.simulate_keystrokes("enter");
     settle(&ws, cx);
     assert_eq!(found(cx), (2, "3/3".to_string()));

@@ -209,6 +209,8 @@ impl Editor {
         let area = match image {
             Ok(image) => {
                 let prepaint = entity.clone();
+                let mark = theme.mark.opacity(0.45);
+                let mark_shown = theme.selection.opacity(0.6);
                 div()
                     .debug_selector(|| "viewer".into())
                     .size_full()
@@ -223,11 +225,11 @@ impl Editor {
                                         f32::from(bounds.size.width),
                                         f32::from(bounds.size.height),
                                     );
-                                    Some(v.placement())
+                                    Some((v.placement(), v.search_marks()))
                                 })
                             },
-                            move |bounds, placement, window, _cx| {
-                                let Some(p) = placement else { return };
+                            move |bounds, placed, window, _cx| {
+                                let Some((p, marks)) = placed else { return };
                                 let at = Bounds {
                                     origin: bounds.origin + point(px(p.x), px(p.y)),
                                     size: size(px(p.width), px(p.height)),
@@ -240,6 +242,19 @@ impl Editor {
                                     0,
                                     false,
                                 );
+                                // The find bar's matches over the page, the
+                                // one shown in the selection's color; seen
+                                // through, so the text stays readable.
+                                for ([x, y, w, h], shown) in marks {
+                                    let color = if shown { mark_shown } else { mark };
+                                    window.paint_quad(gpui::fill(
+                                        Bounds::new(
+                                            bounds.origin + point(px(x), px(y)),
+                                            size(px(w), px(h)),
+                                        ),
+                                        color,
+                                    ));
+                                }
                             },
                         )
                         .size_full(),

@@ -45,7 +45,7 @@ kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev =
 # Excel workbooks (T3.7.4), bundled the same way.
 kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "b3a20a6e7a68fee9064132808459b00350e3f7b1" }
 # PDF files (T3.7.3), bundled the same way.
-kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "876e9acbeef9803c19c1f5f716c8b7b04171d424" }
+kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "b70d1aab0f74d94f89831476344001491b4c88c3" }
 
 # The plugins build against this checkout's contract, not its copy on
 # GitHub.
