@@ -32,5 +32,8 @@ code = ["crates/kalem-core/src/markdown"]
 ["part-2/bibtex.org"]
 code = ["crates/kalem-core/src/bibtex.rs", "crates/kalem-core/src/bibstyle.rs"]
 
+["part-4/plugins.org"]
+code = ["crates/kalem-script/"]
+
 ["part-3/"]
 code = ["crates/klm-syntax/", "crates/kalem-core/src/klm.rs"]

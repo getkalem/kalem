@@ -353,6 +353,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Holding Page Down in a PDF no longer stutters: a page's pixels are converted for the screen 20 times faster in debug builds (half a second a page before), the information panel no longer waits for a page being drawn, and the last page stays shown instead of the folder's next file opening.
 - The terminal editor opens links to text files in Kalem, as the graphical editor does, rather than with the system's application.
 - Typing a capital P in a document with the Word-like keys, or `a` in Vim's insert mode, opened the projects view: those file manager keys now apply only in a listing, and a test keeps typed characters from running commands.
 - In the Emacs keymap Enter in the file manager ran Newline instead of opening the entry; `SPC p D` and other project commands did not apply in a file manager listing.

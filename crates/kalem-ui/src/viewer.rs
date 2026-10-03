@@ -86,11 +86,7 @@ impl std::fmt::Debug for ViewerView {
 
 /// A bitmap as a gpui image (which wants BGRA).
 fn render_image(b: &kalem_viewer::Bitmap) -> Option<Arc<RenderImage>> {
-    let mut bgra = b.rgba.to_vec();
-    for p in bgra.as_chunks_mut::<4>().0 {
-        p.swap(0, 2);
-    }
-    let buf = image::RgbaImage::from_raw(b.width, b.height, bgra)?;
+    let buf = image::RgbaImage::from_raw(b.width, b.height, b.bgra())?;
     Some(Arc::new(RenderImage::new(vec![image::Frame::new(buf)])))
 }
 
