@@ -1022,7 +1022,9 @@ fn format_style(name: &str) -> Option<Style> {
         "underline" | "uline" => s.underline = true,
         "sout" => s.strike = true,
         // Author marks set raised (IEEEtran's, Wiley's and others').
-        "textsuperscript" | "IEEEauthorrefmark" | "authormark" => s.superscript = true,
+        "textsuperscript" | "IEEEauthorrefmark" | "authormark" | "tablenotemark" => {
+            s.superscript = true
+        }
         "textsubscript" => s.subscript = true,
         "textsc" | "textsf" | "textrm" | "textup" | "textmd" | "textnormal" => {}
         _ => return None,
@@ -1331,6 +1333,8 @@ pub(crate) fn silent(name: &str) -> Option<&'static str> {
         // REVTeX's switches between one and two columns, ORCID's icon,
         // cleveref's names, aastex's figure scale, a thick rule.
         "onecolumngrid" | "twocolumngrid" | "thickhline" => "",
+        // The plain TeX ends of environments (`\minipage … \endminipage`).
+        "endminipage" | "endcenter" | "endtabular" | "endfigure" | "endtable" => "",
         // aastex's table settings and the edges of its data.
         "startdata" | "enddata" | "tableline" | "nodata" => "",
         "tabletypesize" | "tablecolumns" | "tablewidth" | "tablenum" => "m",
@@ -3886,7 +3890,7 @@ fn unflagged_line_view(
             let cs = node_span(&cmd);
             match &text[r.clone()] {
                 // A picture: drawn, at the width its options ask for.
-                "\\includegraphics" => {
+                "\\includegraphics" | "\\plotone" => {
                     if let Some(path) = picture_path(doc, &state.model(), &cmd) {
                         b.runs.push(Run {
                             src: cs.clone(),
@@ -4598,6 +4602,28 @@ fn unflagged_line_view(
                             ..c.style
                         };
                         b.replace(r.start..end, name, st);
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
+                    // romanbar's numerals (`\Romanbar{4}`): IV.
+                    ("Romanbar" | "romanbar", _)
+                        if let Some(end) = args_end(text, r.end, line.end, "m")
+                            && !near(&(r.start..end))
+                            && let Ok(n) = text[r.end..end]
+                                .trim()
+                                .trim_start_matches('{')
+                                .trim_end_matches('}')
+                                .trim()
+                                .parse::<u32>() =>
+                    {
+                        let mut shown = roman(n);
+                        if name == "Romanbar" {
+                            shown = shown.to_uppercase();
+                        }
+                        b.replace(r.start..end, &shown, c.style);
                         while let Some(n) = &tok
                             && span(n).start < end
                         {
@@ -5433,7 +5459,7 @@ fn manual_citation(
                 .join("; "),
         },
         None => match command {
-            "citenum" => labels.join(", "),
+            "citenum" | "onlinecite" => labels.join(", "),
             _ => format!("[{}]", wrap(labels.join(", "))),
         },
     };
@@ -5529,7 +5555,7 @@ fn styled_citation(
                     .collect::<Vec<_>>()
                     .join(", "),
                 "citealt" | "citealp" if natbib => wrap(marks.join(", ")),
-                "citenum" => marks.join(", "),
+                "citenum" | "onlinecite" => marks.join(", "),
                 _ => format!("[{}]", wrap(marks.join(", "))),
             }
         }
@@ -5948,6 +5974,9 @@ pub fn renders_command(name: &str) -> bool {
             "item"
                 | "ding"
                 | "ion"
+                | "Romanbar"
+                | "romanbar"
+                | "plotone"
                 | "icmlauthor"
                 | "caption"
                 | "includegraphics"
@@ -6129,6 +6158,7 @@ fn front_environment(name: &str) -> Option<&'static str> {
         | "footnote"
         | "figurenotes"
         | "titlepage"
+        | "ruledtabular"
         | "sideways"
         | "graphicalabstract"
         | "highlights"
@@ -6204,7 +6234,14 @@ pub(crate) fn tex_picture(name: &str) -> bool {
     // Young tableaux too.
     matches!(
         name,
-        "tikzpicture" | "pgfpicture" | "circuitikz" | "picture" | "diagram" | "xy" | "ytableau"
+        "tikzpicture"
+            | "pgfpicture"
+            | "circuitikz"
+            | "picture"
+            | "diagram"
+            | "xy"
+            | "ytableau"
+            | "overpic"
     )
 }
 
@@ -8063,6 +8100,25 @@ mod tests {
         // No picture files beside the document: their names.
         assert_eq!(read(5), "a.pngb.png Two plots.");
         assert_eq!(read(6), "t1t2");
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
+    fn revtex_and_aastex_odds() {
+        let text = "\\documentclass{revtex4-2}\n\\usepackage{romanbar}\n\\begin{document}\nPhase \\Romanbar{4} and \\romanbar{2}, see Ref.~\\onlinecite{k}.\nA\\tablenotemark{a}\n\\begin{ruledtabular}\nB\n\\end{ruledtabular}\n\\begin{thebibliography}{1}\n\\bibitem{k} K.\n\\end{thebibliography}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        assert_eq!(read(3), "Phase IV and ii, see Ref.\u{a0}1.");
+        let v = shown(&d, 4, None);
+        assert!(v.runs.iter().any(|r| r.text == "a" && r.style.superscript));
         let c = crate::latex_check::coverage_report(text, None);
         assert_eq!(c.source, 0, "{:?}", c.source_by_name);
     }
