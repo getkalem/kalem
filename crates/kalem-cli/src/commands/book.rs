@@ -568,6 +568,95 @@ pub(crate) fn check(dir: &Path) -> Result<ExitCode> {
     })
 }
 
+/// The code each chapter describes, from `book/chapters.toml`: the
+/// chapter (a page, or a folder ending in `/`) and the paths of its code.
+fn chapter_map(text: &str) -> std::result::Result<Vec<(String, Vec<String>)>, String> {
+    let doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("chapters.toml: {e}"))?;
+    let mut out = Vec::new();
+    for (chapter, item) in doc.iter() {
+        let code = item
+            .get("code")
+            .and_then(|c| c.as_array())
+            .ok_or_else(|| format!("chapters.toml: [\"{chapter}\"] has no `code` list"))?;
+        out.push((
+            chapter.to_string(),
+            code.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+        ));
+    }
+    Ok(out)
+}
+
+/// The chapters whose code is among `changed` files but which are not
+/// themselves: what a change left behind, with the code that asks for it.
+fn left_behind(
+    map: &[(String, Vec<String>)],
+    book: &str,
+    changed: &[String],
+) -> Vec<(String, Vec<String>)> {
+    map.iter()
+        .filter_map(|(chapter, code)| {
+            let touched: Vec<String> = changed
+                .iter()
+                .filter(|f| code.iter().any(|c| f.starts_with(c.as_str())))
+                .cloned()
+                .collect();
+            let page = format!("{book}/{chapter}");
+            let written = changed.iter().any(|f| {
+                if chapter.ends_with('/') {
+                    f.starts_with(&page)
+                } else {
+                    *f == page
+                }
+            });
+            (!touched.is_empty() && !written).then(|| (chapter.clone(), touched))
+        })
+        .collect()
+}
+
+/// `kalem book check DIR --changed BASE`: the chapters of
+/// `DIR/chapters.toml` whose code changed since `BASE` (Git) without
+/// them (T2.10.10).
+pub(crate) fn check_changed(dir: &Path, base: &str) -> Result<ExitCode> {
+    let map_path = dir.join("chapters.toml");
+    let text =
+        std::fs::read_to_string(&map_path).map_err(|e| format!("{}: {e}", map_path.display()))?;
+    let map = chapter_map(&text)?;
+    let out = std::process::Command::new("git")
+        .args(["diff", "--name-only", &format!("{base}...HEAD")])
+        .output()
+        .map_err(|e| format!("git: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "git diff: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    let changed: Vec<String> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(String::from)
+        .collect();
+    let book = dir.to_string_lossy().trim_end_matches('/').to_string();
+    let missing = left_behind(&map, &book, &changed);
+    for (chapter, code) in &missing {
+        eprintln!(
+            "{book}/{chapter} describes code this change touches ({}) but is not changed",
+            code.join(", ")
+        );
+    }
+    println!(
+        "{} files changed, {} chapters left behind",
+        changed.len(),
+        missing.len()
+    );
+    Ok(if missing.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
+}
+
 /// `kalem book build DIR --out OUT`: the site.
 pub(crate) fn build(dir: &Path, out: &Path) -> Result<ExitCode> {
     let index = std::fs::read_to_string(dir.join("index.org"))
@@ -746,6 +835,45 @@ fn copy_assets(base: &Path, out: &Path, from: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chapters_left_behind() {
+        let map = chapter_map(
+            "[\"part-2/csv.org\"]\ncode = [\"crates/kalem-core/src/csv\"]\n[\"part-3/\"]\ncode = [\"crates/klm-syntax/\"]\n",
+        )
+        .unwrap();
+        let changed = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        // Code without its chapter: reported.
+        let m = left_behind(
+            &map,
+            "book",
+            &changed(&["crates/kalem-core/src/csv_tools.rs"]),
+        );
+        assert_eq!(m.len(), 1);
+        assert_eq!(m[0].0, "part-2/csv.org");
+        // With it, or code no chapter maps: nothing.
+        assert!(
+            left_behind(
+                &map,
+                "book",
+                &changed(&["crates/kalem-core/src/csv.rs", "book/part-2/csv.org"])
+            )
+            .is_empty()
+        );
+        assert!(left_behind(&map, "book", &changed(&["README.md"])).is_empty());
+        // A folder chapter: any page in it.
+        assert!(
+            left_behind(
+                &map,
+                "book",
+                &changed(&["crates/klm-syntax/src/lib.rs", "book/part-3/text.org"])
+            )
+            .is_empty()
+        );
+        // The Book's own map reads.
+        let own = chapter_map(include_str!("../../../../book/chapters.toml")).unwrap();
+        assert!(own.iter().any(|(c, _)| c == "part-2/latex.org"));
+    }
 
     #[test]
     fn reads_the_contents() {
