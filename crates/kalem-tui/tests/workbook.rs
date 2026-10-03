@@ -508,3 +508,79 @@ fn sorting_and_filtering() {
             .is_none()
     );
 }
+
+#[test]
+fn conditional_formatting() {
+    let mut t = T::open("cf");
+    let number = |t: &mut T, row: u32| -> f64 {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(row, 1);
+        v.cell_input().parse().unwrap()
+    };
+    let values: Vec<f64> = (1..4).map(|r| number(&mut t, r)).collect();
+    let least = values.iter().copied().fold(f64::MAX, f64::min);
+    // B2:B4 selected; the menu, then Greater Than asking for its value.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(3, 1);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('C'),
+        KeyModifiers::SHIFT,
+    )));
+    let s = t.screen();
+    assert!(s.contains("Greater Than") && s.contains("Less Than"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app.run_command("viewer.grid.highlightGreater", json!({}));
+    let s = t.screen();
+    assert!(s.contains("Greater Than: value"), "{s}");
+    for ch in least.to_string().chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    let cells = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_cells(1..4, 1..2);
+    for (r, _, cell) in &cells {
+        let v = values[(*r - 1) as usize];
+        assert_eq!(cell.fill.is_some(), v > least, "row {r}: {cell:?}");
+    }
+    // Icons on C2:C4 and bars on D2:D4, drawn.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 2);
+        v.grid_extend_to(3, 2);
+    }
+    t.app
+        .run_command("viewer.grid.iconSet", json!({ "name": "3Arrows" }));
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 3);
+        v.grid_extend_to(3, 3);
+    }
+    t.app
+        .run_command("viewer.grid.dataBars", json!({ "color": "#638EC6" }));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 0);
+    let s = t.screen();
+    assert!(s.contains('▲') && s.contains('▼'), "{s}");
+    let buf = t.term.backend().buffer().clone();
+    let bar = ratatui::style::Color::Rgb(0x63, 0x8E, 0xC6);
+    assert!(buf.content().iter().any(|c| c.bg == bar), "{s}");
+    // Cleared from the sheet, then back with undo.
+    t.app
+        .run_command("viewer.grid.clearSheetConditionalFormats", json!({}));
+    let s = t.screen();
+    assert!(!s.contains('▲'), "{s}");
+    t.app.run_command("edit.undo", json!({}));
+    assert!(t.screen().contains('▲'));
+    // Saved: Excel's markup in the sheet.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert_eq!(wb.conditional_formats(0).unwrap().len(), 3);
+}

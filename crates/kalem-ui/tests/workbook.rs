@@ -367,6 +367,43 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // A data bar and an icon set on D2:D4, drawn in the cells.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 3);
+        v.grid_extend_to(3, 3);
+        e.run_command(
+            "viewer.grid.dataBars",
+            serde_json::json!({ "color": "#638EC6" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.iconSet",
+            serde_json::json!({ "name": "3Arrows" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let bar = cx.debug_bounds("viewer-grid-bar-2-3").expect("D3's bar");
+    let cell = cx.debug_bounds("viewer-grid-cell-2-3").expect("D3");
+    assert!(bar.size.width > gpui::px(0.) && bar.size.width < cell.size.width);
+    assert!(
+        cx.debug_bounds("viewer-grid-icon-2-3").is_some(),
+        "D3's icon"
+    );
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.clearSheetConditionalFormats",
+            serde_json::json!({}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-bar-2-3").is_none());
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"

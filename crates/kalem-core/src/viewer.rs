@@ -1689,6 +1689,45 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Adds a conditional format on the selection.
+    pub fn add_conditional_format(
+        &mut self,
+        rule: kalem_viewer::CondRule,
+        style: kalem_viewer::CondStyle,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        self.doc()
+            .add_conditional_format(self.unit, s, rule, style)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Removes the conditional formats that meet the selection, or all of
+    /// the sheet's.
+    pub fn clear_conditional_formats(&mut self, sheet: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let range = (!sheet).then(|| self.selection());
+        let changed = self
+            .doc()
+            .clear_conditional_formats(self.unit, range)
+            .map_err(|e| e.to_string())?;
+        if changed.is_empty() {
+            return Err(if sheet {
+                "This sheet has no conditional formats".into()
+            } else {
+                "The selection has no conditional formats".into()
+            });
+        }
+        self.refresh();
+        Ok(())
+    }
+
     /// Clears the selection's values, formats kept (Delete).
     pub fn clear_selection(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -2716,6 +2755,287 @@ fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     Ok(())
 }
 
+/// A highlighting style by name, as Excel's presets: light red fill with
+/// dark red text unless asked otherwise.
+fn cond_style(args: &serde_json::Value) -> kalem_viewer::CondStyle {
+    let (fill, color, bold) = match args.get("style").and_then(|s| s.as_str()) {
+        Some("yellow") => (Some([0xFF, 0xEB, 0x9C]), Some([0x9C, 0x57, 0x00]), false),
+        Some("green") => (Some([0xC6, 0xEF, 0xCE]), Some([0x00, 0x61, 0x00]), false),
+        Some("red text") => (None, Some([0x9C, 0x00, 0x06]), false),
+        Some("bold") => (None, None, true),
+        _ => (Some([0xFF, 0xC7, 0xCE]), Some([0x9C, 0x00, 0x06]), false),
+    };
+    kalem_viewer::CondStyle { fill, color, bold }
+}
+
+/// A `#RRGGBB` or `RRGGBB` color.
+fn hex_color(s: &str) -> Option<[u8; 3]> {
+    let h = s.trim().trim_start_matches('#');
+    if h.len() != 6 {
+        return None;
+    }
+    let n = u32::from_str_radix(h, 16).ok()?;
+    Some([(n >> 16) as u8, (n >> 8) as u8, n as u8])
+}
+
+/// A palette entry running `id` with `args`.
+fn menu_item(
+    id: &str,
+    args: serde_json::Value,
+    title: &str,
+    category: &str,
+) -> crate::palette::PaletteItem {
+    crate::palette::PaletteItem {
+        id: crate::palette::invocation(id, &args),
+        title: title.into(),
+        category: category.into(),
+        keys: String::new(),
+        also: title.into(),
+    }
+}
+
+/// The Conditional Formatting menu, as Excel's: its rules for the selection.
+fn conditional_menu(ctx: &mut EditorContext<'_>, _args: &serde_json::Value) -> CommandResult {
+    let none = serde_json::json!({});
+    let c = "Conditional Formatting";
+    let items = vec![
+        menu_item(
+            "viewer.grid.highlightGreater",
+            none.clone(),
+            "Greater Than…",
+            c,
+        ),
+        menu_item("viewer.grid.highlightLess", none.clone(), "Less Than…", c),
+        menu_item("viewer.grid.highlightBetween", none.clone(), "Between…", c),
+        menu_item("viewer.grid.highlightEqual", none.clone(), "Equal To…", c),
+        menu_item(
+            "viewer.grid.highlightText",
+            none.clone(),
+            "Text That Contains…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightDuplicates",
+            none.clone(),
+            "Duplicate Values",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightUnique",
+            none.clone(),
+            "Unique Values",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightTop",
+            serde_json::json!({ "value": "10" }),
+            "Top 10 Items",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightTop",
+            serde_json::json!({ "value": "10", "percent": true }),
+            "Top 10%",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightBottom",
+            serde_json::json!({ "value": "10" }),
+            "Bottom 10 Items",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightBottom",
+            serde_json::json!({ "value": "10", "percent": true }),
+            "Bottom 10%",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightAboveAverage",
+            none.clone(),
+            "Above Average",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightBelowAverage",
+            none.clone(),
+            "Below Average",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.highlightFormula",
+            none.clone(),
+            "Use a Formula…",
+            c,
+        ),
+        menu_item("viewer.grid.dataBars", none.clone(), "Data Bars", c),
+        menu_item("viewer.grid.colorScale", none.clone(), "Color Scales", c),
+        menu_item("viewer.grid.iconSet", none.clone(), "Icon Sets", c),
+        menu_item(
+            "viewer.grid.clearConditionalFormats",
+            none.clone(),
+            "Clear Rules from Selection",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.clearSheetConditionalFormats",
+            none,
+            "Clear Rules from Sheet",
+            c,
+        ),
+    ];
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// A rule taking values: asked for each one missing, then added.
+fn highlight(ctx: &mut EditorContext<'_>, args: &serde_json::Value, id: &str) -> CommandResult {
+    use kalem_viewer::{CompareOp, CondRule};
+    let text = |k: &str| args.get(k).and_then(|v| v.as_str()).map(str::to_string);
+    let ask = |ctx: &mut EditorContext<'_>, arg: &str| {
+        ctx.requests.push(Request::Ask {
+            command: id.into(),
+            args: args.clone(),
+            arg: arg.into(),
+        });
+        Ok(())
+    };
+    let needs_value = !matches!(
+        id,
+        "viewer.grid.highlightDuplicates"
+            | "viewer.grid.highlightUnique"
+            | "viewer.grid.highlightAboveAverage"
+            | "viewer.grid.highlightBelowAverage"
+    );
+    let Some(value) = text("value")
+        .filter(|v| !v.trim().is_empty())
+        .or((!needs_value).then(String::new))
+    else {
+        return ask(ctx, "value");
+    };
+    let compare = |op| CondRule::Compare {
+        op,
+        value: value.clone(),
+        value2: None,
+    };
+    let rule = match id {
+        "viewer.grid.highlightGreater" => compare(CompareOp::Greater),
+        "viewer.grid.highlightLess" => compare(CompareOp::Less),
+        "viewer.grid.highlightEqual" => compare(CompareOp::Equal),
+        "viewer.grid.highlightBetween" => {
+            let Some(and) = text("and").filter(|v| !v.trim().is_empty()) else {
+                return ask(ctx, "and");
+            };
+            CondRule::Compare {
+                op: CompareOp::Between,
+                value: value.clone(),
+                value2: Some(and),
+            }
+        }
+        "viewer.grid.highlightText" => CondRule::TextContains(value.clone()),
+        "viewer.grid.highlightDuplicates" => CondRule::Duplicates,
+        "viewer.grid.highlightUnique" => CondRule::Unique,
+        "viewer.grid.highlightTop" | "viewer.grid.highlightBottom" => {
+            let Ok(count) = value.trim().trim_end_matches('%').parse::<u32>() else {
+                ctx.messages.push(format!("Not a count: {value}"));
+                return Ok(());
+            };
+            CondRule::Top {
+                count: count.max(1),
+                bottom: id == "viewer.grid.highlightBottom",
+                percent: args.get("percent").and_then(serde_json::Value::as_bool) == Some(true)
+                    || value.trim().ends_with('%'),
+            }
+        }
+        "viewer.grid.highlightAboveAverage" => CondRule::Average { below: false },
+        "viewer.grid.highlightBelowAverage" => CondRule::Average { below: true },
+        _ => CondRule::Formula(value.clone()),
+    };
+    let style = cond_style(args);
+    with(ctx, |v| v.add_conditional_format(rule, style))
+}
+
+/// Data bars, color scales and icon sets: their kinds offered when none
+/// is named.
+fn graded(ctx: &mut EditorContext<'_>, args: &serde_json::Value, id: &str) -> CommandResult {
+    use kalem_viewer::CondRule;
+    let rule = match id {
+        "viewer.grid.dataBars" => args
+            .get("color")
+            .and_then(|c| c.as_str())
+            .and_then(hex_color)
+            .map(CondRule::DataBar),
+        "viewer.grid.colorScale" => args.get("colors").and_then(|c| c.as_array()).and_then(|a| {
+            let colors: Option<Vec<[u8; 3]>> =
+                a.iter().map(|c| c.as_str().and_then(hex_color)).collect();
+            colors.filter(|c| c.len() >= 2).map(CondRule::ColorScale)
+        }),
+        _ => args
+            .get("name")
+            .and_then(|n| n.as_str())
+            .map(|n| CondRule::IconSet(n.to_string())),
+    };
+    if let Some(rule) = rule {
+        return with(ctx, |v| {
+            v.add_conditional_format(rule, kalem_viewer::CondStyle::default())
+        });
+    }
+    let items = match id {
+        "viewer.grid.dataBars" => [
+            ("Blue Data Bar", "#638EC6"),
+            ("Green Data Bar", "#63C384"),
+            ("Red Data Bar", "#FF555A"),
+            ("Orange Data Bar", "#FFB628"),
+            ("Light Blue Data Bar", "#008AEF"),
+            ("Purple Data Bar", "#D6007B"),
+        ]
+        .iter()
+        .map(|(t, c)| menu_item(id, serde_json::json!({ "color": c }), t, "Data Bars"))
+        .collect(),
+        "viewer.grid.colorScale" => [
+            (
+                "Green - Yellow - Red",
+                &["#63BE7B", "#FFEB84", "#F8696B"][..],
+            ),
+            (
+                "Red - Yellow - Green",
+                &["#F8696B", "#FFEB84", "#63BE7B"][..],
+            ),
+            (
+                "Green - White - Red",
+                &["#63BE7B", "#FCFCFF", "#F8696B"][..],
+            ),
+            (
+                "Red - White - Green",
+                &["#F8696B", "#FCFCFF", "#63BE7B"][..],
+            ),
+            ("Blue - White - Red", &["#5A8AC6", "#FCFCFF", "#F8696B"][..]),
+            ("White - Red", &["#FCFCFF", "#F8696B"][..]),
+            ("White - Green", &["#FCFCFF", "#63BE7B"][..]),
+            ("Green - Yellow", &["#63BE7B", "#FFEF9C"][..]),
+        ]
+        .iter()
+        .map(|(t, c)| menu_item(id, serde_json::json!({ "colors": c }), t, "Color Scales"))
+        .collect(),
+        _ => [
+            ("▼ ► ▲ 3 Arrows", "3Arrows"),
+            ("● ● ● 3 Traffic Lights", "3TrafficLights1"),
+            ("✖ ! ✔ 3 Symbols", "3Symbols"),
+            ("⚑ ⚑ ⚑ 3 Flags", "3Flags"),
+            ("☆ ⯪ ★ 3 Stars", "3Stars"),
+            ("▼ ↘ ↗ ▲ 4 Arrows", "4Arrows"),
+            ("▁ ▃ ▅ ▇ 4 Ratings", "4Rating"),
+            ("▼ ↘ ► ↗ ▲ 5 Arrows", "5Arrows"),
+            ("○ ◔ ◑ ◕ ● 5 Quarters", "5Quarters"),
+        ]
+        .iter()
+        .map(|(t, n)| menu_item(id, serde_json::json!({ "name": n }), t, "Icon Sets"))
+        .collect(),
+    };
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
 /// A row three points taller or shorter: the terminal's drag.
 fn grid_height(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     with(ctx, |v| {
@@ -3160,6 +3480,132 @@ fn grid_commands() -> Vec<Command> {
             &["c -"],
             IN_GRID,
             |ctx, _| grid_width(ctx, -1.0),
+        ),
+        cmd(
+            "viewer.grid.conditionalFormat",
+            "Conditional Formatting",
+            &["shift+c"],
+            IN_GRID,
+            conditional_menu,
+        ),
+        cmd(
+            "viewer.grid.highlightGreater",
+            "Highlight Cells Greater Than",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightGreater"),
+        ),
+        cmd(
+            "viewer.grid.highlightLess",
+            "Highlight Cells Less Than",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightLess"),
+        ),
+        cmd(
+            "viewer.grid.highlightBetween",
+            "Highlight Cells Between",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightBetween"),
+        ),
+        cmd(
+            "viewer.grid.highlightEqual",
+            "Highlight Cells Equal To",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightEqual"),
+        ),
+        cmd(
+            "viewer.grid.highlightText",
+            "Highlight Cells Containing Text",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightText"),
+        ),
+        cmd(
+            "viewer.grid.highlightDuplicates",
+            "Highlight Duplicate Values",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightDuplicates"),
+        ),
+        cmd(
+            "viewer.grid.highlightUnique",
+            "Highlight Unique Values",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightUnique"),
+        ),
+        cmd(
+            "viewer.grid.highlightTop",
+            "Highlight Top Items",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightTop"),
+        ),
+        cmd(
+            "viewer.grid.highlightBottom",
+            "Highlight Bottom Items",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightBottom"),
+        ),
+        cmd(
+            "viewer.grid.highlightAboveAverage",
+            "Highlight Above Average",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightAboveAverage"),
+        ),
+        cmd(
+            "viewer.grid.highlightBelowAverage",
+            "Highlight Below Average",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightBelowAverage"),
+        ),
+        cmd(
+            "viewer.grid.highlightFormula",
+            "Highlight Cells by Formula",
+            &[],
+            IN_GRID,
+            |ctx, args| highlight(ctx, args, "viewer.grid.highlightFormula"),
+        ),
+        cmd(
+            "viewer.grid.dataBars",
+            "Data Bars",
+            &[],
+            IN_GRID,
+            |ctx, args| graded(ctx, args, "viewer.grid.dataBars"),
+        ),
+        cmd(
+            "viewer.grid.colorScale",
+            "Color Scale",
+            &[],
+            IN_GRID,
+            |ctx, args| graded(ctx, args, "viewer.grid.colorScale"),
+        ),
+        cmd(
+            "viewer.grid.iconSet",
+            "Icon Set",
+            &[],
+            IN_GRID,
+            |ctx, args| graded(ctx, args, "viewer.grid.iconSet"),
+        ),
+        cmd(
+            "viewer.grid.clearConditionalFormats",
+            "Clear Rules from Selection",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.clear_conditional_formats(false)),
+        ),
+        cmd(
+            "viewer.grid.clearSheetConditionalFormats",
+            "Clear Rules from Sheet",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.clear_conditional_formats(true)),
         ),
         cmd(
             "viewer.grid.autofitColumns",

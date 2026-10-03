@@ -352,10 +352,17 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                 w.saturating_sub(1) as usize
             };
             let cell = cells.get(&(r, c));
+            // An icon set's icon takes the cell's first two columns.
+            let icon_w = if cell.is_some_and(|c| c.icon.is_some()) && inner > 2 {
+                2
+            } else {
+                0
+            };
             let mut style = Style::default();
             let text = match cell {
                 Some(cell) => {
                     overflow = None;
+                    let inner = inner - icon_w;
                     if cell.bold {
                         style = style.add_modifier(Modifier::BOLD);
                     }
@@ -417,7 +424,35 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             if in_sel || (r, c) == (pos.row, pos.col) || first {
                 buf.set_stringn(x, y, " ".repeat(inner), inner, style);
             }
-            buf.set_stringn(x, y, &text, inner, style);
+            buf.set_stringn(x + icon_w as u16, y, &text, inner - icon_w, style);
+            if let Some(cell) = cell
+                && (r, c) != (pos.row, pos.col)
+                && !in_sel
+            {
+                if let Some((glyph, [cr, cg, cb])) = &cell.icon
+                    && icon_w > 0
+                {
+                    let g = if caps.ascii {
+                        ascii_icon(glyph)
+                    } else {
+                        glyph.as_str()
+                    };
+                    let mut st = Style::default();
+                    if !caps.no_color {
+                        st = st.fg(ratatui::style::Color::Rgb(*cr, *cg, *cb));
+                    }
+                    buf.set_stringn(x, y, g, 1, st);
+                }
+                // A data bar: the cell's background over its share of the width.
+                if let Some((len, [br, bg, bb])) = cell.bar
+                    && !caps.no_color
+                {
+                    let n = (inner * usize::from(len)).div_ceil(1000).min(inner);
+                    for i in 0..n {
+                        buf[(x + i as u16, y)].set_bg(ratatui::style::Color::Rgb(br, bg, bb));
+                    }
+                }
+            }
             // A filter's header: its button, filled when the column filters.
             if let Some(f) = layout.filter
                 && r == f[0]
@@ -441,6 +476,17 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             }
             x += w;
         }
+    }
+}
+
+/// An icon set's icon in a terminal without Unicode symbols.
+fn ascii_icon(glyph: &str) -> &'static str {
+    match glyph {
+        "▲" | "↗" | "★" | "✔" => "^",
+        "▼" | "↘" | "✖" => "v",
+        "►" | "▬" | "⯪" | "◑" => "-",
+        "!" => "!",
+        _ => "o",
     }
 }
 
