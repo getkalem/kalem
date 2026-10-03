@@ -44,6 +44,8 @@ kalem-viewer = { path = "crates/kalem-viewer", version = "0.0.1" }
 kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "1d34eef4f98a9392d3316f2467f6a008d675c689" }
 # Excel workbooks (T3.7.4), bundled the same way.
 kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "17f97ab228702f7943d833088ae4e3dfba6ae28e" }
+# PDF files (T3.7.3), bundled the same way.
+kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "876e9acbeef9803c19c1f5f716c8b7b04171d424" }
 
 # The plugins build against this checkout's contract, not its copy on
 # GitHub.

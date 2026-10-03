@@ -139,10 +139,13 @@ pub struct ViewerState {
     /// The frames play.
     pub playing: bool,
     area: (f32, f32),
+    /// Device pixels per pixel of the area (a Retina display's 2).
+    pixel_ratio: f32,
     undo: Vec<(String, String)>,
     redo: Vec<(String, String)>,
     generation: u64,
-    cache: Option<(usize, u8, u64, Bitmap)>,
+    /// The last render: unit, rotation, generation, scale.
+    cache: Option<(usize, u8, u64, u32, Bitmap)>,
     /// Which units are grids (sheets, tables).
     grids: Vec<bool>,
     /// Each grid unit's cursor and scroll.
@@ -229,6 +232,7 @@ impl ViewerState {
             info: false,
             playing,
             area: (0.0, 0.0),
+            pixel_ratio: 1.0,
             undo: Vec::new(),
             redo: Vec::new(),
             generation: next_generation(),
@@ -255,28 +259,74 @@ impl ViewerState {
         self.generation = next_generation();
     }
 
-    /// The unit shown, rendered and turned by the view's rotation.
+    /// The unit shown, rendered and turned by the view's rotation; at
+    /// [`ViewerState::render_scale`], so a page is as sharp as it is
+    /// shown.
     pub fn bitmap(&mut self) -> Result<Bitmap, String> {
-        if let Some((u, r, g, b)) = &self.cache
-            && (*u, *r, *g) == (self.unit, self.rotation, self.generation)
+        let scale = self.render_scale();
+        if let Some((u, r, g, s, b)) = &self.cache
+            && (*u, *r, *g, *s) == (self.unit, self.rotation, self.generation, scale.to_bits())
         {
             return Ok(b.clone());
         }
+        let request = RenderRequest {
+            scale,
+            ..RenderRequest::default()
+        };
         let Rendered::Bitmap(b) = self
             .doc
-            .render(self.unit, RenderRequest::default())
+            .render(self.unit, request)
             .map_err(|e| e.to_string())?;
         let b = b.rotated(self.rotation);
-        self.cache = Some((self.unit, self.rotation, self.generation, b.clone()));
+        self.cache = Some((
+            self.unit,
+            self.rotation,
+            self.generation,
+            scale.to_bits(),
+            b.clone(),
+        ));
         Ok(b)
     }
 
-    /// The size of the bitmap shown, without rendering it again when it
-    /// is cached.
-    fn size(&mut self) -> (f32, f32) {
+    /// The unit's size at scale 1 as turned, when the viewer knows it
+    /// without rendering (a page).
+    fn vector_size(&self) -> Option<(f32, f32)> {
+        let (w, h) = self.doc.size(self.unit)?;
+        Some(if self.rotation % 2 == 1 {
+            (h, w)
+        } else {
+            (w, h)
+        })
+    }
+
+    /// The unit's size at scale 1 as turned: the size the viewer gives,
+    /// else the bitmap's (rendered once at scale 1 and cached). Placement,
+    /// zoom and pan count in these pixels.
+    pub fn unit_size(&mut self) -> (f32, f32) {
+        if let Some(size) = self.vector_size() {
+            return size;
+        }
         self.bitmap()
             .map(|b| (b.width as f32, b.height as f32))
             .unwrap_or((1.0, 1.0))
+    }
+
+    /// Sets the device pixels per pixel of the area (the window's scale
+    /// factor), so pages render for the display's pixels.
+    pub fn set_pixel_ratio(&mut self, ratio: f32) {
+        self.pixel_ratio = ratio.clamp(0.25, 8.0);
+    }
+
+    /// The scale the unit is rendered at: 1 for a picture, whose pixels
+    /// are scaled when drawn; for a page, the scale shown in device
+    /// pixels, rounded up to a quarter octave so a zoom step renders
+    /// again but a small change does not.
+    pub fn render_scale(&mut self) -> f32 {
+        if self.vector_size().is_none() {
+            return 1.0;
+        }
+        let s = (self.scale() * self.pixel_ratio).clamp(1.0 / 16.0, 16.0);
+        2f32.powf((s.log2() * 4.0 - 1e-3).ceil() / 4.0)
     }
 
     /// Sets the size of the area the unit is drawn in, in the frontend's
@@ -292,9 +342,15 @@ impl ViewerState {
 
     /// The scale [`Zoom::Fit`] means in the current area.
     pub fn fit_scale(&mut self) -> f32 {
-        let (w, h) = self.size();
+        let (w, h) = self.unit_size();
         let (aw, ah) = self.area;
-        (aw / w).min(ah / h).min(1.0)
+        let fit = (aw / w).min(ah / h);
+        // A picture is not blown up past its pixels; a page has none.
+        if self.vector_size().is_some() {
+            fit
+        } else {
+            fit.min(1.0)
+        }
     }
 
     /// The scale shown.
@@ -309,7 +365,7 @@ impl ViewerState {
     /// smaller than the area, else at [`ViewerState::center`], kept from
     /// leaving an edge empty.
     pub fn placement(&mut self) -> Placement {
-        let (w, h) = self.size();
+        let (w, h) = self.unit_size();
         let s = self.scale();
         let (aw, ah) = self.area;
         let (dw, dh) = (w * s, h * s);
@@ -534,9 +590,8 @@ impl ViewerState {
             return parts.join(" · ");
         }
         let mut parts = Vec::new();
-        if let Ok(b) = self.bitmap() {
-            parts.push(format!("{} × {}", b.width, b.height));
-        }
+        let (w, h) = self.unit_size();
+        parts.push(format!("{} × {}", w.round(), h.round()));
         parts.push(format!("{:.0}%", self.scale() * 100.0));
         let n = self.structure.units.len();
         if n > 1 {
@@ -1629,6 +1684,87 @@ mod tests {
         assert_eq!(v.text(), "page 3");
         v.set_area(100.0, 50.0);
         assert_eq!(v.status(), "100 × 50 · 100% · 3/3");
+    }
+
+    /// A page 100 × 50 at scale 1 that knows its size, rendered at the
+    /// scale asked.
+    #[derive(Debug)]
+    struct Vector;
+
+    struct VectorDoc;
+
+    impl Viewer for Vector {
+        fn id(&self) -> &str {
+            "vector"
+        }
+        fn name(&self) -> &str {
+            "Vector"
+        }
+        fn extensions(&self) -> &[&str] {
+            &["vector"]
+        }
+        fn detect(&self, _: &str, _: &[u8]) -> Detection {
+            Detection::No
+        }
+        fn open(&self, _file: FileHandle) -> VResult<Box<dyn ViewerDocument>> {
+            Ok(Box::new(VectorDoc))
+        }
+    }
+
+    impl ViewerDocument for VectorDoc {
+        fn structure(&self) -> Structure {
+            Structure {
+                units: vec![Unit {
+                    kind: UnitKind::Page,
+                    label: "1".into(),
+                    duration_ms: None,
+                }],
+                outline: Vec::new(),
+            }
+        }
+        fn size(&self, _: usize) -> Option<(f32, f32)> {
+            Some((100.0, 50.0))
+        }
+        fn render(&mut self, _: usize, r: RenderRequest) -> VResult<Rendered> {
+            let (w, h) = (
+                (100.0 * r.scale).ceil() as u32,
+                (50.0 * r.scale).ceil() as u32,
+            );
+            Ok(Rendered::Bitmap(Bitmap::new(
+                w,
+                h,
+                vec![0; (w * h * 4) as usize],
+            )))
+        }
+        fn text(&self, _: usize) -> String {
+            String::new()
+        }
+    }
+
+    #[test]
+    fn a_page_renders_at_the_scale_shown() {
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Vector), &dir.join("x.vector")).unwrap();
+        v.set_area(400.0, 400.0);
+        // A page fits larger than its own size, and is drawn at the
+        // display's pixels.
+        assert_eq!(v.scale(), 4.0);
+        v.set_pixel_ratio(2.0);
+        assert_eq!(v.render_scale(), 8.0);
+        let b = v.bitmap().unwrap();
+        assert_eq!((b.width, b.height), (800, 400));
+        let p = v.placement();
+        assert_eq!((p.width, p.height), (400.0, 200.0));
+        assert_eq!(v.status(), "100 × 50 · 400%");
+        // A small zoom renders at the next quarter octave up.
+        v.zoom_by(1.1);
+        let s = v.render_scale();
+        assert!(s >= v.scale() * 2.0 && s < v.scale() * 2.0 * 1.19, "{s}");
+        // Turned, the page is 50 × 100.
+        v.rotate(1);
+        assert_eq!(v.unit_size(), (50.0, 100.0));
+        let b = v.bitmap().unwrap();
+        assert!(b.height > b.width);
     }
 
     #[test]

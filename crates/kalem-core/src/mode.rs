@@ -138,9 +138,11 @@ fn by_name(name: &str) -> Option<DocumentMode> {
 
 /// Whether the start of a file looks binary: a NUL byte, or bytes that are
 /// not UTF-8 with many control characters among them (text in a legacy
-/// encoding such as Windows-1254 has none).
+/// encoding such as Windows-1254 has none). A PDF file is binary even
+/// when its streams are not compressed and its bytes read as text (ISO
+/// 32000-2, 7.5.2: byte offsets make it so).
 pub fn looks_binary(sample: &[u8]) -> bool {
-    if sample.contains(&0) {
+    if sample.contains(&0) || sample.starts_with(b"%PDF-") {
         return true;
     }
     match std::str::from_utf8(sample) {
@@ -317,6 +319,11 @@ mod tests {
 
     #[test]
     fn detection() {
+        // A PDF whose bytes read as text is still not text.
+        assert_eq!(
+            detect("a.pdf", "%PDF-1.7\n1 0 obj << >> endobj"),
+            DocumentMode::Binary
+        );
         assert_eq!(detect("a.org", "* x"), DocumentMode::Org);
         assert_eq!(detect("README.md", "# x"), DocumentMode::Markdown);
         assert_eq!(detect("data.TSV", "a\tb"), DocumentMode::Csv);

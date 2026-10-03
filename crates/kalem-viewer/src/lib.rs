@@ -512,6 +512,15 @@ pub trait ViewerDocument: Send {
     /// A unit rendered.
     fn render(&mut self, unit: usize, request: RenderRequest) -> Result<Rendered>;
 
+    /// A unit's size at scale 1, when the viewer knows it without
+    /// rendering (a page's): the host then renders the unit at the scale
+    /// it shows it at, so it stays sharp when zoomed, and fits it to the
+    /// area larger than its own size. `None` for a unit whose size is its
+    /// pixels' (a picture).
+    fn size(&self, _unit: usize) -> Option<(f32, f32)> {
+        None
+    }
+
     /// A unit's text, for search, copy and the terminal.
     fn text(&self, unit: usize) -> String;
 

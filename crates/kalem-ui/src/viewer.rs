@@ -14,8 +14,9 @@ use gpui::{
 
 use crate::editor::Editor;
 
-/// The textures shown, by generation, unit and turn.
-type Key = (u64, usize, u8);
+/// The textures shown, by generation, unit, turn and the scale they were
+/// rendered at.
+type Key = (u64, usize, u8, u32);
 
 /// The view's own state, kept by the editor.
 #[derive(Default)]
@@ -60,7 +61,13 @@ impl Editor {
         let Some(v) = self.doc.viewer.as_deref_mut() else {
             return Err(String::new());
         };
-        let key = (v.generation(), v.unit, v.rotation);
+        v.set_pixel_ratio(window.scale_factor());
+        let key = (
+            v.generation(),
+            v.unit,
+            v.rotation,
+            v.render_scale().to_bits(),
+        );
         if let Some((_, img)) = self.viewer_view.images.iter().find(|(k, _)| *k == key) {
             return Ok(img.clone());
         }
