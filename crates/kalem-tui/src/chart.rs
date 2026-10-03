@@ -1,7 +1,7 @@
 //! A spreadsheet's charts drawn in the terminal: bars as ratatui's bar
 //! charts, lines and points in braille, slices as bars of their shares.
 
-use kalem_viewer::{Chart, ChartKind};
+use kalem_viewer::{Chart, ChartKind, LegendPosition};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
@@ -61,34 +61,99 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
     if inner.width < 2 || inner.height < 1 {
         return;
     }
-    // A legend line at the bottom when there are several series.
-    let (plot, legend) = if chart.series.len() > 1 && inner.height > 3 {
-        (
-            Rect::new(inner.x, inner.y, inner.width, inner.height - 1),
-            Some(Rect::new(
-                inner.x,
-                inner.y + inner.height - 1,
-                inner.width,
-                1,
-            )),
-        )
-    } else {
-        (inner, None)
+    // The legend where the chart asks: a line above or below the plot, or
+    // a column beside it.
+    let entries: Vec<(String, Style)> = match chart.kind {
+        ChartKind::Pie | ChartKind::Doughnut => {
+            let n = chart.series.first().map_or(0, |s| s.values.len());
+            (0..n)
+                .map(|i| {
+                    (
+                        chart
+                            .categories
+                            .get(i)
+                            .cloned()
+                            .unwrap_or_else(|| (i + 1).to_string()),
+                        color(caps, None, i),
+                    )
+                })
+                .collect()
+        }
+        _ => chart
+            .series
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.name.clone(), color(caps, s.color, i)))
+            .collect(),
     };
-    if let Some(l) = legend {
+    let mark = if caps.ascii { "#" } else { "■" };
+    let line_legend = |buf: &mut Buffer, l: Rect| {
         let mut x = l.x;
-        for (i, s) in chart.series.iter().enumerate() {
-            let mark = if caps.ascii { "#" } else { "■" };
-            let text = format!("{mark} {} ", s.name);
-            let w = text.chars().count() as u16;
+        for (name, style) in &entries {
+            let w = name.chars().count() as u16 + 3;
             if x + w > l.x + l.width {
                 break;
             }
-            buf.set_string(x, l.y, mark, color(caps, s.color, i));
-            buf.set_string(x + 2, l.y, &text[mark.len() + 1..], Style::default());
+            buf.set_string(x, l.y, mark, *style);
+            buf.set_string(x + 2, l.y, name, Style::default());
             x += w;
         }
-    }
+    };
+    let column_legend = |buf: &mut Buffer, l: Rect, top: bool| {
+        let n = (entries.len() as u16).min(l.height);
+        let y0 = if top { l.y } else { l.y + (l.height - n) / 2 };
+        for (k, (name, style)) in entries.iter().take(n as usize).enumerate() {
+            let y = y0 + k as u16;
+            buf.set_string(l.x, y, mark, *style);
+            buf.set_stringn(
+                l.x + 2,
+                y,
+                name,
+                l.width.saturating_sub(2) as usize,
+                Style::default(),
+            );
+        }
+    };
+    let side = (entries
+        .iter()
+        .map(|e| e.0.chars().count())
+        .max()
+        .unwrap_or(0) as u16
+        + 3)
+    .min(inner.width / 3);
+    let pos = chart.legend.filter(|_| !entries.is_empty());
+    let plot = match pos {
+        Some(LegendPosition::Top) if inner.height > 3 => {
+            line_legend(buf, Rect::new(inner.x, inner.y, inner.width, 1));
+            Rect::new(inner.x, inner.y + 1, inner.width, inner.height - 1)
+        }
+        Some(LegendPosition::Bottom) if inner.height > 3 => {
+            line_legend(
+                buf,
+                Rect::new(inner.x, inner.y + inner.height - 1, inner.width, 1),
+            );
+            Rect::new(inner.x, inner.y, inner.width, inner.height - 1)
+        }
+        Some(LegendPosition::Left) if side > 2 => {
+            column_legend(buf, Rect::new(inner.x, inner.y, side, inner.height), false);
+            Rect::new(
+                inner.x + side + 1,
+                inner.y,
+                inner.width - side - 1,
+                inner.height,
+            )
+        }
+        Some(p @ (LegendPosition::Right | LegendPosition::TopRight)) if side > 2 => {
+            let x = inner.x + inner.width - side;
+            column_legend(
+                buf,
+                Rect::new(x, inner.y, side, inner.height),
+                p == LegendPosition::TopRight,
+            );
+            Rect::new(inner.x, inner.y, inner.width - side - 1, inner.height)
+        }
+        _ => inner,
+    };
     let label = |i: usize| {
         chart
             .categories

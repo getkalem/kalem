@@ -1259,6 +1259,7 @@ cmd-viewer-grid-deleteChart = Delete Chart
 cmd-viewer-grid-chartTitle = Chart Title
 cmd-viewer-grid-horizontalAxisTitle = Horizontal Axis Title
 cmd-viewer-grid-verticalAxisTitle = Vertical Axis Title
+cmd-viewer-grid-chartLegend = Chart Legend
 cmd-viewer-grid-moveChartUp = Move Chart Up
 cmd-viewer-grid-moveChartDown = Move Chart Down
 cmd-viewer-grid-moveChartLeft = Move Chart Left
