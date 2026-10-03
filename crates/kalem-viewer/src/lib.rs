@@ -453,6 +453,20 @@ pub struct Chart {
     pub anchor: [u32; 4],
     /// Bars or areas stacked.
     pub stacked: bool,
+    /// The horizontal axis's title.
+    pub horizontal_title: Option<String>,
+    /// The vertical axis's title.
+    pub vertical_title: Option<String>,
+}
+
+/// One of a chart's axes, by where it is drawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChartAxis {
+    /// The axis along the bottom (categories of a column chart, values of
+    /// a bar chart, x of a scatter chart).
+    Horizontal,
+    /// The axis along the side.
+    Vertical,
 }
 
 /// How a pivot table summarizes a value field.
@@ -983,6 +997,18 @@ pub trait ViewerDocument: Send {
         &mut self,
         _unit: usize,
         _index: usize,
+        _title: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives an axis of the chart at `index` of [`ViewerDocument::charts`]
+    /// a title, or takes it away (`None`).
+    fn set_axis_title(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _axis: ChartAxis,
         _title: Option<String>,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
