@@ -281,6 +281,28 @@ fn cells_rows_undo_and_save() {
     assert_eq!(input(&mut t, 2, 1), "431.5");
     assert_eq!(input(&mut t, 3, 2), "950");
 
+    // B3:C4 cut and pasted at H10: moved, the formulas that read them follow.
+    let text = {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(2, 1);
+        v.grid_extend_to(3, 2);
+        v.selection_tsv()
+    };
+    t.app.run_command("edit.cut", json!({}));
+    assert_eq!(
+        t.app.doc.viewer.as_deref().unwrap().cut_range(),
+        Some([2, 1, 3, 2])
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 7);
+    t.app.paste(&text, false);
+    assert_eq!(input(&mut t, 2, 1), "");
+    assert_eq!(input(&mut t, 9, 7), "431.5");
+    assert_eq!(input(&mut t, 2, 3), "=H10+I10");
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().cut_range(), None);
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 2, 1), "431.5");
+    assert_eq!(input(&mut t, 2, 3), "=B3+C3");
+
     // Pasted text: rows into cells in one step; one value fills a selection.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 0);
     t.app.paste("Books\t1,000.50\nTea\t=B10*2\n", false);

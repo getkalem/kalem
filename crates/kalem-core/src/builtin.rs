@@ -4174,6 +4174,15 @@ fn plain_commands() -> Vec<Command> {
             request(ctx, Request::Copy)
         }),
         cmd("edit.cut", "Cut", "Edit", &["ctrl+x"], None, |ctx, _| {
+            // A spreadsheet's cells are cut to be moved where they are pasted.
+            if ctx
+                .document
+                .as_deref()
+                .and_then(|d| d.viewer.as_deref())
+                .is_some_and(|v| v.is_grid())
+            {
+                return crate::viewer::cut(ctx);
+            }
             request(ctx, Request::Cut)
         }),
         cmd(

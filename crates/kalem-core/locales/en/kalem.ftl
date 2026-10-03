@@ -1209,6 +1209,7 @@ cmd-viewer-grid-tallerRow = Taller Row
 cmd-viewer-grid-wrapText = Wrap Text
 cmd-viewer-grid-cancel = Clear Selection
 cmd-viewer-grid-pasteText = Paste into Cells
+cmd-viewer-grid-cut = Cut Cells
 cmd-viewer-grid-selectUp = Select Up
 cmd-viewer-grid-selectDown = Select Down
 cmd-viewer-grid-selectLeft = Select Left

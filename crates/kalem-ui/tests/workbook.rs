@@ -243,6 +243,37 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     assert!(wrapped && height > 15.0, "{wrapped} {height}");
 
+    // B3:C4 cut (a dashed frame shows it) and pasted at H10: moved, the
+    // formulas that read them follow.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(2, 1);
+        v.grid_extend_to(3, 2);
+        e.run_command("edit.cut", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("viewer-grid-cut").is_some(),
+        "the cut is framed"
+    );
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 7);
+        e.run_command("edit.paste", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    let (b3, d3) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(2, 1);
+        let b3 = v.cell_input();
+        v.grid_move_to(2, 3);
+        (b3, v.cell_input())
+    });
+    assert_eq!((b3.as_str(), d3.as_str()), ("", "=H10+I10"));
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+
     // B2 to C3 selected by dragging, then merged.
     let from = cx
         .debug_bounds("viewer-grid-cell-1-1")
