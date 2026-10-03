@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Large Markdown files: a keystroke in a 10 MB file reparses in 10 ms (was 215 ms), and files over 2 MiB are parsed in the background when they open instead of staying as source.
 - File manager: entries dragged in the graphical editor move into the folder they are dropped on (copied with Alt or Option), in the same listing or another pane, and dropped on a document they are linked in its syntax; Open in New Pane in the menu.
 - Completion shows the chosen item's documentation beside the list, from the language server (`Enum.` in Elixir: each function's description and spec), in both editors.
 - Kalem says in the status bar when an installed plugin has a newer version (checked once a day, `plugins.check_updates`), and restarts a plugin's language servers after it is updated or removed.
