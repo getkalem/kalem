@@ -1,0 +1,22 @@
+[package]
+name = "kalem-script"
+description = "The WebAssembly host of the Kalem editor's plugins (D28): components compiled once and cached, capabilities granted by the host, a time and a memory budget per instance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# D28, decided on the spike of T3.1.0: wasmtime with Cranelift, the
+# component model, nothing of WASI.
+wasmtime = { version = "49", default-features = false, features = ["runtime", "component-model", "cranelift", "parallel-compilation", "std", "anyhow"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+# Test components are written in the component text format.
+wasmtime = { version = "49", default-features = false, features = ["wat"] }
+
+[lints]
+workspace = true

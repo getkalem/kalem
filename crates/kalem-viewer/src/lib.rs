@@ -211,6 +211,17 @@ impl Bitmap {
         }
     }
 
+    /// The pixels as BGRA, the order GPUs and gpui take them. Here rather
+    /// than in a frontend so that debug builds, which build this crate
+    /// optimized, convert a page of tens of megabytes in milliseconds.
+    pub fn bgra(&self) -> Vec<u8> {
+        let mut out = self.rgba.to_vec();
+        for p in out.as_chunks_mut::<4>().0 {
+            p.swap(0, 2);
+        }
+        out
+    }
+
     /// The bitmap turned clockwise by `quarters` quarter turns.
     pub fn rotated(&self, quarters: u8) -> Bitmap {
         let (w, h) = (self.width as usize, self.height as usize);
@@ -1196,6 +1207,12 @@ mod tests {
 
     fn red(b: &Bitmap) -> Vec<u8> {
         b.rgba.as_chunks::<4>().0.iter().map(|p| p[0]).collect()
+    }
+
+    #[test]
+    fn bgra() {
+        let b = Bitmap::new(1, 2, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(b.bgra(), [3, 2, 1, 4, 7, 6, 5, 8]);
     }
 
     #[test]

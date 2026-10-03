@@ -1,6 +1,8 @@
 *Everything in this chapter is planned*, except language plugins,
-which are declarative and load today ([[file:language-plugins.org][Language plugins]]). The plugin
-runtime is not implemented: Kalem cannot load a component today. The design is decided
+which are declarative and load today ([[file:language-plugins.org][Language plugins]]). The host
+that runs components exists (below) but Kalem does not load plugins
+through it yet: the API it will grant, the loader and the commands are
+to come. The design is decided
 (D25, D28, D29) and written out in section 11 of
 [[https://github.com/getkalem/kalem/blob/main/docs/design_document.md][the design document]]: the manifest, the API, the events, the
 extension points and an example plugin. The work is groups 3.1 to 3.3
@@ -30,6 +32,30 @@ going. What you can extend today is in [[file:overview.org][The extension model]
   and external tools talk JSON-RPC over standard input and output.
   From phase 4, a power user may compile plugins into their own Kalem
   binary, with native speed and no sandbox, by their own choice.
+
+* The host
+
+=kalem-script= runs components in wasmtime with its Cranelift compiler,
+the engine chosen by measurement ([[file:../part-5/decisions/D28-plugin-abi.org][D28]]):
+
+- A component is compiled the first time it loads and kept in the state
+  directory, named by its hash and the engine's version and settings;
+  later starts read it in a fraction of a millisecond. A file another
+  engine wrote, or a damaged one, is compiled again.
+- A plugin reaches only what Kalem grants it. Its imports are resolved
+  against what the host defines for it and nothing else; one asking for
+  more is refused, and the refusal names the import.
+- Each call has a time budget, 100 ms by default, counted by a clock
+  that ticks every 10 ms; a plugin past it is stopped. Each instance has
+  a memory limit, 64 MB by default; a plugin asking for more gets an
+  allocation failure, and Kalem tells the two apart from the plugin's
+  own failures.
+- A loaded plugin is shared by threads, each with an instance of its
+  own, so parsers, renderers and completers run in parallel.
+- Plugins are built for =wasm32-unknown-unknown= and wrapped as
+  components, so they import nothing the API does not name; built for
+  =wasm32-wasip2= a Rust component imports fifteen WASI interfaces it
+  never uses.
 
 A plugin is a folder with a manifest, =plugin.json= (its ID, the
 component, the API version, activation events, permissions, and the
