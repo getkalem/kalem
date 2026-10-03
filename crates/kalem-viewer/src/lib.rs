@@ -357,6 +357,8 @@ pub struct GridCell {
     pub fill: Option<[u8; 3]>,
     /// The alignment.
     pub align: Align,
+    /// The text wraps onto more lines within the cell's width.
+    pub wrap: bool,
     /// The cell holds a formula.
     pub formula: bool,
     /// The cell has a note (shown as a mark; [`ViewerDocument::cell_note`] gives it).
@@ -614,6 +616,12 @@ pub trait ViewerDocument: Send {
 
     /// Changes a grid's shape.
     fn grid_edit(&mut self, _unit: usize, _edit: GridEdit) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Turns wrapping of a cell's text on or off (a style of the cell,
+    /// as a spreadsheet's Wrap Text).
+    fn set_wrap(&mut self, _unit: usize, _row: u32, _col: u32, _wrap: bool) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
