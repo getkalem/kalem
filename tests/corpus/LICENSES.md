@@ -30,6 +30,7 @@ Rules:
 | `markdown/readmes/mermaid.md` | `README.md` of github.com/mermaid-js/mermaid | 97b34515 | MIT |
 | `markdown/readmes/kubernetes.md` | `README.md` of github.com/kubernetes/kubernetes | 12eb5840 | Apache-2.0 |
 | `markdown/vault/foam-docs/**` | `docs/` of github.com/foambubble/foam, a Foam vault of notes with wiki links (images left out); its licence is `markdown/vault/foam-docs/LICENSE.txt` | 2a02ccd | MIT |
+| `math/katex-corpus.txt` | 1,000 formulas from the Open Logic Project (github.com/OpenLogicProject/OpenLogic) and the HoTT book (github.com/HoTT/book), extracted by `tools/math-corpus.py` | OpenLogic 1e960bef, HoTT 578b85cc | CC BY-SA 3.0 (the HoTT book's formulas; the Open Logic Project's are CC BY 4.0) |
 
 ## Extended corpus
 
