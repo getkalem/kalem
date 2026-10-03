@@ -1,0 +1,32 @@
+\begin{table}[t!]
+\begin{center}
+\caption{OLS and IV estimates}
+\label{tbl:OLS_IV}
+\begin{tabular}{l*{5}{c}}
+\toprule\toprule
+&\multicolumn{2}{c}{OLS strategy}&\multicolumn{3}{c}{IV strategy}\\
+&\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}&\multicolumn{1}{c}{(5)}\\
+&\multicolumn{1}{c}{$\mathbbm{1}$(recom. $\geq$}&\multicolumn{1}{c}{End term}&\multicolumn{1}{c}{End term}&\multicolumn{1}{c}{$\mathbbm{1}$(recom. $\geq$}&\multicolumn{1}{c}{$\mathbbm{1}$(recom. $\geq$}\\
+[-0.75em]
+&\multicolumn{1}{c}{college tr.)}&\multicolumn{1}{c}{grade 5}&\multicolumn{1}{c}{grade 5}&\multicolumn{1}{c}{college tr.)}&\multicolumn{1}{c}{college tr.)}\\
+\midrule 
+SES income          &       0.028***&       0.229***  & 0.031***
+                    &       0.030***&       0.016***\\
+                    &     (0.001)   &     (0.004)   &     (0.001) &     (0.001)   &     (0.001)   \\
+End term grade 5    &       0.381***&              &                                  &               &       0.432***\\
+                    &     (0.001)   &                &            &               &     (0.002)   \\
+Midterm grade 5     &       &        &       0.887***&       0.383***&               \\
+                    &        &     &     (0.002)   &     (0.001)  &               \\              
+[.25em]
+Observations        &      148019   &      148019   & 148019  & 148019  & 148019  \\
+\(R^{2}\)           &       0.498   &       0.064   &  0.794 & 0.500 &   0.490   \\
+$\Bigg(\frac{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}{ \sigma_{u_{t}}^2+\sigma_{m_{t}}^2}\Bigg)$ &   &   &  0.992 &   &   \\
+\bottomrule \bottomrule
+    \end{tabular}
+        \begin{tablenotes}
+	\footnotesize
+        \item[] Notes:  ***, **, * refers to statistical significance at the 1, 5, and 10\% level. Coefficients in columns (1) through (4) are estimated with OLS, and in column (5) with 2SLS. Standard errors (in parentheses) are clustered at the school level.
+        \end{tablenotes}
+ \end{center}
+\end{table}
+

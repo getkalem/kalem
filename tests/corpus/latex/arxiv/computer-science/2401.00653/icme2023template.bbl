@@ -1,0 +1,158 @@
+\begin{thebibliography}{10}
+
+\bibitem{MFCN}
+Ronald Salloum, Yuzhuo Ren, and C-C~Jay Kuo,
+\newblock ``Image splicing localization using a multi-task fully convolutional network (mfcn),''
+\newblock {\em Journal of Visual Communication and Image Representation}, vol. 51, pp. 201--209, 2018.
+
+\bibitem{RRU-Net}
+Xiuli Bi, Yang Wei, Bin Xiao, and Weisheng Li,
+\newblock ``Rru-net: The ringed residual u-net for image splicing forgery detection,''
+\newblock in {\em Proceedings of the IEEE/CVF Conference on CVPR Workshops}, 2019, pp. 0--0.
+
+\bibitem{wu2019mantra}
+Yue Wu, Wael AbdAlmageed, and Premkumar Natarajan,
+\newblock ``{ManTra}-{Net}: Manipulation tracing network for detection and localization of image forgeries with anomalous features,''
+\newblock in {\em Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, 2019, pp. 9543--9552.
+
+\bibitem{HPFCN}
+Haodong Li and Jiwu Huang,
+\newblock ``Localization of deep inpainting using high-pass fully convolutional network,''
+\newblock in {\em proceedings of the IEEE/CVF international conference on computer vision}, 2019, pp. 8301--8310.
+
+\bibitem{H-LSTM}
+Jawadul~H Bappy, Cody Simons, Lakshmanan Nataraj, BS~Manjunath, and Amit~K Roy-Chowdhury,
+\newblock ``Hybrid lstm and encoder--decoder architecture for detection of image forgeries,''
+\newblock {\em IEEE Transactions on Image Processing}, vol. 28, no. 7, pp. 3286--3300, 2019.
+
+\bibitem{SPAN}
+Xuefeng Hu, Zhihan Zhang, Zhenye Jiang, Syomantak Chaudhuri, Zhenheng Yang, and Ram Nevatia,
+\newblock ``Span: Spatial pyramid attention network for image manipulation localization,''
+\newblock in {\em Computer Vision--ECCV 2020: 16th European Conference, Glasgow, UK, August 23--28, 2020, Proceedings, Part XXI 16}. Springer, 2020, pp. 312--328.
+
+\bibitem{PSCC}
+Xiaohong Liu, Yaojie Liu, Jun Chen, and Xiaoming Liu,
+\newblock ``Pscc-net: Progressive spatio-channel correlation network for image manipulation detection and localization,''
+\newblock {\em IEEE Transactions on Circuits and Systems for Video Technology}, vol. 32, pp. 7505--7517, 2022.
+
+\bibitem{MVSS-Net++}
+Chengbo Dong, Xinru Chen, Ruohan Hu, Juan Cao, and Xirong Li,
+\newblock ``Mvss-net: Multi-view multi-scale supervised networks for image manipulation detection,''
+\newblock {\em IEEE Transactions on Pattern Analysis and Machine Intelligence}, vol. 45, no. 3, pp. 3539--3553, 2022.
+
+\bibitem{CAT-Net}
+Myung-Joon Kwon, Seung-Hun Nam, In-Jae Yu, Heung-Kyu Lee, and Changick Kim,
+\newblock ``Learning jpeg compression artifacts for image manipulation detection and localization,''
+\newblock {\em International Journal of Computer Vision}, vol. 130, no. 8, pp. 1875--1895, 2022.
+
+\bibitem{EVP}
+Weihuang Liu, Xi~Shen, Chi-Man Pun, and Xiaodong Cun,
+\newblock ``Explicit visual prompting for low-level structure segmentations,''
+\newblock in {\em Proceedings of the IEEE/CVF Conference on CVPR}, 2023, pp. 19434--19445.
+
+\bibitem{FCN}
+Jonathan Long, Evan Shelhamer, and Trevor Darrell,
+\newblock ``Fully convolutional networks for semantic segmentation,''
+\newblock in {\em Proceedings of the IEEE conference on CVPR}, 2015, pp. 3431--3440.
+
+\bibitem{DeepLabv3}
+Liang-Chieh Chen, George Papandreou, Iasonas Kokkinos, Kevin Murphy, and Alan~L Yuille,
+\newblock ``Deeplab: Semantic image segmentation with deep convolutional nets, atrous convolution, and fully connected crfs,''
+\newblock {\em IEEE transactions on pattern analysis and machine intelligence}, vol. 40, no. 4, pp. 834--848, 2017.
+
+\bibitem{PIM}
+Chenqi Kong, Anwei Luo, Shiqi Wang, Haoliang Li, Anderson Rocha, and Alex~C Kot,
+\newblock ``Pixel-inconsistency modeling for image manipulation localization,''
+\newblock {\em arXiv preprint arXiv:2310.00234}, 2023.
+
+\bibitem{CASIA2}
+Jing Dong, Wei Wang, and Tieniu Tan,
+\newblock ``Casia image tampering detection evaluation database,''
+\newblock in {\em 2013 IEEE China summit and international conference on signal and information processing}. IEEE, 2013, pp. 422--426.
+
+\bibitem{CASIA1}
+Jing Dong, Wei Wang, and Tieniu Tan,
+\newblock ``Casia image tampering detection evaluation database,''
+\newblock in {\em 2013 IEEE China summit and international conference on signal and information processing}. IEEE, 2013, pp. 422--426.
+
+\bibitem{Columbia}
+Tian-Tsong Ng, Jessie Hsu, and Shih-Fu Chang,
+\newblock ``Columbia image splicing detection evaluation dataset,''
+\newblock {\em DVMM lab. Columbia Univ CalPhotos Digit Libr}, 2009.
+
+\bibitem{COVER}
+Bihan Wen, Ye~Zhu, Ramanathan Subramanian, Tian-Tsong Ng, Xuanjing Shen, and Stefan Winkler,
+\newblock ``Coverage—a novel database for copy-move forgery detection,''
+\newblock in {\em 2016 IEEE international conference on image processing (ICIP)}. IEEE, 2016, pp. 161--165.
+
+\bibitem{NIST16}
+Haiying Guan, Mark Kozak, Eric Robertson, Yooyoung Lee, Amy~N Yates, Andrew Delgado, Daniel Zhou, Timothee Kheyrkhah, Jeff Smith, and Jonathan Fiscus,
+\newblock ``Mfc datasets: Large-scale benchmark datasets for media forensic challenge evaluation,''
+\newblock in {\em 2019 IEEE Winter Applications of Computer Vision Workshops}. IEEE, 2019, pp. 63--72.
+
+\bibitem{Korus}
+Pawe{\l} Korus and Jiwu Huang,
+\newblock ``Evaluation of random field models in multi-modal unsupervised tampering localization,''
+\newblock in {\em 2016 IEEE international workshop on information forensics and security (WIFS)}. IEEE, 2016, pp. 1--6.
+
+\bibitem{In-the-Wild}
+Minyoung Huh, Andrew Liu, Andrew Owens, and Alexei~A Efros,
+\newblock ``Fighting fake news: Image splice detection via learned self-consistency,''
+\newblock in {\em Proceedings of the European conference on computer vision (ECCV)}, 2018, pp. 101--117.
+
+\bibitem{DEFACTO-12K}
+Ga{\"e}l Mahfoudi, Badr Tajini, Florent Retraint, Frederic Morain-Nicolier, Jean~Luc Dugelay, and PIC Marc,
+\newblock ``Defacto: Image and face manipulation dataset,''
+\newblock in {\em 2019 27Th european signal processing conference (EUSIPCO)}. IEEE, 2019, pp. 1--5.
+
+\bibitem{IMD20}
+Adam Novozamsky, Babak Mahdian, and Stanislav Saic,
+\newblock ``Imd2020: A large-scale annotated dataset tailored for detecting manipulated images,''
+\newblock in {\em Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision Workshops}, 2020, pp. 71--80.
+
+\bibitem{OSN}
+Haiwei Wu, Jiantao Zhou, Jinyu Tian, and Jun Liu,
+\newblock ``Robust image forgery detection over online social network shared images,''
+\newblock in {\em Proceedings of the IEEE/CVF Conference on CVPR}, 2022, pp. 13440--13449.
+
+\bibitem{Mask2Former}
+Bowen Cheng, Ishan Misra, Alexander~G Schwing, Alexander Kirillov, and Rohit Girdhar,
+\newblock ``Masked-attention mask transformer for universal image segmentation,''
+\newblock in {\em Proceedings of the IEEE/CVF conference on CVPR}, 2022, pp. 1290--1299.
+
+\bibitem{MAE}
+Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Doll{\'a}r, and Ross Girshick,
+\newblock ``Masked autoencoders are scalable vision learners,''
+\newblock in {\em Proceedings of the IEEE/CVF conference on CVPR}, 2022, pp. 16000--16009.
+
+\bibitem{CMX}
+Jiaming Zhang, Huayao Liu, Kailun Yang, Xinxin Hu, Ruiping Liu, and Rainer Stiefelhagen,
+\newblock ``Cmx: Cross-modal fusion for rgb-x semantic segmentation with transformers,''
+\newblock {\em IEEE Transactions on Intelligent Transportation Systems}, 2023.
+
+\bibitem{VPT}
+Menglin Jia, Luming Tang, Bor-Chun Chen, Claire Cardie, Serge Belongie, Bharath Hariharan, and Ser-Nam Lim,
+\newblock ``Visual prompt tuning,''
+\newblock in {\em European Conference on Computer Vision}, 2022, pp. 709--727.
+
+\bibitem{swin}
+Ze~Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo,
+\newblock ``Swin transformer: Hierarchical vision transformer using shifted windows,''
+\newblock in {\em Proceedings of the IEEE/CVF international conference on computer vision}, 2021, pp. 10012--10022.
+
+\bibitem{deformable}
+Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang, and Jifeng Dai,
+\newblock ``Deformable detr: Deformable transformers for end-to-end object detection,''
+\newblock {\em arXiv preprint arXiv:2010.04159}, 2020.
+
+\bibitem{ying2023learning}
+Qichao Ying, Hang Zhou, Zhenxing Qian, Sheng Li, and Xinpeng Zhang,
+\newblock ``Learning to immunize images for tamper localization and self-recovery,''
+\newblock {\em IEEE Transactions on Pattern Analysis and Machine Intelligence}, 2023.
+
+\bibitem{DRAW}
+Xiaoxiao Hu, Qichao Ying, Zhenxing Qian, Sheng Li, and Xinpeng Zhang,
+\newblock ``Draw: Defending camera-shooted raw against image manipulation,''
+\newblock in {\em Proceedings of the IEEE/CVF International Conference on Computer Vision}, 2023, pp. 22434--22444.
+
+\end{thebibliography}

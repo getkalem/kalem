@@ -1,0 +1,39 @@
+\section{Introduction}
+% Word count 648
+A fundamental function of the brain is to encode and interpret the perceptual significance of stimuli encountered in the environment. 
+Real-world stimuli, often complex and multifaceted, challenge sensory systems to integrate various characteristics into cohesive perceptual wholes, which retain crucial information for perception and behavior. 
+Sensory neurons respond to specific stimulus attributes, such as light intensity, color, and sound frequency. However, individual neurons' responses, varying in spatial and temporal aspects, only provide partial insights into these perceptual wholes.
+Consequently, spatial-temporal relationships among sensory neurons are pivotal for altering downstream neuronal activities, leading to successful perception~\cite{Ackels2021, Caruso2018, Borghuis2019, Panzeri2010}.
+ 
+% recognition receptive field,  rate coding vs probabilistic coding; local vs non-local
+Understanding how downstream neurons process this sensory information is at the heart of computational neuroscience. 
+The seminal work of Hubel and Wiesel~\cite{Hubel1962} introduced a feedforward model explaining the visual cortex's orientation selectivity in cats. 
+Following this, a line of studies have utilized artificial nodes to model neural activities~\cite{Jones1987, Olshausen1996}. 
+However, early research mainly used handcrafted parameters and simplified stimuli, thus unlikely to address complex perceptual tasks.
+With great advances in deep learning~\cite{LeCun2015} and its historical ties with neuroscience~\cite{Hassabis2017}, there is an increasing trend to use artificial neural networks (ANNs) to understand neural computation in the brain~\cite{KhalighRazavi2014, Cichy2016, Li2023}.
+However, a critical difference exists between ANNs and biological circuits in how they represent and propagate information. 
+ANNs function by using continuous and deterministic activation values in noise-free environments. 
+This allows for the availability of global information at every computational step.
+In contrast, biological neurons communicate through discrete and irregular spiking activities~\cite{Tomko1974, Tolhurst1983, Softky1993}, which are temporally noisy but consistent in amplitude. 
+This implies that biological neurons access only local information at a time. 
+To capture temporal-distributed information, ANNs require structures such as recurrent connections with long short-term memory units or transformers, which are either not biologically plausible or non-causal~\cite{Li2023}. 
+In comparison, biological neurons leverage their integrate-and-fire properties to process temporal information~\cite{Koenig1996}.
+Thus, while conventional ANNs are valuable for understanding the 'what' of the brain's computations, they fall short in explaining the 'how'.
+
+Addressing the computations undertaken by biological neurons requires understanding both how information is encoded in neuronal responses and how it affects downstream neurons~\cite{Panzeri2017}.
+The firing rate, which is characterized as the number of spikes in a given time window, is a common method to encode information~\cite{Golledge2003, montani2007role, Rolls2011}.
+However, increasing theoretical and experimental evidence indicates the importance of temporal structures and correlations between neuronal responses in representing information~\cite{Shamir2004, Averbeck2006a, Pillow2008, ElGaby2021, panzeri2022structures-reviews}.
+By evaluating the disparity in information regarding the targeted perception offered by collective neuron responses as opposed to individual ones, we can assess the connection between the responses of sensory neurons and perceptual information~\cite{Pola2003, Schneidman2003}. 
+When perception-related information is present in the collective responses but absent in individual responses, it indicates that such information arises from the synergistic coactivity of neurons, rather than from isolated neuronal responses.
+Crucially, this synergistic effect is influenced by factors such as stimulus-induced synchrony or the rate at which spiking patterns occur~\cite{quiroga2013principles, panzeri2022structures-reviews}. 
+
+Incorporating the perceptual disentangling hypothesis~\cite{DiCarlo2007, DiCarlo2012}, we introduce a novel concept of covariance-based computation in biological neurons. 
+This computation is akin to a 'decorrelation' process, transitioning pertinent information from neuronal coactivities to the responses of individual neurons, thereby facilitating the linear decoding of perceptual information.
+We start by introducing an encoding scheme that partitions sensory neuron covariance into components influenced by instantaneous stimulus intensity and neuronal activity fluctuations. 
+We then demonstrate this scheme by encoding a moving grating's direction in the covariance of neurons that respond to light intensity and rate changes. 
+Using the moment neural network (MNN) as the proxy, which rigorously characterizes spiking neural network (SNN) neuron statistics~\cite{Feng2006, Lu2010, Qi2023}, we can recover direction information under the principle of covariance-based computation.
+After training, hidden neurons naturally exhibit direction selectivity akin to cortical neurons~\cite{Sclar1982, Kohn2005}, without the need for specific training constraints.
+SNN simulations further show that hidden neurons decode motion direction from local fluctuations, bypassing the need for explicit global covariance information.
+Information-theoretic analysis verifies that the desired information can be perfectly recovered. 
+Moreover, networks employing our scheme enhance natural image classification accuracy and inference speed. 
+Our findings challenge the perceived secondary role of neural covariance in neural coding, highlighting its significant influence on brain functions.

@@ -116,3 +116,50 @@ fn synthetic_corpus() {
         }
     }
 }
+
+/// The arXiv papers committed under CC BY or CC0
+/// (tests/corpus/latex/arxiv, T2.7h.30): every file parses back to its
+/// bytes, opens as the editors open it, and its first lines draw, away
+/// from the cursor and with it.
+#[test]
+fn arxiv_papers() {
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                walk(&p, out);
+            } else if p.extension().is_some_and(|x| x == "tex") {
+                out.push(p);
+            }
+        }
+    }
+    let dir =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/latex/arxiv");
+    let mut files = Vec::new();
+    walk(&dir, &mut files);
+    files.sort();
+    assert!(files.len() >= 50, "{}", files.len());
+    let base = kalem_core::settings::Config::default().parse_base();
+    for path in &files {
+        let bytes = std::fs::read(path).unwrap();
+        // A file in a legacy encoding opens through the decoder; the parse
+        // round trip is checked on the UTF-8 ones.
+        if let Ok(text) = std::str::from_utf8(&bytes) {
+            let p = latex_syntax::parse(text);
+            assert_eq!(p.syntax().to_string(), text, "{}", path.display());
+        }
+        let d =
+            kalem_core::DocumentState::open(path, Arc::new(org_model::Settings::default()), &base)
+                .unwrap();
+        let t = d.text();
+        for l in 0..t.line_count().min(200) {
+            let mut r = t.line_range(l);
+            let s = &t.as_str()[r.clone()];
+            r.end -= s.len() - s.trim_end_matches(['\n', '\r']).len();
+            kalem_core::latex_view::line_view(&d, r.clone(), None);
+            kalem_core::latex_view::line_view(&d, r.clone(), Some(r.start));
+        }
+        kalem_core::latex_view::blocks(&d);
+        kalem_core::latex_view::outline_items(&d);
+    }
+}

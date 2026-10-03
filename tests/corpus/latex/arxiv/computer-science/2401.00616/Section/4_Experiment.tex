@@ -1,0 +1,133 @@
+
+
+
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{Figure/SRN_NMR_SOTA}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\section{\textbf{Experimental Results}}
+\subsection{\textbf{Experimental Settings}}
+
+\noindent\textbf{ShapeNet Cars \& Chairs.}
+Following previous methods~\cite{PixelNeRF_yu2021pixelnerf, FE_NVS_guo2022fast}, we evaluate on the synthetic large-scale ShapeNet benchmarks~\cite{ShapeNet_chang2015shapenet} with the Cars and Chairs categories following SRN~\cite{SRN_sitzmann2019scene}, which contains $3514$ cars and $6591$ chairs with an image resolution of $128 \times 128$. For each category, we train an individual model. 
+
+
+\noindent\textbf{DTU Dataset.}
+For the real-world DTU dataset, unless otherwise specified, we follow the split of ~\cite{PixelNeRF_yu2021pixelnerf} which includes $88$ training scenes and $15$ test scenes. We train at the $128\times128$ resolution and then resize to the original $300 \times 400$ resolution for comparison.
+
+\noindent\textbf{Out-distribution Metrics.}
+For the final fine-stage out-distribution method Diff3DE, we evaluate the 3D consistency via rendering a consecutive video around the dome and calculating Pixel-MSE following~\cite{ceylan2023pix2video}, which is the averaged mean-squared pixel error between warped and original frames via optical flow~\cite{teed2020raft}. Notably, since Diff3DE leverages the priors \textit{outside the training dataset distribution}, and mainly focuses on achieving vivid {plausible} details with {3D-consistency}, we do not calculate metrics with the ground truth from the dataset.
+
+
+\noindent\textbf{In-distribution Metrics.}
+For the coarse-stage in-distribution method OPP, we report the commonly used PSNR and SSIM~
+\cite{PSNR_wang2004image} as the fidelity metrics, while LPIPS~\cite{LPIPS_zhang2018unreasonable} and FID~\cite{FID_heusel2017gans} as the sharpness metrics. 
+
+ 
+\vspace{-2mm}
+\subsection{\textbf{Implementation Details}}
+
+\noindent\textbf{Architectures.}
+(i) \textit{OPP.} We directly take PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf} as the OG-NeRF part of our framework, \ie, ResNet-34 as the encoder and the ResNet-like NeRF MLP. For the verification of different pipelines,  
+we employ the commonly used U-Net~\cite{Unet_ronneberger2015u} as the generator for the two-stage pipeline, and the lightweight up-sampling module ($0.11 M$) used in one-stage pipelines is in line with ~\cite{GIRAFFE_niemeyer2021giraffe}.
+The discriminator in all the pipelines also shares the same architecture as in~\cite{GIRAFFE_niemeyer2021giraffe}. The CoRF is composed of three fully connected layers ($0.09M$). 
+
+(ii) \textit{Diff3DE.} For Diff3DE, we employ the pre-trained ControlNet-Tile~\cite{zhang2023addingControlNet} as the diffusion model, which conditions on the text together with the input image to perform super-resolution.  
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \input{Figure/real_cars} 
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{./Figure/DTU_VIS}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{0.1cm}
+\noindent\textbf{Hyper Parameters.}
+(i) \textit{OPP.} For the intermediate feature map $\textbf{I}_m$ in one-stage pipelines, we set $H_m=W_m=16$, $h_m=128$, \ie, $16\times16$ rays for grid sampling. The resolution of the random patch sampling is also set as $16\times16$. 
+For fair comparisons, we set the same training hyperparameters for all the pipelines. Specifically, for the generative learning objectives, we set $\lambda_{GAN}=1e^{-3}$ and $\lambda_{PER}=1e^{-2}$. To rigorously validate the effectiveness of our proposed method, we strictly keep the learning strategy of PixelNeRF such as the learning rate ($1e^{-4}$), optimizer (Adam solver~\cite{Adam_kingma2014adam}), and sampling points per ray ($64$ coarse and $96$ fine). 
+
+
+(ii) \textit{Diff3DE.} The dense keyframe number $N_k$ is set as $40$, which uniformly dispersed around the dome. 
+We resize the rendered images from the OPP module to $512\times512$ resolution as the Diff3DE inputs. The classifier-free guidance scale is set as $7.5$ and the denoising step number is $25$. 
+% Since ControlNet~\cite{zhang2023addingControlNet} mainly relies on the additional condition signal, we empirically find that the text description has a minor influence on the final content. Therefore, 
+For the ShapeNet Cars and Chairs categories, we use the simple text descriptions 'A car' and 'A chair', respectively; and for the DTU dataset, we use~\cite{li2023blip2}  to generate text descriptions.
+
+
+
+
+\subsection{\textbf{Comparison with State-of-the-art}}
+\label{sec:compari_sota}
+
+\noindent\textbf{Out-distribution Baselines.} Since the main goal of final fine stage is achieving vivid plausible details with 3D consistency in an inference-time finetuning-free manner via out-distribution priors, we choose recent Zero-123-NVS~\cite{liu2023zero123} as our main competitor, which is a finetuned latent diffusion model with viewpoint condition and can also synthesize novel views without per-scene finetuning using out-distribution priors.  
+
+\vspace{0.1cm}
+\noindent\textbf{In-distribution Baselines.} The main in-distribution baseline of our method is PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}, which is taken as the OG-NeRF part of our GD$^2$-NeRF. Additionally, we report the quantitative results of methods including 3D GAN methods~\cite{PiGAN_chan2021pi,Pix2NeRF_cai2022pix2nerf,chan2022EG3D}, Geometry-free method~\cite{watson20223DiM},  Large-model-based Image-to-3D methods~\cite{Jain_2021_ICCV_dietnerf,Xu_2022_SinNeRF}, and previous OG-NeRF methods~\cite{SRN_sitzmann2019scene,CodeNeRF_jang2021codenerf,FE_NVS_guo2022fast}. Notably, VisionNeRF~\cite{lin2023visionnerf} and NeRFDiff~\cite{gu2023nerfdiff} are not listed here since they require much more computation than PixelNeRF~\cite{lin2023visionnerf,gu2023nerfdiff} (detailed in the appendix), and ~\cite{gu2023nerfdiff} requires tedious per-scene optimization using the co-trained diffusion model. 
+
+
+\noindent\textbf{Qualitative Analysis.}
+We perform qualitative comparisons with previous methods on ShapNet Cars \& Chairs in Fig.~\ref{fig_srn_nmr_sota}, and DTU dataset in Fig.~\ref{fig_dtu_vis}. Obviously, Zero123-NVS shows significant inconsistency between different views together with inaccurate geometries. Also, it is sensitive to the foreground masking process, which is not suitable for relatively complex scenes as in the DTU dataset. In contrast, our method can gradually include the in- and out-distribution details while maintaining good 3D consistency and geometry on both synthetic and real-world complex datasets. 
+
+\noindent\textbf{Quantitative Analysis.}
+(i) \textit{Out-distribution 3D-consistency.}
+We compare the 3D-consistency with our main out-distribution competitor, Zero123-NVS, quantitatively in Tab.~\ref{tab:3d_consistency} using $10$ randomly picked videos from each dataset, where our method outperforms Zero123-NVS in Pixel-MSE score by almost twice. This can be credited to the primary consistency provided by the coarse-stage outputs together with the proposed global consistency approximation in fine-stage Diff3DE. 
+\\
+\noindent (ii) \textit{In-distribution Image Quality.}
+We report the in-distribution metric comparisons in Tab.~\ref{tab:category_specific}. It is obvious that our in-distribution method OPP shows a good balance between sharpness and fidelity in general, outperforming the baseline methods even though many of them require per-scene optimization/finetuning/auto-regression. It is worth mentioning that though 3DiM~\cite{watson20223DiM} achieves the best FID, as a geometry-free method, it mainly focuses on the image quality of every single view while ignoring the 3D consistency.  
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{./Table/3D_Consistency}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{Table/SRN_SOTA}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \vspace{-4mm}
+\subsection{\textbf{Ablation Studies of Out-distribution Diff3DE}}
+\label{sec:ablation_Diff3DE}
+
+
+\noindent\textbf{Effectiveness of Coarse-to-Fine.}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{./Figure/Ablation_C2F}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We verify the effectiveness of the coarse-to-fine strategy in Fig.~\ref{fig_ablation_c2f}. When directly adding Diff3DE on the blurry OG-NeRF outputs (``Ours w/o Coarse''), the results tend to lose rich details and even significantly wrong geometry, \eg, the window of the green car. With the proposed coarse-to-fine method, the wrong geometry can be generally corrected and the details are gradually included, formulating vivid outputs.
+
+\noindent\textbf{Influence of Dense Keyframe Number $N_k$.}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{./Figure/Ablation_Nk}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+The influence of dense keyframe number $N_k$ is illustrated in Fig.~\ref{fig_ablation_Nk}. With small $N_k$, the input of ISA module tends to contain contents with large variance, therefore leads to blurry outputs. Since our Diff3DE takes neighbor keyframe sets as ISA inputs, we are able to increase the dense keyframe number $N_k$ to relieve the content variance of ISA inputs. Obviously, the blurry issue is relieved as $N_k$ increases.
+
+
+\subsection{\textbf{Ablation Studies of In-distribution OPP}}
+
+\label{sec:ablation_OPP}
+Similar to~\cite {PixelNeRF_yu2021pixelnerf}, we perform in-distribution ablation studies with 10\% random instances (fixed across all experiments) from the test set of the ShapeNet Cars category. We provide the efficiency analysis of OPP in the appendix.
+
+\vspace{0.1cm}
+\noindent\textbf{Analysis of Pipelines.}
+We report the performance of different pipelines in Table \ref{tab:ablation_pipelines}. Compared with the independently trained OG-NeRF, \ie, PixelNeRF, the Two-stage Tandem Pipeline (TTP) improves the sharpness, \eg, the FID score is decreased by $21.63$, yet significantly suffers the loss of fidelity, \eg, $-1.30$ in PSNR score. With the end-to-end training in the One-stage Tandem Pipeline (OTP), the fidelity is greatly improved, but there still exist large margins compared with the independently trained OG-NeRF, \eg, $23.11$ \vs \  $23.61$ in PSNR score. In contrast, our final One-stage Parallel Pipeline (OPP) achieves both high fidelity and sharpness. 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{Table/Ablation_Pipeline}
+\input{Table/Ablation_DPS}
+\input{Table/Ablation_RVBA}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{Figure/CoRF_VIS}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{0.1cm}
+\noindent\textbf{Effectiveness of DPS.}
+We study the influence of jointly optimizing OG-NeRF and generative models with DPS in Table \ref{tab:ablation_dps}.  Compared with the independently trained OG-NeRF (\ie, PixelNeRF) and generative models (\ie, one-stage tandem pipeline), we find the DPS outputs give better performance, which proves that DPS is a lightweight yet effective structure that can facilitate the parallel optimization of OG-NeRF and generative models.
+
+\vspace{0.1cm}
+\noindent\textbf{Effectiveness of CoRF \& DPF.} Table~\ref{tab:ablation_rvba} proves the effectiveness of fusing with the output confidence map of CoRF, where the fused one achieves both high fidelity and sharpness. We also illustrate the learned confidence map in Fig.~\ref{fig_corf_vis}. Obviously, CoRF successfully learns to give the blurry part with lower confidence,  and the fused ones can achieve a good balance between $\hat{\textbf{I}}_t^{N}$ and  $\hat{\textbf{I}}_t^{G}$. 

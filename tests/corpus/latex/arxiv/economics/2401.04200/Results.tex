@@ -1,0 +1,95 @@
+\section{Results}\label{sec:Results}
+
+The baseline OLS estimates are presented in columns (1) and (2) of \Cref{tbl:OLS_IV}. Column (1) reports estimates from a regression where the dependent variable is a dummy equal to one if the teacher’s track recommendation is at or above the college track, and the independent variables are parental income (SES) and the fifth-grade end term test score. Consistent with previous evidence from the Netherlands, the findings show that students with higher income parents are more likely to receive at least a college track recommendation, conditional on the fifth-grade end term test. The estimate for the conditional SES gap implies that a one standard deviation increase in parental income is associated with a 2.8 percentage point increase in receiving at least a college track recommendation.
+
+Column (1) further shows that test scores are positively associated with teacher track recommendations. As our test scores are subject to classical measurement error, this estimate is attenuated. Whether and how this contaminates the OLS estimate for the conditional SES gap depends upon the relationship between test scores and SES. This relationship is presented in column (2). As expected, SES is positively associated with the fifth-grade end term test score. We conclude that OLS overestimates the conditional SES gap, where the magnitude of this positive contamination bias also depends on the reliability ratio of the test.
+
+\Cref{tbl:OLS_controls} in Appendix D shows OLS estimates of the conditional SES gap while including additional control variables: gender, migration dummies, age, and cohort fixed effects. The estimated gap only changes marginally, from 0.028 to 0.029. It may seem unsurprising that the estimate changes little, given that most included controls correlate weakly with parental income, with migration background as a clear exception.
+In general, these results suggest that our main estimates are robust to controlling for additional variables typically observed in administrative data.
+
+\input{FiguresTables/OLS_IV.tex}
+
+\subsection{The IV strategy}
+
+Columns (3) through (5) of \Cref{tbl:OLS_IV} show the results of the IV strategy, which uses the fifth-grade midterm test as an instrument for the fifth-grade end term test. The first stage in column (3) shows that the estimated coefficient on the midterm test is equal to $0.887$. This estimate measures the reliability ratio after multiplication with the fraction containing the variances of the error terms from the balancing regression. Hence, the first stage estimate for the reliability ratio is $0.887 \times 0.992 = 0.880$.
+
+The IV strategy addresses measurement error by using the first stage to correct the reduced form estimate on the midterm term test shown in column (4). The second stage estimate on the end term test in column (5) can be calculated by dividing the reduced form by the first stage, $\frac{0.383}{0.887}=0.432$. The corresponding IV estimate for the conditional SES gap is equal to 0.016, which implies that a one standard deviation increase in parental income is associated with a 1.6 percentage point increase in receiving at least a college track recommendation.
+
+\subsection{The EIV strategy}
+
+The EIV strategy requires a value for the reliability ratio of the end term test. From the IV strategy we know that the first stage estimate for the reliability ratio is 0.880. Reliability ratios near 0.90 are considered high \citep{Cito2017}. Depending on the topic, the GMAT is advertised to have a reliability ratio between 0.89 and 0.90 \citep{GMAT2023}, the GRE between 0.87 and 0.95 \citep{ETS2023}, and the SAT between 0.89 and 0.93 \citep{collegeboard2013}. 
+
+The EIV FS strategy uses the first stage as an estimate for the reliability ratio to directly address the bias in the OLS estimates. In particular, with the reliability ratio equal to $0.880$, the OLS estimate on the fifth-grade end term test is attenuated by a factor of $0.880$, and the conditional SES gap is overestimated by a value of $\gamma^m \delta^m \big(\frac{1-\lambda}{\lambda}\big)=0.381\times0.229\times\big(\frac{1-0.880}{0.880}\big)=0.012$. Hence, the EIV FS estimates are equal to $\big(\frac{0.381}{0.880}\big)=0.433$ and $0.028-0.012=0.016$, respectively. 
+
+\input{FiguresTables/EIV_TH.tex}
+
+The novel EIV TH strategy uses an alternative estimate for the reliability ratio, which is obtained by using the biannual test score data throughout grade two to five. \Cref{fig:TS_pitilde} presents the estimates from the first stage regressions that separately use the midterm and end term tests from grade two to five as independent variable. Instead of using the rightmost estimate on the fifth-grade midterm test as the reliability ratio, the EIV TH approach relies on the first stage estimates of all previous test scores to predict the first stage estimate of a test score  very close to the fifth-grade end term test. This approximates the estimate obtained under the ideal conditions of the test-retest method. We use a linear polynomial for the forecasting regression equation. With an $R^2$ of $0.981$ this provides a good fit for the development of the first stage estimates. The estimate for the reliability ratio is the one-period out-of-sample forecast and is equal to $0.899$. The EIV TH strategy produces an estimate for the fifth-grade end term test of 0.424 and an estimate for the conditional SES gap of $0.018$. 
+
+\subsection{Comparing results}
+
+\input{FiguresTables/OLS_IV_EIV.tex}
+
+\Cref{fig:OLSIVEIV} shows the estimates with 95\% confidence intervals for the OLS strategy together with all three strategies that aim to address measurement error. The left figure presents the estimates for the end term test and visualizes the attenuation bias of OLS with classical measurement error. The IV and EIV FS strategy inflate the test score estimate by a comparable amount, since the reduced form estimate on the midterm test scores ($0.383\times 0.992=0.380$) is similar to the medium regression estimate on the end term test scores ($0.381$). The right figure presents the estimates for the conditional SES gap. Similar attenuation bias translates into a similar contamination bias, and so the IV and EIV FS strategy also produce essentially the same estimate for the conditional SES gap. The attenuation and contamination bias are somewhat smaller for the EIV TH strategy, since the estimate for the reliability ratio is somewhat higher when using the one-period out-of-sample forecast.
+
+The formula  $\Bigg(\frac{\beta^m-\beta^{\bullet}}{\beta^m} \Bigg) \times 100$ quantifies the share of the conditional SES gap in track recommendations attributable to measurement error. Here, $\beta^m$ is the OLS estimate and $\beta^{\bullet}$ refers to the IV and EIV estimates. The IV strategy attributes 42.14\% of the SES gap to measurement error, while the EIV strategies yield estimates ranging from 35.13\% to 42.78\%, depending on how the reliability ratio is estimated. Overall, the results highlight the importance of addressing contamination bias and that, in our setting, the three strategies produce broadly consistent findings.
+
+\subsection{Testing assumptions}
+
+\Cref{ass:fs}(a) and \ref{ass:rf} have direct testable implications. Define $\Delta_{s^m_{t}}=s_{t}^m-s_{t-1}^m$ as the change in grade 5 test scores, and let $\alpha_x = \big(\frac{\mathrm{Cov}[\Delta {s^m_{t}},x]}{\sigma_{x}^2}\big)$ be the OLS estimator of a model that regresses $\Delta_{s^m_{t}}$ upon a single student characteristic $x$. The classical measurement error in our test scores, when they appear on the left-hand side, does not affect the OLS estimate. Hence, \Cref{ass:fs}(a) requires that $\alpha_{SES}$ is zero and \Cref{ass:rf} requires that $\alpha_{x}$ is zero for every student characteristic $x$, including $SES$.
+
+%\footnote{Using test scores $s^m_t$ as characteristic $x$, instead of ability $s_t$, may produce an overestimate for $\alpha_{s_t}$ and a misleading test for \Cref{ass:fs}(b), as the same measurement error $m_t$ enters both sides of the equation. 
+%To see this, we specify the following equations,
+%\begin{align*}
+% \begin{pmatrix} \Delta_{s^m_{t}}\\ \Delta_{s^m_{t}} \end{pmatrix}=\begin{pmatrix} \alpha_{s_t} \\ \alpha^m_{s_t} \end{pmatrix} \begin{pmatrix} s_{t}\\ s_{t}^m \end{pmatrix}  +  \begin{pmatrix} v_{t} \\ v_{t}^m  \end{pmatrix}.
+%\end{align*}
+%It can be shown that the OLS estimate for $\alpha^m_{s_t}=1 + \bigg(\alpha_{s_t}-1\bigg) \lambda^u$, where $\lambda^u=\Bigg(\frac{\sigma_{s_{t}}^2}{\sigma_{s_{t}}^2+\sigma_{m_{t}}^2} \Bigg)$ is the univariate reliability ratio. Given $\lambda^u<1$, we have that $\alpha^m_{s_t}>0$ even if $\alpha_{s_t}=0$. 
+%\begin{align*}
+%    \alpha^m_{s_t}=&\Bigg(\frac{\mathrm{Cov}[\Delta_{s^m_{t}},s_{t}^m ]}{\mathrm{Var}[s_{t}^m]}\Bigg)=\Bigg(\frac{\mathrm{Cov}[\Delta_{s_{t}}+\Delta_{m_{t}},s_{t}+m_{t}]}{\sigma_{s_{t}}^2+\sigma_{m_{t}}^2}\Bigg) =\Bigg(\frac{\mathrm{Cov}[\Delta_{s_{t}},s_t]+\sigma_{m_t}^2}{\sigma_{s_{t}}^2+\sigma_{m_{t}}^2}\Bigg) \\ \notag
+%   =&\Bigg(\frac{\mathrm{Cov}[\Delta_{s_{t}},s_t]}{\sigma_{s_{t}}^2}\Bigg)\Bigg( \frac{\sigma_{s_{t}}^2}{\sigma_{s_{t}}^2+\sigma_{m_{t}}^2} \Bigg) + \Bigg(\frac{\sigma_{m_t}^2}{\sigma_{s_{t}}^2+\sigma_{m_{t}}^2}\Bigg) \\ \notag
+%    =&\Bigg(\frac{\mathrm{Cov}[\Delta_{s_{t}},s_t]}{\sigma_{s_{t}}^2}\Bigg)\Bigg( \frac{\sigma_{s_{t}}^2}{\sigma_{s_{t}}^2+\sigma_{m_{t}}^2} \Bigg) + 1-\Bigg(\frac{\sigma_{s_t}^2}{\sigma_{s_{t}}^2+\sigma_{m_{t}}^2}\Bigg) \\ \notag
+%   =&\alpha_{s_t} \lambda^u +  1- \lambda^u \\ \notag
+ %   =& 1 + \bigg(\alpha_{s_t}-1\bigg) \lambda^u,
+%\end{align*}
+%}
+
+\Cref{tbl:OLS_ass2and3} in Appendix D shows OLS estimates of the change in grade 5 test scores on SES and all additional control variables. Column (1) shows that the estimate of SES is statistically significant at the 1\% level. Although we can reject \Cref{ass:fs}(a), the SES estimate of 0.005 seems economically small. In particular, the estimate is reduced by 97.82\% compared to the SES estimate from the regression of the fifth-grade end term test score on SES in \Cref{tbl:OLS_IV}. Column (2) to (5) further show that the gender dummy, the immigrant dummies, and age also correlate with the change in test scores at the 1\% significance level. The coefficients for the immigrant dummies seem of non-negligible size. These results cast doubt on \Cref{ass:rf}. In general, \Cref{ass:rf} seems unlikely in settings where the difference between time period $t$ and $t-1$ is large, especially if the variable is highly dynamic.
+
+Though it is difficult to empirically test \Cref{ass:fs}(b), one may discuss its implications for the change in ability over time. In particular, if $\Delta_{s_t}$ is uncorrelated with $s_t$, the following two equalities directly follow:
+\begin{align}
+%\label{eqn:overtime_1}
+%\sigma_{s_{t}}^2=& \mathrm{Cov}[s_{t-1},s_t],\\ 
+\label{eqn:overtime_2}
+-\sigma_{\Delta{s_{t}}}^2=& \mathrm{Cov}[\Delta_{s_t},s_{t-1}], \\ 
+\label{eqn:overtime_3}
+ \sigma_{\Delta{s_{t}}}^2= & \sigma_{s_{t-1}}^2-\sigma_{s_{t}}^2.
+\end{align}
+Low ability students in $t-1$ must have had larger positive changes in ability than high ability students in $t-1$ (from \eqref{eqn:overtime_2}) and the variance of ability must be larger in $t-1$ than in $t$ (from \eqref{eqn:overtime_3}). Whether these equalities are likely depends on the setting at hand. In an education context, \eqref{eqn:overtime_2} and \eqref{eqn:overtime_3}  are consistent with diminishing marginal returns to ability.
+
+The EIV TH strategy also relies, in addition to \Cref{ass:classical}, on an accurate prediction of changes in the first stage estimate over time. \Cref{fig:TS_pitilde} supports this, showing that a linear polynomial explains 98.1\% of the variation in the first stage estimates. This also suggests that the factors driving the first stage away from the reliability ratio, which are $\mathrm{Cov}[\Delta{s_{t}},SES]\neq 0$ and $\mathrm{Cov}[\Delta{s_{t}},s_{t}]\neq 0$, diminish over time in a predictable way. This is further supported by results presented in \Cref{fig:Assumption_TS} in Appendix D, which plots OLS estimates of $\Delta{s^m_{t}}$ on $SES$ across time and shows that $\mathrm{Cov}[\Delta{s^m_{t}},SES]$ converges to zero in an approximately linear fashion.
+
+\subsection{Robustness checks}
+
+We test the robustness of our findings in four ways. First, \Cref{fig:OLS_IV_EIV_recom} in Appendix D shows the results when using two alternative measures for the teacher track recommendation: a dummy that equals one if the teacher recommendation is equal to or higher than the theory-oriented vocational track (\Cref{fig:OLS_IV_EIV_recom}(a)) or the university track (\Cref{fig:OLS_IV_EIV_recom}(b)). Second, \Cref{fig:OLS_IV_EIV_ses} in Appendix D shows the results when using three alternative SES measures: a dummy that equals one if parental income is above the median of a student's cohort (\Cref{fig:OLS_IV_EIV_ses}(a)), years of schooling of the highest educated parent (\Cref{fig:OLS_IV_EIV_ses}(b)), and a dummy that equals one if the highest educated parent completed at least college education (\Cref{fig:OLS_IV_EIV_ses}(c)). Third, \Cref{fig:OLS_IV_EIV_cohorts} in Appendix D shows the results when separately estimating the models per cohort (\Cref{fig:OLS_IV_EIV_cohorts}(a)-(d)). All results are similar to our baseline findings.
+
+Fourth, as SES is strongly correlated with migration background, a potential concern is that the conditional SES gap at least partly reflects a gap by migration background. To test whether this is the case, we estimated our baseline models for immigrants and natives separately. \Cref{fig:OLS_IV_EIV_imm} in Appendix D shows that the SES estimates are similar in both subgroups.
+
+
+\begin{comment}
+In our regressions we use the average of the per-cohort standardized mathematics and reading test score as our measure for $s^m_t$. This has consequences for \Cref{ass:fs}(b). To see this, let $s^{mu}_t=s^u_t+m^u_t$ be the unstandardized test scores. The standardized test score $s^m_t$ is obtained as,
+\begin{align}
+    s^m_t=\Bigg(\frac{s^{mu}_t-\overline{s}^{mu}_t}{\sigma_{s^{mu}_t}}\Bigg), \quad \forall t.
+\end{align}
+The standard deviation of the test score is the sum of the standard deviation of ability and measurement error. Hence, standardized ability and measurement error, $s_t$ and $m_t$, are linked to their unstandardized counterparts, $s^u_t$ and $m^u_t$, as follows:
+\begin{align}
+    \label{eqn:linksm}
+    s^m_t=\Bigg(\frac{\big(s^{u}_t+m^{u}_t\big)-\big(\overline{s}^{u}_t+\overline{m}^{u}_t\big)}{\sigma_{s^u_t}+\sigma_{m^u_t}}\Bigg)=\underbrace{\Bigg(\frac{s^u_t-\overline{s}^u_t}{\sigma_{s^u_t}+\sigma_{m^u_t}}\Bigg)}_{=s_t}+ \underbrace{\Bigg(\frac{m^u_t}{\sigma_{s^u_t}+\sigma_{m^u_t}}\Bigg)}_{=m_t}, \quad \forall t.
+\end{align}
+\Cref{ass:fs}(b) states that $\mathrm{Cov}[\Delta_{s_t},s_{t}]=0$ for standardized ability. We can plug $s_t$ from \eqref{eqn:linksm} into $\mathrm{Cov}[\Delta_{s_t},s_{t}]$, which shows that \Cref{ass:fs}(b) only guarantees $\mathrm{Cov}[\Delta_{s^u_t},s^u_{t}]=0$ if $(\sigma_{s^u_{t}}+\sigma_{m^u_{t}})=(\sigma_{s^u_{t-1}}+\sigma_{m^u_{t-1}})$. The latter equality implies that the variance of the unstandardized test scores are the same in $t$ and $t-1$. The descriptive statistics in \Cref{tbl:descrstats} show this is not the case: The variance of the unstandardized mathematics (reading) score is smaller (larger) in $t$ than $t-1$. Hence, in our setting, standardizing the test scores may not be innocuous.
+
+Can express the ratio containing the variances of the error terms as follows:
+\begin{align*}
+\Bigg( \frac{\sigma_{u_{t-1}}^2+\sigma_{m_{t-1}}^2}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}  \Bigg) = \Bigg( \frac{\sigma_{u_{t}}^2+ \sigma_{\Delta_{s_t}}^2+\sigma_{m_{t-1}}^2}{\sigma_{u_{t}}^2+\sigma_{m_{t}}^2}\Bigg).
+\end{align*}
+
+The variance of the error term is simply the standard error of the regression, and can be obtained by squaring the Root MSE from Stata output.
+\end{comment}

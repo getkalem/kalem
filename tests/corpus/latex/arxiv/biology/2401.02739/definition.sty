@@ -1,0 +1,422 @@
+% =============================================
+%  Yanqiao's common LaTeX definitions
+%            for conference and journal papers
+% =============================================
+%
+% Changes
+%
+% - Version 0.7.3 (December 17, 2022)
+%    Added support for TMLR
+%
+% - Version 0.7.2 (September 29, 2022)
+%    Enhanced support for ICLR
+% 
+%  - Version 0.7.1 (July 31, 2022)
+%    Fixed conflict between adjustbox and
+%      threeparttablex
+%
+%  - Version 0.7.0 (July 20, 2022)
+%    * Added LoG support 
+%    * Enhanced loading order for hyperref
+%
+%  - Version 0.6.9 (May 23, 2022)
+%    Enhanced support for ICML template
+%
+% =============================================
+
+\typeout{Class `definition' v0.7.3 by Yanqiao (2022/12/17)}
+
+\newif\ifpublisher@acm\publisher@acmfalse
+\newif\ifpublisher@icml\publisher@icmlfalse
+\newif\ifpublisher@aaai\publisher@aaaifalse
+\newif\ifpublisher@ieee\publisher@ieeefalse
+\newif\ifpublisher@springer\publisher@springerfalse
+\newif\ifpublisher@siam\publisher@siamfalse
+\newif\ifpublisher@jmlr\publisher@jmlrfalse
+\newif\ifpublisher@ijcai\publisher@ijcaifalse
+\newif\ifpublisher@acl\publisher@aclfalse
+\newif\ifpublisher@neurips\publisher@neuripsfalse
+\newif\ifpublisher@iclr\publisher@iclrfalse
+\newif\ifpublisher@log\publisher@logfalse
+\newif\ifpublisher@tmlr\publisher@tmlrfalse
+
+\newif\ifsubfloat@subfig\subfloat@subfigfalse
+\newif\ifsubfloat@subcaption\subfloat@subcaptionfalse
+\newif\ifsubfloat@subfigure\subfloat@subfigurefalse
+
+\newif\ifalgo@algorithmic\algo@algorithmicfalse
+\newif\ifalgo@algorithmse\algo@algorithmsefalse
+\newif\ifalgo@algorithmicx\algo@algorithmicxfalse
+\newif\ifalgo@algpseudocodex\algo@algpseudocodexfalse
+
+\newif\ifcondensebib\condensebibfalse
+
+\newif\ifnoadjustwidth\noadjustwidthfalse
+
+\DeclareOption{acm}{\publisher@acmtrue}
+\DeclareOption{icml}{\publisher@icmltrue}
+\DeclareOption{aaai}{\publisher@aaaitrue}
+\DeclareOption{ieee}{\publisher@ieeetrue}
+\DeclareOption{springer}{\publisher@springertrue}
+\DeclareOption{siam}{\publisher@siamtrue}
+\DeclareOption{jmlr}{\publisher@jmlrtrue}
+\DeclareOption{ijcai}{\publisher@ijcaitrue}
+\DeclareOption{acl}{\publisher@acltrue}
+\DeclareOption{neurips}{\publisher@neuripstrue}
+\DeclareOption{iclr}{\publisher@iclrtrue}
+\DeclareOption{log}{\publisher@logtrue}
+\DeclareOption{tmlr}{\publisher@tmlrtrue}
+
+\DeclareOption{subfig}{\subfloat@subfigtrue}
+\DeclareOption{subcaption}{\subfloat@subcaptiontrue}
+\DeclareOption{subfigure}{\subfloat@subfiguretrue}
+
+\DeclareOption{algorithmic}{\algo@algorithmictrue}
+\DeclareOption{algorithmse}{\algo@algorithmsetrue}
+\DeclareOption{algorithmicx}{\algo@algorithmicxtrue}
+\DeclareOption{algpseudocodex}{\algo@algpseudocodextrue}
+
+\DeclareOption{condensebib}{\condensebibtrue}
+
+\DeclareOption{noadjustwidth}{\noadjustwidthtrue}
+\ProcessOptions\relax
+
+\ifsubfloat@subfig
+	\RequirePackage[font=footnotesize]{subfig}
+\fi
+
+\ifsubfloat@subcaption
+	\RequirePackage{subcaption}
+\fi
+
+\ifsubfloat@subfigure
+	\RequirePackage[bf,BF]{subfigure}
+\fi
+
+\ifcondensebib
+	\let\oldthebibliography\thebibliography
+	\let\endoldthebibliography\endthebibliography
+	\renewenvironment{thebibliography}[1]{
+	\begin{oldthebibliography}{#1}
+		\setlength{\itemsep}{0em}
+		\setlength{\parskip}{0em plus 0.3ex}
+	}
+	{
+		\end{oldthebibliography}
+	}
+\fi
+
+\RequirePackage[utf8]{inputenc}
+\RequirePackage[T1]{fontenc}
+\RequirePackage{microtype}
+\RequirePackage{etoolbox}
+
+\RequirePackage{wrapfig}
+\BeforeBeginEnvironment{wrapfigure}{\setlength{\intextsep}{2pt}}
+\captionsetup[wrapfigure]{font=small}
+
+% Publisher-specific definitions
+\ifbool{publisher@icml}{
+	\RequirePackage{enumitem}
+	\setlist{nosep}
+	
+	\BeforeBeginEnvironment{tabular}{\vskip2pt}
+	\AtEndPreamble{\allowdisplaybreaks
+	\renewcommand{\ttdefault}{cmtt}
+	}
+}
+
+\ifbool{publisher@aaai}{
+	\RequirePackage{times}
+	\RequirePackage{helvet}
+	\RequirePackage{courier}
+	\RequirePackage{natbib}
+
+	\RequirePackage[hyphens]{url}
+	\urlstyle{rm}
+	\def\UrlFont{\rm}
+
+	\RequirePackage{caption}
+	\DeclareCaptionStyle{ruled}{labelfont=normalfont,labelsep=colon,strut=off}
+	\frenchspacing
+	\setlength{\pdfpagewidth}{8.5in}
+	\setlength{\pdfpageheight}{11in}
+
+	\setcounter{secnumdepth}{1}
+}
+
+\ifbool{publisher@ieee}{
+	\newcommand{\ieeelegacy}{
+		\let\NAT@parse\undefined
+		\let\labelindent\relax
+		\let\proof\relax
+		\let\endproof\relax}
+	\@ifpackageloaded{tmi}{
+		\ieeelegacy
+	}{}
+	\@ifclassloaded{ieeeconf}{
+		\ieeelegacy
+	}{}
+	\@ifclassloaded{IEEETran}{
+		\ifCLASSOPTIONjournal
+			\RequirePackage[numbers,sort]{natbib}
+		\fi
+	}
+	{
+		\RequirePackage[numbers,sort,compress]{natbib}
+		\renewcommand{\bibfont}{\footnotesize}
+	}
+	\@ifpackageloaded{spconf}{
+		\renewcommand{\bibfont}{\normalsize}
+		\renewcommand{\bibsection}{\section{References}}
+	}{}
+}
+
+\ifbool{publisher@acm}{
+	\def\authornotetext#1{
+		\g@addto@macro\@authornotes{%
+		\stepcounter{footnote}\footnotetext{#1}}%
+	}
+}{
+	\notbool{publisher@log}{
+		\RequirePackage[usenames,svgnames,table]{xcolor}
+		\RequirePackage[pagebackref]{hyperref}
+		\hypersetup{
+			colorlinks=true,
+			breaklinks=true,
+			bookmarksdepth=section,
+			citecolor=DarkGreen,
+			linkcolor=DarkRed,
+			urlcolor=DarkBlue
+		}
+	}
+}
+
+\ifbool{publisher@springer}{
+	\RequirePackage[square,comma,numbers,sort&compress]{natbib}
+	\bibliographystyle{splncsnat}
+	\renewcommand{\bibnumfmt}[1]{#1.}
+	\renewcommand{\bibsection}{\section*{References}}
+}{
+	\notbool{publisher@siam}{
+		\RequirePackage{amsthm}
+		\newtheorem{theorem}{Theorem}[section]
+		\newtheorem{lemma}[theorem]{Lemma}
+		\newtheorem{proposition}[theorem]{Proposition}
+		\newtheorem*{corollary}{Corollary}
+		\renewcommand{\thetheorem}{\arabic{theorem}}
+		\theoremstyle{remark}
+		\newtheorem*{remark}{Remark}
+		\theoremstyle{definition}
+		\newtheorem{definition}{Definition}[section]
+	}
+}
+
+\ifbool{publisher@siam}{
+	\RequirePackage[numbers,sort&compress]{natbib}
+	\renewcommand{\bibfont}{\small}
+	\setlength{\bibsep}{0pt plus 0.3ex}
+}
+
+\ifbool{publisher@ijcai}{
+	\setcounter{secnumdepth}{3}
+	\RequirePackage{times}
+	\renewcommand*\ttdefault{txtt}
+	\newcommand{\citet}[1]{\citeauthor{#1} [\citeyear{#1}]}
+}
+
+\ifbool{publisher@acl}{
+	\RequirePackage{times}
+}
+
+\ifboolexpr{bool {publisher@neurips} or bool {publisher@iclr}} {
+	% Slightly adjust the space between caption and table
+	\captionsetup[table]{skip=0.5em}
+	
+	% Slightly adjust the style of items
+	\AtEndPreamble{\setlist{leftmargin=*,topsep=0pt}}
+}
+
+\ifbool{publisher@iclr}{
+	\RequirePackage{times}
+	\PassOptionsToPackage{numbers,compress,sort}{natbib}
+	\AtEndPreamble{\setcitestyle{numbers,sort&compress,comma,square}}
+	\renewcommand{\ttdefault}{cmtt}
+}
+
+\ifboolexpr{bool {publisher@neurips} or bool {publisher@iclr} or bool {publisher@icml}} {
+	\setlength\itemsep{0.2em}
+	\AtBeginEnvironment{tabular}{\small}
+	\AtEndPreamble{\renewcommand{\bibfont}{\small}}
+}
+
+\notbool{noadjustwidth}{
+	% Automatically prevent from over-length table
+	\BeforeBeginEnvironment{tabular}{\begin{adjustbox}{max width=\linewidth}}
+	\AfterEndEnvironment{tabular}{\end{adjustbox}}
+}
+
+% Ties before \cite and \ref commands
+\AtEndPreamble{
+\let\realcitep=\citep
+\def\citep{\unskip~\realcitep}
+\ifbool{publisher@tmlr}{
+\let\realcite=\cite
+\def\cite{\unskip~\realcitep}
+}{
+\let\realcite=\cite
+\def\cite{\unskip~\realcite}
+}
+\let\realref=\ref
+\def\ref{\unskip~\realref}
+}
+
+% Additional packages
+\RequirePackage{bm}
+\RequirePackage{soul}
+\RequirePackage{graphicx}
+\RequirePackage{amsmath,amsfonts}
+\RequirePackage{booktabs}
+\RequirePackage{multirow}
+\RequirePackage{makecell}
+\RequirePackage{textcomp}
+\RequirePackage{array}
+\RequirePackage{textcomp}
+\RequirePackage{multirow}
+\RequirePackage{enumitem}
+\RequirePackage{float}
+\RequirePackage{xspace}
+\RequirePackage[export]{adjustbox}
+\RequirePackage{nicefrac}
+\RequirePackage{colortbl}
+\RequirePackage{tablefootnote}
+\RequirePackage[referable]{threeparttablex}
+\RequirePackage{comment}
+\RequirePackage{listings}
+\RequirePackage{mathtools}
+\RequirePackage{dsfont}
+\RequirePackage{xurl}
+\RequirePackage{outlines}
+\RequirePackage{scrlfile}
+\AtEndPreamble{\RequirePackage[capitalize,noabbrev]{cleveref}}
+
+% Typesetting algorithms
+\ifalgo@algorithmic
+	\RequirePackage{algorithm}
+	\RequirePackage{algpseudocode}
+\fi
+
+\ifalgo@algorithmicx
+	\RequirePackage{algorithm}
+	\RequirePackage{algorithmicx}
+\fi
+
+\ifalgo@algorithmse
+	\RequirePackage[linesnumbered,ruled,vlined]{algorithm2e}
+	\SetKwRepeat{Do}{do}{while}
+	\DontPrintSemicolon
+	\newcommand\commentsty[1]{\footnotesize\ttfamily{#1}}
+	\SetCommentSty{commentsty}
+\fi
+
+\ifalgo@algpseudocodex
+	\RequirePackage{algorithm}
+	\RequirePackage{algpseudocodex}
+\fi
+
+% Special character definition
+\RequirePackage{pifont}
+\newcommand{\cmark}{\ding{51}}
+\newcommand{\xmark}{\ding{55}}
+
+% Color definition
+\definecolor{sblue}{HTML}{20C1EE}
+\definecolor{sred}{HTML}{E54F44}
+\definecolor{spink}{HTML}{DE47A2}
+\definecolor{sgreen}{HTML}{1AAF54}
+\definecolor{spurple}{HTML}{7869BE}
+\definecolor{syellow}{HTML}{EDB429}
+
+\definecolor{codeblue}{rgb}{0.29296875, 0.51953125, 0.68359375}
+\definecolor{codegreen}{rgb}{0.47265625, 0.62890625, 0.40234375}
+\definecolor{codegray}{rgb}{0.95703125, 0.95703125, 0.95703125}
+\definecolor{codecrimson}{rgb}{0.87109375, 0.3984375, 0.3984375}
+
+% Listing definition
+\lstdefinestyle{Python}{
+	language=Python,
+	otherkeywords={self},
+	basicstyle={\ttfamily},
+	numberstyle=\tiny\color{gray},
+	keywords=[2]{True,False},
+	keywordstyle=\color{codeblue},
+	keywordstyle={[2]\color{codeblue}},
+	commentstyle=\color{codegreen},
+	stringstyle=\color{codecrimson},
+}
+\lstset{
+	backgroundcolor=\color{codegray},
+	aboveskip=3mm,
+	belowskip=3mm,
+	showstringspaces=false,
+	columns=fullflexible,
+	numbers=left,
+	breaklines=true,
+	breakatwhitespace=true,
+	tabsize=4,
+	frame=tlbr,
+	framesep=3pt,
+	framerule=0pt,
+	xleftmargin=1.5em
+}
+
+% Math definition
+\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator{\cov}{cov}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator*{\concat}{\scalebox{1}[1.5]{\(\parallel\)}}
+\DeclarePairedDelimiterX{\infdivx}[2]{(}{)}{%
+	#1\;\delimsize\|\;#2%
+}
+
+\newcommand{\ceil}[1]{\lceil #1 \rceil}
+\newcommand{\floor}[1]{\lfloor #1 \rfloor}
+\newcommand{\ind}{\mathds{1}}
+
+%% Tensors
+\DeclareMathAlphabet{\mathsfit}{\encodingdefault}{\sfdefault}{m}{sl}
+\SetMathAlphabet{\mathsfit}{bold}{\encodingdefault}{\sfdefault}{bx}{n}
+\newcommand{\tens}[1]{\bm{\mathsfit{#1}}}
+%% Entries of a tensor (same font as tensor, without \bm wrapper)
+\newcommand{\etens}[1]{\mathsfit{#1}}
+
+% Misc
+%% Comments
+\newcommand{\annotator}[2]{\csdef{#1}##1{{\color{#2} [\textbf{\MakeUppercase #1}: ##1]}}}
+\newcommand{\token}[1]{\textsc{\texttt{[#1]}}}
+
+%% Modifying label prefix for appendices
+\newcommand{\appendixprefix}{
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{S\arabic{figure}}
+\setcounter{table}{0}
+\renewcommand{\thetable}{S\arabic{table}}
+\setcounter{lstlisting}{0}
+\renewcommand{\thelstlisting}{S\arabic{lstlisting}}
+\setcounter{equation}{0}
+\renewcommand{\theequation}{S\arabic{equation}}
+}
+
+%% Labeling texts
+\RequirePackage{nameref}
+\newcounter{labelcounter}
+\makeatletter
+\newcommand{\labeltext}[2]{%
+#1\refstepcounter{labelcounter}%
+\immediate\write\@auxout{%
+	\string\newlabel{#2}{{1}{\thepage}{{\unexpanded{#1}}}{labelcounter.\number\value{labelcounter}}{}}%
+}%
+}
+\makeatother

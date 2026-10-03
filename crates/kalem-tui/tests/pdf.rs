@@ -127,6 +127,12 @@ fn a_pdf_opens_page_by_page() {
         let s = status(&mut app);
         assert!(s.ends_with(&format!(" · {page}/3")), "{s}");
     }
+    // Zoomed in, a height on the page (the line Show in PDF gives) comes
+    // to the middle.
+    app.doc.viewer.as_deref_mut().unwrap().zoom_by(4.0);
+    app.open_path(&pdf, Some((2, 700)));
+    let center = app.doc.viewer.as_deref().unwrap().center.unwrap();
+    assert!(center.1 > 600.0, "{center:?}");
     // Built again (the file rewritten): reloaded at the same page.
     app.doc.reload(std::time::Instant::now()).unwrap();
     let s = status(&mut app);

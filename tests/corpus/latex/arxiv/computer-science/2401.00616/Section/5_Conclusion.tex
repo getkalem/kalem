@@ -1,0 +1,8 @@
+
+
+\section{Conclusion}
+In this paper, targeting the blurry issue of existing OG-NeRF methods, we propose the GD$^2$-NeRF, a generative detail compensation framework via GAN and pre-trained diffusion models for O-NVS task. It achieves vivid plausible outputs in an inference-time finetuning-free manner with decent 3D-consistency. We hope that our efforts will motivate more researchers in the future. 
+
+\noindent\textbf{Limitations.}  
+First, same as most diffusion-based methods~\cite{gu2023nerfdiff,yang2023rerender,geyer2023tokenflow}, the denoising process is inefficient. Second, as mentioned in~\cite{geyer2023tokenflow}, the decoder of the latent diffusion model introduces several high frequency flickering, which can be possibly addressed via an improved decoder or existing post-process deflickering method~\cite{geyer2023tokenflow}. Third, our fine-stage method Diff3DE complements details mainly on the basis of the input contents, and cannot correct large geometry artifacts. 
+

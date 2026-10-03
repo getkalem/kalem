@@ -18,6 +18,8 @@ kalem-lsp.workspace = true
 org-table.workspace = true
 org-export.workspace = true
 kalem-core.workspace = true
+# `book/chapters.toml`, the code each chapter describes.
+toml_edit = { version = "0.25", default-features = false, features = ["parse"] }
 kalem-plugin-image-viewer.workspace = true
 kalem-plugin-xlsx.workspace = true
 kalem-plugin-pdf-viewer.workspace = true

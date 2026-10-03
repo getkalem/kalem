@@ -363,6 +363,87 @@ pub struct GridCell {
     pub formula: bool,
     /// The cell has a note (shown as a mark; [`ViewerDocument::cell_note`] gives it).
     pub note: bool,
+    /// A data bar from a conditional format: the part of the cell's width
+    /// it fills, in thousandths, and its color.
+    pub bar: Option<(u16, [u8; 3])>,
+    /// An icon from a conditional format's icon set: the glyph and its color.
+    pub icon: Option<(String, [u8; 3])>,
+}
+
+/// How a conditional format compares a cell's value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompareOp {
+    /// Greater than.
+    Greater,
+    /// Less than.
+    Less,
+    /// Greater than or equal to.
+    GreaterOrEqual,
+    /// Less than or equal to.
+    LessOrEqual,
+    /// Equal to.
+    Equal,
+    /// Not equal to.
+    NotEqual,
+    /// Between two values, both included.
+    Between,
+    /// Outside two values.
+    NotBetween,
+}
+
+/// A conditional format's rule, as a spreadsheet's Conditional Formatting
+/// menu offers them.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CondRule {
+    /// The cell's value compared with one value, or two for Between; the
+    /// values as typed (`100`, `=A1`, `abc`).
+    Compare {
+        /// The comparison.
+        op: CompareOp,
+        /// The first value.
+        value: String,
+        /// The second value, for Between and Not Between.
+        value2: Option<String>,
+    },
+    /// The cell's text contains this.
+    TextContains(String),
+    /// Values found more than once in the range.
+    Duplicates,
+    /// Values found once in the range.
+    Unique,
+    /// The top (or bottom) `count` values, or percent of them.
+    Top {
+        /// How many.
+        count: u32,
+        /// The bottom ones.
+        bottom: bool,
+        /// `count` is a percentage.
+        percent: bool,
+    },
+    /// Above (or below) the range's average.
+    Average {
+        /// Below it.
+        below: bool,
+    },
+    /// A formula true for the cell, written for the range's first cell.
+    Formula(String),
+    /// A color scale from the lowest to the highest value: two or three colors.
+    ColorScale(Vec<[u8; 3]>),
+    /// A data bar in a color.
+    DataBar([u8; 3]),
+    /// An icon set by its name in the file (`3Arrows`, `3TrafficLights1`).
+    IconSet(String),
+}
+
+/// The format a highlighting rule applies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CondStyle {
+    /// The fill.
+    pub fill: Option<[u8; 3]>,
+    /// The text color.
+    pub color: Option<[u8; 3]>,
+    /// Bold.
+    pub bold: bool,
 }
 
 /// The shape of a grid unit: how far it goes and how it is laid out.
@@ -668,6 +749,26 @@ pub trait ViewerDocument: Send {
             }
         }
         Ok(changed)
+    }
+
+    /// Adds a conditional format on a range, first in priority.
+    fn add_conditional_format(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _rule: CondRule,
+        _style: CondStyle,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Removes the conditional formats of a range (`None`: of the whole unit).
+    fn clear_conditional_formats(
+        &mut self,
+        _unit: usize,
+        _range: Option<[u32; 4]>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
     }
 
     /// Sorts a range's rows by column `key` (a spreadsheet's Sort), the

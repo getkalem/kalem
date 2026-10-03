@@ -1,0 +1,128 @@
+\documentclass[11pt]{article}
+
+\usepackage{url}            % simple URL typesetting
+\usepackage{authblk}
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage[ruled]{algorithm2e}
+\usepackage{algorithmic}
+\usepackage{subfig}
+\usepackage{fullpage}
+\usepackage{natbib}
+
+\newtheorem{lemma}{Lemma}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem*{theorem*}{Theorem}
+\newtheorem{corollary}{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{assumption}{Assumption}
+
+\newcommand{\diag}{\text{diag}}
+
+\renewcommand{\a}{{\bf a}}
+\renewcommand{\b}{{\bf b}}
+\renewcommand{\c}{{\bf c}}
+\newcommand{\g}{{\bf g}}
+\newcommand{\h}{{\bf h}}
+\newcommand{\n}{{\bf n}}
+\newcommand{\q}{{\bf q}}
+\renewcommand{\r}{{\bf r}}
+\newcommand{\s}{{\bf s}}
+\newcommand{\w}{{\bf w}}
+\renewcommand{\v}{{\bf v}}
+\newcommand{\x}{{\bf x}}
+\newcommand{\y}{{\bf y}}
+\newcommand{\z}{{\bf z}}
+
+\newcommand{\A}{{\bf A}}
+\newcommand{\B}{{\bf B}}
+\newcommand{\C}{{\bf C}}
+\newcommand{\D}{{\bf D}}
+\newcommand{\F}{{\bf F}}
+\newcommand{\G}{{\bf G}}
+\renewcommand{\H}{{\bf H}}
+\newcommand{\I}{{\bf I}}
+\newcommand{\M}{{\bf M}}
+\newcommand{\N}{{\bf N}}
+\renewcommand{\P}{{\bf P}}
+\newcommand{\Q}{{\bf Q}}
+\newcommand{\R}{\mathbb{R}}
+\renewcommand{\S}{{\bf S}}
+\newcommand{\U}{{\bf U}}
+\newcommand{\V}{{\bf V}}
+\newcommand{\W}{{\bf W}}
+\newcommand{\X}{{\bf X}}
+\newcommand{\Y}{{\bf Y}}
+\newcommand{\Z}{{\bf Z}}
+
+\newcommand{\EE}{\mathbb{E}}
+\newcommand{\RR}{\mathbb{R}}
+
+\newcommand{\calS}{\mathcal{S}}
+\newcommand{\calX}{\mathcal{X}}
+\newcommand{\calY}{\mathcal{Y}}
+
+\newcommand{\eps}{\varepsilon}
+
+\newcommand{\Gam}{\boldsymbol{\Gamma}}
+\newcommand{\Lam}{\boldsymbol{\Lambda}}
+\newcommand{\Sig}{\boldsymbol{\Sigma}}
+
+\newcommand{\lb}{\left(}
+\newcommand{\rb}{\right)}
+\newcommand{\wh}{\widehat}
+\newcommand{\wt}{\widetilde}
+\newcommand{\ol}{\overline}
+
+\newcommand{\calL}{\mathcal{L}}
+
+\DeclareMathOperator{\tr}{Tr}
+
+\newcommand{\argmax}[1]{\underset{#1}{\operatorname{arg}\,\operatorname{max}}\;}
+\newcommand{\argmin}[1]{\underset{#1}{\operatorname{arg}\,\operatorname{min}}\;}
+\newcommand{\norm}[1]{\lVert{#1}\rVert}
+
+
+\usepackage[cmyk]{xcolor}
+\newcommand\note[1]{\textcolor{red}{{[#1]}}}
+
+\title{Optimal projection}
+\author{David Lipshutz}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+Let $\x_t$ be a time series and suppose our goal is to project $\x_t$ onto the vector $\v$. Suppose, however, we do not have access to $\x_t$, but only a noisy observation $\y_t=\x_t+\n_t$, where $\n_t$ is isotropic gaussian noise with variance $\alpha^2$. What is the optimal projection of $\y_t$? Consider the optimization problem
+\begin{align*}
+    \min_{\w} E[|\w^\top\y_t-\v^\top\x_t|^2]&=\min_\w E[|(\w-\v)^\top\x_t+\w^\top\n_t|^2]\\
+    &=\min_\w E[|(\w-\v)^\top\x_t|^2]+\alpha^2\w^\top\w\\
+    &=\min_\w (\w-\v)^\top\C_{xx}(\w-\v)+\alpha^2\w^\top\w,
+\end{align*}
+where we have used the fact that $\n_t$ is mean zero isotropic noise independent of $\x_t$. Solving for the optimal $\w$:
+\begin{align*}
+    \w=(\C_{xx}+\alpha^2\I)^{-1}\C_{xx}\v.
+\end{align*}
+Note that this is strongly dependent on $\C_{xx}$, which is difficult to interpret in our setting because $\x_t$ is not stationary. If we assume that $\C_{xx}$ is identity, then increasing noise (i.e., $\alpha$) simply scales the optimal project, but does not change the optimal \textit{direction}.
+
+% What if $\n_t$ is adversarial? In this case, the optimization problem becomes:
+% \begin{align*}
+%     \min_{\w}\max_\n E[|(\w-\v)^\top\x_t+\w^\top\n_t|^2]&=\min_\w\max_\n E[|(\w-\v)^\top\x_t|^2]+2(\w-\v)^\top E[\x_t\n_t^\top]\w+\alpha^2\w^\top E[\n_t\n_t^\top]\w\\
+%     &=\min_\w (\w-\v)^\top\C_{xx}(\w-\v)+\alpha^2\w^\top\w,
+% \end{align*}
+
+\subsection{RRR}
+
+Suppose we apply Bio-RRR to the time series $\y_t$ (let's focus on the case Bio-RRR corresponds to CCA). Then the optimal projection $\w$ is the left singular vector of the matrix
+\begin{align*}
+    \C_{yy}^{-1/2}E[\y_t\y_{t+1}^\top]\C_{yy}^{-1/2}&=(\C_{xx}+\alpha\I)^{-1/2}E[\x_t\x_{t+1}^\top+\n_t\n_{t+1}^\top](\C_{xx}+\alpha\I)^{-1/2}\\
+    &=(\C_{xx}+\alpha\I)^{-1/2}(\A^\top+\alpha\S)(\C_{xx}+\alpha\I)^{-1/2}.
+\end{align*}
+Here $\S$ is the matrix of off-diagonal ones defined in section III.B of the main text. How does the left-singular vector $\w$ change with $\alpha$? When $\alpha=0$, then optimal projection is the left singular vector of $\C_{xx}^{-1/2}\A^\top\C_{xx}^{-1/2}$ (right singular vector of $\C_{xx}^{-1/2}\A\C_{xx}^{-1/2}$). As $\alpha\to\infty$, the optimal projection converges to the left singular vector of $\S$.
+
+\end{document}

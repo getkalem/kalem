@@ -1,0 +1,33 @@
+\section{Discussion}
+% wordcount 510
+% Restate the Research Question
+In this study, we proposed a novel perspective on how perceptual information is embedded in correlated neural variability and how this covariance gets involved in neural computation.
+We introduced an encoding scheme using the covariance of sensory neurons to capture complex perceptual wholes, a significant advance considering neurons' stochastic activities in the time domain.
+Through a motion direction detection task, we showed that downstream networks are capable of learning covariance-based computation to decode this encoded information effectively. 
+This process allows for the transformation of perceptual information from the covariance observed in upstream neurons to the firing rates of downstream neurons, based on the perceptual disentangling hypothesis~\cite{DiCarlo2007, DiCarlo2012}. 
+Additionally, we demonstrated that SNNs could perform this computation implicitly, leading to lossless recovery of direction information. 
+Moreover, our approach proved advantageous in a complex natural image classification task, enhancing model performance and inference speed, underscoring the significance of correlated neural variability in sophisticated information processing.
+
+% Theoretical and Practical Implications
+Our encoding scheme hinges on two essential components: a variety of neurons responsive to different stimulus aspects and an appropriate observation window to track stimulus-induced changes in neuronal responses. 
+This approach aligns with the concept of a combinatorial code~\cite{Malnic1999, Osborne2008}, where neural responses at different timescales represent different stimulus characteristics~\cite{Panzeri2010}.
+The resulting activity patterns of neural populations, shaped by stimuli, form a consistent neural manifold~\cite{DiCarlo2007, DiCarlo2012}, which remains stable despite the variability of the trial-to-trial response, as encapsulated by the covariance in our scheme.
+From the decoding perspective, downstream neurons serve dual roles as integrators and coincidence detectors~\cite{Koenig1996}, because processing perceptual information requires extended timescales and collaboration between sensory neurons. 
+We describe this process as covariance-based computation, where the covariance of sensory neuron spike trains dominates the firing rates of downstream neurons.
+This finding suggests a hierarchical structure in neural processing, achieved through iterative covariance-based computations. 
+As one ascends this hierarchy, the timescale and complexity of the encoded information increase, leading to a progressively linear representation of perceptual information~\cite{piasini2021temporal, Siegle2021}.
+
+%Limitations and Future Research
+While our results are promising, we must acknowledge certain limitations. 
+The downstream networks were trained using gradient-based backpropagation, capable of explicitly computing gradients related to covariance. 
+However, the exact learning mechanisms of the brain, especially akin to backpropagation, are still not fully understood.  
+Further research could delve deeper into the effects of local learning rules that are impacted by correlated neural activities.
+For example, employing a burst-dependent synaptic plasticity rule~\cite{Payeur2021} could modify error signals in feedback connections. 
+Such exploration could shed light on the prevalence of noise correlation in the brain and its potential role in enhancing learning processes.
+
+%Conclusion
+The approach developed in this work also has broader implications for SNN training. 
+We have demonstrated the benefits of incorporating second-order information, such as covariance, into model training. 
+Integrating covariance into ANNs requires a quadratic number of parameters, making it difficult to use for larger models~\cite{Wang2020}. 
+In comparison, SNNs can unfold the covariance over time, which allows them to implicitly process the correlation between variables, thus improving performance without the need for extra parameters.
+Ultimately, our work paves the way for novel studies on the roles of noise and neural correlation in the brain, as well as the development of powerful learning algorithms for SNNs.

@@ -1,0 +1,26 @@
+\begin{proof}[Proof of Lemma~\ref{lem:residual-variance-brownian}]
+    Now~$R_1=\Var(\theta(t_1))=\sigma_0^2+\sigma^2t_1$ by definition.
+    
+    Suppose~$n>1$.
+    The Brownian motion is a Gauss-Markov process, so we can use Lemma~\ref{lem:residual-variance-markov} to characterize~$R_n$.
+    Define~$\beta_n$ and~$\gamma_n$ as in that lemma.
+    Then
+    %
+    \begin{align*}
+        \beta_n
+        &= \frac{\sigma_0^2+\sigma^2\min\{t_n,t_{n-1}\}}{\sigma_0^2+\sigma^2t_{n-1}} \\
+        &= 1
+    \end{align*}
+    %
+    and
+    %
+    \begin{align*}
+        \gamma_n
+        &\overset{\star}{=} \Var(\theta(t_n))-\frac{\left(\Cov(\theta(t_n),\theta(t_{n-1}))\right)^2}{\Var(\theta(t_{n-1}))} \\
+        &= \sigma_0^2+\sigma^2t_n-\frac{\left(\sigma_0^2+\sigma^2\min\{t_n,t_{n-1}\}\right)^2}{\sigma_0^2+\sigma^2t_{n-1}} \\
+        &= \sigma^2(t_n-t_{n-1}),
+    \end{align*}
+    %
+    where~$\star$ holds by Lemma~\ref{lem:multivariate-normal-conditional}.
+    The result follows from Lemma~\ref{lem:residual-variance-markov}.
+\end{proof}

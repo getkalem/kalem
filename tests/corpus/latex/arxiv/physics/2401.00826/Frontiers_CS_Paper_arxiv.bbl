@@ -1,0 +1,165 @@
+\begin{thebibliography}{19}
+\providecommand{\natexlab}[1]{#1}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi:\discretionary{}{}{}#1}\else
+  \providecommand{\doi}{doi:\discretionary{}{}{}\begingroup
+  \urlstyle{rm}\Url}\fi
+\providecommand{\selectlanguage}[1]{\relax}
+\providecommand{\bibAnnoteFile}[1]{%
+  \IfFileExists{#1}{\begin{quotation}\noindent\textsc{Key:} #1\\
+  \textsc{Annotation:}\ \input{#1}\end{quotation}}{}}
+\providecommand{\bibAnnote}[2]{%
+  \begin{quotation}\noindent\textsc{Key:} #1\\
+  \textsc{Annotation:}\ #2\end{quotation}}
+
+\bibitem[{Adler et~al.(2014)Adler, Papadimitriou, and
+  Rubinstein}]{complexity_ilp}
+Adler, I., Papadimitriou, C., and Rubinstein, A. (2014).
+\newblock {On Simplex Pivoting Rules and Complexity Theory}.
+\newblock In \emph{{Integer Programming and Combinatorial Optimization}}, eds.
+  J.~Lee and J.~Vygen (Cham: Springer International Publishing), 13--24
+\bibAnnoteFile{complexity_ilp}
+
+\bibitem[{Breiman et~al.(1984)Breiman, Friedman, Stone, and
+  Olshen}]{breiman1984classification}
+Breiman, L., Friedman, J., Stone, C., and Olshen, R. (1984).
+\newblock \emph{Classification and Regression Trees} (Taylor \& Francis)
+\bibAnnoteFile{breiman1984classification}
+
+\bibitem[{Chang et~al.(2020)Chang, Chen, K\"orber, Humble, and
+  Ostrowski}]{Chang:2020iwh}
+Chang, C.~C., Chen, C.-C., K\"orber, C., Humble, T.~S., and Ostrowski, J.
+  (2020).
+\newblock {Integer Programming from Quantum Annealing and Open Quantum Systems}
+\bibAnnoteFile{Chang:2020iwh}
+
+\bibitem[{Chiaraviglio et~al.(2009)Chiaraviglio, Mellia, and Neri}]{EATE}
+Chiaraviglio, L., Mellia, M., and Neri, F. (2009).
+\newblock Energy-aware backbone networks: A case study.
+\newblock In \emph{2009 IEEE International Conference on Communications
+  Workshops}. 1--5.
+\newblock \doi{10.1109/ICCW.2009.5208038}
+\bibAnnoteFile{EATE}
+
+\bibitem[{Dickson et~al.(2013)Dickson, Johnson, Amin, Harris, Altomare, Berkley
+  et~al.}]{term_annealing_2013}
+Dickson, N.~G., Johnson, M.~W., Amin, M.~H., Harris, R., Altomare, F., Berkley,
+  A.~J., et~al. (2013).
+\newblock Thermally assisted quantum annealing of a 16-qubit problem.
+\newblock \emph{Nature Communications} 4.
+\newblock \doi{10.1038/ncomms2920}
+\bibAnnoteFile{term_annealing_2013}
+
+\bibitem[{Enderle et~al.(2020)Enderle, Witt, and Christou}]{IKR2}
+Enderle, T., Witt, A., and Christou, F. (2020).
+\newblock Delay-differentiated routing in meshed backbone networks.
+\newblock In \emph{Photonic Networks; 21th ITG-Symposium}. 20--27
+\bibAnnoteFile{IKR2}
+
+\bibitem[{Feller(2012)}]{FellerSA}
+Feller, F. (2012).
+\newblock {An Optimization-Heuristic Approach to Dynamic Optical Bypassing}.
+\newblock In \emph{{13th ITG Fachtagung on Photonic Networks}}
+\bibAnnoteFile{FellerSA}
+
+\bibitem[{ITU-T(2020)}]{itu_t_dwdm_grid}
+ITU-T (2020).
+\newblock \emph{Recommendation ITU-T G.694.1, SERIES G: TRANSMISSION SYSTEMS
+  AND MEDIA, DIGITAL SYSTEMS AND NETWORKS Transmission media and optical
+  systems characteristics – Characteristics of optical systems; Spectral
+  grids for WDM applications: DWDM frequency grid}.
+\newblock International Telecommunication Union - Telecommunication
+  Standardization Sector
+\bibAnnoteFile{itu_t_dwdm_grid}
+
+\bibitem[{Karp(1972)}]{Karp1972}
+Karp, R.~M. (1972).
+\newblock \emph{{Reducibility among Combinatorial Problems}} (Boston, MA:
+  Springer US).
+\newblock 85--103.
+\newblock \doi{10.1007/978-1-4684-2001-2_9}
+\bibAnnoteFile{Karp1972}
+
+\bibitem[{Lenstra(1983)}]{Lenstra}
+Lenstra, H.~W. (1983).
+\newblock {Integer Programming with a Fixed Number of Variables}.
+\newblock \emph{Mathematics of Operations Research} 8, 538--548
+\bibAnnoteFile{Lenstra}
+
+\bibitem[{Nash(2000)}]{simplex}
+Nash, J. (2000).
+\newblock {The (Dantzig) simplex method for linear programming}.
+\newblock \emph{{Computing in Science \& Engineering}} 2, 29--31.
+\newblock \doi{10.1109/5992.814654}
+\bibAnnoteFile{simplex}
+
+\bibitem[{Nguyen and Pak(2017)}]{nguyen2017computational}
+Nguyen, D. and Pak, I. (2017).
+\newblock The computational complexity of integer programming with
+  alternations.
+\newblock In \emph{32nd Computational Complexity Conference (CCC 2017)}, ed.
+  R.~O’Donnell (Leibniz International Proceedings in Informatics), 6,
+  6:1--6:18
+\bibAnnoteFile{nguyen2017computational}
+
+\bibitem[{Pedregosa et~al.(2011)}]{Pedregosa:2011ork}
+Pedregosa, F. et~al. (2011).
+\newblock {Scikit-learn: Machine Learning in Python}.
+\newblock \emph{J. Machine Learning Res.} 12, 2825--2830
+\bibAnnoteFile{Pedregosa:2011ork}
+
+\bibitem[{Pelofske et~al.(2023)Pelofske, Hahn, and Djidjev}]{rev_anneal}
+Pelofske, E., Hahn, G., and Djidjev, H. (2023).
+\newblock Initial state encoding via reverse quantum annealing and h-gain
+  features.
+\newblock \emph{IEEE Transactions on Quantum Engineering} 4, 1–21.
+\newblock \doi{10.1109/tqe.2023.3319586}
+\bibAnnoteFile{rev_anneal}
+
+\bibitem[{Thai et~al.(2022)Thai, Thai, Vu, and Dinh}]{fasthare}
+Thai, P., Thai, M.~T., Vu, T., and Dinh, T.~N. (2022).
+\newblock {FastHare: Fast Hamiltonian Reduction for Large-scale Quantum
+  Annealing}.
+\newblock In \emph{2022 IEEE International Conference on Quantum Computing and
+  Engineering (QCE)} (Los Alamitos, CA, USA: IEEE Computer Society), 114--124.
+\newblock \doi{10.1109/QCE53715.2022.00030}
+\bibAnnoteFile{fasthare}
+
+\bibitem[{Tornatore et~al.(2002)Tornatore, Maier, and Pattavina}]{ILPTornatore}
+Tornatore, M., Maier, G., and Pattavina, A. (2002).
+\newblock {WDM network optimization by ILP based on source formulation}.
+\newblock In \emph{Proceedings. Twenty-First Annual Joint Conference of the
+  IEEE Computer and Communications Societies}. vol.~3, 1813--1821.
+\newblock \doi{10.1109/INFCOM.2002.1019435}
+\bibAnnoteFile{ILPTornatore}
+
+\bibitem[{Willsch et~al.(2022)Willsch, Willsch, Gonzalez~Calaza, Jin, De~Raedt,
+  Svensson et~al.}]{Willsch_2022}
+Willsch, D., Willsch, M., Gonzalez~Calaza, C.~D., Jin, F., De~Raedt, H.,
+  Svensson, M., et~al. (2022).
+\newblock {Benchmarking Advantage and D-Wave 2000Q quantum annealers with exact
+  cover problems}.
+\newblock \emph{Quantum Information Processing} 21.
+\newblock \doi{10.1007/s11128-022-03476-y}
+\bibAnnoteFile{Willsch_2022}
+
+\bibitem[{Witt(2024)}]{Witt_HPSR}
+Witt, A. (2024).
+\newblock {Queue-aware Network Control Algorithm with a High Quantum Computing
+  Readiness-Evaluated in Discrete-time Flow Simulator for Fat-Pipe Networks.}
+  \doi{10.48550/arXiv.2404.04080}.
+\newblock Accepted for publication at \textit{IEEE 25th International
+  Conference on High Performance Switching and Routing (HPSR) 2024}.
+\bibAnnoteFile{Witt_HPSR}
+
+\bibitem[{Witt et~al.(2023)Witt, K\"orber, Kirst\"adter, and
+  Luu}]{Witt:2022lsx}
+Witt, A., K\"orber, C., Kirst\"adter, A., and Luu, T. (2023).
+\newblock {Tactile Network Resource Allocation enabled by Quantum Annealing
+  based on ILP Modeling}.
+\newblock In \emph{2023 IEEE International Conference on Quantum Computing and
+  Engineering (QCE)} (Bellevue, WA, USA), 670--680.
+\newblock \doi{10.1109/QCE57702.2023.00082}
+\bibAnnoteFile{Witt:2022lsx}
+
+\end{thebibliography}

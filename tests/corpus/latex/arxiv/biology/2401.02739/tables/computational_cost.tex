@@ -1,0 +1,22 @@
+\begin{table*}[ht]
+\adjustbox{max width=\textwidth}{
+\centering
+\setlength\tabcolsep{4pt} % control the horizontal spacing between columns
+\begin{tabular}{ccccccc}
+\toprule
+Method & \multicolumn{6}{c}{NMI values at different wall-clock training times}\\
+\cmidrule{2-7}
+& NMI @ 10 min & NMI @ 20 min & NMI @ 30 min & NMI @ 40 min & NMI @ 50 min & NMI @ 60 min \\
+\midrule
+AEVB             & $0.52$       & $0.52$       & $0.52$       & $0.52$       & $0.52$       & $0.52$       \\
+AEVB-IAF         & $0.54$       & $0.52$       & $0.52$       & $0.52$       & $0.52$       & $0.52$       \\
+AAEB             & $0.61$       & $0.57$       & $0.57$       & $0.57$       & $0.57$       & $0.57$       \\
+DDVI (T=5)   & \textit{warm up} & $0.63$ & $0.63$ & $0.66$ & $0.66$ & $0.66$ \\
+DDVI (T=10)  & \textit{warm up} & $\mathbf{0.64}$ & $\mathbf{0.68}$ & $\mathbf{0.70}$ & $\mathbf{0.70}$ & $\mathbf{0.70}$ \\
+DDVI (T=20)  & \textit{warm up} & $0.50$ & $0.51$ & $0.56$ & $0.64$ & $0.68$ \\
+DDVI (T=50)  & \textit{warm up} & $0.52$ & $0.54$ & $0.51$ & $0.59$ & $0.59$ \\
+\bottomrule
+\end{tabular}}
+\caption{Computational cost trade-off on 1kgenome: NMI vs wall-clock training time}
+\label{tab:computational_cost}
+\end{table*}

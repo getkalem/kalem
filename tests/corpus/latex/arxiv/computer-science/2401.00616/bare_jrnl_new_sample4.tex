@@ -1,0 +1,126 @@
+\documentclass[lettersize,journal]{IEEEtran}
+\usepackage{amsmath,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{array}
+\usepackage[caption=false,font=normalsize,labelfont=sf,textfont=sf]{subfig}
+\usepackage{textcomp}
+\usepackage{stfloats}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{cite}
+\hyphenation{op-tical net-works semi-conduc-tor IEEE-Xplore}
+% updated with editorial comments 8/9/2021
+
+%%%%%%%%%%%%%%%%%%% added by Xiao 
+\usepackage{capt-of}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=red,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+\usepackage[dvipsnames]{xcolor}
+\usepackage{colortbl}
+\usepackage{multirow}
+\usepackage{adjustbox}
+\usepackage{amsmath}
+\newcommand{\ie}{\textit{i.e.}}
+\newcommand{\eg}{\textit{e.g.}}
+\newcommand{\vs}{\textit{vs.}}
+\usepackage{pifont}
+\newcommand{\cmark}{\ding{51}}
+\newcommand{\xmark}{\ding{55}}
+\definecolor{third}{rgb}{1,1, 0.6}
+\definecolor{second}{rgb}{1, 0.8, 0.6}
+\definecolor{best}{rgb}{1, 0.6, 0.6}
+\newcommand{\cb}{\cellcolor{best}}
+\newcommand{\cs}{\cellcolor{second}}
+\newcommand{\ct}{\cellcolor{third}}
+% \usepackage{footmisc}
+% \usepackage{bbding}
+\usepackage[switch]{lineno}
+%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+% \linenumbers
+    
+% \title{Rethinking One-shot Generalizable Neural Radiance Fields: A Generative Detail Compensation Perspective}
+
+% \title{GD-NeRF: Coarse-to-fine Generative Detail Compensation via GAN and Diffusion for One-shot Generalizable Neural Radiance Fields}
+
+\title{GD$^2$-NeRF: Generative Detail Compensation via GAN and Diffusion for One-shot Generalizable Neural Radiance Fields}
+
+\author{
+        Xiao Pan, Zongxin Yang$^*$, Shuai Bai,  Yi Yang
+                % <-this % stops a space
+        % \thanks{This paper was produced by the IEEE Publication Technology Group. They are in Piscataway, NJ.}% <-this % stops a space
+        % \thanks{Manuscript received April 19, 2021; revised August 16, 2021.}
+        % \thanks{\textit{Corresponding author: Yi Yang}}
+        % \thanks{Xiao Pan, Zongxin Yang, and Yi Yang are with the ReLER Lab, CCAI, Zhejiang University, Hangzhou, 310000, China, and Shuai Bai, Chang Zhou, Hongxia Yang, and Jingren Zhou are with the Alibaba DAMO Academy,  Hangzhou, 310000, China. (email: xiaopan@zju.edu.cn, yangzongxin@zju.edu.cn, baishuai.bs@alibaba-inc.com, ericzhou.zc@alibaba-inc.com, yang.yhx@alibaba-inc.com, jingren.zhou@alibaba-inc.com, yangyics@zju.edu.cn)}
+            }
+            
+% \IEEEpubid{0000--0000/00\$00.00~\copyright~2021 IEEE}
+% Remember, if you use this you must call \IEEEpubidadjcol in the second
+% column for its text to clear the IEEEpubid mark.
+
+
+%%%%%%%%%%%%%%%%%%%%
+% Titile with teaser
+\twocolumn[{%
+\renewcommand\twocolumn[1][]{#1}%
+    \maketitle        
+    \centering
+    \vspace*{-8mm}
+    \includegraphics[width=0.9\textwidth]{./Figure/teaser_.pdf}
+    \vspace*{-0.2cm}
+    \captionof{figure}{Given a single reference image, our method GD$^2$-NeRF  synthesizes novel views with \textbf{vivid plausible details} in an \textbf{inference-time finetuning-free} manner. It is a coarse-to-fine generative detail compensation framework composed of OPP and Diff3DE. OPP first injects the GAN model into existing OG-NeRF pipelines, \eg, PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}, for achieving in-distribution detail priors. Then, Diff3DE further incorporates the out-distribution detail priors from the pre-trained diffusion models~\cite{rombach2022LatentDiff,zhang2023addingControlNet}. \textcolor{red}{\textbf{We highly recommend readers to check our video demos for more intuitive comparisons.}}}\label{fig:teaser}
+    }]
+%%%%%%%%%%%%%%%%%%%%
+
+
+% The paper headers
+\markboth{Journal of \LaTeX\ Class Files,~Vol.~14, No.~8, August~2021}%
+{Shell \MakeLowercase{\textit{et al.}}: A Sample Article Using IEEEtran.cls for IEEE Journals}
+
+% \maketitle
+
+%%% Thanks
+\let\thefootnote\relax\footnotetext{Xiao Pan, Zongxin Yang, and Yi Yang are with the ReLER Lab, CCAI, Zhejiang University, Hangzhou, 310000, China, and Shuai Bai is with the Alibaba DAMO Academy, Hangzhou, 310000, China. (email: xiaopan@zju.edu.cn, yangzongxin@zju.edu.cn, baishuai.bs@alibaba-inc.com, 
+% ericzhou.zc@alibaba-inc.com, yang.yhx@alibaba-inc.com, jingren.zhou@alibaba-inc.com, 
+yangyics@zju.edu.cn) \par $*$ Corresponding author. }
+
+\begin{abstract}
+\input{./Section/0_Abstract}
+\end{abstract}
+
+\begin{IEEEkeywords}
+% Article submission, IEEE, IEEEtran, journal, \LaTeX, paper, template, typesetting.
+One-shot novel view synthesis, generalizable neural radiance fields, 
+3D reconstruction, GAN, diffusion model.
+\end{IEEEkeywords}
+
+\input{./Section/1_Introduction}
+\input{./Section/2_RelatedWorks}
+\input{./Section/3_Method}
+\input{./Section/4_Experiment}
+\input{./Section/5_Conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{./ref}
+
+\clearpage
+\appendix
+\input{./Section/6_Appendix}
+
+
+
+\vfill
+
+\end{document}
+
+

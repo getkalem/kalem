@@ -1,0 +1,62 @@
+%\subsection{Dynamics of the SNN when operating covariance-based computation}
+\subsection{Dynamics and efficacy of covariance-based computation in SNNs}
+\label{sec:vo_snn}
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{results/sec4_visual_snn_simulation/fig4_visual_orientation_snn.pdf}
+    \caption[visual orientation snn]{\textbf{Dynamics of SNN in integrating local information for decoding directions}.
+    \textbf{a}, Raster plots that represent an intensity detector and a change detector at the same spatial location, alongside hidden neurons of the SNN under a moving grating with a direction of \(\theta = 0.06\) rad. 
+    The hidden neurons are arranged based on their preferred directions.
+    \textbf{b}, Readout error of the SNN as a function of readout time \(\Delta t\). 
+    The inset provides a detailed view of the initial 100 ms of the readout error curve.
+    \textbf{c}, Power spectral density and autocorrelation (inset) of the relative deviation of population spike count (1 ms time window).
+    Black triangles mark the temporal frequency of the stimulus, including double and triple frequencies.
+    \textbf{d}, Unwrapped average phase and average Kuramoto order parameter (inset) of sensory neurons' firing rates and hidden neurons' membrane potentials from 100 to 220 ms after stimulus onset.
+    \textbf{e}, Quantification of direction information in the readout. The gray dotted line represents the theoretical bound of mutual information, specifically the entropy of moving direction  \(H(\theta)\). 
+    Components: \textit{tot} - total mutual information between stimuli and readouts; \textit{lin} - the sum of mutual information from individual neuron responses; \textit{sigsim} - the difference in entropy between population and individual responses; \textit{cor} - information from correlated neuron activities.
+    In \textbf{b}, \textbf{c}, \textbf{d}, solid lines and shaded regions (with an error bar in the inset of \textbf{d}) depict the mean and standard deviation over 500 trials, averaged across 50 motion directions.}
+    \label{fig:visual_orientation_snn}
+\end{figure}
+So far we have modeled covariance computation by using the MNN model to explicitly track the neural pair-wise covariance.
+At first glance, this process may necessitate global knowledge of the covariance structure of the input. 
+However, this can be done implicitly by the stochastic process of neural spikes, and each sensory neuron only has access to local information. 
+To illustrate this, we simulate a spiking neural network to show how the information hidden in the covariance structures of the input can be extracted without explicitly knowing the covariance.
+
+Derived analytically from the leaky integrate-and-fire model,  we can use the trained MNN to reconstruct the SNN without additional tuning. 
+Figure~\ref{fig:visual_orientation_snn}\textbf{a} displays the spike trains from a pair of sensory neurons and neurons from the hidden layer. 
+The two sensory neurons, located in the same spatial location, detect light intensity and its changing rate using an inhomogeneous Poisson process with oscillatory firing rates (green and orange curves, left panel), as detailed in Section~\ref{sec:vo_encode}.
+Their firing rates range from 200 to 1800 spikes per second, under the stimuli contrast \(c=0.8\). 
+In contrast, hidden neurons exhibit sparser firing patterns, ranging from 0 to 200 spikes per second as shown in the raster plot (right panel), with those whose preferred directions are closer to the stimulus direction displaying notably higher firing rates.
+Using the MNN's trained linear decoder on hidden neurons' spike trains leads to increasingly precise direction estimates. 
+Figure~\ref{fig:visual_orientation_snn}\textbf{b} demonstrates a decrease in both the mean and variability of readout error with longer \(\Delta t\). 
+The mean error converges near zero at about 50 ms, while the standard deviation stabilizes close to zero after 100 ms.
+
+To compare the differences in spike activities between sensory and hidden neurons, we analyze the power spectral density of their relative deviation of spike count at the population level, using 1 ms time windows. 
+Figure~\ref{fig:visual_orientation_snn}\textbf{c} reveals that the power spectral density for sensory neurons is nearly zero, suggesting that the distinct instantaneous firing rates of individual sensory neurons counterbalance each other at the population level, resulting in stable overall activity.
+Conversely, the power spectral density of hidden neurons peaks significantly at multiples of 159 Hz, reflecting the stimulus's temporal frequency with notably higher amplitudes than those of sensory neurons.
+The greater amplitudes in the population spike count's relative deviation suggest that hidden neurons display more oscillatory activity than sensory neurons.
+This results from the \(\pi/2\) phase difference between the firing rates of intensity and change detectors, creating a time delay in spike waves between these neuron groups. 
+Coupled with correlated weights (Fig.~\ref{fig:visual_orientation_mnn}\textbf{c}), this enhances the likelihood of collective neuronal activity triggering hidden neurons' firing.
+Furthermore, the autocorrelation of relative deviation (Fig.~\ref{fig:visual_orientation_snn}\textbf{c} inset) shows sensory neuron activity oscillating at about 1.0 rad/ms, aligning with the stimulus frequency but weakly correlated. 
+Hidden neurons, in contrast, display stronger correlations than sensory neurons at short time lags, with both neuron types' correlation coefficients converging at longer lags.
+
+Similar findings are obtained by analyzing sensory and hidden neurons' activities using the mean phase and Kuramoto order parameter (Fig.~\ref{fig:visual_orientation_snn}\textbf{d}). 
+These metrics effectively assess phase shift orientation and synchronization levels. 
+Our analysis, centering on the firing rate of sensory neurons and the membrane potential of hidden neurons, benefits from these continuous variables for accurate measurement and evaluation.
+We find that the average phases of both sensory and hidden neurons linearly increase over time, mirroring the stimulus's linear phase progression. 
+This implies that both the stimulus phrase and the sensory neurons' phrase can be inferred from the hidden neurons' phase.
+Regarding the Kuramoto order parameter, sensory neurons exhibit an average below 0.025 (see Fig.~\ref{fig:visual_orientation_snn}\textbf{d} inset), indicating asynchronous firing patterns. 
+In contrast, hidden neurons demonstrate a higher average parameter, approximately 0.1, signifying more pronounced oscillatory activity than sensory neurons.
+
+To evaluate our information transition process, we quantify the amount of recovered direction information and its contributors through an information-theoretical analysis~\cite{Pola2003}. 
+This analysis decomposes the mutual information \(I_{\rm tot}\) between readouts and motion directions into three components: \(I_{\rm lin}\), the information from each readout dimension separately; $I_{\rm sigsim}$, the redundancy due to the correlated responses shared in all readout dimensions; and $I_{\rm cor}$, the residual information from the correlations within the readout.
+Figure~\ref{fig:visual_orientation_snn}\textbf{e} shows a rapid initial increase in \(I_{\rm tot}\) within the first 100 ms, eventually matching the entropy of moving directions \(H(\theta)\) and indicating lossless transmission of direction information. 
+The primary contributor to \(I_{\rm tot}\) is \(I_{\rm lin}\), signifying that direction information is predominantly encoded in the firing rates of hidden neurons. 
+While \(I_{\rm lin}\) continues to rise beyond 100 ms, its growth is counterbalanced by \(I_{\rm sigsim}\), keeping \(I_{\rm tot}\) steady. 
+This redundancy is natural, as knowledge of one coordinate in a fixed direction vector restricts the possibilities for the other coordinate. 
+With increasing readout time windows, the readout variance decreases but the mean remains constant, leading to more redundancy. 
+In contrast, the correlation component \(I_{\rm cor}\) contributes minimally to direction information, remaining close to zero.
+
+Our results are in agreement with both theoretical and experimental research~\cite{Schneidman2003, Averbeck2006, Golledge2003, montani2007role, Kriegeskorte2021}, which indicate that neural correlations have limited impact on information coding when stimuli are distinctly discerned by uncorrelated neuronal responses. 
+Given that the maximum mutual information is limited by the stimuli's entropy, and considering the data processing inequality which states that downstream information cannot exceed upstream information, the importance of neural correlation in information transmission diminishes as the information encoded in a neuron's response becomes more pronounced. 
+Therefore, the process of representational disentanglement can be interpreted as a 'decorrelation' process, wherein essential information shifts from the collective structure of the neuron population to individual neurons.

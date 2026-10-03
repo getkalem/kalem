@@ -1,0 +1,182 @@
+\begin{proof}[Proof of Theorem \ref{thm:polynomial}]
+Note that in Theorem \ref{thm:polynomial}, we assume $f$ belongs to a multivariate Sobolev ellipsoid $\tilde{\mathcal{W}}_p(s,Q, {\psi_j})$. Using the same reasoning as in the proof of Theorem \ref{theorem:l2loss}, we can modify \eqref{ineq:general_recursion} to:
+\begin{align}
+    e_i \leq e_{i-1} - 2\gamma_iy_{i-1}^2 + \gamma_i^2\left(\sigma^2 + e_{i-1}\right)C_2J_iM^2. \label{ineq:recur1}
+\end{align}
+We begin by providing a simple increasing bound for $e_i$, which will be used to establish the desired polynomial decay rate. Specifically, We  show that 
+\begin{align}
+    e_i \leq 2C_2Q^2\log(i+2). \label{ei_logrithmic}
+\end{align}
+We use the induction to prove this results. It is straightforward to see $\eqref{ei_logrithmic}$ holds for $i=0$ since $\|f\| \leq C_2Q^2$. Suppose \eqref{ei_logrithmic} holds for $i-1$. Note that 
+\begin{align}
+    e_i &\leq e_{i-1} + \gamma_i^2\left(\sigma^2 + e_{i-1}\right)C_2J_iM^2\\
+    & \leq 2C_2Q^2\log(i+1) + 2A^2C_2M^2i^{-\frac{8s+1}{6s+1}}(\sigma^2 + 2C_2Q^2\log(i+1))\\
+    & \leq 2C_2Q^2\log(i+1) + \frac{2C_2Q^2}{3}\log(i+1)i^{-\frac{8s+1}{6s+1}}\\
+    & \leq 2C_2Q^2\log(i+1) + \frac{2C_2Q^2}{3}\log(i+1)i^{-\frac{5}{4}}\\
+    & \leq 2C_2Q^2\log(i+1) + \frac{2C_2Q^2}{i+2} \leq 2C_2Q^2\log(i+2),
+\end{align}
+where for the third inequality we use the selection of $A$ such that $A^2 \leq 1/14C_2M^2\max\{\sigma^2, 1\}$. This proves \eqref{equa:fi-f}.
+
+Given that $f$ belongs to $\tilde{\mathcal{W}}_p(s,Q, {\psi_j})$, we can set $g = f$ in Lemma \ref{lem:general_bound} and leverage the fact that $\|f\|_s^2 < Q^2$. This adaptation modifies \eqref{ineq:general_bound} to:
+\begin{align}
+v_{i-1}y_{i-1}^2
+\geq~\frac{e_{i-1}^2}{2} - \frac{4e_{i-1}C_2Q^2}{J_i^{2s}}. \label{ineq:general_bound2}
+\end{align}
+Next, we will establish an upper bound for $v_i$. Note that
+\begin{align}
+     v_i &= \EE\Bigg[\int \left(\hat{f}_{i}(\boldsymbol{x})-f(\boldsymbol{x})\right)^2 d\boldsymbol{x}\Bigg] \notag\\
+     & = \EE\Bigg[\int \left(\hat{f}_{i-1}(\bx) - f(\boldsymbol{x})+\gamma_ir_i\Bigg(\sum_{j=1}^{J_i}\psi_{j}\left(\bX_i\right)\psi_{j}(\bx)\Bigg)\right)^2 d\boldsymbol{x}\Bigg]\notag\\
+     &=v_{i-1}+2\gamma_i \EE\Bigg[r_i \int \Bigg(\hat{f}_{i-1}(\bx) - f(\boldsymbol{x})\Bigg)\Bigg(\sum_{j=1}^{J_i}\psi_{j}\left(\bX_i\right)\psi_{j}(\bx) \Bigg)d\boldsymbol{x}  \Bigg] + \gamma_i^2 \EE \Bigg[r_i^2\sum_{j=1}^{J_i}\psi_j^2(\bX_i) \Bigg]. \label{ineq:v1}
+\end{align}
+Using the same reasoning as employed in deriving the inequality \eqref{ineq:term3}, we know 
+\begin{align}
+   \gamma_i^2 \EE \Bigg[r_i^2\sum_{j=1}^{J_i}\psi_j^2(\bX_i) \Bigg] \leq \gamma_i^2(\sigma^2 + e_{i-1})J_iM^2. \label{ineq:v2} 
+\end{align}
+In addition, by the Cauchy-Schwarz inequality,
+\begin{align}
+    &\EE\Bigg[r_i \int \Bigg(\hat{f}_{i-1}(\bx) - f(\boldsymbol{x})\Bigg)\Bigg(\sum_{j=1}^{J_i}\psi_{j}\left(\bX_i\right)\psi_{j}(\bx) \Bigg)d\boldsymbol{x}  \Bigg] \notag\\
+    &=~ \EE \Bigg[ \sum_{j=1}^{J_i}\int \Big(\hat{f}_{i-1}(\bx) - f(\boldsymbol{x})\Big)\psi_j(\bx)p_{\bX}(\bx) d\bx \int \Big(\hat{f}_{i-1}(\bx) - f(\boldsymbol{x})\Big)\psi_j(\bx) d\bx  \Bigg]\notag\\
+    &\leq~ y_{i-1}\sqrt{b_{i-1}}. \label{ineq:v3}
+\end{align}
+Thus, according to \eqref{ineq:v1}, \eqref{ineq:v2} and \eqref{ineq:v3}, we have
+\begin{align}
+    v_i \leq v_{i-1} + 2\gamma_iy_{i-1}\sqrt{v_{i-1}} + M^2\gamma_i^2J_i(\sigma^2 + e_{i-1}).
+\end{align}
+Let $\tilde v_i = \max\{v_i, v_{i-1},\dots,v_0\}$. We use induction to show
+\begin{align}
+    \tilde v_i \leq \tilde v_{i-1} + 2\gamma_iy_{i-1}\sqrt{\tilde v_{i-1}} + M^2\gamma_i^2J_i(\sigma^2 + e_{i-1}). \label{ineq: recur2}
+\end{align}
+Note that \eqref{ineq: recur2} holds for $i=0$. Suppose \eqref{ineq: recur2} holds for $i=k-1$. Then
+\begin{align}
+    \tilde v_{k-1} \leq \tilde v_{k-2} + 2\gamma_iy_{i-1}\sqrt{\tilde v_{k-2}} + M^2\gamma_i^2J_i(\sigma^2 + e_{i-1}) \leq \tilde v_{k-1} + 2\gamma_iy_{i-1}\sqrt{\tilde v_{k-1}} + M^2\gamma_i^2J_i(\sigma^2 + e_{i-1}), 
+\end{align}
+since $\{\tilde v_i\}$ is non-decreasing. Furthermore,
+\begin{align*}
+    v_k \leq  v_{k-1} + 2\gamma_iy_{i-1}\sqrt{v_{k-1}} + M^2\gamma_i^2J_i(\sigma^2 + e_{i-1})   \leq \tilde v_{k-1} + 2\gamma_iy_{i-1}\sqrt{\tilde v_{k-1}} + M^2\gamma_i^2J_i(\sigma^2 + e_{i-1}).
+\end{align*}
+Since $\tilde v_k = \max\{v_k, \tilde v_{k-1}\}$, we know \eqref{ineq: recur2} also holds for $i=k$. In addition, according to \eqref{ineq:general_bound2}, we have
+\begin{align}
+\tilde v_{i-1}y_{i-1}^2
+\geq~\frac{e_{i-1}^2}{2} - \frac{4e_{i-1}C_2Q^2}{J_i^{2s}}. \label{ineq:tilde_v}
+\end{align}
+In the following analysis, we will utilize \eqref{ineq:recur1}, \eqref{ineq: recur2}, and \eqref{ineq:tilde_v} to demonstrate that $e_n = O\left(n^{-\frac{s-1/2}{6s+1}}\right)$. Let $u_i = e_i/\tilde v_i$. We will first show $u_n = O\left(n^{-\frac{2s}{6s+1}}\right)$. By \eqref{ineq:recur1} and \eqref{ineq:tilde_v}, we know 
+\begin{align*}
+    e_{i} \leq (1+C_2M^2\gamma_i^2J_i)e_{i-1} - 2\gamma_i\Bigg( \frac{e_{i-1}^2}{2\tilde v_{i-1}} - \frac{4e_{i-1}C_2Q^2}{J_i^{2s}\tilde v_{i-1}}\Bigg) + \sigma^2C_2M^2\gamma_i^2J_i.
+\end{align*}
+Since $\tilde v_i$ is non-decreasing, it follows that
+\begin{align}
+    u_i &\leq  (1+C_2M^2\gamma_i^2J_i)\frac{e_{i-1}}{\tilde v_{i-1}} - \gamma_i \frac{e_{i-1}^2}{\tilde v_{i-1}^2} + \frac{8\gamma_ie_{i-1}C_2Q^2}{J_i^{2s}\tilde v_{i-1}^2} + \frac{\sigma^2C_2M^2\gamma_i^2J_i}{\tilde v_{i-1}}\notag\\
+    &\leq u_{i-1}\Bigg(1+ \frac{8AC_2Q^2}{\tilde v_0 }i^{-1} + 2C_2A^2M^2i^{-\frac{8s+1}{6s+1}} - Au_{i-1}i^{-\frac{4s+1}{6s+1}}\Bigg) + \frac{C_2A^2M^2\sigma^2}{\tilde v_0 } i^{-\frac{8s+1}{6s+1}}, \label{ineq:u1} 
+\end{align}
+where for the second inequality, we specify $\gamma_i = Ai^{-(4s+1)/(6s+1)}$ and $J_i = \lceil i^{\frac{1}{6s+1}} \rceil$. Also, we use the facts that $i^{\frac{1}{6s+1}} \leq J_i \leq 2i^{\frac{1}{6s+1}}$ and $\tilde v_{i-1}\geq \tilde v_0$. From \eqref{ineq:u1}, we have
+\begin{align}
+    i^{\frac{4s+1}{6s+1}}(u_i - u_{i-1}) &\leq i^{-\frac{2s}{6s+1}}\bigg(\frac{8AC_2Q^2}{\tilde v_0 } + 2C_2A^2M^2 \bigg)u_{i-1} - Au_{i-1}^2 + \frac{C_2A^2M^2\sigma^2}{\tilde v_0} i^{-\frac{4s}{6s+1}}\label{ineq:u_recur}
+\end{align}
+which implies
+\begin{align}
+    \sum_{i=1}^ni^{\frac{4s+1}{6s+1}}(u_i - u_{i-1}) \leq \bigg(&\frac{8AC_2Q^2}{\tilde v_0 } + 2C_2A^2M^2 \bigg)u_0 +  \sum_{i=2}^n (i-1)^{-\frac{2s}{6s+1}}\bigg(\frac{8AC_2Q^2}{\tilde v_0 } + 2C_2A^2M^2 \bigg)u_{i-1} \\
+    &- Au_{i-1}^2 + \frac{C_2A^2M^2\sigma^2}{\tilde v_0} i^{-\frac{4s}.{6s+1}}\label{ineq:u_recur_sum}
+\end{align}
+Note that 
+\begin{align}
+    \sum_{i=1}^n i^{\frac{4s+1}{6s+1}}(u_i - u_{i-1}) &= n^{\frac{4s+1}{6s+1}}u_n - \sum_{i=1}^n \bigg(i^{\frac{4s+1}{6s+1}} - (i-1)^{\frac{4s+1}{6s+1}}\bigg)u_{i-1}\notag\\
+    & \geq n^{\frac{4s+1}{6s+1}}u_n - u_0 - \sum_{i=2}^n \frac{4s+1}{6s+1}(i-1)^{-\frac{2s}{6s+1}}  u_{i-1} \label{ineq:u_sum} 
+\end{align}
+where for the inequality, we use the fact that
+\begin{align*}
+    i^{\frac{4s+1}{6s+1}} - (i-1)^{\frac{4s+1}{6s+1}} \leq  \frac{4s+1}{6s+1}(i-1)^{-\frac{2s}{6s+1}}.
+\end{align*}
+According to \eqref{ineq:u_recur_sum} and  \eqref{ineq:u_sum}, we know
+\begin{align}
+    n^{\frac{4s+1}{6s+1}}u_n &\leq \bigg(\frac{8C_2AQ^2}{\tilde v_0} + 2C_2A^2M^2 + 1 \bigg)u_0 +  \sum_{i=2}^n (i-1)^{-\frac{2s}{6s+1}}\bigg(\frac{8C_2AQ^2}{\tilde v_0} + 2C_2A^2M^2 + \frac{4s+1}{6s+1} \bigg)u_{i-1} \\&~~~~-A\sum_{i=1}^n u_{i-1}^2 + \sum_{i=1}^n\frac{C_2A^2M^2\sigma^2}{\tilde v_0} i^{-\frac{4s}{6s+1}}\\
+    &\leq \frac{1}{4A} \bigg(\frac{8C_2AQ^2}{\tilde v_0} + 2C_2A^2M^2+\frac{4s+1}{6s+1} \bigg)^2   \sum_{i=2}^n (i-1)^{-\frac{4s}{6s+1}} + \frac{C_2A^2M^2\sigma^2}{\tilde v_0}\sum_{i=1}^n i^{-\frac{4s}{6s+1}} \\&~~~~+ \frac{1}{4A} \bigg(\frac{8C_2AQ^2}{\tilde v_0} + 2C_2A^2M^2+1 \bigg)^2\\
+    &\leq \tilde C_1 n^{\frac{2s+1}{6s+1}},
+\end{align}
+where 
+\begin{align*}
+    \tilde C_1 &= \frac{6s+1}{2s+1}\left(\frac{1}{4A} \bigg(\frac{8C_2AQ^2}{\tilde v_0} + 2C_2A^2M^2+\frac{4s+1}{6s+1} \bigg)^2 + \frac{C_2A^2M^2\sigma^2}{\tilde v_0} \right).
+\end{align*}
+Here we use the inequalities $$\sum_{i=1}^n i^{-\frac{4s}{6s+1}} \leq \int_0^n x^{-\frac{4s}{6s+1}}~dx = \frac{6s+1}{2s+1}n^{\frac{2s+1}{6s+1}},$$ and
+$$
+\frac{1}{4A} \bigg(\frac{8C_2AQ^2}{\tilde v_0} + 2C_2A^2M^2+1 \bigg)^2 \leq \tilde C_1.
+$$
+Thus, $u_n \leq  \tilde C_1n^{-\frac{2s}{6s+1}}$. Let $r_i = e_i\tilde v_i$. Next, we will show $r_n = O\left(n^{\frac{1}{4}}\right)$. Specifically, we will use induction to show $r_i \leq Bi^{\frac{1}{4}}$ for any $i \geq 1$ where $B = 4C_2Q^2(Q^2+1)$. From \eqref{ei_logrithmic}, we know $e_1 \leq 4C_2Q^2$. Note that, by the Cauchy-Schwarz inequality, we have
+\begin{align}
+    y_{i-1}^2 = \sum_{j=1}^{J_i}\mathbb{E}\left[\left|\innerx{\hat{f}_{i-1}-f}{\psi_{j}}\right|^2\right] \leq C_2J_ie_{i-1}.
+\end{align}
+Thus,  
+\begin{align}
+    v_1 &\leq v_0 + 2\gamma_1\sqrt{C_2J_1e_0v_0} + M^2\gamma_1^2J_1(\sigma^2 + e_0)\\
+    & \leq Q^2 + 4AC_2Q^2 + A^2M^2\big(\sigma^2 + C_2Q^2\big)\\ &\leq Q^2+1
+\end{align}
+provided that $4AC_2Q^2 + A^2M^2\big(\sigma^2 + C_2Q^2\big) \leq 1$. Here, we use the facts that $v_0 \leq  Q^2$ and $e_0 = \|f\| \leq  C_2Q^2$ in the  inequalities above. Therefore, the base case holds since $r_1 = e_1\tilde v_1 \leq B$.   
+
+Suppose that $r_i \leq Bi^{\frac{1}{4}}$ for each $1\leq i \leq k$. It follows from \eqref{ineq: recur2} that for each $1\leq i\leq k$
+\begin{align}
+    \tilde v_i &\leq \tilde v_{i-1} + 2\sqrt{C_2\gamma_i^2J_{i}e_{i-1}\tilde v_{i-1}} +  M^2\gamma_i^2J_i(\sigma^2 + e_{i-1}) \notag\\
+    &\leq \tilde v_{i-1} + \tilde C_2i^{-\frac{1}{2}-\frac{s/4 - 1/8}{6s+1}}, \label{ineq: temp1}
+\end{align}
+where 
+\begin{align*}
+    \tilde C_2 = 2\sqrt{2C_2B} + 1.
+\end{align*}
+Here we use the fact that $$M^2\gamma_i^2J_i(\sigma^2 + e_{i-1}) \leq 2A^2M^2i^{-\frac{8s+1}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(i+1)\big) \leq i^{-\frac{1}{2}-\frac{s/4 - 1/8}{6s+1}},$$
+when $A^2 \leq 1/14M^2\max\{\sigma^2, 2C_2Q^2\}$.  Sum over $i=1$ to $k$ in \eqref{ineq: temp1}, we know 
+\begin{align}
+    \tilde v_k \leq \tilde C_3 k^{\frac{1}{2}-\frac{s/4 - 1/8}{6s+1}}, \label{ineq:vk}
+\end{align}
+where $\tilde C_3 = 3\tilde C_2 + Q^2 = 6\sqrt{2C_2B} + 3 + Q^2$ since $\tilde v_0 = v_0 \leq Q^2$. On the other hand, by continuing to apply \eqref{ineq: recur2} and using the inequality $\frac{2y_{i-1}}{\sqrt{\tilde v_{i-1}}} \leq \frac{2y_{i-1}^2}{e_{i-1}} + \frac{e_{i-1}}{2\tilde v_{i-1}}$, we obtain
+\begin{align}
+    \tilde v_i \leq \tilde v_{i-1}\left(1+ \frac{2\gamma_iy_{i-1}^2}{e_{i-1}}\right) + \frac{\gamma_i e_{i-1}}{2}  + M^2\gamma_i^2J_i(\sigma^2 + e_{i-1}). \label{ineq:temp2}
+\end{align}
+Taking $i = k+1$ in \eqref{ineq:recur1} and  \eqref{ineq:temp2}, we have
+\begin{align}
+    e_{k+1} &\leq e_k\left(1- \frac{2\gamma_{k+1}y_k^2}{e_k} \right) + 2A^2C_2M^2k^{-\frac{8s+1}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big), \label{ineq:temp3}\\
+    \tilde v_{k+1} &\leq \tilde v_{k}\left(1+ \frac{2\gamma_{k+1}y_{k}^2}{e_{k}}\right) + \frac{\gamma_{k+1} e_{k}}{2}  + 2A^2M^2k^{-\frac{8s+1}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big). \label{ineq:temp4}
+\end{align}
+By multiplying \eqref{ineq:temp3} 
+and \eqref{ineq:temp4} together, and using the facts that $e_k^2 = u_kr_k$, $C_2 \geq 1$, and the selection of $A^2$ such that 
+$$
+2A^2M^2k^{-\frac{8s+1}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big) \leq C_2Q^2\log(k+2),
+$$
+we obtain
+\begin{align}
+    r_{k+1} &\leq r_k + \frac{1}{2} \gamma_{k+1}u_kr_k +  2A^2C_2M^2k^{-\frac{8s+1}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big)\tilde v_{k}\left(1+ \frac{2\gamma_{k+1}y_{k}^2}{e_{k}}\right)\\
+    &~~~~+ 2A^2C_2M^2k^{-\frac{8s+1}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big)\bigg(3C_2Q^2\log(k+2) + AC_2Q^2i^{-\frac{4s+1}{6s+1}}\bigg).\label{recursion_rk_1}
+\end{align}
+Note that $2\gamma_{k+1}y_k^2/e_k \leq 2C_2\gamma_{k+1}J_{k+1} \leq 4AC_2(k+1)^{-4s/(6s+1)} \leq 1$ when $A \leq 1/4C_2$. Continuing from \eqref{recursion_rk_1}, and applying \eqref{ineq:vk}, the inequality $u_k \leq \tilde C_1 k^{-2s/(6s+1)} \leq 2^{1/3}\tilde C_1(k+1)^{-2s/(6s+1)}$, and the induction hypothesis $r_k \leq Bk^{\frac{1}{4}}$, we can get 
+\begin{align}
+    r_{k+1} &\leq Bk^{\frac{1}{4}}+ 2^{-1+\frac{1}{3}}A\tilde C_1B(k+1)^{-\frac{3}{4}} \\
+    &~~~~+ 4A^2C_2M^2\big(6\sqrt{2C_2B} + 3 + Q^2\big)k^{\frac{-21s/4 - 3/8}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big)\\
+    &~~~~+ 2A^2C_2M^2k^{-\frac{8s+1}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big)\bigg(3C_2Q^2\log(k+2) + AC_2Q^2i^{-\frac{4s+1}{6s+1}}\bigg)\label{recursion_rk_2}
+\end{align}
+When $A$ is sufficiently small, for each $k \geq 1$, we have,
+\begin{align}
+    &4A^2C_2M^2\big(6\sqrt{2C_2B} + 3 + Q^2\big)k^{\frac{-21s/4 - 3/8}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big)\\ 
+    &\leq~ \frac{1}{3}\left(\frac{1}{4} - \frac{2^{\frac{1}{3}}(4s+1)^2}{8(2s+1)(6s+1)}\right)B(k+1)^{-\frac{3}{4}},\label{rk_1}
+\end{align}
+because, for $s > 1/2$, we know that $(21s/4+3/8)/(6s+1) > 3/4$ and 
+$$
+\frac{1}{4} - \frac{2^{\frac{1}{3}}(4s+1)^2}{8(2s+1)(6s+1)} > 0.
+$$
+In addition, when $A$ is sufficiently small, for each $k \geq 1$,
+\begin{align}
+    &2A^2C_2M^2k^{-\frac{8s+1}{6s+1}}\big(\sigma^2 + 2C_2Q^2\log(k+2)\big)\bigg(3C_2Q^2\log(k+2) + AC_2Q^2i^{-\frac{4s+1}{6s+1}}\bigg)\\
+    &\leq~ \frac{1}{3}\left(\frac{1}{4} - \frac{2^{\frac{1}{3}}(4s+1)^2}{8(2s+1)(6s+1)}\right)B(k+1)^{-\frac{3}{4}}.\label{rk_2}
+\end{align}
+Furthermore, when $A$ is sufficiently small, for each $k \geq 1$, it holds that
+\begin{align}
+    &2^{-1+\frac{1}{3}}A\tilde C_1B(k+1)^{-\frac{3}{4}} \\
+    &=~ \frac{2^{\frac{1}{3}}(6s+1)}{2(2s+1)}\left(\frac{1}{4} \bigg(\frac{8C_2AQ^2}{\tilde v_0} + 2C_2A^2M^2+\frac{4s+1}{6s+1} \bigg)^2 + \frac{C_2A^3M^2\sigma^2}{\tilde v_0} \right)B(k+1)^{-\frac{3}{4}}\\
+    &\leq~ \frac{2^{\frac{1}{3}}(4s+1)^2}{8(2s+1)(6s+1)}B(k+1)^{-\frac{3}{4}} + \frac{1}{3}\left(\frac{1}{4} - \frac{2^{\frac{1}{3}}(4s+1)^2}{8(2s+1)(6s+1)}\right)B(k+1)^{-\frac{3}{4}}. \label{rk_3} 
+\end{align}
+Plugging in \eqref{rk_1}, \eqref{rk_2}, and \eqref{rk_3} into \eqref{recursion_rk_2}, we have
+\begin{align}
+    r_{k+1} \leq Bk^{\frac{1}{4}} + \frac{1}{4}B(k+1)^{-\frac{3}{4}} \leq B(k+1)^{\frac{1}{4}}.
+\end{align}
+This concludes the induction. Therefore, we obtain
+\begin{equation}
+e_n = \sqrt{u_nr_n}  = O\Big(n^{\frac{-s/4+1/8}{6s+1}}\Big),
+\end{equation}
+as desired.
+\end{proof}

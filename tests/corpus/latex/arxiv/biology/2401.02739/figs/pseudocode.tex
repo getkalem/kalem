@@ -1,0 +1,21 @@
+Here we provide a pseudocode to illustrate the training process of DDVI. 
+% We release anonymized code repo at \url{https://anonymous.4open.science/r/vi-with-diffusion-D70F}.
+\begin{algorithm*}[h]
+\caption{DDVI Pseudocode}
+\begin{algorithmic}[1]
+\State (Optional) Pre-train $p_\theta(\bx|\bz)$ and $q_\phi(\by|\bx)$ with DDVI but with unconditional diffusion model $q_\phi(\bz|\by)$
+\For{epoch $= 1, \ldots, n$}
+    \For{$\bx_1, \ldots, \bx_k \sim p_\mathcal{D}(\bx)$}
+        \State $\by_i \sim q_\phi(\by|\bx_i)$ and $\bz_i \sim q(\bz|\by_i, \bx_i)$ for $i = 1, \ldots, k$
+        \State Optimize $\theta, \phi$ with respect to a Monte Carlo estimate of $\mathbb{E}_{q_\phi(\by,\bz|\bx)} \left[ \log p_\theta(\bx|\bz) \right] - \mathrm{KL}\left(q_\phi(\by,\bz|\bx) \| p_\theta(\by,\bz) \right)$ for each $\bx_i$ \Comment{Standard ELBO training part}
+        \For{iteration $= 1, \ldots, m$} \Comment{Do sleep for $m$ iterations}
+            \State $\bz_{1}, \ldots, \bz_{k} \sim p(\bz)$ \Comment{Batch-sample latents from prior}
+            \State $\hat{\bx}_i \sim p(\bx|\bz_i)$ for $i = 1, \ldots, k$ \Comment{Construct fantasy inputs}
+            \State $\by_i \sim r(\by|\bz_i)$ for $i = 1, \ldots, k$ \Comment{Construct fantasy inputs}
+            \State Optimize $\phi$ using the standard diffusion noise prediction loss on $q_\phi(\bz|\by_i, \hat{\bx}_i)$
+        \EndFor
+    \EndFor
+\EndFor
+\end{algorithmic}
+\label{alg:ddvi}
+\end{algorithm*}

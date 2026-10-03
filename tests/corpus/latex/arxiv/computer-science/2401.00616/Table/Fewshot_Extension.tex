@@ -1,0 +1,18 @@
+\begin{table}[t!]
+     \caption{\textbf{Effectiveness of our OPP under the few-shot setting.}}
+     \label{tab:fewshot_extension}
+     \vspace{-4mm}
+  % \resizebox{\linewidth}{!}{
+% \setlength{\columnwidth}{15mm}{
+\setlength\tabcolsep{9pt}
+   \begin{tabular}{c|lccc}
+        \rowcolor[gray]{.9}
+        \hline
+        \multicolumn{1}{l|}{Shot}   & Methods & $\uparrow$ PSNR            & $\downarrow$ LPIPS          & $\downarrow$ FID             \\ \hline \hline
+        \multirow{2}{*}{2} & PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}     & 17.62          & 0.378          & 194.71          \\
+                                & \textbf{OPP}   & \textbf{17.75} & \textbf{0.345} & \textbf{143.38} \\ \hline
+        \multirow{2}{*}{3} & PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}     & 18.30          & 0.358          & 182.67          \\
+                                & \textbf{OPP}   & \textbf{18.45} & \textbf{0.323} & \textbf{134.24} \\ \hline
+        \end{tabular}
+    % }
+\end{table}

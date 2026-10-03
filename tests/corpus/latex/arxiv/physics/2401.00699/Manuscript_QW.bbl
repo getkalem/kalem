@@ -1,0 +1,218 @@
+\begin{thebibliography}{31}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Aharonov et~al.(1993)Aharonov, Davidovich, and Zagury]{Aharonov1993}
+Y.~Aharonov, L.~Davidovich, and N.~Zagury.
+\newblock Quantum random walks.
+\newblock \emph{Phys. Rev. A}, 48:\penalty0 1687--1690, 1993.
+\newblock \doi{10.1103/PhysRevA.48.1687}.
+
+\bibitem[Travaglione and Milburn(2002)]{Travaglione2002}
+B.~C. Travaglione and G.~J. Milburn.
+\newblock Implementing the quantum random walk.
+\newblock \emph{Phys. Rev. A}, 65:\penalty0 032310, 2002.
+\newblock \doi{10.1103/PhysRevA.65.032310}.
+
+\bibitem[Konno(2002)]{Konno2002}
+Norio Konno.
+\newblock Quantum random walks in one dimension.
+\newblock \emph{Quantum Information Processing}, 1\penalty0 (5):\penalty0
+  345--354, 2002.
+\newblock \doi{10.1023/A:1023413713008}.
+
+\bibitem[Konno(2005)]{Konno2005}
+Norio Konno.
+\newblock Limit theorem for continuous-time quantum walk on the line.
+\newblock \emph{Phys. Rev. E}, 72:\penalty0 026113, 2005.
+\newblock \doi{10.1103/PhysRevE.72.026113}.
+
+\bibitem[Berry and Wang(2010)]{Berry2010}
+Scott~D. Berry and Jingbo~B. Wang.
+\newblock Quantum-walk-based search and centrality.
+\newblock \emph{Phys. Rev. A}, 82:\penalty0 042333, 2010.
+\newblock \doi{10.1103/PhysRevA.82.042333}.
+
+\bibitem[Grover(1996)]{Grover1996}
+Lov~K. Grover.
+\newblock A fast quantum mechanical algorithm for database search.
+\newblock In \emph{Proceedings of the Twenty-Eighth Annual ACM Symposium on
+  Theory of Computing}, STOC '96, pages 212--219. Association for Computing
+  Machinery, 1996.
+\newblock \doi{10.1145/237814.237866}.
+
+\bibitem[Mukai and Hatano(2020)]{Mukai2020}
+Kanae Mukai and Naomichi Hatano.
+\newblock Discrete-time quantum walk on complex networks for community
+  detection.
+\newblock \emph{Phys. Rev. Res.}, 2:\penalty0 023378, 2020.
+\newblock \doi{10.1103/PhysRevResearch.2.023378}.
+
+\bibitem[Matsue et~al.(2016)Matsue, Ogurisu, and Segawa]{Matsue2016}
+Kaname Matsue, Osamu Ogurisu, and Etsuo Segawa.
+\newblock Quantum walks on simplicial complexes.
+\newblock \emph{Quantum Information Processing}, 15\penalty0 (5):\penalty0
+  1865--1896, 2016.
+\newblock \doi{10.1007/s11128-016-1247-6}.
+
+\bibitem[Matsue et~al.(2018)Matsue, Ogurisu, and Segawa]{Matsue2018}
+Kaname Matsue, Osamu Ogurisu, and Etsuo Segawa.
+\newblock Quantum search on simplicial complexes.
+\newblock \emph{Quantum Studies: Mathematics and Foundations}, 5\penalty0
+  (4):\penalty0 551--577, 2018.
+\newblock \doi{10.1007/s40509-017-0144-8}.
+
+\bibitem[Giusti et~al.(2016)Giusti, Ghrist, and Bassett]{Giusti2016}
+Chad Giusti, Robert Ghrist, and Danielle~S. Bassett.
+\newblock Two's company, three (or more) is a simplex.
+\newblock \emph{Journal of Computational Neuroscience}, 41\penalty0
+  (1):\penalty0 1--14, 2016.
+\newblock \doi{10.1007/s10827-016-0608-6}.
+
+\bibitem[Hatcher(2002)]{Hatcher2002}
+Allen Hatcher.
+\newblock \emph{Algebraic topology}.
+\newblock Cambridge University Press, 2002.
+
+\bibitem[Jonsson(2008)]{Jonsson2008}
+Jakob Jonsson.
+\newblock \emph{Simplicial complexes of graphs}, volume~3.
+\newblock Springer, 2008.
+
+\bibitem[Mill\'an et~al.(2020)Mill\'an, Torres, and Bianconi]{Millan2020}
+Ana~P. Mill\'an, Joaqu\'{\i}n~J. Torres, and Ginestra Bianconi.
+\newblock Explosive higher-order kuramoto dynamics on simplicial complexes.
+\newblock \emph{Phys. Rev. Lett.}, 124:\penalty0 218301, 2020.
+\newblock \doi{10.1103/PhysRevLett.124.218301}.
+
+\bibitem[Song(2023)]{Song2023}
+Euijun Song.
+\newblock Persistent homology analysis of type 2 diabetes genome-wide
+  association studies in protein--protein interaction networks.
+\newblock \emph{Frontiers in Genetics}, 14:\penalty0 1270185, 2023.
+\newblock \doi{10.3389/fgene.2023.1270185}.
+
+\bibitem[Vipond et~al.(2021)Vipond, Bull, Macklin, Tillmann, Pugh, Byrne, and
+  Harrington]{Vipond2021}
+Oliver Vipond, Joshua~A. Bull, Philip~S. Macklin, Ulrike Tillmann,
+  Christopher~W. Pugh, Helen~M. Byrne, and Heather~A. Harrington.
+\newblock Multiparameter persistent homology landscapes identify immune cell
+  spatial patterns in tumors.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 118\penalty0
+  (41):\penalty0 e2102166118, 2021.
+\newblock \doi{10.1073/pnas.2102166118}.
+
+\bibitem[Girvan and Newman(2002)]{Girvan2002}
+M.~Girvan and M.~E.~J. Newman.
+\newblock Community structure in social and biological networks.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 99\penalty0
+  (12):\penalty0 7821--7826, 2002.
+\newblock \doi{10.1073/pnas.122653799}.
+
+\bibitem[Newman(2006)]{Newman2006}
+M.~E.~J. Newman.
+\newblock Modularity and community structure in networks.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 103\penalty0
+  (23):\penalty0 8577--8582, 2006.
+\newblock \doi{10.1073/pnas.0601602103}.
+
+\bibitem[Mitzenmacher and Upfal(2005)]{Mitzenmacher2005}
+Michael Mitzenmacher and Eli Upfal.
+\newblock \emph{Probability and computing: Randomization and probabilistic
+  techniques in algorithms and data analysis}.
+\newblock Cambridge University Press, 2005.
+
+\bibitem[Faccin et~al.(2014)Faccin, Migda\l{}, Johnson, Bergholm, and
+  Biamonte]{Faccin2014}
+Mauro Faccin, Piotr Migda\l{}, Tomi~H. Johnson, Ville Bergholm, and Jacob~D.
+  Biamonte.
+\newblock Community detection in quantum complex networks.
+\newblock \emph{Phys. Rev. X}, 4:\penalty0 041012, 2014.
+\newblock \doi{10.1103/PhysRevX.4.041012}.
+
+\bibitem[Newman(2013)]{Newman2013}
+M.~E.~J. Newman.
+\newblock Spectral methods for community detection and graph partitioning.
+\newblock \emph{Phys. Rev. E}, 88:\penalty0 042822, 2013.
+\newblock \doi{10.1103/PhysRevE.88.042822}.
+
+\bibitem[Krishnagopal and Bianconi(2021)]{Krishnagopal2021}
+Sanjukta Krishnagopal and Ginestra Bianconi.
+\newblock Spectral detection of simplicial communities via hodge laplacians.
+\newblock \emph{Phys. Rev. E}, 104:\penalty0 064303, 2021.
+\newblock \doi{10.1103/PhysRevE.104.064303}.
+
+\bibitem[Mackay et~al.(2002)Mackay, Bartlett, Stephenson, and
+  Sanders]{Mackay2002}
+T.~D. Mackay, S.~D. Bartlett, L.~T. Stephenson, and B.~C. Sanders.
+\newblock Quantum walks in higher dimensions.
+\newblock \emph{Journal of Physics A: Mathematical and General}, 35\penalty0
+  (12):\penalty0 2745, 2002.
+\newblock \doi{10.1088/0305-4470/35/12/304}.
+
+\bibitem[Saito(2019)]{Saito2019}
+Kei Saito.
+\newblock Periodicity for the fourier quantum walk on regular graphs.
+\newblock \emph{Quantum Info. Comput.}, 19\penalty0 (1-2):\penalty0 23--34,
+  2019.
+\newblock \doi{10.26421/QIC19.1-2-3}.
+
+\bibitem[Lim(2020)]{Lim2020}
+Lek-Heng Lim.
+\newblock Hodge laplacians on graphs.
+\newblock \emph{SIAM Review}, 62\penalty0 (3):\penalty0 685--715, 2020.
+\newblock \doi{10.1137/18M1223101}.
+
+\bibitem[Baccini et~al.(2022)Baccini, Geraci, and Bianconi]{Baccini2022}
+Federica Baccini, Filippo Geraci, and Ginestra Bianconi.
+\newblock Weighted simplicial complexes and their representation power of
+  higher-order network data and topology.
+\newblock \emph{Phys. Rev. E}, 106:\penalty0 034319, 2022.
+\newblock \doi{10.1103/PhysRevE.106.034319}.
+
+\bibitem[Eckmann(1944)]{Eckmann1944}
+Beno Eckmann.
+\newblock Harmonische funktionen und randwertaufgaben in einem komplex.
+\newblock \emph{Commentarii Mathematici Helvetici}, 17\penalty0 (1):\penalty0
+  240--255, 1944.
+
+\bibitem[Estrada and Ross(2018)]{Estrada2018}
+Ernesto Estrada and Grant~J. Ross.
+\newblock Centralities in simplicial complexes. applications to protein
+  interaction networks.
+\newblock \emph{Journal of Theoretical Biology}, 438:\penalty0 46--60, 2018.
+\newblock \doi{10.1016/j.jtbi.2017.11.003}.
+
+\bibitem[Hern{\'a}ndez~Serrano and S{\'a}nchez~G{\'o}mez(2020)]{Hernandez2020}
+Daniel Hern{\'a}ndez~Serrano and Dar{\'\i}o S{\'a}nchez~G{\'o}mez.
+\newblock Centrality measures in simplicial complexes: Applications of
+  topological data analysis to network science.
+\newblock \emph{Applied Mathematics and Computation}, 382:\penalty0 125331,
+  2020.
+\newblock \doi{10.1016/j.amc.2020.125331}.
+
+\bibitem[Muhammad and Egerstedt(2006)]{Muhammad2006}
+Abubakr Muhammad and Magnus Egerstedt.
+\newblock Control using higher order laplacians in network topologies.
+\newblock In \emph{Proc. of 17th International Symposium on Mathematical Theory
+  of Networks and Systems}, pages 1024--1038, 2006.
+
+\bibitem[Zachary(1977)]{Zachary1977}
+Wayne~W. Zachary.
+\newblock An information flow model for conflict and fission in small groups.
+\newblock \emph{Journal of Anthropological Research}, 33\penalty0 (4):\penalty0
+  452--473, 1977.
+\newblock \doi{10.1086/jar.33.4.3629752}.
+
+\bibitem[Saarinen et~al.(2023)Saarinen, Goldsmith, Wang, Loscalzo, and
+  Maniscalco]{Saarinen2023}
+Harto Saarinen, Mark Goldsmith, Rui-Sheng Wang, Joseph Loscalzo, and Sabrina
+  Maniscalco.
+\newblock Disease gene prioritization with quantum walks.
+\newblock \emph{arXiv preprint}, 2311.05486, 2023.
+\newblock \doi{10.48550/arXiv.2311.05486}.
+
+\end{thebibliography}

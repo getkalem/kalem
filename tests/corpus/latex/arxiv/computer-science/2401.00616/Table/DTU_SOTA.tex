@@ -1,0 +1,19 @@
+
+\begin{table}[t]
+ \footnotesize
+ \caption{
+     \textbf{Comparisons with the state-of-the-art methods on the DTU dataset~\cite{DTU_jensen2014large}.}}
+     \vspace{-3mm}
+    \label{tab:DTU_SOTA}
+    % \resizebox{\linewidth}{!}{
+    \setlength\tabcolsep{8pt}
+        \begin{tabular}{l|cccc}
+        \rowcolor[gray]{.9}
+        \hline
+        Methods           & $\uparrow$ PSNR                & $\uparrow$ SSIM               & $\downarrow$ LPIPS      & $\downarrow$ FID \\ \hline \hline                         
+        PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}   & {16.12}                         & {0.545}                    & 0.451             &  223.34   \\
+        \textbf{OPP (ours)} & \textbf{16.19}      & \textbf{0.556}     & \textbf{0.392} & \textbf{149.95} \\ 
+        \hline
+        \end{tabular}
+    % }
+\end{table}

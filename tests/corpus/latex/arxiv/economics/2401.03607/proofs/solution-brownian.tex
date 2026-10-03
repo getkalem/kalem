@@ -1,0 +1,32 @@
+\begin{proof}[Proof of Proposition~\ref{prop:solution-brownian}]
+    Suppose~$n>1$.
+    The Brownian motion is a Gauss-Markov process, so we can use Lemma~\ref{lem:residual-variance-markov} to characterize~$R_n$.
+    Define~$\beta_n$ and~$\gamma_n$ as in that lemma.
+    Then~$\beta_n=1$ and~$\gamma_n=\sigma^2(t_n-t_{n-1})$ from the proof of Lemma~\ref{lem:residual-variance-brownian}.
+    So
+    \[ \prod_{j=0}^{n-2}\beta_{n-j}^2=1 \]
+    and
+    %
+    \begin{align*}
+        \sum_{j=0}^{n-2}\gamma_{n-j}\prod_{k=0}^{j-1}\beta_{n-k}^2
+        &= \sum_{j=0}^{n-2}\sigma^2(t_{n-j}-t_{n-j-1}) \\
+        &= \sigma^2(t_n-t_1),
+    \end{align*}
+    %
+    and similarly
+    \[ \prod_{j=0}^{i-1}\beta_{n-j}^2=1 \]
+    and
+    \[ \sum_{j=0}^{i-1}\gamma_{n-j}\prod_{k=0}^{j-1}\beta_{n-k}^2=\sigma^2(t_n-t_{n-i}) \]
+    for each~~$i<n$.
+    Thus, if~$p_i=p_i^*$ for each~$i<n$, then
+    %
+    \begin{align*}
+        R_n
+        &= \min\left\{\Var(\theta(t_1))\prod_{j=0}^{n-2}\beta_{n-j}^2+\sum_{j=0}^{n-2}\gamma_{n-j}\prod_{k=0}^{j-1}\beta_{n-k}^2\right\}\cup\left\{\sqrt{c}\prod_{j=0}^{i-1}\beta_{n-j}^2+\sum_{j=0}^{i-1}\gamma_{n-j}\prod_{k=0}^{j-1}\beta_{n-k}^2\right\}_{i=1}^{n-1} \\
+        &= \min\left\{\left(\sigma_0^2+\sigma^2t_1\right)+\sigma^2(t_n-t_1)\right\}\cup\left\{\sqrt{c}+\sigma^2(t_n-t_{n-i})\right\}_{i=1}^{n-1} \\
+        &= \min\left\{\sigma_0^2+\sigma^2t_n,\sqrt{c}+\sigma^2(t_n-t_{n-1})\right\}
+    \end{align*}
+    %
+    by Lemma~\ref{lem:residual-variance-markov}.
+    The result follows from Lemma~\ref{lem:solution} and the definition of~$\overline{t}$.
+\end{proof}

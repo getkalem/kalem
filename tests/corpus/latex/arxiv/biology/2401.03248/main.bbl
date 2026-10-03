@@ -1,0 +1,152 @@
+\begin{thebibliography}{10}
+
+\bibitem{singer2018sensory}
+Yosef Singer, Yayoi Teramoto, Ben~DB Willmore, Jan~WH Schnupp, Andrew~J King,
+  and Nicol~S Harper.
+\newblock Sensory cortex is optimized for prediction of future input.
+\newblock {\em Elife}, 7:e31557, 2018.
+
+\bibitem{chalk2018toward}
+Matthew Chalk, Olivier Marre, and Ga{\v{s}}per Tka{\v{c}}ik.
+\newblock Toward a unified theory of efficient, predictive, and sparse coding.
+\newblock {\em Proceedings of the National Academy of Sciences},
+  115(1):186--191, 2018.
+
+\bibitem{srinivasan1982predictive}
+Mandyam~Veerambudi Srinivasan, Simon~Barry Laughlin, and Andreas Dubs.
+\newblock Predictive coding: a fresh view of inhibition in the retina.
+\newblock {\em Proceedings of the Royal Society of London. Series B. Biological
+  Sciences}, 216(1205):427--459, 1982.
+
+\bibitem{rao1999predictive}
+Rajesh~PN Rao and Dana~H Ballard.
+\newblock Predictive coding in the visual cortex: a functional interpretation
+  of some extra-classical receptive-field effects.
+\newblock {\em Nature neuroscience}, 2(1):79--87, 1999.
+
+\bibitem{huang2011predictive}
+Yanping Huang and Rajesh~PN Rao.
+\newblock Predictive coding.
+\newblock {\em Wiley Interdisciplinary Reviews: Cognitive Science},
+  2(5):580--593, 2011.
+
+\bibitem{gregor2012lattice}
+Karol Gregor and Dmitri Chklovskii.
+\newblock A lattice filter model of the visual pathway.
+\newblock {\em Advances in Neural Information Processing Systems}, 25, 2012.
+
+\bibitem{tishby2000information}
+Naftali Tishby, Fernando~C Pereira, and William Bialek.
+\newblock The information bottleneck method.
+\newblock {\em arXiv preprint physics/0004057}, 2000.
+
+\bibitem{bialek2006efficient}
+William Bialek, Rob R De~Ruyter Van~Steveninck, and Naftali Tishby.
+\newblock Efficient representation as a design principle for neural coding and
+  computation.
+\newblock In {\em 2006 IEEE international symposium on information theory},
+  pages 659--663. IEEE, 2006.
+
+\bibitem{retinal-mosaics}
+Na~Young Jun, Greg~D Field, and John~M Pearson.
+\newblock Efficient coding, channel capacity and the emergence of retinal
+  mosaics.
+\newblock {\em Advances in Neural Information Processing Systems}, 2022.
+
+\bibitem{wiggins2006introduction}
+S.~Wiggins.
+\newblock {\em Introduction to Applied Nonlinear Dynamical Systems and Chaos}.
+\newblock Texts in Applied Mathematics. Springer New York, 2006.
+
+\bibitem{Landau1976Mechanics}
+L.~D. Landau and E.~M. Lifshitz.
+\newblock {\em Mechanics, Third Edition: Volume 1 (Course of Theoretical
+  Physics)}.
+\newblock Butterworth-Heinemann, 3 edition, January 1976.
+
+\bibitem{baccus2002fast}
+Stephen~A Baccus and Markus Meister.
+\newblock Fast and slow contrast adaptation in retinal circuitry.
+\newblock {\em Neuron}, 36(5):909--919, 2002.
+
+\bibitem{liu2015spike}
+Jian~K Liu and Tim Gollisch.
+\newblock Spike-triggered covariance analysis reveals phenomenological
+  diversity of contrast adaptation in the retina.
+\newblock {\em PLoS computational biology}, 11(7):e1004425, 2015.
+
+\bibitem{chander2001adaptation}
+Divya Chander and EJ~Chichilnisky.
+\newblock Adaptation to temporal contrast in primate and salamander retina.
+\newblock {\em Journal of Neuroscience}, 21(24):9904--9916, 2001.
+
+\bibitem{kim2001temporal}
+Kerry~J Kim and Fred Rieke.
+\newblock Temporal contrast adaptation in the input and output signals of
+  salamander retinal ganglion cells.
+\newblock {\em Journal of Neuroscience}, 21(1):287--299, 2001.
+
+\bibitem{mainen1995reliability}
+Zachary~F Mainen and Terrence~J Sejnowski.
+\newblock Reliability of spike timing in neocortical neurons.
+\newblock {\em Science}, 268(5216):1503--1506, 1995.
+
+\bibitem{Note1}
+In a neuron receiving synapses from multiple sources this would correspond to
+  considering the total synaptic current as a scalar input.
+
+\bibitem{bellman1997introduction}
+Richard Bellman.
+\newblock {\em Introduction to matrix analysis}.
+\newblock SIAM, 1997.
+
+\bibitem{noisy_dmd}
+Scott Dawson, Maziar~S Hemati, Matthew~O Williams, and Clarence~W Rowley.
+\newblock Characterizing and correcting for the effect of sensor noise in the
+  dynamic mode decomposition.
+\newblock {\em Experiments in Fluids}, 57(3):1--19, 2016.
+
+\bibitem{stable_noisy_dmd}
+Yuya Ohmichi, Yosuke Sugioka, and Kazuyuki Nakakita.
+\newblock Stable dynamic mode decomposition algorithm for noisy
+  pressure-sensitive-paint measurement data.
+\newblock {\em AIAA Journal}, 60(3):1965--1970, 2022.
+
+\bibitem{pehlevan2015hebbian}
+Cengiz Pehlevan, Tao Hu, and Dmitri~B Chklovskii.
+\newblock A hebbian/anti-hebbian neural network for linear subspace learning: A
+  derivation from multidimensional scaling of streaming data.
+\newblock {\em Neural computation}, 27(7):1461--1495, 2015.
+
+\bibitem{pehlevan2017similarity}
+Cengiz Pehlevan, Anirvan~M Sengupta, and Dmitri~B Chklovskii.
+\newblock Why do similarity matching objectives lead to hebbian/anti-hebbian
+  networks?
+\newblock {\em Neural computation}, 30(1):84--124, 2017.
+
+\bibitem{pehlevan2019neuroscience}
+Cengiz Pehlevan and Dmitri~B Chklovskii.
+\newblock Neuroscience-inspired online unsupervised learning algorithms:
+  Artificial neural networks.
+\newblock {\em IEEE Signal Processing Magazine}, 36(6):88--96, 2019.
+
+\bibitem{PRXLife.1.013008}
+David Lipshutz, Yanis Bahroun, Siavash Golkar, Anirvan~M. Sengupta, and
+  Dmitri~B. Chklovskii.
+\newblock Normative framework for deriving neural networks with
+  multicompartmental neurons and non-hebbian plasticity.
+\newblock {\em PRX Life}, 1:013008, Aug 2023.
+
+\bibitem{TrefethenEmbree+2020}
+Lloyd~N. Trefethen and Mark Embree.
+\newblock {\em Spectra and Pseudospectra: The Behavior of Nonnormal Matrices
+  and Operators}.
+\newblock Princeton University Press, 2020.
+
+\bibitem{rawashdeh2019simple}
+EA~Rawashdeh.
+\newblock A simple method for finding the inverse matrix of {V}andermonde
+  matrix.
+\newblock {\em Matematicki vesnik}, 3(71):207--213, 2019.
+
+\end{thebibliography}

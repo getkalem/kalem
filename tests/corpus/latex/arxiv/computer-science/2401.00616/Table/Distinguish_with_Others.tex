@@ -1,0 +1,27 @@
+\begin{table}[t]
+\setlength{\abovecaptionskip}{0cm}
+\footnotesize
+% \scriptsize
+     \caption{\textbf{Distinguish between existing representative technologies that can solve the O-NVS task under different settings (\S~\ref{sec:related_work}).} }
+    \label{tab:distinguish}
+    \setlength\tabcolsep{3.6pt}
+
+\begin{tabular}{c|l|ccc}
+    \rowcolor[gray]{.9}
+\hline
+\multicolumn{1}{c|}{\textbf{Technology}  }                                                                    & \textbf{Method} & \textbf{\begin{tabular}[c]{@{}c@{}}Inference-time \\ Finetuning-free\end{tabular}}  & \textbf{\begin{tabular}[c]{@{}c@{}}GAN \\ Model \end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}Diffusion \\ Model \end{tabular}}  \\ \hline \hline
+\multirow{2}{*}{3D GAN}                                               & EG3D-PTI~\cite{chan2022EG3D}             & \xmark           & \cmark      & \xmark      \\
+                                                                      & Pix2NeRF~\cite{Pix2NeRF_cai2022pix2nerf} & \cmark           &\cmark       & \xmark      \\ \hline
+\multirow{1}{*}{Geometry-free}                                        & 3DiM~\cite{watson20223DiM}               & \cmark           & \xmark      & \cmark      \\ \hline
+                                                                                          
+\multirow{4}{*}{\begin{tabular}[c]{@{}c@{}}Image-to-3D\end{tabular}}  & DietNeRF~\cite{Jain_2021_ICCV_dietnerf}  & \xmark           & \xmark      & \xmark     \\
+                                                                      & SinNeRF~\cite{Xu_2022_SinNeRF}           & \xmark           & \xmark      & \xmark     \\
+                                                                      & Zero-123-NVS~\cite{liu2023zero123}           & \cmark          & \xmark      & \cmark     \\
+                                                                      & Zero-123~\cite{liu2023zero123}           & \xmark           & \xmark      & \cmark     \\
+                                                                      & Make-it-3D~\cite{tang2023makeit3d}       & \xmark           & \xmark      & \cmark     \\ \hline
+\multirow{2}{*}{OG-NeRF}                                              & NeRFDiff~\cite{gu2023nerfdiff}           & \xmark           & \xmark      & \cmark     \\
+                                                                      & \textbf{Ours}                            & \cmark           & \cmark      & \cmark     \\ \hline
+\end{tabular} 
+
+
+\end{table}
