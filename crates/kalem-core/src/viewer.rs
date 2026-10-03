@@ -2079,6 +2079,25 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Puts the legend of the chart under the cursor somewhere, or takes it
+    /// away.
+    pub fn set_legend(
+        &mut self,
+        position: Option<kalem_viewer::LegendPosition>,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to place its legend")?;
+        self.doc()
+            .set_legend(self.unit, i, position)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -4742,6 +4761,45 @@ fn grid_commands() -> Vec<Command> {
                     "viewer.grid.verticalAxisTitle",
                     Some(kalem_viewer::ChartAxis::Vertical),
                 )
+            },
+        ),
+        cmd(
+            "viewer.grid.chartLegend",
+            "Chart Legend",
+            &["h l"],
+            IN_GRID,
+            |ctx, args| {
+                use kalem_viewer::LegendPosition as L;
+                let places = [
+                    ("bottom", Some(L::Bottom), "Bottom"),
+                    ("top", Some(L::Top), "Top"),
+                    ("left", Some(L::Left), "Left"),
+                    ("right", Some(L::Right), "Right"),
+                    ("topRight", Some(L::TopRight), "Top Right"),
+                    ("none", None, "None"),
+                ];
+                match args
+                    .get("position")
+                    .and_then(|p| p.as_str())
+                    .and_then(|p| places.iter().find(|x| x.0 == p))
+                {
+                    Some((_, position, _)) => with(ctx, |v| v.set_legend(*position)),
+                    None => {
+                        let items = places
+                            .iter()
+                            .map(|(key, _, title)| {
+                                menu_item(
+                                    "viewer.grid.chartLegend",
+                                    serde_json::json!({ "position": key }),
+                                    title,
+                                    "Legend",
+                                )
+                            })
+                            .collect();
+                        ctx.requests.push(Request::Choose(items));
+                        Ok(())
+                    }
+                }
             },
         ),
         cmd(
