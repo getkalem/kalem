@@ -611,6 +611,17 @@ impl Editor {
     /// Selects the next (or previous) match; `from_origin`: from where the
     /// search started, while typing the query.
     pub fn search(&mut self, backward: bool, from_origin: bool, cx: &mut Context<'_, Self>) {
+        // A file a viewer shows: its units' text, searched on a thread.
+        if let Some(v) = self.doc.viewer.as_deref_mut() {
+            let Some(f) = &self.find else { return };
+            if from_origin {
+                v.search_start(&f.query);
+            } else {
+                v.search_next(backward);
+            }
+            cx.notify();
+            return;
+        }
         self.refresh_matches();
         let Some(f) = &self.find else { return };
         let s = self.doc.selection;
@@ -629,6 +640,9 @@ impl Editor {
     }
 
     fn close_find(&mut self, cx: &mut Context<'_, Self>) {
+        if let Some(v) = self.doc.viewer.as_deref_mut() {
+            v.search_end();
+        }
         if let Some(f) = self.find.take() {
             self.last_search = (f.query, f.regex);
         }
@@ -707,6 +721,14 @@ impl Editor {
                     f.query.pop();
                     self.search(false, true, cx);
                 }
+            }
+            // A file a viewer shows draws no text, so nothing takes typed
+            // text as input: the bar takes it from the keys.
+            _ if self.doc.viewer.is_some() && !(m.control || m.platform || m.function) => {
+                let Some(text) = k.key_char.clone() else {
+                    return false;
+                };
+                return self.panel_input(&text, cx);
             }
             _ => return false,
         }
@@ -909,10 +931,11 @@ impl Editor {
                 .position(|m| *m == sel)
                 .map_or(0, |i| i + 1)
         };
-        let status = match &f.error {
-            Some(e) => e.clone(),
-            None if f.query.is_empty() => String::new(),
-            None => format!("{current}/{}", f.matches.len()),
+        let status = match (&f.error, self.doc.viewer.as_deref()) {
+            (Some(e), _) => e.clone(),
+            (None, _) if f.query.is_empty() => String::new(),
+            (None, Some(v)) => v.search_status(),
+            (None, None) => format!("{current}/{}", f.matches.len()),
         };
         let regex = div()
             .id("find-regex")
