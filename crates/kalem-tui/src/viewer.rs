@@ -83,8 +83,17 @@ pub fn draw(
     } else {
         (pic, None)
     };
-    if v.is_grid() {
-        draw_grid(v, caps, buf, pic);
+    if v.is_grid() && pic.height > 3 {
+        // The formula bar above the grid, drawn after it: the cursor may
+        // move while the grid is laid out.
+        let bar = Rect::new(pic.x, pic.y, pic.width, 1);
+        draw_grid(
+            v,
+            caps,
+            buf,
+            Rect::new(pic.x, pic.y + 1, pic.width, pic.height - 1),
+        );
+        draw_formula_bar(v, caps, buf, bar);
     } else {
         match picker(images, caps) {
             Some(p) => draw_image(v, image, &p, buf, pic),
@@ -150,6 +159,32 @@ fn in_view(
         i += 1;
     }
     out
+}
+
+/// The cursor's cell and what it holds, in full: a spreadsheet's formula bar.
+fn draw_formula_bar(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, bar: Rect) {
+    let pos = v.grid_pos();
+    let name = format!(
+        "{}{}",
+        kalem_core::csv_tools::column_letters(pos.col as usize),
+        pos.row + 1
+    );
+    let input: String = v
+        .cell_input()
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let name_w = (name.len() + 1).max(6);
+    let head = Style::default().add_modifier(Modifier::BOLD);
+    buf.set_stringn(bar.x, bar.y, format!("{name:<name_w$}"), name_w, head);
+    let sep = if caps.ascii { "|" } else { "│" };
+    buf.set_stringn(
+        bar.x + name_w as u16,
+        bar.y,
+        format!("{sep} {input}"),
+        (bar.width as usize).saturating_sub(name_w),
+        Style::default(),
+    );
 }
 
 /// A grid unit (a sheet): letters above, row numbers at the left, the
