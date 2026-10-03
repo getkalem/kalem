@@ -197,6 +197,24 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     assert_eq!(undone, before);
 
+    // Wrap Text on a long text: the row grows, and the cell is drawn wrapped.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.setCell",
+            serde_json::json!({ "row": 8, "col": 0, "value": "Paid on the first of every month, by bank transfer" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(8, 0);
+        e.run_command("viewer.grid.wrapText", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    let (wrapped, height) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        (v.grid_cells(8..9, 0..1)[0].2.wrap, v.row_height(8))
+    });
+    assert!(wrapped && height > 15.0, "{wrapped} {height}");
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"

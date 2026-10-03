@@ -198,6 +198,31 @@ fn cells_rows_undo_and_save() {
             .unwrap(),
         "1,300.00"
     );
+    // Wrap Text on a long text: the row grows to its lines.
+    let long = "Paid on the first of every month, by bank transfer";
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 8, "col": 0, "value": long }),
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(8, 0);
+    t.app.run_command("viewer.grid.wrapText", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.grid_cells(8..9, 0..1)[0].2.wrap);
+    // 50 characters in a column 18 wide, 17 of them for text: three lines.
+    assert_eq!(v.row_height(8), 45.0);
+    // The key, `w`, turns it off again.
+    t.key(KeyCode::Char('w'));
+    assert!(
+        !t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_cells(8..9, 0..1)[0]
+            .2
+            .wrap
+    );
+
     // The next sheet.
     t.app.run_command("viewer.grid.nextSheet", json!({}));
     assert!(t.status().starts_with("Dates"), "{}", t.status());

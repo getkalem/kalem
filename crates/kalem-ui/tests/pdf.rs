@@ -85,7 +85,11 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     let at = e.update(cx, |e, _| {
         let origin = e.viewer_view.bounds.expect("laid out").origin;
         let p = e.doc.viewer.as_deref_mut().unwrap().placement();
-        origin + gpui::point(gpui::px(p.x + 150.0 * p.scale), gpui::px(p.y + 97.0 * p.scale))
+        origin
+            + gpui::point(
+                gpui::px(p.x + 150.0 * p.scale),
+                gpui::px(p.y + 97.0 * p.scale),
+            )
     });
     cx.simulate_click(at, gpui::Modifiers::default());
     cx.run_until_parked();

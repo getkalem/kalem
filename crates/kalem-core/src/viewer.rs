@@ -518,7 +518,10 @@ impl ViewerState {
     /// Follows a link's target: `#N` shows unit N (from its top) and gives
     /// `None`; anything else is given back for the frontend to open.
     pub fn follow(&mut self, target: &str) -> Option<String> {
-        match target.strip_prefix('#').and_then(|n| n.parse::<usize>().ok()) {
+        match target
+            .strip_prefix('#')
+            .and_then(|n| n.parse::<usize>().ok())
+        {
             Some(unit) => {
                 self.go_to(unit);
                 None
@@ -923,6 +926,56 @@ impl ViewerState {
             .set_row_height(self.unit, row, height.clamp(0.0, 409.0))
             .map_err(|e| e.to_string())?;
         self.refresh();
+        Ok(())
+    }
+
+    /// Sets row `row`'s height to fit its wrapped cells' lines, as Excel's
+    /// autofit of a row: `measure` gives a text's width in digits. A row
+    /// with no wrapped text gets the default height.
+    pub fn fit_row_height(
+        &mut self,
+        row: u32,
+        measure: &dyn Fn(&str) -> f32,
+    ) -> Result<(), String> {
+        let cols = self.used_cols().max(1);
+        let cells = self.doc.grid_cells(self.unit, row..row + 1, 0..cols);
+        let mut lines = 1.0_f32;
+        for (_, c, cell) in cells
+            .into_iter()
+            .filter(|x| x.2.wrap && !x.2.text.is_empty())
+        {
+            // Excel leaves about a digit of room in a cell.
+            let room = (self.col_width(c) - 1.0).max(1.0);
+            let n: f32 = cell
+                .text
+                .split('\n')
+                .map(|p| (measure(p) / room).ceil().max(1.0))
+                .sum();
+            lines = lines.max(n);
+        }
+        let h = self.default_row_height() * lines;
+        self.set_row_height(row, h)
+    }
+
+    /// Turns Wrap Text on or off for the cursor's cell; turned on, the row
+    /// grows to the text's lines, as in Excel.
+    pub fn toggle_wrap(&mut self, measure: &dyn Fn(&str) -> f32) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        let on = !self
+            .doc
+            .grid_cells(self.unit, p.row..p.row + 1, p.col..p.col + 1)
+            .first()
+            .is_some_and(|c| c.2.wrap);
+        self.doc
+            .set_wrap(self.unit, p.row, p.col, on)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        if on {
+            self.fit_row_height(p.row, measure)?;
+        }
         Ok(())
     }
 
@@ -1788,6 +1841,25 @@ fn grid_commands() -> Vec<Command> {
             },
         ),
         cmd(
+            "viewer.grid.wrapText",
+            "Wrap Text",
+            &["w"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.toggle_wrap(&text_cells)),
+        ),
+        cmd(
+            "viewer.grid.fitRowHeight",
+            "Fit Row Height",
+            &["r f"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    let row = v.grid_pos().row;
+                    v.fit_row_height(row, &text_cells)
+                })
+            },
+        ),
+        cmd(
             "viewer.grid.tallerRow",
             "Taller Row",
             &["r +"],
@@ -2085,7 +2157,10 @@ mod tests {
         // The page is drawn at twice its size in a 200 × 100 area.
         v.set_area(200.0, 100.0);
         assert_eq!(v.link_at(30.0, 30.0).as_deref(), Some("#2"));
-        assert_eq!(v.link_at(150.0, 30.0).as_deref(), Some("https://example.org/"));
+        assert_eq!(
+            v.link_at(150.0, 30.0).as_deref(),
+            Some("https://example.org/")
+        );
         assert_eq!(v.link_at(100.0, 90.0), None);
         assert_eq!(v.follow("#2"), None);
         assert_eq!(v.unit, 2);
