@@ -88,6 +88,7 @@ repository, in Org, and =kalem book build= turns it into this site.
 
 * Part V. Design
 - [[file:part-5/design-documents.org][Design documents]]
+- [[file:part-5/how-the-book-is-written.org][How the Book is written]]
 - [[file:part-5/kalem-and-emacs.org][Kalem and Emacs]]
 - [[file:part-5/decisions.org][Decision records]]
 - [[file:part-5/decisions/D2-parser-foundation.org][D2: Parser foundation]]

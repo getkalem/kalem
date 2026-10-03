@@ -1,0 +1,54 @@
+#+TITLE: How the Book is written
+
+The Book is Kalem's reference: what it reads, shows, edits and writes,
+for every format, said once and tested. It is written in Org and built by
+Kalem's own Org exporter (=kalem book build=); =kalem book check= exports
+every chapter and follows every link.
+
+* The rule: the chapter changes with the code
+
+A change to how Kalem reads, shows, edits or writes a format changes the
+format's chapter in the same commit. =book/chapters.toml= maps the code
+to its chapter (Org's crates to /Org/, the CSV mode to /CSV/, the LaTeX
+crates and modules to /LaTeX/, the Markdown mode to /Markdown/, BibTeX
+to /BibTeX/, =klm-syntax= to Part III). On a pull request the Book's
+workflow runs =kalem book check book --changed origin/main=, which names
+every chapter whose code changed without it; a pull request that has a
+reason not to touch the chapter carries the label =book-unchanged= and
+says why in its description.
+
+* One skeleton for every format chapter
+
+Each chapter of Part II, of Part III and of the plugin formats of Part IV
+answers the same questions in the same order, so a reader who knows one
+chapter finds their way in the others:
+
+1. *The standard and the oracle*, with their versions: the specification
+   the format follows and the implementation Kalem is compared with
+   (Emacs's Org, pdflatex, the CommonMark suite, RFC 4180 and the =csv=
+   crate), and how the comparison runs.
+2. *Which files*, and how they are detected: extensions, mode lines,
+   content.
+3. *What is read*: the grammar, or the packages as implemented, in the
+   words of the standard.
+4. *What is shown*, and what is shown as source or a placeholder.
+5. *What is edited*, and the exact edit each command makes.
+6. *What is written*: byte-exactness, quoting, the parts left untouched.
+7. *Export and conversion*, as explicit commands only.
+8. *Known differences* from the oracle, each a test.
+9. *What is not implemented.*
+10. *Limits and performance.*
+11. *Where the code and the tests are.*
+
+A new chapter starts from =book/TEMPLATE-format.org=. A chapter whose
+material does not fit a heading keeps it under the nearest one rather
+than inventing a twelfth; a heading with nothing to say says so in a
+sentence.
+
+* Generated parts
+
+What can drift from the code is generated from it: the appendices of
+commands, settings and the command line at build time, the key tables
+from =tests/keys=, the LaTeX limitations page from a coverage report
+(=tools/latex-limitations.py=); and =kalem book check= holds every
+example of Part III to a case of the conformance suite.
