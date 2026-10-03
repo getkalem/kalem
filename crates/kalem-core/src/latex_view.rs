@@ -4858,7 +4858,37 @@ fn unflagged_line_view(
                                 _ => {}
                             }
                         }
-                        b.replace(r.start..end, rep, c.style);
+                        // `!` or `?` and the left quote make the Spanish
+                        // ligature, as `` !` `` does: TeX joins the font's
+                        // characters however they were written.
+                        let lig = match (name, b.runs.last()) {
+                            ("textquoteleft", Some(last))
+                                if !c.style.code
+                                    && last.verbatim
+                                    && last.src.end == r.start
+                                    && last.src.len() == last.text.len() =>
+                            {
+                                match last.text.as_bytes().last() {
+                                    Some(b'!') => Some("\u{a1}"),
+                                    Some(b'?') => Some("\u{bf}"),
+                                    _ => None,
+                                }
+                            }
+                            _ => None,
+                        };
+                        match lig {
+                            Some(lig) => {
+                                if let Some(last) = b.runs.last_mut() {
+                                    last.src.end -= 1;
+                                    last.text.pop();
+                                    if last.src.is_empty() {
+                                        b.runs.pop();
+                                    }
+                                }
+                                b.replace(r.start - 1..end, lig, c.style);
+                            }
+                            None => b.replace(r.start..end, rep, c.style),
+                        }
                     }
                     // A case change of plain text: the text changed.
                     (
@@ -9127,6 +9157,14 @@ mod tests {
             shown(&d, 0, Some(text.len())).display(),
             // Declarations stay as source, dimmed.
             "\u{a1}Hola! \u{bf}Qué? a\u{2013}b a--b ``c'' {\\tt x--y}"
+        );
+        // The quote written as a command makes the ligature too, as
+        // pdflatex typesets it; apart, it does not.
+        let text = "x !\\textquoteleft y ?\\textquoteleft{}z ! \\textquoteleft w\n";
+        let d = doc(text);
+        assert_eq!(
+            shown(&d, 0, Some(text.len())).display(),
+            "x \u{a1}y \u{bf}z ! \u{2018}w"
         );
     }
 
