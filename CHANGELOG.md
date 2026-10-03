@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- LaTeX builds checked to be reproducible: the editing template built twice with pdfLaTeX and with Tectonic under `SOURCE_DATE_EPOCH` gives the same PDF (CI).
 - Typst: `.typ` files with Typst's highlighting and an outline of their headings; Build PDF (F5) runs `typst compile` and shows its problems in the text.
 - LaTeX: SyncTeX both ways. Builds write it; Show in PDF opens the PDF at the page of the cursor's line, and a Ctrl-click (Cmd on macOS) on a page opens the source line it came from, across included files; checked against TeX Live's `synctex`.
 - File manager: Paste in the graphical editor takes files copied in another application (Finder's or Explorer's file list, or paths and `file://` URIs as text); the terminal's file menu parts its groups with rules.
