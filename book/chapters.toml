@@ -1,0 +1,36 @@
+# The code each chapter of the Book describes (T2.10.10). A pull request
+# that changes code listed here changes the chapter too, or carries the
+# label `book-unchanged` and says why: `kalem book check --changed BASE`
+# reports the chapters left behind, and the Book's workflow runs it on
+# every pull request. A path ending in `/` is a folder, any other a file
+# or the start of file names (`latex_` is every `latex_*.rs`). A chapter
+# ending in `/` is satisfied by a change to any page in that folder.
+
+["part-2/org.org"]
+code = [
+  "crates/org-syntax/",
+  "crates/org-model/",
+  "crates/org-edit/",
+  "crates/org-table/",
+  "crates/org-export/",
+]
+
+["part-2/csv.org"]
+code = ["crates/kalem-core/src/csv.rs", "crates/kalem-core/src/csv_tools.rs"]
+
+["part-2/latex.org"]
+code = [
+  "crates/latex-syntax/",
+  "crates/latex-model/",
+  "crates/kalem-core/src/latex_",
+  "crates/kalem-core/src/synctex.rs",
+]
+
+["part-2/markdown.org"]
+code = ["crates/kalem-core/src/markdown"]
+
+["part-2/bibtex.org"]
+code = ["crates/kalem-core/src/bibtex.rs", "crates/kalem-core/src/bibstyle.rs"]
+
+["part-3/"]
+code = ["crates/klm-syntax/", "crates/kalem-core/src/klm.rs"]

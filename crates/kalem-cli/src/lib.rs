@@ -156,6 +156,10 @@ enum BookAction {
         /// The Book's folder.
         #[arg(default_value = "book")]
         dir: PathBuf,
+        /// Instead: the chapters `book/chapters.toml` maps to code changed
+        /// since this Git revision, which have to change too.
+        #[arg(long, value_name = "BASE")]
+        changed: Option<String>,
     },
 }
 
@@ -488,8 +492,11 @@ where
             action: BookAction::Build { dir, out },
         } => commands::book::build(&dir, &out),
         Command::Book {
-            action: BookAction::Check { dir },
-        } => commands::book::check(&dir),
+            action: BookAction::Check { dir, changed },
+        } => match changed {
+            Some(base) => commands::book::check_changed(&dir, &base),
+            None => commands::book::check(&dir),
+        },
         Command::Export {
             files,
             to,
