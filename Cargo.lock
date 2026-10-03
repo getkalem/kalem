@@ -4278,7 +4278,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-pdf-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=876e9acbeef9803c19c1f5f716c8b7b04171d424#876e9acbeef9803c19c1f5f716c8b7b04171d424"
+source = "git+https://github.com/getkalem/plugins?rev=b70d1aab0f74d94f89831476344001491b4c88c3#b70d1aab0f74d94f89831476344001491b4c88c3"
 dependencies = [
  "hayro",
  "kalem-viewer",

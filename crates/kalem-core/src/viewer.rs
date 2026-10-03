@@ -183,6 +183,10 @@ const MAX_SCALE: f32 = 64.0;
 /// (its bits).
 type RenderKey = (usize, u8, u64, u32);
 
+/// The search's marks on a unit: what they were read for (the unit, the
+/// match shown, the count) and the rectangles, the shown match's `true`.
+type Marks = ((usize, Option<usize>, usize), Vec<([f32; 4], bool)>);
+
 /// A search of a document's text, run a unit at a time on a thread so
 /// that the document's lock is held for one unit only and matches show as
 /// they are found.
@@ -201,6 +205,10 @@ struct Search {
     scanned: usize,
     /// What the thread finds, each unit's matches; gone when it is done.
     rx: Option<Receiver<(usize, Vec<std::ops::Range<usize>>)>>,
+    /// The matches' rectangles on a unit, in its own pixels, the shown
+    /// one marked: for the unit, the match shown and the count they were
+    /// read for.
+    marks: Option<Marks>,
 }
 
 /// A file opened by a viewer, and how it is shown.
@@ -809,6 +817,7 @@ impl ViewerState {
             origin,
             scanned: 0,
             rx: Some(rx),
+            marks: None,
         });
     }
 
@@ -851,6 +860,7 @@ impl ViewerState {
             s.current = Some(i);
             let unit = s.hits[i].0;
             self.go_to(unit);
+            self.reveal_match();
         }
         changed
     }
@@ -878,6 +888,103 @@ impl ViewerState {
         s.current = Some(i);
         let unit = s.hits[i].0;
         self.go_to(unit);
+        self.reveal_match();
+    }
+
+    /// Scrolls the match shown into view when it is not.
+    fn reveal_match(&mut self) {
+        let Some((unit, range)) = self
+            .search
+            .as_ref()
+            .and_then(|s| s.hits.get(s.current?).cloned())
+        else {
+            return;
+        };
+        if unit != self.unit {
+            return;
+        }
+        let rects = self.doc().text_rects(unit, range);
+        let Some(first) = rects.first() else {
+            return;
+        };
+        let [x, y, w, h] = self.turned(*first);
+        let p = self.placement();
+        let (aw, ah) = self.area;
+        let (top, bottom) = (p.y + y * p.scale, p.y + (y + h) * p.scale);
+        let (left, right) = (p.x + x * p.scale, p.x + (x + w) * p.scale);
+        if top >= 0.0 && bottom <= ah && left >= 0.0 && right <= aw {
+            return;
+        }
+        let (cx, _) = self.shown_center();
+        let cx = if left < 0.0 || right > aw {
+            x + w / 2.0
+        } else {
+            cx
+        };
+        self.center = Some((cx, y + h / 2.0));
+    }
+
+    /// A rectangle of the unit's own pixels in the view's, turned as the
+    /// view is.
+    fn turned(&mut self, [x, y, w, h]: [f32; 4]) -> [f32; 4] {
+        let (tw, th) = self.unit_size();
+        let (uw, uh) = if self.rotation % 2 == 1 {
+            (th, tw)
+        } else {
+            (tw, th)
+        };
+        match self.rotation % 4 {
+            1 => [uh - y - h, x, h, w],
+            2 => [uw - x - w, uh - y - h, w, h],
+            3 => [y, uw - x - w, h, w],
+            _ => [x, y, w, h],
+        }
+    }
+
+    /// The find bar's matches on the unit shown, in the area's pixels as
+    /// placed (x, y, width, height), the one shown marked `true`. Read
+    /// from the viewer once for each match shown; while a render holds
+    /// the document, none this frame.
+    pub fn search_marks(&mut self) -> Vec<([f32; 4], bool)> {
+        let unit = self.unit;
+        let Some(s) = &mut self.search else {
+            return Vec::new();
+        };
+        let key = (unit, s.current, s.hits.len());
+        if s.marks.as_ref().is_none_or(|(k, _)| *k != key) {
+            let Ok(doc) = self.doc.try_lock() else {
+                return Vec::new();
+            };
+            let mut marks = Vec::new();
+            for (i, (u, r)) in s.hits.iter().enumerate() {
+                if *u == unit {
+                    let shown = s.current == Some(i);
+                    marks.extend(
+                        doc.text_rects(*u, r.clone())
+                            .into_iter()
+                            .map(|rc| (rc, shown)),
+                    );
+                }
+            }
+            s.marks = Some((key, marks));
+        }
+        let marks = s.marks.as_ref().map(|(_, m)| m.clone()).unwrap_or_default();
+        let p = self.placement();
+        marks
+            .into_iter()
+            .map(|(rc, shown)| {
+                let [x, y, w, h] = self.turned(rc);
+                (
+                    [
+                        p.x + x * p.scale,
+                        p.y + y * p.scale,
+                        w * p.scale,
+                        h * p.scale,
+                    ],
+                    shown,
+                )
+            })
+            .collect()
     }
 
     /// The find bar's count: the match shown and how many there are, with
@@ -3113,6 +3220,15 @@ mod tests {
         fn text(&self, unit: usize) -> String {
             format!("page {}", unit + 1)
         }
+        fn text_rects(&self, _: usize, r: std::ops::Range<usize>) -> Vec<[f32; 4]> {
+            // Each byte 10 pixels wide on a line 10 high at y 30.
+            vec![[
+                r.start as f32 * 10.0,
+                30.0,
+                (r.end - r.start) as f32 * 10.0,
+                10.0,
+            ]]
+        }
     }
 
     fn state(n: usize) -> ViewerState {
@@ -3442,6 +3558,28 @@ mod tests {
         assert_eq!(v.search_status(), "0/0");
         v.search_start("");
         assert_eq!(v.search_status(), "");
+    }
+
+    #[test]
+    fn matches_are_marked_where_they_stand() {
+        let mut v = state(3);
+        v.set_area(100.0, 50.0);
+        v.search_start("2");
+        while v.searching() {
+            v.search_poll();
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        v.search_poll();
+        assert_eq!(v.unit, 1);
+        // "page 2": the 2 at byte 5, 10 wide at x 50, y 30; the page is
+        // drawn at its size, from the area's corner.
+        assert_eq!(v.search_marks(), [([50.0, 30.0, 10.0, 10.0], true)]);
+        // Turned a quarter: the page is 50 × 100; x is 50 - 30 - 10.
+        v.rotate(1);
+        v.set_area(50.0, 100.0);
+        assert_eq!(v.search_marks(), [([10.0, 50.0, 10.0, 10.0], true)]);
+        v.search_end();
+        assert!(v.search_marks().is_empty());
     }
 
     #[test]
