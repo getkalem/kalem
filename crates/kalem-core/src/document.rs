@@ -1428,7 +1428,10 @@ impl DocumentState {
             }
             None => false,
         };
-        self.poll_parse() || latex
+        // A large Markdown document's first parse, done in the background.
+        let markdown =
+            self.meta.mode == DocumentMode::Markdown && crate::markdown::background_done();
+        self.poll_parse() || latex || markdown
     }
 
     /// The LaTeX diagnostics of the text as it is, when they are known
@@ -1736,9 +1739,8 @@ impl DocumentState {
         );
         c.flag("hasLanguageServer", crate::lsp::serves(self));
         if self.meta.mode == DocumentMode::Markdown
-            && self.text.len() <= crate::markdown::LIVE_LIMIT
+            && let Some(md) = crate::markdown::ready(self)
         {
-            let md = crate::markdown::parsed(self);
             let at = self.selection.head;
             c.flag(
                 "inMarkdownTable",

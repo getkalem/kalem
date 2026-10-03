@@ -123,11 +123,19 @@ pub struct Md {
     pub nodes: Vec<MdNode>,
     /// Line starts of the text.
     starts: Vec<usize>,
-    /// For each line, where its nodes start in `line_nodes` (one more
-    /// entry than lines).
-    line_off: Vec<u32>,
-    /// The nodes touching each line, line after line.
-    line_nodes: Vec<u32>,
+    /// The top-level nodes, in order: each one's nodes run from it to the
+    /// next one, so the nodes touching a line are found from these
+    /// ([`Md::on_line`]).
+    tops: Vec<u32>,
+    /// For each top-level node, how far its nodes reach (a child's range
+    /// can run past its parent's) and whether they are in the order of
+    /// their starts.
+    top_info: Vec<(usize, bool)>,
+    /// For each top-level node, the furthest any of them up to it reaches.
+    reach: Vec<usize>,
+    /// The text has link reference definitions or footnotes, which reach
+    /// across the document ([`has_globals`]): an edit parses it whole.
+    globals: bool,
 }
 
 fn options() -> comrak::Options<'static> {
@@ -192,7 +200,9 @@ fn line_starts(text: &str) -> Vec<usize> {
 impl Md {
     /// Parses `text`.
     pub fn parse(text: &str) -> Md {
-        Md::parse_with(text, true)
+        let mut md = Md::parse_with(text, true);
+        md.globals = has_globals(text);
+        md
     }
 
     fn parse_with(text: &str, front_matter: bool) -> Md {
@@ -493,36 +503,45 @@ impl Md {
     }
 
     /// Each line's nodes, from the nodes and the line starts.
+    /// The top-level nodes, from the parents.
     fn index(&mut self) {
-        let lines = self.starts.len();
-        let spans: Vec<(usize, usize)> = self
-            .nodes
+        self.tops = (0..self.nodes.len() as u32)
+            .filter(|&i| self.nodes[i as usize].parent.is_none())
+            .collect();
+        self.top_info = (0..self.tops.len()).map(|j| self.info_of(j)).collect();
+        self.fill_reach();
+    }
+
+    /// [`Md::top_info`] of the `j`th top-level node.
+    fn info_of(&self, j: usize) -> (usize, bool) {
+        let a = self.tops[j] as usize;
+        let b = self
+            .tops
+            .get(j + 1)
+            .map_or(self.nodes.len(), |&u| u as usize);
+        let nodes = &self.nodes[a..b];
+        let far = nodes
             .iter()
-            .map(|n| {
-                let a = self.line_of(n.range.start);
-                let b = self.line_of(n.range.end.max(n.range.start)).min(lines - 1);
-                (a, b)
+            .map(|n| n.range.end.max(n.range.start))
+            .max()
+            .unwrap_or(0);
+        let sorted = nodes
+            .windows(2)
+            .all(|w| w[0].range.start <= w[1].range.start);
+        (far, sorted)
+    }
+
+    /// [`Md::reach`] from [`Md::top_info`].
+    fn fill_reach(&mut self) {
+        let mut far = 0;
+        self.reach = self
+            .top_info
+            .iter()
+            .map(|&(end, _)| {
+                far = far.max(end);
+                far
             })
             .collect();
-        let mut off = vec![0u32; lines + 1];
-        for &(a, b) in &spans {
-            for l in a..=b {
-                off[l + 1] += 1;
-            }
-        }
-        for l in 0..lines {
-            off[l + 1] += off[l];
-        }
-        let mut fill = off.clone();
-        let mut nodes = vec![0u32; off[lines] as usize];
-        for (i, &(a, b)) in spans.iter().enumerate() {
-            for l in a..=b {
-                nodes[fill[l] as usize] = i as u32;
-                fill[l] += 1;
-            }
-        }
-        self.line_off = off;
-        self.line_nodes = nodes;
     }
 
     /// The parse of `text` after an edit of `old_text`, whose parse this
@@ -535,26 +554,32 @@ impl Md {
     /// (an unclosed fence, two lists meeting) are parsed whole. Always
     /// the same nodes as [`Md::parse`] of `text`.
     pub fn reparse(&self, old_text: &str, text: &str) -> Md {
-        if has_globals(old_text) || has_globals(text) {
+        self.clone().reparse_owned(old_text, text)
+    }
+
+    /// [`Md::reparse`], reusing this parse's memory: the nodes after the
+    /// edit are moved where they lie rather than copied, so a keystroke
+    /// costs the region parsed again and a pass over the nodes after it.
+    pub fn reparse_owned(mut self, old_text: &str, text: &str) -> Md {
+        if old_text == text {
+            return self;
+        }
+        if self.globals {
             return Md::parse(text);
         }
-        let tops: Vec<usize> = (0..self.nodes.len())
-            .filter(|&i| self.nodes[i].parent.is_none())
+        let tops: Vec<usize> = std::mem::take(&mut self.tops)
+            .into_iter()
+            .map(|i| i as usize)
             .collect();
+        let info = std::mem::take(&mut self.top_info);
         if tops.is_empty() {
             return Md::parse(text);
         }
         // The edit, as the bytes that differ.
         let (ob, nb) = (old_text.as_bytes(), text.as_bytes());
-        let mut pre = ob.iter().zip(nb).take_while(|(a, b)| a == b).count();
+        let mut pre = common_prefix(ob, nb);
         let max_suf = ob.len().min(nb.len()) - pre;
-        let mut suf = ob
-            .iter()
-            .rev()
-            .zip(nb.iter().rev())
-            .take(max_suf)
-            .take_while(|(a, b)| a == b)
-            .count();
+        let mut suf = common_suffix(ob, nb, max_suf);
         while pre > 0 && !(old_text.is_char_boundary(pre) && text.is_char_boundary(pre)) {
             pre -= 1;
         }
@@ -564,6 +589,17 @@ impl Md {
             suf -= 1;
         }
         let (old_end, delta) = (ob.len() - suf, nb.len() as isize - ob.len() as isize);
+        // A reference definition or footnote the edit makes: on the lines
+        // it changes.
+        {
+            let a = text[..pre].rfind('\n').map_or(0, |i| i + 1);
+            let b = text[nb.len() - suf..]
+                .find('\n')
+                .map_or(nb.len(), |i| nb.len() - suf + i);
+            if has_globals(&text[a..b]) {
+                return Md::parse(text);
+            }
+        }
         let node = |k: usize| &self.nodes[tops[k]];
         // The top-level blocks the edit touches, one more each side.
         let mut k0 = tops
@@ -669,31 +705,71 @@ impl Md {
         if (open_end && guarded) || meets_after || meets_before || absorbs_after || absorbs_before {
             return Md::parse(text);
         }
-        // Old nodes before the region, the region's, the old ones after.
+        // The region's nodes in place of the old ones, the ones after it
+        // moved.
         let a = tops[k0];
         let b = if k1 + 1 < tops.len() {
             tops[k1 + 1]
         } else {
             self.nodes.len()
         };
-        let mut nodes = Vec::with_capacity(self.nodes.len() + region.nodes.len());
-        nodes.extend_from_slice(&self.nodes[..a]);
         let base = a as u32;
-        for n in region.nodes.drain(..) {
-            nodes.push(shifted(n, start as isize, |p| p + base));
+        let count = region.nodes.len();
+        // The guard block cut off the region is not among them.
+        let region_tops: Vec<u32> = region
+            .tops
+            .iter()
+            .filter(|&&i| (i as usize) < count)
+            .map(|&i| i + base)
+            .collect();
+        self.nodes.splice(
+            a..b,
+            region
+                .nodes
+                .drain(..)
+                .map(|n| shifted(n, start as isize, |p| p + base)),
+        );
+        let moved = count as isize - (b - a) as isize;
+        for n in &mut self.nodes[a + count..] {
+            shift(n, delta, moved);
         }
-        let moved = nodes.len() as isize - b as isize;
-        for n in &self.nodes[b..] {
-            nodes.push(shifted(n.clone(), delta, |p| (p as isize + moved) as u32));
+        let mut new_tops: Vec<u32> = tops[..k0].iter().map(|&i| i as u32).collect();
+        let region_count = region_tops.len();
+        new_tops.extend(region_tops);
+        new_tops.extend(tops[k1 + 1..].iter().map(|&i| (i as isize + moved) as u32));
+        self.tops = new_tops;
+        let mut new_info: Vec<(usize, bool)> = info[..k0].to_vec();
+        for j in k0..k0 + region_count {
+            new_info.push(self.info_of(j));
         }
-        let mut md = Md {
-            nodes,
-            starts: line_starts(text),
-            line_off: Vec::new(),
-            line_nodes: Vec::new(),
-        };
-        md.index();
-        md
+        new_info.extend(
+            info[k1 + 1..]
+                .iter()
+                .map(|&(end, sorted)| ((end as isize + delta) as usize, sorted)),
+        );
+        self.top_info = new_info;
+        self.fill_reach();
+        // The line starts: the region's found again, those after moved.
+        let first = self.starts.partition_point(|&s| s < start);
+        if end >= ob.len() {
+            self.starts.truncate(first);
+            self.starts
+                .extend(line_starts(&text[start..]).into_iter().map(|s| s + start));
+        } else {
+            let after = self.starts.partition_point(|&s| s < end);
+            let region_starts: Vec<usize> = line_starts(&text[start..new_end])
+                .into_iter()
+                .map(|s| s + start)
+                .filter(|&s| s < new_end)
+                .collect();
+            let tail = first + region_starts.len();
+            self.starts.splice(first..after, region_starts);
+            for s in &mut self.starts[tail..] {
+                *s = (*s as isize + delta) as usize;
+            }
+        }
+        debug_assert_eq!(self.starts, line_starts(text));
+        self
     }
 
     /// The line holding byte `pos`.
@@ -703,13 +779,41 @@ impl Md {
 
     /// The nodes touching line `line`, outermost first.
     pub fn on_line(&self, line: usize) -> impl Iterator<Item = &MdNode> {
-        let (a, b) = match (self.line_off.get(line), self.line_off.get(line + 1)) {
-            (Some(&a), Some(&b)) => (a as usize, b as usize),
-            _ => (0, 0),
+        // A node touches the line when it starts before the next line and
+        // its end is on the line or after.
+        let ids: Vec<u32> = match self.starts.get(line) {
+            None => Vec::new(),
+            Some(&from) => {
+                let to = self.starts.get(line + 1).copied().unwrap_or(usize::MAX);
+                let end = |n: &MdNode| n.range.end.max(n.range.start);
+                let k = self.reach.partition_point(|&r| r < from);
+                let mut ids = Vec::new();
+                for (j, &t) in self.tops.iter().enumerate().skip(k) {
+                    if self.nodes[t as usize].range.start >= to {
+                        break;
+                    }
+                    let last = self
+                        .tops
+                        .get(j + 1)
+                        .map_or(self.nodes.len(), |&u| u as usize);
+                    let nodes = &self.nodes[t as usize..last];
+                    // In the order of their starts, those starting after
+                    // the line are at the end.
+                    let upto = if self.top_info[j].1 {
+                        nodes.partition_point(|n| n.range.start < to)
+                    } else {
+                        nodes.len()
+                    };
+                    ids.extend(
+                        (0..upto)
+                            .filter(|&i| end(&nodes[i]) >= from)
+                            .map(|i| t + i as u32),
+                    );
+                }
+                ids
+            }
         };
-        self.line_nodes[a..b]
-            .iter()
-            .map(|&i| &self.nodes[i as usize])
+        ids.into_iter().map(|i| &self.nodes[i as usize])
     }
 
     /// The headings: level, title range and start.
@@ -733,6 +837,49 @@ fn has_globals(text: &str) -> bool {
             && text
                 .lines()
                 .any(|l| l.trim_start().starts_with('[') && l.contains("]:")))
+}
+
+/// How many bytes `a` and `b` start with in common, compared a chunk at
+/// a time.
+fn common_prefix(a: &[u8], b: &[u8]) -> usize {
+    const CHUNK: usize = 64;
+    let n = a.len().min(b.len());
+    let mut i = 0;
+    while i + CHUNK <= n && a[i..i + CHUNK] == b[i..i + CHUNK] {
+        i += CHUNK;
+    }
+    while i < n && a[i] == b[i] {
+        i += 1;
+    }
+    i
+}
+
+/// How many bytes `a` and `b` end with in common, at most `max`.
+fn common_suffix(a: &[u8], b: &[u8], max: usize) -> usize {
+    const CHUNK: usize = 64;
+    let (la, lb) = (a.len(), b.len());
+    let mut i = 0;
+    while i + CHUNK <= max && a[la - i - CHUNK..la - i] == b[lb - i - CHUNK..lb - i] {
+        i += CHUNK;
+    }
+    while i < max && a[la - i - 1] == b[lb - i - 1] {
+        i += 1;
+    }
+    i
+}
+
+/// `n` moved by `by` bytes where it lies, its parent renumbered by
+/// `moved`.
+fn shift(n: &mut MdNode, by: isize, moved: isize) {
+    let m = |x: usize| (x as isize + by) as usize;
+    n.range = m(n.range.start)..m(n.range.end);
+    n.content = m(n.content.start)..m(n.content.end);
+    if let MdKind::TaskItem { boxed, .. } = &mut n.kind {
+        *boxed = m(boxed.start)..m(boxed.end);
+    }
+    if let Some(p) = &mut n.parent {
+        *p = (*p as isize + moved) as u32;
+    }
 }
 
 /// `n` moved by `by` bytes, its parent renumbered by `parent`.
@@ -762,8 +909,13 @@ pub fn parsed(doc: &crate::DocumentState) -> Rc<Md> {
             return md.clone();
         }
         let text = doc.text().as_str();
-        let md = Rc::new(match &*p.borrow() {
-            Some((_, old, old_text)) => old.reparse(old_text, text),
+        let last = p.borrow_mut().take();
+        let md = Rc::new(match last {
+            // The last parse reused when nothing else holds it.
+            Some((_, old, old_text)) => {
+                let old = Rc::try_unwrap(old).unwrap_or_else(|rc| (*rc).clone());
+                old.reparse_owned(&old_text, text)
+            }
             None => Md::parse(text),
         });
         *p.borrow_mut() = Some((key, md.clone(), Rc::from(text)));
@@ -771,11 +923,97 @@ pub fn parsed(doc: &crate::DocumentState) -> Rc<Md> {
     })
 }
 
-/// The largest document drawn as it reads. A keystroke reparses only
-/// the blocks around it ([`Md::reparse`]), but opening a document parses
-/// all of it on the editor's thread, at about 8 MB a second; larger
-/// documents show their source until that parse runs in the background.
+/// The largest document parsed on the editor's thread when it opens (at
+/// about 7 MB a second). A larger one is parsed in the background and
+/// shows its source until then ([`ready`]); after that a keystroke
+/// reparses only the blocks around it ([`Md::reparse_owned`]).
 pub const LIVE_LIMIT: usize = 2 * 1024 * 1024;
+
+/// An edit small enough to reparse within a frame: at most this many
+/// bytes changed.
+const SMALL_EDIT: usize = 64 * 1024;
+
+/// Whether `new` is `old` with a small edit.
+fn small_edit(old: &str, new: &str) -> bool {
+    if old.len().abs_diff(new.len()) > SMALL_EDIT {
+        return false;
+    }
+    let (a, b) = (old.as_bytes(), new.as_bytes());
+    let pre = common_prefix(a, b);
+    let suf = common_suffix(a, b, a.len().min(b.len()) - pre);
+    a.len() - pre - suf <= SMALL_EDIT && b.len() - pre - suf <= SMALL_EDIT
+}
+
+/// A large document's parse running in the background: its text, and the
+/// parse when it is done.
+type Background = (std::sync::Arc<str>, Option<Md>);
+
+static BACKGROUND: std::sync::Mutex<Option<Background>> = std::sync::Mutex::new(None);
+
+/// A background parse finished and has not been reported yet.
+static FINISHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Whether a background parse finished since the last call: the views
+/// are to be drawn again ([`crate::DocumentState::poll`]).
+pub fn background_done() -> bool {
+    FINISHED.swap(false, std::sync::atomic::Ordering::Relaxed)
+}
+
+/// The parse of `doc` when it can be had within a frame: at once for a
+/// document up to [`LIVE_LIMIT`], or one a small edit away from the last
+/// parse; a larger document is parsed in the background first, `None`
+/// until then (its source shows).
+pub fn ready(doc: &crate::DocumentState) -> Option<Rc<Md>> {
+    let text = doc.text().as_str();
+    if text.len() <= LIVE_LIMIT {
+        return Some(parsed(doc));
+    }
+    let key = (doc.version(), text.len());
+    let near = PARSED.with(|p| {
+        p.borrow().as_ref().map(|(k, md, old)| {
+            (*k == key)
+                .then(|| md.clone())
+                .ok_or_else(|| small_edit(old, text))
+        })
+    });
+    match near {
+        Some(Ok(md)) => return Some(md),
+        Some(Err(true)) => return Some(parsed(doc)),
+        _ => {}
+    }
+    let Ok(mut bg) = BACKGROUND.lock() else {
+        return None;
+    };
+    match bg.take() {
+        // Done: reparsed to the text as it is now.
+        Some((then, Some(md))) if small_edit(&then, text) => {
+            PARSED.with(|p| *p.borrow_mut() = Some(((u64::MAX, 0), Rc::new(md), Rc::from(&*then))));
+            drop(bg);
+            Some(parsed(doc))
+        }
+        // Running for this text, or a text a small edit away.
+        Some((then, None)) if small_edit(&then, text) => {
+            *bg = Some((then, None));
+            None
+        }
+        // Not started, or for another document: started for this one.
+        _ => {
+            let then: std::sync::Arc<str> = std::sync::Arc::from(text);
+            *bg = Some((then.clone(), None));
+            std::thread::spawn(move || {
+                let md = Md::parse(&then);
+                if let Ok(mut bg) = BACKGROUND.lock()
+                    && let Some((t, slot)) = bg.as_mut()
+                    && std::sync::Arc::ptr_eq(t, &then)
+                {
+                    *slot = Some(md);
+                    FINISHED.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+            });
+            None
+        }
+    }
+}
 
 /// Line `range` of the Markdown document `doc` as displayed, the cursor at
 /// `cursor`.
@@ -784,10 +1022,9 @@ pub fn line_view(
     range: Range<usize>,
     cursor: Option<usize>,
 ) -> LineView {
-    if doc.text().len() > LIVE_LIMIT {
+    let Some(md) = ready(doc) else {
         return crate::view::plain_line_view(doc.text().as_str(), range, cursor);
-    }
-    let md = parsed(doc);
+    };
     view_line(&md, doc.text().as_str(), range, cursor)
 }
 
@@ -1396,10 +1633,12 @@ fn runs(text: &str, line: Range<usize>, pieces: &[Piece]) -> Vec<Run> {
 /// line's text inside a fenced code block that names one, for the
 /// editors to color as they color code.
 pub fn code_on_line(doc: &crate::DocumentState, line: Range<usize>) -> Vec<(Range<usize>, String)> {
-    if doc.meta.mode != crate::DocumentMode::Markdown || doc.text().len() > LIVE_LIMIT {
+    if doc.meta.mode != crate::DocumentMode::Markdown {
         return Vec::new();
     }
-    let md = parsed(doc);
+    let Some(md) = ready(doc) else {
+        return Vec::new();
+    };
     code_lines(&md, line)
 }
 
@@ -1411,10 +1650,10 @@ pub fn code_block_on_line(
     doc: &crate::DocumentState,
     line: Range<usize>,
 ) -> Option<(Range<usize>, usize, String)> {
-    if doc.meta.mode != crate::DocumentMode::Markdown || doc.text().len() > LIVE_LIMIT {
+    if doc.meta.mode != crate::DocumentMode::Markdown {
         return None;
     }
-    let md = parsed(doc);
+    let md = ready(doc)?;
     let idx = md.line_of(line.start);
     md.on_line(idx).find_map(|n| match &n.kind {
         MdKind::CodeBlock {
@@ -2019,7 +2258,9 @@ pub fn to_html(text: &str) -> String {
 /// one paragraph. None without front matter.
 pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
     use crate::view::{Block, BlockKind};
-    let md = parsed(doc);
+    let Some(md) = ready(doc) else {
+        return Vec::new();
+    };
     if !md
         .nodes
         .iter()
@@ -2071,7 +2312,9 @@ fn front_matter_end(text: &str) -> Option<usize> {
 }
 
 pub fn outline_items(doc: &crate::DocumentState) -> Vec<crate::view::OutlineItem> {
-    let md = parsed(doc);
+    let Some(md) = ready(doc) else {
+        return Vec::new();
+    };
     outline(&md, doc.text().as_str())
 }
 
@@ -2491,7 +2734,38 @@ mod tests {
                     let (t, a, i, l) = minimize(&text, at, len, ins);
                     panic!("{t:?} with {l} bytes at {a} replaced by {i:?}");
                 }
-                assert_eq!(inc.line_nodes, full.line_nodes);
+                assert_eq!(inc.tops, full.tops);
+                assert_eq!(inc.starts, full.starts);
+                assert_eq!(eager_on_line(&inc), eager_on_line(&full));
+                let lazy: Vec<Vec<*const MdNode>> = (0..inc.starts.len())
+                    .map(|l| inc.on_line(l).map(|n| n as *const MdNode).collect())
+                    .collect();
+                let eager: Vec<Vec<*const MdNode>> = eager_on_line(&inc)
+                    .into_iter()
+                    .map(|ids| {
+                        ids.into_iter()
+                            .map(|i| &inc.nodes[i as usize] as *const MdNode)
+                            .collect()
+                    })
+                    .collect();
+                if lazy != eager {
+                    let l = (0..lazy.len()).find(|&l| lazy[l] != eager[l]).unwrap();
+                    let ids = eager_on_line(&inc);
+                    let missing: Vec<_> = ids[l]
+                        .iter()
+                        .filter(|&&i| !lazy[l].contains(&(&inc.nodes[i as usize] as *const MdNode)))
+                        .map(|&i| (i, inc.nodes[i as usize].clone()))
+                        .collect();
+                    let tops: Vec<_> = inc
+                        .tops
+                        .iter()
+                        .map(|&t| (t, inc.nodes[t as usize].range.clone()))
+                        .collect();
+                    panic!(
+                        "line {l} ({:?}): missing {missing:?}; tops {tops:?}",
+                        inc.starts.get(l..l + 2)
+                    );
+                }
                 text = after;
                 md = inc;
                 if text.len() > 2000 {
@@ -2500,6 +2774,55 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The nodes touching each line, as the index built them before it
+    /// was found from the top-level nodes: the reference for `on_line`.
+    fn eager_on_line(md: &Md) -> Vec<Vec<u32>> {
+        let lines = md.starts.len();
+        let mut out = vec![Vec::new(); lines];
+        for (i, n) in md.nodes.iter().enumerate() {
+            let a = md.line_of(n.range.start);
+            let b = md.line_of(n.range.end.max(n.range.start)).min(lines - 1);
+            for l in out.iter_mut().take(b + 1).skip(a) {
+                l.push(i as u32);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn large_documents_are_parsed_in_the_background() {
+        // Past the live limit: the source first, the parse once the
+        // background thread has it, then keystrokes reparsed at once.
+        let section = "## Part\n\nSome *text* here.\n\n- one\n- two\n\n";
+        let text = section.repeat(LIVE_LIMIT / section.len() + 10);
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Markdown,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: crate::encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let mut d = crate::DocumentState::new(
+            text.clone(),
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        assert!(ready(&d).is_none());
+        let t = std::time::Instant::now();
+        while !background_done() {
+            assert!(t.elapsed() < std::time::Duration::from_secs(60));
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let md = ready(&d).expect("parsed");
+        assert_eq!(md.nodes, Md::parse(&text).nodes);
+        let range = d.text().line_range(0);
+        assert_eq!(line_view(&d, range.clone(), None).display(), "Part");
+        d.selection = org_edit::Selection::caret(text.len() / 2);
+        d.type_text("x", false, std::time::Instant::now());
+        assert!(ready(&d).is_some());
     }
 
     #[test]

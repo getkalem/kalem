@@ -96,8 +96,21 @@ edits it as plain text. Concretely:
   lists meet, or the document has link reference definitions or
   footnotes (which reach across it), the whole text is parsed. A
   random-edit test checks that the result is always that of a full
-  parse. Files over 2 MiB are drawn as source, since opening one parses
-  it on the editor's thread.
+  parse. The new region's nodes take the old ones' place and those after
+  it are moved where they lie, as are the line starts; the nodes a line
+  shows are found from the top-level blocks when it is drawn. A file
+  over 2 MiB is parsed in the background when it opens and drawn as
+  source until then (about 1.5 s for 10 MB); after that a keystroke
+  reparses only around it.
+- A corpus of real Markdown (=tests/corpus/markdown=, T2.7c.8): eleven
+  READMEs of well-known projects (ripgrep, Rust, serde, tokio, bat, fd,
+  fzf, React, VS Code, Mermaid, Kubernetes) and a vault of 88 notes
+  linked by wiki links (Foam's documentation), each under its licence.
+  Every file is drawn line by line with the cursor on each line and
+  away, every shown character comes from its line, and it saves unedited
+  byte for byte; both editors show the same words on every line
+  (=kalem-ui/tests/parity.rs=); the terminal's screens of a Markdown
+  document are snapshots (=kalem-tui/tests/snapshots.rs=).
 - The outline sidebar lists the headings.
 - Links open with /Open Link/ (=markdown.openLink=, Command-click on
   macOS and Control-click elsewhere in the graphical editor, =SPC o l=
@@ -427,14 +440,12 @@ The mode is in use. What is left of group 6 of =docs/todo.md= (the former
   passes its conformance check, but the editors still draw it through
   =kalem_core::markdown='s own view code. Drawing every mode from its
   tree is open, as is the plugin side of the contract (T3.1.9g).
-- *Large files* (T2.7c.6): files up to 2 MiB are drawn as they read.
-  Open: the first parse of a larger file in the background, and a
-  keystroke in a 10 MB file within the budget of the design's section
-  15; the reparse still copies the node list and the line starts.
-- *Snapshots and a corpus* (T2.7c.8, T2.7c.11): rendering snapshots in
-  both editors; the byte-exact round trip over a corpus of real READMEs
-  and note vaults; and the specification file run in CI, by a download
-  step or committed with its licence.
+- *Large files* (T2.7c.6): a keystroke in a 10 MB file reparses in
+  10 ms at the median and 23 ms at the 99th percentile; most of it is
+  moving the positions of the nodes after the edit. A representation
+  with relative positions would take that off.
+- *The specification in CI* (T2.7c.11): the specification file run in
+  CI, by a download step or committed with its licence.
 - *A known-differences chapter* of its own, following the skeleton the
   other formats use (T2.10.8); today the sixteen differences are listed
   under /The oracle/ above.
