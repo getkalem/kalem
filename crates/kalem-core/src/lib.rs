@@ -63,6 +63,7 @@ pub mod palette;
 pub mod pandoc;
 pub mod paste;
 pub mod pdf;
+pub mod plugin_build;
 pub mod plugin_store;
 pub mod prefix_arg;
 pub mod print;
