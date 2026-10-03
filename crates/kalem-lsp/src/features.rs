@@ -313,6 +313,13 @@ pub fn strip_snippet(s: &str) -> String {
     out
 }
 
+/// The documentation of a completion item (as sent, or resolved).
+pub fn item_documentation(item: &Value) -> Option<String> {
+    item.get("documentation")
+        .and_then(doc_text)
+        .filter(|d| !d.trim().is_empty())
+}
+
 fn doc_text(v: &Value) -> Option<String> {
     match v {
         Value::String(s) => Some(s.clone()),

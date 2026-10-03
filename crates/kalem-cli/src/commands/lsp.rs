@@ -253,7 +253,12 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
         let items = reg.complete(&mut doc, false, Duration::from_secs(wait.min(10)));
         eprintln!("{} items in {} ms", items.len(), t.elapsed().as_millis());
         for i in &items {
-            println!("{}\t{}\t{}", i.label, i.insert, i.source);
+            let doc = i
+                .documentation
+                .as_deref()
+                .and_then(|d| d.lines().next())
+                .unwrap_or("");
+            println!("{}\t{}\t{}\t{doc}", i.label, i.insert, i.source);
         }
         lsp::shutdown_all();
         return Ok(if items.iter().any(|i| i.source == "lsp") {

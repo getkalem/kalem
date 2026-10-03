@@ -71,7 +71,7 @@ pub fn serve(behavior: &str) {
                         "definitionProvider": true,
                         "referencesProvider": true,
                         "documentFormattingProvider": true,
-                        "completionProvider": {"triggerCharacters": ["."]},
+                        "completionProvider": {"triggerCharacters": ["."], "resolveProvider": true},
                     }}}),
                 );
                 // Asks for its settings, as ElixirLS does.
@@ -150,9 +150,20 @@ pub fn serve(behavior: &str) {
                 send(
                     &mut out,
                     json!({"jsonrpc": "2.0", "id": id, "result": {"isIncomplete": false, "items": [
-                        {"label": "greet/1", "kind": 3, "detail": "def greet(name)", "insertText": "greet(${1:name})", "insertTextFormat": 2, "sortText": "1"},
+                        {"label": "greet/1", "kind": 3, "detail": "def greet(name)", "insertText": "greet(${1:name})", "insertTextFormat": 2, "sortText": "1",
+                         "documentation": {"kind": "markdown", "value": "Greets `name`."}},
                         {"label": "goodbye/0", "kind": 3, "insertText": "goodbye()", "sortText": "2"},
                     ]}}),
+                );
+            }
+            "completionItem/resolve" => {
+                let mut item = p.clone();
+                let label = p["label"].as_str().unwrap_or("").to_string();
+                item["documentation"] =
+                    json!({"kind": "markdown", "value": format!("Docs of {label}.")});
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": item}),
                 );
             }
             "shutdown" => send(

@@ -117,6 +117,8 @@ pub enum DocEvent {
     /// A list to choose from that background work offers (a plugin to
     /// confirm), for the active document's palette.
     Choose(Vec<kalem_core::palette::PaletteItem>),
+    /// A line for the active document's status bar from background work.
+    Notice(String, bool),
     /// Insert a link to this file in the text document used last (a
     /// viewer's Insert Link at Point).
     InsertLink(std::path::PathBuf),
@@ -3100,16 +3102,22 @@ impl Editor {
                 tracing::warn!("{w}");
             }
         }
-        // Items of slow completers.
-        if let Some(m) = &mut self.completion
-            && m.session.waiting()
-            && m.session.poll()
-        {
-            cx.notify();
+        // Items of slow completers, and the chosen one's documentation.
+        if let Some(m) = &mut self.completion {
+            if m.session.waiting() && m.session.poll() {
+                cx.notify();
+            }
+            if m.fetch_documentation() {
+                cx.notify();
+            }
         }
         // Lists background work offers, for the active document.
         for items in kalem_core::jobs::take_offers() {
             cx.emit(DocEvent::Choose(items));
+        }
+        // What background work tells the user (a plugin update found).
+        for (text, error) in kalem_core::jobs::take_notices() {
+            cx.emit(DocEvent::Notice(text, error));
         }
         // Work commands started in the background (a PDF compiling).
         for f in kalem_core::jobs::take_finished() {
@@ -4190,20 +4198,52 @@ impl gpui::Render for Editor {
             .children(math_popup)
             .children(text_popup.map(|(at, items)| {
                 let theme = self.theme.clone();
+                // The chosen completion's documentation, beside the list.
+                let doc = self
+                    .completion
+                    .as_ref()
+                    .and_then(|m| m.documentation())
+                    .map(|d| kalem_core::lsp::hover_lines(d, 72, 18));
+                let doc_theme = theme.clone();
                 gpui::deferred(
                     gpui::anchored().position(at).child(
                         div()
                             .flex()
-                            .flex_col()
-                            .py(px(4.))
-                            .rounded(px(6.))
-                            .border_1()
-                            .border_color(theme.border)
-                            .bg(theme.bar)
-                            .text_size(px(theme.size * 0.85))
-                            .children(items.into_iter().map(move |(label, chosen)| {
-                                let row = div().px(px(10.)).py(px(1.)).child(label);
-                                if chosen { row.bg(theme.selection) } else { row }
+                            .flex_row()
+                            .items_start()
+                            .gap(px(4.))
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .py(px(4.))
+                                    .rounded(px(6.))
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .bg(theme.bar)
+                                    .text_size(px(theme.size * 0.85))
+                                    .children(items.into_iter().map(move |(label, chosen)| {
+                                        let row = div().px(px(10.)).py(px(1.)).child(label);
+                                        if chosen { row.bg(theme.selection) } else { row }
+                                    })),
+                            )
+                            .children(doc.map(|lines| {
+                                div()
+                                    .id("completion-doc")
+                                    .debug_selector(|| "completion-doc".to_string())
+                                    .max_w(px(560.))
+                                    .px(px(10.))
+                                    .py(px(6.))
+                                    .rounded(px(6.))
+                                    .border_1()
+                                    .border_color(doc_theme.border)
+                                    .bg(doc_theme.bar)
+                                    .text_size(px(doc_theme.size * 0.8))
+                                    .children(
+                                        lines.into_iter().map(|l| {
+                                            div().min_h(px(doc_theme.size * 0.6)).child(l)
+                                        }),
+                                    )
                             })),
                     ),
                 )

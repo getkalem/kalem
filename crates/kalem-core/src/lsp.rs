@@ -1001,6 +1001,36 @@ pub fn log(path: &Path) -> Vec<String> {
     })
 }
 
+/// A plugin was installed, updated or removed: its servers stop, and the
+/// documents they served open again on the next [`sync`] with the
+/// plugin as it is now (new settings, a new server, or none).
+pub fn plugin_changed(id: &str) {
+    let stopped: Vec<Arc<Client>> = with(|s| {
+        let paths: Vec<PathBuf> = s
+            .docs
+            .iter()
+            .filter(|(_, d)| d.plugin.id == id)
+            .map(|(p, _)| p.clone())
+            .collect();
+        let mut clients = Vec::new();
+        for p in paths {
+            if let Some(d) = s.docs.remove(&p)
+                && let Some(k) = d.key
+                && let Some(slot) = s.servers.remove(&k)
+            {
+                clients.extend(slot.client);
+            }
+        }
+        // Files no plugin served before are tried again too.
+        s.docs
+            .retain(|_, d| d.opened_in.is_some() || d.key.is_some());
+        clients
+    });
+    for c in stopped {
+        std::thread::spawn(move || c.shutdown());
+    }
+}
+
 /// Stops every server (on quit).
 pub fn shutdown_all() {
     let clients: Vec<Arc<Client>> = with(|s| {
@@ -1040,6 +1070,17 @@ impl crate::completers::Completer for LspCompleter {
     }
     fn budget(&self) -> Duration {
         Duration::from_millis(1500)
+    }
+    fn resolve(&self, item: &crate::completers::Item) -> Option<String> {
+        let data: Value = serde_json::from_str(item.data.as_deref()?).ok()?;
+        let path = PathBuf::from(data["path"].as_str()?);
+        let client = with(|s| s.docs.get(&path).and_then(|d| d.opened_in.clone()))?;
+        let answer = client
+            .request("completionItem/resolve", data["item"].clone())
+            .wait(Duration::from_secs(3))
+            .ok()?;
+        features::item_documentation(&answer)
+            .or_else(|| answer["detail"].as_str().map(str::to_string))
     }
     fn complete(
         &self,
@@ -1082,6 +1123,9 @@ impl crate::completers::Completer for LspCompleter {
         };
         let Ok(v) = answer else { return Vec::new() };
         let (items, _) = features::completion_items(&v);
+        let resolves = client.capabilities()["completionProvider"]["resolveProvider"]
+            .as_bool()
+            .unwrap_or(false);
         let word_start = {
             let before = &text[..point];
             before
@@ -1109,6 +1153,11 @@ impl crate::completers::Completer for LspCompleter {
                 item.cursor = cursor.unwrap_or(item.insert.len()).min(item.insert.len());
                 item.detail = i.detail.clone().unwrap_or_default();
                 item.source = "lsp";
+                item.documentation = i.documentation.clone().filter(|d| !d.trim().is_empty());
+                // Fetched when chosen, from servers that give it so.
+                if item.documentation.is_none() && resolves {
+                    item.data = Some(json!({ "path": path, "item": i.raw }).to_string());
+                }
                 (i.sort_text.clone(), item)
             })
             .collect();

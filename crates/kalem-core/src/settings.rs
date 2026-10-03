@@ -280,6 +280,12 @@ pub const SPECS: &[Spec] = &[
         description: "How long a half-typed key sequence waits before its keys show, in milliseconds",
     },
     Spec {
+        key: "plugins.check_updates",
+        kind: Kind::Bool,
+        default: "true",
+        description: "Look for newer versions of the installed plugins once a day when Kalem starts, and say so in the status bar",
+    },
+    Spec {
         key: "plugins.index",
         kind: Kind::Str,
         default: r#""https://raw.githubusercontent.com/getkalem/plugins/main/index.json""#,

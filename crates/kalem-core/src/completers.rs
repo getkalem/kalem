@@ -74,6 +74,11 @@ pub struct Item {
     pub detail: String,
     /// The completer's id.
     pub source: &'static str,
+    /// Its documentation (Markdown), when the completer gives it at once.
+    pub documentation: Option<String>,
+    /// What the completer needs to fetch the documentation later
+    /// ([`Completer::resolve`]): opaque to everything else.
+    pub data: Option<String>,
     /// An Org completion, applied as `crate::input::apply_completion`
     /// does (tags are aligned afterwards).
     org: Option<(crate::input::Completion, crate::input::CompletionItem)>,
@@ -96,6 +101,8 @@ impl Item {
             kind,
             detail: String::new(),
             source: "",
+            documentation: None,
+            data: None,
             org: None,
         }
     }
@@ -578,6 +585,8 @@ impl Completer for OrgCompleter {
                 kind,
                 detail: String::new(),
                 source: "org",
+                documentation: None,
+                data: None,
                 org: Some((c.clone(), it.clone())),
             })
             .collect()
@@ -727,6 +736,9 @@ impl Completer for WordsCompleter {
     }
 }
 
+/// An item by its label and insertion.
+type ItemKey = (String, String);
+
 /// The completion menu of a frontend: the items and the chosen one.
 #[derive(Debug)]
 pub struct Menu {
@@ -736,6 +748,12 @@ pub struct Menu {
     pub chosen: usize,
     /// Opened on request (Ctrl+Space, Alt+/): it stays open for shorter prefixes.
     pub requested: bool,
+    /// The completers, to fetch an item's documentation from its own.
+    registry: Registry,
+    /// Documentation fetched, by item.
+    docs: std::collections::HashMap<ItemKey, Option<String>>,
+    /// The documentation being fetched: for which item, and the answer.
+    fetching: Option<(ItemKey, mpsc::Receiver<Option<String>>)>,
 }
 
 impl Menu {
@@ -756,7 +774,66 @@ impl Menu {
             session,
             chosen,
             requested,
+            registry: registry.clone(),
+            docs: std::collections::HashMap::new(),
+            fetching: None,
         })
+    }
+
+    /// The chosen item's documentation (Markdown): given with the item,
+    /// or fetched by [`Menu::fetch_documentation`].
+    pub fn documentation(&self) -> Option<&str> {
+        let item = self.current()?;
+        if let Some(d) = &item.documentation {
+            return Some(d.as_str()).filter(|d| !d.trim().is_empty());
+        }
+        self.docs
+            .get(&(item.label.clone(), item.insert.clone()))?
+            .as_deref()
+            .filter(|d| !d.trim().is_empty())
+    }
+
+    /// Fetches the chosen item's documentation from its completer on
+    /// another thread, when it has none and can give it; true when an
+    /// answer arrived (for the frontend's timer).
+    pub fn fetch_documentation(&mut self) -> bool {
+        let mut arrived = false;
+        if let Some((key, rx)) = &self.fetching {
+            match rx.try_recv() {
+                Ok(doc) => {
+                    self.docs.insert(key.clone(), doc);
+                    self.fetching = None;
+                    arrived = true;
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.docs.insert(key.clone(), None);
+                    self.fetching = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => return false,
+            }
+        }
+        let Some(item) = self.current().cloned() else {
+            return arrived;
+        };
+        let key = (item.label.clone(), item.insert.clone());
+        if item.documentation.is_some() || item.data.is_none() || self.docs.contains_key(&key) {
+            return arrived;
+        }
+        let Some(c) = self
+            .registry
+            .completers
+            .iter()
+            .find(|c| c.id() == item.source)
+            .cloned()
+        else {
+            return arrived;
+        };
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(c.resolve(&item));
+        });
+        self.fetching = Some((key, rx));
+        arrived
     }
 
     /// The items.

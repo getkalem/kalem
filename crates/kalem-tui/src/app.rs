@@ -3318,6 +3318,58 @@ impl App {
             }
             buf.set_stringn(x + 1, y, label, (width - 1) as usize, style);
         }
+        // The chosen completion's documentation: right of the list where
+        // it fits, else on the other side of the cursor's line.
+        let Some(doc) = self.completion.as_ref().and_then(|m| m.documentation()) else {
+            return;
+        };
+        let top = if below {
+            cursor.1 + 1
+        } else {
+            cursor.1.saturating_sub(n)
+        };
+        let right = x + width + 1;
+        let room_right = area.right().saturating_sub(right);
+        let (dx, dy, dw, max_lines) = if room_right >= 30 {
+            (
+                right,
+                top,
+                room_right.min(72),
+                area.bottom().saturating_sub(top).min(16),
+            )
+        } else if below {
+            // Above the cursor's line.
+            let h = cursor.1.saturating_sub(area.top()).min(12);
+            (
+                area.left(),
+                cursor.1.saturating_sub(h),
+                area.width.min(72),
+                h,
+            )
+        } else {
+            let start = cursor.1 + 1;
+            (
+                area.left(),
+                start,
+                area.width.min(72),
+                area.bottom().saturating_sub(start).min(12),
+            )
+        };
+        if dw < 10 || max_lines == 0 {
+            return;
+        }
+        let lines =
+            kalem_core::lsp::hover_lines(doc, dw.saturating_sub(2) as usize, max_lines as usize);
+        for (k, line) in lines.iter().enumerate() {
+            let y = dy + k as u16;
+            if y >= area.bottom() {
+                break;
+            }
+            for c in 0..dw.min(area.right() - dx) {
+                buf[(dx + c, y)].set_symbol(" ").set_style(bg);
+            }
+            buf.set_stringn(dx + 1, y, line, dw.saturating_sub(2) as usize, bg);
+        }
     }
 
     /// Handles a key.
@@ -3918,16 +3970,22 @@ impl App {
                 self.lsp_outcome(o);
             }
         }
-        // Items of slow completers.
-        if let Some(m) = &mut self.completion
-            && m.session.waiting()
-            && m.session.poll()
-        {
-            self.dirty = true;
+        // Items of slow completers, and the chosen one's documentation.
+        if let Some(m) = &mut self.completion {
+            if m.session.waiting() && m.session.poll() {
+                self.dirty = true;
+            }
+            if m.fetch_documentation() {
+                self.dirty = true;
+            }
         }
         // Lists background work offers (a plugin to confirm).
         for items in kalem_core::jobs::take_offers() {
             self.request(Request::Choose(items));
+        }
+        // What background work tells the user (a plugin update found).
+        for (text, error) in kalem_core::jobs::take_notices() {
+            self.message(text, error);
         }
         // Work commands started in the background (a PDF compiling).
         for f in kalem_core::jobs::take_finished() {

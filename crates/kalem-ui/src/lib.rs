@@ -76,6 +76,8 @@ pub fn run(path: Option<PathBuf>) {
     }
     let _ = kalem_core::logging::init(&kalem_core::logging::LogOptions::standard(&config, false));
     config.apply_process_settings();
+    // Newer versions of the installed plugins, once a day.
+    kalem_core::plugin_store::check_updates(&config);
     let shared = shared(config);
     shared.problems.set(settings::report_problems(
         &shared.config,

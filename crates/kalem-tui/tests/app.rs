@@ -4441,6 +4441,8 @@ impl kalem_core::completers::Completer for Symbols {
             kalem_core::completers::Kind::Symbol,
         );
         i.cursor = 4;
+        i.documentation =
+            Some("Returns a list where each element is the result of invoking `fun`.".into());
         vec![i]
     }
 }
@@ -4480,6 +4482,19 @@ fn code_completions_taken() {
         }
         t.typ("Enum.");
         wait(&mut t);
+        // The chosen item's documentation shows beside the list.
+        let screen: String = {
+            let buf = t.draw();
+            (0..buf.area.height)
+                .map(|y| {
+                    (0..buf.area.width)
+                        .map(|x| buf[(x, y)].symbol().to_string())
+                        .collect::<String>()
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        assert!(screen.contains("Returns a list"), "{screen}");
         t.key(key, KeyModifiers::NONE);
         assert_eq!(t.text(), "x = 1\nEnum.map()", "vim {vim}, {key:?}");
         assert_eq!(
