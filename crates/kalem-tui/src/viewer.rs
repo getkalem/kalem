@@ -230,6 +230,8 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let head = Style::default().add_modifier(Modifier::BOLD);
     // The cells in view.
     let mut cells = std::collections::HashMap::new();
+    let mut invalid = std::collections::HashSet::new();
+    let has_list = v.cursor_has_list();
     let ranges = |list: &[(u32, u16)], frozen: u32| -> Vec<std::ops::Range<u32>> {
         let mut r = Vec::new();
         let f: Vec<u32> = list.iter().map(|x| x.0).filter(|&i| i < frozen).collect();
@@ -243,9 +245,10 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     };
     for rr in ranges(&rows, layout.frozen.0) {
         for cr in ranges(&cols, layout.frozen.1) {
-            for (r, c, cell) in v.grid_cells(rr.clone(), cr) {
+            for (r, c, cell) in v.grid_cells(rr.clone(), cr.clone()) {
                 cells.insert((r, c), cell);
             }
+            invalid.extend(v.invalid_cells(rr.clone(), cr));
         }
     }
     // Letters.
@@ -468,8 +471,29 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                 };
                 buf[(x + inner as u16 - 1, y)].set_symbol(mark);
             }
+            if invalid.contains(&(r, c)) && inner > 0 {
+                // Circle Invalid Data: the cell between red brackets.
+                let red = if caps.no_color {
+                    Style::default().add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(ratatui::style::Color::Rgb(0xE0, 0x3C, 0x31))
+                };
+                let (open, close) = if caps.ascii {
+                    ("(", ")")
+                } else {
+                    ("⦅", "⦆")
+                };
+                buf.set_stringn(x, y, open, 1, red);
+                if inner > 1 {
+                    buf.set_stringn(x + inner as u16 - 1, y, close, 1, red);
+                }
+            }
             if cell.is_some_and(|c| c.note) && inner > 0 {
                 buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "*" } else { "◥" });
+            }
+            // A list validation's drop-down button, over a note's mark.
+            if (r, c) == (pos.row, pos.col) && has_list && inner > 0 {
+                buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "v" } else { "▾" });
             }
             if !first || !next_in_merge {
                 buf.set_stringn(x + inner as u16, y, sep, 1, dim);
