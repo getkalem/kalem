@@ -224,3 +224,49 @@ fn synctex_both_ways(cx: &mut TestAppContext) {
         Some("notes.org".to_string())
     );
 }
+
+#[gpui::test]
+fn text_is_selected_by_dragging_and_copied(cx: &mut TestAppContext) {
+    let (ws, cx) = open(cx);
+    settle(&ws, cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    // Where a point of page one is in the window: "Page one" stands at x
+    // 72 on the baseline 112, 36 points high.
+    let at = |x: f32, y: f32, cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| {
+            let origin = e.viewer_view.bounds.expect("laid out").origin;
+            let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+            origin + gpui::point(gpui::px(p.x + x * p.scale), gpui::px(p.y + y * p.scale))
+        })
+    };
+    let none = gpui::Modifiers::default();
+    let (from, to) = (at(76.0, 100.0, cx), at(150.0, 100.0, cx));
+    cx.simulate_mouse_down(from, gpui::MouseButton::Left, none);
+    cx.simulate_mouse_move(to, Some(gpui::MouseButton::Left), none);
+    cx.simulate_mouse_up(to, gpui::MouseButton::Left, none);
+    settle(&ws, cx);
+    let selected = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        (v.selected_text(), v.selection_marks().len())
+    });
+    assert_eq!(selected, (Some("Page".to_string()), 1));
+    let primary = if cfg!(target_os = "macos") {
+        "cmd"
+    } else {
+        "ctrl"
+    };
+    cx.simulate_keystrokes(&format!("{primary}-c"));
+    let copied = cx.read_from_clipboard().and_then(|c| c.text());
+    assert_eq!(copied.as_deref(), Some("Page"));
+
+    // A click drops it; a drag from where there is no text pans instead.
+    let blank = at(400.0, 250.0, cx);
+    let up = at(400.0, 200.0, cx);
+    cx.simulate_click(blank, none);
+    cx.simulate_mouse_down(blank, gpui::MouseButton::Left, none);
+    cx.simulate_mouse_move(up, Some(gpui::MouseButton::Left), none);
+    cx.simulate_mouse_up(up, gpui::MouseButton::Left, none);
+    settle(&ws, cx);
+    let selected = e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().selected_text());
+    assert_eq!(selected, None);
+}

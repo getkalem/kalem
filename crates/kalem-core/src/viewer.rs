@@ -183,6 +183,25 @@ const MAX_SCALE: f32 = 64.0;
 /// (its bits).
 type RenderKey = (usize, u8, u64, u32);
 
+/// Text selected on a unit: the glyphs where the drag began and where it
+/// is, as byte ranges of the unit's text, and the selection's rectangles
+/// in the unit's pixels for the range they were read for.
+#[derive(Debug)]
+struct TextSelection {
+    unit: usize,
+    anchor: std::ops::Range<usize>,
+    head: std::ops::Range<usize>,
+    rects: Option<(std::ops::Range<usize>, Vec<[f32; 4]>)>,
+}
+
+impl TextSelection {
+    /// The bytes selected: from the first glyph's start to the last one's
+    /// end, whichever way the drag went.
+    fn range(&self) -> std::ops::Range<usize> {
+        self.anchor.start.min(self.head.start)..self.anchor.end.max(self.head.end)
+    }
+}
+
 /// The search's marks on a unit: what they were read for (the unit, the
 /// match shown, the count) and the rectangles, the shown match's `true`.
 type Marks = ((usize, Option<usize>, usize), Vec<([f32; 4], bool)>);
@@ -251,6 +270,8 @@ pub struct ViewerState {
     ahead: Vec<(RenderKey, Bitmap)>,
     /// The find bar's search of the units' text.
     search: Option<Search>,
+    /// Text selected on the unit shown by dragging over it.
+    text_sel: Option<TextSelection>,
     /// Which units are grids (sheets, tables).
     grids: Vec<bool>,
     /// Each grid unit's cursor and scroll.
@@ -347,6 +368,7 @@ impl ViewerState {
             pending: None,
             ahead: Vec::new(),
             search: None,
+            text_sel: None,
             unit: 0,
             zoom,
             center: None,
@@ -768,6 +790,102 @@ impl ViewerState {
             .map(|l| l.target)
     }
 
+    /// Whether (`x`, `y`) of the area is on the unit's text: a drag there
+    /// selects, elsewhere it pans. False while a render holds the
+    /// document.
+    pub fn text_hit(&mut self, x: f32, y: f32) -> bool {
+        let (ux, uy) = self.unit_point(x, y);
+        let Ok(doc) = self.doc.try_lock() else {
+            return false;
+        };
+        doc.text_at(self.unit, ux, uy)
+            .is_some_and(|(_, [bx, by, bw, bh])| {
+                ux >= bx - 1.0 && ux <= bx + bw + 1.0 && uy >= by - 1.0 && uy <= by + bh + 1.0
+            })
+    }
+
+    /// Starts selecting text at (`x`, `y`) of the area, when it is on the
+    /// unit's text; true when it is.
+    pub fn select_from(&mut self, x: f32, y: f32) -> bool {
+        self.text_sel = None;
+        if !self.text_hit(x, y) {
+            return false;
+        }
+        let (ux, uy) = self.unit_point(x, y);
+        let Some((r, _)) = self.doc().text_at(self.unit, ux, uy) else {
+            return false;
+        };
+        self.text_sel = Some(TextSelection {
+            unit: self.unit,
+            anchor: r.clone(),
+            head: r,
+            rects: None,
+        });
+        true
+    }
+
+    /// Extends the selection to the glyph at or nearest (`x`, `y`).
+    pub fn select_to(&mut self, x: f32, y: f32) {
+        if self.text_sel.is_none() {
+            return;
+        }
+        let (ux, uy) = self.unit_point(x, y);
+        let Ok(doc) = self.doc.try_lock() else {
+            return;
+        };
+        let hit = doc.text_at(self.unit, ux, uy);
+        drop(doc);
+        if let (Some((r, _)), Some(sel)) = (hit, &mut self.text_sel) {
+            sel.head = r;
+        }
+    }
+
+    /// Drops the text selection.
+    pub fn clear_text_selection(&mut self) {
+        self.text_sel = None;
+    }
+
+    /// The text selected, if any.
+    pub fn selected_text(&self) -> Option<String> {
+        let sel = self.text_sel.as_ref()?;
+        let text = self.doc().text(sel.unit);
+        text.get(sel.range()).map(str::to_string)
+    }
+
+    /// The selection's rectangles in the area's pixels as placed (x, y,
+    /// width, height); read from the viewer once per range, none in a
+    /// frame a render holds the document.
+    pub fn selection_marks(&mut self) -> Vec<[f32; 4]> {
+        let Some(sel) = &mut self.text_sel else {
+            return Vec::new();
+        };
+        let range = sel.range();
+        if sel.rects.as_ref().is_none_or(|(r, _)| *r != range) {
+            let Ok(doc) = self.doc.try_lock() else {
+                return Vec::new();
+            };
+            sel.rects = Some((range.clone(), doc.text_rects(sel.unit, range)));
+        }
+        let rects = sel
+            .rects
+            .as_ref()
+            .map(|(_, r)| r.clone())
+            .unwrap_or_default();
+        let p = self.placement();
+        rects
+            .into_iter()
+            .map(|rc| {
+                let [x, y, w, h] = self.turned(rc);
+                [
+                    p.x + x * p.scale,
+                    p.y + y * p.scale,
+                    w * p.scale,
+                    h * p.scale,
+                ]
+            })
+            .collect()
+    }
+
     /// Follows a link's target: `#N` shows unit N (from its top) and gives
     /// `None`; anything else is given back for the frontend to open.
     pub fn follow(&mut self, target: &str) -> Option<String> {
@@ -1029,6 +1147,7 @@ impl ViewerState {
             return false;
         }
         self.unit = unit;
+        self.text_sel = None;
         if self.paged() {
             self.center = None;
         }
@@ -2093,6 +2212,11 @@ pub(crate) fn copy(ctx: &mut EditorContext<'_>) -> CommandResult {
         if n > 1 {
             ctx.messages.push(format!("{} copied", v.selection_name()));
         }
+        return Ok(());
+    }
+    // Text selected on the page: that text.
+    if let Some(text) = v.selected_text() {
+        ctx.requests.push(Request::CopyText(text));
         return Ok(());
     }
     let png = v
@@ -3229,6 +3353,16 @@ mod tests {
                 10.0,
             ]]
         }
+        fn text_at(
+            &self,
+            unit: usize,
+            x: f32,
+            _: f32,
+        ) -> Option<(std::ops::Range<usize>, [f32; 4])> {
+            let n = self.text(unit).len();
+            let i = ((x / 10.0).max(0.0) as usize).min(n - 1);
+            Some((i..i + 1, [i as f32 * 10.0, 30.0, 10.0, 10.0]))
+        }
     }
 
     fn state(n: usize) -> ViewerState {
@@ -3558,6 +3692,26 @@ mod tests {
         assert_eq!(v.search_status(), "0/0");
         v.search_start("");
         assert_eq!(v.search_status(), "");
+    }
+
+    #[test]
+    fn text_is_selected_by_dragging_over_it() {
+        let mut v = state(3);
+        v.set_area(100.0, 50.0);
+        // Off the text: no selection (a drag there pans).
+        assert!(!v.select_from(5.0, 5.0));
+        // "page 1": from the space (x 45) back to the a (x 15).
+        assert!(v.select_from(45.0, 35.0));
+        v.select_to(15.0, 35.0);
+        assert_eq!(v.selected_text().as_deref(), Some("age "));
+        assert_eq!(v.selection_marks(), [[10.0, 30.0, 40.0, 10.0]]);
+        // Past the line's end: to its last glyph.
+        v.select_to(500.0, 35.0);
+        assert_eq!(v.selected_text().as_deref(), Some(" 1"));
+        // Another page drops it.
+        v.go_to(1);
+        assert_eq!(v.selected_text(), None);
+        assert!(v.selection_marks().is_empty());
     }
 
     #[test]
