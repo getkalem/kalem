@@ -1,0 +1,115 @@
+\documentclass[lettersize,journal]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+% \usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{subfigure}
+\usepackage{threeparttable}
+\usepackage{amssymb,mathrsfs,amsmath}
+\usepackage{url}
+\usepackage{mdwtab}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{mdwmath}
+\usepackage{eqparbox}
+\usepackage{multirow}
+\usepackage{color}
+\usepackage{threeparttable}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{textcase}
+\usepackage{siunitx}
+\usepackage{ulem}
+\usepackage{hyperref}
+\usepackage{ulem}
+\usepackage{tikz}
+\usepackage{diagbox}
+\usepackage[section]{placeins}
+\usepackage{algpseudocode}
+
+\newcommand{\ming}[1]{\textcolor{red}{#1}}
+\renewcommand{\algorithmicrequire}{ \textbf{Input:}} %Use Input in the format of Algorithm
+\renewcommand{\algorithmicensure}{ \textbf{Output:}} %Use Output in the format of Algorithm
+\algnewcommand{\LeftComment}[1]{\Statex \(\triangleright\) #1}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\let\oldnl\nl% Store \nl in \oldnl
+\newcommand{\nonl}{\renewcommand{\nl}{\let\nl\oldnl}}% Remove line number for one line
+
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\newcommand{\subsubsubsection}[1]{\paragraph{#1}\mbox{}\\}
+\setcounter{secnumdepth}{4} % how many sectioning levels to assign numbers to
+\setcounter{tocdepth}{4} % how many sectioning levels to show in ToC
+
+
+\hypersetup{
+     colorlinks = true,
+     linkcolor = blue,
+     anchorcolor = red,
+     citecolor = magenta,
+     filecolor = blue,
+     urlcolor = black,
+}
+
+\begin{document}
+
+
+\title{\textsc{TbDd}: A New Trust-based, DRL-driven Framework for Blockchain Sharding in IoT}
+
+
+
+
+\author{
+        Zixu Zhang, Guangsheng~Yu, Caijun~Sun*, Xu~Wang, Ying~Wang,
+        Ming~Zhang, Wei~Ni, Ren~Ping~Liu,\\
+        Nektarios Georgalas, and Andrew Reeves
+
+   
+\thanks{Z. Zhang, X. Wang, and R. Liu are with the Global Big Data Technologies Centre, University of Technology Sydney, Australia, 2007 (e-mail: zixu.zhang@student.uts.edu.au; \{xu.wang-1, renping.liu\}@uts.edu.au)}
+\thanks{G. Yu and W. Ni are with the Data61, CSIRO, Sydney, Australia, 2015 (email: \{saber.yu, wei.ni\}@data61.csiro.au)}
+\thanks{C. Sun* is the corresponding author with Zhejiang Lab, Hangzhou, China (email: sun.cj@zhejianglab.com)}
+\thanks{Y. Wang is with the School of Electronics and Information, Hangzhou Dianzi University, Hangzhou 310018, China (email:90023@hdu.edu.cn)}
+\thanks{M. Zhang is with the School of Cyber Engineering, Xidian University, Xi’an, 710071, P.R. China (email: Xidianmingz@gmail.com)}
+\thanks{N. Georgalas and A. Reeves are with Applied Research, British Telecom, Martlesham, UK (email: \{nektarios.georgalas, andrew.reeves\}@bt.com; @bt.com)}
+}
+
+% The paper headers
+\markboth{Manuscript Draft}%
+{Shell \MakeLowercase{\textit{et al.}}: A Sample Article Using IEEEtran.cls for IEEE Journals}
+
+\maketitle
+
+\begin{abstract}
+Integrating sharded blockchain with IoT presents a solution for trust issues and optimized data flow. Sharding boosts blockchain scalability by dividing its nodes into parallel shards, yet it's vulnerable to the $1\%$ attacks where dishonest nodes target a shard to corrupt the entire blockchain. Balancing security with scalability is pivotal for such systems. Deep Reinforcement Learning (DRL) adeptly handles dynamic, complex systems and multi-dimensional optimization.
+This paper introduces a Trust-based and DRL-driven (\textsc{TbDd}) framework, crafted to counter shard collusion risks and dynamically adjust node allocation, enhancing throughput while maintaining network security. With a comprehensive trust evaluation mechanism, \textsc{TbDd} discerns node types and performs targeted resharding against potential threats. The model maximizes tolerance for dishonest nodes, optimizes node movement frequency, ensures even node distribution in shards, and balances sharding risks. Rigorous evaluations prove \textsc{TbDd}'s superiority over conventional random-, community-, and trust-based sharding methods in shard risk equilibrium and reducing cross-shard transactions.
+ 
+\end{abstract}
+
+\begin{IEEEkeywords}
+blockchain, sharding, collusion attacks, trustworthiness, deep reinforcement learning, internet-of-things
+\end{IEEEkeywords}
+
+\IEEEpeerreviewmaketitle
+
+
+\input{./Sections/1-Introduction}
+\input{./Sections/2-RelatedWork}
+\input{./Sections/3-SystemModel}
+\input{./Sections/4-TBDD}       
+\input{./Sections/5-Experiments}
+\input{./Sections/6-Conclusions}
+
+
+\bibliographystyle{./bibliography/IEEEtran}
+\bibliography{./bibliography/IEEEabrv}
+
+
+\vfill
+
+\end{document}
+
+

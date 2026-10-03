@@ -1,0 +1,20 @@
+
+\begin{table}[t]
+\setlength{\abovecaptionskip}{0cm}
+    \footnotesize
+     \caption{\textbf{Comparisons of computation cost with recent works~\cite{lin2023visionnerf,gu2023nerfdiff}.} Notably, ~\cite{gu2023nerfdiff} requires additional per-scene finetuning with unknown cost. }
+    \label{tab:appendix_computationwithrecent}
+    \centering
+    \small
+     \setlength\tabcolsep{8pt}
+        \begin{tabular}{l|cc}
+        \rowcolor[gray]{.9}
+        \hline
+        Methods    &  Param.   & Traning Time  \\ \hline \hline
+        VisionNeRF~\cite{lin2023visionnerf}   & 122M  &  16*A100 5Days          \\
+        NeRFDiff~\cite{gu2023nerfdiff}  & 400M / 1B &  8*A100 4Days + finetune    \\
+        
+        \textbf{OPP (ours)} & 15M & 8*V100  3Days \\ 
+        \hline
+        \end{tabular}
+\end{table}

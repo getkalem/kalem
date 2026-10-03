@@ -1,0 +1,9 @@
+\begin{proof}
+    Consider the vector~$z=(y_n,\theta(t))\in\R^{n+1}$ obtained by appending~$\theta(t)$ to~$y_n$.
+    This vector is multivariate normally distributed with mean~$\E[z]=(\E[y_n],\E[\theta(t)])$ and covariance matrix
+    \[ \Var(z)=\begin{bmatrix}
+        \Var(\theta(t)) & w_{nt}^T \\
+        w_{nt}^T & \Sigma_n
+    \end{bmatrix}. \]
+    The result follows immediately from Lemma~\ref{lem:multivariate-normal-conditional}.
+\end{proof}

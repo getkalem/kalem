@@ -1,0 +1,120 @@
+\begin{thebibliography}{}
+
+\bibitem[Andrews et~al., 2019]{ARP2019}
+Andrews, I., Roth, J., and Pakes, A. (2019).
+\newblock Inference for linear conditional moment inequalities.
+
+\bibitem[Aradillas-Lopez and Gandhi, 2016]{ALG-2016}
+Aradillas-Lopez, A. and Gandhi, A. (2016).
+\newblock Estimation of games with ordered actions: An application to
+  chain-store entry: Estimation of games with ordered actions.
+\newblock {\em Quantitative Economics}, 7:727--780.
+
+\bibitem[Chandrasekharan, 1969]{Chandrasekharan1969}
+Chandrasekharan, K. (1969).
+\newblock Introduction to analytic number theory.
+
+\bibitem[Chernozhukov et~al., 2007]{CHT2007}
+Chernozhukov, V., Hong, H., and Tamer, E. (2007).
+\newblock Estimation and confidence regions for parameter sets in econometric
+  models.
+\newblock {\em Econometrica}, 75(5):1243--1284.
+
+\bibitem[Ciliberto and Tamer, 2009]{Ciliberto_Tamer}
+Ciliberto, F. and Tamer, E. (2009).
+\newblock Market structure and multiple equilibria in airline markets.
+\newblock {\em Econometrica}, 77(6):1791--1828.
+
+\bibitem[Cortes and Vapnik, 1995]{CV-1995}
+Cortes, C. and Vapnik, V. (1995).
+\newblock Support vector networks.
+\newblock {\em Machine Learning}, 20:273--297.
+
+\bibitem[Cox and Shi, 2022]{cox_shi_2022}
+Cox, G. and Shi, X. (2022).
+\newblock {Simple Adaptive Size-Exact Testing for Full-Vector and Subvector
+  Inference in Moment Inequality Models}.
+\newblock {\em The Review of Economic Studies}, 90(1):201--228.
+
+\bibitem[Guliyev and Ismailov, 2018]{universal_approx}
+Guliyev, N.~J. and Ismailov, V.~E. (2018).
+\newblock Approximation capability of two hidden layer feedforward neural
+  networks with fixed weights.
+\newblock {\em Neurocomputing}, 316:262--269.
+
+\bibitem[Hastie et~al., 2001]{Elements}
+Hastie, T., Tibshirani, R., and Friedman, J. (2001).
+\newblock {\em The Elements of Statistical Learning}.
+\newblock Springer Series in Statistics. Springer New York Inc., New York, NY,
+  USA.
+
+\bibitem[Imbens and Manski, 2004]{imbens_manski}
+Imbens, G.~W. and Manski, C.~F. (2004).
+\newblock Confidence intervals for partially identified parameters.
+\newblock {\em Econometrica}, 72(6):1845--1857.
+
+\bibitem[Judd, 1998]{Judd1998}
+Judd, K.~L. (1998).
+\newblock {\em {Numerical Methods in Economics}}, volume~1 of {\em MIT Press
+  Books}.
+\newblock The MIT Press.
+
+\bibitem[Kalouptsidi et~al., 2020]{KKLS-2019}
+Kalouptsidi, M., Kitamura, Y., Lima, L., and Souza-Rodrigues, E.~A. (2020).
+\newblock Partial identification and inference for dynamic models and
+  counterfactuals.
+\newblock Working Paper 26761, National Bureau of Economic Research.
+
+\bibitem[Keerthi and Lin, 2003]{KL-2003}
+Keerthi, S.~S. and Lin, C.-J. (2003).
+\newblock Asymptotic behaviors of support vector machines with gaussian kernel.
+\newblock {\em Neural Comput.}, 15(7):1667–1689.
+
+\bibitem[Li and Henry, 2022]{Li_Henry}
+Li, L. and Henry, M. (2022).
+\newblock {Finite Sample Inference in Incomplete Models}.
+\newblock Papers 2204.00473, arXiv.org.
+
+\bibitem[Manski and Tamer, 2002]{manski_tamer}
+Manski, C.~F. and Tamer, E. (2002).
+\newblock Inference on regressions with interval data on a regressor or
+  outcome.
+\newblock {\em Econometrica}, 70(2):519--546.
+
+\bibitem[Miranda and Fackler, 2004]{miranda_fackler}
+Miranda, M.~J. and Fackler, P.~L. (2004).
+\newblock {\em {Applied Computational Economics and Finance}}, volume~1 of {\em
+  MIT Press Books}.
+\newblock The MIT Press.
+
+\bibitem[Romano and Shaikh, 2010]{Romano_Shaikh}
+Romano, J.~P. and Shaikh, A.~M. (2010).
+\newblock Inference for the identified set in partially identified econometric
+  models.
+\newblock {\em Econometrica}, 78(1):169--211.
+
+\bibitem[Rosen, 2008]{Rosen2008}
+Rosen, A. (2008).
+\newblock Confidence sets for partially identified parameters that satisfy a
+  finite number of moment inequalities.
+\newblock {\em Journal of Econometrics}, 146(1):107--117.
+
+\bibitem[Wolak, 1991]{Wolak1991}
+Wolak, F.~A. (1991).
+\newblock The local nature of hypothesis tests involving inequality constraints
+  in nonlinear models.
+\newblock {\em Econometrica}, 59(4):981--995.
+
+\bibitem[Wu and Zhang, 2014]{WZ-2014}
+Wu, H.-S. and Zhang, F.-M. (2014).
+\newblock Wolf pack algorithm for unconstrained global optimization.
+\newblock {\em Mathematical Problems in Engineering}.
+
+\bibitem[Zhu et~al., 2007]{svm_parallel}
+Zhu, K., Wang, H., Bai, H., Li, J., Qiu, Z., Cui, H., and Chang, E. (2007).
+\newblock Parallelizing support vector machines on distributed computers.
+\newblock In Platt, J., Koller, D., Singer, Y., and Roweis, S., editors, {\em
+  Advances in Neural Information Processing Systems}, volume~20. Curran
+  Associates, Inc.
+
+\end{thebibliography}

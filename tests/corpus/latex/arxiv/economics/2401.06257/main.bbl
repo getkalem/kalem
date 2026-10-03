@@ -1,0 +1,246 @@
+\begin{thebibliography}{39}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Acar(2019)]{acar2019motivations}
+Oguz~A Acar.
+\newblock Motivations and solution appropriateness in crowdsourcing challenges
+  for innovation.
+\newblock \emph{Research Policy}, 48\penalty0 (8):\penalty0 103716, 2019.
+
+\bibitem[Adda and Ottaviani(2024)]{adda2024grantmaking}
+J{\'e}r{\^o}me Adda and Marco Ottaviani.
+\newblock Grantmaking, grading on a curve, and the paradox of relative
+  evaluation in nonmarkets.
+\newblock \emph{The Quarterly Journal of Economics}, 139\penalty0 (2):\penalty0
+  1255--1319, 2024.
+
+\bibitem[Azar(2006)]{azar2006academic}
+Ofer~H Azar.
+\newblock The academic review process: How can we make it more efficient?
+\newblock \emph{The American Economist}, 50\penalty0 (1):\penalty0 37--50,
+  2006.
+
+\bibitem[Azar(2007)]{azar2007slowdown}
+Ofer~H Azar.
+\newblock The slowdown in first-response times of economics journals: Can it be
+  beneficial?
+\newblock \emph{Economic Inquiry}, 45\penalty0 (1):\penalty0 179--187, 2007.
+
+\bibitem[Azrieli and Chambers(2024)]{azrieli2024success}
+Yaron Azrieli and Christopher~P. Chambers.
+\newblock Success functions in large contests.
+\newblock \emph{arXiv preprint arXiv:2403.07152}, 2024.
+
+\bibitem[Ball and Kattwinkel(2023)]{ball2023linking}
+Ian Ball and Deniz Kattwinkel.
+\newblock Linking mechanisms: Limits and robustness.
+\newblock \emph{arXiv preprint arXiv:2309.07363}, 2023.
+
+\bibitem[Baye et~al.(1993)Baye, Kovenock, and de~Vries]{baye1993rigging}
+Michael Baye, Dan Kovenock, and Casper de~Vries.
+\newblock Rigging the lobbying process: An application of the all-pay-auction.
+\newblock \emph{The American Economic Review}, 83\penalty0 (1):\penalty0
+  289--294, 1993.
+
+\bibitem[Blackwell(1962)]{blackwell1962discrete}
+David Blackwell.
+\newblock Discrete dynamic programming.
+\newblock \emph{The Annals of Mathematical Statistics}, 33\penalty0
+  (2):\penalty0 719--726, 1962.
+
+\bibitem[Blackwell(1965)]{blackwell1965discounted}
+David Blackwell.
+\newblock Discounted dynamic programming.
+\newblock \emph{The Annals of Mathematical Statistics}, 36\penalty0
+  (1):\penalty0 226--235, 1965.
+
+\bibitem[Casella(2005)]{casella2005storable}
+Alessandra Casella.
+\newblock Storable votes.
+\newblock \emph{Games and Economic Behavior}, 51\penalty0 (2):\penalty0
+  391--419, 2005.
+
+\bibitem[Chen et~al.(2021)Chen, Pavlou, Wu, and Yang]{chen2021attracting}
+Pei-Yu Chen, Paul Pavlou, Shinyi Wu, and Yang Yang.
+\newblock Attracting high-quality contestants to contest in the context of
+  crowdsourcing contest platform.
+\newblock \emph{Production and Operations Management}, 30\penalty0
+  (6):\penalty0 1751--1771, 2021.
+
+\bibitem[Cotton(2013)]{cotton2013submission}
+Christopher Cotton.
+\newblock Submission fees and response times in academic publishing.
+\newblock \emph{The American Economic Review}, 103\penalty0 (1):\penalty0
+  501--509, 2013.
+
+\bibitem[Cruz-Castro et~al.(2023)Cruz-Castro, Ginther, and
+  Sanz-Menéndez]{cruz202317}
+Laura Cruz-Castro, Donna~K. Ginther, and Luis Sanz-Menéndez.
+\newblock Gender and underrepresented minorities differences in research
+  funding.
+\newblock In \emph{Handbook of Public Funding of Research}, pages 279--300.
+  Edward Elgar Publishing, 2023.
+
+\bibitem[De~Clippel et~al.(2021)De~Clippel, Eliaz, Fershtman, and
+  Rozen]{de2021selecting}
+Geoffroy De~Clippel, Kfir Eliaz, Daniel Fershtman, and Kareen Rozen.
+\newblock On selecting the right agent.
+\newblock \emph{Theoretical Economics}, 16\penalty0 (2):\penalty0 381--402,
+  2021.
+
+\bibitem[Frankel(2014)]{frankel2014aligned}
+Alexander Frankel.
+\newblock Aligned delegation.
+\newblock \emph{The American Economic Review}, 104\penalty0 (1):\penalty0
+  66--83, 2014.
+
+\bibitem[Frankel(2016{\natexlab{a}})]{frankel2016delegating}
+Alexander Frankel.
+\newblock Delegating multiple decisions.
+\newblock \emph{American Economic Journal: Microeconomics}, 8\penalty0
+  (4):\penalty0 16--53, 2016{\natexlab{a}}.
+
+\bibitem[Frankel(2016{\natexlab{b}})]{frankel2016discounted}
+Alexander Frankel.
+\newblock Discounted quotas.
+\newblock \emph{Journal of Economic Theory}, 166:\penalty0 396--444,
+  2016{\natexlab{b}}.
+
+\bibitem[Fullerton and McAfee(1999)]{fullerton1999auctionin}
+Richard~L Fullerton and R~Preston McAfee.
+\newblock Auctioning entry into tournaments.
+\newblock \emph{Journal of Political Economy}, 107\penalty0 (3):\penalty0
+  573--605, 1999.
+
+\bibitem[Green(1980)]{green1980noncooperative}
+Edward~J Green.
+\newblock Noncooperative price taking in large dynamic markets.
+\newblock \emph{Journal of Economic Theory}, 22\penalty0 (2):\penalty0
+  155--182, 1980.
+
+\bibitem[Hortala-Vallve(2010)]{hortala2010inefficiencies}
+Rafael Hortala-Vallve.
+\newblock Inefficiencies on linking decisions.
+\newblock \emph{Social Choice and Welfare}, 34\penalty0 (3):\penalty0 471--486,
+  2010.
+
+\bibitem[Jackson and Sonnenschein(2007)]{jackson2007overcoming}
+Matthew~O Jackson and Hugo~F Sonnenschein.
+\newblock Overcoming incentive constraints by linking decisions.
+\newblock \emph{Econometrica}, 75\penalty0 (1):\penalty0 241--257, 2007.
+
+\bibitem[Konrad(2009)]{konrad2009strategy}
+Kai~A Konrad.
+\newblock \emph{Strategy and dynamics in contests}.
+\newblock Oxford University Press, 2009.
+
+\bibitem[Kr{\"a}hmer(2007)]{krahmer2007equilibrium}
+Daniel Kr{\"a}hmer.
+\newblock Equilibrium learning in simple contests.
+\newblock \emph{Games and Economic Behavior}, 59\penalty0 (1):\penalty0
+  105--131, 2007.
+
+\bibitem[Lazear and Rosen(1981)]{lazear1981rank}
+Edward~P Lazear and Sherwin Rosen.
+\newblock Rank-order tournaments as optimum labor contracts.
+\newblock \emph{Journal of Political Economy}, 89\penalty0 (5):\penalty0
+  841--864, 1981.
+
+\bibitem[Lepori et~al.(2023)Lepori, Jongbloed, and Hicks]{lepori2023handbook}
+Benedetto Lepori, Ben Jongbloed, and Diana Hicks.
+\newblock \emph{Handbook of Public Funding of Research}.
+\newblock Edward Elgar Publishing, 2023.
+
+\bibitem[Leslie(2005)]{leslie2005delays}
+Derek Leslie.
+\newblock Are delays in academic publishing necessary?
+\newblock \emph{The American Economic Review}, 95\penalty0 (1):\penalty0
+  407--413, 2005.
+
+\bibitem[Melkers et~al.(2023)Melkers, Woolley, and Kreth]{melkers202318}
+Julia Melkers, Richard Woolley, and Quintin Kreth.
+\newblock Research funding and scientific careers.
+\newblock In \emph{Handbook of Public Funding of Research}, pages 301--321.
+  Edward Elgar Publishing, 2023.
+
+\bibitem[Meyer(1991)]{meyer1991learning}
+Margaret~A Meyer.
+\newblock Learning from coarse information: Biased contests and career
+  profiles.
+\newblock \emph{The Review of Economic Studies}, 58\penalty0 (1):\penalty0
+  15--41, 1991.
+
+\bibitem[Moldovanu and Sela(2001)]{moldovanu2001optimal}
+Benny Moldovanu and Aner Sela.
+\newblock The optimal allocation of prizes in contests.
+\newblock \emph{The American Economic Review}, 91\penalty0 (3):\penalty0
+  542--558, 2001.
+
+\bibitem[Moldovanu and Sela(2006)]{moldovanu2006contest}
+Benny Moldovanu and Aner Sela.
+\newblock Contest architecture.
+\newblock \emph{Journal of Economic Theory}, 126\penalty0 (1):\penalty0 70--96,
+  2006.
+
+\bibitem[Morgan et~al.(2018)Morgan, Sisak, and V{\'a}rdy]{morgan2018ponds}
+John Morgan, Dana Sisak, and Felix V{\'a}rdy.
+\newblock The ponds dilemma.
+\newblock \emph{The Economic Journal}, 128\penalty0 (611):\penalty0 1634--1682,
+  2018.
+
+\bibitem[M{\"u}ller-Itten(2021)]{muller2021gatekeeper}
+Mich{\`e}le M{\"u}ller-Itten.
+\newblock Gatekeeper competition.
+\newblock \emph{Available at SSRN 3186803}, 2021.
+
+\bibitem[Oldford et~al.(2023)Oldford, Fiset, and
+  Armenakyan]{oldford2023marginalizing}
+Erin Oldford, John Fiset, and Anahit Armenakyan.
+\newblock The marginalizing effect of journal submission fees in accounting and
+  finance.
+\newblock \emph{Scientometrics}, 128\penalty0 (8):\penalty0 4611--4650, 2023.
+
+\bibitem[Olszewski and Siegel(2016)]{olszewski2016large}
+Wojciech Olszewski and Ron Siegel.
+\newblock Large contests.
+\newblock \emph{Econometrica}, 84\penalty0 (2):\penalty0 835--854, 2016.
+
+\bibitem[Olszewski and Siegel(2020)]{olszewski2020performance}
+Wojciech Olszewski and Ron Siegel.
+\newblock Performance-maximizing large contests.
+\newblock \emph{Theoretical Economics}, 15\penalty0 (1):\penalty0 57--88, 2020.
+
+\bibitem[Patel et~al.(2023)Patel, Husairi, Haon, and Oberoi]{patel2023monetary}
+Chirag Patel, Mariyani~Ahmad Husairi, Christophe Haon, and Poonam Oberoi.
+\newblock Monetary rewards and self-selection in design crowdsourcing contests:
+  Managing participation, contribution appropriateness, and winning trade-offs.
+\newblock \emph{Technological Forecasting and Social Change}, 191:\penalty0
+  122447, 2023.
+
+\bibitem[Pier et~al.(2018)Pier, Brauer, Filut, Kaatz, Raclaw, Nathan, Ford, and
+  Carnes]{pier2018low}
+Elizabeth~L Pier, Markus Brauer, Amarette Filut, Anna Kaatz, Joshua Raclaw,
+  Mitchell~J Nathan, Cecilia~E Ford, and Molly Carnes.
+\newblock Low agreement among reviewers evaluating the same {NIH} grant
+  applications.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 115\penalty0
+  (12):\penalty0 2952--2957, 2018.
+
+\bibitem[Sabourian(1990)]{sabourian1990anonymous}
+Hamid Sabourian.
+\newblock Anonymous repeated games with a large number of players and random
+  outcomes.
+\newblock \emph{Journal of Economic Theory}, 51\penalty0 (1):\penalty0 92--110,
+  1990.
+
+\bibitem[Szymanski(2003)]{szymanski2003economic}
+Stefan Szymanski.
+\newblock The economic design of sporting contests.
+\newblock \emph{Journal of Economic Literature}, 41\penalty0 (4):\penalty0
+  1137--1187, 2003.
+
+\end{thebibliography}

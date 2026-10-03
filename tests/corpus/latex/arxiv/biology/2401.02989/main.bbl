@@ -1,0 +1,509 @@
+\begin{thebibliography}{69}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Ara{\'u}jo and Peterson(2012)]{araujo2012uses}
+M.~B. Ara{\'u}jo and A.~T. Peterson.
+\newblock Uses and misuses of bioclimatic envelope modeling.
+\newblock \emph{Ecology}, 93\penalty0 (7):\penalty0 1527--1539, 2012.
+
+\bibitem[Barbet-Massin et~al.(2012)Barbet-Massin, Jiguet, Albert, and
+  Thuiller]{barbet2012selecting}
+M.~Barbet-Massin, F.~Jiguet, C.~H. Albert, and W.~Thuiller.
+\newblock Selecting pseudo-absences for species distribution models: How, where
+  and how many?
+\newblock \emph{Methods in ecology and evolution}, 3\penalty0 (2):\penalty0
+  327--338, 2012.
+
+\bibitem[Beck et~al.(2014)Beck, B{\"o}ller, Erhardt, and
+  Schwanghart]{beck2014bias}
+J.~Beck, M.~B{\"o}ller, A.~Erhardt, and W.~Schwanghart.
+\newblock Spatial bias in the gbif database and its effect on modeling species'
+  geographic distributions.
+\newblock \emph{Ecological Informatics}, 19:\penalty0 10--15, 2014.
+
+\bibitem[Bekker and Davis(2020)]{bekker2020learning}
+J.~Bekker and J.~Davis.
+\newblock Learning from positive and unlabeled data: A survey.
+\newblock \emph{Machine Learning}, 109:\penalty0 719--760, 2020.
+
+\bibitem[Benkendorf and Hawkins(2020)]{benkendorf2020effects}
+D.~J. Benkendorf and C.~P. Hawkins.
+\newblock Effects of sample size and network depth on a deep learning approach
+  to species distribution modeling.
+\newblock \emph{Ecological Informatics}, 60:\penalty0 101137, 2020.
+
+\bibitem[Benkendorf et~al.(2023)Benkendorf, Schwartz, Cutler, and
+  Hawkins]{benkendorf2023correcting}
+D.~J. Benkendorf, S.~D. Schwartz, D.~R. Cutler, and C.~P. Hawkins.
+\newblock Correcting for the effects of class imbalance improves the
+  performance of machine-learning based species distribution models.
+\newblock \emph{Ecological Modelling}, 483:\penalty0 110414, 2023.
+
+\bibitem[Borisov et~al.(2022)Borisov, Leemann, Se{\ss}ler, Haug, Pawelczyk, and
+  Kasneci]{borisov2022deep}
+V.~Borisov, T.~Leemann, K.~Se{\ss}ler, J.~Haug, M.~Pawelczyk, and G.~Kasneci.
+\newblock Deep neural networks and tabular data: A survey.
+\newblock \emph{IEEE Transactions on Neural Networks and Learning Systems},
+  2022.
+
+\bibitem[Botella et~al.(2020)Botella, Joly, Monestiez, Bonnet, and
+  Munoz]{botella2020bias}
+C.~Botella, A.~Joly, P.~Monestiez, P.~Bonnet, and F.~Munoz.
+\newblock Bias in presence-only niche models related to sampling effort and
+  species niches: Lessons for background point selection.
+\newblock \emph{PLoS One}, 15\penalty0 (5):\penalty0 e0232078, 2020.
+
+\bibitem[Botella et~al.(2023)Botella, Deneu, Gonzalez, Servajean, Larcher,
+  Leblanc, Estopinan, Bonnet, and Joly]{botella2023geolifeclef2023}
+C.~Botella, B.~Deneu, D.~M. Gonzalez, M.~Servajean, T.~Larcher, C.~Leblanc,
+  J.~Estopinan, P.~Bonnet, and A.~Joly.
+\newblock Overview of geolifeclef 2023: Species composition prediction with
+  high spatial resolution at continental scale using remote sensing.
+\newblock \emph{Working Notes of CLEF}, 2023.
+
+\bibitem[Brown et~al.(2020)Brown, Mann, Ryder, Subbiah, Kaplan, Dhariwal,
+  Neelakantan, Shyam, Sastry, Askell, Agarwal, Herbert-Voss, Krueger, Henighan,
+  Child, Ramesh, Ziegler, Wu, Winter, Hesse, Chen, Sigler, Litwin, Gray, Chess,
+  Clark, Berner, McCandlish, Radford, Sutskever, and Amodei]{brown2020gpt3}
+T.~Brown, B.~Mann, N.~Ryder, M.~Subbiah, J.~D. Kaplan, P.~Dhariwal,
+  A.~Neelakantan, P.~Shyam, G.~Sastry, A.~Askell, S.~Agarwal, A.~Herbert-Voss,
+  G.~Krueger, T.~Henighan, R.~Child, A.~Ramesh, D.~Ziegler, J.~Wu, C.~Winter,
+  C.~Hesse, M.~Chen, E.~Sigler, M.~Litwin, S.~Gray, B.~Chess, J.~Clark,
+  C.~Berner, S.~McCandlish, A.~Radford, I.~Sutskever, and D.~Amodei.
+\newblock Language models are few-shot learners.
+\newblock In H.~Larochelle, M.~Ranzato, R.~Hadsell, M.~Balcan, and H.~Lin,
+  editors, \emph{Advances in Neural Information Processing Systems}, volume~33,
+  pages 1877--1901. Curran Associates, Inc., 2020.
+
+\bibitem[Chen et~al.(2016)Chen, Xue, Chen, Fink, and Gomes]{chen2017}
+D.~Chen, Y.~Xue, S.~Chen, D.~Fink, and C.~Gomes.
+\newblock Deep multi-species embedding.
+\newblock \emph{arXiv preprint arXiv:1609.09353}, 2016.
+
+\bibitem[Christin et~al.(2019)Christin, Hervet, and
+  Lecomte]{christin2019applications}
+S.~Christin, {\'E}.~Hervet, and N.~Lecomte.
+\newblock Applications for deep learning in ecology.
+\newblock \emph{Methods in Ecology and Evolution}, 10\penalty0 (10):\penalty0
+  1632--1644, 2019.
+
+\bibitem[Cole et~al.(2021)Cole, Mac~Aodha, Lorieul, Perona, Morris, and
+  Jojic]{cole2021multilabel}
+E.~Cole, O.~Mac~Aodha, T.~Lorieul, P.~Perona, D.~Morris, and N.~Jojic.
+\newblock Multi-label learning from single positive labels.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision
+  and Pattern Recognition}, pages 933--942, 2021.
+
+\bibitem[Cole et~al.(2023)Cole, Van~Horn, Lange, Shepard, Leary, Perona,
+  Loarie, and Mac~Aodha]{cole2023spatial}
+E.~Cole, G.~Van~Horn, C.~Lange, A.~Shepard, P.~Leary, P.~Perona, S.~Loarie, and
+  O.~Mac~Aodha.
+\newblock Spatial implicit neural representations for global-scale species
+  mapping.
+\newblock \emph{arXiv preprint arXiv:2306.02564}, 2023.
+
+\bibitem[Davis et~al.(2023)Davis, Bai, Chen, Robinson, Ruiz-Gutierrez, Gomes,
+  and Fink]{davis2023deep}
+C.~L. Davis, Y.~Bai, D.~Chen, O.~Robinson, V.~Ruiz-Gutierrez, C.~P. Gomes, and
+  D.~Fink.
+\newblock Deep learning with citizen science data enables estimation of species
+  diversity and composition at continental extents.
+\newblock \emph{Ecology}, page e4175, 2023.
+
+\bibitem[Deneu et~al.(2021)Deneu, Servajean, Bonnet, Botella, Munoz, and
+  Joly]{deneu2021convolutional}
+B.~Deneu, M.~Servajean, P.~Bonnet, C.~Botella, F.~Munoz, and A.~Joly.
+\newblock Convolutional neural networks improve species distribution modelling
+  by capturing the spatial structure of the environment.
+\newblock \emph{PLoS computational biology}, 17\penalty0 (4):\penalty0
+  e1008856, 2021.
+
+\bibitem[El-Gabbas and Dormann(2018)]{el2018improved}
+A.~El-Gabbas and C.~F. Dormann.
+\newblock Improved species-occurrence predictions in data-poor regions: using
+  large-scale data and bias correction with down-weighted poisson regression
+  and maxent.
+\newblock \emph{Ecography}, 41\penalty0 (7):\penalty0 1161--1172, 2018.
+
+\bibitem[Elith and Leathwick(2009)]{elith2009species}
+J.~Elith and J.~R. Leathwick.
+\newblock Species distribution models: ecological explanation and prediction
+  across space and time.
+\newblock \emph{Annual Review of Ecology, Evolution and Systematics},
+  40\penalty0 (1):\penalty0 677--697, 2009.
+
+\bibitem[Elith et~al.(2006)Elith, H.~Graham, P.~Anderson, Dud{\'\i}k, Ferrier,
+  Guisan, J.~Hijmans, Huettmann, R.~Leathwick, Lehmann, et~al.]{elith2006novel}
+J.~Elith, C.~H.~Graham, R.~P.~Anderson, M.~Dud{\'\i}k, S.~Ferrier, A.~Guisan,
+  R.~J.~Hijmans, F.~Huettmann, J.~R.~Leathwick, A.~Lehmann, et~al.
+\newblock Novel methods improve prediction of species’ distributions from
+  occurrence data.
+\newblock \emph{Ecography}, 29\penalty0 (2):\penalty0 129--151, 2006.
+
+\bibitem[Elith et~al.(2010)Elith, Kearney, and Phillips]{elith2010art}
+J.~Elith, M.~Kearney, and S.~Phillips.
+\newblock The art of modelling range-shifting species.
+\newblock \emph{Methods in ecology and evolution}, 1\penalty0 (4):\penalty0
+  330--342, 2010.
+
+\bibitem[Elith et~al.(2020)Elith, Graham, Valavi, Abegg, Bruce, Ferrier, Ford,
+  Guisan, Hijmans, Huettmann, et~al.]{elith2020presence}
+J.~Elith, C.~Graham, R.~Valavi, M.~Abegg, C.~Bruce, S.~Ferrier, A.~Ford,
+  A.~Guisan, R.~J. Hijmans, F.~Huettmann, et~al.
+\newblock Presence-only and presence-absence data for comparing species
+  distribution modeling methods.
+\newblock \emph{Biodiversity informatics}, 15\penalty0 (2):\penalty0 69--80,
+  2020.
+
+\bibitem[Engler et~al.(2004)Engler, Guisan, and
+  Rechsteiner]{engler2004improved}
+R.~Engler, A.~Guisan, and L.~Rechsteiner.
+\newblock An improved approach for predicting the distribution of rare and
+  endangered species from occurrence and pseudo-absence data.
+\newblock \emph{Journal of applied ecology}, 41\penalty0 (2):\penalty0
+  263--274, 2004.
+
+\bibitem[Flach and Kull(2015)]{flach2015precision}
+P.~Flach and M.~Kull.
+\newblock Precision-recall-gain curves: Pr analysis done right.
+\newblock \emph{Advances in neural information processing systems}, 28, 2015.
+
+\bibitem[Franklin(2010)]{franklin2010mapping}
+J.~Franklin.
+\newblock \emph{Mapping species distributions: spatial inference and
+  prediction}.
+\newblock Cambridge University Press, 2010.
+
+\bibitem[Gorishniy et~al.(2021)Gorishniy, Rubachev, Khrulkov, and
+  Babenko]{gorishniy2021revisiting}
+Y.~Gorishniy, I.~Rubachev, V.~Khrulkov, and A.~Babenko.
+\newblock Revisiting deep learning models for tabular data.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  34:\penalty0 18932--18943, 2021.
+
+\bibitem[Grinsztajn et~al.(2022)Grinsztajn, Oyallon, and
+  Varoquaux]{grinsztajn2022tree}
+L.~Grinsztajn, E.~Oyallon, and G.~Varoquaux.
+\newblock Why do tree-based models still outperform deep learning on typical
+  tabular data?
+\newblock In \emph{Thirty-sixth Conference on Neural Information Processing
+  Systems Datasets and Benchmarks Track}, 2022.
+
+\bibitem[Guisan et~al.(2013)Guisan, Tingley, Baumgartner, Naujokaitis-Lewis,
+  Sutcliffe, Tulloch, Regan, Brotons, McDonald-Madden, Mantyka-Pringle,
+  et~al.]{guisan2013predicting}
+A.~Guisan, R.~Tingley, J.~B. Baumgartner, I.~Naujokaitis-Lewis, P.~R.
+  Sutcliffe, A.~I. Tulloch, T.~J. Regan, L.~Brotons, E.~McDonald-Madden,
+  C.~Mantyka-Pringle, et~al.
+\newblock Predicting species distributions for conservation decisions.
+\newblock \emph{Ecology letters}, 16\penalty0 (12):\penalty0 1424--1435, 2013.
+
+\bibitem[Hastie and Fithian(2013)]{hastie2013inference}
+T.~Hastie and W.~Fithian.
+\newblock Inference from presence-only data; the ongoing controversy.
+\newblock \emph{Ecography}, 36\penalty0 (8):\penalty0 864--867, 2013.
+
+\bibitem[He et~al.(2016)He, Zhang, Ren, and Sun]{he2016resnet}
+K.~He, X.~Zhang, S.~Ren, and J.~Sun.
+\newblock Deep residual learning for image recognition.
+\newblock In \emph{Proceedings of the IEEE conference on computer vision and
+  pattern recognition}, pages 770--778, 2016.
+
+\bibitem[Hertzog et~al.(2014)Hertzog, Besnard, and
+  Jay-Robert]{hertzog2014field}
+L.~R. Hertzog, A.~Besnard, and P.~Jay-Robert.
+\newblock Field validation shows bias-corrected pseudo-absence selection is the
+  best method for predictive species-distribution modelling.
+\newblock \emph{Diversity and distributions}, 20\penalty0 (12):\penalty0
+  1403--1413, 2014.
+
+\bibitem[Ioffe and Szegedy(2015)]{ioffe2015batch}
+S.~Ioffe and C.~Szegedy.
+\newblock Batch normalization: Accelerating deep network training by reducing
+  internal covariate shift.
+\newblock In \emph{International conference on machine learning}, pages
+  448--456. pmlr, 2015.
+
+\bibitem[Iturbide et~al.(2015)Iturbide, Bedia, Herrera, del Hierro, Pinto, and
+  Guti{\'e}rrez]{iturbide2015framework}
+M.~Iturbide, J.~Bedia, S.~Herrera, O.~del Hierro, M.~Pinto, and J.~M.
+  Guti{\'e}rrez.
+\newblock A framework for species distribution modelling with improved
+  pseudo-absence generation.
+\newblock \emph{Ecological Modelling}, 312:\penalty0 166--174, 2015.
+
+\bibitem[Jarnevich et~al.(2017)Jarnevich, Talbert, Morisette, Aldridge, Brown,
+  Kumar, Manier, Talbert, and Holcombe]{jarnevich2017minimizing}
+C.~S. Jarnevich, M.~Talbert, J.~Morisette, C.~Aldridge, C.~S. Brown, S.~Kumar,
+  D.~Manier, C.~Talbert, and T.~Holcombe.
+\newblock Minimizing effects of methodological decisions on interpretation and
+  prediction in species distribution studies: An example with background
+  selection.
+\newblock \emph{Ecological Modelling}, 363:\penalty0 48--56, 2017.
+
+\bibitem[Johnson and Khoshgoftaar(2019)]{johnson2019classimbalance}
+J.~M. Johnson and T.~M. Khoshgoftaar.
+\newblock Survey on deep learning with class imbalance.
+\newblock \emph{Journal of Big Data}, 6\penalty0 (1):\penalty0 1--54, 2019.
+
+\bibitem[Jumper et~al.(2021)Jumper, Evans, Pritzel, Green, Figurnov,
+  Ronneberger, Tunyasuvunakool, Bates, {\v{Z}}{\'\i}dek, Potapenko,
+  et~al.]{Jumper2021alphafold2}
+J.~Jumper, R.~Evans, A.~Pritzel, T.~Green, M.~Figurnov, O.~Ronneberger,
+  K.~Tunyasuvunakool, R.~Bates, A.~{\v{Z}}{\'\i}dek, A.~Potapenko, et~al.
+\newblock Highly accurate protein structure prediction with alphafold.
+\newblock \emph{Nature}, 596\penalty0 (7873):\penalty0 583--589, 2021.
+
+\bibitem[Kadmon et~al.(2004)Kadmon, Farber, and Danin]{kadmon2004effect}
+R.~Kadmon, O.~Farber, and A.~Danin.
+\newblock Effect of roadside bias on the accuracy of predictive maps produced
+  by bioclimatic models.
+\newblock \emph{Ecological Applications}, 14\penalty0 (2):\penalty0 401--413,
+  2004.
+
+\bibitem[Kellenberger et~al.(2022)Kellenberger, Cole, Marcos, and
+  Tuia]{kellenberger2022}
+B.~Kellenberger, E.~Cole, D.~Marcos, and D.~Tuia.
+\newblock Training techniques for presence-only habitat suitability mapping
+  with deep learning.
+\newblock In \emph{IGARSS 2022 - 2022 IEEE International Geoscience and Remote
+  Sensing Symposium}, pages 5085--5088, 2022.
+\newblock \doi{10.1109/IGARSS46834.2022.9883627}.
+
+\bibitem[Konowalik and Nosol(2021)]{konowalik2021evaluation}
+K.~Konowalik and A.~Nosol.
+\newblock Evaluation metrics and validation of presence-only species
+  distribution models based on distributional maps with varying coverage.
+\newblock \emph{Scientific Reports}, 11\penalty0 (1):\penalty0 1482, 2021.
+
+\bibitem[Krizhevsky et~al.(2012)Krizhevsky, Sutskever, and
+  Hinton]{krizhevsky2012imagenet}
+A.~Krizhevsky, I.~Sutskever, and G.~E. Hinton.
+\newblock Imagenet classification with deep convolutional neural networks.
+\newblock \emph{Advances in neural information processing systems}, 25, 2012.
+
+\bibitem[Loshchilov and Hutter(2017)]{loshchilov2017decoupled}
+I.~Loshchilov and F.~Hutter.
+\newblock Decoupled weight decay regularization.
+\newblock \emph{arXiv preprint arXiv:1711.05101}, 2017.
+
+\bibitem[Lyu et~al.(2022)Lyu, Leugger, Hagen, Fopp, Boschman, Strijk, Albouy,
+  Karger, Brun, Wang, et~al.]{lyu2022integrated}
+L.~Lyu, F.~Leugger, O.~Hagen, F.~Fopp, L.~M. Boschman, J.~S. Strijk, C.~Albouy,
+  D.~N. Karger, P.~Brun, Z.~Wang, et~al.
+\newblock An integrated high-resolution mapping shows congruent biodiversity
+  patterns of fagales and pinales.
+\newblock \emph{New Phytologist}, 235\penalty0 (2):\penalty0 759--772, 2022.
+
+\bibitem[Mac~Aodha et~al.(2019)Mac~Aodha, Cole, and Perona]{mac2019presence}
+O.~Mac~Aodha, E.~Cole, and P.~Perona.
+\newblock Presence-only geographical priors for fine-grained image
+  classification.
+\newblock In \emph{Proceedings of the IEEE/CVF International Conference on
+  Computer Vision}, pages 9596--9606, 2019.
+
+\bibitem[Mateo et~al.(2010)Mateo, Croat, Felic{\'\i}simo, and
+  Mu{\~n}oz]{mateo2010profile}
+R.~G. Mateo, T.~B. Croat, {\'A}.~M. Felic{\'\i}simo, and J.~Mu{\~n}oz.
+\newblock Profile or group discriminative techniques? generating reliable
+  species distribution models using pseudo-absences and target-group absences
+  from natural history collections.
+\newblock \emph{Diversity and Distributions}, 16\penalty0 (1):\penalty0 84--94,
+  2010.
+
+\bibitem[Mesaglio and Callaghan(2021)]{mesaglio2021overview}
+T.~Mesaglio and C.~T. Callaghan.
+\newblock An overview of the history, current contributions and future outlook
+  of inaturalist in australia.
+\newblock \emph{Wildlife Research}, 48\penalty0 (4):\penalty0 289--303, 2021.
+
+\bibitem[Pearce and Boyce(2006)]{pearce2006modelling}
+J.~L. Pearce and M.~S. Boyce.
+\newblock Modelling distribution and abundance with presence-only data.
+\newblock \emph{Journal of applied ecology}, 43\penalty0 (3):\penalty0
+  405--412, 2006.
+
+\bibitem[Phillips and Dud{\'\i}k(2008)]{phillips2008modeling}
+S.~J. Phillips and M.~Dud{\'\i}k.
+\newblock Modeling of species distributions with maxent: new extensions and a
+  comprehensive evaluation.
+\newblock \emph{Ecography}, 31\penalty0 (2):\penalty0 161--175, 2008.
+
+\bibitem[Phillips et~al.(2006)Phillips, Anderson, and
+  Schapire]{phillips2006maximum}
+S.~J. Phillips, R.~P. Anderson, and R.~E. Schapire.
+\newblock Maximum entropy modeling of species geographic distributions.
+\newblock \emph{Ecological modelling}, 190\penalty0 (3-4):\penalty0 231--259,
+  2006.
+
+\bibitem[Phillips et~al.(2009)Phillips, Dud{\'\i}k, Elith, Graham, Lehmann,
+  Leathwick, and Ferrier]{phillips2009sample}
+S.~J. Phillips, M.~Dud{\'\i}k, J.~Elith, C.~H. Graham, A.~Lehmann,
+  J.~Leathwick, and S.~Ferrier.
+\newblock Sample selection bias and presence-only distribution models:
+  implications for background and pseudo-absence data.
+\newblock \emph{Ecological applications}, 19\penalty0 (1):\penalty0 181--197,
+  2009.
+
+\bibitem[Poggiato et~al.(2021)Poggiato, M{\"u}nkem{\"u}ller, Bystrova, Arbel,
+  Clark, and Thuiller]{poggiato2021interpretations}
+G.~Poggiato, T.~M{\"u}nkem{\"u}ller, D.~Bystrova, J.~Arbel, J.~S. Clark, and
+  W.~Thuiller.
+\newblock On the interpretations of joint modeling in community ecology.
+\newblock \emph{Trends in Ecology \& Evolution}, 36\penalty0 (5):\penalty0
+  391--401, 2021.
+
+\bibitem[Ponder et~al.(2001)Ponder, Carter, Flemons, and
+  Chapman]{ponder2001evaluation}
+W.~F. Ponder, G.~Carter, P.~Flemons, and R.~Chapman.
+\newblock Evaluation of museum collection data for use in biodiversity
+  assessment.
+\newblock \emph{Conservation biology}, 15\penalty0 (3):\penalty0 648--657,
+  2001.
+
+\bibitem[Ranc et~al.(2017)Ranc, Santini, Rondinini, Boitani, Poitevin,
+  Angerbj{\"o}rn, and Maiorano]{ranc2017performance}
+N.~Ranc, L.~Santini, C.~Rondinini, L.~Boitani, F.~Poitevin, A.~Angerbj{\"o}rn,
+  and L.~Maiorano.
+\newblock Performance tradeoffs in target-group bias correction for species
+  distribution models.
+\newblock \emph{Ecography}, 40\penalty0 (9):\penalty0 1076--1087, 2017.
+
+\bibitem[Roberts et~al.(2017)Roberts, Bahn, Ciuti, Boyce, Elith,
+  Guillera-Arroita, Hauenstein, Lahoz-Monfort, Schr{\"o}der, Thuiller,
+  et~al.]{roberts2017cross}
+D.~R. Roberts, V.~Bahn, S.~Ciuti, M.~S. Boyce, J.~Elith, G.~Guillera-Arroita,
+  S.~Hauenstein, J.~J. Lahoz-Monfort, B.~Schr{\"o}der, W.~Thuiller, et~al.
+\newblock Cross-validation strategies for data with temporal, spatial,
+  hierarchical, or phylogenetic structure.
+\newblock \emph{Ecography}, 40\penalty0 (8):\penalty0 913--929, 2017.
+
+\bibitem[Sechidis et~al.(2011)Sechidis, Tsoumakas, and
+  Vlahavas]{sechidis2011stratification}
+K.~Sechidis, G.~Tsoumakas, and I.~Vlahavas.
+\newblock On the stratification of multi-label data.
+\newblock In \emph{Machine Learning and Knowledge Discovery in Databases:
+  European Conference, ECML PKDD 2011, Athens, Greece, September 5-9, 2011,
+  Proceedings, Part III 22}, pages 145--158. Springer, 2011.
+
+\bibitem[Senay et~al.(2013)Senay, Worner, and Ikeda]{senay2013novel}
+S.~D. Senay, S.~P. Worner, and T.~Ikeda.
+\newblock Novel three-step pseudo-absence selection technique for improved
+  species distribution modelling.
+\newblock \emph{PloS one}, 8\penalty0 (8):\penalty0 e71218, 2013.
+
+\bibitem[Smith et~al.(2021)Smith, Kelly, and Renner]{smith2021validation}
+J.~N. Smith, N.~Kelly, and I.~W. Renner.
+\newblock Validation of presence-only models for conservation planning and the
+  application to whales in a multiple-use marine park.
+\newblock \emph{Ecological Applications}, 31\penalty0 (1):\penalty0 e02214,
+  2021.
+
+\bibitem[Sofaer et~al.(2019)Sofaer, Jarnevich, Pearse, Smyth, Auer, Cook,
+  Edwards~Jr, Guala, Howard, Morisette, et~al.]{sofaer2019development}
+H.~R. Sofaer, C.~S. Jarnevich, I.~S. Pearse, R.~L. Smyth, S.~Auer, G.~L. Cook,
+  T.~C. Edwards~Jr, G.~F. Guala, T.~G. Howard, J.~T. Morisette, et~al.
+\newblock Development and delivery of species distribution models to inform
+  decision-making.
+\newblock \emph{BioScience}, 69\penalty0 (7):\penalty0 544--557, 2019.
+
+\bibitem[Srivastava et~al.(2014)Srivastava, Hinton, Krizhevsky, Sutskever, and
+  Salakhutdinov]{srivastava2014dropout}
+N.~Srivastava, G.~Hinton, A.~Krizhevsky, I.~Sutskever, and R.~Salakhutdinov.
+\newblock Dropout: a simple way to prevent neural networks from overfitting.
+\newblock \emph{The journal of machine learning research}, 15\penalty0
+  (1):\penalty0 1929--1958, 2014.
+
+\bibitem[Stokland et~al.(2011)Stokland, Halvorsen, and
+  St{\o}a]{stokland2011species}
+J.~N. Stokland, R.~Halvorsen, and B.~St{\o}a.
+\newblock Species distribution modelling—effect of design and sample size of
+  pseudo-absence observations.
+\newblock \emph{Ecological Modelling}, 222\penalty0 (11):\penalty0 1800--1809,
+  2011.
+
+\bibitem[Teng et~al.(2023)Teng, Elmustafa, Akera, Bengio, Radi, Larochelle, and
+  Rolnick]{teng2023satbird}
+M.~Teng, A.~Elmustafa, B.~Akera, Y.~Bengio, H.~Radi, H.~Larochelle, and
+  D.~Rolnick.
+\newblock Satbird: a dataset for bird species distribution modeling using
+  remote sensing and citizen science data.
+\newblock In \emph{Thirty-seventh Conference on Neural Information Processing
+  Systems Datasets and Benchmarks Track}, 2023.
+
+\bibitem[Tuia et~al.(2022)Tuia, Kellenberger, Beery, Costelloe, Zuffi, Risse,
+  Mathis, Mathis, van Langevelde, Burghardt, et~al.]{tuia2022perspectives}
+D.~Tuia, B.~Kellenberger, S.~Beery, B.~R. Costelloe, S.~Zuffi, B.~Risse,
+  A.~Mathis, M.~W. Mathis, F.~van Langevelde, T.~Burghardt, et~al.
+\newblock Perspectives in machine learning for wildlife conservation.
+\newblock \emph{Nature communications}, 13\penalty0 (1):\penalty0 792, 2022.
+
+\bibitem[Valavi et~al.(2018)Valavi, Elith, Lahoz-Monfort, and
+  Guillera-Arroita]{valavi2018blockcv}
+R.~Valavi, J.~Elith, J.~J. Lahoz-Monfort, and G.~Guillera-Arroita.
+\newblock blockcv: An r package for generating spatially or environmentally
+  separated folds for k-fold cross-validation of species distribution models.
+\newblock \emph{Biorxiv}, page 357798, 2018.
+
+\bibitem[Valavi et~al.(2021)Valavi, Elith, Lahoz-Monfort, and
+  Guillera-Arroita]{valavi2021modelling}
+R.~Valavi, J.~Elith, J.~J. Lahoz-Monfort, and G.~Guillera-Arroita.
+\newblock Modelling species presence-only data with random forests.
+\newblock \emph{Ecography}, 44\penalty0 (12):\penalty0 1731--1742, 2021.
+
+\bibitem[Valavi et~al.(2022)Valavi, Guillera-Arroita, Lahoz-Monfort, and
+  Elith]{valavi2022predictive}
+R.~Valavi, G.~Guillera-Arroita, J.~J. Lahoz-Monfort, and J.~Elith.
+\newblock Predictive performance of presence-only species distribution models:
+  a benchmark study with reproducible code.
+\newblock \emph{Ecological Monographs}, 92\penalty0 (1):\penalty0 e01486, 2022.
+
+\bibitem[Valavi et~al.(2023)Valavi, Elith, Lahoz-Monfort, and
+  Guillera-Arroita]{valavi2023flexible}
+R.~Valavi, J.~Elith, J.~J. Lahoz-Monfort, and G.~Guillera-Arroita.
+\newblock Flexible species distribution modelling methods perform well on
+  spatially separated testing data.
+\newblock \emph{Global Ecology and Biogeography}, 32\penalty0 (3):\penalty0
+  369--383, 2023.
+
+\bibitem[VanDerWal et~al.(2009)VanDerWal, Shoo, Graham, and
+  Williams]{vanderwal2009selecting}
+J.~VanDerWal, L.~P. Shoo, C.~Graham, and S.~E. Williams.
+\newblock Selecting pseudo-absence data for presence-only distribution
+  modeling: how far should you stray from what you know?
+\newblock \emph{Ecological modelling}, 220\penalty0 (4):\penalty0 589--594,
+  2009.
+
+\bibitem[Vaswani et~al.(2017)Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez,
+  Kaiser, and Polosukhin]{vaswani2017attention}
+A.~Vaswani, N.~Shazeer, N.~Parmar, J.~Uszkoreit, L.~Jones, A.~N. Gomez,
+  {\L}.~Kaiser, and I.~Polosukhin.
+\newblock Attention is all you need.
+\newblock \emph{Advances in neural information processing systems}, 30, 2017.
+
+\bibitem[Wisz and Guisan(2009)]{Wisz2009}
+M.~Wisz and A.~Guisan.
+\newblock Do pseudo-absence selection strategies influence species distribution
+  models and their predictions? an information-theoretic approach based on
+  simulated data.
+\newblock \emph{BMC ecology}, 9:\penalty0 8, 05 2009.
+\newblock \doi{10.1186/1472-6785-9-8}.
+
+\bibitem[Zbinden et~al.(2023)Zbinden, van Tiel, Kellenberger, Hughes, and
+  Tuia]{zbindenspecies}
+R.~Zbinden, N.~van Tiel, B.~Kellenberger, L.~Hughes, and D.~Tuia.
+\newblock Exploring the potential of neural networks for species distribution
+  modeling.
+\newblock \emph{ICLR climate change AI workshop}, 2023.
+
+\bibitem[Zhang et~al.(2022)Zhang, Zhou, Peng, and Wang]{zhang2022novel}
+X.~Zhang, Y.~Zhou, P.~Peng, and G.~Wang.
+\newblock A novel multimodal species distribution model fusing remote sensing
+  images and environmental features.
+\newblock \emph{Sustainability}, 14\penalty0 (21):\penalty0 14034, 2022.
+
+\end{thebibliography}

@@ -1,0 +1,34 @@
+\begin{table}[t]
+    % \tiny
+    % \footnotesize
+%   \centering
+   
+  \resizebox{\linewidth}{!}{
+% \setlength{\columnwidth}{3mm}{
+\begin{tabular}{l|lcccc}
+\rowcolor[gray]{.9}
+\hline
+                                 Category          & Methods                        & $\uparrow$ PSNR                & $\uparrow$ SSIM               & $\downarrow$ LPIPS      & $\downarrow$ FID \\ \hline \hline
+\multirow{7}{*}{Chairs}                    & SRN                            & 22.89                           & 0.89                           & 0.104                      &  -                 \\
+                                           
+                                           & CodeNeRF                       & 22.39                           & 0.87                           & 0.166                      &    -               \\
+                                           & FE-NVS                         & 23.21                           & \textbf{0.92}                           & 0.077                      &    -               \\ 
+                                           & PixelNeRF                      & 23.72                           & 0.91                           & 0.128          & 38.49                  \\ \cline{2-6}
+                                           & \textbf{OPP-N} & {23.99}      & \textbf{0.92}     & {0.084} & 26.62                   \\
+                                           & \textbf{OPP-G} & {23.57}      & \textbf{0.92}     & \textbf{0.066} & 16.95                   \\
+                                           & \textbf{OPP-RVBA} & \textbf{24.05}      & \textbf{0.92}     & {0.070} &
+                \textbf{15.69} \\ \hline
+{\multirow{7}{*}{Cars}} & SRN                            & 22.25                           & 0.89                           & 0.129                      &    -               \\
+\multicolumn{1}{c|}{}                      & CodeNeRF                       & 22.73                           & 0.89                           & 0.128                      &       -            \\
+\multicolumn{1}{c|}{}                      & FE-NVS                         & 22.83                           & \textbf{0.91} & 0.099                      &            -       \\
+\multicolumn{1}{c|}{}                      & PixelNeRF                      & 23.17 & 0.90                           & 0.146                      &   59.15             \\ \cline{2-6}
+\multicolumn{1}{c|}{}                      & \textbf{OPP-N} & {23.21}      &  \textbf{0.91}     & {0.109} &  52.22                 \\
+\multicolumn{1}{c|}{}                      & \textbf{OPP-G} & {22.72}      & {0.90}     & \textbf{0.085} &   32.14               \\
+\multicolumn{1}{c|}{}                      & \textbf{OPP-RVBA} & \textbf{23.24}      &  \textbf{0.91}     & {0.092} &    \textbf{31.19}              \\ \hline
+\end{tabular}
+    %   }
+    }
+    
+    \caption{\textbf{ Comparisons with the state-of-the-art methods under category-specific setting.} The performance of our final One-stage Parallel Pipeline (OPP) is reported. ``-N'' represents the NeRF paradigm of DPS which performs better at realness metrics (PSNR, SSIM), while ``-G'' indicates the generative paradigm that is better at sharpness metrics (LPIPS, FID). With the proposed RVBA, we achieve the final novel view images with both high realness and sharpness compared with previous state-of-the-art methods. }
+  \label{tab:category_specific}
+\end{table}

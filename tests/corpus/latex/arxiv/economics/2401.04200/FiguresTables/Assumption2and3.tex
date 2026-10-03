@@ -1,0 +1,30 @@
+\begin{table}[t!]
+\begin{center}
+\caption{$\mathrm{Cov}[\Delta{s^m_{t}},x]$ for observable characteristics $x$}
+\label{tbl:OLS_ass2and3}
+\begin{tabular}{l*{5}{c}}
+\toprule\toprule
+&\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}&\multicolumn{1}{c}{(5)}\\
+&\multicolumn{5}{c}{$\Delta_{s^m_{t}}=s^m_t-s^m_{t-1}$}\\
+\midrule
+SES income          &       0.005***&               &               &               &               \\
+                    &     (0.001)   &               &               &               &               \\
+$\mathbbm{1}$(female)&               &       0.007***&               &               &               \\
+                    &               &     (0.002)   &               &               &               \\
+$\mathbbm{1}$(Western imm.)&               &               &       0.018***&               &               \\
+                    &               &               &     (0.004)   &               &               \\
+$\mathbbm{1}$(non-Western imm.)&               &               &               &       0.012***&               \\
+                    &               &               &               &     (0.004)   &               \\
+Age                 &               &               &               &               &      -0.005** \\
+                    &               &               &               &               &     (0.002)   \\
+[.25em]
+Observations        &      148019   &      148019   &      148019   &      148019   &      148019   \\
+\(R^{2}\)           &       0.000   &       0.000   &       0.000   &       0.000   &       0.000   \\
+       \bottomrule \bottomrule
+    \end{tabular}
+        \begin{tablenotes}
+	\footnotesize
+        \item[] Notes:  ***, **, * refers to statistical significance at the 1, 5, and 10\% level. Coefficients are estimated with OLS. Standard errors (in parentheses) are clustered at the school level.
+        \end{tablenotes}
+ \end{center}
+\end{table}

@@ -1,0 +1,28 @@
+
+
+\begin{table}[t]
+\setlength{\abovecaptionskip}{0cm}
+    \footnotesize
+     \caption{\textbf{Efficiency comparisons with PixelNeRF.} The parameter number of OPP is only slightly higher than PixelNeRF, and the additional rendering of $\hat{\textbf{I}}^{G}$ and $M$ is significantly faster than $\hat{\textbf{I}}^{N}$. We test FPS on $1$ V100 with a batch size of $1$. }
+     % \vspace{-4mm}
+    \label{tab:ablation_efficiency}
+    \centering
+    \small
+    % \resizebox{\linewidth}{!}{
+     \setlength\tabcolsep{6.5pt}
+        \begin{tabular}{l|cccc}
+        \rowcolor[gray]{.9}
+        \hline
+        Methods           &  Param.   & FPS ($\hat{\textbf{I}}^{N}$) & FPS ($\hat{\textbf{I}}^{G}$)   & FPS ($M$)   \\ \hline \hline
+        PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}   & 15.05M  &  0.54 &   -     &   -             \\
+        \textbf{OPP (ours)} & 15.46M & 0.49  &  21.50 &  11.90 \\ 
+        \hline
+        \end{tabular}
+        % \vspace{-4mm}
+\end{table}
+
+
+% N + Conf.: 2.088s 
+% N: 2.0039
+% Conf.: 0.084s
+% G: 0.0465s

@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Fifty arXiv papers under CC BY 4.0 or CC0 in the LaTeX test corpus (`tests/corpus/latex/arxiv`), ten per field, each parsed back to its bytes and drawn in the tests.
 - A nightly fuzzing workflow: the Org and LaTeX parsers and their incremental reparses a quarter of an hour each, the corpus kept between nights.
 - `kalem book check --changed BASE`: the Book chapters (`book/chapters.toml`) whose code changed without them; the Book's workflow runs it on every pull request.
 - SyncTeX lookups take microseconds on a 210-page paper (indexed records; the file read once a build), measured by the `synctex_timing` example.

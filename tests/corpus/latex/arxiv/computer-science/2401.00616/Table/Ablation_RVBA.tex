@@ -1,0 +1,50 @@
+% with concave, convex
+% \begin{table}[t]
+%     \resizebox{\linewidth}{!}{
+%         \begin{tabular}{l|cccc}
+%         \rowcolor[gray]{.9}
+%         \hline
+%         Methods           & $\uparrow$ PSNR                & $\uparrow$ SSIM               & $\downarrow$ LPIPS      & $\downarrow$ FID \\ \hline \hline
+        
+                                                   
+%         DPS-N   & \underline{23.64}                         & \underline{0.909}                    & 0.108             &  61.07   \\
+%         DPS-G   &  23.16                        & 0.902                    & \textbf{0.085}             &  41.35   \\ \hline
+%         % DPS-RVBA (avg)  & 23.65     &   0.910     &   0.090        &       40.25 \\     
+%         DPS-RVBA (concave)  & \textbf{23.69}      &   \textbf{0.910}     &   0.097 & 44.87 \\ 
+%         DPS-RVBA (convex)      &   23.61        &  0.908       &   \underline{0.087}  & \textbf{37.49} \\
+%         \textbf{DPS-RVBA (linear)} & \textbf{23.69}      & \textbf{0.910}     & {0.091} & \underline{39.29} \\ 
+%         \hline
+%         \end{tabular}
+%     }
+%      \caption{\textbf{ Influence of different weight functions in RVBA.} Linear weight function achieves the best balance between sharpness and realness. }
+%     \label{tab:ablation_rvba}
+% \end{table}
+
+
+\begin{table}[t]
+\setlength{\abovecaptionskip}{0cm}
+\footnotesize
+     \caption{\textbf{ Effectiveness of fusing via the output confidence map of CoRF (\S~\ref{sec:ablation_OPP}).} The fused one mines the benefits of both the OG-NeRF (PSNR, SSIM) and generative model (LPIPS, FID).  }
+     % \vspace{-2mm}
+    \label{tab:ablation_rvba}
+    % \resizebox{\linewidth}{!}{
+    \setlength\tabcolsep{8.5pt}
+        \begin{tabular}{l|cccc}
+        \rowcolor[gray]{.9}
+        \hline
+         & \multicolumn{2}{c}{Fidelity}       & \multicolumn{2}{c}{Sharpness}                       \\
+ \rowcolor[gray]{.9}
+        Methods           & $\uparrow$ PSNR                & $\uparrow$ SSIM               & $\downarrow$ LPIPS      & $\downarrow$ FID \\ \hline \hline
+        
+                                                   
+        OG-NeRF (DPS)   & {\cs{23.64}}                         & {\cs{0.909}}                    & 0.108             &  61.07   \\
+        Generative (DPS)   &  23.16                        & 0.902                    & \cb{0.085}             &  \cs{41.35}   \\ 
+        
+   
+        \textbf{CoRF + DPF} & \cb{23.69}      & \cb{0.910}     & {\cs{0.091}} & \cb{39.70} \\ 
+        \hline
+        \end{tabular}
+
+    %{-3mm}
+    %{-6mm}
+\end{table}

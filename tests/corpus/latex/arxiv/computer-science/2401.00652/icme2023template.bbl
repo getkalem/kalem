@@ -1,0 +1,426 @@
+\begin{thebibliography}{10}
+
+\bibitem{Authors12}
+Authors,
+\newblock ``The frobnicatable foo filter,'' ACM MM 2013 submission ID 324. Supplied as additional material {\tt acmmm13.pdf}.
+
+\bibitem{Authors12b}
+Authors,
+\newblock ``Frobnication tutorial,'' 2012,
+\newblock Supplied as additional material {\tt tr.pdf}.
+
+\bibitem{cooley65}
+J.~W. Cooley and J.~W. Tukey,
+\newblock ``An algorithm for the machine computation of complex {F}ourier series,''
+\newblock {\em Math. Comp.}, vol. 19, pp. 297--301, Apr. 1965.
+
+\bibitem{haykin02}
+S.~Haykin,
+\newblock ``Adaptive filter theory,''
+\newblock Information and System Science. Prentice Hall, 4th edition, 2002.
+
+\bibitem{Morgan2005}
+Dennis~R. Morgan,
+\newblock ``Dos and don'ts of technical writing,''
+\newblock {\em IEEE Potentials}, vol. 24, no. 3, pp. 22--25, Aug. 2005.
+
+\bibitem{holub2012designing}
+Vojt{\v{e}}ch Holub and Jessica Fridrich,
+\newblock ``Designing steganographic distortion using directional filters,''
+\newblock in {\em 2012 IEEE International workshop on information forensics and security (WIFS)}. IEEE, 2012, pp. 234--239.
+
+\bibitem{holub2014universal}
+Vojt{\v{e}}ch Holub, Jessica Fridrich, and Tom{\'a}{\v{s}} Denemark,
+\newblock ``Universal distortion function for steganography in an arbitrary domain,''
+\newblock {\em EURASIP Journal on Information Security}, vol. 2014, pp. 1--13, 2014.
+
+\bibitem{li2014new}
+Bin Li, Ming Wang, Jiwu Huang, and Xiaolong Li,
+\newblock ``A new cost function for spatial image steganography,''
+\newblock in {\em 2014 IEEE International conference on image processing (ICIP)}. IEEE, 2014, pp. 4206--4210.
+
+\bibitem{ahmadi2020redmark}
+Mahdi Ahmadi, Alireza Norouzi, Nader Karimi, Shadrokh Samavi, and Ali Emami,
+\newblock ``Redmark: Framework for residual diffusion watermarking based on deep networks,''
+\newblock {\em Expert Systems with Applications}, vol. 146, pp. 113157, 2020.
+
+\bibitem{jing2021hinet}
+Junpeng Jing, Xin Deng, Mai Xu, Jianyi Wang, and Zhenyu Guan,
+\newblock ``Hinet: deep image hiding by invertible network,''
+\newblock in {\em Proceedings of the IEEE/CVF international conference on computer vision}, 2021, pp. 4733--4742.
+
+\bibitem{lu2021large}
+Shao-Ping Lu, Rong Wang, Tao Zhong, and Paul~L Rosin,
+\newblock ``Large-capacity image steganography based on invertible neural networks,''
+\newblock in {\em Proceedings of the IEEE/CVF conference on computer vision and pattern recognition}, 2021, pp. 10816--10825.
+
+\bibitem{zhu2018hidden}
+Jiren Zhu, Russell Kaplan, Justin Johnson, and Li~Fei-Fei,
+\newblock ``Hidden: Hiding data with deep networks,''
+\newblock in {\em Proceedings of the European conference on computer vision (ECCV)}, 2018, pp. 657--672.
+
+\bibitem{brock2018large}
+Andrew Brock, Jeff Donahue, and Karen Simonyan,
+\newblock ``Large scale gan training for high fidelity natural image synthesis,''
+\newblock {\em arXiv preprint arXiv:1809.11096}, 2018.
+
+\bibitem{karras2017progressive}
+Tero Karras, Timo Aila, Samuli Laine, and Jaakko Lehtinen,
+\newblock ``Progressive growing of gans for improved quality, stability, and variation,''
+\newblock {\em arXiv preprint arXiv:1710.10196}, 2017.
+
+\bibitem{karras2019style}
+Tero Karras, Samuli Laine, and Timo Aila,
+\newblock ``A style-based generator architecture for generative adversarial networks,''
+\newblock in {\em Proceedings of the IEEE/CVF conference on computer vision and pattern recognition}, 2019, pp. 4401--4410.
+
+\bibitem{wei2022generative}
+Ping Wei, Sheng Li, Xinpeng Zhang, Ge~Luo, Zhenxing Qian, and Qing Zhou,
+\newblock ``Generative steganography network,''
+\newblock in {\em Proceedings of the 30th ACM International Conference on Multimedia}, 2022, pp. 1621--1629.
+
+\bibitem{zhang2019self}
+Han Zhang, Ian Goodfellow, Dimitris Metaxas, and Augustus Odena,
+\newblock ``Self-attention generative adversarial networks,''
+\newblock in {\em International conference on machine learning}. PMLR, 2019, pp. 7354--7363.
+
+\bibitem{hu2018novel}
+Donghui Hu, Liang Wang, Wenjie Jiang, Shuli Zheng, and Bin Li,
+\newblock ``A novel image steganography method via deep convolutional generative adversarial networks,''
+\newblock {\em IEEE access}, vol. 6, pp. 38303--38314, 2018.
+
+\bibitem{zhang2020generative}
+Zhuo Zhang, Guangyuan Fu, Rongrong Ni, Jia Liu, and Xiaoyuan Yang,
+\newblock ``A generative method for steganography by cover synthesis with auxiliary semantics,''
+\newblock {\em Tsinghua Science and Technology}, vol. 25, no. 4, pp. 516--527, 2020.
+
+\bibitem{zhang2019generative}
+Zhuo Zhang, Jia Liu, Yan Ke, Yu~Lei, Jun Li, Minqing Zhang, and Xiaoyuan Yang,
+\newblock ``Generative steganography by sampling,''
+\newblock {\em IEEE access}, vol. 7, pp. 118586--118597, 2019.
+
+\bibitem{liu2023fine}
+Zhian Liu, Maomao Li, Yong Zhang, Cairong Wang, Qi~Zhang, Jue Wang, and Yongwei Nie,
+\newblock ``Fine-grained face swapping via regional gan inversion,''
+\newblock in {\em Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 2023, pp. 8578--8587.
+
+\bibitem{cheng20093d}
+Yi-Ting Cheng, Virginia Tzeng, Yu~Liang, Chuan-Chang Wang, Bing-Yu Chen, Yung-Yu Chuang, and Ming Ouhyoung,
+\newblock ``3d-model-based face replacement in video,''
+\newblock in {\em SIGGRAPH'09: Posters}, pp. 1--1. 2009.
+
+\bibitem{thies2016face2face}
+Justus Thies, Michael Zollhofer, Marc Stamminger, Christian Theobalt, and Matthias Nie{\ss}ner,
+\newblock ``Face2face: Real-time face capture and reenactment of rgb videos,''
+\newblock in {\em Proceedings of the IEEE conference on computer vision and pattern recognition}, 2016, pp. 2387--2395.
+
+\bibitem{nirkin2019fsgan}
+Yuval Nirkin, Yosi Keller, and Tal Hassner,
+\newblock ``Fsgan: Subject agnostic face swapping and reenactment,''
+\newblock in {\em Proceedings of the IEEE/CVF international conference on computer vision}, 2019, pp. 7184--7193.
+
+\bibitem{li2019faceshifter}
+Lingzhi Li, Jianmin Bao, Hao Yang, Dong Chen, and Fang Wen,
+\newblock ``Faceshifter: Towards high fidelity and occlusion aware face swapping,''
+\newblock {\em arXiv preprint arXiv:1912.13457}, 2019.
+
+\bibitem{chen2020simswap}
+Renwang Chen, Xuanhong Chen, Bingbing Ni, and Yanhao Ge,
+\newblock ``Simswap: An efficient framework for high fidelity face swapping,''
+\newblock in {\em Proceedings of the 28th ACM International Conference on Multimedia}, 2020, pp. 2003--2011.
+
+\bibitem{zhou2023generative}
+Zhili Zhou, Xiaohua Dong, Ruohan Meng, Meimin Wang, Hongyang Yan, Keping Yu, and Kim-Kwang~Raymond Choo,
+\newblock ``Generative steganography via auto-generation of semantic object contours,''
+\newblock {\em IEEE Transactions on Information Forensics and Security}, 2023.
+
+\bibitem{wang2023data}
+Zichi Wang, Guorui Feng, Hanzhou Wu, and Xinpeng Zhang,
+\newblock ``Data hiding during image processing using capsule networks,''
+\newblock {\em Neurocomputing}, vol. 537, pp. 49--60, 2023.
+
+\bibitem{gupta2012enhanced}
+Shilpa Gupta, Geeta Gujral, and Neha Aggarwal,
+\newblock ``Enhanced least significant bit algorithm for image steganography,''
+\newblock {\em IJCEM International Journal of Computational Engineering \& Management}, vol. 15, no. 4, pp. 40--42, 2012.
+
+\bibitem{singh2015improved}
+Amritpal Singh and Harpal Singh,
+\newblock ``An improved lsb based image steganography technique for rgb images,''
+\newblock in {\em 2015 IEEE International Conference on electrical, computer and communication technologies (ICECCT)}. IEEE, 2015, pp. 1--4.
+
+\bibitem{zhang2019steganogan}
+Kevin~Alex Zhang, Alfredo Cuesta-Infante, Lei Xu, and Kalyan Veeramachaneni,
+\newblock ``Steganogan: High capacity image steganography with gans,''
+\newblock {\em arXiv preprint arXiv:1901.03892}, 2019.
+
+\bibitem{cetin2009new}
+Ozdemir Cetin and A~Turan Ozcerit,
+\newblock ``A new steganography algorithm based on color histograms for data embedding into raw video streams,''
+\newblock {\em computers \& security}, vol. 28, no. 7, pp. 670--682, 2009.
+
+\bibitem{dong2019high}
+Yi~Dong, Tanfeng Sun, and Xinghao Jiang,
+\newblock ``A high capacity hevc steganographic algorithm using intra prediction modes in multi-sized prediction blocks,''
+\newblock in {\em Digital Forensics and Watermarking: 17th International Workshop, IWDW 2018, Jeju Island, Korea, October 22-24, 2018, Proceedings 17}. Springer, 2019, pp. 233--247.
+
+\bibitem{liu2021high}
+Jindou Liu, Zhaohong Li, Xinghao Jiang, and Zhenzhen Zhang,
+\newblock ``A high-performance cnn-applied hevc steganography based on diamond-coded pu partition modes,''
+\newblock {\em IEEE Transactions on Multimedia}, vol. 24, pp. 2084--2097, 2021.
+
+\bibitem{li2022anti}
+Zhonghao Li, Xinghao Jiang, Yi~Dong, Laijin Meng, and Tanfeng Sun,
+\newblock ``An anti-steganalysis hevc video steganography with high performance based on cnn and pu partition modes,''
+\newblock {\em IEEE Transactions on Dependable and Secure Computing}, vol. 20, no. 1, pp. 606--619, 2022.
+
+\bibitem{he2023adaptive}
+Songhan He, Dawen Xu, Lin Yang, and Weipeng Liang,
+\newblock ``Adaptive hevc video steganography with high performance based on attention-net and pu partition modes,''
+\newblock {\em IEEE Transactions on Multimedia}, 2023.
+
+\bibitem{deng2019arcface}
+Jiankang Deng, Jia Guo, Niannan Xue, and Stefanos Zafeiriou,
+\newblock ``Arcface: Additive angular margin loss for deep face recognition,''
+\newblock in {\em Proceedings of the IEEE/CVF conference on computer vision and pattern recognition}, 2019, pp. 4690--4699.
+
+\bibitem{jaderberg2015spatial}
+Max Jaderberg, Karen Simonyan, Andrew Zisserman, et~al.,
+\newblock ``Spatial transformer networks,''
+\newblock {\em Advances in neural information processing systems}, vol. 28, 2015.
+
+\bibitem{roslan2022systematic}
+Nuur~Alifah Roslan, Nur~Izura Udzir, Ramlan Mahmod, and Adnan Gutub,
+\newblock ``Systematic literature review and analysis for arabic text steganography method practically,''
+\newblock {\em Egyptian Informatics Journal}, 2022.
+
+\bibitem{karim2022coverless}
+Nadia~A Karim, Suhad~A Ali, and Majid~Jabbar Jawad,
+\newblock ``A coverless image steganography based on robust image wavelet hashing,''
+\newblock {\em TELKOMNIKA (Telecommunication Computing Electronics and Control)}, vol. 20, no. 6, pp. 1317--1325, 2022.
+
+\bibitem{li2023robust}
+Sheng Li, Zichi Wang, Xiudong Zhang, and Xinpeng Zhang,
+\newblock ``Robust image steganography against general downsampling operations with lossless secret recovery,''
+\newblock {\em IEEE Transactions on Dependable and Secure Computing}, 2023.
+
+\bibitem{mahmoud2022enhancing}
+Mahmoud~M Mahmoud and Huwaida~T Elshoush,
+\newblock ``Enhancing lsb using binary message size encoding for high capacity, transparent and secure audio steganography--an innovative approach,''
+\newblock {\em IEEE Access}, vol. 10, pp. 29954--29971, 2022.
+
+\bibitem{adeeb2022arabic}
+Omer Farooq~Ahmed Adeeb and Seyed~Jahanshah Kabudian,
+\newblock ``Arabic text steganography based on deep learning methods,''
+\newblock {\em IEEE Access}, vol. 10, pp. 94403--94416, 2022.
+
+\bibitem{shirali2007text}
+M~Hassan Shirali-Shahreza and Mohammad Shirali-Shahreza,
+\newblock ``Text steganography in chat,''
+\newblock in {\em 2007 3rd IEEE/IFIP International Conference in Central Asia on Internet}. IEEE, 2007, pp. 1--5.
+
+\bibitem{delina2008information}
+B~Delina,
+\newblock ``Information hiding: A new approach in text steganography,''
+\newblock in {\em Proceedings of the International Conference on Applied Computer and Applied Computational Science, World Scientific and Engineering Academy and Society (WSEAS 2008)}, 2008, pp. 689--695.
+
+\bibitem{djebbar2011view}
+Fatiha Djebbar, Beghdad Ayad, Habib Hamam, and Karim Abed-Meraim,
+\newblock ``A view on latest audio steganography techniques,''
+\newblock in {\em 2011 International Conference on Innovations in Information Technology}. IEEE, 2011, pp. 409--414.
+
+\bibitem{gopalan2003audio}
+Kaliappan Gopalan,
+\newblock ``Audio steganography using bit modification,''
+\newblock in {\em 2003 International Conference on Multimedia and Expo. ICME'03. Proceedings (Cat. No. 03TH8698)}. IEEE, 2003, vol.~1, pp. I--629.
+
+\bibitem{djebbar2012comparative}
+Fatiha Djebbar, Beghdad Ayad, Karim~Abed Meraim, and Habib Hamam,
+\newblock ``Comparative study of digital audio steganography techniques,''
+\newblock {\em EURASIP Journal on Audio, Speech, and Music Processing}, vol. 2012, no. 1, pp. 1--16, 2012.
+
+\bibitem{you2022image}
+Zhengxin You, Qichao Ying, Sheng Li, Zhenxing Qian, and Xinpeng Zhang,
+\newblock ``Image generation network for covert transmission in online social network,''
+\newblock in {\em Proceedings of the 30th ACM International Conference on Multimedia}, 2022, pp. 2834--2842.
+
+\bibitem{wang2018high}
+Ting-Chun Wang, Ming-Yu Liu, Jun-Yan Zhu, Andrew Tao, Jan Kautz, and Bryan Catanzaro,
+\newblock ``High-resolution image synthesis and semantic manipulation with conditional gans,''
+\newblock in {\em Proceedings of the IEEE conference on computer vision and pattern recognition}, 2018, pp. 8798--8807.
+
+\bibitem{athalye2018synthesizing}
+Anish Athalye, Logan Engstrom, Andrew Ilyas, and Kevin Kwok,
+\newblock ``Synthesizing robust adversarial examples,''
+\newblock in {\em International conference on machine learning}. PMLR, 2018, pp. 284--293.
+
+\bibitem{hu2019deep}
+Danying Hu, Daniel DeTone, and Tomasz Malisiewicz,
+\newblock ``Deep charuco: Dark charuco marker pose estimation,''
+\newblock in {\em Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 2019, pp. 8436--8444.
+
+\bibitem{shin2017jpeg}
+Richard Shin and Dawn Song,
+\newblock ``Jpeg-resistant adversarial images,''
+\newblock in {\em NIPS 2017 Workshop on Machine Learning and Computer Security}, 2017, vol.~1, p.~8.
+
+\bibitem{tancik2020stegastamp}
+Matthew Tancik, Ben Mildenhall, and Ren Ng,
+\newblock ``Stegastamp: Invisible hyperlinks in physical photographs,''
+\newblock in {\em Proceedings of the IEEE/CVF conference on computer vision and pattern recognition}, 2020, pp. 2117--2126.
+
+\bibitem{he2016deep}
+Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun,
+\newblock ``Deep residual learning for image recognition,''
+\newblock in {\em Proceedings of the IEEE conference on computer vision and pattern recognition}, 2016, pp. 770--778.
+
+\bibitem{huang2017arbitrary}
+Xun Huang and Serge Belongie,
+\newblock ``Arbitrary style transfer in real-time with adaptive instance normalization,''
+\newblock in {\em Proceedings of the IEEE international conference on computer vision}, 2017, pp. 1501--1510.
+
+\bibitem{liu2019few}
+Ming-Yu Liu, Xun Huang, Arun Mallya, Tero Karras, Timo Aila, Jaakko Lehtinen, and Jan Kautz,
+\newblock ``Few-shot unsupervised image-to-image translation,''
+\newblock in {\em Proceedings of the IEEE/CVF international conference on computer vision}, 2019, pp. 10551--10560.
+
+\bibitem{park2019semantic}
+Taesung Park, Ming-Yu Liu, Ting-Chun Wang, and Jun-Yan Zhu,
+\newblock ``Semantic image synthesis with spatially-adaptive normalization,''
+\newblock in {\em Proceedings of the IEEE/CVF conference on computer vision and pattern recognition}, 2019, pp. 2337--2346.
+
+\bibitem{adler2018banach}
+Jonas Adler and Sebastian Lunz,
+\newblock ``Banach wasserstein gan,''
+\newblock {\em Advances in neural information processing systems}, vol. 31, 2018.
+
+\bibitem{gulrajani2017improved}
+Ishaan Gulrajani, Faruk Ahmed, Martin Arjovsky, Vincent Dumoulin, and Aaron~C Courville,
+\newblock ``Improved training of wasserstein gans,''
+\newblock {\em Advances in neural information processing systems}, vol. 30, 2017.
+
+\bibitem{cao2018vggface2}
+Qiong Cao, Li~Shen, Weidi Xie, Omkar~M Parkhi, and Andrew Zisserman,
+\newblock ``Vggface2: A dataset for recognising faces across pose and age,''
+\newblock in {\em 2018 13th IEEE international conference on automatic face \& gesture recognition (FG 2018)}. IEEE, 2018, pp. 67--74.
+
+\bibitem{zhai2019universal}
+Liming Zhai, Lina Wang, and Yanzhen Ren,
+\newblock ``Universal detection of video steganography in multiple domains based on the consistency of motion vectors,''
+\newblock {\em IEEE transactions on information forensics and security}, vol. 15, pp. 1762--1777, 2019.
+
+\bibitem{li2019hevc}
+Zhonghao Li, Laijing Meng, Shutong Xu, Zhaohong Li, Yunqing Shi, and Yuanchang Liang,
+\newblock ``A hevc video steganalysis algorithm based on pu partition modes.,''
+\newblock {\em Computers, Materials \& Continua}, vol. 59, no. 2, 2019.
+
+\bibitem{sheng2017prediction}
+Q~Sheng, RD~Wang, ML~Huang, Q~Li, and D~Xu,
+\newblock ``A prediction mode steganalysis detection algorithm for hevc,''
+\newblock {\em J Optoelectron-laser}, vol. 28, no. 4, pp. 433--440, 2017.
+
+\bibitem{huang2021deepfake}
+Jiajun Huang, Xueyu Wang, Bo~Du, Pei Du, and Chang Xu,
+\newblock ``Deepfake mnist+: a deepfake facial animation dataset,''
+\newblock in {\em Proceedings of the IEEE/CVF International Conference on Computer Vision}, 2021, pp. 1973--1982.
+
+\bibitem{liu2022image}
+Xiyao Liu, Ziping Ma, Junxing Ma, Jian Zhang, Gerald Schaefer, and Hui Fang,
+\newblock ``Image disentanglement autoencoder for steganography without embedding,''
+\newblock in {\em Proceedings of the IEEE/CVF conference on computer vision and pattern recognition}, 2022, pp. 2303--2312.
+
+\bibitem{em:86}
+Robert Engelmore and Anthony Morgan, Eds.,
+\newblock {\em Blackboard Systems},
+\newblock Addison-Wesley, Reading, Mass., 1986.
+
+\bibitem{c:83}
+William~J. Clancey,
+\newblock ``{Communication, Simulation, and Intelligent Agents: Implications of Personal Intelligent Machines for Medical Education},''
+\newblock in {\em Proceedings of the Eighth International Joint Conference on Artificial Intelligence {(IJCAI-83)}}, Menlo Park, Calif, 1983, pp. 556--560, {IJCAI Organization}.
+
+\bibitem{c:84}
+William~J. Clancey,
+\newblock ``{Classification Problem Solving},''
+\newblock in {\em Proceedings of the Fourth National Conference on Artificial Intelligence}, Menlo Park, Calif., 1984, pp. 45--54, AAAI Press.
+
+\bibitem{r:80}
+Arthur~L. Robinson,
+\newblock ``New ways to make microcircuits smaller,''
+\newblock {\em Science}, vol. 208, no. 4447, pp. 1019--1022, 1980.
+
+\bibitem{r:80x}
+Arthur~L. Robinson,
+\newblock ``{New Ways to Make Microcircuits Smaller---Duplicate Entry},''
+\newblock {\em Science}, vol. 208, pp. 1019--1026, 1980.
+
+\bibitem{hcr:83}
+Diane~Warner Hasling, William~J. Clancey, and Glenn Rennels,
+\newblock ``Strategic explanations for a diagnostic consultation system,''
+\newblock {\em International Journal of Man-Machine Studies}, vol. 20, no. 1, pp. 3--19, 1984.
+
+\bibitem{hcrt:83}
+Diane~Warner Hasling, William~J. Clancey, Glenn~R. Rennels, and Thomas Test,
+\newblock ``{Strategic Explanations in Consultation---Duplicate},''
+\newblock {\em The International Journal of Man-Machine Studies}, vol. 20, no. 1, pp. 3--19, 1983.
+
+\bibitem{r:86}
+James Rice,
+\newblock ``{Poligon: A System for Parallel Problem Solving},''
+\newblock Technical Report KSL-86-19, Dept.\ of Computer Science, Stanford Univ., 1986.
+
+\bibitem{c:79}
+William~J. Clancey,
+\newblock {\em {Transfer of Rule-Based Expertise through a Tutorial Dialogue}},
+\newblock {Ph.D.} diss., Dept.\ of Computer Science, Stanford Univ., Stanford, Calif., 1979.
+
+\bibitem{c:21}
+William~J. Clancey,
+\newblock ``{The Engineering of Qualitative Models},''
+\newblock Forthcoming, 2021.
+
+\bibitem{c:22}
+Mathieu Bouville,
+\newblock ``Crime and punishment in scientific research,'' 2008.
+
+\bibitem{c:23}
+{NASA},
+\newblock ``Pluto: The 'other' red planet,'' \url{https://www.nasa.gov/nh/pluto-the-other-red-planet}, 2015,
+\newblock Accessed: 2018-12-06.
+
+\bibitem{rossler2019faceforensics++}
+Andreas Rossler, Davide Cozzolino, Luisa Verdoliva, Christian Riess, Justus Thies, and Matthias Nie{\ss}ner,
+\newblock ``Faceforensics++: Learning to detect manipulated facial images,''
+\newblock in {\em Proceedings of the IEEE/CVF international conference on computer vision}, 2019, pp. 1--11.
+
+\bibitem{chan2004lsb}
+Chi-Kwong Chan and Lee-Ming Cheng,
+\newblock ``Hiding data in images by simple lsb substitution,''
+\newblock {\em Pattern recognition}, vol. 37, no. 3, pp. 469--474, 2004.
+
+\bibitem{wang2018maintaining}
+Yu~Wang, Yun Cao, Xianfeng Zhao, Zhoujun Xu, and Meineng Zhu,
+\newblock ``Maintaining rate-distortion optimization for ipm-based video steganography by constructing isolated channels in hevc,''
+\newblock in {\em Proceedings of the 6th ACM workshop on information hiding and multimedia security}, 2018, pp. 97--107.
+
+\bibitem{wu2022robust}
+Haiwei Wu, Jiantao Zhou, Jinyu Tian, and Jun Liu,
+\newblock ``Robust image forgery detection over online social network shared images,''
+\newblock in {\em Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 2022, pp. 13440--13449.
+
+\bibitem{dong2023implicit}
+Shichao Dong, Jin Wang, Renhe Ji, and et~al.,
+\newblock ``Implicit identity leakage: The stumbling block to improving deepfake detection generalization,''
+\newblock in {\em CVPR}, 2023.
+
+\bibitem{zhao2023diffswap}
+Wenliang Zhao, Yongming Rao, Weikang Shi, and et~al.,
+\newblock ``Diffswap: High-fidelity and controllable face swapping via 3d-aware masked diffusion,''
+\newblock in {\em CVPR}, 2023.
+
+\bibitem{wang2023altfreezing}
+Zhendong Wang, Jianmin Bao, and et~al.,
+\newblock ``Altfreezing for more general video face forgery detection,''
+\newblock in {\em CVPR}, 2023.
+
+\end{thebibliography}

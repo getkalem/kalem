@@ -1,0 +1,49 @@
+
+\section{\textbf{Introduction}}
+%{-2mm}
+\label{sec:intro}
+
+
+One-shot Novel View Synthesis (O-NVS) is a long-standing problem in computer vision and graphics which targets on synthesizing photo-realistic novel views of a scene given a single reference image. An important technology solving this task is the One-shot Generalizable Neural Radiance Fields (OG-NeRF) which trains image-conditioned NeRF across scenes for learning general 3D priors and can generalize to a new scene by a single feed-forward pass, \ie, \textit{inference-time finetuning-free}.
+
+However, 1) the existing OG-NeRF methods~\cite{PixelNeRF_yu2021pixelnerf,lin2023visionnerf,FE_NVS_guo2022fast} mainly suffer the \textit{blurry issue} since their encoder-only architectures highly rely on the reference images that contain limited information. 
+For instance, ~\cite{PixelNeRF_yu2021pixelnerf,lin2023visionnerf} first encodes the reference image into a 2D feature map and then indexes the condition features via pixel-wise projection. It works well when the target view is close to the reference view, yet tends to get blurry as the view difference becomes larger since the reference image can provide limited or even misleading scene information, \eg, as shown by the upper row of Fig.~\ref{fig_idea}, the query point requires the wheel information from the right view while the misleading body information from the back view is projected. 2) On the other hand, recent advances of diffusion-based image-to-3d methods~\cite{liu2023zero123,tang2023makeit3d} show vivid plausible novel view results via distilling the 2D generative priors from pre-trained diffusion models~\cite{rombach2022LatentDiff,zhang2023addingControlNet} into a 3D representation, yet requires tedious \textit{per-scene optimization}.
+
+%%%%%%%%%%%%%%%%%%%%%%
+\input{Figure/idea_illustration}
+%%%%%%%%%%%%%%%%%%%%%%
+
+
+Targeting these issues, we explore an O-NVS framework that is both \textit{inference-time finetuning-free }and with \textit{vivid plausible outputs}. To this end, we propose the GD$^2$-NeRF, a coarse-to-fine generative detail compensation framework that hierarchically includes GAN and pre-trained diffusion models into OG-NeRF. GD$^2$-NeRF is mainly composed of a {One-stage Parallel Pipeline (OPP)} that captures in-distribution priors via GAN model and a {Diffusion-based 3D-consistent Enhancer (Diff3DE)} that injects out-distribution priors from pre-trained diffusion models~\cite{rombach2022LatentDiff,zhang2023addingControlNet}, as illustrated by the second row of Fig.~\ref{fig_idea}. In detail: 
+
+
+(i) \textit{Coarse-stage OPP (GAN model)}. At the coarse stage, we intend to devise a pipeline that efficiently injects the GAN model into the existing OG-NeRF pipeline to primarily relieve the blurry issue using in-distribution detail priors captured from the training dataset. 
+Targeting this, a naive solution is to directly build the GAN model on top of the OG-NeRF model tandemly, either in a two-stage or one-stage manner, as illustrated by the first two rows in Fig. \ref{fig_simple_pipelines} and will be detailed in~\S~\ref{sec:coarse_stage_opp}. However, though the \textit{sharpness} (LPIPS, FID) is significantly improved,  we empirically find it hard to maintain the \textit{fidelity} (PSNR, SSIM), even with the more coherent one-stage tandem pipeline. 
+
+To address such contradiction between \textit{fidelity} and \textit{sharpness}, 
+we further propose the One-stage Parallel Pipeline (OPP) that integrates the OG-NeRF and GAN model in a unified parallel framework, as shown by the bottom part of Fig. \ref{fig_simple_pipelines}. It is built on the one-stage tandem pipeline with the proposed  Dual-Paradigm Structure (DPS), Confidence Radiance Fields (CoRF), and Dual-Paradigm Fusion (DPF).
+With DPS, the OG-NeRF model and the GAN model can be optimized in parallel within a single framework. Then, CoRF takes the occlusion information as input and predicts a confidence map which adaptively gives the blurry part with low confidence. Finally, DPF aggregates the outputs from two paradigms via the learned confidence map. 
+
+
+(ii) \textit{Fine-stage Diff3DE (diffusion model).}  Due to the limited size and quality of the training datasets, we find the in-distribution prior at the coarse stage is not enough for vivid outputs with rich plausible details. Therefore, at the fine stage, to break through such limitation, we turn to the large-scale diffusion models~\cite{rombach2022LatentDiff,zhang2023addingControlNet} pre-trained on billions of high-quality images for more vivid out-distribution details. 
+
+However, naively using such an image diffusion model to process the rendered views from the coarse stage frame-by-frame leads to poor 3D consistency. 
+Targeting this issue and inspired by the recent advances in zero-shot diffusion-based video editing methods~\cite{yang2023rerender,geyer2023tokenflow}, we propose the Diffusion-based 3D Enhancer (Diff3DE). The main idea of Diff3DE is to first ensure the consistency between several keyframes dispersed around the dome. Then, given an arbitrary target view, the information from nearby keyframes is aggregated in the feature space based on view information, formulating a robust 3D-consistent enhancer. 
+
+% \input{Figure/FR}
+
+Extensive experiments on both the synthetic and real-world datasets show that, without any inference-time finetuning, 1) our OPP shows noticeable improvements over the baseline methods with balanced sharpness and fidelity while with little additional cost, and 2) Diff3DE can further compensate rich plausible details with decent 3D-consistency. 
+
+Our contributions are summarized as follows:
+\begin{itemize}
+
+    \item  We devise a coarse-to-fine generative detail compensation framework, GD$^2$-NeRF, for O-NVS task that is both inference-time finetuning-free and with vivid plausible outputs.
+
+    \item Our coarse-stage method OPP (\S~\ref{sec:coarse_stage_opp}) effectively inserts the GAN model into the existing OG-NeRF pipeline to primarily relieve the blurry issue with a good balance between fidelity and sharpness.
+
+    \item To our best knowledge, our fine-stage method Diff3DE (\S~\ref{fine_stage_Diff3DE}) makes the early attempt to directly use the pre-trained diffusion model as a 3D-consistent enhancer without any further finetuning.
+ 
+\end{itemize}
+
+
+

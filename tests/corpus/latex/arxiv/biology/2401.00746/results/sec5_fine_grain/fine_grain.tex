@@ -1,0 +1,47 @@
+\subsection{Enhancing performance on natural image classification with covariance-based computation}
+\label{sec:fine_grain_task}
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{results/sec5_fine_grain/fig5_result_fine_grain.pdf}
+    \caption{\textbf{Incorporating second-order information improves model performance in natural image classification}
+    \textbf{a}, Task schematic: A pre-trained convolutional neural network (CNN) serves as the sensory system, extracting diverse features from the input image across multiple channels. These spatial features are then transformed into responses in the temporal domain, and their mean and covariance are computed using equation~(\ref{eq:theory_define_mean})-(\ref{eq:theory_define_cov}). 
+    The downstream network utilizes the mean and covariance information to infer the image's category.
+    \textbf{b}, Distribution of correlation coefficients in the covariance matrix obtained from all images in the dataset.
+    \textbf{c}, Comparison of the classification accuracy of MNNs (\textit{With corr} and \textit{Without corr}) and an ANN after training. The error bars represent the standard deviation of 5 trials.
+    \textbf{d}, The average probability of the correct prediction of the SNNs as a function of readout time.
+    \textit{With corr}, an MNN trained with mean and covariance.
+    \textit{Without corr}, an MNN trained with mean and shuffled covariance (all off-diagonal correlation coefficients set to zero).
+    \textit{ANN}, an ANN that uses ReLU activation for comparison, trained with mean only.}
+    \label{fig:fine_grain}
+\end{figure}
+We expand our covariance-based computation framework to tackle a more challenging task involving complex visual stimuli, moving beyond elemental features like motion direction. 
+For this purpose, we focus on a fine-grained classification task involving natural bird images, which includes multiple subordinate categories within the broader category of birds~\cite{WahCUB_200_2011}. 
+The complexity of the task arises from the subtle distinctions between classes and significant intraclass variations~\cite{Wei2022}. 
+Furthermore, this task exemplifies a perceptual disentangling challenge, as natural images possess intricate structures where the interrelations between image patches (stimuli parts) are crucial in defining the object category (perceptual whole).
+
+We explore the potential enhancement of classifier performance through the inclusion of covariance information from feature maps during training. 
+These feature maps are generated from a natural image using a pretrained convolutional neural network (CNN)~\cite{simonyan2014very}, serving as the sensory system for image encoding. 
+The CNN's output consists of various neural responses, each channel representing a detector for specific features, such as a bird's beak. 
+To use these data, we sequentially remap the spatial feature map to temporal data, representing instantaneous firing rates \(\lambda(t)\)of an inhomogeneous Poisson process. 
+This approach allows us to calculate the mean and covariance of these feature maps, following the methodology described in equation~(\ref{eq:theory_define_mean})-(\ref{eq:theory_define_cov}). 
+
+Before training the classification model, we analyze the distribution of off-diagonal entries in the correlation matrices of CNN-derived feature maps (Fig.~\ref{fig:fine_grain}\textbf{c}). 
+Most correlation coefficients are found to lie within the \(\pm 0.2\) range, averaging at 0.0046. 
+To assess whether these weak pairwise correlations hold significant information pertinent to image categorization, we feed the statistical moments of the CNN's feature map to a two-layer classifier, examining the impact of correlation on performance through three distinct models. 
+The first model, termed \textit{With corr}, is an MNN trained with the mean and covariance of CNN's feature map directly.
+The second model, \textit{Without corr}, is also an MNN but omits input correlations by zeroing the off-diagonal coefficients, effectively negating their influence while retaining the variance. 
+The third model, \textit{ANN}, employs an ANN with rectified linear unit (ReLU) activation, trained exclusively on the mean firing rate.
+To ensure fair and accurate comparisons, we maintained consistent network architectures and loss functions in these different setups.
+
+Each model is trained 5 times with different weight initialization.
+The \textit{ANN} model, which is based solely on the mean of the feature maps, demonstrates the lowest accuracy at 61\% on the test set. 
+This suggests that relying exclusively on the mean is insufficient for optimal classification. 
+The \textit{Without corr} model, incorporating individual neuron variances in training, shows a marginal improvement with an accuracy of 64.77\%. 
+Further evaluation is conducted on SNN models reconstructed from the MNN models. 
+These SNNs are given inputs that are taken from a multivariate normal distribution that has the same mean and covariance as the inputs of the MNNs.
+Fig.~\ref{fig:fine_grain}\textbf{d} illustrates that the \textit{With corr} model, which accounts for correlation, consistently shows faster improvement and a higher likelihood of accurate predictions compared to the \textit{Without corr} model, which disregards input correlations.
+
+In conclusion, extending our covariance-based computation theory to the realm of natural image classification has highlighted the significant benefits of incorporating correlations for enhanced task performance. 
+Despite the typically weak nature of these correlation coefficients, they contain nuanced, category-specific information that augments the information provided by the mean.
+This inclusion of correlations not only leads to higher classification accuracy but also improves the SNN's inference speed. 
+These findings resonate with similar observations in the field of deep learning~\cite{Wang2020, Song2022}, further validating the importance of considering correlations in neural network training.

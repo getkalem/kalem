@@ -1,0 +1,81 @@
+% Fonts and layout ----
+
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{mathpazo}
+\usepackage{xcolor}
+
+\linespread{1.15}
+\newcommand{\blue}[1]{\textcolor{blue}{#1}}
+\newcommand{\red}[1]{\textcolor{red}{#1}}
+\newcommand{\TBC}{\red{TBC}}
+\newcommand{\TODO}[1]{\red{TODO: #1}}
+
+% Hyperlinks ----
+
+\usepackage[hidelinks]{hyperref}
+
+
+% Floats ----
+
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{graphicx}
+
+\let\oldincludegraphics\includegraphics%
+\renewcommand{\includegraphics}[2][]{\IfFileExists{#2}{\oldincludegraphics[#1]{#2}}{\red{[FILE NOT FOUND]}}}
+
+
+% Math commands ----
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+
+\DeclareMathOperator{\E}{E}
+\DeclareMathOperator{\Cor}{Cor}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\newcommand{\Abs}[1]{\left\lvert#1\right\rvert}
+\newcommand{\abs}[1]{\lvert#1\rvert}
+\newcommand{\der}{\mathrm{d}}
+\newcommand{\derfrac}[2]{\frac{\der #1}{\der #2}}
+\newcommand{\Hcal}{\mathcal{H}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Ncal}{\mathcal{N}}
+\newcommand{\parfrac}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\R}{\mathbb{R}}
+\renewcommand{\epsilon}{\varepsilon}
+
+\let\oldleft\left
+\let\oldright\right
+\renewcommand{\left}{\mathopen{}\mathclose\bgroup\oldleft}
+\renewcommand{\right}{\aftergroup\egroup\oldright}
+
+\newtheorem{conjecture}{Conjecture}
+\newtheorem{corollary}{Corollary}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{theorem}{Theorem}
+
+\newif\ifbodyproofs
+\bodyproofstrue
+\newcommand{\inputbodyproof}[1]{\ifbodyproofs\input{#1}\fi}
+\newcommand{\inputappendixproof}[1]{\ifbodyproofs\else\input{#1}\fi}
+
+
+% Environment edits ----
+
+\usepackage{needspace}
+\AtBeginEnvironment{lemma}{\Needspace*{8\baselineskip}}
+\AtBeginEnvironment{proposition}{\Needspace*{8\baselineskip}}
+\AtBeginEnvironment{theorem}{\Needspace*{8\baselineskip}}
+
+
+% References ----
+
+\usepackage{natbib}
+\setlength{\bibsep}{0pt plus 0.3ex}
+\newcommand\citeapos[1]{\citeauthor{#1}'s (\citeyear{#1})}

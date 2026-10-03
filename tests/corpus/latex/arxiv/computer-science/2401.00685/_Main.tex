@@ -1,0 +1,1191 @@
+\documentclass[letter,journal]{IEEEtran}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{algorithmic}
+%\usepackage{algorithm}
+\usepackage{array}
+%\usepackage[caption=false,font=normalsize,labelfont=sf,textfont=sf]{subfig}
+\usepackage{textcomp}
+\usepackage{stfloats}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\DeclareMathOperator*{\sumsum}{\sum\sum}
+\usepackage{diagbox}
+%\usepackage[labelsep=period]{caption}
+\usepackage{siunitx} 
+%\newcommand\upmicro{\symup{\mu}} 
+\ifCLASSOPTIONcompsoc
+    \usepackage[caption=false, font=normalsize, labelfont=sf, textfont=sf]{subfig}
+\else
+\usepackage[caption=false, font=footnotesize]{subfig}
+\fi%\usepackage{subcaption}
+\renewcommand{\baselinestretch}{0.994}
+\usepackage{cite}
+% updated with eaditorial comments 8/9/2021
+\usepackage{multirow}
+\usepackage{multicol}
+
+%\usepackage{tikz}
+%\def\checkmark{\tikz\fill[scale=0.3](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;} 
+
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+
+\usepackage{xcolor}
+%\setlength{\textfloatsep}{10pt plus 0.0pt minus 0.0pt}
+\usepackage{tabularx}
+\usepackage{colortbl}
+
+
+
+
+\usepackage{setspace}
+\allowdisplaybreaks
+
+\usepackage{tikz}
+\def\checkmark{\tikz\fill[scale=0.3](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;} 
+
+
+%\usepackage{subcaption}
+
+\definecolor{lime}{rgb}{0.88,2,10}
+
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+
+
+
+
+
+
+
+
+
+\SetKwComment{Comment}{$\triangleright$\ }{}
+
+\usepackage{nomencl}
+\makenomenclature
+\renewcommand{\nompreamble}{The next list describes several symbols that will be later used within the body of the Article}
+\makeatletter
+\newcounter{subparagraph}[paragraph]
+\renewcommand\thesubparagraph{%
+  \theparagraph.\@arabic\c@subparagraph}
+\newcommand\subparagraph{%
+  \@startsection{subparagraph}    % counter
+    {5}                              % level
+    {\parindent}                     % indent
+    {2ex \@plus 1ex \@minus .6ex} % beforeskip
+    {0em}                           % afterskip
+    {\normalfont\normalsize\bfseries}}
+%\newcommand\l@subparagraph{\@dottedtocline{6}{10em}{5em}}
+%\newcommand{\subparagraphmark}[1]{}
+
+
+
+
+
+
+
+
+
+
+\usepackage{blindtext}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spaces,hyphens]{xurl}
+\newcommand*{\Resize}[2]{\resizebox{#1}{!}{$#2$}}%
+
+
+
+
+
+
+
+
+
+
+
+
+
+\DeclareFontFamily{OT1}{pzc}{}
+\DeclareFontShape{OT1}{pzc}{m}{it}{<-> s * [1.10] pzcmi7t}{}
+\DeclareMathAlphabet{\mathpzc}{OT1}{pzc}{m}{it}
+\renewcommand\labelenumi{(\roman{enumi})}
+\renewcommand\theenumi\labelenumi
+
+
+
+
+
+
+
+
+\makeatother
+\setcounter{tocdepth}{5} 
+\setcounter{secnumdepth}{5}
+\newcommand{\red}[1]{\textcolor{red}{[#1]}}
+\newcommand{\blue}[1]{\textcolor{blue}{#1}}
+\newcommand{\teal}[1]{\textcolor{teal}{#1}}
+\newcommand{\fref}[1]{Fig.~\ref{#1}}
+\newcommand{\tref}[1]{Table~\ref{#1}}
+\newcommand{\sref}[1]{Section~\ref{#1}}
+\usepackage[misc]{ifsym}
+
+\SetKwInput{kwInit}{Initialize}
+
+%
+%\newcommand*{\Resize}[2]{\resizebox{#1}{!}{$#2$}}%
+\usepackage{enumitem}
+
+\usepackage{amsthm}
+\newtheorem{asu}{Assumption}
+\newcounter{subassumption}[asu]
+\renewcommand{\thesubassumption}{(\textit{\roman{subassumption}})}
+\makeatletter
+\renewcommand{\p@subassumption}{\theasu}% Counter prefix.
+\makeatother
+\newcommand{\subasu}{% Just like \item in a list, but for an asu
+  \refstepcounter{subassumption}%
+  \thesubassumption~\ignorespaces}
+
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}{Lemma}
+
+
+
+%remove line number within algorithm
+\let\oldnl\nl% Store \nl in \oldnl
+\newcommand{\nonl}{\renewcommand{\nl}{\let\nl\oldnl}}% Remove line number for one line
+
+\usepackage{fancyhdr}
+\fancypagestyle{mystyle}{
+    \chead{\large IEEE Journal on Selected Areas in Communications (JSAC), 2024}}
+
+%\newcommand\HUGE{\fontsize{22}{19}\selectfont}
+\begin{document}
+\title{{Communication-Efficient Federated Learning for LEO Satellite Networks Integrated with HAPs Using Hybrid NOMA-OFDM}}
+  \author{Mohamed Elmahallawy,~\IEEEmembership{Student Member,~IEEE,}
+      Tie Luo$^*$\thanks{$^*$Corresponding author.},~\IEEEmembership{Senior Member, IEEE}, and Khaled Ramadan
+        % <-this % stops a space
+\thanks{M. Elmahallawy and T. Luo are with the Department of Computer Science, Missouri University of Science and Technology, USA (e-mail: \{meqxk, tluo\}@mst.edu). K. Ramadan is with the Department of Electronics and  Communication Engineering, The Higher Institute of Engineering in Elshorouk City, Cairo, Egypt (e-mail: k.ramadan@sha.edu.eg).\\
+\indent This work was supported by the National Science Foundation (NSF) under Grant No. 2008878.} }
+%(FLINT: Robust Federated Learning for Internet of Things)
+
+% The paper headers
+%\markboth{Journal of \LaTeX\ Class Files,~Vol.~14, No.~8, August~2021}%
+%{Shell \MakeLowercase{\textit{et al.}}: A Sample Article Using IEEEtran.cls for IEEE Journals}
+
+%\IEEEpubid{0000--0000/00\$00.00~\copyright~2021 IEEE}
+% Remember, if you use this you must call \IEEEpubidadjcol in the second
+% column for its text to clear the IEEEpubid mark.
+%\markboth{}%
+%{Shell \MakeLowercase{\textit{et al.}}: A Sample Article Using IEEEtran.cls for IEEE Journals}
+
+\maketitle
+\thispagestyle{mystyle}
+\begin{abstract}
+Space AI has become increasingly important and sometimes even necessary for government, businesses, and society. An active research topic under this mission is integrating federated learning (FL) with satellite communications (SatCom) so that numerous low Earth orbit (LEO) satellites can collaboratively train a machine learning model. However, the special communication environment of SatCom leads to a very slow FL training process up to days and weeks. This paper proposes NomaFedHAP, a novel FL-SatCom approach tailored to LEO satellites, that (1) utilizes high-altitude platforms (HAPs) as distributed parameter servers ($\mathcal {PS}$s) to enhance satellite visibility, and (2) introduces non-orthogonal multiple access (NOMA) into LEO to enable fast and bandwidth-efficient model transmissions. In addition, NomaFedHAP includes (3) a new communication topology that exploits HAPs to bridge satellites among different orbits to mitigate the Doppler shift, and (4) a new FL model aggregation scheme that optimally balances models between different orbits and shells. Moreover, we (5) derive a closed-form expression of the outage probability for satellites in near and far shells, as well as for the entire system. Our extensive simulations have validated the mathematical analysis and demonstrated the superior performance of NomaFedHAP in achieving fast and efficient FL model convergence with high accuracy as compared to the state-of-the-art. 
+\end{abstract}
+\begin{IEEEkeywords}
+Low Earth orbit (LEO), federated Learning, high altitude platform (HAP), non-orthogonal multiple Access (NOMA).
+\end{IEEEkeywords}
+\section{Introduction}
+
+\IEEEPARstart{S}atellite communication (SatCom) technology is considered a major player of the Internet of Remote Things (IoRT) \cite{OliveBranch}. Recent advancements in SatCom have stimulated giant companies such as SpaceX, Amazon, and OneWeb, as well as government agencies such as ESA and NASA, to launch a large number of small satellites into space on low Earth orbits (LEOs) \cite{pachler2021updated}. These satellites are equipped with high-resolution cameras and collect massive satellite imagery \cite{zhai2023fedleo }. Meanwhile, the booming developments of AI have motivated the leverage of machine learning (ML) to perform satellite data analytics. However, traditional ML approaches which require downloading the massive imagery from satellites to a ground station (GS) are not practical due to the limited SatCom bandwidth. In this regard, federated Learning (FL) \cite{mcmahan2017communication, xie2020asynchronous} offers a potential solution as it replaces {\em data} transmission with {\em model} transmission, where each satellite trains an ML model onboard using its own data and then only sends the trained model to the GS. This substantially reduces the demand for bandwidth and gains the additional benefit of preserving data privacy.
+
+%These LEO satellites are flying in space at a range of altitude between 400 and 2000 km to perform two main missions: (i) to provide global high-speed Internet connectivity to cover isolated and harsh geographical regions, and (ii) to collect  a vast amount of Earth observational data for unreachable areas such as maritime, deserts, and forests. This paper focuses on the Earth's observational images collected by LEO satellites. Consequently, to extract the tremendous amount of information from these images and thus support a wide variety of applications such as weather prediction, climate monitoring, and disaster management \cite{perez2021airborne}, etc., the use of large-scale data analysis and machine learning (ML) is essential. However, uploading a vast amount of images (e.g., millions or billions) captured every day by LEO satellites to a ground server (GS) for training an ML model poses several challenges. Among the challenges involved are: (i) transmission of raw satellite images is exposed to excessive privacy and security risks (especially for military applications);  (ii) the images' quality may be impacted by the large traveling distance and the atmospheric disturbances; (iii) the limitations on the network bandwidth; (iv) the short visibility time of LEO satellites to a GS, which typically lasts for a few minutes; (\iota) the line-of-sight (LOS) link between LEO satellites and a GS  may be blocked by heavy shadowing or obstacles that retard the communication \cite{zhang2019performance}; (vi) the large propagation delay between LEO satellites and a GS \cite{di2019ultra}; (vii) antenna-pointing errors caused by satellite perturbations or other parties' mobility may result in communication outage \cite{yan2019ergodic}.
+
+
+However, integrating FL with SatCom is non-trivial and involves significant challenges. This is because FL entails an iterative training process that typically involves hundreds of communication rounds between clients and the parameter server ($\mathcal {PS}$). While this is not a big issue in usual networks, it is a critical bottleneck in SatCom/LEO, where clients are LEO satellites and the $\mathcal {PS}$ is the GS, due to four factors. First, the \textit{highly sporadic, intermittent, and irregular connectivity pattern} between LEO satellites and the GS. This is caused by the distinction of travel trajectories and speeds between LEO satellites and the $\mathcal{PS}$, where satellites orbit the earth with an {\em inclination angle} between 0--90$^o$ while $\mathcal{PS}$ travels along the Earth rotation direction. Second, the \textit{long propagation and transmission delays} in SatCom, due to the long distance and low data rate. Third, FL models are often large (e.g., 528/549MB for VGG16/19, 232MB for ResNet152, 479MB for EfficientNetV2L) because of the high image resolution and accuracy dictated by satellite applications such as national and homeland security, disaster and weather monitoring. Lastly, the wireless channels between LEO satellites and GS are unreliable due to adverse weather conditions like rain, fog, wind turbulence, and interference from other radio signals especially near the Earth's surface. As a result, the short visible time window between a satellite and the $\mathcal{PS}$ is often insufficient to allow the complete transmission of a model, especially when multiple satellites' transmissions are involved. Ultimately, the above challenges significantly impede the FL training process and result in slow convergence that takes days or even weeks \cite{chen2022satellite, razmi}. %\vspace{-0.6cm}%https://keras.io/api/applications/
+
+
+%\begin{table}[!t]
+ %\vspace{-3mm}
+%\setlength{\tabcolsep}{0.2em}
+%\centering\arraybackslash
+%\centering
+%\renewcommand{\arraystretch}{1}
+%\blue{\caption{{Three Shells of SpaceX Constellation Parameters.}} 
+%\label{tab:Shells}
+%\scriptsize
+%\begin{tabular}{p{2.05cm}|p{2cm} | p{2.cm}| p{2cm}| p{2cm}}
+% \hline \hline
+%{\bf Altitude}& {\bf Inclination} &{\bf Orbits}&{\bf Sats/Orbit} &{\bf Satellites}\\
+%\hline
+%540 Km &53.2$^\circ$&72&22&1584\\
+%\hline
+%560 Km&97.6$^\circ$&6&58& 348\\
+%\hline
+%570 km&70$^\circ$&36&20&720\\
+%\hline\hline
+%Casis& China &$\sim$ 156 \\
+% \hline 
+%\end{tabular}}\vspace{-0.8cm}
+%\end{table}
+%\subsection{Contributions}
+In this paper, we propose a novel FL-SatCom framework called \textit{NomaFedHAP} that is tailored to LEO satellites to address the above challenges. First, it introduces non-orthogonal multiple access (NOMA) as a spectrum-efficient communication scheme into FL-SatCom to enable satellites at different orbit shells (hence different altitudes) %, Table~\ref{tab:Shells} provides an example of three shells from the SpaceX system\cite{pachler2021updated}}
+to transmit models concurrently from/to the $\mathcal {PS}$. %However, integrating FL with SatCom is non-trivial and involves significant challenges. This is because FL entails an iterative training process that typically involves hundreds of communication rounds between clients and the parameter server ($\mathcal {PS}$). While this is not a major issue in typical network settings, it becomes a critical bottleneck in SatCom/LEO, where clients are LEO satellites and the $\mathcal {PS}$ is the GS, due to three factors. First, the \textit{highly sporadic, intermittent, and irregular connectivity pattern} between LEO satellites and the GS. The sporadicity and intermittence are caused by the distinction of travel trajectories between LEO satellites and the $\mathcal {PS}$, where satellites orbit with an {\em inclination angle} between 0--90$^o$ (typically on the higher end) while the $\mathcal {PS}$ follows exactly the Earth's rotation (inclination of 0$^o$). The irregularity is caused by the distinction between satellites' orbiting speeds and the Earth's rotation speed, in addition to the above trajectory difference. Second, the \textit{long propagation and transmission delays} in SatCom, due to the long distance and low data rate. Third and importantly, the FL models tend to be very large (e.g., 528/549MB for VGG16/19, 232MB for ResNet152, 479MB for EfficientNetV2L) because of the high-resolution and vast number of satellite images as well as the high accuracy required by typical satellite applications (national and homeland security, disaster and weather monitoring, etc.). As a result, the short visible time window between a satellite and the $\mathcal {PS}$ is often insufficient to allow the complete transmission of a model especially when there are multiple such transmissions (from or to multiple satellites). Ultimately, the above three challenges significantly slow down the FL training process and leads to a much prolonged convergence time (up to days and weeks) \cite{razmi2022scheduling, so2022fedspace}. 
+%https://keras.io/api/applications/. 
+%There are two types of NOMA: code-domain NOMA (CD-NOMA) and power-domain NOMA (PD-NOMA), which manage multiple access in uplink/downlink communications by assigning different codes and power levels, respectively, to each client. Although both can support concurrent transmissions in the same frequency band, PD-NOMA performs better than CD-NOMA when the channel condition is clear (which is the case in space communications) and can support a larger number of clients than CD-NOMA. Therefore, we adopt PD-NOMA, and since multiple transmissions would cause interference at the receiver end, we will use successive interference cancellation (SIC) to decode each client's signal from the superimposed signal based on signal strength. Compared to traditional orthogonal multiple access (OMA) techniques such as time-division multiple access (TDMA) and orthogonal frequency division multiple access (OFDMA), NOMA offers a number of advantages including improved spectrum efficiency, high throughput, larger user capacity, multiplexed connections, flexible power control between strong and weak clients, increased reliability \cite{gao2020performance}, and reduced latency \cite{yan2019ergodic}.
+Second, following our previous work \cite{happaper}, NomaFedHAP utilizes multiple high-altitude platforms (HAPs) in lieu of GSs to act as distributed $\mathcal {PS}$s to improve satellite visibility. But unlike \cite{happaper}, NomaFedHAP introduces a new satellite-HAP communication topology in which each HAP also serves as a {\em relay} to forward models among HAPs. This has the benefit of handling multiple orbits of satellites without inter-orbit communication, thus avoiding significant Doppler shifts. Third, NomaFedHAP proposes an FL model aggregation scheme that optimally balances the number of models between different orbits and shells prior to model aggregation, thereby avoiding a biased global model.
+
+In summary, this paper makes the following contributions:
+\begin{itemize}
+    \item To the best of our knowledge, NomaFedHAP is the first work that introduces NOMA to FL-SatCom, addressing the link budget limit and enabling concurrent transmissions of large FL models within short and sporadic visible windows. It also uses HAPs instead of GS as $\mathcal {PS}$ to achieve faster convergence.
+
+    \item We propose to use orthogonal frequency division multiplexing (OFDM) for communication among satellites {\em in the same orbit}. This results in a hybrid NOMA-OFDM communication scheme. Furthermore, we derive a closed-form expression of the outage probability for satellites located in near and far orbit shells, as well as for the entire system.
+   
+    \item We also propose (i) a new {\it satellite-HAP communication topology} in substitution of the traditional star topology of FL, where we let HAPs act as inter-orbit relays to mitigate the Doppler shift, (ii) a new \textit{intra-orbit model propagation} algorithm that utilizes inter-satellite links (ISL) and sub-orbital model aggregation to enable ``straggler'' satellites to participate in FL without waiting for their visible windows, and (iii) a new \textit{FL model aggregation} scheme that optimally balances the number of models between different orbits to avoid a biased global model.
+
+    \item We extensively evaluate NomaFedHAP using 3 common datasets and a real satellite dataset, and demonstrate its efficient bandwidth utilization and high data rate when transmitting FL models between satellites and HAPs. We also show that NomaFedHAP accelerates FL convergence by an order of magnitude %on the MNIST dataset in non-IID  distribution
+    as compared to state-of-the-art FL-SatCom algorithms (4 vs. 72 hours), while achieving the highest model accuracy.
+\end{itemize}
+%\subsection{paper Organization}
+%\sref{sec:releated} reviews the literature and \sref{sec:model} describes how FL works in the SatCom context. \sref{sec:Comm-Framework} explains the proposed communication architecture and \sref{sec:Model_propagation} presents the proposed FL model aggregation scheme. \sref{sec:Evaluation} reports the performance evaluation and, finally, \sref{conclusion} concludes the paper.
+\section{Related work}\label{sec:releated}
+While research in FL-SatCom is still in a nascent stage, a decent number of interesting studies have recently appeared \cite{chen2022satellite, razmi,happaper,lin2022federated, chen2023edge, wu2022dsfl, e2023opt,razmi2022ground, razmi2022scheduling,so2022fedspace,wang2022fl, mAsyFLEO, wu2023fedgsm, elone,elmahallawy2023secure} and have made appealing progress. 
+
+\textbf{Synchronous FL.} In synchronous FL, the $\mathcal{PS}$ (e.g., GS) has to wait until all LEO satellites complete training and send their local models to $\mathcal{PS}$ when they sequentially come into its visible zone. Only after that, the $\mathcal {PS}$ will proceed to aggregate those received models into a \textit{global model} and then start the next communication round by sending the global model back to all the satellites for retraining. In such synchronous FL, slow satellites or ``stragglers'', who have limited visibility to the $\mathcal {PS}$, will become the bottleneck of the training process, where fast satellites have to idly wait.
+
+Despite this, synchronous FL as a simple (and hence desirable) approach has been applied to LEO constellations in several studies. For instance, \cite{chen2022satellite} adopted the traditional synchronous FL approach  (i.e, FedAvg \cite{mcmahan2017communication}) without any tailoring for LEO constellations and demonstrated that FL is more advantageous than a direct download of raw data to a centralized server for training. The study, however, did not take into account the satellite-GS visibility challenge which slows down the FL training processes significantly. To deal with this challenge, \cite{razmi} proposed an intra-orbit routing technique called FedISL specifically designed for FL-SatCom. It performs well when the $\mathcal{PS}$ is a GS situated either at the North Pole (NP) or a medium Earth orbit (MEO) satellite flying above the Equator (at an altitude of 20,000 km). In these cases, each satellite visits the $\mathcal{PS}$ at regular intervals, resulting in more frequent communication and hence faster convergence. However, when the $\mathcal{PS}$ is located at a different position, the convergence time increases significantly, taking several days instead of just a few hours.
+%In addition, they considered an ideal communication setup that leads to better results, where the $\mathcal {PS}$ is either a GS located at the North Pole (NP) or a medium Earth orbit (MEO) satellite flying above the Equator (at an altitude of 20,000 km), so that each satellite visits the  $\mathcal {PS}$ at regular intervals (i.e., no longer irregularly) and much more often. 
+Moreover, NP is an ideal location which is often unavailable in practice, and MEO would incur considerable Doppler shifts. To address this limitation, FedHAP \cite{happaper} introduces HAPs as a proxy of GS to LEO constellations without restriction on locations. However, the FL model still requires more than a day to converge due to the non-ideal $\mathcal {PS}$ locations. Lin et al. \cite{lin2022federated} proposed an approach to dynamically aggregate satellite models based on connection density, excluding stragglers in cases of sparse connections, and involving the collaboration of multiple GSs at distributed locations. However, ensuring model consistency at multiple GSs is nontrivial and incurs more overhead, and excluding straggler satellites can introduce bias in the global model towards frequently visible satellites. In \cite{chen2023edge}, a clustering and edge selection approach is proposed, where a GS selects an LEO server, clusters neighboring LEO clients with good channel quality, and then selects satellites within each cluster to participate in the training process. However, this may result in a biased model toward satellites with good channel quality. The authors of \cite{wu2022dsfl} proposed a decentralized learning paradigm, eliminating the need for a $\mathcal {PS}$. They utilize intra- and inter-orbit ISLs with a traditional communication scheme like OFDM \cite{el2019performance}, attempting to address convergence speed; however, this approach still requires a higher data rate due to the Doppler shift among different orbits.
+%; also, visibility windows were not considered.}
+%\red{Is there a limitation for \cite{chen2023edge} specifically?}\blue{In fact they are claiming that this is a synchronous FL, but they choose a certain number of LEO satellites in each round based on their channel quality as they consider LEO satellites are cross-device FL setup. But I am not sure whether this approach will result in biasing the global model to those satellites with good channels. Also, it should be better if they consider the visibility window for each satellite in their cluster which is indeed possible. Lastly, they also tested their model on the CIFAR-10 dataset.} 
+Moreover, all the above studies evaluate their models on non-SatCom-related datasets, and the convergence time still takes long hours and days. Most recently, FedLEO \cite{e2023opt} enhances the FL convergence through the use of intra-plane model propagation and scheduling of sink satellites, and uses a real satellite dataset to test their model. On the other hand, it requires each satellite to run a scheduler to determine a sink satellite, leading to delays during model exchanges with the GS.
+
+{\bf Asynchronous FL.}  Unlike synchronous FL, asynchronous FL allows the $\mathcal {PS}$ to receive only a \textit{subset} of the satellites' (typically fast ones') model updates to proceed to the next communication round. This mitigates the idleness problem in synchronous FL, but faces another problem called \textit{model staleness}, where outdated models from straggler satellites will arrive in later communication rounds, potentially affecting the model convergence and performance adversely (e.g., FedAsync \cite{xie2020asynchronous}).
+
+
+Razmi et al. \cite{razmi2022ground} proposed FedSat, an asynchronous FL approach tailored for SatCom. FedSat adapts FedAvg \cite{mcmahan2017communication} to an asynchronous setting, where it averages the received satellite models based on their visibility order, assuming regular satellite visits to the GS. In response to this ideal consideration, they proposed another work \cite{razmi2022scheduling}, FedSatSchedule, that considers the location of the GS can be anywhere. FedSatSchedule is developed to reduce model staleness by determining whether each satellite has sufficient visible time for downloading the global model, training a local model, and uploading it. Otherwise, the satellite will schedule uploading its local model for the next communication round, allowing it to train its local model during its ``long'' invisible period. However, FedSatSchedule has only limited improvement in efficiency, still requiring several days for an FL model to converge. The authors of \cite{so2022fedspace} proposed another asynchronous FL approach, FedSpace, which stores satellite models into a buffer with a predicted size and reduces the weighting of stale models.  On the other hand, this method requires each satellite to upload a small amount of its raw data to the GS in order to be used for scheduling the model aggregation, which is contrary to the FL principle of maintaining privacy by not sharing raw data. Wang et al. \cite{wang2022fl} proposed a graph-based routing and resource reservation algorithm aimed at optimizing the delay in FL model parameter transfer. The algorithm enhances a storage time-aggregated graph, enabling a joint representation of the satellite networks' transmission, storage, and computing resources. AsyncFLEO \cite{mAsyFLEO} is a more recent asynchronous FL approach that offers a solution to the staleness challenge, where it first groups satellites from different orbits based on the similarity of their models, and then selects only fresh models from each group to include in the model aggregation. Outdated satellite models are only selected when it is the only model in a group and will be down-weighted during aggregation. Finally, Wu et al. \cite{wu2023fedgsm} proposed FedGSM, which implements a compensation mechanism to mitigate gradient staleness. FedGSM utilizes the deterministic and time-varying topology of the orbits to counteract the negative impact of staleness. However, their approach still requires a long time for convergence.
+
+
+
+
+
+While considerable efforts have been made to accelerate the convergence of the FL-SatCom model and address the challenge of satellite-GS sporadic connectivity, no work has been proposed to formally address the issue of uploading large satellite ML models to the $\mathcal {PS}$ (e.g., GS, MEO, HAPs) within the satellite link budget limit and the sporadic short satellite visibility periods. In addition, most of the existing works rely on direct communication between the server (often a GS) and LEO satellites, not leveraging the potential benefits of utilizing HAPs in space to improve FL training. Moreover, balancing among orbits to mitigate bias was overlooked too. This work aims to fill these gaps.
+
+%\begin{table}[t]
+%\mbox{}
+%\newglossaryentry{elite}{name={elite},description={This is an elite glossary}}
+%\newglossaryentry{master}{name={master},description={This is a master glossary}}
+%\nomenclature{FL}{\hspace{0.71cm}Federated Learning\red{not necessary}}
+%\nomenclature{Async FL}{\hspace{0.56cm}Asynchronous Federated Learning\red{not necessary}}
+%\nomenclature{Sync FL}{\hspace{0.62cm} Synchronous Federated Learning\red{not necessary}}
+
+
+%\nomenclature{SatCom}{\hspace{0.7cm}Satellite Communication}
+%\nomenclature{LEO}{\hspace{0.62cm} Low Earth Orbit}
+%\nomenclature{MEO}{\hspace{0.60cm} Medium Earth Orbit}
+%\nomenclature{HEO}{\hspace{0.60cm} High Earth Orbit}
+%\nomenclature{HAP}{\hspace{0.60cm} High Altitude Platform}
+%\nomenclature{NOMA}{\hspace{0.60cm} Non-orthogonal Multiple Access }
+%\nomenclature{OMA}{\hspace{0.60cm} Orthogonal Multiple Access}
+%\nomenclature{OFDM}{\hspace{0.60cm} Orthogonal Frequency Division Multiplexing}
+%\nomenclature{ISL}{\hspace{0.60cm} Inter Satellite Link}
+%\nomenclature{IHL}{\hspace{0.60cm} Inter HAP Link}
+%\nomenclature{SHL}{\hspace{0.60cm} Satellite-HAP Link}
+%\nomenclature{FSO}{\hspace{0.60cm} Free Space Optical}
+%\nomenclature{RF}{\hspace{0.60cm} Radio Frequency}
+%\nomenclature{CNN}{\hspace{0.60cm} Convolutional Neural Network}
+%\nomenclature{GS}{\hspace{0.60cm} Ground Server}
+%\nomenclature{$\mathcal {PS}$}{\hspace{0.60cm} Parameter Server}
+%\nomenclature{SNR}{\hspace{0.60cm} Signal to Noise Ration}
+%\nomenclature{SINR}{\hspace{0.60cm} Signal to Interference Noise Ratio}
+%\nomenclature{RB}{\hspace{0.60cm} Resource Block}
+%\nomenclature{OP}{\hspace{0.60cm} Outage Probabilities}
+%\nomenclature{IID}{\hspace{0.60cm} Independent and Identically Distributed}
+%\nomenclature{CSI}{\hspace{0.60cm} Channel State Information}
+%\nomenclature{AWGN}{\hspace{0.60cm} Additive White Gaussian Noise}
+%\nomenclature{CDF}{\hspace{0.60cm} Cumulative Distribution Function}
+%\nomenclature{BER}{\hspace{0.60cm} Bit Error Rate}
+%\nomenclature{IOU}{\hspace{0.60cm} Intersection Over Union}
+%\nomenclature{SIC}{\hspace{0.60cm} Successive Interference Cancellation}
+
+%\rule{8.3cm}{0.2pt}
+%\printnomenclature
+%\rule{8.3cm}{0.2pt}
+%\end{table}
+
+\section{System Model and Problem Formulation}\label{sec:model}
+
+Consider a general LEO satellite constellation consisting of $N$ orbital shells, where each shell consists of $L$ orbits, all at the same altitude $d_n$\footnote{The orbit shell consists of multiple orbits, each carrying a number of satellites at the same altitude.}. In a shell $n$, each orbit $l \in \mathcal{L}=\{l_1,l_2,...,l_n\}$ carries $K_{l}$ equally distributed homogeneous satellites with an inclination angle of $ \Theta_{l}$. Each satellite in the orbit $l$ has a unique ID and travels at a speed of $v_{k}=\sqrt{\frac{G_e M}{(r_{E}+d_n)}}$ with an orbital period of $T_{k}= \frac{2 \pi (r_{E}+d_n)}{v_{k}}$, where $r_{E}=6371~km$ is the Earth's radius, $G_e$ is the Earth gravitational constant, and $M$ is the mass of the Earth ($G_e M= 3.98\times 10^{14} m^{3}/s^{2}$). In addition, consider $H$ HAPs, where each HAP $\mathpzc{h}$ serves as a $\mathcal {PS}$ and communicates with a diverse set of satellites deployed in different orbits/shells and performs (partial or full) model aggregation. Furthermore, a HAP $\mathpzc{h}$ can perform NOMA among satellites located in different shells based on their distance. 
+
+
+
+For the communication to be established between any satellite $k\in \mathcal K$  and the $\mathcal {PS}$ (i.e., a set of HAPs), the line of sight (LoS) link between them must not be blocked by the Earth. In mathematical terms, this can be expressed as:\vspace{-0.3cm}
+\begin{equation}
+    \vartheta_{k,\mathcal {PS}}(t) \triangleq \angle (r_{\mathcal {PS}}(t), (r_{k}(t) - r_{\mathcal {PS}}(t))) \leq \frac{\pi}{2}-\vartheta_{min}
+\end{equation}
+where $r_{k}(t)$ and $r_{\mathcal {PS}}(t)$ are the trajectories of satellite ${k}$ and the $\mathcal {PS}$, respectively, and $\vartheta_{min}$ is the minimum elevation angle, a constant depends on each HAP's location. %Without loss of generality, we also consider two satellite groups: one when satellites float in a shell close to the $\mathcal {PS}$, referred to as a near satellite (NS), and the other one when satellites float in a shell far away from the $\mathcal {PS}$, referred to as a far satellite (FS). 
+To account for communication between any satellite and the $\mathcal{PS}$, we consider two particular satellites that are the closest and the farthest to the $\mathcal{PS}$, referred to as the nearest satellite (NS) and the farthest satellite (FS), respectively. An illustration of our system model is given in Fig.~\ref{Earth_observation}.\vspace{-0.5cm}
+\begin{figure}[!t]
+     \centering
+    {{\includegraphics[width=\linewidth]{System_model.png}}}
+    \caption{An FL system in the context of satellite constellations, using multiple HAPs as parameter servers. For the sake of clarity, only two orbit shells are shown. }
+    \label{Earth_observation}
+\end{figure}
+%Satellites and the GS typically use radio frequency (RF) link that is more reliable than free-space optical (FSO) for long-distance communication. 
+\subsection{FL-LEO Computation Analysis}
+Consider an LEO satellite constellation $\mathcal K$, where each satellite $k$ collects a set of Earth observational images. These images, collected by different satellites, are typically non-independent and identically distributed (non-IID) due to varying orbital speeds, altitudes, and coverage areas. Specifically, a satellite $k$ captures its own dataset $\mathcal {D}_{k}=\{(X_1, {\bf y}_1), (X_{2}, {\bf y}_{2}), \dots, ((X_{m_{k}}, {\bf y}_{m_{k}})\}$, where $X_{i}$ and ${\bf y}_{i}$ are the feature vector and its corresponding label of the \textit{i-th} sample (labels are not required but written here for notation purposes only). %\blue{when I searched I haven't found a certain paper is focusing for onboard data labeling for FL, but there are a bunch of papers for labeling data using semi/full supervised learning. In fact, satellite images require more than just labeling; they need complex segmentation techniques and usually, it is done manually from expertise.} 
+The overarching objective of the FL-LEO system is to have the LEO satellites and the $\mathcal {PS}$ work collaboratively to train a global ML model with the objective of minimizing the overall loss function $F(\boldsymbol{w})$:
+\begin{equation} \label{eqn1}
+          \arg \min_{\boldsymbol{w} \in \mathbb{R}^{d}} F(\boldsymbol{w})= \sum_{k\in \mathcal K }{\frac{|\mathcal {D}_{k}|}{|\mathcal {D}|}{F_{k}{(\boldsymbol{w})}},}
+\end{equation}
+where $\boldsymbol{w}$ is a vector representing the model weights, $|\mathcal {D}|= \sum_{i\in \mathcal K} |\mathcal {D}_{k}|$ is the total number of data samples collected by LEO satellites, and $F_{k}(\boldsymbol{w})$ is satellite $k$'s loss function:
+\begin{equation}\label{eqn:loss}
+     F_{k}{(\boldsymbol{w})} = \frac{1}{|\mathcal {D}_{k}|}\sum_{i=1}^{|\mathcal {D}_{k}|} f_{k}(\boldsymbol{w}; X_{i}, {\bf y}_{i}),
+\end{equation}
+where  $f_{k}(\boldsymbol{w}; X_{i}, {\bf y}_{i})$ is the training loss over a data point $X_{i}$.
+
+The training process in a synchronous FL-LEO system such as FedHAP \cite{happaper} requires multiple communication rounds $\beta=0, 1, 2, \dots$, where $|\mathcal{B}|$ is the total number of communication rounds needed to achieve FL model convergence. During each round, the $\mathcal {PS}$ awaits each satellite $k$ to enter its visible zone (transiently) in order to send its aggregated global model $\boldsymbol{w}^\beta$ or to (subsequently) receive this satellite's local model $\boldsymbol{w}_{k}^\beta$.
+%\blue{let us modify the sentence is this way: in order to transmit its aggregated global model $\boldsymbol{w}^\beta$ to this satellite to update its local model $\boldsymbol{w}_{k}^\beta$}\footnote{If the satellite's visible window is sufficiently long to complete training its ML model, the satellite will transmit the model to the $\mathcal {PS}$ during the same communication round. Otherwise, it will wait for its next visible window to send the model to the $\mathcal {PS}$.}.
+What happens is that the satellite $k$ carries out a local optimization method such as stochastic gradient descent (SGD) on the received global model $\boldsymbol{w}^\beta$ using its local data, iterating $J$ local epochs to update the model:
+\begin{equation}\label{eq:local_update}
+    \boldsymbol{w}_{k}^{\beta,j+1} = \boldsymbol{w}_{k}^{\beta,j}- \zeta_{\beta} \nabla F_{k}(\boldsymbol{w}_{k}^{\beta,j}; X_{k}^{j}, {\bf y}_{k}^{j}), ~ j=1,2,...,J
+\end{equation}
+where $\zeta_{\beta}$ is the learning rate at the round $\beta$. After this training process, the satellite $k$ obtains an updated local model. It then transmits this model back to the $\mathcal {PS}$ when entering the $\mathcal {PS}$'s visible zone again. At the $\mathcal {PS}$, after it receives all the satellites' models, it aggregates them into a global model as
+\begin{equation}
+    \boldsymbol{w}^{\beta+1} = \sum_{k\in \mathcal K} \frac{|\mathcal {D}_{k}|}{|\mathcal {D}|} \boldsymbol{w}_{k}^{\beta,J}.
+\end{equation}
+The above procedure repeats, where $\beta$ continuously increases, until the FL model converges, i.e., achieves a target accuracy or loss, or reaches the maximum communication rounds. Fig.~\ref{FL_LEO_Graph} gives an illustration of the FL-LEO system.
+\begin{figure}[!t]
+\centering
+\includegraphics [width=\linewidth]{fl-leo.png}
+\caption{Illustration of an FL-LEO system.}
+\label{FL_LEO_Graph}\vspace{-0.2cm}
+\end{figure}
+One of the major challenges with this learning process is that all communications (uplink/downlink) can only occur when a satellite is transiently visible to the $\mathcal {PS}$, which significantly limits the communication opportunities and prolongs the entire process to several days or even weeks. This makes the learning speed unable to keep up with the rate at which data is collected by LEO satellites, and as a result, the global FL model is always outdated. Moreover, another challenge to FL-LEO convergence is that during the visible window of the $\mathcal {PS}$ for an LEO satellite, the limited bandwidth can be insufficient for a large satellite model to be fully uploaded to the $\mathcal {PS}$ and hence the satellite has to wait for the next longer visible window to start over, resulting in large delays.\vspace{-0.5cm}
+
+\subsection{FL-LEO Communication Analysis}\label{Com_link}
+
+In this paper, we consider a set of HAPs as the $\mathcal {PS}$ that coordinates the model aggregation process in the FL-LEO system. Because of this, we incorporate two types of communication links, satellite-HAP link (SHL) and inter-HAP link (IHL), in addition to the satellite-GS link and inter-satellite link (ISL) which exist in prior studies. We apply the Shadowed Rician channel fading model to analyze these links since there will be direct LoS and multi-path links during the visible periods, and the transmission between satellites can be affected by various factors including atmospheric conditions, rains, and obstacles or debris in space. Note that HAPs and LEO satellites can use free-space optical (FSO) links instead of radio frequency (RF) links to communicate at much higher data rates. However, we do not take this advantage in our simulation, so we can have a consistent setup with current state-of-the-art research and a fair comparison.
+
+Our analysis of SHL takes into account four factors: i) free-space path loss, ii) antenna gain of the transmitter and receiver, iii) antenna pointing error and shadowing, and iv) fading of the channel. Consequently, the total link budget of SHL between a satellite $k$ and a HAP $\mathpzc{h}$, without small-scale fading, can be expressed as \cite{gamal2022performance}%\footnote{\teal{This expression assumes that each HAP and LEO satellite has a single antenna, but our analysis is not tied to this assumption and our experiments also allow concurrent communications between each HAP and multiple satellites since these devices are typically equipped with array antennas.}\blue{After discussing this concern with Khaled, he mentioned that it is not necessary to mention it because the HAP is not transmitting different information simultaneously.}}
+\begin{equation} \label{eqn_6}
+    SHL{(k,\mathpzc{h})} = \frac{G_{\mathpzc{h}}~G_{k}(\theta)}{{L}_{k,\mathpzc{h}}~L_p}, 
+\end{equation}
+where $G_{\mathpzc{h}}$ is the antenna gain of a HAP $\mathpzc{h}$, $G_{k}(\theta)$ is the beam gain of a satellite $k$,which given by \cite{yan2019ergodic}
+\begin{equation}
+    G_{k}(\theta)=G_{k} \Bigg(\frac{J_1(k_s)}{2k_s}+36\frac{J_3(k_s)}{(k_s)^3}\Bigg)^{2}
+\end{equation}
+where $G_k$ is the antenna gain of $k$, $J(\cdot)$ is the Bessel function, and $k_s$ is a constant denoting the distance between the beam of a satellite $k$ to a HAP $\mathpzc{h}$ and its entire coverage radius. ${L}_{k,\mathpzc{h}}$ is the free-space pass loss between a satellite $k$ and a HAP $\mathpzc{h}$. As long as a LoS link between them is established (i.e., not blocked by the Earth), ${L}_{k,\mathpzc{h}}$ can be given by \cite{happaper} 
+\begin{equation}
+    {L}_{k,\mathpzc{h}} = \bigg(\frac{4\pi \|k,\mathpzc{h}\|_{2}  f_c}{c}\bigg)^{2}
+\end{equation}
+where $\|k,\mathpzc{h}\|_{2}$ is the Euclidean distance between satellite  $k$ and HAP $\mathpzc{h}$, $f_c$ denotes the carrier frequency, and $c$ is the speed of light. In \eqref{eqn_6}, $L_p$ is the antenna pointing error loss, which can be expressed as \cite{gamal2022performance}
+\begin{equation}
+    L_p=2.7211\times 10^{-20}~{f_c}^2~{\theta_e}^2~{D_c}^2
+\end{equation}
+where ${\theta_e}$ denotes the angle of the pointing error, and ${D_c}$ is the diameter of the aperture antenna.
+
+
+When using traditional communication schemes, such as orthogonal multiple access (OMA) systems, the total time $t_c$ required to exchange the local model generated by a satellite $w_k$ with the global model $\boldsymbol{w}$ generated by a HAP $\mathpzc{h}$ can be calculated as:
+\begin{align}
+    t_{c} &= t_{t}+t_{p}+t_{k}+ t_{\mathpzc{h}}, \label{eqnx}  \\t_{t} &= \frac{q{|\mathcal{D}|}}{R} , \quad t_{p} = \frac{\|k,\mathpzc{h}\|_{2}}{c}, \label{eqny}
+\end{align}
+where $t_t$ and $t_p$ are the transmission and propagation times, respectively, $t_{k}$ and $t_{\mathpzc{h}}$ are the processing delay at a satellite $k$ and a HAP $\mathpzc{h}$, respectively (we omit them in our simulation since they are much smaller than $t_t$ and $t_p$), ${|\mathcal{D}|}$ is the data samples of the dataset $\mathcal{D}$, $q$ is the number of bits in each sample, and $R$ is the maximum achievable data rate.
+
+In OMA systems, since $R$ is limited by the bandwidth allocated to each satellite, the time required to transmit a satellite's model to a $\mathcal {PS}$ can be longer than the satellites' visibility period and thus will fail. In the next section, we show that by using NOMA in FL-LEO, we can essentially increase the value of $R$ and thereby allow for exchanging large satellite model parameters within a short visible window. 
+
+
+\section{NomaFedHAP Communication Framework} \label{sec:Comm-Framework}
+%FedHAP accelerates the FL model convergence by exploiting the parallelism provided by: (i) utilizing multiple PSs instead of a single PS (multiple HAPs), which increases the number of visible satellites, (ii) receiving partial-global models from a subset of $\mathcal K$ satellites (visible satellites) in lieu of waiting for all $\mathcal K$ satellites to become visible to the PS, and (iii) leveraging the inter-collaboration among satellites and HAPs to relay local and global models.
+
+NomaFedHAP is a synchronous FL framework proposed to address the slow convergence of FL-LEO training due to the short and irregular visibility of LEO satellites. Fig.~\ref{pattern} shows an example of a visibility pattern for an LEO satellite constellation, which indicates that each satellite's visible window is only a few minutes and the invisible periods (i.e., gaps in between) are much longer and highly irregular. 
+\begin{figure}[t]
+     \centering
+    {{\includegraphics[width=1\linewidth]{Sat.png}}}
+    \caption{A simulated visibility pattern over two days of six LEO satellites located in three different shells, each containing two satellites positioned at an altitude of 500km, 1250km, and 2000km, respectively. The $\mathcal {PS}$ is a GS located in Rolla, Missouri, USA. In the figure, $k_{i,j}$ represents the \textit{i-th} satellite in the \textit{j-th} orbit.}
+    \label{pattern}\vspace{-0.2cm}
+\end{figure}
+
+The cause of this problem is that LEO satellites fly very fast, typically taking only 90-120 minutes to orbit the Earth, while the Earth takes 24 hours to rotate one cycle. More importantly, satellites and the Earth are moving along distinct trajectories. As a result, each LEO satellite meets up with the $\mathcal {PS}$ in a very infrequent and transient manner, and eventually, this impedes the convergence of FL tremendously.%, to days or even weeks.
+
+NomaFedHAP introduces the NOMA communication scheme to FL-LEO to address this issue. It enables satellites to fully utilize the entire bandwidth of downlink and exchange their ML models with the $\mathcal {PS}$ at high data rates and low bit error rates (BER), thereby drastically reducing the model transmission time to only a few seconds which is shorter than any visible window. In consequence, the issue of having straggler satellites is no longer eminent in NomaFedHAP despite its synchronous nature.
+
+On top of that, NomaFedHAP introduces other techniques (OFDM, HAPs, model propagation, unbiased model aggregation) to expedite FL convergence further, which we describe in later sections.%\vspace{-0.5cm}
+
+\subsection{NomaFedHAP Communication Architecture}
+
+To address the high propagation and transmission delays between LEO satellites and the traditional $\mathcal {PS}$ such as GS, LEO satellite, or MEO satellite, NomaFedHAP utilizes multiple HAPs following our work in \cite{happaper} as $\mathcal {PS}$ to propagate the local and global models between LEO satellites and HAPs. HAPs also serve as relays among orbits, mitigating the Doppler shift when the $\mathcal{PS}$ is an LEO or MEO satellite \cite{razmi, wu2022dsfl}. In the stratosphere at an altitude 17-22 km above the Earth's surface \cite{alsharoa2020improvement}, HAPs, such as unmanned airships, aircraft, or balloons, serve as quasi-stationary aerial stations that improve the network connectivity and throughput \cite{jia2020joint}. %In addition, HAPs are equipped with communication and computing facilities. 
+In general, HAPs can offer the following advantages over traditional $\mathcal {PS}$ (e.g., GS):
+\begin{itemize} %\addtocounter{enumi}{2}
+    \item {\bf Enhanced visibility:} Due to HAP's elevated altitude, it can ``see'' more satellites at once or see each satellite more frequently than GS (GS has an angular view of $180^o -  \Theta$, while a HAP can view even beyond $180^o$).
+    
+     \item {\bf Improved communication environment:} HAPs operate in the stratosphere which offers a clearer, stabler, and less interfered environment than the troposphere. Moreover, HAPs and LEO satellites can use FSO rather than RF links and thereby achieve a much higher data rate and lower latency (1-2 ms) \cite{xing2021high,hsieh2020uav}. Note, however, that we do {\em not} use FSO in our experiments, for a fair comparison with other approaches.
+    
+    \item  {\bf Lower-cost and flexible deployment:} A GS can cost millions of dollars while a HAP costs much lower \cite{hap,kurt2021vision}. Also, a GS is difficult to relocate, while a HAP can move easily for provisioning on-demand services or adapting to LEO changes.% (e.g., additional satellites are launched or existing ones retire)
+
+    \item {\bf Better energy management:} HAPs can be powered by solar panels more effectively due to the higher altitude, and even completely self-powered with careful trajectory optimization \cite{marriott2020trajectory}.
+\end{itemize}
+
+Traditional FL communication follows a star topology where the $\mathcal {PS}$ sits in the center. In our work, due to the introduction of collaborative HAPs as $\mathcal {PS}$ and relays between orbits, we design a two-layer communication architecture. The first layer is a HAP layer or \textit{server layer}, which is composed of all the HAPs that aggregate and transmit global models. %As opposed to the \textit{vertical communication structure}, Those HAPs are positioned in a \textit{horizontal communication structure}  in which at least one satellite per orbit needs to communicate with the server to exchange models, regardless of how long the visibility period is.
+The second layer is a satellite layer or \textit{worker layer}, which is composed of all LEO satellites that train and transmit local models. We use intra-orbit ISL only and no inter-orbit ISL for communication among satellites,\footnote{A satellite has four antennas, two on the \textit{roll axis} for intra-orbit ISL communication and two on the \textit{pitch axis} for inter-orbit ISL communication.} to avoid any considerable Doppler shift. Therefore, the HAPs will serve as relays that bridge different orbits.
+
+The server layer is organized in a {\em ring structure} for inter-HAP communication. In addition, each HAP communicates with a collection of visible satellites from different orbits as in a star topology. Therefore, the eventual communication architecture becomes a \textit{ring of small stars}.
+
+Such a parallel connectivity pattern among the rings can significantly enhance communication. Even when there is only a single HAP, our local model propagation algorithm (\sref{Model_propagation}) allows satellites to leverage current or soon-to-be visible satellite to exchange models with $\mathcal {PS}$ without waiting for their own visible windows, thus reaping substantial performance gains.
+
+
+\subsection{Introducing NOMA to FL-LEO}\label{sec:noma}
+
+Fig.~\ref{Noma_sys} gives an overview. For illustration purposes, it only shows one orbit per shell and a single HAP. However, NomaFedHAP supports multiple orbits per shell and multiple HAPs. %(in our simulation, we consider a more sophisticated LEO constellation to evaluate the effectiveness of NomaFedHAP).
+
+NomaFedHAP introduces a hybrid NOMA-OFDM communication scheme to LEO satellites. Specifically, visible satellites on different shells communicate with HAPs using PD-NOMA, while satellites on the same shell (i.e., at the same distance from the HAPs) communicate with HAPs and other satellites in the same orbit using OFDM (the intra-orbit communication is for the purpose of model propagation which is described in \sref{Model_propagation}).
+
+%Furthermore,  ISL employs the OFDM scheme for propagating satellite models within the same orbit (a detailed explanation  of propagating satellite models can be found in \sref{Model_propagation}) 
+
+%both the  inter-shell and intra-shell links 
+%invisible satellites to transmit their neighbors (i.e., visible or invisible satellites) through one another until reaching visible satellites using  the OFDM scheme.
+%(i.e., located at the same altitude as the PS) %transmit their models using . %\blue{The OFDM is used during the downlink since we assume that satellites within the HAP layer are located at the same altitude, so we are unable to use the PD-NOMA protocol}. 
+
+\begin{figure*}[!t]
+     \centering
+     \includegraphics[width=0.9\linewidth]{NOMA_system.png}
+    \caption{NomaFedHAP with orbital shells 1,2,...$N$ and a single HAP as $\mathcal {PS}$ for illustration. Only visible satellites are drawn so all the shown links are LoS links.}
+    \label{Noma_sys}\vspace{-0.2cm}
+\end{figure*}
+
+   
+Over the downlink, all the visible satellites from different shells transmit signals (i.e., their ML models) to their respective visible HAPs within the whole bandwidth using NOMA. Each HAP $\mathpzc{h}\in \mathcal H$ will thus receive a {\em combined} signal $y$ from all the satellites $\mathcal K'$ in $\mathpzc{h}$'s visible zone, which can be expressed as, due to different power allocation coefficients,
+\begin{equation}
+    y=n+\sum_{k\in \mathcal K^{'}} \lambda_{k} \sqrt{a_k~P_s}~x_k
+    \label{receiver_eqn}
+\end{equation}
+where $\lambda_{k}$ is the channel coefficient of \textit{k-th} satellite, %$\mathcal K^{'}=\bigl\{1, 2, \dots, K^{'}\bigl\}$ is a set of all visible satellites to a HAP $\mathpzc{h}$ with a total number $K^{'}$, 
+$a_k$ is a fractional power coefficient, $P_s$ is the maximum downlink transmission power of each visible satellite, and $x_k$ is the \textit{k-th} satellite's signal with unit energy. The other term, $n\sim \mathcal{CN}(0,\sigma^2)$, is complex additive white Gaussian noise (AWGN) with variance $\sigma^2=K_BTB$, where $K_{B} =1.38\times 10^{-23} J/K$ is the Boltzmann constant, \textit{T} is the noise temperature, and $B$ is the bandwidth. 
+
+
+%\blue{It is noteworthy that there are two types of power coefficient allocation: fixed and dynamic power allocation. For ease of description, we assume that HAPs allocate fixed power coefficients to their visible satellites (but in \sref{sec:Evaluation} we show results for both types)}.
+
+The power coefficient $a_k$ is adjusted by each satellite $k$ based on its channel condition, and satisfies $\sum_{k\in \mathcal{K}^{'}} {a_k} \leq 1$ to limit the interference from other satellites. Note that $a_k$ is inversely related to the satellite's channel condition, which means that a satellite with a poor channel will select a higher transmission power coefficient. 
+%with $a_1\ge a_2\ge\dots\ge a_K$ 
+
+Next, each HAP starts to decode the combined signal using {\em successive interference cancellation} (SIC) iteratively. The satellites are ordered according to their channel gain (strongest first), as %the nearest satellite
+\begin{equation}
+|\lambda_1|^2 \geq |\lambda_2|^2 \geq ... \geq |\lambda_{K^{'}}|^2
+\end{equation}
+The HAP will then decode the signal of the strongest satellite first, i.e., $x_1$, by treating the signal from other satellites as interference. Next, it re-modulates and subtracts the decoded signal $x_1$ from the received signal $y$. After that, it performs SIC for the next strongest satellite (i.e., $x_2$) and so forth until the last satellite's signal $x_{k}$ is decoded. See Fig.~\ref{Noma_sys} for an illustration.
+%As a result, a HAP $\mathpzc{h}$ 
+%can recover the satellite signal with the highest transmission power right away without going through any SIC process since it perceives the signals of other satellites as interference. But, other satellites' signals may be recovered through subsequent SIC operations, assuming SIC is perfect. %to recover their desired signals.
+%In mathematical terms, this can be expressed as follows:
+%\begin{equation}
+ %   s=\sum_{k\in \mathcal K} \sqrt{a_k~P}~x_k 
+%\end{equation}
+%transmitted signal with a certain power level based on the distance between \textbf{}
+%where $s$ is the combined signal received by a HAP $\mathpzc{h}$ from its visible satellites, 
+
+In our analysis below, we focus on the downlink NOMA, as the uplink in our system can use any standard satellite communication scheme since it only involves the $\mathcal{PS}$ broadcasting the same global model to all the satellites, and thus each satellite independently decodes a single signal.
+
+{\bf 1) Signal-to-Interference Noise Ratio Analysis.} 
+%During the downlink NOMA, each HAP $h \in \mathcal H$ within the HAP layer will receive a superposed signal composed of all the signals of its visible satellites $\mathcal K^{'}$. 
+%Next, each HAP $\mathpzc{h}$ performs SIC to decode these signals iteratively. To enable SIC, the satellites are arranged in a descending order based on their average channel again, with the satellite having the strongest signal placed first and the weakest one placed last as follows:
+%\begin{equation}
+%|\lambda_1|^2 \geq |\lambda_2|^2 \geq ... \geq \lambda_{K^{'}}|^2
+%\end{equation}
+%Then, each HAP  begins by decoding the signal of the strongest satellite first by subtracting it from the received signal.
+Once all the visible satellites' signals are decoded at the HAP, the signal-to-interference noise ratio (SINR) of the first satellite (i.e., strongest signal) can be computed by \cite{aldababsa2018tutorial}:\vspace{-0.1cm}
+%Once decoding all visible satellite signals of each HAP, then, the signal-to-interference noise ratio (SINR) of the first satellite %, assuming perfect SIC, 
+%can be expressed as \cite{aldababsa2018tutorial} 
+\begin{equation} \label{eqn_15}
+    SINR_{1}= a_1 \rho |\lambda_1|^2
+\end{equation}
+where $\rho=P_s/\sigma^2$ is the signal-to-noise ratio (SNR). %, and $|\lambda_1|^2$ is the channel gain between the strongest satellite and the HAP $\mathpzc{h}$.
+%After that, the SINR for the remaining visible satellites can be determined by performing subsequent SIC operations for the next strongest satellite (i.e., $x_2, x_3,\dots, x_{h-1}$), until all satellites have been decoded.
+For the the remaining visible satellites $k\in\mathcal K^{'}$, $k \neq 1$, the SINR can be calculated by%\vspace{-0.5cm}
+%of the \textit{k-th} satellite to detect the \textit{l-th} satellite, $l\leq 1$, with $l\neq k$ may be stated as follows by using \eqref{receiver_eqn}:
+\begin{equation}\label{eqn_14}
+    SINR_{k}=\frac{a_k \rho |\lambda_{k}|^2}{\rho \sum_{i=1}^{k-1} |\lambda_i|^2 a_i + 1}
+\end{equation}
+%signals from  will be decoded sequentially. In the final step, the HAP $\mathpzc{h}$ will decode the FS statistical signal $x_h$.
+%Applying the same procedure, 
+%\eqref{eqn_15} refers to the SINR of the satellite with the highest power allocation.
+%For the signal of \textit{k-th} satellite, SIC operations will be conducted in order to locate the needed information of the satellite $l\leq k$. Thus, the \textit{k-th} satellite's SINR can be calculated as
+%\begin{equation}
+   % SINR_{k}=\frac{\alpha_k \rho |\lambda_{k}|^2}{\rho |\lambda_{k}|^2\sum_{i=k+1}^{K}a_i+1}
+%\end{equation}
+%Then, the SINR of the \red\textit{K-th} satellite will be expressed as
+%\begin{equation}
+   % SINR_{K}= \alpha_K \rho |\lambda_{k}|^2
+%\end{equation}
+
+{\bf 2) Data Rate Analysis.}
+Once the SINR of downlink NOMA is determined, we can obtain the maximum achievable rate at a HAP $\mathpzc{h}$. Assuming that the symbols $x_1, x_2,\dots, x_{k-1}$ have been decoded correctly, the maximum data rate at $\mathpzc{h}$ to decode satellite $k$'s symbol $x_k$ is given by
+\begin{equation}
+    R_{k\rightarrow \mathpzc{h}}={log}_ {_2}\biggl(1+ \underbrace{\frac{a_k \rho |\lambda_{k}|^2}{\rho \sum_{i=1}^{k-1} |\lambda_i|^2a_i+1}}_{SINR_{k}}\biggl).
+\end{equation}
+Note that $R_{k\rightarrow \mathpzc{h}}$ is normalized per unit bandwidth. Consequently, the maximum total rate $R_{total}$ for a HAP to correctly decode all its visible satellites' symbols is %decoding symbols from all of its visible satellites can be calculated as
+\begin{align}
+      R_{total} =& \sum_{k\in \mathcal K^{'}} {log}_ {_2} (1+SINR_k)\notag\\
+      =&\,\Resize{7.8cm}{ {log}_ {_2}\Big(1+ a_1 \rho |\lambda_1|^2\Big) + \sum_{k\in \mathcal K^{'},k\neq 1} {log}_ {_2} \biggl(1+ \frac{a_k \rho |\lambda_{k}|^2}{\rho \sum_{i=1}^{k-1} |\lambda_i|^2 a_i + 1}\biggl)}\notag\\
+      =&\, {{log}_ {_2}\Biggl(\biggl(1+ a_1 \rho |\lambda_1|^2\biggl) \times \biggl(1+ \frac{a_2 \rho |\lambda_{2}|^2}{a_1\rho |\lambda_1|^2  + 1}\biggl)}\notag\\
+      &\ \times \biggl(1+ \frac{a_3 \rho |\lambda_{3}|^2}{a_1\rho |\lambda_1|^2 +a_2\rho |\lambda_2|^2 + 1}\biggl) \times \dots\Biggl)\notag\\
+      =&\, {log}_ {_2}\Big(1+ \rho \sum_{k\in \mathcal K^{'}} |\lambda_{k}|^2 a_k\Big).
+      %\\&={log}_ {_2}\Bigg( 1+\rho \sum_{k\in \mathcal K} a_1  |\lambda_1|^2 \Bigg)
+\end{align}
+When $\rho \gg 1$, $R_{total}$ can be approximated as\vspace{-0.1cm}
+\begin{align}
+      R_{total}\approx log_ {_2} \Big(\rho \sum_{k\in\mathcal K^{'}}|\lambda_{k}|^2a_k\Big).
+\end{align}
+
+{\bf 3) Channel Model Statistics.}
+The downlink between each visible satellite $k$ and its connected HAP can be modeled by a shadowed-Rician fading channel, whose probability density function (PDF) of $|\lambda_{k}|^2$ is given by \cite{bankey2021physical} 
+\begin{equation}\label{pdf}
+    f_{|\lambda_{k}|^2}(x)=\mu_k e^{(-\beta_k x)}{_1 F_1}(m_k;1;\delta_k x)
+\end{equation}
+where $\mu_k=\frac{1}{2b_k}\big(\frac{2b_k  m_k}{2b_k  m_k+\Omega_k})^{m_k}$, $\beta_k=\frac{1}{2b_k}$, $\delta_k=\frac{\Omega_k}{2b_k(2b_k m_k+\Omega_k )}$, ${_1F_1(.;.;.)}$ is a {\em confluent hypergeometric function of the first type} \cite{VANASSCHE}, 2$b_k$ is the multi-path component, $m_k$ is the integer-valued fading severity parameter of the channel, and $\Omega_k$ is the average power of the LoS link. Using $m_k$, the hypergeometric function $_1F_1$ can be expressed as\vspace{-0.1cm}
+\begin{align}
+_1F_1(m_k;1;\delta_k x) &= e^{\delta_k x} \sum_{i=0}^{m_k-1} \underbrace{\frac{{(-1)}^i {(1-m_k)}_i {(\delta_k x)}^i}{{(i!)}^2}}_{\kappa(i)}
+\nonumber\\&= e^{\delta_k x} \sum_{i=0}^{m_k-1} \kappa(i),
+\end{align}
+where $(\cdot)_i$ is the pochhammer symbol. With the aid of [\citenum{zwillinger2007table}, Eq. (3.351.2)], we obtain the  cumulative distribution function (CDF) for $f_{|\lambda_{k}|^2}(x)$ as in \eqref{pdf} as\vspace{-0.1cm}
+\begin{align}\label{eqn_Fk}
+F_{|\lambda_{k}|^2}(x) &= 1-\mu_k  e^{-(\beta_k-\delta_k)x} \sum_{i=0}^{m_k-1} \kappa(i)  \sum_{j=0}^i \frac{i!}{j!} x^j  \times \nonumber\\& (\beta_k-\delta_k )^{-(i-j+1)}.
+\end{align}
+It is assumed that the links between each HAP $\mathpzc{h}$ and the GS (for transmitting the final global model after the training completes) follow Nakagami-m fading, whose PDF can be expressed by \cite{gamal2022performance}\vspace{-0.1cm}
+\begin{equation}
+    f_{|\lambda_\mathpzc{h}|^2}(x)=\Big(\frac{m_\mathpzc{h}}{\Omega_\mathpzc{h}}\Big)^{m_\mathpzc{h}}~\frac{x^{m_\mathpzc{h}-1}}{\Gamma(m_\mathpzc{h})}~e^{-\frac{m_\mathpzc{h}}{\Omega_\mathpzc{h}}x}
+\end{equation}
+where $m_\mathpzc{h}$ and $\Omega_\mathpzc{h}$ are the severity parameter and the average power of LoS, respectively, for a HAP $\mathpzc h$. Hence, the CDF for $f_{|\lambda_\mathpzc{h}|^2}(x)$ can be given by\vspace{-0.2cm}
+\begin{equation}\label{eqn_Fi}
+  F_{|\lambda_\mathpzc{h}|^2} (x)=1-e^{-\frac{m_\mathpzc{h}}{\Omega_\mathpzc{h}}x} \sum_{n=0}^{m_\mathpzc{h}-1}\big(\frac{m_\mathpzc{h}}{\Omega_\mathpzc{h}}x\Big)  \frac{1}{n!}. 
+\end{equation}
+{\bf 4) Outage Probability Analysis.} Here we analyze the NOMA downlink \textit{reliability} from the perspective of system outage probability (OP). In the context of LEO satellites, OP refers to the probability that the received power at a HAP $\mathpzc{h}$ falls below a threshold such that the SINR is too low for the HAP to decode the correct signal $x_k$. Mathematically, %\vspace{-0.1cm}
+\begin{equation}\label{OP_Sat}
+    { OP_{\mathpzc{h}}=1-Pr\bigl( Q_1 \cap  Q_2 \cap\dots \cap Q_k \bigl)}
+\end{equation}
+where $Q_j, j=1,...,k$, denotes the event that a satellite signal $x_j$ is correctly decoded by HAP $\mathpzc{h}$. The OP can be rewritten as
+\begin{align}
+OP_{\mathpzc{h}}^{k}&=Pr \Big(SINR_{k\rightarrow \mathpzc{h}} < \gamma_{th}^k \Big) 
+=\Resize{3.8cm}{Pr\bigg(\frac{a_k \rho  |{ {\lambda_{k}}}|^2}{\rho \sum_{i=1}^{k-1} | {\lambda_i}|^2a_i+1} < \gamma_{th}^k \bigg)} \notag \\
+        &=Pr\Biggl(|{\lambda_{k}}|^2 < \frac{\gamma_{th}^k\bigl(\rho \sum_{i=1}^{k-1} | {\lambda_i}|^2a_i+1\bigl)}{a_k \rho }\Biggl) \notag \\
+         &=Pr\Big(| {\lambda_{k}}|^2 < \eta^*_k\Big) = F_{| {\lambda_{k}}|^2 }(\eta^*_k) \notag \\ 
+        &=1-\mu_k  e^{-(\beta_k-\delta_k)\eta^*_k} \sum_{i=0}^{m_k-1} \kappa(i)\sum_{j=0}^i \frac{i!}{j!} (\eta^*_k)^j\nonumber\\& \times(\beta_k-\delta_k )^{-(i-j+1)}   %\\\\
+         %&=\frac{K^{'}!}{(K^{'}-k)!(k-1)!}\cdot{\sum_{t=0}^{K^{'}-k}\sum_{r=0}^{k+t}\sum_{s=0}^{r(mN_r-1)}\frac{(-1)^{t+r}}{k+t}}\\ ~&\cdot \bigg(\begin{array}{c}
+        %      K^{'}-k\\[1ex]
+      %         t
+        % \end{array}\bigg) \bigg(\begin{array}{c}
+         %     k^{'}+t\\[1ex]
+           %    r
+         %\end{array}\bigg) \mu_k(r,m_kN_r){\eta^*_k}^se^{-rm_k\eta^*_k/\Omega_k}
+\end{align}
+where $\gamma_{th}^k$ is the SINR threshold of \textit{k-th} satellite to be correctly decoded and $\eta^*_k=\max\{\eta_1,\eta_2,\dots,\eta_k\}$ with $\eta_j=\frac{\gamma_{th}^j\bigl(\rho \sum_{i=1}^{j-1} | {\lambda_i}|^2a_i+1\bigl)}{a_j\rho}$. %Based on the condition $a_k>{\gamma_{th}}_k\sum_{i=k+1}^{K}a_i$, the \textit{k-th} satellite can decode the \textit{l-th} satellite's signal successfully, regardless of the SNR of the channel.
+
+Below, we derive a closed-form OP expression for the nearest satellite (NS) and that for the farthest satellite (FS), which represent the strongest and the weakest signals, respectively, with respect to any HAP $\mathpzc h$. We also derive the closed-form OP for the entire LEO system subsequently.
+%The derived expression for the overall system's outage probability ${OP}_{sys}$ is as follows:
+%Based on this assumption, the OP of the NS can be considered to be the OP of the entire system. Hence, we are interested in determining the OP of the NS. 
+%For the NS, a HAP $\mathpzc{h}$ may experience an outage if it cannot decode the FS’s signal $x_{FS}$, or it can decode the FS’s signal but cannot decode the NS signal $x_{NS}$. Thus, the $OP$ of the system can be formulated as follows:
+\paragraph{\bf Derivation of OP for the NS} The outage for the NS scenario occurs when the NS' transmitted signal $x_{NS}$ cannot be successfully decoded by its connected HAP $\mathpzc{h}$, which can be expressed as\vspace{-0.09cm}
+%A HAP $\mathpzc{h}$ may experience an outage if it cannot decode the FS's signal $x_{FS}$ or if it can decode the FS's signal but cannot decode the NS signal $x_{NS}$. Hence, the ${OP}_{sys}$ can be formulated as 
+\begin{equation}\label{OP_n}
+OP_{\mathpzc {h}}^{NS}= Pr\bigl(\gamma_{x}^{NS} < \gamma_{th}^{NS} \bigl)
+= 1 - Pr\bigl( \gamma_{x}^{NS} \geq \gamma_{th}^{NS} \bigl)
+\end{equation}
+where $\gamma_{th}^{NS}=2^{2R_{NS}}-1$ is the target SINR threshold for the NS to be correctly decoded by $\mathpzc {h}$, and $R_{NS}$ is the target data rate for correctly receiving the NS's signal by $\mathpzc {h}$. The SINR $\gamma_{x}^{NS}$ can be written as\vspace{-0.1cm}
+\begin{equation}\label{OP_N}
+     \gamma_{x}^{NS}={{a_{NS}\rho}~|\lambda_{NS}|^2}
+\end{equation}
+Using \eqref{OP_N}, we can write $OP_{\mathpzc {h}}^{NS}$ as \vspace{-0.3cm}
+\begin{align}
+OP_{\mathpzc {h}}^{NS} &=1-Pr\biggl( |\lambda_{NS}|^2 \geq \frac{\gamma_{th}^{NS}~\omega_1}{a_{NS}} \biggl)\nonumber\\&
+= 1 - \Big( 1-F_{|\lambda_{NS}|^2}\bigl(A~\omega_1\bigl)\Big)=\Resize{2.15cm}{F_{|\lambda_{NS}|^2}\bigl(A~\omega_1\bigl) }
+\end{align}
+where $A=\frac{\gamma_{th}^{NS}}{a_{NS}}$ and $\omega_1=\frac{1}{\rho}$. With the aid of \eqref{eqn_Fk}, we obtain the closed-form expression for $OP_{\mathpzc{h}}^{NS}$ as
+\begin{align}\label{OP_NS}
+        OP_{\mathpzc {h}}^{NS} &=1-\mu_k  e^{-(\beta_k-\delta_k)A\omega_1} \sum_{i=0}^{m_k-1} \kappa(i)\sum_{j=0}^i \frac{i!}{j!} (A \omega_1)^j \nonumber\\&  \times(\beta_k-\delta_k )^{-(i-j+1)} 
+\end{align}
+\paragraph{\bf Derivation of the outage for the FS} The OP for the FS scenario occurs under two conditions: i) its connected HAP $\mathpzc{h}$ fails to decode both the NS signal $x_{NS}$ and its transmitted signal $F_{NS}$, and ii) $\mathpzc{h}$ can decode the NS signal $x_{NS}$ but cannot decode its signal $x_{FS}$. Mathematically, that is 
+\begin{align}\label{OP_F}
+   OP_{\mathpzc {h}}^{FS}=&Pr\bigl(\gamma_{x}^{NS}<\gamma_{th}^{NS} \bigl)  Pr\bigl(\gamma_{x}^{FS}<\gamma_{th}^{FS} \bigl) +  \nonumber\\& Pr\bigl(\gamma_{x}^{NS}\geq\gamma_{th}^{NS}\bigl)Pr\bigl(\gamma_{x}^{FS}<\gamma_{th}^{FS} \bigl)\nonumber\\
+        =&1-Pr\bigl(\gamma_{x}^{FS}\geq\gamma_{th}^{FS}\bigl) 
+\end{align}
+Similar to NS,  $\gamma_{th}^{FS}=2^{2R_{FS}}-1$  denotes the target SINR threshold of the FS to be correctly decoded by $\mathpzc {h}$, and $R_{FS}$ is the target data rate for correctly receiving the FS's signal by $\mathpzc {h}$. But here  $\gamma_{x}^{FS}$ is given by
+\begin{equation}\label{OP_N_F}
+\begin{aligned} 
+    &\gamma_{x}^{FS}=\frac{a_{FS}\rho|\lambda_{FS}|^2}{\rho \sum_{i=1}^{FS-1}|\lambda_{i}|^2 a_{i}+1}
+\end{aligned}
+\end{equation}
+%By using \eqref{OP_N_F}, then the $OP_{FS}$ can be expressed as
+%\begin{equation}
+    %\begin{aligned}
+     %    OP_{sys}&=1-Pr\biggl(|\lambda_{k}|^2\geq\frac{{\gamma_{th}}_{FS}~\omega_1}{a_1-a_2~{\gamma_{th}}_{FS}}\biggl)
+      %  \\  &\quad\quad \times Pr\biggl(|\lambda_{NS}|^2\geq\frac{{\gamma_{th}}_{NS}~\omega_2}{a_2}\biggl)\\
+  % &=1-\Big(1-F_{|\lambda_{k}|^2}\bigl(A~\omega_1\bigl)\Big)\times \Big(1-F_{|\lambda_{NS}|^2}\bigl(B~\omega_2\bigl)\Big)
+  %  \end{aligned}
+%\end{equation}
+Similar to the derivation of $OP_{\mathpzc {h}}^{NS}$, we can derive the closed-form expression for the OP of the FS scenario by substituting from \eqref{eqn_Fk} as follows:\vspace{-0.2cm}
+\begin{align}\label{OP_FS}
+        OP_{\mathpzc {h}}^{FS}&=1-\mu_k  e^{-(\beta_k-\delta_k)E\omega_2} \sum_{i=0}^{m_k-1} \kappa(i)\sum_{j=0}^i \frac{i!}{j!} (E \omega_2)^j \nonumber\\& \times(\beta_k-\delta_k )^{-(i-j+1)}
+\end{align}
+where $E=\frac{\gamma_{th}^{FS}}{a_{FS}}$ and $\omega_2=\frac{\rho \sum_{i=1}^{FS-1}|\lambda_{i}|^2 a_{i}+1}{\rho}$.\vspace{1mm}
+
+\paragraph{\bf Derivation of OP for the entire LEO system} By combining the outage experience at $\mathpzc {h}$ for both NS and FS scenarios, the overall system OP can be expressed as\footnote{Note that our derivation has accounted for the case when there are extra satellites between NS and FS, which can be seen from \eqref{OP_N_F}.}
+\begin{align}\label{OP_sys}
+     OP_{sys}=&1-Pr\bigl(\gamma_{x}^{NS}\geq\gamma_{th}^{NS} \bigl) Pr\bigl(\gamma_{x}^{FS}\geq\gamma_{th}^{FS}\bigl)\nonumber
+        \\=&1-\Big( 1-F_{|\lambda_{NS}|^2}\bigl(A~\omega_1\bigl)\Big)\times \Big( 1-F_{|\lambda_{FS}|^2}\bigl(E~\omega_2\bigl)\Big)\nonumber
+        \\ =&1-\Big(  \mu_k  e^{-(\beta_k-\delta_k)A\omega_1} \sum_{i=0}^{m_k-1} \kappa(i)\sum_{j=0}^i \frac{i!}{j!} (A \omega_1)^j \nonumber
+         \\&   \times(\beta_k-\delta_k )^{-(i-j+1)}  \Big)  \times\Bigl(\mu_k  e^{-(\beta_k-\delta_k)E\omega_2}\sum_{i=0}^{m_k-1} \kappa(i) \nonumber
+         \\& {\sum_{j=0}^i \frac{i!}{j!} (E \omega_2)^j  \times(\beta_k-\delta_k )^{-(i-j+1)} \Bigl)}
+\end{align}
+
+%This system uses HAPs instead of traditional $\mathcal {PS}_s$ for aggregating models transmitted by satellites. 
+To the best of our knowledge, the OP of NOMA  for LEO satellites as ``clients'' has never been derived in the literature. Additionally, we also demonstrate via simulations that our NomaFedHAP scheme achieves higher data rates and experiences less outages even when a large number of satellites communicate simultaneously with the $\mathcal{PS}$.  %The derived $OP_{sys}$ provides valuable insights into the system's performance, and our proposed system has the potential to improve communication and reduce energy consumption for satellites.
+%\paragraph{Analysis of the OP for the FS}
+%The FS experiences an outage when it receives a signal with an SINR below a threshold. Consequently, the $OP_{FS}$ of the FS can be expressed as
+%\begin{equation}
+  %  \begin{aligned}
+    %    OP_{FS}&=Pr\bigl({\gamma_x}_{FS}<{\gamma_{th}}_{FS} \bigl)\\&=1-Pr\bigl({\gamma_x}_{FS}\geq{\gamma_{th}}_{FS} \bigl)
+  %  \end{aligned}
+%\end{equation}
+%In a similar manner to the derivation of the $OP_{NS}$, the closed-form expression of $OP_{FS}$ can be expressed as
+%\begin{equation}
+  %  \begin{aligned}
+     %   OP_{FS}&=1-e^{-\frac{m_i}{\Omega_i}C\omega_3} \sum_{n=0}^{m_i-1}\big(\frac{m_i}{\Omega_i}C\omega_3\Big)  \frac{1}{n!}
+   % \end{aligned}
+%\end{equation}
+%where $C=\frac{{\gamma_{th}}_{FS}}{b_1-b_2{\gamma_{th}}_{FS}}$, and $\omega_3=\frac{1}{\gamma P_s}$
+%\paragraph{Analysis of the OP for the system}
+%On the basis of an analysis of the OP for the NS and FS, the OP for the system is as follows:
+%\begin{equation}\label{OP_system}
+  %  \begin{aligned}
+    %    OP_{sys}&=1-Pr\bigl({\gamma_x}_{FS}\geq{\gamma_{th}}_{FS}\bigl) \times Pr\bigl({\gamma_x}_{NS}\geq{\gamma_{th}}_{NS} \bigl)
+      % \\&=1-Pr\bigl({\gamma_x}_{FS}\geq{\gamma_{th}}_{FS} \bigl)
+   % \end{aligned}
+%\end{equation}
+%Where the probabilities $Pr\bigl({\gamma_x}_{FS}\geq{\gamma_{th}}_{FS} \bigl)$ and $Pr\bigl({\gamma_x}_{NS}\geq{\gamma_{th}}_{NS} \bigl)$ are given by series representations for any positive real value of the path-loss exponent $\omega$ as
+%expressed as The OP event for NS occurs when the NS can not correctly decodes x1 and x2, which can be mathematically expressed as
+\begin{figure*}[t]
+     \centering
+         \subfloat[\centering Global model propagation within the HAP layer.]{\centering 
+         \includegraphics[width=0.32\textwidth]{Picture2.png}\label{Picture2}}
+     \hfill
+     \subfloat[\centering Local and sub-orbital models propagation within the Satellite Layer.]{\centering 
+         \includegraphics[width=0.32\textwidth]{Picture4.png}\label{Picture4}}  
+     \hfill
+     \subfloat[\centering Sub-orbital model propagation within the HAP layer.]{\centering 
+         \includegraphics[width=0.32\textwidth]{Picture3.png}\label{Picture3} }        
+\hfill
+        \caption{Illustration of the proposed model propagation algorithm. (a) The source HAP $\mathpzc{h}_1$ forwards the global model $\boldsymbol{w}^\beta$ to the sink HAP $\mathpzc{h}_4$; (b) Visible satellites are represented by blue, and invisible satellites by black. Colored curved arrows show the propagation of models (global model and sub-orbital model) from $k_2 \rightarrow k_4$, $k_4 \rightarrow k_7$, $k_7 \rightarrow k_{10}$, $k_{10} \rightarrow k_{11}$, $k_{11} \rightarrow k_{2}$. (c) The sink HAP $\mathpzc{h}_4$ propagates the sub-orbital model $w_k{^\beta}$ to the source HAP $\mathpzc{h}_1$ along the reverse pathway.}\label{fig:propagate}
+\end{figure*}
+
+
+\section{NomaFedHAP Convergence Framework}\label{sec:Model_aggregation}
+% To provide an understanding of the convergence process of NomaFedHAP
+
+
+In NomaFedHAP, FL convergence is achieved through two key components, a {\em model propagation} algorithm, and a {\em model aggregation} algorithm. The model propagation algorithm is proposed to minimize the ``idleness'' in traditional synchronous FL-LEO approaches, where ``straggler'' satellites cause the $\mathcal{PS}$ to idly wait for long periods for model exchange. Note that unlike existing works which resort to asynchronous FL and thereby face the {\em stale model} problem, our solution keeps the synchronous nature (and hence benefits from all instead of a subset of models) yet still accelerates the process substantially, by enabling intra-orbit client communications.
+%This algorithm activates parallel training of satellites' models and enables efficient propagation of local and global models. More specifically, with our proposed propagation algorithm, visible satellites are permitted to transmit  their local models and the received global model from the HAP layer to their neighboring invisible satellites (via single or multiple intra-orbit ISL hops). Once the next visible satellite on the same orbit receives these modes, it will aggregate them into an \textit{sub-orbital model} (cf. \eqref{eq:orbitalagg}, explained later) and transmit this model back to the $\mathcal {PS}$, which reduces the $\mathcal {PS}$ waiting times significantly. In other words, {\em the $\mathcal {PS}$ can receive models from invisible satellites without requiring them to be visible anymore through the visible satellites.} 
+The second component, the model aggregation algorithm, runs on the HAP layer and aggregates the sub-orbital models received from each HAP. This model aggregation algorithm differs from traditional FL, which only aggregates {\em individual} client models.
+%which is different from traditional FL which only aggregates  client models.
+%In the latter case, the FL model is converged by organizing partial global models by individual HAPs and then aggregating them as needed for each global epoch until the FL model is converged.
+\subsection{NomaFedHAP Model Propagation Algorithm}\label{Model_propagation}
+
+This algorithm consists of propagation of global, local, and sub-orbital models, as illustrated in \fref{fig:propagate} and explained below.
+
+{\bf Global Model Propagation within HAP Layer} (\fref{Picture2}). 
+When there are multiple HAPs in the HAP layer, one HAP will be designated as the {\em source} while the other (the farthest one from the source) as the {\em sink}. To begin with, the source HAP generates the initial global model $\boldsymbol{w}^{0}$ and sends it to its adjacent HAPs via  IHL. Simultaneously, it also broadcasts $\boldsymbol{w}^{0}$ to its currently visible satellites at different altitudes using our proposed NOMA-OFDM scheme (see \sref{sec:noma}). The adjacent HAPs, upon receiving $\boldsymbol{w}^{0}$, forward $\boldsymbol{w}^{0}$ to their respective next-hop neighbors, and also send it to their respective visible satellites. This continues until the sink HAP receives $\boldsymbol{w}^{0}$ and transmits it to its currently visible satellites. In subsequent rounds ($\beta=1,2,...$), the same procedure as above takes place again, except that $\boldsymbol{w}^{0}$ is replaced by $\boldsymbol{w}^{\beta}$.
+
+
+%the source HAP generates an initial global model, $\boldsymbol{w}^{0}$, and then transmits it to its adjacent HAPs. In parallel, the source HAP broadcasts $\boldsymbol{w}^{0}$ via our proposed NOMA-OFDM scheme to each of its currently visible satellites that are located at different altitudes (i.e., in different shells). Once its neighboring HAPs receive $\boldsymbol{w}^{0}$, each HAP continuously transmits $\boldsymbol{w}^{0}$ to its next-hop neighbor on the ring topology via one or multiple IHL hops, and also transmits $\boldsymbol{w}^{0}$ to each of its currently visible satellites (similar to what the source HAP does). This continues until the sink HAP receives $\boldsymbol{w}^{0}$ and transmits it to its currently visible satellites. In Fig.~\ref{Picture2}, the orange curved arrows illustrate this propagation process. In the subsequent rounds ($\beta=1,2,...$), the procedure stays the same, only $\boldsymbol{w}^{0}$ will be replaced by $\boldsymbol{w}^{\beta}$.
+
+
+
+\begin{algorithm}[!t]
+\caption{\small NomaFedHAP model propagation algorithm}\label{algorithm1}
+\kwInit{Global iteration $\beta$=0, $\boldsymbol{w}^{\beta}$, and $\mathcal U_\mathpzc{h}|_{\mathpzc{h}\in \mathcal H}=\phi$}
+%\Ensure $y = x^n$
+\While{Termination criterion is not met }{
+\ForEach(\Comment*[h]{\scriptsize Global Model Propagation from source to sink HAP}){$\mathpzc{h}\in \mathcal H$}{
+  Forward $\boldsymbol{w}^{\beta}$  to its next-neighbor HAP\\
+  \If{ $\mathpzc{h}$ has LoS connection with satellites}{
+  Transmit $\boldsymbol{w}^{\beta}$ to its visible satellites\\}
+\ForEach(\Comment*[h]{\scriptsize Local/Sub-orbital Models propagation}){$k\in \mathcal K$ that is visible to $\mathpzc{h}$ }{  
+Retrain $\boldsymbol{w}^{\beta}$ to update $\boldsymbol{w}_{k}^{\beta}$ using its own data\\  
+
+\ForEach(\Comment*[h]{\scriptsize Aggregation of sub-orbital models}){invisible $k'$ between $k$ and $k+1$}{
+
+Retrain $\boldsymbol{w}^{\beta}$ to update $\boldsymbol{w}_{k'}^{\beta}$ using its own data\\
+Aggregate $\boldsymbol{w}_{k}^{\beta}$ and $\boldsymbol{w}_{k'}^{\beta}$ using (\ref{eq:orbitalagg})\\ 
+Propagate $\boldsymbol{w}^{\beta}$ and $\boldsymbol{w}_{k}^{\beta}$ to next $k'$ 
+} 
+Transmit  $\boldsymbol{w}_{k}^{\beta}$ by Sat $k+1$ to its visible HAP\\ 
+Update $\mathcal U_{\mathpzc{h}} \leftarrow  \mathcal U_{\mathpzc{h}} \cup \{\boldsymbol{w}_{k}^{\beta}\}$\\
+Store all the propagating Sat IDs\\
+}
+}
+\ForEach (\Comment*[h]{\scriptsize Sub-orbital Models Propagation from sink to source HAP}){$\mathpzc{h}\in \mathcal H$}{ 
+{Transmit} $\mathcal U_{\mathpzc{h}}$ to the next neighboring HAP
+}
+{$ \beta \leftarrow  \beta+1$}}
+\nonl\rule{0.95\linewidth}{0.5pt}\\
+\nonl{\parbox{\linewidth}{\hspace*{-1em}\scriptsize{{\bf Note:} The above process provides a  sequential representation for clarity. However, in real-world scenarios and our simulations, computation and transmission occur concurrently.}}}
+\end{algorithm}
+
+
+
+
+{\bf Local and Sub-orbital Model Propagation within Satellite Layer} (\fref{Picture4}).
+In any round, say the $\beta$-th, as soon as the visible satellites successfully receive and decode the global model $\boldsymbol{w}^{\beta}$, each of them performs two tasks. First, it retrains $\boldsymbol{w}^{\beta}$ using its own data to obtain an updated local model $\boldsymbol{w}_{k}^{\beta}$.
+%,and then weights $\boldsymbol{w}_{k}^{\beta}$ based on the ratio of its collected data ${|\mathcal {D}_{k}|}$ to the total data size from its orbit ${|\mathcal {D}|}$
+Second, it transmits both $\boldsymbol{w}^{\beta}$ and a weighted version of $\boldsymbol{w}_{k}^{\beta}$, which is $\boldsymbol{w}_{k}^{\beta} := \gamma_{k} \boldsymbol{w}_{k}^{\beta}+\boldsymbol{0}$
+(see Eq.~\eqref{eq:orbitalagg} below, where $\gamma_{k}$ is defined similarly), to its next-hop satellite $k'$ via ISL. The propagation direction is pre-designated as either clockwise or counterclockwise. Sending $\boldsymbol{w}^{\beta}$ is to ensure $k'$ to have a copy of the global model regardless of whether $k'$ is visible to any $\mathcal {PS}$. Next, the satellite $k'$ will first retrain $\boldsymbol{w}^{\beta}$ to obtain $\boldsymbol{w}_{k'}^{\beta}$, like what $k$ did; then, it will perform \textit{sub-orbital aggregation} by combining its own $\boldsymbol{w}_{k'}^{\beta}$ with the received $\boldsymbol{w}_{k}^{\beta}$ (which has been weighted by $k$) as follows:
+%\begin{align}\label{eq:orbitalagg}
+   % \boldsymbol{w}_{k}^{\beta}= (1-\gamma_{k'}) \boldsymbol{w}_{k}^{\beta} +  \gamma_{k'} \boldsymbol{w}_{k'}^{\beta}
+    %\vspace{-2cm}
+%\end{align}}
+\begin{align}\label{eq:orbitalagg}
+    \boldsymbol{w}_{k'}^{\beta}= \gamma_{k'} \boldsymbol{w}_{k'}^{\beta}+\boldsymbol{w}_{k}^{\beta} 
+\end{align}
+where $\gamma_{k'} = {|\mathcal {D}_{k'}|}/{|\mathcal {D}|}$ is a scaling factor that weighs model importance according to data size, $|\mathcal {D}_{k'}|$ is the data size of satellite $k'$ and $|\mathcal {D}|$ is the sum of all the data sizes in the same orbit. Thus, $\boldsymbol{w}_{k'}^{\beta}$ is a partially aggregated model which we refer to as an {\em sub-orbital model}. Next, $\boldsymbol{w}_{k'}^{\beta}$ will be sent to the next-hop satellite (say $k''$), together with the global model $\boldsymbol{w}^{\beta}$, like above. This uni-directional forwarding continues until reaching a visible satellite (say $k^*$), which will stop forwarding further; instead, after training and partial-aggregation like above, it will transmit the aggregated model $\boldsymbol{w}_{k^*}^\beta$ to its visible HAP using NOMA, with a power coefficient based on its current altitude (static and dynamic power allocations are both evaluated in \sref{sec:Evaluation}). Hence essentially, Eq.~\eqref{eq:orbitalagg} is FedAvg computed in a {\em sequential} manner.
+
+
+In summary, unlike traditional FL approaches where the $\mathcal {PS}$ must wait for all the satellites to be visible for an appropriate visibility period before receiving their updated local models and then aggregating them into a global model, we are able to ``activate'' all satellites, even those that are invisible or visible within a short visibility period (through introducing the NOMA scheme), by propagating satellite local models together with the sub-orbital models to invisible satellites within the same orbit, and thus accelerate the FL convergence processes.
+
+
+{\bf Sub-orbital Model Propagation within HAP Layer} (Fig.~\ref{Picture3}).
+After each HAP receives the sub-orbital models from all its visible satellites, it will propagate these sub-orbital models along the \textit{reverse} pathway (from the \textit{sink} HAP to the \textit{source} HAP). The source HAP will then aggregate all the received sub-orbital models into a global model $\boldsymbol{w}^{\beta+1}$, following Section~\ref{sec:aggreg} (Eq. \ref{eq:agg}), and propagates $\boldsymbol{w}^{\beta+1}$ to all the HAPs as in phase 1 (\fref{Picture2}).
+
+Algorithm~\ref{algorithm1} summarizes the above three phases of model propagation. It has an overall complexity of $\mathcal{O}(\mathsf{T}*\mathsf{A}))$, where $\mathsf{T}$ is the number of iterations until the termination criterion is met, and $\mathsf{A}$ represents the nested loop operations governing the training, aggregation, and propagation of models by invisible satellites. Please note, the loops at lines 2, 6, 8, and 15 occur concurrently, while lines  9-11 run sequentially.
+
+%while concurrent HAP computation and transmission hold $\mathcal{O}(H)$ complexity, based on the number of HAPs. Within each HAP's nested loops, processing visible and invisible satellites incurs a complexity of $\mathcal{O}(\mathsf{A}+\mathsf{B}))$. Therefore,
+
+
+\begin{algorithm}[!t]
+\caption{\small NomaFedHAP model aggregation algorithm}\label{algorithm2}
+\kwInit{$\mathcal U^{\beta}\neq\phi$}
+%\Ensure $y = x^n$
+
+\While{Termination criterion is not met }{
+{Sort} all received sub-orbital models as \eqref{Eqn34} and \eqref{Eqn35}\\
+{Filter} redundant sub-orbital models from $\mathcal{U^{\beta}}$  according to satellite IDs \\
+{Generate} $\mathcal{U'^{\beta}}$\\
+\eIf{Source HAP receives all sub-orbital models}{
+Aggregate $\boldsymbol{w}^{\beta+1}$ using (\ref{eq:agg})\\
+}{{Wait} for all sub-orbital models to be received}
+{$ \beta \leftarrow  \beta+1$}}
+\end{algorithm}
+
+\subsection{NomaFedHAP Model Aggregation Algorithm}\label{sec:aggreg} 
+%When all HAPs collect the sub-orbital models from their visible satellites, a propagation round from the sink HAP to the soucre HAP will start by forwadign the reveiced models until it received by the source HAP. Once the source HAP received the  its neighboring HAPs, it organizes these models as for Once the sink HAP has collectedall the local models, it organizes them as follows
+%Upon receiving the collected sub-orbital models by the source HAP from its neighboring HAPs, it organizes these models as 
+When all HAPs gather the sub-orbital models from their visible satellites, a propagation round begins from the sink HAP to the source HAP by forwarding the received models. Once the source HAP receives all sub-orbital models, it sorts them as follows:
+\begin{equation} \label{Eqn34}
+    \mathcal{U}^{\beta}= \{ S_{1}, S_{2},\dots,S_\textit{L}\}
+\end{equation}
+where $\mathcal{U}^{\beta}$ is the set of all sub-orbital models received by HAPs in round $\beta$, and 
+ $S_{l}\subset\mathcal{U}^{\beta}$ is a subset of $\mathcal{U}^{\beta}$ that comprises all sub-orbital models for an orbit $l$, which can be expressed as
+\begin{equation} \label{Eqn35}
+    S_{l}= \Big\{ \underbrace{\{{\boldsymbol{w}_{k}^{\beta}}\}_{\mathpzc{h}_1}}_{\mathcal{U}_{\mathpzc{h}=1}},\underbrace{\{{\boldsymbol{w}_{k}^{\beta}}\}_{\mathpzc{h}_2}}_{\mathcal{U}_{\mathpzc{h}=2}},\dots,\underbrace{\{{\boldsymbol{w}_{k}^{\beta}}\}_{H}}_{\mathcal{U}_{H}}\Big\}_l
+\end{equation}
+It is possible for $S_{l}$ to encompass redundant sub-orbital models, particularly when a satellite is visible to multiple HAPs at the same time. In such cases, NomaFedHAP utilizes satellites' IDs, which are unique and sent as metadata with each sub-orbital model, to filter out these redundant models. Consequently, NomaFedHAP yields $\mathcal{U}'^{\beta} = \{S'_{l_1},S'_{l_2},\dots,S'_{L} \}$, where $S'_l$ is a set of distinct sub-orbital models for an orbit $l$.
+
+
+
+Subsequently, for all orbits $L$, NomaFedHAP checks whether any satellite ID has been excluded from $\mathcal{U}'^{\beta}$. This scenario occurs infrequently, typically when an orbit lacks visible satellites to any HAP for an extended time. In such cases, NomaFedHAP will not generate an updated version of $\boldsymbol{w}^\beta$ immediately. Instead, it waits until any HAP $\mathpzc{h}$ receives the sub-orbital models containing the IDs of those satellites. These sub-orbital models are then transmitted to the source HAP to update $\mathcal{U}'^{\beta}$. This ensures a balanced collection of models from all orbits, allowing all satellites to contribute equally in generating $\boldsymbol{w}^\beta$. It also prevents biasing the global model toward a specific orbit.
+
+
+
+
+Once the source HAP has received all the remaining sub-orbital models and updated $\mathcal{U}'^{\beta}$, NomaFedHAP aggregates all the models in $\mathcal{U}'^{\beta}$ as follows: 
+%It is possible that $S_{l}$ contains redundant orbital models if the satellite is visible to more than one HAP at the same time.  In such circumstances, NomaFedHAP will use satellite IDs, that sent as a metadata with each orbital model and they are unique, to filter out the redundant models. Thus, the NomaFedHAP ends up with $\mathcal{U}'^{\beta} = \{S'_{l_1},S'_{l_2},\dots,S'_{L} \}$ where $S'_l$ is a set of distinct orbital models for an orbit $l$. Then, for all orbits $L$, it will check if any satellite ID has been left out of $\mathcal U'^{\beta}$, which might happen  when no satellites are visible in this aggregator when the generation process of an orbital model takes longer than the visibility period of the currently visible satellite of an orbit $l$ at $\beta$ round. If this occurs, NomaFedHAP will not generate an updated version of $\boldsymbol{w}^\beta$. Rather, NomaFedHAP will wait until any HAP $\mathpzc{h}$ receives the models of these satellites and send them to the source HAP to update $\mathcal{U}'^{\beta}$. This is to ensure the balancing of models collected from all orbital planes to avoid biasing the global model towards a certain orbital plane. Once $\mathcal U'^{\beta}$ has received all models from all orbits, NomaFedHAP aggregates them as
+%\footnote{This leads to an interesting observation in the simulation where the curves for single-HAP cases exhibits a staircase fashion.}
+%collectively denoted by $\mathcal L$, 
+\begin{equation} \label{eq:agg}
+   \boldsymbol{w}^{\beta+1}= \sum_{{l=1}}^{{L}} \sum_{{\mathpzc{h}=1}}^{{H}} \frac{|\mathcal {D}|_{{\mathcal {U}_\mathpzc{h}'}}^{l}}{|\mathcal {D}|_{l}} \boldsymbol{w}_{\mathcal {U}_\mathpzc{h}'}  ^{\beta}
+\end{equation}
+where $|\mathcal {D}|_{\mathcal {U}_\mathpzc{h}'}^{l}$ is the total data size of the satellites in the set ${\mathcal {U}_\mathpzc{h}'}$ for an orbit $l$, whereas $|\mathcal {D}|_{l}$ is the total data size for an orbit $l$. Subsequently, the entire procedure will recommence from \sref{Model_propagation}, until the FL model is converged.
+
+Algorithm~\ref{algorithm2} summarizes the entire process. It has an overall complexity of $\mathcal{O}(\mathsf{T}(\mathsf{B}Log_{2}\mathsf{B}))$, where $\mathsf{B}$ is the number of received sub-orbital models. The $(\mathsf{B}Log_{2}\mathsf{B})$ term signifies the complexity of sorting and organizing the models, which dominates the filtering operations and the subsequent aggregation process.
+
+\subsection{Convergence Analysis of NomaFedHAP}
+In this section, we analyze the convergence of the NomaFedHAP approach. To do that we make the following assumptions regarding the loss functions of the satellites $F_1, \ldots, F_K$, $1\leq k\leq K$. These assumptions align with the commonly encountered assumptions in the FL literature. \cite{Li2020On, ribero2022federated}.
+\begin{asu}[Smoothness]\label{as:1}
+All the functions $F_1, \ldots, F_K$ in Equation \eqref{eqn:loss} exhibit $\Lambda$-smoothness, as for any $\boldsymbol{a}$ and $\boldsymbol{b} \in \mathbb{R}^d$ and any $k \in \mathcal{K}$, it holds that:
+$$F_k(\boldsymbol{a})\leq F_k(\boldsymbol{b})+{(\boldsymbol{a}-\boldsymbol{b})}^{\top}\nabla F_{k}(\boldsymbol{b})+\frac{\Lambda}{2}\|\boldsymbol{a}-\boldsymbol{b}\|^2_2$$
+\end{asu}
+\begin{asu}[Strong convex]\label{as:2}
+All the functions $F_1, \ldots, F_K$ in Equation \eqref{eqn:loss} exhibit $\varrho$-strongly convex, as for any $\boldsymbol{a}$ and $\boldsymbol{b} \in \mathbb{R}^d$ and any $k \in \mathcal{K}$, it holds that:
+$$F_k(\boldsymbol{a})\geq F_k(\boldsymbol{b})+{(\boldsymbol{a}-\boldsymbol{b})}^{\top}\nabla F_{k}(\boldsymbol{b})+\frac{\varrho}{2}\|\boldsymbol{a}-\boldsymbol{b}\|^2_2$$
+\end{asu}
+\begin{asu}[Bounded variance]\label{as:3}
+Let $\xi_{k}^{\beta}$ be a data point randomly sampled from the dataset $D_k$ of satellite $k$. The variance of the stochastic gradients at each satellite is constrained as follows:
+$$\mathbb{E}\|\nabla F_k(\boldsymbol{w}_{k}^\beta,\xi_{k}^{\beta})-\nabla F_{k}(\boldsymbol{w}_{k}^\beta)\|_2^2\leq \sigma_{k}^{2}$$ 
+This constraint applies to all satellites, with $k$ ranging from 1 to $K$.
+\end{asu}
+\begin{asu}[Bounded stochastic gradients]\label{as:4}
+The square norm of the expected stochastic gradients of $F_k$ is uniformly bounded, satisfying the inequality:
+$$\mathbb{E}\|\nabla F_k(\boldsymbol{w}_{k}^\beta,\xi_{k}^{\beta})\|_2^2\leq G^{2}$$ 
+This constraint applies to all satellites, with $k$ ranging from 1 to $K$.
+\end{asu}
+\begin{theorem}\label{th:Theorem}
+Supposing that Assumptions 1-4 are met, with $\Lambda, \varrho, \sigma_{k},$ and $G$ defined accordingly, we can consider a Federated Learning in Low Earth Orbit (FL-LEO) configuration with $K$ fully participating satellites in each round $\beta$. In this setup, the goal is to train a machine learning model as in Equation \eqref{eqn:loss}, and as a result, the NomaFedHAP framework fulfills the following condition:
+\begin{equation}
+    \mathbb{E}[F(\boldsymbol{w}^{|\mathcal{B}|})]-F^*\leq\frac{2\upsilon}{\delta+|\mathcal{B}|}\biggl(\frac{Z}{\varrho}+2 \Lambda\|\boldsymbol{w}^{0}-\boldsymbol{w}^{*}\|^2_2 \biggl)
+\end{equation}
+Here, we set $\upsilon$ as $\frac{\Lambda}{\varrho}$, $\delta$ as $\max\{8\upsilon,J\}$, the learning rate $\zeta_{{\beta}}$ as $\frac{2}{\varrho(\delta+\beta)}$, and define $Z$ as 
+$$Z=\sum_{k=1}^{K} {\alpha_k}^2{\sigma_{k}}^2+6\Lambda \Gamma+8(J-1)^2G^2$$
+where $\alpha_k$ is calculated as $\frac{|\mathcal{D}_k|}{|\mathcal{D}|}$ and represents the full satellites participation, and $\Gamma=F^*-\sum_{k=1}^{K}\alpha_kF^{*}_{k}\geq0$.
+\end{theorem}
+We provide the proof of Theorem 1 in Appendix A.
+
+
+\section{Performance Evaluation}\label{sec:Evaluation}
+
+\subsection{Experiment Setup}
+
+\textbf{LEO Satellite Constellation.} 
+We examine a Walker-delta constellation $\mathcal K$  \cite{walker1984satellite} consisting of 60 LEO satellites in six orbits, with ten satellites in each orbit (see Figs.~\ref{Picture_6} and \ref{Picture_7}). The six orbits are located on three different shells at altitudes of 500 km, 1000 km, and 1500 km above the Earth's surface. Each shell contains two orbits and each orbit has an inclination angle of 70$^\circ$. We examine a variety of $\mathcal {PS}$ scenarios, including GS, single HAP, two HAPs, and three HAPs. For both the GS and single-HAP scenarios, they are located at Rolla, Missouri, USA (but can be anywhere of/above the Earth). The scenarios with two/three HAPs involve one HAP positioned above the city of Chinook, MT, USA, and another HAP positioned above the city of Primorsky Krai, Russia, in addition to the HAP above the city of Rolla, USA. All $\mathcal {PS}s$  are situated at an altitude of 25 km above the Earth's surface and maintain a minimum elevation angle of 10$^\circ$. To compute the visiting pattern of LEO satellites to each $\mathcal {PS}$, we use a simulator called Simulator Tool Kits (STK) developed by AGI. All $\mathcal {PS}$-Satellite connections are monitored over a period of three days to obtain a comprehensive set of results.
+\begin{figure*}[t]
+     \centering
+    \includegraphics[width=1\linewidth]{4_Orbits.png}
+    \subfloat[ GS located in Rolla.]{\hspace{.25\linewidth}}
+    \subfloat[Single HAP]{\hspace{.25\linewidth}}
+   \subfloat[Two HAPs ]{\hspace{.25\linewidth}} 
+    \subfloat[Three HAPs ]{\hspace{.25\linewidth}}
+      \vspace{-0.5mm}
+    \caption{Simulated Walker-delta constellation in 3D with a variety of $\mathcal {PS}$ scenarios: (a) GS located in Rolla, MO, USA, (b-d) HAPs located above Rolla, USA; Chinook, USA; and Primorsky Krai, Russia.}
+\label{Picture_6}
+\vspace{1mm}
+     \centering
+     \subfloat[GS located in Rolla.]
+         {\centering 
+         {\includegraphics[width=0.24\linewidth]{LEO_2D.png}}}
+     \hfill
+ \subfloat[Single HAP]{
+         \includegraphics[width=0.24\linewidth]{LEO_2D_oneHAP.png}}
+     \hfill
+ \subfloat[Two HAPs]{
+         \includegraphics[width=0.24\linewidth]{LEO_2D_HAPs.png}}
+   \hfill
+ \subfloat[Three HAPs]{
+         \includegraphics[width=0.245\linewidth]{LEO_2D_3HAPs.png}}
+        \caption{Simulated Walker-delta constellation in 2D with a variety of $\mathcal {PS}$ scenarios: (a) GS located in Rolla, MO, USA, (b-d) HAPs located above Rolla, USA; Chinook, USA; and Primorsky Krai, Russia}\vspace{-3mm}
+\label{Picture_7}
+\end{figure*}
+
+
+\textbf{Communication links.} The parameters pertaining to the communication channel of the NOMA system, as discussed in \sref{Com_link}, are assigned as follows: $P_{s}$ varies from -40 to 40 dBm, %with an increasing step size of 5 dBm. 
+the antenna gain for $G_k(\theta)$ and $G_{\mathcal {PS}}$ is set to 6.98 dBi, the carrier frequency $f$ is 20 GHz,  $T$ is 354.81 K, and $B$ is set to 50 MHz. The power allocation coefficients allocate 75\% and 25\% power to the FS and NS, respectively. The path loss exponent is 4, and the fading severity parameter $m$ is 2. The average power of the multi-path component $\iota$ and the LoS component $\Omega$ are set to 0.279 and 0.251, respectively. Finally, we select the communication channel type as shadowed Rician, with QPSK as the modulation type.
+
+
+
+
+\textbf{Baselines.} To the best of our knowledge, the NOMA scheme has not been introduced to FL with LEO satellites as clients before. Therefore, we first investigate the performance of NomaFedHAP with a single HAP as $\mathcal {PS}$ in comparison with traditional OMA schemes. Second, we compare NomaFedHAP against state-of-the-art (SOTA) FL-LEO approaches proposed recently and reviewed in \sref{sec:releated}, including: 
+\begin{itemize}
+    \item {\bf Synchronous FL approaches:} FedAvg \cite{mcmahan2017communication}, FedHAP \cite{happaper}, FedISL \cite{razmi}, and DSFL \cite{wu2022dsfl}.
+    \item {\bf Asynchronous FL approaches:} FedSatSchedule \cite{razmi2022scheduling}, FedSpace~\cite{so2022fedspace},  FedSat~\cite{razmi2022ground},  AsyncFLEO~\cite{mAsyFLEO}, and FedAsync \cite{xie2020asynchronous}.
+\end{itemize}
+
+\textbf{Datasets and ML models.}  To evaluate the performance of NomaFedHAP against baseline approaches, we focus on image classification. We employ commonly used model training datasets including MNIST, CIFAR-10, and CIFAR-100, which are frequently utilized in various FL-SatCom studies \cite{chen2022satellite,razmi2022scheduling, happaper,mAsyFLEO}. In addition, despite the lack of space application datasets, we utilize a real dataset of high-resolution satellite images called DeepGlobe for road extraction to provide a realistic evaluation of NomaFedHAP as well as demonstrate its applicability to real-world scenarios. %Each dataset includes a training set for model training and a test set for model evaluation.
+The specifics of each dataset are as follows:
+\begin{itemize}
+    \item \textbf{MNIST \cite{deng2012mnist}:} is a dataset consisting of 70,000 grayscale images of handwritten numbers of size 28$\times$28 pixels. To train our satellites, we use a convolutional neural network (CNN) with three convolutional layers, three pooling layers, and one fully connected layer with 437,840 trainable parameters.
+
+    \item \textbf{CIFAR-10 \cite{CIFAR-10}:} is a dataset consisting of 60,000 colored images of ten classes, each with 6000 images. Each image has a size of 32$\times$32 pixels (images of animals and vehicles). To train our satellites, we also use the CNN model with 798,653 training parameters.
+
+    \item \textbf{CIFAR-100 \cite{CIFAR-10}:} is a dataset similar to CIFAR-10, but contains 100 classes with 600 images each, which makes the training task more challenging. As a result, the CNN model is constructed using six convolutional layers and two fully connected layers, with 7,759,521 training parameters.
+
+    \item \textbf{DeepGlobe for Road Extraction \cite{DeepGlobe18}:} is a dataset consisting of 6,226   colored satellite images of size 1024$\times$1024 with a high-resolution of 50 cm/pixel. For more effective training, we apply various data augmentation techniques, such as flipping, rotating, and contrast adjusting, resulting in a dataset size of 12,452. To train our satellites, We use the U-Net model with 3,048,576 training parameters.
+\end{itemize}
+Our analysis considers both IID and non-IID data distributions (except for DeepGlobe where the images are already non-IID). In the IID setup, each satellite on each shell trains over the same classes of images, but these images are shuffled randomly and distributed equally across satellites. In the non-IID setup, satellites on each of two shells train on a distinct set of 30\% of the classes, while satellites on the other shell train on 40\% of the classes. The training hyperparameters are set as follows: the number of local training epochs is 100, the learning rate ranges from 0.1 to 0.0001, and the mini-batch size is 32.
+
+
+\begin{figure*}[!t]
+     \centering
+         \subfloat[The BER vs. transmitting power.]{\centering 
+         {\includegraphics[width=0.47\textwidth]{OMA-NOMA.png}}}
+     \hfill
+     \subfloat[The achievable satellites capacity vs. transmitting power.]{\centering 
+         \includegraphics[width=0.503\textwidth]{Noma_Fig_l.jpg}}
+\hfill
+        \caption{Performance of NomaFedHAP with fixed and dynamic power allocation vs. OMA scheme.}
+\label{NOMA_rate}
+\vspace{2mm}
+     \centering
+         \subfloat[The achievable data rate vs. transmitting power.]{\centering 
+         {\includegraphics[width=0.5\textwidth]{Data_rate_NOMA.png}}}
+     \hfill
+     \subfloat[The outage probability vs. transmitting power.]{\centering 
+         \includegraphics[width=0.495\textwidth]{Outage_NOMA_2.png}}
+\hfill
+        \caption{Comparison of achievable data rate and outage probability for NomaFedHAP at two altitudes (NS and FS). B=50 MHz.}
+\label{NOMA_Scenario}\vspace{-3mm}
+\end{figure*}
+
+\subsection{Evaluation of NomaFedHAP's Communication Scheme}
+We first compare the performance of the NomaFedHAP scheme to traditional OMA schemes with LEO satellites as clients. Figure~\ref{NOMA_rate}.a shows the BER performance against transmitting power of an NS and FS satellite at altitudes of 500km and 1500 km, respectively, for various scenarios: i) when using the NomaFedHAP with both static and dynamic power allocation (PA) based on their distance to $\mathpzc{h}$, and ii) when employing the OMA scheme. According to this figure, the OMA scheme achieves a slightly better BER compared to both PA scenarios of NomaFedHAP. This advantage is because the transmitted data from various satellites do not interfere with each other in OMA. However, despite this small improvement in the BER, the capacity of satellites that NomaFedHAP can support simultaneously at the same time and frequency %when all satellites transmit their signals to the same $\mathpzc{h}$ 
+is much higher compared to OMA. This is illustrated in Fig.~\ref{NOMA_rate}.b, which shows the achievable satellite capacity versus transmitting power of the simulated NomaFedHAP approach.
+
+ 
+
+Furthermore, in Fig.~\ref{NOMA_Scenario}.a, we compare NomaFedHAP's achievable data rate versus transmitting power under various scenarios of altitudes for NS and FS, as well as for the overall system rate. From this figure, we observe that when the distance between the NS and FS is large enough, the overall system rate is higher compared to smaller distances. This is because the $\mathcal {PS}$ can easily decode the signals from distant satellites without interference. {\em Notably, in both cases, the achievable data rate ranges from 140 Mbps to 160 Mbps at a transmitting power of 40 dBm and bandwidth of 50 MHz, which is more than sufficient to transmit large models like the VGG-16 model of 528 MB. This means the uploading of models to the $\mathcal {PS}$ only takes around 30.17 to 26.4 seconds, demonstrating that employing NOMA with LEO satellites significantly reduces the required time for model uploading from minutes to just a few seconds.}
+
+
+\begin{figure*}[!t]
+     \centering
+     \subfloat[Varying the multi-path average power component.]{\centering 
+         \includegraphics[width=0.49\textwidth]{Number_Satellites.jpg}}
+     \hfill
+     \subfloat[Varying the LoS average power component.]{\centering 
+        \includegraphics[width=0.5\textwidth]{Number_satellites_omega.jpg}}
+\hfill
+        \caption{The sum data rate vs. number of supported satellites in NomaFedHAP under different settings.}
+\label{satellites_rate}\vspace{-0.1cm}
+\end{figure*}
+
+In Fig.~\ref{NOMA_Scenario}.b, we show the OP experienced by $\mathpzc{h}$ versus transmitting power for the same two scenarios of the NS and FS, as well as for the overall system. According to the simulated results, the overall outage of the communication between the NS or FS to the $\mathcal {PS}$ is around  1\% chance when the transmitting power is around 20 dBm, and this decreases to 0.1\% when the transmitting power is increased to 40 dBm. These results demonstrate that NomaFedHAP achieves lower OP under various scenarios.
+
+
+Finally, in Fig.~\ref{satellites_rate}, we show the total sum rate versus the maximum number of satellites that NomaFedHAP can support, considering varying multi-path and LoS average powers at different transmitting power levels. Two key observations emerge from this figure. Firstly, NomaFedHAP can support a high number of satellites even with lower multi-path or LoS average power. For instance, with a transmitting power of 30 dBm, using $\iota$=0.279 and $\Omega$=0.251,  {\em  NomaFedHAP can communicate with 14 satellites simultaneously, achieving 12 bps/Hz, and with $B$=50 MHz, each satellite will have approximately 600 Mbps. In addition, increasing $B$ will further boost the sum rate and allow for an increase in the number of supported satellites while maintaining high data rates.} Secondly, there is a drop-off point beyond which the data rate decreases. However, even after this drop-off, NomaFedHAP still supports a substantial number of satellites with high data rates. Therefore, introducing NOMA to FL-LEO significantly improves system capacity, allowing for more satellites to be launched without bandwidth limitations experienced with OMA schemes.
+
+
+\subsection{Evaluation of NomaFedHAP's Convergence  Operation} %We first evaluate NomaFedHAP's convergence in comparison to our baselines. Then, we conduct a more detailed evaluation of NomaFedHAP as follows:
+
+
+\subsubsection{\bf Comparing NomaFedHAP with baselines} Table \ref{table_comp} presents the convergence performance of NomaFedHAP against baselines based on MNIST, CIFAR-10, and CIFAR-100 datasets in a non-IID setting with a GS in Rolla, USA serving as a $\mathcal {PS}$. Additionally, we use a GS at NP for some baselines to align with their setup environment. The table shows that NomaFedHAP achieves an accuracy of 82.73\%, 77.36\%, and 62.81\% on the MNIST, CIFAR-10, and CIFAR-100 datasets, respectively, within only 24-hour timestamp and without any impractical assumption using a GS as baselines, and not HAPs (results with HAPs are provided in Table~\ref{DataSet_com}). %This good results contributes to oue propagation scheme  to its NOMA communication scheme that \textit{enables satellites to communicate efficiently and transmit their models at high data rates within their short visible windows}. 
+
+\begin{table*}[!t]
+\setlength{\tabcolsep}{0.3em}
+%\centering\arraybackslash
+\centering
+\renewcommand{\arraystretch}{1.2}
+\caption{Accuracy and Convergence time of NomaFedHAP vs. baselines under non-IID setting.} 
+\label{table_comp}
+%\scriptsize
+\resizebox{\linewidth}{!}{%
+ \begin{tabular}{|p{0.35 cm}|p{2.6cm}|p{1.25cm} | p{1.85cm}| p{2cm}| p{2.2cm} | p{9cm} |}
+ \hline
+ \rowcolor{gray!30} &\centering FL-LEO &\multicolumn{3}{c |} {Accuracy (\%)} & \centering Convergence &  {Remark}\\
+ \cline{3-5}
+\rowcolor{gray!30} &\centering Approaches &\rmfamily MNIST& CIFAR-10& CIFAR-100&\centering time (h)& \\
+ \hline 
+\cellcolor{gray!30}\multirow{5}{*}
+ & {FedAsync} \cite{xie2020asynchronous} & 70.36& 61.81& 56.37&\centering 48& GS at any location \\
+    \cline{2-7}
+\cellcolor{gray!30}&  FedSat  \cite{razmi2022ground} &  85.15  & 81.18 & 72.19  & \centering 24& GS located at the \textbf{NP} \\
+   \cline{2-7}
+ \cellcolor{gray!30}& {FedSatSched} \cite{razmi2022scheduling} & 73.61& 62.77& 54.59& \centering48& GS at any location \\
+   \cline{2-7}
+\cellcolor{gray!30} & FedSpace \cite{so2022fedspace}& 52.67&39.41& 36.04&\centering72 & Satellites need to upload portion of their raw data \\ 
+ \cline{2-7}
+\cellcolor{gray!30}\multirow{-5}{12mm}{\rotatebox[origin=p]{90}{\centering {\textbf{Async FL}}}} &AsyncFLEO \cite{mAsyFLEO}&  79.49& 69.88& 61.43&\centering 9& Assuming enough visible period for sink satellites\\
+\cline{1-7}\cline{1-7}\cline{1-7}\cline{1-7}\cline{1-7}\cline{1-7}\cline{1-7}
+  \cellcolor{gray!30}\multirow{6}{*}
+&FedAvg \cite{mcmahan2017communication} & 79.41& 70.68& 61.66&\centering 60& GS at any location \\
+\cline{2-7}
+\cellcolor{gray!30}&FedISL  \cite{razmi} &  82.76& 73.62& 66.57  &\centering 8 & GS located at \textbf{NP}\\
+ \cline{2-7}
+\cellcolor{gray!30}&FedISL \cite{razmi} &  61.06& 52.11& 47.99&\centering72 & GS located at any location\\
+  \cline{2-7}
+\cellcolor{gray!30}&FedHAP \cite{happaper} &  81.62& 76.63&  59.89& \centering 48& GS located at any location \\
+ \cline{2-7}
+ \cellcolor{gray!30} &  
+ {DSFL} \cite{wu2022dsfl}&  76.69&71.63 &62.18 & \centering 19& \small{Require higher data rates for model exchange due to Doppler shift}\\
+  \cline{2-7}
+ \cellcolor{gray!30} &  {FedLEO} \cite{e2023opt}&  {84.69}& 73.26& 61.31& \centering 36& GS at any location (requires scheduling sink satellite)\\
+    \cline{2-7} 
+\rowcolor{orange!30}  \cellcolor{gray!30}\multirow{-7.5}{12mm} {\rotatebox[origin=p]{90}{\centering{\textbf{Sync FL}}}} &  \textbf{NomaFedHAP} &  \textbf{82.73}& \textbf{77.36}& \textbf{62.81}& \centering \textbf{24}& GS located at any location \\
+ \hline 
+\end{tabular}}
+\end{table*}
+
+\begin{table*}[!ht]
+
+\setlength{\tabcolsep}{0.2em}
+%\centering\arraybackslash
+\centering
+\renewcommand{\arraystretch}{1}
+\caption{Accuracy and Convergence time of NomaFedHAP under various $\mathcal{PS}_s$ scenarios.} 
+\label{DataSet_com}
+%\resizebox{\linewidth}{!}{%
+ \begin{tabular}{||p{1.8cm}||p{1cm} | p{1.25cm} | p{1cm} | p{1.25cm}|| p{1cm} | p{1.25cm} | p{1cm} | p{1.25cm}|| p{1cm} | p{1.25cm} | p{1cm} | p{1.25cm}||}
+\hline
+\hline
+&\multicolumn{4}{c ||} { MNIST Dataset } &\multicolumn{4}{c ||} { CIFAR-10 Dataset}  &\multicolumn{4}{c ||} { CIFAR-100 Dataset} \\ 
+\hline
+ \hline
+&\multicolumn{2}{c |} {\small Accuracy (\%)} &\multicolumn{2}{c||} {\centering \small Converge Time (h)}&\multicolumn{2}{c |} {\small Accuracy (\%)} &\multicolumn{2}{c||} {\centering \small Converge Time (h)}&\multicolumn{2}{c |} {\small Accuracy (\%)} &\multicolumn{2}{c||} {\centering \small Converge Time (h)}\\ 
+\cline{2-13}
+
+  $\mathcal {PS}$&  \small{ IID}& \small{Non-IID}&\small{\rmfamily IID}& \small{Non-IID}&\small{\centering IID}& \small{Non-IID}&\small{ IID}& \small{Non-IID} &\small{IID}& \small{Non-IID}&\small{IID}& \small{Non-IID}\\
+ \hline 
+ 
+GS& 97.14& 90.69&24&36  & 88.28 &80.23 &32 &42 & 76.56& 71.99&52&61\\
+ \hline
+Single HAP & 93.12 &90.88 &3 &9.11 & 85.19 & 82.5&4.92 &12& 78.28 &72.82 &48 &54\\
+ \hline
+Two HAPs & 96.23 &93.67 &1.74&3.68 & 87.67 &83.29 &3.17& 4.38 & 77.67 & 75.13&24&  30\\
+ \hline
+ Three HAPs & 97.62 &95.19 &1.62 & 3& 89.13&84.67&2.27& 3.81 & 80.09 & 78.62&22&26\\
+ \hline 
+  \hline 
+\end{tabular}%}
+\end{table*}
+
+
+
+
+\begin{figure*}[!t]
+     \centering
+         \subfloat[MNIST dataset.]{\centering 
+         {\includegraphics[width=0.335\textwidth]{MNIST_IID.png}}}
+     \hfill
+     \subfloat[CIFAR-10 dataset.]{\centering 
+         \includegraphics[width=0.33\textwidth]{CIFAR-10_IID.png}}
+     \hfill
+     \subfloat[CIFAR-100 dataset.]{\centering 
+         \includegraphics[width=0.33\textwidth]{CIFAR-100_IID.png}}
+\hfill
+        \caption{NomaFedHAP's accuracy over time for various datasets in the IID setting.}
+\label{IID}
+\vspace{3mm}
+     \centering
+         \subfloat[MNIST dataset.]{\centering 
+         {\includegraphics[width=0.325\textwidth]{MNIST_NonIID.png}}}
+     \hfill
+     \subfloat[CIFAR-10 dataset.]{\centering 
+         \includegraphics[width=0.32\textwidth]{CIFAR_NonIID.png}}
+     \hfill
+     \subfloat[CIFAR-100 dataset.]{\centering 
+         \includegraphics[width=0.32\textwidth]{CIFAR-100_nonIID.png}}
+\hfill
+        \caption{NomaFedHAP's accuracy over time for various datasets in the non-IID setting.}\vspace{-0.2cm}
+\label{Non-IID}
+\end{figure*}
+Asynchronous approaches such as FedSat \cite{razmi2022ground}, or AsyncFLEO \cite{mAsyFLEO} can achieve better or comparable accuracy to NomaFedHAP. However, their usability in realistic scenarios is limited due to their oversimplified assumption that satellites should visit the GS in a regular manner or overlook the sink satellite's visibility period. When the authors of FedSat omitted this assumption by developing FedSatSchedule \cite{razmi2022scheduling}, the convergence speed is doubled to 48 hours, and the accuracy is reduced by 14-24\% in comparison with FedSat on different datasets. Although FedSatSchedule offers more realistic consideration, traditional FedAsync \cite{xie2020asynchronous} can achieve similar accuracy for the same convergence period. Despite FedSpace's \cite{so2022fedspace} efforts to balance idleness and staleness in synchronous approach and asynchronous FL approaches, respectively, its performance is limited to 50\% or less on the three datasets tested. %In addition, FedSpace requires satellites to upload a portion of their raw data to the GS, which violates the FL principle.
+
+For the synchronous FL approaches, FedISL \cite{razmi} is the fastest synchronous FL approach with a convergence time of 8 hours and an accuracy of 82.76\%, 73.62\%, and 66.57\% on MNIST, CIFAR-10, and CIFAR-100, respectively, when the GS is located at the NP. However, when the GS location is changed, its accuracy drops to 61.06\%, 52.11\%, and 47.99\% on the same datasets after 72 hours of training.  DSFL\cite{wu2022dsfl} is the second fastest, converging within 19 hours, however, it suffers from the Doppler shift due to the inter-orbit ISL communication. The comparison with the rest of the baselines is summarized in Table~\ref{table_comp}.
+%Our NomaFedHAP approach is the second fastest, converging within 24 hours without any impractical assumption, thanks to its NOMA communication scheme that %\textit{enables satellites to communicate efficiently and transmit their models at high data rates within their short visible windows}. 
+%FedLEO \cite{e2023opt} is the third fastest, converging within 36 hours, but it requires distributed scheduling to determine which sink satellites have enough visibility to exchange models with the GS. FedHAP \cite{happaper} achieves similar accuracy to NomaFedHAP but requires a longer convergence time due to idleness caused by some satellites having insufficient time to upload their models to the GS, despite being visible. 
+
+
+\begin{figure*}[!h]
+\centering
+    \subfloat[Samples of original satellite images.]{
+         \centering
+         {\includegraphics[width=\linewidth]{original.png}}}
+  \hfill
+     \subfloat[Corresponding ground truth labels of roads.]{
+         \centering
+         {\includegraphics[width=\linewidth]{ground_label.png}}}% \resizebox{14cm}{2.6cm}
+  \hfill
+    \subfloat[Corresponding predicated labels after 5 hours during convergence.]{
+         \centering
+       {\includegraphics[width=\linewidth]{predicted_3_hours.png}}}
+  \hfill
+\subfloat[Corresponding predicated labels after 10 hours during convergence.]{
+         \centering
+         {\includegraphics[width=\linewidth]{predicted_8_hours.png}}}
+        \caption{Comparison of NomaFedHAP's segmentation performance at two different timestamps (5 hours vs. 10 hours during convergence) over sample images from the DeepGlobe dataset.  The $\mathcal {PS}$ is a single HAP located at Rolla, Mo, USA.}
+\label{DeepGlobe}\vspace{-0.2cm}
+\end{figure*}
+\subsubsection{\bf Evaluating NomaFedHAP in-depth} We extensively evaluate NomaFedHAP's performance across various scenarios, including various $\mathcal {PS}$ setups and datasets with different distribution settings. The left side of Table \ref{DataSet_com} shows the maximum achievable accuracy with respect to the convergence speed of NomaFedHAP on the MNIST dataset. The results indicate that utilizing HAP as $\mathcal {PS}$ instead of traditional $\mathcal {PS}$ significantly accelerates the convergence of the FL, reducing the convergence speed from days to just a few hours without sacrificing the target accuracy. When two/three HAPs were employed, there was a slightly different improvement in convergence speed for the IID setting compared to the single HAP scenario. However, the use of multiple HAPs had a more significant impact on the convergence speed for the non-IID settings, particularly when compared to the GS scenario. {\em These findings demonstrate that employing multiple HAPs as $\mathcal {PS}$s can enhance the convergence speed and have a substantial influence on the FL-LEO system.}
+    
+Table~\ref{DataSet_com} also shows the accuracy and convergence speed of NomaFedHAP using more complex datasets of CIFAR-10 and CIFAR-100. The trends observed on these datasets are similar to those seen on the MNIST dataset. According to our evaluation of NomaFedHAP's performance using these two datasets, we find that when the number of classes increased from 10 to 100, there was a reduction in accuracy of 10-15\% and an increase in convergence time of 14-45 hours. %Furthermore, even with multiple HAPs, it can be inferred  that the FL model requires several hours to converge on such complex data with a larger number of classes.
+    
+Fig.~\ref{IID} and Fig.~\ref{Non-IID} evaluate the performance of the NomaFedHAP under various evaluation conditions on a larger scale. From these figures, we can infer using even a single HAP in lieu of GS can provide higher convergence accuracy with less convergence time by an order of magnitude. This advantage also still holds under various datasets and tough distribution (non-IID), which proves its effectiveness. 
+
+\subsubsection{\bf Evaluating NomaFedHAP using real satellite imagery} We finally evaluate the performance of NomaFedHAP on real satellite images of the DeepGlobe dataset for extracting road. To assess NomaFedHAP's effectiveness on this dataset, we use two evaluation metrics: the Intersection-over-Union (IoU) and Dice coefficient (F1 score), which are more precise than pixel accuracy for segmentation tasks. The results demonstrate that NomaFedHAP can accurately detect roads with an IoU of 61.87\% and a Dice coefficient of 65.12\% after only 5 hours. These metrics improve to 72.68\% and 73.90\%, respectively, after 10 hours. In Fig.~\ref{DeepGlobe}, we present a sample of images after 5 hours vs. 10 hours, illustrating that NomaFedHAP can quickly achieve convergence without compromising model performance across various datasets.
+
+Comparing NomaFedHAP with one of the baseline approaches \cite{e2023opt}, that baseline initially achieves an IoU of 36.18\% and a Dice coefficient of 40.11\% after 5 hours, which subsequently improves to 69.32\% and 72.76\% after 16 hours. However, NomaFedHAP consistently achieves significantly higher accuracy—approximately 25\% more than this particular approach. Moreover, other baseline approaches exhibit significantly longer convergence times with lower accuracy under the same settings. Notably, when incorporating realistic satellite images into the training process, NomaFedHAP demonstrates the ability to expedite convergence by at least a factor of 2 to 5 when compared to those baseline FL-LEO approaches.
+    
+%The results demonstrate that NomaFedHAP can accurately detect roads with an IoU of 61.87\% and a Dice coefficient of 65.12\% after only 5 hours. These metrics improve to 72.68\% and 73.9\%, respectively, after 10 hours of convergence. In Fig.~\ref{DeepGlobe}, we show a sample of images after 5 hours vs. 10 hours to show that NomaFedHAP can quickly achieve convergence without compromising model performance across various datasets. Comparing the results of NomaFedHAP with one of the baseline approaches \cite{e2023opt}, which achieves Iou 36.18\% and a Dice coefficient of 40.11\% after also 5 hours, and then these metrics increased to 69.32\% and 72.76\% after 16 hours. Accordingly, other baseline approaches will take much longer convergence time with lower accuracy under the same setting. Notably, when using realistic satellite images in the training process, NomaFedHAP sufficient to validate the superiority  than the current state-of-the-art FL-LEO approaches.
+%The outcomes, as shown in Fig. \ref{DeepGlobe}, indicate that NomaFedHAP can accurately detect roads with an IoU of 61.87% and Dice coefficient of 65.12% after only 5 hours, which increases to 72.68% and 73.98% after 10 hours of convergence. These results demonstrate the efficacy and robustness of NomaFedHAP in quickly converging without compromising model performance under various datasets, especially when using realistic satellite images in their training. Notably, NomaFedHAP is at least \textit{five times faster} than the FL-LEO state-of-the-art.
+%It is observed that NomaFedHAP achieves similar or superior accuracy on the DeepGlobe dataset compared to MNIST, CIFAR-10, and CIFAR-100 datasets. However, it requires additional time to converge due to the dataset's complexity. In contrast, other FL baselines exhibit longer convergence times and lower accuracy under the same conditions.
+
+\section{Conclusion}\label{conclusion}
+This paper introduces NomaFedHAP, a novel FL framework tailored for LEO satellite constellations, leveraging HAPs as distributed $\mathcal {PS}$s to facilitate FL model training. NomaFedHAP tackles the challenge of much prolonged FL-LEO training time due to the irregular and sporadic LEO satellite connectivity with the $\mathcal {PS}$, and transient visibility windows. To that end, NomaFedHAP introduces NOMA into FL-LEO, enabling efficient utilization of SatCom bandwidth and fast model exchange between satellites and the $\mathcal {PS}$ within just seconds. Under our new communication architecture, we also derive a closed-form expression for the outage probability of the NS and FS scenarios as well as the entire system orchestrated by HAPs. NomaFedHAP consists of i) a new communication topology utilizing HAPs as relays to mitigate Doppler shift among satellites in different orbits, ii) a novel model propagation scheme for seamless model exchange between satellites and HAPs, and iii) an optimized model aggregation approach for balancing models from different orbits and shells to achieve rapid FL convergence. Extensive simulations demonstrate NomaFedHAP's superiority in rapid and efficient FL model convergence on realistic satellite datasets, while limiting the OP of NOMA to only 0.1\%, outperforming the state-of-the-art approaches by at least 5 times in terms of convergence speed.
+%This paper has introduced NomaFedHAP, a novel FL framework designed for LEO satellite constellations, which utilizes HAPs as distributed $\mathcal {PS}$s to manage FL model training. NomaFedHAP addresses the challenge of long FL-LEO training times caused by sporadic satellite-GS connectivity and short visibility periods. To achieve this, NomaFedHAP integrates the NOMA communication scheme that allows model exchanging between satellites and the $\mathcal {PS}$ within a few seconds, and achieve outage probabiluity of 0.1\%. NomaFedHAP proposed three other components: i) a new communication topology that utilizes HAPs as relays to bridge the Doppler shift among satellites orbiting in different orbits (or shells), ii) a new model propagation for relying the models between satellites and HAPs, and iii) a new  model aggregation scheme that optimally balances models from different orbits/shells to achieve fast FL convergence. In addition, this paper drove a new closed-form expression for the OPof the entire system orchestrated by HAPs. Extensive simulations have demonstrated the superiority of NomaFedHAP in achieving fast and efficient FL model convergence on realistic satellite datasets that boost the convergence speed to at least 5 times than the state of the art compared to state-of-the-art methods.
+
+\begin{appendices}
+\section{Proof of Theorem.1}
+Let $\boldsymbol{w}_{k}^\beta$ is the local model updated by satellite $k$ during communication round $\beta$ with SGD local iterations $E\geq1$ before transmitting the updated version to the $\mathcal{PS}$. Additionally, let $\mathcal{I}_{E}$ represents the set of global synchronization steps, denoted as $\mathcal{I}_{E}= \{nE|n = 1, 2, \dots\}$. Thus, the update equation for NomaFedHAP, with partially visible satellites, can be expressed as
+\begin{equation}\label{eq:new_var}
+    \boldsymbol{v}_{k}^{\beta+1} = \boldsymbol{w}_{k}^{\beta}- \zeta_{{\beta}} \nabla F_{k}(\boldsymbol{w}_{k}^{\beta},\xi_{k}^{\beta})
+\end{equation}
+\begin{equation}
+\boldsymbol{w}_{k}^{\beta+1}=
+\begin{cases}
+        \boldsymbol{v}_{k}^{\beta+1} \hspace{2cm}\text{if}~\beta+1 \notin \mathcal{I}_{E},\\ \sum_{k=1}^{K}\alpha_{k}  \boldsymbol{v}_{k}^{\beta+1} \hspace{0.5cm}\text{if}~\beta+1 \in \mathcal{I}_{E}.
+\end{cases}
+\end{equation}
+In Equation~\eqref{eq:new_var}, we introduce an additional variable $\boldsymbol{v}_{k}^{\beta+1}$, which represents the immediate result of one step of SGD from $\boldsymbol{w}_{k}^{\beta}$. Here, $\boldsymbol{w}_{k}^{\beta+1}$ can be viewed as the model obtained after the aggregation round $\beta+1$, which corresponds to a global synchronization step.
+
+Motivated by \cite{ribero2022federated}, we define two virtual sequences, namely, $\boldsymbol{\Bar {v}}^{\beta}=\sum_{k=1}^{K}\alpha_{k}\boldsymbol{\Bar v}_{k}^{\beta}$ and $\boldsymbol{\Bar w}^{\beta}=\sum_{k=1}^{K}\alpha_{k}\boldsymbol{\Bar w}_{k}^{\beta}$. We can therefore interpret $\boldsymbol{\Bar {v}}^{\beta+1}$ as the result of a single-step SGD update from $\boldsymbol{\Bar w}^{\beta}$. When $\beta+1$ is not within $\mathcal{I}_E$, both $\boldsymbol{\Bar {v}}^{\beta}$ and $\boldsymbol{\Bar {w}}^{\beta}$ are inaccessible. However, if $\beta+1$ is part of $\mathcal{I}_E$, we can only access $\boldsymbol{\Bar w}^{\beta+1}$. For convenience, we define $\mathbf{\Bar g}^{\beta}=\sum_{k=1}^{K}\alpha_{k}\nabla F_{k}(\boldsymbol{w}_{k}^{\beta})$ and $\mathbf{g}^{\beta}=\sum_{k=1}^{K}\alpha_{k}\nabla F_{k}(\boldsymbol{w}_{k}^{\beta},\xi_{k}^{\beta})$. Thus, we have $\mathbb{E}\mathbf{g}^{\beta}=\mathbf{\Bar g}^{\beta}$ and $\boldsymbol{\Bar {v}}^{\beta+1}=\boldsymbol{\Bar {w}}^{\beta}-\zeta_{{\beta}} \mathbf{\Bar g}^{\beta}$
+\begin{lemma}[Results of single-step SGD] 
+Assuming Assumptions 1 and 2 are satisfied, if $\zeta_{{\beta}}\leq\frac{1}{4\Lambda}$, then we have:
+\begin{align}
+     &\mathbb{E}\|\boldsymbol{\Bar {v}}^{\beta+1}-\boldsymbol{w}^*||^2_2\leq (1-\zeta_{{\beta}}\varrho)\mathbb{E}\|\boldsymbol{\Bar {w}}^{\beta}-\boldsymbol{w}^*||^2_2+\zeta_{{\beta}}^2\mathbb{E}\|\mathbf{g}^{\beta}-\mathbf{\Bar g}^{\beta}\|^2_2\nonumber
+     \\&+6\Lambda \zeta_{{\beta}}^2\Gamma+2\mathbb{E}\sum_{k=1}^{K}\alpha_{k}\|\boldsymbol{\Bar {w}}^{\beta}-\boldsymbol{{w}}^{\beta}_{k}\|^2_2.   \nonumber
+\end{align}
+where $\boldsymbol{w}^*$ is the target model that achieves the desired accuracy.   
+\end{lemma}
+\begin{lemma}[Bounding the variance]
+Assuming Assumption 3 is satisfied, then we have:
+$$\mathbb{E}\|\mathbf{g}^{\beta}-\mathbf{\Bar g}^{\beta}\|^2_2\leq \sum_{k=1}^{K}\alpha_{k}^2\sigma_{k}^{2}.$$
+\end{lemma}
+\begin{lemma}[Bound $\boldsymbol{{w}}^{\beta}_{k}$ divergence]
+Assuming Assumption 4 is satisfied and $\zeta_{\beta}\leq2\zeta_{\beta+E}$ is non-increasing $\forall~\beta\geq 1$, then we have:
+$$  \mathbb{E}\Bigg[\sum_{k=1}^{K}\alpha_{k}\|\boldsymbol{{\Bar w}}^{\beta}_{k}-\boldsymbol{{w}}^{\beta}_{k}\|^2_2\Bigg]\leq4\zeta_{{\beta}}^2(E-1)^2 G^2.$$
+\end{lemma}
+\begin{proof}
+Let $\Delta^\beta=\mathbb{E}\|\boldsymbol{\Bar {w}}^{\beta+1}_{k}-\boldsymbol{{w}}^*\|^2_2$, and $\boldsymbol{\Bar {w}}^{\beta+1}=\boldsymbol{\Bar {v}}^{\beta+1}$ in both scenarios, whether $\beta+1\in \mathcal{I}_E$ or $\beta+1 \notin \mathcal{I}_E$. Drawing upon the results of Lemmas 1-3, we have
+\begin{equation}
+    \Delta^{\beta+1}\leq(1-\zeta_{{\beta}} \varrho)\Delta^{\beta}+\zeta_{{\beta}}^2 Z
+\end{equation}
+For a decreasing step size, let $\zeta_{\beta}=\frac{\varepsilon}{\beta+ \delta}$, where $\varepsilon>\frac{1}{\varrho}$ and $\delta>0$ are chosen such that $\zeta_{1}\leq \min\{\frac{1}{\varrho}, \frac{1}{4\Lambda}\}=\frac{1}{4\Lambda}$, and $\zeta_{\beta}\leq 2\zeta_{\beta+E}$. We aim to prove that $\Delta^\beta\leq\frac{\tau}{\beta+\delta}$, where $\tau=\max\{\frac{\varepsilon^2 Z}{\varepsilon \varrho-1}, (\delta+1)\Delta^{1}\}$. \\
+To achieve this, we employ the induction method. Beginning with the base case of $\beta = 1$ and considering the definition of $\tau$, we ensure its hold  for some $\beta$ as follows
+\begin{align}\nonumber
+    \Delta^{\beta+1}&\leq(1-\zeta_{\beta}\varrho)\Delta^{\beta}+\zeta_{\beta}^2 Z \\\nonumber
+    &=\biggl(1-\frac{\varepsilon\varrho}{\beta+\delta}\biggl)\frac{\tau}{\beta+\delta}+\frac{\varepsilon^2Z}{(\beta+\delta)^2}\\\nonumber
+    &=\frac{\beta+\delta-1}{(\beta+\delta)^2}\tau+\biggl[\frac{\varepsilon^2Z}{(\beta+\delta)^2}-\frac{\varepsilon\varrho-1}{(\beta+\delta)^2}\tau\biggl]\\\nonumber
+    &\leq\frac{\tau}{\beta+\delta+1}\\\nonumber
+\end{align}
+Leveraging Assumption 2, which asserts the strong convexity of $F(\cdot)$, we obtain
+$$\mathbb{E}[F(\boldsymbol{\Bar w}^{\beta})]-F^*\leq \frac{\Lambda}{2}\Delta^{\beta}\leq\frac{\Lambda}{2}\frac{\tau}{\delta+\beta}.
+$$
+In particular, with the choice of $\varepsilon=\frac{2}{\varrho}$ and $\delta=\max\{8\frac{\Lambda}{\varrho}-1, E\}$, and denoting $\upsilon=\frac{\Lambda}{\varrho}$, we have $\zeta_{\beta}=\frac{2}{\varrho}\frac{1}{\delta+\beta}$, therefore
+$$\mathbb{E}[F(\boldsymbol{\Bar w}^{\beta})]-F^*\leq\frac{2\upsilon}{\delta+\beta}\biggl(\frac{Z}{\varrho}+2\Lambda\Delta^{1}\biggl)$$
+\end{proof}\vspace{-0.9cm}
+\end{appendices}
+\footnotesize{\small
+\bibliographystyle{IEEEtran}
+\bibliography{biblio.bib}}
+%\vskip 0pt plus -1fil
+%\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{mohmed_wihout.png}}]{Mohamed Elmahallawy} received his B.Sc. (first-class honors) in Electronics and Communications Engineering from the Higher Institute of Engineering in Elshorouk city, Egypt in 2012 and his M.Sc from the University of Rostock, Germany in 2019. He was a former graduate research assistant at the Department of Electrical and Computer Engineering at Tennessee Technological University, USA. Currently, he is working towards his Ph.D. at the Computer Science Department at Missouri University of Science and Technology, USA. His research interests include machine learning, federated learning, cryptography, network security, and privacy-preserving schemes for low Earth orbit satellite networks, Internet of Remote Things (IoRT), and medical applications.
+%\end{IEEEbiography}
+%\vskip -13pt plus -1fil
+%\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{Dr.Luo.png}}]{Tie Luo}  (GS’06–M’12–SM’19) earned his Ph.D. in Electrical and Computer Engineering from the National University of Singapore. Formerly a Program Lead and Research Scientist at the Institute for Infocomm Research, A*STAR, Singapore, he is currently an Associate Professor in the Computer Science Department at Missouri University of Science and Technology. His primary research encompasses trustworthy AI and medical applications, Internet of Things (IoT) analytics employing machine learning techniques, IoRT/IoMT security and privacy. His work on mobile crowdsourcing was featured in the IEEE Spectrum magazine. Dr. Luo was a recipient of the Best Paper Award nominee of IEEE INFOCOM 2015, the Best Paper Award of ICTC 2012, and the Best Student Paper Award of AAIM 2018. He delivered a Technical Tutorial at IEEE ICC 2016.
+%\end{IEEEbiography}
+%\vskip -13pt plus -1fil
+%\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{khaled.png}}]{Khaled Ramadan} received his B.Sc. from the Higher Institute of Engineering, Elshorouk city, Egypt in 2011, and his M.Sc. and Ph.D. from the Faculty of Electronic Engineering, Menoufia University, Egypt in 2018 and 2021, respectively. He is an assistant professor at the Communication and Computer Engineering Department at the Higher Institute of Engineering in Elshorouk City, Egypt. He has published several scientific papers in national and international conferences and journals. He has received the most-read paper from the International Journal of Communication Systems (IJCS) for 2018–2019. He has various online courses on the Udemy platform, and more than 1000 students from +50 countries around the world have enrolled in the courses with positive feedback. His research interests include multicarrier communication systems, Digital Signal Processing (DSP), digital communications, channel equalization, Carrier Frequency Offset (CFO) estimation and compensation, Underwater Acoustic (UWA) communication systems, and NOMA for 5G networks.
+%\end{IEEEbiography}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%\vskip -2pt plus -1fil
+
+%\vfill
+
+
+
+\end{document}
+
+

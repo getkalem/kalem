@@ -1,0 +1,257 @@
+\begin{thebibliography}{10}
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+\providecommand{\bibinfo}[2]{#2}
+\providecommand{\eprint}[2][]{\url{#2}}
+
+\bibitem{Ackels2021}
+\bibinfo{author}{Ackels, T.} \emph{et~al.}
+\newblock \bibinfo{title}{Fast odour dynamics are encoded in the olfactory system and guide behaviour}.
+\newblock \emph{\bibinfo{journal}{Nature}} \textbf{\bibinfo{volume}{593}}, \bibinfo{pages}{558--563} (\bibinfo{year}{2021}).
+
+\bibitem{Caruso2018}
+\bibinfo{author}{Caruso, V.~C.} \emph{et~al.}
+\newblock \bibinfo{title}{Single neurons may encode simultaneous stimuli by switching between activity patterns}.
+\newblock \emph{\bibinfo{journal}{Nature Communications}} \textbf{\bibinfo{volume}{9}} (\bibinfo{year}{2018}).
+
+\bibitem{Borghuis2019}
+\bibinfo{author}{Borghuis, B.}, \bibinfo{author}{Tadin, D.}, \bibinfo{author}{Lankheet, M.}, \bibinfo{author}{Lappin, J.} \& \bibinfo{author}{van~de Grind, W.}
+\newblock \bibinfo{title}{Temporal limits of visual motion processing: Psychophysics and neurophysiology}.
+\newblock \emph{\bibinfo{journal}{Vision}} \textbf{\bibinfo{volume}{3}}, \bibinfo{pages}{5} (\bibinfo{year}{2019}).
+
+\bibitem{Panzeri2010}
+\bibinfo{author}{Panzeri, S.}, \bibinfo{author}{Brunel, N.}, \bibinfo{author}{Logothetis, N.~K.} \& \bibinfo{author}{Kayser, C.}
+\newblock \bibinfo{title}{Sensory neural codes using multiplexed temporal scales}.
+\newblock \emph{\bibinfo{journal}{Trends in Neurosciences}} \textbf{\bibinfo{volume}{33}}, \bibinfo{pages}{111--120} (\bibinfo{year}{2010}).
+
+\bibitem{Hubel1962}
+\bibinfo{author}{Hubel, D.~H.} \& \bibinfo{author}{Wiesel, T.~N.}
+\newblock \bibinfo{title}{Receptive fields, binocular interaction and functional architecture in the cat{\textquotesingle}s visual cortex}.
+\newblock \emph{\bibinfo{journal}{The Journal of Physiology}} \textbf{\bibinfo{volume}{160}}, \bibinfo{pages}{106--154} (\bibinfo{year}{1962}).
+
+\bibitem{Jones1987}
+\bibinfo{author}{Jones, J.~P.} \& \bibinfo{author}{Palmer, L.~A.}
+\newblock \bibinfo{title}{An evaluation of the two-dimensional gabor filter model of simple receptive fields in cat striate cortex}.
+\newblock \emph{\bibinfo{journal}{Journal of Neurophysiology}} \textbf{\bibinfo{volume}{58}}, \bibinfo{pages}{1233--1258} (\bibinfo{year}{1987}).
+
+\bibitem{Olshausen1996}
+\bibinfo{author}{Olshausen, B.~A.} \& \bibinfo{author}{Field, D.~J.}
+\newblock \bibinfo{title}{Emergence of simple-cell receptive field properties by learning a sparse code for natural images}.
+\newblock \emph{\bibinfo{journal}{Nature}} \textbf{\bibinfo{volume}{381}}, \bibinfo{pages}{607--609} (\bibinfo{year}{1996}).
+
+\bibitem{LeCun2015}
+\bibinfo{author}{LeCun, Y.}, \bibinfo{author}{Bengio, Y.} \& \bibinfo{author}{Hinton, G.}
+\newblock \bibinfo{title}{Deep learning}.
+\newblock \emph{\bibinfo{journal}{Nature}} \textbf{\bibinfo{volume}{521}}, \bibinfo{pages}{436--444} (\bibinfo{year}{2015}).
+
+\bibitem{Hassabis2017}
+\bibinfo{author}{Hassabis, D.}, \bibinfo{author}{Kumaran, D.}, \bibinfo{author}{Summerfield, C.} \& \bibinfo{author}{Botvinick, M.}
+\newblock \bibinfo{title}{Neuroscience-inspired artificial intelligence}.
+\newblock \emph{\bibinfo{journal}{Neuron}} \textbf{\bibinfo{volume}{95}}, \bibinfo{pages}{245--258} (\bibinfo{year}{2017}).
+
+\bibitem{KhalighRazavi2014}
+\bibinfo{author}{Khaligh-Razavi, S.-M.} \& \bibinfo{author}{Kriegeskorte, N.}
+\newblock \bibinfo{title}{Deep supervised, but not unsupervised, models may explain it cortical representation}.
+\newblock \emph{\bibinfo{journal}{Plos Computational Biology}} \textbf{\bibinfo{volume}{10}}, \bibinfo{pages}{e1003915} (\bibinfo{year}{2014}).
+
+\bibitem{Cichy2016}
+\bibinfo{author}{Cichy, R.~M.}, \bibinfo{author}{Khosla, A.}, \bibinfo{author}{Pantazis, D.}, \bibinfo{author}{Torralba, A.} \& \bibinfo{author}{Oliva, A.}
+\newblock \bibinfo{title}{Comparison of deep neural networks to spatio-temporal cortical dynamics of human visual object recognition reveals hierarchical correspondence}.
+\newblock \emph{\bibinfo{journal}{Scientific Reports}} \textbf{\bibinfo{volume}{6}} (\bibinfo{year}{2016}).
+
+\bibitem{Li2023}
+\bibinfo{author}{Li, Y.} \emph{et~al.}
+\newblock \bibinfo{title}{Dissecting neural computations in the human auditory pathway using deep neural networks for speech}.
+\newblock \emph{\bibinfo{journal}{Nature Neuroscience}}  (\bibinfo{year}{2023}).
+
+\bibitem{Tomko1974}
+\bibinfo{author}{Tomko, G.~J.} \& \bibinfo{author}{Crapper, D.~R.}
+\newblock \bibinfo{title}{Neuronal variability: non-stationary responses to identical visual stimuli}.
+\newblock \emph{\bibinfo{journal}{Brain Research}} \textbf{\bibinfo{volume}{79}}, \bibinfo{pages}{405--418} (\bibinfo{year}{1974}).
+
+\bibitem{Tolhurst1983}
+\bibinfo{author}{Tolhurst, D.}, \bibinfo{author}{Movshon, J.} \& \bibinfo{author}{Dean, A.}
+\newblock \bibinfo{title}{The statistical reliability of signals in single neurons in cat and monkey visual cortex}.
+\newblock \emph{\bibinfo{journal}{Vision Research}} \textbf{\bibinfo{volume}{23}}, \bibinfo{pages}{775--785} (\bibinfo{year}{1983}).
+
+\bibitem{Softky1993}
+\bibinfo{author}{Softky, W.} \& \bibinfo{author}{Koch, C.}
+\newblock \bibinfo{title}{The highly irregular firing of cortical cells is inconsistent with temporal integration of random {EPSPs}}.
+\newblock \emph{\bibinfo{journal}{The Journal of Neuroscience}} \textbf{\bibinfo{volume}{13}}, \bibinfo{pages}{334--350} (\bibinfo{year}{1993}).
+
+\bibitem{Koenig1996}
+\bibinfo{author}{König, P.}, \bibinfo{author}{Engel, A.~K.} \& \bibinfo{author}{Singer, W.}
+\newblock \bibinfo{title}{Integrator or coincidence detector? the role of the cortical neuron revisited}.
+\newblock \emph{\bibinfo{journal}{Trends in Neurosciences}} \textbf{\bibinfo{volume}{19}}, \bibinfo{pages}{130--137} (\bibinfo{year}{1996}).
+
+\bibitem{Panzeri2017}
+\bibinfo{author}{Panzeri, S.}, \bibinfo{author}{Harvey, C.~D.}, \bibinfo{author}{Piasini, E.}, \bibinfo{author}{Latham, P.~E.} \& \bibinfo{author}{Fellin, T.}
+\newblock \bibinfo{title}{Cracking the neural code for sensory perception by combining statistics, intervention, and behavior}.
+\newblock \emph{\bibinfo{journal}{Neuron}} \textbf{\bibinfo{volume}{93}}, \bibinfo{pages}{491--507} (\bibinfo{year}{2017}).
+
+\bibitem{Golledge2003}
+\bibinfo{author}{Golledge, H. D.~R.} \emph{et~al.}
+\newblock \bibinfo{title}{Correlations, feature-binding and population coding in primary visual cortex}.
+\newblock \emph{\bibinfo{journal}{{NeuroReport}}} \textbf{\bibinfo{volume}{14}}, \bibinfo{pages}{1045--1050} (\bibinfo{year}{2003}).
+
+\bibitem{montani2007role}
+\bibinfo{author}{Montani, F.}, \bibinfo{author}{Kohn, A.}, \bibinfo{author}{Smith, M.~A.} \& \bibinfo{author}{Schultz, S.~R.}
+\newblock \bibinfo{title}{The role of correlations in direction and contrast coding in the primary visual cortex}.
+\newblock \emph{\bibinfo{journal}{The Journal of Neuroscience}} \textbf{\bibinfo{volume}{27}}, \bibinfo{pages}{2338--2348} (\bibinfo{year}{2007}).
+
+\bibitem{Rolls2011}
+\bibinfo{author}{Rolls, E.~T.} \& \bibinfo{author}{Treves, A.}
+\newblock \bibinfo{title}{The neuronal encoding of information in the brain}.
+\newblock \emph{\bibinfo{journal}{Progress in Neurobiology}} \textbf{\bibinfo{volume}{95}}, \bibinfo{pages}{448--490} (\bibinfo{year}{2011}).
+
+\bibitem{Shamir2004}
+\bibinfo{author}{Shamir, M.} \& \bibinfo{author}{Sompolinsky, H.}
+\newblock \bibinfo{title}{Nonlinear population codes}.
+\newblock \emph{\bibinfo{journal}{Neural Computation}} \textbf{\bibinfo{volume}{16}}, \bibinfo{pages}{1105--1136} (\bibinfo{year}{2004}).
+
+\bibitem{Averbeck2006a}
+\bibinfo{author}{Averbeck, B.~B.} \& \bibinfo{author}{Lee, D.}
+\newblock \bibinfo{title}{Effects of noise correlations on information encoding and decoding}.
+\newblock \emph{\bibinfo{journal}{Journal of Neurophysiology}} \textbf{\bibinfo{volume}{95}}, \bibinfo{pages}{3633--3644} (\bibinfo{year}{2006}).
+
+\bibitem{Pillow2008}
+\bibinfo{author}{Pillow, J.~W.} \emph{et~al.}
+\newblock \bibinfo{title}{Spatio-temporal correlations and visual signalling in a complete neuronal population}.
+\newblock \emph{\bibinfo{journal}{Nature}} \textbf{\bibinfo{volume}{454}}, \bibinfo{pages}{995--999} (\bibinfo{year}{2008}).
+
+\bibitem{ElGaby2021}
+\bibinfo{author}{El-Gaby, M.} \emph{et~al.}
+\newblock \bibinfo{title}{An emergent neural coactivity code for dynamic memory}.
+\newblock \emph{\bibinfo{journal}{Nature Neuroscience}} \textbf{\bibinfo{volume}{24}}, \bibinfo{pages}{694--704} (\bibinfo{year}{2021}).
+
+\bibitem{panzeri2022structures-reviews}
+\bibinfo{author}{Panzeri, S.}, \bibinfo{author}{Moroni, M.}, \bibinfo{author}{Safaai, H.} \& \bibinfo{author}{Harvey, C.~D.}
+\newblock \bibinfo{title}{The structures and functions of correlations in neural population codes}.
+\newblock \emph{\bibinfo{journal}{Nature Reviews Neuroscience}} \textbf{\bibinfo{volume}{23}}, \bibinfo{pages}{551--567} (\bibinfo{year}{2022}).
+
+\bibitem{Pola2003}
+\bibinfo{author}{Pola, G.}, \bibinfo{author}{Thiele, A.}, \bibinfo{author}{Hoffmann, K.-P.} \& \bibinfo{author}{Panzeri, S.}
+\newblock \bibinfo{title}{An exact method to quantify the information transmitted by different mechanisms of correlational coding}.
+\newblock \emph{\bibinfo{journal}{Network: Computation in Neural Systems}} \textbf{\bibinfo{volume}{14}}, \bibinfo{pages}{35--60} (\bibinfo{year}{2003}).
+
+\bibitem{Schneidman2003}
+\bibinfo{author}{Schneidman, E.}, \bibinfo{author}{Bialek, W.} \& \bibinfo{author}{Berry, M.~J.}
+\newblock \bibinfo{title}{Synergy, redundancy, and independence in population codes}.
+\newblock \emph{\bibinfo{journal}{The Journal of Neuroscience}} \textbf{\bibinfo{volume}{23}}, \bibinfo{pages}{11539--11553} (\bibinfo{year}{2003}).
+
+\bibitem{quiroga2013principles}
+\bibinfo{author}{Quiroga, R.~Q.} \& \bibinfo{author}{Panzeri, S.}
+\newblock \emph{\bibinfo{title}{Principles of neural coding}} (\bibinfo{publisher}{CRC Press}, \bibinfo{year}{2013}).
+
+\bibitem{DiCarlo2007}
+\bibinfo{author}{DiCarlo, J.~J.} \& \bibinfo{author}{Cox, D.~D.}
+\newblock \bibinfo{title}{Untangling invariant object recognition}.
+\newblock \emph{\bibinfo{journal}{Trends in Cognitive Sciences}} \textbf{\bibinfo{volume}{11}}, \bibinfo{pages}{333--341} (\bibinfo{year}{2007}).
+
+\bibitem{DiCarlo2012}
+\bibinfo{author}{DiCarlo, J.}, \bibinfo{author}{Zoccolan, D.} \& \bibinfo{author}{Rust, N.}
+\newblock \bibinfo{title}{How does the brain solve visual object recognition?}
+\newblock \emph{\bibinfo{journal}{Neuron}} \textbf{\bibinfo{volume}{73}}, \bibinfo{pages}{415--434} (\bibinfo{year}{2012}).
+
+\bibitem{Feng2006}
+\bibinfo{author}{Feng, J.}, \bibinfo{author}{Deng, Y.} \& \bibinfo{author}{Rossoni, E.}
+\newblock \bibinfo{title}{Dynamics of moment neuronal networks}.
+\newblock \emph{\bibinfo{journal}{Physical Review E}} \textbf{\bibinfo{volume}{73}}, \bibinfo{pages}{041906} (\bibinfo{year}{2006}).
+
+\bibitem{Lu2010}
+\bibinfo{author}{Lu, W.}, \bibinfo{author}{Rossoni, E.} \& \bibinfo{author}{Feng, J.}
+\newblock \bibinfo{title}{On a gaussian neuronal field model}.
+\newblock \emph{\bibinfo{journal}{{NeuroImage}}} \textbf{\bibinfo{volume}{52}}, \bibinfo{pages}{913--933} (\bibinfo{year}{2010}).
+
+\bibitem{Qi2023}
+\bibinfo{author}{Qi, Y.} \emph{et~al.}
+\newblock \bibinfo{title}{Toward spike-based stochastic neural computing}  (\bibinfo{year}{2023}).
+\newblock \eprint{2305.13982}.
+
+\bibitem{Sclar1982}
+\bibinfo{author}{Sclar, G.} \& \bibinfo{author}{Freeman, R.~D.}
+\newblock \bibinfo{title}{Orientation selectivity in the cat’s striate cortex is invariant with stimulus contrast}.
+\newblock \emph{\bibinfo{journal}{Experimental Brain Research}} \textbf{\bibinfo{volume}{46}}, \bibinfo{pages}{457--461} (\bibinfo{year}{1982}).
+
+\bibitem{Kohn2005}
+\bibinfo{author}{Kohn, A.}
+\newblock \bibinfo{title}{Stimulus dependence of neuronal correlation in primary visual cortex of the macaque}.
+\newblock \emph{\bibinfo{journal}{Journal Of Neuroscience}} \textbf{\bibinfo{volume}{25}}, \bibinfo{pages}{3661--3673} (\bibinfo{year}{2005}).
+
+\bibitem{Theunissen1995}
+\bibinfo{author}{Theunissen, F.} \& \bibinfo{author}{Miller, J.~P.}
+\newblock \bibinfo{title}{Temporal encoding in nervous systems: A rigorous definition}.
+\newblock \emph{\bibinfo{journal}{Journal of Computational Neuroscience}} \textbf{\bibinfo{volume}{2}}, \bibinfo{pages}{149--162} (\bibinfo{year}{1995}).
+
+\bibitem{de2007correlation}
+\bibinfo{author}{De~La~Rocha, J.}, \bibinfo{author}{Doiron, B.}, \bibinfo{author}{Shea-Brown, E.}, \bibinfo{author}{Josi{\'c}, K.} \& \bibinfo{author}{Reyes, A.}
+\newblock \bibinfo{title}{Correlation between neural spike trains increases with firing rate}.
+\newblock \emph{\bibinfo{journal}{Nature}} \textbf{\bibinfo{volume}{448}}, \bibinfo{pages}{802--806} (\bibinfo{year}{2007}).
+
+\bibitem{Ma2006}
+\bibinfo{author}{Ma, W.~J.}, \bibinfo{author}{Beck, J.~M.}, \bibinfo{author}{Latham, P.~E.} \& \bibinfo{author}{Pouget, A.}
+\newblock \bibinfo{title}{Bayesian inference with probabilistic population codes}.
+\newblock \emph{\bibinfo{journal}{Nature Neuroscience}} \textbf{\bibinfo{volume}{9}}, \bibinfo{pages}{1432--1438} (\bibinfo{year}{2006}).
+
+\bibitem{Averbeck2006}
+\bibinfo{author}{Averbeck, B.~B.}, \bibinfo{author}{Latham, P.~E.} \& \bibinfo{author}{Pouget, A.}
+\newblock \bibinfo{title}{Neural correlations, population coding and computation}.
+\newblock \emph{\bibinfo{journal}{Nature Reviews Neuroscience}} \textbf{\bibinfo{volume}{7}}, \bibinfo{pages}{358--366} (\bibinfo{year}{2006}).
+
+\bibitem{Kriegeskorte2021}
+\bibinfo{author}{Kriegeskorte, N.} \& \bibinfo{author}{Wei, X.-X.}
+\newblock \bibinfo{title}{Neural tuning and representational geometry}.
+\newblock \emph{\bibinfo{journal}{Nature Reviews Neuroscience}} \textbf{\bibinfo{volume}{22}}, \bibinfo{pages}{703--718} (\bibinfo{year}{2021}).
+
+\bibitem{WahCUB_200_2011}
+\bibinfo{author}{Wah, C.}, \bibinfo{author}{Branson, S.}, \bibinfo{author}{Welinder, P.}, \bibinfo{author}{Perona, P.} \& \bibinfo{author}{Belongie, S.}
+\newblock \bibinfo{title}{The caltech-ucsd birds-200-2011 dataset}.
+\newblock \bibinfo{type}{Tech. Rep.} \bibinfo{number}{CNS-TR-2011-001} (\bibinfo{year}{2011}).
+
+\bibitem{Wei2022}
+\bibinfo{author}{Wei, X.-S.} \emph{et~al.}
+\newblock \bibinfo{title}{Fine-grained image analysis with deep learning: A survey}.
+\newblock \emph{\bibinfo{journal}{IEEE Transactions on Pattern Analysis and Machine Intelligence}} \textbf{\bibinfo{volume}{44}}, \bibinfo{pages}{8927--8948} (\bibinfo{year}{2022}).
+
+\bibitem{simonyan2014very}
+\bibinfo{author}{Simonyan, K.} \& \bibinfo{author}{Zisserman, A.}
+\newblock \bibinfo{title}{Very deep convolutional networks for large-scale image recognition}.
+\newblock \emph{\bibinfo{journal}{Arxiv Preprint Arxiv:1409.1556}}  (\bibinfo{year}{2014}).
+
+\bibitem{Wang2020}
+\bibinfo{author}{Wang, Q.}, \bibinfo{author}{Xie, J.}, \bibinfo{author}{Zuo, W.}, \bibinfo{author}{Zhang, L.} \& \bibinfo{author}{Li, P.}
+\newblock \bibinfo{title}{Deep cnns meet global covariance pooling: Better representation and generalization}.
+\newblock \emph{\bibinfo{journal}{IEEE Transactions on Pattern Analysis and Machine Intelligence}} \bibinfo{pages}{1--1} (\bibinfo{year}{2020}).
+
+\bibitem{Song2022}
+\bibinfo{author}{Song, Y.}, \bibinfo{author}{Sebe, N.} \& \bibinfo{author}{Wang, W.}
+\newblock \bibinfo{title}{On the eigenvalues of global covariance pooling for fine-grained visual recognition}.
+\newblock \emph{\bibinfo{journal}{IEEE Transactions on Pattern Analysis and Machine Intelligence}} \bibinfo{pages}{1--1} (\bibinfo{year}{2022}).
+
+\bibitem{Malnic1999}
+\bibinfo{author}{Malnic, B.}, \bibinfo{author}{Hirono, J.}, \bibinfo{author}{Sato, T.} \& \bibinfo{author}{Buck, L.~B.}
+\newblock \bibinfo{title}{Combinatorial receptor codes for odors}.
+\newblock \emph{\bibinfo{journal}{Cell}} \textbf{\bibinfo{volume}{96}}, \bibinfo{pages}{713--723} (\bibinfo{year}{1999}).
+
+\bibitem{Osborne2008}
+\bibinfo{author}{Osborne, L.~C.}, \bibinfo{author}{Palmer, S.~E.}, \bibinfo{author}{Lisberger, S.~G.} \& \bibinfo{author}{Bialek, W.}
+\newblock \bibinfo{title}{The neural basis for combinatorial coding in a cortical population response}.
+\newblock \emph{\bibinfo{journal}{The Journal of Neuroscience}} \textbf{\bibinfo{volume}{28}}, \bibinfo{pages}{13522--13531} (\bibinfo{year}{2008}).
+
+\bibitem{piasini2021temporal}
+\bibinfo{author}{Piasini, E.} \emph{et~al.}
+\newblock \bibinfo{title}{Temporal stability of stimulus representation increases along rodent visual cortical hierarchies}.
+\newblock \emph{\bibinfo{journal}{Nature Communications}} \textbf{\bibinfo{volume}{12}}, \bibinfo{pages}{4448} (\bibinfo{year}{2021}).
+
+\bibitem{Siegle2021}
+\bibinfo{author}{Siegle, J.~H.} \emph{et~al.}
+\newblock \bibinfo{title}{Survey of spiking in the mouse visual system reveals functional hierarchy}.
+\newblock \emph{\bibinfo{journal}{Nature}} \textbf{\bibinfo{volume}{592}}, \bibinfo{pages}{86--92} (\bibinfo{year}{2021}).
+
+\bibitem{Payeur2021}
+\bibinfo{author}{Payeur, A.}, \bibinfo{author}{Guerguiev, J.}, \bibinfo{author}{Zenke, F.}, \bibinfo{author}{Richards, B.~A.} \& \bibinfo{author}{Naud, R.}
+\newblock \bibinfo{title}{Burst-dependent synaptic plasticity can coordinate learning in hierarchical circuits}.
+\newblock \emph{\bibinfo{journal}{Nature Neuroscience}} \textbf{\bibinfo{volume}{24}}, \bibinfo{pages}{1010--1019} (\bibinfo{year}{2021}).
+
+\end{thebibliography}

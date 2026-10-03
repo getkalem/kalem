@@ -1,0 +1,51 @@
+
+
+
+\subsection{Influence of $\lambda_{GAN}$ and $\lambda_{PER}$ in OPP}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{Table/Appendix_Ablation_Generative_Objectives}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We study the influence of $\lambda_{GAN}$ and $\lambda_{PER}$ in Tab. \ref{tab:ablation_generative_objectives}. In line with Sec. \ref{sec:ablation_OPP}, we report the performance of the $10\%$ instances from the test set of the ShapeNet Cars category. We first fix $\lambda_{PER}$ as $1e^{-2}$ and then vary $\lambda_{GAN}$ as $\{1e^{-4}, 1e^{-3}, 1e^{-2}\}$. Obviously, $\lambda_{GAN} = 1e^{-3}$ gives the best performance. Then, we fix $\lambda_{GAN}$ as $1e^{-3}$, and vary $\lambda_{PER}$ as $\{1e^{-3}, 1e^{-2}, 1e^{-1}\}$, and find that $\lambda_{PER} = 1e^{-2}$ performs better.  We notice that the weight used in this work is much smaller than the previous GAN methods, \eg, $\lambda_{GAN}=\lambda_{PER}=5$ in \cite{Pix2NeRF_cai2022pix2nerf}. We infer that this is due to the functional difference of the GAN model between us. Specifically, in our work, the intermediate feature map $\textbf{I}_m$ already contains the coarse information provided by the OG-NeRF model, and the GAN model merely needs to refine the coarse input with learned prior. Therefore, too large weight will lead to over-imagination. While in \cite{Pix2NeRF_cai2022pix2nerf}, the captured prior by the GAN model is the main component for final outputs, therefore they require a larger weight.
+
+
+\subsection{Efficiency Analysis of OPP}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{Table/Appendix_Efficiency}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{Sec:efficiency}
+We report the efficiency comparisons with PixelNeRF in Table \ref{tab:ablation_efficiency}. With only an additional lightweight up-sampling module and several modifications on fully connected layers, the parameter number of our OPP is only $0.41M$ higher than PixelNeRF. During the inference stage, we need to forward two times, \ie, one full-sized ($H \times W$) rendering for getting $\hat{\textbf{I}}^{N}$ (same as PixelNeRF) and confidence map $M$, and one additional $H_m \times W_m$ rendering for $\hat{\textbf{I}}^{G}$. However, the CoRF MLP and up-sampling module are rather lightweight ($0.09M$, $0.11M$), and  $\hat{\textbf{I}}^{G}$ requires substantially fewer query points than $\hat{\textbf{I}}^N$. Therefore, rendering $\hat{\textbf{I}}^{G}$ and $M$ are over $40$ and $24$ times faster than $\hat{\textbf{I}}^{N}$ ($21.50$ \textit{vs.} $0.49$ FPS and $11.90$ \textit{vs.} $0.49$ FPS). In a nutshell, the inference speed is hardly affected.
+
+
+\subsection{Comparisons of Computation Cost between OPP and Recent Works}
+\input{./Table/Appendix_ComputationWithRecent}
+Recent works~\cite{lin2023visionnerf,gu2023nerfdiff} are not listed as competitors in Tab.~\ref{tab:category_specific} since they employ much heavier architecture with more computation cost, as illustrated in Tab.~\ref{tab:appendix_computationwithrecent}. Note that, except for the larger parameter number and training cost, NeRFDiff~\cite{gu2023nerfdiff} requires additional per-scene finetuning. In contrast, built on top of PixelNeRF, our OPP is quite lightweight, and requires no per-scene finetuning.
+
+
+% \section{Few-shot Extension}
+% \input{Table/Fewshot_Extension}
+% We validate the effectiveness of our method under the few-shot setting in Table~\ref{tab:fewshot_extension} on the DTU dataset. Similar as PixelNeRF, our framework works well with few-shot settings by simply averaging inputs from difference views after the first MLP of CoRF for predicting the confidence score $\alpha$.
+
+
+% \subsection{Additional Visualization of CoRF \& DPF}
+% \input{Figure/Appendix_CORF}
+% \input{Figure/Appendix_CORF_SRN_CHAIRS}
+% % \input{Figure/Appendix_CORF_NMR}
+% \input{Figure/Appendix_CORF_DTU}
+% We provide additional visualization examples of CoRF and DPF in Fig. \ref{fig_appendix_corf_srn_cars}
+% -
+% Fig. \ref{fig_appendix_corf_dtu}.
+
+
+% \subsection{Comparisons with State-of-the-art}
+% % \vspace{-2mm}
+% We provide additional visualization examples for ShapeNet category-agnostic setting (Fig. \ref{fig_appendix_nmr_p1_vis}-\ref{fig_appendix_nmr_p3_vis}), ShapeNet category-specific setting (Fig. \ref{fig_appendix_srn_car_vis}-\ref{fig_appendix_srn_chair_vis}), and DTU dataset (Fig. \ref{fig_appendix_dtu_vis}), respectively. 
+
+% \input{Figure/Appendix_NMR_p1_VIS}
+% \input{Figure/Appendix_NMR_p2_VIS}
+% \input{Figure/Appendix_NMR_p3_VIS}
+
+% \input{Figure/Appendix_SRN_CAR_VIS}
+% \input{Figure/Appendix_SRN_CHAIR}
+% \input{Figure/Appendix_DTU_VIS}
+
+

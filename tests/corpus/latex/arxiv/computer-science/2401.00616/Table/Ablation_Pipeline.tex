@@ -1,0 +1,24 @@
+\begin{table}[t]
+\setlength{\abovecaptionskip}{0cm}
+\footnotesize
+     \caption{\textbf{ Ablation of different pipelines (\S~\ref{sec:ablation_OPP}).} Compared with the independently trained OG-NeRF model and two basic tandem pipelines: Two-stage Tandem Pipeline (TTP) and One-stage Tandem Pipeline (OTP), our final One-stage Parallel Pipeline (OPP) achieves more balanced fidelity and sharpness.}
+     % \vspace{-2mm}
+\label{tab:ablation_pipelines}
+
+    \setlength\tabcolsep{11pt}
+    \begin{tabular}{l|cccc}
+    \rowcolor[gray]{.9}
+    \hline
+     & \multicolumn{2}{c}{Fidelity}       & \multicolumn{2}{c}{Sharpness}                       \\
+ \rowcolor[gray]{.9}
+    Methods           & $\uparrow$ PSNR                & $\uparrow$ SSIM               & $\downarrow$ LPIPS      & $\downarrow$ FID \\ \hline \hline
+    
+                                               
+    OG-NeRF                   & \cs{23.61}                         & \cs{0.907}                           & 0.113                      &   69.85    \\
+    TTP       &    22.31                        &     0.899                      &        \cs{0.089}        &  48.22   \\ 
+    OTP         &  23.11                &    0.900                       &   \cb{0.086}        &  \cs{40.00}                 \\ 
+
+    \textbf{OPP (ours)} & \cb{23.69}      & \cb{0.910}     & {0.091} & \cb{39.70} \\ \hline
+    \end{tabular}
+
+\end{table}
