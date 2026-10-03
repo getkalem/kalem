@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- A nightly fuzzing workflow: the Org and LaTeX parsers and their incremental reparses a quarter of an hour each, the corpus kept between nights.
+- `kalem book check --changed BASE`: the Book chapters (`book/chapters.toml`) whose code changed without them; the Book's workflow runs it on every pull request.
 - SyncTeX lookups take microseconds on a 210-page paper (indexed records; the file read once a build), measured by the `synctex_timing` example.
 - A math corpus against KaTeX: the renderer reads every formula KaTeX 0.16 renders among the 57,460 of the Open Logic Project and the HoTT book; a thousand are kept as a test (`tests/corpus/math/katex-corpus.txt`).
 - `kalem latex-coverage` reports coverage per paper: how many papers of each field meet the target, and those showing the most source (every paper in `--format json`); the Book's limitations page shows them.
