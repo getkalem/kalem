@@ -82,7 +82,10 @@ pub struct Synctex {
     /// The input files by number, as written (absolute, or relative to
     /// the PDF's folder).
     pub inputs: HashMap<u32, PathBuf>,
+    /// In page order, as the file has them.
     pub records: Vec<Record>,
+    /// The records of each input file, by index, in line order.
+    by_tag: HashMap<u32, Vec<usize>>,
 }
 
 /// Scaled points to PDF points.
@@ -97,6 +100,25 @@ impl Synctex {
             .iter()
             .map(|ext| pdf.with_extension(ext))
             .find(|p| p.is_file())
+    }
+
+    /// The SyncTeX file of `pdf`, read once for each version of it: the
+    /// last one read is kept until the build writes it again.
+    pub fn cached(pdf: &Path) -> Option<std::sync::Arc<Synctex>> {
+        type Kept = Option<(PathBuf, std::time::SystemTime, std::sync::Arc<Synctex>)>;
+        static LAST: std::sync::Mutex<Kept> = std::sync::Mutex::new(None);
+        let file = Synctex::for_pdf(pdf)?;
+        let modified = std::fs::metadata(&file).and_then(|m| m.modified()).ok()?;
+        let mut last = LAST.lock().ok()?;
+        if let Some((f, m, st)) = last.as_ref()
+            && *f == file
+            && *m == modified
+        {
+            return Some(st.clone());
+        }
+        let st = std::sync::Arc::new(Synctex::load(&file).ok()?);
+        *last = Some((file, modified, st.clone()));
+        Some(st)
     }
 
     /// Reads a SyncTeX file, compressed or not.
@@ -170,7 +192,21 @@ impl Synctex {
                 _ => {}
             }
         }
+        for (i, r) in st.records.iter().enumerate() {
+            st.by_tag.entry(r.tag).or_default().push(i);
+        }
+        // By line, page order kept within a line.
+        for v in st.by_tag.values_mut() {
+            v.sort_by_key(|&i| st.records[i].line);
+        }
         st
+    }
+
+    /// The records of page `page`.
+    fn page(&self, page: usize) -> std::ops::Range<usize> {
+        let start = self.records.partition_point(|r| r.page < page);
+        let end = self.records.partition_point(|r| r.page <= page);
+        start..end
     }
 
     fn input(&mut self, rest: &str) {
@@ -208,14 +244,25 @@ impl Synctex {
     /// there. A line that typesets nothing (a blank line, a comment) goes
     /// to the next one that does.
     pub fn forward(&self, file: &Path, line: usize) -> Option<Place> {
-        let tags = self.tags_of(file);
-        let from = |r: &&Record| tags.contains(&r.tag) && r.line >= line;
-        // The nearest line at or after it that has records.
-        let target = self.records.iter().filter(from).map(|r| r.line).min()?;
-        let hits: Vec<&Record> = self
-            .records
+        let lists: Vec<&Vec<usize>> = self
+            .tags_of(file)
             .iter()
-            .filter(|r| tags.contains(&r.tag) && r.line == target)
+            .filter_map(|t| self.by_tag.get(t))
+            .collect();
+        let line_of = |i: usize| self.records[i].line;
+        // The nearest line at or after it that has records.
+        let target = lists
+            .iter()
+            .filter_map(|v| v.get(v.partition_point(|&i| line_of(i) < line)))
+            .map(|&i| line_of(i))
+            .min()?;
+        let hits: Vec<&Record> = lists
+            .iter()
+            .flat_map(|v| {
+                let from = v.partition_point(|&i| line_of(i) < target);
+                let to = v.partition_point(|&i| line_of(i) <= target);
+                v[from..to].iter().map(|&i| &self.records[i])
+            })
             .collect();
         let page = hits.iter().map(|r| r.page).min()?;
         // The lines of text holding the line's material, or the material
@@ -254,11 +301,12 @@ impl Synctex {
     /// (PDF points from its top left corner) comes from: the line of text
     /// nearest the point, and in it the material nearest the point.
     pub fn inverse(&self, page: usize, x: f64, y: f64) -> Option<(PathBuf, usize)> {
-        let line = self
-            .records
+        let on_page = self.page(page);
+        let line = self.records[on_page.clone()]
             .iter()
             .enumerate()
-            .filter(|(_, r)| r.page == page && r.is_line())
+            .map(|(k, r)| (on_page.start + k, r))
+            .filter(|(_, r)| r.is_line())
             .min_by(|(_, a), (_, b)| {
                 (a.dy(y), a.dx(x), a.width * (a.height + a.depth))
                     .partial_cmp(&(b.dy(y), b.dx(x), b.width * (b.height + b.depth)))
@@ -268,10 +316,9 @@ impl Synctex {
         // The material of that line nearest the point, as `synctex edit`
         // takes it: a boundary (`x`, often the paragraph's last line where
         // TeX broke it) only when the line holds nothing else.
-        let pick = self
-            .records
+        let pick = self.records[on_page]
             .iter()
-            .filter(|r| r.page == page && r.parent == Some(i))
+            .filter(|r| r.parent == Some(i))
             .min_by(|a, b| {
                 (a.kind == 'x', a.dx(x))
                     .partial_cmp(&(b.kind == 'x', b.dx(x)))

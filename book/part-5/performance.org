@@ -44,6 +44,7 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | LaTeX mode, 1 MB paper: a keystroke with the model, the blocks and a screen of 50 lines, p50 / p99 (=kalem-core --example latex_timing=) | 10.7 ms / 15.8 ms        | under 16 ms         |
 | LaTeX mode, 10 MB paper: opening (=SIZE=10000000=)                                                                                      | 0.49 s                   | under 1 s           |
 | LaTeX mode, 10 MB paper: a keystroke with the model, the blocks and a screen, p50 (typing / screen / blocks, =PARTS=1=)                   | 78 ms (9.9 / 41 / 26)    | ---                 |
+| SyncTeX, a 210-page paper (338,460 records): a lookup from the source / from the page, p50 (=kalem-core --example synctex_timing=); reading the file once a build | 31 µs / 4 µs; 0.1 s   | under 10 ms         |
 | LaTeX project, keystroke in the Stacks project's 1.8 MB =algebra.tex=: the project's model, p50 (=latex_keystroke=)                      | 2.2 ms (was 21 ms)       | under 2 ms          |
 
 Every target is met but the last, a fifth over it on this machine. An edit that only moves the events of a file (typing in a paragraph, the common keystroke) moves the last model's positions instead of numbering the project again; the edit's region comes from the shared nodes of the two trees, and a test of random edits checks the result against a model built from scratch (=latex-model/tests/incremental.rs=). The files of the project are trusted from disk for a second between checks.
