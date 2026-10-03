@@ -260,6 +260,27 @@ fn cells_rows_undo_and_save() {
         "1300"
     );
 
+    // B3:C4 selected and deleted: one step, undone as one.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Right,
+        KeyModifiers::SHIFT,
+    )));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Down,
+        KeyModifiers::SHIFT,
+    )));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().selection_tsv(),
+        "431.50\t512.25\n0.00\t950.00"
+    );
+    t.key(KeyCode::Delete);
+    assert_eq!(input(&mut t, 2, 1), "");
+    assert_eq!(input(&mut t, 3, 2), "");
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 2, 1), "431.5");
+    assert_eq!(input(&mut t, 3, 2), "950");
+
     // Wrap Text on a long text: the row grows to its lines.
     let long = "Paid on the first of every month, by bank transfer";
     t.app.run_command(

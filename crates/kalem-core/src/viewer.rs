@@ -945,6 +945,44 @@ impl ViewerState {
             .any(|(r, c, cell)| (*r, *c) != (s[0], s[1]) && !cell.text.is_empty())
     }
 
+    /// Clears the selection's values, formats kept (Delete).
+    pub fn clear_selection(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        self.doc
+            .clear_cells(self.unit, s)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The selection as tab-separated text, rows on lines, as spreadsheets
+    /// copy it: each cell as shown, quoted when it holds a tab, a line
+    /// break or a quote.
+    pub fn selection_tsv(&mut self) -> String {
+        let s = self.selection();
+        let mut grid =
+            vec![vec![String::new(); (s[3] - s[1] + 1) as usize]; (s[2] - s[0] + 1) as usize];
+        for (r, c, cell) in self
+            .doc
+            .grid_cells(self.unit, s[0]..s[2] + 1, s[1]..s[3] + 1)
+        {
+            let t = cell.text;
+            grid[(r - s[0]) as usize][(c - s[1]) as usize] = if t.contains(['\t', '\n', '\r', '"'])
+            {
+                format!("\"{}\"", t.replace('"', "\"\""))
+            } else {
+                t
+            };
+        }
+        grid.into_iter()
+            .map(|row| row.join("\t"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     /// Merges the selection (Merge & Center with `center`); the cursor goes
     /// to its first cell.
     pub fn merge_selection(&mut self, center: bool) -> Result<(), String> {
@@ -1297,15 +1335,15 @@ pub(crate) fn copy(ctx: &mut EditorContext<'_>) -> CommandResult {
         return Ok(());
     };
     if v.is_grid() {
-        // A grid copies the cell's text.
-        let p = v.grid_pos();
-        let text = v
-            .grid_cells(p.row..p.row + 1, p.col..p.col + 1)
-            .into_iter()
-            .next()
-            .map(|c| c.2.text)
-            .unwrap_or_default();
+        // A grid copies the selection as tab-separated text, as
+        // spreadsheets put it on the clipboard.
+        let text = v.selection_tsv();
+        let s = v.selection();
+        let n = (s[2] - s[0] + 1) * (s[3] - s[1] + 1);
         ctx.requests.push(Request::CopyText(text));
+        if n > 1 {
+            ctx.messages.push(format!("{} copied", v.selection_name()));
+        }
         return Ok(());
     }
     let png = v
@@ -1937,42 +1975,17 @@ fn grid_commands() -> Vec<Command> {
         ),
         cmd(
             "viewer.grid.clear",
-            "Clear Cell",
+            "Clear Cells",
             &["delete", "backspace", "x"],
             IN_GRID,
-            |ctx, _| {
-                with(ctx, |v| {
-                    if !v.grid_editable() {
-                        return Err("This file is shown, not edited".into());
-                    }
-                    let p = v.grid_pos();
-                    v.set_cell(p.row, p.col, "")
-                })
-            },
+            |ctx, _| with(ctx, |v| v.clear_selection()),
         ),
         cmd(
             "viewer.grid.copy",
-            "Copy Cell",
+            "Copy Cells",
             &["y"],
             IN_GRID,
-            |ctx, _| {
-                let Some(v) = ctx
-                    .document
-                    .as_deref_mut()
-                    .and_then(|d| d.viewer.as_deref_mut())
-                else {
-                    return Ok(());
-                };
-                let p = v.grid_pos();
-                let text = v
-                    .grid_cells(p.row..p.row + 1, p.col..p.col + 1)
-                    .into_iter()
-                    .next()
-                    .map(|c| c.2.text)
-                    .unwrap_or_default();
-                ctx.requests.push(Request::CopyText(text));
-                Ok(())
-            },
+            |ctx, _| copy(ctx),
         ),
         cmd(
             "viewer.grid.insertRow",

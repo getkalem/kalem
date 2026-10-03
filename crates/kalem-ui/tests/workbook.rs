@@ -129,6 +129,16 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let copied = cx.read_from_clipboard().and_then(|c| c.text());
     assert_eq!(copied.as_deref(), Some("431.50"));
+    // A range copies as tab-separated rows, as spreadsheets copy it.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(0, 0);
+        v.grid_extend_to(1, 1);
+        e.run_command("edit.copy", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    let copied = cx.read_from_clipboard().and_then(|c| c.text());
+    assert_eq!(copied.as_deref(), Some("Item\tQ1\nRent\t1,300.00"));
 
     // Every column fitted to its text, in the grid's font.
     e.update_in(cx, |e, window, cx| {
