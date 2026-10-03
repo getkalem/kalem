@@ -803,6 +803,7 @@ fn charts() {
     t.key(KeyCode::Char('t'));
     let s = t.screen();
     assert!(s.contains("Chart Title") && s.contains("Spending"), "{s}");
+    t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.chartTitle", json!({ "value": "Costs" }));
     assert_eq!(
@@ -817,6 +818,25 @@ fn charts() {
         t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].title,
         None
     );
+    // The axes titled: on the chart's bottom edge.
+    t.app.run_command(
+        "viewer.grid.horizontalAxisTitle",
+        json!({ "value": "Item" }),
+    );
+    t.app
+        .run_command("viewer.grid.verticalAxisTitle", json!({ "value": "TRY" }));
+    let c = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert_eq!(
+        (c.horizontal_title.as_deref(), c.vertical_title.as_deref()),
+        (Some("Item"), Some("TRY"))
+    );
+    let s = t.screen();
+    assert!(s.contains("↑ TRY") && s.contains("Item"), "{s}");
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('y'));
+    let s = t.screen();
+    assert!(s.contains("Vertical Axis Title"), "{s}");
+    t.key(KeyCode::Esc);
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app

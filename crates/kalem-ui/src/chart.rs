@@ -58,16 +58,41 @@ pub fn chart_view(
         );
     }
     let plot = chart.clone();
-    d = d.child(
-        div().flex_1().min_h(px(10.)).relative().child(
-            gpui::canvas(
-                |_, _, _| {},
-                move |bounds, (), window, _| paint(&plot, bounds, border, window),
-            )
-            .absolute()
-            .size_full(),
-        ),
+    let canvas = div().flex_1().min_h(px(10.)).relative().child(
+        gpui::canvas(
+            |_, _, _| {},
+            move |bounds, (), window, _| paint(&plot, bounds, border, window),
+        )
+        .absolute()
+        .size_full(),
     );
+    // The vertical axis's title beside the plot, a letter a line, as a
+    // turned title reads.
+    d = match chart.vertical_title.as_ref().filter(|_| axes) {
+        Some(t) => d.child(
+            div()
+                .flex_1()
+                .min_h(px(10.))
+                .flex()
+                .child(
+                    div()
+                        .debug_selector(move || format!("viewer-grid-chart-vtitle-{index}"))
+                        .flex()
+                        .flex_col()
+                        .justify_center()
+                        .items_center()
+                        .pr(px(4.))
+                        .text_xs()
+                        .overflow_hidden()
+                        .children(
+                            t.chars()
+                                .map(|c| div().child(SharedString::from(c.to_string()))),
+                        ),
+                )
+                .child(canvas),
+        ),
+        None => d.child(canvas),
+    };
     if axes && chart.kind != ChartKind::Bar && chart.kind != ChartKind::Scatter {
         let n = chart
             .series
@@ -92,6 +117,19 @@ pub fn chart_view(
                 ))
         });
         d = d.child(div().flex().children(labels));
+    }
+    if let Some(t) = chart.horizontal_title.as_ref().filter(|_| axes) {
+        d = d.child(
+            div()
+                .debug_selector(move || format!("viewer-grid-chart-htitle-{index}"))
+                .flex()
+                .justify_center()
+                .text_xs()
+                .font_weight(gpui::FontWeight::BOLD)
+                .whitespace_nowrap()
+                .overflow_hidden()
+                .child(SharedString::from(t.clone())),
+        );
     }
     let legend: Vec<(String, Hsla)> = match chart.kind {
         ChartKind::Pie | ChartKind::Doughnut => {
