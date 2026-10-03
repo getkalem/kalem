@@ -42,7 +42,7 @@ const SAMPLES: &[(&str, &str)] = &[
     ),
     (
         "readme.md",
-        "# Title\n\nSome *text* and `code`.\n\n- a list\n",
+        "---\ntitle: Notes\ntags: [a, b]\n---\n# Title\n\nSome *text*, **bold**, ~~gone~~ and `code`, a [link](https://example.com) and [[Another Note]].\n\n## Lists\n\n- a list\n- [ ] a task\n- [x] done\n  1. nested\n\n> A quote\n> on two lines.\n\n| Name | Qty |\n|:-----|----:|\n| a    |   1 |\n\n```rust\nfn main() {}\n```\n\nA footnote[^1] and $x^2$.\n\n---\n\n![logo](logo.png)\n\n[^1]: The note.\n",
     ),
 ];
 
@@ -191,8 +191,13 @@ fn tui_lines(
     term.draw(|f| app.draw(f)).unwrap();
     let buf = term.backend().buffer().clone();
     let mut cells: std::collections::BTreeMap<usize, String> = Default::default();
+    // Where each line's last row ended in the text: a row going on right
+    // after it continues a word the wrapping broke.
+    let mut ended: std::collections::HashMap<usize, usize> = Default::default();
     for y in 0..buf.area.height.saturating_sub(1) {
         let mut row_line: Option<usize> = None;
+        let mut first_off: Option<usize> = None;
+        let mut last_off: Option<usize> = None;
         let mut row = String::new();
         let mut skip = false;
         for x in 0..buf.area.width {
@@ -227,6 +232,10 @@ fn tui_lines(
                 Some((off, None)) => {
                     let l = app.doc.text().line_of(off.min(app.doc.text().len()));
                     row_line.get_or_insert(l);
+                    if !sym.trim().is_empty() {
+                        first_off.get_or_insert(off);
+                        last_off = Some(off + sym.len());
+                    }
                     row.push_str(&sym);
                 }
                 // A row of a table of contents: its text.
@@ -250,8 +259,18 @@ fn tui_lines(
         }
         if let Some(l) = row_line {
             let e = cells.entry(l).or_default();
-            e.push(' ');
-            e.push_str(&row);
+            let broken = first_off.is_some() && ended.get(&l).copied() == first_off;
+            if broken {
+                let trimmed = e.trim_end().len();
+                e.truncate(trimmed);
+                e.push_str(row.trim_start());
+            } else {
+                e.push(' ');
+                e.push_str(&row);
+            }
+            if let Some(end) = last_off {
+                ended.insert(l, end);
+            }
         }
     }
     let visible: Vec<usize> = cells.keys().copied().collect();
@@ -379,6 +398,11 @@ fn the_two_editors_show_the_same_on_the_corpus(cx: &mut TestAppContext) {
         "tests/corpus/tables",
         "tests/corpus/klm",
         "tests/corpus/latex/synthetic",
+        "tests/corpus/markdown/readmes",
+        "tests/corpus/markdown/vault/foam-docs",
+        "tests/corpus/markdown/vault/foam-docs/user",
+        "tests/corpus/markdown/vault/foam-docs/user/features",
+        "tests/corpus/markdown/vault/foam-docs/user/getting-started",
     ] {
         let Ok(rd) = std::fs::read_dir(root.join(dir)) else {
             continue;

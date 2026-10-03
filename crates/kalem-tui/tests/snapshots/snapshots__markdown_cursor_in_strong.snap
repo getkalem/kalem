@@ -1,0 +1,37 @@
+---
+source: crates/kalem-tui/tests/snapshots.rs
+expression: "screen_of(\"snap.md\", MD, Caps::full(), 60, 34, at(\"**strong\"))"
+---
+ 1  ---                                                     |DD..DDD
+ 5  ◉ Heading one                                           |DD..HHHHHHHHHHHHH
+ 6                                                          |DD
+ 7  Some emphasis, **strong**, struck, code, a link and     |BB.cccccccccccccccccccccccccccccccccccckkkkcccckkkkccccccccc
+    Another Note.                                           |...ckkkkkkkkkkkkcccccccccccccccccccccccccccccccccccccccccccc
+ 8                                                          |DD
+ 9    ○ Lists                                               |DD..HHHHHHHHH
+10                                                          |DD
+11  - a list item                                           |DD
+12  - ☐ a task                                              |DD
+13  - ☑ done                                                |DD
+14    1. nested                                             |DD
+15                                                          |DD
+16  > A quoted line                                         |DD..D
+17  > and another.                                          |DD..D
+18                                                          |DD
+19  | Name  | Qty |                                         |DD..D.......D.....D
+20  |:------|----:|                                         |DD..DDDDDDDDDDDDDDD
+21  | apple |   3 |                                         |DD..D.......D.....D
+22                                                          |DD
+23  ```rust                                                 |DD..DDDDDDD
+24  fn main() { println!("hi"); }                           |DD..kkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+25  ```                                                     |DD..DDD
+26                                                          |DD
+27  A footnote[^1], a formula E=mc² and a long line that    |DD............****............IIIII
+    wraps around the edge of the narrow screen.             |
+28                                                          |DD
+29  ---                                                     |DD..DDD
+30                                                          |DD
+31  [^1]: The note.                                         |DD
+32                                                          |DD
+                                                            |
+                                                            |
