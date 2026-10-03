@@ -52,9 +52,28 @@ fn state(ws: &Entity<Workspace>, cx: &mut VisualTestContext) -> (String, f32, St
     })
 }
 
+/// Waits while a page renders on its thread, the repaint timer fired.
+fn settle(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    for _ in 0..500 {
+        cx.run_until_parked();
+        let busy = e.read_with(cx, |e, _| {
+            e.doc.viewer.as_deref().is_some_and(|v| v.rendering())
+        });
+        if !busy {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        cx.executor()
+            .advance_clock(std::time::Duration::from_millis(20));
+    }
+    cx.run_until_parked();
+}
+
 #[gpui::test]
 fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     let (ws, cx) = open(cx);
+    settle(&ws, cx);
     let mode = ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.meta.mode.clone());
     assert_eq!(mode, DocumentMode::Viewer);
     assert!(cx.debug_bounds("viewer").is_some(), "the page is drawn");
@@ -73,14 +92,14 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     assert!(scale >= shown / 100.0, "{scale} for {status}");
 
     cx.simulate_keystrokes("n");
-    cx.run_until_parked();
+    settle(&ws, cx);
     let (status, _, text) = state(&ws, cx);
     assert!(status.ends_with(" · 2/3"), "{status}");
     assert_eq!(text, "Page two");
 
     // Page one's link (at 72–300 × 72–122 of the page) goes to page three.
     cx.simulate_keystrokes("p");
-    cx.run_until_parked();
+    settle(&ws, cx);
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     let at = e.update(cx, |e, _| {
         let origin = e.viewer_view.bounds.expect("laid out").origin;
@@ -92,7 +111,7 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
             )
     });
     cx.simulate_click(at, gpui::Modifiers::default());
-    cx.run_until_parked();
+    settle(&ws, cx);
     let (status, _, text) = state(&ws, cx);
     assert!(status.ends_with(" · 3/3"), "{status}");
     assert_eq!(text, "Page three");
@@ -104,11 +123,11 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
         "ctrl"
     };
     cx.simulate_keystrokes(&format!("{primary}-shift-o"));
-    cx.run_until_parked();
+    settle(&ws, cx);
     let section = cx.debug_bounds("outline-1").expect("the row of Section");
     assert!(cx.debug_bounds("outline-2").is_some(), "Chapter 2");
     cx.simulate_click(section.center(), gpui::Modifiers::default());
-    cx.run_until_parked();
+    settle(&ws, cx);
     let (status, _, text) = state(&ws, cx);
     assert!(status.ends_with(" · 2/3"), "{status}");
     assert_eq!(text, "Page two");
