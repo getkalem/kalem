@@ -163,12 +163,7 @@ fn in_view(
 
 /// The cursor's cell and what it holds, in full: a spreadsheet's formula bar.
 fn draw_formula_bar(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, bar: Rect) {
-    let pos = v.grid_pos();
-    let name = format!(
-        "{}{}",
-        kalem_core::csv_tools::column_letters(pos.col as usize),
-        pos.row + 1
-    );
+    let name = v.selection_name();
     let input: String = v
         .cell_input()
         .chars()
@@ -274,6 +269,15 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
         x += w;
     }
     let sep = if caps.ascii { "|" } else { "│" };
+    let sel = v.selection();
+    let selecting = v.grid_pos().sel.is_some();
+    let merged = layout.merged.clone();
+    let merge_of = |r: u32, c: u32| {
+        merged
+            .iter()
+            .find(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c))
+            .copied()
+    };
     for (i, &(r, _)) in rows.iter().enumerate() {
         let y = area.y + 1 + i as u16;
         let style = if r == pos.row {
@@ -291,7 +295,53 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
         let mut x = area.x + gutter;
         let mut overflow: Option<(String, Style)> = None;
         for &(c, w) in &cols {
-            let inner = w.saturating_sub(1) as usize;
+            let merge = merge_of(r, c);
+            // A merged cell is drawn by its first cell over the whole width
+            // shown; the others hold nothing of their own.
+            let first = merge.is_some_and(|m| (m[0], m[1]) == (r, c));
+            let covered = merge.is_some() && !first;
+            let next_in_merge =
+                merge.is_some_and(|m| c < m[3] && cols.iter().any(|(cc, _)| *cc == c + 1));
+            let in_sel =
+                selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c);
+            let sel_style = |st: Style| {
+                if !in_sel {
+                    st
+                } else if caps.no_color {
+                    st.add_modifier(Modifier::UNDERLINED)
+                } else {
+                    st.bg(ratatui::style::Color::DarkGray)
+                }
+            };
+            if covered {
+                if in_sel
+                    && merge.is_some_and(|m| m[0] != r || !cols.iter().any(|(cc, _)| *cc == m[1]))
+                {
+                    buf.set_stringn(
+                        x,
+                        y,
+                        " ".repeat(w as usize),
+                        w as usize,
+                        sel_style(Style::default()),
+                    );
+                }
+                if !next_in_merge {
+                    buf.set_stringn(x + w.saturating_sub(1), y, sep, 1, dim);
+                }
+                x += w;
+                continue;
+            }
+            let inner = if first {
+                let m = merge.unwrap_or_default();
+                let span: u16 = cols
+                    .iter()
+                    .filter(|(cc, _)| (m[1]..=m[3]).contains(cc) && *cc >= c)
+                    .map(|(_, ww)| *ww)
+                    .sum();
+                span.saturating_sub(1) as usize
+            } else {
+                w.saturating_sub(1) as usize
+            };
             let cell = cells.get(&(r, c));
             let mut style = Style::default();
             let text = match cell {
@@ -351,15 +401,20 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                     _ => String::new(),
                 },
             };
+            style = sel_style(style);
             if (r, c) == (pos.row, pos.col) {
                 style = style.add_modifier(Modifier::REVERSED);
+            }
+            if in_sel || (r, c) == (pos.row, pos.col) || first {
                 buf.set_stringn(x, y, " ".repeat(inner), inner, style);
             }
             buf.set_stringn(x, y, &text, inner, style);
             if cell.is_some_and(|c| c.note) && inner > 0 {
                 buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "*" } else { "◥" });
             }
-            buf.set_stringn(x + inner as u16, y, sep, 1, dim);
+            if !first || !next_in_merge {
+                buf.set_stringn(x + inner as u16, y, sep, 1, dim);
+            }
             x += w;
         }
     }

@@ -39,6 +39,8 @@ pub struct ViewerView {
     col_drag: Option<ColDrag>,
     /// A row's edge being dragged in a grid.
     row_drag: Option<RowDrag>,
+    /// Cells are being selected by dragging.
+    selecting: bool,
 }
 
 /// A grid row resized by dragging its number's bottom edge.
@@ -506,16 +508,18 @@ impl Editor {
         }
         // The cursor's cell in full, as entered: the formula bar.
         let input = v.cell_input();
+        let sel_name = v.selection_name();
+        let sel = v.selection();
+        let selecting = v.grid_pos().sel.is_some();
+        let in_sel = move |r: u32, c: u32| {
+            selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c)
+        };
         let rgb = |c: [u8; 3]| -> gpui::Hsla {
             gpui::rgb(u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2])).into()
         };
         let header_bg = theme.bar;
         let cursor = theme.caret;
-        let name = format!(
-            "{}{}",
-            kalem_core::csv_tools::column_letters(pos.col as usize),
-            pos.row + 1
-        );
+        let name = sel_name;
         let formula_bar = div()
             .debug_selector(|| "viewer-grid-formula".into())
             .flex()
@@ -633,6 +637,85 @@ impl Editor {
                     )
             }));
         let empty = |r: u32, c: u32| cells.get(&(r, c)).is_none_or(|x| x.text.is_empty());
+        // Merged cells: one cell over the rows and columns in view, drawn
+        // above the cells it covers, from its first cell.
+        let mut col_x = std::collections::HashMap::new();
+        let mut x = gutter;
+        for &(c, w) in &cols {
+            col_x.insert(c, (x, w));
+            x += w;
+        }
+        let mut row_y = std::collections::HashMap::new();
+        let mut y = 2.0 * row_h;
+        for &(r, h) in &rows {
+            row_y.insert(r, (y, h));
+            y += h;
+        }
+        let merges: Vec<_> = layout
+            .merged
+            .iter()
+            .filter_map(|m| {
+                let xs: Vec<(f32, f32)> = (m[1]..=m[3])
+                    .filter_map(|c| col_x.get(&c).copied())
+                    .collect();
+                let ys: Vec<(f32, f32)> = (m[0]..=m[2])
+                    .filter_map(|r| row_y.get(&r).copied())
+                    .collect();
+                let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+                let (w, h) = (
+                    xs.iter().map(|v| v.1).sum::<f32>(),
+                    ys.iter().map(|v| v.1).sum::<f32>(),
+                );
+                let cell = cells.get(&(m[0], m[1]));
+                let mut d = div()
+                    .absolute()
+                    .left(px(x0))
+                    .top(px(y0))
+                    .w(px(w))
+                    .h(px(h))
+                    .px(px(PAD))
+                    .flex()
+                    .items_center()
+                    .overflow_hidden()
+                    .bg(cell.and_then(|c| c.fill).map_or(theme.background, rgb))
+                    .border_r_1()
+                    .border_b_1()
+                    .border_color(theme.border);
+                if let Some(cell) = cell {
+                    let right = matches!(cell.align, kalem_viewer::Align::Right)
+                        || (cell.numeric && matches!(cell.align, kalem_viewer::Align::General));
+                    if right {
+                        d = d.justify_end();
+                    } else if matches!(cell.align, kalem_viewer::Align::Center) {
+                        d = d.justify_center();
+                    }
+                    if let Some(c) = cell.color {
+                        d = d.text_color(rgb(c));
+                    }
+                    if cell.bold {
+                        d = d.font_weight(gpui::FontWeight::BOLD);
+                    }
+                    if cell.italic {
+                        d = d.italic();
+                    }
+                    if !cell.wrap {
+                        d = d.whitespace_nowrap();
+                    }
+                    d = d.child(
+                        div()
+                            .overflow_hidden()
+                            .child(SharedString::from(cell.text.clone())),
+                    );
+                }
+                if in_sel(m[0], m[1]) {
+                    d = d.child(div().absolute().inset_0().bg(theme.selection).opacity(0.45));
+                }
+                if (pos.row, pos.col) == (m[0], m[1]) {
+                    d = d.child(div().absolute().inset_0().border_2().border_color(cursor));
+                }
+                Some(d)
+            })
+            .collect();
         let body = rows.iter().map(|&(r, rh)| {
             let number = div()
                 .w(px(gutter))
@@ -727,6 +810,7 @@ impl Editor {
                 let cell = cells.get(&(r, c));
                 let here = (r, c) == (pos.row, pos.col);
                 let mut d = div()
+                    .debug_selector(move || format!("viewer-grid-cell-{r}-{c}"))
                     .id(SharedString::from(format!("cell-{r}-{c}")))
                     .relative()
                     .w(px(w))
@@ -805,6 +889,9 @@ impl Editor {
                         );
                     }
                 }
+                if in_sel(r, c) {
+                    d = d.child(div().absolute().inset_0().bg(theme.selection).opacity(0.45));
+                }
                 if here {
                     d = d.child(div().absolute().inset_0().border_2().border_color(cursor));
                 }
@@ -812,16 +899,39 @@ impl Editor {
                     MouseButton::Left,
                     cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
                         if let Some(v) = this.doc.viewer.as_deref_mut() {
-                            v.grid_move_to(r, c);
+                            // Shift and a click select to here; a drag selects as it goes.
+                            if ev.modifiers.shift {
+                                v.grid_extend_to(r, c);
+                            } else {
+                                v.grid_move_to(r, c);
+                            }
                         }
+                        this.viewer_view.selecting = true;
                         let handle = gpui::Focusable::focus_handle(this, cx);
                         window.focus(&handle, cx);
                         if ev.click_count >= 2 {
+                            this.viewer_view.selecting = false;
                             this.run_command("viewer.grid.edit", serde_json::json!({}), window, cx);
                         }
                         cx.notify();
                     }),
                 )
+                .on_mouse_move(cx.listener(
+                    move |this, ev: &MouseMoveEvent, _, cx| {
+                        if !this.viewer_view.selecting
+                            || ev.pressed_button != Some(MouseButton::Left)
+                        {
+                            return;
+                        }
+                        if let Some(v) = this.doc.viewer.as_deref_mut() {
+                            let p = v.grid_pos();
+                            if (p.row, p.col) != (r, c) {
+                                v.grid_extend_to(r, c);
+                                cx.notify();
+                            }
+                        }
+                    },
+                ))
             });
             let spills = overflow.into_iter().filter_map(|(x, span, c)| {
                 let cell = cells.get(&(r, c))?;
@@ -885,11 +995,13 @@ impl Editor {
             )
             .child(
                 div()
+                    .relative()
                     .flex()
                     .flex_col()
                     .child(formula_bar)
                     .child(letters)
-                    .children(body),
+                    .children(body)
+                    .children(merges),
             )
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
                 if let Some(d) = this.viewer_view.row_drag.as_mut() {
@@ -914,6 +1026,7 @@ impl Editor {
             .on_mouse_up(
                 MouseButton::Left,
                 cx.listener(move |this, _: &MouseUpEvent, _, cx| {
+                    this.viewer_view.selecting = false;
                     if let Some(d) = this.viewer_view.row_drag.take() {
                         if (d.px - d.start_px).abs() >= 1.0
                             && let Some(v) = this.doc.viewer.as_deref_mut()

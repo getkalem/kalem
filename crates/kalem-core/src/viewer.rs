@@ -198,6 +198,9 @@ pub struct GridPos {
     pub top: u32,
     /// The first column shown right of the frozen columns.
     pub left: u32,
+    /// The other corner of a selected range, the cursor being one; `None`
+    /// for the cursor's cell alone.
+    pub sel: Option<(u32, u32)>,
 }
 
 /// Answers a macro's questions from the user's answers so far; plain
@@ -692,11 +695,7 @@ impl ViewerState {
         if self.is_grid() {
             let p = self.grid_pos();
             let mut parts = vec![self.structure.units[self.unit].label.clone()];
-            parts.push(format!(
-                "{}{}",
-                crate::csv_tools::column_letters(p.col as usize),
-                p.row + 1
-            ));
+            parts.push(self.selection_name());
             let n = self.structure.units.len();
             if n > 1 {
                 parts.push(format!("{}/{n}", self.unit + 1));
@@ -775,7 +774,7 @@ impl ViewerState {
     pub fn set_grid_visible(&mut self, rows: u32, cols: u32) {
         self.grid_visible = (rows.max(1), cols.max(1));
         let p = self.grid_pos();
-        self.grid_move_to(p.row, p.col);
+        self.place(p.row, p.col);
     }
 
     /// Scrolls by whole rows and columns, the cursor kept.
@@ -793,8 +792,28 @@ impl ViewerState {
         self.grid_pos.insert(self.unit, p);
     }
 
-    /// Puts the cursor on a cell and scrolls it into view.
+    /// Puts the cursor on a cell and scrolls it into view; the selection
+    /// goes; a cell inside a merged one is its first cell.
     pub fn grid_move_to(&mut self, row: u32, col: u32) {
+        let (row, col) = self.merge_at(row, col).map_or((row, col), |m| (m[0], m[1]));
+        let mut p = self.grid_pos();
+        p.sel = None;
+        self.grid_pos.insert(self.unit, p);
+        self.place(row, col);
+    }
+
+    /// The merged range holding a cell: first row, first column, last
+    /// row, last column.
+    pub fn merge_at(&mut self, row: u32, col: u32) -> Option<[u32; 4]> {
+        self.grid_layout()?
+            .merged
+            .into_iter()
+            .find(|m| (m[0]..=m[2]).contains(&row) && (m[1]..=m[3]).contains(&col))
+    }
+
+    /// Moves the cursor's other corner (the selection kept) and scrolls it
+    /// into view.
+    fn place(&mut self, row: u32, col: u32) {
         let Some(l) = self.grid_layout() else { return };
         let mut p = self.grid_pos();
         p.row = row.min(l.max_rows.saturating_sub(1));
@@ -841,9 +860,120 @@ impl ViewerState {
             }
             x as u32
         };
-        let r = step(p.row, rows, l.max_rows, &l.hidden_rows);
-        let c = step(p.col, cols, l.max_cols, &l.hidden_cols);
-        self.grid_move_to(r, c);
+        // From a merged cell, forward moves leave from its last row or column.
+        let (fr, fc) = match self.merge_at(p.row, p.col) {
+            Some(m) => (
+                if rows > 0 { m[2] } else { p.row },
+                if cols > 0 { m[3] } else { p.col },
+            ),
+            None => (p.row, p.col),
+        };
+        let r = step(fr, rows, l.max_rows, &l.hidden_rows);
+        let c = step(fc, cols, l.max_cols, &l.hidden_cols);
+        self.grid_move_to(
+            if rows == 0 { p.row } else { r },
+            if cols == 0 { p.col } else { c },
+        );
+    }
+
+    /// Extends the selection by rows and columns (Shift and an arrow).
+    pub fn grid_select_by(&mut self, rows: i64, cols: i64) {
+        let Some(l) = self.grid_layout() else { return };
+        let p = self.grid_pos();
+        let r = (i64::from(p.row) + rows).clamp(0, i64::from(l.max_rows.saturating_sub(1))) as u32;
+        let c = (i64::from(p.col) + cols).clamp(0, i64::from(l.max_cols.saturating_sub(1))) as u32;
+        self.grid_extend_to(r, c);
+    }
+
+    /// Selects from the selection's start (the cursor, when none) to a cell
+    /// (Shift and a click, a drag).
+    pub fn grid_extend_to(&mut self, row: u32, col: u32) {
+        let mut p = self.grid_pos();
+        if p.sel.is_none() {
+            p.sel = Some((p.row, p.col));
+            self.grid_pos.insert(self.unit, p);
+        }
+        self.place(row, col);
+    }
+
+    /// The selected range, merged cells it touches included: first row,
+    /// first column, last row, last column.
+    pub fn selection(&mut self) -> [u32; 4] {
+        let p = self.grid_pos();
+        let (ar, ac) = p.sel.unwrap_or((p.row, p.col));
+        let mut r = [ar.min(p.row), ac.min(p.col), ar.max(p.row), ac.max(p.col)];
+        let merged = self.grid_layout().map(|l| l.merged).unwrap_or_default();
+        loop {
+            let mut grown = r;
+            for m in &merged {
+                if m[0] <= r[2] && r[0] <= m[2] && m[1] <= r[3] && r[1] <= m[3] {
+                    grown = [
+                        grown[0].min(m[0]),
+                        grown[1].min(m[1]),
+                        grown[2].max(m[2]),
+                        grown[3].max(m[3]),
+                    ];
+                }
+            }
+            if grown == r {
+                return r;
+            }
+            r = grown;
+        }
+    }
+
+    /// The selection's name: `B2`, or `B2:D5`.
+    pub fn selection_name(&mut self) -> String {
+        let s = self.selection();
+        let name =
+            |r: u32, c: u32| format!("{}{}", crate::csv_tools::column_letters(c as usize), r + 1);
+        if (s[0], s[1]) == (s[2], s[3]) || self.grid_pos().sel.is_none() {
+            let p = self.grid_pos();
+            name(p.row, p.col)
+        } else {
+            format!("{}:{}", name(s[0], s[1]), name(s[2], s[3]))
+        }
+    }
+
+    /// Whether cells of the selection besides its first hold a value, which
+    /// merging clears.
+    pub fn selection_loses_values(&mut self) -> bool {
+        let s = self.selection();
+        self.doc
+            .grid_cells(self.unit, s[0]..s[2] + 1, s[1]..s[3] + 1)
+            .iter()
+            .any(|(r, c, cell)| (*r, *c) != (s[0], s[1]) && !cell.text.is_empty())
+    }
+
+    /// Merges the selection (Merge & Center with `center`); the cursor goes
+    /// to its first cell.
+    pub fn merge_selection(&mut self, center: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        if (s[0], s[1]) == (s[2], s[3]) {
+            return Err("Select the cells to merge (Shift and the arrows, or drag)".into());
+        }
+        self.doc
+            .merge_cells(self.unit, s, center)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        self.grid_move_to(s[0], s[1]);
+        Ok(())
+    }
+
+    /// Splits the merged cell at the cursor.
+    pub fn unmerge_at_cursor(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        self.doc
+            .unmerge_cells(self.unit, p.row, p.col)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
     }
 
     /// Moves a page down (`1`) or up (`-1`).
@@ -1597,6 +1727,52 @@ pub fn text_cells(t: &str) -> f32 {
     unicode_width::UnicodeWidthStr::width(t) as f32
 }
 
+fn grid_select(ctx: &mut EditorContext<'_>, rows: i64, cols: i64) -> CommandResult {
+    with(ctx, |v| {
+        v.grid_select_by(rows, cols);
+        Ok(())
+    })
+}
+
+/// Merges the selection; when cells besides the first hold values, asks
+/// first, as Excel warns that only the upper-left value stays.
+fn merge(ctx: &mut EditorContext<'_>, args: &serde_json::Value, center: bool) -> CommandResult {
+    let confirmed = args.get("confirmed").and_then(serde_json::Value::as_bool) == Some(true);
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if !confirmed && v.grid_editable() && v.selection_loses_values() {
+        let id = if center {
+            "viewer.grid.mergeCenter"
+        } else {
+            "viewer.grid.merge"
+        };
+        let question = "Merging keeps only the upper-left value".to_string();
+        ctx.requests.push(Request::Choose(vec![
+            crate::palette::PaletteItem {
+                id: crate::palette::invocation(id, &serde_json::json!({ "confirmed": true })),
+                title: "Merge".into(),
+                category: question.clone(),
+                keys: String::new(),
+                also: question.clone(),
+            },
+            crate::palette::PaletteItem {
+                id: crate::palette::invocation("viewer.grid.cancel", &serde_json::json!({})),
+                title: "Cancel".into(),
+                category: question.clone(),
+                keys: String::new(),
+                also: question,
+            },
+        ]));
+        return Ok(());
+    }
+    with(ctx, |v| v.merge_selection(center))
+}
+
 /// A row three points taller or shorter: the terminal's drag.
 fn grid_height(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     with(ctx, |v| {
@@ -1864,6 +2040,68 @@ fn grid_commands() -> Vec<Command> {
                     v.autofit_col(col, &text_cells)
                 })
             },
+        ),
+        cmd(
+            "viewer.grid.cancel",
+            "Clear Selection",
+            &["escape"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    let p = v.grid_pos();
+                    v.grid_move_to(p.row, p.col);
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.selectUp",
+            "Select Up",
+            &["shift+up"],
+            IN_GRID,
+            |ctx, _| grid_select(ctx, -1, 0),
+        ),
+        cmd(
+            "viewer.grid.selectDown",
+            "Select Down",
+            &["shift+down"],
+            IN_GRID,
+            |ctx, _| grid_select(ctx, 1, 0),
+        ),
+        cmd(
+            "viewer.grid.selectLeft",
+            "Select Left",
+            &["shift+left"],
+            IN_GRID,
+            |ctx, _| grid_select(ctx, 0, -1),
+        ),
+        cmd(
+            "viewer.grid.selectRight",
+            "Select Right",
+            &["shift+right"],
+            IN_GRID,
+            |ctx, _| grid_select(ctx, 0, 1),
+        ),
+        cmd(
+            "viewer.grid.mergeCenter",
+            "Merge and Center",
+            &["m"],
+            IN_GRID,
+            |ctx, args| merge(ctx, args, true),
+        ),
+        cmd(
+            "viewer.grid.merge",
+            "Merge Cells",
+            &[],
+            IN_GRID,
+            |ctx, args| merge(ctx, args, false),
+        ),
+        cmd(
+            "viewer.grid.unmerge",
+            "Unmerge Cells",
+            &["shift+m"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.unmerge_at_cursor()),
         ),
         cmd(
             "viewer.grid.wrapText",
