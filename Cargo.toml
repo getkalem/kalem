@@ -70,6 +70,62 @@ lto = "thin"
 codegen-units = 1
 strip = "symbols"
 
+# Debug builds draw PDF pages and decode pictures 40 times faster with the
+# rasterizer, the decoders and the PDF viewer built optimized; Kalem's own
+# code stays a debug build.
+[profile.dev.package.hayro]
+opt-level = 3
+[profile.dev.package."hayro-interpret"]
+opt-level = 3
+[profile.dev.package."hayro-syntax"]
+opt-level = 3
+[profile.dev.package."hayro-cmap"]
+opt-level = 3
+[profile.dev.package."hayro-ccitt"]
+opt-level = 3
+[profile.dev.package."hayro-jbig2"]
+opt-level = 3
+[profile.dev.package."hayro-jpeg2000"]
+opt-level = 3
+[profile.dev.package."hayro-postscript"]
+opt-level = 3
+[profile.dev.package.vello_cpu]
+opt-level = 3
+[profile.dev.package.vello_common]
+opt-level = 3
+[profile.dev.package.fearless_simd]
+opt-level = 3
+[profile.dev.package.kurbo]
+opt-level = 3
+[profile.dev.package.peniko]
+opt-level = 3
+[profile.dev.package.skrifa]
+opt-level = 3
+[profile.dev.package."read-fonts"]
+opt-level = 3
+[profile.dev.package."font-types"]
+opt-level = 3
+[profile.dev.package.flate2]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package."zlib-rs"]
+opt-level = 3
+[profile.dev.package."zune-jpeg"]
+opt-level = 3
+[profile.dev.package."zune-inflate"]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.moxcms]
+opt-level = 3
+[profile.dev.package."pic-scale"]
+opt-level = 3
+[profile.dev.package."kalem-plugin-pdf-viewer"]
+opt-level = 3
+
 [profile.bench]
 debug = true
 
