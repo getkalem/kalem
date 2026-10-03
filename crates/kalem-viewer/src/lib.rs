@@ -611,6 +611,12 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Sets a column's width, in characters of the default font's digit
+    /// (a spreadsheet's unit), as the user's autofit or drag does.
+    fn set_col_width(&mut self, _unit: usize, _col: u32, _width: f32) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Whether the document keeps its own undo history for
     /// [`ViewerDocument::set_cell`], [`ViewerDocument::grid_edit`] and
     /// macros; the host then undoes through [`ViewerDocument::undo`].
