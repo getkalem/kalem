@@ -844,6 +844,63 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Sets column `col`'s width, in digits of the grid's font.
+    pub fn set_col_width(&mut self, col: u32, width: f32) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc
+            .set_col_width(self.unit, col, width.clamp(0.0, 255.0))
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Row `row`'s height in points; the default for a row without its own.
+    pub fn row_height(&mut self, row: u32) -> f32 {
+        self.grid_layout().map_or(15.0, |l| {
+            l.heights
+                .iter()
+                .find(|(r, _)| *r == row)
+                .map(|(_, h)| *h)
+                .unwrap_or(if l.default_height > 0.0 {
+                    l.default_height
+                } else {
+                    15.0
+                })
+        })
+    }
+
+    /// The default row height in points.
+    pub fn default_row_height(&mut self) -> f32 {
+        self.grid_layout()
+            .map(|l| l.default_height)
+            .filter(|h| *h > 0.0)
+            .unwrap_or(15.0)
+    }
+
+    /// Sets row `row`'s height in points.
+    pub fn set_row_height(&mut self, row: u32, height: f32) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc
+            .set_row_height(self.unit, row, height.clamp(0.0, 409.0))
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Column `col`'s width as shown, in digits.
+    pub fn col_width(&mut self, col: u32) -> f32 {
+        self.grid_layout().map_or(8.43, |l| {
+            l.widths
+                .get(col as usize)
+                .copied()
+                .unwrap_or(l.default_width)
+        })
+    }
+
     /// The used columns of the grid shown.
     pub fn used_cols(&mut self) -> u32 {
         self.grid_layout().map_or(0, |l| l.cols)
@@ -1427,6 +1484,24 @@ pub fn text_cells(t: &str) -> f32 {
     unicode_width::UnicodeWidthStr::width(t) as f32
 }
 
+/// A row three points taller or shorter: the terminal's drag.
+fn grid_height(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
+    with(ctx, |v| {
+        let row = v.grid_pos().row;
+        let h = (v.row_height(row) + by).max(3.0);
+        v.set_row_height(row, h)
+    })
+}
+
+/// A column a digit wider or narrower: the terminal's drag.
+fn grid_width(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
+    with(ctx, |v| {
+        let col = v.grid_pos().col;
+        let w = (v.col_width(col) + by).max(1.0);
+        v.set_col_width(col, w.round())
+    })
+}
+
 /// The commands of grid units (a workbook's sheets).
 fn grid_commands() -> Vec<Command> {
     let all = vec![
@@ -1676,6 +1751,34 @@ fn grid_commands() -> Vec<Command> {
                     v.autofit_col(col, &text_cells)
                 })
             },
+        ),
+        cmd(
+            "viewer.grid.tallerRow",
+            "Taller Row",
+            &["r +"],
+            IN_GRID,
+            |ctx, _| grid_height(ctx, 3.0),
+        ),
+        cmd(
+            "viewer.grid.shorterRow",
+            "Shorter Row",
+            &["r -"],
+            IN_GRID,
+            |ctx, _| grid_height(ctx, -3.0),
+        ),
+        cmd(
+            "viewer.grid.widenColumn",
+            "Widen Column",
+            &["c +"],
+            IN_GRID,
+            |ctx, _| grid_width(ctx, 1.0),
+        ),
+        cmd(
+            "viewer.grid.narrowColumn",
+            "Narrow Column",
+            &["c -"],
+            IN_GRID,
+            |ctx, _| grid_width(ctx, -1.0),
         ),
         cmd(
             "viewer.grid.autofitColumns",

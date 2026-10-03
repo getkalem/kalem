@@ -12,6 +12,7 @@ use super::algebra::{
     self, Cmp, add, compare, div, inf, infinity, is_constant, is_nan, is_vec, is_zero, looks_neg,
     mul, nan, neg, neg_inf, sub,
 };
+use super::cplx;
 use super::expr::Expr;
 use super::num::{self, Num, Prec, Reject};
 
@@ -190,12 +191,40 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
             args[0].clone()
         }
         // `a mod m`, the modulo form (`calcFunc-makemod`).
-        ("makemod", 2) => match (&args[0], &args[1]) {
-            (Expr::Num(a), Expr::Num(m)) => {
-                algebra::make_mod(a, m, env).unwrap_or_else(|| keep(f, args))
-            }
+        ("makemod", 2) => make_mod(&args[0], &args[1], env).unwrap_or_else(|| keep(f, args)),
+        // Complex numbers (`cplx::parts`).
+        ("cplx", 2) => match (&args[0], &args[1]) {
+            (Expr::Num(re), Expr::Num(im)) => cplx::make(re.clone(), im.clone()),
             _ => keep(f, args),
         },
+        ("abs", 1) if cplx::parts(&args[0]).is_some() => {
+            cplx::abs(&args[0], env).unwrap_or_else(|| keep(f, args))
+        }
+        ("sqrt", 1)
+        | ("ln", 1)
+        | ("log10", 1)
+        | ("log", 1)
+        | ("exp", 1)
+        | ("arcsin", 1)
+        | ("arccos", 1)
+            if let Some(r) = match f {
+                "sqrt" => cplx::sqrt(&args[0], env),
+                "ln" => cplx::ln(&args[0], env),
+                "exp" => cplx::exp(&args[0], env),
+                "arcsin" | "arccos" => cplx::arcsin(&args[0], env, f == "arccos"),
+                _ => cplx::log10(&args[0], env),
+            } =>
+        {
+            r
+        }
+        ("arg", 1) | ("re", 1) | ("im", 1) | ("conj", 1)
+            if let Some(r) = match f {
+                "arg" => cplx::arg(&args[0], env),
+                g => cplx::part(g, &args[0]),
+            } =>
+        {
+            r
+        }
         ("abs", 1) => match &args[0] {
             Expr::Vec(v) if !v.iter().any(is_vec) => {
                 // The length of a vector.
@@ -404,9 +433,9 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         ("sin", 1) => map1(f, args, env, false, |a, e| trig(a, e, Trig::Sin)),
         ("cos", 1) => map1(f, args, env, false, |a, e| trig(a, e, Trig::Cos)),
         ("tan", 1) => map1(f, args, env, false, |a, e| trig(a, e, Trig::Tan)),
-        ("arcsin", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, f64::asin)),
-        ("arccos", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, f64::acos)),
-        ("arctan", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, f64::atan)),
+        ("arcsin", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Sin)),
+        ("arccos", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Cos)),
+        ("arctan", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Tan)),
         ("fact", 1) => match integer(&args[0]).and_then(|n| n.to_i64()) {
             Some(k) if (0..=10_000).contains(&k) => {
                 let r = Num::Int((1..=k).fold(BigInt::one(), |acc, i| acc * i));
@@ -800,6 +829,38 @@ fn variance(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
     }
 }
 
+/// `math-make-mod`: a number reduced modulo `m`; a formula with its
+/// numbers as modulo forms (`x mod 3` is `(1 mod 3) x`).
+fn make_mod(n: &Expr, m: &Expr, env: &Env) -> Option<Expr> {
+    let Expr::Num(k) = m else { return None };
+    if k.is_zero() || k.is_negative() {
+        return None;
+    }
+    match n {
+        Expr::Num(a) => algebra::make_mod(a, k, env),
+        Expr::Vec(v) => Some(Expr::Vec(
+            v.iter()
+                .map(|x| make_mod(x, m, env))
+                .collect::<Option<_>>()?,
+        )),
+        Expr::Call(f, xs) if matches!(f.as_str(), "+" | "-" | "/" | "neg") => {
+            let xs = xs
+                .iter()
+                .map(|x| make_mod(x, m, env))
+                .collect::<Option<Vec<_>>>()?;
+            Some(apply(f, xs, env))
+        }
+        Expr::Call(f, xs) if f == "*" && xs.len() == 2 && matches!(xs[0], Expr::Num(_)) => {
+            Some(mul(&make_mod(&xs[0], m, env)?, &xs[1], env))
+        }
+        Expr::Call(f, _) if f == "*" || f == "^" => {
+            Some(mul(&make_mod(&Expr::int(1), m, env)?, n, env))
+        }
+        Expr::Var(_) => Some(mul(&make_mod(&Expr::int(1), m, env)?, n, env)),
+        _ => None,
+    }
+}
+
 /// A function of one real argument; vectors are mapped only when `map`.
 fn map1(
     f: &str,
@@ -847,7 +908,7 @@ fn real_fn(a: &Num, env: &Env, f: impl Fn(f64) -> f64) -> Option<Num> {
 }
 
 /// A double as a Calc float at the working precision.
-fn from_f64(r: f64, env: &Env) -> Option<Num> {
+pub(crate) fn from_f64(r: f64, env: &Env) -> Option<Num> {
     if !r.is_finite() {
         return None;
     }
@@ -899,7 +960,7 @@ fn exp(a: &Num, env: &Env) -> Option<Num> {
 }
 
 /// `calcFunc-sqrt`: exact for perfect squares of integers and fractions.
-fn sqrt(a: &Num, env: &Env) -> Option<Num> {
+pub(crate) fn sqrt(a: &Num, env: &Env) -> Option<Num> {
     if a.is_negative() {
         return None;
     }
@@ -1021,7 +1082,35 @@ fn exact_quarter(a: &Num) -> Option<i64> {
     }
 }
 
-fn inverse_trig(a: &Num, env: &Env, f: fn(f64) -> f64) -> Option<Num> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Inverse {
+    Sin,
+    Cos,
+    Tan,
+}
+
+fn inverse_trig(a: &Num, env: &Env, which: Inverse) -> Option<Num> {
+    // The exact values Calc gives for exact arguments.
+    if let Num::Int(k) = a
+        && let Some(k) = k.to_i64()
+    {
+        let exact = match (which, k) {
+            (Inverse::Sin | Inverse::Tan, 0) | (Inverse::Cos, 1) => Some(0),
+            (Inverse::Sin, 1 | -1) if env.degrees => Some(90 * k),
+            (Inverse::Tan, 1 | -1) if env.degrees => Some(45 * k),
+            (Inverse::Cos, 0) if env.degrees => Some(90),
+            (Inverse::Cos, -1) if env.degrees => Some(180),
+            _ => None,
+        };
+        if let Some(v) = exact {
+            return Some(Num::int(v));
+        }
+    }
+    let f = match which {
+        Inverse::Sin => f64::asin,
+        Inverse::Cos => f64::acos,
+        Inverse::Tan => f64::atan,
+    };
     let r = f(a.to_f64());
     if r.is_nan() {
         return None;
@@ -1053,9 +1142,36 @@ fn min_max(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
 }
 
 /// `math-pow`.
-fn pow(a: &Expr, b: &Expr, env: &Env) -> Expr {
+pub(crate) fn pow(a: &Expr, b: &Expr, env: &Env) -> Expr {
     if is_nan(b) {
         return b.clone();
+    }
+    // `(or (eq a 1) (eq b 1)) a`, also for floats.
+    if let Expr::Num(y) = b
+        && (y == &Num::int(1) || matches!(y, Num::Float(m, 0) if m.is_one()))
+        && (matches!(a, Expr::Num(_)) || cplx::parts(a).is_some())
+    {
+        return a.clone();
+    }
+    // `math-pow` with a zero modulo form as the exponent: 1.
+    if algebra::mod_form(b).is_some_and(|(k, _)| k.is_zero()) {
+        return Expr::int(1);
+    }
+    // A complex number to the power 0: 1, a float if a part is one.
+    if let (Some((re, im)), Expr::Num(y)) = (cplx::parts(a), b)
+        && y.is_zero()
+    {
+        return Expr::Num(if re.is_float() || im.is_float() || y.is_float() {
+            num::make_float(BigInt::one(), 0, &env.prec)
+        } else {
+            Num::int(1)
+        });
+    }
+    if !matches!(b, Expr::Num(y) if y.is_zero())
+        && !matches!(a, Expr::Num(x) if x.is_zero())
+        && let Some(r) = cplx::pow(a, b, env)
+    {
+        return r;
     }
     let (Expr::Num(x), Expr::Num(y)) = (a, b) else {
         return algebra::pow(a, b, env);

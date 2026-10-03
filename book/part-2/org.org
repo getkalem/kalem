@@ -746,17 +746,26 @@ Calc as reproduced:
   =weekday=; number theory: =prime=, =nextprime=, =prevprime=,
   =totient=, =isqrt=, =ilog=; the parts of a float =mant= and =xpon=;
   =frac= (a float as a fraction, within a tolerance); the bitwise
-  functions on 32-bit words (a last argument gives another size) =and=,
-  =or=, =xor=, =diff=, =not=, =lsh=, =rsh=; the vector functions
+  functions on 32-bit words (a last argument gives another size, 0 for
+  unbounded integers, a negative one for signed words) =and=, =or=,
+  =xor=, =diff=, =not=, =lsh=, =rsh=, =ash=, =rash=, =rot=, =clip=;
+  =random= (an integer below =n=, a float times a real, a point of an
+  interval, an element of a vector); the vector functions
   =vsum=, =vprod=, =vmax=, =vmin=, =vcount=, =vlen=, =vmean=,
   =vmedian=, =vvar=, =vsdev=, =vpvar=, =vpsdev=, and those that build
   and take apart vectors: =vec=, =cvec=, =index=, =rev=, =sort=,
   =rsort=, =grade=, =rgrade=, =head=, =tail=, =rhead=, =rtail=,
   =cons=, =rcons=, =vconcat=, =subvec=, =find=, =vmask=, =mrow=,
   =mcol=, =trn=, =arrange=, =histogram=, =string=, and the sets
-  =rdup=, =vunion=, =vint=, =vdiff=, =vxor=. Not yet: =random=,
-  complex numbers (=sqrt(-4)= stays as it is), intervals as sets
-  (=vcompl=).
+  =rdup=, =vunion=, =vint=, =vdiff=, =vxor=, =vcompl=, =vspan=,
+  =vfloor=, =vcard=, whose members may be intervals
+  (=vunion([1..3], [2..6])= is =[1 .. 6]=).
+- Complex numbers, written =(2, 3)=: arithmetic and integer powers, and
+  what =sqrt=, =ln=, =log10=, =^=, =arcsin= and =arccos= give outside the
+  reals (=sqrt(-4)= is =(0, 2)=, =ln(-1)= is =(0., 3.1415927)=), with
+  =abs=, =arg=, =re=, =im= and =conj=.
+- Modulo forms of formulas: =x mod 3= is =(1 mod 3) x=, and sums and
+  products of them keep their coefficients modulo 3.
 - Formulas over text fields stay symbolic, with Calc's basic
   simplifications (=x + 2=, =2 a=).
 
@@ -788,14 +797,14 @@ them:
 
 Not reproduced (see the known differences): Emacs Lisp formulas
 (='(...)=), which are kept, not evaluated, and named; Calc's full
-algebra beyond the basic simplifications; complex numbers, the gamma
+algebra beyond the basic simplifications; complex numbers in polar
+form and the trigonometric functions of complex numbers, the gamma
 function, radix, HMS and error forms; a formula that makes Calc
 overflow shows =#ERROR=; error messages have Kalem's wording. Calc's
 named constants =pi= and =e= stay symbolic, as they do in Emacs's table
 formulas (=$2=pi*$1= gives =pi= in both); define them with
 =#+CONSTANTS= for a value. Also not reproduced: =remote()= to a table
-found by an entry's =ID= or in another file, and the Calc functions
-listed in T2.11.5.
+found by an entry's =ID= or in another file.
 
 ~kalem table recalc FILE...~ recalculates every table with a =#+TBLFM=
 line and aligns it, as =org-table-recalculate-buffer-tables= does;

@@ -11,7 +11,7 @@
 use org_table::calc;
 
 /// Differences known in `calc-cases.txt`.
-const KNOWN: usize = 308;
+const KNOWN: usize = 291;
 
 #[test]
 fn agrees_with_emacs() {
@@ -62,4 +62,30 @@ fn functions_agree_with_emacs() {
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
+/// `random`: never the same twice, always in its range.
+#[test]
+fn random_stays_in_range() {
+    let m = calc::Modes::default();
+    let ev = |f: &str| calc::eval(f, &m).unwrap();
+    for _ in 0..200 {
+        let k: i64 = ev("random(10)").parse().unwrap();
+        assert!((0..10).contains(&k));
+        let k: i64 = ev("random(-5)").parse().unwrap();
+        assert!((-4..=0).contains(&k), "{k}");
+        let k: i64 = ev("random([3 .. 5])").parse().unwrap();
+        assert!((3..=5).contains(&k));
+        let k: i64 = ev("random((3 .. 5))").parse().unwrap();
+        assert_eq!(k, 4);
+        let x: f64 = ev("random(2.5)").parse().unwrap();
+        assert!((0.0..2.5).contains(&x));
+        let x: f64 = ev("random([1. .. 2.))").parse().unwrap();
+        assert!((1.0..2.0).contains(&x));
+        assert!(["a", "b", "c"].contains(&ev("random([a, b, c])").as_str()));
+        let g: f64 = ev("random(0)").parse().unwrap();
+        assert!(g.abs() < 10.);
+    }
+    let draws: std::collections::HashSet<String> = (0..50).map(|_| ev("random(1000000)")).collect();
+    assert!(draws.len() > 40);
 }
