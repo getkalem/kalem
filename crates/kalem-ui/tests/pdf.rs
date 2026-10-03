@@ -1,6 +1,6 @@
 //! A PDF file in the graphical editor through the pdf-viewer plugin
 //! (T3.7.3): its page fitted to the area and rendered at the scale shown,
-//! the next page, the page's text, a link clicked.
+//! the next page, the page's text, a link clicked, the outline.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -85,11 +85,31 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     let at = e.update(cx, |e, _| {
         let origin = e.viewer_view.bounds.expect("laid out").origin;
         let p = e.doc.viewer.as_deref_mut().unwrap().placement();
-        origin + gpui::point(gpui::px(p.x + 150.0 * p.scale), gpui::px(p.y + 97.0 * p.scale))
+        origin
+            + gpui::point(
+                gpui::px(p.x + 150.0 * p.scale),
+                gpui::px(p.y + 97.0 * p.scale),
+            )
     });
     cx.simulate_click(at, gpui::Modifiers::default());
     cx.run_until_parked();
     let (status, _, text) = state(&ws, cx);
     assert!(status.ends_with(" · 3/3"), "{status}");
     assert_eq!(text, "Page three");
+
+    // The outline in the sidebar: Section goes to page two.
+    let primary = if cfg!(target_os = "macos") {
+        "cmd"
+    } else {
+        "ctrl"
+    };
+    cx.simulate_keystrokes(&format!("{primary}-shift-o"));
+    cx.run_until_parked();
+    let section = cx.debug_bounds("outline-1").expect("the row of Section");
+    assert!(cx.debug_bounds("outline-2").is_some(), "Chapter 2");
+    cx.simulate_click(section.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    let (status, _, text) = state(&ws, cx);
+    assert!(status.ends_with(" · 2/3"), "{status}");
+    assert_eq!(text, "Page two");
 }

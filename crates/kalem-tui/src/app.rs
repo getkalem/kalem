@@ -3134,6 +3134,7 @@ impl App {
                     .then(|| kalem_core::markdown::outline_items(&self.doc))
             })
             .or_else(|| kalem_core::packs::outline_items(&self.doc))
+            .or_else(|| kalem_core::viewer::outline_items(&self.doc))
             .unwrap_or_default()
     }
 
@@ -3143,7 +3144,7 @@ impl App {
             Some(o) => o.focus = true,
             None => {
                 let items = self.outline_items();
-                let head = self.doc.selection.head;
+                let head = kalem_core::viewer::outline_position(&self.doc);
                 let selected = items
                     .iter()
                     .rposition(|i| i.file.is_none() && i.start <= head)
@@ -3161,6 +3162,12 @@ impl App {
             return;
         };
         o.focus = false;
+        // A viewer's outline goes to a unit.
+        if let Some(v) = self.doc.viewer.as_deref_mut() {
+            v.go_to(start);
+            self.dirty = true;
+            return;
+        }
         // A heading of an included file: that file, at the heading.
         if let Some(file) = file {
             let at = kalem_core::view::position_in_file(&file, start);
@@ -4329,7 +4336,7 @@ impl App {
                 width: w,
                 ..text_area
             };
-            let head = self.doc.selection.head;
+            let head = kalem_core::viewer::outline_position(&self.doc);
             let current = o
                 .items
                 .iter()

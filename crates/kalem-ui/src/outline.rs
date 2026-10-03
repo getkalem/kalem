@@ -120,6 +120,13 @@ impl Editor {
 
     /// Jumps to the heading at `start`.
     pub fn jump_to(&mut self, start: usize, window: &mut Window, cx: &mut Context<'_, Self>) {
+        // A viewer's outline goes to a unit.
+        if let Some(v) = self.doc.viewer.as_deref_mut() {
+            v.go_to(start);
+            cx.notify();
+            window.focus(&gpui::Focusable::focus_handle(self, cx), cx);
+            return;
+        }
         self.doc.move_cursor(start, false);
         self.after_change(cx);
         window.focus(&gpui::Focusable::focus_handle(self, cx), cx);
@@ -196,13 +203,14 @@ impl Editor {
                         .then(|| kalem_core::markdown::outline_items(&self.doc))
                 })
                 .or_else(|| kalem_core::packs::outline_items(&self.doc))
+                .or_else(|| kalem_core::viewer::outline_items(&self.doc))
         {
             o.items = items;
             o.version = Some(version);
             let starts: HashSet<usize> = o.items.iter().map(|i| i.start).collect();
             o.collapsed.retain(|s| starts.contains(s));
         }
-        let head = self.doc.selection.head;
+        let head = kalem_core::viewer::outline_position(&self.doc);
         let current = o
             .items
             .iter()
