@@ -10,7 +10,7 @@ use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
-use super::algebra::{Cmp, add, compare, mul, sub};
+use super::algebra::{self, Cmp, add, compare, mul, sub};
 use super::eval::Env;
 use super::expr::Expr;
 use super::num::{self, Num};
@@ -75,37 +75,41 @@ pub(crate) fn apply(f: &str, args: &[Expr], env: &Env) -> Option<Expr> {
         },
         ("frac", 1) | ("frac", 2) => frac(&args[0], args.get(1), env),
         // The bitwise functions, an optional last argument being the word
-        // size (32 by default).
+        // size (32 by default; 0 unbounded, negative for signed words).
         ("and", 2 | 3) | ("or", 2 | 3) | ("xor", 2 | 3) | ("diff", 2 | 3) => {
             let w = word_size(args.get(2))?;
-            let (a, b) = (word(&args[0], w)?, word(&args[1], w)?);
+            let (a, b) = (whole(&args[0])?, whole(&args[1])?);
             let r = match f {
                 "and" => a & b,
                 "or" => a | b,
                 "xor" => a ^ b,
                 _ => a & !b,
             };
-            Some(Expr::Num(Num::Int(BigInt::from(r))))
+            Some(int(clip(r, w)))
         }
         ("not", 1 | 2) => {
             let w = word_size(args.get(1))?;
-            let a = word(&args[0], w)?;
-            Some(Expr::Num(Num::Int(BigInt::from(!a & mask(w)))))
+            Some(int(not(whole(&args[0])?, w)))
         }
-        ("lsh", 1..=3) | ("rsh", 1..=3) => {
+        ("clip", 1 | 2) => {
+            let w = word_size(args.get(1))?;
+            Some(int(clip(whole(&args[0])?, w)))
+        }
+        ("lsh", 1..=3) | ("rsh", 1..=3) | ("ash", 1..=3) | ("rash", 1..=3) | ("rot", 1..=3) => {
             let w = word_size(args.get(2))?;
-            let a = word(&args[0], w)?;
-            let k = match args.get(1) {
+            let a = whole(&args[0])?;
+            let mut n = match args.get(1) {
                 Some(e) => whole(e)?.to_i64()?,
                 None => 1,
             };
-            let k = if f == "rsh" { -k } else { k };
-            let r = match k {
-                k if k >= 64 || k <= -64 => 0,
-                k if k >= 0 => (a << k) & mask(w),
-                k => a >> -k,
-            };
-            Some(Expr::Num(Num::Int(BigInt::from(r))))
+            if f == "rsh" || f == "rash" {
+                n = -n;
+            }
+            Some(int(match f {
+                "lsh" | "rsh" => lsh(a, n, w),
+                "ash" | "rash" => ash(a, n, w),
+                _ => rot(a, n, w)?,
+            }))
         }
         ("vec", _) => Some(Expr::Vec(args.to_vec())),
         ("cvec", 2) | ("cvec", 3) => {
@@ -149,12 +153,26 @@ pub(crate) fn apply(f: &str, args: &[Expr], env: &Env) -> Option<Expr> {
                 idx.into_iter().map(|i| Expr::int(i as i64 + 1)).collect(),
             ))
         }
-        ("rdup", 1) => Some(Expr::Vec(set(items(&args[0])?.to_vec(), env))),
-        ("vunion", 2) | ("vint", 2) | ("vdiff", 2) | ("vxor", 2) => {
+        ("rdup", 1) => rdup(&args[0], env),
+        ("vunion", 2) => {
+            let mut v = match &args[0] {
+                Expr::Vec(v) => v.clone(),
+                a if objectp(a) => vec![a.clone()],
+                _ => return None,
+            };
+            match &args[1] {
+                Expr::Vec(w) => v.extend(w.iter().cloned()),
+                b if objectp(b) => v.push(b.clone()),
+                _ => return None,
+            }
+            rdup(&Expr::Vec(v), env)
+        }
+        ("vint", 2) | ("vdiff", 2) | ("vxor", 2)
+            if simple_set(&args[0]) && simple_set(&args[1]) =>
+        {
             let (a, b) = (set(members(&args[0]), env), set(members(&args[1]), env));
             let has = |s: &[Expr], x: &Expr| s.iter().any(|y| same(x, y, env));
             let out: Vec<Expr> = match f {
-                "vunion" => a.iter().chain(&b).cloned().collect(),
                 "vint" => a.iter().filter(|x| has(&b, x)).cloned().collect(),
                 "vdiff" => a.iter().filter(|x| !has(&b, x)).cloned().collect(),
                 _ => a
@@ -165,6 +183,49 @@ pub(crate) fn apply(f: &str, args: &[Expr], env: &Env) -> Option<Expr> {
                     .collect(),
             };
             Some(Expr::Vec(set(out, env)))
+        }
+        // Sets with intervals, through complements as Calc computes them.
+        ("vint", 2) => {
+            let u = union(&vcompl(&args[0], env)?, &vcompl(&args[1], env)?, env)?;
+            vcompl(&u, env)
+        }
+        ("vdiff", 2) => {
+            let u = union(&vcompl(&args[0], env)?, &args[1], env)?;
+            vcompl(&u, env)
+        }
+        ("vxor", 2) => {
+            let (a, b) = (&args[0], &args[1]);
+            let (ca, cb) = (vcompl(a, env)?, vcompl(b, env)?);
+            let x = vcompl(&union(&ca, b, env)?, env)?;
+            let y = vcompl(&union(a, &cb, env)?, env)?;
+            union(&x, &y, env)
+        }
+        ("vcompl", 1) => vcompl(&args[0], env),
+        ("vspan", 1) => {
+            let v = prepare_set(&args[0], env)?;
+            Some(match (v.first(), v.last()) {
+                (Some(first), Some(last)) => {
+                    let m = (first.0 & 2) | (last.0 & 1);
+                    if m == 3 && cmp_code(&first.1, &last.2, env) == 0 {
+                        first.1.clone()
+                    } else {
+                        Expr::Intv(m, Box::new(first.1.clone()), Box::new(last.2.clone()))
+                    }
+                }
+                _ => Expr::Intv(2, Box::new(Expr::int(0)), Box::new(Expr::int(0))),
+            })
+        }
+        ("vfloor", 1) => Some(clean_set(vfloor(&args[0], env)?, false, env)),
+        ("vcard", 1) => {
+            let mut count = Expr::int(0);
+            for (m, a, b) in vfloor(&args[0], env)? {
+                if algebra::infinity(&a).is_some() || algebra::infinity(&b).is_some() {
+                    let _ = m;
+                    return None;
+                }
+                count = add(&count, &add(&sub(&b, &a, env), &Expr::int(1), env), env);
+            }
+            Some(count)
         }
         ("head", 1) => items(&args[0])?.first().cloned(),
         ("rtail", 1) => items(&args[0])?.last().cloned(),
@@ -310,24 +371,93 @@ fn ceil(e: &Expr) -> Option<BigInt> {
     }
 }
 
+fn int(k: BigInt) -> Expr {
+    Expr::Num(Num::Int(k))
+}
+
 /// The word size of a bitwise function: its argument, or
-/// `calc-word-size`, 32; up to 63 bits here.
-fn word_size(e: Option<&Expr>) -> Option<u32> {
+/// `calc-word-size`, 32.
+fn word_size(e: Option<&Expr>) -> Option<i64> {
     match e {
         None => Some(32),
-        Some(e) => whole(e)?.to_u32().filter(|w| (1..64).contains(w)),
+        Some(e) => whole(e)?.to_i64().filter(|w| w.abs() <= 1 << 20),
     }
 }
 
-fn mask(w: u32) -> u64 {
-    (1u64 << w) - 1
+fn pow2(n: i64) -> BigInt {
+    BigInt::one() << n.max(0) as usize
 }
 
-/// An integer clipped to a word of `w` bits, as Calc clips the arguments
-/// of its bitwise functions.
-fn word(e: &Expr, w: u32) -> Option<u64> {
-    let k = whole(e)?;
-    k.mod_floor(&(BigInt::one() << w)).to_u64()
+/// `math-clip`: an integer as a word of `w` bits, unsigned for a positive
+/// `w`, two's complement for a negative one, itself for 0.
+fn clip(a: BigInt, w: i64) -> BigInt {
+    match w {
+        0 => a,
+        w if w < 0 => {
+            let a = clip(a, -w);
+            if a < pow2(-1 - w) { a } else { a - pow2(-w) }
+        }
+        w => a.mod_floor(&pow2(w)),
+    }
+}
+
+/// `calcFunc-not`.
+fn not(a: BigInt, w: i64) -> BigInt {
+    if w < 0 {
+        return clip(not(a, -w), w);
+    }
+    clip(!clip(a, w), w)
+}
+
+/// `calcFunc-lsh`: a left shift by `n` (right when negative), the bits
+/// shifted out of the word lost.
+fn lsh(a: BigInt, n: i64, w: i64) -> BigInt {
+    if w < 0 {
+        return clip(lsh(a, n, -w), w);
+    }
+    let a = if a.is_negative() { clip(a, w) } else { a };
+    if w != 0 && (n < -w || n > w) {
+        BigInt::zero()
+    } else if n < 0 {
+        clip(a, w).div_floor(&pow2(-n))
+    } else {
+        clip(a * pow2(n), w)
+    }
+}
+
+/// `calcFunc-ash`: as [`lsh`], a right shift copying the sign bit.
+fn ash(a: BigInt, n: i64, w: i64) -> BigInt {
+    if n >= 0 {
+        return lsh(a, n, w);
+    }
+    if w < 0 {
+        return clip(ash(a, n, -w), w);
+    }
+    let a = if a.is_negative() { clip(a, w) } else { a };
+    let sh = lsh(a.clone(), n, w);
+    if w == 0 || (&a & pow2(w - 1)).is_zero() {
+        sh
+    } else if n < 1 - w {
+        pow2(w) - 1
+    } else {
+        lsh(pow2(-n) - 1, w + n, w) + sh
+    }
+}
+
+/// `calcFunc-rot`: a rotation within the word; none without a size.
+fn rot(a: BigInt, n: i64, w: i64) -> Option<BigInt> {
+    if w == 0 {
+        algebra::fail();
+        return None;
+    }
+    if w < 0 {
+        return Some(clip(rot(a, n, -w)?, w));
+    }
+    let a = if a.is_negative() { clip(a, w) } else { a };
+    if n < 0 || n >= w {
+        return rot(a, n.rem_euclid(w), w);
+    }
+    Some(lsh(a.clone(), n - w, w) + lsh(a, n, w))
 }
 
 /// Primality: trial division for small numbers, Miller–Rabin with the
@@ -542,6 +672,57 @@ fn flatten(v: &[Expr]) -> Vec<Expr> {
 /// `math-beforep`: numbers by value first, then the rest by their
 /// written form.
 fn before(a: &Expr, b: &Expr, env: &Env) -> Ordering {
+    if beforep(a, b, env) {
+        Ordering::Less
+    } else if beforep(b, a, env) {
+        Ordering::Greater
+    } else {
+        Ordering::Equal
+    }
+}
+
+/// `math-beforep` for the infinities and intervals of sets.
+fn beforep(a: &Expr, b: &Expr, env: &Env) -> bool {
+    let (ninf, inf) = (algebra::neg_inf(), algebra::inf());
+    let real = |e: &Expr| matches!(e, Expr::Num(_));
+    if !(real(a) && real(b)) {
+        if *b == ninf {
+            return false;
+        }
+        if *a == ninf {
+            return true;
+        }
+        if *a == inf {
+            return false;
+        }
+        if *b == inf {
+            return true;
+        }
+        match (a, b) {
+            (Expr::Num(_), Expr::Intv(_, lo, _)) if const_intv(b) => {
+                return beforep(a, lo, env) || cmp_code(a, lo, env) == 0;
+            }
+            (Expr::Intv(_, lo, _), Expr::Num(_)) if const_intv(a) => return beforep(lo, b, env),
+            (Expr::Intv(ma, la, ha), Expr::Intv(mb, lb, hb)) if const_intv(a) && const_intv(b) => {
+                return match cmp_code(la, lb, env) {
+                    -1 => true,
+                    1 => false,
+                    _ if ma & 2 != 0 && mb & 2 == 0 => true,
+                    _ if ma & 2 == 0 && mb & 2 != 0 => false,
+                    _ => match cmp_code(ha, hb, env) {
+                        -1 => true,
+                        1 => false,
+                        _ => ma & 1 == 0 && mb & 1 != 0,
+                    },
+                };
+            }
+            _ => {}
+        }
+    }
+    before_plain(a, b, env) == Ordering::Less
+}
+
+fn before_plain(a: &Expr, b: &Expr, env: &Env) -> Ordering {
     match (a, b) {
         (Expr::Num(_), Expr::Num(_)) => match compare(a, b, env) {
             Cmp::Less => Ordering::Less,
@@ -563,4 +744,174 @@ fn set(mut v: Vec<Expr>, env: &Env) -> Vec<Expr> {
     v.sort_by(|a, b| before(a, b, env));
     v.dedup_by(|a, b| same(a, b, env));
     v
+}
+
+/// `Math-objectp`: a number, a date, an interval or a modulo form.
+fn objectp(e: &Expr) -> bool {
+    matches!(e, Expr::Num(_) | Expr::Date(_) | Expr::Intv(..)) || algebra::mod_form(e).is_some()
+}
+
+/// `math-simple-set`: a set without intervals.
+fn simple_set(e: &Expr) -> bool {
+    match e {
+        Expr::Intv(..) => false,
+        Expr::Vec(v) => v.iter().all(|x| !matches!(x, Expr::Intv(..))),
+        e => objectp(e),
+    }
+}
+
+/// `calcFunc-rdup`.
+fn rdup(a: &Expr, env: &Env) -> Option<Expr> {
+    if simple_set(a) {
+        return Some(Expr::Vec(set(members(a), env)));
+    }
+    Some(clean_set(prepare_set(a, env)?, false, env))
+}
+
+fn union(a: &Expr, b: &Expr, env: &Env) -> Option<Expr> {
+    apply("vunion", &[a.clone(), b.clone()], env)
+}
+
+/// An interval of a set: its mask (bit 1 closes the low end, bit 0 the
+/// high end) and its ends.
+type Span = (u8, Expr, Expr);
+
+fn cmp_code(a: &Expr, b: &Expr, env: &Env) -> i8 {
+    match compare(a, b, env) {
+        Cmp::Less => -1,
+        Cmp::Equal => 0,
+        Cmp::Greater => 1,
+        Cmp::Unknown => 2,
+    }
+}
+
+/// An element of a set: a real number, a date or an infinity.
+fn set_end(e: &Expr) -> bool {
+    matches!(e, Expr::Num(_) | Expr::Date(_))
+        || algebra::infinity(e).is_some_and(|(_, k)| k == "inf")
+}
+
+/// `math-intv-constp`: an interval of numbers, from `-inf` or to `inf`.
+fn const_intv(e: &Expr) -> bool {
+    let num = |e: &Expr| matches!(e, Expr::Num(_) | Expr::Date(_));
+    matches!(e, Expr::Intv(_, lo, hi)
+        if (num(lo) || **lo == algebra::neg_inf()) && (num(hi) || **hi == algebra::inf()))
+}
+
+/// `math-prepare-set`: a set as its intervals, sorted, none empty, none
+/// overlapping or touching another.
+fn prepare_set(a: &Expr, env: &Env) -> Option<Vec<Span>> {
+    let mut v = match a {
+        Expr::Vec(v) => v.clone(),
+        a if objectp(a) => vec![a.clone()],
+        _ => return None,
+    };
+    v.sort_by(|a, b| before(a, b, env));
+    let mut out: Vec<Span> = Vec::new();
+    for x in v {
+        match x {
+            Expr::Intv(m, a, b) => {
+                if !const_intv(&Expr::Intv(m, a.clone(), b.clone())) {
+                    return None;
+                }
+                if m != 3 && cmp_code(&a, &b, env) == 0 {
+                    continue;
+                }
+                out.push((m, *a, *b));
+            }
+            x if set_end(&x) => out.push((3, x.clone(), x)),
+            _ => return None,
+        }
+    }
+    let mut i = 0;
+    while i + 1 < out.len() {
+        let (p, q) = (&out[i], &out[i + 1]);
+        let res = cmp_code(&p.2, &q.1, env);
+        if res == -1 || res == 2 || (res == 0 && p.0 & 1 == 0 && q.0 & 2 == 0) {
+            i += 1;
+            continue;
+        }
+        let res = cmp_code(&p.2, &q.2, env);
+        let same_low = cmp_code(&p.1, &q.1, env) == 0;
+        let low = (p.0 | if same_low { q.0 } else { 0 }) & 2;
+        let high = ((if res != -1 { p.0 } else { 0 }) | (if res != 1 { q.0 } else { 0 })) & 1;
+        let hi = if res == 1 { p.2.clone() } else { q.2.clone() };
+        out[i] = (low | high, p.1.clone(), hi);
+        out.remove(i + 1);
+    }
+    Some(out)
+}
+
+/// `math-clean-set`: intervals of one point as that point, a set of one
+/// interval as the interval.
+fn clean_set(v: Vec<Span>, always_vec: bool, env: &Env) -> Expr {
+    let mut items: Vec<Expr> = v
+        .into_iter()
+        .map(|(m, a, b)| {
+            if cmp_code(&a, &b, env) == 0 {
+                a
+            } else {
+                Expr::Intv(m, Box::new(a), Box::new(b))
+            }
+        })
+        .collect();
+    if items.len() == 1 && matches!(items[0], Expr::Intv(..)) && !always_vec {
+        return items.remove(0);
+    }
+    Expr::Vec(items)
+}
+
+/// `calcFunc-vcompl`.
+fn vcompl(a: &Expr, env: &Env) -> Option<Expr> {
+    let set = prepare_set(a, env)?;
+    let mut out = Vec::new();
+    let mut prev = algebra::neg_inf();
+    let mut closed = 2;
+    for (m, lo, hi) in set {
+        if !(lo == algebra::neg_inf() && m & 2 != 0) {
+            out.push((closed + u8::from(m & 2 == 0), prev, lo));
+        }
+        prev = hi;
+        closed = if m & 1 == 0 { 2 } else { 0 };
+    }
+    if !(prev == algebra::inf() && closed == 0) {
+        out.push((closed + 1, prev, algebra::inf()));
+    }
+    Some(clean_set(out, false, env))
+}
+
+/// `calcFunc-vfloor`: the integers of a set, as intervals.
+fn vfloor(a: &Expr, env: &Env) -> Option<Vec<Span>> {
+    let mut out: Vec<Span> = Vec::new();
+    for (mut m, mut a, mut b) in prepare_set(a, env)? {
+        let integer = |e: &Expr| matches!(e, Expr::Num(n) if n.is_rational() && num::trunc(n) == *n || n.is_messy_integer());
+        if m & 2 == 0 && algebra::infinity(&a).is_none() {
+            m |= 2;
+            if integer(&a) {
+                a = add(&a, &Expr::int(1), env);
+            }
+        }
+        if let Expr::Num(n) = &a {
+            a = Expr::Num(num::ceil(n));
+        }
+        if m & 1 == 0 && algebra::infinity(&b).is_none() {
+            m |= 1;
+            if integer(&b) {
+                b = sub(&b, &Expr::int(1), env);
+            }
+        }
+        if let Expr::Num(n) = &b {
+            b = Expr::Num(num::floor(n));
+        }
+        if let Some(prev) = out.last_mut()
+            && cmp_code(&sub(&a, &Expr::int(1), env), &prev.2, env) == 0
+        {
+            prev.2 = b;
+            continue;
+        }
+        if cmp_code(&b, &a, env) != -1 {
+            out.push((m, a, b));
+        }
+    }
+    Some(out)
 }
