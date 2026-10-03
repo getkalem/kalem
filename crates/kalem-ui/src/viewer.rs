@@ -995,6 +995,38 @@ impl Editor {
                 if in_sel(r, c) {
                     d = d.child(div().absolute().inset_0().bg(theme.selection).opacity(0.45));
                 }
+                // A filter's header: its button, filled when the column filters.
+                if let Some(f) = layout.filter
+                    && r == f[0]
+                    && (f[1]..=f[3]).contains(&c)
+                {
+                    let on = layout.filtered.contains(&c);
+                    d = d.child(
+                        div()
+                            .debug_selector(move || format!("viewer-grid-filter-{c}"))
+                            .id(SharedString::from(format!("filter-{c}")))
+                            .absolute()
+                            .right(px(2.))
+                            .top_0()
+                            .bottom_0()
+                            .flex()
+                            .items_center()
+                            .text_color(if on { theme.link } else { theme.muted })
+                            .child(SharedString::from(if on { "▼" } else { "▾" }))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, _: &MouseDownEvent, window, cx| {
+                                    cx.stop_propagation();
+                                    this.run_command(
+                                        "viewer.grid.filterColumn",
+                                        serde_json::json!({ "col": c }),
+                                        window,
+                                        cx,
+                                    );
+                                }),
+                            ),
+                    );
+                }
                 if here {
                     d = d.child(div().absolute().inset_0().border_2().border_color(cursor));
                 }

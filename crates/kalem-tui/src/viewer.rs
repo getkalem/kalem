@@ -418,6 +418,21 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                 buf.set_stringn(x, y, " ".repeat(inner), inner, style);
             }
             buf.set_stringn(x, y, &text, inner, style);
+            // A filter's header: its button, filled when the column filters.
+            if let Some(f) = layout.filter
+                && r == f[0]
+                && (f[1]..=f[3]).contains(&c)
+                && inner > 0
+            {
+                let on = layout.filtered.contains(&c);
+                let mark = match (caps.ascii, on) {
+                    (true, true) => "V",
+                    (true, false) => "v",
+                    (false, true) => "▼",
+                    (false, false) => "▾",
+                };
+                buf[(x + inner as u16 - 1, y)].set_symbol(mark);
+            }
             if cell.is_some_and(|c| c.note) && inner > 0 {
                 buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "*" } else { "◥" });
             }
