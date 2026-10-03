@@ -39,12 +39,23 @@ fn short(s: &str, n: usize) -> String {
 pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
     Clear.render(area, buf);
     let title = chart.title.clone().unwrap_or_default();
-    let block = Block::default()
+    let mut block = Block::default()
         .borders(Borders::ALL)
         .title(Line::from(short(
             &title,
             area.width.saturating_sub(4) as usize,
         )));
+    // The axes' titles on the bottom edge: the horizontal one centered,
+    // the vertical one at the left, pointing up.
+    let room = area.width.saturating_sub(4) as usize;
+    if let Some(t) = &chart.vertical_title {
+        let arrow = if caps.ascii { "^ " } else { "↑ " };
+        block =
+            block.title_bottom(Line::from(short(&format!("{arrow}{t}"), room / 2)).left_aligned());
+    }
+    if let Some(t) = &chart.horizontal_title {
+        block = block.title_bottom(Line::from(short(t, room / 2)).centered());
+    }
     let inner = block.inner(area);
     block.render(area, buf);
     if inner.width < 2 || inner.height < 1 {
