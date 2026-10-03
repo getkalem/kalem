@@ -19,6 +19,10 @@ on:
       per_field:
         description: Papers per field
         default: "200"
+      licences:
+        description: "Look up each paper's licence (about 45 minutes): the CC BY ones may be committed to the corpus"
+        type: boolean
+        default: false
   schedule:
     - cron: "17 3 1 * *"
 
@@ -123,6 +127,15 @@ jobs:
           xargs -a roots.txt -d '\n' ./target/release/kalem diff-pandoc --summary > pandoc.txt 2>&1 || true
           tail -n 30 pandoc.txt
           { echo; echo '## Against pandoc'; echo; echo '```'; tail -n 30 pandoc.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      # The licence of each paper (T2.7h.30), in the log and the summary:
+      # the papers under CC BY, CC BY-SA or CC0 may be committed to the
+      # corpus with the licence register.
+      - name: Licences
+        if: github.event.inputs.licences == 'true'
+        run: |
+          python3 tools/arxiv-licences.py .cache/arxiv > licences.tsv
+          grep -E 'creativecommons.org/(licenses/by/|licenses/by-sa/|publicdomain/zero/)' licences.tsv | tee free.tsv
+          { echo; echo '## Papers that may be committed'; echo; echo '```'; cat free.tsv; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: arxiv-coverage
@@ -131,3 +144,4 @@ jobs:
             latex-limitations.org
             roundtrip.txt
             pandoc.txt
+            licences.tsv
