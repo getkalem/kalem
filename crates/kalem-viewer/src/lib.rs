@@ -619,6 +619,28 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Clears the values of a range (first row, first column, last row,
+    /// last column), their formats kept, as a spreadsheet's Delete. By
+    /// default cell by cell through [`ViewerDocument::set_cell`]; a format
+    /// with its own history makes it one step.
+    fn clear_cells(&mut self, unit: usize, range: [u32; 4]) -> Result<Vec<usize>> {
+        let filled: Vec<(u32, u32)> = self
+            .grid_cells(unit, range[0]..range[2] + 1, range[1]..range[3] + 1)
+            .into_iter()
+            .filter(|(_, _, c)| !c.text.is_empty())
+            .map(|(r, c, _)| (r, c))
+            .collect();
+        let mut changed = Vec::new();
+        for (r, c) in filled {
+            for u in self.set_cell(unit, r, c, "")? {
+                if !changed.contains(&u) {
+                    changed.push(u);
+                }
+            }
+        }
+        Ok(changed)
+    }
+
     /// Merges a range (first row, first column, last row, last column)
     /// into one cell, as a spreadsheet's Merge Cells: only the first cell's
     /// value stays; `center` centers it (Merge & Center).
