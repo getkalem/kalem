@@ -379,6 +379,12 @@ pub struct GridLayout {
     pub widths: Vec<f32>,
     /// The default column width in characters.
     pub default_width: f32,
+    /// Row heights in points, for the rows that have their own; others
+    /// are [`GridLayout::default_height`] high.
+    pub heights: Vec<(u32, f32)>,
+    /// The default row height in points (15 in Excel's default font); 0
+    /// when the format does not say.
+    pub default_height: f32,
     /// Hidden rows and columns.
     pub hidden_rows: Vec<u32>,
     /// See [`GridLayout::hidden_rows`].
@@ -608,6 +614,11 @@ pub trait ViewerDocument: Send {
 
     /// Changes a grid's shape.
     fn grid_edit(&mut self, _unit: usize, _edit: GridEdit) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sets a row's height in points, as the user's drag does.
+    fn set_row_height(&mut self, _unit: usize, _row: u32, _height: f32) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
