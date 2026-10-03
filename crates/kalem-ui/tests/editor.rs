@@ -3985,3 +3985,46 @@ fn closing_the_last_document_keeps_the_window(cx: &mut TestAppContext) {
     assert_eq!(active_title(&ws, cx), "Untitled");
     assert_eq!(ws.read_with(cx, |ws, _| ws.editors.len()), 1);
 }
+
+/// A CSV grid's frozen first column stays at the left edge when the rows
+/// scroll sideways; hidden columns leave the letters bar; the file stays.
+#[gpui::test]
+fn csv_frozen_column(cx: &mut TestAppContext) {
+    let mut text = String::from("name");
+    for j in 0..30 {
+        text.push_str(&format!(",column{j}"));
+    }
+    text.push_str("\nAda");
+    for j in 0..30 {
+        text.push_str(&format!(",value{j:02}"));
+    }
+    text.push('\n');
+    let (e, cx) = open_named(&text, "w.csv", || None, cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.toggleFrozen"));
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.frozen.get()) > gpui::px(0.));
+    at(&e, text.find("value29").unwrap(), cx);
+    cx.run_until_parked();
+    let scrolled = e.read_with(cx, |e, _| e.hscroll);
+    assert!(scrolled > gpui::px(0.));
+    // The frozen column shows: going to it does not scroll back.
+    at(&e, text.find("Ada").unwrap(), cx);
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.hscroll), scrolled);
+    // A column hidden; the file as it was.
+    at(&e, text.find("value00").unwrap(), cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.hideColumn"));
+    cx.run_until_parked();
+    let shown = e.read_with(cx, |e, _| e.line_view(1).display());
+    assert!(
+        !shown.contains("value00") && shown.contains("value01"),
+        "{shown}"
+    );
+    assert_eq!(
+        text,
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string())
+    );
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.toggleFrozen"));
+    cx.run_until_parked();
+    assert_eq!(e.read_with(cx, |e, _| e.frozen.get()), gpui::px(0.));
+}

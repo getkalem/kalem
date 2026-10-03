@@ -1483,6 +1483,7 @@ impl gpui::Element for LineElement {
         let extra = editor.doc.extra.clone();
         // Lines that do not wrap are painted scrolled sideways, and clipped.
         let shift = if p.nowrap { editor.hscroll } else { px(0.) };
+        let frozen = editor.frozen.get();
         let origin = bounds.origin - point(shift, px(0.));
         let numbers = editor.line_numbers();
         let current = editor.doc.text().line_of(sel.head) == self.line;
@@ -1716,6 +1717,18 @@ impl gpui::Element for LineElement {
                 }
             }
             layout.paint(origin, window, cx);
+            // A CSV grid's frozen first column: painted again, unscrolled,
+            // over the rows' left edge.
+            if frozen > px(0.) && shift > px(0.) {
+                let strip = Bounds::new(bounds.origin, size(frozen, bounds.size.height));
+                window.with_content_mask(Some(gpui::ContentMask { bounds: strip }), |window| {
+                    window.paint_quad(fill(strip, theme.background));
+                    if let Some(grid) = &sheet {
+                        paint_sheet(grid, &view, &layout, bounds.origin, bounds, &theme, window);
+                    }
+                    layout.paint(bounds.origin, window, cx);
+                });
+            }
             // IME composition: underlined.
             if let Some(m) = &marked
                 && m.start >= ls
@@ -1885,7 +1898,13 @@ impl gpui::Element for LineElement {
                         };
                     color.a *= 0.45;
                 }
-                window.paint_quad(fill(Bounds::new(origin + caret.origin, caret.size), color));
+                // In the frozen column, the caret where that column shows.
+                let at = if frozen > px(0.) && caret.origin.x < frozen {
+                    bounds.origin
+                } else {
+                    origin
+                };
+                window.paint_quad(fill(Bounds::new(at + caret.origin, caret.size), color));
             }
         }
         if focus.is_focused(window) && !self.other {

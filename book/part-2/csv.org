@@ -399,6 +399,23 @@ to Org Table, Open as Plain Text) and in the palette of both editors.
 | =csv.setDelimiter=     | Set Delimiter                     |                 | No                       |
 | =csv.setQuote=         | Set Quote Character               |                 | No                       |
 | =csv.toggleHeader=     | First Row Is a Header             |                 | No                       |
+| =csv.editField=        | Edit Field                        | C-c `           | Yes, the cell            |
+| =csv.setField=         | Set Field                         |                 | Yes, the cell            |
+| =csv.replaceInColumn=  | Replace in Column                 |                 | Yes, the changed cells   |
+| =csv.killField=        | Kill Field                        |                 | Yes, the cell            |
+| =csv.yankField=        | Yank Field                        |                 | Yes, the cell            |
+| =csv.pasteBlock=       | Paste as Block                    |                 | Yes, the covered cells   |
+| =csv.recordView=       | Record View                       |                 | No                       |
+| =csv.frequencies=      | Frequency Table                   |                 | No                       |
+| =csv.hideColumn=       | Hide Column                       |                 | No                       |
+| =csv.showColumns=      | Show All Columns                  |                 | No                       |
+| =csv.autosizeColumn=   | Autosize Column                   |                 | No                       |
+| =csv.autosizeColumns=  | Autosize All Columns              |                 | No                       |
+| =csv.widenColumn=      | Widen Column                      |                 | No                       |
+| =csv.narrowColumn=     | Narrow Column                     |                 | No                       |
+| =csv.setColumnWidth=   | Column Width                      |                 | No                       |
+| =csv.resetWidths=      | Reset Column Widths               |                 | No                       |
+| =csv.toggleFrozen=     | Freeze First Column               |                 | No                       |
 | =csv.detectDialect=    | Detect Delimiter and Header Again |                 | No                       |
 
 Arguments: =csv.sortFile= and =csv.sortView= take =reverse= (boolean);
@@ -538,7 +555,25 @@ keeps its dialect and every byte the command does not name.
   column into as many columns as the most parts a value has; values with
   fewer parts get empty fields. /Join with Next Column/ (=separator=)
   writes the two values with the separator between them, or the one
-  that is not empty.
+  that is not empty. Both show a preview first: the first eight records
+  as they would be, in the palette; choosing one makes the edit (the
+  command again with =confirmed=), Escape leaves the file as it is.
+- /Edit Field/ (=C-c `= in the Emacs keymap, as in an Org table) edits
+  the cursor's field in a one-line editor in the palette, its value
+  unquoted; /Set Field/ (=value=, and =row= and =column= counted from 0,
+  the cursor's when left out) writes it quoted as the dialect needs.
+- /Replace in Column/ (=find=, =replace=) replaces the text in every
+  field of the cursor's column but the header, and says how many fields
+  changed.
+- /Kill Field/ empties the cursor's field and copies its value; /Yank
+  Field/ writes the last copied text into it.
+- /Paste as Block/ writes the clipboard over the cells from the cursor's
+  down and to the right, as a spreadsheet pastes a range: lines of
+  tab-separated values (what spreadsheets copy), or of the dialect's
+  delimiter when no line has a tab; records past the last are added,
+  short records get the fields they lack, and only the cells the block
+  covers change (=csv_tools::paste_block=). An ordinary paste inserts the
+  text at the cursor.
 - /Sort File by Columns/ (=columns=) sorts by several columns in order,
   named by letter or number with =-= for descending (=B, -A= or =2 -1=);
   values compare as /Sort File by Column/ compares them.
@@ -592,6 +627,46 @@ saved either (=csv::View=); the settings =csv.align_numbers=,
   on the first row (=A:name=), with blanks of the same width below them
   so the columns stay aligned; /Go to Cell/ and /Cell Coordinates/ use
   the same names.
+
+Two views list the data in the palette:
+
+- /Record View/ shows the cursor's record as a form, one line a field
+  (=name: value=, the header's names, or =Column n=); choosing a line
+  edits that field.
+- /Frequency Table/ lists the values of the cursor's column with how
+  many records hold each, the most frequent first, with a bar of their
+  share; choosing one filters the rows to it.
+
+** Columns
+
+The columns the grid shows, and their widths, are view state too
+(=csv::Columns=): never written to the file, kept while the document is
+open.
+
+- /Hide Column/ takes the cursor's column out of sight, with its
+  delimiters; the cursor goes to the next column that shows. The last
+  column that shows cannot be hidden. /Show All Columns/ shows them again.
+- /Autosize Column/ makes the cursor's column as wide as its widest
+  value (of the first ten thousand records), however long;
+  /Autosize All Columns/ does it for every column. /Widen Column/ and
+  /Narrow Column/ change the width by two characters, and /Column Width/
+  (=width=, 2 to 500) sets it. A value longer than a width set so shows
+  cut, its last character =…=, but whole in the cell at the cursor.
+  /Reset Column Widths/ goes back to the widths the grid chooses (the
+  widest value of the first thousand records, at most forty characters).
+- /Freeze First Column/ keeps the first column that shows, with the row
+  numbers, at the left edge when the rows scroll sideways, as a frozen
+  pane in a spreadsheet; its letter stays over it in the letters bar.
+  With it on, rows do not wrap. In the graphical editor a column is
+  not yet widened by dragging its edge.
+
+With Vim keys, Doom's local leader has the keys of its csv-mode
+(=:lang data=) and of Org tables: =SPC m a= autosizes the columns, =SPC
+m u= resets their widths, =SPC m s= and =SPC m S= sort by columns and by
+the cursor's column, =SPC m k= deletes the column, =SPC m t= transposes;
+=SPC m b a=, =SPC m b e=, =SPC m b s=, =SPC m b i c=, =SPC m b i r=, =SPC m
+b d c= and =SPC m b d r= align, edit the field, sort, and insert and
+delete columns and rows.
 
 * The clipboard
 

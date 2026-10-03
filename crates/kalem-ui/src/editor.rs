@@ -384,6 +384,9 @@ pub struct Editor {
     sent_selection: Option<(usize, usize)>,
     /// How far lines are scrolled sideways when they do not wrap.
     pub hscroll: Pixels,
+    /// The width of a CSV grid's frozen first column, painted unscrolled
+    /// over the rows' left edge (set when rendering; zero when none).
+    pub frozen: std::cell::Cell<Pixels>,
     /// A plain text document's highlighting and indentation step.
     pub plain: PlainCache,
     /// The highlighting of a file too large for [`Editor::plain`]'s: the
@@ -505,6 +508,7 @@ impl Editor {
             )),
             sent_selection: None,
             hscroll: px(0.),
+            frozen: std::cell::Cell::new(px(0.)),
             plain: RefCell::default(),
             windowed: RefCell::default(),
             disk_checked: Instant::now(),
@@ -2382,7 +2386,9 @@ impl Editor {
     /// Keeps the caret in view sideways when lines do not wrap, from the
     /// last frame's layout; `true` if the view moved.
     fn follow_sideways(&mut self) -> bool {
-        if self.wrap {
+        // A CSV grid's rows never wrap.
+        let grid = self.doc.meta.mode == DocumentMode::Csv && !self.source;
+        if self.wrap && !grid {
             let moved = self.hscroll != px(0.);
             self.hscroll = px(0.);
             return moved;
@@ -2396,7 +2402,13 @@ impl Editor {
         let x = p.layout.caret(p.view.display_offset(head)).origin.x;
         let w = p.bounds.size.width;
         let old = self.hscroll;
-        let new = if x < old + px(8.) {
+        let left = self.frozen.get();
+        let new = if left > px(0.) && x < left {
+            // In the frozen column, which always shows.
+            old
+        } else if left > px(0.) && x < old + left + px(8.) {
+            (x - left - w / 4.).max(px(0.))
+        } else if x < old + px(8.) {
             (x - w / 4.).max(px(0.))
         } else if x > old + w - px(16.) {
             x - w + w / 4.
@@ -3955,7 +3967,13 @@ impl gpui::Render for Editor {
             .filter(|l| l.view.sheet)
             .map(|l| {
                 let current = kalem_core::csv::cell_at(&self.doc).map(|(_, _, _, c)| c);
-                (l.gutter, kalem_core::csv::sheet_widths(&l), current)
+                // The columns that show, with their widths.
+                let widths: Vec<(usize, usize)> = kalem_core::csv::sheet_widths(&l)
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(j, _)| !l.columns.hidden.contains(j))
+                    .collect();
+                (l.gutter, widths, current)
             });
         let bar_height = px(theme.size * 1.6);
         // A character's width in the grid's font, to line the letters up
@@ -3974,6 +3992,13 @@ impl gpui::Render for Editor {
                 .shape_line("0".into(), px(theme.size), &[run], None)
                 .width
         };
+        // A CSV grid's frozen first column, in pixels.
+        self.frozen.set(
+            (self.doc.meta.mode == DocumentMode::Csv && !self.source)
+                .then(|| kalem_core::csv::frozen_width(&kalem_core::csv::layout(&self.doc)))
+                .flatten()
+                .map_or(px(0.), |w| char_w * w as f32),
+        );
         let (mono, size, hscroll, dark) = (
             SharedString::from(theme.mono.clone()),
             px(theme.size),
@@ -4023,35 +4048,52 @@ impl gpui::Render for Editor {
                 // middles of its bars, and empty columns to the edge.
                 let corner = char_w * (*gutter as f32 + 2.5);
                 let extra = kalem_core::csv::SHEET_MIN_WIDTH;
+                let next = widths.last().map_or(0, |(j, _)| j + 1);
+                let letter_cell = |j: usize, w: usize| {
+                    let on = *current == Some(j);
+                    let mut d = div()
+                        .flex_none()
+                        .w(char_w * (w as f32 + 3.))
+                        .h_full()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .border_l_1()
+                        .border_color(line)
+                        .child(SharedString::from(kalem_core::csv_tools::column_letters(j)));
+                    if on {
+                        // Marked by its color and a green line under it;
+                        // the letter stays as readable as the rest.
+                        d = d
+                            .bg(green)
+                            .font_weight(gpui::FontWeight::BOLD)
+                            .text_color(fg)
+                            .border_b_2()
+                            .border_color(edge);
+                    }
+                    d
+                };
+                // The frozen column's letters, over the scrolled bar.
+                let frozen_letters = (self.frozen.get() > px(0.) && hscroll > px(0.))
+                    .then(|| widths.first().copied())
+                    .flatten()
+                    .map(|(j, w)| {
+                        div()
+                            .absolute()
+                            .top(px(0.))
+                            .left(px(0.))
+                            .h_full()
+                            .flex()
+                            .flex_row()
+                            .bg(gray)
+                            .child(div().flex_none().w(corner).h_full())
+                            .child(letter_cell(j, w))
+                    });
                 let columns = widths
                     .iter()
                     .copied()
-                    .chain(std::iter::repeat_n(extra, 60))
-                    .enumerate()
-                    .map(|(j, w)| {
-                        let on = *current == Some(j);
-                        let mut d = div()
-                            .flex_none()
-                            .w(char_w * (w as f32 + 3.))
-                            .h_full()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .border_l_1()
-                            .border_color(line)
-                            .child(SharedString::from(kalem_core::csv_tools::column_letters(j)));
-                        if on {
-                            // Marked by its color and a green line under
-                            // it; the letter stays as readable as the rest.
-                            d = d
-                                .bg(green)
-                                .font_weight(gpui::FontWeight::BOLD)
-                                .text_color(fg)
-                                .border_b_2()
-                                .border_color(edge);
-                        }
-                        d
-                    });
+                    .chain((next..next + 60).map(|j| (j, extra)))
+                    .map(|(j, w)| letter_cell(j, w));
                 text = text.child(
                     div()
                         .debug_selector(|| "csv-letters".into())
@@ -4075,7 +4117,8 @@ impl gpui::Render for Editor {
                                 .flex_row()
                                 .child(div().flex_none().w(corner).h_full())
                                 .children(columns),
-                        ),
+                        )
+                        .children(frozen_letters),
                 );
             }
             if let Some(w) = column {

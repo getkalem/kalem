@@ -360,8 +360,110 @@ pub fn column_sum(text: &str, d: &Dialect, col: usize, skip: Option<usize>) -> O
     (!nums.is_empty()).then(|| nums.iter().sum())
 }
 
+/// The rows of a block from the clipboard: lines of fields separated by
+/// tabs (what spreadsheets copy), or by the dialect's delimiter when no
+/// line has a tab.
+pub fn block_rows(block: &str, d: &Dialect) -> Vec<Vec<String>> {
+    let block = block.strip_suffix('\n').unwrap_or(block);
+    let block = block.strip_suffix('\r').unwrap_or(block);
+    if block.contains('\t') {
+        block
+            .split('\n')
+            .map(|l| {
+                l.strip_suffix('\r')
+                    .unwrap_or(l)
+                    .split('\t')
+                    .map(str::to_string)
+                    .collect()
+            })
+            .collect()
+    } else {
+        crate::csv::rows(block, d)
+    }
+}
+
+/// Paste as Block: the clipboard's rows written over the cells from row
+/// `row`, column `col` down and to the right, as a spreadsheet pastes a
+/// range; rows past the end are added. Only the cells the block covers
+/// change.
+pub fn paste_block(
+    text: &str,
+    d: &Dialect,
+    row: usize,
+    col: usize,
+    block: &[Vec<String>],
+) -> Option<Transaction> {
+    if block.is_empty() {
+        return None;
+    }
+    let mut tx = Transaction::new("Paste as Block");
+    let mut index = Index::new(text);
+    let delim = d.delimiter_char().to_string();
+    let mut added = String::new();
+    let nl = if d.crlf { "\r\n" } else { "\n" };
+    for (i, cells) in block.iter().enumerate() {
+        match index.record(text, row + i, d) {
+            Some(rec) => {
+                // Each cell of the block, then any missing fields before it.
+                let mut extra = String::new();
+                for (k, v) in cells.iter().enumerate() {
+                    let c = col + k;
+                    match rec.fields.get(c) {
+                        Some(f) => {
+                            tx.replace(f.range.clone(), encode(v, d)).ok()?;
+                        }
+                        None => {
+                            let have = rec.fields.len() + extra.matches(&delim).count();
+                            extra.push_str(&delim.repeat(c + 1 - have));
+                            extra.push_str(&encode(v, d));
+                        }
+                    }
+                }
+                if !extra.is_empty() {
+                    let at = rec.range.end;
+                    tx.replace(at..at, extra).ok()?;
+                }
+            }
+            None => {
+                added.push_str(nl);
+                added.push_str(&delim.repeat(col));
+                added.push_str(
+                    &cells
+                        .iter()
+                        .map(|v| encode(v, d))
+                        .collect::<Vec<_>>()
+                        .join(&delim),
+                );
+            }
+        }
+    }
+    if !added.is_empty() {
+        let end = text.trim_end_matches(['\n', '\r']).len();
+        tx.replace(end..end, added).ok()?;
+    }
+    Some(tx)
+}
+
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn paste_block_writes_over_cells() {
+        let d = Dialect::default();
+        let t = "a,b,c\n1,2,3\n4,5,6\n";
+        let block = block_rows("x\ty\nz\tw\n", &d);
+        assert_eq!(block, vec![vec!["x", "y"], vec!["z", "w"]]);
+        let tx = paste_block(t, &d, 1, 1, &block).unwrap();
+        assert_eq!(tx.apply(t), "a,b,c\n1,x,y\n4,z,w\n");
+        // Past the last column and the last row.
+        let tx = paste_block(t, &d, 2, 2, &block).unwrap();
+        assert_eq!(tx.apply(t), "a,b,c\n1,2,3\n4,5,x,y\n,,z,w\n");
+        // A value that needs quotes gets them.
+        let tx = paste_block(t, &d, 0, 0, &[vec!["p, q".into()]]).unwrap();
+        assert_eq!(tx.apply(t), "\"p, q\",b,c\n1,2,3\n4,5,6\n");
+        // CSV on the clipboard, without tabs.
+        assert_eq!(block_rows("1,\"2,3\"\n", &d), vec![vec!["1", "2,3"]]);
+    }
     use super::*;
     use crate::csv::detect;
 
