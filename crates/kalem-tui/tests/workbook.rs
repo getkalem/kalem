@@ -684,3 +684,51 @@ fn data_validation() {
             .is_none()
     );
 }
+
+#[test]
+fn pivot_tables() {
+    let mut t = T::open("pivot");
+    let units = |t: &mut T| {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .structure()
+            .units
+            .len()
+    };
+    let before = units(&mut t);
+    // From inside the table: Item for rows, no columns, Q1 summed.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('T'),
+        KeyModifiers::SHIFT,
+    )));
+    let pick = |t: &mut T, what: &str| {
+        let s = t.screen();
+        assert!(s.contains(what), "{what}: {s}");
+        for ch in what.chars() {
+            t.key(KeyCode::Char(ch));
+        }
+        t.key(KeyCode::Enter);
+    };
+    pick(&mut t, "Item");
+    pick(&mut t, "(No Column Field)");
+    pick(&mut t, "Q1");
+    pick(&mut t, "Sum of Q1");
+    pick(&mut t, "Create PivotTable");
+    assert_eq!(units(&mut t), before + 1);
+    let s = t.screen();
+    assert!(
+        s.contains("Row Labels") && s.contains("Sum of Q1") && s.contains("Grand Total"),
+        "{s}"
+    );
+    assert!(t.status().starts_with("Pivot1"), "{}", t.status());
+    // Refresh All, then undo takes the sheet back.
+    t.app.run_command("viewer.grid.refreshPivots", json!({}));
+    assert!(t.screen().contains("Grand Total"));
+    t.app.run_command("edit.undo", json!({}));
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(units(&mut t), before);
+}

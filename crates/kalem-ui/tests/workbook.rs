@@ -449,5 +449,40 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_keystrokes(&format!("{primary}-pagedown"));
     cx.run_until_parked();
     assert!(status(&ws, cx).starts_with("Dates"), "{}", status(&ws, cx));
+
+    // A pivot table of the budget on a new sheet, shown; then refreshed.
+    cx.simulate_keystrokes(&format!("{primary}-pageup"));
+    cx.run_until_parked();
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+        e.run_command(
+            "viewer.grid.insertPivot",
+            serde_json::json!({ "rows": [0], "cols": [], "values": [[1, "sum"]], "step": "create" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    assert!(status(&ws, cx).starts_with("Pivot1"), "{}", status(&ws, cx));
+    assert!(cx.debug_bounds("viewer-grid-cell-2-0").is_some());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.refreshPivots",
+            serde_json::json!({}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let total = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        (3..20)
+            .find(|&r| {
+                v.grid_move_to(r, 0);
+                v.cell_input() == "Grand Total"
+            })
+            .is_some()
+    });
+    assert!(total, "the pivot table's total row");
     let _ = std::fs::remove_dir_all(dir);
 }
