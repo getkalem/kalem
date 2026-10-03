@@ -936,6 +936,21 @@ pub struct View {
     pub sheet: bool,
 }
 
+/// The columns of a CSV document as the grid shows them (view state,
+/// never written to the file; T2.7d.9).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct Columns {
+    /// Columns not shown.
+    pub hidden: std::collections::BTreeSet<usize>,
+    /// Widths set by hand (Autosize, Widen, Narrow, Column Width), in
+    /// characters; a longer value shows cut, with `…`, but whole in the
+    /// cell at the cursor.
+    pub widths: std::collections::BTreeMap<usize, usize>,
+    /// The first shown column stays at the left edge when the rows scroll
+    /// sideways, as a frozen pane does in a spreadsheet.
+    pub frozen: bool,
+}
+
 /// The view new CSV documents start with: the settings `csv.align_numbers`,
 /// `csv.rainbow` and `csv.coordinates`.
 static VIEW_DEFAULTS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1 | 8);
@@ -1045,8 +1060,13 @@ pub fn sheet_widths(layout: &Layout) -> Vec<usize> {
         .iter()
         .enumerate()
         .map(|(j, &w)| {
-            w.max(crate::csv_tools::column_letters(j).len())
-                .max(SHEET_MIN_WIDTH)
+            let letters = crate::csv_tools::column_letters(j).len();
+            if layout.columns.widths.contains_key(&j) {
+                // A width set by hand, wide enough for the letters.
+                w.max(letters)
+            } else {
+                w.max(letters).max(SHEET_MIN_WIDTH)
+            }
         })
         .collect()
 }
@@ -1059,6 +1079,9 @@ pub fn sheet_widths(layout: &Layout) -> Vec<usize> {
 pub fn letters_bar(layout: &Layout, current: Option<usize>) -> Vec<(String, bool)> {
     let mut out = vec![(" ".repeat(layout.gutter + 2), false), ("│".into(), false)];
     for (j, w) in sheet_widths(layout).into_iter().enumerate() {
+        if layout.columns.hidden.contains(&j) {
+            continue;
+        }
         let letters = crate::csv_tools::column_letters(j);
         let w = w + 2;
         let left = (w - letters.len()) / 2;
@@ -1095,6 +1118,8 @@ pub struct Layout {
     pub numeric: Vec<bool>,
     /// How the grid shows the document.
     pub view: View,
+    /// Hidden columns, widths set by hand, the frozen column.
+    pub columns: Columns,
     /// The width of the row numbers of the coordinate grid.
     pub gutter: usize,
     /// Record starts, found as far as the view needed.
@@ -1131,6 +1156,12 @@ impl Layout {
 
     /// The layout of `text` in `dialect`, shown as `view` says.
     pub fn with_view(text: &str, dialect: Dialect, view: View) -> Layout {
+        Layout::with_columns(text, dialect, view, Columns::default())
+    }
+
+    /// The layout of `text` in `dialect`, shown as `view` and `columns`
+    /// say.
+    pub fn with_columns(text: &str, dialect: Dialect, view: View, columns: Columns) -> Layout {
         use unicode_width::UnicodeWidthStr;
         let mut index = Index::new(text);
         let mut widths: Vec<usize> = Vec::new();
@@ -1170,11 +1201,17 @@ impl Layout {
         } else {
             0
         };
+        for (&j, &w) in &columns.widths {
+            if j < widths.len() {
+                widths[j] = w;
+            }
+        }
         Layout {
             dialect,
             widths,
             numeric,
             view,
+            columns,
             gutter,
             index: std::cell::RefCell::new(index),
         }
@@ -1199,7 +1236,7 @@ fn memchr_count(text: &str) -> usize {
 type Key = (u64, usize, Dialect);
 
 /// The layout last computed, with what it was computed for.
-type LayoutMemo = ((Key, View), std::rc::Rc<Layout>);
+type LayoutMemo = ((Key, View, Columns), std::rc::Rc<Layout>);
 
 thread_local! {
     static LAYOUT: std::cell::RefCell<Option<LayoutMemo>> =
@@ -1218,17 +1255,22 @@ pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
             d
         }
     };
-    let key = ((doc.version(), doc.text().len(), dialect), doc.csv_view);
+    let key = (
+        (doc.version(), doc.text().len(), dialect),
+        doc.csv_view,
+        doc.csv_columns.clone(),
+    );
     LAYOUT.with(|l| {
         if let Some((k, v)) = &*l.borrow()
             && *k == key
         {
             return v.clone();
         }
-        let v = std::rc::Rc::new(Layout::with_view(
+        let v = std::rc::Rc::new(Layout::with_columns(
             doc.text().as_str(),
             dialect,
             doc.csv_view,
+            doc.csv_columns.clone(),
         ));
         *l.borrow_mut() = Some((key, v.clone()));
         v
@@ -1339,10 +1381,47 @@ pub fn line_view(
             true,
         ));
     }
+    // The last field that shows: a hidden last column takes the
+    // delimiter before it out of sight too.
+    let shown_last = (0..rec.fields.len())
+        .rev()
+        .find(|j| !layout.columns.hidden.contains(j));
+    let at_cursor = |f: &Field| cursor.is_some_and(|c| f.range.start <= c && c <= f.range.end);
     for (j, f) in rec.fields.iter().enumerate() {
+        if layout.columns.hidden.contains(&j) {
+            // The field and the delimiter after it (before it, for the
+            // last shown) take no room.
+            let end = if Some(j) > shown_last || j + 1 == rec.fields.len() {
+                f.range.end
+            } else {
+                f.range.end + 1
+            };
+            let start = if Some(j) > shown_last && j > 0 {
+                f.range.start - 1
+            } else {
+                f.range.start
+            };
+            runs.push(Run {
+                src: start..end,
+                text: String::new(),
+                verbatim: false,
+                style: Style::default(),
+                widget: None,
+            });
+            continue;
+        }
         let s = &text[f.range.clone()];
-        let last = j + 1 == rec.fields.len();
+        let last = Some(j) == shown_last;
         let on = active == Some(j);
+        // A value longer than a width set by hand shows cut, but whole at
+        // the cursor.
+        let cut = layout
+            .columns
+            .widths
+            .get(&j)
+            .filter(|&&w| s.width() > w && !at_cursor(f))
+            .map(|&w| truncate(s, w));
+        let s_width = cut.as_ref().map_or(s.width(), |c| c.width());
         if view.coordinates && !view.sheet {
             // The column's letters on the first row, the same width of
             // blanks below them.
@@ -1354,7 +1433,7 @@ pub fn line_view(
             };
             runs.push(deco(f.range.start, label, true));
         }
-        let pad = width_of(j).saturating_sub(s.width());
+        let pad = width_of(j).saturating_sub(s_width);
         let right =
             view.align_numbers && !header && layout.numeric.get(j).copied().unwrap_or(false);
         // The cell at the cursor marked across its width.
@@ -1367,7 +1446,15 @@ pub fn line_view(
         if right && pad > 0 {
             runs.push(mark(deco(f.range.start, " ".repeat(pad), false)));
         }
-        if !s.is_empty() {
+        if let Some(c) = cut {
+            runs.push(mark(Run {
+                src: f.range.clone(),
+                text: c,
+                verbatim: false,
+                style: style_of(j),
+                widget: None,
+            }));
+        } else if !s.is_empty() {
             runs.push(mark(Run {
                 src: f.range.clone(),
                 text: s.to_string(),
@@ -1385,7 +1472,9 @@ pub fn line_view(
             // The edge after the last cell, then empty cells to the last
             // column, so the grid goes on.
             runs.push(bar(f.range.end, " │"));
-            for k in rec.fields.len()..sheet_w.len() {
+            for k in
+                (rec.fields.len()..sheet_w.len()).filter(|k| !layout.columns.hidden.contains(k))
+            {
                 runs.push(bar(
                     f.range.end,
                     &format!("{} │", " ".repeat(width_of(k) + 1)),
@@ -1415,6 +1504,70 @@ pub fn line_view(
         mono: true,
         ..LineView::default()
     }
+}
+
+/// `s` cut to `w` columns, the last one `…`.
+fn truncate(s: &str, w: usize) -> String {
+    use unicode_width::UnicodeWidthChar;
+    let mut out = String::new();
+    let mut used = 0;
+    for c in s.chars() {
+        let cw = c.width().unwrap_or(0);
+        if used + cw + 1 > w {
+            break;
+        }
+        used += cw;
+        out.push(c);
+    }
+    out.push('…');
+    out
+}
+
+/// The widest value of each column, uncut, over the first ten thousand
+/// records: what Autosize sets.
+pub fn natural_widths(text: &str, d: &Dialect) -> Vec<usize> {
+    use unicode_width::UnicodeWidthStr;
+    let mut index = Index::new(text);
+    let mut widths: Vec<usize> = Vec::new();
+    for i in 0..10_000 {
+        let Some(r) = index.record(text, i, d) else {
+            break;
+        };
+        for (j, f) in r.fields.iter().enumerate() {
+            let w = text[f.range.clone()].width();
+            if j >= widths.len() {
+                widths.resize(j + 1, 0);
+            }
+            widths[j] = widths[j].max(w);
+        }
+    }
+    widths
+}
+
+/// The width in characters of the frozen first column with what comes
+/// before it (the row numbers) and the bar after it, when the view
+/// freezes it.
+pub fn frozen_width(layout: &Layout) -> Option<usize> {
+    if !layout.columns.frozen {
+        return None;
+    }
+    let first = (0..layout.widths.len().max(1)).find(|j| !layout.columns.hidden.contains(j))?;
+    let w = if layout.view.sheet {
+        sheet_widths(layout)
+            .get(first)
+            .copied()
+            .unwrap_or(SHEET_MIN_WIDTH)
+    } else {
+        layout.widths.get(first).copied().unwrap_or(0)
+    };
+    let gutter = if layout.view.sheet {
+        layout.gutter + 4
+    } else if layout.view.coordinates {
+        layout.gutter + 1 + crate::csv_tools::column_letters(first).len() + 1
+    } else {
+        0
+    };
+    Some(gutter + w + 2)
 }
 
 /// The cell at the cursor of the CSV document `doc`: the layout, the row,

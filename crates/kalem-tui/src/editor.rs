@@ -67,6 +67,9 @@ pub struct EditorView {
     pub outline_indent: bool,
     /// Columns scrolled out at the left when lines do not wrap.
     pub hscroll: u16,
+    /// Lines do not wrap whatever `wrap` says: a CSV grid with its first
+    /// column frozen scrolls sideways (set when drawing).
+    unwrapped: bool,
     /// A plain text document's highlighting and indentation step, for its
     /// text version.
     plain: PlainCache,
@@ -1785,8 +1788,13 @@ impl EditorView {
         self.viewport.scroll(&l, delta, width);
     }
 
+    /// Whether lines wrap.
+    fn wraps(&self) -> bool {
+        self.wrap && !self.unwrapped
+    }
+
     fn width(&self) -> u16 {
-        if self.wrap {
+        if self.wraps() {
             self.area.width.saturating_sub(2).max(1)
         } else {
             // No wrapping: one row a line.
@@ -1881,6 +1889,9 @@ impl EditorView {
         } else {
             area
         };
+        self.unwrapped = doc.meta.mode == kalem_core::DocumentMode::Csv
+            && !self.source
+            && doc.csv_columns.frozen;
         let blocks = self.blocks(doc);
         if self.follow {
             self.reveal(doc, &blocks);
@@ -1920,15 +1931,28 @@ impl EditorView {
                 .bg(ratatui::style::Color::Yellow)
                 .fg(ratatui::style::Color::Black),
         };
+        // A CSV grid's frozen first column: drawn again, unscrolled, over
+        // the rows' left edge when they scroll sideways.
+        let frozen =
+            (doc.meta.mode == kalem_core::DocumentMode::Csv && !self.source && !self.wraps())
+                .then(|| kalem_core::csv::frozen_width(&kalem_core::csv::layout(doc)))
+                .flatten()
+                .map(|w| (w as u16).min(area.width / 2));
         // Without wrapping, the view scrolls sideways to keep the cursor.
-        if self.wrap {
+        if self.wraps() {
             self.hscroll = 0;
         } else {
             let line = l.line_of(sel.head);
             let rows = l.rows(line, width);
             let (_, cx) = tui_rich_text::cursor_in(&rows, sel.head);
             let w = area.width.saturating_sub(3).max(1);
-            if cx < self.hscroll {
+            let left = frozen.unwrap_or(0);
+            if left > 0 && cx >= left && cx < self.hscroll + left {
+                // Not under the frozen column.
+                self.hscroll = (cx - left).saturating_sub(w / 4);
+            } else if left > 0 && cx < left {
+                // In the frozen column, which always shows.
+            } else if cx < self.hscroll {
                 self.hscroll = cx.saturating_sub(w / 4);
             } else if cx >= self.hscroll + w {
                 self.hscroll = cx + 1 - w + w / 4;
@@ -1964,7 +1988,51 @@ impl EditorView {
             margin: 1,
             hscroll: self.hscroll,
         };
-        let drawn = tui_rich_text::draw(&l, &self.viewport, buf, area, &options);
+        let mut drawn = tui_rich_text::draw(&l, &self.viewport, buf, area, &options);
+        if let Some(fw) = frozen.filter(|_| self.hscroll > 0) {
+            let unscrolled = Options {
+                hscroll: 0,
+                selection: options.selection.clone(),
+                ..options
+            };
+            let narrow = |r: Rect| Rect {
+                width: (fw + options.margin).min(r.width),
+                ..r
+            };
+            for (rect, top) in
+                [(narrow(area), self.viewport.clone())]
+                    .into_iter()
+                    .chain(pinned.then(|| {
+                        (
+                            narrow(header_area),
+                            Viewport {
+                                top: 0,
+                                top_row: 0,
+                                goal_x: None,
+                            },
+                        )
+                    }))
+            {
+                for y in rect.top()..rect.bottom() {
+                    for x in rect.left()..rect.right() {
+                        buf[(x, y)].reset();
+                    }
+                }
+                let d = tui_rich_text::draw(&l, &top, buf, rect, &unscrolled);
+                if rect.y == area.y
+                    && let Some((x, y)) = d.cursor
+                    && x < rect.right()
+                {
+                    drawn.cursor = Some((x, y));
+                }
+            }
+            if pinned {
+                buf.set_style(
+                    narrow(header_area),
+                    ratatui::style::Style::default().add_modifier(Modifier::UNDERLINED),
+                );
+            }
+        }
         if pinned {
             let top = Viewport {
                 top: 0,
@@ -2034,15 +2102,32 @@ impl EditorView {
             }
             // Lined up with the rows: after the margin, scrolled with them.
             let mut x = i64::from(letters_area.x) + 1 - self.hscroll as i64;
-            for (piece, current_col) in kalem_core::csv::letters_bar(layout, current) {
+            let bar = kalem_core::csv::letters_bar(layout, current);
+            for (piece, current_col) in &bar {
                 for ch in piece.chars() {
                     if x >= i64::from(letters_area.x) && x < i64::from(letters_area.right()) {
-                        let style = if current_col { on } else { gray };
+                        let style = if *current_col { on } else { gray };
                         buf[(x as u16, letters_area.y)]
                             .set_symbol(&ch.to_string())
                             .set_style(style);
                     }
                     x += 1;
+                }
+            }
+            // The frozen column's letters stay over it.
+            if let Some(fw) = frozen.filter(|_| self.hscroll > 0) {
+                let mut x = letters_area.x + 1;
+                let end = (letters_area.x + 1 + fw).min(letters_area.right());
+                for (piece, current_col) in &bar {
+                    for ch in piece.chars() {
+                        if x < end {
+                            let style = if *current_col { on } else { gray };
+                            buf[(x, letters_area.y)]
+                                .set_symbol(&ch.to_string())
+                                .set_style(style);
+                        }
+                        x += 1;
+                    }
                 }
             }
         }

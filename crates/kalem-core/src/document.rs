@@ -141,6 +141,12 @@ pub struct DocumentState {
     /// How the grid shows a CSV document (view state): alignment,
     /// rainbow columns, the coordinate grid.
     pub csv_view: crate::csv::View,
+    /// A CSV document's columns as the grid shows them (view state):
+    /// hidden ones, widths set by hand, the first one frozen.
+    pub csv_columns: crate::csv::Columns,
+    /// The next paste into this CSV document writes over the cells from
+    /// the cursor's down and to the right (Paste as Block), once.
+    pub csv_paste_block: bool,
     /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
     /// descending; the file keeps its order.
     pub bib_sort: Option<(usize, bool)>,
@@ -260,6 +266,8 @@ impl DocumentState {
             csv_sort: None,
             csv_dialect: std::cell::Cell::new(None),
             csv_view: crate::csv::View::default(),
+            csv_columns: crate::csv::Columns::default(),
+            csv_paste_block: false,
             bib_sort: None,
         }
     }
@@ -819,6 +827,25 @@ impl DocumentState {
             return self.paste(&links, None, true, now);
         }
         let mut text = text.replace("\r\n", "\n");
+        // Paste as Block: the cells written over, as a spreadsheet pastes.
+        if std::mem::take(&mut self.csv_paste_block)
+            && self.meta.mode == DocumentMode::Csv
+            && let Some((layout, row, _, col)) = crate::csv::cell_at(self)
+        {
+            let block = crate::csv_tools::block_rows(&text, &layout.dialect);
+            if let Some(tx) = crate::csv_tools::paste_block(
+                self.text().as_str(),
+                &layout.dialect,
+                row,
+                col,
+                &block,
+            ) {
+                let caret = self.selection.head;
+                let tx = tx.select(Selection::caret(caret));
+                self.apply(&tx, ChangeKind::Command, now);
+            }
+            return;
+        }
         // Rows copied from a spreadsheet, in a CSV file: its delimiter.
         if !plain
             && self.meta.mode == DocumentMode::Csv
