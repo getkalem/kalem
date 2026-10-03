@@ -35,6 +35,7 @@ insta = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kalem-plugin-image-viewer.workspace = true
 kalem-plugin-xlsx.workspace = true
+kalem-plugin-pdf-viewer.workspace = true
 
 [lints]
 workspace = true

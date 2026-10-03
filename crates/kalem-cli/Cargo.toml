@@ -20,6 +20,7 @@ org-export.workspace = true
 kalem-core.workspace = true
 kalem-plugin-image-viewer.workspace = true
 kalem-plugin-xlsx.workspace = true
+kalem-plugin-pdf-viewer.workspace = true
 latex-syntax.workspace = true
 latex-model.workspace = true
 jiff = "0.2"

@@ -423,11 +423,13 @@ enum ViewFormat {
     Png,
 }
 
-/// Installs the plugins bundled into the binary (D28): the image viewer
-/// of getkalem/plugins, until components load (T3.1.12).
+/// Installs the plugins bundled into the binary (D28): the viewers of
+/// getkalem/plugins for pictures, workbooks and PDF files, until
+/// components load (T3.1.12).
 pub fn bundled_plugins() {
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_image_viewer::ImageViewer));
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_xlsx::XlsxViewer));
+    kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_pdf_viewer::PdfViewer));
 }
 
 pub fn run<I, T>(args: I) -> ExitCode

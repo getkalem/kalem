@@ -415,7 +415,8 @@ fn draw_image(
     }
 }
 
-/// The part (`sx`, `sy`, `sw`, `sh`) of the bitmap, scaled to `cells`.
+/// The part (`sx`, `sy`, `sw`, `sh`) of the unit, in its pixels at scale
+/// 1, scaled to `cells`.
 fn make(
     v: &mut ViewerState,
     picker: &Picker,
@@ -424,6 +425,10 @@ fn make(
     (cw, ch): (f32, f32),
 ) -> Option<Protocol> {
     let b = v.bitmap().ok()?;
+    // A page is rendered at the scale shown: its bitmap has more pixels
+    // than the unit.
+    let k = b.width as f32 / v.unit_size().0.max(1.0);
+    let (sx, sy, sw, sh) = (sx * k, sy * k, sw * k, sh * k);
     let img = image::RgbaImage::from_raw(b.width, b.height, b.rgba.to_vec())?;
     let (x, y) = (sx.floor() as u32, sy.floor() as u32);
     let w = (sw.ceil() as u32).clamp(1, b.width.saturating_sub(x).max(1));

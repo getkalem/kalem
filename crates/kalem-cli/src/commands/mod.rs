@@ -758,6 +758,9 @@ pub(crate) fn view(file: &Path, unit: usize, png: bool, output: Option<&Path>) -
     }
     v.go_to(unit - 1);
     if png {
+        // A picture at its pixels; a page at 144 dpi.
+        v.zoom = kalem_core::viewer::Zoom::Scale(1.0);
+        v.set_pixel_ratio(2.0);
         let bytes = v
             .bitmap()
             .and_then(|b| kalem_core::viewer::png(&b))
