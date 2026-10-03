@@ -1039,7 +1039,7 @@ impl ViewerState {
             return Err("This file is shown, not edited".into());
         }
         let s = self.selection();
-        self.doc
+        self.doc()
             .clear_cells(self.unit, s)
             .map_err(|e| e.to_string())?;
         self.refresh();
@@ -1053,10 +1053,10 @@ impl ViewerState {
         let s = self.selection();
         let mut grid =
             vec![vec![String::new(); (s[3] - s[1] + 1) as usize]; (s[2] - s[0] + 1) as usize];
-        for (r, c, cell) in self
-            .doc
-            .grid_cells(self.unit, s[0]..s[2] + 1, s[1]..s[3] + 1)
-        {
+        let cells = self
+            .doc()
+            .grid_cells(self.unit, s[0]..s[2] + 1, s[1]..s[3] + 1);
+        for (r, c, cell) in cells {
             let t = cell.text;
             grid[(r - s[0]) as usize][(c - s[1]) as usize] = if t.contains(['\t', '\n', '\r', '"'])
             {
