@@ -560,6 +560,14 @@ pub trait ViewerDocument: Send {
         Vec::new()
     }
 
+    /// Where a byte range of a unit's [`ViewerDocument::text`] stands in
+    /// the unit: rectangles (x, y, width, height) in its pixels at scale
+    /// 1, as [`Link::rect`], a line's run of text one rectangle; empty
+    /// when the viewer does not know (the host then marks nothing).
+    fn text_rects(&self, _unit: usize, _range: std::ops::Range<usize>) -> Vec<[f32; 4]> {
+        Vec::new()
+    }
+
     /// The edits the format allows on a unit (`document-editor`); none
     /// for a viewer only.
     fn edits(&self, _unit: usize) -> Vec<Edit> {
