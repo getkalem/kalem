@@ -274,6 +274,35 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // Budget!B3:D3 cut, pasted on Dates at C10: moved across sheets.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(2, 1);
+        v.grid_extend_to(2, 3);
+        e.run_command("edit.cut", serde_json::json!({}), window, cx);
+        e.run_command("viewer.grid.nextSheet", serde_json::json!({}), window, cx);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 2);
+        e.run_command("edit.paste", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    let e10 = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(9, 4);
+        v.cell_input()
+    });
+    assert_eq!(e10, "=Dates!C10+Dates!D10");
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.run_command(
+            "viewer.grid.previousSheet",
+            serde_json::json!({}),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    assert!(status(&ws, cx).starts_with("Budget"), "{}", status(&ws, cx));
+
     // B2 to C3 selected by dragging, then merged.
     let from = cx
         .debug_bounds("viewer-grid-cell-1-1")

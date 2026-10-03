@@ -1299,14 +1299,14 @@ impl ViewerState {
             return Ok(());
         }
         let s = self.selection();
-        // The text of a cut on this sheet: the cells move.
+        // The text of a cut: the cells move, to this sheet from any.
         let norm = |t: &str| t.replace("\r\n", "\n").trim_end_matches('\n').to_string();
         if let Some((unit, range, cut_text)) = self.cut.clone()
-            && unit == self.unit
             && norm(&cut_text) == norm(text)
         {
+            // From this sheet or another: the cells move.
             self.doc()
-                .move_cells(self.unit, range, s[0], s[1])
+                .move_cells_between(unit, range, self.unit, s[0], s[1])
                 .map_err(|e| e.to_string())?;
             self.cut = None;
             self.refresh();

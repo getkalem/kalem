@@ -303,6 +303,25 @@ fn cells_rows_undo_and_save() {
     assert_eq!(input(&mut t, 2, 1), "431.5");
     assert_eq!(input(&mut t, 2, 3), "=B3+C3");
 
+    // Budget!B3:D3 cut and pasted on Dates at C10: moved across sheets.
+    let text = {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(2, 1);
+        v.grid_extend_to(2, 3);
+        v.selection_tsv()
+    };
+    t.app.run_command("edit.cut", json!({}));
+    t.app.run_command("viewer.grid.nextSheet", json!({}));
+    assert!(t.status().starts_with("Dates"), "{}", t.status());
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 2);
+    t.app.paste(&text, false);
+    assert_eq!(input(&mut t, 9, 2), "431.5");
+    assert_eq!(input(&mut t, 9, 4), "=Dates!C10+Dates!D10");
+    t.app.run_command("viewer.grid.previousSheet", json!({}));
+    assert_eq!(input(&mut t, 2, 1), "");
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 2, 3), "=B3+C3");
+
     // Pasted text: rows into cells in one step; one value fills a selection.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 0);
     t.app.paste("Books\t1,000.50\nTea\t=B10*2\n", false);
@@ -349,6 +368,8 @@ fn cells_rows_undo_and_save() {
     // The next sheet.
     t.app.run_command("viewer.grid.nextSheet", json!({}));
     assert!(t.status().starts_with("Dates"), "{}", t.status());
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.screen();
     // A date wider than its column shows as #, as in a spreadsheet.
     assert!(t.screen().contains("########"));
     assert_eq!(
