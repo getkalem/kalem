@@ -307,16 +307,66 @@ fn pandoc_json(pandoc: &Path, file: &Path) -> Result<Value> {
         cmd.current_dir(d);
     }
     cmd.arg(file.file_name().map(PathBuf::from).unwrap_or_default());
-    let out = cmd.output().map_err(|e| format!("pandoc: {e}"))?;
-    if !out.status.success() {
+    cmd.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let mut child = cmd.spawn().map_err(|e| format!("pandoc: {e}"))?;
+    // Read on threads, so a full pipe never blocks pandoc.
+    let read = |r: Option<Box<dyn std::io::Read + Send>>| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            if let Some(mut r) = r {
+                let _ = r.read_to_end(&mut buf);
+            }
+            buf
+        })
+    };
+    let stdout = read(
+        child
+            .stdout
+            .take()
+            .map(|r| Box::new(r) as Box<dyn std::io::Read + Send>),
+    );
+    let stderr = read(
+        child
+            .stderr
+            .take()
+            .map(|r| Box::new(r) as Box<dyn std::io::Read + Send>),
+    );
+    // A file pandoc takes too long over is left out rather than stalling
+    // a corpus run.
+    let start = std::time::Instant::now();
+    let status = loop {
+        if let Some(s) = child.try_wait().map_err(|e| format!("pandoc: {e}"))? {
+            break s;
+        }
+        if start.elapsed() > PANDOC_TIMEOUT {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!(
+                "{}: pandoc took more than {} s",
+                file.display(),
+                PANDOC_TIMEOUT.as_secs()
+            ));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    let (out, err) = (
+        stdout.join().unwrap_or_default(),
+        stderr.join().unwrap_or_default(),
+    );
+    if !status.success() {
         return Err(format!(
             "{}: pandoc: {}",
             file.display(),
-            String::from_utf8_lossy(&out.stderr).trim()
+            String::from_utf8_lossy(&err).trim()
         ));
     }
-    serde_json::from_slice(&out.stdout).map_err(|e| format!("{}: {e}", file.display()))
+    serde_json::from_slice(&out).map_err(|e| format!("{}: {e}", file.display()))
 }
+
+/// How long pandoc may take over one file.
+const PANDOC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// `kalem diff-pandoc FILE... [--summary] [--format json]`.
 pub(crate) fn diff_pandoc(files: &[PathBuf], summary: bool, json: bool) -> Result<ExitCode> {
