@@ -1107,4 +1107,6 @@ cmd-viewer-grid-autofitColumns = Tüm Sütunları Sığdır
 cmd-viewer-grid-widenColumn = Sütunu Genişlet
 cmd-viewer-grid-narrowColumn = Sütunu Daralt
 cmd-viewer-grid-tallerRow = Satırı Yükselt
+cmd-viewer-grid-wrapText = Metni Kaydır
+cmd-viewer-grid-fitRowHeight = Satır Yüksekliğini Sığdır
 cmd-viewer-grid-shorterRow = Satırı Alçalt
