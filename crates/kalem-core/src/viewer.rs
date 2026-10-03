@@ -1975,6 +1975,76 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The chart over the cursor's cell (the top one): its place among
+    /// [`ViewerState::charts`] and its anchor.
+    pub fn chart_at_cursor(&mut self) -> Option<(usize, [u32; 4])> {
+        let p = self.grid_pos();
+        self.charts()
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, c)| {
+                (c.anchor[0]..=c.anchor[2]).contains(&p.row)
+                    && (c.anchor[1]..=c.anchor[3]).contains(&p.col)
+            })
+            .map(|(i, c)| (i, c.anchor))
+    }
+
+    /// Moves or resizes a chart to cover `anchor`'s cells.
+    pub fn move_chart(&mut self, index: usize, anchor: [u32; 4]) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .move_chart(self.unit, index, anchor)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Moves the chart under the cursor by rows and columns, the cursor
+    /// with it, or (`resize`) moves its bottom right corner.
+    pub fn nudge_chart(&mut self, rows: i64, cols: i64, resize: bool) -> Result<(), String> {
+        let (i, a) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to move or resize it")?;
+        let add = |v: u32, d: i64| (i64::from(v) + d).max(0) as u32;
+        let new = if resize {
+            [
+                a[0],
+                a[1],
+                add(a[2], rows).max(a[0]),
+                add(a[3], cols).max(a[1]),
+            ]
+        } else {
+            let (dr, dc) = (
+                if i64::from(a[0]) + rows < 0 {
+                    -i64::from(a[0])
+                } else {
+                    rows
+                },
+                if i64::from(a[1]) + cols < 0 {
+                    -i64::from(a[1])
+                } else {
+                    cols
+                },
+            );
+            [add(a[0], dr), add(a[1], dc), add(a[2], dr), add(a[3], dc)]
+        };
+        if new == a {
+            return Ok(());
+        }
+        self.move_chart(i, new)?;
+        if !resize {
+            let p = self.grid_pos();
+            self.grid_move_to(
+                add(p.row, i64::from(new[0]) - i64::from(a[0])),
+                add(p.col, i64::from(new[1]) - i64::from(a[1])),
+            );
+        }
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -4502,6 +4572,62 @@ fn grid_commands() -> Vec<Command> {
             &["alt+f1"],
             IN_GRID,
             insert_chart,
+        ),
+        cmd(
+            "viewer.grid.moveChartUp",
+            "Move Chart Up",
+            &["h up"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_chart(-1, 0, false)),
+        ),
+        cmd(
+            "viewer.grid.moveChartDown",
+            "Move Chart Down",
+            &["h down"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_chart(1, 0, false)),
+        ),
+        cmd(
+            "viewer.grid.moveChartLeft",
+            "Move Chart Left",
+            &["h left"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_chart(0, -1, false)),
+        ),
+        cmd(
+            "viewer.grid.moveChartRight",
+            "Move Chart Right",
+            &["h right"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_chart(0, 1, false)),
+        ),
+        cmd(
+            "viewer.grid.chartTaller",
+            "Make Chart Taller",
+            &["h shift+down"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_chart(1, 0, true)),
+        ),
+        cmd(
+            "viewer.grid.chartShorter",
+            "Make Chart Shorter",
+            &["h shift+up"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_chart(-1, 0, true)),
+        ),
+        cmd(
+            "viewer.grid.chartWider",
+            "Make Chart Wider",
+            &["h shift+right"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_chart(0, 1, true)),
+        ),
+        cmd(
+            "viewer.grid.chartNarrower",
+            "Make Chart Narrower",
+            &["h shift+left"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_chart(0, -1, true)),
         ),
         cmd(
             "viewer.grid.deleteChart",

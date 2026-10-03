@@ -47,6 +47,45 @@ pub struct ViewerView {
     row_drag: Option<RowDrag>,
     /// Cells are being selected by dragging.
     selecting: bool,
+    /// A chart being moved or resized by dragging.
+    chart_drag: Option<ChartDrag>,
+    /// The grid's columns and rows as last drawn: index, start, size, in
+    /// the grid's own pixels.
+    grid_lines: (Vec<GridLine>, Vec<GridLine>),
+}
+
+/// A column or row as drawn: index, start, size.
+type GridLine = (u32, f32, f32);
+
+/// A chart dragged by its body (moved) or its corner (resized).
+#[derive(Debug, Clone, Copy)]
+struct ChartDrag {
+    /// Its place among the sheet's charts.
+    index: usize,
+    /// The corner: resized, not moved.
+    resize: bool,
+    /// The pointer where the drag began.
+    start: Point<Pixels>,
+    /// Its box then, in the grid's pixels.
+    rect: (f32, f32, f32, f32),
+    /// How far the pointer has gone.
+    delta: (f32, f32),
+}
+
+/// The cell under a point of the grid, from the lines last drawn; past
+/// them, as many more of the last one's size.
+fn line_at(lines: &[GridLine], at: f32) -> Option<u32> {
+    let first = lines.first()?;
+    let last = lines.last()?;
+    if at < first.1 {
+        let back = ((first.1 - at) / first.2.max(1.0)).ceil() as u32;
+        return Some(first.0.saturating_sub(back));
+    }
+    if let Some(l) = lines.iter().find(|l| at >= l.1 && at < l.1 + l.2) {
+        return Some(l.0);
+    }
+    let more = ((at - (last.1 + last.2)) / last.2.max(1.0)).floor() as u32 + 1;
+    Some(last.0 + more)
 }
 
 /// A grid row resized by dragging its number's bottom edge.
@@ -795,6 +834,13 @@ impl Editor {
             y += h;
         }
         // Charts over the cells they cover, the part in view.
+        let drag = self.viewer_view.chart_drag;
+        self.viewer_view.grid_lines = (
+            col_x.iter().map(|(c, (x, w))| (*c, *x, *w)).collect(),
+            row_y.iter().map(|(r, (y, h))| (*r, *y, *h)).collect(),
+        );
+        self.viewer_view.grid_lines.0.sort_by_key(|l| l.0);
+        self.viewer_view.grid_lines.1.sort_by_key(|l| l.0);
         let charts: Vec<_> = v
             .charts()
             .iter()
@@ -813,13 +859,63 @@ impl Editor {
                     ys.iter().map(|v| v.1).sum::<f32>(),
                 );
                 (w > 20.0 && h > 20.0).then(|| {
+                    // Drawn where the drag has taken it.
+                    let (mut x, mut y, mut cw, mut ch) = (x0, y0, w, h);
+                    if let Some(d) = drag.filter(|d| d.index == i) {
+                        if d.resize {
+                            cw = (w + d.delta.0).max(30.0);
+                            ch = (h + d.delta.1).max(30.0);
+                        } else {
+                            x += d.delta.0;
+                            y += d.delta.1;
+                        }
+                    }
+                    let rect = (x0, y0, w, h);
                     crate::chart::chart_view(
                         chart,
                         i,
-                        (x0, y0, w, h),
+                        (x, y, cw, ch),
                         theme.background,
                         theme.border,
                         theme.foreground,
+                    )
+                    .cursor_move()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                            cx.stop_propagation();
+                            this.viewer_view.chart_drag = Some(ChartDrag {
+                                index: i,
+                                resize: false,
+                                start: ev.position,
+                                rect,
+                                delta: (0.0, 0.0),
+                            });
+                        }),
+                    )
+                    .child(
+                        // The corner that resizes it.
+                        div()
+                            .debug_selector(move || format!("viewer-grid-chart-corner-{i}"))
+                            .absolute()
+                            .right_0()
+                            .bottom_0()
+                            .size(px(10.))
+                            .bg(theme.border)
+                            .cursor_nwse_resize()
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                                    cx.stop_propagation();
+                                    this.viewer_view.chart_drag = Some(ChartDrag {
+                                        index: i,
+                                        resize: true,
+                                        start: ev.position,
+                                        rect,
+                                        delta: (0.0, 0.0),
+                                    });
+                                }),
+                            ),
                     )
                 })
             })
@@ -1306,6 +1402,16 @@ impl Editor {
                     .children(cut_mark),
             )
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
+                if let Some(d) = this.viewer_view.chart_drag.as_mut() {
+                    if ev.pressed_button != Some(MouseButton::Left) {
+                        this.viewer_view.chart_drag = None;
+                    } else {
+                        let m = ev.position - d.start;
+                        d.delta = (f32::from(m.x), f32::from(m.y));
+                    }
+                    cx.notify();
+                    return;
+                }
                 if let Some(d) = this.viewer_view.row_drag.as_mut() {
                     if ev.pressed_button != Some(MouseButton::Left) {
                         this.viewer_view.row_drag = None;
@@ -1329,6 +1435,49 @@ impl Editor {
                 MouseButton::Left,
                 cx.listener(move |this, _: &MouseUpEvent, _, cx| {
                     this.viewer_view.selecting = false;
+                    if let Some(d) = this.viewer_view.chart_drag.take() {
+                        // Dropped: the cells under its new box.
+                        let (cols, rows) = &this.viewer_view.grid_lines;
+                        let (x, y, w, h) = d.rect;
+                        let moved = d.delta.0.abs() >= 3.0 || d.delta.1.abs() >= 3.0;
+                        let target = if d.resize {
+                            (
+                                line_at(rows, y + 2.0),
+                                line_at(cols, x + 2.0),
+                                line_at(rows, y + h + d.delta.1 - 2.0),
+                                line_at(cols, x + w + d.delta.0 - 2.0),
+                            )
+                        } else {
+                            let top = line_at(rows, y + d.delta.1 + 2.0);
+                            let left = line_at(cols, x + d.delta.0 + 2.0);
+                            let (r0, c0) = (line_at(rows, y + 2.0), line_at(cols, x + 2.0));
+                            let (r1, c1) = (line_at(rows, y + h - 2.0), line_at(cols, x + w - 2.0));
+                            let span = r0
+                                .zip(r1)
+                                .map(|(a, b)| b - a)
+                                .zip(c0.zip(c1).map(|(a, b)| b - a));
+                            match (top, left, span) {
+                                (Some(t), Some(l), Some((dr, dc))) => {
+                                    (Some(t), Some(l), Some(t + dr), Some(l + dc))
+                                }
+                                _ => (None, None, None, None),
+                            }
+                        };
+                        if moved
+                            && let (Some(r0), Some(c0), Some(r1), Some(c1)) = target
+                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                        {
+                            let anchor = [r0, c0, r1.max(r0), c1.max(c0)];
+                            if let Some(old) = v.charts().get(d.index).map(|c| c.anchor)
+                                && old != anchor
+                                && let Err(e) = v.move_chart(d.index, anchor)
+                            {
+                                this.message(e, true);
+                            }
+                        }
+                        cx.notify();
+                        return;
+                    }
                     if let Some(d) = this.viewer_view.row_drag.take() {
                         if (d.px - d.start_px).abs() >= 1.0
                             && let Some(v) = this.doc.viewer.as_deref_mut()

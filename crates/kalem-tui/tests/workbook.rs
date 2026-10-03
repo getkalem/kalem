@@ -771,6 +771,33 @@ fn charts() {
         t.app.doc.viewer.as_deref_mut().unwrap().charts().len(),
         charts.len()
     );
+    // Moved down two rows and made a column wider with the keys, the
+    // cursor going along.
+    let i = charts.len() - 1;
+    let anchor = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].anchor;
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(c.anchor[0], c.anchor[1]);
+    for _ in 0..2 {
+        t.key(KeyCode::Char('h'));
+        t.key(KeyCode::Down);
+    }
+    let a = anchor(&mut t);
+    assert_eq!(
+        a,
+        [c.anchor[0] + 2, c.anchor[1], c.anchor[2] + 2, c.anchor[3]]
+    );
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().grid_pos().row,
+        a[0]
+    );
+    t.app.run_command("viewer.grid.chartWider", json!({}));
+    assert_eq!(anchor(&mut t)[3], a[3] + 1);
+    t.app.run_command("viewer.grid.chartShorter", json!({}));
+    assert_eq!(anchor(&mut t)[2], a[2] - 1);
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app
