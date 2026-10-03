@@ -939,6 +939,35 @@ impl Editor {
                     if let Some(f) = cell.fill {
                         d = d.bg(rgb(f));
                     }
+                    if let Some((len, color)) = cell.bar {
+                        // A data bar: behind the text, its share of the width.
+                        d = d.child(
+                            div()
+                                .debug_selector(move || format!("viewer-grid-bar-{r}-{c}"))
+                                .absolute()
+                                .left(px(1.))
+                                .top(px(2.))
+                                .bottom(px(2.))
+                                .w(px((w - 2.) * f32::from(len) / 1000.))
+                                .bg(rgb(color))
+                                .opacity(0.6),
+                        );
+                    }
+                    if let Some((glyph, color)) = &cell.icon {
+                        // An icon set's icon: at the cell's left, as Excel's.
+                        d = d.pl(px(PAD + 14.)).child(
+                            div()
+                                .debug_selector(move || format!("viewer-grid-icon-{r}-{c}"))
+                                .absolute()
+                                .left(px(PAD))
+                                .top_0()
+                                .bottom_0()
+                                .flex()
+                                .items_center()
+                                .text_color(rgb(*color))
+                                .child(SharedString::from(glyph.clone())),
+                        );
+                    }
                     if let Some(c) = cell.color {
                         d = d.text_color(rgb(c));
                     }
