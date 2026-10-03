@@ -619,6 +619,18 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Merges a range (first row, first column, last row, last column)
+    /// into one cell, as a spreadsheet's Merge Cells: only the first cell's
+    /// value stays; `center` centers it (Merge & Center).
+    fn merge_cells(&mut self, _unit: usize, _range: [u32; 4], _center: bool) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Splits the merged range holding a cell back into cells.
+    fn unmerge_cells(&mut self, _unit: usize, _row: u32, _col: u32) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Turns wrapping of a cell's text on or off (a style of the cell,
     /// as a spreadsheet's Wrap Text).
     fn set_wrap(&mut self, _unit: usize, _row: u32, _col: u32, _wrap: bool) -> Result<Vec<usize>> {
