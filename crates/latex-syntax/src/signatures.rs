@@ -31,6 +31,7 @@ pub fn command(name: &str) -> &'static str {
         | "orcidlink"
         | "epsscale" => "m",
         "added" => "om",
+        "tablenotemark" | "Romanbar" | "romanbar" | "plotone" => "m",
         "tablecaption" | "tablehead" | "colhead" | "tablecomments" | "tablerefs"
         | "tabletypesize" | "tablecolumns" | "tablewidth" | "tablenum" => "m",
         "tablenotetext" => "mm",
@@ -90,10 +91,10 @@ pub fn command(name: &str) -> &'static str {
         "cite" | "citep" | "citet" | "parencite" | "textcite" | "autocite" | "footcite"
         | "citeauthor" | "citeyear" | "citealt" | "citealp" | "citetalias" | "citepalias"
         | "nocite" | "smartcite" | "Cite" | "Citep" | "Citet" | "Parencite" | "Textcite"
-        | "Autocite" | "citeyearpar" | "citenum" | "Citeauthor" | "citetitle" | "fullcite"
-        | "supercite" | "footcitetext" | "cites" | "parencites" | "textcites" | "autocites"
-        | "footcites" | "Cites" | "Parencites" | "Textcites" | "Autocites" | "citealt*"
-        | "Citealt" | "Citealp" => "*oom",
+        | "Autocite" | "citeyearpar" | "citenum" | "onlinecite" | "Citeauthor" | "citetitle"
+        | "fullcite" | "supercite" | "footcitetext" | "cites" | "parencites" | "textcites"
+        | "autocites" | "footcites" | "Cites" | "Parencites" | "Textcites" | "Autocites"
+        | "citealt*" | "Citealt" | "Citealp" => "*oom",
         "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "*moom",
         "newcommandtwoopt" | "renewcommandtwoopt" | "providecommandtwoopt" => "*mooom",
         "NewDocumentCommand"
