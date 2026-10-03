@@ -111,6 +111,32 @@ fn a_workbook_opens_as_a_grid() {
     t.key(KeyCode::Right);
     let s = t.screen();
     assert!(s.contains("D2    │ =B2+C2"), "{s}");
+    // Column A (18 wide) fitted to its widest text, "Travel".
+    t.key(KeyCode::Home);
+    t.app
+        .run_command("viewer.grid.autofitColumn", serde_json::json!({}));
+    let w = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_layout()
+        .unwrap()
+        .widths[0];
+    assert_eq!(w, 7.0);
+    assert!(t.app.doc.viewer.as_deref().unwrap().modified());
+    t.app.run_command("edit.undo", serde_json::json!({}));
+    let w = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_layout()
+        .unwrap()
+        .widths[0];
+    assert_eq!(w, 18.0);
 }
 
 #[test]

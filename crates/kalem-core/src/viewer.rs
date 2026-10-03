@@ -761,6 +761,40 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Sets column `col`'s width to fit its widest cell, as Excel's
+    /// autofit: `measure` gives a text's width in digits of the grid's
+    /// font (the spreadsheet's unit). An empty column gets the default.
+    pub fn autofit_col(&mut self, col: u32, measure: &dyn Fn(&str) -> f32) -> Result<(), String> {
+        let Some(layout) = self.grid_layout() else {
+            return Ok(());
+        };
+        if !layout.editable {
+            return Err("This file is shown, not edited".into());
+        }
+        let widest = self
+            .doc
+            .grid_cells(self.unit, 0..layout.rows.max(1), col..col + 1)
+            .into_iter()
+            .map(|(_, _, c)| measure(&c.text))
+            .fold(0.0_f32, f32::max);
+        // Excel leaves about a digit of room beside the text.
+        let width = if widest > 0.0 {
+            (widest + 1.0).clamp(1.0, 255.0)
+        } else {
+            layout.default_width
+        };
+        self.doc
+            .set_col_width(self.unit, col, width)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The used columns of the grid shown.
+    pub fn used_cols(&mut self) -> u32 {
+        self.grid_layout().map_or(0, |l| l.cols)
+    }
+
     /// The document's macros.
     pub fn macros(&mut self) -> Vec<MacroEntry> {
         self.doc.macros()
@@ -1322,6 +1356,11 @@ fn run_macro(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
     Ok(())
 }
 
+/// A text's width in a monospaced grid's digits: wide characters count two.
+pub fn text_cells(t: &str) -> f32 {
+    unicode_width::UnicodeWidthStr::width(t) as f32
+}
+
 /// The commands of grid units (a workbook's sheets).
 fn grid_commands() -> Vec<Command> {
     let all = vec![
@@ -1559,6 +1598,32 @@ fn grid_commands() -> Vec<Command> {
             &["alt+f8"],
             IN_GRID,
             run_macro,
+        ),
+        cmd(
+            "viewer.grid.autofitColumn",
+            "Fit Column Width",
+            &["c f"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    let col = v.grid_pos().col;
+                    v.autofit_col(col, &text_cells)
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.autofitColumns",
+            "Fit All Column Widths",
+            &["c a"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    for col in 0..v.used_cols() {
+                        v.autofit_col(col, &text_cells)?;
+                    }
+                    Ok(())
+                })
+            },
         ),
     ];
     all

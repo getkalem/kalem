@@ -481,6 +481,20 @@ impl Editor {
                         gpui::FontWeight::NORMAL
                     })
                     .child(SharedString::from(name))
+                    .id(SharedString::from(format!("column-{c}")))
+                    // A click goes to the column; a double click fits its width.
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
+                            if ev.click_count >= 2 {
+                                this.grid_autofit(c, window, cx);
+                            } else if let Some(v) = this.doc.viewer.as_deref_mut() {
+                                let row = v.grid_pos().row;
+                                v.grid_move_to(row, c);
+                            }
+                            cx.notify();
+                        }),
+                    )
             }));
         let empty = |r: u32, c: u32| cells.get(&(r, c)).is_none_or(|x| x.text.is_empty());
         let body = rows.iter().map(|&(r, _)| {
@@ -708,5 +722,41 @@ impl Editor {
                 }
                 cx.stop_propagation();
             }))
+    }
+
+    /// Fits column `col` to its widest cell, measured in the grid's font.
+    pub(crate) fn grid_autofit(
+        &mut self,
+        col: u32,
+        window: &mut Window,
+        cx: &mut Context<'_, Editor>,
+    ) {
+        let theme = self.theme.clone();
+        let size = px((theme.size * 0.93).round());
+        let font = gpui::font(SharedString::from(theme.font.clone()));
+        let width = |t: &str| -> f32 {
+            let run = gpui::TextRun {
+                len: t.len(),
+                font: font.clone(),
+                color: theme.foreground,
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            f32::from(
+                window
+                    .text_system()
+                    .shape_line(SharedString::from(t.to_string()), size, &[run], None)
+                    .width,
+            )
+        };
+        let digit = width("0").max(1.0);
+        let Some(v) = self.doc.viewer.as_deref_mut() else {
+            return;
+        };
+        if let Err(e) = v.autofit_col(col, &|t| width(t) / digit) {
+            self.message(e, true);
+        }
+        cx.notify();
     }
 }

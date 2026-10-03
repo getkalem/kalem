@@ -1182,3 +1182,5 @@ cmd-viewer-grid-deleteRow = Delete Row
 cmd-viewer-grid-insertColumn = Insert Column Left
 cmd-viewer-grid-deleteColumn = Delete Column
 cmd-viewer-grid-runMacro = Run Macro
+cmd-viewer-grid-autofitColumn = Fit Column Width
+cmd-viewer-grid-autofitColumns = Fit All Column Widths
