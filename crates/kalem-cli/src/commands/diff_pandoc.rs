@@ -302,7 +302,9 @@ fn syntax_counts(root: &latex_syntax::SyntaxNode, body: &std::ops::Range<usize>)
 
 fn pandoc_json(pandoc: &Path, file: &Path) -> Result<Value> {
     let mut cmd = Command::new(pandoc);
-    cmd.args(["-f", "latex", "-t", "json"]);
+    // At most 1 GB of heap each: a file pandoc cannot finish should not
+    // take the machine's memory from the others running beside it.
+    cmd.args(["+RTS", "-M1G", "-RTS", "-f", "latex", "-t", "json"]);
     if let Some(d) = file.parent().filter(|d| !d.as_os_str().is_empty()) {
         cmd.current_dir(d);
     }
