@@ -970,6 +970,13 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Moves or resizes the chart at `index` of [`ViewerDocument::charts`]
+    /// to cover the cells of `anchor` (first row, first column, last row,
+    /// last column).
+    fn move_chart(&mut self, _unit: usize, _index: usize, _anchor: [u32; 4]) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Removes the chart at `index` of [`ViewerDocument::charts`].
     fn delete_chart(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
