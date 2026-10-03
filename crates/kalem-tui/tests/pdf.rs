@@ -28,7 +28,9 @@ fn a_pdf_opens_page_by_page() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/pages.pdf");
-    std::fs::copy(data, dir.join("pages.pdf")).unwrap();
+    std::fs::copy(&data, dir.join("pages.pdf")).unwrap();
+    // A second file in the folder, which Page Down at the end must not open.
+    std::fs::copy(&data, dir.join("zz.pdf")).unwrap();
 
     let mut app = App::with_keymap(
         Some(&dir.join("pages.pdf")),
@@ -89,6 +91,17 @@ fn a_pdf_opens_page_by_page() {
     screen(&mut app);
     let s = status(&mut app);
     assert!(s.ends_with(" · 3/3"), "{s}");
+    // Page Down held at the last page stays there, in this file.
+    for _ in 0..3 {
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::PageDown,
+            KeyModifiers::NONE,
+        )));
+    }
+    screen(&mut app);
+    let s = status(&mut app);
+    assert!(s.ends_with(" · 3/3"), "{s}");
+    assert!(app.doc.meta.path.as_ref().unwrap().ends_with("pages.pdf"));
 
     // The find bar searches the pages on a thread from the page shown on;
     // Enter goes round to page one.
