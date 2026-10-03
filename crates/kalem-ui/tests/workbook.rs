@@ -508,5 +508,49 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         .is_some(),
         "the new chart drawn"
     );
+    // Dragged by its body two rows down and a column right, then by its
+    // corner: moved and resized over the cells it is dropped on.
+    let anchor = |cx: &mut gpui::VisualTestContext| {
+        e.update(cx, |e, _| {
+            e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].anchor
+        })
+    };
+    let before = anchor(cx);
+    let body = cx
+        .debug_bounds(Box::leak(
+            format!("viewer-grid-chart-{}", n - 1).into_boxed_str(),
+        ))
+        .unwrap();
+    let cell = cx
+        .debug_bounds(Box::leak(
+            format!("viewer-grid-cell-{}-{}", before[0], before[1]).into_boxed_str(),
+        ))
+        .unwrap();
+    let at = body.center();
+    let to = at + gpui::point(cell.size.width, cell.size.height * 2.0);
+    cx.simulate_mouse_down(at, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.simulate_mouse_move(to, Some(gpui::MouseButton::Left), gpui::Modifiers::none());
+    cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.run_until_parked();
+    let moved = anchor(cx);
+    assert_eq!(
+        moved,
+        [before[0] + 2, before[1] + 1, before[2] + 2, before[3] + 1],
+        "{before:?} → {moved:?}"
+    );
+    let corner = cx
+        .debug_bounds(Box::leak(
+            format!("viewer-grid-chart-corner-{}", n - 1).into_boxed_str(),
+        ))
+        .unwrap()
+        .center();
+    let to = corner - gpui::point(gpui::px(0.), cell.size.height * 3.0);
+    cx.simulate_mouse_down(corner, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.simulate_mouse_move(to, Some(gpui::MouseButton::Left), gpui::Modifiers::none());
+    cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.run_until_parked();
+    let resized = anchor(cx);
+    assert_eq!(resized[..2], moved[..2]);
+    assert_eq!(resized[2], moved[2] - 3, "{moved:?} → {resized:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
