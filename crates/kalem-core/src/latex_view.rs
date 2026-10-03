@@ -1263,6 +1263,7 @@ fn algorithm_words(name: &str) -> Option<(&'static str, &'static str, &'static s
 pub(crate) fn silent(name: &str) -> Option<&'static str> {
     Some(match name {
         "newcommand" | "renewcommand" | "providecommand" | "DeclareRobustCommand" => "smoom",
+        "newcommandtwoopt" | "renewcommandtwoopt" | "providecommandtwoopt" => "smooom",
         "NewDocumentCommand"
         | "RenewDocumentCommand"
         | "ProvideDocumentCommand"
@@ -2500,6 +2501,93 @@ pub(crate) fn own_math(
         return Some((format!("${out}$"), end));
     }
     None
+}
+
+/// A use at `at` of the document's own macro `name` whose definition
+/// draws pictures or reads files (`\newcommand{\twographs}[2]{\begin{figure}
+/// … \includegraphics{#1} … \includegraphics{#2} … \end{figure}}`): its
+/// definition with the arguments put in, and where the use ends.
+pub(crate) fn own_block(
+    model: &latex_model::Model,
+    name: &str,
+    text: &str,
+    at: usize,
+    limit: usize,
+) -> Option<(String, usize)> {
+    let m = model
+        .macros
+        .iter()
+        .rev()
+        .find(|m| m.name.strip_prefix('\\') == Some(name))?;
+    if m.args > 9 || !(m.body.contains("\\includegraphics") || m.body.contains("\\input")) {
+        return None;
+    }
+    match &m.default {
+        None => expansion(m, text, at, limit),
+        // The optional first argument, its default when it is not given.
+        Some(default) => {
+            let mut i = at;
+            let first = match text[i..limit].strip_prefix('[') {
+                Some(r) => {
+                    let close = r.find(']')?;
+                    i += close + 2;
+                    r[..close].to_string()
+                }
+                None => default.clone(),
+            };
+            let rest = latex_model::Macro {
+                args: m.args - 1,
+                body: m.body.replace("#1", "\u{0}"),
+                ..m.clone()
+            };
+            // #2… become #1…, #1 the optional argument.
+            let mut body = String::new();
+            let mut chars = rest.body.chars().peekable();
+            while let Some(c) = chars.next() {
+                if c == '\u{0}' {
+                    body.push_str(&first);
+                } else if c == '#'
+                    && let Some(k) = chars.peek().and_then(|c| c.to_digit(10))
+                {
+                    chars.next();
+                    body.push_str(&format!("#{}", k - 1));
+                } else {
+                    body.push(c);
+                }
+            }
+            let mut rest = latex_model::Macro { body, ..rest };
+            // twoopt's second optional argument (`#2`, now `#1`).
+            if m.command == "newcommandtwoopt" {
+                let second = match text[i..limit].strip_prefix('[') {
+                    Some(r) => {
+                        let close = r.find(']')?;
+                        i += close + 2;
+                        r[..close].to_string()
+                    }
+                    None => String::new(),
+                };
+                let mut body = String::new();
+                let mut chars = rest.body.chars().peekable();
+                while let Some(c) = chars.next() {
+                    if c == '#'
+                        && let Some(k) = chars.peek().and_then(|c| c.to_digit(10))
+                    {
+                        chars.next();
+                        if k == 1 {
+                            body.push_str(&second);
+                        } else {
+                            body.push_str(&format!("#{}", k - 1));
+                        }
+                    } else {
+                        body.push(c);
+                    }
+                }
+                rest.body = body;
+                rest.args = rest.args.saturating_sub(1);
+            }
+            expansion(&rest, text, i, limit)
+        }
+    }
 }
 
 /// What a macro's body does in running text: of `\ifmmode A\else B\fi`
@@ -4340,6 +4428,71 @@ fn unflagged_line_view(
                     }
                     // A document's own macro that is a formula, or text with
                     // formulas in it: the formula, when the renderer reads it.
+                    // A document's own macro that draws pictures or reads
+                    // files: the pictures, the files' names and the
+                    // captions of its definition.
+                    (n, None)
+                        if !renders_command(n)
+                            && let Some((body, end)) =
+                                own_block(&state.model(), n, text, r.end, line.end)
+                            && !near(&(r.start..end)) =>
+                    {
+                        let model = state.model();
+                        let p = latex_syntax::parse(&body);
+                        let mut src = r.start..end;
+                        for node in p.syntax().descendants().filter(|x| x.kind() == K::COMMAND) {
+                            let cname = latex_syntax::name(&node).unwrap_or_default();
+                            let arg = || {
+                                node.children()
+                                    .find(|g| g.kind() == K::GROUP)
+                                    .map(|g| group_text(&g).trim().to_string())
+                            };
+                            match cname.as_str() {
+                                "includegraphics" => match picture_path(doc, &model, &node) {
+                                    Some(path) => b.runs.push(Run {
+                                        src: src.clone(),
+                                        text: crate::view::PLACEHOLDER.to_string(),
+                                        verbatim: false,
+                                        style: Style::default(),
+                                        widget: Some(crate::view::Widget::Image {
+                                            path,
+                                            width: picture_width(&node),
+                                        }),
+                                    }),
+                                    None => {
+                                        let link = Style {
+                                            link: true,
+                                            ..Style::default()
+                                        };
+                                        b.replace(src.clone(), &arg().unwrap_or_default(), link);
+                                    }
+                                },
+                                "input" | "include" => {
+                                    let link = Style {
+                                        link: true,
+                                        ..Style::default()
+                                    };
+                                    b.replace(src.clone(), &arg().unwrap_or_default(), link);
+                                }
+                                "caption" => {
+                                    let caption = arg().unwrap_or_default();
+                                    let shown =
+                                        plain_text(&model, &caption, 0).map_or(caption, |(t, _)| t);
+                                    b.replace(src.clone(), &format!(" {shown}"), c.style);
+                                }
+                                _ => continue,
+                            }
+                            src = end..end;
+                        }
+                        if src.start != end {
+                            b.verbatim(r.start..end, c.style);
+                        }
+                        while let Some(n) = &tok
+                            && span(n).start < end
+                        {
+                            tok = n.next_token();
+                        }
+                    }
                     (n, None)
                         if !renders_command(n)
                             && let Some((source, end)) =
@@ -7891,6 +8044,25 @@ mod tests {
                 "Fluxes in Jy."
             ]
         );
+        let c = crate::latex_check::coverage_report(text, None);
+        assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
+    fn own_macros_of_pictures_and_files() {
+        let text = "\\documentclass{article}\n\\usepackage{graphicx,twoopt}\n\\newcommandtwoopt{\\twographs}[4][][]{\\begin{figure}\\includegraphics{#3.png}\\includegraphics{#4.png}\\caption{#1}\\label{fig:#2}\\end{figure}}\n\\newcommand{\\twotables}[2]{\\begin{center}\\input{#1}\\input{#2}\\end{center}}\n\\begin{document}\n\\twographs[Two \\emph{plots}.][ab]{a}{b}\n\\twotables{t1}{t2}\n\\end{document}\n";
+        let d = doc(text);
+        let read = |n| {
+            shown(&d, n, None)
+                .runs
+                .iter()
+                .filter(|r| !r.style.dim)
+                .map(|r| r.text.clone())
+                .collect::<String>()
+        };
+        // No picture files beside the document: their names.
+        assert_eq!(read(5), "a.pngb.png Two plots.");
+        assert_eq!(read(6), "t1t2");
         let c = crate::latex_check::coverage_report(text, None);
         assert_eq!(c.source, 0, "{:?}", c.source_by_name);
     }

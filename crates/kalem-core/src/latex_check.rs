@@ -858,8 +858,14 @@ pub fn coverage_report(text: &str, file: Option<&std::path::Path>) -> Coverage {
                                 }
                                 None => match crate::latex_view::own_macro_use(
                                     &model, &name, text, end, body.end,
-                                ) {
-                                    Some((_, _, e)) => {
+                                )
+                                .map(|(_, _, e)| e)
+                                .or_else(|| {
+                                    // Pictures and files: drawn and named.
+                                    crate::latex_view::own_block(&model, &name, text, end, body.end)
+                                        .map(|(_, e)| e)
+                                }) {
+                                    Some(e) => {
                                         drawn_to = drawn_to.max(e);
                                         true
                                     }
