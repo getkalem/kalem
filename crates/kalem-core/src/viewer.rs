@@ -80,8 +80,10 @@ fn name_of(path: &Path) -> String {
 /// How large the unit is shown.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Zoom {
-    /// Whole in the area, never larger than its own size.
+    /// Whole in the area; a picture never larger than its own size.
     Fit,
+    /// As wide as the area, scrolled down (a page).
+    FitWidth,
     /// This many screen pixels per pixel of the unit.
     Scale(f32),
 }
@@ -141,6 +143,9 @@ pub struct ViewerState {
     area: (f32, f32),
     /// Device pixels per pixel of the area (a Retina display's 2).
     pixel_ratio: f32,
+    /// How far a scroll has pushed past the unit's top or bottom edge,
+    /// in area pixels: past a share of the area, the page turns.
+    overscroll: f32,
     undo: Vec<(String, String)>,
     redo: Vec<(String, String)>,
     generation: u64,
@@ -221,18 +226,25 @@ impl ViewerState {
         let grids = (0..structure.units.len())
             .map(|u| doc.grid(u).is_some())
             .collect();
+        // Pages are read as wide as the area, from the top.
+        let zoom = if doc.size(0).is_some() {
+            Zoom::FitWidth
+        } else {
+            Zoom::Fit
+        };
         Ok(ViewerState {
             viewer,
             doc,
             structure,
             unit: 0,
-            zoom: Zoom::Fit,
+            zoom,
             center: None,
             rotation: 0,
             info: false,
             playing,
             area: (0.0, 0.0),
             pixel_ratio: 1.0,
+            overscroll: 0.0,
             undo: Vec::new(),
             redo: Vec::new(),
             generation: next_generation(),
@@ -357,6 +369,7 @@ impl ViewerState {
     pub fn scale(&mut self) -> f32 {
         match self.zoom {
             Zoom::Fit => self.fit_scale(),
+            Zoom::FitWidth => self.area.0 / self.unit_size().0,
             Zoom::Scale(s) => s,
         }
     }
@@ -369,7 +382,13 @@ impl ViewerState {
         let s = self.scale();
         let (aw, ah) = self.area;
         let (dw, dh) = (w * s, h * s);
-        let (cx, cy) = self.center.unwrap_or((w / 2.0, h / 2.0));
+        // A page taller than the area starts at its top.
+        let top = if self.vector_size().is_some() {
+            ah / s / 2.0
+        } else {
+            h / 2.0
+        };
+        let (cx, cy) = self.center.unwrap_or((w / 2.0, top));
         let along = |d: f32, a: f32, c: f32| {
             if d <= a {
                 (a - d) / 2.0
@@ -426,6 +445,41 @@ impl ViewerState {
     pub fn fit(&mut self) {
         self.zoom = Zoom::Fit;
         self.center = None;
+    }
+
+    /// Fits the unit's width to the area, from its top.
+    pub fn fit_width(&mut self) {
+        self.zoom = Zoom::FitWidth;
+        self.center = None;
+    }
+
+    /// Scrolls by (`dx`, `dy`) area pixels as [`ViewerState::pan`] does;
+    /// pushed on past a page's bottom (top) by a fifth of the area, it
+    /// shows the next page's top (the previous page's bottom).
+    pub fn scroll(&mut self, dx: f32, dy: f32) {
+        let before = self.placement();
+        self.pan(dx, dy);
+        let after = self.placement();
+        let paged_pages = self.paged() && self.vector_size().is_some();
+        if !paged_pages || dy == 0.0 || (after.y - before.y).abs() > 0.5 {
+            self.overscroll = 0.0;
+            return;
+        }
+        if self.overscroll.signum() != dy.signum() {
+            self.overscroll = 0.0;
+        }
+        self.overscroll += dy;
+        if self.overscroll.abs() < self.area.1 / 5.0 {
+            return;
+        }
+        self.overscroll = 0.0;
+        if dy > 0.0 {
+            self.go_to(self.unit + 1);
+        } else if self.unit > 0 && self.go_to(self.unit - 1) {
+            let (w, h) = self.unit_size();
+            let s = self.scale();
+            self.center = Some((w / 2.0, h - self.area.1 / s / 2.0));
+        }
     }
 
     /// Moves the view by (`dx`, `dy`) area pixels: the picture moves the
@@ -906,7 +960,7 @@ fn step(v: &ViewerState, horizontal: bool) -> f32 {
 fn pan(ctx: &mut EditorContext<'_>, dx: f32, dy: f32) -> CommandResult {
     with(ctx, |v| {
         let (sx, sy) = (step(v, true), step(v, false));
-        v.pan(dx * sx, dy * sy);
+        v.scroll(dx * sx, dy * sy);
         Ok(())
     })
 }
@@ -991,6 +1045,18 @@ pub(crate) fn commands() -> Vec<Command> {
             |ctx, _| {
                 with(ctx, |v| {
                     v.fit();
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.fitWidth",
+            "Fit to Width",
+            &["w"],
+            IN_IMAGE,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.fit_width();
                     Ok(())
                 })
             },
@@ -1751,12 +1817,12 @@ mod tests {
         assert_eq!(v.status(), "100 × 50 · 100% · 3/3");
     }
 
-    /// A page 100 × 50 at scale 1 that knows its size, rendered at the
+    /// Pages 100 × 50 at scale 1 that know their size, rendered at the
     /// scale asked.
     #[derive(Debug)]
-    struct Vector;
+    struct Vector(usize);
 
-    struct VectorDoc;
+    struct VectorDoc(usize);
 
     impl Viewer for Vector {
         fn id(&self) -> &str {
@@ -1772,18 +1838,20 @@ mod tests {
             Detection::No
         }
         fn open(&self, _file: FileHandle) -> VResult<Box<dyn ViewerDocument>> {
-            Ok(Box::new(VectorDoc))
+            Ok(Box::new(VectorDoc(self.0)))
         }
     }
 
     impl ViewerDocument for VectorDoc {
         fn structure(&self) -> Structure {
             Structure {
-                units: vec![Unit {
-                    kind: UnitKind::Page,
-                    label: "1".into(),
-                    duration_ms: None,
-                }],
+                units: (0..self.0)
+                    .map(|i| Unit {
+                        kind: UnitKind::Page,
+                        label: format!("{}", i + 1),
+                        duration_ms: None,
+                    })
+                    .collect(),
                 outline: Vec::new(),
             }
         }
@@ -1809,7 +1877,7 @@ mod tests {
     #[test]
     fn a_page_renders_at_the_scale_shown() {
         let dir = std::env::temp_dir();
-        let mut v = ViewerState::open(Arc::new(Vector), &dir.join("x.vector")).unwrap();
+        let mut v = ViewerState::open(Arc::new(Vector(1)), &dir.join("x.vector")).unwrap();
         v.set_area(400.0, 400.0);
         // A page fits larger than its own size, and is drawn at the
         // display's pixels.
@@ -1830,6 +1898,34 @@ mod tests {
         assert_eq!(v.unit_size(), (50.0, 100.0));
         let b = v.bitmap().unwrap();
         assert!(b.height > b.width);
+    }
+
+    #[test]
+    fn pages_fill_the_width_and_scroll_on_to_the_next() {
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Vector(3)), &dir.join("x.vector")).unwrap();
+        // A 100 × 50 page in a 200 × 40 area: twice as large, its top shown.
+        v.set_area(200.0, 40.0);
+        assert_eq!(v.zoom, Zoom::FitWidth);
+        assert_eq!(v.scale(), 2.0);
+        let p = v.placement();
+        assert_eq!((p.x, p.y, p.width, p.height), (0.0, 0.0, 200.0, 100.0));
+        // Scrolled to the bottom: no turn yet.
+        v.scroll(0.0, 60.0);
+        assert_eq!((v.unit, v.placement().y), (0, -60.0));
+        // Pushed on past a fifth of the area: the next page's top.
+        v.scroll(0.0, 5.0);
+        assert_eq!(v.unit, 0);
+        v.scroll(0.0, 5.0);
+        assert_eq!((v.unit, v.placement().y), (1, 0.0));
+        // Back up past the top: the previous page's bottom.
+        v.scroll(0.0, -10.0);
+        assert_eq!((v.unit, v.placement().y), (0, -60.0));
+        // The whole page, and back to the width.
+        v.fit();
+        assert_eq!(v.scale(), 0.8);
+        v.fit_width();
+        assert_eq!(v.scale(), 2.0);
     }
 
     #[test]
