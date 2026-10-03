@@ -1,0 +1,65 @@
+\subsection{Learning to decode motion directions through covariance-based computation}
+\label{sec:vo_mnn}
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{results/sec3_decoding_moving_direction/fig2_main_content.pdf}
+    \caption[visual orientation mnn]{\textbf{Learn to infer motion direction through correlated neural variability.}
+    \textbf{a}, Task overview: Neurons arranged in a hexagonal grid collectively respond to the intensity of light and the corresponding rate of change of a moving grating.
+    The downstream network learns to have a better estimate by minimizing readout errors and trial-to-trial variability.
+    \textbf{b}, Evolution of validation loss across training epochs.
+    \textbf{c}, Correlation pattern of the trained weights \(W_{\rm in}\) for each sensory neuron projecting to hidden neurons.
+    Indexes 1-527 denote intensity detectors, while the remaining represent change detectors.
+    \textbf{d}, Visualization of the trained linear decoder \(W_{\rm out}\), where the X and Y coordinates of each dot are the connection strengths that map the response of each hidden neuron to the 2D readout space.
+    \textbf{e},  Normalized readout results for various motion directions at different contrast levels (\(c \in [0.25, 0.5, 0.75]\)). 
+    Gray arrows represent ground truths, while colored dots and ellipses illustrate readout mean and covariance, respectively. 
+    \textbf{f}, Average readout error (blue) and readout variability (orange) as a function of contrast.
+    \textbf{g-h},  Tuning curves and Fano factor curves of hidden neurons with specific preferred motion directions (indicated by color, as in \textbf{e}). Transparency corresponds to contrast levels (higher contrast results in lower transparency).}
+    \label{fig:visual_orientation_mnn}
+\end{figure}
+In our motion direction task, we employ a feedforward MNN depicted in Fig.~\ref{fig:visual_orientation_mnn}\textbf{a}, consisting of sensory neurons, a single hidden layer, and a linear readout. 
+The inputs include the mean and covariance of the sensory neuron responses as defined by Eq~(\ref{eq:vo_input_mean})-(\ref{eq:vo_input_cov}).
+Using moment mapping~\cite{Qi2023}, the first and second moments of the responses of the hidden neurons are 
+\begin{equation}
+    \label{eq:input2hidden}
+    (\mu', \Sigma') = \phi(W_{\rm in}\mu + \mu_{\rm ext}, W_{\rm in}\Sigma W_{\rm in}^T + \Sigma_{\rm ext}),
+\end{equation}
+where \(\phi\) is the moment activation function~\cite{Qi2023} [equation~(\ref{eq:ma_mu})-(\ref{eq:ma_chi}) in Methods], and \((\mu_{\rm ext}, \Sigma_{\rm ext})\) depict the moments of external currents. 
+Here, the mean external current $\mu_{\rm ext}$ is a trainable parameter, while the covariance \(\Sigma_{\rm ext}\) is fixed at 0 mA/ms.
+
+As the mean firing rates of sensory neurons do not reflect the motion directions and linear transformations cannot alter the linear Fisher information, the nonlinear coupling through moment activation \(\phi\) is crucial for extracting information from covariance,
+The hidden neurons' responses are then mapped to a 2D vector for the estimated direction (Fig.~\ref{fig:visual_orientation_mnn}\textbf{a}). 
+The mean and covariance of the readout are given by
+\begin{equation}
+    (\hat{\mu}, \hat{\Sigma}) = (W_{\rm out}\mu', W_{\rm out}\Sigma' W_{\rm out}^T),
+\end{equation}
+corresponding to the distribution of possible estimated direction angle \(\hat \theta\) (the dots in the rightmost panel), while the ground truth \(\theta\) is marked as a red star with coordinates (\(\cos \theta, \sin \theta\)). 
+
+To train the network, we introduce a loss function targeting both the average and variability discrepancies between the estimated and true directions [equation~(\ref{eq:loss_function})].
+The network is trained on a dataset of gratings moving in diverse directions for 150 epochs, showing a decreasing validation loss that converges after about 100 epochs (Fig.~\ref{fig:visual_orientation_mnn}\textbf{b}).
+
+After training, we first assess the model parameters. 
+We analyze the influence of sensory neurons on hidden neurons by calculating the column-wise correlation of synaptic weight \(W_{\rm in}\). 
+A higher correlation suggests more similar effects of sensory neurons on hidden neurons. 
+As shown in Figure~\ref{fig:visual_orientation_mnn}\textbf{c}, synaptic weights are typically correlated or anticorrelated based on spatial positions and type (intensity or change detectors).
+Correlations between intensity and change detectors are minimal, indicating their independent roles in information transmission. 
+The linear decoder \(W_{\rm out}\), illustrated in Figure~\ref{fig:visual_orientation_mnn}\textbf{d}, displays a ring-shaped structure, with each dot's coordinates denoting the readout weight from a hidden neuron. 
+This structure reflects the direction selectivity of hidden neurons, encoding direction information in their mean firing rates for linear decoding.
+ 
+We then evaluate the model performance by varying stimulus contrasts and directions.
+Higher contrast levels show greater alignment of the mean readout (dots in Fig.~\ref{fig:visual_orientation_mnn}\textbf{e}) with the ground truth (gray arrow), reducing the average discrepancy (Fig.~\ref{fig:visual_orientation_mnn}\textbf{f}, blue line). 
+The readout covariance for all stimuli forms a radial pattern (ellipse in Fig.~\ref{fig:visual_orientation_mnn}\textbf{e}), with principal axes parallel to the readout mean, minimizing random errors from input noise.
+Lower contrasts lead to expanded, less eccentric covariance, increasing estimate variability. 
+This results in the variance of the estimated angle \(\hat\theta\) being inversely related to stimulus contrast (Fig.~\ref{fig:visual_orientation_mnn}\textbf{f}, orange line), consistent with the predictions under probabilistic population code theory~\cite{Ma2006}.
+
+We further explore the activity characteristics of hidden neurons by analyzing their tuning functions and Fano factors.
+Figure \ref{fig:visual_orientation_mnn}\textbf{g} shows four hidden neurons with bell-shaped tuning curves.
+Each has a preferred direction and the height varies with contrast, but the width remains consistent.
+Noise correlation among hidden neurons decreases with greater differences in preferred directions and correlates with the similarity in connections to sensory neurons (Extended Data Fig.~\ref{fig_s1: correlation_vs_preferred_direction}).
+These features are akin to those in direction-selective cortical neurons~\cite{Sclar1982, Kohn2005}, achieved without specific training constraints.
+The hidden neurons' Fano factor curves, resembling their mean firing rate profiles, peak at preferred directions and amplify with increased contrast(Fig.~\ref{fig:visual_orientation_mnn}\textbf{h}). 
+This reflects the encoding of motion direction in covariance, where higher contrast boosts the signal covariance, leading to a higher response variability of hidden neurons.
+Contrary to the notion that noisier neuron activity hampers coding efficiency, our results show improved readout accuracy at higher contrasts.
+
+Overall, our findings stem from three sources of hidden neuron responses outlined in equation~(\ref{eq:input2hidden}): a constant external current \(\mu_{\rm ext}\), activity fluctuations with direction-independent statistical properties \(\mu\) and \(\Sigma_{\rm noise}\), and direction-dependent variation \(\Sigma_{\rm signal}\), where \(\Sigma = \Sigma_{\rm noise} + \Sigma_{\rm signal}\). 
+The first two elements are not specific to direction, whereas the third, influenced by trained weights, is the key to direction selectivity. 
+With increased contrast, the correlation between intensity and change detectors strengthens, eliciting more pronounced stimuli-related responses in hidden neurons and elevating their Fano factors.

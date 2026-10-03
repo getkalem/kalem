@@ -1,0 +1,39 @@
+name: Fuzz (nightly)
+
+# The parsers under cargo-fuzz for longer than CI's short run (T2.7h.31):
+# every night, a quarter of an hour each, the corpus kept between nights
+# so each run starts where the last stopped; a crash fails the run and its
+# input is kept as an artifact.
+
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [parse, reparse, latex_parse, latex_reparse]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - run: cargo install cargo-fuzz --locked
+      - uses: actions/cache@v4
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
+      # rust-toolchain.toml asks for stable; the fuzzer needs nightly.
+      - run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=900
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-crash-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}

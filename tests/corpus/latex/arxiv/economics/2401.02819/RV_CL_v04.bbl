@@ -1,0 +1,228 @@
+\begin{thebibliography}{}
+
+\bibitem[\protect\citeauthoryear{A{\"{i}}t-Sahalia and Jacod}{A{\"{i}}t-Sahalia
+  and Jacod}{2009a}]{Ait-Sahalia2009a}
+A{\"{i}}t-Sahalia, Y. and J.~Jacod (2009a).
+\newblock {Estimating the degree of activity of jumps in high frequency data}.
+\newblock {\em Annals of Statistics\/}~{\em 37\/}(5 A), 2202--2244.
+
+\bibitem[\protect\citeauthoryear{A{\"{i}}t-Sahalia and Jacod}{A{\"{i}}t-Sahalia
+  and Jacod}{2009b}]{Ait-Sahalia2009}
+A{\"{i}}t-Sahalia, Y. and J.~Jacod (2009b).
+\newblock {Testing for jumps in a discretely observed process}.
+\newblock {\em Annals of Statistics\/}~{\em 37\/}(1), 184--222.
+
+\bibitem[\protect\citeauthoryear{Barndorff-Nielsen, Corcuera, and
+  Podolskij}{Barndorff-Nielsen et~al.}{2013}]{ole_jose_mark13}
+Barndorff-Nielsen, O.~E., J.~M. Corcuera, and M.~Podolskij (2013).
+\newblock Limit theorems for functionals of higher order differences of
+  {B}rownian semistationary processes.
+\newblock In A.~N. Shiryaev, S.~R.~S. Varadhan, and E.~Presman (Eds.), {\em
+  Prokhorov and Contemporary Probability Theory}, pp.\  69--96. Berlin:
+  Springer.
+
+\bibitem[\protect\citeauthoryear{Barndorff-Nielsen, Hansen, Lunde, and
+  Shephard}{Barndorff-Nielsen et~al.}{2008}]{Barndorff-Nielsen2008}
+Barndorff-Nielsen, O.~E., P.~R. Hansen, A.~Lunde, and N.~Shephard (2008).
+\newblock {Designing realized kernels to measure the ex post variation of
+  equity prices in the presence of noise}.
+\newblock {\em Econometrica\/}~{\em 76\/}(6), 1481--1536.
+
+\bibitem[\protect\citeauthoryear{Barndorff-Nielsen and
+  Schmiegel}{Barndorff-Nielsen and Schmiegel}{2009}]{ole-jurgen09}
+Barndorff-Nielsen, O.~E. and J.~Schmiegel (2009).
+\newblock Brownian semistationary processes and volatility/intermittency.
+\newblock In {\em Advanced financial modelling}, Volume~8 of {\em Radon Ser.
+  Comput. Appl. Math.}, pp.\  1--25. Berlin: Walter de Gruyter.
+
+\bibitem[\protect\citeauthoryear{Bayer, Friz, and Gatheral}{Bayer
+  et~al.}{2016}]{Bayer2016a}
+Bayer, C., P.~Friz, and J.~Gatheral (2016).
+\newblock {Pricing under rough volatility}.
+\newblock {\em Quantitative Finance\/}~{\em 16\/}(6), 887--904.
+
+\bibitem[\protect\citeauthoryear{Bennedsen}{Bennedsen}{2020}]{Bennedsen2020}
+Bennedsen, M. (2020).
+\newblock {Semiparametric estimation and inference on the fractal index of
+  Gaussian and conditionally Gaussian time series data}.
+\newblock {\em Econometric Reviews\/}~{\em 39\/}(9), 875--903.
+
+\bibitem[\protect\citeauthoryear{Bennedsen, Christensen, and
+  Christensen}{Bennedsen et~al.}{2023}]{BennedsenEtAl2023}
+Bennedsen, M., K.~Christensen, and P.~Christensen (2023).
+\newblock {Composite likelihood estimation of Gaussian moving average
+  processes}.
+\newblock Working Paper.
+
+\bibitem[\protect\citeauthoryear{Bennedsen, Lunde, and Pakkanen}{Bennedsen
+  et~al.}{2021}]{Bennedsen2021}
+Bennedsen, M., A.~Lunde, and M.~Pakkanen (2021).
+\newblock {Decoupling the Short- and Long-Term Behavior of Stochastic
+  Volatility}.
+\newblock {\em Journal of Financial Econometrics\/}.
+
+\bibitem[\protect\citeauthoryear{Bennedsen, Lunde, and Pakkanen}{Bennedsen
+  et~al.}{2017}]{BLP2017}
+Bennedsen, M., A.~Lunde, and M.~S. Pakkanen (2017).
+\newblock Hybrid scheme for {Brownian} semistationary processes.
+\newblock {\em Finance and Stochastics\/}~{\em 21\/}(4), 931--965.
+
+\bibitem[\protect\citeauthoryear{Bjork}{Bjork}{2009}]{bjoerk2009}
+Bjork, T. (2009).
+\newblock {\em {Arbitrage Theory in Continuous Time}\/} (3 ed.).
+\newblock Oxford University Press.
+
+\bibitem[\protect\citeauthoryear{Bolko, Christensen, Pakkanen, and
+  Veliyev}{Bolko et~al.}{2022}]{BCSV2020}
+Bolko, A.~E., K.~Christensen, M.~S. Pakkanen, and B.~Veliyev (2022).
+\newblock A gmm approach to estimate the roughness of stochastic volatility.
+\newblock {\em Journal of Econometrics\/}.
+
+\bibitem[\protect\citeauthoryear{Carr, Geman, Madan, and Yor}{Carr
+  et~al.}{2002}]{CarrEtAl2002}
+Carr, P., H.~Geman, D.~Madan, and M.~Yor (2002).
+\newblock The fine structure of asset returns: An empirical investigation.
+\newblock {\em The Journal of Business\/}~{\em 75\/}(2), 305--332.
+
+\bibitem[\protect\citeauthoryear{Chong and Todorov}{Chong and
+  Todorov}{2023}]{ChongTodorov2023}
+Chong, C.~H. and V.~Todorov (2023).
+\newblock The fine structure of volatility dynamics.
+\newblock {\em Available at SSRN 4660138\/}.
+
+\bibitem[\protect\citeauthoryear{Corcuera, Hedevang, Pakkanen, and
+  Podolskij}{Corcuera et~al.}{2013}]{Corcuera2013}
+Corcuera, J.~M., E.~Hedevang, M.~S. Pakkanen, and M.~Podolskij (2013).
+\newblock {Asymptotic theory for brownian semi-stationary processes with
+  application to turbulence}.
+\newblock {\em Stochastic Processes and their Applications\/}~{\em 123\/}(7),
+  2552--2574.
+
+\bibitem[\protect\citeauthoryear{Corcuera, Nualart, and Woerner}{Corcuera
+  et~al.}{2006}]{Corcuera2006}
+Corcuera, J.~M., D.~Nualart, and J.~H. Woerner (2006).
+\newblock {Power variation of some integral fractional processes}.
+\newblock {\em Bernoulli\/}~{\em 12\/}(4), 713--735.
+
+\bibitem[\protect\citeauthoryear{Duffie, Pan, and Singleton}{Duffie
+  et~al.}{2000}]{Duffie2000}
+Duffie, D., J.~Pan, and K.~Singleton (2000).
+\newblock {Transform analysis and asset pricing for affine jump-diffusions}.
+\newblock {\em Econometrica\/}~{\em 68\/}(6), 1343--1376.
+
+\bibitem[\protect\citeauthoryear{El~Euch, Gatheral, and Rosenbaum}{El~Euch
+  et~al.}{2019}]{ElEuch2018}
+El~Euch, O., J.~Gatheral, and M.~Rosenbaum (2019).
+\newblock {Roughening Heston}.
+\newblock {\em Risk\/}~{\em 1\/}(May), 84--89.
+
+\bibitem[\protect\citeauthoryear{Fukasawa, Takabatake, and Westphal}{Fukasawa
+  et~al.}{2019}]{Fukasawa2019}
+Fukasawa, M., T.~Takabatake, and R.~Westphal (2019).
+\newblock {Is Volatility Rough ?}
+\newblock {\em Working Paper\/}.
+
+\bibitem[\protect\citeauthoryear{Gatheral, Jaisson, and Rosenbaum}{Gatheral
+  et~al.}{2018}]{Gatheral2018}
+Gatheral, J., T.~Jaisson, and M.~Rosenbaum (2018).
+\newblock {Volatility is rough}.
+\newblock {\em Quantitative Finance\/}~{\em 18\/}(6), 933--949.
+
+\bibitem[\protect\citeauthoryear{Han and Schied}{Han and
+  Schied}{2021}]{HanSchied2021}
+Han, X. and A.~Schied (2021).
+\newblock The hurst roughness exponent and its model-free estimation.
+
+\bibitem[\protect\citeauthoryear{Jacod and Shiryaev}{Jacod and
+  Shiryaev}{2002}]{limitTheorems}
+Jacod, J. and A.~N. Shiryaev (2002).
+\newblock {\em Limit theorems for stochastic processes}.
+\newblock Springer.
+
+\bibitem[\protect\citeauthoryear{Kolmogorov}{Kolmogorov}{1991a}]{Kolmogorov1941a}
+Kolmogorov, A.~N. (1991a).
+\newblock {Dissipation of energy in the locally isotropic turbulence}.
+\newblock {\em Proceedings of the Royal Society of London. Series A:
+  Mathematical and Physical Sciences\/}~{\em 434\/}(1890), 15--17.
+
+\bibitem[\protect\citeauthoryear{Kolmogorov}{Kolmogorov}{1991b}]{Kolmogorov1941b}
+Kolmogorov, A.~N. (1991b).
+\newblock {The local structure of turbulence in incompressible viscous fluid
+  for very large Reynolds numbers}.
+\newblock {\em Proceedings of the Royal Society of London. Series A:
+  Mathematical and Physical Sciences\/}~{\em 434\/}(1890), 9--13.
+
+\bibitem[\protect\citeauthoryear{Livieri, Mouti, Pallavicini, and
+  Rosenbaum}{Livieri et~al.}{2018}]{LivieriEtAl2018}
+Livieri, G., S.~Mouti, A.~Pallavicini, and M.~Rosenbaum (2018).
+\newblock {Rough volatility: Evidence from option prices}.
+\newblock {\em IISE Transactions\/}~{\em 50\/}(9), 767--776.
+
+\bibitem[\protect\citeauthoryear{Medvedev and Scaillet}{Medvedev and
+  Scaillet}{2011}]{Medvedev2011}
+Medvedev, A.~N. and O.~Scaillet (2011).
+\newblock {Approximation and Calibration of Short-Term Implied Volatilities
+  Under Jump-Diffusion Stochastic Volatility}.
+\newblock {\em SSRN Electronic Journal\/}.
+
+\bibitem[\protect\citeauthoryear{Rosi{\'{n}}ski}{Rosi{\'{n}}ski}{2007}]{Rosinski2007}
+Rosi{\'{n}}ski, J. (2007).
+\newblock {Tempering stable processes}.
+\newblock {\em Stochastic Processes and their Applications\/}~{\em 117\/}(6),
+  677--707.
+
+\bibitem[\protect\citeauthoryear{Takayasu}{Takayasu}{1984}]{Takayasu1984}
+Takayasu, H. (1984).
+\newblock {Stable Distribution and Levy Process in Fractal Turbulence}.
+\newblock {\em Progress of Theoretical Physics\/}~{\em 72\/}(3), 471--479.
+
+\bibitem[\protect\citeauthoryear{Todorov}{Todorov}{2013}]{Todorov2013}
+Todorov, V. (2013).
+\newblock Power variation from second order differences for pure jump
+  semimartingales.
+\newblock {\em Stochastic Processes and their Applications\/}~{\em 123\/}(7),
+  2829--2850.
+\newblock A Special Issue on the Occasion of the 2013 International Year of
+  Statistics.
+
+\bibitem[\protect\citeauthoryear{Todorov}{Todorov}{2019}]{Todorov2019}
+Todorov, V. (2019).
+\newblock {Nonparametric spot volatility from options}.
+\newblock {\em The Annals of Applied Probability\/}~{\em 29\/}(6), 3590 --
+  3636.
+
+\bibitem[\protect\citeauthoryear{Todorov and Tauchen}{Todorov and
+  Tauchen}{2010}]{Todorov2010}
+Todorov, V. and G.~Tauchen (2010).
+\newblock {Activity signature functions for high-frequency data analysis}.
+\newblock {\em Journal of Econometrics\/}~{\em 154\/}(2), 125--138.
+
+\bibitem[\protect\citeauthoryear{Todorov and Tauchen}{Todorov and
+  Tauchen}{2011a}]{TodorovTauchen2011}
+Todorov, V. and G.~Tauchen (2011a).
+\newblock {Limit theorems for power variations of pure-jump processes with
+  application to activity estimation}.
+\newblock {\em The Annals of Applied Probability\/}~{\em 21\/}(2), 546 -- 588.
+
+\bibitem[\protect\citeauthoryear{Todorov and Tauchen}{Todorov and
+  Tauchen}{2011b}]{Todorov2011}
+Todorov, V. and G.~Tauchen (2011b).
+\newblock {Volatility jumps}.
+\newblock {\em Journal of Business and Economic Statistics\/}~{\em 29\/}(3),
+  356--371.
+
+\bibitem[\protect\citeauthoryear{Wang, Xiao, and Yu}{Wang
+  et~al.}{2023}]{WangEtAl2023}
+Wang, X., W.~Xiao, and J.~Yu (2023).
+\newblock {Modeling and forecasting realized volatility with the fractional
+  Ornstein–Uhlenbeck process}.
+\newblock {\em Journal of Econometrics\/}~{\em 232\/}(2), 389--415.
+
+\bibitem[\protect\citeauthoryear{Woerner}{Woerner}{2011}]{Woener2011}
+Woerner, J. (2011).
+\newblock {Analyzing the Fine Structure of Continuous Time Stochastic
+  Processes}.
+\newblock In {\em Seminar on Stochastic Analysis, Random Fields and
+  Applications VI}, Volume~6, pp.\  473--492. Springer.
+
+\end{thebibliography}

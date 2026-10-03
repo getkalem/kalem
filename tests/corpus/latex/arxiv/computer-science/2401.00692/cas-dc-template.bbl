@@ -1,0 +1,435 @@
+\begin{thebibliography}{80}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\href}[2]{#2}
+\providecommand{\path}[1]{#1}
+\providecommand{\DOIprefix}{doi:}
+\providecommand{\ArXivprefix}{arXiv:}
+\providecommand{\URLprefix}{URL: }
+\providecommand{\Pubmedprefix}{pmid:}
+\providecommand{\doi}[1]{\href{http://dx.doi.org/#1}{\path{#1}}}
+\providecommand{\Pubmed}[1]{\href{pmid:#1}{\path{#1}}}
+\providecommand{\bibinfo}[2]{#2}
+\ifx\xfnm\relax \def\xfnm[#1]{\unskip,\space#1}\fi
+%Type = Misc
+\bibitem[{isi(2018)}]{isic2018}
+, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{{ISIC} 2018: Skin lesion analysis towards melanoma detection}.
+\newblock \bibinfo{howpublished}{\url{https://challenge.isic-archive.com/data/\#2018}}.
+\newblock \bibinfo{note}{Accessed: 2023-04-12}.
+%Type = Article
+\bibitem[{Ayana et~al.(2023)Ayana, Dese, Dereje, Kebede, Barki, Amdissa, Husen, Mulugeta, Habtamu and Choe}]{diagnostics13020178}
+\bibinfo{author}{Ayana, G.}, \bibinfo{author}{Dese, K.}, \bibinfo{author}{Dereje, Y.}, \bibinfo{author}{Kebede, Y.}, \bibinfo{author}{Barki, H.}, \bibinfo{author}{Amdissa, D.}, \bibinfo{author}{Husen, N.}, \bibinfo{author}{Mulugeta, F.}, \bibinfo{author}{Habtamu, B.}, \bibinfo{author}{Choe, S.W.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Vision-transformer-based transfer learning for mammogram classification}.
+\newblock \bibinfo{journal}{Diagnostics} \bibinfo{volume}{13}.
+\newblock \URLprefix \url{https://www.mdpi.com/2075-4418/13/2/178}, \DOIprefix\doi{10.3390/diagnostics13020178}.
+%Type = Article
+\bibitem[{Bakker et~al.(2018)Bakker, Jacobs, Pondaag, Gelderblom, Nout, Dijkstra, Peul and Vleggeert-Lankamp}]{Bakker2018}
+\bibinfo{author}{Bakker, S.H.}, \bibinfo{author}{Jacobs, W.C.H.}, \bibinfo{author}{Pondaag, W.}, \bibinfo{author}{Gelderblom, H.}, \bibinfo{author}{Nout, R.A.}, \bibinfo{author}{Dijkstra, P.D.S.}, \bibinfo{author}{Peul, W.C.}, \bibinfo{author}{Vleggeert-Lankamp, C.L.A.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Chordoma: a systematic review of the epidemiology and clinical prognostic factors predicting progression-free and overall survival}.
+\newblock \bibinfo{journal}{European Spine Journal} \bibinfo{volume}{27}, \bibinfo{pages}{3043--3058}.
+\newblock \URLprefix \url{https://doi.org/10.1007/s00586-018-5764-0}, \DOIprefix\doi{10.1007/s00586-018-5764-0}.
+%Type = Inproceedings
+\bibitem[{Baldota et~al.(2021)Baldota, Sharma and Malathy}]{baldota2021deep}
+\bibinfo{author}{Baldota, S.}, \bibinfo{author}{Sharma, S.}, \bibinfo{author}{Malathy, C.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Deep transfer learning for pancreatic cancer detection}, in: \bibinfo{booktitle}{2021 12th International Conference on Computing Communication and Networking Technologies (ICCCNT)}, \bibinfo{address}{Kharagpur, India}. pp. \bibinfo{pages}{1--7}.
+\newblock \DOIprefix\doi{10.1109/ICCCNT51525.2021.9580000}.
+%Type = Article
+\bibitem[{Baykul et~al.(2010)Baykul, Yilmaz, Aydin, Aydin, Aksoy and Yildirim}]{baykul2010early}
+\bibinfo{author}{Baykul, T.}, \bibinfo{author}{Yilmaz, H.H.}, \bibinfo{author}{Aydin, U.}, \bibinfo{author}{Aydin, M.A.}, \bibinfo{author}{Aksoy, M.}, \bibinfo{author}{Yildirim, D.}, \bibinfo{year}{2010}.
+\newblock \bibinfo{title}{Early diagnosis of oral cancer}.
+\newblock \bibinfo{journal}{The Journal of International Medical Research} \bibinfo{volume}{38}, \bibinfo{pages}{737--749}.
+\newblock \DOIprefix\doi{10.1177/147323001003800302}.
+%Type = Article
+\bibitem[{Brinker et~al.(2019)Brinker, Hekler, Enk, Berking, Haferkamp, Hauschild, Weichenthal, Klode, Schadendorf, Holland-Letz, von Kalle, Fröhling, Schilling and Utikal}]{brinker2019deep}
+\bibinfo{author}{Brinker, T.J.}, \bibinfo{author}{Hekler, A.}, \bibinfo{author}{Enk, A.H.}, \bibinfo{author}{Berking, C.}, \bibinfo{author}{Haferkamp, S.}, \bibinfo{author}{Hauschild, A.}, \bibinfo{author}{Weichenthal, M.}, \bibinfo{author}{Klode, J.}, \bibinfo{author}{Schadendorf, D.}, \bibinfo{author}{Holland-Letz, T.}, \bibinfo{author}{von Kalle, C.}, \bibinfo{author}{Fröhling, S.}, \bibinfo{author}{Schilling, B.}, \bibinfo{author}{Utikal, J.S.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Deep neural networks are superior to dermatologists in melanoma image classification}.
+\newblock \bibinfo{journal}{European Journal of Cancer} \bibinfo{volume}{119}, \bibinfo{pages}{11--17}.
+%Type = Misc
+\bibitem[{Cancer.net(2022)}]{cancer_net_2022}
+\bibinfo{author}{Cancer.net}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Oral and oropharyngeal cancer: Statistics}.
+\newblock \URLprefix \url{https://www.cancer.net/cancer-types/oral-and-oropharyngeal-cancer/statistics}. \bibinfo{note}{adapted from the American Cancer Society's (ACS) publication, Cancer Facts \& Figures 2022, the ACS website, the International Agency for Research on Cancer website, and the National Cancer Institute's Surveillance, Epidemiology, and End Results (SEER) Program. (All sources accessed February 2022.)}.
+%Type = Misc
+\bibitem[{Caron and Larochelle(2021)}]{vicreg}
+\bibinfo{author}{Caron, M.}, \bibinfo{author}{Larochelle, H.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{{VicReg}: Variance-invariance-covariance regularization}.
+\newblock \bibinfo{howpublished}{GitHub repository}.
+\newblock \bibinfo{note}{Https://github.com/facebookresearch/vicreg}.
+%Type = Inproceedings
+\bibitem[{Chen et~al.(2020)Chen, Kornblith, Norouzi and Hinton}]{chen2020simple}
+\bibinfo{author}{Chen, T.}, \bibinfo{author}{Kornblith, S.}, \bibinfo{author}{Norouzi, M.}, \bibinfo{author}{Hinton, G.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{A simple framework for contrastive learning of visual representations}, in: \bibinfo{booktitle}{International Conference on Learning Representations (ICLR)}.
+%Type = Article
+\bibitem[{Clark et~al.(2013)Clark, Vendt, Smith, Freymann, Kirby, Koppel, Moore, Phillips, Maffitt, Pringle, Tarbox and Prior}]{Clark2013}
+\bibinfo{author}{Clark, K.}, \bibinfo{author}{Vendt, B.}, \bibinfo{author}{Smith, K.}, \bibinfo{author}{Freymann, J.}, \bibinfo{author}{Kirby, J.}, \bibinfo{author}{Koppel, P.}, \bibinfo{author}{Moore, S.}, \bibinfo{author}{Phillips, S.}, \bibinfo{author}{Maffitt, D.}, \bibinfo{author}{Pringle, M.}, \bibinfo{author}{Tarbox, L.}, \bibinfo{author}{Prior, F.}, \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{The cancer imaging archive (tcia): maintaining and operating a public information repository}.
+\newblock \bibinfo{journal}{Journal of Digital Imaging} \bibinfo{volume}{26}, \bibinfo{pages}{1045--1057}.
+\newblock \URLprefix \url{https://link.springer.com/article/10.1007/s10278-013-9622-7}, \DOIprefix\doi{10.1007/s10278-013-9622-7}.
+%Type = Inproceedings
+\bibitem[{Deng et~al.(2009)Deng, Dong, Socher, Li, Li and Fei-Fei}]{Deng2009}
+\bibinfo{author}{Deng, J.}, \bibinfo{author}{Dong, W.}, \bibinfo{author}{Socher, R.}, \bibinfo{author}{Li, L.J.}, \bibinfo{author}{Li, K.}, \bibinfo{author}{Fei-Fei, L.}, \bibinfo{year}{2009}.
+\newblock \bibinfo{title}{{ImageNet: A Large-Scale Hierarchical Image Database}}, in: \bibinfo{booktitle}{2009 IEEE Conference on Computer Vision and Pattern Recognition}, pp. \bibinfo{pages}{248--255}.
+\newblock \URLprefix \url{https://ieeexplore.ieee.org/document/5206848}, \DOIprefix\doi{10.1109/CVPR.2009.5206848}.
+%Type = Misc
+\bibitem[{{DermNet NZ}(n.d.)}]{dermnet}
+\bibinfo{author}{{DermNet NZ}}, \bibinfo{year}{n.d.}
+\newblock \bibinfo{title}{{DermNet NZ Image Repository}}.
+\newblock \bibinfo{howpublished}{\url{https://dermnetnz.org/}}.
+\newblock \bibinfo{note}{Accessed: 2024}.
+%Type = Article
+\bibitem[{Dildar et~al.(2021)Dildar, Akram, Irfan, Khan, Ramzan, Mahmood, Alsaiari, Saeed, Alraddadi and Mahnashi}]{dildar2021skin}
+\bibinfo{author}{Dildar, M.}, \bibinfo{author}{Akram, S.}, \bibinfo{author}{Irfan, M.}, \bibinfo{author}{Khan, H.U.}, \bibinfo{author}{Ramzan, M.}, \bibinfo{author}{Mahmood, A.R.}, \bibinfo{author}{Alsaiari, S.A.}, \bibinfo{author}{Saeed, A.H.M.}, \bibinfo{author}{Alraddadi, M.O.}, \bibinfo{author}{Mahnashi, M.H.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Skin cancer detection: A review using deep learning techniques}.
+\newblock \bibinfo{journal}{International Journal of Environmental Research and Public Health} \bibinfo{volume}{18}, \bibinfo{pages}{5479}.
+%Type = Article
+\bibitem[{Dosovitskiy et~al.(2020)Dosovitskiy, Beyer, Kolesnikov, Weissenborn, Zhai, Unterthiner, Dehghani, Minderer, Heigold, Gelly, Uszkoreit and Houlsby}]{dosovitskiy2020image}
+\bibinfo{author}{Dosovitskiy, A.}, \bibinfo{author}{Beyer, L.}, \bibinfo{author}{Kolesnikov, A.}, \bibinfo{author}{Weissenborn, D.}, \bibinfo{author}{Zhai, X.}, \bibinfo{author}{Unterthiner, T.}, \bibinfo{author}{Dehghani, M.}, \bibinfo{author}{Minderer, M.}, \bibinfo{author}{Heigold, G.}, \bibinfo{author}{Gelly, S.}, \bibinfo{author}{Uszkoreit, J.}, \bibinfo{author}{Houlsby, N.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{An image is worth 16x16 words: Transformers for image recognition at scale}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:2010.11929} .
+%Type = Article
+\bibitem[{Esteva et~al.(2017)Esteva, Kuprel, Novoa, Ko, Swetter, Blau and Thrun}]{esteva2017dermatologist}
+\bibinfo{author}{Esteva, A.}, \bibinfo{author}{Kuprel, B.}, \bibinfo{author}{Novoa, R.A.}, \bibinfo{author}{Ko, J.}, \bibinfo{author}{Swetter, S.M.}, \bibinfo{author}{Blau, H.M.}, \bibinfo{author}{Thrun, S.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Dermatologist-level classification of skin cancer with deep neural networks}.
+\newblock \bibinfo{journal}{Nature} \bibinfo{volume}{542}, \bibinfo{pages}{115--118}.
+\newblock \URLprefix \url{https://doi-org.wwwproxy1.library.unsw.edu.au/10.1038/nature21056}, \DOIprefix\doi{10.1038/nature21056}.
+%Type = Misc
+\bibitem[{Fasilkebede(2023)}]{fasilkebede2023oral}
+\bibinfo{author}{Fasilkebede, A.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{{Oral Cancer Histopathology Dataset}}.
+\newblock \bibinfo{howpublished}{Kaggle}.
+\newblock \URLprefix \url{https://www.kaggle.com/datasets/ashenafifasilkebede/dataset}. \bibinfo{note}{accessed: 2024}.
+%Type = Misc
+\bibitem[{fast.ai(2021)}]{fastai_onecycle}
+\bibinfo{author}{fast.ai}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{One cycle policy}.
+\newblock \URLprefix \url{https://fastai1.fast.ai/callbacks.one_cycle.html}. \bibinfo{note}{accessed: 2023-03-29}.
+%Type = Article
+\bibitem[{Ferlay et~al.(2021)Ferlay, Colombet, Soerjomataram, Parkin, Piñeros, Znaor and Bray}]{ferlay2021cancer}
+\bibinfo{author}{Ferlay, J.}, \bibinfo{author}{Colombet, M.}, \bibinfo{author}{Soerjomataram, I.}, \bibinfo{author}{Parkin, D.M.}, \bibinfo{author}{Piñeros, M.}, \bibinfo{author}{Znaor, A.}, \bibinfo{author}{Bray, F.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Cancer statistics for the year 2020: An overview}.
+\newblock \bibinfo{journal}{Int J Cancer} \bibinfo{note}{Online ahead of print}.
+%Type = Article
+\bibitem[{Filella and Foj(2016)}]{filella2016prostate}
+\bibinfo{author}{Filella, X.}, \bibinfo{author}{Foj, L.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Prostate cancer detection and prognosis: from prostate specific antigen (psa) to exosomal biomarkers}.
+\newblock \bibinfo{journal}{International journal of molecular sciences} \bibinfo{volume}{17}, \bibinfo{pages}{1784}.
+%Type = Misc
+\bibitem[{Goel(2020)}]{dermnet_kaggle}
+\bibinfo{author}{Goel, S.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{{DermNet: Skin Disease Images Dataset (Watermarked version)}}.
+\newblock \bibinfo{howpublished}{Kaggle}.
+\newblock \URLprefix \url{https://www.kaggle.com/datasets/shubhamgoel27/dermnet}. \bibinfo{note}{accessed: 2024}.
+%Type = Book
+\bibitem[{Goodfellow et~al.(2016)Goodfellow, Bengio and Courville}]{goodfellow2016deep}
+\bibinfo{author}{Goodfellow, I.}, \bibinfo{author}{Bengio, Y.}, \bibinfo{author}{Courville, A.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Deep Learning}.
+\newblock \bibinfo{publisher}{MIT Press}.
+\newblock \URLprefix \url{http://www.deeplearningbook.org}.
+%Type = Article
+\bibitem[{Grill et~al.(2020)Grill, Strub, Altché, Tallec, Richemond, Buchatskaya, Doersch, Pires, Guo, Azar, Piot, Kavukcuoglu, Munos and Valko}]{grill2020bootstrap}
+\bibinfo{author}{Grill, J.B.}, \bibinfo{author}{Strub, F.}, \bibinfo{author}{Altché, F.}, \bibinfo{author}{Tallec, C.}, \bibinfo{author}{Richemond, P.H.}, \bibinfo{author}{Buchatskaya, E.}, \bibinfo{author}{Doersch, C.}, \bibinfo{author}{Pires, B.A.}, \bibinfo{author}{Guo, Z.D.}, \bibinfo{author}{Azar, M.G.}, \bibinfo{author}{Piot, B.}, \bibinfo{author}{Kavukcuoglu, K.}, \bibinfo{author}{Munos, R.}, \bibinfo{author}{Valko, M.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Bootstrap your own latent: A new approach to self-supervised learning}.
+\newblock \bibinfo{journal}{Advances in Neural Information Processing Systems} \bibinfo{volume}{33}.
+%Type = Article
+\bibitem[{Guo and Ashour(2018)}]{guo2018multiple}
+\bibinfo{author}{Guo, Y.}, \bibinfo{author}{Ashour, A.S.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Multiple convolutional neural network for skin dermoscopic image classification}.
+\newblock \bibinfo{journal}{arXiv preprint} \href{http://arxiv.org/abs/1807.08114}{\tt arXiv:1807.08114}.
+%Type = Inproceedings
+\bibitem[{He et~al.(2016)He, Zhang, Ren and Sun}]{he2016deep}
+\bibinfo{author}{He, K.}, \bibinfo{author}{Zhang, X.}, \bibinfo{author}{Ren, S.}, \bibinfo{author}{Sun, J.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Deep residual learning for image recognition}, in: \bibinfo{booktitle}{Proceedings of the IEEE conference on computer vision and pattern recognition}, pp. \bibinfo{pages}{770--778}.
+%Type = Misc
+\bibitem[{Howard and fastai team(2024)}]{fastai_lr_find}
+\bibinfo{author}{Howard, J.}, \bibinfo{author}{fastai team}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Learner.lr\_find function}.
+\newblock \bibinfo{howpublished}{\textit{fastai Documentation}. Available at: \url{https://docs.fast.ai/callback.schedule.html\#learner.lr\_find}}.
+\newblock \bibinfo{note}{Accessed: 21 October 2024}.
+%Type = Inproceedings
+\bibitem[{Hua et~al.(2021)Hua, Wang, Xue, Ren, Wang and Zhao}]{hua2021feature}
+\bibinfo{author}{Hua, T.}, \bibinfo{author}{Wang, W.}, \bibinfo{author}{Xue, Z.}, \bibinfo{author}{Ren, S.}, \bibinfo{author}{Wang, Y.}, \bibinfo{author}{Zhao, H.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{On feature decorrelation in self-supervised learning}, in: \bibinfo{booktitle}{Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)}.
+\newblock \bibinfo{note}{Oral Presentation}.
+%Type = Article
+\bibitem[{Huang et~al.(2023)Huang, Pareek, Jensen et~al.}]{Huang2023}
+\bibinfo{author}{Huang, S.C.}, \bibinfo{author}{Pareek, A.}, \bibinfo{author}{Jensen, M.}, et~al., \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Self-supervised learning for medical image classification: a systematic review and implementation guidelines}.
+\newblock \bibinfo{journal}{npj Digital Medicine} \bibinfo{volume}{6}, \bibinfo{pages}{74}.
+\newblock \DOIprefix\doi{10.1038/s41746-023-00811-0}.
+%Type = Article
+\bibitem[{III et~al.(2011)III, McLennan, Bidaut, McNitt-Gray, Meyer, Reeves, Gamsu, Henschke, Hoffman, Kazerooni, MacMahon, Beek, Aberle, Yankaskas, Austin, Goldin, Prokop, Cody, Lynch, Mazzone, Fenton, van Ginneken, Lambin, Brown, Barnhart, Kalpathy-Cramer, Freymann, Kirby, Gavrielides, Kiciak and Bakis}]{Armato2011}
+\bibinfo{author}{III, S.G.A.}, \bibinfo{author}{McLennan, G.}, \bibinfo{author}{Bidaut, L.}, \bibinfo{author}{McNitt-Gray, M.F.}, \bibinfo{author}{Meyer, C.R.}, \bibinfo{author}{Reeves, A.P.}, \bibinfo{author}{Gamsu, G.}, \bibinfo{author}{Henschke, C.}, \bibinfo{author}{Hoffman, E.A.}, \bibinfo{author}{Kazerooni, E.A.}, \bibinfo{author}{MacMahon, H.}, \bibinfo{author}{Beek, E.J.R.V.}, \bibinfo{author}{Aberle, D.R.}, \bibinfo{author}{Yankaskas, B.}, \bibinfo{author}{Austin, P.J.}, \bibinfo{author}{Goldin, J.}, \bibinfo{author}{Prokop, A.F.}, \bibinfo{author}{Cody, D.D.}, \bibinfo{author}{Lynch, D.A.}, \bibinfo{author}{Mazzone, J.C.}, \bibinfo{author}{Fenton, L.E.}, \bibinfo{author}{van Ginneken, B.}, \bibinfo{author}{Lambin, P.}, \bibinfo{author}{Brown, M.S.}, \bibinfo{author}{Barnhart, R.S.}, \bibinfo{author}{Kalpathy-Cramer}, \bibinfo{author}{Freymann, J.E.}, \bibinfo{author}{Kirby, J.S.}, \bibinfo{author}{Gavrielides, M.A.}, \bibinfo{author}{Kiciak, P.B.}, \bibinfo{author}{Bakis, C.E.},
+  \bibinfo{year}{2011}.
+\newblock \bibinfo{title}{The lung image database consortium (lidc) and image database resource initiative (idri): a completed reference database of lung nodules on ct scans}.
+\newblock \bibinfo{journal}{Medical Physics} \bibinfo{volume}{38}, \bibinfo{pages}{915--931}.
+\newblock \URLprefix \url{https://doi.org/10.1118/1.3528204}, \DOIprefix\doi{10.1118/1.3528204}.
+%Type = Misc
+\bibitem[{{International Skin Imaging Collaboration}(2023)}]{ISIC2023}
+\bibinfo{author}{{International Skin Imaging Collaboration}}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{{ISIC} archive: A comprehensive resource for skin imaging data}.
+\newblock \URLprefix \url{https://www.isic-archive.com}. \bibinfo{note}{accessed: 2023-04-20}.
+%Type = Article
+\bibitem[{Jabbar et~al.(2022)Jabbar, Yan, Xu, Ur~Rehman and Jabbar}]{jabbar2022transfer}
+\bibinfo{author}{Jabbar, M.K.}, \bibinfo{author}{Yan, J.}, \bibinfo{author}{Xu, H.}, \bibinfo{author}{Ur~Rehman, Z.}, \bibinfo{author}{Jabbar, A.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Transfer learning-based model for diabetic retinopathy diagnosis using retinal images}.
+\newblock \bibinfo{journal}{Brain Sciences} \bibinfo{volume}{12}, \bibinfo{pages}{535}.
+\newblock \DOIprefix\doi{10.3390/brainsci12050535}.
+%Type = Article
+\bibitem[{Jaiswal et~al.(2020)Jaiswal, Babu, Zadeh, Banerjee and Makedon}]{jaiswal2020survey}
+\bibinfo{author}{Jaiswal, A.}, \bibinfo{author}{Babu, A.R.}, \bibinfo{author}{Zadeh, M.Z.}, \bibinfo{author}{Banerjee, D.}, \bibinfo{author}{Makedon, F.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{A survey on contrastive self-supervised learning}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:2011.00362} .
+%Type = Article
+\bibitem[{Jarvis and Williams(2016)}]{jarvis2016irreproducibility}
+\bibinfo{author}{Jarvis, M.F.}, \bibinfo{author}{Williams, M.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Irreproducibility in preclinical biomedical research: perceptions, uncertainties, and knowledge gaps}.
+\newblock \bibinfo{journal}{Trends in pharmacological sciences} \bibinfo{volume}{37}, \bibinfo{pages}{290--302}.
+%Type = Article
+\bibitem[{Jeschke et~al.(2012)Jeschke, Van~Neste, Gl{\"o}ckner, Dhir, Calmon, Deregowski et~al.}]{jeschke2012biomarkers}
+\bibinfo{author}{Jeschke, J.}, \bibinfo{author}{Van~Neste, L.}, \bibinfo{author}{Gl{\"o}ckner, S.C.}, \bibinfo{author}{Dhir, M.}, \bibinfo{author}{Calmon, M.F.}, \bibinfo{author}{Deregowski, V.}, et~al., \bibinfo{year}{2012}.
+\newblock \bibinfo{title}{Biomarkers for detection and prognosis of breast cancer identified by a functional hypermethylome screen}.
+\newblock \bibinfo{journal}{Epigenetics} \bibinfo{volume}{7}, \bibinfo{pages}{701--709}.
+%Type = Inproceedings
+\bibitem[{Jing et~al.(2022)Jing, Vincent, LeCun and Tian}]{jing2022understanding}
+\bibinfo{author}{Jing, L.}, \bibinfo{author}{Vincent, P.}, \bibinfo{author}{LeCun, Y.}, \bibinfo{author}{Tian, Y.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Understanding dimensional collapse in contrastive self-supervised learning}, in: \bibinfo{booktitle}{International Conference on Learning Representations}.
+%Type = Article
+\bibitem[{Kamisawa et~al.(2016)Kamisawa, Wood, Itoi and Takaori}]{kamisawa2016pancreatic}
+\bibinfo{author}{Kamisawa, T.}, \bibinfo{author}{Wood, L.D.}, \bibinfo{author}{Itoi, T.}, \bibinfo{author}{Takaori, K.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Pancreatic cancer}.
+\newblock \bibinfo{journal}{The Lancet} \bibinfo{volume}{388}, \bibinfo{pages}{73--85}.
+%Type = Misc
+\bibitem[{Kaplan et~al.(2020)Kaplan, McCandlish, Henighan, Brown, Chess, Child, Gray, Radford, Wu and Amodei}]{kaplan2020scalinglawsneurallanguage}
+\bibinfo{author}{Kaplan, J.}, \bibinfo{author}{McCandlish, S.}, \bibinfo{author}{Henighan, T.}, \bibinfo{author}{Brown, T.B.}, \bibinfo{author}{Chess, B.}, \bibinfo{author}{Child, R.}, \bibinfo{author}{Gray, S.}, \bibinfo{author}{Radford, A.}, \bibinfo{author}{Wu, J.}, \bibinfo{author}{Amodei, D.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Scaling laws for neural language models}.
+\newblock \URLprefix \url{https://arxiv.org/abs/2001.08361}, \href{http://arxiv.org/abs/2001.08361}{\tt arXiv:2001.08361}.
+%Type = Article
+\bibitem[{Kaur et~al.(2020)Kaur, Singla, Nkenyereye, Jha, Prashar, Joshi, El-Sappagh, Islam and Islam}]{kaur2020medical}
+\bibinfo{author}{Kaur, S.}, \bibinfo{author}{Singla, J.}, \bibinfo{author}{Nkenyereye, L.}, \bibinfo{author}{Jha, S.}, \bibinfo{author}{Prashar, D.}, \bibinfo{author}{Joshi, G.P.}, \bibinfo{author}{El-Sappagh, S.}, \bibinfo{author}{Islam, M.S.}, \bibinfo{author}{Islam, S.R.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Medical diagnostic systems using artificial intelligence (ai) algorithms: Principles and perspectives}.
+\newblock \bibinfo{journal}{IEEE Access} \bibinfo{volume}{8}, \bibinfo{pages}{228049--228069}.
+%Type = Article
+\bibitem[{Kazarian et~al.(2017)Kazarian, Blyuss, Metodieva, Gentry-Maharaj, Ryan, Kiseleva et~al.}]{kazarian2017testing}
+\bibinfo{author}{Kazarian, A.}, \bibinfo{author}{Blyuss, O.}, \bibinfo{author}{Metodieva, G.}, \bibinfo{author}{Gentry-Maharaj, A.}, \bibinfo{author}{Ryan, A.}, \bibinfo{author}{Kiseleva, E.M.}, et~al., \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Testing breast cancer serum biomarkers for early detection and prognosis in pre-diagnosis samples}.
+\newblock \bibinfo{journal}{British journal of cancer} \bibinfo{volume}{116}, \bibinfo{pages}{501--508}.
+%Type = Article
+\bibitem[{Khan et~al.(2023)Khan, Akbar, Mehmood, Shahid, Munir, Ilyas, Asif and Zheng}]{khan2023transfer}
+\bibinfo{author}{Khan, R.}, \bibinfo{author}{Akbar, S.}, \bibinfo{author}{Mehmood, A.}, \bibinfo{author}{Shahid, F.}, \bibinfo{author}{Munir, K.}, \bibinfo{author}{Ilyas, N.}, \bibinfo{author}{Asif, M.}, \bibinfo{author}{Zheng, Z.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{A transfer learning approach for multiclass classification of {Alzheimer}'s disease using {MRI} images}.
+\newblock \bibinfo{journal}{Frontiers in Neuroscience} \bibinfo{volume}{16}, \bibinfo{pages}{1050777}.
+\newblock \DOIprefix\doi{10.3389/fnins.2022.1050777}.
+%Type = Article
+\bibitem[{Kim et~al.(2022)Kim, Cosa-Linan, Santhanam, Jannesari, Maros and Ganslandt}]{kim2022transfer}
+\bibinfo{author}{Kim, H.E.}, \bibinfo{author}{Cosa-Linan, A.}, \bibinfo{author}{Santhanam, N.}, \bibinfo{author}{Jannesari, M.}, \bibinfo{author}{Maros, M.E.}, \bibinfo{author}{Ganslandt, T.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Transfer learning for medical image classification: a literature review}.
+\newblock \bibinfo{journal}{BMC Medical Imaging} \bibinfo{volume}{22}, \bibinfo{pages}{69}.
+%Type = Article
+\bibitem[{Kingma and Ba(2014)}]{kingma2014adam}
+\bibinfo{author}{Kingma, D.P.}, \bibinfo{author}{Ba, J.}, \bibinfo{year}{2014}.
+\newblock \bibinfo{title}{Adam: A method for stochastic optimization}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:1412.6980} .
+%Type = Article
+\bibitem[{Kwong and Mazaheri(2021)}]{kwong2021survey}
+\bibinfo{author}{Kwong, T.}, \bibinfo{author}{Mazaheri, S.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{A survey on deep learning approaches for breast cancer diagnosis}.
+\newblock \bibinfo{journal}{arXiv preprint} \href{http://arxiv.org/abs/2109.08853}{\tt arXiv:2109.08853}.
+%Type = Misc
+\bibitem[{LeCun and Misra(2021)}]{lecun2021self}
+\bibinfo{author}{LeCun, Y.}, \bibinfo{author}{Misra, I.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Self-supervised learning: The dark matter of intelligence}.
+\newblock \bibinfo{howpublished}{Facebook AI Blog}.
+%Type = Article
+\bibitem[{Litjens et~al.(2017)Litjens, Kooi, Bejnordi, Setio, Ciompi, Ghafoorian, van~der Laak, van Ginneken and Sánchez}]{Litjens2017}
+\bibinfo{author}{Litjens, G.}, \bibinfo{author}{Kooi, T.}, \bibinfo{author}{Bejnordi, B.E.}, \bibinfo{author}{Setio, A.A.A.}, \bibinfo{author}{Ciompi, F.}, \bibinfo{author}{Ghafoorian, M.}, \bibinfo{author}{van~der Laak, J.A.}, \bibinfo{author}{van Ginneken, B.}, \bibinfo{author}{Sánchez, C.I.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{A survey on deep learning in medical image analysis}.
+\newblock \bibinfo{journal}{Medical Image Analysis} \bibinfo{volume}{42}, \bibinfo{pages}{60--88}.
+\newblock \URLprefix \url{https://www.sciencedirect.com/science/article/pii/S1361841517301135}, \DOIprefix\doi{10.1016/j.media.2017.07.005}.
+%Type = Inproceedings
+\bibitem[{Lopez et~al.(2017)Lopez, Giro-i Nieto, Burdick and Marques}]{lopez2017skin}
+\bibinfo{author}{Lopez, A.R.}, \bibinfo{author}{Giro-i Nieto, X.}, \bibinfo{author}{Burdick, J.}, \bibinfo{author}{Marques, O.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Skin lesion classification from dermoscopic images using deep learning techniques}, in: \bibinfo{booktitle}{2017 13th IASTED international conference on biomedical engineering (BioMed)}, \bibinfo{organization}{IEEE}. pp. \bibinfo{pages}{49--54}.
+%Type = Inproceedings
+\bibitem[{Mahbod et~al.(2019)Mahbod, Schaefer, Wang, Ecker and Ellinge}]{mahbod2019skin}
+\bibinfo{author}{Mahbod, A.}, \bibinfo{author}{Schaefer, G.}, \bibinfo{author}{Wang, C.}, \bibinfo{author}{Ecker, R.}, \bibinfo{author}{Ellinge, I.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Skin lesion classification using hybrid deep neural networks}, in: \bibinfo{booktitle}{ICASSP 2019-2019 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, \bibinfo{organization}{IEEE}. pp. \bibinfo{pages}{1229--1233}.
+%Type = Article
+\bibitem[{Majtner et~al.(2018)Majtner, Bajić, Yildirim, Hardeberg, Lindblad and Sladoje}]{majtner2018ensemble}
+\bibinfo{author}{Majtner, T.}, \bibinfo{author}{Bajić, B.}, \bibinfo{author}{Yildirim, S.}, \bibinfo{author}{Hardeberg, J.Y.}, \bibinfo{author}{Lindblad, J.}, \bibinfo{author}{Sladoje, N.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Ensemble of convolutional neural networks for dermoscopic images classification}.
+\newblock \bibinfo{journal}{arXiv preprint} \href{http://arxiv.org/abs/1808.05071}{\tt arXiv:1808.05071}.
+%Type = Article
+\bibitem[{Maron et~al.(2019)Maron, Weichenthal, Utikal, Hekler, Berking, Hauschild, Enk, Haferkamp, Klode, Schadendorf, Jansen, Holland-Letz, Schilling, {von Kalle}, Fröhling, Gaiser, Hartmann, Gesierich, Kähler, Wehkamp, Karoglan, Bär, Brinker, Schmitt, Peitsch, Hoffmann, Becker, Drusio, Jansen, Klode, Lodde, Sammet, Schadendorf, Sondermann, Ugurel, Zader, Enk, Salzmann, Schäfer, Schäkel, Winkler, Wölbing, Asper, Bohne, Brown, Burba, Deffaa, Dietrich, Dietrich, Drerup, Egberts, Erkens, Greven, Harde, Jost, Kaeding, Kosova, Lischner, Maagk, Messinger, Metzner, Motamedi, Rosenthal, Seidl, Stemmermann, Torz, Velez, Haiduk, Alter, Bär, Bergenthal, Gerlach, Holtorf, Karoglan, Kindermann, Kraas, Felcht, Gaiser, Klemke, Kurzen, Leibing, Müller, Reinhard, Utikal, Winter, Berking, Eicher, Hartmann, Heppt, Kilian, Krammer, Lill, Niesert, Oppel, Sattler, Senner, Wallmichrath, Wolff, Giner, Glutsch, Kerstan, Presser, Schrüfer, Schummer, Stolze, Weber, Drexler, Haferkamp, Mickler, Stauner and
+  Thiem}]{MARON201957}
+\bibinfo{author}{Maron, R.C.}, \bibinfo{author}{Weichenthal, M.}, \bibinfo{author}{Utikal, J.S.}, \bibinfo{author}{Hekler, A.}, \bibinfo{author}{Berking, C.}, \bibinfo{author}{Hauschild, A.}, \bibinfo{author}{Enk, A.H.}, \bibinfo{author}{Haferkamp, S.}, \bibinfo{author}{Klode, J.}, \bibinfo{author}{Schadendorf, D.}, \bibinfo{author}{Jansen, P.}, \bibinfo{author}{Holland-Letz, T.}, \bibinfo{author}{Schilling, B.}, \bibinfo{author}{{von Kalle}, C.}, \bibinfo{author}{Fröhling, S.}, \bibinfo{author}{Gaiser, M.R.}, \bibinfo{author}{Hartmann, D.}, \bibinfo{author}{Gesierich, A.}, \bibinfo{author}{Kähler, K.C.}, \bibinfo{author}{Wehkamp, U.}, \bibinfo{author}{Karoglan, A.}, \bibinfo{author}{Bär, C.}, \bibinfo{author}{Brinker, T.J.}, \bibinfo{author}{Schmitt, L.}, \bibinfo{author}{Peitsch, W.K.}, \bibinfo{author}{Hoffmann, F.}, \bibinfo{author}{Becker, J.C.}, \bibinfo{author}{Drusio, C.}, \bibinfo{author}{Jansen, P.}, \bibinfo{author}{Klode, J.}, \bibinfo{author}{Lodde, G.}, \bibinfo{author}{Sammet, S.},
+  \bibinfo{author}{Schadendorf, D.}, \bibinfo{author}{Sondermann, W.}, \bibinfo{author}{Ugurel, S.}, \bibinfo{author}{Zader, J.}, \bibinfo{author}{Enk, A.}, \bibinfo{author}{Salzmann, M.}, \bibinfo{author}{Schäfer, S.}, \bibinfo{author}{Schäkel, K.}, \bibinfo{author}{Winkler, J.}, \bibinfo{author}{Wölbing, P.}, \bibinfo{author}{Asper, H.}, \bibinfo{author}{Bohne, A.S.}, \bibinfo{author}{Brown, V.}, \bibinfo{author}{Burba, B.}, \bibinfo{author}{Deffaa, S.}, \bibinfo{author}{Dietrich, C.}, \bibinfo{author}{Dietrich, M.}, \bibinfo{author}{Drerup, K.A.}, \bibinfo{author}{Egberts, F.}, \bibinfo{author}{Erkens, A.S.}, \bibinfo{author}{Greven, S.}, \bibinfo{author}{Harde, V.}, \bibinfo{author}{Jost, M.}, \bibinfo{author}{Kaeding, M.}, \bibinfo{author}{Kosova, K.}, \bibinfo{author}{Lischner, S.}, \bibinfo{author}{Maagk, M.}, \bibinfo{author}{Messinger, A.L.}, \bibinfo{author}{Metzner, M.}, \bibinfo{author}{Motamedi, R.}, \bibinfo{author}{Rosenthal, A.C.}, \bibinfo{author}{Seidl, U.}, \bibinfo{author}{Stemmermann,
+  J.}, \bibinfo{author}{Torz, K.}, \bibinfo{author}{Velez, J.G.}, \bibinfo{author}{Haiduk, J.}, \bibinfo{author}{Alter, M.}, \bibinfo{author}{Bär, C.}, \bibinfo{author}{Bergenthal, P.}, \bibinfo{author}{Gerlach, A.}, \bibinfo{author}{Holtorf, C.}, \bibinfo{author}{Karoglan, A.}, \bibinfo{author}{Kindermann, S.}, \bibinfo{author}{Kraas, L.}, \bibinfo{author}{Felcht, M.}, \bibinfo{author}{Gaiser, M.R.}, \bibinfo{author}{Klemke, C.D.}, \bibinfo{author}{Kurzen, H.}, \bibinfo{author}{Leibing, T.}, \bibinfo{author}{Müller, V.}, \bibinfo{author}{Reinhard, R.R.}, \bibinfo{author}{Utikal, J.}, \bibinfo{author}{Winter, F.}, \bibinfo{author}{Berking, C.}, \bibinfo{author}{Eicher, L.}, \bibinfo{author}{Hartmann, D.}, \bibinfo{author}{Heppt, M.}, \bibinfo{author}{Kilian, K.}, \bibinfo{author}{Krammer, S.}, \bibinfo{author}{Lill, D.}, \bibinfo{author}{Niesert, A.C.}, \bibinfo{author}{Oppel, E.}, \bibinfo{author}{Sattler, E.}, \bibinfo{author}{Senner, S.}, \bibinfo{author}{Wallmichrath, J.}, \bibinfo{author}{Wolff, H.},
+  \bibinfo{author}{Giner, T.}, \bibinfo{author}{Glutsch, V.}, \bibinfo{author}{Kerstan, A.}, \bibinfo{author}{Presser, D.}, \bibinfo{author}{Schrüfer, P.}, \bibinfo{author}{Schummer, P.}, \bibinfo{author}{Stolze, I.}, \bibinfo{author}{Weber, J.}, \bibinfo{author}{Drexler, K.}, \bibinfo{author}{Haferkamp, S.}, \bibinfo{author}{Mickler, M.}, \bibinfo{author}{Stauner, C.T.}, \bibinfo{author}{Thiem, A.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Systematic outperformance of 112 dermatologists in multiclass skin cancer image classification by convolutional neural networks}.
+\newblock \bibinfo{journal}{European Journal of Cancer} \bibinfo{volume}{119}, \bibinfo{pages}{57--65}.
+\newblock \URLprefix \url{https://www.sciencedirect.com/science/article/pii/S0959804919303818}, \DOIprefix\doi{https://doi.org/10.1016/j.ejca.2019.06.013}.
+%Type = Misc
+\bibitem[{Minaee et~al.(2024)Minaee, Mikolov, Nikzad, Chenaghlu, Socher, Amatriain and Gao}]{minaee2024largelanguagemodelssurvey}
+\bibinfo{author}{Minaee, S.}, \bibinfo{author}{Mikolov, T.}, \bibinfo{author}{Nikzad, N.}, \bibinfo{author}{Chenaghlu, M.}, \bibinfo{author}{Socher, R.}, \bibinfo{author}{Amatriain, X.}, \bibinfo{author}{Gao, J.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Large language models: A survey}.
+\newblock \URLprefix \url{https://arxiv.org/abs/2402.06196}, \href{http://arxiv.org/abs/2402.06196}{\tt arXiv:2402.06196}.
+%Type = Article
+\bibitem[{Misra and van~der Maaten(2019)}]{misra2019self}
+\bibinfo{author}{Misra, I.}, \bibinfo{author}{van~der Maaten, L.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Self-supervised learning of pretext-invariant representations}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:1912.01991} .
+%Type = Article
+\bibitem[{Pacheco et~al.(2020)Pacheco, Lima, Salom{\~a}o, Krohling, Biral, de~Angelo, Alves, Esgario, Simora, Castro, Rodrigues, Frasson, Krohling, Knidel, Santos, do~Esp{\'\i}rito~Santo, Macedo, Canuto and de~Barros}]{pacheco2020pad}
+\bibinfo{author}{Pacheco, A.G.C.}, \bibinfo{author}{Lima, G.R.}, \bibinfo{author}{Salom{\~a}o, A.S.}, \bibinfo{author}{Krohling, B.}, \bibinfo{author}{Biral, I.P.}, \bibinfo{author}{de~Angelo, G.G.}, \bibinfo{author}{Alves, F.C.R.J.}, \bibinfo{author}{Esgario, J.G.M.}, \bibinfo{author}{Simora, A.C.}, \bibinfo{author}{Castro, P.B.C.}, \bibinfo{author}{Rodrigues, F.B.}, \bibinfo{author}{Frasson, P.H.L.}, \bibinfo{author}{Krohling, R.A.}, \bibinfo{author}{Knidel, H.}, \bibinfo{author}{Santos, M.C.S.}, \bibinfo{author}{do~Esp{\'\i}rito~Santo, R.B.}, \bibinfo{author}{Macedo, T.L.S.G.}, \bibinfo{author}{Canuto, T.R.P.}, \bibinfo{author}{de~Barros, L.F.S.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{{PAD-UFES-20: A skin lesion dataset composed of patient data and clinical images collected from smartphones}}.
+\newblock \bibinfo{journal}{Data in Brief} \bibinfo{volume}{32}, \bibinfo{pages}{106221}.
+\newblock \DOIprefix\doi{10.1016/j.dib.2020.106221}. \bibinfo{note}{pMID: 32939378; PMCID: PMC7479321}.
+%Type = Misc
+\bibitem[{PyTorch(2021)}]{torchvision_resnet50}
+\bibinfo{author}{PyTorch}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{torchvision.models.resnet50}.
+\newblock \URLprefix \url{https://pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html}. \bibinfo{note}{accessed: 2023-03-29}.
+%Type = Inproceedings
+\bibitem[{Raghu et~al.(2020)Raghu, Raghu, Bengio and Vinyals}]{raghu2020rapid}
+\bibinfo{author}{Raghu, A.}, \bibinfo{author}{Raghu, M.}, \bibinfo{author}{Bengio, S.}, \bibinfo{author}{Vinyals, O.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Rapid learning or feature reuse? towards understanding the effectiveness of maml}, in: \bibinfo{booktitle}{Proceedings of the International Conference on Learning Representations (ICLR)}, \bibinfo{organization}{ICLR}.
+\newblock \URLprefix \url{https://arxiv.org/abs/1909.09157}. \bibinfo{note}{\textit{Published as a conference paper at ICLR 2020}}.
+%Type = Misc
+\bibitem[{Research(2021)}]{barlowtwins}
+\bibinfo{author}{Research, F.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Barlow twins: {S}elf-{S}upervised {L}earning via {R}edundancy {R}eduction}.
+\newblock \URLprefix \url{https://github.com/facebookresearch/barlowtwins}. \bibinfo{note}{accessed: 2023-03-29}.
+%Type = Article
+\bibitem[{Rigel et~al.(2010)Rigel, Russak and Friedman}]{rigel2010evolution}
+\bibinfo{author}{Rigel, D.S.}, \bibinfo{author}{Russak, J.}, \bibinfo{author}{Friedman, R.}, \bibinfo{year}{2010}.
+\newblock \bibinfo{title}{The evolution of melanoma diagnosis: 25 years beyond the abcds}.
+\newblock \bibinfo{journal}{CA: A Cancer Journal for Clinicians} \bibinfo{volume}{60}, \bibinfo{pages}{301--316}.
+%Type = Article
+\bibitem[{Russakovsky et~al.(2015)Russakovsky, Deng, Su, Krause, Satheesh, Ma, Huang, Karpathy, Khosla, Bernstein, Berg and Fei-Fei}]{russakovsky2015ImageNet}
+\bibinfo{author}{Russakovsky, O.}, \bibinfo{author}{Deng, J.}, \bibinfo{author}{Su, H.}, \bibinfo{author}{Krause, J.}, \bibinfo{author}{Satheesh, S.}, \bibinfo{author}{Ma, S.}, \bibinfo{author}{Huang, Z.}, \bibinfo{author}{Karpathy, A.}, \bibinfo{author}{Khosla, A.}, \bibinfo{author}{Bernstein, M.}, \bibinfo{author}{Berg, A.C.}, \bibinfo{author}{Fei-Fei, L.}, \bibinfo{year}{2015}.
+\newblock \bibinfo{title}{Imagenet large scale visual recognition challenge}.
+\newblock \bibinfo{journal}{International Journal of Computer Vision} \bibinfo{volume}{115}, \bibinfo{pages}{211--252}.
+\newblock \DOIprefix\doi{10.1007/s11263-015-0816-y}.
+%Type = Article
+\bibitem[{Sengupta et~al.(2022)Sengupta, Sarode, Sarode and Ghone}]{sengupta2022scarcity}
+\bibinfo{author}{Sengupta, N.}, \bibinfo{author}{Sarode, S.C.}, \bibinfo{author}{Sarode, G.S.}, \bibinfo{author}{Ghone, U.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Scarcity of publicly available oral cancer image datasets for machine learning research}.
+\newblock \bibinfo{journal}{Oral Oncology} \bibinfo{volume}{126}, \bibinfo{pages}{105737}.
+%Type = Inproceedings
+\bibitem[{Shanmugam et~al.(2021)Shanmugam, Blalock, Balakrishnan and Guttag}]{9710313}
+\bibinfo{author}{Shanmugam, D.}, \bibinfo{author}{Blalock, D.}, \bibinfo{author}{Balakrishnan, G.}, \bibinfo{author}{Guttag, J.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Better aggregation in test-time augmentation}, in: \bibinfo{booktitle}{2021 IEEE/CVF International Conference on Computer Vision (ICCV)}, \bibinfo{publisher}{IEEE Computer Society}. pp. \bibinfo{pages}{1194--1203}.
+\newblock \URLprefix \url{https://doi.ieeecomputersociety.org/10.1109/ICCV48922.2021.00125}, \DOIprefix\doi{10.1109/ICCV48922.2021.00125}.
+%Type = Article
+\bibitem[{Shiffrin et~al.(2018)Shiffrin, B{\"o}rner and Stigler}]{shiffrin2018scientific}
+\bibinfo{author}{Shiffrin, R.M.}, \bibinfo{author}{B{\"o}rner, K.}, \bibinfo{author}{Stigler, S.M.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Scientific progress despite irreproducibility: A seeming paradox}.
+\newblock \bibinfo{journal}{Proceedings of the National Academy of Sciences} \bibinfo{volume}{115}, \bibinfo{pages}{2632--2639}.
+%Type = Article
+\bibitem[{Simonyan and Zisserman(2014)}]{simonyan2014very}
+\bibinfo{author}{Simonyan, K.}, \bibinfo{author}{Zisserman, A.}, \bibinfo{year}{2014}.
+\newblock \bibinfo{title}{Very deep convolutional networks for large-scale image recognition}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:1409.1556} .
+%Type = Article
+\bibitem[{Smith(2018)}]{smith2018disciplined}
+\bibinfo{author}{Smith, L.N.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{A disciplined approach to neural network hyper-parameters: Part 1 -- learning rate, batch size, momentum, and weight decay}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:1803.09820} \href{http://arxiv.org/abs/1803.09820}{\tt arXiv:1803.09820}.
+%Type = Article
+\bibitem[{Smith and Topin(2017)}]{smith2017super}
+\bibinfo{author}{Smith, L.N.}, \bibinfo{author}{Topin, N.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Super-convergence: Very fast training of neural networks using large learning rates}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:1708.07120} \href{http://arxiv.org/abs/1708.07120}{\tt arXiv:1708.07120}.
+%Type = Article
+\bibitem[{Song et~al.(2021)Song, Li, Sunny, Gurushanth, Mendonca, Mukhia, Patrick, Gurudath, Raghavan, Tsusennaro, Leivon, Kolur, Shetty, Bushan, Ramesh, Peterson, Pillai, Wilder-Smith, Sigamani, Suresh, Kuriakose, Birur and Liang}]{song2021classification}
+\bibinfo{author}{Song, B.}, \bibinfo{author}{Li, S.}, \bibinfo{author}{Sunny, S.}, \bibinfo{author}{Gurushanth, K.}, \bibinfo{author}{Mendonca, P.}, \bibinfo{author}{Mukhia, N.}, \bibinfo{author}{Patrick, S.}, \bibinfo{author}{Gurudath, S.}, \bibinfo{author}{Raghavan, S.}, \bibinfo{author}{Tsusennaro, I.}, \bibinfo{author}{Leivon, S.T.}, \bibinfo{author}{Kolur, T.}, \bibinfo{author}{Shetty, V.}, \bibinfo{author}{Bushan, V.}, \bibinfo{author}{Ramesh, R.}, \bibinfo{author}{Peterson, T.}, \bibinfo{author}{Pillai, V.}, \bibinfo{author}{Wilder-Smith, P.}, \bibinfo{author}{Sigamani, A.}, \bibinfo{author}{Suresh, A.}, \bibinfo{author}{Kuriakose, M.A.}, \bibinfo{author}{Birur, P.}, \bibinfo{author}{Liang, R.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Classification of imbalanced oral cancer image data from high-risk population}.
+\newblock \bibinfo{journal}{J Biomed Opt} \bibinfo{volume}{26}, \bibinfo{pages}{105001}.
+%Type = Article
+\bibitem[{Song et~al.(2023)Song, Su, Wang, Qiang, Zheng and Sun}]{song2023towards}
+\bibinfo{author}{Song, Z.}, \bibinfo{author}{Su, X.}, \bibinfo{author}{Wang, J.}, \bibinfo{author}{Qiang, W.}, \bibinfo{author}{Zheng, C.}, \bibinfo{author}{Sun, F.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Towards the sparseness of projection head in self-supervised learning}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:2303.12962} .
+%Type = Incollection
+\bibitem[{Syed et~al.(2020)Syed, Sleeman~IV, Nalluri, Kapoor, Hagan, Palta and Ghosh}]{syed2020artificial}
+\bibinfo{author}{Syed, K.}, \bibinfo{author}{Sleeman~IV, W.C.}, \bibinfo{author}{Nalluri, J.J.}, \bibinfo{author}{Kapoor, R.}, \bibinfo{author}{Hagan, M.}, \bibinfo{author}{Palta, J.}, \bibinfo{author}{Ghosh, P.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Artificial intelligence methods in computer-aided diagnostic tools and decision support analytics for clinical informatics}, in: \bibinfo{booktitle}{Artificial Intelligence in Precision Health}. \bibinfo{publisher}{Elsevier}, pp. \bibinfo{pages}{31--59}.
+%Type = Article
+\bibitem[{Szolovits et~al.(1988)Szolovits, Patil and Schwartz}]{szolovits1988artificial}
+\bibinfo{author}{Szolovits, P.}, \bibinfo{author}{Patil, R.S.}, \bibinfo{author}{Schwartz, W.B.}, \bibinfo{year}{1988}.
+\newblock \bibinfo{title}{Artificial intelligence in medical diagnosis}.
+\newblock \bibinfo{journal}{Annals of internal medicine} \bibinfo{volume}{108}, \bibinfo{pages}{80--87}.
+%Type = Article
+\bibitem[{Tan et~al.(2018)Tan, Sun, Kong, Zhang, Yang and Liu}]{tan2018survey}
+\bibinfo{author}{Tan, C.}, \bibinfo{author}{Sun, F.}, \bibinfo{author}{Kong, T.}, \bibinfo{author}{Zhang, W.}, \bibinfo{author}{Yang, C.}, \bibinfo{author}{Liu, C.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{A survey on deep transfer learning}.
+\newblock \bibinfo{journal}{Artificial Intelligence Review} \bibinfo{volume}{52}, \bibinfo{pages}{1--40}.
+%Type = Misc
+\bibitem[{Tasinkevych(2019)}]{andrewmvd2019isic}
+\bibinfo{author}{Tasinkevych, A.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{{ISIC} 2019: Skin lesion analysis towards melanoma detection}.
+\newblock \bibinfo{howpublished}{\url{https://www.kaggle.com/datasets/andrewmvd/isic-2019}}.
+\newblock \bibinfo{note}{Accessed: 2023-03-01}.
+%Type = Misc
+\bibitem[{Team(2023)}]{ImageNet_2023}
+\bibinfo{author}{Team, I.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Imagenet}.
+\newblock \URLprefix \url{https://www.image-net.org/}. \bibinfo{note}{online; accessed 12-April-2023}.
+%Type = Article
+\bibitem[{Thapa and Camtepe(2021)}]{thapa2021precision}
+\bibinfo{author}{Thapa, C.}, \bibinfo{author}{Camtepe, S.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Precision health data: Requirements, challenges and existing techniques for data security and privacy}.
+\newblock \bibinfo{journal}{Computers in biology and medicine} \bibinfo{volume}{129}, \bibinfo{pages}{104130}.
+%Type = Misc
+\bibitem[{Turgutlu(2022)}]{turgutlu_self_supervised}
+\bibinfo{author}{Turgutlu, K.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Self-supervised learning library}.
+\newblock \URLprefix \url{https://github.com/KeremTurgutlu/self_supervised}. \bibinfo{note}{available at: \url{https://github.com/KeremTurgutlu/self_supervised}}.
+%Type = Inproceedings
+\bibitem[{Vaswani et~al.(2017)Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser and Polosukhin}]{vaswani2017attention}
+\bibinfo{author}{Vaswani, A.}, \bibinfo{author}{Shazeer, N.}, \bibinfo{author}{Parmar, N.}, \bibinfo{author}{Uszkoreit, J.}, \bibinfo{author}{Jones, L.}, \bibinfo{author}{Gomez, A.N.}, \bibinfo{author}{Kaiser, L.}, \bibinfo{author}{Polosukhin, I.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Attention is all you need}, in: \bibinfo{booktitle}{Advances in Neural Information Processing Systems}, pp. \bibinfo{pages}{5998--6008}.
+%Type = Article
+\bibitem[{Wang et~al.(2020)Wang, Dong, Wang and Wang}]{Wang2020}
+\bibinfo{author}{Wang, S.}, \bibinfo{author}{Dong, L.}, \bibinfo{author}{Wang, X.}, \bibinfo{author}{Wang, X.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Classification of pathological types of lung cancer from ct images by deep residual neural networks with transfer learning strategy}.
+\newblock \bibinfo{journal}{Open Medicine (Warsaw)} \bibinfo{volume}{15}, \bibinfo{pages}{190--197}.
+\newblock \DOIprefix\doi{10.1515/med-2020-0028}.
+%Type = Article
+\bibitem[{Warnakulasuriya(2009)}]{warnakulasuriya2009global}
+\bibinfo{author}{Warnakulasuriya, S.}, \bibinfo{year}{2009}.
+\newblock \bibinfo{title}{Global epidemiology of oral and oropharyngeal cancer}.
+\newblock \bibinfo{journal}{Oral Oncology} \bibinfo{volume}{45}, \bibinfo{pages}{309--316}.
+%Type = Article
+\bibitem[{Wu et~al.(2019)Wu, Shen and Van Den~Hengel}]{wu2019wider}
+\bibinfo{author}{Wu, Z.}, \bibinfo{author}{Shen, C.}, \bibinfo{author}{Van Den~Hengel, A.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Wider or deeper: Revisiting the resnet model for visual recognition}.
+\newblock \bibinfo{journal}{Pattern recognition} \bibinfo{volume}{90}, \bibinfo{pages}{119--133}.
+%Type = Article
+\bibitem[{Yadav et~al.(2019)Yadav, Jain and Shinde}]{Yadav2019}
+\bibinfo{author}{Yadav, S.}, \bibinfo{author}{Jain, A.K.}, \bibinfo{author}{Shinde, P.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{A survey on deep learning techniques for lung cancer detection}.
+\newblock \bibinfo{journal}{International Journal of Innovative Technology and Exploring Engineering (IJITEE)} \bibinfo{volume}{8}, \bibinfo{pages}{1216--1220}.
+\newblock \URLprefix \url{https://www.ijitee.org/wp-content/uploads/papers/v8i10s/J10430881019.pdf}.
+%Type = Article
+\bibitem[{You et~al.(2019)You, Long, Wang and Jordan}]{you2019learning}
+\bibinfo{author}{You, K.}, \bibinfo{author}{Long, M.}, \bibinfo{author}{Wang, J.}, \bibinfo{author}{Jordan, M.I.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{How does learning rate decay help modern neural networks?}
+\newblock \bibinfo{journal}{arXiv preprint arXiv:1908.01878} .
+%Type = Inproceedings
+\bibitem[{Zbontar et~al.(2021)Zbontar, Jing, Misra, LeCun and Deny}]{zbontar2021barlow}
+\bibinfo{author}{Zbontar, J.}, \bibinfo{author}{Jing, L.}, \bibinfo{author}{Misra, I.}, \bibinfo{author}{LeCun, Y.}, \bibinfo{author}{Deny, S.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Barlow twins: Self-supervised learning via redundancy reduction}, in: \bibinfo{booktitle}{International Conference on Learning Representations (ICLR)}.
+%Type = Article
+\bibitem[{Zhang et~al.(2019)Zhang, Xie, Xia and Shen}]{zhang2019attention}
+\bibinfo{author}{Zhang, J.}, \bibinfo{author}{Xie, Y.}, \bibinfo{author}{Xia, Y.}, \bibinfo{author}{Shen, C.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Attention residual learning for skin lesion classification}.
+\newblock \bibinfo{journal}{IEEE transactions on medical imaging} \bibinfo{volume}{38}, \bibinfo{pages}{2092--2103}.
+%Type = Article
+\bibitem[{Zhuang et~al.(2021)Zhuang, Qi, Duan, Xi, Zhu, Zhu, Xiong and He}]{zhuang2020comprehensive}
+\bibinfo{author}{Zhuang, F.}, \bibinfo{author}{Qi, Z.}, \bibinfo{author}{Duan, K.}, \bibinfo{author}{Xi, D.}, \bibinfo{author}{Zhu, Y.}, \bibinfo{author}{Zhu, H.}, \bibinfo{author}{Xiong, H.}, \bibinfo{author}{He, Q.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{A comprehensive survey on transfer learning}.
+\newblock \bibinfo{journal}{Proceedings of the IEEE} \bibinfo{volume}{109}, \bibinfo{pages}{43--76}.
+
+\end{thebibliography}

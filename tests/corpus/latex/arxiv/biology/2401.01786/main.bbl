@@ -1,0 +1,153 @@
+\begin{thebibliography}{10}
+
+\bibitem{covas2017pedobacter}
+Cl{\'a}udia Covas, T{\^a}nia Caetano, Andreia Cruz, Tiago Santos, Liliana Dias,
+  Guenter Klein, Amir Abdulmawjood, Luis~M Rodr{\'\i}guez-Alcal{\'a},
+  L{\'\i}gia~L Pimentel, Ana Gomes, et~al.,
+\newblock ``{Pedobacter lusitanus sp. nov., isolated from sludge of a
+  deactivated uranium mine},''
+\newblock {\em International journal of systematic and evolutionary
+  microbiology}, vol. 67, no. 5, pp. 1339--1348, 2017.
+
+\bibitem{pyoria2023unmasking}
+Lari Py{\"o}ri{\"a}, Diogo Pratas, Mari Toppinen, Klaus Hedman, Antti
+  Sajantila, and Maria~F Perdomo,
+\newblock ``{Unmasking the tissue-resident eukaryotic DNA virome in humans},''
+\newblock {\em Nucleic Acids Research}, vol. 51, no. 7, pp. 3223--3239, 2023.
+
+\bibitem{toppinen2020landscape}
+Mari Toppinen, Diogo Pratas, Elina V{\"a}is{\"a}nen, Maria
+  S{\"o}derlund-Venermo, Klaus Hedman, Maria~F Perdomo, and Antti Sajantila,
+\newblock ``{The landscape of persistent human DNA viruses in femoral bone},''
+\newblock {\em Forensic Science International: Genetics}, vol. 48, pp. 102353,
+  2020.
+
+\bibitem{qi2022haplotype}
+Weihong Qi, Yi-Wen Lim, Andrea Patrignani, Pascal Schl{\"a}pfer, Anna
+  Bratus-Neuenschwander, Simon Gr{\"u}ter, Christelle Chanez, Nathalie Rodde,
+  Elisa Prat, Sonia Vautrin, et~al.,
+\newblock ``{The haplotype-resolved chromosome pairs of a heterozygous diploid
+  African cassava cultivar reveal novel pan-genome and allele-specific
+  transcriptome features},''
+\newblock {\em GigaScience}, vol. 11, pp. giac028, 2022.
+
+\bibitem{katsanevakis2016mapping}
+Stelios Katsanevakis, Fernando Tempera, and Heliana Teixeira,
+\newblock ``{Mapping the impact of alien species on marine ecosystems: the
+  Mediterranean Sea case study},''
+\newblock {\em Diversity and Distributions}, vol. 22, no. 6, pp. 694--707,
+  2016.
+
+\bibitem{cowan2015metagenomics}
+Don~A Cowan, Jean-Baptiste Ramond, Thulani~P Makhalanyane, and Pieter
+  De~Maayer,
+\newblock ``{Metagenomics of extreme environments},''
+\newblock {\em Current opinion in microbiology}, vol. 25, pp. 97--102, 2015.
+
+\bibitem{hosseini2016survey}
+Morteza Hosseini, Diogo Pratas, and Armando~J Pinho,
+\newblock ``{A survey on data compression methods for biological sequences},''
+\newblock {\em Information}, vol. 7, no. 4, pp. 56, 2016.
+
+\bibitem{hach2012scalce}
+Faraz Hach, Ibrahim Numanagi{\'c}, Can Alkan, and S~Cenk Sahinalp,
+\newblock ``{SCALCE: boosting sequence compression algorithms using locally
+  consistent encoding},''
+\newblock {\em Bioinformatics}, vol. 28, no. 23, pp. 3051--3057, 2012.
+
+\bibitem{jones2012compression}
+Daniel~C Jones, Walter~L Ruzzo, Xinxia Peng, and Michael~G Katze,
+\newblock ``{Compression of next-generation sequencing reads aided by highly
+  efficient de novo assembly},''
+\newblock {\em Nucleic acids research}, vol. 40, no. 22, pp. e171--e171, 2012.
+
+\bibitem{bonfield2013compression}
+James~K Bonfield and Matthew~V Mahoney,
+\newblock ``{Compression of FASTQ and SAM format sequencing data},''
+\newblock {\em PloS one}, vol. 8, no. 3, pp. e59190, 2013.
+
+\bibitem{roguski2014dsrc}
+{\L}ukasz Roguski and Sebastian Deorowicz,
+\newblock ``{DSRC 2—Industry-oriented compression of FASTQ files},''
+\newblock {\em Bioinformatics}, vol. 30, no. 15, pp. 2213--2215, 2014.
+
+\bibitem{grabowski2015disk}
+Szymon Grabowski, Sebastian Deorowicz, and {\L}ukasz Roguski,
+\newblock ``{Disk-based compression of data from genome sequencing},''
+\newblock {\em Bioinformatics}, vol. 31, no. 9, pp. 1389--1395, 2015.
+
+\bibitem{benoit2015reference}
+Ga{\"e}tan Benoit, Claire Lemaitre, Dominique Lavenier, Erwan Drezen, Thibault
+  Dayris, Raluca Uricaru, and Guillaume Rizk,
+\newblock ``{Reference-free compression of high throughput sequencing data with
+  a probabilistic de Bruijn graph},''
+\newblock {\em BMC bioinformatics}, vol. 16, no. 1, pp. 1--14, 2015.
+
+\bibitem{huang2017lw}
+Zhi-An Huang, Zhenkun Wen, Qingjin Deng, Ying Chu, Yiwen Sun, and Zexuan Zhu,
+\newblock ``{LW-FQZip 2: a parallelized reference-based compression of FASTQ
+  files},''
+\newblock {\em BMC bioinformatics}, vol. 18, pp. 1--8, 2017.
+
+\bibitem{chandak2018compression}
+Shubham Chandak, Kedar Tatwawadi, and Tsachy Weissman,
+\newblock ``{Compression of genomic sequencing reads via hash-based reordering:
+  algorithm and analysis},''
+\newblock {\em Bioinformatics}, vol. 34, no. 4, pp. 558--567, 2018.
+
+\bibitem{roguski2018fastore}
+{\L}ukasz Roguski, Idoia Ochoa, Mikel Hernaez, and Sebastian Deorowicz,
+\newblock ``{FaStore: a space-saving solution for raw sequencing data},''
+\newblock {\em Bioinformatics}, vol. 34, no. 16, pp. 2748--2756, 2018.
+
+\bibitem{chandak2019spring}
+Shubham Chandak, Kedar Tatwawadi, Idoia Ochoa, Mikel Hernaez, and Tsachy
+  Weissman,
+\newblock ``{SPRING: a next-generation compressor for FASTQ data},''
+\newblock {\em Bioinformatics}, vol. 35, no. 15, pp. 2674--2676, 2019.
+
+\bibitem{lee2022fastqcls}
+Dohyeon Lee and Giltae Song,
+\newblock ``{FastqCLS: a FASTQ compressor for long-read sequencing via read
+  reordering using a novel scoring model},''
+\newblock {\em Bioinformatics}, vol. 38, no. 2, pp. 351--356, 2022.
+
+\bibitem{wan2010sorting}
+Raymond Wan and Kiyoshi Asai,
+\newblock ``{Sorting next generation sequencing data improves compression
+  effectiveness},''
+\newblock in {\em 2010 IEEE International Conference on Bioinformatics and
+  Biomedicine Workshops (BIBMW)}. IEEE, 2010, pp. 567--572.
+
+\bibitem{pratas2018metagenomic}
+Diogo Pratas and Armando~J Pinho,
+\newblock ``{Metagenomic composition analysis of sedimentary ancient DNA from
+  the Isle of Wight},''
+\newblock in {\em 2018 26th european signal processing conference (EUSIPCO)}.
+  IEEE, 2018, pp. 1177--1181.
+
+\bibitem{pratas2018metagenomic2}
+Diogo Pratas, Morteza Hosseini, Gon{\c{c}}alo Grilo, Armando~J Pinho, Raquel~M
+  Silva, T{\^a}nia Caetano, Jo{\~a}o Carneiro, and Filipe Pereira,
+\newblock ``{Metagenomic composition analysis of an ancient sequenced polar
+  bear jawbone from Svalbard},''
+\newblock {\em Genes}, vol. 9, no. 9, pp. 445, 2018.
+
+\bibitem{pinho2016authorship}
+Armando~J Pinho, Diogo Pratas, and Paulo~JSG Ferreira,
+\newblock ``{Authorship attribution using relative compression},''
+\newblock in {\em 2016 Data Compression Conference (DCC)}. IEEE, 2016, pp.
+  329--338.
+
+\bibitem{pratas2023jarvis2}
+Diogo Pratas and Armando~J Pinho,
+\newblock ``{JARVIS2: a data compressor for large genome sequences},''
+\newblock in {\em 2023 Data Compression Conference (DCC)}. IEEE, 2023, pp.
+  288--297.
+
+\bibitem{huang2012art}
+Weichun Huang, Leping Li, Jason~R Myers, and Gabor~T Marth,
+\newblock ``{ART: a next-generation sequencing read simulator},''
+\newblock {\em Bioinformatics}, vol. 28, no. 4, pp. 593--594, 2012.
+
+\end{thebibliography}

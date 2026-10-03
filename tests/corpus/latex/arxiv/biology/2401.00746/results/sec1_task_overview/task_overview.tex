@@ -1,0 +1,70 @@
+\section{Results}
+
+\subsection{Covariance-based neural coding and computational mechanisms}
+\label{sec:task_overview}
+% text+headers+captions 784+10+105
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{results/sec1_task_overview/fig1_main_result_pooling_task_overview.pdf}
+    \caption{\textbf{Encode perceptual information in the spatial-temporal covariance of sensory neurons}.
+   \textbf{a}, A schematic diagram showing how a stimulus \(s\) is represented by the correlated or anticorrelated appearance of two components \(c_1\) and \(c_2\).
+   The intensity of each component reaching sensory neurons fluctuates, leading to variable neural activities.
+   The downstream network estimates \(\hat s\) based on the responses of sensory neurons.
+   \textbf{b}, A detailed examination of sensory neurons' activities reveals that the mean and covariance over short timescales capture the varying intensities of the stimulus components. The representation of stimulus \(s\) encoded in the sign of the correlation between sensory neurons \(N_1\) and \(N_2\), responsive to \(c_1\) and \(c_2\) respectively.}
+   \label{fig:task_overview}
+\end{figure}
+To elucidate the concept of covariance-based neural computation, let us consider a binary decision-making task involving the identification of a stimulus \(s\) composed of two odor concentrations \(c_1\) and \(c_2\)~\cite{Ackels2021}. 
+The co-release of these odors can be correlated or anticorrelated, contingent on the specific type of stimulus presented (\(s = 1\) or \(s = -1\)). 
+In this scenario, an animal is trained to discriminate between these two types of stimuli.
+While the mean concentrations \(c_1\) and \(c_2\) of the odors remain consistent irrespective of the stimulus \(s\), the actual concentrations reaching the animal's sensory neurons exhibit fluctuations due to turbulent air. 
+Consequently, the animal must decipher the temporal correlation patterns of these fluctuating odor concentrations to accurately differentiate between the two stimuli.
+
+We can conceptualize the stimulus reaching the sensory neurons as being drawn from a structured distribution, as depicted in Fig.~\ref{fig:task_overview}\textbf{a}.
+This dynamic stimulus induces irregular spiking activities in sensory neurons. 
+The downstream neurons are then tasked with interpreting the embedded information from these sensory neuron activity patterns, a crucial step in facilitating decision-making. 
+This scenario prompts an essential inquiry: What specific aspects of sensory neuron activities are integral to conveying key information about the stimulus \(s\)?
+
+We posit that information is naturally encoded through the covariance of temporally fluctuating stimuli. 
+To illustrate the encoding of stimulus \(s\), we introduce two distinct types of sensory neurons, each tuned to component (\(c_1\) or \(c_2\)) of the stimulus, as shown in Fig.~\ref{fig:task_overview}\textbf{b}.
+The response of these neurons is modeled as independent inhomogeneous Poisson processes with a rate function defined by
+\begin{equation}
+    \lambda_i(t) \doteq \lambda_{ik} = \frac{1}{\Delta} \int_{(k-1)\Delta t}^{k\Delta t}f(c_i(t))dt, \quad  (k-1)\Delta t \leq t < k \Delta t,
+    \label{eq:rate_function_define}
+\end{equation}
+where \(c_i(t)\) represents the concentration of odor \(i\) at time \(t\), \(f\) is a function of the concentration and \(\Delta t\) the timescale over which sensory neurons can track changes~\cite{Panzeri2010, Theunissen1995}.
+
+For a given time interval \(\Delta t\), both the mean and variance of the spike count \(n_{ik}\) in such a time interval \(\Delta t\) equal \(\lambda_{ik}\Delta t\).
+Dividing the stimulus duration \(T\) into \(N_b = \lfloor T / \Delta t \rfloor\) bins allows for a piecewise constant representation of the mean firing rate within each bin \(k\).
+Denoting the expected value of the spike count conditioned on the firing rate as \(\mathbb{E}[\cdot]\) and the average firing rate over index \(k\) as \(\langle \cdot \rangle\), we define the moments of random spike counts for a pair of neurons as
+\begin{equation}
+    \mu_i \equiv \frac{1}{\Delta t}\langle \mathbb{E}[n_{ik}] \rangle = \langle \lambda_{ik}\rangle,
+    \label{eq:theory_define_mean}
+\end{equation}
+\begin{equation}
+    \Sigma_{ij} \equiv \frac{1}{\Delta t}\langle \mathbb{E}[(n_{ik} - \mu_i\Delta t)(n_{jk} - \mu_j\Delta t)]\rangle  =  \Sigma^{\text{noise}}_{ij} + \Sigma^{\text{signal}}_{ij}.
+    \label{eq:theory_define_cov}
+\end{equation}
+The first term on the right of equation~(\ref{eq:theory_define_cov}) is the noise covariance average over \(k\).
+With the assumption that \(n_{ik}\) represent independent Poisson spikes, we get $\langle \Sigma_{ij\mid k}^{\text{noise}}\rangle = \delta_{ij}\lambda_i$,
+where $\delta_{ij}$ represents Kronecker's delta, this simplifies into
+\begin{equation}
+    \Sigma_{ij}^{\text{noise}} = \delta_{ij}\mu_i.
+    \label{eq:noise_cov}
+\end{equation}
+The second term corresponds to the cross-time signal covariance,
+\begin{equation}
+    \Sigma^{\text{signal}}_{ij} =  \langle(\lambda_{ik} - \mu_i)(\lambda_{jk} - \mu_j )\rangle \Delta t.
+    \label{eq:signal_cov}
+\end{equation}
+The encoding scheme we describe exhibits several key characteristics.  
+Both the mean firing rate and noise covariance, defined in equation~(\ref{eq:theory_define_mean}) and equation~(\ref{eq:noise_cov}) do not depend on the chosen timescale. 
+In contrast, signal covariance is timescale-sensitive.
+It diminishes when the stimulus is static~(\(\lambda_{ik} = \mu_i, \forall k \leq N_b\)) or when the observation window \(\Delta t\) is comparably large to the stimulus duration \(T\).
+Similarly, if the stimulus fluctuates faster than the sensory neurons' tracking timescale, leading to firing rates that are uniformly in time [equation~(\ref{eq:rate_function_define})], signal covariance will also be negligible.
+Unlike using raw firing sequences, our statistical encoding scheme is not affected by changes in stimulus intensity sequence, but by correlations in neuronal firing rates. This approach ensures a consistent perceptual representation, regardless of stimulus intensity variability.
+
+The perceptual information about \(s\) cannot be discerned by observing \(c_1\) or \(c_2\) in isolation, but it becomes evident when considering the correlation between these two components, which is reflected in the correlated neural variability observed in sensory neurons. 
+In the perspective of neural computation, the irregular spike trains of presynaptic neurons induce fluctuating synaptic currents, leading to irregular spiking in postsynaptic neurons~\cite{de2007correlation}. 
+Under the framework of MNN, this stochastic computation can be elegantly captured by moment mapping~\cite{Qi2023}.
+The covariance-based computation in this context is characterized by learning a nonlinear mapping \(\phi\), which converts the mean and covariance of the inputs into specific outputs, \(\mu', \Sigma' = \phi(\mu, \Sigma)\). 
+This transformation aims to effectively shift the perceptual information that is initially encoded in the covariance \(\Sigma\) to the firing rates \(\mu'\) of downstream neurons, facilitating its interpretation and guiding decision-making.

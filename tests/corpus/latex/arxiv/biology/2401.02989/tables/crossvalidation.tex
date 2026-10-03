@@ -1,0 +1,24 @@
+
+\begin{table}[]
+\centering
+\caption{Mean AUC over the species for different methods employed to construct the validation set used to determine the optimal value of the pseudo-absence weight $\lambda_2$. $\lambda_1$ is fixed at $1$, and $w_s$ is used. The best mean AUC in each column is underlined when both target-group and random background points are included in the validation set. When exclusively using target-group background points in the validation set, all methods converge on the selection of identical $\lambda_2$ values.}
+
+\setlength{\tabcolsep}{0.46\tabcolsep}  % for the horizontal padding
+\renewcommand{\arraystretch}{1.2} % for the vertical padding
+\begin{tabular}{lccccccc}
+                                    & AWT   & CAN   & NSW   & NZ    & SA    & SWI   & \textbf{avg}   \\ \hline \hline
+\textbf{target-group + random} \\
+plain                              & 0.673 & 0.634 & \underline{0.720} & 0.740 & 0.812 & 0.824 & 0.734 \\
+species-stratified                 & 0.691 & 0.634 & \underline{0.720} & 0.740 & \underline{0.815} & 0.824 & 0.737 \\
+block                              & \underline{0.704} & \underline{0.696} & \underline{0.720} & \underline{0.741} & 0.811 & \underline{0.831} & \underline{0.751} \\
+\hline
+\textbf{target-group} \\
+plain              & 0.704 & 0.714 & 0.719 & 0.741 & 0.815 & 0.838 & 0.755 \\
+species-stratified         & 0.704 & 0.714 & 0.719 & 0.741 & 0.815 & 0.838 & 0.755 \\
+block              & 0.704 & 0.714 & 0.719 & 0.741 & 0.815 & 0.838 & 0.755 \\
+\hline
+
+\end{tabular}
+
+\label{tab:crossvalidation}
+\end{table}

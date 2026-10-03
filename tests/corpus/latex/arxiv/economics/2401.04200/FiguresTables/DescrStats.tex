@@ -1,0 +1,55 @@
+\begin{table}
+\small
+\linespread{1.00}
+\begin{center}
+\caption{Descriptive statistics}
+\label{tbl:descrstats}
+\begin{tabular}{lcccc|ccc}
+\toprule \toprule
+&\multicolumn{4}{c}{Estimation sample}&\multicolumn{3}{c}{Samples w/ missings}\\
+[-.75em]
+&\multicolumn{4}{c}{}&\multicolumn{3}{c}{Admin \, Test score \, Merged}\\ 
+&\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}&\multicolumn{1}{c}{(5)}&\multicolumn{1}{c}{(6)}&\multicolumn{1}{c}{(7)}\\
+[-.50em]
+& Mean & SD  & Min & Max & \multicolumn{3}{c}{Mean} \\
+\midrule
+&\multicolumn{7}{c}{Panel A: Teacher recommendation} \\
+$\mathbbm{1}$(recom. $\geq$ upper voc. tr.)&       0.770&       0.421&       0.000&       1.000 &0.754&&0.758 \\
+$\mathbbm{1}$(recom. $\geq$ college tr.)&       0.497&       0.500&       0.000&       1.000 &0.478&&0.489\\
+$\mathbbm{1}$(recom. $\geq$ university tr.)&       0.211&       0.408&       0.000&       1.000 &0.197&&0.209\\
+[.25em]
+&\multicolumn{7}{c}{Panel B: SES measures} \\
+SES income          &       6.439&       3.772&      $<$-0.410 &      $>$55.500 &6.394&&6.472\\
+$\mathbbm{1}$(SES inc. $\geq$ median)&       0.517&       0.500&       0.000&       1.000 &0.500&&0.506\\
+SES years of schooling&      15.975&       2.334&       8.000&      18.000 &16.004&&15.945\\
+$\mathbbm{1}$(SES edu. $\geq$ college)&       0.559&       0.497&       0.000&       1.000 &0.618&&0.553\\
+[.25em]
+&\multicolumn{7}{c}{Panel C: Test scores} \\
+Reading midterm grade 5     &     191.618&      26.766&      $<$81.000&     $>$340.000 &&191.614&192.536\\
+Reading end term grade 5    &     197.279&      26.983&       $< $84.000&      $> $354.000 &&195.374&196.367\\
+Math midterm grade 5     &     254.142&      27.142&       $< $118.000&      $> $379.000 &&253.982&254.564\\
+Math end term grade 5    &     261.959&      26.085&       $< $118.000&      $>$394.000 &&262.583&263.179\\
+Avg. midterm grade 5     &       0.005&       0.900&      -5.177&       5.077 &&&\\
+Avg. end term grade 5    &       0.004&       0.905&      -5.438&       5.130 &&&\\
+[.25em]
+&\multicolumn{7}{c}{Panel D: Control variables} \\
+$\mathbbm{1}$(female)&       0.499&       0.500&       0.000&       1.000 &0.503&&0.503\\
+$\mathbbm{1}$(Western imm.)&       0.076&       0.265&       0.000&       1.000 &0.077&&0.077\\
+$\mathbbm{1}$(non-Western imm.)&       0.200&       0.400&       0.000&       1.000 &0.178&&0.198\\
+Age                 &      11.590&       0.647&        $< $9.250&      $>$14.160 &11.704&&11.660\\
+[.25em]
+Observations        &    \multicolumn{4}{c}{148019}      &686309 &318630&  276841  \\
+\bottomrule \bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item[] Notes: this table shows the descriptive statistics across four samples. Income is measured in \texteuro 10,000.
+%
+We translated the schooling levels in the Netherlands to years of schooling as follows: primary school $=$ 8, mbo 1 $=$ 13 , havo or vwo $=$ 14, mbo 2 or 3 $=$ 15, mbo 4 $=$ 16, college or university bachelor $=$ 17, and university master $=$ 18 years.
+%
+Statistics Netherlands makes a distinction between individuals with a Western and non-Western migration background. Non-Western immigrants have a background from all countries in Africa, Latin America or Asia (including Turkey, excluding Indonesia and Japan), and Western immigrants from the remaining countries.
+%
+Statistics Netherlands prevents reporting minima and maxima that are based upon less than 10 observations. Therefore, the minimum (maximum) may contain the smallest (largest) number, such that at least ten observations have values lower (higher) than that number. 
+\end{tablenotes}
+\end{center}
+\end{table}

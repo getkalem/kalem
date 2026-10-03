@@ -1,0 +1,21 @@
+\begin{table}[t]
+\setlength{\abovecaptionskip}{0cm}
+        \caption{\textbf{Influence of $\lambda_{GAN}$ and $\lambda_{PER}$ from generative learning objectives (Eq. \ref{eq:generative_objectives}).}}
+    \label{tab:ablation_generative_objectives}
+    
+    \resizebox{\linewidth}{!}{
+        \begin{tabular}{l|c|cccl}
+        \rowcolor[gray]{.9}    
+        \hline 
+        Objectives   & Weight & $\uparrow$ PSNR & $\uparrow$ SSIM & $\downarrow$ LPIPS & $\downarrow$ FID \\ \hline \hline
+        \multirow{3}{*}{$\lambda_{GAN}$} & $1e^{-4}$   &  23.49               &   0.906              &       0.097            &   42.43               \\
+                                        & $1e^{-3}$  & \textbf{23.69}      & \textbf{0.910}     & \textbf{0.091} & \textbf{39.70}                  \\
+                                        & $1e^{-2}$   & 23.62                 &    0.909             &     0.095               &  40.14                \\ \hline \hline
+        \multirow{3}{*}{$\lambda_{PER}$} & $1e^{-3}$   &     23.64             &  0.908               &    0.105                &  51.21                \\
+                                        & $1e^{-2}$  & \textbf{23.69}      & \textbf{0.910}     & \textbf{0.091} & \textbf{39.70}                  \\
+                                       & $1e^{-1}$   &   23.28              &  0.902               &          0.100          &     46.70             \\ \hline
+        \end{tabular}
+    }
+    % \vspace{-3mm}
+% \vspace{-4mm}
+\end{table}

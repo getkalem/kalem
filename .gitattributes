@@ -4,3 +4,4 @@
 tests/corpus/synthetic/bom-crlf.org -text
 tests/csv/*.csv -text
 tests/corpus/latex/synthetic/crlf.tex -text
+tests/corpus/latex/arxiv/** -text

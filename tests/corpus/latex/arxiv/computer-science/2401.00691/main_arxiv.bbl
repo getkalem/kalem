@@ -1,0 +1,258 @@
+\begin{thebibliography}{33}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Buja et~al.(1989)Buja, Hastie, and
+  Tibshirani]{7b56331a-3c32-333b-a3a9-80650cf8a6e6}
+Andreas Buja, Trevor Hastie, and Robert Tibshirani.
+\newblock Linear smoothers and additive models.
+\newblock \emph{The Annals of Statistics}, 17\penalty0 (2):\penalty0 453--510,
+  1989.
+\newblock ISSN 00905364.
+\newblock URL \url{http://www.jstor.org/stable/2241560}.
+
+\bibitem[Chen and Klusowski(2025)]{chen2025supplement}
+Xin Chen and Jason~M. Klusowski.
+\newblock Supplement to ``{S}tochastic {G}radient {D}escent for {N}onparametric
+  {A}dditive {R}egression'', 2025.
+\newblock Supplementary material.
+
+\bibitem[Chung(1954)]{chung1954stochastic}
+K.~L. Chung.
+\newblock {On a Stochastic Approximation Method}.
+\newblock \emph{The Annals of Mathematical Statistics}, 25\penalty0
+  (3):\penalty0 463 -- 483, 1954.
+\newblock \doi{10.1214/aoms/1177728716}.
+\newblock URL \url{https://doi.org/10.1214/aoms/1177728716}.
+
+\bibitem[Dai et~al.(2014)Dai, Xie, He, Liang, Raj, Balcan, and
+  Song]{dai2014scalable}
+Bo~Dai, Bo~Xie, Niao He, Yingyu Liang, Anant Raj, Maria-Florina~F Balcan, and
+  Le~Song.
+\newblock Scalable kernel methods via doubly stochastic gradients.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~27. 2014.
+
+\bibitem[Dieuleveut and Bach(2016)]{4406a3ce-1e59-3ed8-8c25-9f7d75b81f14}
+Aymeric Dieuleveut and Francis Bach.
+\newblock Nonparametric stochastic approximation with large step-sizes.
+\newblock \emph{The Annals of Statistics}, 44\penalty0 (4):\penalty0
+  1363--1399, 2016.
+\newblock ISSN 00905364.
+\newblock URL \url{http://www.jstor.org/stable/43974719}.
+
+\bibitem[Friedman and Stuetzle(1981)]{97272c9f-415d-38e1-b5c1-b5216f1a728e}
+Jerome~H. Friedman and Werner Stuetzle.
+\newblock Projection pursuit regression.
+\newblock \emph{Journal of the American Statistical Association}, 76\penalty0
+  (376):\penalty0 817--823, 1981.
+\newblock ISSN 01621459.
+\newblock URL \url{http://www.jstor.org/stable/2287576}.
+
+\bibitem[Ge et~al.(2019)Ge, Kakade, Kidambi, and Netrapalli]{ge2019step}
+Rong Ge, Sham~M Kakade, Rahul Kidambi, and Praneeth Netrapalli.
+\newblock The step decay schedule: A near optimal, geometrically decaying
+  learning rate procedure for least squares.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~32. 2019.
+
+\bibitem[Goodfellow et~al.(2016)Goodfellow, Bengio, and
+  Courville]{Goodfellow-et-al-2016}
+Ian Goodfellow, Yoshua Bengio, and Aaron Courville.
+\newblock \emph{Deep Learning}.
+\newblock MIT Press, 2016.
+\newblock \url{http://www.deeplearningbook.org}.
+
+\bibitem[Gy{\"o}rfi et~al.(2002)Gy{\"o}rfi, Kohler, Krzyzak, and
+  Walk]{gyorfi2002distribution}
+L{\'a}szl{\'o} Gy{\"o}rfi, Michael Kohler, Adam Krzyzak, and Harro Walk.
+\newblock \emph{A Distribution-Free Theory of Nonparametric Regression},
+  volume~1.
+\newblock Springer, 2002.
+
+\bibitem[Hastie and Tibshirani(1990)]{hastie1990generalized}
+T.J. Hastie and R.J. Tibshirani.
+\newblock \emph{Generalized Additive Models}.
+\newblock Chapman \& Hall/CRC Monographs on Statistics \& Applied Probability.
+  Taylor \& Francis, 1990.
+\newblock ISBN 9780412343902.
+\newblock URL \url{https://books.google.com/books?id=qa29r1Ze1coC}.
+
+\bibitem[Jain et~al.(2018)Jain, Kakade, Kidambi, Netrapalli, and
+  Sidford]{jain2018parallelizing}
+Prateek Jain, Sham~M Kakade, Rahul Kidambi, Praneeth Netrapalli, and Aaron
+  Sidford.
+\newblock Parallelizing stochastic gradient descent for least squares
+  regression: mini-batching, averaging, and model misspecification.
+\newblock \emph{Journal of Machine Learning Research}, 18\penalty0
+  (223):\penalty0 1--42, 2018.
+
+\bibitem[Kauermann and Opsomer(2003)]{27f0e47c-7e6a-3f96-87cd-35773773c7ae}
+Göran Kauermann and J.~D. Opsomer.
+\newblock Local likelihood estimation in generalized additive models.
+\newblock \emph{Scandinavian Journal of Statistics}, 30\penalty0 (2):\penalty0
+  317--337, 2003.
+\newblock ISSN 03036898, 14679469.
+\newblock URL \url{http://www.jstor.org/stable/4616766}.
+
+\bibitem[Koppel et~al.(2019)Koppel, Warnell, Stump, and
+  Ribeiro]{JMLR:v20:16-585}
+Alec Koppel, Garrett Warnell, Ethan Stump, and Alejandro Ribeiro.
+\newblock Parsimonious online learning with kernels via sparse projections in
+  function space.
+\newblock \emph{Journal of Machine Learning Research}, 20\penalty0
+  (3):\penalty0 1--44, 2019.
+\newblock URL \url{http://jmlr.org/papers/v20/16-585.html}.
+
+\bibitem[Lepskii(1991)]{doi:10.1137/1135065}
+O.~V. Lepskii.
+\newblock On a problem of adaptive estimation in gaussian white noise.
+\newblock \emph{Theory of Probability \& Its Applications}, 35\penalty0
+  (3):\penalty0 454--466, 1991.
+\newblock \doi{10.1137/1135065}.
+\newblock URL \url{https://doi.org/10.1137/1135065}.
+
+\bibitem[Lu et~al.(2016)Lu, Hoi, Wang, Zhao, and Liu]{JMLR:v17:14-148}
+Jing Lu, Steven~C.H. Hoi, Jialei Wang, Peilin Zhao, and Zhi-Yong Liu.
+\newblock Large scale online kernel learning.
+\newblock \emph{Journal of Machine Learning Research}, 17\penalty0
+  (47):\penalty0 1--43, 2016.
+\newblock URL \url{http://jmlr.org/papers/v17/14-148.html}.
+
+\bibitem[Mammen et~al.(1999)Mammen, Linton, and
+  Nielsen]{40bc9d37-04e6-331a-92b0-fcf494a7785c}
+E.~Mammen, O.~Linton, and J.~Nielsen.
+\newblock The existence and asymptotic properties of a backfitting projection
+  algorithm under weak conditions.
+\newblock \emph{The Annals of Statistics}, 27\penalty0 (5):\penalty0
+  1443--1490, 1999.
+\newblock ISSN 00905364.
+\newblock URL \url{http://www.jstor.org/stable/2674078}.
+
+\bibitem[Quan and Lin(2024)]{quan2024optimal}
+Mingxue Quan and Zhenhua Lin.
+\newblock Optimal one-pass nonparametric estimation under memory constraint.
+\newblock \emph{Journal of the American Statistical Association}, 119\penalty0
+  (545):\penalty0 285--296, 2024.
+
+\bibitem[Raskutti et~al.(2009)Raskutti, Yu, and Wainwright]{raskutti2009lower}
+Garvesh Raskutti, Bin Yu, and Martin~J Wainwright.
+\newblock Lower bounds on minimax rates for nonparametric regression with
+  additive sparsity and smoothness.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~22. 2009.
+
+\bibitem[Stone(1985)]{580a479e-8bd3-310b-b7a7-84887bec0fed}
+Charles~J. Stone.
+\newblock Additive regression and other nonparametric models.
+\newblock \emph{The Annals of Statistics}, 13\penalty0 (2):\penalty0 689--705,
+  1985.
+\newblock ISSN 00905364.
+\newblock URL \url{http://www.jstor.org/stable/2241204}.
+
+\bibitem[Tarrès and Yao(2014)]{6842642}
+Pierre Tarrès and Yuan Yao.
+\newblock Online learning as stochastic approximation of regularization paths:
+  Optimality and almost-sure convergence.
+\newblock \emph{IEEE Transactions on Information Theory}, 60\penalty0
+  (9):\penalty0 5716--5735, 2014.
+\newblock \doi{10.1109/TIT.2014.2332531}.
+
+\bibitem[Tsybakov(2009)]{DBLP:books/daglib/0035708}
+Alexandre~B. Tsybakov.
+\newblock \emph{Introduction to Nonparametric Estimation}.
+\newblock Springer series in statistics. Springer, 2009.
+\newblock ISBN 978-0-387-79051-0.
+\newblock \doi{10.1007/B13794}.
+\newblock URL \url{https://doi.org/10.1007/b13794}.
+
+\bibitem[Wainwright(2019)]{wainwright_2019}
+Martin~J. Wainwright.
+\newblock \emph{High-Dimensional Statistics: A Non-Asymptotic Viewpoint}.
+\newblock Cambridge Series in Statistical and Probabilistic Mathematics.
+  Cambridge University Press, 2019.
+\newblock \doi{10.1017/9781108627771}.
+
+\bibitem[Wu et~al.(2022)Wu, Zou, Braverman, Gu, and Kakade]{wu2022last}
+Jingfeng Wu, Difan Zou, Vladimir Braverman, Quanquan Gu, and Sham Kakade.
+\newblock Last iterate risk bounds of sgd with decaying stepsize for
+  overparameterized linear regression.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  24280--24314. 2022.
+
+\bibitem[Xue and Yao(2022)]{xue2022dynamic}
+Dingchuan Xue and Fang Yao.
+\newblock Dynamic penalized splines for streaming data.
+\newblock \emph{Statistica Sinica}, 32\penalty0 (3):\penalty0 1363--1380, 2022.
+
+\bibitem[Yang et~al.(2023)Yang, Yao, and Zhao]{yang2023online}
+Ying Yang, Fang Yao, and Peng Zhao.
+\newblock Online smooth backfitting for generalized additive models.
+\newblock \emph{Journal of the American Statistical Association}, pages 1--29,
+  2023.
+
+\bibitem[Yang et~al.(2024)Yang, Yao, and
+  Zhao]{doi:10.1080/01621459.2023.2182213}
+Ying Yang, Fang Yao, and Peng Zhao.
+\newblock Online smooth backfitting for generalized additive models.
+\newblock \emph{Journal of the American Statistical Association}, 119\penalty0
+  (546):\penalty0 1215--1228, 2024.
+\newblock \doi{10.1080/01621459.2023.2182213}.
+\newblock URL \url{https://doi.org/10.1080/01621459.2023.2182213}.
+
+\bibitem[Ying and Pontil(2008)]{article}
+Yiming Ying and Massimiliano Pontil.
+\newblock Online gradient descent learning algorithms.
+\newblock \emph{Foundations of Computational Mathematics}, 8:\penalty0
+  561--596, 01 2008.
+\newblock \doi{10.1007/s10208-006-0237-y}.
+
+\bibitem[Yu et~al.(2008)Yu, Park, and
+  Mammen]{29938989-35ba-3682-81ec-8d6d28e262dc}
+Kyusang Yu, Byeong~U. Park, and Enno Mammen.
+\newblock Smooth backfitting in generalized additive models.
+\newblock \emph{The Annals of Statistics}, 36\penalty0 (1):\penalty0 228--260,
+  2008.
+\newblock ISSN 00905364.
+\newblock URL \url{http://www.jstor.org/stable/25464622}.
+
+\bibitem[Zhang et~al.(2025)Zhang, Lin, Liu, and Fang]{zhang2025learning}
+Haihan Zhang, Weicheng Lin, Yuanshi Liu, and Cong Fang.
+\newblock Learning curves of stochastic gradient descent in kernel regression.
+\newblock \emph{arXiv preprint arXiv:2505.22048}, 2025.
+
+\bibitem[Zhang and Lei(2025)]{zhang2023online}
+Tianyu Zhang and Jing Lei.
+\newblock Online estimation with rolling validation: Adaptive nonparametric
+  estimation with streaming data.
+\newblock \emph{The Annals of Statistics}, 2025.
+
+\bibitem[Zhang and Simon(2022)]{zhang2022sieve}
+Tianyu Zhang and Noah Simon.
+\newblock {A sieve stochastic gradient descent estimator for online
+  nonparametric regression in Sobolev ellipsoids}.
+\newblock \emph{The Annals of Statistics}, 50\penalty0 (5):\penalty0 2848 --
+  2871, 2022.
+\newblock \doi{10.1214/22-AOS2212}.
+\newblock URL \url{https://doi.org/10.1214/22-AOS2212}.
+
+\bibitem[Zou et~al.(2021{\natexlab{a}})Zou, Wu, Braverman, Gu, Foster, and
+  Kakade]{zou2021benefits}
+Difan Zou, Jingfeng Wu, Vladimir Braverman, Quanquan Gu, Dean~P Foster, and
+  Sham Kakade.
+\newblock The benefits of implicit regularization from sgd in least squares
+  problems.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~34, pages 5456--5468. 2021{\natexlab{a}}.
+
+\bibitem[Zou et~al.(2021{\natexlab{b}})Zou, Wu, Braverman, Gu, and
+  Kakade]{zou2021benign}
+Difan Zou, Jingfeng Wu, Vladimir Braverman, Quanquan Gu, and Sham Kakade.
+\newblock Benign overfitting of constant-stepsize sgd for linear regression.
+\newblock In \emph{Conference on Learning Theory}, pages 4633--4635.
+  2021{\natexlab{b}}.
+
+\end{thebibliography}

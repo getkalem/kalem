@@ -1,0 +1,56 @@
+#+TITLE: FORMAT
+
+One paragraph: what the format is, who writes it, and what Kalem does
+with it (opens it as itself, byte for byte). The skeleton is described
+in Part V, "How the Book is written"; keep its order.
+
+* The standard and the oracle
+
+The specification followed, with its version; the implementation Kalem
+is compared with, with its version; how the comparison runs (the test,
+the CI job) and its current counts.
+
+* Which files
+
+Extensions, mode lines and content that make a file this format; what
+happens to a file that looks like it but is not.
+
+* What is read
+
+The grammar or the packages as implemented, in the words of the
+standard.
+
+* What is shown
+
+How each construct is drawn in both editors, and what shows as source or
+as a placeholder (and why).
+
+* What is edited
+
+Each command, with its key and the exact edit it makes to the text.
+
+* What is written
+
+Byte-exactness, quoting, encodings and line endings; what is never
+touched.
+
+* Export and conversion
+
+The explicit commands that turn the file into another format, and what
+they lose.
+
+* Known differences
+
+Each difference from the oracle, with the test that keeps it.
+
+* Not implemented
+
+What a reader of the standard would expect and does not find yet.
+
+* Limits and performance
+
+File sizes, measured times, and where they are measured.
+
+* Code and tests
+
+The crates and modules, and the tests and corpora that check them.

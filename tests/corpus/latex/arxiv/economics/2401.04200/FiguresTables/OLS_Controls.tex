@@ -1,0 +1,38 @@
+\begin{table}[t!]
+\begin{center}
+\caption{OLS estimates with control variables}
+\label{tbl:OLS_controls}
+\begin{tabular}{l*{3}{c}}
+\toprule\toprule
+&\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}\\
+&\multicolumn{3}{c}{$\mathbbm{1}$(recom. $\geq$ college tr.)}\\
+\midrule
+SES income          &       0.115***&       0.028***&      0.029***\\
+                    &     (0.002)   &     (0.001)   &   (0.001)   \\
+End term grade 5    &               &       0.381***&       0.375***\\
+                    &               &     (0.001)   &     (0.001)   \\
+$\mathbbm{1}$(female)&               &               &       0.011***\\
+                    &               &               &     (0.002)   \\
+$\mathbbm{1}$(Western imm.)&               &               &       0.036***\\
+                    &               &              &     (0.004)   \\
+$\mathbbm{1}$(non-Western imm.)&               &               &       0.036***\\
+                    &               &               &     (0.003)   \\
+Age                 &               &               &      -0.072***\\
+                    &               &              &     (0.002)   \\
+$\mathbbm{1}$(Cohort$=$2019-20)        &               &               &      -0.042***\\
+                    &               &               &     (0.005)   \\
+$\mathbbm{1}$(Cohort$=$2020-21)       &               &              &       0.030***\\
+                    &               &               &     (0.005)   \\
+$\mathbbm{1}$(Cohort$=$2021-22)        &               &               &      -0.072***\\
+                    &               &               &     (0.005)   \\
+[.25em]
+Observations        &      148019   &      148019  &      148019   \\
+\(R^{2}\)           &       0.053   &       0.498   &       0.506   \\
+       \bottomrule \bottomrule
+    \end{tabular}
+        \begin{tablenotes}
+	\footnotesize
+        \item[] Notes:  ***, **, * refers to statistical significance at the 1, 5, and 10\% level. Coefficients are estimated with OLS. Standard errors (in parentheses) are clustered at the school level.
+        \end{tablenotes}
+\end{center}
+\end{table}

@@ -1,0 +1,71 @@
+\begin{table}[t]
+    % \tiny
+    \setlength{\abovecaptionskip}{0cm}
+    \footnotesize
+
+     \caption{\textbf{In-distribution comparisons between our coarse-stage method OPP and previous methods on ShapeNet and DTU (\S~\ref{sec:compari_sota}).} We achieve improvements with balanced fidelity (PSNR, SSIM) and sharpness (LPIPS, FID). ``\dag'' means per-scene optimization/finetuning/auto-regression is required.  ``*'' indicates FID in $64 \times 64$ resolution.}
+     \label{tab:category_specific}
+
+\setlength\tabcolsep{5.2pt}
+
+\begin{tabular}{lccccc}
+\rowcolor[gray]{.9}
+\hline
+ & \multicolumn{2}{c}{Fidelity}       & \multicolumn{3}{c}{Sharpness}                       \\
+ \rowcolor[gray]{.9}
+Methods     & $\uparrow$ PSNR      & $\uparrow$ SSIM        & $\downarrow$ LPIPS      & $\downarrow$ FID  & $\downarrow$ FID$^*$
+
+
+\\ \hline\hline
+\multicolumn{6}{c}{\textit{ShapeNet  Chairs}} \\ 
+
+
+$\pi$-GAN~\cite{PiGAN_chan2021pi}~\dag     & - & -               & -             & -                     &  15.47   \\                                
+Pix2NeRF~\cite{Pix2NeRF_cai2022pix2nerf}  & {18.14}  & 0.84             & -   & -                                       &  \cs{14.31}   \\
+        
+SRN~\cite{SRN_sitzmann2019scene}~\dag         & 22.89       & 0.89                           & 0.104                      &  -       & -          \\
+CodeNeRF~\cite{CodeNeRF_jang2021codenerf}~\dag                       & 22.39                           & 0.87                           & 0.166          &    -  & - \\
+FE-NVS~\cite{FE_NVS_guo2022fast}                & 23.21                           & \cb{0.92}                           & \cs{0.077 }                     &    -   & -         \\ 
+PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}     & \cs{23.72}                           & \cs{0.91}                           & 0.128               & 38.49    & -        \\ 
+\textbf{OPP (ours)} & \cb{24.03}      & \cb{0.92}     & \cb{0.067} &   \cb{15.10}  & \cb{7.86} \\ 
+                         
+                \hline \hline
+
+\multicolumn{6}{c}{\textit{ShapeNet  Cars}} \\ 
+
+
+EG3D-PTI~\cite{chan2022EG3D}~\dag & 19.00	& 0.85	& 0.150	 & \cs{27.32}  & - \\
+
+3DiM~\cite{watson20223DiM}~\dag   & 21.01 & 0.57	& -	& \cb{8.99}  & - \\
+
+% GeNVS~\cite{chan2023genvs}~\dag & 20.70 & 0.89	& 0.104	& \cb{6.47} & - \\
+
+
+SRN~\cite{SRN_sitzmann2019scene}~\dag      & 22.25                           & 0.89                           & 0.129                      &    -      & -   \\
+
+CodeNeRF~\cite{CodeNeRF_jang2021codenerf}~\dag                       & 22.73                           & 0.89                           & 0.128                      &       -       & -      \\
+FE-NVS~\cite{FE_NVS_guo2022fast}                         & 22.83                           & \cb{0.91} & \cs{0.099 }                     &            -  & -     \\
+ PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}                      & \cs{23.17} & \cs{0.90}                           & 0.146                      &   59.15         & -    \\ 
+ \textbf{OPP (ours)} & \cb{23.24}      &  \cb{0.91}     & \cb{0.092} &    {33.53}  & -    
+
+\\ \hline \hline
+
+\multicolumn{6}{c}{\textit{DTU Dataset}} \\ 
+
+    DietNeRF~\cite{Jain_2021_ICCV_dietnerf}~\dag	& 14.24 &	0.481	& 0.487	& 190.7 & - \\
+    PixelNeRF~\cite{PixelNeRF_yu2021pixelnerf}   & {15.55}                         & {0.537}                    & 0.535             &  - & -  \\
+        \textbf{OPP (ours)} & \cb{16.51}      &  \cb{0.659}     & \cb{0.399} & \cb{146.56}  & - \\ \hline
+
+        \multicolumn{6}{c}{\textit{DTU Dataset (SinNeRF Split)}} \\ 
+
+
+    SinNeRF~\cite{Xu_2022_SinNeRF}~\dag & 11.18	& 0.424 &	0.571	& 283.86 & - \\
+    \textbf{OPP (ours)} & \cb{17.27}	& \cb{0.730}	& \cb{0.354}	& \cb{146.30} & - \\ \hline
+
+        
+\end{tabular}
+
+    % }
+
+
+\end{table}

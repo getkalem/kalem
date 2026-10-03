@@ -1,0 +1,72 @@
+\subsection{Encoding motion directions through neural covariance}
+\label{sec:vo_encode}
+In this section, we explore the covariance-based encoding scheme using a motion direction detection task, a common method for studying early visual information processing. 
+The task involves showing a subject a moving visual grating, oriented perpendicularly to its motion direction (illustrated in Fig.~\ref{fig:visual_orientation_mnn}\textbf{a}, leftmost panel), and having them identify its movement direction.
+Our goal is to demonstrate the effective encoding of motion direction within the temporal correlations of sensory neuron responses, which respond to basic physical properties such as light intensity and its changing rate.
+
+The intensity of a moving grating stimulus is described by a sinusoidal function,
+\begin{equation}
+    I(\mathbf{x}, t) = 1 + c \cos(\mathbf{k \cdot x} - \omega t)
+\end{equation}
+where $c \in [0, 1]$ is the contrast, \(\omega\) is the temporal angular frequency, 
+and \(\mathbf{k}\) is the spatial wave vector, indicating the motion direction. 
+The length of \(\mathbf{k}\), denoted as \(k = |\mathbf{k}|\), represents the grating's spatial frequency. 
+We model the response of sensory neurons as an inhomogeneous Poisson process with a rate function \(\lambda_i(t) = \alpha I(x_i, t)\), where \(x_i \in \mathbb{R}^2\) is the spatial location of the neuron and \(\alpha\) acts as a gain factor, modulating the neuron's response to the stimulus intensity.
+Assuming the rate function variation to be slow relative to the observation window \(\Delta t\), the spike count $n_i$ within this interval has statistical moments given by:
+\begin{equation}
+    \mathbb{E}[n_i] = \alpha \Delta t,
+    \label{eq:mean_n}
+\end{equation}
+\begin{equation}
+    {\rm Cov}[n_i, n_j] =  \alpha \delta_{ij}\Delta t + \tfrac{1}{2}\alpha^2 c^2
+    \cos[\mathbf{k} \cdot (\mathbf{x}_i - \mathbf{x}_j)]\Delta t^2.
+    \label{eq:cov_n}
+\end{equation}
+Here, the mean intensity encodes global luminance, while contrast and spatial direction are captured in the covariance, with the spatial direction being fully encoded by the correlation coefficients. 
+However, intensity encoding alone cannot distinguish between opposite motion directions \(\mathbf{k}\) and \(-\mathbf{k}\), as they yield identical covariance values.
+To address this, we introduce an additional input channel based on the change rate of intensity:
+\begin{equation}
+    \partial_t I(\mathbf{x}, t) = 1 - c\omega \sin(\mathbf{k \cdot x} - \omega t).
+\end{equation}
+This change detection is also modeled as an inhomogeneous Poisson process with a rate function $\beta \partial_t I(x_k, t)$,
+where $x_k$ are the spatial locations of the change detectors and 
+$\beta$  serves as the gain factor for the neural response to intensity changing rate.
+The statistical moments for these change detectors over $\Delta t$ are
+\begin{equation}
+    \mathbb{E}[n_k] = \beta \Delta t,
+\end{equation}
+\begin{equation}
+    {\rm Cov}[n_k, n_l] = \tfrac{1}{2} \beta^2 c^2 \omega^2
+\cos[\mathbf{k} \cdot (\mathbf{x}_k - \mathbf{x}_l)] \Delta t^2 + \beta\delta_{kl} \Delta t .
+\end{equation}
+Notably, the variance now incorporates information about the temporal frequency $\omega$.
+New motion direction information emerges in the correlation between intensity and its rate of change:
+\begin{equation}
+    {\rm Cov}[n_i, n_k] 
+    = -{\rm Cov}[n_k, n_i]
+    = \tfrac{1}{2} \alpha \beta c^2 \omega\sin[\mathbf{k} \cdot (\mathbf{x}_i - \mathbf{x}_k)]\Delta t^2.
+    \label{eq:motion_information_embed}
+\end{equation}
+Importantly, this representation of the moving direction in the covariance is independent of the initial spatial phase of the intensity and change detectors, underscoring the robustness and phase-invariance of the encoding scheme.
+
+To specify the input layer of our neural network, we consider a hexagonal grid with \(N\) sites, where each site hosts one intensity detector \(i\) and one change detector \(k\).
+The inputs to the MNN can therefore be compacted in matrix form as 
+\begin{equation}
+    \mu = \tfrac{1}{\Delta t}(\mathbb{E}[n_i], \mathbb{E}[n_k])^T
+    \label{eq:vo_input_mean}
+\end{equation}
+and
+\begin{equation}
+\Sigma = \tfrac{1}{\Delta t} \begin{pmatrix}
+{\rm Cov}[n_i, n_j], {\rm Cov}[n_i, n_l] \\
+{\rm Cov}[n_k, n_j], {\rm Cov}[n_k, n_l]
+\end{pmatrix} \label{eq:vo_input_cov}
+\end{equation}
+Note that our method also works if the input neurons are scattered randomly in space.
+
+Before applying this input to MNN, we must consider a caveat.
+MNN defines covariance for stationary processes in the infinite time window limit, while the covariance in equation (\ref{eq:theory_define_cov}) is computed for point processes riding on slowly varying rates over a finite time window.
+This violates both the stationarity and the limit conditions, potentially causing deviations between the two definitions of covariance.
+To reconcile this, we propose preserving stationarity by ensuring that the rate varies slowly within one observation time window and collecting a sufficiently large number of spikes over the finite time window to approximate the theoretical limit.
+While this encoding scheme is a simplified model, it serves as a valuable conceptual framework, highlighting the significance of covariance in neural computation. 
+In the forthcoming section, we will demonstrate how the downstream network is trained to decode motion directions

@@ -1,0 +1,124 @@
+\begin{thebibliography}{10}\itemsep=-1pt
+
+\bibitem{refvos}
+Miriam Bellver, Carles Ventura, Carina Silberer, Ioannis Kazakos, Jordi Torres,
+  and Xavier Gir{\'{o}}{-}i{-}Nieto.
+\newblock Refvos: {A} closer look at referring expressions for video object
+  segmentation.
+\newblock {\em CoRR}, abs/2010.00263, 2020.
+
+\bibitem{mttr}
+Adam Botach, Evgenii Zheltonozhskii, and Chaim Baskin.
+\newblock End-to-end referring video object segmentation with multimodal
+  transformers.
+\newblock In {\em CVPR}, pages 4975--4985, 2022.
+
+\bibitem{semi1}
+Ho~Kei Cheng, Yu{-}Wing Tai, and Chi{-}Keung Tang.
+\newblock Rethinking space-time networks with improved memory coverage for
+  efficient video object segmentation.
+\newblock In {\em NIPS}, pages 11781--11794, 2021.
+
+\bibitem{vith}
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn,
+  Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg
+  Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby.
+\newblock An image is worth 16x16 words: Transformers for image recognition at
+  scale.
+\newblock In {\em ICLR}, 2021.
+
+\bibitem{GavrilyukGLS18}
+Kirill Gavrilyuk, Amir Ghodrati, Zhenyang Li, and Cees G.~M. Snoek.
+\newblock Actor and action video segmentation from a sentence.
+\newblock In {\em CVPR}, pages 5958--5966, 2018.
+
+\bibitem{last_champ}
+Zhiwei Hu, Bo Chen, Yuan Gao, Zhilong Ji, and Jinfeng Bai.
+\newblock 1st place solution for youtubevos challenge 2022: Referring video
+  object segmentation.
+\newblock {\em arXiv preprint arXiv:2212.14679}, 2022.
+
+\bibitem{rel1}
+Anna Khoreva, Anna Rohrbach, and Bernt Schiele.
+\newblock Video object segmentation with language referring expressions.
+\newblock In {\em ACCV}, volume 11364, pages 123--141. Springer, 2018.
+
+\bibitem{rel2}
+Chen Liang, Yu Wu, Tianfei Zhou, Wenguan Wang, Zongxin Yang, Yunchao Wei, and
+  Yi Yang.
+\newblock Rethinking cross-modal interaction from a top-down perspective for
+  referring video object segmentation.
+\newblock {\em CoRR}, abs/2106.01061, 2021.
+
+\bibitem{soc}
+Zhuoyan Luo, Yicheng Xiao, Yong Liu, Shuyan Li, Yitong Wang, Yansong Tang, Xiu
+  Li, and Yujiu Yang.
+\newblock {SOC:} semantic-assisted object cluster for referring video object
+  segmentation.
+\newblock {\em CoRR}, abs/2305.17011, 2023.
+
+\bibitem{semi2}
+Seoung~Wug Oh, Joon-Young Lee, Ning Xu, and Seon~Joo Kim.
+\newblock Video object segmentation using space-time memory networks.
+\newblock In {\em ICCV}, pages 9226--9235, 2019.
+
+\bibitem{stm}
+Seoung~Wug Oh, Joon-Young Lee, Ning Xu, and Seon~Joo Kim.
+\newblock Video object segmentation using space-time memory networks.
+\newblock In {\em ICCV}, pages 9226--9235, 2019.
+
+\bibitem{urvos}
+Seonguk Seo, Joon{-}Young Lee, and Bohyung Han.
+\newblock {URVOS:} unified referring video object segmentation network with a
+  large-scale benchmark.
+\newblock In {\em ECCV}, pages 208--223, 2020.
+
+\bibitem{feelvos}
+Paul Voigtlaender, Yuning Chai, Florian Schroff, Hartwig Adam, Bastian Leibe,
+  and Liang-Chieh Chen.
+\newblock Feelvos: Fast end-to-end embedding learning for video object
+  segmentation.
+\newblock In {\em CVPR}, pages 9481--9490, 2019.
+
+\bibitem{rvos1}
+Hao Wang, Cheng Deng, Fan Ma, and Yi Yang.
+\newblock Context modulated dynamic networks for actor and action video
+  segmentation with language queries.
+\newblock In {\em AAAI}, pages 12152--12159, 2020.
+
+\bibitem{referformer}
+Jiannan Wu, Yi Jiang, Peize Sun, Zehuan Yuan, and Ping Luo.
+\newblock Language as queries for referring video object segmentation.
+\newblock In {\em CVPR}, pages 4964--4974. {IEEE}, 2022.
+
+\bibitem{UNINEXT}
+Bin Yan, Yi Jiang, Jiannan Wu, Dong Wang, Zehuan Yuan, Ping Luo, and Huchuan
+  Lu.
+\newblock Universal instance perception as object discovery and retrieval.
+\newblock In {\em CVPR}, 2023.
+
+\bibitem{mutr}
+Shilin Yan, Renrui Zhang, Ziyu Guo, Wenchao Chen, Wei Zhang, Hongyang Li, Yu
+  Qiao, Zhongjiang He, and Peng Gao.
+\newblock Referred by multi-modality: {A} unified temporal transformer for
+  video object segmentation.
+\newblock {\em CoRR}, abs/2305.16318, 2023.
+
+\bibitem{aot}
+Zongxin Yang, Yunchao Wei, and Yi Yang.
+\newblock Associating objects with transformers for video object segmentation.
+\newblock {\em NIPS}, 34:2491--2502, 2021.
+
+\bibitem{deaot}
+Zongxin Yang and Yi Yang.
+\newblock Decoupling features in hierarchical propagation for video object
+  segmentation.
+\newblock {\em NIPS}, 35:36324--36336, 2022.
+
+\bibitem{rvos2}
+Yuting Zhang, Luyao Yuan, Yijie Guo, Zhiyuan He, I{-}An Huang, and Honglak Lee.
+\newblock Discriminative bimodal networks for visual localization and detection
+  with natural language queries.
+\newblock In {\em CVPR}, pages 1090--1099, 2017.
+
+\end{thebibliography}

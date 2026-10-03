@@ -1,0 +1,103 @@
+\documentclass[12pt,a4paper,oneside]{article}
+
+\usepackage{fourier}
+\usepackage[T1]{fontenc}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{amsmath,graphicx,caption,mathtools}
+\usepackage{relsize}
+\usepackage{fullpage}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{changepage}
+\usepackage{natbib}
+\usepackage[final, bookmarks, bookmarksnumbered=true, bookmarksopen=true, colorlinks=true, hyperfootnotes, linkcolor=black, anchorcolor=blue, citecolor=blue, filecolor=blue, menucolor=blue, runcolor=blue, urlcolor=black]{hyperref}
+\usepackage{cleveref}
+\usepackage{threeparttable}
+\usepackage{tikz}
+\usetikzlibrary{automata,positioning,fit, shapes.geometric,calc}
+\usepackage{algorithm}
+\usepackage[]{algpseudocode}
+\usepackage{bbm}
+\usepackage{array}
+\usepackage{comment}
+\usepackage{eurosym}
+
+\newcommand{\indep}{\perp \!\!\! \perp}
+\newcommand\blfootnote[1]{
+  \begingroup
+  \renewcommand\thefootnote{}\footnote{#1}
+  \addtocounter{footnote}{-1}
+  \endgroup
+}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{assumption}{Assumption}
+\newtheorem{corollary}{Corollary}
+\newtheorem{proposition}{Proposition}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+
+
+\begin{document}
+
+\title{Teacher bias or measurement error?}
+\author{Thomas van Huizen\thanks{Department of Applied Economics, Utrecht University School of Economics, Utrecht University, Utrecht, The Netherlands. t.m.vanhuizen@uu.nl} \and 
+Madelon Jacobs\thanks{Research Centre for Education and the Labour Market (ROA), School of Business and Economics, Maastricht University, Maastricht, The Netherlands. mce.jacobs@maastrichtuniversity.nl} \and 
+Matthijs Oosterveen\thanks{Department of Economics, Lisbon School of Economics and Management, and Advance/ISEG Research, University of Lisbon, Lisbon, Portugal. oosterveen@iseg.ulisboa.pt}
+%
+\blfootnote{
+We thank S{\"o}nke Matthewes, Joppe de Ree, Astrid Sands{\o}r, and Dinand Webbink for valuable comments. The paper has also benefited from the comments of participants at the EQOP meeting at the University of Oslo, the workshop on exam performance and test-taking behavior at University Carlos III of Madrid, KVS new paper sessions,  LMG Lisbon, the EALE, LEER,  LESE, and PPE conference, and the brown-bag seminars at the University of the Balearic Islands, the University of Bergen, and the Utrecht University School of Economics. 
+%
+The data used in this study are housed within the secure virtual environment at Statistics Netherlands and cannot be publicly shared due to privacy restrictions. However, all the underlying data supporting the presented results are securely accessible through Statistics Netherlands. National and international researchers can request access to the administrative data through Statistics Netherlands, and to the test score data through the Netherlands Cohort Study on Education (NCO) by contacting info@nationaalcohortonderzoek.nl.
+%
+Matthijs Oosterveen gratefully acknowledges financial support from FCT,  Fundação para a Ciência e a Tecnologia (Portugal), national funding through research grant UIDB/04521/2020 \& UID06522.
+%
+The authors have no relevant or material financial interests that relate to the research described in this paper. All omissions and errors are our own. Author names are ordered alphabetically.
+}}
+\date{\today \\ \vspace{0.2in}}
+
+\maketitle
+\thispagestyle{empty}
+
+\vspace{-.3in}
+\begin{abstract} 
+\noindent {\normalsize 
+Subjective teacher evaluations play a key role in shaping students' educational trajectories. Previous studies have shown that students of low socioeconomic status (SES) receive worse subjective evaluations than their high SES peers, even when they score similarly on objective standardized tests. This is often interpreted as evidence of teacher bias. Measurement error in test scores challenges this interpretation. We discuss how both classical and non-classical measurement error in test scores generate a biased coefficient of the conditional SES gap, and consider three empirical strategies to address this bias. Using administrative data from the Netherlands, where secondary school track recommendations are pivotal teacher judgments, we find that measurement error explains 35 to 43\% of the conditional SES gap in track recommendations.
+} 
+
+\medskip
+\noindent \textbf{JEL:} I24, C36  \\
+\textbf{Keywords:} Teacher evaluation, Track recommendation, Measurement error, Instrumental variables, Errors-in-variables
+
+\end{abstract}
+
+\linespread{1.50}
+\normalsize
+
+\newpage
+\setcounter{page}{1}
+
+\input{Introduction.tex}
+
+\input{Setting.tex}
+
+\input{Data.tex}
+
+\input{Model.tex}
+
+\input{Results.tex}
+
+\input{Conclusion.tex}
+
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{chicagoa}
+\bibliography{Library}
+
+\newpage
+
+\input{Appendix.tex}
+
+\end{document}

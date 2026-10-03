@@ -1,0 +1,37 @@
+\begin{proof}[Proof of Lemma~\ref{lem:residual-variance-arbitrary}]
+    Now~$R_1=\Var(\theta(t_1))$ by definition, so suppose~$n>1$.
+    Define~$\Sigma_n$ and~$w_{nt}$ as in Lemma~\ref{lem:posterior}, define~$w_n\equiv w_{nt_n}$, and let~$e_n\in\R^n$ be the~$n^\text{th}$ standard basis vector.
+    Then
+    \[ \Var(\theta(t_n)\mid\Hcal_n)=\Var(\theta(t_n))-w_n^T\Sigma_n^{-1}w_n \]
+    whenever
+    \[ \Sigma_n=G_n+D_n+\frac{1}{p_n}e_ne_n^T \]
+    is invertible.
+    If~$(G_n+D_n)$ is invertible, then the Sherman-Morrison formula \citep{Bartlett-1951-AoMS} yields
+    \[ \Sigma_n^{-1}=(G_n+D_n)^{-1}-\frac{\frac{1}{p_n}(G_n+D_n)^{-1}e_ne_n^T(G_n+D_n)^{-1}}{1+\frac{1}{p_n}e_n^T(G_n+D_n)^{-1}e_n} \]
+    and hence
+    %
+    \begin{align*}
+        \Var(\theta(t_n)\mid\Hcal_n)
+        &= \Var(\theta(t_n))-w_n^T\left((G_n+D_n)^{-1}-\frac{(G_n+D_n)^{-1}e_ne_n^T(G_n+D_n)^{-1}}{p_n+e_n^T(G_n+D_n)^{-1}e_n}\right)w_n \\
+        &= \Var(\theta(t_n))-w_n^T(G_n+D_n)^{-1}w_n+\frac{\left(w_n^T(G_n+D_n)^{-1}e_n\right)^2}{p_n+e_n^T(G_n+D_n)^{-1}e_n}.
+    \end{align*}
+    %
+    But~$w_n=(G_n+D_n)e_n$ by the definitions of~$G_n$ and~$D_n$, and so
+    %
+    \begin{align*}
+        w_n^T(G_n+D_n)^{-1}w_n
+        &= w_n^Te_n \\
+        &= \Var(\theta(t_n))
+    \end{align*}
+    %
+    and similarly~$w_n^T(G_n+D_n)^{-1}e_n=1$.
+    Thus
+    %
+    \begin{align*}
+        R_n
+        &= \Var(\theta(t_n)\mid\Hcal_n\setminus\{s_n\}) \\
+        &= \lim_{p_n\to0}\Var(\theta(t_n)\mid\Hcal_n) \\
+        &= \lim_{p_n\to0}\frac{1}{p_n+e_n^T(G_n+D_n)^{-1}e_n} \\
+        &= \frac{1}{\left[(G_n+D_n)^{-1}\right]_{nn}}.\qedhere
+    \end{align*}
+\end{proof}

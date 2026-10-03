@@ -1,0 +1,24 @@
+
+\begin{table}[]
+\centering
+\caption{Varying the value of the pseudo-absence weight $\lambda_2$ has a notable impact on the mean AUC over the species. The results presented in the last row are obtained using block cross-validation, where $\lambda_2$ is selected based on the performance on the validation set.
+In each result, the species weight $w_s$ is employed, while $\lambda_1$ is fixed to 1. The best mean AUC in each column is highlighted in bold.}
+
+\setlength{\tabcolsep}{0.46\tabcolsep}  % for the horizontal padding
+\renewcommand{\arraystretch}{1.2} % for the vertical padding
+\begin{tabular}{l|cccccc|c}
+                        & AWT   & CAN   & NSW   & NZ    & SA    & SWI   & avg   \\ \hline \hline
+$\lambda_2 $=0          & 0.651 & 0.547 & 0.685 & 0.731 & 0.804 & 0.794 & 0.702 \\
+$\lambda_2 $=0.2        & 0.673 & 0.600 & 0.710 & 0.740 & 0.812 & 0.814 & 0.725 \\
+$\lambda_2 $=0.4        & 0.691 & 0.634 & 0.720 & \textbf{0.743} & 0.815 & 0.824 & 0.738 \\
+$\lambda_2 $=0.6        & 0.702 & 0.665 & \textbf{0.722} & \textbf{0.743} & \textbf{0.816} & 0.831 & 0.746 \\
+$\lambda_2 $=0.8        & \textbf{0.704} & 0.696 & 0.719 & 0.741 & 0.815 & 0.836 & 0.752 \\
+$\lambda_2 $=1          & 0.696 & \textbf{0.714} & 0.713 & 0.738 & 0.811 & \textbf{0.838} & 0.752 \\
+\hline
+$\lambda_2 $ found by cv & \textbf{0.704} & \textbf{0.714} & 0.719 & 0.741 & 0.815 & \textbf{0.838} & \textbf{0.755} \\
+ \hline
+ 
+\end{tabular}
+
+\label{tab:lambda2}
+\end{table}

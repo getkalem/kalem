@@ -1,0 +1,94 @@
+\begin{proof}[Proof of Proposition~\ref{prop:planning-solution}]
+    As stated in the text, the present value~\eqref{eq:planning-present-value} depends on~$n$ only via the residual variance~$R_n$ (see Footnote~\ref{fn:planning-present-value}).
+    Let~$\Psi(R_n)$ denote this present value when the agent chooses the precisions~$p_n,p_{n+1},\ldots$ that solve~\eqref{eq:planning-problem}.
+    Then
+    %
+    \begin{align}
+        \Psi(R_n)
+        &= \min_{p_n\ge0}\left\{\left(\frac{1}{R_n}+p_n\right)^{-1}+cp_n+\delta\Psi\left(\left(\frac{1}{R_n}+p_n\right)^{-1}+\sigma^2\right)\right\} \notag \\
+        &= \min_{V_n\in(0,R_n]}\left\{V_n+c\left(\frac{1}{V_n}-\frac{1}{R_n}\right)+\delta\Psi\left(V_n+\sigma^2\right)\right\}, \label{eq:planning-solution-bellman}
+    \end{align}
+    %
+    where the posterior variance
+    %
+    \begin{align*}
+        V_n
+        &\equiv \Var(\theta(t_n)\mid\Hcal_n) \\
+        &= \left(\frac{1}{R_n}+p_n\right)^{-1}
+    \end{align*}
+    %
+    is an invertible function of~$p_n$ given~$R_n$ and so the change of variables is well-defined.
+    We want to find a function~$\Psi:(0,\infty)\to(0,\infty)$ satisfying the Bellman equation~\eqref{eq:planning-solution-bellman}.
+    This is equivalent to finding a function~$\Phi:(0,\infty)\to(0,\infty)$ mapping residual variances to optimal posterior variances.
+    
+    Assume~$\Psi$ and~$\Phi$ are continuous and piecewise differentiable.
+    (One can verify these properties using arguments provided in Section~3.3 of \citet{Stokey-Lucas-1989-}.)
+
+    Now~$V_n\le R_n$ with equality if and only if~$p_n=0$.
+    But choosing~$p_n=0$ is optimal if and only if the cost of buying information exceeds its value, which occurs precisely when~$R_n$ is sufficiently small.
+    So there exists~$R>0$ such that~$\Phi(R_n)=R_n$ for all~$R_n<R$ and~$\Phi(R_n)<R_n$ for all~$R_n>R$.
+
+    Suppose~$R_n>R$.
+    Then the constraint~$V_n\le R_n$ on the RHS of~\eqref{eq:planning-solution-bellman} is non-binding, and so
+    %
+    \begin{align*}
+        \Psi'(R_n)
+        &= \parfrac{}{R_n}\min_{V_n\in(0,R_n]}\left\{V_n+c\left(\frac{1}{V_n}-\frac{1}{R_n}\right)+\delta\Psi\left(V_n+\sigma^2\right)\right\} \\
+        &= \frac{c}{R_n^2}
+    \end{align*}
+    %
+    by the envelope theorem.
+    So the optimal posterior variance satisfies the first-order condition
+    %
+    \begin{align*}
+        0
+        &= \parfrac{}{V_n}\left\{V_n+c\left(\frac{1}{V_n}-\frac{1}{R_n}\right)+\delta\Psi\left(V_n+\sigma^2\right)\right\} \\
+        &= 1-\frac{c}{V_n^2}+\delta\Psi'(V_n+\sigma^2) \\
+        &= 1-c\left(\frac{1}{V_n^2}-\frac{\delta}{(V_n+\sigma^2)^2}\right),
+    \end{align*}
+    %
+    which is uniquely solved by~$V$.
+    Thus~$\Phi(R_n)=V$ for all~$R_n>R$, from which it follows that~$R=V$ since~$\Phi$ is continuous.
+    So the solution to~\eqref{eq:planning-problem} induces residual variances~$R_n,R_{n+1},\ldots$ that satisfy
+    %
+    \begin{align*}
+        R_{i+1}
+        &= \Phi(R_i)+\sigma^2 \\
+        &= \min\{R_i+\sigma^2,V+\sigma^2\}
+    \end{align*}
+    %
+    for each~$i\ge n$.
+    Therefore, if the agent chooses the precisions that solve~\eqref{eq:planning-problem} for each~$n\in\N$, then for each~$n>1$ we have
+    %
+    \begin{align*}
+        R_n
+        &= \min\{R_{n-1}+\sigma^2,V+\sigma^2\} \\ 
+        % &= \min\{\min\{R_{n-2}+\sigma^2,V+\sigma^2\}+\sigma^2,V+\sigma^2\} \\
+        % &= \min\{R_{n-2}+2\sigma^2,V+2\sigma^2,V+\sigma^2\} \\
+        % &= \min\{R_{n-3}+3\sigma^2,V+3\sigma^2,V+2\sigma^2,V+\sigma^2\} \\
+        &\hspace{0.6em} \vdots \\
+        &= \min\{R_1+\sigma^2(n-1)\}\cup\left\{V+\sigma^2i\right\}_{i=1}^{n-1} \\
+        &= \min\{\sigma_0^2+\sigma^2t_n,V+\sigma^2\}.
+    \end{align*}
+    %
+    It follows that, for each~$n\in\N$, the optimal precision
+    %
+    \begin{align*}
+        \frac{1}{\min\{R_n,V\}}-\frac{1}{R_n}
+        &= \frac{1}{\min\{\sigma_0^2+\sigma^2t_n,V\}}-\frac{1}{\min\{\sigma_0^2+\sigma^2t_n,V+\sigma^2\}} \\
+        &= \begin{cases}
+            0 & \text{if}\ \sigma_0^2+\sigma^2t_n<V \\
+            \frac{1}{V}-\frac{1}{\sigma_0^2+\sigma^2t_n} & \text{if}\ V\le\sigma_0^2+\sigma^2t_n<V+\sigma^2 \\
+            \frac{1}{V}-\frac{1}{V+\sigma^2} & \text{if}\ V+\sigma^2\le\sigma_0^2+\sigma^2t_{n-1}
+        \end{cases} \\
+        &= p_n^\dag
+    \end{align*}
+    %
+    induces posterior variance
+    %
+    \begin{align*}
+        \Var(\theta(t_n)\mid\Hcal_n)
+        &= \min\{R_n,V\} \\
+        &= \min\{\sigma_0^2+\sigma^2t_n,V\}.\qedhere
+    \end{align*}
+\end{proof}

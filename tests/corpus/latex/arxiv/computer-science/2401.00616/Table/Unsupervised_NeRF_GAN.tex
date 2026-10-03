@@ -1,0 +1,24 @@
+\begin{table}[t]
+    \setlength{\abovecaptionskip}{0cm}
+    \footnotesize
+     \caption{\textbf{Comparisons with the unsupervised NeRF-GAN methods on the chairs category of ShapeNet under the category-specific setting.} ``*'': In line with Pix2NeRF, FID in $64\times64$ resolution is reported. }
+     \label{tab:unsupervised_nerf_gan}
+  % \resizebox{\linewidth}{!}{
+% \setlength{\columnwidth}{15mm}{
+% \vspace{-4mm}
+\setlength\tabcolsep{15.5pt}
+    \begin{tabular}{l|ccc}
+        \rowcolor[gray]{.9}
+        \hline
+        Methods           & $\uparrow$ PSNR   & $\uparrow$ SSIM                               & $\downarrow$ FID*   \\ \hline \hline
+        
+        $\pi$-GAN~\cite{PiGAN_chan2021pi}     & - & -                                           &  15.47   \\                                
+        Pix2NeRF~\cite{Pix2NeRF_cai2022pix2nerf}  & {18.14}  & 0.84                                                 &  14.31   \\
+        \textbf{OPP (ours)} & \textbf{24.03}  & \textbf{0.92}      & \textbf{7.86} \\ 
+        \hline
+        \end{tabular}
+    % }
+    % \vspace{-2mm}
+\end{table}
+
+% 7.86468820826974

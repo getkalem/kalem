@@ -3566,7 +3566,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -4172,6 +4172,7 @@ dependencies = [
  "serde_json",
  "serde_stacker",
  "stacker",
+ "toml_edit 0.25.15+spec-1.1.0",
 ]
 
 [[package]]
@@ -4288,7 +4289,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-xlsx"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=b3a20a6e7a68fee9064132808459b00350e3f7b1#b3a20a6e7a68fee9064132808459b00350e3f7b1"
+source = "git+https://github.com/getkalem/plugins?rev=9485ac1f4f168a43edc1249afac9eb40604bdd38#9485ac1f4f168a43edc1249afac9eb40604bdd38"
 dependencies = [
  "calamine",
  "cfb",
@@ -7987,7 +7988,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.5",
  "windows-sys 0.61.2",

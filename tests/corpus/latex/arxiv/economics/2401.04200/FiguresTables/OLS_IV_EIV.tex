@@ -1,0 +1,14 @@
+\begin{figure}[t!]
+\centering
+\caption{OLS, IV, and EIV estimates}
+\label{fig:OLSIVEIV} 
+   \includegraphics[width=.90\textwidth]{FiguresTables/OLS_IV_EIV.png}
+\caption*{ \footnotesize
+Notes: this figure shows the estimated coefficients for the OLS, IV, and EIV strategy. The lines are 95\% confidence intervals. The estimates and standard errors for the OLS and IV strategy can be found in \Cref{tbl:OLS_IV}.
+%
+The estimates and standard errors for EIV FS are obtained via a stacking approach. We triplicate the data and estimate \eqref{eqn:med}, \eqref{eqn:balancing}, and \eqref{eqn:fs} with OLS via a single regression. We cluster standard errors at the school id that is similarly triplicated.
+%
+For EIV TH we use the same stacking approach to estimate \eqref{eqn:med} and \eqref{eqn:balancing}, while $\lambda$ is estimated from the forecasting regression equation \eqref{eqn:forecasting} (see \Cref{fig:TS_pitilde} for details) and considered fixed. 
+}
+\end{figure}
+

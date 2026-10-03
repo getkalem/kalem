@@ -6,12 +6,9 @@ name: Book
 on:
   push:
     branches: [main]
+  # Every pull request: the chapters of the code it changes (T2.10.10).
   pull_request:
-    paths:
-      - "book/**"
-      - "crates/kalem-cli/**"
-      - "crates/org-export/**"
-      - ".github/workflows/book.yml"
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
@@ -28,12 +25,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The base branch too, for the chapters of the changed code.
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       # The terminal-only build: no windowing libraries needed.
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
       - name: Check the Book
         run: ./target/release/kalem book check book
+      # A pull request that changes the code a chapter describes changes
+      # the chapter (book/chapters.toml), unless it is labeled
+      # book-unchanged and its description says why.
+      - name: Chapters of the changed code
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'book-unchanged')
+        run: ./target/release/kalem book check book --changed "origin/${{ github.base_ref }}"
       - name: Build the Book
         run: ./target/release/kalem book build book --out _site
       - uses: actions/upload-pages-artifact@v3

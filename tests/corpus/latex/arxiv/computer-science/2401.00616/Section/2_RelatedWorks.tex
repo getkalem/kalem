@@ -1,0 +1,63 @@
+\section{\textbf{Related Works}}
+\label{sec:related_work}
+\subsection{\textbf{One-shot Novel View Synthesis}}
+Recently, with the rapid development of the 3D computer vision community, there exist different technologies that can solve the one-shot novel view synthesis (O-NVS) task, though under different settings, including {OG-NeRF}~\cite{PixelNeRF_yu2021pixelnerf,FE_NVS_guo2022fast,lin2023visionnerf,gu2023nerfdiff}, {Geometry-free Methods}~\cite{sitzmann2021LFN,srt22,watson20223DiM}, {3D GAN}~\cite{PiGAN_chan2021pi,Pix2NeRF_cai2022pix2nerf,chan2022EG3D},  and {Large-model-based Image-to-3D}~\cite{Xu_2022_SinNeRF,Jain_2021_ICCV_dietnerf,liu2023zero123,tang2023makeit3d}. 
+
+Our work is motivated from the OG-NeRF perspective yet not limited by it. Specifically, we target relieving the blurry issue of existing OG-NeRF methods while maintaining its nice property of \textit{inference-time finetuning-free}. However, in contrast to previous OG-NeRF methods that mainly focus on improving the in-distribution details from the limited dataset, we make the early attempt to also include the out-distribution details from the powerful diffusion models~\cite{rombach2022LatentDiff,zhang2023addingControlNet} that pre-trained on billions of high-quality images for getting vivid plausible outputs.
+In the following paragraphs, we will distinguish between these technologies in detail, and we list comparisons with several representative methods in Tab.~\ref{tab:distinguish}.
+
+\vspace{0.1cm}
+\noindent\textbf{OG-NeRF.}
+The original NeRF technology~\cite{NeRF_mildenhall2020nerf} overfits the specific scene with tens or hundreds of posed input views and requires per-scene optimization. Targeting these issues, generalizable NeRF~\cite{PixelNeRF_yu2021pixelnerf,FE_NVS_guo2022fast,lin2023visionnerf} is proposed which learns the general 3D prior across multiple scenes given very sparse reference images, which can naturally be applied to the O-NVS task. 
+
+
+(i) \textit{Implicit condition.} Early works~\cite{CodeNeRF_jang2021codenerf,ShaRF_rematas2021sharf} employ the implicit condition paradigm, which \textit{implicitly} encode the scene information into the latent code based on the auto-decoder framework and requires tedious test-time optimization to find the latent code for new scenes. 
+
+
+(ii) \textit{Explicit condition.} Another line of works~\cite{PixelNeRF_yu2021pixelnerf,FE_NVS_guo2022fast,lin2023visionnerf} construct the condition \textit{explicitly} with the help of an encoder module which extracts condition features from the reference images, and can generalize to a new scene by a single feed-forward pass. However, they inevitably suffer the blurry issues, especially when the target view is far from the source view, since they rely highly on the condition features from the limited reference image. 
+
+Targeting this issue, we propose GD$^2$-NeRF, a coarse-to-fine framework to compensate for the details using generative models. At the coarse stage, we first inject the GAN model into the existing OG-NeRF pipeline to primarily relieve the blurry issue through learning in-distribution detail priors. Building on top of this, at the fine stage, we further exploit more vivid out-distribution priors from  the pre-trained diffusion model~\cite{rombach2022LatentDiff,zhang2023addingControlNet}.
+
+
+Recent work~\cite{gu2023nerfdiff} also tries to relieve the blurry issue by adding a generative model. However, it co-trains a diffusion model with a conditional NeRF from scratch and needs tedious inference-time finetuning for each reference image. While our framework is finetuning-free and the pre-trained diffusion model~\cite{rombach2022LatentDiff,zhang2023addingControlNet} on the large-scale high-resolution dataset is directly employed.
+
+% endowing more vivid details and \textcolor{red}{flexible text-guided editing. XXX }
+
+\vspace{0.1cm}
+\noindent\textbf{Geometry-free Methods.} Several works~\cite{srt22,watson20223DiM} also attempt to train a conditional model on posed images while without modeling the underlying geometry. For example, 3DiM~\cite{watson20223DiM} trains a pose-conditioned diffusion model on pairs of posed images, and inference in an auto-regression manner. However,  though better at per-image quality (high FID), it fails to show smooth 3D consistency than the OG-NeRF methods due to the lack of geometry constraints.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{./Table/Distinguish_with_Others}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{0.1cm}
+\noindent\textbf{3D GAN.} 
+In recent years, with the success of GANs in 2D image synthesizing~\cite{GAN_resolution_brock2018large,GAN_resolution_choi2018stargan,GAN_resolution_karras2019style} and the impressive performance of Neural Radiance Fields (NeRF)~\cite{NeRF_mildenhall2020nerf}, a bunch of works~\cite{GRAF_schwarz2020graf,PiGAN_chan2021pi,GIRAFFE_niemeyer2021giraffe,chan2022EG3D} include NeRF into GAN models as inductive bias for 3D-aware image synthesis. Typically, they can solve the O-NVS task via \textit{GAN inversion} technology~\cite{chan2022EG3D}. However, there mainly exist the following drawbacks: 
+
+(i) \textit{Per-scene optimization.} It requires tedious optimization to find the corresponding latent code for each reference image. Though~\cite{Pix2NeRF_cai2022pix2nerf}further includes the encoder model into the existing framework~\cite{PiGAN_chan2021pi} to obtain a conditional 3D GAN model, the performance is still unsatisfactory since it is trained on a collection of unposed images, \ie, unsupervised. 
+
+
+(ii) \textit{Specific category.} Similar to the traditional GAN methods, they usually only work on a specific category like cat, car, etc.
+
+In contrast to these methods~\cite{GRAF_schwarz2020graf,PiGAN_chan2021pi,GIRAFFE_niemeyer2021giraffe,chan2022EG3D}, our method does not require per-scene optimization given reference images and can generalize across different categories, even for real-world complex scenes. 
+
+
+\vspace{0.1cm}
+\noindent\textbf{Large-model-based Image-to-3D.} 
+As the recent advances on pre-trained large models~\cite{caron2021emerging,radford2021CLIP,rombach2022LatentDiff,zhang2023addingControlNet}, a bunch of works~\cite{Jain_2021_ICCV_dietnerf,Xu_2022_SinNeRF,liu2023zero123,tang2023makeit3d} explore using them to solve the O-NVS task in a per-scene optimization manner for getting plausible 3D representations.
+
+
+(i) \textit{DINO\&CLIP-based.} Early attempts DietNeRF~\cite{Jain_2021_ICCV_dietnerf} and SinNeRF~\cite{Xu_2022_SinNeRF} use DINO~\cite{caron2021emerging} or CLIP~\cite{radford2021CLIP} to constrain the distance between the rendered novel views and the reference view in the feature space. However, the feature space constraint struggles to provide fine-grained information, and ~\cite{Xu_2022_SinNeRF} only works in nearby views. 
+
+
+(ii) \textit{Diffusion-based.} Recently, several works~\cite{deng2023nerdi,xu2022neurallift,liu2023zero123,tang2023makeit3d} attempt to lift the fine-grained 2D generative prior in pre-trained diffusion models~\cite{rombach2022LatentDiff,zhang2023addingControlNet} to plausible 3D representations. For instance, Zero123~\cite{liu2023zero123} first finetunes the latent diffusion~\cite{rombach2022LatentDiff} on a synthetic dataset~\cite{deitke2023objaverse} to inject the viewpoint condition (Zero123-NVS). Though Zero123-NVS can work in an inference-time finetuning-free manner, it achieves poor 3D consistency considering the undeterministic nature of diffusion models. Therefore, it further optimizes a 3D representation with the finetuned diffusion model using SJC~\cite{wang2023SJC} framework. 
+% Make-it-3d~\cite{tang2023makeit3d} first optimizes a coarse 3D representation mainly using SDS~\cite{poole2022dreamfusion} loss and CLIP~\cite{radford2021CLIP} guidance. Then, they employ a refinement stage to improve the texture based on the extracted point clouds from the coarse stage. 
+
+Different from all the methods above~\cite{deng2023nerdi,xu2022neurallift,Jain_2021_ICCV_dietnerf,Xu_2022_SinNeRF,liu2023zero123,tang2023makeit3d}, our framework requires NO per-scene optimization, and the pre-trained diffusion model is also fixed with no further finetuning in our fine-stage method 3DE. 
+
+
+\subsection{\textbf{Diffusion-based Video Editing}}
+
+With the success of text-to-image diffusion models~\cite{rombach2022LatentDiff,zhang2023addingControlNet}, recent works~\cite{wu2023tune-a-video,text2video-zero,ceylan2023pix2video,qi2023fatezero,geyer2023tokenflow,yang2023rerender} try to solve the video editing task via the pre-trained text-to-image diffusion models, either with finetuning~\cite{wu2023tune-a-video} or in a zero-shot manner~\cite{text2video-zero,qi2023fatezero,ceylan2023pix2video,geyer2023tokenflow,yang2023rerender}. The main challenge for extending an image diffusion model to a video editing task is to ensure the consistency between video frames. Early works~\cite{wu2023tune-a-video,text2video-zero,ceylan2023pix2video} mainly ensure the global appearance consistency by inflating the self-attention module to the temporal cross-attention module. Besides, ~\cite{yang2023rerender} further includes the optical flow as the correspondence constraint, while~\cite{geyer2023tokenflow} directly uses the correspondences calculated during DDIM inversion. However, all of them take consecutive video sequences with similar contents as inputs and can not process an arbitrary view in a 3D manner. 
+
+Differently, in this work, our Diff3DE makes the early attempts to extend the existing methods to a 3D-aware detail enhancer that maintains 3D consistency between different views that contain large content variance (\eg, front and back views of a car) and supports the process of an arbitrary view. 

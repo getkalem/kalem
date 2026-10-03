@@ -1,0 +1,233 @@
+\section*{Supplementary Information}
+
+\section*{A. Derivation of the DD-DC LQR controller }
+
+Given an initial state $x_0$, controller finds a control signal $u^*$ that brings the state to the value $x^*$ minimizing  LQR loss
+\begin{equation}
+       \|x^*\|^2 + r/q \|u^*\|^2.
+ \end{equation}
+Corresponding DD-DC optimization problem takes the form:
+\begin{align}
+    \min_{\mathbf{g}}  &(\mathbf{g}\mathbf{X}_+^\top)^2 + r/q(\mathbf{g}\mathbf{U}^\top)^2 \\
+    \text{s.t.   } &(\mathbf{g}\mathbf{X}^\top)=x_0
+ \end{align}
+The chart in Fig. \ref{lqrgeom} 
+shows sample vectors $\mathbf{X},\mathbf{U},\mathbf{X}_+$ which are co-planar due to the dynamics. Without loss of generality, We consider the solution vector $\mathbf{g}$ to be co-planar with them. The blue line $AC$ orthogonal to $\mathbf{X}$ is the locus of solutions satisfying the constraint, so that $|OB|=x_0/\|\mathbf{X}\|$. We see that $|OC|=|OB|/\cos\phi$, $|OA|=|OB|/\cos\psi$, $|BC|=|OB|\tan\phi$, $|BA|=|OB|\tan\psi$. 
+\begin{figure}[ht]
+  \centering
+  %trim=left bottom right top
+  \includegraphics[trim=100 220 200 20,clip,width=.49\textwidth]{lqrgeom.png}
+  \caption{Illustration for the derivation of DD-DC LQR controller. \label{lqrgeom}}
+\end{figure}
+Denote $d:=|DC|$, we'll be solving the problem in this variable. Let $DF, DE$ be orthogonal to $\mathbf{U},\mathbf{X_+}$, then observe that $\angle CDF=\phi,\angle ADE=\psi$ as angles with orthogonal sides. This gives expressions:
+\begin{align*}
+    |OF|&=|OB|/\cos\phi -d\sin\phi,\\
+    |OE|&=|OB|/\cos\psi -|OB|(\tan\phi+\tan\psi)\sin\psi-d\sin\psi.
+\end{align*}
+Note also that $\mathbf{g}\mathbf{X}_+^\top=|OE|\|\mathbf{X}_+\|$,  $\mathbf{g}\mathbf{U}^\top=|OF|\|\mathbf{U}\|$. Substituting all that, we can rewrite the objective as quadratic expression in $d$. Solution takes the form
+\begin{align*}
+    d = \frac{ (-\sin\psi\cos\psi + \sin^2\psi\tan\phi)\|\mathbf{X_+}\|^2 +\tan\phi\|\mathbf{U}\|^2 r/q}{\cos\phi\cos\psi(\sin^2\psi\|\mathbf{X_+}\|^2 + \sin^2\phi\|\mathbf{U}\|^2 r/q)} \frac{x_0}{\|\mathbf{X}\|} 
+\end{align*}
+The optimal control signal we seek is $u^*=\mathbf{g}\mathbf{U}^\top=|OF|\|\mathbf{U}\|$, which gives:
+\begin{align*}
+    u^* &= \frac{\cos\phi\sin\phi  + \cos\psi\sin\psi -\cos\psi\sin\psi\sin^2\phi -\cos\phi\sin\phi\sin^2\psi  }{\cos\phi\cos\psi(\sin^2\psi\|\mathbf{X_+}\|^2 + \sin^2\phi\|\mathbf{U}\|^2 r/q)} \\ &\times \frac{ x_0\|\mathbf{U}\|\|\mathbf{X_+}\|^2 \sin\psi}{\|\mathbf{X}\|}
+\end{align*}
+For online calculation it is convenient to have an expression in variances and covariances of the variables, so we reformulate trigonometric expressions through cosines only. For that purpose we group terms first and fourth, second and third from the numerator of the first fraction:
+\begin{align*}
+    &\cos\phi\sin\phi(1-\sin^2\psi)  + \cos\psi\sin\psi(1-\sin^2\phi) \\
+    &=\cos\phi\sin\phi\cos^2\psi  + \cos\psi\sin\psi\cos^2\phi) \\ &=
+\cos\phi\cos\psi\sin(\phi+\psi) 
+\end{align*}
+Bringing in $\sin\psi$ from the second fraction numerator we use cosine of differences rule to observe:
+\begin{align*}
+    \cos\phi\cos\psi\left[ \sin(\phi+\psi)\sin\psi \right] = \cos\phi\cos\psi\left[\cos\phi - \cos\psi\cos(\phi+\psi) \right]
+\end{align*}
+Now we can rewrite the expression for $u^*$:
+\begin{align*}
+    u^* = \frac{\cos\phi - \cos\psi\cos(\phi+\psi) }{(1-\cos^2\psi)\|\mathbf{X_+}\|^2 + (1-\cos^2\phi)\|\mathbf{U}\|^2 r/q}  \frac{ \|\mathbf{U}\|\|\mathbf{X_+}\|^2} {\|\mathbf{X}\|}x_0
+\end{align*}
+Replacing $\cos\phi=\tfrac{\|\mathbf{X}\mathbf{U}^\top\| }{\|\mathbf{X}\|\|\mathbf{U}\|}$, $\cos\psi=\tfrac{\|\mathbf{X}\mathbf{X_+}^\top\| }{\|\mathbf{X}\|\|\mathbf{X_+}\|}$, and $ \cos(\phi+\psi)=\tfrac{\|\mathbf{X_+}\mathbf{U}^\top\| }{\|\mathbf{X_+}\|\|\mathbf{U}\|}$, we obtain $u^*=w^* x_0$ where $w^*$ is defined in \eqref{sol_general}.
+
+
+\section*{B. Simulation of the DD-DC LQR controller }
+
+The simulation presented in Fig. \ref{online} begins in the open loop mode with random initialization of $x$ and random Gaussian control signal with standard deviation 0.01. Open loop runs for 4 steps, after that the control weight, $w$, is estimated using \eqref{sol_general} and then updated at each time step in the closed loop setting using the variances and covariances of the variables $x,u,x_+$. In the online setting, these variances and covariances are updated at each time step according to
+\begin{equation*}
+    \text{cov}_{\alpha,\beta}(t+1) = \gamma\text{cov}_{\alpha,\beta}(t) +(1-\gamma)\alpha(t)\beta(t),
+\end{equation*}
+where $\alpha, \beta$ are any of $x,u,x_+$. For this simulation we set $\gamma=0.5$. For the noise process,  Fig. \ref{online} Right, Gaussian noise with standard deviation $\sigma=0.001$ was added to the control signal $u$.
+
+To check the ability of the solution to adapt to changes of the control system parameters $a, b$ were abruptly switched at steps 25 as follows:  $a=1.1, 1.3;
+b=1, 0.5$. In addition, a jolt was added to the system state $x$: $0.2$ at step 55. Throughout the simulation, the LQR penalties were kept constant at $r/q=0$.
+
+\begin{figure}[hbtp]
+     %\centering
+     \includegraphics[width=0.47\textwidth,right]{noise_histogram.png}
+        \caption[width=0.49\textwidth]
+        {Heat map of the ratio of losses $\mathcal{L}_\sigma=\sum_t x_t^2(\sigma)$ for different levels of Gaussian noise $\sigma$ over the no-noise loss $\mathcal{L}=\sum_t x_t^2(0)$.
+         For each noise level, $\sim 5\times 10^4$ simulations were run ($\sim 10^7$ trials total). The dotted line encloses all trials, and the solid line encloses 95\% of all observed trials. For the majority of trials the ratio is less than one indicating that the addition of noise is advantageous. The average loss ratio is observed to be lowest for $\sigma$ in the range $10^{-8}-10^{-2}$.}        
+    \label{lossHist}
+\end{figure}
+
+
+\section*{C. Datasets}\label{apdx:H1}
+
+\subsection*{C.1 Blowfly neuron H1 (Fig. \ref{fig2}B in the main text)}
+Flies maintain their flight heading by utilizing visual feedback to modulate wingbeat-amplitude asymmetry. The bilaterally symmetric pair of H1 neurons (one for each direction of motion), processes information for horizontal direction (yaw) control \citep{rieke1999spikes}. The firing of these neurons not only signals the horizontal velocity of optic flow \citep{rieke1999spikes} but also plays a role in controlling wingbeat asymmetry \citep{williams2018blowfly}. In the experiment a computer controlled stepper motor was used to rotate the fly along a vertical axis while spike trains from H1 were recorded extracellularly. The fly sat immobilized in wax in a plexiglass cylinder to allow temperature to be controlled at 22 degrees Celsius. 
+
+The setup was situated outdoors in a wooded area on a bright day \citep{lewen2001neural}. The experiment started 42 minutes before sunset and ended 48 minutes after sunset. During this 90 minute interval, light intensities decreased by a factor of approximately $6 \times 10^5$. The fly was subjected to a repeated yaw motion (period 10 seconds), presented 540 times. The yaw velocity was synthesized by a Markov model derived from a video recording of flies in pursuit flight, and is therefore representative of natural flight. Regression was performed separately for 4 parts of the 540 sessions: two during bright light time, one - middle, one - dark. The two bright parts were very similar, so filters are presented for the 1st, 3rd, and 4th part.
+
+\subsection*{C.2 Mouse V1 pyramidal neuron (Fig. \ref{fig2}C in the main text)}
+Response profiles of pyramidal neurons in primary visual cortex were measured using patch clamp recordings in brain slices from adult mice between the ages of P45 to P70 \citep{teeter2018generalized}. The specific neuron analyzed here was from a fluorescently-labeled neuron from a mouse expressing tdTomato in a Cre-dependent manner in a Cux2-Cre transgenic mouse line, which labels excitatory neurons in cortical layers 2/3 and 4. 
+
+Voltage was recorded while injecting a stimulus composed of pink noise riding on top of square wave pulses. Pulses were 3 seconds long at rheobase (“Low $\mu$”) or 1.5 times rheobase (“High $\mu$”). Pink noise with a coefficient of variation equal to 0.2 was generated using 2 different seeds. Each stimulus was applied to the neuron 4 times for a total of 8 trials of Low and High $\mu$. Recordings were initially performed at a sampling rate of 200 kHz. Action potentials were detected using standard approaches and the binary spiking activity was downsampled to 1 kHz for analysis.
+
+
+\subsection*{C.3 Salamander retinal ganglion cell (Fig. \ref{fig2}D in the main text)}
+In response to the visual stimulation, retinal ganglion cells generate reproducible spike trains which can be predicted using a combination of feedforward and feedback temporal filters \citep{keat2001predicting, pillow2008spatio}. Retinal ganglion cells from larval tiger salamander retina were extracellularly recorded from freshly dissected retina pressed onto a multi-electrode array. 
+
+Movies were presented to the retina at 60 frames/second and voltages were recorded at 10 kHz. The “Bar” stimulus consisted of a black bar moving against a gray background according to the Brownian motion of a particle bound by a spring to the center of the display. This was repeated 62 times, with each trial lasting ~8 seconds. The “Fish” stimulus consisted of a ~18-second clip of a fish swimming in a tank with swaying plants in the background. This stimulus was repeated 102 times. Action potentials were detected using standard approaches and the binary spiking activity was downsampled to 1 kHz for analysis.
+
+\subsection*{C.4 Drosophila olfactory receptor neuron (Fig. \ref{fig2}E in the main text)}
+Responses of olfactory receptor neurons (ORN) in Drosophila was studied by stimulating them with odors of varying mean concentration (bias) and variance of the stochastically varying component \citep{gorur2017olfactory}.  Neurons were recorded extracellularly from the ab3 sensillum of Drosophila. The neuron analyzed here was an ab3A ORN. 
+
+A stimulus of fluctuating ethyl acetate was delivered to the fly antenna by blowing air over pure monomolecular odorants in liquid phase. The gas concentration was determined by the flow rate of air. For the recordings analyzed here, the variance of the signal changed every 5 seconds around a constant mean, with the variance switching a total of 60 times for 30 trials of “High $\sigma$” and 30 trials of “Low $\sigma$” stimulation. These stimuli were Gaussian distributed, generated by optimizing control signals to Mass Flow Controllers which regulated airflows. The mean stimulus corresponded to an odorant flux of approximately 2.5 $\mu$ mol/s. The “High $\sigma$” condition corresponded to a standard deviation of approximately 0.75 $\mu$ mol/s, while the “Low $\sigma$” condition corresponded to a standard deviation of approximately 0.3 $\mu$ mol/s. Identified action potentials were binarized and downsampled to 1 kHz for analysis. Odorant concentrations were also recorded at 1 kHz.
+
+\subsection*{C.5 Rat somatosensory pyramidal neuron (Fig. \ref{fig2}F in the main text)}
+Response profiles of pyramidal neurons in rat somatosensory cortex were measured using patch clamp recordings in brain slices \citep{rauch_lacamera_fusi2003noise}. The neuron analyzed here was recorded in current-clamp whole cell configuration from the soma of a layer 5 regular spiking pyramidal cell. Data were recorded at 5 kHz and low-pass filtered at 2.5 kHz.
+
+Current was modeled by an Ornstein-Uhlenbeck process with different resulting means $\mu$\ and standard deviations $\sigma$\. Low $\mu$\ corresponded to a mean of approximately 700 pA. Low $\sigma$\ corresponded to a standard deviation of approximately 200 pA. High $\mu$\ corresponded to approximately 1800 pA. High $\sigma$\ corresponded to 300-400 pA.
+
+\section*{D. Filter Fitting Procedure}
+\subsection*{D.1 Data Preparation}
+First, spiking vector $\mathbf{U}=[u(1)\dots u(T)]$ and stimulus vector $\mathbf{Y}=[y(1)\dots y(T)]$ were z-scored across time to have 0 mean and unit variance.
+Lag matrices were then constructed by stacking $n$-dimensional lag vectors together for the whole length of the dataset, $T$:
+\[
+\mathbf{U}_{\text{lag}} = \begin{bmatrix}
+     u(1) & u(2) & \ldots & u(T-n+1) \\
+    u(2) & u(3) & \ldots & u(T-n+2) \\
+    \vdots & \vdots & \ddots & \vdots  \\
+    u(n) & u(n+1) & \ldots & u(T)
+\end{bmatrix}
+\]
+where $\mathbf{U}_{\text{lag}}$ has dimensions $n \times (T-n+1)$. Similarly:
+
+\[
+\mathbf{Y}_{\text{lag}} = \begin{bmatrix}
+    y(1) & y(2) & \ldots & y(T-n+1) \\
+    y(2) & y(3) & \ldots & y(T-n+2) \\
+    \vdots & \vdots & \ddots & \vdots  \\
+    y(n) & y(n+1) & \ldots & y(T)
+\end{bmatrix}
+\]
+% \[
+% \mathbf{Y} = \begin{bmatrix}
+%     y(T) & y(T-1) & \ldots & y(T-P+1) \\
+%     y(1) & y(T) & \ldots & y(T-P+2) \\
+%     y(2) & y(1) & \ldots & y(T-P+3) \\
+%     \vdots & \vdots & \vdots & \ddots & \vdots \\
+%     y(T-1) & y(T-2) & \ldots & y(T-P)
+% \end{bmatrix}
+% \]
+where $\mathbf{Y}_{\text{lag}}$ has dimensions $n \times (T-n+1)$.
+
+\subsection*{D.2 Dimensionality Reduction}
+To avoid overfitting and promote smoothness of the filters, we projected the matrices $\mathbf{U}_{\text{lag}}$ and $\mathbf{Y}_{\text{lag}}$ onto a low-dimensional subspace. The stimulus matrix $\mathbf{Y}_{\text{lag}}$ was projected onto the top $N$ principal components, where $N$ is the number of principal components needed to capture 75\% of the variance of the data. If the singular value decomposition of $\mathbf{Y}_{\text{lag}} = \mathbf{W\Sigma V}^\top$,
+then define $\mathbf{S} = \mathbf{\Sigma V^\top}$, and define $\mathbf{Y_{\text{PCA}}}$ as the first $N$ rows of $\mathbf{S}$, i.e., $\mathbf{Y_{\text{PCA}}}$  has dimensions $N \times (T-n+1)$.
+
+The spiking matrix $\mathbf{U}_{\text{lag}}$ was dimensionally reduced using Laguerre polynomials, a family of orthogonal polynomials under the exponential kernel. The first few Laguerre polynomials, $L_l$, are: %and their corresponding exponentially scaled polynomials $\Lambda_n$
+\vspace{-0.1in}
+\begin{table}[htbp]
+\centering
+\begin{tabular}{cc}
+\hline
+$l$ & $L_l(z)$ \\%& $\Lambda_n(z)$ \\
+\hline
+0 & 1 \\%& $e^{-\frac{x}{\tau}}$ \\
+1 & $-z + 1$ \\%& $e^{-\frac{x}{\tau}}(-x + 1)$ \\
+2 & $\frac{1}{2}(z^2 - 4z + 2)$ \\%& $e^{-\frac{x}{\tau}}\left(\frac{1}{2}(x^2 - 4x + 2)\right)$ \\
+3 & $\frac{1}{6}(-z^3 + 9z^2 - 18z + 6)$ \\%& $e^{-\frac{x}{\tau}}\left(\frac{1}{6}(-x^3 + 9x^2 - 18x + 6)\right)$ \\
+4 & $\frac{1}{24}(z^4 - 16z^3 + 72z^2 - 96z + 24)$ \\%& $e^{-\frac{x}{\tau}}\left(\frac{1}{24}(x^4 - 16x^3 + 72x^2 - 96x + 24)\right)$ \\
+5 & $\frac{1}{120}(-z^5 + 25z^4 - 200z^3 + 600z^2 - 600z + 120)$ \\%& $e^{-\frac{x}{\tau}}\left(\frac{1}{120}(-x^5 + 25x^4 - 200x^3 + 600x^2 - 600x + 120)\right)$ \\
+\hline
+\end{tabular}
+\end{table}
+%\vspace{-0.1in}
+
+To define a natural time course for the filters and to ensure orthogonality, the Laguerre polynomials were each multiplied by a decaying exponential. Also a timescale $\tau$ was introduced, producing functions $\Lambda_{l,\tau}(x)=L_l(x/\tau)\exp(-x/2\tau)$. These functions were calculated on values of $x=0,1\dots n-1$. For any given timescale $\tau$ and number of polynomials $p$ we assembled a $n\times p$ matrix $\mathbf{\Lambda}$, where $\mathbf{\Lambda}_{i,j}=\Lambda_{i,\tau}(j-1)$. We can now define $\mathbf{U_{\text{LGR}}} = \mathbf{\Lambda}^\dagger \mathbf{U}_{\text{lag}}$, where $\mathbf{U_{\text{LGR}}}$ has dimensions $p \times (T-n+1)$ and $\dagger$ signifies Moore-Penrose pseudo-inverse.
+%Define $\mathbf{\Lambda} = [\Lambda_0 \ \Lambda_1 \ \Lambda_2 \ \ldots \ \Lambda_p]^\top$, where $\mathbf{\Lambda}$ has dimensions $p \times P$, 
+\subsection*{D.3 Computing Filters}
+Regressor weights were then calculated as $[ \mathbf{\tilde{K}}_{ff} \ \mathbf{\tilde{K}}_{fb}] = \mathbf{U}\mathbf{\tilde{X}}^\top(\mathbf{\tilde{X}} \mathbf{\tilde{X}}^\top)^{-1} $, where $\mathbf{\tilde{X}} = [ \mathbf{Y_{\text{PCA}}^\top} \ \mathbf{U_{\text{LGR}}^\top]^\top}$, and $\mathbf{\tilde{X}}$ has dimensions $(N+p) \times (T-n+1)$, $\mathbf{\tilde{K}}_{ff}$ has dimensions $1 \times N$, and $\mathbf{\tilde{K}}_{fb}$ has dimensions $1 \times p$.
+Then the time-dependent kernels were calculated as:
+\[
+\begin{aligned}
+    \mathbf{K}_{ff} & = \mathbf{\tilde{K}}_{ff}\mathbf{W}(1:N, :) \\
+    \mathbf{K}_{fb} & = \mathbf{\tilde{K}}_{fb} \mathbf{\Lambda}^\dagger
+\end{aligned}
+\]
+\subsection*{D.4 Parameter Search}
+The number of Laguerre polynomials, $p$, and the timescale, $\tau$, were chosen to minimize the reconstruction error of the fit using a grid search, with the number of polynomials restricted between 2 and 7 and $\tau$ chosen from $\{1, 2, 4, 8, 16, 32, 64\}$ms.
+
+For each parameter set, a 2-fold cross-validation was performed by splitting the data into equal-sized halves. The kernels were computed from data in the first half, and the reconstruction error was calculated for the second half. The procedure was then repeated by estimating from the second half and reconstructing the first. The reconstructed spiking vector was computed as $[ \mathbf{\tilde{K}}_{ff} \ \mathbf{\tilde{K}}_{fb}]\mathbf{\tilde{X}}$.
+
+Reconstruction error was defined as:
+\[
+\text{Error} = \frac{\|\mathbf{U} - [ \mathbf{\tilde{K}}_{ff} \ \mathbf{\tilde{K}}_{fb}]\mathbf{\tilde{X}}\|_2^2}{\|\mathbf{U}\|_2^2}
+\]
+This estimation procedure was done individually for each trial. The filters plotted in Fig. \ref{fig2} in the main text represent the mean across all trials, with dotted lines indicating mean plus or minus the standard error of the mean.
+The number and length of trials for each dataset in Fig. \ref{fig2} in the main text were as follows:
+%\pagebreak
+\begin{table}[h]
+\centering
+\begin{tabular}{ccccc}
+\hline
+ & Trials & Trial Length & Time Step & Maximum Shift* \\
+\hline
+2B (Dark) & 135 & 5000 & 2 ms & 100 data points \\
+2B (Mid) & 135 & 5000 & 2 ms & 100 data points \\
+2B (Light) & 135 & 5000 & 2 ms & 100 data points \\
+2C (Low) & 8 & 3000 & 1 ms & 100 data points \\
+2C (High) & 8 & 3000 & 1 ms & 100 data points \\
+2D (Bar) & 62 & 8270 & 1 ms & 200 data points \\
+2D (Fish) & 102 & 17705 & 1 ms & 200 data points \\
+2E (Low) & 30 & 5000 & 1 ms & 200 data points \\
+2E (High) & 30 & 5000 & 1 ms & 200 data points \\
+2F (Each Condition) & 8 & 2375 & 1 ms & 150 data points \\
+\hline
+\end{tabular}
+\caption{* Maximum Shift refers to the maximum number of time steps that the stimulus is shifted when constructing the lagged stimulus matrix.}
+\end{table}
+%\vspace{-0.3in}
+
+\section*{E. Control Analyses}
+\subsection*{E.1 Mean Firing Rate}
+In the fly H1 dataset spike rates decrease considerably in darker conditions, so we performed supplementary analyses to rule out the possibility that the change in filter shape is simply a consequence of a different firing rate. We repeated the analysis used in Fig. \ref{fig2} in the main text for bright segment of the dataset while keeping only those data where the number of spikes in the lag vector were below a threshold (100 or 200 spikes/s). Similarly, for the dark segment, the analysis was repeated while keeping data points where the number of spikes in the lag vector was above some threshold (100 or 200 spikes/s). As shown in Fig. \ref{fig7}, the filter shape is determined primarily by belonging to the dark/bright segment rather than by the firing rate. Therefore, this control supports our assertion that the filter shapes adapt to the stimulus statistics.
+\subsection*{E.2 Sunrise and Sunset}
+A possible explanation for the change in feedforward and feedback filters in the fly H1 dataset is that the the effect was due to the elapsed recording time. To rule this out, we repeated the analysis on a separate H1 recording performed during the time around sunrise rather than sunset. The response profiles were remarkably similar for periods of the experiment with comparable light conditions, Fig. \ref{fig8}, indicating that the change in filter shape is primarily due to an effect of environmental brightness rather than recording time.
+\subsection*{E.3 Effect of Z-Scoring Spike Trains}
+Spike trains with different mean firing rates will be affected differently by z-scoring (the first step in Data Preparation). Time bins with spikes will take on larger values at low rates than at high rates. This disparity in the magnitude of the non-zero components of the spike train may affect the shape or scaling of the estimated filters.
+To control for this, we re-ran the fitting procedure for all datasets while not z-scoring the spiking vector $\mathbf{U}$, Fig. \ref{fig9}. The filter shapes and differences across conditions are extremely similar to those obtained with z-scoring, aside from a scaling factor for the feedforward filters.
+\begin{figure}[h]
+  \centering
+\includegraphics[width=.4\textwidth]{H1_cutSpikes.png}
+  \caption{Blowfly H1 feedback filter shape is primarily determined by the statistics of sensory stimuli (background luminance) rather than the H1 firing rate. Even when we analyze data subsets from the bright background experiment with firing rate lower than that in data subsets from the dark background experiment, the difference between the filters is qualitatively similar to Fig. \ref{fig2}\textit{B} in the main text.}
+  \label{fig7}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+\includegraphics[width=.5\textwidth]{DD-DC_Sunrise_Control.png}
+  \caption{Changes in Blowfly H1 feedforward and feedback filters are due to changes in environmental brightness, not overall recording time. The above filters were obtained from a dataset recorded during sunrise, in which the Dark condition came first, followed by Mid and then Bright. This is in contrast to the analyses in Fig. \ref{fig2}\textit{B} which was recorded during sunset, in which Bright came first, followed by Mid and then Dark. The changes in the filters are qualitatively the same between these conditions, indicating that this is driven by the environmental brightness and not an artifact of overall recording time.}
+  \label{fig8}
+\end{figure}
+
+
+\begin{figure*}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{dddc_zscore_ctrl_v2.png}
+  \caption{Estimated filters without z-scoring the spiking vector $u(t)$ are qualitatively similar to the ones with z-scoring, Fig. \ref{fig2}, in the main text. Naming and coloring conventions are as in Fig. 3 in the main text. Feedforward filters in \textit{F} were not substantially different from those obtained using the Z-scored data.}
+  \label{fig9}
+\end{figure*}
+
+
+%%%%%%%%%%%%%%%%%%%%%
