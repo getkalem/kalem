@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- LaTeX view: `!` or `?` before `\textquoteleft` shows as `¡` or `¿`, the ligature pdflatex makes of them (found by the typeset fuzz).
 - LaTeX: two crashes on letters outside ASCII found by running the editor over the arXiv sample: a BibTeX author list with letters like `š`, and a control symbol made of a character outside ASCII (`\😀`).
 
 - Large PDF files no longer freeze the window: a page renders on a thread while the page at its last zoom stays shown, and the next and previous pages render ahead so a page turns at once, and debug builds build the PDF renderer and the picture decoders optimized (a page in 0.08 s instead of 1.2 s).
