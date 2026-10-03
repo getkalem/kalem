@@ -24,7 +24,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - The Book's "LaTeX for AUCTeX users" maps AUCTeX's, RefTeX's and preview-latex's commands to Kalem's. In LaTeX, Expand Selection grows by the document's structure: group, command, environment, then section; with Vim keys, `SPC m v` shows the PDF.
 - LaTeX builds checked to be reproducible: the editing template built twice with pdfLaTeX and with Tectonic under `SOURCE_DATE_EPOCH` gives the same PDF (CI).
-- Typst: `.typ` files with Typst's highlighting and an outline of their headings; Build PDF (F5) runs `typst compile` and shows its problems in the text.
 - LaTeX: SyncTeX both ways. Builds write it; Show in PDF opens the PDF at the page of the cursor's line, and a Ctrl-click (Cmd on macOS) on a page opens the source line it came from, across included files; checked against TeX Live's `synctex`.
 - File manager: Paste in the graphical editor takes files copied in another application (Finder's or Explorer's file list, or paths and `file://` URIs as text); the terminal's file menu parts its groups with rules.
 - CSV: a selection across rows is a rectangle of cells, painted as one in both editors, copied as tab-separated values and cut empty (Copy Cells, Cut Cells), so it pastes back with Paste as Block; Histogram of Column puts a column's numbers in ranges; in the graphical editor a column's edge in the letters bar sets its width by dragging and fits it by a double click.
