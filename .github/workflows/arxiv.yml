@@ -35,12 +35,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
-      # The sample is kept as a release's assets (`arxiv-sample-2024`): the
-      # repository's Actions cache evicted it, and every run then spent
-      # hours asking arXiv for it again. Restored before fetching, and
-      # uploaded again only when the fetch added to it, also when arXiv
-      # stopped answering partway. What the Actions cache still holds,
-      # from before the release kept it, first.
+      # The sample is kept as the assets of a draft release
+      # (`arxiv-sample-2024`), which only the repository's writers see:
+      # arXiv's sources are not ours to redistribute. The repository's
+      # Actions cache evicted it, and every run then spent hours asking
+      # arXiv for it again. Restored before fetching, and uploaded again
+      # only when the fetch added to it, also when arXiv stopped answering
+      # partway. What the Actions cache still holds, from before the
+      # release kept it, first.
       - uses: actions/cache/restore@v4
         with:
           path: .cache/arxiv
@@ -53,6 +55,8 @@ jobs:
           ASSET: sample-${{ github.event.inputs.per_field || '200' }}
         run: |
           mkdir -p .cache/arxiv
+          # Published once by mistake: a draft again.
+          gh release edit arxiv-sample-2024 --draft=true > /dev/null 2>&1 || true
           if gh release download arxiv-sample-2024 -p "$ASSET.tar.zst.*" -D "$RUNNER_TEMP/sample"; then
             cat "$RUNNER_TEMP"/sample/"$ASSET".tar.zst.* | tar --zstd -x -C .cache/arxiv
             rm -rf "$RUNNER_TEMP/sample"
@@ -75,7 +79,7 @@ jobs:
             exit 0
           fi
           gh release view arxiv-sample-2024 > /dev/null 2>&1 ||
-            gh release create arxiv-sample-2024 --prerelease \
+            gh release create arxiv-sample-2024 --draft \
               --title "arXiv sample (2024)" \
               --notes "The LaTeX sources the arXiv coverage workflow measures; not a Kalem release."
           out="$RUNNER_TEMP/out"
