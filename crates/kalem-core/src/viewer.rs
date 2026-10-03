@@ -13,9 +13,9 @@ use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use kalem_viewer::{
-    Bitmap, Edit, FileHandle, GridCell, GridEdit, GridLayout, InfoField, MacroEntry, MacroOutcome,
-    MacroQuestion, MacroUi, RenderRequest, Rendered, SaveOutput, Structure, UnitKind, Viewer,
-    ViewerDocument,
+    Bitmap, Edit, ErrorStyle, FileHandle, GridCell, GridEdit, GridLayout, InfoField, MacroEntry,
+    MacroOutcome, MacroQuestion, MacroUi, RenderRequest, Rendered, SaveOutput, Structure, UnitKind,
+    Validation, ValidationError, Viewer, ViewerDocument,
 };
 
 use crate::command::{
@@ -283,7 +283,14 @@ pub struct ViewerState {
     /// Cells cut: the unit, the range and the text put on the clipboard;
     /// pasting that text moves them.
     cut: Option<(usize, [u32; 4], String)>,
+    /// Circle Invalid Data is on: cells their validation refuses are marked.
+    pub circle_invalid: bool,
+    /// The cursor's cell's validation, by unit, cell and generation.
+    validation_cache: Option<(CellKey, Option<Validation>)>,
 }
+
+/// A cell of a unit at a generation: unit, row, column, generation.
+type CellKey = (usize, u32, u32, u64);
 
 /// A grid unit's cursor and the first row and column scrolled to (past
 /// the frozen ones), zero-based.
@@ -387,6 +394,8 @@ impl ViewerState {
             grid_cache: None,
             grid_visible: (30, 10),
             cut: None,
+            circle_invalid: false,
+            validation_cache: None,
         })
     }
 
@@ -1282,6 +1291,15 @@ impl ViewerState {
             if let Some(note) = self.doc().cell_note(self.unit, p.row, p.col) {
                 parts.push(note.lines().next().unwrap_or_default().to_string());
             }
+            // The validation's input message, as Excel shows it by the cell.
+            if let Some((title, text)) = self.cursor_validation().and_then(|v| v.prompt) {
+                let text = text.lines().next().unwrap_or_default().to_string();
+                parts.push(if title.is_empty() {
+                    text
+                } else {
+                    format!("{title}: {text}")
+                });
+            }
             return parts.join(" · ");
         }
         let mut parts = Vec::new();
@@ -1845,6 +1863,57 @@ impl ViewerState {
         }
         self.refresh();
         Ok(())
+    }
+
+    /// The data validation of the cursor's cell.
+    pub fn cursor_validation(&mut self) -> Option<Validation> {
+        let p = self.grid_pos();
+        let key = (self.unit, p.row, p.col, self.generation);
+        if let Some((k, v)) = &self.validation_cache
+            && *k == key
+        {
+            return v.clone();
+        }
+        let v = self.doc().validation(self.unit, p.row, p.col);
+        self.validation_cache = Some((key, v.clone()));
+        v
+    }
+
+    /// Whether the cursor's cell offers a list to choose from.
+    pub fn cursor_has_list(&mut self) -> bool {
+        self.cursor_validation()
+            .is_some_and(|v| v.dropdown && v.kind == kalem_viewer::ValidationKind::List)
+    }
+
+    /// What the cell's validation says of an entry, as typed.
+    pub fn check_input(&mut self, row: u32, col: u32, input: &str) -> Option<ValidationError> {
+        self.doc().check_input(self.unit, row, col, input)
+    }
+
+    /// Sets the selection's data validation, or removes it.
+    pub fn set_validation(&mut self, v: Option<Validation>) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        self.doc()
+            .set_validation(self.unit, s, v)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The cells in view whose values their validation refuses, while
+    /// Circle Invalid Data is on.
+    pub fn invalid_cells(
+        &mut self,
+        rows: std::ops::Range<u32>,
+        cols: std::ops::Range<u32>,
+    ) -> Vec<(u32, u32)> {
+        if !self.circle_invalid {
+            return Vec::new();
+        }
+        self.doc().invalid_cells(self.unit, rows, cols)
     }
 
     /// Clears the selection's values, formats kept (Delete).
@@ -2879,6 +2948,293 @@ fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     Ok(())
 }
 
+/// Checks an entry against its cell's validation, as Excel does on Enter:
+/// a Stop alert says why and asks again, a Warning asks whether to keep
+/// it, an Information alert keeps it and says so. Whether the entry waits.
+fn refused(ctx: &mut EditorContext<'_>, row: u32, col: u32, value: &str) -> bool {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return false;
+    };
+    let Some(e) = v.check_input(row, col, value) else {
+        return false;
+    };
+    let said = if e.title.is_empty() {
+        e.message.clone()
+    } else {
+        format!("{}: {}", e.title, e.message)
+    };
+    let again = serde_json::json!({ "row": row, "col": col, "value_default": value });
+    match e.style {
+        ErrorStyle::Information => {
+            ctx.messages.push(said);
+            false
+        }
+        ErrorStyle::Stop => {
+            ctx.messages.push(said);
+            ctx.requests.push(Request::Ask {
+                command: "viewer.grid.setCell".into(),
+                args: again,
+                arg: "value".into(),
+            });
+            true
+        }
+        ErrorStyle::Warning => {
+            let question = format!("{said} Continue?");
+            ctx.requests.push(Request::Choose(vec![
+                menu_item(
+                    "viewer.grid.setCell",
+                    serde_json::json!({ "row": row, "col": col, "value": value, "force": true }),
+                    "Yes, keep the value",
+                    &question,
+                ),
+                menu_item("viewer.grid.editCellAgain", again, "No, edit it", &question),
+                menu_item(
+                    "viewer.grid.cancel",
+                    serde_json::json!({}),
+                    "Cancel",
+                    &question,
+                ),
+            ]));
+            true
+        }
+    }
+}
+
+/// A list validation's values in the palette, as Excel's drop-down.
+fn pick_from_list(ctx: &mut EditorContext<'_>, _args: &serde_json::Value) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let p = v.grid_pos();
+    let list = v
+        .cursor_validation()
+        .filter(|x| x.kind == kalem_viewer::ValidationKind::List)
+        .map(|x| x.list)
+        .unwrap_or_default();
+    if list.is_empty() {
+        ctx.messages
+            .push("This cell has no list to choose from".into());
+        return Ok(());
+    }
+    let category = format!(
+        "{}{}",
+        crate::csv_tools::column_letters(p.col as usize),
+        p.row + 1
+    );
+    let items = list
+        .iter()
+        .take(1000)
+        .map(|item| {
+            menu_item(
+                "viewer.grid.setCell",
+                serde_json::json!({ "row": p.row, "col": p.col, "value": item, "force": true }),
+                item,
+                &category,
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// The Data Validation menu, as Excel's dialog: what the selection allows,
+/// its message and alert, and the circles.
+fn validation_menu(ctx: &mut EditorContext<'_>, _args: &serde_json::Value) -> CommandResult {
+    let c = "Data Validation";
+    let none = serde_json::json!({});
+    let number = |kind: &str| serde_json::json!({ "kind": kind });
+    let circles = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+        .is_some_and(|v| v.circle_invalid);
+    let items = vec![
+        menu_item("viewer.grid.validateList", none.clone(), "Allow a List…", c),
+        menu_item(
+            "viewer.grid.validateNumber",
+            number("whole"),
+            "Allow Whole Numbers…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validateNumber",
+            number("decimal"),
+            "Allow Decimals…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validateNumber",
+            number("date"),
+            "Allow Dates…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validateNumber",
+            number("time"),
+            "Allow Times…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validateNumber",
+            number("textLength"),
+            "Allow a Text Length…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validateFormula",
+            none.clone(),
+            "Allow by a Formula…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validationMessage",
+            none.clone(),
+            "Input Message…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validationAlert",
+            serde_json::json!({ "style": "stop" }),
+            "Error Alert: Stop…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validationAlert",
+            serde_json::json!({ "style": "warning" }),
+            "Error Alert: Warning…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validationAlert",
+            serde_json::json!({ "style": "information" }),
+            "Error Alert: Information…",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.validationAlert",
+            serde_json::json!({ "style": "none" }),
+            "No Error Alert",
+            c,
+        ),
+        menu_item(
+            "viewer.grid.circleInvalid",
+            none.clone(),
+            if circles {
+                "Clear Validation Circles"
+            } else {
+                "Circle Invalid Data"
+            },
+            c,
+        ),
+        menu_item("viewer.grid.clearValidation", none, "Clear Validation", c),
+    ];
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// The selection's new validation: the cursor's as it is, with `f`'s
+/// change, so its message and alert stay.
+fn revalidate(ctx: &mut EditorContext<'_>, f: impl FnOnce(&mut Validation)) -> CommandResult {
+    with(ctx, |v| {
+        let mut x = v.cursor_validation().unwrap_or_default();
+        f(&mut x);
+        v.set_validation(Some(x))
+    })
+}
+
+/// Asks for the argument `arg` of `id`, the rest of `args` kept.
+fn ask_more(
+    ctx: &mut EditorContext<'_>,
+    id: &str,
+    args: &serde_json::Value,
+    arg: &str,
+) -> CommandResult {
+    ctx.requests.push(Request::Ask {
+        command: id.into(),
+        args: args.clone(),
+        arg: arg.into(),
+    });
+    Ok(())
+}
+
+fn text_arg(args: &serde_json::Value, key: &str) -> Option<String> {
+    args.get(key)
+        .and_then(|v| v.as_str())
+        .filter(|v| !v.trim().is_empty())
+        .map(str::to_string)
+}
+
+/// Whole numbers, decimals, dates, times or text lengths: the comparison
+/// chosen, then its values asked.
+fn validate_number(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{CompareOp, ValidationKind};
+    const ID: &str = "viewer.grid.validateNumber";
+    let kind = match args.get("kind").and_then(|k| k.as_str()) {
+        Some("decimal") => ValidationKind::Decimal,
+        Some("date") => ValidationKind::Date,
+        Some("time") => ValidationKind::Time,
+        Some("textLength") => ValidationKind::TextLength,
+        _ => ValidationKind::Whole,
+    };
+    let ops = [
+        ("between", CompareOp::Between, "Between"),
+        ("notBetween", CompareOp::NotBetween, "Not Between"),
+        ("equal", CompareOp::Equal, "Equal To"),
+        ("notEqual", CompareOp::NotEqual, "Not Equal To"),
+        ("greaterThan", CompareOp::Greater, "Greater Than"),
+        ("lessThan", CompareOp::Less, "Less Than"),
+        (
+            "greaterThanOrEqual",
+            CompareOp::GreaterOrEqual,
+            "Greater Than or Equal To",
+        ),
+        (
+            "lessThanOrEqual",
+            CompareOp::LessOrEqual,
+            "Less Than or Equal To",
+        ),
+    ];
+    let Some(op) = args
+        .get("op")
+        .and_then(|o| o.as_str())
+        .and_then(|o| ops.iter().find(|x| x.0 == o))
+        .map(|x| x.1)
+    else {
+        let items = ops
+            .iter()
+            .map(|(key, _, title)| {
+                let mut a = args.clone();
+                a["op"] = serde_json::json!(key);
+                menu_item(ID, a, &format!("{title}…"), "Data Validation")
+            })
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let Some(value) = text_arg(args, "value") else {
+        return ask_more(ctx, ID, args, "value");
+    };
+    let two = matches!(op, CompareOp::Between | CompareOp::NotBetween);
+    let value2 = text_arg(args, "and");
+    if two && value2.is_none() {
+        return ask_more(ctx, ID, args, "and");
+    }
+    revalidate(ctx, |x| {
+        x.kind = kind;
+        x.op = op;
+        x.value = value;
+        x.value2 = if two { value2 } else { None };
+    })
+}
+
 /// A highlighting style by name, as Excel's presets: light red fill with
 /// dark red text unless asked otherwise.
 fn cond_style(args: &serde_json::Value) -> kalem_viewer::CondStyle {
@@ -3313,6 +3669,10 @@ fn grid_commands() -> Vec<Command> {
                     .and_then(|v| v.as_str())
                     .unwrap_or_default()
                     .to_string();
+                let force = args.get("force").and_then(serde_json::Value::as_bool) == Some(true);
+                if !force && refused(ctx, row, col, &value) {
+                    return Ok(());
+                }
                 with(ctx, |v| {
                     v.set_cell(row, col, &value)?;
                     // Enter moves down, as in a spreadsheet.
@@ -3730,6 +4090,139 @@ fn grid_commands() -> Vec<Command> {
             &[],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.clear_conditional_formats(true)),
+        ),
+        cmd(
+            "viewer.grid.dataValidation",
+            "Data Validation",
+            &["shift+v"],
+            IN_GRID,
+            validation_menu,
+        ),
+        cmd(
+            "viewer.grid.pickFromList",
+            "Pick from List",
+            &["alt+down"],
+            IN_GRID,
+            pick_from_list,
+        ),
+        cmd(
+            "viewer.grid.editCellAgain",
+            "Edit Cell Again",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let (Some(row), Some(col)) = (arg_u32(args, "row"), arg_u32(args, "col")) else {
+                    return Ok(());
+                };
+                ask_more(
+                    ctx,
+                    "viewer.grid.setCell",
+                    &serde_json::json!({ "row": row, "col": col, "value_default": args.get("value_default") }),
+                    "value",
+                )
+            },
+        ),
+        cmd(
+            "viewer.grid.validateList",
+            "Allow a List",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let Some(value) = text_arg(args, "value") else {
+                    return ask_more(ctx, "viewer.grid.validateList", args, "value");
+                };
+                revalidate(ctx, |x| {
+                    x.kind = kalem_viewer::ValidationKind::List;
+                    x.value = value;
+                    x.value2 = None;
+                    x.dropdown = true;
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.validateNumber",
+            "Allow Numbers",
+            &[],
+            IN_GRID,
+            validate_number,
+        ),
+        cmd(
+            "viewer.grid.validateFormula",
+            "Allow by a Formula",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let Some(value) = text_arg(args, "value") else {
+                    return ask_more(ctx, "viewer.grid.validateFormula", args, "value");
+                };
+                revalidate(ctx, |x| {
+                    x.kind = kalem_viewer::ValidationKind::Custom;
+                    x.value = value;
+                    x.value2 = None;
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.validationMessage",
+            "Validation Input Message",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let Some(value) = args
+                    .get("value")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+                else {
+                    return ask_more(ctx, "viewer.grid.validationMessage", args, "value");
+                };
+                revalidate(ctx, |x| {
+                    x.prompt = (!value.trim().is_empty()).then(|| (String::new(), value));
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.validationAlert",
+            "Validation Error Alert",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let style = match args.get("style").and_then(|s| s.as_str()) {
+                    Some("none") => None,
+                    Some("warning") => Some(ErrorStyle::Warning),
+                    Some("information") => Some(ErrorStyle::Information),
+                    _ => Some(ErrorStyle::Stop),
+                };
+                let Some(style) = style else {
+                    return revalidate(ctx, |x| x.error = None);
+                };
+                let Some(value) = args
+                    .get("value")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+                else {
+                    return ask_more(ctx, "viewer.grid.validationAlert", args, "value");
+                };
+                revalidate(ctx, |x| x.error = Some((style, String::new(), value)))
+            },
+        ),
+        cmd(
+            "viewer.grid.clearValidation",
+            "Clear Validation",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_validation(None)),
+        ),
+        cmd(
+            "viewer.grid.circleInvalid",
+            "Circle Invalid Data",
+            &[],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.circle_invalid = !v.circle_invalid;
+                    Ok(())
+                })
+            },
         ),
         cmd(
             "viewer.grid.autofitColumns",

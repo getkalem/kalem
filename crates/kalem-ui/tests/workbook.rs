@@ -404,6 +404,42 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-bar-2-3").is_none());
 
+    // A list on A2:A5 leaving Sum out: its button on the cursor's cell
+    // offers the values, and Circle Invalid Data rings Sum.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(4, 0);
+        e.run_command(
+            "viewer.grid.validateList",
+            serde_json::json!({ "value": "Food,Rent,Travel" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+        e.run_command(
+            "viewer.grid.circleInvalid",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("viewer-grid-invalid-4-0").is_some(),
+        "Sum ringed"
+    );
+    assert!(cx.debug_bounds("viewer-grid-invalid-1-0").is_none());
+    let button = cx
+        .debug_bounds("viewer-grid-list")
+        .expect("the list's button");
+    cx.simulate_click(button.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    let offered = e.read_with(cx, |e, _| e.palette.is_some());
+    assert!(offered, "the list's values are offered");
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"

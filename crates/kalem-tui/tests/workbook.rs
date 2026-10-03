@@ -584,3 +584,103 @@ fn conditional_formatting() {
     let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
     assert_eq!(wb.conditional_formats(0).unwrap().len(), 3);
 }
+
+#[test]
+fn data_validation() {
+    let mut t = T::open("dv");
+    let input = |t: &mut T, row: u32, col: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(row, col);
+        v.cell_input()
+    };
+    // A list on A2:A5 that leaves Sum out, with an input message.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(4, 0);
+    }
+    t.app.run_command(
+        "viewer.grid.validateList",
+        json!({ "value": "Food, Rent, Travel" }),
+    );
+    t.app.run_command(
+        "viewer.grid.validationMessage",
+        json!({ "value": "Pick an item" }),
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.screen();
+    assert!(t.status().contains("Pick an item"), "{}", t.status());
+    assert!(t.screen().contains('▾'), "{}", t.screen());
+    // Sum breaks it: circled.
+    t.app.run_command("viewer.grid.circleInvalid", json!({}));
+    assert!(t.screen().contains('⦅'), "{}", t.screen());
+    // Chosen from the list.
+    t.app
+        .event(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::ALT)));
+    let s = t.screen();
+    assert!(s.contains("Travel") && s.contains("Rent"), "{s}");
+    for ch in "Trav".chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    assert_eq!(input(&mut t, 1, 0), "Travel");
+    // A value outside the list: refused and asked again.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 2, "col": 0, "value": "Cinema" }),
+    );
+    let s = t.screen();
+    assert!(s.contains("Set Cell"), "{s}");
+    t.key(KeyCode::Esc);
+    assert_eq!(input(&mut t, 2, 0), "Food");
+    // A warning instead: kept when the user says so.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 0);
+    t.app.run_command(
+        "viewer.grid.validationAlert",
+        json!({ "style": "warning", "value": "Unusual item" }),
+    );
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 2, "col": 0, "value": "Cinema" }),
+    );
+    let s = t.screen();
+    assert!(
+        s.contains("Unusual item") && s.contains("keep the value"),
+        "{s}"
+    );
+    t.key(KeyCode::Enter);
+    assert_eq!(input(&mut t, 2, 0), "Cinema");
+    // Whole numbers over zero in B2:B5.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(4, 1);
+    }
+    t.app.run_command(
+        "viewer.grid.validateNumber",
+        json!({ "kind": "whole", "op": "greaterThan", "value": "0" }),
+    );
+    let check = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .check_input(3, 1, "-5");
+    assert!(check.is_some());
+    // Saved: the list (without A3), A3's warning list and the numbers.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert_eq!(wb.validations(0).unwrap().len(), 3);
+    t.app.run_command("viewer.grid.clearValidation", json!({}));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .cursor_validation()
+            .is_none()
+    );
+}

@@ -610,6 +610,7 @@ impl Editor {
             return div();
         };
         let mut cells = std::collections::HashMap::new();
+        let mut invalid = std::collections::HashSet::new();
         let split = |list: &[(u32, f32)], frozen: u32| -> Vec<std::ops::Range<u32>> {
             let mut out = Vec::new();
             for part in [
@@ -630,13 +631,15 @@ impl Editor {
         };
         for rr in split(&rows, layout.frozen.0) {
             for cr in split(&cols, layout.frozen.1) {
-                for (r, c, cell) in v.grid_cells(rr.clone(), cr) {
+                for (r, c, cell) in v.grid_cells(rr.clone(), cr.clone()) {
                     cells.insert((r, c), cell);
                 }
+                invalid.extend(v.invalid_cells(rr.clone(), cr));
             }
         }
         // The cursor's cell in full, as entered: the formula bar.
         let input = v.cell_input();
+        let has_list = v.cursor_has_list();
         let sel_name = v.selection_name();
         let sel = v.selection();
         let selecting = v.grid_pos().sel.is_some();
@@ -1109,8 +1112,48 @@ impl Editor {
                             ),
                     );
                 }
+                if invalid.contains(&(r, c)) {
+                    // Circle Invalid Data: a red ring around the cell.
+                    d = d.child(
+                        div()
+                            .debug_selector(move || format!("viewer-grid-invalid-{r}-{c}"))
+                            .absolute()
+                            .inset(px(1.))
+                            .rounded_full()
+                            .border_2()
+                            .border_color(gpui::rgb(0xE0_3C_31)),
+                    );
+                }
                 if here {
                     d = d.child(div().absolute().inset_0().border_2().border_color(cursor));
+                }
+                if here && has_list {
+                    // A list validation's drop-down button, as Excel's.
+                    d = d.child(
+                        div()
+                            .debug_selector(|| "viewer-grid-list".to_string())
+                            .id("validation-list")
+                            .absolute()
+                            .right(px(2.))
+                            .top_0()
+                            .bottom_0()
+                            .flex()
+                            .items_center()
+                            .text_color(theme.muted)
+                            .child("▾")
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, _: &MouseDownEvent, window, cx| {
+                                    cx.stop_propagation();
+                                    this.run_command(
+                                        "viewer.grid.pickFromList",
+                                        serde_json::json!({}),
+                                        window,
+                                        cx,
+                                    );
+                                }),
+                            ),
+                    );
                 }
                 d.on_mouse_down(
                     MouseButton::Left,
