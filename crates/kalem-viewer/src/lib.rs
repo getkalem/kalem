@@ -466,6 +466,42 @@ pub struct GridCell {
     /// Not locked: editable when its sheet is protected (cells are locked
     /// unless unlocked).
     pub unlocked: bool,
+    /// A sparkline drawn in the cell.
+    pub sparkline: Option<Sparkline>,
+}
+
+/// A sparkline: a small chart in a cell of a row or column of numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Sparkline {
+    /// Its kind.
+    pub kind: SparklineKind,
+    /// Each value's height, 0 the smallest to 1000 the largest (win/loss:
+    /// 1000 a win, 0 a loss, 500 zero); `None` an empty cell.
+    pub points: Vec<Option<u16>>,
+    /// Where zero is on that scale, when it is between the smallest and
+    /// the largest (columns stand on it).
+    pub zero: Option<u16>,
+    /// The color of its line or columns.
+    pub color: [u8; 3],
+    /// The color of negative values (columns, win/loss) and of the high
+    /// and low points.
+    pub marker: [u8; 3],
+    /// The highest point, marked.
+    pub high: Option<usize>,
+    /// The lowest point, marked.
+    pub low: Option<usize>,
+}
+
+/// What kind a sparkline is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SparklineKind {
+    /// A line.
+    #[default]
+    Line,
+    /// Columns.
+    Column,
+    /// Wins up, losses down.
+    WinLoss,
 }
 
 /// How a cell's text sits between its top and bottom.
@@ -1720,6 +1756,25 @@ pub trait ViewerDocument: Send {
 
     /// Deletes a drawing.
     fn delete_drawing(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Puts sparklines in cells `location` (one row or one column) of
+    /// `data`'s rows or columns, one each, with the high and low points
+    /// marked when asked.
+    fn add_sparklines(
+        &mut self,
+        _unit: usize,
+        _data: [u32; 4],
+        _location: [u32; 4],
+        _kind: SparklineKind,
+        _mark: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Takes away the sparklines of a range's cells.
+    fn clear_sparklines(&mut self, _unit: usize, _range: [u32; 4]) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
