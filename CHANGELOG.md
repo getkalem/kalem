@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- Plugins: a compiled plugin in the cache that is rewritten while Kalem uses it no longer ends the process (the cache is read into memory instead of mapped); it also made the plugin host's test fail on CI.
 - Debug builds no longer abort on text with a line break drawn as one line: a chart's labels, a cell's text measured in the grid, a formula's source shown as an error.
 - In a workbook's grid `h` moves left again, as `j`, `k` and `l` move: the chart commands that began with `h` begin with `p` (`p t` Chart Title, `p n` Axis Number Format, `p` and an arrow to move a chart), and the warning "1 problem in the settings or keymap" at every start is gone.
 - Debug builds on macOS link without the warning that the unwind information is too large for the compact unwind table.
