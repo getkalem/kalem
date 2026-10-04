@@ -51,6 +51,16 @@ Markdown is parsed by [comrak](https://github.com/kivikakk/comrak) through Kalem
 - Imperative mood ("Add headline parser"), the first line under 72 characters, the task ID or issue when there is one.
 - Every user-visible change gets a line under "Unreleased" in [`CHANGELOG.md`](CHANGELOG.md).
 
+## Pushing to main
+
+Several people (and agents) push to `main` the same day. CI lets every run on `main` finish, so a red run there is someone's to fix at once, and pushing on top of a red `main` hides whose it is. Before each push:
+
+- Rebase on `origin/main` (`git fetch origin main && git rebase origin/main`), never merge it into a local branch of `main`.
+- Run [`tools/pre-push.sh`](tools/pre-push.sh): formatting, the plugin pins, and clippy and the tests of every crate the change touches (all of them when `Cargo.toml` or `Cargo.lock` changed). Linking it as `.git/hooks/pre-push` runs it on every push.
+- Push related commits together rather than one at a time; at most about once an hour while the last run on `main` is still going, so runs do not queue behind each other.
+- When `main` is red from your push, fix it before anything else; when it is red from someone else's, say so to them rather than push on top.
+- A change to the viewer contract (`crates/kalem-viewer`) and the bundled plugins' bump go in one push: the three plugins are pinned at one revision of `getkalem/plugins` ([`tools/check-plugin-pins.sh`](tools/check-plugin-pins.sh)).
+
 ## License
 
 Contributions are dual licensed under MIT OR Apache-2.0, as the [README](README.md#more) says. Files under `tests/corpus` keep their original licenses, listed in `tests/corpus/LICENSES.md`.

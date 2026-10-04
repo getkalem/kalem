@@ -46,19 +46,22 @@ the Windows job passes; no plugin pin can break `main`.
   every Windows run; read the logs, fix the path or process handling,
   make the fake server start on Windows, and mark nothing `#[ignore]`. M
   (done 2026-10-04: four causes, each fixed: the plugin cache was mapped, so Windows refused to rewrite it while in use (and Linux got SIGBUS) — now read into memory; `canonicalize` gives verbatim paths where `..` is a name, so the plugin file check missed it — refused as a name too; the fake language server's verbatim URIs did not match the client's — URIs normalized to one spelling (`kalem_lsp::uri::normalize`), which also covers servers writing `file:///c%3A/`; the plugin test wrote a Windows path into a TOML basic string, where `\U` is an escape — a literal string now, and `file:///C:/` index URLs are read. Open: a green Windows run on `main`.)
-- [ ] R1.3 Plugin pins cannot break `main`: the three `getkalem/plugins`
+- [x] R1.3 Plugin pins cannot break `main`: the three `getkalem/plugins`
   revisions move together, in one `[workspace.dependencies]` entry; a CI
   job builds the plugins against this checkout's `kalem-viewer` contract
   on every push, so a contract change that is not matched by a plugin
   bump fails the pull request rather than `main`. S
-- [ ] R1.4 Two sessions, one `main`: a push cadence rule in CONTRIBUTING
+  (done 2026-10-04: the three plugins at one revision of getkalem/plugins, checked by `tools/check-plugin-pins.sh` in CI's rustfmt job; the plugins were already built against this checkout's `kalem-viewer` through the `[patch]`, so every test job catches a contract change without its plugin bump. What let that reach `main` was the cancelled runs, fixed by R1.1.)
+- [x] R1.4 Two sessions, one `main`: a push cadence rule in CONTRIBUTING
   (rebase on `origin/main`, run the changed crate's tests, push at most
   once an hour unless CI is green), and a `tools/pre-push.sh` that runs
   fmt, clippy on the changed crates and the quick tests. S
-- [ ] R1.5 Stale pages fixed so the Book and the code agree:
+  (done 2026-10-04: CONTRIBUTING's "Pushing to main"; `tools/pre-push.sh` runs fmt, the plugin pins, and clippy and tests for the crates changed since `origin/main`, the whole workspace when the manifest or lock file changed; it can be linked as the git pre-push hook.)
+- [x] R1.5 Stale pages fixed so the Book and the code agree:
   `book/part-2/latex.org` "Limits and known gaps" (SyncTeX, the PDF panel,
-  `\multirow`, the corpus are done), `performance.org` binary size (49.7
-  MB measured, 13 MB written), `todo.md` T4.3.2 (hayro, not pdfium). S
+  `\multirow`, the corpus are done), `performance.org` binary sizes (48.9
+  MB full and 49.7 MB terminal-only measured, 13 and 7 MB written), `todo.md` T4.3.2 (hayro, not pdfium). S
+  (done 2026-10-04: LaTeX's "Limits and known gaps" rewritten from the code (corpus, SyncTeX, `\multirow` and Overleaf done; the PDF not yet a panel; the 10 MB keystroke); `performance.org` binary rows corrected and found worse than the evaluation said: the terminal-only build is 49.7 MB against 15 MB, the full 48.9 MB (D28) against 40; the evaluation corrected; `todo.md`'s pdfium mentions annotated.)
 - [ ] R1.6 Repository hygiene: move `docs/todo_old.md`, `excel_todo.md`,
   `excel_todo2.md` under `docs/history/`; move `spikes/` out of the tree
   or into a `spikes` branch; the gpui git revision in one place in
@@ -76,6 +79,8 @@ each platform with the results in the release issue.
   cheapest of: `panic = "abort"`, `opt-level = "s"` on cold crates (the
   decoders, Wasmtime, fonts), the viewers as features that the full
   build turns on, a dependency audit of the 101 crates present twice.
+  The terminal-only build (49.7 MB) carries the viewers and Wasmtime
+  too; its target is the harder one.
   Target: full build under 40 MB, terminal-only under 15 MB, both
   recorded by a CI step that fails over the target. M (T2.9.11, D28)
 - [ ] R2.2 Crash debt (T1.8.11, TS.10): turn on `clippy::unwrap_used`

@@ -27,12 +27,12 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | Incremental parse, keystroke in a paragraph                                                                                              | 0.05 ms                  | under 2 ms          |
 | Memory, empty document (graphical)                                                                                                       | 47 MB                    | under 80 MB         |
 | Memory, 10 MB document (graphical)                                                                                                       | 252 MB                   | under 500 MB        |
-| Binary size (full)                                                                                                                       | 13 MB                    | under 40 MB         |
+| Binary size (full)                                                                                                                       | 48.9 MB (macOS arm64, 2026-10-03, D28): missed | under 40 MB         |
 | Saving a 10 MB document                                                                                                                  | 20 ms                    | under 100 ms        |
 | Terminal frontend startup (terminal-only build)                                                                                          | 13 ms                    | under 50 ms         |
 | CLI =check= on a 1 MB file                                                                                                               | 91 ms                    | under 100 ms        |
 | CLI =fmt --check= on a 1 MB file                                                                                                         | 97 ms                    | under 100 ms        |
-| Binary size (terminal-only)                                                                                                              | 7 MB                     | under 15 MB         |
+| Binary size (terminal-only)                                                                                                              | 49.7 MB (Linux x86-64, 2026-10-03): missed | under 15 MB         |
 | 100 MB plain text file, until interactive (graphical)                                                                                    | 430 ms                   | under 1 s           |
 | 100 MB plain text file, until interactive (terminal)                                                                                     | 135 ms                   | under 1 s           |
 | Keystroke in a 100 MB plain text file (text, line index and history)                                                                     | 2.7 ms median, 14 ms p99 | under 16 ms         |
@@ -47,11 +47,11 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | SyncTeX, a 210-page paper (338,460 records): a lookup from the source / from the page, p50 (=kalem-core --example synctex_timing=); reading the file once a build | 31 µs / 4 µs; 0.1 s   | under 10 ms         |
 | LaTeX project, keystroke in the Stacks project's 1.8 MB =algebra.tex=: the project's model, p50 (=latex_keystroke=)                      | 2.2 ms (was 21 ms)       | under 2 ms          |
 
-Every target is met but the last, a fifth over it on this machine. An edit that only moves the events of a file (typing in a paragraph, the common keystroke) moves the last model's positions instead of numbering the project again; the edit's region comes from the shared nodes of the two trees, and a test of random edits checks the result against a model built from scratch (=latex-model/tests/incremental.rs=). The files of the project are trusted from disk for a second between checks.
+Every target is met but three: both binary sizes (the bundled viewers, Wasmtime and the decoders are in the terminal-only build too; roadmap R2.1) and the LaTeX project keystroke, a fifth over it on this machine. An edit that only moves the events of a file (typing in a paragraph, the common keystroke) moves the last model's positions instead of numbering the project again; the edit's region comes from the shared nodes of the two trees, and a test of random edits checks the result against a model built from scratch (=latex-model/tests/incremental.rs=). The files of the project are trusted from disk for a second between checks.
 
 At 10 MB the opening meets its target. A keystroke there takes 78 ms: the incremental parse and the edit take 9.9 ms, but the screen rebuilds the document model (41 ms) and the blocks scan the whole text for their delimiters (26 ms); both grow with the file, and making them incremental is left until a document that size is a real case.
 
-The binary size target includes math fonts, which come with phase 2 (T2.2.1).
+The binary size targets include math fonts, still to come (T2.2.1), so the gap will grow before it shrinks.
 
 * Where the time goes
 A full parse of the Org manual takes 42 ms (about 20 MB/s). Opening an Org document is mostly this parse, so the tightest targets are the ones that parse a 1 MB file: =check=, =fmt= and opening in the graphical editor. What made them fit:

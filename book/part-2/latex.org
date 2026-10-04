@@ -1485,15 +1485,15 @@ Each parses without diagnostics and compiles with pdflatex in the tests.
 * Limits and known gaps
 
 What Kalem does not do today, from the code and the open items of the
-work breakdown (group 2.7h of =docs/todo.md=):
+roadmap (=docs/roadmap.md=; the old ids of =docs/todo.md= in brackets):
 
-- *No corpus yet.* The rendered subset was chosen without the planned
-  coverage study over arXiv sources (T2.7h.1), so no coverage target is
-  set and the decision record =D30= is not written. The byte-exact round
-  trip, the pandoc differential, compile-and-compare and the math
-  snapshots run on the repository's fixtures, not on a corpus
-  (T2.7h.30 to T2.7h.34, T2.7h.36). =kalem diff-pandoc= compares counts,
-  not titles or text.
+- *Corpus and differentials.* The coverage of the rendered view is
+  measured on 925 arXiv papers (the [[file:latex-limitations.org][limitations page]]), the parse and
+  editing round trip on the same sample and 50 CC BY papers committed
+  under =tests/corpus/latex/arxiv=, formulas against KaTeX on two open
+  books. =kalem diff-pandoc= compares counts per category, not titles or
+  text (T2.7h.32); compiling the corpus after editing commands needs
+  their packages and is not done (T2.7h.33).
 - *Parsing.* No catcode changes but =\makeatletter=; no signatures for
   the document's own macros; no verbatim environments beyond the fixed
   list.
@@ -1505,7 +1505,6 @@ work breakdown (group 2.7h of =docs/todo.md=):
   ranges of the model's macros, so in a file of a multi-file project
   macros defined in other files (the root's preamble) are not applied
   reliably. =\newenvironment= definitions are not given to the renderer.
-- *Tables.* =\multirow= is not drawn across its rows (T2.7h.9).
 - *References and citations.* =\pageref= shows the key, as there are no
   pages; =\cpageref= stays source. In the view, bibliography files are
   resolved from the edited file's folder; =kalem check= resolves them
@@ -1515,13 +1514,19 @@ work breakdown (group 2.7h of =docs/todo.md=):
 - *Completion.* No texlab bridge (T2.7h.17, which needs the language
   server plugin).
 - *BibTeX.* No entries added from a DOI (T2.7h.19).
-- *Building.* No PDF panel and no SyncTeX (T2.7h.24); tectonic is used
-  only when no TeX engine is installed and is not downloaded on demand;
-  no debounce beyond one build at a time (T2.7h.22). A build compiles
-  the files as saved on disk.
-- *Not started.* Typst as a sibling mode (T2.7h.25), working beside
-  Overleaf (T2.7h.28), spell checking in LaTeX (T2.7h.29), the release
-  checks (T2.7h.37).
+- *Building and the PDF.* The PDF opens as a document of its own, at the
+  cursor's page through SyncTeX, and Ctrl-click on it goes back to the
+  source; it is not yet a panel beside the text that follows each build
+  (T2.7h.24), and the terminal editor cannot go from the page to the
+  source. Tectonic is used only when no TeX engine is installed and is
+  not downloaded on demand (D5); no debounce beyond one build at a time
+  (T2.7h.22). A build compiles the files as saved on disk.
+- *Performance.* A keystroke in a 10 MB document takes about 78 ms: the
+  blocks are found again over the whole text and the screen's model is
+  rebuilt (roadmap R4.3).
+- *Not started.* Typst (a plugin by D29, T2.7h.25), spell checking in
+  LaTeX (T2.7h.29), the exit criteria of a paper and a thesis edited end
+  to end (T2.7h.39).
 
 The deliberate differences from pandoc's reader are in [[file:latex-known-differences.org][Known
 differences]].

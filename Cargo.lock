@@ -4485,11 +4485,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "kalem-plugin"
+version = "0.0.1"
+source = "git+https://github.com/getkalem/kalem?branch=main#8d3f2b949dc0971e823c9c7fbfb825f29bcc40c2"
+dependencies = [
+ "kalem-viewer",
+ "wit-bindgen",
+]
+
+[[package]]
 name = "kalem-plugin-image-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=1d34eef4f98a9392d3316f2467f6a008d675c689#1d34eef4f98a9392d3316f2467f6a008d675c689"
+source = "git+https://github.com/getkalem/plugins?rev=802b6fdf2ea47b7c04766cf97c8f0da325bc0a9f#802b6fdf2ea47b7c04766cf97c8f0da325bc0a9f"
 dependencies = [
  "image",
+ "kalem-plugin 0.0.1 (git+https://github.com/getkalem/kalem?branch=main)",
  "kalem-viewer",
  "kamadak-exif",
  "resvg 0.45.1",
@@ -4498,9 +4508,10 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-pdf-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=6e7cef2747f8495eedcdfa4093ca24d2c151fb5a#6e7cef2747f8495eedcdfa4093ca24d2c151fb5a"
+source = "git+https://github.com/getkalem/plugins?rev=802b6fdf2ea47b7c04766cf97c8f0da325bc0a9f#802b6fdf2ea47b7c04766cf97c8f0da325bc0a9f"
 dependencies = [
  "hayro",
+ "kalem-plugin 0.0.1 (git+https://github.com/getkalem/kalem?branch=main)",
  "kalem-viewer",
  "kurbo 0.13.1",
 ]

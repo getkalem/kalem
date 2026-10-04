@@ -18,7 +18,7 @@ Emacs, pdflatex, pandoc, Vim and KaTeX. In seven days it has grown to
 Its weaknesses are the ones a week of very fast growth leaves:
 
 1. **Nothing is shippable yet.** No release, no tag, no release workflow,
-   binaries over the size target, 32 manual release checks never run, and
+   both binaries over their size targets (the terminal one three times), 32 manual release checks never run, and
    on `main` CI has not completed a single run in the last 100: 95 were
    cancelled by the next push, 4 failed. There is no green signal.
 2. **The core carries the architecture debt.** The mode contract that the
@@ -151,7 +151,7 @@ and the ones that make merges between two working sessions collide.
 - The Book and the task list are mostly kept current, with known stale
   spots: `book/part-2/latex.org` "Limits" still says there is no SyncTeX,
   no PDF panel, no corpus and that `\multirow` is not drawn, all of which
-  are done; `performance.org` gives the binary as 13 MB; `todo.md` says
+  are done; `performance.org` gave the binaries as 13 MB and 7 MB (corrected since); `todo.md` says
   the PDF panel will use pdfium, but it is hayro.
 
 ## 2. Performance
@@ -178,7 +178,8 @@ measurements (an x86-64 container):
 | LaTeX project keystroke (1.8 MB `algebra.tex`) | 2.2 ms | < 2 ms | **missed** |
 | `.klm` 1 MB keystroke | 2.2–2.9 ms | < 2 ms | **missed** |
 | SyncTeX lookup | 31 / 4 µs | < 10 ms | met |
-| Binary, full build | **49.7 MB** | < 40 MB | **missed**; the Book says 13 MB |
+| Binary, full build (macOS arm64, D28) | **48.9 MB** | < 40 MB | **missed**; the Book said 13 MB |
+| Binary, terminal-only (Linux x86-64) | **49.7 MB** | < 15 MB | **missed**, over three times; the Book said 7 MB |
 
 Not measured at all: frame times of the frontends on LaTeX, Markdown and
 CSV (only the core's keystroke is timed), the PDF panel refresh, the
@@ -219,11 +220,13 @@ manual run, and the ones with single-digit headroom will drift unnoticed.
 
 ### Binary and build
 
-- 49.7 MB release binary (`lto = "thin"`, `codegen-units = 1`, symbols
-  stripped, `opt-level` 3 everywhere, no `panic = "abort"`). The old task
-  list's D28 note agrees: 48.9 MB, 42.6 MB without the bundled viewers,
-  and Wasmtime adds about 8 MB more. Math fonts (T2.2.1) are still to
-  come.
+- The full release build is 48.9 MB (macOS arm64, D28; 42.6 MB without
+  the bundled viewers) and the terminal-only build 49.7 MB (Linux x86-64,
+  measured here): the terminal build carries the same viewers, Wasmtime
+  and decoders, so it is over its 15 MB target three times. Release
+  profile: `lto = "thin"`, `codegen-units = 1`, symbols stripped,
+  `opt-level` 3 everywhere, no `panic = "abort"`. Math fonts (T2.2.1) are
+  still to come.
 - A full test run of core and both frontends takes about 20 s of test
   time here on a warm build; the CI test job is dominated by compiling.
 - Dev builds compile the rasterizer, image decoders and Wasmtime with
@@ -303,7 +306,8 @@ manual run, and the ones with single-digit headroom will drift unnoticed.
   one machine and no benchmark runs in CI.
 - `book/part-2/latex.org` "Limits and known gaps" contradicts the
   changelog on SyncTeX, the PDF panel, `\multirow` and the corpus.
-- `performance.org` gives the binary as 13 MB (49.7 MB measured).
+- `performance.org` gave the binaries as 13 MB and 7 MB (48.9 MB and
+  49.7 MB measured; corrected).
 
 ### The old task list
 
