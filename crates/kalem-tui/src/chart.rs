@@ -133,7 +133,7 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                 break;
             }
             buf.set_string(x, l.y, mark, *style);
-            buf.set_string(x + 2, l.y, name, Style::default());
+            buf.set_string(x + 2, l.y, name, font_style(caps, &chart.legend_font));
             x += w;
         }
     };
@@ -148,7 +148,7 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                 y,
                 name,
                 l.width.saturating_sub(2) as usize,
-                Style::default(),
+                font_style(caps, &chart.legend_font),
             );
         }
     };

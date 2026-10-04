@@ -249,13 +249,30 @@ pub fn chart_view(
             .child(div().size(px(8.)).flex_none().bg(c))
             .child(SharedString::from(name))
     };
+    let lf = chart.legend_font.clone();
     let legend = |row: bool| {
-        let l = div()
+        let mut l = div()
             .debug_selector(move || format!("viewer-grid-chart-legend-{index}"))
             .flex()
             .text_xs()
             .overflow_hidden()
             .children(entries.clone().into_iter().map(entry));
+        // The legend's own font.
+        if let Some(pt) = lf.size {
+            l = l.text_size(px(pt * 4.0 / 3.0));
+        }
+        if lf.bold {
+            l = l.font_weight(gpui::FontWeight::BOLD);
+        }
+        if lf.italic {
+            l = l.italic();
+        }
+        if let Some(c) = lf.color {
+            l = l.text_color(rgb(c));
+        }
+        if let Some(face) = &lf.face {
+            l = l.font_family(SharedString::from(face.clone()));
+        }
         if row {
             l.flex_wrap().justify_center().gap(px(8.))
         } else {

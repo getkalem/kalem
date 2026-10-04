@@ -1263,6 +1263,40 @@ fn charts() {
         .as_deref_mut()
         .unwrap()
         .grid_move_to(c.anchor[0] + 2, c.anchor[1]);
+    // The legend's font: refused without a legend; with one at the
+    // bottom, green names in its line.
+    t.app.run_command("viewer.grid.legendFont", json!({}));
+    assert!(t.screen().contains("has no legend"), "{}", t.screen());
+    t.app
+        .run_command("viewer.grid.chartLegend", json!({ "position": "bottom" }));
+    t.app.run_command(
+        "viewer.grid.legendFont",
+        json!({ "op": "color", "color": "#00B050" }),
+    );
+    t.key(KeyCode::Esc);
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .legend_font
+            .color,
+        Some([0, 0xB0, 0x50])
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.screen();
+    let green = ratatui::style::Color::Rgb(0, 0xB0, 0x50);
+    assert!(
+        t.term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .any(|c| c.fg == green && c.symbol() == "Q")
+    );
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(c.anchor[0] + 2, c.anchor[1]);
     // A column chart's slices do not stand out.
     t.app.run_command("viewer.grid.explodeSlice", json!({}));
     assert!(t.screen().contains("Only a pie's"), "{}", t.screen());

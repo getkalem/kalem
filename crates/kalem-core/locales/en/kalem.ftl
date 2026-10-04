@@ -1271,6 +1271,7 @@ cmd-viewer-grid-gridlines = Gridlines
 cmd-viewer-grid-axisFormat = Axis Number Format
 cmd-viewer-grid-axisFont = Axis Font
 cmd-viewer-grid-titleFont = Title Font
+cmd-viewer-grid-legendFont = Legend Font
 cmd-viewer-grid-moveChartUp = Move Chart Up
 cmd-viewer-grid-moveChartDown = Move Chart Down
 cmd-viewer-grid-moveChartLeft = Move Chart Left
