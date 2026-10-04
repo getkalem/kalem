@@ -1175,6 +1175,11 @@ pub trait ViewerDocument: Send {
         String::new()
     }
 
+    /// A cell's number format code (`General`, `#,##0.00`, `0%`).
+    fn cell_format(&mut self, _unit: usize, _row: u32, _col: u32) -> Option<String> {
+        None
+    }
+
     /// A cell's note.
     fn cell_note(&mut self, _unit: usize, _row: u32, _col: u32) -> Option<String> {
         None
