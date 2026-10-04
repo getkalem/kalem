@@ -4230,6 +4230,72 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Goal Seek: `by`'s value that makes `set` come to `target`, put
+    /// into `by`; `None` when none was found.
+    pub fn goal_seek(
+        &mut self,
+        set: (u32, u32),
+        target: f64,
+        by: (u32, u32),
+    ) -> Result<Option<f64>, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let found = self
+            .doc()
+            .goal_seek(self.unit, set, target, by)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(found)
+    }
+
+    /// Data Table: the selection, its first row and column the values put
+    /// into the input cells.
+    pub fn create_data_table(
+        &mut self,
+        row_input: Option<(u32, u32)>,
+        col_input: Option<(u32, u32)>,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let range = self.selection();
+        self.doc()
+            .create_data_table(self.unit, range, row_input, col_input)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The sheet's what-if scenarios.
+    pub fn scenarios(&mut self) -> Vec<kalem_viewer::Scenario> {
+        self.doc().scenarios(self.unit)
+    }
+
+    /// A scenario added, shown or deleted (`what`: add, show, delete).
+    pub fn scenario(
+        &mut self,
+        what: &str,
+        name: &str,
+        cells: &[(u32, u32)],
+        comment: &str,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let unit = self.unit;
+        let mut doc = self.doc();
+        match what {
+            "add" => doc.add_scenario(unit, name, cells, comment),
+            "show" => doc.show_scenario(unit, name),
+            _ => doc.delete_scenario(unit, name),
+        }
+        .map_err(|e| e.to_string())?;
+        drop(doc);
+        self.refresh();
+        Ok(())
+    }
+
     /// The picture or shape at the cursor moved (`grow` off) or made larger
     /// or smaller by rows and columns; the cursor goes with a moved one.
     pub fn nudge_drawing(&mut self, rows: i64, cols: i64, grow: bool) -> Result<(), String> {
@@ -8326,19 +8392,194 @@ fn insert_sparklines(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> C
             "value",
         );
     };
-    let cell = |t: &str| {
-        crate::csv_tools::parse_cell(&t.replace('$', "")).map(|(r, c)| (r as u32, c as u32))
-    };
-    let (a, b) = match place.split_once(':') {
-        Some((x, y)) => (cell(x), cell(y)),
-        None => (cell(&place), cell(&place)),
-    };
-    let (Some(a), Some(b)) = (a, b) else {
+    let Some(location) = area(&place) else {
         ctx.messages.push(format!("Not cells: {place}"));
         return Ok(());
     };
-    let location = [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)];
     with(ctx, |v| v.insert_sparklines(kind, location))
+}
+
+/// A cell or a range as typed (`B3`, `$B$3`, `B3:D5`): its corners.
+fn area(text: &str) -> Option<[u32; 4]> {
+    let cell = |t: &str| {
+        crate::csv_tools::parse_cell(&t.trim().replace('$', "")).map(|(r, c)| (r as u32, c as u32))
+    };
+    let (a, b) = match text.split_once(':') {
+        Some((x, y)) => (cell(x)?, cell(y)?),
+        None => (cell(text)?, cell(text)?),
+    };
+    Some([a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)])
+}
+
+/// A cell as typed, or `None`.
+fn one_cell(text: &str) -> Option<(u32, u32)> {
+    area(text)
+        .filter(|a| a[0] == a[2] && a[1] == a[3])
+        .map(|a| (a[0], a[1]))
+}
+
+/// A cell's name, `B3`.
+fn cell_name(r: u32, c: u32) -> String {
+    format!("{}{}", crate::csv_tools::column_letters(c as usize), r + 1)
+}
+
+/// Goal Seek: the formula cell (the cursor's offered), the value it is to
+/// come to, and the cell to change.
+fn goal_seek(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.goalSeek";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(set) = text_arg(args, "set cell") else {
+        let p = v.grid_pos();
+        let mut a = args.clone();
+        a["set cell_default"] = serde_json::json!(cell_name(p.row, p.col));
+        return ask_more(ctx, ID, &a, "set cell");
+    };
+    let Some(to) = text_arg(args, "to value") else {
+        return ask_more(ctx, ID, args, "to value");
+    };
+    let Some(by) = text_arg(args, "by changing cell") else {
+        return ask_more(ctx, ID, args, "by changing cell");
+    };
+    let (Some(set_at), Some(by_at)) = (one_cell(&set), one_cell(&by)) else {
+        ctx.messages
+            .push("Goal Seek: give single cells, such as B4".into());
+        return Ok(());
+    };
+    let Ok(target) = to.trim().replace(',', "").parse::<f64>() else {
+        ctx.messages
+            .push(format!("Goal Seek: {to} is not a number"));
+        return Ok(());
+    };
+    match v.goal_seek(set_at, target, by_at) {
+        Ok(Some(x)) => {
+            let (set, by) = (set.trim().to_uppercase(), by.trim().to_uppercase());
+            ctx.messages
+                .push(format!("Goal Seek: {by} = {x} makes {set} {to}"));
+        }
+        Ok(None) => ctx.messages.push(format!(
+            "Goal Seek found no value of {by} that makes {set} {to}"
+        )),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
+/// Data Table: the selection a what-if table; its row and column input
+/// cells asked (either left empty for a table of one variable).
+fn data_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.dataTable";
+    let Some(row) = args.get("row input cell").and_then(|x| x.as_str()) else {
+        return ask_more(ctx, ID, args, "row input cell");
+    };
+    let Some(col) = args.get("column input cell").and_then(|x| x.as_str()) else {
+        return ask_more(ctx, ID, args, "column input cell");
+    };
+    let input = |t: &str| -> Result<Option<(u32, u32)>, String> {
+        if t.trim().is_empty() {
+            return Ok(None);
+        }
+        one_cell(t)
+            .map(Some)
+            .ok_or_else(|| format!("Data Table: {t} is not a cell"))
+    };
+    match (input(row), input(col)) {
+        (Ok(r), Ok(c)) => with(ctx, |v| v.create_data_table(r, c)),
+        (Err(e), _) | (_, Err(e)) => {
+            ctx.messages.push(e);
+            Ok(())
+        }
+    }
+}
+
+/// Scenario Manager: each scenario shown or deleted from the menu, or one
+/// added: its name, its cells (the selection offered) and a comment.
+fn scenarios(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.scenarios";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(what) = args.get("what").and_then(|x| x.as_str()) else {
+        let mut items = Vec::new();
+        for s in v.scenarios() {
+            let cells: Vec<String> = s
+                .cells
+                .iter()
+                .map(|(r, c, x)| format!("{}={x}", cell_name(*r, *c)))
+                .collect();
+            let about = if s.comment.is_empty() {
+                cells.join(", ")
+            } else {
+                format!("{} ({})", cells.join(", "), s.comment)
+            };
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "what": "show", "name": s.name }),
+                &format!("Show {}: {about}", s.name),
+                "Scenarios",
+            ));
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "what": "delete", "name": s.name }),
+                &format!("Delete {}", s.name),
+                "Scenarios",
+            ));
+        }
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "what": "add" }),
+            "Add Scenario…",
+            "Scenarios",
+        ));
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let what = what.to_owned();
+    let Some(name) = text_arg(args, "name") else {
+        return ask_more(ctx, ID, args, "name");
+    };
+    if what != "add" {
+        return with(ctx, |v| v.scenario(&what, &name, &[], ""));
+    }
+    let Some(cells) = text_arg(args, "changing cells") else {
+        let s = v.selection();
+        let mut a = args.clone();
+        a["changing cells_default"] = serde_json::json!(if s[0] == s[2] && s[1] == s[3] {
+            cell_name(s[0], s[1])
+        } else {
+            format!("{}:{}", cell_name(s[0], s[1]), cell_name(s[2], s[3]))
+        });
+        return ask_more(ctx, ID, &a, "changing cells");
+    };
+    let Some(comment) = args.get("comment").and_then(|x| x.as_str()) else {
+        return ask_more(ctx, ID, args, "comment");
+    };
+    let mut list = Vec::new();
+    for part in cells.split([',', ';']) {
+        let Some(a) = area(part) else {
+            ctx.messages
+                .push(format!("Scenarios: {} is not cells", part.trim()));
+            return Ok(());
+        };
+        for r in a[0]..=a[2] {
+            for c in a[1]..=a[3] {
+                if list.len() < 64 {
+                    list.push((r, c));
+                }
+            }
+        }
+    }
+    let comment = comment.to_owned();
+    with(ctx, |v| v.scenario("add", &name, &list, &comment))
 }
 
 /// Edit Shape Text: the shape at the cursor's text asked, with what it has.
@@ -10270,6 +10511,27 @@ fn grid_commands() -> Vec<Command> {
             &["p shift+i"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.clear_sparklines()),
+        ),
+        cmd(
+            "viewer.grid.goalSeek",
+            "Goal Seek",
+            &["z g"],
+            IN_GRID,
+            goal_seek,
+        ),
+        cmd(
+            "viewer.grid.dataTable",
+            "Data Table",
+            &["z d"],
+            IN_GRID,
+            data_table,
+        ),
+        cmd(
+            "viewer.grid.scenarios",
+            "Scenario Manager",
+            &["z m"],
+            IN_GRID,
+            scenarios,
         ),
         cmd(
             "viewer.grid.goToSpecial",

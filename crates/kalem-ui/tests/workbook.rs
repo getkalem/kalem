@@ -781,6 +781,27 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-sparkline-1-7").is_none());
 
+    // Goal Seek: D2 (B2+C2) made 1000 by changing B2; then undone.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.goalSeek",
+            serde_json::json!({ "set cell": "D2", "to value": "1000", "by changing cell": "B2" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let d2 = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_cells(1..2, 3..4)[0].2.text.clone()
+    });
+    assert!(d2.replace(',', "").starts_with("1000"), "{d2}");
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+
     // Find: the first match after the cursor, then the next with F3.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

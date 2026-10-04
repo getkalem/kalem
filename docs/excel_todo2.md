@@ -91,7 +91,7 @@ be bound again.
 
 ## E33. What-If analysis
 
-- [ ] E33 Goal Seek (set a cell to a value by changing another); Data
+- [x] E33 Goal Seek (set a cell to a value by changing another); Data
   Tables of one and two variables; Scenario Manager.
 
 ## E34. Comments and sheet tabs

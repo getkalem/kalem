@@ -3424,3 +3424,63 @@ fn sparklines() {
     )));
     assert!(!t.screen().contains("▇▁█▄"), "{}", t.screen());
 }
+
+#[test]
+fn what_if() {
+    let mut t = T::open("what-if");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    // A loan: rate in K1, months in K2, amount in K3, payment in K4.
+    for (r, x) in ["0.01", "12", "1000", "=-PMT(K1,K2,K3)"].iter().enumerate() {
+        v.set_cell(r as u32, 10, x).unwrap();
+    }
+    v.grid_move_to(3, 10);
+    // Goal Seek: the cursor's cell offered, then the value and the cell.
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('g'));
+    let s = t.screen();
+    assert!(s.contains("set cell") && s.contains("K4"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.goalSeek",
+        json!({ "set cell": "K4", "to value": "100", "by changing cell": "k3" }),
+    );
+    assert!(
+        t.screen().contains("Goal Seek: K3 = 1125.5"),
+        "{}",
+        t.screen()
+    );
+    // A data table of one variable: rates down M2:M4, the payment at N1.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(0, 13, "=K4").unwrap();
+    for (r, x) in ["0", "0.01", "0.02"].iter().enumerate() {
+        v.set_cell(1 + r as u32, 12, x).unwrap();
+    }
+    v.grid_move_to(0, 12);
+    v.grid_extend_to(3, 13);
+    t.app.run_command(
+        "viewer.grid.dataTable",
+        json!({ "row input cell": "", "column input cell": "K1" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let n2 = v.grid_cells(1..2, 13..14)[0].2.text.clone();
+    assert!(n2.starts_with("93.79"), "{n2}");
+    // Scenarios: one added from K1:K2, then shown from the menu.
+    t.app.run_command(
+        "viewer.grid.scenarios",
+        json!({ "what": "add", "name": "Low", "changing cells": "K1:K2", "comment": "" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(1, 10, "36").unwrap();
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('m'));
+    let s = t.screen();
+    assert!(s.contains("Show Low: K1=0.01, K2=12"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.scenarios",
+        json!({ "what": "show", "name": "Low" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(1, 10);
+    assert_eq!(v.cell_input(), "12");
+}
