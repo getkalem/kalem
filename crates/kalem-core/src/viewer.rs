@@ -2290,6 +2290,21 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Sets the font of the title of the chart under the cursor.
+    pub fn set_title_font(&mut self, font: kalem_viewer::AxisFont) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to set its title's font")?;
+        self.doc()
+            .set_title_font(self.unit, i, font)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -4446,12 +4461,16 @@ fn axis_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
     }
 }
 
-/// Axis Font: the axis (or both), then its labels' size, bold, italic,
-/// color and typeface, each choice taking effect at once and the menu
-/// offered again.
-fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+/// Axis Font and Title Font: the axis (or both) for an axis, then the
+/// size, bold, italic, color and typeface, each choice taking effect at
+/// once and the menu offered again.
+fn font_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value, title: bool) -> CommandResult {
     use kalem_viewer::{AxisFont, ChartAxis, ChartKind};
-    const ID: &str = "viewer.grid.axisFont";
+    let id = if title {
+        "viewer.grid.titleFont"
+    } else {
+        "viewer.grid.axisFont"
+    };
     let Some(v) = ctx
         .document
         .as_deref_mut()
@@ -4465,7 +4484,12 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
         return Ok(());
     };
     let chart = v.charts()[i].clone();
-    if matches!(chart.kind, ChartKind::Pie | ChartKind::Doughnut) {
+    if title && chart.title.is_none() {
+        ctx.messages
+            .push("Give the chart a title first (h t)".into());
+        return Ok(());
+    }
+    if !title && matches!(chart.kind, ChartKind::Pie | ChartKind::Doughnut) {
         ctx.messages.push("A pie has no axes".into());
         return Ok(());
     }
@@ -4473,6 +4497,7 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
         .get("axis")
         .and_then(|a| a.as_str())
         .map(str::to_string)
+        .or_else(|| title.then(|| "title".to_string()))
     else {
         let items = [
             ("horizontal", "Horizontal Axis"),
@@ -4480,7 +4505,7 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
             ("both", "Both Axes"),
         ]
         .iter()
-        .map(|(k, t)| menu_item(ID, serde_json::json!({ "axis": k }), t, "Axis Font"))
+        .map(|(k, t)| menu_item(id, serde_json::json!({ "axis": k }), t, "Axis Font"))
         .collect();
         ctx.requests.push(Request::Choose(items));
         return Ok(());
@@ -4490,7 +4515,9 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
         "vertical" => vec![ChartAxis::Vertical],
         _ => vec![ChartAxis::Horizontal, ChartAxis::Vertical],
     };
-    let now = if axes[0] == ChartAxis::Horizontal {
+    let now = if title {
+        chart.title_font.clone()
+    } else if axes[0] == ChartAxis::Horizontal {
         chart.horizontal_font.clone()
     } else {
         chart.vertical_font.clone()
@@ -4520,7 +4547,7 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
             };
             return ask_more(
                 ctx,
-                ID,
+                id,
                 &serde_json::json!({ "axis": axis, "op": op, "value_default": current }),
                 "value",
             );
@@ -4562,14 +4589,14 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
             match c.as_deref() {
                 None => {
                     let mut items = color_menu(
-                        ID,
+                        id,
                         &serde_json::json!({ "axis": axis, "op": "color" }),
                         "Axis Font Color",
                     );
                     // Custom… asks for the code under its own op.
                     if let Some(custom) = items.iter_mut().find(|it| it.title == "Custom…") {
                         custom.id = crate::palette::invocation(
-                            ID,
+                            id,
                             &serde_json::json!({ "axis": axis, "op": "customColor" }),
                         );
                     }
@@ -4596,22 +4623,25 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
     };
     let font = match changed {
         Some(f) => {
-            for a in &axes {
-                if let Err(e) = v.set_axis_font(*a, f.clone()) {
-                    ctx.messages.push(e);
-                    return Ok(());
-                }
+            let done = if title {
+                v.set_title_font(f.clone())
+            } else {
+                axes.iter().try_for_each(|a| v.set_axis_font(*a, f.clone()))
+            };
+            if let Err(e) = done {
+                ctx.messages.push(e);
+                return Ok(());
             }
             f
         }
         None => now,
     };
-    let c = "Axis Font";
+    let c = if title { "Title Font" } else { "Axis Font" };
     let base = |op: &str| serde_json::json!({ "axis": axis, "op": op });
     let check = |on: bool| if on { "☑" } else { "☐" };
     ctx.requests.push(Request::Choose(vec![
         menu_item(
-            ID,
+            id,
             base("size"),
             &format!(
                 "Size… ({})",
@@ -4619,21 +4649,21 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
             ),
             c,
         ),
-        menu_item(ID, base("bold"), &format!("{} Bold", check(font.bold)), c),
+        menu_item(id, base("bold"), &format!("{} Bold", check(font.bold)), c),
         menu_item(
-            ID,
+            id,
             base("italic"),
             &format!("{} Italic", check(font.italic)),
             c,
         ),
         menu_item(
-            ID,
+            id,
             base("color"),
             &format!("Color… ({})", font.color.map_or("automatic".into(), hex)),
             c,
         ),
         menu_item(
-            ID,
+            id,
             base("face"),
             &format!(
                 "Font… ({})",
@@ -4641,9 +4671,16 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
             ),
             c,
         ),
-        menu_item(ID, base("reset"), "Default Font", c),
+        menu_item(id, base("reset"), "Default Font", c),
     ]));
     Ok(())
+}
+
+/// Axis Font: the axis (or both), then its labels' size, bold, italic,
+/// color and typeface, each choice taking effect at once and the menu
+/// offered again.
+fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    font_menu(ctx, args, false)
 }
 
 /// Insert Chart: the kinds offered, then the chart of the selection.
@@ -6276,6 +6313,13 @@ fn grid_commands() -> Vec<Command> {
             &["h f"],
             IN_GRID,
             axis_font,
+        ),
+        cmd(
+            "viewer.grid.titleFont",
+            "Title Font",
+            &["h shift+t"],
+            IN_GRID,
+            |ctx, args| font_menu(ctx, args, true),
         ),
         cmd(
             "viewer.grid.deleteChart",

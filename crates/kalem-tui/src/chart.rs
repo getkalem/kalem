@@ -63,10 +63,10 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
         } else {
             Borders::ALL
         })
-        .title(Line::from(short(
-            &title,
-            area.width.saturating_sub(4) as usize,
-        )));
+        .title(
+            Line::from(short(&title, area.width.saturating_sub(4) as usize))
+                .style(font_style(caps, &chart.title_font)),
+        );
     // The axes' titles on the bottom edge: the horizontal one centered,
     // the vertical one at the left, pointing up.
     let room = area.width.saturating_sub(4) as usize;

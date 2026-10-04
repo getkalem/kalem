@@ -874,6 +874,44 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .clone()
     });
     assert_eq!((vf.size, vf.italic), (Some(14.0), true));
+    // A title in 20 point Georgia.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.chartTitle",
+            serde_json::json!({ "value": "Areas" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.titleFont",
+            serde_json::json!({ "op": "size", "value": "20" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.titleFont",
+            serde_json::json!({ "op": "face", "value": "Georgia" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    let (tf, count) = e.update(cx, |e, _| {
+        let c = e.doc.viewer.as_deref_mut().unwrap().charts();
+        (c.last().unwrap().title_font.clone(), c.len())
+    });
+    assert_eq!((tf.size, tf.face.as_deref()), (Some(20.0), Some("Georgia")));
+    assert!(
+        cx.debug_bounds(Box::leak(
+            format!("viewer-grid-chart-title-{}", count - 1).into_boxed_str()
+        ))
+        .is_some()
+    );
     // Its plot area a darker blue with a border.
     e.update_in(cx, |e, window, cx| {
         let v = e.doc.viewer.as_deref_mut().unwrap();

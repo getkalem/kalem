@@ -72,15 +72,30 @@ pub fn chart_view(
         .flex_col()
         .overflow_hidden();
     if let Some(t) = &chart.title {
-        d = d.child(
-            div()
-                .flex()
-                .justify_center()
-                .font_weight(gpui::FontWeight::BOLD)
-                .whitespace_nowrap()
-                .overflow_hidden()
-                .child(SharedString::from(t.clone())),
-        );
+        let tf = &chart.title_font;
+        let mut title = div()
+            .debug_selector(move || format!("viewer-grid-chart-title-{index}"))
+            .flex()
+            .justify_center()
+            .whitespace_nowrap()
+            .overflow_hidden();
+        // Bold as a chart's title is, unless its own font says otherwise.
+        if tf.is_default() || tf.bold {
+            title = title.font_weight(gpui::FontWeight::BOLD);
+        }
+        if tf.italic {
+            title = title.italic();
+        }
+        if let Some(pt) = tf.size {
+            title = title.text_size(px(pt * 4.0 / 3.0));
+        }
+        if let Some(c) = tf.color {
+            title = title.text_color(rgb(c));
+        }
+        if let Some(face) = &tf.face {
+            title = title.font_family(SharedString::from(face.clone()));
+        }
+        d = d.child(title.child(SharedString::from(t.clone())));
     }
     let plot = chart.clone();
     let mut canvas = div()
