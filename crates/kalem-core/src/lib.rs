@@ -86,6 +86,7 @@ pub mod sessions;
 pub mod settings;
 pub mod sheet_print;
 pub mod siunitx;
+pub mod spelling;
 pub mod stats;
 pub mod synctex;
 pub mod system;

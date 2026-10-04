@@ -3988,3 +3988,81 @@ fn calculation() {
     assert!(o.iterate && o.max_iterations == 200);
     assert_eq!(o.mode, kalem_viewer::CalcMode::Manual);
 }
+
+#[test]
+fn find_all_and_spelling() {
+    let mut t = T::open("spelling");
+    t.term = Terminal::new(TestBackend::new(120, 30)).unwrap();
+    // Find All: every match, chosen to go to.
+    t.app
+        .run_command("viewer.grid.findAll", json!({ "value": "o" }));
+    let s = t.screen();
+    assert!(s.contains("!A3: Food") && s.contains("found"), "{s}");
+    t.key(KeyCode::Esc);
+    // In notes, and in the whole workbook.
+    t.app.run_command("viewer.grid.findInNotes", json!({}));
+    t.app
+        .run_command("viewer.grid.findAll", json!({ "value": "first" }));
+    assert!(t.screen().contains("Paid on the first"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command("viewer.grid.findInWorkbook", json!({}));
+    t.app
+        .run_command("viewer.grid.findAll", json!({ "value": "2026" }));
+    assert!(t.screen().contains("Dates!"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // Spelling with a dictionary of the test's own, in a folder of its own.
+    let config = t.dir.join("config");
+    std::fs::create_dir_all(config.join("dictionaries")).unwrap();
+    std::fs::write(
+        config.join("dictionaries/xx_TEST.aff"),
+        "SET UTF-8\nTRY esianrtolcdugmphbyfvkwz\n",
+    )
+    .unwrap();
+    std::fs::write(
+        config.join("dictionaries/xx_TEST.dic"),
+        "8\nItem\nRent\nFood\nSum\nTotal\nMerged\nnote\nTrip\n",
+    )
+    .unwrap();
+    kalem_core::spelling::use_folder(&config.join("dictionaries"));
+    t.app.doc.viewer.as_deref_mut().unwrap().go_to(0);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app
+        .run_command("viewer.grid.spelling", json!({ "language": "xx_TEST" }));
+    let s = t.screen();
+    assert!(
+        s.contains("Not in the xx_TEST dictionary: Travel (A4)"),
+        "{s}"
+    );
+    assert!(
+        s.contains("Ignore All") && s.contains("Add to Dictionary"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.spelling",
+        json!({ "action": "change", "row": 3, "col": 0, "at": 0, "word": "Travel", "with": "Trip", "language": "xx_TEST" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(3, 0);
+    assert_eq!(v.cell_input(), "Trip");
+    t.key(KeyCode::Esc);
+    // A word added is the user's: in the dictionaries folder.
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .set_cell(6, 0, "Kalemli")
+        .unwrap();
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app
+        .run_command("viewer.grid.spelling", json!({ "language": "xx_TEST" }));
+    assert!(t.screen().contains("dictionary: Kalemli"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.spelling",
+        json!({ "action": "add", "row": 6, "col": 0, "at": 0, "word": "Kalemli", "language": "xx_TEST" }),
+    );
+    let words = std::fs::read_to_string(config.join("dictionaries/words.txt")).unwrap();
+    assert!(words.contains("Kalemli"));
+}

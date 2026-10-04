@@ -52,11 +52,12 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E41. Finding and spelling
 
-- [ ] E41 Find All: every match listed with its sheet, cell and value,
+- [x] E41 Find All: every match listed with its sheet, cell and value,
   chosen to go there; Find in values, formulas, notes or comments,
   matching case or the whole cell, in the sheet or the whole workbook;
   Spelling (F7) over the sheet's text with the editor's dictionaries,
-  each word replaced, ignored or added.
+  each word replaced, ignored or added. (Kalem had no dictionaries:
+  Hunspell's are used, the user's, the system's or LibreOffice's.)
 
 ## E42. Pasting and filling, the rest
 

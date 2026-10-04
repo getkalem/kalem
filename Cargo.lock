@@ -3768,7 +3768,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -4417,6 +4417,7 @@ dependencies = [
  "resvg 0.45.1",
  "serde_json",
  "sha2 0.10.9",
+ "spellbook",
  "sys-locale",
  "tar",
  "toml_edit 0.25.15+spec-1.1.0",
@@ -7911,6 +7912,16 @@ checksum = "4aaa7368fcf4852a4c2dd92df0cace6a71f2091ca0a23391ce7f3a31833f1523"
 dependencies = [
  "borsh",
  "serde_core",
+]
+
+[[package]]
+name = "spellbook"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d204abcbdf8e88729306a8d0ca01a79d8a49969fe1f84696909d6dbc4321c1a"
+dependencies = [
+ "foldhash 0.2.0",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]

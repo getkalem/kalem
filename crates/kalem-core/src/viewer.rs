@@ -376,6 +376,10 @@ pub struct ViewerState {
     pub hits: Option<GridHits>,
     /// The circular references, by generation.
     circ_cache: Option<(u64, Vec<SheetCell>)>,
+    /// Words Spelling ignores until the file is closed.
+    pub spell_ignored: std::collections::HashSet<String>,
+    /// The dictionary Spelling uses, when chosen.
+    pub spell_language: Option<String>,
     /// Each sheet's view settings, read once.
     views: std::collections::HashMap<usize, kalem_viewer::SheetView>,
     /// Page Break Preview's pages, by unit and generation.
@@ -396,6 +400,10 @@ pub struct GridSearch {
     /// In what the cells hold (formulas, values as entered) rather than
     /// what they show.
     pub formulas: bool,
+    /// In the cells' notes and comments too.
+    pub notes: bool,
+    /// In every sheet of the workbook, not the one shown.
+    pub workbook: bool,
 }
 
 impl GridSearch {
@@ -690,6 +698,8 @@ impl ViewerState {
             views: std::collections::HashMap::new(),
             hits: None,
             circ_cache: None,
+            spell_ignored: std::collections::HashSet::new(),
+            spell_language: None,
             pages_cache: None,
             pictures: std::collections::HashMap::new(),
         })
@@ -3700,7 +3710,13 @@ impl ViewerState {
     /// The cells Find matches, row by row, with what it matched in each
     /// (what the cell shows, or holds for a search in formulas).
     pub fn find_matches(&mut self) -> Vec<(u32, u32, String)> {
-        let Some(l) = self.grid_layout() else {
+        let unit = self.unit;
+        self.find_matches_in(unit)
+    }
+
+    /// Find's matches in sheet `unit`.
+    pub fn find_matches_in(&mut self, unit: usize) -> Vec<(u32, u32, String)> {
+        let Some(l) = self.doc().grid(unit) else {
             return Vec::new();
         };
         let (rows, cols) = (l.rows.min(l.max_rows), l.cols.min(l.max_cols).max(1));
@@ -3709,50 +3725,163 @@ impl ViewerState {
         let mut row = 0;
         while row < rows {
             let to = (row + 1000).min(rows);
-            let mut cells: Vec<(u32, u32, String)> = self
-                .grid_cells(row..to, 0..cols)
+            let mut cells: Vec<(u32, u32, String, bool)> = self
+                .doc()
+                .grid_cells(unit, row..to, 0..cols)
                 .into_iter()
-                .filter(|c| !c.2.text.is_empty() || c.2.formula)
-                .map(|c| (c.0, c.1, c.2.text))
+                .filter(|c| !c.2.text.is_empty() || c.2.formula || c.2.note)
+                .map(|c| (c.0, c.1, c.2.text, c.2.note))
                 .collect();
             cells.sort_by_key(|c| (c.0, c.1));
-            for (r, c, shown) in cells {
+            for (r, c, shown, note) in cells {
                 let hay = if search.formulas {
-                    self.doc().cell_input(self.unit, r, c)
+                    self.doc().cell_input(unit, r, c)
                 } else {
                     shown
                 };
                 if search.matches(&hay) {
                     out.push((r, c, hay));
+                } else if search.notes
+                    && note
+                    && let Some(n) = self.doc().cell_note(unit, r, c)
+                    && search.matches(&n)
+                {
+                    out.push((r, c, n));
                 }
             }
             row = to;
+        }
+        // Comments, on cells holding nothing too.
+        if search.notes {
+            for t in self.doc().threads(unit) {
+                let text: String = t
+                    .comments
+                    .iter()
+                    .map(|c| c.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if search.matches(&text) && !out.iter().any(|m| (m.0, m.1) == (t.row, t.col)) {
+                    out.push((t.row, t.col, text));
+                }
+            }
+            out.sort_by_key(|m| (m.0, m.1));
+        }
+        out
+    }
+
+    /// Find All: every match (sheet, row, column, what matched), in the
+    /// sheet shown or with Within Workbook in every sheet.
+    pub fn find_all(&mut self) -> Vec<(usize, u32, u32, String)> {
+        let units: Vec<usize> = if self.grid_search.workbook {
+            (0..self.structure.units.len())
+                .filter(|u| self.is_grid_unit(*u))
+                .collect()
+        } else {
+            vec![self.unit]
+        };
+        let mut out = Vec::new();
+        for u in units {
+            out.extend(
+                self.find_matches_in(u)
+                    .into_iter()
+                    .map(|(r, c, t)| (u, r, c, t)),
+            );
         }
         out
     }
 
     /// Find Next or Previous: the cursor to the next match after it (or
-    /// before), round the sheet; which match it is and how many there are.
+    /// before), round the sheet (or the workbook); which match it is and
+    /// how many there are.
     pub fn find_step(&mut self, forward: bool) -> Result<(usize, usize), String> {
         if self.grid_search.text.is_empty() {
             return Err("Find what? (Ctrl+F)".into());
         }
-        let found = self.find_matches();
+        let found = self.find_all();
         if found.is_empty() {
             return Err(format!("Cannot find {}", self.grid_search.text));
         }
         let p = self.grid_pos();
-        let at = (p.row, p.col);
+        let at = (self.unit, p.row, p.col);
         let i = if forward {
-            found.iter().position(|m| (m.0, m.1) > at).unwrap_or(0)
+            found.iter().position(|m| (m.0, m.1, m.2) > at).unwrap_or(0)
         } else {
             found
                 .iter()
-                .rposition(|m| (m.0, m.1) < at)
+                .rposition(|m| (m.0, m.1, m.2) < at)
                 .unwrap_or(found.len() - 1)
         };
-        self.grid_move_to(found[i].0, found[i].1);
+        if found[i].0 != self.unit {
+            self.go_to(found[i].0);
+        }
+        self.grid_move_to(found[i].1, found[i].2);
         Ok((i + 1, found.len()))
+    }
+
+    /// The next word `speller` does not know in the sheet's text cells,
+    /// from (`row`, `col`, byte `at` in the cell's text) on, row by row:
+    /// its cell, place and the word. Ignored words passed over.
+    pub fn next_misspelling(
+        &mut self,
+        speller: &crate::spelling::Speller,
+        from: (u32, u32, usize),
+        ignored: &std::collections::HashSet<String>,
+    ) -> Option<(u32, u32, usize, String)> {
+        let l = self.grid_layout()?;
+        let (rows, cols) = (l.rows.min(l.max_rows), l.cols.min(l.max_cols).max(1));
+        let mut row = from.0;
+        while row < rows {
+            let to = (row + 500).min(rows);
+            let mut cells: Vec<(u32, u32)> = self
+                .doc()
+                .grid_cells(self.unit, row..to, 0..cols)
+                .into_iter()
+                .filter(|c| !c.2.text.is_empty() && !c.2.formula && !c.2.numeric)
+                .map(|c| (c.0, c.1))
+                .collect();
+            cells.sort();
+            for (r, c) in cells {
+                if (r, c) < (from.0, from.1) {
+                    continue;
+                }
+                let text = self.doc().cell_input(self.unit, r, c);
+                let text = text.strip_prefix('\'').unwrap_or(&text).to_owned();
+                for (i, w) in crate::spelling::words(&text) {
+                    if (r, c) == (from.0, from.1) && i < from.2 {
+                        continue;
+                    }
+                    if !ignored.contains(w) && !crate::spelling::check(speller, w) {
+                        return Some((r, c, i, w.to_owned()));
+                    }
+                }
+            }
+            row = to;
+        }
+        None
+    }
+
+    /// A word of a cell's text (at byte `at`) changed to `with`.
+    pub fn change_word(
+        &mut self,
+        row: u32,
+        col: u32,
+        at: usize,
+        word: &str,
+        with: &str,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let text = self.doc().cell_input(self.unit, row, col);
+        let (quote, body) = match text.strip_prefix('\'') {
+            Some(b) => ("'", b.to_owned()),
+            None => ("", text.clone()),
+        };
+        if body.get(at..at + word.len()) != Some(word) {
+            return Err(format!("{word} is no longer there"));
+        }
+        let new = format!("{quote}{}{with}{}", &body[..at], &body[at + word.len()..]);
+        self.set_cell(row, col, &new)
     }
 
     /// Replace: the cursor's cell's text replaced if it matches, then on
@@ -7928,6 +8057,8 @@ fn find_option(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     let (flag, name) = match which {
         "case" => (&mut v.grid_search.case, "Match Case"),
         "whole" => (&mut v.grid_search.whole, "Match Entire Cell Contents"),
+        "notes" => (&mut v.grid_search.notes, "Look in Notes and Comments"),
+        "workbook" => (&mut v.grid_search.workbook, "Within the Workbook"),
         _ => (&mut v.grid_search.formulas, "Look in Formulas"),
     };
     *flag = !*flag;
@@ -9565,6 +9696,239 @@ fn circular_references(ctx: &mut EditorContext<'_>, args: &serde_json::Value) ->
             )
         })
         .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Find All: every match listed with its sheet, cell and what it holds,
+/// one chosen to go to.
+fn find_all(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.findAll";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if let (Some(u), Some(r), Some(c)) = (
+        args.get("unit").and_then(serde_json::Value::as_u64),
+        args.get("row").and_then(serde_json::Value::as_u64),
+        args.get("col").and_then(serde_json::Value::as_u64),
+    ) {
+        v.go_to(u as usize);
+        v.grid_move_to(r as u32, c as u32);
+        return Ok(());
+    }
+    if let Some(t) = text_arg(args, "value") {
+        v.grid_search.text = t;
+    }
+    if v.grid_search.text.is_empty() {
+        let mut a = args.clone();
+        a["value_default"] = serde_json::json!(v.grid_search.text);
+        return ask_more(ctx, ID, &a, "value");
+    }
+    let found = v.find_all();
+    if found.is_empty() {
+        ctx.messages
+            .push(format!("Cannot find {}", v.grid_search.text));
+        return Ok(());
+    }
+    let labels: Vec<String> = v
+        .structure()
+        .units
+        .iter()
+        .map(|u| u.label.clone())
+        .collect();
+    let n = found.len();
+    let items = found
+        .into_iter()
+        .take(2000)
+        .map(|(u, r, c, text)| {
+            let shown: String = text.replace('\n', " ").chars().take(80).collect();
+            menu_item(
+                ID,
+                serde_json::json!({ "unit": u, "row": r, "col": c }),
+                &format!(
+                    "{}!{}: {shown}",
+                    labels.get(u).cloned().unwrap_or_default(),
+                    cell_name(r, c)
+                ),
+                &format!("{n} found"),
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Spelling (F7): the next word the dictionary does not know in the
+/// sheet's text, from the cursor on: changed to a suggestion or another
+/// word, ignored once or every time, or added to the dictionary; then on
+/// to the next one.
+fn spelling(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.spelling";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if let Some(l) = text_arg(args, "language") {
+        v.spell_language = Some(l);
+    }
+    let action = args.get("action").and_then(|x| x.as_str()).unwrap_or("");
+    if action == "languages" {
+        let items: Vec<_> = crate::spelling::dictionaries()
+            .into_iter()
+            .map(|(lang, aff, _)| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "language": lang }),
+                    &format!(
+                        "{lang} ({})",
+                        aff.parent()
+                            .map_or(String::new(), |p| p.display().to_string())
+                    ),
+                    "Spelling: dictionary",
+                )
+            })
+            .collect();
+        if items.is_empty() {
+            ctx.messages.push(format!(
+                "No dictionary: put Hunspell's LANG.aff and LANG.dic into {}",
+                crate::spelling::dictionary_folder().display()
+            ));
+        } else {
+            ctx.requests.push(Request::Choose(items));
+        }
+        return Ok(());
+    }
+    let Some(lang) = v
+        .spell_language
+        .clone()
+        .or_else(crate::spelling::default_language)
+    else {
+        ctx.messages.push(format!(
+            "No dictionary: put Hunspell's LANG.aff and LANG.dic into {}",
+            crate::spelling::dictionary_folder().display()
+        ));
+        return Ok(());
+    };
+    let speller = match crate::spelling::speller(&lang) {
+        Ok(s) => s,
+        Err(e) => {
+            ctx.messages.push(e);
+            return Ok(());
+        }
+    };
+    let num = |k: &str| args.get(k).and_then(serde_json::Value::as_u64).unwrap_or(0);
+    let (row, col, at) = (num("row") as u32, num("col") as u32, num("at") as usize);
+    let word = args
+        .get("word")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_owned();
+    let from = match action {
+        "change" | "changeTo" => {
+            let with = if action == "change" {
+                args.get("with")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_owned()
+            } else {
+                match text_arg(args, "value") {
+                    Some(w) => w,
+                    None => {
+                        let mut a = args.clone();
+                        a["value_default"] = serde_json::json!(word);
+                        return ask_more(ctx, ID, &a, "value");
+                    }
+                }
+            };
+            if let Err(e) = v.change_word(row, col, at, &word, &with) {
+                ctx.messages.push(e);
+                return Ok(());
+            }
+            (row, col, at + with.len())
+        }
+        "ignore" => (row, col, at + word.len()),
+        "ignoreAll" => {
+            v.spell_ignored.insert(word.clone());
+            (row, col, at + word.len())
+        }
+        "add" => {
+            if let Err(e) = crate::spelling::add_word(&speller, &word) {
+                ctx.messages.push(e);
+                return Ok(());
+            }
+            (row, col, at + word.len())
+        }
+        _ => {
+            let p = v.grid_pos();
+            (p.row, p.col, 0)
+        }
+    };
+    let ignored = v.spell_ignored.clone();
+    let Some((r, c, i, w)) = v.next_misspelling(&speller, from, &ignored) else {
+        ctx.messages
+            .push(format!("Spelling ({lang}): no more to check"));
+        return Ok(());
+    };
+    v.grid_move_to(r, c);
+    let at_word = serde_json::json!({ "row": r, "col": c, "at": i, "word": w, "language": lang });
+    let with = |action: &str, extra: serde_json::Value| {
+        let mut a = at_word.clone();
+        a["action"] = serde_json::json!(action);
+        if let (Some(o), Some(e)) = (a.as_object_mut(), extra.as_object()) {
+            o.extend(e.clone());
+        }
+        a
+    };
+    let category = format!("Not in the {lang} dictionary: {w} ({})", cell_name(r, c));
+    let mut items: Vec<_> = crate::spelling::suggest(&speller, &w)
+        .into_iter()
+        .take(5)
+        .map(|s| {
+            menu_item(
+                ID,
+                with("change", serde_json::json!({ "with": s })),
+                &format!("Change to {s}"),
+                &category,
+            )
+        })
+        .collect();
+    items.push(menu_item(
+        ID,
+        with("changeTo", serde_json::json!({})),
+        "Change to…",
+        &category,
+    ));
+    items.push(menu_item(
+        ID,
+        with("ignore", serde_json::json!({})),
+        "Ignore Once",
+        &category,
+    ));
+    items.push(menu_item(
+        ID,
+        with("ignoreAll", serde_json::json!({})),
+        "Ignore All",
+        &category,
+    ));
+    items.push(menu_item(
+        ID,
+        with("add", serde_json::json!({})),
+        "Add to Dictionary",
+        &category,
+    ));
+    items.push(menu_item(
+        ID,
+        serde_json::json!({ "action": "languages" }),
+        &format!("Dictionary: {lang}…"),
+        &category,
+    ));
     ctx.requests.push(Request::Choose(items));
     Ok(())
 }
@@ -12356,6 +12720,34 @@ fn grid_commands() -> Vec<Command> {
             &["ctrl+shift+0", "z shift+c"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.set_hidden(false, false)),
+        ),
+        cmd(
+            "viewer.grid.findAll",
+            "Find All",
+            &["ctrl+shift+f", "g /"],
+            IN_GRID,
+            find_all,
+        ),
+        cmd(
+            "viewer.grid.findInNotes",
+            "Find: Look in Notes and Comments",
+            &[],
+            IN_GRID,
+            |ctx, _| find_option(ctx, "notes"),
+        ),
+        cmd(
+            "viewer.grid.findInWorkbook",
+            "Find: Within the Workbook",
+            &[],
+            IN_GRID,
+            |ctx, _| find_option(ctx, "workbook"),
+        ),
+        cmd(
+            "viewer.grid.spelling",
+            "Spelling",
+            &["f7"],
+            IN_GRID,
+            spelling,
         ),
         cmd(
             "viewer.grid.calculationOptions",
