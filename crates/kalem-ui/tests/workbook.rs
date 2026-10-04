@@ -619,6 +619,24 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // Find: the first match after the cursor, then the next with F3.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.find",
+            serde_json::json!({ "value": "950" }),
+            window,
+            cx,
+        )
+    });
+    cx.simulate_keystrokes("f3");
+    cx.run_until_parked();
+    let p = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().grid_pos());
+    assert_eq!((p.row, p.col), (3, 3));
+    e.update_in(cx, |e, _, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0)
+    });
+    cx.run_until_parked();
+
     // Thick outside borders, drawn along the cell's sides; then undone.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

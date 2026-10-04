@@ -330,6 +330,69 @@ pub struct ViewerState {
     /// The selection's Average, Count and Sum, for the unit, selection
     /// and generation they were found for.
     selection_sums: Option<(SumsKey, Option<String>)>,
+    /// What Find looks for.
+    pub grid_search: GridSearch,
+}
+
+/// What Find looks for in a grid, and how.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GridSearch {
+    /// The text.
+    pub text: String,
+    /// Small and capital letters told apart (Match Case).
+    pub case: bool,
+    /// The whole cell must be the text (Match Entire Cell Contents).
+    pub whole: bool,
+    /// In what the cells hold (formulas, values as entered) rather than
+    /// what they show.
+    pub formulas: bool,
+}
+
+impl GridSearch {
+    /// Whether a cell's text matches.
+    pub fn matches(&self, hay: &str) -> bool {
+        if self.text.is_empty() {
+            return false;
+        }
+        let (h, n) = if self.case {
+            (hay.to_owned(), self.text.clone())
+        } else {
+            (hay.to_lowercase(), self.text.to_lowercase())
+        };
+        if self.whole { h == n } else { h.contains(&n) }
+    }
+
+    /// A cell's text with the text replaced by `with`: all of it for a
+    /// whole-cell search, else every occurrence.
+    pub fn replace(&self, hay: &str, with: &str) -> String {
+        if self.whole {
+            return with.to_owned();
+        }
+        if self.case {
+            return hay.replace(&self.text, with);
+        }
+        let (low, n) = (hay.to_lowercase(), self.text.to_lowercase());
+        // Where the lowercase text matches, the original's same characters
+        // go (lowercasing can change lengths, so by characters).
+        let hay_chars: Vec<char> = hay.chars().collect();
+        let low_chars: Vec<char> = low.chars().collect();
+        let n_chars: Vec<char> = n.chars().collect();
+        if hay_chars.len() != low_chars.len() || n_chars.is_empty() {
+            return hay.replace(&self.text, with);
+        }
+        let mut out = String::new();
+        let mut i = 0;
+        while i < low_chars.len() {
+            if low_chars[i..].starts_with(&n_chars) {
+                out.push_str(with);
+                i += n_chars.len();
+            } else {
+                out.push(hay_chars[i]);
+                i += 1;
+            }
+        }
+        out
+    }
 }
 
 /// A selection of a unit at a generation: unit, range, generation.
@@ -446,6 +509,7 @@ impl ViewerState {
             fill_lists: Vec::new(),
             border_color: None,
             selection_sums: None,
+            grid_search: GridSearch::default(),
         })
     }
 
@@ -2801,6 +2865,118 @@ impl ViewerState {
         });
         self.selection_sums = Some((key, text.clone()));
         text
+    }
+
+    /// The cells Find matches, row by row, with what it matched in each
+    /// (what the cell shows, or holds for a search in formulas).
+    pub fn find_matches(&mut self) -> Vec<(u32, u32, String)> {
+        let Some(l) = self.grid_layout() else {
+            return Vec::new();
+        };
+        let (rows, cols) = (l.rows.min(l.max_rows), l.cols.min(l.max_cols).max(1));
+        let search = self.grid_search.clone();
+        let mut out = Vec::new();
+        let mut row = 0;
+        while row < rows {
+            let to = (row + 1000).min(rows);
+            let mut cells: Vec<(u32, u32, String)> = self
+                .grid_cells(row..to, 0..cols)
+                .into_iter()
+                .filter(|c| !c.2.text.is_empty() || c.2.formula)
+                .map(|c| (c.0, c.1, c.2.text))
+                .collect();
+            cells.sort_by_key(|c| (c.0, c.1));
+            for (r, c, shown) in cells {
+                let hay = if search.formulas {
+                    self.doc().cell_input(self.unit, r, c)
+                } else {
+                    shown
+                };
+                if search.matches(&hay) {
+                    out.push((r, c, hay));
+                }
+            }
+            row = to;
+        }
+        out
+    }
+
+    /// Find Next or Previous: the cursor to the next match after it (or
+    /// before), round the sheet; which match it is and how many there are.
+    pub fn find_step(&mut self, forward: bool) -> Result<(usize, usize), String> {
+        if self.grid_search.text.is_empty() {
+            return Err("Find what? (Ctrl+F)".into());
+        }
+        let found = self.find_matches();
+        if found.is_empty() {
+            return Err(format!("Cannot find {}", self.grid_search.text));
+        }
+        let p = self.grid_pos();
+        let at = (p.row, p.col);
+        let i = if forward {
+            found.iter().position(|m| (m.0, m.1) > at).unwrap_or(0)
+        } else {
+            found
+                .iter()
+                .rposition(|m| (m.0, m.1) < at)
+                .unwrap_or(found.len() - 1)
+        };
+        self.grid_move_to(found[i].0, found[i].1);
+        Ok((i + 1, found.len()))
+    }
+
+    /// Replace: the cursor's cell's text replaced if it matches, then on
+    /// to the next match; whether a cell was replaced.
+    pub fn replace_one(&mut self, with: &str) -> Result<bool, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        let input = self.doc().cell_input(self.unit, p.row, p.col);
+        let hay = if self.grid_search.formulas {
+            input.clone()
+        } else {
+            self.cursor_cell().text
+        };
+        let replaced = self.grid_search.matches(&hay) && self.grid_search.matches(&input);
+        if replaced {
+            let new = self.grid_search.replace(&input, with);
+            self.doc()
+                .set_cell_list(self.unit, &[(p.row, p.col, new)])
+                .map_err(|e| e.to_string())?;
+            self.refresh();
+        }
+        let _ = self.find_step(true);
+        Ok(replaced)
+    }
+
+    /// Replace All: every match's text replaced, as one undo step; how many
+    /// cells changed.
+    pub fn replace_all(&mut self, with: &str) -> Result<usize, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let found = self.find_matches();
+        let mut cells = Vec::new();
+        for (r, c, _) in found {
+            // What the cell holds is changed: its formula or constant.
+            let input = self.doc().cell_input(self.unit, r, c);
+            if self.grid_search.matches(&input) {
+                let new = self.grid_search.replace(&input, with);
+                if new != input {
+                    cells.push((r, c, new));
+                }
+            }
+        }
+        if cells.is_empty() {
+            return Err(format!("Cannot find {}", self.grid_search.text));
+        }
+        let n = cells.len();
+        self.doc()
+            .set_cell_list(self.unit, &cells)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(n)
     }
 
     /// The cursor's cell's number format code.
@@ -5446,6 +5622,111 @@ fn go_to(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult
     Ok(())
 }
 
+/// Find (Ctrl+F): the text asked, then the cursor to its first match
+/// after it.
+fn grid_find(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(text) = text_arg(args, "value") else {
+        return ask_more(ctx, "viewer.grid.find", &serde_json::json!({}), "value");
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    v.grid_search.text = text;
+    find_report(ctx, true)
+}
+
+/// Find Next and Previous, with which match of how many.
+fn find_report(ctx: &mut EditorContext<'_>, forward: bool) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match v.find_step(forward) {
+        Ok((i, n)) => ctx
+            .messages
+            .push(format!("{} {i} of {n}", v.grid_search.text)),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
+/// Replace (Ctrl+H): what to find and what with asked, then Replace All
+/// or one at a time.
+fn grid_replace(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.replace";
+    let Some(text) = text_arg(args, "value") else {
+        return ask_more(ctx, ID, &serde_json::json!({}), "value");
+    };
+    let Some(with) = args.get("with").and_then(|w| w.as_str()).map(str::to_owned) else {
+        return ask_more(ctx, ID, &serde_json::json!({ "value": text }), "with");
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    v.grid_search.text = text.clone();
+    match args.get("how").and_then(|h| h.as_str()) {
+        Some("all") => match v.replace_all(&with) {
+            Ok(n) => ctx.messages.push(format!(
+                "{n} cell{} replaced",
+                if n == 1 { "" } else { "s" }
+            )),
+            Err(e) => ctx.messages.push(e),
+        },
+        Some("one") => match v.replace_one(&with) {
+            Ok(true) => ctx.messages.push(format!("{text} replaced")),
+            Ok(false) => ctx.messages.push(format!("{text} found: Replace again")),
+            Err(e) => ctx.messages.push(e),
+        },
+        _ => {
+            let item = |how: &str, title: &str| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "value": text, "with": with, "how": how }),
+                    title,
+                    "Replace",
+                )
+            };
+            ctx.requests.push(Request::Choose(vec![
+                item("all", "Replace All"),
+                item("one", "Replace"),
+            ]));
+        }
+    }
+    Ok(())
+}
+
+/// Find's Match Case, Match Entire Cell Contents and Look in Formulas,
+/// turned on or off.
+fn find_option(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let (flag, name) = match which {
+        "case" => (&mut v.grid_search.case, "Match Case"),
+        "whole" => (&mut v.grid_search.whole, "Match Entire Cell Contents"),
+        _ => (&mut v.grid_search.formulas, "Look in Formulas"),
+    };
+    *flag = !*flag;
+    let state = if *flag { "on" } else { "off" };
+    ctx.messages.push(format!("{name} {state}"));
+    Ok(())
+}
+
 /// Number Format: the selection's, from Excel's common ones or typed.
 fn number_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::StyleChange;
@@ -6673,6 +6954,49 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd("viewer.grid.find", "Find", &["ctrl+f"], IN_GRID, grid_find),
+        cmd(
+            "viewer.grid.findNext",
+            "Find Next",
+            &["f3", "shift+f4"],
+            IN_GRID,
+            |ctx, _| find_report(ctx, true),
+        ),
+        cmd(
+            "viewer.grid.findPrevious",
+            "Find Previous",
+            &["shift+f3"],
+            IN_GRID,
+            |ctx, _| find_report(ctx, false),
+        ),
+        cmd(
+            "viewer.grid.replace",
+            "Replace",
+            &["ctrl+h"],
+            IN_GRID,
+            grid_replace,
+        ),
+        cmd(
+            "viewer.grid.findMatchCase",
+            "Find: Match Case",
+            &[],
+            IN_GRID,
+            |ctx, _| find_option(ctx, "case"),
+        ),
+        cmd(
+            "viewer.grid.findWholeCell",
+            "Find: Match Entire Cell Contents",
+            &[],
+            IN_GRID,
+            |ctx, _| find_option(ctx, "whole"),
+        ),
+        cmd(
+            "viewer.grid.findInFormulas",
+            "Find: Look in Formulas",
+            &[],
+            IN_GRID,
+            |ctx, _| find_option(ctx, "formulas"),
+        ),
         cmd(
             "viewer.grid.pageDown",
             "Page Down",

@@ -1835,3 +1835,82 @@ fn selection_sums() {
     }
     assert!(t.screen().contains("Sum: 1,431.50"), "{}", t.screen());
 }
+
+#[test]
+fn find_and_replace() {
+    let mut t = T::open("find");
+    let pos = |t: &mut T| {
+        let p = t.app.doc.viewer.as_deref_mut().unwrap().grid_pos();
+        (p.row, p.col)
+    };
+    // Ctrl+F asks; found from the cursor on.
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('f'),
+        KeyModifiers::CONTROL,
+    )));
+    let asked = t.screen();
+    t.key(KeyCode::Esc);
+    assert!(asked.contains("Find"), "{asked}");
+    t.app
+        .run_command("viewer.grid.find", json!({ "value": "food" }));
+    assert_eq!(pos(&mut t), (2, 0));
+    assert!(t.screen().contains("food 1 of 1"), "{}", t.screen());
+    // Part of what cells show: 950.00 twice, then round the sheet.
+    t.app
+        .run_command("viewer.grid.find", json!({ "value": "950" }));
+    assert_eq!(pos(&mut t), (3, 2));
+    t.key(KeyCode::F(3));
+    assert_eq!(pos(&mut t), (3, 3));
+    t.key(KeyCode::F(3));
+    assert_eq!(pos(&mut t), (3, 2));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::F(3),
+        KeyModifiers::SHIFT,
+    )));
+    assert_eq!(pos(&mut t), (3, 3));
+    // Match Case, then the whole cell, then in formulas.
+    t.app.run_command("viewer.grid.findMatchCase", json!({}));
+    t.app
+        .run_command("viewer.grid.find", json!({ "value": "food" }));
+    assert!(t.screen().contains("Cannot find food"), "{}", t.screen());
+    t.app.run_command("viewer.grid.findMatchCase", json!({}));
+    t.app.run_command("viewer.grid.findWholeCell", json!({}));
+    t.app
+        .run_command("viewer.grid.find", json!({ "value": "foo" }));
+    assert!(t.screen().contains("Cannot find foo"), "{}", t.screen());
+    t.app.run_command("viewer.grid.findWholeCell", json!({}));
+    t.app.run_command("viewer.grid.findInFormulas", json!({}));
+    t.app
+        .run_command("viewer.grid.find", json!({ "value": "sum(" }));
+    let (r, c) = pos(&mut t);
+    let input = t.app.doc.viewer.as_deref_mut().unwrap().cell_input();
+    assert!(input.to_lowercase().contains("sum("), "{r},{c}: {input}");
+    t.app.run_command("viewer.grid.findInFormulas", json!({}));
+    // Replace: what with asked, then Replace All or one at a time.
+    t.app
+        .run_command("viewer.grid.replace", json!({ "value": "o" }));
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.replace", json!({ "value": "o", "with": "0" }));
+    assert!(t.screen().contains("Replace All"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.replace",
+        json!({ "value": "o", "with": "0", "how": "all" }),
+    );
+    let s = t.screen();
+    assert!(
+        s.contains("F00d") && s.contains("Tr") && s.contains("cells replaced"),
+        "{s}"
+    );
+    t.app.run_command("edit.undo", json!({}));
+    assert!(t.screen().contains("Food"), "{}", t.screen());
+    // One at a time: the cursor's cell if it matches, then the next.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.run_command(
+        "viewer.grid.replace",
+        json!({ "value": "rent", "with": "Kira", "how": "one" }),
+    );
+    let s = t.screen();
+    assert!(s.contains("Kira") && s.contains("Food"), "{s}");
+}

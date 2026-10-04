@@ -53,7 +53,7 @@ in the palette and can be bound again.
 
 ## E7. Find and Replace
 
-- [ ] E7 Find (Ctrl+F) and Replace (Ctrl+H) in the sheet: next and
+- [x] E7 Find (Ctrl+F) and Replace (Ctrl+H) in the sheet: next and
   previous match, whole cell or part, case, in values or formulas;
   Replace All in one undo step.
 

@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Spreadsheets: Find (Ctrl+F) and Replace (Ctrl+H) in the sheet: Find Next and Previous (F3, Shift+F3, Shift+F4) round the sheet with which match of how many, Match Case, Match Entire Cell Contents and Look in Formulas; Replace one at a time or Replace All as one undo step.
 - Spreadsheets: the status bar shows the Average, Count and Sum of a selection of more than one cell, in the cursor's cell's number format (only the Count when no value is a number), as Excel's does.
 - Spreadsheets: moving and selecting as in Excel: Ctrl+arrow to the edge of the data (or the next data, or the sheet's edge), Ctrl+Shift+arrow to select to it; Select Row (Shift+Space, `g r`), Select Column (Ctrl+Space, `g c`), Select All (Ctrl+A: the data around the cursor, again the sheet); Go To (F5, `g o`) a cell, a range or another sheet's cell by its reference. A default key a terminal cannot send is left out there without a warning when its command has another key.
 - Spreadsheets: Number Format (`t 1`) of the selection: General, Number, Currency (₺), Percentage, Short and Long Date, Time, Fraction, Scientific, Text, or a typed code, written as a `numFmt` style; Increase and Decrease Decimal (`t .`, `t ,`) from the cursor's cell's format, or for General from the decimals it shows.
