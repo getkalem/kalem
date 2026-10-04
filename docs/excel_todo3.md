@@ -27,11 +27,13 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E38. Large edits at speed
 
-- [ ] E38 Pasting, filling, clearing, sorting and inserting rows over
+- [x] E38 Pasting, filling, clearing, sorting and inserting rows over
   100,000 cells in well under a second: a many-cell edit writes the
   sheet once, not a parse per cell (36,000 cells now take minutes); a
   workbook of a million cells opens, scrolls and recalculates without
   freezing the editor, the long work in the background with progress.
+  (Done but for the last part: at a million cells, opening and a full
+  recalculation take about a second each, still in the editor's thread.)
 
 ## E39. New workbooks and copied sheets
 
