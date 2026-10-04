@@ -1236,6 +1236,17 @@ pub trait ViewerDocument: Send {
         None
     }
 
+    /// Gives a cell a note, or takes it away (`None`).
+    fn set_note(
+        &mut self,
+        _unit: usize,
+        _row: u32,
+        _col: u32,
+        _text: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Enters text into a cell as typed; returns the units it changed.
     fn set_cell(&mut self, _unit: usize, _row: u32, _col: u32, _input: &str) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
