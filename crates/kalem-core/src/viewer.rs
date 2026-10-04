@@ -2128,6 +2128,21 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Changes the kind of the chart under the cursor.
+    pub fn set_chart_kind(&mut self, kind: kalem_viewer::ChartKind) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to change its kind")?;
+        self.doc()
+            .set_chart_kind(self.unit, i, kind)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -5055,6 +5070,57 @@ fn grid_commands() -> Vec<Command> {
             &["h s"],
             IN_GRID,
             axis_scale,
+        ),
+        cmd(
+            "viewer.grid.chartKind",
+            "Change Chart Type",
+            &["h k"],
+            IN_GRID,
+            |ctx, args| {
+                use kalem_viewer::ChartKind as K;
+                let kinds = [
+                    ("column", K::Column, "Column"),
+                    ("bar", K::Bar, "Bar"),
+                    ("line", K::Line, "Line"),
+                    ("area", K::Area, "Area"),
+                    ("pie", K::Pie, "Pie"),
+                    ("doughnut", K::Doughnut, "Doughnut"),
+                    ("scatter", K::Scatter, "Scatter"),
+                ];
+                if let Some((_, kind, _)) = args
+                    .get("kind")
+                    .and_then(|k| k.as_str())
+                    .and_then(|k| kinds.iter().find(|x| x.0 == k))
+                {
+                    return with(ctx, |v| v.set_chart_kind(*kind));
+                }
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                let Some((i, _)) = v.chart_at_cursor() else {
+                    ctx.messages
+                        .push("Put the cursor on a chart to change its kind".into());
+                    return Ok(());
+                };
+                let now = v.charts()[i].kind;
+                let items = kinds
+                    .iter()
+                    .map(|(key, kind, title)| {
+                        menu_item(
+                            "viewer.grid.chartKind",
+                            serde_json::json!({ "kind": key }),
+                            &format!("{} {title}", if *kind == now { "●" } else { "○" }),
+                            "Change Chart Type",
+                        )
+                    })
+                    .collect();
+                ctx.requests.push(Request::Choose(items));
+                Ok(())
+            },
         ),
         cmd(
             "viewer.grid.deleteChart",

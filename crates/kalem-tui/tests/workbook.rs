@@ -932,6 +932,25 @@ fn charts() {
         t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].scale,
         kalem_viewer::AxisScale::default()
     );
+    // Its kind: the menu marks the one it is; made a line chart, drawn in
+    // braille, then back to columns.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('k'));
+    let s = t.screen();
+    assert!(s.contains("● Column") && s.contains("○ Line"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.chartKind", json!({ "kind": "line" }));
+    let c2 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert_eq!(c2.kind, kalem_viewer::ChartKind::Line);
+    assert_eq!(c2.series.len(), 3);
+    let s = t.screen();
+    assert!(
+        s.chars().any(|c| ('\u{2801}'..='\u{28FF}').contains(&c)),
+        "{s}"
+    );
+    t.app
+        .run_command("viewer.grid.chartKind", json!({ "kind": "column" }));
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app
