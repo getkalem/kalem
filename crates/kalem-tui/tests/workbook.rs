@@ -1363,3 +1363,48 @@ fn charts() {
     let s = t.screen();
     assert!(s.contains("0K"), "{s}");
 }
+
+#[test]
+fn fill_handle() {
+    let mut t = T::open("fill");
+    let input = |t: &mut T, row: u32, col: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(row, col);
+        v.cell_input()
+    };
+    // Fill Down (Ctrl+D): D2's formula copied to D3:D5, each reading its row.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 3);
+        v.grid_extend_to(4, 3);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('d'),
+        KeyModifiers::CONTROL,
+    )));
+    assert_eq!(input(&mut t, 4, 3), "=B5+C5");
+    // A series from the keyboard: "Week 1" in F2, F2:F5 selected.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 1, "col": 5, "value": "Week 1" }),
+    );
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 5);
+        v.grid_extend_to(4, 5);
+    }
+    t.app.run_command("viewer.grid.fillSeries", json!({}));
+    assert_eq!(input(&mut t, 4, 5), "Week 4");
+    // The fill handle's drag, as a command: Ocak across three columns.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 7, "col": 0, "value": "Ocak" }),
+    );
+    t.app.run_command(
+        "viewer.grid.fillSeries",
+        json!({ "source": [7, 0, 7, 0], "target": [7, 0, 7, 2] }),
+    );
+    assert_eq!(input(&mut t, 7, 2), "Mart");
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 7, 2), "");
+}

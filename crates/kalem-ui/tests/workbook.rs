@@ -440,6 +440,62 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("escape");
     cx.run_until_parked();
 
+    // The fill handle: A8:A9 (1, 2) dragged two rows down, a series; the
+    // target framed while dragging.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.setCell",
+            serde_json::json!({ "row": 7, "col": 0, "value": "1" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.setCell",
+            serde_json::json!({ "row": 8, "col": 0, "value": "2" }),
+            window,
+            cx,
+        );
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(7, 0);
+        v.grid_extend_to(8, 0);
+    });
+    cx.run_until_parked();
+    let handle = cx
+        .debug_bounds("viewer-grid-fill-handle")
+        .expect("the selection's fill handle");
+    // Dropped on A11.
+    let to = cx
+        .debug_bounds("viewer-grid-cell-10-0")
+        .expect("A11 in view")
+        .center();
+    cx.simulate_mouse_down(
+        handle.center(),
+        gpui::MouseButton::Left,
+        gpui::Modifiers::none(),
+    );
+    cx.simulate_mouse_move(to, Some(gpui::MouseButton::Left), gpui::Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("viewer-grid-fill-frame").is_some(),
+        "the target framed"
+    );
+    cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
+    cx.run_until_parked();
+    let (a10, a11) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(9, 0);
+        let a = v.cell_input();
+        v.grid_move_to(10, 0);
+        (a, v.cell_input())
+    });
+    assert_eq!((a10.as_str(), a11.as_str()), ("3", "4"));
+    for _ in 0..3 {
+        e.update_in(cx, |e, window, cx| {
+            e.run_command("edit.undo", serde_json::json!({}), window, cx)
+        });
+    }
+    cx.run_until_parked();
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"

@@ -49,6 +49,9 @@ pub struct ViewerView {
     selecting: bool,
     /// A chart being moved or resized by dragging.
     chart_drag: Option<ChartDrag>,
+    /// Cells being filled by dragging the fill handle: the source and the
+    /// range the pointer has reached.
+    fill_drag: Option<([u32; 4], [u32; 4])>,
     /// The grid's columns and rows as last drawn: index, start, size, in
     /// the grid's own pixels.
     grid_lines: (Vec<GridLine>, Vec<GridLine>),
@@ -689,6 +692,7 @@ impl Editor {
         // The cursor's cell in full, as entered: the formula bar.
         let input = v.cell_input();
         let has_list = v.cursor_has_list();
+        let editable = layout.editable;
         let sel_name = v.selection_name();
         let sel = v.selection();
         let selecting = v.grid_pos().sel.is_some();
@@ -922,6 +926,62 @@ impl Editor {
             })
             .collect();
         // Cells cut: a dashed frame around the part in view, as Excel's.
+        // The fill handle: over everything, at the selection's bottom right
+        // corner (a merged cell's too).
+        let fill_handle = (editable && self.viewer_view.fill_drag.is_none())
+            .then(|| {
+                let (x, w) = col_x.get(&sel[3]).copied()?;
+                let (y, h) = row_y.get(&sel[2]).copied()?;
+                let src = sel;
+                Some(
+                    div()
+                        .debug_selector(|| "viewer-grid-fill-handle".into())
+                        .id("fill-handle")
+                        .absolute()
+                        .left(px(x + w - 5.))
+                        .top(px(y + h - 5.))
+                        .size(px(8.))
+                        .bg(cursor)
+                        .border_1()
+                        .border_color(theme.background)
+                        .cursor_crosshair()
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |this, _: &MouseDownEvent, _, cx| {
+                                cx.stop_propagation();
+                                this.viewer_view.fill_drag = Some((src, src));
+                                cx.notify();
+                            }),
+                        ),
+                )
+            })
+            .flatten();
+        // The range a fill handle's drag has reached.
+        let fill_frame = self.viewer_view.fill_drag.and_then(|(_, m)| {
+            let xs: Vec<(f32, f32)> = (m[1]..=m[3])
+                .filter_map(|c| col_x.get(&c).copied())
+                .collect();
+            let ys: Vec<(f32, f32)> = (m[0]..=m[2])
+                .filter_map(|r| row_y.get(&r).copied())
+                .collect();
+            let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+            let (w, h) = (
+                xs.iter().map(|v| v.1).sum::<f32>(),
+                ys.iter().map(|v| v.1).sum::<f32>(),
+            );
+            Some(
+                div()
+                    .debug_selector(|| "viewer-grid-fill-frame".into())
+                    .absolute()
+                    .left(px(x0))
+                    .top(px(y0))
+                    .w(px(w))
+                    .h(px(h))
+                    .border_2()
+                    .border_dashed()
+                    .border_color(cursor),
+            )
+        });
         let cut_mark = cut.and_then(|m| {
             let xs: Vec<(f32, f32)> = (m[1]..=m[3])
                 .filter_map(|c| col_x.get(&c).copied())
@@ -1400,9 +1460,65 @@ impl Editor {
                     .children(body)
                     .children(merges)
                     .children(charts)
-                    .children(cut_mark),
+                    .children(cut_mark)
+                    .children(fill_frame)
+                    .children(fill_handle),
+            )
+            // A fill handle dropped past the grid still fills.
+            .on_mouse_up_out(
+                MouseButton::Left,
+                cx.listener(|this, _: &MouseUpEvent, _, cx| {
+                    if let Some((src, target)) = this.viewer_view.fill_drag.take() {
+                        if target != src
+                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                            && let Err(e) = v.fill_to(src, target, true)
+                        {
+                            this.message(e, true);
+                        }
+                        cx.notify();
+                    }
+                }),
             )
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
+                if let Some((src, target)) = this.viewer_view.fill_drag.as_mut() {
+                    if ev.pressed_button != Some(MouseButton::Left) {
+                        this.viewer_view.fill_drag = None;
+                        cx.notify();
+                        return;
+                    }
+                    let origin = this
+                        .viewer_view
+                        .bounds
+                        .map_or(point(px(0.), px(0.)), |b| b.origin);
+                    let at = ev.position - origin;
+                    let (cols, rows) = &this.viewer_view.grid_lines;
+                    if let (Some(row), Some(col)) = (
+                        line_at(rows, f32::from(at.y)),
+                        line_at(cols, f32::from(at.x)),
+                    ) {
+                        // The way the pointer has gone furthest past the cells.
+                        let s = *src;
+                        let down = row.saturating_sub(s[2]);
+                        let up = s[0].saturating_sub(row);
+                        let right = col.saturating_sub(s[3]);
+                        let left = s[1].saturating_sub(col);
+                        *target = if down.max(up) == 0 && right.max(left) == 0 {
+                            s
+                        } else if down.max(up) >= right.max(left) {
+                            if down > 0 {
+                                [s[0], s[1], row, s[3]]
+                            } else {
+                                [row, s[1], s[2], s[3]]
+                            }
+                        } else if right > 0 {
+                            [s[0], s[1], s[2], col]
+                        } else {
+                            [s[0], col, s[2], s[3]]
+                        };
+                    }
+                    cx.notify();
+                    return;
+                }
                 if let Some(d) = this.viewer_view.chart_drag.as_mut() {
                     if ev.pressed_button != Some(MouseButton::Left) {
                         this.viewer_view.chart_drag = None;
@@ -1436,6 +1552,16 @@ impl Editor {
                 MouseButton::Left,
                 cx.listener(move |this, _: &MouseUpEvent, _, cx| {
                     this.viewer_view.selecting = false;
+                    if let Some((src, target)) = this.viewer_view.fill_drag.take() {
+                        if target != src
+                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                            && let Err(e) = v.fill_to(src, target, true)
+                        {
+                            this.message(e, true);
+                        }
+                        cx.notify();
+                        return;
+                    }
                     if let Some(d) = this.viewer_view.chart_drag.take() {
                         // Dropped: the cells under its new box.
                         let (cols, rows) = &this.viewer_view.grid_lines;

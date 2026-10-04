@@ -2429,6 +2429,80 @@ impl ViewerState {
         self.doc().invalid_cells(self.unit, rows, cols)
     }
 
+    /// Fills `target` from `source`, as the fill handle does, and selects
+    /// it.
+    pub fn fill_to(
+        &mut self,
+        source: [u32; 4],
+        target: [u32; 4],
+        series: bool,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .fill(self.unit, source, target, series)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        self.grid_move_to(target[0], target[1]);
+        self.grid_extend_to(target[2], target[3]);
+        Ok(())
+    }
+
+    /// Fill Down (Ctrl+D): the selection's first row copied down it, or a
+    /// single row's cells from the row above.
+    pub fn fill_down(&mut self) -> Result<(), String> {
+        let s = self.selection();
+        if s[0] == s[2] {
+            if s[0] == 0 {
+                return Err("No row above to fill from".into());
+            }
+            return self.fill_to(
+                [s[0] - 1, s[1], s[0] - 1, s[3]],
+                [s[0] - 1, s[1], s[2], s[3]],
+                false,
+            );
+        }
+        self.fill_to([s[0], s[1], s[0], s[3]], s, false)
+    }
+
+    /// Fill Right (Ctrl+R): the selection's first column copied across it,
+    /// or a single column's cells from the column left of it.
+    pub fn fill_right(&mut self) -> Result<(), String> {
+        let s = self.selection();
+        if s[1] == s[3] {
+            if s[1] == 0 {
+                return Err("No column left to fill from".into());
+            }
+            return self.fill_to(
+                [s[0], s[1] - 1, s[2], s[1] - 1],
+                [s[0], s[1] - 1, s[2], s[3]],
+                false,
+            );
+        }
+        self.fill_to([s[0], s[1], s[2], s[1]], s, false)
+    }
+
+    /// Fill Series: the selection's filled first rows go on down the rest
+    /// of it, as a series (the fill handle's drag from the keyboard).
+    pub fn fill_series(&mut self) -> Result<(), String> {
+        let s = self.selection();
+        let filled: std::collections::HashSet<u32> = self
+            .grid_cells(s[0]..s[2] + 1, s[1]..s[3] + 1)
+            .into_iter()
+            .filter(|c| !c.2.text.is_empty())
+            .map(|c| c.0)
+            .collect();
+        let rows = (s[0]..=s[2]).take_while(|r| filled.contains(r)).count() as u32;
+        if rows == 0 {
+            return Err("The selection's first row is empty: nothing to go on from".into());
+        }
+        if s[0] + rows > s[2] {
+            return Err("Select the empty rows to fill too".into());
+        }
+        self.fill_to([s[0], s[1], s[0] + rows - 1, s[3]], s, true)
+    }
+
     /// Clears the selection's values, formats kept (Delete).
     pub fn clear_selection(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -6377,6 +6451,42 @@ fn grid_commands() -> Vec<Command> {
             &["alt+f5"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.refresh_pivots()),
+        ),
+        cmd(
+            "viewer.grid.fillDown",
+            "Fill Down",
+            &["ctrl+d"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.fill_down()),
+        ),
+        cmd(
+            "viewer.grid.fillRight",
+            "Fill Right",
+            &["ctrl+r"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.fill_right()),
+        ),
+        cmd(
+            "viewer.grid.fillSeries",
+            "Fill Series",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                // A source and a target given (a script, a test), else the
+                // selection.
+                let range = |k: &str| -> Option<[u32; 4]> {
+                    let a = args.get(k)?.as_array()?;
+                    let v: Vec<u32> = a
+                        .iter()
+                        .filter_map(|x| x.as_u64().map(|n| n as u32))
+                        .collect();
+                    (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
+                };
+                match (range("source"), range("target")) {
+                    (Some(s), Some(t)) => with(ctx, |v| v.fill_to(s, t, true)),
+                    _ => with(ctx, |v| v.fill_series()),
+                }
+            },
         ),
         cmd(
             "viewer.grid.dataValidation",
