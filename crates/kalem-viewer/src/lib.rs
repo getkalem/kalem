@@ -470,6 +470,17 @@ pub struct GridCell {
     pub sparkline: Option<Sparkline>,
 }
 
+/// A what-if scenario: values for some cells, kept by name.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Scenario {
+    /// Its name.
+    pub name: String,
+    /// What it is about.
+    pub comment: String,
+    /// Its cells (row, column) and the value each gets, as typed.
+    pub cells: Vec<(u32, u32, String)>,
+}
+
 /// A sparkline: a small chart in a cell of a row or column of numbers.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Sparkline {
@@ -1775,6 +1786,60 @@ pub trait ViewerDocument: Send {
 
     /// Takes away the sparklines of a range's cells.
     fn clear_sparklines(&mut self, _unit: usize, _range: [u32; 4]) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Goal Seek: the value of cell `by` (a value, not a formula) that
+    /// makes formula cell `set` come to `target`, put into `by`; `None`
+    /// when none was found (nothing changed).
+    fn goal_seek(
+        &mut self,
+        _unit: usize,
+        _set: (u32, u32),
+        _target: f64,
+        _by: (u32, u32),
+    ) -> Result<Option<f64>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// A what-if data table over `range`: its first row and column the
+    /// values put into the row and column input cells (one of them for a
+    /// table of one variable, whose formulas are along the other edge; both
+    /// for two, the formula at the top left), the rest their results.
+    fn create_data_table(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _row_input: Option<(u32, u32)>,
+        _col_input: Option<(u32, u32)>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The what-if scenarios of a unit.
+    fn scenarios(&mut self, _unit: usize) -> Vec<Scenario> {
+        Vec::new()
+    }
+
+    /// Keeps the cells' values now as a scenario (one of the same name
+    /// replaced).
+    fn add_scenario(
+        &mut self,
+        _unit: usize,
+        _name: &str,
+        _cells: &[(u32, u32)],
+        _comment: &str,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Puts a scenario's values into its cells.
+    fn show_scenario(&mut self, _unit: usize, _name: &str) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Deletes a scenario.
+    fn delete_scenario(&mut self, _unit: usize, _name: &str) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
