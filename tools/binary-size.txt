@@ -1,0 +1,6 @@
+# name     ceiling-MiB  target-MiB   (tools/check-binary-size.sh; roadmap R2.1)
+# terminal: `--no-default-features --features tui`, 40.8 MiB on Linux
+# x86-64 on 2026-10-04. full: the default features; its ceiling is
+# lowered to the first CI measurement plus the same margin.
+terminal   42.5         15
+full       80           40

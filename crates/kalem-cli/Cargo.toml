@@ -8,6 +8,13 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
+[features]
+default = ["viewers", "plugins"]
+# The viewers bundled into the binary: pictures, PDF files, workbooks.
+viewers = ["dep:kalem-plugin-image-viewer", "dep:kalem-plugin-xlsx", "dep:kalem-plugin-pdf-viewer"]
+# The plugin host (Wasmtime): installed component plugins run.
+plugins = ["dep:kalem-script"]
+
 [dependencies]
 org-syntax.workspace = true
 klm-syntax.workspace = true
@@ -20,11 +27,11 @@ org-export.workspace = true
 kalem-core.workspace = true
 # `book/chapters.toml`, the code each chapter describes.
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }
-kalem-plugin-image-viewer.workspace = true
-kalem-plugin-xlsx.workspace = true
-kalem-plugin-pdf-viewer.workspace = true
+kalem-plugin-image-viewer = { workspace = true, optional = true }
+kalem-plugin-xlsx = { workspace = true, optional = true }
+kalem-plugin-pdf-viewer = { workspace = true, optional = true }
 # Component viewers installed by the user (D28, T3.1.12).
-kalem-script.workspace = true
+kalem-script = { workspace = true, optional = true }
 latex-syntax.workspace = true
 latex-model.workspace = true
 jiff = "0.2"
@@ -42,3 +49,8 @@ workspace = true
 [dev-dependencies]
 # The viewer contract, for comparing the xlsx component with the bundled plugin.
 kalem-viewer.workspace = true
+
+# The workbook viewer built as a component and run by the plugin host.
+[[test]]
+name = "xlsx_component"
+required-features = ["viewers", "plugins"]

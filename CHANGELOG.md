@@ -6,12 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- The release workflow (`.github/workflows/release.yml`, from `dist generate`): a `v*` tag builds archives and installers for macOS, Linux and Windows on runners of each architecture; the terminal-only archives are built and attached when the release is published.
+- A test that panics on purpose checks the crash report: `crash-DATE.txt` beside the log, with the report's header, the panic and where the log is.
+
 ### Changed
+- `kalem-core`, `org-edit`, `kalem-ui` and `kalem-tui` warn on `unwrap`, `expect` and `panic!` outside tests. The edits that cannot overlap use `Transaction::edit`, which a release turns into no change rather than a crash should they overlap; a poisoned lock is used as it is; the default keys and when-clauses of the built-in commands are checked by a test instead of at start.
+- CI fails a change that adds a dependency on Zed's repository other than gpui and gpui_platform.
+- The terminal-only build (`--no-default-features --features tui`) leaves out the bundled viewers and the plugin host, a third of its size (40.8 MiB instead of 60.3 MiB on Linux); the features `viewers` and `plugins` put them back. Wasmtime, Cranelift, the workbook engine and the citation styles are built for size. CI's `binary size` job fails a change that grows either release binary past its ceiling.
 - The LaTeX mode is on the document mode contract that plugin modes will use (`latex_mode::LatexMode`): its tree in the contract's kinds, outline, formatter, diagnostics and keys; every file of the arXiv sample passes the conformance check.
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
 - An installed viewer plugin built for another version of the plugin API (the Excel plugin 0.0.1 after the grid gained functions) no longer opens its files as empty documents: Kalem says the plugin needs an update and opens them with the bundled viewer it replaced.
+- `kalem gui --help` and `kalem gui -h` print the usage instead of opening a file named `--help`; `kalem tui` without a terminal says it needs one instead of "Device not configured (os error 6)".
+- The tests that run pdflatex stop, as they do when it is missing, when it writes no PDF within thirty seconds.
+- PDF: a drag over a page while its neighbor renders selects what it went over (the drag was dropped while the render held the document, leaving one letter selected).
 - Windows: diagnostics from a language server that names files by a verbatim path (`\\?\C:\…`) or another spelling of the drive (`file:///c%3A/…`) reach the document (URIs matched by one spelling); a plugin's file access refuses `..` in a verbatim path too; a plugin index given as `file:///C:/…` is read.
 - Plugins: a compiled plugin in the cache that is rewritten while Kalem uses it no longer ends the process (the cache is read into memory instead of mapped); it also made the plugin host's test fail on CI.
 - Debug builds no longer abort on text with a line break drawn as one line: a chart's labels, a cell's text measured in the grid, a formula's source shown as an error.

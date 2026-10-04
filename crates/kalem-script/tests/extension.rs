@@ -497,11 +497,17 @@ fn files_are_reached_only_as_granted() {
             .unwrap_err()
             .contains("outside")
     );
-    assert!(
-        read(&mut ext, &root.join("../secret.txt"))
-            .unwrap_err()
-            .contains("..")
+    // `..` written in the string: `Path::join` on Windows resolves it in
+    // a verbatim path (what `canonicalize` gives) before the plugin sees
+    // it, so the path is built as text.
+    let up = format!(
+        "{}{}..{}secret.txt",
+        p(&root),
+        std::path::MAIN_SEPARATOR,
+        '/'
     );
+    let e = call(&mut ext, "reach.read", serde_json::json!({ "path": up })).unwrap_err();
+    assert!(e.contains("goes up"), "{e}");
     assert!(
         call(
             &mut ext,

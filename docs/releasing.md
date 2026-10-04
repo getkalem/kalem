@@ -20,7 +20,7 @@ dist generate
 
 ## What cargo-dist does not build
 
-- **Terminal-only archives.** Built with the `tui` feature only, without windowing or GPU libraries, by `.github/workflows/release-terminal.yml` when the release is published (or by hand from the Actions tab, given the tag), as `kalem-terminal-TARGET.tar.gz` (`.zip` on Windows). The CI job `terminal-only` checks that this build has no gpui in its dependency tree.
+- **Terminal-only archives.** Built with the `tui` feature only, without windowing or GPU libraries and without the `viewers` and `plugins` features (a third of the binary), by `.github/workflows/release-terminal.yml` when the release is published (or by hand from the Actions tab, given the tag), as `kalem-terminal-TARGET.tar.gz` (`.zip` on Windows). The CI job `terminal-only` checks that this build has no gpui in its dependency tree.
 
 - **macOS app.** `tools/macos-app.sh --target aarch64-apple-darwin` (and `x86_64-apple-darwin`) builds `Kalem.app`. It is not signed yet: users open it with right-click and *Open* the first time. Signing, notarization and a Homebrew cask come in phase 2 (§17).
 
