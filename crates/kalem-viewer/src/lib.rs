@@ -1336,6 +1336,11 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Computes every formula again (a spreadsheet's Calculate Now).
+    fn recalculate(&mut self) -> Result<Vec<usize>> {
+        Ok(Vec::new())
+    }
+
     /// Gives a cell a note, or takes it away (`None`).
     fn set_note(
         &mut self,
