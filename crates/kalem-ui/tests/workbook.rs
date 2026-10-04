@@ -626,6 +626,35 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .clone()
     });
     assert_eq!(slices, vec![(0, [0xC0, 0, 0])]);
+    // That slice pulled out a quarter, then every slice a tenth.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.explodeSlice",
+            serde_json::json!({ "point": 0, "percent": 25 }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let out = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].series[0]
+            .point_explosions
+            .clone()
+    });
+    assert_eq!(out, vec![(0, 25)]);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.explodeSlice",
+            serde_json::json!({ "point": "all", "value": "10%" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let s0 = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].series[0].clone()
+    });
+    assert_eq!((s0.explosion, s0.point_explosions), (10, vec![]));
     // A column chart on a logarithmic scale, then every 500 from 0.
     e.update_in(cx, |e, window, cx| {
         e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);

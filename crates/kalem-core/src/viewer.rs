@@ -2184,6 +2184,22 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Pulls a slice (or every slice, `point` `None`) of the pie under the
+    /// cursor out by `percent` of its radius; 0 puts it back.
+    pub fn set_explosion(&mut self, point: Option<usize>, percent: u32) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a pie to pull its slices out")?;
+        self.doc()
+            .set_explosion(self.unit, i, 0, point, percent)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -3826,6 +3842,105 @@ fn series_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
     }
 }
 
+/// Explode Slice: a slice of the pie under the cursor (or all of them),
+/// then how far out, as Excel's Point Explosion.
+fn explode_slice(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::ChartKind;
+    const ID: &str = "viewer.grid.explodeSlice";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor on a pie to pull its slices out".into());
+        return Ok(());
+    };
+    let chart = v.charts()[i].clone();
+    if !matches!(chart.kind, ChartKind::Pie | ChartKind::Doughnut) {
+        ctx.messages
+            .push("Only a pie's or a doughnut's slices stand out".into());
+        return Ok(());
+    }
+    let Some(s) = chart.series.first() else {
+        return Ok(());
+    };
+    // Which slice: a number, or "all".
+    let Some(which) = args.get("point").cloned() else {
+        let now = |p: usize| {
+            s.point_explosions
+                .iter()
+                .find(|e| e.0 == p)
+                .map_or(s.explosion, |e| e.1)
+        };
+        let mut items = vec![menu_item(
+            ID,
+            serde_json::json!({ "point": "all" }),
+            &format!("All Slices ({}%)", s.explosion),
+            "Explode Slice",
+        )];
+        for p in 0..s.values.len() {
+            let label = chart
+                .categories
+                .get(p)
+                .cloned()
+                .unwrap_or_else(|| (p + 1).to_string());
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "point": p }),
+                &format!("{label} ({}%)", now(p)),
+                "Explode Slice",
+            ));
+        }
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let point = which.as_u64().map(|p| p as usize);
+    let percent = args
+        .get("percent")
+        .and_then(serde_json::Value::as_u64)
+        .map(|p| p as u32)
+        .or_else(|| {
+            args.get("value")
+                .and_then(|x| x.as_str())
+                .and_then(|t| t.trim().trim_end_matches('%').trim().parse::<u32>().ok())
+        });
+    if let Some(percent) = percent {
+        return with(ctx, |v| v.set_explosion(point, percent));
+    }
+    if args.get("custom").is_some() {
+        return ask_more(ctx, ID, &serde_json::json!({ "point": which }), "value");
+    }
+    let mut items: Vec<_> = [
+        ("Put Back", 0),
+        ("10%", 10),
+        ("25%", 25),
+        ("50%", 50),
+        ("100%", 100),
+    ]
+    .iter()
+    .map(|(title, n)| {
+        menu_item(
+            ID,
+            serde_json::json!({ "point": which, "percent": n }),
+            title,
+            "Explode Slice",
+        )
+    })
+    .collect();
+    items.push(menu_item(
+        ID,
+        serde_json::json!({ "point": which, "custom": true }),
+        "Custom…",
+        "Explode Slice",
+    ));
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
 /// Insert Chart: the kinds offered, then the chart of the selection.
 fn insert_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::ChartKind;
@@ -5421,6 +5536,13 @@ fn grid_commands() -> Vec<Command> {
             &["h p"],
             IN_GRID,
             point_color,
+        ),
+        cmd(
+            "viewer.grid.explodeSlice",
+            "Explode Slice",
+            &["h e"],
+            IN_GRID,
+            explode_slice,
         ),
         cmd(
             "viewer.grid.deleteChart",

@@ -355,7 +355,14 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
             for (i, v) in s.values.iter().enumerate().take(plot.height as usize) {
                 let v = v.unwrap_or(0.0).max(0.0);
                 let share = v / total;
-                let name = short(&label(i), 10);
+                // A slice pulled out, marked before its name.
+                let out = s.point_explosions.iter().any(|p| p.0 == i && p.1 > 0) || s.explosion > 0;
+                let mark = match (out, caps.ascii) {
+                    (false, _) => "",
+                    (true, true) => "> ",
+                    (true, false) => "» ",
+                };
+                let name = short(&format!("{mark}{}", label(i)), 10);
                 // The value beside the share when the labels ask for it.
                 let text = if chart.labels.value && !chart.labels.percent {
                     format!("{name:<10} {v:>6} ")

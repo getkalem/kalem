@@ -1034,6 +1034,9 @@ fn charts() {
             .point_colors
             .is_empty()
     );
+    // A column chart's slices do not stand out.
+    t.app.run_command("viewer.grid.explodeSlice", json!({}));
+    assert!(t.screen().contains("Only a pie's"), "{}", t.screen());
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app
@@ -1044,4 +1047,31 @@ fn charts() {
         s.chars().any(|c| ('\u{2801}'..='\u{28FF}').contains(&c)),
         "{s}"
     );
+    // A pie on top, its first slice pulled out: marked in the terminal.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app
+        .run_command("viewer.grid.insertChart", json!({ "kind": "pie" }));
+    let a = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .charts()
+        .last()
+        .unwrap()
+        .anchor;
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(a[0], a[1]);
+    t.app.run_command(
+        "viewer.grid.explodeSlice",
+        json!({ "point": 0, "percent": 25 }),
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    let s = t.screen();
+    assert!(s.contains("» Rent"), "{s}");
 }

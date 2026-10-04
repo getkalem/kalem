@@ -506,8 +506,23 @@ fn paint(
             if total <= 0.0 {
                 return;
             }
-            let r = w.min(h) / 2.0 - 2.0;
+            // Slices pulled out push the pie in, so the farthest one fits.
+            let pulled = |i: usize| -> f32 {
+                let e = s
+                    .point_explosions
+                    .iter()
+                    .find(|p| p.0 == i)
+                    .map_or(s.explosion, |p| p.1);
+                e as f32 / 100.0
+            };
+            let most = (0..s.values.len()).map(pulled).fold(0f32, f32::max);
+            let r = (w.min(h) / 2.0 - 2.0) / (1.0 + most);
             let (cx, cy) = (x0 + w / 2.0, y0 + h / 2.0);
+            let hole = if chart.kind == ChartKind::Doughnut {
+                0.5
+            } else {
+                0.0
+            };
             let mut angle = -std::f32::consts::FRAC_PI_2;
             for (i, v) in s.values.iter().enumerate() {
                 let v = v.unwrap_or(0.0).max(0.0);
@@ -515,11 +530,24 @@ fn paint(
                     continue;
                 }
                 let sweep = (v / total) as f32 * std::f32::consts::TAU;
+                let mid = angle + sweep / 2.0;
+                let off = r * pulled(i);
+                let (sx, sy) = (cx + off * mid.cos(), cy + off * mid.sin());
                 let steps = ((sweep / 0.05).ceil() as usize).max(2);
-                let mut poly = vec![point(px(cx), px(cy))];
-                for k in 0..=steps {
-                    let a = angle + sweep * k as f32 / steps as f32;
-                    poly.push(point(px(cx + r * a.cos()), px(cy + r * a.sin())));
+                let arc = |radius: f32| -> Vec<gpui::Point<Pixels>> {
+                    (0..=steps)
+                        .map(|k| {
+                            let a = angle + sweep * k as f32 / steps as f32;
+                            point(px(sx + radius * a.cos()), px(sy + radius * a.sin()))
+                        })
+                        .collect()
+                };
+                // A sector, or for a doughnut the ring's part.
+                let mut poly = arc(r);
+                if hole > 0.0 {
+                    poly.extend(arc(r * hole).into_iter().rev());
+                } else {
+                    poly.insert(0, point(px(sx), px(sy)));
                 }
                 let mut p = PathBuilder::fill();
                 p.add_polygon(&poly, true);
@@ -528,35 +556,15 @@ fn paint(
                     window.paint_path(path, color(own, i));
                 }
                 if let Some(t) = label_text(chart, 0, i, v, total) {
-                    let mid = angle + sweep / 2.0;
-                    let at = if chart.kind == ChartKind::Doughnut {
-                        0.75
-                    } else {
-                        0.62
-                    };
+                    let at = if hole > 0.0 { 0.75 } else { 0.62 };
                     marks.push((
-                        cx + r * at * mid.cos(),
-                        cy + r * at * mid.sin(),
+                        sx + r * at * mid.cos(),
+                        sy + r * at * mid.sin(),
                         t,
                         Place::Center,
                     ));
                 }
                 angle += sweep;
-            }
-            if chart.kind == ChartKind::Doughnut {
-                let mut poly = Vec::new();
-                for k in 0..72 {
-                    let a = k as f32 * std::f32::consts::TAU / 72.0;
-                    poly.push(point(
-                        px(cx + r * 0.5 * a.cos()),
-                        px(cy + r * 0.5 * a.sin()),
-                    ));
-                }
-                let mut p = PathBuilder::fill();
-                p.add_polygon(&poly, true);
-                if let Ok(path) = p.build() {
-                    window.paint_path(path, gpui::white());
-                }
             }
         }
         ChartKind::Other => {}
