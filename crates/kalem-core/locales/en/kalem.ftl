@@ -823,6 +823,7 @@ cmd-bib-newEntry = New Entry
 cmd-csv-sortView = Sort View by Column
 cmd-csv-unsortView = File Order
 cmd-csv-setDelimiter = Set Delimiter
+cmd-csv-openAsWorkbook = Open as Workbook
 cmd-csv-setQuote = Set Quote Character
 cmd-csv-toggleHeader = First Row Is a Header
 cmd-csv-detectDialect = Detect Delimiter and Header Again

@@ -266,6 +266,16 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("csv.filter", object(&[("text", "string", true)])),
         ("csv.sortView", object(&[("reverse", "boolean", false)])),
         ("csv.setDelimiter", object(&[("delimiter", "string", true)])),
+        (
+            "csv.openAsWorkbook",
+            object(&[
+                ("delimiter", "string", false),
+                ("encoding", "string", false),
+                ("column types", "string", false),
+                ("path", "string", false),
+                ("replace", "boolean", false),
+            ]),
+        ),
         ("csv.setQuote", object(&[("quote", "string", true)])),
         (
             "csv.splitColumn",
@@ -3153,6 +3163,17 @@ fn csv_commands() -> Vec<Command> {
             d.csv_sort = Some((col, reverse));
             Ok(())
         }),
+        scoped(
+            cmd(
+                "csv.openAsWorkbook",
+                "Open as Workbook",
+                "CSV",
+                &[],
+                None,
+                open_as_workbook,
+            ),
+            Scope::only(&["csv", "text"]),
+        ),
         // The dialect by hand: it is detected once and kept.
         c("csv.setDelimiter", "Set Delimiter", &[], |ctx, args| {
             let v = arg_str(args, "delimiter")?.to_string();
@@ -4161,6 +4182,173 @@ fn plugin_commands() -> Vec<Command> {
             },
         ),
     ]
+}
+
+/// Open as Workbook (Excel's Text Import Wizard): the file's records
+/// read with a delimiter and an encoding chosen, each column as General,
+/// Text, a date in an order, or left out; written as a workbook beside it
+/// (or where asked) and opened.
+fn open_as_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    const ID: &str = "csv.openAsWorkbook";
+    let item = |a: Value, title: &str, category: &str| crate::palette::PaletteItem {
+        id: crate::palette::invocation(ID, &a),
+        title: title.into(),
+        category: category.into(),
+        keys: String::new(),
+        also: title.into(),
+    };
+    let with = |key: &str, v: &str| {
+        let mut a = args.clone();
+        a[key] = Value::String(v.into());
+        a
+    };
+    let d = ctx.doc()?;
+    let detected = crate::csv::detect(d.text().as_str()).delimiter;
+    let path = d.meta.path.clone();
+    let Some(delimiter) = args
+        .get("delimiter")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        let mut choices = vec![
+            (",", "Comma"),
+            (";", "Semicolon"),
+            ("tab", "Tab"),
+            ("|", "Vertical Bar"),
+            (" ", "Space"),
+        ];
+        // The delimiter the file seems to have, first.
+        let found = if detected == b'\t' {
+            "tab".to_string()
+        } else {
+            (detected as char).to_string()
+        };
+        if let Some(k) = choices.iter().position(|c| c.0 == found) {
+            let c = choices.remove(k);
+            choices.insert(0, c);
+        }
+        let items = choices
+            .iter()
+            .enumerate()
+            .map(|(k, (v, t))| {
+                let t = if k == 0 && *v == found {
+                    format!("{t} (found)")
+                } else {
+                    (*t).to_string()
+                };
+                item(with("delimiter", v), &t, "Open as Workbook: delimiter")
+            })
+            .collect();
+        return request(ctx, Request::Choose(items));
+    };
+    let Some(encoding) = args
+        .get("encoding")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        let items = [
+            ("utf-8", "UTF-8"),
+            ("windows-1254", "Turkish (Windows-1254)"),
+            ("iso-8859-9", "Turkish (ISO-8859-9)"),
+            ("windows-1252", "Western (Windows-1252)"),
+            ("utf-16le", "UTF-16 LE"),
+            ("utf-16be", "UTF-16 BE"),
+        ]
+        .iter()
+        .map(|(v, t)| item(with("encoding", v), t, "Open as Workbook: encoding"))
+        .collect();
+        return request(ctx, Request::Choose(items));
+    };
+    let Some(types) = args
+        .get("column types")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        return request(
+            ctx,
+            Request::Ask {
+                command: ID.into(),
+                args: args.clone(),
+                arg: "column types".into(),
+            },
+        );
+    };
+    let types = crate::workbook_io::parse_types(&types).map_err(CommandError::new)?;
+    let Some(target) = args.get("path").and_then(Value::as_str).map(str::to_owned) else {
+        let default = path.as_ref().map_or("Book.xlsx".into(), |p| {
+            p.with_extension("xlsx").display().to_string()
+        });
+        let mut a = args.clone();
+        a["path_default"] = Value::String(default);
+        return request(
+            ctx,
+            Request::Ask {
+                command: ID.into(),
+                args: a,
+                arg: "path".into(),
+            },
+        );
+    };
+    let mut target = std::path::PathBuf::from(crate::settings::expand_home(target.trim()));
+    if target.is_relative()
+        && let Some(dir) = path.as_ref().and_then(|p| p.parent())
+    {
+        target = dir.join(target);
+    }
+    if target.extension().is_none() {
+        target.set_extension("xlsx");
+    }
+    if target.exists() && !arg_bool(args, "replace") {
+        let name = target
+            .file_name()
+            .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+        let mut a = args.clone();
+        a["path"] = Value::String(target.display().to_string());
+        a["replace"] = Value::Bool(true);
+        return request(
+            ctx,
+            Request::Choose(vec![item(
+                a,
+                &format!("Replace {name}"),
+                &format!("{name} exists"),
+            )]),
+        );
+    }
+    let enc = encoding_rs::Encoding::for_label(encoding.as_bytes())
+        .ok_or_else(|| CommandError::new(format!("{encoding} is not an encoding")))?;
+    // The file's bytes read again in the encoding chosen; a new file's text
+    // as it is.
+    let text = match path.as_ref().map(std::fs::read) {
+        Some(Ok(bytes)) => enc.decode(&bytes).0.into_owned(),
+        _ => ctx.doc()?.text().as_str().to_owned(),
+    };
+    let dialect = crate::csv::Dialect {
+        delimiter: if delimiter == "tab" {
+            b'\t'
+        } else {
+            delimiter.as_bytes().first().copied().unwrap_or(b',')
+        },
+        quote: b'"',
+        header: false,
+        crlf: false,
+    };
+    let rows = crate::workbook_io::import_rows(&crate::csv::rows(&text, &dialect), &types);
+    let sheet: String = target
+        .file_stem()
+        .map_or("Sheet1".into(), |s| s.to_string_lossy().into_owned())
+        .chars()
+        .filter(|c| !"[]:*?/\\".contains(*c))
+        .take(31)
+        .collect();
+    let bytes =
+        crate::workbook_io::rows_to_xlsx(if sheet.is_empty() { "Sheet1" } else { &sheet }, &rows);
+    std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
+    request(
+        ctx,
+        Request::Open {
+            path: Some(target.display().to_string()),
+        },
+    )
 }
 
 fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {

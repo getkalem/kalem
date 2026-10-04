@@ -487,7 +487,8 @@ impl DocumentState {
         let Some(v) = self.viewer.as_deref_mut() else {
             return Ok(());
         };
-        if !v.modified() {
+        // Save As (no file known yet) writes even without edits.
+        if !v.modified() && self.disk.is_some() {
             return Ok(());
         }
         if !force && let Some(known) = self.disk {
@@ -496,13 +497,34 @@ impl DocumentState {
                 DiskChange::Unchanged | DiskChange::Touched(_) | DiskChange::Deleted => {}
             }
         }
-        let out = v
-            .save()
-            .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
-        for loss in &out.losses {
-            tracing::warn!(path = %path.display(), loss, "lost on save");
+        let ext = path
+            .extension()
+            .map_or(String::new(), |e| e.to_string_lossy().to_ascii_lowercase());
+        // A workbook the viewer only showed, written as a new `.xlsx`:
+        // opened again from it, to edit.
+        let converted = v.is_workbook()
+            && !v.grid_editable()
+            && matches!(ext.as_str(), "xlsx" | "xlsm" | "xltx" | "xltm");
+        let bytes = if v.is_workbook() {
+            v.save_as_format(&ext)
+                .map_err(|e| SaveError::Io(std::io::Error::other(e)))?
+        } else {
+            let out = v
+                .save()
+                .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
+            for loss in &out.losses {
+                tracing::warn!(path = %path.display(), loss, "lost on save");
+            }
+            out.bytes
+        };
+        self.disk = Some(files::write(path, &bytes, options).map_err(SaveError::Io)?);
+        if converted && let Some(old) = self.viewer.as_deref() {
+            let mut state = crate::viewer::ViewerState::open(old.viewer.clone(), path)
+                .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
+            state.set_area(old.area().0, old.area().1);
+            state.go_to(old.unit);
+            self.viewer = Some(Box::new(state));
         }
-        self.disk = Some(files::write(path, &out.bytes, options).map_err(SaveError::Io)?);
         Ok(())
     }
 
