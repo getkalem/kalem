@@ -2143,6 +2143,26 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Colors a series of the chart under the cursor, or gives it the
+    /// theme's color again.
+    pub fn set_series_color(
+        &mut self,
+        series: usize,
+        color: Option<[u8; 3]>,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to color its series")?;
+        self.doc()
+            .set_series_color(self.unit, i, series, color)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -3534,6 +3554,132 @@ fn axis_scale(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
                 ),
                 menu_item(ID, serde_json::json!({ "field": "auto" }), "Automatic", c),
             ];
+            ctx.requests.push(Request::Choose(items));
+            Ok(())
+        }
+    }
+}
+
+/// Series Color: the series chosen (when there are several), then a
+/// color from Excel's standard ones, typed as `#RRGGBB`, or the theme's.
+fn series_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.seriesColor";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor on a chart to color its series".into());
+        return Ok(());
+    };
+    let chart = v.charts()[i].clone();
+    let hex = |c: [u8; 3]| format!("#{:02X}{:02X}{:02X}", c[0], c[1], c[2]);
+    let series = match args.get("series").and_then(serde_json::Value::as_u64) {
+        Some(n) => n as usize,
+        None if chart.series.len() == 1 => 0,
+        None => {
+            let items = chart
+                .series
+                .iter()
+                .enumerate()
+                .map(|(k, s)| {
+                    let now = s.color.map_or("automatic".to_string(), hex);
+                    let name = if s.name.is_empty() {
+                        format!("Series {}", k + 1)
+                    } else {
+                        s.name.clone()
+                    };
+                    menu_item(
+                        ID,
+                        serde_json::json!({ "series": k }),
+                        &format!("{name} ({now})"),
+                        "Series Color",
+                    )
+                })
+                .collect();
+            ctx.requests.push(Request::Choose(items));
+            return Ok(());
+        }
+    };
+    match args.get("color").and_then(|c| c.as_str()) {
+        Some("auto") => with(ctx, |v| v.set_series_color(series, None)),
+        Some("custom") => {
+            let now = chart
+                .series
+                .get(series)
+                .and_then(|s| s.color)
+                .map_or(String::new(), hex);
+            ask_more(
+                ctx,
+                ID,
+                &serde_json::json!({ "series": series, "value_default": now }),
+                "value",
+            )
+        }
+        Some(c) => match hex_color(c) {
+            Some(rgb) => with(ctx, |v| v.set_series_color(series, Some(rgb))),
+            None => {
+                ctx.messages.push(format!("Not a color: {c} (#RRGGBB)"));
+                Ok(())
+            }
+        },
+        None => {
+            // A color typed after Custom.
+            if let Some(typed) = args.get("value").and_then(|x| x.as_str()) {
+                return match hex_color(typed) {
+                    Some(rgb) => with(ctx, |v| v.set_series_color(series, Some(rgb))),
+                    None => {
+                        ctx.messages.push(format!("Not a color: {typed} (#RRGGBB)"));
+                        Ok(())
+                    }
+                };
+            }
+            let colors = [
+                ("Blue", "#4472C4"),
+                ("Orange", "#ED7D31"),
+                ("Gray", "#A5A5A5"),
+                ("Gold", "#FFC000"),
+                ("Light Blue", "#5B9BD5"),
+                ("Green", "#70AD47"),
+                ("Dark Blue", "#264478"),
+                ("Red", "#FF0000"),
+                ("Dark Red", "#C00000"),
+                ("Purple", "#7030A0"),
+                ("Black", "#000000"),
+            ];
+            let name = chart
+                .series
+                .get(series)
+                .map(|s| s.name.clone())
+                .unwrap_or_default();
+            let category = format!("Color of {name}");
+            let mut items: Vec<_> = colors
+                .iter()
+                .map(|(title, c)| {
+                    menu_item(
+                        ID,
+                        serde_json::json!({ "series": series, "color": c }),
+                        &format!("{title} {c}"),
+                        &category,
+                    )
+                })
+                .collect();
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "series": series, "color": "custom" }),
+                "Custom…",
+                &category,
+            ));
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "series": series, "color": "auto" }),
+                "Automatic",
+                &category,
+            ));
             ctx.requests.push(Request::Choose(items));
             Ok(())
         }
@@ -5121,6 +5267,13 @@ fn grid_commands() -> Vec<Command> {
                 ctx.requests.push(Request::Choose(items));
                 Ok(())
             },
+        ),
+        cmd(
+            "viewer.grid.seriesColor",
+            "Series Color",
+            &["h c"],
+            IN_GRID,
+            series_color,
         ),
         cmd(
             "viewer.grid.deleteChart",

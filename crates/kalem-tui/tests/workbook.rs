@@ -951,6 +951,52 @@ fn charts() {
     );
     t.app
         .run_command("viewer.grid.chartKind", json!({ "kind": "column" }));
+    // Series colors: the series offered, then the colors; Q2 made red,
+    // drawn so; a typed color for Total; Q2 automatic again.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('c'));
+    let s = t.screen();
+    assert!(s.contains("Q1 (automatic)") && s.contains("Total"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.seriesColor", json!({ "series": 1 }));
+    let s = t.screen();
+    assert!(
+        s.contains("Red #FF0000") && s.contains("Color of Q2"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.seriesColor",
+        json!({ "series": 1, "color": "#FF0000" }),
+    );
+    t.app.run_command(
+        "viewer.grid.seriesColor",
+        json!({ "series": 2, "value": "#00aa00" }),
+    );
+    let c3 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert_eq!(
+        (c3.series[0].color, c3.series[1].color, c3.series[2].color),
+        (None, Some([0xFF, 0, 0]), Some([0, 0xAA, 0]))
+    );
+    t.screen();
+    let red = ratatui::style::Color::Rgb(0xFF, 0, 0);
+    assert!(
+        t.term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .any(|c| c.fg == red)
+    );
+    t.app.run_command(
+        "viewer.grid.seriesColor",
+        json!({ "series": 1, "color": "auto" }),
+    );
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].series[1].color,
+        None
+    );
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app
