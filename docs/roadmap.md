@@ -169,10 +169,17 @@ added without touching either frontend; `Request` is handled once;
 errors are typed and translated; `kalem-core` is split along its seams;
 the parity test still passes on the whole corpus.
 
-- [ ] R3.1 Org on the mode contract: `OrgMode: ModeSpec` wrapping
+- [x] R3.1 Org on the mode contract: `OrgMode: ModeSpec` wrapping
   `org-syntax`/`org-model`/`org-edit` (tree in the contract's kinds,
   outline, format, diagnostics, edit keys), passing `modes::check` on the
   Org corpus. L (T2.7c.10)
+  Done 2026-10-04: `kalem_core::org_mode::OrgMode` maps `org-syntax`
+  (headings by `org-level`, lists ordered by their bullet, checkboxes,
+  source blocks with their language, tables to cells, links and
+  pictures with their targets); outline from the view, Format Document
+  from `org-edit`, diagnostics from `org-lint`, Enter as the editor's
+  Enter and Tab as the table's next field. `modes::check` passes on the
+  32 files of `tests/corpus/org-mode`.
 - [ ] R3.2 The editors render from the contract: `line_view`, `blocks`
   and `outline_items` become trait methods with the per-mode free
   functions behind them; the hand-written dispatch in

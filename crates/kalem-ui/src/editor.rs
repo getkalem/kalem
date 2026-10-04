@@ -617,15 +617,7 @@ impl Editor {
         {
             return b.clone();
         }
-        let b = match self.doc.parse() {
-            // LaTeX: its displayed formulas, and the text between them.
-            _ if self.doc.meta.mode == kalem_core::DocumentMode::Markdown => {
-                Arc::new(kalem_core::markdown::blocks(&self.doc))
-            }
-            _ if self.doc.latex().is_some() => Arc::new(kalem_core::latex_view::blocks(&self.doc)),
-            Some((p, true)) => Arc::new(view::blocks(&p.syntax(), p.context())),
-            _ => Arc::new(Vec::new()),
-        };
+        let b = Arc::new(kalem_core::mode_view::blocks(&self.doc));
         if !b.is_empty() {
             self.folds.retain(&b);
             self.blocks = Some((version, b.clone()));
@@ -2540,85 +2532,32 @@ impl Editor {
         if range.end > range.start && text.as_str().as_bytes()[range.end - 1] == b'\r' {
             range.end -= 1;
         }
-        // A very long line, in any mode: the part around the cursor, as
-        // it is (laying out all of it would take seconds).
-        if range.len() > view::LONG_LINE {
-            let mut v = view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
-            v.mono = self.doc.meta.mode != DocumentMode::Org;
-            return v;
-        }
-        // LaTeX: the document as it reads (the source view shows the text).
-        if self.doc.meta.mode == DocumentMode::Latex && !self.source {
-            // A paragraph over several lines, away from the cursor: one.
+        // LaTeX: a paragraph over several lines, away from the cursor, as
+        // one.
+        let paragraph = if self.doc.meta.mode == DocumentMode::Latex && !self.source {
             let ps = self.paragraphs();
             let i = ps.partition_point(|p| p.start < range.start);
-            if let Some(p) = ps.get(i).filter(|p| p.start == range.start)
-                && self.cursor_paragraph().as_ref() != Some(p)
-            {
-                return kalem_core::latex_view::paragraph_view(
-                    &self.doc,
-                    p.clone(),
-                    Some(self.doc.selection.head),
-                );
-            }
-            return kalem_core::latex_view::line_view(
-                &self.doc,
-                range,
-                Some(self.doc.selection.head),
-            );
+            ps.get(i)
+                .filter(|p| p.start == range.start && self.cursor_paragraph().as_ref() != Some(*p))
+                .cloned()
+        } else {
+            None
+        };
+        let grid = self.doc.meta.mode == DocumentMode::Csv
+            && !self.source
+            && range.len() <= view::LONG_LINE;
+        let mut v = kalem_core::mode_view::line_view(
+            &self.doc,
+            self.source,
+            range,
+            Some(self.doc.selection.head),
+            paragraph,
+        );
+        // CSV in the spreadsheet look: the grid's cells as a sheet's.
+        if grid && kalem_core::csv::layout(&self.doc).view.sheet {
+            sheet_runs(&mut v);
         }
-        // CSV: a row of the grid (the source view shows the text).
-        // BibTeX: an entry as a row of the grid, away from the cursor.
-        if kalem_core::bibtex::is_bib(&self.doc) && !self.source {
-            return kalem_core::bibtex::line_view(&self.doc, range, Some(self.doc.selection.head));
-        }
-        if self.doc.meta.mode == DocumentMode::Csv && !self.source {
-            let layout = kalem_core::csv::layout(&self.doc);
-            let mut v = kalem_core::csv::line_view(
-                &layout,
-                text.as_str(),
-                range,
-                Some(self.doc.selection.head),
-            );
-            if layout.view.sheet {
-                sheet_runs(&mut v);
-            }
-            return v;
-        }
-        // Markdown: as it reads, markers hidden away from the cursor.
-        if self.doc.meta.mode == DocumentMode::Markdown && !self.source {
-            return kalem_core::markdown::line_view(
-                &self.doc,
-                range,
-                Some(self.doc.selection.head),
-            );
-        }
-        match self.doc.parse() {
-            Some((p, true)) if self.source => {
-                view::source_line_view(&p.syntax(), p.context(), text.as_str(), range)
-            }
-            Some((p, true)) => {
-                let table = text.as_str()[range.clone()].trim_start().starts_with('|');
-                let root = p.syntax();
-                view::line_view_with(
-                    &root,
-                    p.context(),
-                    range,
-                    Some(self.doc.selection.head),
-                    table,
-                )
-            }
-            // Plain text is monospace, as the source view; a very long
-            // line shows the part around the cursor.
-            _ => {
-                let mut v =
-                    view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
-                v.mono = self.doc.meta.mode != DocumentMode::Org;
-                // LaTeX's source view: the diagnostics flagged too.
-                kalem_core::latex_view::flag_diagnostics(&self.doc, &mut v);
-                v
-            }
-        }
+        v
     }
 
     /// One grapheme left or right in the display, skipping hidden markup.

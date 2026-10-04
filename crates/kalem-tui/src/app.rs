@@ -3308,17 +3308,7 @@ impl App {
     }
 
     fn outline_items(&mut self) -> Vec<OutlineItem> {
-        self.doc
-            .model()
-            .map(|m| kalem_core::view::outline_items(&m))
-            .or_else(|| kalem_core::latex_view::outline_items(&self.doc))
-            .or_else(|| {
-                (self.doc.meta.mode == kalem_core::DocumentMode::Markdown)
-                    .then(|| kalem_core::markdown::outline_items(&self.doc))
-            })
-            .or_else(|| kalem_core::packs::outline_items(&self.doc))
-            .or_else(|| kalem_core::viewer::outline_items(&self.doc))
-            .unwrap_or_default()
+        kalem_core::mode_view::outline_items(&mut self.doc).unwrap_or_default()
     }
 
     fn toggle_outline(&mut self) {
