@@ -1864,8 +1864,8 @@ fn find_and_replace() {
     t.key(KeyCode::F(3));
     assert_eq!(pos(&mut t), (3, 2));
     t.app.event(Event::Key(KeyEvent::new(
-        KeyCode::F(3),
-        KeyModifiers::SHIFT,
+        KeyCode::F(4),
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
     )));
     assert_eq!(pos(&mut t), (3, 3));
     // Match Case, then the whole cell, then in formulas.
@@ -2176,4 +2176,64 @@ fn notes() {
     }
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
     assert!(t.screen().contains("Paid on the first"), "{}", t.screen());
+}
+
+#[test]
+fn auto_sum_and_functions() {
+    let mut t = T::open("autosum");
+    let alt_eq = |t: &mut T| {
+        t.app.event(Event::Key(KeyEvent::new(
+            KeyCode::Char('='),
+            KeyModifiers::ALT,
+        )));
+        t.screen()
+    };
+    // Under a column of numbers: their sum, proposed to be entered.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 1);
+    let s = alt_eq(&mut t);
+    assert!(s.contains("=SUM(B2:B5)"), "{s}");
+    t.key(KeyCode::Enter);
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(5, 1);
+    assert_eq!(v.cell_input(), "=SUM(B2:B5)");
+    assert!(
+        t.screen().contains("3,263.00") || t.screen().contains("3263"),
+        "{}",
+        t.screen()
+    );
+    t.app.run_command("edit.undo", json!({}));
+    // Right of a row of numbers: theirs.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+    let s = alt_eq(&mut t);
+    assert!(s.contains("=SUM(B2:D2)"), "{s}");
+    t.key(KeyCode::Esc);
+    // A selection ending in an empty row: a sum under each column at once.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(5, 2);
+    }
+    alt_eq(&mut t);
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(5, 2);
+    assert_eq!(v.cell_input(), "=SUM(C2:C5)");
+    t.app.run_command("edit.undo", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(5, 1);
+    assert_eq!(v.cell_input(), "");
+    // Insert Function: the list with arguments, the chosen one begun.
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::F(3),
+        KeyModifiers::SHIFT,
+    )));
+    for c in "vlookup".chars() {
+        t.key(KeyCode::Char(c));
+    }
+    let s = t.screen();
+    assert!(s.contains("VLOOKUP(lookup_value, table_array"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.insertFunction", json!({ "name": "AVERAGE" }));
+    assert!(t.screen().contains("=AVERAGE("), "{}", t.screen());
+    t.key(KeyCode::Esc);
 }

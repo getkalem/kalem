@@ -80,7 +80,7 @@ in the palette and can be bound again.
 
 ## E12. AutoSum and functions
 
-- [ ] E12 AutoSum (Alt+=) puts `=SUM()` of the numbers above or to the
+- [x] E12 AutoSum (Alt+=) puts `=SUM()` of the numbers above or to the
   left; Insert Function lists the functions the engine knows with their
   arguments and enters the one chosen.
 

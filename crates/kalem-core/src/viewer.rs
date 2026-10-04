@@ -3083,6 +3083,83 @@ impl ViewerState {
         Ok(())
     }
 
+    /// AutoSum of a selection of more than one cell: under each column
+    /// with numbers, its sum (in the selection's last row when that is
+    /// empty, else the row below), as one undo step; how many sums.
+    pub fn auto_sum_selection(&mut self) -> Result<usize, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let cells = self.grid_cells(s[0]..s[2] + 2, s[1]..s[3] + 1);
+        let at = |r: u32, c: u32| cells.iter().find(|x| x.0 == r && x.1 == c).map(|x| &x.2);
+        let last_empty = (s[1]..=s[3]).all(|c| at(s[2], c).is_none_or(|x| x.text.is_empty()));
+        let (target, last) = if last_empty && s[2] > s[0] {
+            (s[2], s[2] - 1)
+        } else {
+            (s[2] + 1, s[2])
+        };
+        let mut sums = Vec::new();
+        for c in s[1]..=s[3] {
+            if !(s[0]..=last).any(|r| at(r, c).is_some_and(|x| x.numeric)) {
+                continue;
+            }
+            let col = crate::csv_tools::column_letters(c as usize);
+            sums.push((
+                target,
+                c,
+                format!("=SUM({col}{}:{col}{})", s[0] + 1, last + 1),
+            ));
+        }
+        if sums.is_empty() {
+            return Err("No numbers to sum in the selection".into());
+        }
+        let n = sums.len();
+        self.doc()
+            .set_cell_list(self.unit, &sums)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(n)
+    }
+
+    /// The SUM AutoSum proposes for the cursor's cell: of the numbers right
+    /// above it, else of those left of it, else empty.
+    pub fn auto_sum_formula(&mut self) -> String {
+        let p = self.grid_pos();
+        let numeric = |v: &mut Self, r: u32, c: u32| {
+            v.grid_cells(r..r + 1, c..c + 1)
+                .first()
+                .is_some_and(|x| x.2.numeric)
+        };
+        let mut top = p.row;
+        while top > 0 && numeric(self, top - 1, p.col) {
+            top -= 1;
+        }
+        let col = |c: u32| crate::csv_tools::column_letters(c as usize);
+        if top < p.row {
+            let c = col(p.col);
+            return format!("=SUM({c}{}:{c}{})", top + 1, p.row);
+        }
+        let mut left = p.col;
+        while left > 0 && numeric(self, p.row, left - 1) {
+            left -= 1;
+        }
+        if left < p.col {
+            return format!(
+                "=SUM({}{r}:{}{r})",
+                col(left),
+                col(p.col - 1),
+                r = p.row + 1
+            );
+        }
+        "=SUM()".into()
+    }
+
+    /// The functions formulas can use, with their arguments.
+    pub fn formula_functions(&mut self) -> Vec<(String, String)> {
+        self.doc().formula_functions()
+    }
+
     /// The units that are hidden sheets.
     pub fn hidden_units(&mut self) -> Vec<usize> {
         self.doc().hidden_units()
@@ -5979,6 +6056,63 @@ fn edit_note(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
     }
 }
 
+/// AutoSum (Alt+=): for one cell, its SUM proposed in the cell's edit
+/// prompt; for a selection, the sums put under it.
+fn auto_sum(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let s = v.selection();
+    if s[0] != s[2] || s[1] != s[3] {
+        return with(ctx, |v| v.auto_sum_selection().map(|_| ()));
+    }
+    let formula = v.auto_sum_formula();
+    ask_cell(ctx, Some(&formula))
+}
+
+/// Insert Function (Shift+F3): the functions with their arguments; the one
+/// chosen begins the cursor's cell's formula.
+fn insert_function(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.insertFunction";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match args.get("name").and_then(|n| n.as_str()) {
+        Some(name) => {
+            let start = format!("={name}(");
+            ask_cell(ctx, Some(&start))
+        }
+        None => {
+            let items = v
+                .formula_functions()
+                .into_iter()
+                .map(|(name, a)| {
+                    menu_item(
+                        ID,
+                        serde_json::json!({ "name": name }),
+                        &format!("{name}({a})"),
+                        "Insert Function",
+                    )
+                })
+                .collect::<Vec<_>>();
+            if items.is_empty() {
+                ctx.messages.push("No functions for this file".into());
+            } else {
+                ctx.requests.push(Request::Choose(items));
+            }
+            Ok(())
+        }
+    }
+}
+
 /// Number Format: the selection's, from Excel's common ones or typed.
 fn number_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::StyleChange;
@@ -7207,6 +7341,20 @@ fn grid_commands() -> Vec<Command> {
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
         cmd(
+            "viewer.grid.autoSum",
+            "AutoSum",
+            &["alt+="],
+            IN_GRID,
+            |ctx, _| auto_sum(ctx),
+        ),
+        cmd(
+            "viewer.grid.insertFunction",
+            "Insert Function",
+            &["shift+f3"],
+            IN_GRID,
+            insert_function,
+        ),
+        cmd(
             "viewer.grid.editNote",
             "Edit Note",
             &["shift+f2"],
@@ -7336,7 +7484,7 @@ fn grid_commands() -> Vec<Command> {
         cmd(
             "viewer.grid.findPrevious",
             "Find Previous",
-            &["shift+f3"],
+            &["ctrl+shift+f4"],
             IN_GRID,
             |ctx, _| find_report(ctx, false),
         ),
