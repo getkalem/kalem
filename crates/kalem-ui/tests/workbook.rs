@@ -572,6 +572,50 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .clone()
     });
     assert_eq!(titled, None, "a pie has no axes");
+    // Its legend, beneath it as a pie's is, moved to its left.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.chartLegend",
+            serde_json::json!({ "position": "left" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let legend = cx
+        .debug_bounds(Box::leak(
+            format!("viewer-grid-chart-legend-{}", n - 1).into_boxed_str(),
+        ))
+        .expect("the legend");
+    let box_ = cx
+        .debug_bounds(Box::leak(
+            format!("viewer-grid-chart-{}", n - 1).into_boxed_str(),
+        ))
+        .unwrap();
+    assert!(
+        legend.origin.x < box_.center().x && legend.size.height > legend.size.width / 4.0,
+        "a column at the left: {legend:?} in {box_:?}"
+    );
+    // Its slices labeled with their shares, drawn on the plot.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.dataLabels",
+            serde_json::json!({ "value": false, "category": true, "series": false, "percent": true, "apply": true }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let labels = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].labels
+    });
+    assert!(labels.category && labels.percent && !labels.value);
+    assert!(
+        cx.debug_bounds(Box::leak(
+            format!("viewer-grid-chart-{}", n - 1).into_boxed_str()
+        ))
+        .is_some()
+    );
     assert_eq!(resized[..2], moved[..2]);
     assert_eq!(resized[2], moved[2] - 3, "{moved:?} → {resized:?}");
     let _ = std::fs::remove_dir_all(dir);

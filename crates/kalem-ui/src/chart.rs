@@ -6,7 +6,7 @@ use gpui::{
     Bounds, Hsla, InteractiveElement, ParentElement, PathBuilder, Pixels, SharedString, Styled,
     div, point, px, size,
 };
-use kalem_viewer::{Chart, ChartKind};
+use kalem_viewer::{Chart, ChartKind, LegendPosition};
 
 /// Excel's default series colors.
 const PALETTE: [u32; 6] = [0x4472C4, 0xED7D31, 0xA5A5A5, 0xFFC000, 0x5B9BD5, 0x70AD47];
@@ -26,6 +26,7 @@ pub fn chart_view(
     background: Hsla,
     border: Hsla,
     text: Hsla,
+    font: SharedString,
 ) -> gpui::Div {
     let axes = !matches!(
         chart.kind,
@@ -61,15 +62,22 @@ pub fn chart_view(
     let canvas = div().flex_1().min_h(px(10.)).relative().child(
         gpui::canvas(
             |_, _, _| {},
-            move |bounds, (), window, _| paint(&plot, bounds, border, window),
+            move |bounds, (), window, cx| paint(&plot, bounds, border, (&font, text), window, cx),
         )
         .absolute()
         .size_full(),
     );
+    // The plot, its labels and its axes' titles, in a column.
+    let mut middle = div()
+        .flex_1()
+        .min_w(px(10.))
+        .min_h(px(10.))
+        .flex()
+        .flex_col();
     // The vertical axis's title beside the plot, a letter a line, as a
     // turned title reads.
-    d = match chart.vertical_title.as_ref().filter(|_| axes) {
-        Some(t) => d.child(
+    middle = match chart.vertical_title.as_ref().filter(|_| axes) {
+        Some(t) => middle.child(
             div()
                 .flex_1()
                 .min_h(px(10.))
@@ -91,7 +99,7 @@ pub fn chart_view(
                 )
                 .child(canvas),
         ),
-        None => d.child(canvas),
+        None => middle.child(canvas),
     };
     if axes && chart.kind != ChartKind::Bar && chart.kind != ChartKind::Scatter {
         let n = chart
@@ -116,10 +124,10 @@ pub fn chart_view(
                         .unwrap_or_else(|| (i + 1).to_string()),
                 ))
         });
-        d = d.child(div().flex().children(labels));
+        middle = middle.child(div().flex().children(labels));
     }
     if let Some(t) = chart.horizontal_title.as_ref().filter(|_| axes) {
-        d = d.child(
+        middle = middle.child(
             div()
                 .debug_selector(move || format!("viewer-grid-chart-htitle-{index}"))
                 .flex()
@@ -131,7 +139,8 @@ pub fn chart_view(
                 .child(SharedString::from(t.clone())),
         );
     }
-    let legend: Vec<(String, Hsla)> = match chart.kind {
+    // The legend: the slices of a pie, else the series.
+    let entries: Vec<(String, Hsla)> = match chart.kind {
         ChartKind::Pie | ChartKind::Doughnut => {
             let n = chart.series.first().map_or(0, |s| s.values.len());
             (0..n)
@@ -147,36 +156,116 @@ pub fn chart_view(
                 })
                 .collect()
         }
-        _ if chart.series.len() > 1 => chart
+        _ => chart
             .series
             .iter()
             .enumerate()
             .map(|(i, s)| (s.name.clone(), color(s.color, i)))
             .collect(),
-        _ => Vec::new(),
     };
-    if !legend.is_empty() {
-        d = d.child(
+    let entry = |(name, c): (String, Hsla)| {
+        div()
+            .flex()
+            .items_center()
+            .gap(px(3.))
+            .whitespace_nowrap()
+            .child(div().size(px(8.)).flex_none().bg(c))
+            .child(SharedString::from(name))
+    };
+    let legend = |row: bool| {
+        let l = div()
+            .debug_selector(move || format!("viewer-grid-chart-legend-{index}"))
+            .flex()
+            .text_xs()
+            .overflow_hidden()
+            .children(entries.clone().into_iter().map(entry));
+        if row {
+            l.flex_wrap().justify_center().gap(px(8.))
+        } else {
+            l.flex_col().gap(px(2.)).max_w(px(w / 3.0))
+        }
+    };
+    d = match chart.legend.filter(|_| !entries.is_empty()) {
+        None => d.child(middle),
+        Some(LegendPosition::Top) => d.child(legend(true)).child(middle),
+        Some(LegendPosition::Bottom) => d.child(middle).child(legend(true)),
+        Some(LegendPosition::Left) => d.child(
             div()
+                .flex_1()
+                .min_h(px(10.))
                 .flex()
-                .flex_wrap()
-                .justify_center()
-                .gap(px(8.))
-                .text_xs()
-                .children(legend.into_iter().map(|(name, c)| {
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(3.))
-                        .child(div().size(px(8.)).bg(c))
-                        .child(SharedString::from(name))
-                })),
-        );
-    }
+                .gap(px(6.))
+                .child(legend(false).justify_center())
+                .child(middle),
+        ),
+        Some(LegendPosition::Right) => d.child(
+            div()
+                .flex_1()
+                .min_h(px(10.))
+                .flex()
+                .gap(px(6.))
+                .child(middle)
+                .child(legend(false).justify_center()),
+        ),
+        Some(LegendPosition::TopRight) => d.child(
+            div()
+                .flex_1()
+                .min_h(px(10.))
+                .flex()
+                .gap(px(6.))
+                .child(middle)
+                .child(legend(false)),
+        ),
+    };
     d
 }
 
-fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window) {
+/// Where a data label goes against its point.
+#[derive(Clone, Copy)]
+enum Place {
+    Above,
+    Right,
+    Center,
+}
+
+/// A data label's text: the parts the chart asks for, as Excel joins them.
+fn label_text(chart: &Chart, series: usize, i: usize, v: f64, total: f64) -> Option<String> {
+    let l = chart.labels;
+    let mut parts = Vec::new();
+    if l.series {
+        parts.push(chart.series.get(series)?.name.clone());
+    }
+    if l.category {
+        parts.push(
+            chart
+                .categories
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| (i + 1).to_string()),
+        );
+    }
+    if l.value {
+        parts.push(if v.fract() == 0.0 {
+            format!("{v}")
+        } else {
+            format!("{v:.2}").trim_end_matches('0').to_owned()
+        });
+    }
+    if l.percent && total > 0.0 {
+        parts.push(format!("{:.0}%", v / total * 100.0));
+    }
+    (!parts.is_empty()).then(|| parts.join(", "))
+}
+
+fn paint(
+    chart: &Chart,
+    b: Bounds<Pixels>,
+    grid: Hsla,
+    (font, ink): (&SharedString, Hsla),
+    window: &mut gpui::Window,
+    cx: &mut gpui::App,
+) {
+    let mut marks: Vec<(f32, f32, String, Place)> = Vec::new();
     let (x0, y0) = (f32::from(b.origin.x), f32::from(b.origin.y));
     let (w, h) = (f32::from(b.size.width), f32::from(b.size.height));
     if w < 4.0 || h < 4.0 {
@@ -233,6 +322,13 @@ fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window
                     } else {
                         rect(x0 + start, y0 + h - z, bar, z - a, c, window);
                     }
+                    if let Some(t) = label_text(chart, j, i, v, 0.0) {
+                        if horizontal {
+                            marks.push((x0 + z + 3.0, y0 + start + bar / 2.0, t, Place::Right));
+                        } else {
+                            marks.push((x0 + start + bar / 2.0, y0 + h - z - 2.0, t, Place::Above));
+                        }
+                    }
                 }
             }
         }
@@ -269,6 +365,13 @@ fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window
                     .enumerate()
                     .filter_map(|(i, v)| Some((px_of(i, s)?, py((*v)?))))
                     .collect();
+                for (i, v) in s.values.iter().enumerate() {
+                    if let (Some(v), Some(x)) = (v, px_of(i, s))
+                        && let Some(t) = label_text(chart, j, i, *v, 0.0)
+                    {
+                        marks.push((x, py(*v) - 4.0, t, Place::Above));
+                    }
+                }
                 match chart.kind {
                     ChartKind::Scatter => {
                         for (x, y) in &pts {
@@ -328,6 +431,20 @@ fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window
                 if let Ok(path) = p.build() {
                     window.paint_path(path, color(None, i));
                 }
+                if let Some(t) = label_text(chart, 0, i, v, total) {
+                    let mid = angle + sweep / 2.0;
+                    let at = if chart.kind == ChartKind::Doughnut {
+                        0.75
+                    } else {
+                        0.62
+                    };
+                    marks.push((
+                        cx + r * at * mid.cos(),
+                        cy + r * at * mid.sin(),
+                        t,
+                        Place::Center,
+                    ));
+                }
                 angle += sweep;
             }
             if chart.kind == ChartKind::Doughnut {
@@ -347,5 +464,33 @@ fn paint(chart: &Chart, b: Bounds<Pixels>, grid: Hsla, window: &mut gpui::Window
             }
         }
         ChartKind::Other => {}
+    }
+    // The data labels over what was drawn.
+    let fs = px(10.);
+    let lh = fs * 1.2;
+    for (x, y, t, place) in marks {
+        let run = gpui::TextRun {
+            len: t.len(),
+            font: gpui::font(font.clone()),
+            color: ink,
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let shaped = window.text_system().shape_line(t.into(), fs, &[run], None);
+        let tw = f32::from(shaped.width);
+        let (ox, oy) = match place {
+            Place::Above => (x - tw / 2.0, y - f32::from(lh)),
+            Place::Right => (x, y - f32::from(lh) / 2.0),
+            Place::Center => (x - tw / 2.0, y - f32::from(lh) / 2.0),
+        };
+        let _ = shaped.paint(
+            point(px(ox), px(oy)),
+            lh,
+            gpui::TextAlign::Left,
+            None,
+            window,
+            cx,
+        );
     }
 }

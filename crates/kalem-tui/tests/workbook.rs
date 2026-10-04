@@ -837,6 +837,61 @@ fn charts() {
     let s = t.screen();
     assert!(s.contains("Vertical Axis Title"), "{s}");
     t.key(KeyCode::Esc);
+    // The legend: offered where it may go, then moved to the right and
+    // taken away.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('l'));
+    let s = t.screen();
+    assert!(s.contains("Top Right") && s.contains("None"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.chartLegend", json!({ "position": "right" }));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].legend,
+        Some(kalem_viewer::LegendPosition::Right)
+    );
+    let s = t.screen();
+    let lines: Vec<&str> = s.lines().collect();
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.contains("■ Q1") && !l.contains("■ Q2")),
+        "a column of entries: {s}"
+    );
+    t.app
+        .run_command("viewer.grid.chartLegend", json!({ "position": "none" }));
+    assert!(!t.screen().contains("■ Q1"));
+    // Data labels: the checklist, Value checked from the palette and
+    // applied; the bars show their values.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('d'));
+    let s = t.screen();
+    assert!(s.contains("☐ Value") && s.contains("Apply"), "{s}");
+    for ch in "Value".chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    assert!(t.screen().contains("☑ Value"));
+    for ch in "apply".chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    assert!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .labels
+            .value
+    );
+    let s = t.screen();
+    assert!(s.contains("1200"), "{s}");
+    t.app.run_command(
+        "viewer.grid.dataLabels",
+        json!({ "value": false, "category": false, "series": false, "percent": false, "apply": true }),
+    );
+    assert!(
+        !t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .labels
+            .any()
+    );
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app

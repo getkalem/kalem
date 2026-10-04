@@ -2079,6 +2079,40 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Puts the legend of the chart under the cursor somewhere, or takes it
+    /// away.
+    pub fn set_legend(
+        &mut self,
+        position: Option<kalem_viewer::LegendPosition>,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to place its legend")?;
+        self.doc()
+            .set_legend(self.unit, i, position)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Sets what the data labels of the chart under the cursor show.
+    pub fn set_data_labels(&mut self, labels: kalem_viewer::DataLabels) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to label it")?;
+        self.doc()
+            .set_data_labels(self.unit, i, labels)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -3264,6 +3298,104 @@ fn chart_text(
         None => with(ctx, |v| v.set_chart_title(title)),
         Some(a) => with(ctx, |v| v.set_axis_title(a, title)),
     }
+}
+
+/// Data Labels: what they show as a checklist in the palette, as Excel's
+/// Label Options; choosing a line checks or unchecks it and offers the
+/// list again, Apply sets it. The list starts from what the chart shows.
+fn data_labels(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{ChartKind, DataLabels};
+    const ID: &str = "viewer.grid.dataLabels";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor on a chart to label it".into());
+        return Ok(());
+    };
+    let chart = v.charts()[i].clone();
+    let flag = |k: &str, now: bool| {
+        args.get(k)
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(now)
+    };
+    let l = DataLabels {
+        value: flag("value", chart.labels.value),
+        category: flag("category", chart.labels.category),
+        series: flag("series", chart.labels.series),
+        percent: flag("percent", chart.labels.percent),
+    };
+    if args.get("apply").and_then(serde_json::Value::as_bool) == Some(true) {
+        return with(ctx, |v| v.set_data_labels(l));
+    }
+    let json = |l: DataLabels| {
+        serde_json::json!({
+            "value": l.value, "category": l.category, "series": l.series, "percent": l.percent
+        })
+    };
+    let mut apply = json(l);
+    apply["apply"] = serde_json::json!(true);
+    let mut items = vec![
+        menu_item(ID, apply, "✓ Apply", "Data Labels"),
+        menu_item(
+            ID,
+            serde_json::json!({ "value": false, "category": false, "series": false, "percent": false, "apply": true }),
+            "No Labels",
+            "Data Labels",
+        ),
+    ];
+    let pie = matches!(chart.kind, ChartKind::Pie | ChartKind::Doughnut);
+    let mut lines = vec![
+        (
+            "Value",
+            l.value,
+            DataLabels {
+                value: !l.value,
+                ..l
+            },
+        ),
+        (
+            "Category Name",
+            l.category,
+            DataLabels {
+                category: !l.category,
+                ..l
+            },
+        ),
+        (
+            "Series Name",
+            l.series,
+            DataLabels {
+                series: !l.series,
+                ..l
+            },
+        ),
+    ];
+    if pie {
+        lines.push((
+            "Percentage",
+            l.percent,
+            DataLabels {
+                percent: !l.percent,
+                ..l
+            },
+        ));
+    }
+    for (title, on, toggled) in lines {
+        items.push(menu_item(
+            ID,
+            json(toggled),
+            &format!("{} {title}", if on { "☑" } else { "☐" }),
+            "Data Labels",
+        ));
+    }
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
 }
 
 /// Insert Chart: the kinds offered, then the chart of the selection.
@@ -4743,6 +4875,52 @@ fn grid_commands() -> Vec<Command> {
                     Some(kalem_viewer::ChartAxis::Vertical),
                 )
             },
+        ),
+        cmd(
+            "viewer.grid.chartLegend",
+            "Chart Legend",
+            &["h l"],
+            IN_GRID,
+            |ctx, args| {
+                use kalem_viewer::LegendPosition as L;
+                let places = [
+                    ("bottom", Some(L::Bottom), "Bottom"),
+                    ("top", Some(L::Top), "Top"),
+                    ("left", Some(L::Left), "Left"),
+                    ("right", Some(L::Right), "Right"),
+                    ("topRight", Some(L::TopRight), "Top Right"),
+                    ("none", None, "None"),
+                ];
+                match args
+                    .get("position")
+                    .and_then(|p| p.as_str())
+                    .and_then(|p| places.iter().find(|x| x.0 == p))
+                {
+                    Some((_, position, _)) => with(ctx, |v| v.set_legend(*position)),
+                    None => {
+                        let items = places
+                            .iter()
+                            .map(|(key, _, title)| {
+                                menu_item(
+                                    "viewer.grid.chartLegend",
+                                    serde_json::json!({ "position": key }),
+                                    title,
+                                    "Legend",
+                                )
+                            })
+                            .collect();
+                        ctx.requests.push(Request::Choose(items));
+                        Ok(())
+                    }
+                }
+            },
+        ),
+        cmd(
+            "viewer.grid.dataLabels",
+            "Data Labels",
+            &["h d"],
+            IN_GRID,
+            data_labels,
         ),
         cmd(
             "viewer.grid.deleteChart",

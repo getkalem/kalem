@@ -520,6 +520,45 @@ pub struct Chart {
     pub horizontal_title: Option<String>,
     /// The vertical axis's title.
     pub vertical_title: Option<String>,
+    /// Where its legend is; `None` for no legend.
+    pub legend: Option<LegendPosition>,
+    /// What its data labels show.
+    pub labels: DataLabels,
+}
+
+/// What a chart's data labels show at each point; all off, no labels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DataLabels {
+    /// The value.
+    pub value: bool,
+    /// The category's name.
+    pub category: bool,
+    /// The series' name.
+    pub series: bool,
+    /// A slice's share of the whole (pie and doughnut charts).
+    pub percent: bool,
+}
+
+impl DataLabels {
+    /// Whether any label shows.
+    pub fn any(&self) -> bool {
+        self.value || self.category || self.series || self.percent
+    }
+}
+
+/// Where a chart's legend stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LegendPosition {
+    /// Under the plot.
+    Bottom,
+    /// Above the plot.
+    Top,
+    /// Left of the plot.
+    Left,
+    /// Right of the plot.
+    Right,
+    /// In the top right corner.
+    TopRight,
 }
 
 /// One of a chart's axes, by where it is drawn.
@@ -1073,6 +1112,28 @@ pub trait ViewerDocument: Send {
         _index: usize,
         _axis: ChartAxis,
         _title: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Puts the legend of the chart at `index` of [`ViewerDocument::charts`]
+    /// at `position`, or takes it away (`None`).
+    fn set_legend(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _position: Option<LegendPosition>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sets what the data labels of the chart at `index` of
+    /// [`ViewerDocument::charts`] show, every series alike.
+    fn set_data_labels(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _labels: DataLabels,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
