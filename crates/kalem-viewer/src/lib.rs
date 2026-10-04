@@ -1427,6 +1427,10 @@ pub trait ViewerDocument: Send {
         Vec::new()
     }
 
+    /// The user's own lists a fill goes round (a spreadsheet's Custom
+    /// Lists: `North, South, East, West`), beside the months and days.
+    fn set_fill_lists(&mut self, _lists: Vec<Vec<String>>) {}
+
     /// Fills `target` (first row, first column, last row, last column),
     /// which holds `source` and goes past it one way, from `source`, as a
     /// spreadsheet's fill handle: with `series`, numbers, dates, numbered
