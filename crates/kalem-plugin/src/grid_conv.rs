@@ -144,15 +144,62 @@ cases!(kv::FilterOp, g::FilterOp {
 
 record!(kv::GridCell, g::Cell {
     text, numeric, bold, italic, underline, strike, color, fill, align, wrap, formula, note,
-    bar, icon, font_size, face, valign, borders, border_thick,
+    bar, icon, font_size, face, valign, borders, border_thick, indent, rotation, shrink,
+    center_across, unlocked, sparkline,
 });
+cases!(kv::SparklineKind, g::SparklineKind { Line, Column, WinLoss });
+record!(kv::Sparkline, g::Sparkline { kind, points, zero, color, marker, high, low });
+record!(kv::SheetProtection, g::Protection {
+    has_password, format_cells, format_columns, format_rows, insert_rows, insert_columns,
+    delete_rows, delete_columns, sort, filter,
+});
+record!(kv::PageSetup, g::PageLayout {
+    landscape, paper, margins, fit_width, print_area, title_rows, header, footer, row_breaks,
+});
+record!(kv::Drawing, g::Drawing { name, anchor, kind });
+
+impl Conv<g::DrawingKind> for kv::DrawingKind {
+    fn conv(self) -> g::DrawingKind {
+        match self {
+            kv::DrawingKind::Picture => g::DrawingKind::Picture,
+            kv::DrawingKind::Shape {
+                preset,
+                fill,
+                line,
+                text,
+                text_box,
+            } => g::DrawingKind::Shape(g::Shape {
+                preset,
+                fill: fill.conv(),
+                line: line.conv(),
+                text,
+                text_box,
+            }),
+        }
+    }
+}
+
+impl Conv<kv::DrawingKind> for g::DrawingKind {
+    fn conv(self) -> kv::DrawingKind {
+        match self {
+            g::DrawingKind::Picture => kv::DrawingKind::Picture,
+            g::DrawingKind::Shape(s) => kv::DrawingKind::Shape {
+                preset: s.preset,
+                fill: s.fill.conv(),
+                line: s.line.conv(),
+                text: s.text,
+                text_box: s.text_box,
+            },
+        }
+    }
+}
 record!(kv::GridLayout, g::GridLayout {
     rows, cols, max_rows, max_cols, widths, default_width, heights, default_height,
     hidden_rows, hidden_cols, merged, frozen, editable, filter, filtered,
 });
 record!(kv::StyleChange, g::StyleChange {
     bold, italic, underline, strike, color, fill, size, face, align, valign, borders,
-    number_format,
+    number_format, indent, rotation, shrink, center_across, locked,
 });
 record!(kv::CondStyle, g::CondStyle { fill, color, bold });
 record!(kv::ChartSeries, g::Series {

@@ -606,6 +606,88 @@ macro_rules! __kalem_grid_exports {
             fn reapply_filter(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.reapply_filter(unit as usize)))
             }
+            fn outline(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> (::std::vec::Vec<(u32, u8)>, ::std::vec::Vec<(u32, u8)>) {
+                $crate::adapter::grid::with(d, |x| x.outline(unit as usize))
+            }
+            fn set_outline(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, rows: bool, from: u32, to: u32, deeper: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_outline(unit as usize, rows, from, to, deeper)))
+            }
+            fn set_detail_shown(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, rows: bool, at: u32, shown: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_detail_shown(unit as usize, rows, at, shown)))
+            }
+            fn subtotal(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), by: u32, function: u32, columns: ::std::vec::Vec<u32>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.subtotal(unit as usize, range(r), by, function, &columns)))
+            }
+            fn begin_batch(d: $crate::adapter::grid::g::DocumentBorrow<'_>) {
+                $crate::adapter::grid::with(d, |x| x.begin_batch())
+            }
+            fn end_batch(d: $crate::adapter::grid::g::DocumentBorrow<'_>) {
+                $crate::adapter::grid::with(d, |x| x.end_batch())
+            }
+            fn conditional_ranges(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::vec::Vec<(u32, u32, u32, u32)> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.conditional_ranges(unit as usize)).conv()
+            }
+            fn evaluate_formulas(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, formulas: ::std::vec::Vec<::std::string::String>) -> ::std::vec::Vec<::std::option::Option<::std::string::String>> {
+                $crate::adapter::grid::with(d, |x| x.evaluate_formulas(unit as usize, &formulas))
+            }
+            fn sheet_protection(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::option::Option<$crate::adapter::grid::g::Protection> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.sheet_protection(unit as usize)).conv()
+            }
+            fn protect_sheet(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, protection: ::std::option::Option<$crate::adapter::grid::g::Protection>, password: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.protect_sheet(unit as usize, protection.conv(), password.as_deref())))
+            }
+            fn workbook_protected(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> bool {
+                $crate::adapter::grid::with(d, |x| x.workbook_protected())
+            }
+            fn protect_workbook(d: $crate::adapter::grid::g::DocumentBorrow<'_>, on: bool, password: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.protect_workbook(on, password.as_deref())))
+            }
+            fn page_setup(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::option::Option<$crate::adapter::grid::g::PageLayout> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.page_setup(unit as usize)).conv()
+            }
+            fn set_page_setup(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, setup: $crate::adapter::grid::g::PageLayout) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                let setup: $crate::adapter::grid::kv::PageSetup = setup.conv();
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_page_setup(unit as usize, &setup)))
+            }
+            fn drawings(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::vec::Vec<$crate::adapter::grid::g::Drawing> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.drawings(unit as usize)).conv()
+            }
+            fn drawing_image(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32) -> ::std::option::Option<::std::vec::Vec<u8>> {
+                $crate::adapter::grid::with(d, |x| x.drawing_image(unit as usize, index as usize))
+            }
+            fn insert_picture(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, anchor: (u32, u32, u32, u32), bytes: ::std::vec::Vec<u8>, extension: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.insert_picture(unit as usize, range(anchor), &bytes, &extension)))
+            }
+            fn insert_shape(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, anchor: (u32, u32, u32, u32), preset: ::std::string::String, text: ::std::string::String, text_box: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.insert_shape(unit as usize, range(anchor), &preset, &text, text_box)))
+            }
+            fn move_drawing(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, anchor: (u32, u32, u32, u32)) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.move_drawing(unit as usize, index as usize, range(anchor))))
+            }
+            fn set_shape_text(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, text: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_shape_text(unit as usize, index as usize, &text)))
+            }
+            fn delete_drawing(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_drawing(unit as usize, index as usize)))
+            }
+            fn add_sparklines(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, data: (u32, u32, u32, u32), location: (u32, u32, u32, u32), kind: $crate::adapter::grid::g::SparklineKind, mark: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::{range, Conv};
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.add_sparklines(unit as usize, range(data), range(location), kind.conv(), mark)))
+            }
+            fn clear_sparklines(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32)) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.clear_sparklines(unit as usize, range(r))))
+            }
             fn has_history(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> bool {
                 $crate::adapter::grid::with(d, |x| x.has_history())
             }

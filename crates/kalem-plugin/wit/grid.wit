@@ -50,6 +50,31 @@ interface grid {
         /// Top, right, bottom, left.
         borders: tuple<option<rgb>, option<rgb>, option<rgb>, option<rgb>>,
         border-thick: tuple<bool, bool, bool, bool>,
+        indent: u8,
+        /// Degrees, as the file writes them (255 for vertical text).
+        rotation: u16,
+        shrink: bool,
+        center-across: bool,
+        unlocked: bool,
+        sparkline: option<sparkline>,
+    }
+
+    enum sparkline-kind {
+        line,
+        column,
+        win-loss,
+    }
+
+    /// A small chart in a cell.
+    record sparkline {
+        kind: sparkline-kind,
+        /// Each value's height, 0 to 1000; none for an empty cell.
+        points: list<option<u16>>,
+        zero: option<u16>,
+        color: rgb,
+        marker: rgb,
+        high: option<u32>,
+        low: option<u32>,
     }
 
     /// A cell at its place.
@@ -131,6 +156,11 @@ interface grid {
         valign: option<valign>,
         borders: option<tuple<border-set, option<rgb>>>,
         number-format: option<string>,
+        indent: option<u8>,
+        rotation: option<u16>,
+        shrink: option<bool>,
+        center-across: option<bool>,
+        locked: option<bool>,
     }
 
     enum compare-op {
@@ -374,6 +404,57 @@ interface grid {
         %list: option<list<string>>,
     }
 
+    /// What a protected sheet still lets the user do.
+    record protection {
+        has-password: bool,
+        format-cells: bool,
+        format-columns: bool,
+        format-rows: bool,
+        insert-rows: bool,
+        insert-columns: bool,
+        delete-rows: bool,
+        delete-columns: bool,
+        sort: bool,
+        filter: bool,
+    }
+
+    /// How a sheet prints.
+    record page-layout {
+        landscape: bool,
+        paper: u32,
+        /// Left, right, top, bottom, in inches.
+        margins: tuple<f32, f32, f32, f32>,
+        fit-width: bool,
+        print-area: option<range>,
+        title-rows: option<tuple<u32, u32>>,
+        header: string,
+        footer: string,
+        row-breaks: list<u32>,
+    }
+
+    record shape {
+        preset: string,
+        fill: option<rgb>,
+        line: option<rgb>,
+        text: string,
+        text-box: bool,
+    }
+
+    variant drawing-kind {
+        picture,
+        shape(shape),
+    }
+
+    /// A picture or a shape on a grid.
+    record drawing {
+        name: string,
+        anchor: range,
+        kind: drawing-kind,
+    }
+
+    /// Grouped rows and columns: each with its level.
+    type levels = tuple<list<tuple<u32, u8>>, list<tuple<u32, u8>>>;
+
     record macro-entry {
         name: string,
         event: bool,
@@ -493,6 +574,29 @@ interface grid {
     filter-column-by: func(doc: borrow<document>, unit: u32, col: u32, rule: option<filter-rule>) -> changed;
     column-filter: func(doc: borrow<document>, unit: u32, col: u32) -> option<filter-rule>;
     reapply-filter: func(doc: borrow<document>, unit: u32) -> changed;
+    outline: func(doc: borrow<document>, unit: u32) -> levels;
+    set-outline: func(doc: borrow<document>, unit: u32, rows: bool, %from: u32, to: u32, deeper: bool) -> changed;
+    set-detail-shown: func(doc: borrow<document>, unit: u32, rows: bool, at: u32, shown: bool) -> changed;
+    subtotal: func(doc: borrow<document>, unit: u32, range: range, by: u32, function: u32, columns: list<u32>) -> changed;
+    begin-batch: func(doc: borrow<document>);
+    end-batch: func(doc: borrow<document>);
+    conditional-ranges: func(doc: borrow<document>, unit: u32) -> list<range>;
+    evaluate-formulas: func(doc: borrow<document>, unit: u32, formulas: list<string>) -> list<option<string>>;
+    sheet-protection: func(doc: borrow<document>, unit: u32) -> option<protection>;
+    protect-sheet: func(doc: borrow<document>, unit: u32, protection: option<protection>, password: option<string>) -> changed;
+    workbook-protected: func(doc: borrow<document>) -> bool;
+    protect-workbook: func(doc: borrow<document>, on: bool, password: option<string>) -> changed;
+    page-setup: func(doc: borrow<document>, unit: u32) -> option<page-layout>;
+    set-page-setup: func(doc: borrow<document>, unit: u32, setup: page-layout) -> changed;
+    drawings: func(doc: borrow<document>, unit: u32) -> list<drawing>;
+    drawing-image: func(doc: borrow<document>, unit: u32, index: u32) -> option<list<u8>>;
+    insert-picture: func(doc: borrow<document>, unit: u32, anchor: range, bytes: list<u8>, extension: string) -> changed;
+    insert-shape: func(doc: borrow<document>, unit: u32, anchor: range, preset: string, text: string, text-box: bool) -> changed;
+    move-drawing: func(doc: borrow<document>, unit: u32, index: u32, anchor: range) -> changed;
+    set-shape-text: func(doc: borrow<document>, unit: u32, index: u32, text: string) -> changed;
+    delete-drawing: func(doc: borrow<document>, unit: u32, index: u32) -> changed;
+    add-sparklines: func(doc: borrow<document>, unit: u32, data: range, location: range, kind: sparkline-kind, mark: bool) -> changed;
+    clear-sparklines: func(doc: borrow<document>, unit: u32, range: range) -> changed;
     has-history: func(doc: borrow<document>) -> bool;
     undo: func(doc: borrow<document>) -> result<bool, string>;
     redo: func(doc: borrow<document>) -> result<bool, string>;

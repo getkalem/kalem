@@ -1256,6 +1256,177 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_reapply_filter(s, d, unit as u32))
     }
 
+    fn outline(&mut self, unit: usize) -> kv::Outline {
+        self.g(|g, s, d| g.call_outline(s, d, unit as u32))
+            .unwrap_or_default()
+    }
+
+    fn set_outline(
+        &mut self,
+        unit: usize,
+        rows: bool,
+        from: u32,
+        to: u32,
+        deeper: bool,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_outline(s, d, unit as u32, rows, from, to, deeper))
+    }
+
+    fn set_detail_shown(
+        &mut self,
+        unit: usize,
+        rows: bool,
+        at: u32,
+        shown: bool,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_detail_shown(s, d, unit as u32, rows, at, shown))
+    }
+
+    fn subtotal(
+        &mut self,
+        unit: usize,
+        range: [u32; 4],
+        by: u32,
+        function: u32,
+        columns: &[u32],
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_subtotal(s, d, unit as u32, range.conv(), by, function, columns))
+    }
+
+    fn begin_batch(&mut self) {
+        let _ = self.g(|g, s, d| g.call_begin_batch(s, d));
+    }
+
+    fn end_batch(&mut self) {
+        let _ = self.g(|g, s, d| g.call_end_batch(s, d));
+    }
+
+    fn conditional_ranges(&mut self, unit: usize) -> Vec<[u32; 4]> {
+        self.g(|g, s, d| g.call_conditional_ranges(s, d, unit as u32))
+            .map(Conv::conv)
+            .unwrap_or_default()
+    }
+
+    fn evaluate_formulas(&mut self, unit: usize, formulas: &[String]) -> Vec<Option<String>> {
+        self.g(|g, s, d| g.call_evaluate_formulas(s, d, unit as u32, formulas))
+            .unwrap_or_else(|_| vec![None; formulas.len()])
+    }
+
+    fn sheet_protection(&mut self, unit: usize) -> Option<kv::SheetProtection> {
+        self.g(|g, s, d| g.call_sheet_protection(s, d, unit as u32))
+            .ok()
+            .flatten()
+            .map(Conv::conv)
+    }
+
+    fn protect_sheet(
+        &mut self,
+        unit: usize,
+        protection: Option<kv::SheetProtection>,
+        password: Option<&str>,
+    ) -> kv::Result<Vec<usize>> {
+        let protection: Option<grid::Protection> = protection.conv();
+        self.ch(|g, s, d| g.call_protect_sheet(s, d, unit as u32, protection, password))
+    }
+
+    fn workbook_protected(&mut self) -> bool {
+        self.g(|g, s, d| g.call_workbook_protected(s, d))
+            .unwrap_or(false)
+    }
+
+    fn protect_workbook(&mut self, on: bool, password: Option<&str>) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_protect_workbook(s, d, on, password))
+    }
+
+    fn page_setup(&mut self, unit: usize) -> Option<kv::PageSetup> {
+        self.g(|g, s, d| g.call_page_setup(s, d, unit as u32))
+            .ok()
+            .flatten()
+            .map(Conv::conv)
+    }
+
+    fn set_page_setup(&mut self, unit: usize, setup: &kv::PageSetup) -> kv::Result<Vec<usize>> {
+        let setup: grid::PageLayout = setup.clone().conv();
+        self.ch(|g, s, d| g.call_set_page_setup(s, d, unit as u32, &setup))
+    }
+
+    fn drawings(&mut self, unit: usize) -> Vec<kv::Drawing> {
+        self.g(|g, s, d| g.call_drawings(s, d, unit as u32))
+            .map(Conv::conv)
+            .unwrap_or_default()
+    }
+
+    fn drawing_image(&mut self, unit: usize, index: usize) -> Option<Vec<u8>> {
+        self.g(|g, s, d| g.call_drawing_image(s, d, unit as u32, index as u32))
+            .ok()
+            .flatten()
+    }
+
+    fn insert_picture(
+        &mut self,
+        unit: usize,
+        anchor: [u32; 4],
+        bytes: &[u8],
+        extension: &str,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_insert_picture(s, d, unit as u32, anchor.conv(), bytes, extension))
+    }
+
+    fn insert_shape(
+        &mut self,
+        unit: usize,
+        anchor: [u32; 4],
+        preset: &str,
+        text: &str,
+        text_box: bool,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_insert_shape(s, d, unit as u32, anchor.conv(), preset, text, text_box)
+        })
+    }
+
+    fn move_drawing(
+        &mut self,
+        unit: usize,
+        index: usize,
+        anchor: [u32; 4],
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_move_drawing(s, d, unit as u32, index as u32, anchor.conv()))
+    }
+
+    fn set_shape_text(&mut self, unit: usize, index: usize, text: &str) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_shape_text(s, d, unit as u32, index as u32, text))
+    }
+
+    fn delete_drawing(&mut self, unit: usize, index: usize) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_delete_drawing(s, d, unit as u32, index as u32))
+    }
+
+    fn add_sparklines(
+        &mut self,
+        unit: usize,
+        data: [u32; 4],
+        location: [u32; 4],
+        kind: kv::SparklineKind,
+        mark: bool,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_add_sparklines(
+                s,
+                d,
+                unit as u32,
+                data.conv(),
+                location.conv(),
+                kind.conv(),
+                mark,
+            )
+        })
+    }
+
+    fn clear_sparklines(&mut self, unit: usize, range: [u32; 4]) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_clear_sparklines(s, d, unit as u32, range.conv()))
+    }
+
     fn has_history(&self) -> bool {
         self.g(|g, s, d| g.call_has_history(s, d)).unwrap_or(false)
     }
