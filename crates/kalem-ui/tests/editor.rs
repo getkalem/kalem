@@ -4141,3 +4141,142 @@ fn file_manager_entries_dropped(cx: &mut TestAppContext) {
     assert!(proj.join("loose.org").exists());
     assert!(loose.exists());
 }
+
+/// A CSV file of `rows` rows under a header, six columns wide.
+fn csv_rows(rows: usize) -> String {
+    let mut text = String::from("id,name,city,amount,note,extra\n");
+    for i in 1..=rows {
+        text.push_str(&format!(
+            "{i},name{i},city{i},{},a fairly long note number {i},more text {i}\n",
+            i * 10
+        ));
+    }
+    text
+}
+
+/// The cursor's line, cell and place in the cell, and whether its row is
+/// painted and not under the pinned header row.
+fn csv_cursor(e: &Entity<Editor>, cx: &mut VisualTestContext) -> (usize, (usize, usize), bool) {
+    e.read_with(cx, |e, _| {
+        let head = e.doc.selection.head;
+        let line = e.doc.text().line_of(head);
+        let (_, _, rec, col) = kalem_core::csv::cell_at(&e.doc).unwrap();
+        let cell = (col, head - rec.fields[col].range.start);
+        let painted = e.painted.borrow();
+        let shown = painted.get(&line).is_some_and(|p| {
+            painted
+                .get(&0)
+                .is_none_or(|h| line == 0 || p.bounds.top() >= h.bounds.bottom() - gpui::px(0.5))
+        });
+        (line, cell, shown)
+    })
+}
+
+#[gpui::test]
+fn csv_arrows_and_pages_keep_the_column_and_the_cursor_in_view(cx: &mut TestAppContext) {
+    let text = csv_rows(200);
+    let (e, cx) = open_named(&text, "big.csv", || None, cx);
+    at(&e, text.find("name1,").unwrap() + 2, cx);
+    let col = csv_cursor(&e, cx).1;
+    for i in 1..=60 {
+        cx.simulate_keystrokes("down");
+        cx.run_until_parked();
+        assert_eq!(csv_cursor(&e, cx), (1 + i, col, true), "down {i}");
+    }
+    cx.simulate_keystrokes("pagedown");
+    cx.run_until_parked();
+    let (line, _, shown) = csv_cursor(&e, cx);
+    assert!(line > 61 && shown, "pagedown: {line} {shown}");
+    cx.simulate_keystrokes("pageup");
+    cx.run_until_parked();
+    assert_eq!(csv_cursor(&e, cx), (61, col, true));
+    for i in 1..=30 {
+        cx.simulate_keystrokes("up");
+        cx.run_until_parked();
+        assert_eq!(csv_cursor(&e, cx), (61 - i, col, true), "up {i}");
+    }
+}
+
+/// A click that missed: the row and column clicked, and the cell reached.
+type CsvMiss = (usize, usize, Option<(usize, usize)>);
+
+/// Clicks the middle of each cell of the rows painted, the first `rows`,
+/// and returns those that put the cursor elsewhere.
+fn csv_click_cells(e: &Entity<Editor>, rows: usize, cx: &mut VisualTestContext) -> Vec<CsvMiss> {
+    let mut lines: Vec<usize> = e.read_with(cx, |e, _| {
+        e.painted
+            .borrow()
+            .keys()
+            .copied()
+            .filter(|l| *l > 0)
+            .collect()
+    });
+    lines.sort();
+    lines.truncate(rows);
+    let mut misses = Vec::new();
+    for line in lines {
+        for col in 0..6 {
+            // Where the cell shows: the frozen column unscrolled, the rest
+            // scrolled sideways (and hidden under the frozen column).
+            let Some(pos) = e.read_with(cx, |e, _| {
+                let t = e.doc.text();
+                let start = t.line_start(line);
+                let fields: Vec<&str> = t.as_str()[start..].lines().next()?.split(',').collect();
+                let at = start + fields[..col].iter().map(|f| f.len() + 1).sum::<usize>();
+                let painted = e.painted.borrow();
+                let p = painted.get(&line)?;
+                let x = p
+                    .layout
+                    .caret(p.view.display_offset(at + fields[col].len() / 2))
+                    .origin
+                    .x
+                    + gpui::px(2.);
+                let left = p.bounds.origin.x + e.hscroll;
+                let frozen = e.frozen.get();
+                let in_frozen = frozen > gpui::px(0.) && x < frozen;
+                let sx = if in_frozen {
+                    left + x
+                } else {
+                    p.bounds.origin.x + x
+                };
+                let shows = sx < left + p.bounds.size.width && (in_frozen || sx >= left + frozen);
+                shows.then(|| gpui::point(sx, p.bounds.origin.y + p.bounds.size.height / 2.))
+            }) else {
+                continue;
+            };
+            // Apart in time, so not a double click.
+            cx.executor()
+                .advance_clock(std::time::Duration::from_secs(2));
+            cx.simulate_click(pos, gpui::Modifiers::default());
+            cx.run_until_parked();
+            let got = e.read_with(cx, |e, _| {
+                kalem_core::csv::cell_at(&e.doc).map(|c| (c.1, c.3))
+            });
+            if got != Some((line, col)) {
+                misses.push((line, col, got));
+            }
+        }
+    }
+    misses
+}
+
+#[gpui::test]
+fn csv_clicks_reach_every_cell(cx: &mut TestAppContext) {
+    let text = csv_rows(40);
+    let (e, cx) = open_named(&text, "big.csv", || None, cx);
+    assert_eq!(csv_click_cells(&e, 4, cx), vec![]);
+    // Scrolled sideways.
+    at(&e, text.find("more text 1\n").unwrap(), cx);
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.hscroll) > gpui::px(0.));
+    assert_eq!(csv_click_cells(&e, 4, cx), vec![]);
+    // With the first column frozen over the scrolled rows.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("csv.toggleFrozen", serde_json::Value::Null, window, cx)
+    });
+    at(&e, text.find("more text 1\n").unwrap(), cx);
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.hscroll) > gpui::px(0.));
+    assert!(e.read_with(cx, |e, _| e.frozen.get()) > gpui::px(0.));
+    assert_eq!(csv_click_cells(&e, 4, cx), vec![]);
+}

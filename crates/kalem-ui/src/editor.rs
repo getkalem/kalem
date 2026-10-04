@@ -321,6 +321,10 @@ pub struct Editor {
     pub marked: Option<Range<usize>>,
     /// Lines as last painted, by source line.
     pub painted: Rc<RefCell<HashMap<usize, Painted>>>,
+    /// The cursor's line, revealed again on the next frame: after a jump
+    /// to lines never laid out (Page Down), whose heights the list learns
+    /// only when it lays them out.
+    reveal_again: Option<(usize, u8)>,
     /// A message for the status bar, and whether it is an error.
     pub status: Option<(String, bool)>,
     pub(crate) goal_x: Option<Pixels>,
@@ -495,6 +499,7 @@ impl Editor {
             hints_drawn: false,
             marked: None,
             painted: Rc::default(),
+            reveal_again: None,
             status: None,
             goal_x: None,
             last_command: None,
@@ -566,7 +571,7 @@ impl Editor {
         e.startup_folds();
         e.visible = e.compute_visible();
         e.line_count = e.doc.text().line_count();
-        e.list.reset(e.visible.len());
+        e.list.reset_with_uniform_height(e.visible.len(), LINE_HINT);
         e
     }
 
@@ -816,7 +821,7 @@ impl Editor {
             });
             self.with_other(|e| {
                 e.visible = e.compute_visible();
-                e.list.reset(e.visible.len());
+                e.list.reset_with_uniform_height(e.visible.len(), LINE_HINT);
                 if let Some(i) = e.item_of(e.doc.text().line_of(e.doc.selection.head)) {
                     e.list.scroll_to_reveal_item(i);
                 }
@@ -827,7 +832,8 @@ impl Editor {
 
     /// Measures every line again (after a theme or font change).
     pub fn relayout(&mut self) {
-        self.list.reset(self.visible.len());
+        self.list
+            .reset_with_uniform_height(self.visible.len(), LINE_HINT);
         self.with_other(|e| e.list.reset(e.visible.len()));
     }
 
@@ -909,11 +915,14 @@ impl Editor {
         }
         lines.sort_unstable();
         lines.dedup();
+        // Measured again, their last heights kept meanwhile: revealing the
+        // cursor right after counts them (a splice forgot them, and the
+        // cursor stopped two lines below the pane's bottom).
         for l in lines {
             if let Some(i) = self.item_of(l)
                 && (i < prefix || i >= prefix + new_items)
             {
-                self.list.splice(i..i + 1, 1);
+                self.list.remeasure_items(i..i + 1);
             }
         }
         self.cursor_line = now;
@@ -955,7 +964,21 @@ impl Editor {
         self.sync_list(&changes);
         let line = self.doc.text().line_of(self.doc.selection.head);
         if let Some(i) = self.item_of(line) {
-            self.list.scroll_to_reveal_item(i);
+            // Far below what is laid out (Page Down): the list knows no
+            // heights there, so it goes to about the right place by the
+            // lines' usual height, and the next frames reveal it exactly.
+            let top = self.list.logical_scroll_top().item_ix;
+            if i > top && self.list.bounds_for_item(i).is_none() {
+                let rows = (f32::from(self.list.viewport_bounds().size.height)
+                    / f32::from(LINE_HINT)) as usize;
+                self.list.scroll_to(gpui::ListOffset {
+                    item_ix: (i + 1).saturating_sub(rows.max(1)),
+                    offset_in_item: px(0.),
+                });
+            } else {
+                self.reveal_item(i);
+            }
+            self.reveal_again = Some((line, 2));
         }
         self.with_other(|e| {
             if let Some(i) = e.item_of(line) {
@@ -963,6 +986,26 @@ impl Editor {
             }
         });
         cx.notify();
+    }
+
+    /// Scrolls so that list item `i` shows: in a CSV grid whose header row
+    /// stays at the top, below that row rather than under it.
+    fn reveal_item(&mut self, i: usize) {
+        self.list.scroll_to_reveal_item(i);
+        let pinned = self.doc.meta.mode == DocumentMode::Csv
+            && !self.source
+            && i > 0
+            && self.visible.first() == Some(&0)
+            && kalem_core::csv::layout(&self.doc).dialect.header;
+        if pinned {
+            let top = self.list.logical_scroll_top();
+            if top.item_ix >= i || (top.item_ix + 1 == i && top.offset_in_item > px(0.)) {
+                self.list.scroll_to(gpui::ListOffset {
+                    item_ix: i - 1,
+                    offset_in_item: px(0.),
+                });
+            }
+        }
     }
 
     /// Unfolds the headlines that hide the cursor.
@@ -2379,12 +2422,27 @@ impl Editor {
                     text.len()
                 }
             }
-            "up" | "down" => self.vertical(if key == "up" { -1 } else { 1 }),
-            "pageup" | "pagedown" => {
-                let rows = (f32::from(self.list.viewport_bounds().size.height)
-                    / (self.theme.size * 1.45)) as isize;
-                let d = rows.max(1) * if key == "pageup" { -1 } else { 1 };
-                self.vertical(d)
+            "up" | "down" | "pageup" | "pagedown" => {
+                let rows = match key {
+                    "up" => -1,
+                    "down" => 1,
+                    _ => {
+                        let page = (f32::from(self.list.viewport_bounds().size.height)
+                            / (self.theme.size * 1.45)) as isize;
+                        page.max(1) * if key == "pageup" { -1 } else { 1 }
+                    }
+                };
+                // A CSV grid: the same column, rows as records, whether
+                // drawn yet or not (the text's lines are not the grid's).
+                if self.doc.meta.mode == DocumentMode::Csv && !self.source {
+                    let visible = &self.visible;
+                    let text = self.doc.text();
+                    let shown = |at: usize| visible.binary_search(&text.line_of(at)).is_ok();
+                    if let Some(t) = kalem_core::csv::vertical_target(&self.doc, rows, shown) {
+                        return Some(t);
+                    }
+                }
+                self.vertical(rows)
             }
             "home" => text.line_range(line).start,
             "end" => text.line_range(line).end,
@@ -2723,9 +2781,13 @@ impl Editor {
                 });
             }
         }
+        // The first line there: a CSV grid's pinned header row is painted
+        // over the row scrolled under it.
         let p = painted
-            .values()
-            .find(|p| p.bounds.top() <= pos.y && pos.y < p.bounds.bottom())
+            .iter()
+            .filter(|(_, p)| p.bounds.top() <= pos.y && pos.y < p.bounds.bottom())
+            .min_by_key(|(l, _)| **l)
+            .map(|(_, p)| p)
             .or_else(|| {
                 // Below the last line: its end.
                 painted
@@ -2749,7 +2811,13 @@ impl Editor {
                 });
             }
         }
-        let d = p.layout.index_for_position(pos - p.bounds.origin);
+        // A CSV grid's frozen first column is painted unscrolled.
+        let mut origin = p.bounds.origin;
+        let frozen = self.frozen.get();
+        if frozen > px(0.) && self.hscroll > px(0.) && pos.x < origin.x + self.hscroll + frozen {
+            origin.x += self.hscroll;
+        }
+        let d = p.layout.index_for_position(pos - origin);
         Some(Hit {
             pos: p.view.source_offset(d),
             widget: None,
@@ -3318,7 +3386,8 @@ impl Editor {
         if self.doc.poll() {
             self.blocks = None;
             self.visible = self.compute_visible();
-            self.list.reset(self.visible.len());
+            self.list
+                .reset_with_uniform_height(self.visible.len(), LINE_HINT);
             cx.notify();
         }
     }
@@ -4034,6 +4103,11 @@ fn build_a11y(b: &mut gpui::A11ySubtreeBuilder<'_>, t: A11yText) {
     }
 }
 
+/// The height a line not laid out yet is counted at (a body line), so
+/// that revealing a line far away scrolls about right before the lines
+/// between are measured.
+const LINE_HINT: Pixels = px(23.);
+
 impl gpui::Render for Editor {
     fn render(
         &mut self,
@@ -4041,6 +4115,17 @@ impl gpui::Render for Editor {
         cx: &mut Context<'_, Self>,
     ) -> impl gpui::IntoElement {
         self.apply_resume();
+        // The cursor revealed once more, the lines around it measured by
+        // the last frame's layout.
+        if let Some((line, frames)) = self.reveal_again.take()
+            && let Some(i) = self.item_of(line)
+        {
+            self.reveal_item(i);
+            if frames > 1 {
+                self.reveal_again = Some((line, frames - 1));
+                cx.notify();
+            }
+        }
         use gpui::{
             InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
             div, list,
