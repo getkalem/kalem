@@ -226,6 +226,7 @@ interface kalem {
 /// What a plugin exports for the editor to call.
 interface plugin {
     use kalem.{event, reply};
+    use ui.{answer, panel-event};
 
     /// Called once when the plugin is loaded: it registers its commands,
     /// keys and subscriptions.
@@ -241,11 +242,20 @@ interface plugin {
 
     /// An event the plugin subscribed to with `on`.
     on-event: func(subscription: u64, event: event) -> reply;
+
+    /// The answer to the question `request` (`ui.prompt`, `confirm`,
+    /// `quick-pick`).
+    on-answer: func(request: u64, answer: answer);
+
+    /// What the user did to widget `key` of the plugin's panel `panel`.
+    on-panel: func(panel: string, key: string, event: panel-event);
 }
 
-/// A plugin extending the editor: commands, keys and events. Later
-/// interfaces of the API (§11.4) are imported here as they come.
+/// A plugin extending the editor: commands, keys and events, and what it
+/// shows. Later interfaces of the API (§11.4) are imported here as they
+/// come.
 world extension {
     import kalem;
+    import ui;
     export plugin;
 }

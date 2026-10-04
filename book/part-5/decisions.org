@@ -12,7 +12,7 @@ Every decision of the design, with the task that closes it and its state, as the
 | D8 | Agenda index storage | T3.5.2 | Open |
 | D9 | Configuration formats | T1.3.6 | *Decided:* TOML settings, JSON keymap; no script file (D28) |
 | D10 | A second scripting language | T4.1.1 | *Closed (owner, 2026-09-28):* none ships |
-| D11 | Webviews in plugin panels | T3.1.5 | Open |
+| D11 | Webviews in plugin panels | T3.1.5 | *Decided (owner, 2026-10-04):* no webview; a typed widget tree both editors render (record =D11-plugin-panels.org=) |
 | D12 | Multiple documents | T2.5.9 | *Decided:* one window, many documents, listed by project on the left or as tabs at the top |
 | D13 | Time library | T1.1.5 | *Decided:* jiff |
 | D14 | Terminal UI stack | T0.8.4 | *Decided:* ratatui + crossterm |

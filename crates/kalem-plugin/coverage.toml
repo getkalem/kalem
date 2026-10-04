@@ -38,7 +38,7 @@ planned = "T3.1.9d"
 
 [[point]]
 name = "Panels"
-planned = "T3.1.5"
+interface = "ui"
 
 [[point]]
 name = "Diagnostics"

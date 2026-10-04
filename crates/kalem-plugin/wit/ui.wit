@@ -1,0 +1,210 @@
+package kalem:plugin@0.1.0;
+
+/// What a plugin shows (design §11.4's `kalem.ui`): notifications,
+/// questions, status bar items and panels. A plugin never draws: a panel
+/// is a tree of widgets each editor renders with its own (D11, decided by
+/// the owner on 2026-10-04: no webview), the same in the window and in
+/// the terminal.
+///
+/// A question does not wait: the call returns the request's number at
+/// once, and the answer arrives later at the plugin's `on-answer`, so the
+/// editor goes on while the user thinks.
+interface ui {
+    use kalem.{disposable};
+
+    /// How much a notification matters.
+    enum level {
+        info,
+        warning,
+        error,
+    }
+
+    /// Shows a message for a few seconds, and in the message log.
+    notify: func(message: string, level: level);
+
+    /// A line of text to ask for.
+    record prompt-options {
+        /// The text it starts with.
+        value: option<string>,
+        /// Shown while it is empty.
+        placeholder: option<string>,
+        /// Hidden as it is typed.
+        password: bool,
+    }
+
+    /// Asks for a line of text; the answer is `text`.
+    prompt: func(title: string, options: prompt-options) -> u64;
+
+    /// Asks yes or no; the answer is `confirmed`.
+    confirm: func(message: string) -> u64;
+
+    /// An entry of a list to choose from.
+    record pick-item {
+        label: string,
+        /// A second line, dimmer.
+        detail: option<string>,
+    }
+
+    /// How a list is offered.
+    record pick-options {
+        title: option<string>,
+        /// Shown in the filter while it is empty.
+        placeholder: option<string>,
+        /// Several may be chosen.
+        many: bool,
+    }
+
+    /// Offers a list, filtered as the user types; the answer is `picked`.
+    quick-pick: func(items: list<pick-item>, options: pick-options) -> u64;
+
+    /// The user's answer to a question.
+    variant answer {
+        /// The text, or `none` when cancelled.
+        text(option<string>),
+        /// Yes; cancelling is no.
+        confirmed(bool),
+        /// The items chosen, by index; none when cancelled.
+        picked(list<u32>),
+    }
+
+    /// Which end of the status bar an item stands at.
+    enum alignment {
+        left,
+        right,
+    }
+
+    /// A status bar item's details.
+    record status-options {
+        tooltip: option<string>,
+        /// A command a click runs.
+        command: option<string>,
+        alignment: alignment,
+        /// Higher stands nearer the end it is aligned to.
+        priority: s32,
+    }
+
+    /// Shows the plugin's status bar item `id` with `text`, or changes
+    /// it; the handle takes it away.
+    status: func(id: string, text: string, options: status-options) -> result<disposable, string>;
+
+    /// Where a panel opens.
+    enum placement {
+        side,
+        bottom,
+    }
+
+    /// A panel a plugin adds.
+    record panel-spec {
+        /// `pluginId.name`, as a command's.
+        id: string,
+        title: string,
+        placement: placement,
+    }
+
+    /// How a text is shown.
+    enum text-style {
+        normal,
+        strong,
+        emphasis,
+        muted,
+        code,
+        error,
+        heading,
+    }
+
+    /// A text.
+    record label {
+        text: string,
+        style: text-style,
+    }
+
+    /// A button.
+    record button {
+        label: string,
+        /// A command it runs; with none, the plugin hears the click.
+        command: option<string>,
+    }
+
+    /// A line of text the user edits.
+    record input {
+        value: string,
+        placeholder: option<string>,
+    }
+
+    /// A box to tick.
+    record checkbox {
+        label: string,
+        checked: bool,
+    }
+
+    /// An entry of a list or a tree: its children are the entries under
+    /// it.
+    record item {
+        label: string,
+        /// A second text, dimmer, after the label.
+        detail: option<string>,
+        /// Whether its children show; `none` for an entry without any.
+        expanded: option<bool>,
+        selected: bool,
+    }
+
+    /// A bar of progress.
+    record progress {
+        /// From 0 to 1; `none` while unknown.
+        value: option<f32>,
+        label: option<string>,
+    }
+
+    /// What a widget is.
+    variant widget-kind {
+        /// Its children, one under another.
+        column,
+        /// Its children side by side (stacked in a narrow terminal).
+        row,
+        label(label),
+        button(button),
+        input(input),
+        checkbox(checkbox),
+        item(item),
+        progress(progress),
+        separator,
+    }
+
+    /// A widget of a tree.
+    record widget {
+        /// Names it in the events it raises; unique in the tree for
+        /// widgets the user acts on.
+        key: string,
+        kind: widget-kind,
+        /// Its children, by index in the tree, each after it.
+        children: list<u32>,
+    }
+
+    /// A panel's content: widgets in a list, the first the root, each
+    /// child after its parent and of one parent only.
+    record widget-tree {
+        widgets: list<widget>,
+    }
+
+    /// Adds a panel; empty until `set-panel`.
+    register-panel: func(spec: panel-spec) -> result<disposable, string>;
+
+    /// Replaces a panel's content. Refused when the tree is not one: an
+    /// index out of the list, a child before its parent or under two, a
+    /// key used twice.
+    set-panel: func(id: string, tree: widget-tree) -> result<_, string>;
+
+    /// What the user did to a widget of a panel.
+    variant panel-event {
+        /// A button or an item clicked.
+        clicked,
+        /// An input's text changed.
+        changed(string),
+        /// Enter in an input.
+        submitted(string),
+        /// A checkbox ticked or not.
+        toggled(bool),
+        /// An item's children shown or hidden.
+        expanded(bool),
+    }
+}
