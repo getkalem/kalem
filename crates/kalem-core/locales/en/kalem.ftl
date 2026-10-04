@@ -1246,6 +1246,7 @@ cmd-viewer-grid-dataValidation = Data Validation
 cmd-viewer-grid-fillDown = Fill Down
 cmd-viewer-grid-fillRight = Fill Right
 cmd-viewer-grid-fillSeries = Fill Series
+cmd-viewer-grid-customLists = Custom Lists
 cmd-viewer-grid-fillToEnd = Fill Down Along the Data
 cmd-viewer-grid-pickFromList = Pick from List
 cmd-viewer-grid-editCellAgain = Edit Cell Again
