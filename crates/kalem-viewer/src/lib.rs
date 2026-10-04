@@ -461,6 +461,21 @@ pub struct Chart {
     pub legend: Option<LegendPosition>,
     /// What its data labels show.
     pub labels: DataLabels,
+    /// Its value axis's scale.
+    pub scale: AxisScale,
+}
+
+/// A value axis's scale; `None` where the spreadsheet chooses.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct AxisScale {
+    /// The lowest value shown.
+    pub min: Option<f64>,
+    /// The highest value shown.
+    pub max: Option<f64>,
+    /// The step between gridlines.
+    pub major: Option<f64>,
+    /// A base-10 logarithmic scale.
+    pub log: bool,
 }
 
 /// What a chart's data labels show at each point; all off, no labels.
@@ -1071,6 +1086,17 @@ pub trait ViewerDocument: Send {
         _unit: usize,
         _index: usize,
         _labels: DataLabels,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sets the value axis's scale of the chart at `index` of
+    /// [`ViewerDocument::charts`].
+    fn set_axis_scale(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _scale: AxisScale,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
