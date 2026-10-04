@@ -1324,6 +1324,18 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// The document's defined names a user sees, with what each refers
+    /// to as formula text (`Budget!$B$2:$D$4`).
+    fn defined_names(&mut self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+
+    /// Defines a name as referring to `refers_to` (formula text), or
+    /// deletes it (`None`).
+    fn set_defined_name(&mut self, _name: &str, _refers_to: Option<&str>) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Gives a cell a note, or takes it away (`None`).
     fn set_note(
         &mut self,
