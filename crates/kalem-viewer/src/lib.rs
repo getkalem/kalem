@@ -1175,6 +1175,13 @@ pub trait ViewerDocument: Send {
         String::new()
     }
 
+    /// The numbers among a range's values (first row, first column, last
+    /// row, last column), and how many of its cells hold a value at all:
+    /// what a spreadsheet's status bar sums and counts.
+    fn range_numbers(&mut self, _unit: usize, _range: [u32; 4]) -> (Vec<f64>, usize) {
+        (Vec::new(), 0)
+    }
+
     /// A cell's number format code (`General`, `#,##0.00`, `0%`).
     fn cell_format(&mut self, _unit: usize, _row: u32, _col: u32) -> Option<String> {
         None
