@@ -33,6 +33,24 @@ fn holding_down() {
         .collect();
     wb.set_cells(0, kalem_plugin_xlsx::CellRef::new(9, 0), &rows)
         .unwrap();
+    // Conditional formats whose formulas the engine computes (banded rows,
+    // values over the first one), with KALEM_SPEED_CF.
+    if std::env::var("KALEM_SPEED_CF").is_ok() {
+        let style = kalem_viewer::CondStyle {
+            fill: Some([0xEE, 0xEE, 0xEE]),
+            ..kalem_viewer::CondStyle::default()
+        };
+        let band = kalem_viewer::CondRule::Formula("=MOD(ROW(),2)=0".into());
+        let range = kalem_plugin_xlsx::Range::parse("A10:L3009").unwrap();
+        wb.add_conditional_format(0, range, &band, &style).unwrap();
+        let over = kalem_viewer::CondRule::Compare {
+            op: kalem_viewer::CompareOp::Greater,
+            value: "=$B$10".into(),
+            value2: None,
+        };
+        let range = kalem_plugin_xlsx::Range::parse("B10:K3009").unwrap();
+        wb.add_conditional_format(0, range, &over, &style).unwrap();
+    }
     let path = dir.join("big.xlsx");
     std::fs::write(&path, wb.save().unwrap()).unwrap();
     let mut app = App::with_keymap(
