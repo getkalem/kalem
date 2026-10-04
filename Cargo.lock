@@ -3768,7 +3768,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -4484,7 +4484,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-image-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=e942abe3c5becebd85c681f40ce6e68cc49026e4#e942abe3c5becebd85c681f40ce6e68cc49026e4"
+source = "git+https://github.com/getkalem/plugins?rev=9205236db2e217193c9fb678dec60b189658ca25#9205236db2e217193c9fb678dec60b189658ca25"
 dependencies = [
  "image",
  "kalem-plugin",
@@ -4496,7 +4496,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-pdf-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=e942abe3c5becebd85c681f40ce6e68cc49026e4#e942abe3c5becebd85c681f40ce6e68cc49026e4"
+source = "git+https://github.com/getkalem/plugins?rev=9205236db2e217193c9fb678dec60b189658ca25#9205236db2e217193c9fb678dec60b189658ca25"
 dependencies = [
  "hayro",
  "kalem-plugin",
@@ -4507,7 +4507,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-xlsx"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=e942abe3c5becebd85c681f40ce6e68cc49026e4#e942abe3c5becebd85c681f40ce6e68cc49026e4"
+source = "git+https://github.com/getkalem/plugins?rev=9205236db2e217193c9fb678dec60b189658ca25#9205236db2e217193c9fb678dec60b189658ca25"
 dependencies = [
  "calamine",
  "cfb",
@@ -7920,8 +7920,8 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d204abcbdf8e88729306a8d0ca01a79d8a49969fe1f84696909d6dbc4321c1a"
 dependencies = [
- "foldhash 0.2.0",
- "hashbrown 0.17.1",
+ "foldhash 0.1.5",
+ "hashbrown 0.15.5",
 ]
 
 [[package]]

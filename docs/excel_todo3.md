@@ -69,7 +69,7 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E43. Sorting and filtering, the rest
 
-- [ ] E43 Sort by cell color or font color; filter by condition: Top 10
+- [x] E43 Sort by cell color or font color; filter by condition: Top 10
   (items or percent), above or below average, dates (today, this
   month, last quarter, a year), text and number rules joined by And or
   Or; Advanced Filter with a criteria range, the result in place or

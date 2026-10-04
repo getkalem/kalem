@@ -4155,3 +4155,85 @@ fn pasting_and_filling_more() {
         ("bir iki".into(), "üç".into())
     );
 }
+
+#[test]
+fn sorting_and_filtering_more() {
+    let mut t = T::open("filter-more");
+    let hidden = |t: &mut T| {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .hidden_rows
+    };
+    // Advanced Filter: Q1 over 400, in place: Travel hidden.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(9, 5, "Q1").unwrap();
+    v.set_cell(10, 5, ">400").unwrap();
+    t.app.run_command(
+        "viewer.grid.advancedFilter",
+        json!({ "action": "inPlace", "list range": "A1:D5", "criteria range": "F10:F11" }),
+    );
+    assert!(t.screen().contains("3 records found"), "{}", t.screen());
+    assert_eq!(hidden(&mut t), vec![3]);
+    t.app.run_command(
+        "viewer.grid.advancedFilter",
+        json!({ "action": "showAll", "list range": "A1:D5" }),
+    );
+    assert!(hidden(&mut t).is_empty());
+    // Copied elsewhere, with the headers.
+    t.app.run_command(
+        "viewer.grid.advancedFilter",
+        json!({ "action": "copy", "list range": "A1:D5", "criteria range": "F10:F11", "copy to": "H1" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let at = |v: &mut kalem_core::viewer::ViewerState, r, c| {
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    assert_eq!(
+        (at(v, 0, 7), at(v, 1, 7), at(v, 3, 7)),
+        ("Item".into(), "Rent".into(), "Sum".into())
+    );
+    // Sort by Color: the red cells of a column first.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    for (r, x) in ["k", "a", "b", "c"].iter().enumerate() {
+        v.set_cell(20 + r as u32, 10, x).unwrap();
+    }
+    v.grid_move_to(22, 10);
+    v.change_style(kalem_viewer::StyleChange {
+        fill: Some(Some([0xC0, 0, 0])),
+        ..Default::default()
+    })
+    .unwrap();
+    v.grid_move_to(21, 10);
+    t.app.run_command("viewer.grid.sortByColor", json!({}));
+    assert!(
+        t.screen().contains("Cell Color #C00000 on Top"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.sortByColor", json!({ "color": "C00000" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let col: Vec<String> = (20..24).map(|r| at(v, r, 10)).collect();
+    assert_eq!(col, ["b", "k", "a", "c"]);
+    // A date filter: this year's rows only.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let today = jiff::Zoned::now().date().to_string();
+    v.set_cell(30, 1, "When").unwrap();
+    v.set_cell(31, 1, &today).unwrap();
+    v.set_cell(32, 1, "2020-01-01").unwrap();
+    v.grid_move_to(30, 1);
+    v.grid_extend_to(32, 1);
+    t.app.run_command("viewer.grid.toggleFilter", json!({}));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(30, 1);
+    t.app
+        .run_command("viewer.grid.filterCondition", json!({ "op": "thisYear" }));
+    assert!(hidden(&mut t).contains(&32), "{:?}", hidden(&mut t));
+    assert!(!hidden(&mut t).contains(&31));
+}

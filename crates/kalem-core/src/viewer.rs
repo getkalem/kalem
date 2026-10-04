@@ -4460,6 +4460,143 @@ impl ViewerState {
         self.set_cells_at(&cells)
     }
 
+    /// The list a filter works on: the table at the cursor.
+    pub fn list_range(&mut self) -> [u32; 4] {
+        self.table_target().0
+    }
+
+    /// Rows shown again.
+    pub fn show_rows(&mut self, from: u32, to: u32) -> Result<(), String> {
+        if from <= to {
+            self.doc()
+                .set_hidden(self.unit, true, from, to, false)
+                .map_err(|e| e.to_string())?;
+        }
+        self.refresh();
+        Ok(())
+    }
+
+    /// Advanced Filter: the list's records (its first row the headers)
+    /// that a criteria range's rows allow (each row's conditions all
+    /// holding, any row will do), shown in place (the others hidden) or
+    /// copied with the headers to `copy_to`; duplicates left out with
+    /// `unique`. How many records.
+    pub fn advanced_filter(
+        &mut self,
+        list: [u32; 4],
+        criteria: [u32; 4],
+        copy_to: Option<(u32, u32)>,
+        unique: bool,
+    ) -> Result<usize, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        if list[0] >= list[2] || criteria[0] >= criteria[2] {
+            return Err("The list and the criteria need a header row and rows under it".into());
+        }
+        let unit = self.unit;
+        // What each cell shows, and its number if it is one.
+        let read = |r: u32, c: u32| -> (String, Option<f64>) {
+            let mut d = self.doc();
+            let shown = d
+                .grid_cells(unit, r..r + 1, c..c + 1)
+                .into_iter()
+                .next()
+                .map(|x| (x.2.text, x.2.numeric))
+                .unwrap_or_default();
+            let n = if shown.1 {
+                // A number as entered; a formula's, as it shows.
+                d.cell_input(unit, r, c)
+                    .trim()
+                    .parse::<f64>()
+                    .ok()
+                    .or_else(|| {
+                        shown
+                            .0
+                            .chars()
+                            .filter(|ch| ch.is_ascii_digit() || matches!(ch, '.' | '-' | 'e' | 'E'))
+                            .collect::<String>()
+                            .parse()
+                            .ok()
+                    })
+            } else {
+                None
+            };
+            (shown.0, n)
+        };
+        let heads: Vec<String> = (list[1]..=list[3])
+            .map(|c| read(list[0], c).0.trim().to_lowercase())
+            .collect();
+        // Each criteria row: (column of the list, condition).
+        let mut rules: Vec<Vec<(usize, String)>> = Vec::new();
+        for r in criteria[0] + 1..=criteria[2] {
+            let mut row = Vec::new();
+            for c in criteria[1]..=criteria[3] {
+                let head = read(criteria[0], c).0.trim().to_lowercase();
+                let cond = read(r, c).0;
+                if cond.trim().is_empty() {
+                    continue;
+                }
+                let Some(k) = heads.iter().position(|h| *h == head) else {
+                    return Err(format!("The criteria's {head} is not a column of the list"));
+                };
+                row.push((k, cond));
+            }
+            rules.push(row);
+        }
+        let mut found: Vec<u32> = Vec::new();
+        let mut seen: std::collections::HashSet<Vec<String>> = Default::default();
+        for r in list[0] + 1..=list[2] {
+            let cells: Vec<(String, Option<f64>)> =
+                (list[1]..=list[3]).map(|c| read(r, c)).collect();
+            let ok = rules
+                .iter()
+                .any(|row| row.iter().all(|(k, cond)| criterion(cond, &cells[*k])));
+            if !ok {
+                continue;
+            }
+            if unique && !seen.insert(cells.iter().map(|c| c.0.clone()).collect()) {
+                continue;
+            }
+            found.push(r);
+        }
+        match copy_to {
+            Some((tr, tc)) => {
+                let mut rows: Vec<Vec<String>> = Vec::new();
+                for r in std::iter::once(list[0]).chain(found.iter().copied()) {
+                    rows.push(
+                        (list[1]..=list[3])
+                            .map(|c| {
+                                let (text, n) = read(r, c);
+                                n.map_or(text, |n| n.to_string())
+                            })
+                            .collect(),
+                    );
+                }
+                self.doc()
+                    .set_cells(unit, tr, tc, &rows)
+                    .map_err(|e| e.to_string())?;
+            }
+            None => {
+                // The rows found shown, the others hidden, a run at a time.
+                let mut doc = self.doc();
+                let mut r = list[0] + 1;
+                while r <= list[2] {
+                    let shown = found.contains(&r);
+                    let start = r;
+                    while r < list[2] && found.contains(&(r + 1)) == shown {
+                        r += 1;
+                    }
+                    doc.set_hidden(unit, true, start, r, !shown)
+                        .map_err(|e| e.to_string())?;
+                    r += 1;
+                }
+            }
+        }
+        self.refresh();
+        Ok(found.len())
+    }
+
     /// Insert Cells: the cells below the selection (in its columns), or
     /// right of it (in its rows), moved on by its size, references
     /// following them; the selection left empty. One undo step.
@@ -9015,6 +9152,15 @@ fn custom_sort(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
         .cloned()
         .unwrap_or_default();
     let key_of = |k: &serde_json::Value| SortKey {
+        // "fill:C00000" or "font:9C0006": that color's cells first.
+        color: k.get("color").and_then(|c| c.as_str()).and_then(|c| {
+            let (what, hex) = c.split_once(':')?;
+            let n = u32::from_str_radix(hex.trim().trim_start_matches('#'), 16).ok()?;
+            Some(kalem_viewer::SortColor {
+                font: what == "font",
+                rgb: [(n >> 16) as u8, (n >> 8) as u8, n as u8],
+            })
+        }),
         col: k
             .get("col")
             .and_then(serde_json::Value::as_u64)
@@ -9127,8 +9273,23 @@ fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
             ("between", "Between…"),
             ("top", "Top 10…"),
             ("bottom", "Bottom 10…"),
+            ("topPercent", "Top 10 Percent…"),
+            ("bottomPercent", "Bottom 10 Percent…"),
             ("above", "Above Average"),
             ("below", "Below Average"),
+            ("today", "Date: Today"),
+            ("yesterday", "Date: Yesterday"),
+            ("tomorrow", "Date: Tomorrow"),
+            ("thisWeek", "Date: This Week"),
+            ("lastWeek", "Date: Last Week"),
+            ("thisMonth", "Date: This Month"),
+            ("lastMonth", "Date: Last Month"),
+            ("nextMonth", "Date: Next Month"),
+            ("thisQuarter", "Date: This Quarter"),
+            ("lastQuarter", "Date: Last Quarter"),
+            ("thisYear", "Date: This Year"),
+            ("lastYear", "Date: Last Year"),
+            ("year", "Date: In the Year…"),
         ];
         let items = ops
             .iter()
@@ -9141,9 +9302,29 @@ fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
         .get("value")
         .and_then(|x| x.as_str())
         .map(str::to_owned);
+    // A period of dates: from its first day to before the day after it,
+    // as serial numbers.
+    if let Some((from, to)) = date_period(
+        op,
+        args.get("value").and_then(|x| x.as_str()),
+        ctx.clock.date(),
+    ) {
+        let serial =
+            |d: jiff::civil::Date| (d - jiff::civil::date(1899, 12, 30)).get_days().to_string();
+        let rule = FilterRule::Custom {
+            first: (FilterOp::GreaterOrEqual, serial(from)),
+            second: Some((true, FilterOp::Less, serial(to))),
+        };
+        return with(ctx, |v| v.filter_rule(Some(rule)));
+    }
+    if op == "year" && args.get("value").is_none() {
+        let mut a = args.clone();
+        a["value_default"] = serde_json::json!(ctx.clock.date().year().to_string());
+        return ask_more(ctx, ID, &a, "value");
+    }
     let needs_value = !matches!(op, "above" | "below");
     let Some(value) = value.or_else(|| (!needs_value).then(String::new)) else {
-        let default = if matches!(op, "top" | "bottom") {
+        let default = if matches!(op, "top" | "bottom" | "topPercent" | "bottomPercent") {
             "10"
         } else {
             ""
@@ -9182,11 +9363,11 @@ fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
                 second: Some((true, FilterOp::LessOrEqual, to.to_owned())),
             }
         }
-        "top" | "bottom" => match value.trim().parse::<u32>() {
+        "top" | "bottom" | "topPercent" | "bottomPercent" => match value.trim().parse::<u32>() {
             Ok(count) => FilterRule::Top {
                 count,
-                percent: false,
-                bottom: op == "bottom",
+                percent: op.ends_with("Percent"),
+                bottom: op.starts_with("bottom"),
             },
             Err(_) => {
                 ctx.messages.push(format!("Not a number: {value}"));
@@ -9202,6 +9383,220 @@ fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
         },
     };
     with(ctx, |v| v.filter_rule(Some(rule)))
+}
+
+/// A date filter's period (`today`, `thisMonth`, `lastQuarter`, `year`…)
+/// around `today`: its first day and the day after its last.
+fn date_period(
+    op: &str,
+    value: Option<&str>,
+    today: jiff::civil::Date,
+) -> Option<(jiff::civil::Date, jiff::civil::Date)> {
+    use jiff::civil::date;
+    let day = |d: jiff::civil::Date, n: i64| d.checked_add(jiff::Span::new().days(n)).ok();
+    let month = |y: i16, m: i8| date(y, m, 1);
+    let next_month = |y: i16, m: i8| {
+        if m == 12 {
+            date(y + 1, 1, 1)
+        } else {
+            date(y, m + 1, 1)
+        }
+    };
+    let (y, m) = (today.year(), today.month());
+    let monday = day(today, -(i64::from(today.weekday().to_monday_zero_offset())))?;
+    let q = (m - 1) / 3 * 3 + 1;
+    Some(match op {
+        "today" => (today, day(today, 1)?),
+        "yesterday" => (day(today, -1)?, today),
+        "tomorrow" => (day(today, 1)?, day(today, 2)?),
+        "thisWeek" => (monday, day(monday, 7)?),
+        "lastWeek" => (day(monday, -7)?, monday),
+        "thisMonth" => (month(y, m), next_month(y, m)),
+        "lastMonth" => {
+            let (py, pm) = if m == 1 { (y - 1, 12) } else { (y, m - 1) };
+            (month(py, pm), month(y, m))
+        }
+        "nextMonth" => {
+            let (ny, nm) = if m == 12 { (y + 1, 1) } else { (y, m + 1) };
+            (month(ny, nm), next_month(ny, nm))
+        }
+        "thisQuarter" => (
+            month(y, q),
+            if q == 10 {
+                date(y + 1, 1, 1)
+            } else {
+                month(y, q + 3)
+            },
+        ),
+        "lastQuarter" => {
+            let (py, pq) = if q == 1 { (y - 1, 10) } else { (y, q - 3) };
+            (month(py, pq), month(y, q))
+        }
+        "thisYear" => (date(y, 1, 1), date(y + 1, 1, 1)),
+        "lastYear" => (date(y - 1, 1, 1), date(y, 1, 1)),
+        "year" => {
+            let y: i16 = value?.trim().parse().ok()?;
+            (date(y, 1, 1), date(y + 1, 1, 1))
+        }
+        _ => return None,
+    })
+}
+
+/// Sort by Color: the table at the cursor sorted with the cells of a fill
+/// or font color its column has first (or last).
+fn sort_by_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{SortColor, SortKey};
+    const ID: &str = "viewer.grid.sortByColor";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let col = v.grid_pos().col;
+    if let Some(c) = args.get("color").and_then(|c| c.as_str()) {
+        let font = args.get("font").and_then(serde_json::Value::as_bool) == Some(true);
+        let last = args.get("last").and_then(serde_json::Value::as_bool) == Some(true);
+        let Ok(n) = u32::from_str_radix(c.trim_start_matches('#'), 16) else {
+            return Ok(());
+        };
+        let key = SortKey {
+            col,
+            descending: last,
+            color: Some(SortColor {
+                font,
+                rgb: [(n >> 16) as u8, (n >> 8) as u8, n as u8],
+            }),
+            ..SortKey::default()
+        };
+        return with(ctx, |v| v.sort_by(&[key]));
+    }
+    // The colors the column's cells have.
+    let rows = v.grid_layout().map_or(0, |l| l.rows);
+    let mut fills: Vec<[u8; 3]> = Vec::new();
+    let mut fonts: Vec<[u8; 3]> = Vec::new();
+    for (_, _, cell) in v.grid_cells(0..rows, col..col + 1) {
+        if let Some(f) = cell.fill
+            && !fills.contains(&f)
+        {
+            fills.push(f);
+        }
+        if let Some(f) = cell.color
+            && !fonts.contains(&f)
+        {
+            fonts.push(f);
+        }
+    }
+    if fills.is_empty() && fonts.is_empty() {
+        ctx.messages
+            .push("The column's cells have no colors to sort by".into());
+        return Ok(());
+    }
+    let hex = |c: [u8; 3]| format!("{:02X}{:02X}{:02X}", c[0], c[1], c[2]);
+    let mut items = Vec::new();
+    for (list, font, what) in [(fills, false, "Cell Color"), (fonts, true, "Font Color")] {
+        for c in list {
+            for last in [false, true] {
+                items.push(menu_item(
+                    ID,
+                    serde_json::json!({ "color": hex(c), "font": font, "last": last }),
+                    &format!(
+                        "{what} #{} {}",
+                        hex(c),
+                        if last { "on Bottom" } else { "on Top" }
+                    ),
+                    "Sort by Color",
+                ));
+            }
+        }
+    }
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Advanced Filter: the list (the table at the cursor) filtered by a
+/// criteria range, in place or copied elsewhere, unique records only when
+/// asked; Show All shows its rows again.
+fn advanced_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.advancedFilter";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(action) = args
+        .get("action")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        let item = |a: &str, t: &str| {
+            menu_item(ID, serde_json::json!({ "action": a }), t, "Advanced Filter")
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("inPlace", "Filter the List in Place"),
+            item(
+                "inPlaceUnique",
+                "Filter the List in Place, Unique Records Only",
+            ),
+            item("copy", "Copy to Another Location"),
+            item(
+                "copyUnique",
+                "Copy to Another Location, Unique Records Only",
+            ),
+            item("showAll", "Show All"),
+        ]));
+        return Ok(());
+    };
+    let Some(list) = text_arg(args, "list range") else {
+        let r = v.list_range();
+        let mut a = args.clone();
+        a["list range_default"] = serde_json::json!(format!(
+            "{}:{}",
+            cell_name(r[0], r[1]),
+            cell_name(r[2], r[3])
+        ));
+        return ask_more(ctx, ID, &a, "list range");
+    };
+    let Some(list) = area(&list) else {
+        ctx.messages
+            .push(format!("Advanced Filter: {list} is not a range"));
+        return Ok(());
+    };
+    if action == "showAll" {
+        return with(ctx, |v| v.show_rows(list[0] + 1, list[2]));
+    }
+    let Some(criteria) = text_arg(args, "criteria range") else {
+        return ask_more(ctx, ID, args, "criteria range");
+    };
+    let Some(criteria) = area(&criteria) else {
+        ctx.messages
+            .push(format!("Advanced Filter: {criteria} is not a range"));
+        return Ok(());
+    };
+    let copy_to = if action.starts_with("copy") {
+        let Some(to) = text_arg(args, "copy to") else {
+            return ask_more(ctx, ID, args, "copy to");
+        };
+        let Some(to) = one_cell(&to) else {
+            ctx.messages
+                .push(format!("Advanced Filter: {to} is not a cell"));
+            return Ok(());
+        };
+        Some(to)
+    } else {
+        None
+    };
+    let unique = action.ends_with("Unique");
+    match v.advanced_filter(list, criteria, copy_to, unique) {
+        Ok(n) => ctx
+            .messages
+            .push(format!("{n} record{} found", if n == 1 { "" } else { "s" })),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
 }
 
 /// Filter by Selected Cell's Color: the cursor's column filtered to cells
@@ -9530,6 +9925,51 @@ fn insert_sparklines(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> C
         return Ok(());
     };
     with(ctx, |v| v.insert_sparklines(kind, location))
+}
+
+/// Whether a cell (what it shows, its number) meets an Advanced Filter
+/// condition: `>5`, `<=10`, `<>x`, `=text` (the whole cell, `*` and `?`
+/// as wildcards), or text the cell begins with.
+fn criterion(cond: &str, (text, num): &(String, Option<f64>)) -> bool {
+    let cond = cond.trim();
+    let (op, rest) = ["<>", ">=", "<=", "=", ">", "<"]
+        .iter()
+        .find_map(|o| cond.strip_prefix(o).map(|r| (*o, r.trim())))
+        .unwrap_or(("", cond));
+    if let (Some(n), Ok(want)) = (num, rest.replace(',', ".").parse::<f64>()) {
+        return match op {
+            "<>" => *n != want,
+            ">=" => *n >= want,
+            "<=" => *n <= want,
+            ">" => *n > want,
+            "<" => *n < want,
+            _ => *n == want,
+        };
+    }
+    let (t, w) = (text.to_lowercase(), rest.to_lowercase());
+    let like = |pattern: &str| {
+        // `*` any run, `?` any one character.
+        fn go(p: &[char], s: &[char]) -> bool {
+            match p.first() {
+                None => s.is_empty(),
+                Some('*') => (0..=s.len()).any(|i| go(&p[1..], &s[i..])),
+                Some('?') => !s.is_empty() && go(&p[1..], &s[1..]),
+                Some(c) => s.first() == Some(c) && go(&p[1..], &s[1..]),
+            }
+        }
+        let p: Vec<char> = pattern.chars().collect();
+        let s: Vec<char> = t.chars().collect();
+        go(&p, &s)
+    };
+    match op {
+        "=" => like(&w),
+        "<>" => !like(&w),
+        ">" => t > w,
+        "<" => t < w,
+        ">=" => t >= w,
+        "<=" => t <= w,
+        _ => t.starts_with(&w),
+    }
 }
 
 /// A cell or a range as typed (`B3`, `$B$3`, `B3:D5`): its corners.
@@ -13114,6 +13554,20 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| with(ctx, |v| v.set_hidden(false, false)),
         ),
         cmd(
+            "viewer.grid.sortByColor",
+            "Sort by Color",
+            &[],
+            IN_GRID,
+            sort_by_color,
+        ),
+        cmd(
+            "viewer.grid.advancedFilter",
+            "Advanced Filter",
+            &[],
+            IN_GRID,
+            advanced_filter,
+        ),
+        cmd(
             "viewer.grid.insertCopiedCells",
             "Insert Copied Cells",
             &[],
@@ -14445,6 +14899,27 @@ fn grid_commands() -> Vec<Command> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn date_filter_periods() {
+        use jiff::civil::date;
+        let d = date(2026, 10, 4); // a Sunday
+        let p = |op: &str| super::date_period(op, Some("2024"), d).unwrap();
+        assert_eq!(p("thisMonth"), (date(2026, 10, 1), date(2026, 11, 1)));
+        assert_eq!(p("lastQuarter"), (date(2026, 7, 1), date(2026, 10, 1)));
+        assert_eq!(p("thisWeek"), (date(2026, 9, 28), date(2026, 10, 5)));
+        assert_eq!(p("lastMonth"), (date(2026, 9, 1), date(2026, 10, 1)));
+        assert_eq!(p("year"), (date(2024, 1, 1), date(2025, 1, 1)));
+        assert_eq!(
+            super::date_period("thisQuarter", None, date(2026, 11, 4)).unwrap(),
+            (date(2026, 10, 1), date(2027, 1, 1))
+        );
+        assert!(super::criterion(">400", &("431.5".into(), Some(431.5))));
+        assert!(super::criterion("=r*t", &("Rent".into(), None)));
+        assert!(super::criterion("fo", &("Food".into(), None)));
+        assert!(!super::criterion("<>food", &("Food".into(), None)));
+    }
+
     use super::*;
 
     #[test]
