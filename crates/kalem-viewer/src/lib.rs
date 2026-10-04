@@ -550,6 +550,8 @@ pub struct Chart {
     pub horizontal_font: AxisFont,
     /// The vertical axis's labels' font.
     pub vertical_font: AxisFont,
+    /// The title's font.
+    pub title_font: AxisFont,
 }
 
 /// The font of an axis's labels; all unset, the spreadsheet's style.
@@ -1340,6 +1342,17 @@ pub trait ViewerDocument: Send {
         _unit: usize,
         _index: usize,
         _axis: ChartAxis,
+        _font: AxisFont,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sets the font of the title of the chart at `index` of
+    /// [`ViewerDocument::charts`]; the default font takes the style's.
+    fn set_title_font(
+        &mut self,
+        _unit: usize,
+        _index: usize,
         _font: AxisFont,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
