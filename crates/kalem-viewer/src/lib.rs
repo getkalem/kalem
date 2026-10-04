@@ -1236,6 +1236,12 @@ pub trait ViewerDocument: Send {
         None
     }
 
+    /// The functions formulas can use: each name, and its arguments as a
+    /// spreadsheet writes them (`number1, [number2], ...`) when known.
+    fn formula_functions(&mut self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+
     /// Gives a cell a note, or takes it away (`None`).
     fn set_note(
         &mut self,
