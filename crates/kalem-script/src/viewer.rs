@@ -953,6 +953,110 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_set_chart_kind(s, d, unit as u32, index as u32, kind.conv()))
     }
 
+    fn set_series_kind(
+        &mut self,
+        unit: usize,
+        index: usize,
+        series: usize,
+        kind: Option<kv::ChartKind>,
+        secondary: bool,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_set_series_kind(
+                s,
+                d,
+                unit as u32,
+                index as u32,
+                series as u32,
+                kind.conv(),
+                secondary,
+            )
+        })
+    }
+
+    fn set_trendline(
+        &mut self,
+        unit: usize,
+        index: usize,
+        series: usize,
+        trendline: Option<kv::Trendline>,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_set_trendline(
+                s,
+                d,
+                unit as u32,
+                index as u32,
+                series as u32,
+                trendline.conv(),
+            )
+        })
+    }
+
+    fn set_error_bars(
+        &mut self,
+        unit: usize,
+        index: usize,
+        series: usize,
+        bars: Option<kv::ErrorBars>,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_set_error_bars(s, d, unit as u32, index as u32, series as u32, bars.conv())
+        })
+    }
+
+    fn set_label_cells(
+        &mut self,
+        unit: usize,
+        index: usize,
+        series: usize,
+        range: Option<[u32; 4]>,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_set_label_cells(
+                s,
+                d,
+                unit as u32,
+                index as u32,
+                series as u32,
+                range.map(|r| r.conv()),
+            )
+        })
+    }
+
+    fn move_chart_to_sheet(&mut self, unit: usize, index: usize, name: &str) -> kv::Result<usize> {
+        self.g(|g, s, d| g.call_move_chart_to_sheet(s, d, unit as u32, index as u32, name))?
+            .map(|u| u as usize)
+            .map_err(kv::ViewerError)
+    }
+
+    fn move_chart_to_grid(
+        &mut self,
+        unit: usize,
+        target: usize,
+        anchor: [u32; 4],
+    ) -> kv::Result<usize> {
+        self.g(|g, s, d| {
+            g.call_move_chart_to_grid(s, d, unit as u32, target as u32, anchor.conv())
+        })?
+        .map(|u| u as usize)
+        .map_err(kv::ViewerError)
+    }
+
+    fn chart_template(&mut self, unit: usize, index: usize) -> kv::Result<Vec<u8>> {
+        self.g(|g, s, d| g.call_chart_template(s, d, unit as u32, index as u32))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn apply_chart_template(
+        &mut self,
+        unit: usize,
+        index: usize,
+        template: &[u8],
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_apply_chart_template(s, d, unit as u32, index as u32, template))
+    }
+
     fn set_series_color(
         &mut self,
         unit: usize,

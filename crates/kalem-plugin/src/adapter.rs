@@ -457,6 +457,34 @@ macro_rules! __kalem_grid_exports {
                 use $crate::adapter::grid::Conv;
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_chart_kind(unit as usize, index as usize, kind.conv())))
             }
+            fn set_series_kind(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, series: u32, kind: ::std::option::Option<$crate::adapter::grid::g::ChartKind>, secondary: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_series_kind(unit as usize, index as usize, series as usize, kind.conv(), secondary)))
+            }
+            fn set_trendline(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, series: u32, trendline: ::std::option::Option<$crate::adapter::grid::g::Trendline>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_trendline(unit as usize, index as usize, series as usize, trendline.conv())))
+            }
+            fn set_error_bars(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, series: u32, bars: ::std::option::Option<$crate::adapter::grid::g::ErrorBars>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_error_bars(unit as usize, index as usize, series as usize, bars.conv())))
+            }
+            fn set_label_cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, series: u32, range: ::std::option::Option<(u32, u32, u32, u32)>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_label_cells(unit as usize, index as usize, series as usize, range.map($crate::adapter::grid::range))))
+            }
+            fn move_chart_to_sheet(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, name: ::std::string::String) -> ::std::result::Result<u32, ::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.move_chart_to_sheet(unit as usize, index as usize, &name)).map(|u| u as u32).map_err(|e| e.0)
+            }
+            fn move_chart_to_grid(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, target: u32, anchor: (u32, u32, u32, u32)) -> ::std::result::Result<u32, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::with(d, |x| x.move_chart_to_grid(unit as usize, target as usize, range(anchor))).map(|u| u as u32).map_err(|e| e.0)
+            }
+            fn chart_template(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32) -> ::std::result::Result<::std::vec::Vec<u8>, ::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.chart_template(unit as usize, index as usize)).map_err(|e| e.0)
+            }
+            fn apply_chart_template(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, template: ::std::vec::Vec<u8>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.apply_chart_template(unit as usize, index as usize, &template)))
+            }
             fn set_series_color(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, series: u32, color: ::std::option::Option<$crate::adapter::grid::g::Rgb>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
                 use $crate::adapter::grid::Conv;
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_series_color(unit as usize, index as usize, series as usize, color.conv())))

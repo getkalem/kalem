@@ -251,7 +251,41 @@ interface grid {
         pie,
         doughnut,
         scatter,
+        radar,
+        bubble,
+        stock,
+        histogram,
+        waterfall,
         other,
+    }
+
+    enum trend-kind {
+        linear,
+        exponential,
+        logarithmic,
+        polynomial,
+        power,
+        moving-average,
+    }
+
+    record trendline {
+        kind: trend-kind,
+        order: u32,
+        period: u32,
+        equation: bool,
+        r-squared: bool,
+    }
+
+    enum error-kind {
+        fixed,
+        percent,
+        std-dev,
+        std-err,
+    }
+
+    record error-bars {
+        kind: error-kind,
+        value: f64,
     }
 
     record series {
@@ -262,6 +296,13 @@ interface grid {
         point-colors: list<tuple<u32, rgb>>,
         explosion: u32,
         point-explosions: list<tuple<u32, u32>>,
+        kind: option<chart-kind>,
+        secondary: bool,
+        trendline: option<trendline>,
+        error-bars: option<error-bars>,
+        cell-labels: list<string>,
+        sizes: list<option<f64>>,
+        subtotals: list<u32>,
     }
 
     record axis-font {
@@ -638,6 +679,14 @@ interface grid {
     set-data-labels: func(doc: borrow<document>, unit: u32, index: u32, labels: data-labels) -> changed;
     set-axis-scale: func(doc: borrow<document>, unit: u32, index: u32, scale: axis-scale) -> changed;
     set-chart-kind: func(doc: borrow<document>, unit: u32, index: u32, kind: chart-kind) -> changed;
+    set-series-kind: func(doc: borrow<document>, unit: u32, index: u32, series: u32, kind: option<chart-kind>, secondary: bool) -> changed;
+    set-trendline: func(doc: borrow<document>, unit: u32, index: u32, series: u32, trendline: option<trendline>) -> changed;
+    set-error-bars: func(doc: borrow<document>, unit: u32, index: u32, series: u32, bars: option<error-bars>) -> changed;
+    set-label-cells: func(doc: borrow<document>, unit: u32, index: u32, series: u32, range: option<range>) -> changed;
+    move-chart-to-sheet: func(doc: borrow<document>, unit: u32, index: u32, name: string) -> result<u32, string>;
+    move-chart-to-grid: func(doc: borrow<document>, unit: u32, target: u32, anchor: range) -> result<u32, string>;
+    chart-template: func(doc: borrow<document>, unit: u32, index: u32) -> result<list<u8>, string>;
+    apply-chart-template: func(doc: borrow<document>, unit: u32, index: u32, template: list<u8>) -> changed;
     set-series-color: func(doc: borrow<document>, unit: u32, index: u32, series: u32, color: option<rgb>) -> changed;
     set-point-color: func(doc: borrow<document>, unit: u32, index: u32, series: u32, point: u32, color: option<rgb>) -> changed;
     set-explosion: func(doc: borrow<document>, unit: u32, index: u32, series: u32, point: option<u32>, percent: u32) -> changed;

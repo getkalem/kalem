@@ -129,7 +129,16 @@ cases!(kv::BorderSet, g::BorderSet { All, Outside, ThickOutside, Bottom, Top, Le
 cases!(kv::CompareOp, g::CompareOp {
     Greater, Less, GreaterOrEqual, LessOrEqual, Equal, NotEqual, Between, NotBetween
 });
-cases!(kv::ChartKind, g::ChartKind { Column, Bar, Line, Area, Pie, Doughnut, Scatter, Other });
+cases!(kv::ChartKind, g::ChartKind {
+    Column, Bar, Line, Area, Pie, Doughnut, Scatter, Radar, Bubble, Stock, Histogram, Waterfall,
+    Other,
+});
+cases!(kv::TrendKind, g::TrendKind {
+    Linear, Exponential, Logarithmic, Polynomial, Power, MovingAverage,
+});
+cases!(kv::ErrorKind, g::ErrorKind { Fixed, Percent, StdDev, StdErr });
+record!(kv::Trendline, g::Trendline { kind, order, period, equation, r_squared });
+record!(kv::ErrorBars, g::ErrorBars { kind, value });
 cases!(kv::LegendPosition, g::LegendPosition { Bottom, Top, Left, Right, TopRight });
 cases!(kv::ChartAxis, g::ChartAxis { Horizontal, Vertical });
 cases!(kv::Aggregate, g::Aggregate { Sum, Count, Average, Max, Min });
@@ -246,7 +255,8 @@ impl Conv<kv::FillPattern> for g::FillPattern {
 }
 record!(kv::CondStyle, g::CondStyle { fill, color, bold });
 record!(kv::ChartSeries, g::Series {
-    name, values, x, color, point_colors, explosion, point_explosions,
+    name, values, x, color, point_colors, explosion, point_explosions, kind, secondary,
+    trendline, error_bars, cell_labels, sizes, subtotals,
 });
 record!(kv::AxisFont, g::AxisFont { size, bold, italic, color, face });
 record!(kv::Gridlines, g::Gridlines {

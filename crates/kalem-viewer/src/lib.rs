@@ -1034,8 +1034,77 @@ pub enum ChartKind {
     Doughnut,
     /// Points at their x and y.
     Scatter,
-    /// A kind drawn as a placeholder (radar, stock, surface, bubble…).
+    /// Lines around a center, an axis a category.
+    Radar,
+    /// Circles at their x and y, as large as a third value says.
+    Bubble,
+    /// Prices: each category's high and low joined, its close marked
+    /// (series high, low, close; or open, high, low, close).
+    Stock,
+    /// How many values fall in each bin: the categories the bins, the
+    /// values the counts.
+    Histogram,
+    /// Each value a step up or down from the one before, totals standing
+    /// on the axis.
+    Waterfall,
+    /// A kind drawn as a placeholder (surface, treemap…).
     Other,
+}
+
+/// How a trendline follows a series.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TrendKind {
+    /// `y = mx + b`.
+    #[default]
+    Linear,
+    /// `y = c·e^(bx)`.
+    Exponential,
+    /// `y = c·ln(x) + b`.
+    Logarithmic,
+    /// A polynomial of an order (2 to 6).
+    Polynomial,
+    /// `y = c·x^b`.
+    Power,
+    /// The average of the last points, a period of them.
+    MovingAverage,
+}
+
+/// A series' trendline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Trendline {
+    /// Its kind.
+    pub kind: TrendKind,
+    /// A polynomial's order.
+    pub order: u32,
+    /// A moving average's period.
+    pub period: u32,
+    /// Its equation shown on the chart.
+    pub equation: bool,
+    /// Its R² shown on the chart.
+    pub r_squared: bool,
+}
+
+/// How large a series' error bars are.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ErrorKind {
+    /// A fixed amount.
+    #[default]
+    Fixed,
+    /// A percent of each value.
+    Percent,
+    /// Standard deviations of the series.
+    StdDev,
+    /// The standard error of the series.
+    StdErr,
+}
+
+/// A series' error bars, above and below each point.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ErrorBars {
+    /// Their kind.
+    pub kind: ErrorKind,
+    /// The amount, percent or number of standard deviations.
+    pub value: f64,
 }
 
 /// One series of a chart.
@@ -1056,6 +1125,21 @@ pub struct ChartSeries {
     pub explosion: u32,
     /// Slices standing out on their own, by point.
     pub point_explosions: Vec<(usize, u32)>,
+    /// Drawn as another kind than the chart's (a line over columns);
+    /// `None` the chart's.
+    pub kind: Option<ChartKind>,
+    /// Plotted against the secondary value axis, at the right.
+    pub secondary: bool,
+    /// Its trendline.
+    pub trendline: Option<Trendline>,
+    /// Its error bars.
+    pub error_bars: Option<ErrorBars>,
+    /// Its data labels' texts from cells, by point; empty for none.
+    pub cell_labels: Vec<String>,
+    /// A bubble chart's sizes.
+    pub sizes: Vec<Option<f64>>,
+    /// A waterfall's points that are totals, standing on the axis.
+    pub subtotals: Vec<usize>,
 }
 
 /// A chart on a sheet, as it reads now: values from the cells it names.
@@ -2468,6 +2552,93 @@ pub trait ViewerDocument: Send {
         _unit: usize,
         _index: usize,
         _font: AxisFont,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Draws series `series` of the chart at `index` of
+    /// [`ViewerDocument::charts`] as `kind` (`None` the chart's), against
+    /// the secondary axis or the primary: a combo chart.
+    fn set_series_kind(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _series: usize,
+        _kind: Option<ChartKind>,
+        _secondary: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives series `series` of the chart at `index` of
+    /// [`ViewerDocument::charts`] a trendline, or takes it away.
+    fn set_trendline(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _series: usize,
+        _trendline: Option<Trendline>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives series `series` of the chart at `index` of
+    /// [`ViewerDocument::charts`] error bars, or takes them away.
+    fn set_error_bars(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _series: usize,
+        _bars: Option<ErrorBars>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Takes the data labels of series `series` of the chart at `index`
+    /// of [`ViewerDocument::charts`] from the cells of `range` on the
+    /// unit (first row, first column, last row, last column), or no more.
+    fn set_label_cells(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _series: usize,
+        _range: Option<[u32; 4]>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Moves the chart at `index` of [`ViewerDocument::charts`] to a new
+    /// chart sheet named `name`; the new unit.
+    fn move_chart_to_sheet(&mut self, _unit: usize, _index: usize, _name: &str) -> Result<usize> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Moves the chart of chart sheet `unit` onto sheet `target` over the
+    /// cells of `anchor`, the chart sheet removed; the target's unit as
+    /// it is then.
+    fn move_chart_to_grid(
+        &mut self,
+        _unit: usize,
+        _target: usize,
+        _anchor: [u32; 4],
+    ) -> Result<usize> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The chart at `index` of [`ViewerDocument::charts`] as a chart
+    /// template (Excel's `.crtx`).
+    fn chart_template(&mut self, _unit: usize, _index: usize) -> Result<Vec<u8>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives the chart at `index` of [`ViewerDocument::charts`] the kind,
+    /// colors, fonts and layout of a chart template's chart, its data
+    /// kept.
+    fn apply_chart_template(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _template: &[u8],
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
