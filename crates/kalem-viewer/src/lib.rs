@@ -1480,6 +1480,52 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// A grid's outline: the rows and the columns grouped, each with its
+    /// level (1 to 7).
+    fn outline(&mut self, _unit: usize) -> (Vec<(u32, u8)>, Vec<(u32, u8)>) {
+        (Vec::new(), Vec::new())
+    }
+
+    /// Groups rows (`rows`) or columns `from..=to` one level deeper
+    /// (`deeper`), or ungroups them one level.
+    fn set_outline(
+        &mut self,
+        _unit: usize,
+        _rows: bool,
+        _from: u32,
+        _to: u32,
+        _deeper: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Hides (collapses) or shows (expands) the group of rows or columns
+    /// that `at` is in or sums up.
+    fn set_detail_shown(
+        &mut self,
+        _unit: usize,
+        _rows: bool,
+        _at: u32,
+        _shown: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Subtotal of a range (its first row the headers) at each change in
+    /// column `by`: a row with `SUBTOTAL(function, …)` of `columns` under
+    /// each group and a grand total, the groups outlined. Function codes
+    /// as SUBTOTAL's: 9 sum, 1 average, 2 count, 4 max, 5 min.
+    fn subtotal(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _by: u32,
+        _function: u32,
+        _columns: &[u32],
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// How a unit prints.
     fn page_setup(&mut self, _unit: usize) -> Option<PageSetup> {
         None
