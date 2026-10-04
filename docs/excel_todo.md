@@ -91,7 +91,7 @@ in the palette and can be bound again.
 
 ## E14. Inserting and deleting cells
 
-- [ ] E14 Insert and delete as many rows or columns as are selected;
+- [x] E14 Insert and delete as many rows or columns as are selected;
   insert and delete cells shifting the rest down or right, up or left
   (Ctrl++ and Ctrl+-).
 

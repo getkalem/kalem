@@ -2292,3 +2292,67 @@ fn paste_special() {
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(input(&mut t, 1, 5), "");
 }
+
+#[test]
+fn inserting_and_deleting_cells() {
+    let mut t = T::open("cells");
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    let select = |t: &mut T, a: (u32, u32), b: (u32, u32)| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(a.0, a.1);
+        v.grid_extend_to(b.0, b.1);
+    };
+    // Two rows selected: two rows inserted above them.
+    select(&mut t, (1, 0), (2, 0));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('O'),
+        KeyModifiers::SHIFT,
+    )));
+    assert_eq!(input(&mut t, 3, 0), "Rent");
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 1, 0), "Rent");
+    // Cells shifted down: B2:B3 empty, their numbers two rows lower, and
+    // the totals following them.
+    select(&mut t, (1, 1), (2, 1));
+    t.key(KeyCode::Char('g'));
+    t.key(KeyCode::Char('i'));
+    assert!(t.screen().contains("Shift Cells Down"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    select(&mut t, (1, 1), (2, 1));
+    t.app
+        .run_command("viewer.grid.insertCells", json!({ "how": "down" }));
+    assert_eq!(input(&mut t, 1, 1), "");
+    assert_eq!(input(&mut t, 3, 1), "1200");
+    assert_eq!(input(&mut t, 2, 2), "512.25");
+    assert!(
+        input(&mut t, 1, 3).contains("B4"),
+        "{}",
+        input(&mut t, 1, 3)
+    );
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 1, 1), "1200");
+    // Cells deleted, those below moving up.
+    select(&mut t, (1, 1), (1, 1));
+    t.app
+        .run_command("viewer.grid.deleteCells", json!({ "how": "up" }));
+    assert_eq!(input(&mut t, 1, 1), "431.5");
+    assert_eq!(input(&mut t, 1, 2), "1200");
+    t.app.run_command("edit.undo", json!({}));
+    // And from the right, moving left.
+    select(&mut t, (1, 1), (1, 1));
+    t.app
+        .run_command("viewer.grid.deleteCells", json!({ "how": "left" }));
+    assert_eq!(input(&mut t, 1, 1), "1200");
+    assert!(
+        input(&mut t, 1, 2).starts_with('='),
+        "{}",
+        input(&mut t, 1, 2)
+    );
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 1, 1), "1200");
+    assert_eq!(input(&mut t, 2, 1), "431.5");
+}

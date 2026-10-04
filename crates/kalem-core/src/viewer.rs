@@ -3184,6 +3184,69 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Insert Cells: the cells below the selection (in its columns), or
+    /// right of it (in its rows), moved on by its size, references
+    /// following them; the selection left empty. One undo step.
+    pub fn insert_cells(&mut self, down: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let l = self.grid_layout().unwrap_or_default();
+        let (block, to) = if down {
+            let last = l.rows.saturating_sub(1);
+            if s[0] > last {
+                return Ok(());
+            }
+            let n = s[2] - s[0] + 1;
+            ([s[0], s[1], last, s[3]], (s[0] + n, s[1]))
+        } else {
+            let last = l.cols.saturating_sub(1);
+            if s[1] > last {
+                return Ok(());
+            }
+            let n = s[3] - s[1] + 1;
+            ([s[0], s[1], s[2], last], (s[0], s[1] + n))
+        };
+        self.doc()
+            .move_cells(self.unit, block, to.0, to.1)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Delete Cells: the selection's cells gone, those below it (in its
+    /// columns) or right of it (in its rows) moved into their place. One
+    /// undo step.
+    pub fn delete_cells(&mut self, up: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let l = self.grid_layout().unwrap_or_default();
+        // What comes after, at least as large as the selection, so that
+        // moving it over the selection leaves none of it.
+        let block = if up {
+            let n = s[2] - s[0] + 1;
+            let end = l.rows.saturating_sub(1).max(s[2] + n).min(l.max_rows - 1);
+            [s[2] + 1, s[1], end, s[3]]
+        } else {
+            let n = s[3] - s[1] + 1;
+            let end = l.cols.saturating_sub(1).max(s[3] + n).min(l.max_cols - 1);
+            [s[0], s[3] + 1, s[2], end]
+        };
+        if block[0] > block[2] || block[1] > block[3] {
+            return self.clear_selection();
+        }
+        self.doc()
+            .move_cells(self.unit, block, s[0], s[1])
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        let (r, c) = (s[0], s[1]);
+        self.grid_move_to(r, c);
+        Ok(())
+    }
+
     /// The units that are hidden sheets.
     pub fn hidden_units(&mut self) -> Vec<usize> {
         self.doc().hidden_units()
@@ -4134,14 +4197,79 @@ fn grid_move(ctx: &mut EditorContext<'_>, rows: i64, cols: i64) -> CommandResult
     })
 }
 
-fn grid_struct(ctx: &mut EditorContext<'_>, f: fn(GridPos) -> GridEdit) -> CommandResult {
+/// A row or column edit for as many rows or columns as are selected (the
+/// selection: first row, first column, last row, last column).
+fn grid_struct(ctx: &mut EditorContext<'_>, f: fn([u32; 4]) -> GridEdit) -> CommandResult {
     with(ctx, |v| {
         if !v.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
-        let p = v.grid_pos();
-        v.grid_edit(f(p))
+        let s = v.selection();
+        v.grid_edit(f(s))
     })
+}
+
+/// Insert (Ctrl++) or Delete (Ctrl+-) Cells: which way the others go, or
+/// whole rows or columns, from a menu as Excel's dialog.
+fn cells_command(
+    ctx: &mut EditorContext<'_>,
+    args: &serde_json::Value,
+    insert: bool,
+) -> CommandResult {
+    let id = if insert {
+        "viewer.grid.insertCells"
+    } else {
+        "viewer.grid.deleteCells"
+    };
+    let Some(how) = args.get("how").and_then(|h| h.as_str()) else {
+        let item = |how: &str, title: &str| {
+            menu_item(
+                id,
+                serde_json::json!({ "how": how }),
+                title,
+                if insert { "Insert" } else { "Delete" },
+            )
+        };
+        let items = if insert {
+            vec![
+                item("down", "Shift Cells Down"),
+                item("right", "Shift Cells Right"),
+                item("rows", "Entire Row"),
+                item("cols", "Entire Column"),
+            ]
+        } else {
+            vec![
+                item("up", "Shift Cells Up"),
+                item("left", "Shift Cells Left"),
+                item("rows", "Entire Row"),
+                item("cols", "Entire Column"),
+            ]
+        };
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    match (insert, how) {
+        (true, "down") => with(ctx, |v| v.insert_cells(true)),
+        (true, "right") => with(ctx, |v| v.insert_cells(false)),
+        (false, "up") => with(ctx, |v| v.delete_cells(true)),
+        (false, "left") => with(ctx, |v| v.delete_cells(false)),
+        (true, "rows") => grid_struct(ctx, |s| GridEdit::InsertRows {
+            at: s[0],
+            count: s[2] - s[0] + 1,
+        }),
+        (true, _) => grid_struct(ctx, |s| GridEdit::InsertCols {
+            at: s[1],
+            count: s[3] - s[1] + 1,
+        }),
+        (false, "rows") => grid_struct(ctx, |s| GridEdit::DeleteRows {
+            at: s[0],
+            count: s[2] - s[0] + 1,
+        }),
+        (false, _) => grid_struct(ctx, |s| GridEdit::DeleteCols {
+            at: s[1],
+            count: s[3] - s[1] + 1,
+        }),
+    }
 }
 
 fn arg_u32(args: &serde_json::Value, key: &str) -> Option<u32> {
@@ -7399,6 +7527,20 @@ fn grid_commands() -> Vec<Command> {
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
         cmd(
+            "viewer.grid.insertCells",
+            "Insert Cells",
+            &["ctrl+shift+=", "g i"],
+            IN_GRID,
+            |ctx, args| cells_command(ctx, args, true),
+        ),
+        cmd(
+            "viewer.grid.deleteCells",
+            "Delete Cells",
+            &["ctrl+-", "g d"],
+            IN_GRID,
+            |ctx, args| cells_command(ctx, args, false),
+        ),
+        cmd(
             "viewer.grid.pasteSpecial",
             "Paste Special",
             &["ctrl+alt+v"],
@@ -7718,9 +7860,9 @@ fn grid_commands() -> Vec<Command> {
             &["shift+o"],
             IN_GRID,
             |ctx, _| {
-                grid_struct(ctx, |p| GridEdit::InsertRows {
-                    at: p.row,
-                    count: 1,
+                grid_struct(ctx, |s| GridEdit::InsertRows {
+                    at: s[0],
+                    count: s[2] - s[0] + 1,
                 })
             },
         ),
@@ -7730,9 +7872,9 @@ fn grid_commands() -> Vec<Command> {
             &["d d"],
             IN_GRID,
             |ctx, _| {
-                grid_struct(ctx, |p| GridEdit::DeleteRows {
-                    at: p.row,
-                    count: 1,
+                grid_struct(ctx, |s| GridEdit::DeleteRows {
+                    at: s[0],
+                    count: s[2] - s[0] + 1,
                 })
             },
         ),
@@ -7742,9 +7884,9 @@ fn grid_commands() -> Vec<Command> {
             &["c o"],
             IN_GRID,
             |ctx, _| {
-                grid_struct(ctx, |p| GridEdit::InsertCols {
-                    at: p.col,
-                    count: 1,
+                grid_struct(ctx, |s| GridEdit::InsertCols {
+                    at: s[1],
+                    count: s[3] - s[1] + 1,
                 })
             },
         ),
@@ -7754,9 +7896,9 @@ fn grid_commands() -> Vec<Command> {
             &["d c"],
             IN_GRID,
             |ctx, _| {
-                grid_struct(ctx, |p| GridEdit::DeleteCols {
-                    at: p.col,
-                    count: 1,
+                grid_struct(ctx, |s| GridEdit::DeleteCols {
+                    at: s[1],
+                    count: s[3] - s[1] + 1,
                 })
             },
         ),
