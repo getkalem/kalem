@@ -467,12 +467,28 @@ interface grid {
         paper: u32,
         /// Left, right, top, bottom, in inches.
         margins: tuple<f32, f32, f32, f32>,
-        fit-width: bool,
+        /// Pages wide and tall, 0 for as many as it takes.
+        fit: option<tuple<u32, u32>>,
+        /// Percent, when not fitted.
+        scale: u32,
         print-area: option<range>,
         title-rows: option<tuple<u32, u32>>,
+        title-cols: option<tuple<u32, u32>>,
         header: string,
         footer: string,
         row-breaks: list<u32>,
+        col-breaks: list<u32>,
+        gridlines: bool,
+        headings: bool,
+        pictures: list<header-picture>,
+    }
+
+    /// A picture in a header or footer: `LH`, `CH`, `RH`, `LF`, `CF`, `RF`.
+    record header-picture {
+        place: string,
+        data: list<u8>,
+        /// Width and height in points.
+        size: tuple<f32, f32>,
     }
 
     record shape {

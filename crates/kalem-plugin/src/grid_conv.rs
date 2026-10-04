@@ -154,8 +154,10 @@ record!(kv::SheetProtection, g::Protection {
     delete_rows, delete_columns, sort, filter,
 });
 record!(kv::PageSetup, g::PageLayout {
-    landscape, paper, margins, fit_width, print_area, title_rows, header, footer, row_breaks,
+    landscape, paper, margins, fit, scale, print_area, title_rows, title_cols, header, footer,
+    row_breaks, col_breaks, gridlines, headings, pictures,
 });
+record!(kv::HeaderPicture, g::HeaderPicture { place, data, size });
 record!(kv::Drawing, g::Drawing { name, anchor, kind });
 record!(kv::Scenario, g::Scenario { name, comment, cells });
 record!(kv::ThreadComment, g::ThreadComment { author, text, time });

@@ -764,13 +764,19 @@ pub struct PageSetup {
     pub paper: u32,
     /// Margins in inches: left, right, top, bottom.
     pub margins: [f32; 4],
-    /// Scaled to fit one page wide.
-    pub fit_width: bool,
+    /// Scaled to fit pages: so many wide and so many tall, 0 for as many
+    /// as it takes; `None` prints at `scale`.
+    pub fit: Option<(u32, u32)>,
+    /// The size printed, in percent of the real one (10 to 400), when it
+    /// is not fitted.
+    pub scale: u32,
     /// What prints (first row, first column, last row, last column);
     /// `None` the used range.
     pub print_area: Option<[u32; 4]>,
     /// Rows repeated at the top of every page (first and last).
     pub title_rows: Option<(u32, u32)>,
+    /// Columns repeated at the left of every page (first and last).
+    pub title_cols: Option<(u32, u32)>,
     /// The header, in a spreadsheet's codes (`&C&A` the sheet's name in
     /// the middle, `&P` the page, `&N` the pages, `&D` the date, `&F` the
     /// file, `&L` and `&R` the sides).
@@ -779,6 +785,26 @@ pub struct PageSetup {
     pub footer: String,
     /// The rows a new page begins at.
     pub row_breaks: Vec<u32>,
+    /// The columns a new page begins at.
+    pub col_breaks: Vec<u32>,
+    /// The cells' gridlines printed.
+    pub gridlines: bool,
+    /// The row and column headings printed.
+    pub headings: bool,
+    /// Pictures in the header and footer, each where its part says `&G`.
+    pub pictures: Vec<HeaderPicture>,
+}
+
+/// A picture in a sheet's header or footer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HeaderPicture {
+    /// Its place: `LH`, `CH`, `RH` in the header, `LF`, `CF`, `RF` in the
+    /// footer.
+    pub place: String,
+    /// The picture's bytes (PNG, JPEG, GIF).
+    pub data: Vec<u8>,
+    /// Its size in points, width and height.
+    pub size: (f32, f32),
 }
 
 impl Default for PageSetup {
@@ -787,12 +813,18 @@ impl Default for PageSetup {
             landscape: false,
             paper: 9,
             margins: [0.7, 0.7, 0.75, 0.75],
-            fit_width: false,
+            fit: None,
+            scale: 100,
             print_area: None,
             title_rows: None,
+            title_cols: None,
             header: String::new(),
             footer: String::new(),
             row_breaks: Vec::new(),
+            col_breaks: Vec::new(),
+            gridlines: false,
+            headings: false,
+            pictures: Vec::new(),
         }
     }
 }
