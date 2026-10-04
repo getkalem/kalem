@@ -72,15 +72,30 @@ pub fn chart_view(
         .flex_col()
         .overflow_hidden();
     if let Some(t) = &chart.title {
-        d = d.child(
-            div()
-                .flex()
-                .justify_center()
-                .font_weight(gpui::FontWeight::BOLD)
-                .whitespace_nowrap()
-                .overflow_hidden()
-                .child(SharedString::from(t.clone())),
-        );
+        let tf = &chart.title_font;
+        let mut title = div()
+            .debug_selector(move || format!("viewer-grid-chart-title-{index}"))
+            .flex()
+            .justify_center()
+            .whitespace_nowrap()
+            .overflow_hidden();
+        // Bold as a chart's title is, unless its own font says otherwise.
+        if tf.is_default() || tf.bold {
+            title = title.font_weight(gpui::FontWeight::BOLD);
+        }
+        if tf.italic {
+            title = title.italic();
+        }
+        if let Some(pt) = tf.size {
+            title = title.text_size(px(pt * 4.0 / 3.0));
+        }
+        if let Some(c) = tf.color {
+            title = title.text_color(rgb(c));
+        }
+        if let Some(face) = &tf.face {
+            title = title.font_family(SharedString::from(face.clone()));
+        }
+        d = d.child(title.child(SharedString::from(t.clone())));
     }
     let plot = chart.clone();
     let mut canvas = div()
@@ -144,21 +159,40 @@ pub fn chart_view(
             .map(|s| s.values.len())
             .max()
             .unwrap_or(0);
+        let hf = chart.horizontal_font.clone();
         let labels = (0..n).map(|i| {
-            div()
+            let mut l = div()
                 .flex_1()
                 .flex()
                 .justify_center()
                 .overflow_hidden()
                 .whitespace_nowrap()
-                .text_xs()
-                .child(SharedString::from(
-                    chart
-                        .categories
-                        .get(i)
-                        .cloned()
-                        .unwrap_or_else(|| (i + 1).to_string()),
-                ))
+                .text_xs();
+            // The horizontal axis's font, as the file gives it.
+            if let Some(pt) = hf.size {
+                l = l.text_size(px(pt * 4.0 / 3.0));
+            }
+            if hf.bold {
+                l = l.font_weight(gpui::FontWeight::BOLD);
+            }
+            if hf.italic {
+                l = l.italic();
+            }
+            if let Some([r, g, b]) = hf.color {
+                l = l.text_color(gpui::rgb(
+                    (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b),
+                ));
+            }
+            if let Some(face) = &hf.face {
+                l = l.font_family(SharedString::from(face.clone()));
+            }
+            l.child(SharedString::from(
+                chart
+                    .categories
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(|| (i + 1).to_string()),
+            ))
         });
         middle = middle.child(div().flex().children(labels));
     }
@@ -308,7 +342,8 @@ fn paint(
     window: &mut gpui::Window,
     cx: &mut gpui::App,
 ) {
-    let mut marks: Vec<(f32, f32, String, Place)> = Vec::new();
+    // Data labels, and the value axis's labels (`true`).
+    let mut marks: Vec<(f32, f32, String, Place, bool)> = Vec::new();
     let (x0, y0) = (f32::from(b.origin.x), f32::from(b.origin.y));
     let (w, h) = (f32::from(b.size.width), f32::from(b.size.height));
     if w < 4.0 || h < 4.0 {
@@ -448,12 +483,12 @@ fn paint(
                     if value_major {
                         rect(x0 + at, y0, 0.5, h, grid, window);
                     }
-                    marks.push((x0 + at, y0 + h, tick_text(v), Place::Above));
+                    marks.push((x0 + at, y0 + h, tick_text(v), Place::Above, true));
                 } else {
                     if value_major {
                         rect(x0, y0 + h - at, w, 0.5, grid, window);
                     }
-                    marks.push((x0 + 2.0, y0 + h - at, tick_text(v), Place::Right));
+                    marks.push((x0 + 2.0, y0 + h - at, tick_text(v), Place::Right, true));
                 }
             }
             for i in 1..n {
@@ -489,9 +524,21 @@ fn paint(
                     }
                     if let Some(t) = label_text(chart, j, i, v, 0.0) {
                         if horizontal {
-                            marks.push((x0 + z + 3.0, y0 + start + bar / 2.0, t, Place::Right));
+                            marks.push((
+                                x0 + z + 3.0,
+                                y0 + start + bar / 2.0,
+                                t,
+                                Place::Right,
+                                false,
+                            ));
                         } else {
-                            marks.push((x0 + start + bar / 2.0, y0 + h - z - 2.0, t, Place::Above));
+                            marks.push((
+                                x0 + start + bar / 2.0,
+                                y0 + h - z - 2.0,
+                                t,
+                                Place::Above,
+                                false,
+                            ));
                         }
                     }
                 }
@@ -538,7 +585,7 @@ fn paint(
                 if gl.horizontal_major {
                     rect(x0, y, w, 0.5, grid, window);
                 }
-                marks.push((x0 + 2.0, y, tick_text(v), Place::Right));
+                marks.push((x0 + 2.0, y, tick_text(v), Place::Right, true));
             }
             // Vertical lines: at each category, or quarters of the x range.
             let steps = if chart.kind == ChartKind::Scatter {
@@ -567,7 +614,7 @@ fn paint(
                     if let (Some(v), Some(x)) = (v, px_of(i, s))
                         && let Some(t) = label_text(chart, j, i, *v, 0.0)
                     {
-                        marks.push((x, py(*v) - 4.0, t, Place::Above));
+                        marks.push((x, py(*v) - 4.0, t, Place::Above, false));
                     }
                 }
                 match chart.kind {
@@ -665,6 +712,7 @@ fn paint(
                         sy + r * at * mid.sin(),
                         t,
                         Place::Center,
+                        false,
                     ));
                 }
                 angle += sweep;
@@ -674,17 +722,44 @@ fn paint(
     }
     // The data labels over what was drawn.
     let fs = px(10.);
-    let lh = fs * 1.2;
-    for (x, y, t, place) in marks {
+    // The value axis's font: the vertical axis's, a bar chart's horizontal.
+    let axis = if chart.kind == ChartKind::Bar {
+        &chart.horizontal_font
+    } else {
+        &chart.vertical_font
+    };
+    for (x, y, t, place, on_axis) in marks {
+        let mut f = gpui::font(font.clone());
+        let (mut size, mut color) = (fs, ink);
+        if on_axis {
+            if let Some(face) = &axis.face {
+                f = gpui::font(SharedString::from(face.clone()));
+            }
+            if axis.bold {
+                f.weight = gpui::FontWeight::BOLD;
+            }
+            if axis.italic {
+                f.style = gpui::FontStyle::Italic;
+            }
+            if let Some(pt) = axis.size {
+                size = px(pt * 4.0 / 3.0);
+            }
+            if let Some([r, g, b]) = axis.color {
+                color = gpui::rgb((u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)).into();
+            }
+        }
+        let lh = size * 1.2;
         let run = gpui::TextRun {
             len: t.len(),
-            font: gpui::font(font.clone()),
-            color: ink,
+            font: f,
+            color,
             background_color: None,
             underline: None,
             strikethrough: None,
         };
-        let shaped = window.text_system().shape_line(t.into(), fs, &[run], None);
+        let shaped = window
+            .text_system()
+            .shape_line(t.into(), size, &[run], None);
         let tw = f32::from(shaped.width);
         let (ox, oy) = match place {
             Place::Above => (x - tw / 2.0, y - f32::from(lh)),

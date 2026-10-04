@@ -1173,6 +1173,96 @@ fn charts() {
         t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].axis_format,
         None
     );
+    // The axes' font: the axes offered; the categories (horizontal) bold
+    // and red, drawn so; a size typed for the values; back to the style's.
+    t.key(KeyCode::Char('p'));
+    t.key(KeyCode::Char('f'));
+    assert!(t.screen().contains("Both Axes"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.axisFont",
+        json!({ "axis": "horizontal", "op": "bold" }),
+    );
+    assert!(t.screen().contains("☑ Bold"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.axisFont",
+        json!({ "axis": "horizontal", "op": "color", "color": "#FF0000" }),
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.axisFont",
+        json!({ "axis": "vertical", "op": "size", "value": "12" }),
+    );
+    t.key(KeyCode::Esc);
+    let c6 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert!(c6.horizontal_font.bold);
+    assert_eq!(c6.horizontal_font.color, Some([0xFF, 0, 0]));
+    assert_eq!(c6.vertical_font.size, Some(12.0));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.screen();
+    let red = ratatui::style::Color::Rgb(0xFF, 0, 0);
+    let buf = t.term.backend().buffer().clone();
+    assert!(
+        buf.content()
+            .iter()
+            .any(|c| c.fg == red && c.symbol() == "R"),
+        "Rent in red"
+    );
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(c.anchor[0] + 2, c.anchor[1]);
+    t.app.run_command(
+        "viewer.grid.axisFont",
+        json!({ "axis": "both", "op": "reset" }),
+    );
+    t.key(KeyCode::Esc);
+    let c7 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert!(c7.horizontal_font.is_default() && c7.vertical_font.is_default());
+    // The title's font: refused without a title; with one, red and bold,
+    // drawn so, and kept when the title's words change.
+    t.app
+        .run_command("viewer.grid.chartTitle", json!({ "value": "" }));
+    t.app.run_command("viewer.grid.titleFont", json!({}));
+    assert!(
+        t.screen().contains("Give the chart a title first"),
+        "{}",
+        t.screen()
+    );
+    t.app
+        .run_command("viewer.grid.chartTitle", json!({ "value": "Spending" }));
+    t.app.run_command(
+        "viewer.grid.titleFont",
+        json!({ "op": "color", "color": "#FF0000" }),
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.chartTitle", json!({ "value": "Costs" }));
+    let c8 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert_eq!(
+        (c8.title.as_deref(), c8.title_font.color),
+        (Some("Costs"), Some([0xFF, 0, 0]))
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.screen();
+    let red = ratatui::style::Color::Rgb(0xFF, 0, 0);
+    assert!(
+        t.term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .any(|c| c.fg == red && c.symbol() == "C")
+    );
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(c.anchor[0] + 2, c.anchor[1]);
     // A column chart's slices do not stand out.
     t.app.run_command("viewer.grid.explodeSlice", json!({}));
     assert!(t.screen().contains("Only a pie's"), "{}", t.screen());
