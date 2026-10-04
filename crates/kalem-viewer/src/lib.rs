@@ -1341,6 +1341,20 @@ pub trait ViewerDocument: Send {
         Ok(Vec::new())
     }
 
+    /// Enters `input` as typed into every cell of a range (first row,
+    /// first column, last row, last column), as a spreadsheet's
+    /// Ctrl+Enter: a formula's references moved for each cell as from
+    /// `at` (row, column), where it was typed. One step.
+    fn enter_in_range(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _at: (u32, u32),
+        _input: &str,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Gives a cell a note, or takes it away (`None`).
     fn set_note(
         &mut self,
