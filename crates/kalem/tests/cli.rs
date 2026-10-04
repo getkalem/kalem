@@ -26,6 +26,32 @@ fn version_and_help() {
 }
 
 #[test]
+fn editor_help_and_no_terminal() {
+    // `kalem gui --help` prints the usage instead of opening a file named
+    // `--help` (T1.8.12).
+    for args in [
+        ["gui", "--help"],
+        ["gui", "-h"],
+        ["tui", "--help"],
+        ["tui", "-h"],
+    ] {
+        let (code, out, err) = kalem(&args);
+        if out.is_empty() {
+            // A build without that editor says so.
+            assert_eq!(code, 2, "{args:?}: {err}");
+        } else {
+            assert_eq!(code, 0, "{args:?}");
+            assert!(out.starts_with("Usage: kalem"), "{args:?}: {out}");
+        }
+    }
+    // The terminal editor without a terminal says it needs one (the
+    // test's output is a pipe).
+    let (code, _, err) = kalem(&["tui", "--detect"]);
+    assert_eq!(code, 2);
+    assert!(err.contains("terminal"), "{err}");
+}
+
+#[test]
 fn check_reports_diagnostics() {
     let (code, out, _) = kalem(&["check", "tests/fixtures/sample.org"]);
     assert_eq!(code, 0, "warnings alone do not fail");

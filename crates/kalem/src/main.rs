@@ -84,8 +84,17 @@ fn one_path(args: &[OsString]) -> Result<Option<std::path::PathBuf>, ExitCode> {
     }
 }
 
+/// Whether `args` asks for the usage (`-h`, `--help`).
+fn wants_help(args: &[OsString]) -> bool {
+    matches!(args.first().and_then(|a| a.to_str()), Some("-h" | "--help"))
+}
+
 #[cfg(feature = "gui")]
 fn gui(args: &[OsString]) -> ExitCode {
+    if wants_help(args) {
+        println!("Usage: kalem gui [FILE]   the graphical editor on FILE (or the last session)");
+        return ExitCode::SUCCESS;
+    }
     match one_path(args) {
         Ok(path) => {
             kalem_ui::run(path);
@@ -109,6 +118,19 @@ fn tui(_: &[OsString]) -> ExitCode {
 
 #[cfg(feature = "tui")]
 fn tui(args: &[OsString]) -> ExitCode {
+    use std::io::IsTerminal;
+    if wants_help(args) {
+        println!(
+            "Usage: kalem tui [FILE]\n       kalem tui --detect   print the terminal's capabilities"
+        );
+        return ExitCode::SUCCESS;
+    }
+    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
+        eprintln!(
+            "kalem: the terminal editor needs a terminal; run it in one, or use `kalem gui FILE`"
+        );
+        return ExitCode::from(2);
+    }
     if args.first().and_then(|a| a.to_str()) == Some("--detect") {
         return match kalem_tui::detect() {
             Ok(()) => ExitCode::SUCCESS,
@@ -117,12 +139,6 @@ fn tui(args: &[OsString]) -> ExitCode {
                 ExitCode::FAILURE
             }
         };
-    }
-    if matches!(args.first().and_then(|a| a.to_str()), Some("-h" | "--help")) {
-        println!(
-            "Usage: kalem tui [FILE]\n       kalem tui --detect   print the terminal's capabilities"
-        );
-        return ExitCode::SUCCESS;
     }
     let path = match one_path(args) {
         Ok(p) => p,
