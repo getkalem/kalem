@@ -1548,6 +1548,22 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_delete_scenario(s, d, unit as u32, name))
     }
 
+    fn calc_options(&mut self) -> kv::CalcOptions {
+        self.g(|g, s, d| g.call_calc_options(s, d))
+            .map(Conv::conv)
+            .unwrap_or_default()
+    }
+
+    fn set_calc_options(&mut self, options: kv::CalcOptions) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_calc_options(s, d, options.conv()))
+    }
+
+    fn circular_references(&mut self) -> Vec<(usize, u32, u32)> {
+        self.g(|g, s, d| g.call_circular_references(s, d))
+            .map(|v| v.into_iter().map(|(u, r, c)| (u as usize, r, c)).collect())
+            .unwrap_or_default()
+    }
+
     fn sheet_view(&mut self, unit: usize) -> kv::SheetView {
         self.g(|g, s, d| g.call_sheet_view(s, d, unit as u32))
             .map(Conv::conv)

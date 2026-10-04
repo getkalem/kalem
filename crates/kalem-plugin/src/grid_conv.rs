@@ -160,6 +160,8 @@ record!(kv::Drawing, g::Drawing { name, anchor, kind });
 record!(kv::Scenario, g::Scenario { name, comment, cells });
 record!(kv::ThreadComment, g::ThreadComment { author, text, time });
 record!(kv::SheetView, g::ViewSettings { zoom, gridlines, headings, page_break_preview, split });
+cases!(kv::CalcMode, g::CalcMode { Automatic, AutomaticExceptTables, Manual });
+record!(kv::CalcOptions, g::CalcSettings { mode, iterate, max_iterations, max_change });
 record!(kv::CommentThread, g::CommentThread { row, col, done, comments });
 
 impl Conv<g::DrawingKind> for kv::DrawingKind {

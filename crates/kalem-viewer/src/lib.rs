@@ -472,6 +472,42 @@ pub struct GridCell {
     pub thread: bool,
 }
 
+/// When formulas are computed (Excel's Calculation Options).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CalcMode {
+    /// After every change, data tables too.
+    #[default]
+    Automatic,
+    /// After every change, data tables only when asked.
+    AutomaticExceptTables,
+    /// Only when asked (Calculate Now).
+    Manual,
+}
+
+/// A workbook's calculation settings.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CalcOptions {
+    /// When formulas are computed.
+    pub mode: CalcMode,
+    /// Circular references computed over and over, to a limit.
+    pub iterate: bool,
+    /// At most this many times.
+    pub max_iterations: u32,
+    /// Until no value changes by more than this.
+    pub max_change: f64,
+}
+
+impl Default for CalcOptions {
+    fn default() -> Self {
+        CalcOptions {
+            mode: CalcMode::Automatic,
+            iterate: false,
+            max_iterations: 100,
+            max_change: 0.001,
+        }
+    }
+}
+
 /// How a sheet is shown, as its file keeps it (Excel's View tab).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SheetView {
@@ -1899,6 +1935,22 @@ pub trait ViewerDocument: Send {
     /// Deletes a scenario.
     fn delete_scenario(&mut self, _unit: usize, _name: &str) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The workbook's calculation settings.
+    fn calc_options(&mut self) -> CalcOptions {
+        CalcOptions::default()
+    }
+
+    /// Sets the workbook's calculation settings (an undo step).
+    fn set_calc_options(&mut self, _options: CalcOptions) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The cells whose formulas refer to themselves round a circle (sheet,
+    /// row, column), when they are not computed over and over.
+    fn circular_references(&mut self) -> Vec<(usize, u32, u32)> {
+        Vec::new()
     }
 
     /// How a sheet is shown.

@@ -457,6 +457,20 @@ interface grid {
     /// Grouped rows and columns: each with its level.
     type levels = tuple<list<tuple<u32, u8>>, list<tuple<u32, u8>>>;
 
+    enum calc-mode {
+        automatic,
+        automatic-except-tables,
+        manual,
+    }
+
+    /// A workbook's calculation settings.
+    record calc-settings {
+        mode: calc-mode,
+        iterate: bool,
+        max-iterations: u32,
+        max-change: f64,
+    }
+
     /// How a sheet is shown.
     record view-settings {
         zoom: u16,
@@ -636,6 +650,9 @@ interface grid {
     add-scenario: func(doc: borrow<document>, unit: u32, name: string, cells: list<tuple<u32, u32>>, comment: string) -> changed;
     show-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
     delete-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
+    calc-options: func(doc: borrow<document>) -> calc-settings;
+    set-calc-options: func(doc: borrow<document>, options: calc-settings) -> changed;
+    circular-references: func(doc: borrow<document>) -> list<tuple<u32, u32, u32>>;
     sheet-view: func(doc: borrow<document>, unit: u32) -> view-settings;
     set-sheet-view: func(doc: borrow<document>, unit: u32, view: view-settings) -> changed;
     tab-color: func(doc: borrow<document>, unit: u32) -> option<rgb>;

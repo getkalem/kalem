@@ -708,6 +708,20 @@ macro_rules! __kalem_grid_exports {
             fn delete_scenario(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_scenario(unit as usize, &name)))
             }
+            fn calc_options(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> $crate::adapter::grid::g::CalcSettings {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.calc_options()).conv()
+            }
+            fn set_calc_options(d: $crate::adapter::grid::g::DocumentBorrow<'_>, options: $crate::adapter::grid::g::CalcSettings) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_calc_options(options.conv())))
+            }
+            fn circular_references(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::vec::Vec<(u32, u32, u32)> {
+                $crate::adapter::grid::with(d, |x| x.circular_references())
+                    .into_iter()
+                    .map(|(u, r, c)| (u as u32, r, c))
+                    .collect()
+            }
             fn sheet_view(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> $crate::adapter::grid::g::ViewSettings {
                 use $crate::adapter::grid::Conv;
                 $crate::adapter::grid::with(d, |x| x.sheet_view(unit as usize)).conv()
