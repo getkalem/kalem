@@ -467,6 +467,22 @@ pub enum VAlign {
     Top,
 }
 
+/// A change to a workbook's sheets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SheetEdit {
+    /// A new empty sheet put at this place, named as a spreadsheet names
+    /// a new one.
+    Insert(usize),
+    /// The sheet removed.
+    Delete(usize),
+    /// The sheet given a new name, references to it following.
+    Rename(usize, String),
+    /// The sheet moved from one place to another.
+    Move(usize, usize),
+    /// The sheet hidden (`true`) or shown again.
+    Hide(usize, bool),
+}
+
 /// Which borders a change draws.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BorderSet {
@@ -1173,6 +1189,16 @@ pub trait ViewerDocument: Send {
     /// A cell as it is entered (`=SUM(A1:A3)`, `2026-10-03`), for editing.
     fn cell_input(&mut self, _unit: usize, _row: u32, _col: u32) -> String {
         String::new()
+    }
+
+    /// Changes the workbook's sheets; the unit to show after it.
+    fn edit_sheets(&mut self, _edit: SheetEdit) -> Result<usize> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The units that are hidden sheets.
+    fn hidden_units(&mut self) -> Vec<usize> {
+        Vec::new()
     }
 
     /// The numbers among a range's values (first row, first column, last
