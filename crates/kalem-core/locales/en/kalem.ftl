@@ -1317,6 +1317,7 @@ cmd-viewer-grid-nameManager = Name Manager
 cmd-viewer-grid-deleteName = Delete Name
 cmd-viewer-grid-showFormulas = Show Formulas
 cmd-viewer-grid-calculateNow = Calculate Now
+cmd-viewer-grid-saveSheetAsCsv = Save Sheet as CSV
 cmd-viewer-grid-fillDown = Fill Down
 cmd-viewer-grid-fillRight = Fill Right
 cmd-viewer-grid-fillSeries = Fill Series

@@ -1236,6 +1236,7 @@ cmd-viewer-grid-nameManager = Ad Yöneticisi
 cmd-viewer-grid-deleteName = Adı Sil
 cmd-viewer-grid-showFormulas = Formülleri Göster
 cmd-viewer-grid-calculateNow = Şimdi Hesapla
+cmd-viewer-grid-saveSheetAsCsv = Sayfayı CSV Olarak Kaydet
 cmd-viewer-grid-fillDown = Aşağı Doldur
 cmd-viewer-grid-fillRight = Sağa Doldur
 cmd-viewer-grid-fillSeries = Seri Doldur

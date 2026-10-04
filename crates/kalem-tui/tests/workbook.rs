@@ -2606,3 +2606,30 @@ fn show_formulas_and_calculate() {
     t.key(KeyCode::F(9));
     assert_ne!(value(&mut t), a);
 }
+
+#[test]
+fn sheet_saved_as_csv() {
+    let mut t = T::open("csv");
+    // Asked, beside the workbook by default.
+    t.app.run_command("viewer.grid.saveSheetAsCsv", json!({}));
+    assert!(t.screen().contains("budget - Budget.csv"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.saveSheetAsCsv", json!({ "value": "out" }));
+    let text = std::fs::read_to_string(t.dir.join("out.csv")).unwrap();
+    let mut lines = text.split("\r\n");
+    let first = lines.next().unwrap();
+    assert!(first.starts_with("\u{feff}Item,Q1,Q2,Total"), "{first}");
+    let rent = lines.next().unwrap();
+    assert!(
+        rent.starts_with("Rent,\"1,200.00\",\"1,200.00\",\"2,400.00\""),
+        "{rent}"
+    );
+    // Saved again: asked before the file is replaced.
+    t.app
+        .run_command("viewer.grid.saveSheetAsCsv", json!({ "value": "out.csv" }));
+    assert!(t.screen().contains("exists: replace it?"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // The workbook itself is as it was.
+    assert!(!t.screen().contains("budget.xlsx •"), "{}", t.screen());
+}

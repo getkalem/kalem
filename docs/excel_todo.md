@@ -122,5 +122,5 @@ in the palette and can be bound again.
 
 ## E20. Saving a sheet as CSV
 
-- [ ] E20 Save the sheet shown as CSV (values as shown, quoted as
+- [x] E20 Save the sheet shown as CSV (values as shown, quoted as
   needed), the workbook left as it is.

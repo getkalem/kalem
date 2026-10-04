@@ -3391,6 +3391,45 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The sheet shown as CSV, as Excel's CSV UTF-8 writes it: the used
+    /// range's values as shown, a field quoted when it holds a comma, a
+    /// quote or a line break, lines ending in CR LF.
+    pub fn sheet_csv(&mut self) -> String {
+        let Some(l) = self.grid_layout() else {
+            return String::new();
+        };
+        let (rows, cols) = (l.rows, l.cols);
+        let field = |t: &str| {
+            if t.contains([',', '"', '\n', '\r']) {
+                format!("\"{}\"", t.replace('"', "\"\""))
+            } else {
+                t.to_owned()
+            }
+        };
+        let mut out = String::from("\u{feff}");
+        let mut row = 0;
+        while row < rows {
+            let to = (row + 1000).min(rows);
+            let cells = self.grid_cells(row..to, 0..cols.max(1));
+            let mut grid = vec![vec![String::new(); cols as usize]; (to - row) as usize];
+            for (r, c, cell) in cells {
+                if let Some(slot) = grid
+                    .get_mut((r - row) as usize)
+                    .and_then(|line| line.get_mut(c as usize))
+                {
+                    *slot = cell.text;
+                }
+            }
+            for line in grid {
+                let fields: Vec<String> = line.iter().map(|t| field(t)).collect();
+                out.push_str(&fields.join(","));
+                out.push_str("\r\n");
+            }
+            row = to;
+        }
+        out
+    }
+
     /// The cursor's cell's hyperlink.
     pub fn cursor_link(&mut self) -> Option<String> {
         let p = self.grid_pos();
@@ -6750,6 +6789,78 @@ fn calculate_now(ctx: &mut EditorContext<'_>) -> CommandResult {
     })
 }
 
+/// Save Sheet as CSV: the sheet shown written to a CSV file (asked, beside
+/// the workbook by default; one already there replaced after asking),
+/// the workbook left as it is.
+fn save_sheet_csv(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.saveSheetAsCsv";
+    let Some(doc) = ctx.document.as_deref_mut() else {
+        return Ok(());
+    };
+    let book = doc.meta.path.clone();
+    let Some(v) = doc.viewer.as_deref_mut() else {
+        return Ok(());
+    };
+    let sheet = v.structure().units[v.unit]
+        .label
+        .trim_end_matches(" (hidden)")
+        .to_owned();
+    let Some(path) = text_arg(args, "value") else {
+        let stem = book
+            .as_ref()
+            .and_then(|p| p.file_stem())
+            .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
+        let name = format!("{stem} - {sheet}.csv");
+        let default = book
+            .as_ref()
+            .and_then(|p| p.parent())
+            .map_or(name.clone(), |d| d.join(&name).display().to_string());
+        return ask_more(
+            ctx,
+            ID,
+            &serde_json::json!({ "value_default": default }),
+            "value",
+        );
+    };
+    let mut target = std::path::PathBuf::from(path.trim());
+    if target.is_relative()
+        && let Some(dir) = book.as_ref().and_then(|p| p.parent())
+    {
+        target = dir.join(target);
+    }
+    if target.extension().is_none() {
+        target.set_extension("csv");
+    }
+    let confirmed = args.get("confirmed").and_then(serde_json::Value::as_bool) == Some(true);
+    if target.exists() && !confirmed {
+        let file = target
+            .file_name()
+            .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+        let question = format!("{file} exists: replace it?");
+        let item = |id: &str, a: serde_json::Value, title: &str| crate::palette::PaletteItem {
+            id: crate::palette::invocation(id, &a),
+            title: title.into(),
+            category: question.clone(),
+            keys: String::new(),
+            also: question.clone(),
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item(
+                ID,
+                serde_json::json!({ "value": target.display().to_string(), "confirmed": true }),
+                "Replace",
+            ),
+            item("viewer.grid.cancel", serde_json::json!({}), "Cancel"),
+        ]));
+        return Ok(());
+    }
+    let text = v.sheet_csv();
+    std::fs::write(&target, text).map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    ctx.messages
+        .push(format!("{sheet} saved as {}", target.display()));
+    Ok(())
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -7997,6 +8108,13 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.saveSheetAsCsv",
+            "Save Sheet as CSV",
+            &[],
+            IN_GRID,
+            save_sheet_csv,
+        ),
         cmd(
             "viewer.grid.showFormulas",
             "Show Formulas",
