@@ -2058,6 +2058,41 @@ impl Workspace {
             Some(j) => (j.status(), false),
             None => e.status.clone().unwrap_or_default(),
         };
+        // The plugins' items, a click running an item's command.
+        let (left_items, right_items) = kalem_core::extensions::status_items();
+        let accent = theme.caret;
+        let item =
+            |n: usize, it: kalem_core::extensions::StatusItem, cx: &mut Context<'_, Self>| {
+                let el = div()
+                    .id(("plugin-status", n))
+                    .text_color(accent)
+                    .child(SharedString::from(it.text));
+                match it.command {
+                    Some(c) => el
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |ws, _, window, cx| {
+                            let e = ws.editor.clone();
+                            let c = c.clone();
+                            e.update(cx, |e, cx| {
+                                e.run_command(&c, serde_json::Value::Null, window, cx);
+                            });
+                        }))
+                        .into_any_element(),
+                    None => el.into_any_element(),
+                }
+            };
+        let n = left_items.len();
+        let lefts: Vec<_> = left_items
+            .into_iter()
+            .enumerate()
+            .map(|(i, it)| item(i, it, cx))
+            .collect();
+        let rights: Vec<_> = right_items
+            .into_iter()
+            .rev()
+            .enumerate()
+            .map(|(i, it)| item(n + i, it, cx))
+            .collect();
         div()
             .flex()
             .flex_row()
@@ -2069,11 +2104,20 @@ impl Workspace {
             .border_t_1()
             .border_color(theme.border)
             .text_color(theme.muted)
-            .child(left)
             .child(
                 div()
-                    .text_color(if error { theme.todo } else { theme.muted })
-                    .child(msg),
+                    .flex()
+                    .flex_row()
+                    .gap(px(16.))
+                    .child(left)
+                    .children(lefts),
+            )
+            .child(
+                div().flex().flex_row().gap(px(16.)).children(rights).child(
+                    div()
+                        .text_color(if error { theme.todo } else { theme.muted })
+                        .child(msg),
+                ),
             )
     }
 }
@@ -2340,6 +2384,25 @@ pub fn run_queued(runs: Vec<(String, serde_json::Value)>, cx: &mut App) {
         editor.update(cx, |e, cx| {
             for (id, args) in runs {
                 e.run_command(&id, args, window, cx);
+            }
+        });
+    });
+}
+
+/// Asks the plugins' questions in the active window's editor.
+pub fn ask_queued(asked: Vec<kalem_core::Request>, cx: &mut App) {
+    let Some(w) = cx
+        .active_window()
+        .and_then(|w| w.downcast::<Workspace>())
+        .or_else(|| cx.windows().iter().find_map(|w| w.downcast::<Workspace>()))
+    else {
+        return;
+    };
+    let _ = w.update(cx, |ws, window, cx| {
+        let editor = ws.editor.clone();
+        editor.update(cx, |e, cx| {
+            for r in asked {
+                e.request(r, window, cx);
             }
         });
     });

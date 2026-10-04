@@ -589,6 +589,7 @@ pub(crate) fn commands() -> Vec<Command> {
     let mut all = plain_commands();
     all.extend(crate::dired::commands());
     all.extend(crate::viewer::commands());
+    all.extend(crate::extensions::core_commands());
     all.extend(csv_commands());
     all.extend(markdown_commands());
     all.extend(bib_commands());

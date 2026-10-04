@@ -1734,6 +1734,9 @@ impl DocumentState {
             self.dired.as_ref().is_some_and(|d| d.wdired.is_some()),
         );
         c.flag("hasSelection", self.selection.anchor != self.selection.head);
+        // A plugin's question waits, a plugin has a panel.
+        c.flag("pluginAsks", crate::extensions::asking());
+        c.flag("pluginPanels", crate::extensions::has_panels());
         c.flag("narrowed", self.narrowing.is_some());
         c.flag("modified", self.is_modified());
         c.flag("hasFile", self.meta.path.is_some());

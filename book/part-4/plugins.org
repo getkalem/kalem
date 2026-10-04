@@ -246,9 +246,20 @@ plugin builds the tree with =ui::Tree=, adding each widget under one
 already there, and replaces the panel's content with =ui::set_panel=;
 what the user does to a widget reaches the panel's handler with the
 widget's key. The host checks every tree before an editor sees it.
-Drawing the panels, the questions and the status items in both editors
-comes next (T3.1.12's second step); until then a question stays
-unanswered.
+Both editors show them with their own means. A question is one of the
+editors' own: a line is asked for in the palette (the terminal's
+minibuffer), a yes or no and a choice from a list are offered as a list
+in the palette, and the answer reaches the plugin through the command
+=plugin.answer=. A status item stands in the status line, a click
+running its command in the window. A panel opens with View > Plugin
+Panel (=view.pluginPanel=, offered while a plugin has one), beside the
+text or under it; in the window a click on a button, an entry, a
+checkbox or an input reaches the plugin, and in both editors Panel
+Actions (=view.panelActions=) lists the widgets one acts on, so a panel
+is used from the keyboard too; an input's new text is asked for in the
+palette. Cancelling a question tells the plugin nothing yet, a list
+offers one choice even when the plugin allows several, and a password
+is not hidden as it is typed.
 
 The first plugins planned:
 word count, Pomodoro, an export filter, a table function, a =jira:=

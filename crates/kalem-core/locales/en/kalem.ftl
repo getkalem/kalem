@@ -1289,3 +1289,12 @@ msg-latex-ignore-hint = The repository keeps LaTeX's build outputs: Ignore Build
 msg-not-in-git = The document is not in a Git repository
 msg-ignored-outputs = { $count } patterns added to { $path }
 msg-outputs-ignored-already = The repository already leaves LaTeX's build outputs out
+
+# Plugins' questions and panels (kalem_core::extensions)
+cmd-plugin-answer = Answer
+cmd-plugin-panelEvent = Act on a Panel
+cmd-view-pluginPanel = Plugin Panel
+cmd-view-panelActions = Panel Actions
+panel-input = Text
+choice-yes = Yes
+choice-no = No

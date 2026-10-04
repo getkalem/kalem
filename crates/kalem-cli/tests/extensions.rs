@@ -146,5 +146,65 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
     assert!(!vetoed.allowed());
     assert_eq!(EventKind::DocumentBeforeSave.name(), "document:before-save");
 
+    // Its panel, registered and filled at activation.
+    let labels = || -> Vec<String> {
+        let p = kalem_core::extensions::panel("counter.panel").expect("its panel");
+        p.lines()
+            .into_iter()
+            .map(|(i, _)| kalem_core::extensions::widget_text(&p.widgets[i]))
+            .collect()
+    };
+    assert_eq!(labels()[1], "[ Add one ]");
+    let before = labels()[0].clone();
+    // A click, through the command the palette's list of panel actions
+    // runs: the plugin hears it and fills the panel again.
+    let shown = kalem_core::extensions::shown();
+    let mut ctx = EditorContext::new(
+        None,
+        &mut clipboard,
+        &config,
+        Instant::now(),
+        jiff::civil::date(2026, 10, 4).at(10, 0, 0, 0),
+    );
+    registry
+        .execute(
+            "plugin.panelEvent",
+            &mut ctx,
+            &serde_json::json!({ "panel": "counter.panel", "key": "add" }),
+        )
+        .unwrap();
+    assert_ne!(labels()[0], before);
+    assert!(kalem_core::extensions::shown() > shown);
+
+    // Its questions, as the editors' requests, answered through
+    // `plugin.answer`.
+    registry
+        .execute("counter.ask", &mut ctx, &Value::Null)
+        .unwrap();
+    let asked = kalem_core::extensions::take_requests();
+    assert_eq!(asked.len(), 3, "{asked:?}");
+    let kalem_core::Request::Choose(yes_no) = &asked[0] else {
+        panic!("{:?}", asked[0]);
+    };
+    let (cmd, args) = kalem_core::palette::split_invocation(&yes_no[0].id);
+    registry.execute(cmd, &mut ctx, &args).unwrap();
+    let kalem_core::Request::Ask { command, args, arg } = &asked[1] else {
+        panic!("{:?}", asked[1]);
+    };
+    let mut args = args.clone();
+    args[arg.as_str()] = "Ada".into();
+    registry.execute(command, &mut ctx, &args).unwrap();
+    drop(ctx);
+    let notices = kalem_core::jobs::take_notices();
+    assert!(
+        notices.iter().any(|(t, _)| t == "counter: yes"),
+        "{notices:?}"
+    );
+    let (left, _) = kalem_core::extensions::status_items();
+    assert!(
+        left.iter().any(|i| i.id == "name" && i.text == "Ada"),
+        "{left:?}"
+    );
+
     let _ = std::fs::remove_dir_all(&root);
 }

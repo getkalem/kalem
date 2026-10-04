@@ -779,3 +779,73 @@ pub fn draw_which_key(buf: &mut Buffer, area: Rect, items: &[(String, String)], 
         );
     }
 }
+
+/// Draws a plugin's panel (`kalem_core::extensions`, D11) in `area`: its
+/// title, then its widgets as lines, indented by depth, a row's widgets
+/// on one line.
+pub fn draw_plugin_panel(
+    buf: &mut ratatui::buffer::Buffer,
+    area: Rect,
+    panel: &kalem_core::extensions::Panel,
+    caps: &Caps,
+) {
+    use kalem_core::extensions::{TextStyle, WidgetKind, widget_text};
+    use ratatui::style::Color as C;
+    let base = panel_style(caps);
+    for y in area.y..area.bottom() {
+        buf.set_stringn(
+            area.x,
+            y,
+            " ".repeat(area.width as usize),
+            area.width as usize,
+            base,
+        );
+    }
+    let width = area.width.saturating_sub(2) as usize;
+    buf.set_stringn(
+        area.x + 1,
+        area.y,
+        &panel.title,
+        width,
+        base.add_modifier(Modifier::BOLD),
+    );
+    let red = match (&caps.colors, caps.no_color) {
+        (Some(t), false) => base.fg(crate::render::rgb(t.todo)),
+        (None, false) => base.fg(C::Red),
+        _ => base,
+    };
+    let style = |kind: &WidgetKind| match kind {
+        WidgetKind::Label { style, .. } => match style {
+            TextStyle::Strong | TextStyle::Heading => base.add_modifier(Modifier::BOLD),
+            TextStyle::Emphasis => base.add_modifier(Modifier::ITALIC),
+            TextStyle::Muted => base.add_modifier(Modifier::DIM),
+            TextStyle::Error => red,
+            TextStyle::Normal | TextStyle::Code => base,
+        },
+        WidgetKind::Button { .. } | WidgetKind::Input { .. } => accent_style(caps, base),
+        WidgetKind::Item { selected: true, .. } => base.add_modifier(Modifier::REVERSED),
+        WidgetKind::Separator => base.add_modifier(Modifier::DIM),
+        _ => base,
+    };
+    for (y, (i, depth)) in (area.y + 2..).zip(panel.lines()) {
+        if y >= area.bottom() {
+            break;
+        }
+        let w = &panel.widgets[i];
+        let mut x = area.x + 1 + (depth as u16 * 2).min(area.width / 2);
+        let parts: Vec<usize> = match w.kind {
+            WidgetKind::Row => w.children.iter().map(|&c| c as usize).collect(),
+            _ => vec![i],
+        };
+        for j in parts {
+            let room = area.right().saturating_sub(x + 1) as usize;
+            if room == 0 {
+                break;
+            }
+            let part = &panel.widgets[j];
+            let text = widget_text(part);
+            buf.set_stringn(x, y, &text, room, style(&part.kind));
+            x += text.width() as u16 + 2;
+        }
+    }
+}

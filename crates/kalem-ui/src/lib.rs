@@ -13,6 +13,7 @@ pub mod math;
 pub mod outline;
 pub mod panels;
 pub mod pictures;
+pub mod plugin_panel;
 pub mod preferences;
 pub mod preview;
 pub mod theme;
@@ -134,6 +135,7 @@ pub fn run(path: Option<PathBuf>) {
         cx.spawn(async move |cx| {
             let mut first = !started_with_file;
             let mut plugins = kalem_core::extensions::generation();
+            let mut shown = kalem_core::extensions::shown();
             loop {
                 cx.background_executor()
                     .timer(std::time::Duration::from_millis(if first {
@@ -172,6 +174,17 @@ pub fn run(path: Option<PathBuf>) {
                     let runs = kalem_core::extensions::take_runs();
                     if !runs.is_empty() {
                         workspace::run_queued(runs, cx);
+                    }
+                    // Their questions, asked in the active editor; their
+                    // status items and panels, drawn again.
+                    let asked = kalem_core::extensions::take_requests();
+                    if !asked.is_empty() {
+                        workspace::ask_queued(asked, cx);
+                    }
+                    let now = kalem_core::extensions::shown();
+                    if now != shown {
+                        shown = now;
+                        cx.refresh_windows();
                     }
                 });
             }

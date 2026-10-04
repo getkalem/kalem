@@ -293,6 +293,9 @@ pub enum Request {
     /// Start the universal argument, or multiply it by four (Doom's
     /// `SPC u`, [`crate::prefix_arg`]).
     UniversalArgument,
+    /// Show or hide a plugin's panel ([`crate::extensions::panels`]), by
+    /// its ID; `None` hides the one shown.
+    PluginPanel(Option<String>),
 }
 
 impl Request {
@@ -320,7 +323,11 @@ impl Request {
     pub fn is_panel_toggle(&self) -> bool {
         matches!(
             self,
-            Request::Outline | Request::OpenFiles | Request::Preview { .. } | Request::Split
+            Request::Outline
+                | Request::OpenFiles
+                | Request::Preview { .. }
+                | Request::Split
+                | Request::PluginPanel(_)
         )
     }
 }

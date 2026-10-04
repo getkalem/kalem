@@ -92,23 +92,112 @@ impl Editor for Bridge {
         );
     }
 
-    // Questions, status items and panels are shown by the editors with
-    // T3.1.12's second step; until then a question stays unanswered.
-    fn ask(&mut self, _plugin: &str, _request: u64, _question: Question) {}
+    fn ask(&mut self, _plugin: &str, request: u64, question: Question) {
+        use kalem_core::extensions::Question as Q;
+        kalem_core::extensions::ask(
+            request,
+            match question {
+                Question::Prompt { title, options } => Q::Prompt {
+                    title,
+                    value: options.value,
+                },
+                Question::Confirm(message) => Q::Confirm(message),
+                Question::Pick { items, options } => Q::Pick {
+                    title: options.title,
+                    items: items.into_iter().map(|i| (i.label, i.detail)).collect(),
+                },
+            },
+        );
+    }
 
-    fn withdraw(&mut self, _request: u64) {}
+    fn withdraw(&mut self, request: u64) {
+        kalem_core::extensions::withdraw(request);
+    }
 
-    fn set_status(&mut self, _plugin: &str, _id: &str, _text: &str, _o: &x::StatusOptions) {}
+    fn set_status(&mut self, plugin: &str, id: &str, text: &str, o: &x::StatusOptions) {
+        kalem_core::extensions::set_status(kalem_core::extensions::StatusItem {
+            plugin: plugin.to_string(),
+            id: id.to_string(),
+            text: text.to_string(),
+            tooltip: o.tooltip.clone(),
+            command: o.command.clone(),
+            right: matches!(o.alignment, x::ui::Alignment::Right),
+            priority: o.priority,
+        });
+    }
 
-    fn remove_status(&mut self, _plugin: &str, _id: &str) {}
+    fn remove_status(&mut self, plugin: &str, id: &str) {
+        kalem_core::extensions::remove_status(plugin, id);
+    }
 
-    fn add_panel(&mut self, _plugin: &str, _spec: &x::PanelSpec) -> Result<(), String> {
+    fn add_panel(&mut self, plugin: &str, spec: &x::PanelSpec) -> Result<(), String> {
+        kalem_core::extensions::add_panel(kalem_core::extensions::Panel {
+            plugin: plugin.to_string(),
+            id: spec.id.clone(),
+            title: spec.title.clone(),
+            bottom: matches!(spec.placement, x::ui::Placement::Bottom),
+            widgets: Vec::new(),
+        });
         Ok(())
     }
 
-    fn set_panel(&mut self, _id: &str, _tree: &x::WidgetTree) {}
+    fn set_panel(&mut self, id: &str, tree: &x::WidgetTree) {
+        kalem_core::extensions::set_panel(id, tree.widgets.iter().map(widget).collect());
+    }
 
-    fn remove_panel(&mut self, _id: &str) {}
+    fn remove_panel(&mut self, id: &str) {
+        kalem_core::extensions::remove_panel(id);
+    }
+}
+
+/// A widget in the core's terms.
+fn widget(w: &x::ui::Widget) -> kalem_core::extensions::Widget {
+    use kalem_core::extensions::{TextStyle as S, WidgetKind as K};
+    use x::ui::{TextStyle, WidgetKind};
+    let kind = match &w.kind {
+        WidgetKind::Column => K::Column,
+        WidgetKind::Row => K::Row,
+        WidgetKind::Label(l) => K::Label {
+            text: l.text.clone(),
+            style: match l.style {
+                TextStyle::Normal => S::Normal,
+                TextStyle::Strong => S::Strong,
+                TextStyle::Emphasis => S::Emphasis,
+                TextStyle::Muted => S::Muted,
+                TextStyle::Code => S::Code,
+                TextStyle::Error => S::Error,
+                TextStyle::Heading => S::Heading,
+            },
+        },
+        WidgetKind::Button(b) => K::Button {
+            label: b.label.clone(),
+            command: b.command.clone(),
+        },
+        WidgetKind::Input(i) => K::Input {
+            value: i.value.clone(),
+            placeholder: i.placeholder.clone(),
+        },
+        WidgetKind::Checkbox(c) => K::Checkbox {
+            label: c.label.clone(),
+            checked: c.checked,
+        },
+        WidgetKind::Item(i) => K::Item {
+            label: i.label.clone(),
+            detail: i.detail.clone(),
+            expanded: i.expanded,
+            selected: i.selected,
+        },
+        WidgetKind::Progress(p) => K::Progress {
+            value: p.value,
+            label: p.label.clone(),
+        },
+        WidgetKind::Separator => K::Separator,
+    };
+    kalem_core::extensions::Widget {
+        key: w.key.clone(),
+        kind,
+        children: w.children.clone(),
+    }
 }
 
 /// Binding numbers are each plugin's own: they are told apart by the
@@ -240,6 +329,49 @@ impl kalem_core::extensions::Extensions for Plugins {
             }
         }
         veto
+    }
+
+    fn answer(&mut self, request: u64, answer: kalem_core::extensions::Answer) {
+        use kalem_core::extensions::Answer as A;
+        let answer = match answer {
+            A::Text(t) => x::Answer::Text(t),
+            A::Confirmed(yes) => x::Answer::Confirmed(yes),
+            A::Picked(p) => x::Answer::Picked(p),
+        };
+        // The plugin that asked it is the one that takes it.
+        for i in 0..self.list.len() {
+            PLUGIN.with(|p| p.set(i as u64 + 1));
+            let Some(ext) = self.list[i].extension.as_mut() else {
+                continue;
+            };
+            match ext.answer(request, answer.clone()) {
+                Ok(true) => return,
+                Ok(false) => {}
+                Err(e) => return self.fail(i, &e),
+            }
+        }
+    }
+
+    fn panel_event(&mut self, panel: &str, key: &str, event: &kalem_core::extensions::PanelEvent) {
+        use kalem_core::extensions::PanelEvent as E;
+        let event = match event {
+            E::Clicked => x::PanelEvent::Clicked,
+            E::Changed(t) => x::PanelEvent::Changed(t.clone()),
+            E::Submitted(t) => x::PanelEvent::Submitted(t.clone()),
+            E::Toggled(b) => x::PanelEvent::Toggled(*b),
+            E::Expanded(b) => x::PanelEvent::Expanded(*b),
+        };
+        for i in 0..self.list.len() {
+            PLUGIN.with(|p| p.set(i as u64 + 1));
+            let Some(ext) = self.list[i].extension.as_mut() else {
+                continue;
+            };
+            match ext.panel_event(panel, key, &event) {
+                Ok(true) => return,
+                Ok(false) => {}
+                Err(e) => return self.fail(i, &e),
+            }
+        }
     }
 }
 

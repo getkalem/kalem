@@ -209,6 +209,11 @@ pub struct App {
     cursor_block: Option<bool>,
     /// The outline panel, when shown.
     outline: Option<OutlinePanel>,
+    /// The plugin's panel shown (`kalem_core::extensions`), by ID.
+    plugin_panel: Option<String>,
+    /// The plugins' status items and panels drawn
+    /// (`kalem_core::extensions::shown`).
+    shown_seen: u64,
     /// The open documents in the order they were opened; the active
     /// one's slot is empty, its state being in the fields above.
     docs: Vec<Option<Buffer>>,
@@ -513,6 +518,8 @@ impl App {
             vim: None,
             cursor_block: None,
             outline: None,
+            plugin_panel: None,
+            shown_seen: kalem_core::extensions::shown(),
             docs: vec![None],
             active: 0,
             next_doc: 2,
@@ -1924,6 +1931,13 @@ impl App {
             }
             Request::Find { replace } => self.open_find(replace),
             Request::Outline => self.toggle_outline(),
+            Request::PluginPanel(id) => {
+                self.plugin_panel = match id {
+                    Some(id) if self.plugin_panel.as_deref() != Some(id.as_str()) => Some(id),
+                    _ => None,
+                };
+                self.dirty = true;
+            }
             Request::ToggleMath => {
                 self.editor.raw_math = !self.editor.raw_math;
                 self.editor.follow = true;
@@ -4030,6 +4044,16 @@ impl App {
         for (id, args) in kalem_core::extensions::take_runs() {
             self.run_command(&id, args);
         }
+        // Their questions, asked; their status items and panels, drawn
+        // again when they change.
+        for r in kalem_core::extensions::take_requests() {
+            self.request(r);
+        }
+        let shown = kalem_core::extensions::shown();
+        if shown != self.shown_seen {
+            self.shown_seen = shown;
+            self.dirty = true;
+        }
         // Language servers: the document in step, their answers shown.
         kalem_core::lsp::sync(&self.doc);
         if kalem_core::lsp::tick() {
@@ -4414,6 +4438,35 @@ impl App {
             text_area.x += w;
             text_area.width -= w;
         }
+        // A plugin's panel: at the side, or at the bottom.
+        if let Some(p) = self
+            .plugin_panel
+            .as_deref()
+            .and_then(kalem_core::extensions::panel)
+        {
+            if p.bottom {
+                let h = (p.lines().len() as u16 + 3)
+                    .min(text_area.height / 3)
+                    .max(3)
+                    .min(text_area.height.saturating_sub(3));
+                let panel = Rect {
+                    y: text_area.bottom() - h,
+                    height: h,
+                    ..text_area
+                };
+                crate::panels::draw_plugin_panel(f.buffer_mut(), panel, &p, &self.caps);
+                text_area.height -= h;
+            } else {
+                let w = OutlinePanel::width(text_area.width);
+                let panel = Rect {
+                    width: w,
+                    ..text_area
+                };
+                crate::panels::draw_plugin_panel(f.buffer_mut(), panel, &p, &self.caps);
+                text_area.x += w;
+                text_area.width -= w;
+            }
+        }
         self.editor.block = self
             .vim
             .as_ref()
@@ -4678,6 +4731,13 @@ impl App {
         );
         buf.set_stringn(x, y, &rest, room(x), dim);
         x += rest.width() as u16;
+        // The plugins' items: the left ones, then the right ones.
+        let (left, right) = kalem_core::extensions::status_items();
+        for item in left.iter().chain(right.iter().rev()) {
+            let s = format!("  {}", item.text);
+            buf.set_stringn(x, y, &s, room(x), crate::panels::accent_style(caps, bar));
+            x += s.width() as u16;
+        }
         // On the right: the message, or where the commands are.
         // The width of the file manager's hint, when it shows.
         let mut files_w: u16 = 0;

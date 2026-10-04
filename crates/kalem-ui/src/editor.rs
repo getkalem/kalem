@@ -347,6 +347,8 @@ pub struct Editor {
     left: bool,
     /// The outline sidebar, when shown.
     pub outline: Option<crate::outline::Outline>,
+    /// The plugin's panel shown (`kalem_core::extensions`), by ID.
+    pub plugin_panel: Option<String>,
     /// The file manager's preview pane, when shown: `true` for the
     /// listing's thumbnails.
     pub preview: Option<bool>,
@@ -508,6 +510,7 @@ impl Editor {
             left: true,
             other: None,
             outline: None,
+            plugin_panel: None,
             preview: None,
             preview_cache: Default::default(),
             viewer_view: Default::default(),
@@ -1153,7 +1156,7 @@ impl Editor {
         }
     }
 
-    fn request(&mut self, r: Request, window: &mut Window, cx: &mut Context<'_, Self>) {
+    pub(crate) fn request(&mut self, r: Request, window: &mut Window, cx: &mut Context<'_, Self>) {
         if r.is_picker() {
             self.shared.last.borrow_mut().picker = Some((r.clone(), String::new()));
             self.mark_picker = true;
@@ -1365,6 +1368,13 @@ impl Editor {
             Request::Fold { global } => self.fold(global, cx),
             Request::OpenLink(action) => self.open_link(action, cx),
             Request::Outline => self.toggle_outline(cx),
+            Request::PluginPanel(id) => {
+                self.plugin_panel = match id {
+                    Some(id) if self.plugin_panel.as_deref() != Some(id.as_str()) => Some(id),
+                    _ => None,
+                };
+                cx.notify();
+            }
             Request::Preview { thumbnails } => {
                 self.preview = (self.preview != Some(thumbnails)).then_some(thumbnails);
                 cx.notify();
@@ -4403,6 +4413,7 @@ impl gpui::Render for Editor {
         });
         let outline = self.outline_panel(cx);
         let preview = self.preview_panel(cx);
+        let plugin_panel = self.plugin_panel_view(cx);
         let panes = match (self.viewer_element(window, cx), other) {
             (Some(v), _) => vec![v],
             (None, Some(o)) if self.left => {
@@ -4410,6 +4421,31 @@ impl gpui::Render for Editor {
             }
             (None, Some(o)) => vec![o, active.border_l_1().border_color(theme.border)],
             (None, None) => vec![active],
+        };
+        // A plugin's panel: under the panes, or beside them.
+        let (panes, side): (Vec<gpui::AnyElement>, Option<gpui::AnyElement>) = match plugin_panel {
+            Some((p, true)) => (
+                vec![
+                    div()
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_w_0()
+                        .h_full()
+                        .child(div().flex().flex_row().flex_1().min_h_0().children(panes))
+                        .child(p)
+                        .into_any_element(),
+                ],
+                None,
+            ),
+            Some((p, false)) => (
+                panes.into_iter().map(|e| e.into_any_element()).collect(),
+                Some(p),
+            ),
+            None => (
+                panes.into_iter().map(|e| e.into_any_element()).collect(),
+                None,
+            ),
         };
         div()
             .id("editor")
@@ -4514,6 +4550,7 @@ impl gpui::Render for Editor {
             }))
             .children(outline)
             .children(panes)
+            .children(side)
             .children(preview)
             .children(self.find_view(cx))
             .children(self.which_key_view())

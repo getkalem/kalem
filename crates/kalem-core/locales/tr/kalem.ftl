@@ -1208,3 +1208,12 @@ msg-latex-ignore-hint = Depo LaTeX'in derleme çıktılarını tutuyor: Derleme 
 msg-not-in-git = Belge bir Git deposunda değil
 msg-ignored-outputs = { $path } dosyasına { $count } kalıp eklendi
 msg-outputs-ignored-already = Depo LaTeX'in derleme çıktılarını zaten dışarıda bırakıyor
+
+# Plugins' questions and panels (kalem_core::extensions)
+cmd-plugin-answer = Yanıtla
+cmd-plugin-panelEvent = Paneldeki Öğeyi Kullan
+cmd-view-pluginPanel = Eklenti Paneli
+cmd-view-panelActions = Panel Eylemleri
+panel-input = Metin
+choice-yes = Evet
+choice-no = Hayır
