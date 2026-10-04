@@ -10,9 +10,9 @@ use std::process::Command;
 use kalem_script::viewer::{Viewer, api};
 use kalem_script::{Error, Host, Limits};
 
-/// The fake viewer built and wrapped as a component, or `None` without
-/// the tools.
-fn pages() -> Option<Vec<u8>> {
+/// The test plugin `name` of `tests/plugins` built and wrapped as a
+/// component, or `None` without the tools.
+fn component(name: &str) -> Option<Vec<u8>> {
     let target = Command::new("rustup")
         .args(["target", "list", "--installed"])
         .output()
@@ -21,8 +21,10 @@ fn pages() -> Option<Vec<u8>> {
         return None;
     }
     Command::new("wasm-tools").arg("--version").output().ok()?;
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/plugins/pages");
-    let out = std::env::temp_dir().join(format!("kalem-script-pages-{}", std::process::id()));
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/plugins")
+        .join(name);
+    let out = std::env::temp_dir().join(format!("kalem-script-{name}-{}", std::process::id()));
     let ok = Command::new(env!("CARGO"))
         .args([
             "build",
@@ -37,9 +39,11 @@ fn pages() -> Option<Vec<u8>> {
         .status()
         .ok()?
         .success();
-    assert!(ok, "the fake viewer builds");
-    let module = out.join("wasm32-unknown-unknown/release/kalem_plugin_pages.wasm");
-    let component = out.join("pages.wasm");
+    assert!(ok, "{name} builds");
+    let module = out.join(format!(
+        "wasm32-unknown-unknown/release/kalem_plugin_{name}.wasm"
+    ));
+    let component = out.join(format!("{name}.wasm"));
     let ok = Command::new("wasm-tools")
         .args(["component", "new"])
         .arg(&module)
@@ -48,8 +52,12 @@ fn pages() -> Option<Vec<u8>> {
         .status()
         .ok()?
         .success();
-    assert!(ok, "the fake viewer wraps");
+    assert!(ok, "{name} wraps");
     std::fs::read(component).ok()
+}
+
+fn pages() -> Option<Vec<u8>> {
+    component("pages")
 }
 
 fn file(name: &str, bytes: &[u8]) -> PathBuf {
@@ -144,5 +152,63 @@ fn a_viewer_without_its_files_is_refused() {
     match plugin.instantiate(&host, &host.linker::<()>(), (), Limits::default()) {
         Err(Error::NotGranted(names)) => assert_eq!(names, ["kalem:plugin/files@0.1.0"]),
         other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_component_is_offered_as_the_rust_contract() {
+    use kalem_viewer::{Detection, FileHandle, RenderRequest, Rendered, Viewer as _};
+    // A viewer written against the Rust contract, exported through
+    // kalem-plugin's adapter, offered to Kalem through the host's.
+    let Some(bytes) = component("adapted") else {
+        return;
+    };
+    let dir = std::env::temp_dir().join(format!("kalem-script-adapted-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let wasm = dir.join("lines.wasm");
+    std::fs::write(&wasm, &bytes).unwrap();
+    let host = std::sync::Arc::new(Host::new(None).unwrap());
+    let v = kalem_script::viewer::ComponentViewer::new(
+        host,
+        &wasm,
+        "lines",
+        "Lines",
+        &[".LINES".to_string()],
+        kalem_script::viewer::VIEWER_LIMITS,
+    );
+    assert_eq!(
+        (v.id(), v.name(), v.extensions()),
+        ("lines", "Lines", &["lines"][..])
+    );
+    assert_eq!(v.detect("x.bin", b"LINES\n"), Detection::Magic);
+    assert_eq!(v.detect("x.lines", b""), Detection::Extension);
+    assert_eq!(v.detect("x.txt", b"hello"), Detection::No);
+
+    let f = file("book.lines", b"LINES\nfirst line\nsecond");
+    let mut doc = v.open(FileHandle::new(&f)).unwrap();
+    let s = doc.structure();
+    assert_eq!(s.units.len(), 2);
+    assert_eq!(doc.text(1), "second");
+    assert_eq!(doc.size(0), Some((10.0, 1.0)));
+    let Rendered::Bitmap(b) = doc
+        .render(
+            1,
+            RenderRequest {
+                scale: 2.0,
+                ..RenderRequest::default()
+            },
+        )
+        .unwrap();
+    assert_eq!((b.width, b.height), (12, 1));
+    assert_eq!(doc.search("second"), [(1, 0..6)]);
+    let info = doc.info();
+    // The plugin sees the file's name, never its path.
+    assert_eq!(info[0].value, f.file_name().unwrap().to_string_lossy());
+    assert_eq!(info[1].value, "23");
+    // The contract's error, from the plugin.
+    let bad = file("bad.lines", b"nope");
+    match v.open(FileHandle::new(&bad)) {
+        Err(e) => assert_eq!(e.0, "not a lines file"),
+        Ok(_) => panic!("a file that is not one opened"),
     }
 }

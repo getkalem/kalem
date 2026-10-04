@@ -21,6 +21,9 @@ use std::process::{Command, Stdio};
 /// The target plugins are compiled for.
 pub const TARGET: &str = "wasm32-unknown-unknown";
 
+/// The flags `build` adds for [`TARGET`].
+const SIMD: &str = "target.wasm32-unknown-unknown.rustflags=[\"-C\", \"target-feature=+simd128\"]";
+
 /// A plugin built.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Built {
@@ -105,6 +108,10 @@ pub fn build(dir: &Path) -> Result<Built, String> {
             TARGET,
             "--message-format=json-render-diagnostics",
         ])
+        // WebAssembly's SIMD, which wasmtime compiles: a PDF page renders
+        // in 39 ms with it, 52 ms without (D28's record). Added to the
+        // crate's own flags, not in their place.
+        .args(["--config", SIMD])
         .arg("--manifest-path")
         .arg(dir.join("Cargo.toml"))
         .args(["-p", &name])
@@ -365,9 +372,11 @@ crate-type = ["cdylib", "rlib"]
 [dev-dependencies]
 serde_json = "1"
 
-# A component is small and never unwinds across the boundary.
+# Optimized for speed: optimized for size, a PDF page renders twelve
+# times slower, and the component is no smaller (D28's record). A
+# component never unwinds across the boundary.
 [profile.release]
-opt-level = "s"
+opt-level = 3
 lto = true
 codegen-units = 1
 strip = "symbols"

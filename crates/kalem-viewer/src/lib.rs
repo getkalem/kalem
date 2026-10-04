@@ -36,16 +36,55 @@ impl From<std::io::Error> for ViewerError {
 pub type Result<T> = std::result::Result<T, ViewerError>;
 
 /// The file a viewer opened, read lazily: the host's handle, the only
-/// thing of the file system the plugin sees.
-#[derive(Debug, Clone)]
+/// thing of the file system the plugin sees. On the disk in a bundled
+/// plugin; read through the host's `file` resource in a component, where
+/// there is no file system ([`FileHandle::from_reader`]).
+#[derive(Clone)]
 pub struct FileHandle {
     path: PathBuf,
+    source: Source,
+}
+
+/// Reads up to a length of bytes from an offset.
+type ReadFn = Arc<dyn Fn(u64, usize) -> Vec<u8> + Send + Sync>;
+
+#[derive(Clone)]
+enum Source {
+    Disk,
+    Reader { len: u64, read: ReadFn },
+}
+
+impl fmt::Debug for FileHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileHandle")
+            .field("path", &self.path)
+            .finish_non_exhaustive()
+    }
 }
 
 impl FileHandle {
     /// A handle on the file at `path`.
     pub fn new(path: impl Into<PathBuf>) -> FileHandle {
-        FileHandle { path: path.into() }
+        FileHandle {
+            path: path.into(),
+            source: Source::Disk,
+        }
+    }
+
+    /// A handle on the file called `name`, of `len` bytes, read by `read`
+    /// (offset and length to bytes): what a component gets from the host.
+    pub fn from_reader(
+        name: impl Into<String>,
+        len: u64,
+        read: impl Fn(u64, usize) -> Vec<u8> + Send + Sync + 'static,
+    ) -> FileHandle {
+        FileHandle {
+            path: PathBuf::from(name.into()),
+            source: Source::Reader {
+                len,
+                read: Arc::new(read),
+            },
+        }
     }
 
     /// The file's name, for its extension and for labels.
@@ -70,7 +109,10 @@ impl FileHandle {
 
     /// The file's size in bytes.
     pub fn len(&self) -> Result<u64> {
-        Ok(std::fs::metadata(&self.path)?.len())
+        match &self.source {
+            Source::Disk => Ok(std::fs::metadata(&self.path)?.len()),
+            Source::Reader { len, .. } => Ok(*len),
+        }
     }
 
     /// Whether the file is empty.
@@ -80,16 +122,37 @@ impl FileHandle {
 
     /// Up to `len` bytes from `offset`.
     pub fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
-        let mut f = std::fs::File::open(&self.path)?;
-        f.seek(SeekFrom::Start(offset))?;
-        let mut buf = Vec::with_capacity(len);
-        f.take(len as u64).read_to_end(&mut buf)?;
-        Ok(buf)
+        match &self.source {
+            Source::Disk => {
+                let mut f = std::fs::File::open(&self.path)?;
+                f.seek(SeekFrom::Start(offset))?;
+                let mut buf = Vec::with_capacity(len);
+                f.take(len as u64).read_to_end(&mut buf)?;
+                Ok(buf)
+            }
+            Source::Reader { read, .. } => Ok(read(offset, len)),
+        }
     }
 
     /// The whole file.
     pub fn read_all(&self) -> Result<Vec<u8>> {
-        Ok(std::fs::read(&self.path)?)
+        match &self.source {
+            Source::Disk => Ok(std::fs::read(&self.path)?),
+            Source::Reader { len, read } => {
+                // In pieces: a component's host gives at most what fits a
+                // call comfortably.
+                const PIECE: usize = 4 << 20;
+                let mut out = Vec::with_capacity(*len as usize);
+                while (out.len() as u64) < *len {
+                    let piece = read(out.len() as u64, PIECE);
+                    if piece.is_empty() {
+                        break;
+                    }
+                    out.extend_from_slice(&piece);
+                }
+                Ok(out)
+            }
+        }
     }
 }
 
@@ -1270,6 +1333,19 @@ mod tests {
         assert_eq!(red(&b.rotated(2)), [5, 4, 3, 2, 1, 0]);
         assert_eq!(red(&b.rotated(3)), [2, 5, 1, 4, 0, 3]);
         assert_eq!(b.rotated(1).rotated(3), b);
+    }
+
+    #[test]
+    fn a_handle_reads_through_a_function() {
+        let data: Vec<u8> = (0..10u8).collect();
+        let h = FileHandle::from_reader("dir/b.PDF", 10, move |off, len| {
+            let s = (off as usize).min(data.len());
+            data[s..(s + len).min(data.len())].to_vec()
+        });
+        assert_eq!((h.name(), h.extension().as_str()), ("b.PDF", "pdf"));
+        assert_eq!(h.len().unwrap(), 10);
+        assert_eq!(h.read_at(3, 4).unwrap(), [3, 4, 5, 6]);
+        assert_eq!(h.read_all().unwrap(), (0..10u8).collect::<Vec<_>>());
     }
 
     #[test]

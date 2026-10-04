@@ -139,7 +139,36 @@ declarative plugins, and two commands start and build a component:
   than carrying its 2.3 MB). It prints what the component imports and
   exports: a plugin imports only what its WIT world names.
 
-=kalem plugin verify= is planned. The first plugins planned:
+=kalem plugin verify= is planned.
+
+* Viewers as components
+
+A viewer written against the Rust contract of =kalem-viewer=, as the
+bundled ones are, builds as a component with one line,
+=kalem_plugin::export_viewer_of!(PdfViewer)= under
+=#[cfg(target_arch = "wasm32")]=: =kalem-plugin='s adapter writes the
+=document-viewer= world over the trait, and the plugin reads the file
+the host gives it through the same =FileHandle= API, piece by piece.
+The PDF and image viewers of =getkalem/plugins= build this way.
+
+=kalem plugin install DIR= installs a viewer whose component is built
+(=kalem plugin build DIR=); it says which files it opens before asking.
+At start Kalem registers the installed component viewers in place of a
+bundled viewer of the same name (=org.kalem.pdf-viewer= replaces
+=pdf-viewer=), and a thread compiles them, or reads them from the cache
+in the state directory, so the first file they open does not wait.
+Each document a component opens gets an instance of its own. A
+viewer's limits are 1 GB and 10 s a call, more than §11.6's defaults,
+since a viewer holds a whole file; a manifest may set others,
+=limits.memory_mb= and =limits.time_ms=.
+
+Built for speed (=opt-level = 3=) and with WebAssembly's SIMD, which
+=kalem plugin build= adds, the PDF viewer renders a page within a fifth
+of its bundled speed: 39 ms against 33 ms for a page at a Retina
+display's size. Built for size it was twelve times slower and no
+smaller.
+
+The first plugins planned:
 word count, Pomodoro, an export filter, a table function, a =jira:=
 link type, a Mermaid renderer, the kanban board, and modes for
 todo.txt, TaskPaper, Fountain, gemtext, Djot and more, with the

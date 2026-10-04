@@ -3943,7 +3943,7 @@ fn plugin_commands() -> Vec<Command> {
                                             "installed {}, {} available",
                                             i.version, e.version
                                         ),
-                                        None if !e.declarative => "needs the plugin runtime".into(),
+                                        None if !e.declarative => "no release yet".into(),
                                         None => e.version.clone(),
                                     };
                                     item(

@@ -441,12 +441,88 @@ enum ViewFormat {
 }
 
 /// Installs the plugins bundled into the binary (D28): the viewers of
-/// getkalem/plugins for pictures, workbooks and PDF files, until
-/// components load (T3.1.12).
+/// getkalem/plugins for pictures, workbooks and PDF files; then the
+/// component viewers the user installed, which take the place of a
+/// bundled viewer of the same name.
 pub fn bundled_plugins() {
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_image_viewer::ImageViewer));
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_xlsx::XlsxViewer));
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_pdf_viewer::PdfViewer));
+    component_viewers();
+}
+
+/// The component viewers installed (`kalem plugin install` of a built
+/// viewer), registered from their manifests: a plugin with a `main`
+/// component that `opens` files. Nothing is compiled here: a thread
+/// compiles them, or reads them from the cache in the state directory, so
+/// the first file they open does not wait; without any, no engine starts.
+fn component_viewers() {
+    use kalem_script::viewer::{ComponentViewer, VIEWER_LIMITS};
+    let mut host: Option<std::sync::Arc<kalem_script::Host>> = None;
+    let mut loaded = Vec::new();
+    for p in kalem_core::plugin_store::installed() {
+        let Ok(text) = std::fs::read_to_string(p.dir.join("plugin.json")) else {
+            continue;
+        };
+        let Ok(m) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        let Some(main) = m["main"].as_str() else {
+            continue;
+        };
+        let opens: Vec<String> = m["opens"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|e| e.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        if opens.is_empty() {
+            continue;
+        }
+        if host.is_none() {
+            let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
+            match kalem_script::Host::new(cache) {
+                Ok(h) => host = Some(std::sync::Arc::new(h)),
+                Err(_) => return,
+            }
+        }
+        let Some(h) = host.clone() else {
+            return;
+        };
+        // A manifest may ask for other limits than a viewer's.
+        let limits = kalem_script::Limits {
+            memory: m["limits"]["memory_mb"]
+                .as_u64()
+                .map_or(VIEWER_LIMITS.memory, |mb| (mb as usize) << 20),
+            time: m["limits"]["time_ms"]
+                .as_u64()
+                .map_or(VIEWER_LIMITS.time, std::time::Duration::from_millis),
+        };
+        // `org.kalem.pdf-viewer` is the viewer `pdf-viewer`, replacing
+        // the bundled one.
+        let id = p.id.rsplit('.').next().unwrap_or(&p.id).to_string();
+        let v = std::sync::Arc::new(ComponentViewer::new(
+            h,
+            p.dir.join(main),
+            id,
+            &p.name,
+            &opens,
+            limits,
+        ));
+        kalem_core::viewer::register(v.clone());
+        loaded.push(v);
+    }
+    if !loaded.is_empty() {
+        let _ = std::thread::Builder::new()
+            .name("kalem-plugins-load".into())
+            .spawn(move || {
+                for v in loaded {
+                    let _ = v.plugin();
+                }
+            });
+    }
 }
 
 pub fn run<I, T>(args: I) -> ExitCode

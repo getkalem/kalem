@@ -35,3 +35,5 @@ pub mod viewer {
         default_bindings_module: "kalem_plugin::viewer",
     });
 }
+
+pub mod adapter;

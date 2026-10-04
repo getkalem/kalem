@@ -1,0 +1,20 @@
+[package]
+name = "kalem-plugin-adapted"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "A viewer of the Rust contract exported as a component through kalem-plugin's adapter, for tests"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+kalem-plugin = { path = "../../../crates/kalem-plugin" }
+kalem-viewer = { path = "../../../crates/kalem-viewer" }
+
+[profile.release]
+opt-level = "s"
+panic = "abort"
+strip = "symbols"
+
+[workspace]

@@ -12,6 +12,8 @@ include = ["src/", "wit/", "coverage.toml", "README.md"]
 
 [dependencies]
 wit-bindgen = "0.57"
+# The Rust contract a viewer implements, adapted to the WIT world.
+kalem-viewer.workspace = true
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }

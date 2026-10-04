@@ -74,10 +74,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "kalem-plugin-pages"
+name = "kalem-plugin-adapted"
 version = "0.0.0"
 dependencies = [
  "kalem-plugin",
+ "kalem-viewer",
 ]
 
 [[package]]

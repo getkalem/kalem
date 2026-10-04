@@ -129,6 +129,36 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package."kalem-viewer"]
 opt-level = 3
+# The plugins' engine (kalem-script): a debug build compiles the PDF
+# viewer's component in 7 s, an optimized engine in half a second.
+[profile.dev.package.wasmtime]
+opt-level = 3
+[profile.dev.package."wasmtime-environ"]
+opt-level = 3
+[profile.dev.package."wasmtime-internal-cranelift"]
+opt-level = 3
+[profile.dev.package."wasmtime-internal-core"]
+opt-level = 3
+[profile.dev.package."wasmtime-internal-unwinder"]
+opt-level = 3
+[profile.dev.package."cranelift-codegen"]
+opt-level = 3
+[profile.dev.package."cranelift-frontend"]
+opt-level = 3
+[profile.dev.package."cranelift-entity"]
+opt-level = 3
+[profile.dev.package."cranelift-bforest"]
+opt-level = 3
+[profile.dev.package."cranelift-bitset"]
+opt-level = 3
+[profile.dev.package."cranelift-control"]
+opt-level = 3
+[profile.dev.package."cranelift-native"]
+opt-level = 3
+[profile.dev.package.regalloc2]
+opt-level = 3
+[profile.dev.package.wasmparser]
+opt-level = 3
 
 [profile.bench]
 debug = true

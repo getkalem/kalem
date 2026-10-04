@@ -4367,6 +4367,7 @@ dependencies = [
  "kalem-plugin-image-viewer",
  "kalem-plugin-pdf-viewer",
  "kalem-plugin-xlsx",
+ "kalem-script",
  "klm-syntax",
  "latex-model",
  "latex-syntax",
@@ -4477,6 +4478,7 @@ dependencies = [
 name = "kalem-plugin"
 version = "0.0.1"
 dependencies = [
+ "kalem-viewer",
  "toml_edit 0.25.15+spec-1.1.0",
  "wit-bindgen",
 ]
@@ -4533,6 +4535,7 @@ dependencies = [
 name = "kalem-script"
 version = "0.0.1"
 dependencies = [
+ "kalem-viewer",
  "sha2 0.10.9",
  "wasmtime",
 ]

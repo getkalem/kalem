@@ -23,6 +23,8 @@ toml_edit = { version = "0.25", default-features = false, features = ["parse"] }
 kalem-plugin-image-viewer.workspace = true
 kalem-plugin-xlsx.workspace = true
 kalem-plugin-pdf-viewer.workspace = true
+# Component viewers installed by the user (D28, T3.1.12).
+kalem-script.workspace = true
 latex-syntax.workspace = true
 latex-model.workspace = true
 jiff = "0.2"

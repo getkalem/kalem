@@ -17,9 +17,11 @@
 //! - an archive, `https://…/NAME.tar.gz` (or `.tgz`);
 //! - a folder or a `.tar.gz` on disk.
 //!
-//! Only declarative plugins (language plugins) can be installed today: a
-//! plugin with a WebAssembly component needs the plugin runtime (group
-//! 3.1), and is refused with that reason.
+//! Declarative plugins (language plugins) install as they are. A plugin
+//! with a WebAssembly component installs when it is a viewer (it says what
+//! it `opens`) whose component is built (`kalem plugin build`): Kalem
+//! loads component viewers today; other components wait for their part
+//! of the API.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -75,6 +77,8 @@ pub struct Prepared {
     pub languages: Vec<String>,
     /// The language servers it may start, by name.
     pub servers: Vec<String>,
+    /// The extensions it opens, for a viewer.
+    pub opens: Vec<String>,
     /// Where it came from, as the user gave it (for updates).
     pub source: String,
     /// The unpacked folder, holding `plugin.json`.
@@ -411,21 +415,21 @@ fn fill(source: &str, index_url: &str, staging: &Path) -> Result<(), String> {
                         return Err(format!("{url}: its SHA-256 is {got}, the index says {sha}"));
                     }
                     if !e.declarative {
-                        return Err(component_refused(&e.name));
+                        return Err(component_not_released(&e.name));
                     }
                     unpack(&bytes, "", staging).map(drop)
                 }
                 // Not released yet: its source folder.
-                _ if !e.declarative => Err(component_refused(&e.name)),
+                _ if !e.declarative => Err(component_not_released(&e.name)),
                 _ => fill(&e.source, index_url, staging),
             }
         }
     }
 }
 
-fn component_refused(name: &str) -> String {
+fn component_not_released(name: &str) -> String {
     format!(
-        "{name} is a WebAssembly component, which needs Kalem's plugin runtime (not available yet); only language plugins install today"
+        "{name} is a WebAssembly component with no release Kalem installs yet: build it from its source with `kalem plugin build` and install that folder"
     )
 }
 
@@ -445,10 +449,29 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
     {
         return Err(format!("plugin.json: `{id}` is not a plugin ID"));
     }
-    if m.get("main").is_some() {
-        return Err(component_refused(m["name"].as_str().unwrap_or(&id)));
-    }
-    if m.get("languages").is_none() {
+    let name = m["name"].as_str().unwrap_or(&id).to_string();
+    let opens = strings(&m["opens"]);
+    if let Some(main) = m.get("main").and_then(Value::as_str) {
+        if opens.is_empty() {
+            return Err(format!(
+                "{name} is a component that opens no files: Kalem loads component viewers today, other components with their part of the API"
+            ));
+        }
+        let file = staging.join(main);
+        if main.starts_with('/') || main.contains("..") || !file.is_file() {
+            return Err(format!(
+                "{name}'s component {main} is not built: run `kalem plugin build` in its folder first"
+            ));
+        }
+        let head = std::fs::read(&file)
+            .map(|b| b.get(..8).map(<[u8]>::to_vec).unwrap_or_default())
+            .unwrap_or_default();
+        if !crate::plugin_build::is_component(&head) {
+            return Err(format!(
+                "{name}'s {main} is not a component: build it with `kalem plugin build`"
+            ));
+        }
+    } else if m.get("languages").is_none() {
         return Err(format!(
             "{id} declares no languages: nothing Kalem can load today"
         ));
@@ -458,7 +481,7 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
         .find(|i| i.id == id)
         .map(|i| i.version);
     Ok(Prepared {
-        name: m["name"].as_str().unwrap_or(&id).to_string(),
+        name,
         version: m["version"].as_str().unwrap_or("").to_string(),
         description: m["description"].as_str().unwrap_or("").to_string(),
         permissions: strings(&m["permissions"]),
@@ -482,6 +505,7 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
                     .collect()
             })
             .unwrap_or_default(),
+        opens,
         source: source.trim().to_string(),
         staging: staging.to_path_buf(),
         replaces,
@@ -508,6 +532,12 @@ pub fn summary(p: &Prepared) -> Vec<String> {
     }
     if !p.languages.is_empty() {
         out.push(format!("Languages: {}", p.languages.join(", ")));
+    }
+    if !p.opens.is_empty() {
+        out.push(format!(
+            "Opens: {} (a component, run in Kalem's sandbox)",
+            p.opens.join(", ")
+        ));
     }
     if p.permissions.iter().any(|x| x == "subprocess") || !p.servers.is_empty() {
         out.push(format!(
@@ -880,16 +910,40 @@ mod tests {
     }
 
     #[test]
-    fn components_refused_and_manifests_read() {
+    fn components_and_manifests_read() {
         let dir = std::env::temp_dir().join(format!("kalem-prep-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(dir.join("dist")).unwrap();
+        // A component that opens no files: not loadable yet.
         std::fs::write(
             dir.join("plugin.json"),
             r#"{"id":"org.x.wasm","name":"W","main":"dist/w.wasm"}"#,
         )
         .unwrap();
-        assert!(read_prepared("x", &dir).unwrap_err().contains("runtime"));
+        assert!(read_prepared("x", &dir).unwrap_err().contains("viewers"));
+        // A viewer whose component is not built.
+        std::fs::write(
+            dir.join("plugin.json"),
+            r#"{"id":"org.x.view","name":"V","main":"dist/v.wasm","opens":[".v"]}"#,
+        )
+        .unwrap();
+        assert!(
+            read_prepared("x", &dir)
+                .unwrap_err()
+                .contains("kalem plugin build")
+        );
+        // Built, but a core module rather than a component.
+        std::fs::write(dir.join("dist/v.wasm"), b"\0asm\x01\0\0\0").unwrap();
+        assert!(
+            read_prepared("x", &dir)
+                .unwrap_err()
+                .contains("not a component")
+        );
+        // A component: installed, saying what it opens.
+        std::fs::write(dir.join("dist/v.wasm"), b"\0asm\x0d\0\x01\0").unwrap();
+        let p = read_prepared("x", &dir).unwrap();
+        assert_eq!(p.opens, [".v"]);
+        assert!(summary(&p).iter().any(|l| l.starts_with("Opens: .v")));
         std::fs::write(
             dir.join("plugin.json"),
             r#"{"id":"org.x.lang","name":"L","version":"1","permissions":["subprocess"],
