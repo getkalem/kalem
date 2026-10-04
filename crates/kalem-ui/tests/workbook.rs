@@ -784,6 +784,37 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             kalem_viewer::Paint::None
         )
     );
+    // Its gridlines: minor horizontal ones too, then none horizontal.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.gridlines",
+            serde_json::json!({ "toggle": "horizontalMinor" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.gridlines",
+            serde_json::json!({ "toggle": "horizontalMajor" }),
+            window,
+            cx,
+        );
+    });
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    let g = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .charts()
+            .last()
+            .unwrap()
+            .gridlines
+    });
+    assert!(g.horizontal_minor && !g.horizontal_major);
     // Its plot area a darker blue with a border.
     e.update_in(cx, |e, window, cx| {
         let v = e.doc.viewer.as_deref_mut().unwrap();
