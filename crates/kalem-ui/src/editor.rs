@@ -2157,7 +2157,7 @@ impl Editor {
         }
         if !self.describing
             && self.pending.is_empty()
-            && !self.listing_key(&chord)
+            && !self.listing_key(&chord, ev)
             && self.vim_key_down(ev, window, cx)
         {
             cx.stop_propagation();
@@ -2232,10 +2232,16 @@ impl Editor {
     /// Whether the keymap takes `chord` before Vim: in a file manager
     /// listing outside Vim's insert mode and command line, the keys it
     /// binds.
-    fn listing_key(&self, chord: &kalem_core::keys::KeyChord) -> bool {
-        // A viewer's document has no text for Vim to edit.
+    fn listing_key(&self, chord: &kalem_core::keys::KeyChord, ev: &KeyDownEvent) -> bool {
+        // A viewer's document has no text for Vim to edit: only its
+        // command line, `:` opening it (`:q` closes the file as elsewhere).
         if self.doc.viewer.is_some() {
-            return true;
+            let line = self
+                .vim
+                .as_ref()
+                .is_some_and(|v| v.command_line.is_some());
+            let colon = self.vim.is_some() && ev.keystroke.key_char.as_deref() == Some(":");
+            return !(line || colon);
         }
         let Some(v) = &self.vim else { return false };
         if v.takes_text() || v.command_line.is_some() || !v.idle_command() {

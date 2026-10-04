@@ -171,3 +171,26 @@ fn a_file_without_a_viewer_is_still_refused(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(mode(&ws, cx), DocumentMode::Org);
 }
+
+#[gpui::test]
+fn vim_command_line_opens_on_a_viewer(cx: &mut TestAppContext) {
+    // With Vim's keys, `:` on a picture opens the command line (`:q`
+    // closes it as any file); the viewer's own keys stay its.
+    let (ws, dir, cx) = open(cx);
+    let pic = dir.join("a.png");
+    ws.update_in(cx, |ws, window, cx| ws.open(&pic, None, window, cx));
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update(cx, |e, _| {
+        e.vim = Some(kalem_core::vim::Vim::new());
+    });
+    assert_eq!(mode(&ws, cx), DocumentMode::Viewer);
+    cx.simulate_keystrokes(":");
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.vim.as_ref().unwrap().command_line.is_some()));
+    cx.simulate_keystrokes("q");
+    let line = e.read_with(cx, |e, _| e.vim.as_ref().unwrap().command_line.clone());
+    assert_eq!(line.as_deref(), Some(":q"));
+    cx.simulate_keystrokes("escape");
+    let _ = std::fs::remove_dir_all(&dir);
+}

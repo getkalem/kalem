@@ -3566,9 +3566,15 @@ impl App {
     /// Whether the keymap takes `k` before Vim: in a file manager listing
     /// outside Vim's insert mode and command line, the keys it binds.
     fn listing_key(&self, k: &KeyEvent) -> bool {
-        // A viewer's document has no text for Vim to edit.
+        // A viewer's document has no text for Vim to edit: only its
+        // command line, `:` opening it (`:q` closes the file as elsewhere).
         if self.doc.viewer.is_some() {
-            return true;
+            let line = self
+                .vim
+                .as_ref()
+                .is_some_and(|v| v.command_line.is_some());
+            let colon = self.vim.is_some() && k.code == crossterm::event::KeyCode::Char(':');
+            return !(line || colon);
         }
         let Some(v) = &self.vim else { return false };
         if v.takes_text() || v.command_line.is_some() || !v.idle_command() {

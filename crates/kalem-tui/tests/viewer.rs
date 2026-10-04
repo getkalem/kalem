@@ -201,3 +201,32 @@ fn a_jpeg_turned_and_saved_changes_its_tag_only() {
         Some(6)
     );
 }
+
+#[test]
+fn vim_quit_closes_a_viewer_as_any_file() {
+    // A picture open with Vim's keys: `:` opens the command line, and `:q`
+    // closes the pane, then quits from the last one, as with text.
+    let dir = folder("vimquit");
+    let config = kalem_core::settings::Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"vim\"\n",
+    )]);
+    let app = App::with_keymap(Some(&dir.join("a.png")), config, Caps::full(), &[], Vec::new())
+        .unwrap();
+    let mut t = T {
+        app,
+        term: Terminal::new(TestBackend::new(60, 14)).unwrap(),
+        dir: dir.clone(),
+    };
+    t.draw();
+    assert_eq!(t.app.doc.meta.mode, DocumentMode::Viewer);
+    t.typ(" wn");
+    t.typ(":q");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(!t.app.quit, "the second pane closed");
+    assert_eq!(t.app.doc.meta.mode, DocumentMode::Viewer);
+    t.typ(":q");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.quit, "quit from the last pane");
+}
