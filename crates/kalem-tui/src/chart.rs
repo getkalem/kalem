@@ -35,6 +35,23 @@ fn short(s: &str, n: usize) -> String {
     s.chars().take(n).collect()
 }
 
+/// An axis's labels' style from its font: its color, bold and italic.
+fn font_style(caps: &Caps, f: &kalem_viewer::AxisFont) -> Style {
+    let mut st = Style::default();
+    if !caps.no_color
+        && let Some([r, g, b]) = f.color
+    {
+        st = st.fg(Color::Rgb(r, g, b));
+    }
+    if f.bold {
+        st = st.add_modifier(ratatui::style::Modifier::BOLD);
+    }
+    if f.italic {
+        st = st.add_modifier(ratatui::style::Modifier::ITALIC);
+    }
+    st
+}
+
 /// Draws a chart in `area`, over what is there.
 pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
     Clear.render(area, buf);
@@ -222,8 +239,17 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                                 .style(color(caps, own.or(s.color), j))
                         })
                         .collect();
+                    // The categories' axis: horizontal for columns, vertical for bars.
+                    let cat_font = if horizontal {
+                        &chart.vertical_font
+                    } else {
+                        &chart.horizontal_font
+                    };
                     BarGroup::default()
-                        .label(Line::from(short(&label(i), (bar_width * k) as usize)))
+                        .label(
+                            Line::from(short(&label(i), (bar_width * k) as usize))
+                                .style(font_style(caps, cat_font)),
+                        )
                         .bars(&bars)
                 })
                 .collect();
@@ -337,12 +363,16 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                 None if v.abs() >= 1000.0 || v.fract() == 0.0 => format!("{v:.0}"),
                 None => format!("{v:.1}"),
             };
+            let (hs, vs) = (
+                font_style(caps, &chart.horizontal_font),
+                font_style(caps, &chart.vertical_font),
+            );
             let x_labels: Vec<Line<'_>> = if chart.kind == ChartKind::Scatter {
-                vec![Line::from(fmt(x0)), Line::from(fmt(x1))]
+                vec![Line::from(fmt(x0)).style(hs), Line::from(fmt(x1)).style(hs)]
             } else {
                 vec![
-                    Line::from(short(&label(0), 8)),
-                    Line::from(short(&label(x1 as usize), 8)),
+                    Line::from(short(&label(0), 8)).style(hs),
+                    Line::from(short(&label(x1 as usize), 8)).style(hs),
                 ]
             };
             ratatui::widgets::Chart::new(datasets)
@@ -351,11 +381,10 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                         .bounds([x0, x1.max(x0 + 1.0)])
                         .labels(x_labels),
                 )
-                .y_axis(
-                    Axis::default()
-                        .bounds([y0, y1])
-                        .labels(vec![Line::from(fmt(y0)), Line::from(fmt(y1))]),
-                )
+                .y_axis(Axis::default().bounds([y0, y1]).labels(vec![
+                    Line::from(fmt(y0)).style(vs),
+                    Line::from(fmt(y1)).style(vs),
+                ]))
                 .render(plot, buf);
         }
         ChartKind::Pie | ChartKind::Doughnut => {

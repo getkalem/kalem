@@ -841,6 +841,39 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .clone()
     });
     assert_eq!(f.as_deref(), Some("#,##0,\"K\""));
+    // Its value labels bigger and italic.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.axisFont",
+            serde_json::json!({ "axis": "vertical", "op": "size", "value": "14" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.axisFont",
+            serde_json::json!({ "axis": "vertical", "op": "italic" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    let vf = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .charts()
+            .last()
+            .unwrap()
+            .vertical_font
+            .clone()
+    });
+    assert_eq!((vf.size, vf.italic), (Some(14.0), true));
     // Its plot area a darker blue with a border.
     e.update_in(cx, |e, window, cx| {
         let v = e.doc.viewer.as_deref_mut().unwrap();
