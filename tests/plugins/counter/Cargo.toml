@@ -1,0 +1,21 @@
+[package]
+name = "kalem-plugin-counter"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "An extension plugin for tests: commands, a key binding and events through kalem-plugin's `kalem` namespace (T3.1.4)"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+kalem-plugin = { path = "../../../crates/kalem-plugin" }
+
+[profile.release]
+opt-level = "s"
+panic = "abort"
+strip = "symbols"
+
+# Built for wasm32-unknown-unknown by `kalem-script`'s tests, apart from
+# the workspace.
+[workspace]

@@ -6,7 +6,7 @@
 
 [[point]]
 name = "Commands, keybindings"
-planned = "T3.1.4"
+interface = "kalem"
 
 [[point]]
 name = "Link types"

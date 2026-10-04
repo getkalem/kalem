@@ -168,6 +168,47 @@ of its bundled speed: 39 ms against 33 ms for a page at a Retina
 display's size. Built for size it was twelve times slower and no
 smaller.
 
+* Commands, keys and events
+
+The =extension= world is a plugin that adds to the editor rather than
+opening files. It imports the =kalem= interface, §11.4's namespace, and
+exports =plugin=: =activate=, =deactivate=, =run-command= and
+=on-event=. In Rust a plugin implements =kalem_plugin::kalem::Plugin=
+and registers its commands with the functions that run them:
+
+#+begin_src rust
+use kalem_plugin::kalem::{self, EventKind, Plugin, Reply, Scope};
+
+struct WordCount;
+impl Plugin for WordCount {
+    fn activate() -> Result<(), String> {
+        let mut spec = kalem::spec("wordcount.show", "Word Count", Scope::only(&["org"]));
+        spec.keys = vec!["ctrl+alt+w".into()];
+        kalem::command(spec, |_args| Ok("null".into()))?;
+        kalem::keymap("space n w", "wordcount.show", None)?;
+        kalem::on(EventKind::DocumentBeforeSave, |_event| Reply::Proceed)?;
+        Ok(())
+    }
+}
+kalem_plugin::export_plugin!(WordCount);
+#+end_src
+
+A command's scope is part of its description, so none is registered
+without one; the host refuses a scope naming no type, and an ID that is
+not the plugin's own (=wordcount.=). Arguments and results cross as
+JSON. =kalem::run= runs another command, built in or another plugin's;
+a plugin calls its own as functions, since a component is not entered
+again while it is inside a call. A handle a registration returns may
+be disposed of; dropped, it keeps the registration, and the host takes
+back everything a plugin registered when it is deactivated. A vetoable
+event's first veto is the answer. Each call has the plugin's time
+budget; a command that loops is stopped.
+
+The host's side (=kalem_script::extension=) reaches the editor through
+a trait the editor implements over its registry and keymap; loading
+such plugins at start and running their commands from the palette come
+with the loader (T3.1.12).
+
 The first plugins planned:
 word count, Pomodoro, an export filter, a table function, a =jira:=
 link type, a Mermaid renderer, the kanban board, and modes for
