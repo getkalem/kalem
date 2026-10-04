@@ -2552,6 +2552,62 @@ impl ViewerState {
         self.fill_to([s[0], s[1], s[0] + rows - 1, s[3]], s, true)
     }
 
+    /// Flash Fill: the cursor's column filled down the table beside it from
+    /// the examples typed in it, as Excel's (Ctrl+E): every row's other
+    /// cells tell its example, and the empty cells get what the pattern
+    /// learned from the examples makes of their rows. How many it filled.
+    pub fn flash_fill(&mut self) -> Result<usize, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let col = self.grid_pos().col;
+        // The table at the cursor, without its header row.
+        let (r, header) = self.table_target();
+        let first = r[0] + u32::from(header);
+        if first > r[2] || r[1] == r[3] {
+            return Err("Flash Fill works beside a table: type an example next to it".into());
+        }
+        let mut grid: std::collections::HashMap<(u32, u32), String> =
+            std::collections::HashMap::new();
+        for (row, c, cell) in self.grid_cells(first..r[2] + 1, r[1]..r[3] + 1) {
+            grid.insert((row, c), cell.text);
+        }
+        let inputs = |row: u32| -> Vec<String> {
+            (r[1]..=r[3])
+                .filter(|c| *c != col)
+                .map(|c| grid.get(&(row, c)).cloned().unwrap_or_default())
+                .collect()
+        };
+        let examples: Vec<(Vec<String>, String)> = (first..=r[2])
+            .filter_map(|row| {
+                let out = grid.get(&(row, col)).filter(|t| !t.is_empty())?;
+                Some((inputs(row), out.clone()))
+            })
+            .collect();
+        if examples.is_empty() {
+            return Err("Type an example in the column first".into());
+        }
+        let pattern = crate::flash_fill::learn(&examples)
+            .ok_or("No pattern makes those examples: type another one")?;
+        let cells: Vec<(u32, u32, String)> = (first..=r[2])
+            .filter(|row| grid.get(&(*row, col)).is_none_or(String::is_empty))
+            .filter_map(|row| {
+                let out = crate::flash_fill::apply(&pattern, &inputs(row))?;
+                // As text, the way the example was typed.
+                Some((row, col, format!("'{out}")))
+            })
+            .collect();
+        if cells.is_empty() {
+            return Err("Nothing left to fill in the column".into());
+        }
+        let n = cells.len();
+        self.doc()
+            .set_cell_list(self.unit, &cells)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(n)
+    }
+
     /// Clears the selection's values, formats kept (Delete).
     pub fn clear_selection(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -6648,6 +6704,26 @@ fn grid_commands() -> Vec<Command> {
             &[],
             IN_GRID,
             |ctx, _| fill_with_lists(ctx, |v| v.fill_to_end()),
+        ),
+        cmd(
+            "viewer.grid.flashFill",
+            "Flash Fill",
+            &["ctrl+e"],
+            IN_GRID,
+            |ctx, _| {
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                match v.flash_fill() {
+                    Ok(n) => ctx.messages.push(format!("Flash Fill: {n} cells filled")),
+                    Err(e) => ctx.messages.push(e),
+                }
+                Ok(())
+            },
         ),
         cmd(
             "viewer.grid.customLists",

@@ -1417,3 +1417,53 @@ fn fill_handle() {
     assert_eq!(input(&mut t, 4, 4), "=D5*2");
     assert_eq!(input(&mut t, 5, 4), "", "it stops where the data does");
 }
+
+#[test]
+fn flash_fill() {
+    let mut t = T::open("flash");
+    let input = |t: &mut T, row: u32, col: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(row, col);
+        v.cell_input()
+    };
+    // Beside the budget's table, E2 "RENT:1200": the item in capitals, a
+    // colon and Q1's figure; Ctrl+E fills E3:E5 so.
+    let q1 = input(&mut t, 1, 1);
+    let shown = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_cells(1..2, 1..2)[0]
+        .2
+        .text
+        .clone();
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 1, "col": 4, "value": format!("RENT:{shown}") }),
+    );
+    let _ = q1;
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('e'),
+        KeyModifiers::CONTROL,
+    )));
+    let food_shown = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_cells(2..3, 1..2)[0]
+        .2
+        .text
+        .clone();
+    assert_eq!(input(&mut t, 2, 4), format!("FOOD:{food_shown}"));
+    assert!(input(&mut t, 4, 4).starts_with("SUM:"));
+    assert!(t.screen().contains("Flash Fill: 3 cells"), "{}", t.screen());
+    // One undo step takes them all back.
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 2, 4), "");
+    assert_eq!(input(&mut t, 1, 4), "RENT:1,200.00");
+}
