@@ -1269,6 +1269,28 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Clears a range's contents (values and formulas), formats, or both
+    /// with its notes (Clear All), as one step.
+    fn clear_range(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _contents: bool,
+        _formats: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives the cells of `to` (unit, range) the formats of `from`,
+    /// repeated over it as a spreadsheet's Format Painter does.
+    fn fill_formats(
+        &mut self,
+        _from: (usize, [u32; 4]),
+        _to: (usize, [u32; 4]),
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Gives a cell a note, or takes it away (`None`).
     fn set_note(
         &mut self,
