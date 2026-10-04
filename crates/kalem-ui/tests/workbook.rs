@@ -815,6 +815,32 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .gridlines
     });
     assert!(g.horizontal_minor && !g.horizontal_major);
+    // Its value axis in thousands.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.axisFormat",
+            serde_json::json!({ "format": "#,##0,\"K\"" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.run_until_parked();
+    let f = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .charts()
+            .last()
+            .unwrap()
+            .axis_format
+            .clone()
+    });
+    assert_eq!(f.as_deref(), Some("#,##0,\"K\""));
     // Its plot area a darker blue with a border.
     e.update_in(cx, |e, window, cx| {
         let v = e.doc.viewer.as_deref_mut().unwrap();

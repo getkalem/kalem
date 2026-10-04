@@ -2255,6 +2255,22 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Sets the number format of the value axis's labels of the chart
+    /// under the cursor; `None` takes the cells' own.
+    pub fn set_axis_format(&mut self, format: Option<String>) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to format its axis")?;
+        self.doc()
+            .set_axis_format(self.unit, i, format)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -2662,6 +2678,164 @@ pub fn png(bitmap: &Bitmap) -> Result<Vec<u8>, String> {
 }
 
 const IN_VIEWER: &str = "editorMode == viewer";
+/// A number through a spreadsheet's number format, as a chart's axis
+/// shows it: the first section of the code, its digits after the point,
+/// thousands separators, a percent, scientific notation, quoted or
+/// escaped text and `[$₺-41F]` currencies around it, and a trailing comma
+/// for each thousand it divides by. The common codes; anything else is
+/// shown as the number.
+pub fn format_axis_number(v: f64, code: &str) -> String {
+    let code = code.split(';').next().unwrap_or("");
+    if code.is_empty() || code.eq_ignore_ascii_case("General") {
+        return if v.fract() == 0.0 {
+            format!("{v}")
+        } else {
+            format!("{v:.2}").trim_end_matches('0').to_string()
+        };
+    }
+    // The code's literal text before and after its number, and the
+    // number's pattern.
+    let (mut before, mut after, mut pattern) = (String::new(), String::new(), String::new());
+    let mut chars = code.chars().peekable();
+    let mut in_number = false;
+    let mut done = false;
+    while let Some(c) = chars.next() {
+        let text = |s: &mut String, t: &str| s.push_str(t);
+        match c {
+            '"' => {
+                let mut t = String::new();
+                for d in chars.by_ref() {
+                    if d == '"' {
+                        break;
+                    }
+                    t.push(d);
+                }
+                text(
+                    if in_number || done {
+                        &mut after
+                    } else {
+                        &mut before
+                    },
+                    &t,
+                );
+                if in_number {
+                    in_number = false;
+                    done = true;
+                }
+            }
+            '\\' => {
+                if let Some(d) = chars.next() {
+                    let target = if in_number || done {
+                        &mut after
+                    } else {
+                        &mut before
+                    };
+                    target.push(d);
+                }
+            }
+            '[' => {
+                // `[$₺-41F]`: the symbol; colors and conditions dropped.
+                let mut t = String::new();
+                for d in chars.by_ref() {
+                    if d == ']' {
+                        break;
+                    }
+                    t.push(d);
+                }
+                if let Some(sym) = t.strip_prefix('$') {
+                    let sym = sym.split('-').next().unwrap_or("");
+                    text(
+                        if in_number || done {
+                            &mut after
+                        } else {
+                            &mut before
+                        },
+                        sym,
+                    );
+                }
+            }
+            '0' | '#' | '?' | '.' | ',' if !done => {
+                in_number = true;
+                pattern.push(c);
+            }
+            'E' | 'e' if in_number && matches!(chars.peek(), Some('+' | '-')) => {
+                pattern.push('E');
+                pattern.push(chars.next().unwrap_or('+'));
+                while let Some(&d) = chars.peek() {
+                    if matches!(d, '0' | '#') {
+                        pattern.push(d);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+            }
+            '_' | '*' => {
+                chars.next();
+            }
+            c => {
+                if in_number {
+                    in_number = false;
+                    done = true;
+                }
+                if done { after.push(c) } else { before.push(c) }
+            }
+        }
+    }
+    let percent = before.contains('%') || after.contains('%');
+    let mut x = if percent { v * 100.0 } else { v };
+    // Trailing commas divide by a thousand each.
+    let mut pattern = pattern.as_str();
+    while let Some(p) = pattern.strip_suffix(',') {
+        x /= 1000.0;
+        pattern = p;
+    }
+    let (mantissa, exponent) = match pattern.split_once('E') {
+        Some((m, e)) => (m, Some(e)),
+        None => (pattern, None),
+    };
+    let decimals = mantissa.split_once('.').map_or(0, |(_, d)| {
+        d.chars().filter(|c| matches!(c, '0' | '#' | '?')).count()
+    });
+    let thousands = mantissa.split('.').next().unwrap_or("").contains(',');
+    let negative = x < 0.0;
+    let body = match exponent {
+        Some(e) => {
+            let digits = e.chars().filter(|c| matches!(c, '0' | '#')).count().max(1);
+            let s = format!("{:.*e}", decimals, x.abs());
+            let (m, ex) = s.split_once('e').unwrap_or((&s, "0"));
+            let n: i32 = ex.parse().unwrap_or(0);
+            let sign = if n < 0 { "-" } else { "+" };
+            format!("{m}E{sign}{:0>digits$}", n.abs())
+        }
+        None => {
+            // Halves away from zero, as Excel rounds; not to even.
+            let scale = 10f64.powi(decimals as i32);
+            let s = format!("{:.*}", decimals, (x.abs() * scale).round() / scale);
+            let (int, frac) = s.split_once('.').map_or((s.as_str(), ""), |(a, b)| (a, b));
+            let int = if thousands {
+                let digits: Vec<char> = int.chars().collect();
+                let mut out = String::new();
+                for (k, d) in digits.iter().enumerate() {
+                    if k > 0 && (digits.len() - k).is_multiple_of(3) {
+                        out.push(',');
+                    }
+                    out.push(*d);
+                }
+                out
+            } else {
+                int.to_string()
+            };
+            if frac.is_empty() {
+                int
+            } else {
+                format!("{int}.{frac}")
+            }
+        }
+    };
+    format!("{}{before}{body}{after}", if negative { "-" } else { "" })
+}
+
 /// A unit drawn as a picture: zoom, pan and turn apply.
 const IN_IMAGE: &str = "editorMode == viewer && !viewerGrid";
 /// A unit drawn as a grid of cells.
@@ -4177,6 +4351,80 @@ fn gridlines_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comm
         line("verticalMinor", "Minor Vertical", vertical_minor),
     ]));
     Ok(())
+}
+
+/// Axis Number Format: the value axis's labels in one of the common
+/// formats, each shown with an example, a typed code, or the cells' own.
+fn axis_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.axisFormat";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor on a chart to format its axis".into());
+        return Ok(());
+    };
+    let now = v.charts()[i].axis_format.clone();
+    let typed = args.get("value").and_then(|x| x.as_str());
+    match args.get("format").and_then(|f| f.as_str()).or(typed) {
+        Some("auto") => with(ctx, |v| v.set_axis_format(None)),
+        Some("custom") => ask_more(
+            ctx,
+            ID,
+            &serde_json::json!({ "value_default": now.unwrap_or_default() }),
+            "value",
+        ),
+        Some(code) => {
+            let code = code.to_string();
+            with(ctx, |v| v.set_axis_format(Some(code)))
+        }
+        None => {
+            let presets = [
+                "0",
+                "0.00",
+                "#,##0",
+                "#,##0.00",
+                "0%",
+                "0.0%",
+                "#,##0 \"₺\"",
+                "\"$\"#,##0.00",
+                "#,##0,\"K\"",
+                "0.00E+00",
+            ];
+            let mark = |on: bool| if on { "●" } else { "○" };
+            let mut items = vec![menu_item(
+                ID,
+                serde_json::json!({ "format": "auto" }),
+                &format!("{} The Cells' Own", mark(now.is_none())),
+                "Axis Number Format",
+            )];
+            for code in presets {
+                items.push(menu_item(
+                    ID,
+                    serde_json::json!({ "format": code }),
+                    &format!(
+                        "{} {code}   {}",
+                        mark(now.as_deref() == Some(code)),
+                        format_axis_number(1234.5, code)
+                    ),
+                    "Axis Number Format",
+                ));
+            }
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "format": "custom" }),
+                "Custom…",
+                "Axis Number Format",
+            ));
+            ctx.requests.push(Request::Choose(items));
+            Ok(())
+        }
+    }
 }
 
 /// Insert Chart: the kinds offered, then the chart of the selection.
@@ -5797,6 +6045,13 @@ fn grid_commands() -> Vec<Command> {
             gridlines_menu,
         ),
         cmd(
+            "viewer.grid.axisFormat",
+            "Axis Number Format",
+            &["h n"],
+            IN_GRID,
+            axis_format,
+        ),
+        cmd(
             "viewer.grid.deleteChart",
             "Delete Chart",
             &[],
@@ -5971,6 +6226,23 @@ fn grid_commands() -> Vec<Command> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn axis_numbers_formatted() {
+        let f = format_axis_number;
+        assert_eq!(f(1234.5, "General"), "1234.5");
+        assert_eq!(f(1234.5, "0"), "1235");
+        assert_eq!(f(1234.5, "#,##0.00"), "1,234.50");
+        assert_eq!(f(0.256, "0%"), "26%");
+        assert_eq!(f(0.256, "0.0%"), "25.6%");
+        assert_eq!(f(1234.5, "#,##0 \"TL\""), "1,235 TL");
+        assert_eq!(f(1234.5, "\"$\"#,##0.00"), "$1,234.50");
+        assert_eq!(f(1234.5, "[$₺-41F]#,##0"), "₺1,235");
+        assert_eq!(f(1_250_000.0, "#,##0,\"K\""), "1,250K");
+        assert_eq!(f(1234.5, "0.00E+00"), "1.23E+03");
+        assert_eq!(f(-1500.0, "#,##0;(#,##0)"), "-1,500");
+        assert_eq!(f(7.0, "0.0 \\h"), "7.0 h");
+    }
     use kalem_viewer::{Detection, Result as VResult, Unit};
 
     /// Numbered pages 100 × 50, each one color.

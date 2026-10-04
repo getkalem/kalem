@@ -332,12 +332,10 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                         .data(p)
                 })
                 .collect();
-            let fmt = |v: f64| {
-                if v.abs() >= 1000.0 || v.fract() == 0.0 {
-                    format!("{v:.0}")
-                } else {
-                    format!("{v:.1}")
-                }
+            let fmt = |v: f64| match &chart.axis_format {
+                Some(code) => kalem_core::viewer::format_axis_number(v, code),
+                None if v.abs() >= 1000.0 || v.fract() == 0.0 => format!("{v:.0}"),
+                None => format!("{v:.1}"),
             };
             let x_labels: Vec<Line<'_>> = if chart.kind == ChartKind::Scatter {
                 vec![Line::from(fmt(x0)), Line::from(fmt(x1))]

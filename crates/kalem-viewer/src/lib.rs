@@ -546,6 +546,32 @@ pub struct Chart {
     /// The value axis's number format (`#,##0.00`, `0%`); `None` for the
     /// cells' own.
     pub axis_format: Option<String>,
+    /// The horizontal axis's labels' font.
+    pub horizontal_font: AxisFont,
+    /// The vertical axis's labels' font.
+    pub vertical_font: AxisFont,
+}
+
+/// The font of an axis's labels; all unset, the spreadsheet's style.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AxisFont {
+    /// Its size in points.
+    pub size: Option<f32>,
+    /// Bold.
+    pub bold: bool,
+    /// Italic.
+    pub italic: bool,
+    /// Its color.
+    pub color: Option<[u8; 3]>,
+    /// Its typeface (`Calibri`, `Arial`).
+    pub face: Option<String>,
+}
+
+impl AxisFont {
+    /// Whether nothing is set.
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 /// A chart's gridlines, by the way they run: horizontal ones come from
@@ -1303,6 +1329,18 @@ pub trait ViewerDocument: Send {
         _unit: usize,
         _index: usize,
         _format: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sets the font of an axis's labels of the chart at `index` of
+    /// [`ViewerDocument::charts`]; the default font takes the style's.
+    fn set_axis_font(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _axis: ChartAxis,
+        _font: AxisFont,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }

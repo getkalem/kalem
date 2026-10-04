@@ -1187,6 +1187,7 @@ cmd-viewer-grid-pointColor = Dilim Rengi
 cmd-viewer-grid-explodeSlice = Dilimi Ayır
 cmd-viewer-grid-chartArea = Grafik Alanı
 cmd-viewer-grid-gridlines = Kılavuz Çizgileri
+cmd-viewer-grid-axisFormat = Eksen Sayı Biçimi
 cmd-viewer-grid-moveChartUp = Grafiği Yukarı Taşı
 cmd-viewer-grid-moveChartDown = Grafiği Aşağı Taşı
 cmd-viewer-grid-moveChartLeft = Grafiği Sola Taşı
