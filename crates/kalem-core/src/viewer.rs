@@ -329,8 +329,11 @@ pub struct ViewerState {
     pub border_color: Option<[u8; 3]>,
     /// The selection's Average, Count and Sum, for the unit, selection
     /// and generation they were found for.
-    selection_sums: Option<((usize, [u32; 4], u64), Option<String>)>,
+    selection_sums: Option<(SumsKey, Option<String>)>,
 }
+
+/// A selection of a unit at a generation: unit, range, generation.
+type SumsKey = (usize, [u32; 4], u64);
 
 /// A cell of a unit at a generation: unit, row, column, generation.
 type CellKey = (usize, u32, u32, u64);
