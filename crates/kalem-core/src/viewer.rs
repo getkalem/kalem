@@ -3044,6 +3044,26 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Freezes the first `rows` and `cols` (none: unfreezes), the cursor
+    /// kept in view.
+    pub fn set_frozen(&mut self, rows: u32, cols: u32) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .set_frozen(self.unit, rows, cols)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        let p = self.grid_pos();
+        let mut q = p;
+        // The view starts again under and right of what is frozen.
+        q.top = rows;
+        q.left = cols;
+        self.grid_pos.insert(self.unit, q);
+        self.place(p.row, p.col);
+        Ok(())
+    }
+
     /// The units that are hidden sheets.
     pub fn hidden_units(&mut self) -> Vec<usize> {
         self.doc().hidden_units()
@@ -5893,6 +5913,22 @@ fn sheet_command(ctx: &mut EditorContext<'_>, args: &serde_json::Value, op: &str
     with(ctx, |v| v.edit_sheets(edit))
 }
 
+/// Freeze Panes at the cursor (the rows above it, the columns left of
+/// it), or Unfreeze Panes when they are frozen, as Excel's one command.
+fn freeze_panes(ctx: &mut EditorContext<'_>) -> CommandResult {
+    with(ctx, |v| {
+        let frozen = v.grid_layout().map_or((0, 0), |l| l.frozen);
+        if frozen != (0, 0) {
+            return v.set_frozen(0, 0);
+        }
+        let p = v.grid_pos();
+        if (p.row, p.col) == (0, 0) {
+            return Err("Put the cursor below and right of what to freeze".into());
+        }
+        v.set_frozen(p.row, p.col)
+    })
+}
+
 /// Number Format: the selection's, from Excel's common ones or typed.
 fn number_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::StyleChange;
@@ -7120,6 +7156,34 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.freezePanes",
+            "Freeze Panes",
+            &["z f"],
+            IN_GRID,
+            |ctx, _| freeze_panes(ctx),
+        ),
+        cmd(
+            "viewer.grid.freezeTopRow",
+            "Freeze Top Row",
+            &["z t"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_frozen(1, 0)),
+        ),
+        cmd(
+            "viewer.grid.freezeFirstColumn",
+            "Freeze First Column",
+            &["z shift+f"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_frozen(0, 1)),
+        ),
+        cmd(
+            "viewer.grid.unfreezePanes",
+            "Unfreeze Panes",
+            &["z u"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_frozen(0, 0)),
+        ),
         cmd(
             "viewer.grid.hideRows",
             "Hide Rows",

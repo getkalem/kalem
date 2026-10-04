@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Spreadsheets: Freeze Panes at the cursor (`z f`, again to unfreeze), Freeze Top Row (`z t`), Freeze First Column (`z F`) and Unfreeze Panes (`z u`), written as the sheet view's frozen pane.
 - Spreadsheets: Hide and Unhide Rows (Ctrl+9, Ctrl+Shift+9, `z r`, `z R`) and Columns (Ctrl+0, Ctrl+Shift+0, `z c`, `z C`) of the selection, written as Excel writes them; the cursor leaves what it hides.
 - Spreadsheets: sheets inserted (Shift+F11, `S i`), deleted after asking (`S d`), renamed (`S r`, Excel's rules for names), moved left and right (`S h`, `S l`), hidden and unhidden (`S x`, `S u`), each one undo step; formulas, defined names, charts, pivot tables and hyperlinks naming a renamed sheet follow it, and those naming a deleted one become `#REF!`.
 - Spreadsheets: Find (Ctrl+F) and Replace (Ctrl+H) in the sheet: Find Next and Previous (F3, Shift+F3, Shift+F4) round the sheet with which match of how many, Match Case, Match Entire Cell Contents and Look in Formulas; Replace one at a time or Replace All as one undo step.

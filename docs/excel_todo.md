@@ -70,7 +70,7 @@ in the palette and can be bound again.
 
 ## E10. Frozen panes
 
-- [ ] E10 Freeze the top row, the first column, or at the cursor;
+- [x] E10 Freeze the top row, the first column, or at the cursor;
   unfreeze; written as the sheet view's pane.
 
 ## E11. Notes

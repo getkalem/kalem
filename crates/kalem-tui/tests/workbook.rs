@@ -2066,3 +2066,63 @@ fn hidden_rows_and_columns() {
     let s = t.screen();
     assert!(s.contains("Rent") && s.contains("Q1"), "{s}");
 }
+
+#[test]
+fn frozen_panes() {
+    let mut t = T::open("freeze");
+    let frozen = |t: &mut T| {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .frozen
+    };
+    let z = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('z'));
+        let m = if k.is_uppercase() {
+            KeyModifiers::SHIFT
+        } else {
+            KeyModifiers::NONE
+        };
+        t.app.event(Event::Key(KeyEvent::new(KeyCode::Char(k), m)));
+    };
+    // Nothing to freeze above and left of A1.
+    assert_eq!(frozen(&mut t), (0, 0));
+    z(&mut t, 'f');
+    assert!(
+        t.screen().contains("Put the cursor below"),
+        "{}",
+        t.screen()
+    );
+    // At C3: two rows and two columns; they stay when the view moves on.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 2);
+    z(&mut t, 'f');
+    assert_eq!(frozen(&mut t), (2, 2));
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(200, 30);
+    let s = t.screen();
+    assert!(
+        s.contains("Item") && s.contains("Rent") && s.contains("201"),
+        "{s}"
+    );
+    // The top row, the first column, none.
+    z(&mut t, 't');
+    assert_eq!(frozen(&mut t), (1, 0));
+    z(&mut t, 'F');
+    assert_eq!(frozen(&mut t), (0, 1));
+    // z f again unfreezes, as Excel's Unfreeze Panes; z u likewise.
+    z(&mut t, 'f');
+    assert_eq!(frozen(&mut t), (0, 0));
+    z(&mut t, 't');
+    z(&mut t, 'u');
+    assert_eq!(frozen(&mut t), (0, 0));
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(frozen(&mut t), (1, 0));
+}
