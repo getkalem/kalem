@@ -498,6 +498,44 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             if !first || !next_in_merge {
                 buf.set_stringn(x + inner as u16, y, sep, 1, dim);
             }
+            // Borders: a side as the line beside the cell in its color, the
+            // bottom as the cell underlined.
+            let side = |k: Option<&kalem_viewer::GridCell>, i: usize| {
+                k.and_then(|k| k.borders[i].map(|col| (col, k.border_thick[i])))
+            };
+            let line = |(col, thick): ([u8; 3], bool)| {
+                let sym = match (caps.ascii, thick) {
+                    (true, _) => "|",
+                    (false, true) => "┃",
+                    (false, false) => "│",
+                };
+                // Automatic (black) in the text's color, seen on any theme.
+                let st = match col {
+                    _ if caps.no_color => Style::default().add_modifier(Modifier::BOLD),
+                    [0, 0, 0] => Style::default(),
+                    [r, g, b] => Style::default().fg(ratatui::style::Color::Rgb(r, g, b)),
+                };
+                (sym, st)
+            };
+            if !first || !next_in_merge {
+                let right = side(cell, 1).or_else(|| side(cells.get(&(r, c + 1)), 3));
+                if let Some(b) = right {
+                    let (sym, st) = line(b);
+                    buf.set_stringn(x + inner as u16, y, sym, 1, st);
+                }
+            }
+            if cols.first().is_some_and(|f| f.0 == c)
+                && x > area.x
+                && let Some(b) = side(cell, 3)
+            {
+                let (sym, st) = line(b);
+                buf.set_stringn(x - 1, y, sym, 1, st);
+            }
+            if side(cell, 2).is_some() || side(cells.get(&(r + 1, c)), 0).is_some() {
+                for i in 0..inner as u16 {
+                    buf[(x + i, y)].modifier.insert(Modifier::UNDERLINED);
+                }
+            }
             x += w;
         }
     }

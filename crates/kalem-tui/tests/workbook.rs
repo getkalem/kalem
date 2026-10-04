@@ -1597,3 +1597,74 @@ fn alignment() {
     );
     assert_eq!(row2(&mut t).find("Ren"), Some(left));
 }
+
+#[test]
+fn borders() {
+    let mut t = T::open("borders");
+    // A red line color, then outside borders round B2:C3 from the menu.
+    t.key(KeyCode::Char('t'));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('D'),
+        KeyModifiers::SHIFT,
+    )));
+    assert!(t.screen().contains("Line Color: Red"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.borderColor", json!({ "color": "#FF0000" }));
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(2, 2);
+    }
+    t.key(KeyCode::Char('t'));
+    t.key(KeyCode::Char('d'));
+    assert!(
+        t.screen().contains("Thick Outside Borders"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.borders", json!({ "set": "outside" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(2, 2);
+    let c3 = v.cursor_cell();
+    let red = Some([0xFF, 0, 0]);
+    assert_eq!(c3.borders, [None, red, red, None]);
+    // Drawn: C3's right side a red line, row 3's cells underlined.
+    v.grid_move_to(6, 0);
+    let s = t.screen();
+    let buf = t.term.backend().buffer().clone();
+    let y = s
+        .lines()
+        .position(|l| l.trim_start().starts_with("3 Food"))
+        .unwrap() as u16;
+    let reds: Vec<u16> = (0..buf.area.width)
+        .filter(|&x| {
+            buf[(x, y)].symbol() == "│" && buf[(x, y)].fg == ratatui::style::Color::Rgb(0xFF, 0, 0)
+        })
+        .collect();
+    assert_eq!(reds.len(), 2, "B3's left and C3's right: {s}");
+    let under = (0..buf.area.width)
+        .filter(|&x| {
+            buf[(x, y)]
+                .modifier
+                .contains(ratatui::style::Modifier::UNDERLINED)
+        })
+        .count();
+    assert!(under >= 16, "{under} {s}");
+    // Taken away, one undo step.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(2, 2);
+    }
+    t.app
+        .run_command("viewer.grid.borders", json!({ "set": "none" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(2, 2);
+    assert_eq!(v.cursor_cell().borders, [None; 4]);
+    t.app.run_command("edit.undo", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.cursor_cell().borders, [None, red, red, None]);
+}

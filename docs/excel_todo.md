@@ -27,7 +27,7 @@ in the palette and can be bound again.
 
 ## E3. Borders
 
-- [ ] E3 Borders of the selection: all, outside, bottom, top, thick
+- [x] E3 Borders of the selection: all, outside, bottom, top, thick
   outside, none, in a color; written as `<border>` styles, drawn in the
   graphical editor and as box lines in the terminal.
 

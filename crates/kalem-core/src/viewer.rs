@@ -325,6 +325,8 @@ pub struct ViewerState {
     validation_cache: Option<(CellKey, Option<Validation>)>,
     /// The user's own lists a fill goes round.
     fill_lists: Vec<Vec<String>>,
+    /// The color borders are drawn in (Line Color); `None` automatic.
+    pub border_color: Option<[u8; 3]>,
 }
 
 /// A cell of a unit at a generation: unit, row, column, generation.
@@ -436,6 +438,7 @@ impl ViewerState {
             circle_invalid: false,
             validation_cache: None,
             fill_lists: Vec::new(),
+            border_color: None,
         })
     }
 
@@ -5069,6 +5072,74 @@ fn toggle_font(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     })
 }
 
+/// Borders: the selection's borders drawn in the Line Color, or taken
+/// away; with no `set` the menu of them.
+fn borders(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{BorderSet, StyleChange};
+    const ID: &str = "viewer.grid.borders";
+    let sets = [
+        ("bottom", "Bottom Border", BorderSet::Bottom),
+        ("top", "Top Border", BorderSet::Top),
+        ("left", "Left Border", BorderSet::Left),
+        ("right", "Right Border", BorderSet::Right),
+        ("none", "No Border", BorderSet::None),
+        ("all", "All Borders", BorderSet::All),
+        ("outside", "Outside Borders", BorderSet::Outside),
+        ("thick", "Thick Outside Borders", BorderSet::ThickOutside),
+    ];
+    let Some(name) = args.get("set").and_then(|x| x.as_str()) else {
+        let mut items: Vec<_> = sets
+            .iter()
+            .map(|(k, title, _)| menu_item(ID, serde_json::json!({ "set": k }), title, "Borders"))
+            .collect();
+        items.push(menu_item(
+            "viewer.grid.borderColor",
+            serde_json::json!({}),
+            "Line Color…",
+            "Borders",
+        ));
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let Some(set) = sets.iter().find(|s| s.0 == name).map(|s| s.2) else {
+        ctx.messages.push(format!("No such borders: {name}"));
+        return Ok(());
+    };
+    with(ctx, |v| {
+        let color = v.border_color;
+        v.change_style(StyleChange {
+            borders: Some((set, color)),
+            ..StyleChange::default()
+        })
+    })
+}
+
+/// Line Color: the color the next borders are drawn in.
+fn border_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.borderColor";
+    let typed = args.get("value").and_then(|x| x.as_str());
+    let color = match args.get("color").and_then(|c| c.as_str()).or(typed) {
+        None => {
+            let items = color_menu(ID, &serde_json::json!({}), "Line Color");
+            ctx.requests.push(Request::Choose(items));
+            return Ok(());
+        }
+        Some("custom") => return ask_more(ctx, ID, &serde_json::json!({}), "value"),
+        Some("auto") => None,
+        Some(c) => match hex_color(c) {
+            Some(rgb) => Some(rgb),
+            None => {
+                ctx.messages.push(format!("Not a color: {c} (#RRGGBB)"));
+                return Ok(());
+            }
+        },
+    };
+    with(ctx, |v| {
+        v.border_color = color;
+        Ok(())
+    })
+}
+
 /// Horizontal or vertical alignment of the selection. A horizontal one
 /// the cursor's cell already has goes back to General, as Excel's
 /// buttons do.
@@ -6951,6 +7022,14 @@ fn grid_commands() -> Vec<Command> {
             &["t n"],
             IN_GRID,
             |ctx, args| font_choice(ctx, args, false),
+        ),
+        cmd("viewer.grid.borders", "Borders", &["t d"], IN_GRID, borders),
+        cmd(
+            "viewer.grid.borderColor",
+            "Line Color",
+            &["t shift+d"],
+            IN_GRID,
+            border_color,
         ),
         cmd(
             "viewer.grid.alignLeft",

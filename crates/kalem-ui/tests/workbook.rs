@@ -590,6 +590,27 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // Thick outside borders, drawn along the cell's sides; then undone.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.borders",
+            serde_json::json!({ "set": "thick" }),
+            window,
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let cell = cx.debug_bounds("viewer-grid-cell-3-0").unwrap();
+    let bottom = cx.debug_bounds("viewer-grid-border-3-0-2").unwrap();
+    assert_eq!(bottom.size.height, gpui::px(2.));
+    assert_eq!(bottom.bottom(), cell.bottom());
+    assert!(cx.debug_bounds("viewer-grid-border-3-0-3").is_some());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-border-3-0-2").is_none());
+
     // Centered at the top, drawn so; then undone.
     e.update_in(cx, |e, window, cx| {
         e.run_command("viewer.grid.alignCenter", serde_json::json!({}), window, cx);

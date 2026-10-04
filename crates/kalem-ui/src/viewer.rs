@@ -1049,6 +1049,7 @@ impl Editor {
                     .border_color(theme.border);
                 if let Some(cell) = cell {
                     d = valign(d, cell.valign);
+                    d = d.children(border_lines(cell, m[0], m[1], theme.foreground));
                     let right = matches!(cell.align, kalem_viewer::Align::Right)
                         || (cell.numeric && matches!(cell.align, kalem_viewer::Align::General));
                     if right {
@@ -1202,6 +1203,7 @@ impl Editor {
                 }
                 if let Some(cell) = cell {
                     d = valign(d, cell.valign);
+                    d = d.children(border_lines(cell, r, c, theme.foreground));
                     let right = matches!(cell.align, kalem_viewer::Align::Right)
                         || (cell.numeric && matches!(cell.align, kalem_viewer::Align::General));
                     if right {
@@ -1762,6 +1764,34 @@ impl Editor {
         }
         cx.notify();
     }
+}
+
+/// A cell's borders: a line along each side drawn, two pixels when
+/// thick; automatic (black) in the text's color, seen on any theme.
+fn border_lines(cell: &kalem_viewer::GridCell, r: u32, c: u32, text: gpui::Hsla) -> Vec<gpui::Div> {
+    (0..4)
+        .filter_map(|i| {
+            let col = cell.borders[i]?;
+            let t = px(if cell.border_thick[i] { 2. } else { 1. });
+            let color = if col == [0, 0, 0] {
+                text
+            } else {
+                gpui::rgb(u32::from(col[0]) << 16 | u32::from(col[1]) << 8 | u32::from(col[2]))
+                    .into()
+            };
+            let d = div()
+                .debug_selector(move || format!("viewer-grid-border-{r}-{c}-{i}"))
+                .absolute()
+                .bg(color);
+            Some(match i {
+                // The right and bottom ones over the cell's gridline.
+                0 => d.top_0().left_0().right(px(-1.)).h(t),
+                1 => d.top_0().bottom(px(-1.)).right(px(-1.)).w(t),
+                2 => d.bottom(px(-1.)).left_0().right(px(-1.)).h(t),
+                _ => d.top_0().bottom(px(-1.)).left_0().w(t),
+            })
+        })
+        .collect()
 }
 
 /// A cell's text placed up and down as its vertical alignment says
