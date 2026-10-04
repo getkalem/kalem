@@ -467,6 +467,19 @@ pub enum VAlign {
     Top,
 }
 
+/// What Paste Special takes of the cells copied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasteKind {
+    /// Everything: formulas (moved) or values, and formats.
+    All,
+    /// The values as they are now, the cells' formats kept.
+    Values,
+    /// The formats only.
+    Formats,
+    /// The formulas (moved) and constants, the cells' formats kept.
+    Formulas,
+}
+
 /// A change to a workbook's sheets.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SheetEdit {
@@ -1240,6 +1253,20 @@ pub trait ViewerDocument: Send {
     /// spreadsheet writes them (`number1, [number2], ...`) when known.
     fn formula_functions(&mut self) -> Vec<(String, String)> {
         Vec::new()
+    }
+
+    /// Pastes cells copied in the document (unit, first row, first
+    /// column, last row, last column) to `to` (unit, row, column), as a
+    /// spreadsheet's Paste Special: what of them, and turned rows into
+    /// columns (`transpose`).
+    fn paste_cells(
+        &mut self,
+        _from: (usize, [u32; 4]),
+        _to: (usize, u32, u32),
+        _kind: PasteKind,
+        _transpose: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
     }
 
     /// Gives a cell a note, or takes it away (`None`).
