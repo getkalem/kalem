@@ -744,6 +744,17 @@ impl Editor {
             "up" if n > 0 => p.selected = (p.selected + n - 1) % n,
             "pagedown" if n > 0 => p.selected = (p.selected + 10).min(n - 1),
             "pageup" => p.selected = p.selected.saturating_sub(10),
+            // A file a viewer shows draws no text, so nothing takes typed
+            // text as input: the palette takes it from the keys (a cell's
+            // entry in a workbook).
+            _ if self.doc.viewer.is_some()
+                && !(k.modifiers.control || k.modifiers.platform || k.modifiers.function) =>
+            {
+                let Some(text) = k.key_char.clone() else {
+                    return false;
+                };
+                return self.panel_input(&text, cx);
+            }
             _ => return false,
         }
         self.preview_line(cx);

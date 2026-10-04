@@ -1590,3 +1590,34 @@ fn formatting_the_rest(cx: &mut TestAppContext) {
     assert_eq!(line, Some(kalem_viewer::LineStyle::Double));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Typing on a cell starts its entry with the character, and the entry
+/// takes the keys typed after it (a viewer draws no text to take them).
+#[gpui::test]
+fn typing_on_a_cell(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open(cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(10, 1)
+    });
+    let key = |s: &str| gpui::KeyDownEvent {
+        keystroke: gpui::Keystroke {
+            key: s.into(),
+            key_char: (s.chars().count() == 1).then(|| s.into()),
+            ..Default::default()
+        },
+        is_held: false,
+        prefer_character_input: false,
+    };
+    for k in ["4", "2", "enter"] {
+        e.update_in(cx, |e, window, cx| e.key_down(&key(k), window, cx));
+        cx.run_until_parked();
+    }
+    let t = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(10, 1);
+        v.cell_input()
+    });
+    assert_eq!(t, "42");
+    let _ = std::fs::remove_dir_all(dir);
+}

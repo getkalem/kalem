@@ -3672,6 +3672,21 @@ impl App {
                 }
             }
         }
+        // A character typed on a workbook's cell starts its entry with it,
+        // as in Excel.
+        if let crossterm::event::KeyCode::Char(c) = k.code
+            && !k.modifiers.intersects(
+                crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::ALT,
+            )
+            && !c.is_control()
+            && self.doc.viewer.as_deref().is_some_and(|v| v.is_grid())
+        {
+            self.run_command(
+                "viewer.grid.typeInto",
+                serde_json::json!({ "text": c.to_string() }),
+            );
+            return;
+        }
         self.edit_key(k);
     }
 

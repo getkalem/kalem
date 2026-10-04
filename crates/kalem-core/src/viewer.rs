@@ -14521,6 +14521,20 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| ask_cell(ctx, None),
         ),
         cmd(
+            "viewer.grid.typeInto",
+            "Type into Cell",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let text = args
+                    .get("text")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("")
+                    .to_owned();
+                ask_cell(ctx, Some(&text))
+            },
+        ),
+        cmd(
             "viewer.grid.editFormula",
             "Enter a Formula",
             &["="],

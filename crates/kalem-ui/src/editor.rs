@@ -2266,6 +2266,26 @@ impl Editor {
                 }
             }
         }
+        // A character typed on a workbook's cell starts its entry with it,
+        // as in Excel.
+        let m = ev.keystroke.modifiers;
+        if !(m.control || m.platform || m.function)
+            && self.doc.viewer.as_deref().is_some_and(|v| v.is_grid())
+            && let Some(text) = ev
+                .keystroke
+                .key_char
+                .clone()
+                .filter(|t| !t.is_empty() && !t.chars().any(char::is_control))
+        {
+            cx.stop_propagation();
+            self.run_command(
+                "viewer.grid.typeInto",
+                serde_json::json!({ "text": text }),
+                window,
+                cx,
+            );
+            return;
+        }
         if self.edit_key(&ev.keystroke, window, cx) {
             cx.stop_propagation();
         }

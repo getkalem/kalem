@@ -1203,6 +1203,7 @@ cmd-viewer-grid-end = Last Cell
 cmd-viewer-grid-nextSheet = Next Sheet
 cmd-viewer-grid-previousSheet = Previous Sheet
 cmd-viewer-grid-edit = Edit Cell
+cmd-viewer-grid-typeInto = Type into Cell
 cmd-viewer-grid-editFormula = Enter a Formula
 cmd-viewer-grid-setCell = Set Cell
 cmd-viewer-grid-clear = Clear Cells

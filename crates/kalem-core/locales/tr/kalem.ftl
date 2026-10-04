@@ -1122,6 +1122,7 @@ cmd-viewer-grid-end = Son Hücre
 cmd-viewer-grid-nextSheet = Sonraki Sayfa
 cmd-viewer-grid-previousSheet = Önceki Sayfa
 cmd-viewer-grid-edit = Hücreyi Düzenle
+cmd-viewer-grid-typeInto = Hücreye Yaz
 cmd-viewer-grid-editFormula = Formül Gir
 cmd-viewer-grid-setCell = Hücreye Yaz
 cmd-viewer-grid-clear = Hücreleri Temizle

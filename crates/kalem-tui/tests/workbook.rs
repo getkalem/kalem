@@ -4358,3 +4358,16 @@ fn formatting_the_rest() {
     t.app.run_command("viewer.grid.theme", json!({}));
     assert!(t.screen().contains("Green ✓"), "{}", t.screen());
 }
+
+#[test]
+fn typing_on_a_cell() {
+    let mut t = T::open("typed");
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(10, 1);
+    for c in ['4', '2'] {
+        t.key(KeyCode::Char(c));
+    }
+    t.key(KeyCode::Enter);
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(10, 1);
+    assert_eq!(v.cell_input(), "42");
+}
