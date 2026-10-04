@@ -62,10 +62,11 @@ the Windows job passes; no plugin pin can break `main`.
   `\multirow`, the corpus are done), `performance.org` binary sizes (48.9
   MB full and 49.7 MB terminal-only measured, 13 and 7 MB written), `todo.md` T4.3.2 (hayro, not pdfium). S
   (done 2026-10-04: LaTeX's "Limits and known gaps" rewritten from the code (corpus, SyncTeX, `\multirow` and Overleaf done; the PDF not yet a panel; the 10 MB keystroke); `performance.org` binary rows corrected and found worse than the evaluation said: the terminal-only build is 49.7 MB against 15 MB, the full 48.9 MB (D28) against 40; the evaluation corrected; `todo.md`'s pdfium mentions annotated.)
-- [ ] R1.6 Repository hygiene: move `docs/todo_old.md`, `excel_todo.md`,
+- [x] R1.6 Repository hygiene: move `docs/todo_old.md`, `excel_todo.md`,
   `excel_todo2.md` under `docs/history/`; move `spikes/` out of the tree
   or into a `spikes` branch; the gpui git revision in one place in
   `[workspace.dependencies]` (it is in six). S
+  (done 2026-10-04: `todo_old.md` under `docs/history/`, its links updated; gpui and `gpui_platform` at one revision in `[workspace.dependencies]`, the lock file unchanged. Kept where they are, on purpose: `spikes/`, the evaluation code cited by the decision records D2, D3, D4, D14 and D28 and holding the Markdown specifications the conformance test reads; `excel_todo*.md`, the spreadsheet viewer's working lists, updated every few minutes by the session working on it — `docs/README.md` now lists them.)
 
 ## M2 Release 0.1 (installable)
 

@@ -13,6 +13,10 @@ homepage = "https://getkalem.github.io/kalem"
 authors = ["The Kalem Contributors"]
 
 [workspace.dependencies]
+# gpui and its platform layer from one revision of Zed's repository
+# (T2.8.6 is about not needing that repository at all).
+gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b" }
 # Canonical paths without Windows's `\\?\` prefix where it is not needed.
 dunce = "1"
 org-syntax = { path = "crates/org-syntax", version = "0.0.1" }

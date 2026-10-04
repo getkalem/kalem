@@ -1,4 +1,4 @@
-Every decision of the design, with the task that closes it and its state, as the former work breakdown (=docs/todo_old.md=, frozen on 2026-10-01) records it. The decisions with a record of their own are the following chapters.
+Every decision of the design, with the task that closes it and its state, as the former work breakdown (=docs/history/todo_old.md=, frozen on 2026-10-01) records it. The decisions with a record of their own are the following chapters.
 
 | ID | Decision | Closed in | Status |
 |-
