@@ -453,6 +453,16 @@ pub struct GridCell {
     /// Which of the borders are thick (medium or thicker), in the same
     /// order.
     pub border_thick: [bool; 4],
+    /// The indent, in levels (a spreadsheet's three spaces each).
+    pub indent: u8,
+    /// The text's rotation as a spreadsheet stores it: 0 level, 1 to 90
+    /// degrees up, 91 to 180 down (90 more than the degrees), 255 vertical.
+    pub rotation: u16,
+    /// Shrunk to fit the cell's width.
+    pub shrink: bool,
+    /// Centered across the selection it was given with (Center Across
+    /// Selection): over the empty cells to its right that have it too.
+    pub center_across: bool,
 }
 
 /// How a cell's text sits between its top and bottom.
@@ -674,6 +684,14 @@ pub struct StyleChange {
     pub borders: Option<(BorderSet, Option<[u8; 3]>)>,
     /// The number format code (`General`, `#,##0.00`, `0%`).
     pub number_format: Option<String>,
+    /// The indent, in levels.
+    pub indent: Option<u8>,
+    /// The text's rotation, as [`GridCell::rotation`].
+    pub rotation: Option<u16>,
+    /// Shrink to Fit.
+    pub shrink: Option<bool>,
+    /// Center Across Selection (`false`: General again).
+    pub center_across: Option<bool>,
 }
 
 /// How a conditional format compares a cell's value.
