@@ -3325,6 +3325,58 @@ impl ViewerState {
         Ok(split)
     }
 
+    /// The selection as a defined name refers to it: the sheet (quoted when
+    /// it must be) and the cells, fixed (`Budget!$B$2:$D$4`).
+    pub fn selection_reference(&mut self) -> String {
+        let s = self.selection();
+        let sheet = self.structure.units[self.unit]
+            .label
+            .trim_end_matches(" (hidden)")
+            .to_owned();
+        let plain = sheet
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphabetic() || c == '_')
+            && sheet
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
+            && crate::csv_tools::parse_cell(&sheet).is_none();
+        let sheet = if plain {
+            sheet
+        } else {
+            format!("'{}'", sheet.replace('\'', "''"))
+        };
+        let cell = |r: u32, c: u32| {
+            format!(
+                "${}${}",
+                crate::csv_tools::column_letters(c as usize),
+                r + 1
+            )
+        };
+        if (s[0], s[1]) == (s[2], s[3]) {
+            format!("{sheet}!{}", cell(s[0], s[1]))
+        } else {
+            format!("{sheet}!{}:{}", cell(s[0], s[1]), cell(s[2], s[3]))
+        }
+    }
+
+    /// The workbook's defined names, with what each refers to.
+    pub fn defined_names(&mut self) -> Vec<(String, String)> {
+        self.doc().defined_names()
+    }
+
+    /// Defines a name as `refers_to`, or deletes it (`None`).
+    pub fn set_defined_name(&mut self, name: &str, refers_to: Option<&str>) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .set_defined_name(name, refers_to)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The cursor's cell's hyperlink.
     pub fn cursor_link(&mut self) -> Option<String> {
         let p = self.grid_pos();
@@ -6068,8 +6120,21 @@ fn go_to(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult
         None => (cell(cells), cell(cells)),
     };
     let (Some(a), Some(b)) = (a, b) else {
-        ctx.messages.push(format!("Not a reference: {reference}"));
-        return Ok(());
+        // A defined name: where it refers to.
+        let named = v
+            .defined_names()
+            .into_iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(reference.trim()))
+            .map(|(_, to)| to);
+        match named {
+            Some(to) if !to.eq_ignore_ascii_case(&reference) => {
+                return go_to(ctx, &serde_json::json!({ "value": to }));
+            }
+            _ => {
+                ctx.messages.push(format!("Not a reference: {reference}"));
+                return Ok(());
+            }
+        }
     };
     if let Some(name) = sheet {
         let found = v
@@ -6582,6 +6647,83 @@ fn open_link(ctx: &mut EditorContext<'_>) -> CommandResult {
         }
     };
     ctx.requests.push(Request::OpenLink(action));
+    Ok(())
+}
+
+/// Define Name: a name asked for the selection.
+fn define_name(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(name) = text_arg(args, "value") else {
+        return ask_more(
+            ctx,
+            "viewer.grid.defineName",
+            &serde_json::json!({}),
+            "value",
+        );
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let to = v.selection_reference();
+    let name = name.trim().to_owned();
+    match v.set_defined_name(&name, Some(&to)) {
+        Ok(()) => ctx.messages.push(format!("{name} = {to}")),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
+/// Name Manager (Ctrl+F3) and Delete Name: the names with what they refer
+/// to; the one chosen gone to, or deleted.
+fn names_menu(
+    ctx: &mut EditorContext<'_>,
+    args: &serde_json::Value,
+    delete: bool,
+) -> CommandResult {
+    let id = if delete {
+        "viewer.grid.deleteName"
+    } else {
+        "viewer.grid.nameManager"
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if let Some(name) = args.get("name").and_then(|n| n.as_str()) {
+        if delete {
+            let name = name.to_owned();
+            return with(ctx, |v| v.set_defined_name(&name, None));
+        }
+        return go_to(ctx, &serde_json::json!({ "value": name }));
+    }
+    let names = v.defined_names();
+    if names.is_empty() {
+        ctx.messages.push("The workbook has no names".into());
+        return Ok(());
+    }
+    let category = if delete {
+        "Delete Name"
+    } else {
+        "Name Manager"
+    };
+    let items = names
+        .into_iter()
+        .map(|(n, to)| {
+            menu_item(
+                id,
+                serde_json::json!({ "name": n }),
+                &format!("{n}  {to}"),
+                category,
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
     Ok(())
 }
 
@@ -7832,6 +7974,27 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.defineName",
+            "Define Name",
+            &[],
+            IN_GRID,
+            define_name,
+        ),
+        cmd(
+            "viewer.grid.nameManager",
+            "Name Manager",
+            &["ctrl+f3"],
+            IN_GRID,
+            |ctx, args| names_menu(ctx, args, false),
+        ),
+        cmd(
+            "viewer.grid.deleteName",
+            "Delete Name",
+            &[],
+            IN_GRID,
+            |ctx, args| names_menu(ctx, args, true),
+        ),
         cmd(
             "viewer.grid.insertLink",
             "Insert Link",

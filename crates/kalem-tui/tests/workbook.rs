@@ -2507,3 +2507,63 @@ fn hyperlinks() {
         t.screen()
     );
 }
+
+#[test]
+fn named_ranges() {
+    let mut t = T::open("names");
+    let sel = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().selection();
+    let names = |t: &mut T| {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .defined_names()
+            .len()
+    };
+    let before = names(&mut t);
+    // B2:B4 named, and used in a formula.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(3, 1);
+    }
+    t.app
+        .run_command("viewer.grid.defineName", json!({ "value": "Gelirler" }));
+    assert!(
+        t.screen().contains("Gelirler = Budget!$B$2:$B$4"),
+        "{}",
+        t.screen()
+    );
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 9, "col": 1, "value": "=SUM(Gelirler)" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(9, 1);
+    assert_eq!(v.cursor_cell().text, "1631.5");
+    // Gone to by Go To and from the Name Manager (Ctrl+F3).
+    v.grid_move_to(0, 0);
+    t.app
+        .run_command("viewer.grid.goTo", json!({ "value": "gelirler" }));
+    assert_eq!(sel(&mut t), [1, 1, 3, 1]);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::F(3),
+        KeyModifiers::CONTROL,
+    )));
+    assert!(
+        t.screen().contains("Gelirler  Budget!$B$2:$B$4"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    // A name Excel refuses; then deleted.
+    t.app
+        .run_command("viewer.grid.defineName", json!({ "value": "B2" }));
+    assert!(t.screen().contains("B2 is a cell's name"), "{}", t.screen());
+    t.app
+        .run_command("viewer.grid.deleteName", json!({ "name": "Gelirler" }));
+    assert_eq!(names(&mut t), before);
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(names(&mut t), before + 1);
+}

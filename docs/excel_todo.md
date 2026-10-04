@@ -112,7 +112,7 @@ in the palette and can be bound again.
 
 ## E18. Named ranges
 
-- [ ] E18 Define a name for the selection, list the workbook's names,
+- [x] E18 Define a name for the selection, list the workbook's names,
   go to one, delete one; written as defined names.
 
 ## E19. Formulas shown and recalculation
