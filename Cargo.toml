@@ -49,11 +49,11 @@ kalem-plugin = { path = "crates/kalem-plugin", version = "0.0.1" }
 # (tools/check-plugin-pins.sh, in CI): bump the three lines at once.
 # The image viewer, a plugin of getkalem/plugins bundled into the binary
 # (D28) until components load (T3.1.12).
-kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "2d8ed3424f372096505da4dece47cfe6dfcb0608" }
+kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "4185eef717b70a6766fb10b11921dfe1c9daee11" }
 # Excel workbooks (T3.7.4), bundled the same way.
-kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "2d8ed3424f372096505da4dece47cfe6dfcb0608" }
+kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "4185eef717b70a6766fb10b11921dfe1c9daee11" }
 # PDF files (T3.7.3), bundled the same way.
-kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "2d8ed3424f372096505da4dece47cfe6dfcb0608" }
+kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "4185eef717b70a6766fb10b11921dfe1c9daee11" }
 
 # The plugins build against this checkout's contract, not its copy on
 # GitHub.
@@ -178,6 +178,16 @@ opt-level = 3
 [profile.dev.package."kalem-plugin-pdf-viewer"]
 opt-level = 3
 [profile.dev.package."kalem-viewer"]
+opt-level = 3
+# A workbook's grid is drawn anew at every step of the cursor: gpui and its
+# layout engine built optimized keep a held arrow key from piling up (a
+# step in a 36,000-cell sheet took 100 ms in a debug build, 10 in a release
+# one), and the workbook plugin keeps edits and recalculation quick.
+[profile.dev.package.gpui]
+opt-level = 3
+[profile.dev.package.taffy]
+opt-level = 3
+[profile.dev.package."kalem-plugin-xlsx"]
 opt-level = 3
 # The plugins' engine (kalem-script): a debug build compiles the PDF
 # viewer's component in 7 s, an optimized engine in half a second.
