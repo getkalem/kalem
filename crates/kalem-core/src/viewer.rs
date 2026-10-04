@@ -5445,6 +5445,57 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The workbook's named cell styles.
+    pub fn cell_styles(&mut self) -> Vec<String> {
+        self.doc().cell_styles()
+    }
+
+    /// The selection given named style `name`.
+    pub fn apply_cell_style(&mut self, name: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        self.doc()
+            .apply_cell_style(self.unit, s, name)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// A new named style of the cursor's cell's format.
+    pub fn new_cell_style(&mut self, name: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        self.doc()
+            .new_cell_style(name, self.unit, p.row, p.col)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The workbook theme's name.
+    pub fn theme_name(&mut self) -> Option<String> {
+        self.doc().theme_name()
+    }
+
+    /// The themes the workbook can be given.
+    pub fn theme_names(&mut self) -> Vec<String> {
+        self.doc().theme_names()
+    }
+
+    /// The workbook given theme `name`.
+    pub fn set_theme(&mut self, name: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc().set_theme(name).map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The sheet shown's comment threads.
     pub fn threads(&mut self) -> Vec<kalem_viewer::CommentThread> {
         let key = (self.unit, self.generation);
@@ -9644,84 +9695,295 @@ fn format_as_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
     Ok(())
 }
 
-/// Cell Styles: Excel's built-in styles, applied as their formats.
+/// Cell Styles: Excel's built-in named styles and the workbook's own,
+/// one given to the selection; New Cell Style makes one of the cursor's
+/// cell's format.
 fn cell_style(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
-    use kalem_viewer::{BorderSet, StyleChange};
     const ID: &str = "viewer.grid.cellStyle";
-    let styles = [
-        ("normal", "Normal"),
-        ("good", "Good"),
-        ("bad", "Bad"),
-        ("neutral", "Neutral"),
-        ("heading1", "Heading 1"),
-        ("heading2", "Heading 2"),
-        ("heading3", "Heading 3"),
-        ("heading4", "Heading 4"),
-        ("title", "Title"),
-        ("total", "Total"),
-        ("comma", "Comma"),
-        ("currency", "Currency"),
-        ("percent", "Percent"),
+    const BUILTIN: [&str; 21] = [
+        "Normal",
+        "Good",
+        "Bad",
+        "Neutral",
+        "Title",
+        "Heading 1",
+        "Heading 2",
+        "Heading 3",
+        "Heading 4",
+        "Total",
+        "Note",
+        "Warning Text",
+        "Input",
+        "Output",
+        "Calculation",
+        "Check Cell",
+        "Linked Cell",
+        "Explanatory Text",
+        "Comma",
+        "Currency",
+        "Percent",
     ];
-    let Some(name) = args.get("style").and_then(|x| x.as_str()) else {
-        let items = styles
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if args.get("new").and_then(serde_json::Value::as_bool) == Some(true) {
+        let Some(name) = text_arg(args, "value") else {
+            return ask_more(ctx, ID, args, "value");
+        };
+        return with(ctx, |v| v.new_cell_style(&name));
+    }
+    let Some(name) = args
+        .get("style")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        let mut names: Vec<String> = BUILTIN.iter().map(|s| (*s).to_owned()).collect();
+        for own in v.cell_styles() {
+            if !names.iter().any(|n| n.eq_ignore_ascii_case(&own)) {
+                names.push(own);
+            }
+        }
+        let mut items: Vec<_> = names
             .iter()
-            .map(|(k, t)| menu_item(ID, serde_json::json!({ "style": k }), t, "Cell Styles"))
+            .map(|n| menu_item(ID, serde_json::json!({ "style": n }), n, "Cell Styles"))
+            .collect();
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "new": true }),
+            "New Cell Style…",
+            "Cell Styles",
+        ));
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    with(ctx, |v| v.apply_cell_style(&name))
+}
+
+/// Border Line: a line style, then the borders it draws.
+fn border_line(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{BorderSet, LineStyle, StyleChange};
+    const ID: &str = "viewer.grid.borderLine";
+    let lines = [
+        ("thin", LineStyle::Thin, "Thin"),
+        ("medium", LineStyle::Medium, "Medium"),
+        ("thick", LineStyle::Thick, "Thick"),
+        ("double", LineStyle::Double, "Double"),
+        ("dashed", LineStyle::Dashed, "Dashed"),
+        ("dotted", LineStyle::Dotted, "Dotted"),
+        ("hair", LineStyle::Hair, "Hair"),
+    ];
+    let Some(line) = args.get("line").and_then(|x| x.as_str()) else {
+        let items = lines
+            .iter()
+            .map(|(k, _, t)| menu_item(ID, serde_json::json!({ "line": k }), t, "Border Line"))
             .collect();
         ctx.requests.push(Request::Choose(items));
         return Ok(());
     };
-    let dark = Some([0x44, 0x54, 0x6A]);
-    let fill_font = |fill: [u8; 3], font: [u8; 3]| StyleChange {
-        fill: Some(Some(fill)),
-        color: Some(Some(font)),
-        ..StyleChange::default()
+    let style = lines
+        .iter()
+        .find(|l| l.0 == line)
+        .map_or(LineStyle::Thin, |l| l.1);
+    let sets = [
+        ("bottom", BorderSet::Bottom, "Bottom"),
+        ("top", BorderSet::Top, "Top"),
+        ("left", BorderSet::Left, "Left"),
+        ("right", BorderSet::Right, "Right"),
+        ("outside", BorderSet::Outside, "Outside"),
+        ("all", BorderSet::All, "All"),
+    ];
+    let Some(set) = args.get("set").and_then(|x| x.as_str()) else {
+        let items = sets
+            .iter()
+            .map(|(k, _, t)| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "line": line, "set": k }),
+                    t,
+                    "Border Line: where",
+                )
+            })
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
     };
-    let heading = |size: f32, line: Option<[u8; 3]>| StyleChange {
-        bold: Some(true),
-        size: Some(size),
-        color: Some(dark),
-        borders: line.map(|c| (BorderSet::Bottom, Some(c))),
-        ..StyleChange::default()
+    let set = sets
+        .iter()
+        .find(|s| s.0 == set)
+        .map_or(BorderSet::Bottom, |s| s.1);
+    with(ctx, |v| {
+        v.change_style(StyleChange {
+            borders: Some((set, None)),
+            border_style: Some(style),
+            ..StyleChange::default()
+        })
+    })
+}
+
+/// Fill Effects: one of Excel's patterns or a two-color gradient, in the
+/// fill color the cell has (or blue) over white; or none.
+fn fill_effect(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{FillPattern, StyleChange};
+    const ID: &str = "viewer.grid.fillEffect";
+    let effects = [
+        ("darkGray", "Gray 75%"),
+        ("mediumGray", "Gray 50%"),
+        ("lightGray", "Gray 25%"),
+        ("gray125", "Gray 12.5%"),
+        ("darkHorizontal", "Horizontal Stripes"),
+        ("darkVertical", "Vertical Stripes"),
+        ("darkDown", "Diagonal Stripes Down"),
+        ("darkUp", "Diagonal Stripes Up"),
+        ("lightGrid", "Thin Grid"),
+        ("darkGrid", "Thick Grid"),
+        ("lightTrellis", "Thin Trellis"),
+        ("gradient0", "Gradient, Left to Right"),
+        ("gradient90", "Gradient, Top to Bottom"),
+        ("gradient45", "Gradient, Diagonal"),
+        ("none", "No Pattern"),
+    ];
+    let Some(kind) = args.get("effect").and_then(|x| x.as_str()) else {
+        let items = effects
+            .iter()
+            .map(|(k, t)| menu_item(ID, serde_json::json!({ "effect": k }), t, "Fill Effects"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
     };
-    let change = match name {
-        "normal" => return with(ctx, |v| v.clear_formats(false)),
-        "good" => fill_font([0xC6, 0xEF, 0xCE], [0x00, 0x61, 0x00]),
-        "bad" => fill_font([0xFF, 0xC7, 0xCE], [0x9C, 0x00, 0x06]),
-        "neutral" => fill_font([0xFF, 0xEB, 0x9C], [0x9C, 0x57, 0x00]),
-        "heading1" => heading(15.0, Some([0x44, 0x72, 0xC4])),
-        "heading2" => heading(13.0, Some([0xA2, 0xB8, 0xE1])),
-        "heading3" => heading(11.0, Some([0x8E, 0xA9, 0xDB])),
-        "heading4" => heading(11.0, None),
-        "title" => StyleChange {
-            size: Some(18.0),
-            color: Some(dark),
-            face: Some("Calibri Light".into()),
+    let kind = kind.to_owned();
+    with(ctx, |v| {
+        let color = v.cursor_cell().fill.unwrap_or([0x44, 0x72, 0xC4]);
+        let white = [0xFF, 0xFF, 0xFF];
+        let pattern = if kind == "none" {
+            None
+        } else if let Some(a) = kind.strip_prefix("gradient") {
+            Some(FillPattern::Gradient {
+                angle: a.parse().unwrap_or(0),
+                from: white,
+                to: color,
+            })
+        } else {
+            Some(FillPattern::Pattern {
+                kind: kind.clone(),
+                color,
+                background: white,
+            })
+        };
+        v.change_style(StyleChange {
+            fill_pattern: Some(pattern),
             ..StyleChange::default()
-        },
-        "total" => StyleChange {
-            bold: Some(true),
-            borders: Some((BorderSet::Top, Some([0x44, 0x72, 0xC4]))),
-            ..StyleChange::default()
-        },
-        "comma" => StyleChange {
-            number_format: Some("#,##0.00".into()),
-            ..StyleChange::default()
-        },
-        "currency" => StyleChange {
-            number_format: Some("#,##0.00 \"₺\"".into()),
-            ..StyleChange::default()
-        },
-        "percent" => StyleChange {
-            number_format: Some("0%".into()),
-            ..StyleChange::default()
-        },
-        other => {
-            ctx.messages.push(format!("No such style: {other}"));
-            return Ok(());
-        }
+        })
+    })
+}
+
+/// Themes: the workbook's colors and fonts from one of Office's themes.
+fn workbook_theme(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.theme";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
     };
-    with(ctx, |v| v.change_style(change))
+    let Some(name) = args
+        .get("theme")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        let now = v.theme_name();
+        let items = v
+            .theme_names()
+            .into_iter()
+            .map(|n| {
+                let title = if now.as_deref() == Some(n.as_str()) {
+                    format!("{n} ✓")
+                } else {
+                    n.clone()
+                };
+                menu_item(ID, serde_json::json!({ "theme": n }), &title, "Themes")
+            })
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    with(ctx, |v| v.set_theme(&name))
+}
+
+/// Format Cells (Ctrl+1): every part of a cell's format in one menu, each
+/// leading to its command.
+fn format_cells(ctx: &mut EditorContext<'_>, _args: &serde_json::Value) -> CommandResult {
+    let none = serde_json::json!({});
+    let parts: [(&str, &[(&str, &str)]); 6] = [
+        ("Number", &[("viewer.grid.numberFormat", "Number Format…")]),
+        (
+            "Alignment",
+            &[
+                ("viewer.grid.alignLeft", "Align Left"),
+                ("viewer.grid.alignCenter", "Center"),
+                ("viewer.grid.alignRight", "Align Right"),
+                ("viewer.grid.alignGeneral", "General Alignment"),
+                ("viewer.grid.alignTop", "Top"),
+                ("viewer.grid.alignMiddle", "Middle"),
+                ("viewer.grid.alignBottom", "Bottom"),
+                ("viewer.grid.wrapText", "Wrap Text"),
+                ("viewer.grid.shrinkToFit", "Shrink to Fit"),
+                ("viewer.grid.increaseIndent", "Indent"),
+                ("viewer.grid.textRotation", "Orientation…"),
+                (
+                    "viewer.grid.centerAcrossSelection",
+                    "Center Across Selection",
+                ),
+                ("viewer.grid.mergeCenter", "Merge and Center"),
+            ],
+        ),
+        (
+            "Font",
+            &[
+                ("viewer.grid.fontFace", "Font…"),
+                ("viewer.grid.fontSize", "Size…"),
+                ("viewer.grid.bold", "Bold"),
+                ("viewer.grid.italic", "Italic"),
+                ("viewer.grid.underline", "Underline"),
+                ("viewer.grid.strikethrough", "Strikethrough"),
+                ("viewer.grid.fontColor", "Color…"),
+            ],
+        ),
+        (
+            "Border",
+            &[
+                ("viewer.grid.borders", "Borders…"),
+                ("viewer.grid.borderLine", "Line Style…"),
+                ("viewer.grid.borderColor", "Line Color…"),
+            ],
+        ),
+        (
+            "Fill",
+            &[
+                ("viewer.grid.fillColor", "Background Color…"),
+                ("viewer.grid.fillEffect", "Pattern or Gradient…"),
+                ("viewer.grid.cellStyle", "Cell Styles…"),
+                ("viewer.grid.theme", "Themes…"),
+            ],
+        ),
+        ("Protection", &[("viewer.grid.lockCells", "Locked")]),
+    ];
+    let items = parts
+        .iter()
+        .flat_map(|(part, list)| {
+            list.iter()
+                .map(|(id, title)| {
+                    menu_item(id, none.clone(), title, &format!("Format Cells: {part}"))
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
 }
 
 /// Increase (`by` 1) or Decrease (-1) Indent of the selection, from the
@@ -13553,6 +13815,28 @@ fn grid_commands() -> Vec<Command> {
             IN_GRID,
             |ctx, _| with(ctx, |v| v.set_hidden(false, false)),
         ),
+        cmd(
+            "viewer.grid.formatCells",
+            "Format Cells",
+            &["ctrl+1"],
+            IN_GRID,
+            format_cells,
+        ),
+        cmd(
+            "viewer.grid.borderLine",
+            "Border Line",
+            &[],
+            IN_GRID,
+            border_line,
+        ),
+        cmd(
+            "viewer.grid.fillEffect",
+            "Fill Effects",
+            &[],
+            IN_GRID,
+            fill_effect,
+        ),
+        cmd("viewer.grid.theme", "Themes", &[], IN_GRID, workbook_theme),
         cmd(
             "viewer.grid.sortByColor",
             "Sort by Color",

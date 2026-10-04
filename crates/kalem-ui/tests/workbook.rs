@@ -1537,3 +1537,56 @@ fn v_scale_check(e: &mut kalem_ui::editor::Editor, log: bool) {
     let v = e.doc.viewer.as_deref_mut().unwrap();
     assert_eq!(v.charts().last().unwrap().scale.log, log);
 }
+
+/// E44: a pattern fill and slanted text drawn, a gradient and a double
+/// border kept; Format Cells listing every part.
+#[gpui::test]
+fn formatting_the_rest(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open(cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        e.run_command(
+            "viewer.grid.fillEffect",
+            serde_json::json!({ "effect": "darkUp" }),
+            window,
+            cx,
+        );
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.change_style(kalem_viewer::StyleChange {
+            rotation: Some(45),
+            ..Default::default()
+        })
+        .unwrap();
+        v.grid_move_to(2, 1);
+        e.run_command(
+            "viewer.grid.fillEffect",
+            serde_json::json!({ "effect": "gradient0" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.borderLine",
+            serde_json::json!({ "line": "double", "set": "outside" }),
+            window,
+            cx,
+        );
+        e.run_command("viewer.grid.formatCells", serde_json::json!({}), window, cx);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-pattern-1-1").is_some());
+    assert!(cx.debug_bounds("viewer-grid-rotated-1-0").is_some());
+    let (pattern, line) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let c = v.cursor_cell();
+        (c.fill_pattern, c.border_styles[0])
+    });
+    assert!(matches!(
+        pattern,
+        Some(kalem_viewer::FillPattern::Gradient { angle: 0, .. })
+    ));
+    assert_eq!(line, Some(kalem_viewer::LineStyle::Double));
+    let _ = std::fs::remove_dir_all(dir);
+}

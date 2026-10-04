@@ -78,12 +78,15 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E44. Formatting, the rest
 
-- [ ] E44 Rotated text drawn (it is kept, not shown); border styles
+- [x] E44 Rotated text drawn (it is kept, not shown); border styles
   (dashed, dotted, double, medium, colors per side); gradient and
   pattern fills; cell styles as named styles (Normal, Good, Bad,
   Neutral, Headings, Total) kept as styles, and new ones; the
   workbook's theme (its colors and fonts) chosen; Format Cells as one
   panel of the number, alignment, font, border, fill and protection.
+  (gpui draws rotated text as slanted letters, not turned glyphs; the
+  terminal shows it unrotated. Format Cells is one menu of every part,
+  each leading to its command, not a dialog.)
 
 ## E45. Printing, the rest
 

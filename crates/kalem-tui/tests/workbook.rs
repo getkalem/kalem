@@ -4237,3 +4237,60 @@ fn sorting_and_filtering_more() {
     assert!(hidden(&mut t).contains(&32), "{:?}", hidden(&mut t));
     assert!(!hidden(&mut t).contains(&31));
 }
+
+#[test]
+fn formatting_the_rest() {
+    let mut t = T::open("styles");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(1, 1);
+    // Format Cells (Ctrl+1): every part in one menu.
+    t.app.run_command("viewer.grid.formatCells", json!({}));
+    let s = t.screen();
+    assert!(s.contains("Format Cells: Number: Number Format"), "{s}");
+    t.key(KeyCode::Esc);
+    // A double bottom border.
+    t.app.run_command("viewer.grid.borderLine", json!({}));
+    assert!(t.screen().contains("Double"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.borderLine",
+        json!({ "line": "double", "set": "bottom" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(
+        v.cursor_cell().border_styles[2],
+        Some(kalem_viewer::LineStyle::Double)
+    );
+    // A pattern, then a gradient.
+    t.app
+        .run_command("viewer.grid.fillEffect", json!({ "effect": "darkUp" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(matches!(
+        v.cursor_cell().fill_pattern,
+        Some(kalem_viewer::FillPattern::Pattern { ref kind, .. }) if kind == "darkUp"
+    ));
+    t.app
+        .run_command("viewer.grid.fillEffect", json!({ "effect": "gradient90" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(matches!(
+        v.cursor_cell().fill_pattern,
+        Some(kalem_viewer::FillPattern::Gradient { angle: 90, .. })
+    ));
+    // A named style of the cell's format, given to another cell.
+    t.app.run_command(
+        "viewer.grid.cellStyle",
+        json!({ "new": true, "value": "Striped" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.cell_styles().iter().any(|s| s == "Striped"));
+    v.grid_move_to(4, 3);
+    t.app
+        .run_command("viewer.grid.cellStyle", json!({ "style": "Striped" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.cursor_cell().fill_pattern.is_some());
+    // Themes: the one chosen is marked.
+    t.app
+        .run_command("viewer.grid.theme", json!({ "theme": "Green" }));
+    t.app.run_command("viewer.grid.theme", json!({}));
+    assert!(t.screen().contains("Green ✓"), "{}", t.screen());
+}
