@@ -2853,3 +2853,48 @@ fn custom_sort_and_filters() {
     t.app.run_command("viewer.grid.reapplyFilter", json!({}));
     assert_eq!(hidden(&mut t), vec![1]);
 }
+
+#[test]
+fn tables() {
+    let mut t = T::open("tables");
+    // Ctrl+T on the budget: the styles, then a table.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('t'),
+        KeyModifiers::CONTROL,
+    )));
+    assert!(t.screen().contains("Green"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.run_command(
+        "viewer.grid.formatAsTable",
+        json!({ "style": "TableStyleMedium7" }),
+    );
+    assert!(t.screen().contains("Table1 made"), "{}", t.screen());
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let table = v.table_at_cursor().unwrap();
+    assert_eq!(table.range, [0, 0, 4, 3]);
+    // Drawn: the first data row banded green (the header keeps the fill
+    // it has of its own).
+    v.grid_move_to(1, 1);
+    assert_eq!(v.cursor_cell().fill, Some([0xE2, 0xEF, 0xDA]));
+    // A structured reference in a formula.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 9, "col": 1, "value": "=SUM(Table1[Q2])" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(9, 1);
+    assert_eq!(v.cursor_cell().text, "5324.5");
+    // Convert to Range: the table gone, the formula plain.
+    v.grid_move_to(1, 1);
+    t.app.run_command("viewer.grid.convertToRange", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.table_at_cursor().is_none());
+    v.grid_move_to(9, 1);
+    assert_eq!(v.cell_input(), "=SUM($C$2:$C$5)");
+    t.app.run_command("edit.undo", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(1, 1);
+    assert!(v.table_at_cursor().is_some());
+}

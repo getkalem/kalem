@@ -1904,6 +1904,50 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Format as Table: the selection, else the data around the cursor,
+    /// made a table in `style`; its name and range.
+    pub fn format_as_table(&mut self, style: &str) -> Result<String, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (r, header) = self.table_target();
+        let name = self
+            .doc()
+            .create_table(self.unit, r, header, style)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(name)
+    }
+
+    /// The table the cursor is in.
+    pub fn table_at_cursor(&mut self) -> Option<kalem_viewer::TableInfo> {
+        let p = self.grid_pos();
+        self.doc().tables(self.unit).into_iter().find(|t| {
+            let r = t.range;
+            (r[0]..=r[2]).contains(&p.row) && (r[1]..=r[3]).contains(&p.col)
+        })
+    }
+
+    /// Total Row of the table at the cursor turned on or off.
+    pub fn toggle_total_row(&mut self) -> Result<(), String> {
+        let t = self.table_at_cursor().ok_or("The cursor is in no table")?;
+        self.doc()
+            .set_table_totals(self.unit, &t.name, !t.totals)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Convert to Range: the table at the cursor made cells again.
+    pub fn convert_to_range(&mut self) -> Result<(), String> {
+        let t = self.table_at_cursor().ok_or("The cursor is in no table")?;
+        self.doc()
+            .remove_table(self.unit, &t.name)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The table Custom Sort sorts, with each column's header (or letter).
     pub fn sort_columns(&mut self) -> Vec<(u32, String)> {
         self.duplicates_target().2
@@ -7277,6 +7321,40 @@ fn filter_by_color(ctx: &mut EditorContext<'_>) -> CommandResult {
     })
 }
 
+/// Format as Table (Ctrl+T): a style from the menu, then the table.
+fn format_as_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.formatAsTable";
+    let Some(style) = args.get("style").and_then(|s| s.as_str()) else {
+        let styles = [
+            ("TableStyleMedium2", "Blue"),
+            ("TableStyleMedium3", "Orange"),
+            ("TableStyleMedium4", "Gray"),
+            ("TableStyleMedium5", "Gold"),
+            ("TableStyleMedium6", "Light Blue"),
+            ("TableStyleMedium7", "Green"),
+        ];
+        let items = styles
+            .iter()
+            .map(|(s, t)| menu_item(ID, serde_json::json!({ "style": s }), t, "Table Style"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let style = style.to_owned();
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match v.format_as_table(&style) {
+        Ok(name) => ctx.messages.push(format!("{name} made")),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -8536,6 +8614,27 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.formatAsTable",
+            "Format as Table",
+            &["ctrl+t", "s t"],
+            IN_GRID,
+            format_as_table,
+        ),
+        cmd(
+            "viewer.grid.totalRow",
+            "Total Row",
+            &["ctrl+shift+t", "s shift+t"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.toggle_total_row()),
+        ),
+        cmd(
+            "viewer.grid.convertToRange",
+            "Convert to Range",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.convert_to_range()),
+        ),
         cmd(
             "viewer.grid.customSort",
             "Custom Sort",

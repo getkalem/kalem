@@ -34,7 +34,7 @@ be bound again.
 
 ## E24. Tables
 
-- [ ] E24 Format as Table (Ctrl+T): a table part with a name, header row,
+- [x] E24 Format as Table (Ctrl+T): a table part with a name, header row,
   banded rows and a style; a Total Row with its functions; the table
   growing as rows are typed under it; structured references
   (`Table1[Amount]`) in formulas.
