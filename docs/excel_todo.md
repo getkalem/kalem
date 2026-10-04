@@ -59,7 +59,7 @@ in the palette and can be bound again.
 
 ## E8. Sheets
 
-- [ ] E8 Insert a sheet, delete one (asked first), rename, move left or
+- [x] E8 Insert a sheet, delete one (asked first), rename, move left or
   right, hide and unhide; written in the workbook part with every
   reference to the sheet kept right.
 

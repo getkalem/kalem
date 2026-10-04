@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Spreadsheets: sheets inserted (Shift+F11, `S i`), deleted after asking (`S d`), renamed (`S r`, Excel's rules for names), moved left and right (`S h`, `S l`), hidden and unhidden (`S x`, `S u`), each one undo step; formulas, defined names, charts, pivot tables and hyperlinks naming a renamed sheet follow it, and those naming a deleted one become `#REF!`.
 - Spreadsheets: Find (Ctrl+F) and Replace (Ctrl+H) in the sheet: Find Next and Previous (F3, Shift+F3, Shift+F4) round the sheet with which match of how many, Match Case, Match Entire Cell Contents and Look in Formulas; Replace one at a time or Replace All as one undo step.
 - Spreadsheets: the status bar shows the Average, Count and Sum of a selection of more than one cell, in the cursor's cell's number format (only the Count when no value is a number), as Excel's does.
 - Spreadsheets: moving and selecting as in Excel: Ctrl+arrow to the edge of the data (or the next data, or the sheet's edge), Ctrl+Shift+arrow to select to it; Select Row (Shift+Space, `g r`), Select Column (Ctrl+Space, `g c`), Select All (Ctrl+A: the data around the cursor, again the sheet); Go To (F5, `g o`) a cell, a range or another sheet's cell by its reference. A default key a terminal cannot send is left out there without a warning when its command has another key.

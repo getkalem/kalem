@@ -1914,3 +1914,100 @@ fn find_and_replace() {
     let s = t.screen();
     assert!(s.contains("Kira") && s.contains("Food"), "{s}");
 }
+
+#[test]
+fn sheets() {
+    let mut t = T::open("sheets");
+    let shift_s = |t: &mut T, k: char| {
+        t.app.event(Event::Key(KeyEvent::new(
+            KeyCode::Char('S'),
+            KeyModifiers::SHIFT,
+        )));
+        t.key(KeyCode::Char(k));
+    };
+    let status = |t: &mut T| {
+        let s = t.screen();
+        s.lines().rev().nth(1).unwrap_or_default().to_owned()
+    };
+    // Shift+F11: a new sheet before this one.
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::F(11),
+        KeyModifiers::SHIFT,
+    )));
+    assert!(
+        status(&mut t).starts_with("Sheet1 · A1 · 1/4"),
+        "{}",
+        t.screen()
+    );
+    // Renamed; moved right and back.
+    shift_s(&mut t, 'r');
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.renameSheet", json!({ "value": "Gelir" }));
+    assert!(
+        status(&mut t).starts_with("Gelir · A1 · 1/4"),
+        "{}",
+        t.screen()
+    );
+    t.app
+        .run_command("viewer.grid.renameSheet", json!({ "value": "Budget" }));
+    assert!(
+        t.screen().contains("There is a sheet named Budget"),
+        "{}",
+        t.screen()
+    );
+    shift_s(&mut t, 'l');
+    assert!(
+        status(&mut t).starts_with("Gelir · A1 · 2/4"),
+        "{}",
+        t.screen()
+    );
+    shift_s(&mut t, 'h');
+    assert!(
+        status(&mut t).starts_with("Gelir · A1 · 1/4"),
+        "{}",
+        t.screen()
+    );
+    // Hidden: the next visible sheet shows; unhidden from the list.
+    shift_s(&mut t, 'x');
+    assert!(status(&mut t).starts_with("Budget"), "{}", t.screen());
+    shift_s(&mut t, 'u');
+    assert!(t.screen().contains("Gelir"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.unhideSheet", json!({ "unit": 0 }));
+    assert!(
+        status(&mut t).starts_with("Gelir · A1 · 1/4"),
+        "{}",
+        t.screen()
+    );
+    // Deleted after asking.
+    shift_s(&mut t, 'd');
+    assert!(
+        t.screen().contains("Delete the sheet Gelir"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.deleteSheet", json!({ "confirmed": true }));
+    assert!(
+        status(&mut t).starts_with("Budget · A1 · 1/3"),
+        "{}",
+        t.screen()
+    );
+    // All undone.
+    for _ in 0..7 {
+        t.app.run_command("edit.undo", json!({}));
+    }
+    let n = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .structure()
+        .units
+        .len();
+    assert_eq!(n, 3);
+}

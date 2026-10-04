@@ -2979,6 +2979,42 @@ impl ViewerState {
         Ok(n)
     }
 
+    /// Changes the workbook's sheets and shows the one it leaves shown (a
+    /// visible one after hiding).
+    pub fn edit_sheets(&mut self, edit: kalem_viewer::SheetEdit) -> Result<(), String> {
+        use kalem_viewer::SheetEdit;
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let places_change = matches!(
+            edit,
+            SheetEdit::Insert(_) | SheetEdit::Delete(_) | SheetEdit::Move(..)
+        );
+        let hiding = matches!(edit, SheetEdit::Hide(_, true));
+        let mut shown = self.doc().edit_sheets(edit).map_err(|e| e.to_string())?;
+        if places_change {
+            // Cursors were kept by sheet number.
+            self.grid_pos.clear();
+        }
+        self.refresh();
+        if hiding {
+            let hidden = self.doc().hidden_units();
+            let n = self.structure.units.len();
+            shown = (shown..n)
+                .chain((0..shown).rev())
+                .find(|u| !hidden.contains(u))
+                .unwrap_or(shown);
+        }
+        self.unit = usize::MAX;
+        self.go_to(shown.min(self.structure.units.len().saturating_sub(1)));
+        Ok(())
+    }
+
+    /// The units that are hidden sheets.
+    pub fn hidden_units(&mut self) -> Vec<usize> {
+        self.doc().hidden_units()
+    }
+
     /// The cursor's cell's number format code.
     pub fn cursor_format(&mut self) -> Option<String> {
         let p = self.grid_pos();
@@ -5727,6 +5763,102 @@ fn find_option(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     Ok(())
 }
 
+/// The sheet commands: Insert, Delete (asked first), Rename, Move Left and
+/// Right, Hide and Unhide.
+fn sheet_command(ctx: &mut EditorContext<'_>, args: &serde_json::Value, op: &str) -> CommandResult {
+    use kalem_viewer::SheetEdit;
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let unit = v.unit;
+    let n = v.structure().units.len();
+    let edit = match op {
+        "insert" => SheetEdit::Insert(unit),
+        "delete" => {
+            if args.get("confirmed").and_then(serde_json::Value::as_bool) != Some(true) {
+                let name = v.structure().units[unit].label.clone();
+                let question = format!("Delete the sheet {name}? This cannot be undone in Excel");
+                let item =
+                    |id: &str, args: serde_json::Value, title: &str| crate::palette::PaletteItem {
+                        id: crate::palette::invocation(id, &args),
+                        title: title.into(),
+                        category: question.clone(),
+                        keys: String::new(),
+                        also: question.clone(),
+                    };
+                ctx.requests.push(Request::Choose(vec![
+                    item(
+                        "viewer.grid.deleteSheet",
+                        serde_json::json!({ "confirmed": true }),
+                        "Delete",
+                    ),
+                    item("viewer.grid.cancel", serde_json::json!({}), "Cancel"),
+                ]));
+                return Ok(());
+            }
+            SheetEdit::Delete(unit)
+        }
+        "rename" => match text_arg(args, "value") {
+            Some(name) => SheetEdit::Rename(unit, name.trim().to_owned()),
+            None => {
+                return ask_more(
+                    ctx,
+                    "viewer.grid.renameSheet",
+                    &serde_json::json!({}),
+                    "value",
+                );
+            }
+        },
+        "left" | "right" => {
+            let to = if op == "left" {
+                unit.checked_sub(1)
+            } else {
+                (unit + 1 < n).then_some(unit + 1)
+            };
+            let Some(to) = to else { return Ok(()) };
+            SheetEdit::Move(unit, to)
+        }
+        "hide" => SheetEdit::Hide(unit, true),
+        _ => {
+            let hidden = v.hidden_units();
+            let pick = args.get("unit").and_then(serde_json::Value::as_u64);
+            match pick {
+                Some(u) => SheetEdit::Hide(u as usize, false),
+                None if hidden.is_empty() => {
+                    ctx.messages.push("No sheet is hidden".into());
+                    return Ok(());
+                }
+                None => {
+                    let labels: Vec<String> = v
+                        .structure()
+                        .units
+                        .iter()
+                        .map(|u| u.label.clone())
+                        .collect();
+                    let items = hidden
+                        .iter()
+                        .map(|&u| {
+                            menu_item(
+                                "viewer.grid.unhideSheet",
+                                serde_json::json!({ "unit": u }),
+                                labels[u].trim_end_matches(" (hidden)"),
+                                "Unhide",
+                            )
+                        })
+                        .collect();
+                    ctx.requests.push(Request::Choose(items));
+                    return Ok(());
+                }
+            }
+        }
+    };
+    with(ctx, |v| v.edit_sheets(edit))
+}
+
 /// Number Format: the selection's, from Excel's common ones or typed.
 fn number_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::StyleChange;
@@ -6954,6 +7086,55 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.insertSheet",
+            "Insert Sheet",
+            &["shift+f11", "shift+s i"],
+            IN_GRID,
+            |ctx, args| sheet_command(ctx, args, "insert"),
+        ),
+        cmd(
+            "viewer.grid.deleteSheet",
+            "Delete Sheet",
+            &["shift+s d"],
+            IN_GRID,
+            |ctx, args| sheet_command(ctx, args, "delete"),
+        ),
+        cmd(
+            "viewer.grid.renameSheet",
+            "Rename Sheet",
+            &["shift+s r"],
+            IN_GRID,
+            |ctx, args| sheet_command(ctx, args, "rename"),
+        ),
+        cmd(
+            "viewer.grid.moveSheetLeft",
+            "Move Sheet Left",
+            &["shift+s h"],
+            IN_GRID,
+            |ctx, args| sheet_command(ctx, args, "left"),
+        ),
+        cmd(
+            "viewer.grid.moveSheetRight",
+            "Move Sheet Right",
+            &["shift+s l"],
+            IN_GRID,
+            |ctx, args| sheet_command(ctx, args, "right"),
+        ),
+        cmd(
+            "viewer.grid.hideSheet",
+            "Hide Sheet",
+            &["shift+s x"],
+            IN_GRID,
+            |ctx, args| sheet_command(ctx, args, "hide"),
+        ),
+        cmd(
+            "viewer.grid.unhideSheet",
+            "Unhide Sheet",
+            &["shift+s u"],
+            IN_GRID,
+            |ctx, args| sheet_command(ctx, args, "unhide"),
+        ),
         cmd("viewer.grid.find", "Find", &["ctrl+f"], IN_GRID, grid_find),
         cmd(
             "viewer.grid.findNext",
