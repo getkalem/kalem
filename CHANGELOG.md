@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Spreadsheets: the status bar shows the Average, Count and Sum of a selection of more than one cell, in the cursor's cell's number format (only the Count when no value is a number), as Excel's does.
 - Spreadsheets: moving and selecting as in Excel: Ctrl+arrow to the edge of the data (or the next data, or the sheet's edge), Ctrl+Shift+arrow to select to it; Select Row (Shift+Space, `g r`), Select Column (Ctrl+Space, `g c`), Select All (Ctrl+A: the data around the cursor, again the sheet); Go To (F5, `g o`) a cell, a range or another sheet's cell by its reference. A default key a terminal cannot send is left out there without a warning when its command has another key.
 - Spreadsheets: Number Format (`t 1`) of the selection: General, Number, Currency (₺), Percentage, Short and Long Date, Time, Fraction, Scientific, Text, or a typed code, written as a `numFmt` style; Increase and Decrease Decimal (`t .`, `t ,`) from the cursor's cell's format, or for General from the decimals it shows.
 - Spreadsheets: Borders (`t d`) of the selection: bottom, top, left, right, all, outside, thick outside or none, in the Line Color (`t D`), written as `<border>` styles; drawn as lines along the cells in the graphical grid, and in the terminal as the column lines in the border's color (`┃` thick) and the cells above a bottom border underlined.

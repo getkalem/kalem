@@ -327,6 +327,9 @@ pub struct ViewerState {
     fill_lists: Vec<Vec<String>>,
     /// The color borders are drawn in (Line Color); `None` automatic.
     pub border_color: Option<[u8; 3]>,
+    /// The selection's Average, Count and Sum, for the unit, selection
+    /// and generation they were found for.
+    selection_sums: Option<((usize, [u32; 4], u64), Option<String>)>,
 }
 
 /// A cell of a unit at a generation: unit, row, column, generation.
@@ -439,6 +442,7 @@ impl ViewerState {
             validation_cache: None,
             fill_lists: Vec::new(),
             border_color: None,
+            selection_sums: None,
         })
     }
 
@@ -1377,6 +1381,9 @@ impl ViewerState {
             let n = self.structure.units.len();
             if n > 1 {
                 parts.push(format!("{}/{n}", self.unit + 1));
+            }
+            if let Some(sums) = self.selection_sums() {
+                parts.push(sums);
             }
             if let Some(note) = self.doc().cell_note(self.unit, p.row, p.col) {
                 parts.push(note.lines().next().unwrap_or_default().to_string());
@@ -2755,6 +2762,42 @@ impl ViewerState {
                 return r;
             }
         }
+    }
+
+    /// What Excel's status bar says of a selection of more than one cell:
+    /// `Average: 1073.44 · Count: 4 · Sum: 4293.75`, numbers in the cursor's
+    /// cell's format; only the count when no value is a number.
+    pub fn selection_sums(&mut self) -> Option<String> {
+        let s = self.selection();
+        if s[0] == s[2] && s[1] == s[3] {
+            return None;
+        }
+        let key = (self.unit, s, self.generation);
+        if let Some((k, v)) = &self.selection_sums
+            && *k == key
+        {
+            return v.clone();
+        }
+        let (numbers, count) = self.doc().range_numbers(self.unit, s);
+        let code = self
+            .cursor_format()
+            .filter(|c| c.contains(['0', '#', '?']))
+            .unwrap_or_else(|| "General".into());
+        let text = (count > 0).then(|| {
+            if numbers.is_empty() {
+                format!("Count: {count}")
+            } else {
+                let sum: f64 = numbers.iter().sum();
+                let average = sum / numbers.len() as f64;
+                format!(
+                    "Average: {} · Count: {count} · Sum: {}",
+                    format_axis_number(average, &code),
+                    format_axis_number(sum, &code)
+                )
+            }
+        });
+        self.selection_sums = Some((key, text.clone()));
+        text
     }
 
     /// The cursor's cell's number format code.

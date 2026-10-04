@@ -48,7 +48,7 @@ in the palette and can be bound again.
 
 ## E6. The selection's sum
 
-- [ ] E6 The status line shows the selection's Sum, Average and Count
+- [x] E6 The status line shows the selection's Sum, Average and Count
   (of numbers, of values) when it spans more than one cell.
 
 ## E7. Find and Replace

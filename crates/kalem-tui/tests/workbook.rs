@@ -1792,3 +1792,46 @@ fn moving_and_selecting() {
         .run_command("viewer.grid.goTo", json!({ "value": "Dates!B2" }));
     assert!(t.screen().contains("Dates · B2"), "{}", t.screen());
 }
+
+#[test]
+fn selection_sums() {
+    let mut t = T::open("sums");
+    // One cell: nothing summed.
+    assert!(!t.screen().contains("Sum:"), "{}", t.screen());
+    // B2:D5's twelve numbers, in the cells' format.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(4, 3);
+    }
+    let s = t.screen();
+    assert!(
+        s.contains("Average: 1,431.25 · Count: 12 · Sum: 17,175.00"),
+        "{s}"
+    );
+    // Text only: the count.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(3, 0);
+    }
+    let s = t.screen();
+    assert!(s.contains("Count: 3") && !s.contains("Sum:"), "{s}");
+    // After an edit, summed again.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(2, 1);
+    }
+    assert!(t.screen().contains("Sum: 1,631.50"), "{}", t.screen());
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 1, "col": 1, "value": "1000" }),
+    );
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(2, 1);
+    }
+    assert!(t.screen().contains("Sum: 1,431.50"), "{}", t.screen());
+}

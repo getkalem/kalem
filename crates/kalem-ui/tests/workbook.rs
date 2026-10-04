@@ -596,6 +596,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     let s = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().selection());
     assert_eq!((s[0], s[1], s[2]), (3, 0, 3));
     assert!(s[3] > 100, "{s:?}");
+    // The row's numbers summed in the status bar.
+    assert!(
+        status(&ws, cx).contains("Average: 633.33 · Count: 4 · Sum: 1900"),
+        "{}",
+        status(&ws, cx)
+    );
     e.update_in(cx, |e, _, _| {
         e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0)
     });
