@@ -13,7 +13,7 @@ labels: bug
 1.
 2.
 
-**A minimal file or snippet that shows the problem** (if relevant: Org, LaTeX, CSV, BibTeX, Markdown, plain text or `.klm`; say which)
+**A minimal file or snippet that shows the problem** (if relevant: Org, LaTeX, CSV, BibTeX, Markdown or plain text; say which)
 
 ```
 

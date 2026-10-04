@@ -321,6 +321,10 @@ pub struct Editor {
     pub marked: Option<Range<usize>>,
     /// Lines as last painted, by source line.
     pub painted: Rc<RefCell<HashMap<usize, Painted>>>,
+    /// The cursor's line, revealed again on the next frame: after a jump
+    /// to lines never laid out (Page Down), whose heights the list learns
+    /// only when it lays them out.
+    reveal_again: Option<(usize, u8)>,
     /// A message for the status bar, and whether it is an error.
     pub status: Option<(String, bool)>,
     pub(crate) goal_x: Option<Pixels>,
@@ -498,6 +502,7 @@ impl Editor {
             hints_drawn: false,
             marked: None,
             painted: Rc::default(),
+            reveal_again: None,
             status: None,
             goal_x: None,
             last_command: None,
@@ -570,7 +575,7 @@ impl Editor {
         e.startup_folds();
         e.visible = e.compute_visible();
         e.line_count = e.doc.text().line_count();
-        e.list.reset(e.visible.len());
+        e.list.reset_with_uniform_height(e.visible.len(), LINE_HINT);
         e
     }
 
@@ -621,15 +626,7 @@ impl Editor {
         {
             return b.clone();
         }
-        let b = match self.doc.parse() {
-            // LaTeX: its displayed formulas, and the text between them.
-            _ if self.doc.meta.mode == kalem_core::DocumentMode::Markdown => {
-                Arc::new(kalem_core::markdown::blocks(&self.doc))
-            }
-            _ if self.doc.latex().is_some() => Arc::new(kalem_core::latex_view::blocks(&self.doc)),
-            Some((p, true)) => Arc::new(view::blocks(&p.syntax(), p.context())),
-            _ => Arc::new(Vec::new()),
-        };
+        let b = Arc::new(kalem_core::mode_view::blocks(&self.doc));
         if !b.is_empty() {
             self.folds.retain(&b);
             self.blocks = Some((version, b.clone()));
@@ -820,7 +817,7 @@ impl Editor {
             });
             self.with_other(|e| {
                 e.visible = e.compute_visible();
-                e.list.reset(e.visible.len());
+                e.list.reset_with_uniform_height(e.visible.len(), LINE_HINT);
                 if let Some(i) = e.item_of(e.doc.text().line_of(e.doc.selection.head)) {
                     e.list.scroll_to_reveal_item(i);
                 }
@@ -831,7 +828,8 @@ impl Editor {
 
     /// Measures every line again (after a theme or font change).
     pub fn relayout(&mut self) {
-        self.list.reset(self.visible.len());
+        self.list
+            .reset_with_uniform_height(self.visible.len(), LINE_HINT);
         self.with_other(|e| e.list.reset(e.visible.len()));
     }
 
@@ -913,11 +911,14 @@ impl Editor {
         }
         lines.sort_unstable();
         lines.dedup();
+        // Measured again, their last heights kept meanwhile: revealing the
+        // cursor right after counts them (a splice forgot them, and the
+        // cursor stopped two lines below the pane's bottom).
         for l in lines {
             if let Some(i) = self.item_of(l)
                 && (i < prefix || i >= prefix + new_items)
             {
-                self.list.splice(i..i + 1, 1);
+                self.list.remeasure_items(i..i + 1);
             }
         }
         self.cursor_line = now;
@@ -959,7 +960,21 @@ impl Editor {
         self.sync_list(&changes);
         let line = self.doc.text().line_of(self.doc.selection.head);
         if let Some(i) = self.item_of(line) {
-            self.list.scroll_to_reveal_item(i);
+            // Far below what is laid out (Page Down): the list knows no
+            // heights there, so it goes to about the right place by the
+            // lines' usual height, and the next frames reveal it exactly.
+            let top = self.list.logical_scroll_top().item_ix;
+            if i > top && self.list.bounds_for_item(i).is_none() {
+                let rows = (f32::from(self.list.viewport_bounds().size.height)
+                    / f32::from(LINE_HINT)) as usize;
+                self.list.scroll_to(gpui::ListOffset {
+                    item_ix: (i + 1).saturating_sub(rows.max(1)),
+                    offset_in_item: px(0.),
+                });
+            } else {
+                self.reveal_item(i);
+            }
+            self.reveal_again = Some((line, 2));
         }
         self.with_other(|e| {
             if let Some(i) = e.item_of(line) {
@@ -967,6 +982,26 @@ impl Editor {
             }
         });
         cx.notify();
+    }
+
+    /// Scrolls so that list item `i` shows: in a CSV grid whose header row
+    /// stays at the top, below that row rather than under it.
+    fn reveal_item(&mut self, i: usize) {
+        self.list.scroll_to_reveal_item(i);
+        let pinned = self.doc.meta.mode == DocumentMode::Csv
+            && !self.source
+            && i > 0
+            && self.visible.first() == Some(&0)
+            && kalem_core::csv::layout(&self.doc).dialect.header;
+        if pinned {
+            let top = self.list.logical_scroll_top();
+            if top.item_ix >= i || (top.item_ix + 1 == i && top.offset_in_item > px(0.)) {
+                self.list.scroll_to(gpui::ListOffset {
+                    item_ix: i - 1,
+                    offset_in_item: px(0.),
+                });
+            }
+        }
     }
 
     /// Unfolds the headlines that hide the cursor.
@@ -2386,12 +2421,27 @@ impl Editor {
                     text.len()
                 }
             }
-            "up" | "down" => self.vertical(if key == "up" { -1 } else { 1 }),
-            "pageup" | "pagedown" => {
-                let rows = (f32::from(self.list.viewport_bounds().size.height)
-                    / (self.theme.size * 1.45)) as isize;
-                let d = rows.max(1) * if key == "pageup" { -1 } else { 1 };
-                self.vertical(d)
+            "up" | "down" | "pageup" | "pagedown" => {
+                let rows = match key {
+                    "up" => -1,
+                    "down" => 1,
+                    _ => {
+                        let page = (f32::from(self.list.viewport_bounds().size.height)
+                            / (self.theme.size * 1.45)) as isize;
+                        page.max(1) * if key == "pageup" { -1 } else { 1 }
+                    }
+                };
+                // A CSV grid: the same column, rows as records, whether
+                // drawn yet or not (the text's lines are not the grid's).
+                if self.doc.meta.mode == DocumentMode::Csv && !self.source {
+                    let visible = &self.visible;
+                    let text = self.doc.text();
+                    let shown = |at: usize| visible.binary_search(&text.line_of(at)).is_ok();
+                    if let Some(t) = kalem_core::csv::vertical_target(&self.doc, rows, shown) {
+                        return Some(t);
+                    }
+                }
+                self.vertical(rows)
             }
             "home" => text.line_range(line).start,
             "end" => text.line_range(line).end,
@@ -2442,12 +2492,7 @@ impl Editor {
             return;
         }
         let text = self.doc.text().as_str();
-        let lang = match &self.doc.meta.mode {
-            DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
-            DocumentMode::Markdown => Some("md"),
-            DocumentMode::Latex => Some("latex"),
-            _ => None,
-        };
+        let lang = kalem_core::mode_view::highlight_language(&self.doc);
         // Very large files are colored a window at a time (T2.7a.3).
         // Markdown as it reads colors only its code blocks (each on its
         // own, `line::code_spans`): the whole text's colors, slow to make
@@ -2547,87 +2592,32 @@ impl Editor {
         if range.end > range.start && text.as_str().as_bytes()[range.end - 1] == b'\r' {
             range.end -= 1;
         }
-        // A very long line, in any mode: the part around the cursor, as
-        // it is (laying out all of it would take seconds).
-        if range.len() > view::LONG_LINE {
-            let mut v = view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
-            v.mono = self.doc.meta.mode != DocumentMode::Org;
-            return v;
-        }
-        // LaTeX: the document as it reads (the source view shows the text).
-        if self.doc.meta.mode == DocumentMode::Latex && !self.source {
-            // A paragraph over several lines, away from the cursor: one.
+        // LaTeX: a paragraph over several lines, away from the cursor, as
+        // one.
+        let paragraph = if self.doc.meta.mode == DocumentMode::Latex && !self.source {
             let ps = self.paragraphs();
             let i = ps.partition_point(|p| p.start < range.start);
-            if let Some(p) = ps.get(i).filter(|p| p.start == range.start)
-                && self.cursor_paragraph().as_ref() != Some(p)
-            {
-                return kalem_core::latex_view::paragraph_view(
-                    &self.doc,
-                    p.clone(),
-                    Some(self.doc.selection.head),
-                );
-            }
-            return kalem_core::latex_view::line_view(
-                &self.doc,
-                range,
-                Some(self.doc.selection.head),
-            );
+            ps.get(i)
+                .filter(|p| p.start == range.start && self.cursor_paragraph().as_ref() != Some(*p))
+                .cloned()
+        } else {
+            None
+        };
+        let grid = self.doc.meta.mode == DocumentMode::Csv
+            && !self.source
+            && range.len() <= view::LONG_LINE;
+        let mut v = kalem_core::mode_view::line_view(
+            &self.doc,
+            self.source,
+            range,
+            Some(self.doc.selection.head),
+            paragraph,
+        );
+        // CSV in the spreadsheet look: the grid's cells as a sheet's.
+        if grid && kalem_core::csv::layout(&self.doc).view.sheet {
+            sheet_runs(&mut v);
         }
-        // CSV: a row of the grid (the source view shows the text).
-        // BibTeX: an entry as a row of the grid, away from the cursor.
-        if kalem_core::bibtex::is_bib(&self.doc) && !self.source {
-            return kalem_core::bibtex::line_view(&self.doc, range, Some(self.doc.selection.head));
-        }
-        if self.doc.meta.mode == DocumentMode::Csv && !self.source {
-            let layout = kalem_core::csv::layout(&self.doc);
-            let mut v = kalem_core::csv::line_view(
-                &layout,
-                text.as_str(),
-                range,
-                Some(self.doc.selection.head),
-            );
-            if layout.view.sheet {
-                sheet_runs(&mut v);
-            }
-            return v;
-        }
-        // Markdown: as it reads, markers hidden away from the cursor.
-        if self.doc.meta.mode == DocumentMode::Markdown && !self.source {
-            return kalem_core::markdown::line_view(
-                &self.doc,
-                range,
-                Some(self.doc.selection.head),
-            );
-        }
-        match self.doc.parse() {
-            Some((p, true)) if self.source => {
-                view::source_line_view(&p.syntax(), p.context(), text.as_str(), range)
-            }
-            Some((p, true)) => {
-                let table = text.as_str()[range.clone()].trim_start().starts_with('|');
-                let root = p.syntax();
-                view::line_view_with(
-                    &root,
-                    p.context(),
-                    range,
-                    Some(self.doc.selection.head),
-                    table,
-                )
-            }
-            // Plain text is monospace, as the source view; a very long
-            // line shows the part around the cursor.
-            _ => {
-                let mut v =
-                    view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
-                v.mono = self.doc.meta.mode != DocumentMode::Org;
-                // LaTeX's source view: the diagnostics flagged too; a
-                // language server's problems in code files.
-                kalem_core::latex_view::flag_diagnostics(&self.doc, &mut v);
-                kalem_core::lsp::flag_diagnostics(&self.doc, &mut v);
-                v
-            }
-        }
+        v
     }
 
     /// One grapheme left or right in the display, skipping hidden markup.
@@ -2732,9 +2722,13 @@ impl Editor {
                 });
             }
         }
+        // The first line there: a CSV grid's pinned header row is painted
+        // over the row scrolled under it.
         let p = painted
-            .values()
-            .find(|p| p.bounds.top() <= pos.y && pos.y < p.bounds.bottom())
+            .iter()
+            .filter(|(_, p)| p.bounds.top() <= pos.y && pos.y < p.bounds.bottom())
+            .min_by_key(|(l, _)| **l)
+            .map(|(_, p)| p)
             .or_else(|| {
                 // Below the last line: its end.
                 painted
@@ -2758,7 +2752,13 @@ impl Editor {
                 });
             }
         }
-        let d = p.layout.index_for_position(pos - p.bounds.origin);
+        // A CSV grid's frozen first column is painted unscrolled.
+        let mut origin = p.bounds.origin;
+        let frozen = self.frozen.get();
+        if frozen > px(0.) && self.hscroll > px(0.) && pos.x < origin.x + self.hscroll + frozen {
+            origin.x += self.hscroll;
+        }
+        let d = p.layout.index_for_position(pos - origin);
         Some(Hit {
             pos: p.view.source_offset(d),
             widget: None,
@@ -2842,23 +2842,13 @@ impl Editor {
         };
         if open && widget.is_none() {
             self.doc.move_cursor(pos, false);
-            let id = if self.doc.latex().is_some() {
-                "latex.link.open"
-            } else if self.doc.meta.mode == DocumentMode::Markdown {
-                "markdown.openLink"
-            } else {
-                "org.link.open"
-            };
+            let id = kalem_core::mode_view::open_link_command(&self.doc);
             self.run_command(id, Value::Null, window, cx);
             return;
         }
         if let Some((src, Widget::Checkbox(_))) = widget {
             self.doc.move_cursor(src.start, false);
-            let id = if self.doc.meta.mode == DocumentMode::Markdown {
-                "markdown.toggleCheckbox"
-            } else {
-                "list.toggleCheckbox"
-            };
+            let id = kalem_core::mode_view::checkbox_command(&self.doc);
             self.run_command(id, Value::Null, window, cx);
             return;
         }
@@ -3328,7 +3318,8 @@ impl Editor {
         if self.doc.poll() {
             self.blocks = None;
             self.visible = self.compute_visible();
-            self.list.reset(self.visible.len());
+            self.list
+                .reset_with_uniform_height(self.visible.len(), LINE_HINT);
             cx.notify();
         }
     }
@@ -4057,6 +4048,11 @@ fn build_a11y(b: &mut gpui::A11ySubtreeBuilder<'_>, t: A11yText) {
     }
 }
 
+/// The height a line not laid out yet is counted at (a body line), so
+/// that revealing a line far away scrolls about right before the lines
+/// between are measured.
+const LINE_HINT: Pixels = px(23.);
+
 impl gpui::Render for Editor {
     fn render(
         &mut self,
@@ -4064,6 +4060,17 @@ impl gpui::Render for Editor {
         cx: &mut Context<'_, Self>,
     ) -> impl gpui::IntoElement {
         self.apply_resume();
+        // The cursor revealed once more, the lines around it measured by
+        // the last frame's layout.
+        if let Some((line, frames)) = self.reveal_again.take()
+            && let Some(i) = self.item_of(line)
+        {
+            self.reveal_item(i);
+            if frames > 1 {
+                self.reveal_again = Some((line, frames - 1));
+                cx.notify();
+            }
+        }
         use gpui::{
             InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
             div, list,

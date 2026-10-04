@@ -95,7 +95,10 @@ pub fn draw(
         draw_grid(v, caps, buf, Rect::new(pic.x, pic.y + 1, pic.width, grid_h));
         draw_formula_bar(v, caps, buf, bar);
         if let Some(row) = tab_row {
-            draw_tabs(&tabs, v.unit, caps, buf, row);
+            let spots = draw_tabs(&tabs, v.unit, caps, buf, row);
+            if let Some(h) = v.hits.as_mut() {
+                h.tabs = spots;
+            }
         }
     } else {
         match picker(images, caps) {
@@ -126,9 +129,11 @@ fn draw_tabs(
     caps: &Caps,
     buf: &mut Buffer,
     row: Rect,
-) {
+) -> Vec<(usize, u16, u16, u16)> {
+    let mut spots = Vec::new();
     let mut x = row.x;
     for (u, name, color) in tabs {
+        let start = x;
         if x >= row.right() {
             break;
         }
@@ -150,7 +155,37 @@ fn draw_tabs(
         let label = format!(" {name} ");
         let room = (row.right() - x) as usize;
         let (nx, _) = buf.set_stringn(x, row.y, &label, room, st);
+        spots.push((*u, row.y, start, nx - start));
         x = nx + 1;
+    }
+    spots
+}
+
+/// A pattern or gradient fill as one color: a pattern's colors mixed as
+/// much as it covers, a gradient's color `at` (0 to 1) along it.
+fn pattern_color(p: Option<&kalem_viewer::FillPattern>, at: f32) -> Option<[u8; 3]> {
+    let mix = |a: [u8; 3], b: [u8; 3], share: f32| {
+        let m = |x: u8, y: u8| (f32::from(x) * share + f32::from(y) * (1.0 - share)).round() as u8;
+        [m(a[0], b[0]), m(a[1], b[1]), m(a[2], b[2])]
+    };
+    match p? {
+        kalem_viewer::FillPattern::Gradient { from, to, .. } => Some(mix(*to, *from, at)),
+        kalem_viewer::FillPattern::Pattern {
+            kind,
+            color,
+            background,
+        } => {
+            let share = match kind.as_str() {
+                "darkGray" => 0.75,
+                "mediumGray" => 0.5,
+                "lightGray" => 0.25,
+                "gray125" => 0.125,
+                "gray0625" => 0.0625,
+                k if k.starts_with("dark") => 0.5,
+                _ => 0.25,
+            };
+            Some(mix(*color, *background, share))
+        }
     }
 }
 
@@ -280,6 +315,26 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     if v.grid_pos() != pos {
         return draw_grid(v, caps, buf, area);
     }
+    // Where each part went, for the mouse.
+    let mut hx = area.x + gutter;
+    v.hits = Some(kalem_core::viewer::GridHits {
+        cols: cols
+            .iter()
+            .map(|&(c, w)| {
+                let at = (c, hx, w);
+                hx += w;
+                at
+            })
+            .collect(),
+        rows: rows
+            .iter()
+            .enumerate()
+            .map(|(i, &(r, _))| (r, area.y + letters + i as u16))
+            .collect(),
+        letters: (letters > 0).then_some(area.y),
+        gutter: (area.x, gutter),
+        tabs: Vec::new(),
+    });
     let dim = Style::default().add_modifier(Modifier::DIM);
     let head = Style::default().add_modifier(Modifier::BOLD);
     // The cells in view.
@@ -529,6 +584,10 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                         if let Some([r, g, b]) = cell.fill {
                             style = style.bg(ratatui::style::Color::Rgb(r, g, b));
                         }
+                        // A pattern as its colors mixed; a gradient as its middle.
+                        if let Some([r, g, b]) = pattern_color(cell.fill_pattern.as_ref(), 0.5) {
+                            style = style.bg(ratatui::style::Color::Rgb(r, g, b));
+                        }
                     }
                     let t: String = cell.text.chars().filter(|ch| !ch.is_control()).collect();
                     let len = t.chars().count();
@@ -624,6 +683,22 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                         st = st.fg(ratatui::style::Color::Rgb(*cr, *cg, *cb));
                     }
                     buf.set_stringn(x, y, g, 1, st);
+                }
+                // A gradient across the cell, a color a column.
+                if let Some(kalem_viewer::FillPattern::Gradient { angle, .. }) = &cell.fill_pattern
+                    && !caps.no_color
+                    && (*angle < 45 || *angle > 315 || (135..225).contains(angle))
+                    && inner > 1
+                {
+                    for i in 0..inner {
+                        let mut at = i as f32 / (inner - 1) as f32;
+                        if (135..225).contains(angle) {
+                            at = 1.0 - at;
+                        }
+                        if let Some([r, g, b]) = pattern_color(cell.fill_pattern.as_ref(), at) {
+                            buf[(x + i as u16, y)].set_bg(ratatui::style::Color::Rgb(r, g, b));
+                        }
+                    }
                 }
                 // A data bar: the cell's background over its share of the width.
                 if let Some((len, [br, bg, bb])) = cell.bar
@@ -743,13 +818,26 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             // Borders: a side as the line beside the cell in its color, the
             // bottom as the cell underlined.
             let side = |k: Option<&kalem_viewer::GridCell>, i: usize| {
-                k.and_then(|k| k.borders[i].map(|col| (col, k.border_thick[i])))
+                k.and_then(|k| {
+                    k.borders[i].map(|col| {
+                        let line = k.border_styles[i].unwrap_or(if k.border_thick[i] {
+                            kalem_viewer::LineStyle::Medium
+                        } else {
+                            kalem_viewer::LineStyle::Thin
+                        });
+                        (col, line)
+                    })
+                })
             };
-            let line = |(col, thick): ([u8; 3], bool)| {
-                let sym = match (caps.ascii, thick) {
+            let line = |(col, style): ([u8; 3], kalem_viewer::LineStyle)| {
+                use kalem_viewer::LineStyle;
+                let sym = match (caps.ascii, style) {
                     (true, _) => "|",
-                    (false, true) => "┃",
-                    (false, false) => "│",
+                    (false, LineStyle::Double) => "║",
+                    (false, LineStyle::Dashed) => "┆",
+                    (false, LineStyle::Dotted) => "┊",
+                    (false, LineStyle::Medium | LineStyle::Thick) => "┃",
+                    (false, _) => "│",
                 };
                 // Automatic (black) in the text's color, seen on any theme.
                 let st = match col {

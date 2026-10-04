@@ -372,6 +372,14 @@ pub struct ViewerState {
     threads_cache: Option<(UnitAt, Vec<kalem_viewer::CommentThread>)>,
     /// The sheets' tabs (unit, name, color), by generation.
     tabs_cache: Option<(u64, Vec<SheetTab>)>,
+    /// Where the terminal last drew the grid, for the mouse.
+    pub hits: Option<GridHits>,
+    /// The circular references, by generation.
+    circ_cache: Option<(u64, Vec<SheetCell>)>,
+    /// Words Spelling ignores until the file is closed.
+    pub spell_ignored: std::collections::HashSet<String>,
+    /// The dictionary Spelling uses, when chosen.
+    pub spell_language: Option<String>,
     /// Each sheet's view settings, read once.
     views: std::collections::HashMap<usize, kalem_viewer::SheetView>,
     /// Page Break Preview's pages, by unit and generation.
@@ -392,6 +400,10 @@ pub struct GridSearch {
     /// In what the cells hold (formulas, values as entered) rather than
     /// what they show.
     pub formulas: bool,
+    /// In the cells' notes and comments too.
+    pub notes: bool,
+    /// In every sheet of the workbook, not the one shown.
+    pub workbook: bool,
 }
 
 impl GridSearch {
@@ -475,6 +487,65 @@ impl PageBreaks {
         (self.rows.len() + 1) * (self.cols.len() + 1)
     }
 }
+
+/// Where the terminal drew a grid's parts, for the mouse: the screen
+/// columns of each column shown, the screen rows of each row, the
+/// letters' row, the numbers' columns and the sheets' tabs.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct GridHits {
+    /// Each column shown: its column, first screen column and width.
+    pub cols: Vec<(u32, u16, u16)>,
+    /// Each row shown: its row and screen row.
+    pub rows: Vec<(u32, u16)>,
+    /// The letters' screen row, when headings are shown.
+    pub letters: Option<u16>,
+    /// The row numbers' screen columns.
+    pub gutter: (u16, u16),
+    /// Each tab: its unit, screen row, first screen column and width.
+    pub tabs: Vec<(usize, u16, u16, u16)>,
+}
+
+/// What a point of a drawn grid is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GridSpot {
+    /// A cell.
+    Cell(u32, u32),
+    /// A column's letter.
+    Column(u32),
+    /// A row's number.
+    Row(u32),
+    /// A sheet's tab.
+    Tab(usize),
+}
+
+impl GridHits {
+    /// What the screen point (`x`, `y`) is on.
+    pub fn at(&self, x: u16, y: u16) -> Option<GridSpot> {
+        if let Some(&(u, ..)) = self
+            .tabs
+            .iter()
+            .find(|(_, ty, tx, w)| *ty == y && (*tx..tx + w).contains(&x))
+        {
+            return Some(GridSpot::Tab(u));
+        }
+        let col = self
+            .cols
+            .iter()
+            .find(|(_, cx, w)| (*cx..cx + w).contains(&x))
+            .map(|c| c.0);
+        let row = self.rows.iter().find(|(_, ry)| *ry == y).map(|r| r.0);
+        if self.letters == Some(y) {
+            return col.map(GridSpot::Column);
+        }
+        if (self.gutter.0..self.gutter.0 + self.gutter.1).contains(&x) {
+            return row.map(GridSpot::Row);
+        }
+        Some(GridSpot::Cell(row?, col?))
+    }
+}
+
+/// A cell of a workbook: its sheet, row and column.
+pub type SheetCell = (usize, u32, u32);
 
 /// A sheet's tab: its unit, its name, its color.
 pub type SheetTab = (usize, String, Option<[u8; 3]>);
@@ -625,6 +696,10 @@ impl ViewerState {
             threads_cache: None,
             tabs_cache: None,
             views: std::collections::HashMap::new(),
+            hits: None,
+            circ_cache: None,
+            spell_ignored: std::collections::HashSet::new(),
+            spell_language: None,
             pages_cache: None,
             pictures: std::collections::HashMap::new(),
         })
@@ -1678,6 +1753,18 @@ impl ViewerState {
             if let Some(sums) = self.selection_sums() {
                 parts.push(sums);
             }
+            if self.doc().calc_options().mode == kalem_viewer::CalcMode::Manual {
+                parts.push("Manual calculation".into());
+            }
+            if let Some(&(u, r, c)) = self.circular_references().first() {
+                let at = format!("{}{}", crate::csv_tools::column_letters(c as usize), r + 1);
+                let sheet = if u == self.unit {
+                    String::new()
+                } else {
+                    format!("{}!", self.structure.units[u].label)
+                };
+                parts.push(format!("Circular references: {sheet}{at}"));
+            }
             let view = self.sheet_view();
             if view.zoom != 100 {
                 parts.push(format!("{}%", view.zoom));
@@ -1805,7 +1892,14 @@ impl ViewerState {
     /// Tells the state how many rows and columns the frontend shows,
     /// frozen ones included, for paging and keeping the cursor in view.
     pub fn set_grid_visible(&mut self, rows: u32, cols: u32) {
-        self.grid_visible = (rows.max(1), cols.max(1));
+        let now = (rows.max(1), cols.max(1));
+        if now == self.grid_visible {
+            // The view scrolled by the wheel stays where it is, the cursor
+            // out of it as in a spreadsheet; it comes back when the cursor
+            // moves.
+            return;
+        }
+        self.grid_visible = now;
         let p = self.grid_pos();
         self.place(p.row, p.col);
     }
@@ -3616,7 +3710,13 @@ impl ViewerState {
     /// The cells Find matches, row by row, with what it matched in each
     /// (what the cell shows, or holds for a search in formulas).
     pub fn find_matches(&mut self) -> Vec<(u32, u32, String)> {
-        let Some(l) = self.grid_layout() else {
+        let unit = self.unit;
+        self.find_matches_in(unit)
+    }
+
+    /// Find's matches in sheet `unit`.
+    pub fn find_matches_in(&mut self, unit: usize) -> Vec<(u32, u32, String)> {
+        let Some(l) = self.doc().grid(unit) else {
             return Vec::new();
         };
         let (rows, cols) = (l.rows.min(l.max_rows), l.cols.min(l.max_cols).max(1));
@@ -3625,50 +3725,163 @@ impl ViewerState {
         let mut row = 0;
         while row < rows {
             let to = (row + 1000).min(rows);
-            let mut cells: Vec<(u32, u32, String)> = self
-                .grid_cells(row..to, 0..cols)
+            let mut cells: Vec<(u32, u32, String, bool)> = self
+                .doc()
+                .grid_cells(unit, row..to, 0..cols)
                 .into_iter()
-                .filter(|c| !c.2.text.is_empty() || c.2.formula)
-                .map(|c| (c.0, c.1, c.2.text))
+                .filter(|c| !c.2.text.is_empty() || c.2.formula || c.2.note)
+                .map(|c| (c.0, c.1, c.2.text, c.2.note))
                 .collect();
             cells.sort_by_key(|c| (c.0, c.1));
-            for (r, c, shown) in cells {
+            for (r, c, shown, note) in cells {
                 let hay = if search.formulas {
-                    self.doc().cell_input(self.unit, r, c)
+                    self.doc().cell_input(unit, r, c)
                 } else {
                     shown
                 };
                 if search.matches(&hay) {
                     out.push((r, c, hay));
+                } else if search.notes
+                    && note
+                    && let Some(n) = self.doc().cell_note(unit, r, c)
+                    && search.matches(&n)
+                {
+                    out.push((r, c, n));
                 }
             }
             row = to;
+        }
+        // Comments, on cells holding nothing too.
+        if search.notes {
+            for t in self.doc().threads(unit) {
+                let text: String = t
+                    .comments
+                    .iter()
+                    .map(|c| c.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if search.matches(&text) && !out.iter().any(|m| (m.0, m.1) == (t.row, t.col)) {
+                    out.push((t.row, t.col, text));
+                }
+            }
+            out.sort_by_key(|m| (m.0, m.1));
+        }
+        out
+    }
+
+    /// Find All: every match (sheet, row, column, what matched), in the
+    /// sheet shown or with Within Workbook in every sheet.
+    pub fn find_all(&mut self) -> Vec<(usize, u32, u32, String)> {
+        let units: Vec<usize> = if self.grid_search.workbook {
+            (0..self.structure.units.len())
+                .filter(|u| self.is_grid_unit(*u))
+                .collect()
+        } else {
+            vec![self.unit]
+        };
+        let mut out = Vec::new();
+        for u in units {
+            out.extend(
+                self.find_matches_in(u)
+                    .into_iter()
+                    .map(|(r, c, t)| (u, r, c, t)),
+            );
         }
         out
     }
 
     /// Find Next or Previous: the cursor to the next match after it (or
-    /// before), round the sheet; which match it is and how many there are.
+    /// before), round the sheet (or the workbook); which match it is and
+    /// how many there are.
     pub fn find_step(&mut self, forward: bool) -> Result<(usize, usize), String> {
         if self.grid_search.text.is_empty() {
             return Err("Find what? (Ctrl+F)".into());
         }
-        let found = self.find_matches();
+        let found = self.find_all();
         if found.is_empty() {
             return Err(format!("Cannot find {}", self.grid_search.text));
         }
         let p = self.grid_pos();
-        let at = (p.row, p.col);
+        let at = (self.unit, p.row, p.col);
         let i = if forward {
-            found.iter().position(|m| (m.0, m.1) > at).unwrap_or(0)
+            found.iter().position(|m| (m.0, m.1, m.2) > at).unwrap_or(0)
         } else {
             found
                 .iter()
-                .rposition(|m| (m.0, m.1) < at)
+                .rposition(|m| (m.0, m.1, m.2) < at)
                 .unwrap_or(found.len() - 1)
         };
-        self.grid_move_to(found[i].0, found[i].1);
+        if found[i].0 != self.unit {
+            self.go_to(found[i].0);
+        }
+        self.grid_move_to(found[i].1, found[i].2);
         Ok((i + 1, found.len()))
+    }
+
+    /// The next word `speller` does not know in the sheet's text cells,
+    /// from (`row`, `col`, byte `at` in the cell's text) on, row by row:
+    /// its cell, place and the word. Ignored words passed over.
+    pub fn next_misspelling(
+        &mut self,
+        speller: &crate::spelling::Speller,
+        from: (u32, u32, usize),
+        ignored: &std::collections::HashSet<String>,
+    ) -> Option<(u32, u32, usize, String)> {
+        let l = self.grid_layout()?;
+        let (rows, cols) = (l.rows.min(l.max_rows), l.cols.min(l.max_cols).max(1));
+        let mut row = from.0;
+        while row < rows {
+            let to = (row + 500).min(rows);
+            let mut cells: Vec<(u32, u32)> = self
+                .doc()
+                .grid_cells(self.unit, row..to, 0..cols)
+                .into_iter()
+                .filter(|c| !c.2.text.is_empty() && !c.2.formula && !c.2.numeric)
+                .map(|c| (c.0, c.1))
+                .collect();
+            cells.sort();
+            for (r, c) in cells {
+                if (r, c) < (from.0, from.1) {
+                    continue;
+                }
+                let text = self.doc().cell_input(self.unit, r, c);
+                let text = text.strip_prefix('\'').unwrap_or(&text).to_owned();
+                for (i, w) in crate::spelling::words(&text) {
+                    if (r, c) == (from.0, from.1) && i < from.2 {
+                        continue;
+                    }
+                    if !ignored.contains(w) && !crate::spelling::check(speller, w) {
+                        return Some((r, c, i, w.to_owned()));
+                    }
+                }
+            }
+            row = to;
+        }
+        None
+    }
+
+    /// A word of a cell's text (at byte `at`) changed to `with`.
+    pub fn change_word(
+        &mut self,
+        row: u32,
+        col: u32,
+        at: usize,
+        word: &str,
+        with: &str,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let text = self.doc().cell_input(self.unit, row, col);
+        let (quote, body) = match text.strip_prefix('\'') {
+            Some(b) => ("'", b.to_owned()),
+            None => ("", text.clone()),
+        };
+        if body.get(at..at + word.len()) != Some(word) {
+            return Err(format!("{word} is no longer there"));
+        }
+        let new = format!("{quote}{}{with}{}", &body[..at], &body[at + word.len()..]);
+        self.set_cell(row, col, &new)
     }
 
     /// Replace: the cursor's cell's text replaced if it matches, then on
@@ -3734,7 +3947,7 @@ impl ViewerState {
         }
         let places_change = matches!(
             edit,
-            SheetEdit::Insert(_) | SheetEdit::Delete(_) | SheetEdit::Move(..)
+            SheetEdit::Insert(_) | SheetEdit::Delete(_) | SheetEdit::Move(..) | SheetEdit::Copy(..)
         );
         let hiding = matches!(edit, SheetEdit::Hide(_, true));
         let mut shown = self.doc().edit_sheets(edit).map_err(|e| e.to_string())?;
@@ -3925,6 +4138,463 @@ impl ViewerState {
             .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
+    }
+
+    /// Paste Link: formulas referring to the cells copied, from the
+    /// selection's top left (the copied sheet named when it is another).
+    pub fn paste_link(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let Some((unit, r)) = self.copied else {
+            return Err("Copy cells of the workbook first".into());
+        };
+        let sheet = if unit == self.unit {
+            String::new()
+        } else {
+            let name = self.structure.units[unit]
+                .label
+                .trim_end_matches(" (hidden)")
+                .to_owned();
+            let plain = name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                && !name.starts_with(|c: char| c.is_ascii_digit());
+            if plain {
+                format!("{name}!")
+            } else {
+                format!("'{}'!", name.replace('\'', "''"))
+            }
+        };
+        let rows: Vec<Vec<String>> = (r[0]..=r[2])
+            .map(|row| {
+                (r[1]..=r[3])
+                    .map(|col| format!("={sheet}{}", cell_name(row, col)))
+                    .collect()
+            })
+            .collect();
+        let s = self.selection();
+        self.doc()
+            .set_cells(self.unit, s[0], s[1], &rows)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Paste Special's operations: each copied number added to, taken from,
+    /// multiplying or dividing the cell it lands on (a formula there made
+    /// `=(formula)+n`, an empty one counted 0); text pasted as it is; with
+    /// `skip_blanks`, empty copied cells leave the cells under them.
+    pub fn paste_operation(&mut self, op: Option<char>, skip_blanks: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let Some((unit, r)) = self.copied else {
+            return Err("Copy cells of the workbook first".into());
+        };
+        let s = self.selection();
+        let me = self.unit;
+        if op.is_none() {
+            // Skip Blanks: each run of copied cells holding something,
+            // pasted whole (formats too).
+            let mut doc = self.doc();
+            for row in r[0]..=r[2] {
+                let mut col = r[1];
+                while col <= r[3] {
+                    if doc.cell_input(unit, row, col).is_empty() {
+                        col += 1;
+                        continue;
+                    }
+                    let start = col;
+                    while col < r[3] && !doc.cell_input(unit, row, col + 1).is_empty() {
+                        col += 1;
+                    }
+                    doc.paste_cells(
+                        (unit, [row, start, row, col]),
+                        (me, s[0] + row - r[0], s[1] + start - r[1]),
+                        kalem_viewer::PasteKind::All,
+                        false,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    col += 1;
+                }
+            }
+            drop(doc);
+            self.refresh();
+            return Ok(());
+        }
+        let op = op.unwrap_or('+');
+        let num = |t: &str| t.trim().parse::<f64>().ok();
+        let mut cells: Vec<(u32, u32, String)> = Vec::new();
+        {
+            let mut doc = self.doc();
+            for row in r[0]..=r[2] {
+                for col in r[1]..=r[3] {
+                    let src = doc.cell_input(unit, row, col);
+                    let (tr, tc) = (s[0] + row - r[0], s[1] + col - r[1]);
+                    if src.is_empty() && skip_blanks {
+                        continue;
+                    }
+                    let n = if src.is_empty() { Some(0.0) } else { num(&src) };
+                    let Some(n) = n else {
+                        // Text (or a formula's result taken as it is).
+                        cells.push((tr, tc, src));
+                        continue;
+                    };
+                    let target = doc.cell_input(me, tr, tc);
+                    let calc = |t: f64| match op {
+                        '+' => t + n,
+                        '-' => t - n,
+                        '*' => t * n,
+                        _ => t / n,
+                    };
+                    let new = if let Some(f) = target.strip_prefix('=') {
+                        format!("=({f}){op}{n}")
+                    } else if target.is_empty() {
+                        calc(0.0).to_string()
+                    } else if let Some(t) = num(&target) {
+                        let v = calc(t);
+                        if v.is_finite() {
+                            v.to_string()
+                        } else {
+                            "#DIV/0!".into()
+                        }
+                    } else {
+                        continue;
+                    };
+                    cells.push((tr, tc, new));
+                }
+            }
+        }
+        self.set_cells_at(&cells)
+    }
+
+    /// Entries put into scattered cells of the sheet shown, one step.
+    fn set_cells_at(&mut self, cells: &[(u32, u32, String)]) -> Result<(), String> {
+        let Some((r0, c0)) = cells.iter().map(|c| (c.0, c.1)).min() else {
+            return Ok(());
+        };
+        let r1 = cells.iter().map(|c| c.0).max().unwrap_or(r0);
+        let (cmin, cmax) = (
+            cells.iter().map(|c| c.1).min().unwrap_or(c0),
+            cells.iter().map(|c| c.1).max().unwrap_or(c0),
+        );
+        // The block they span, with what the others hold now.
+        let mut rows: Vec<Vec<String>> = Vec::new();
+        {
+            let mut doc = self.doc();
+            for row in r0..=r1 {
+                rows.push(
+                    (cmin..=cmax)
+                        .map(|col| doc.cell_input(self.unit, row, col))
+                        .collect(),
+                );
+            }
+        }
+        for (r, c, v) in cells {
+            rows[(r - r0) as usize][(c - cmin) as usize] = v.clone();
+        }
+        self.doc()
+            .set_cells(self.unit, r0, cmin, &rows)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Insert Copied Cells: room made at the cursor for the cells copied,
+    /// the others moved down (or right), and the cells pasted there.
+    pub fn insert_copied_cells(&mut self, down: bool) -> Result<(), String> {
+        let Some((_, r)) = self.copied else {
+            return Err("Copy cells of the workbook first".into());
+        };
+        let p = self.grid_pos();
+        self.grid_move_to(p.row, p.col);
+        self.grid_extend_to(p.row + r[2] - r[0], p.col + r[3] - r[1]);
+        self.insert_cells(down)?;
+        self.grid_move_to(p.row, p.col);
+        self.paste_special(kalem_viewer::PasteKind::All, false)
+    }
+
+    /// The Series dialog: from each first cell of the selection's columns
+    /// (or rows, `rows`), the cells after it filled by a step: added
+    /// (linear), multiplied (growth), or in days, weekdays, months or years
+    /// for a date; up to `stop` when given.
+    pub fn fill_series_by(
+        &mut self,
+        rows: bool,
+        kind: &str,
+        step: f64,
+        stop: Option<f64>,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let lines: Vec<Vec<(u32, u32)>> = if rows {
+            (s[0]..=s[2])
+                .map(|r| (s[1]..=s[3]).map(|c| (r, c)).collect())
+                .collect()
+        } else {
+            (s[1]..=s[3])
+                .map(|c| (s[0]..=s[2]).map(|r| (r, c)).collect())
+                .collect()
+        };
+        let mut cells = Vec::new();
+        for line in lines {
+            let Some(&(r, c)) = line.first() else {
+                continue;
+            };
+            let first = self.doc().cell_input(self.unit, r, c);
+            if kind == "linear" || kind == "growth" {
+                let Ok(mut v) = first.trim().parse::<f64>() else {
+                    continue;
+                };
+                for &(r, c) in &line[1..] {
+                    v = if kind == "growth" { v * step } else { v + step };
+                    if stop.is_some_and(|x| {
+                        if step >= 0.0 || kind == "growth" {
+                            v > x
+                        } else {
+                            v < x
+                        }
+                    }) {
+                        break;
+                    }
+                    cells.push((r, c, v.to_string()));
+                }
+            } else {
+                let date = first.split(' ').next().unwrap_or_default();
+                let Ok(mut d) = date.parse::<jiff::civil::Date>() else {
+                    return Err(format!("{} does not hold a date", cell_name(r, c)));
+                };
+                let n = step.round() as i64;
+                let stop_date = stop.and_then(|x| {
+                    jiff::civil::date(1899, 12, 30)
+                        .checked_add(jiff::Span::new().days(x as i64))
+                        .ok()
+                });
+                for &(r, c) in &line[1..] {
+                    d = match kind {
+                        "weekday" => {
+                            let mut x = d;
+                            let mut left = n.abs();
+                            while left > 0 {
+                                x = x
+                                    .checked_add(jiff::Span::new().days(n.signum()))
+                                    .map_err(|e| e.to_string())?;
+                                if !matches!(
+                                    x.weekday(),
+                                    jiff::civil::Weekday::Saturday | jiff::civil::Weekday::Sunday
+                                ) {
+                                    left -= 1;
+                                }
+                            }
+                            x
+                        }
+                        "month" => d
+                            .checked_add(jiff::Span::new().months(n))
+                            .map_err(|e| e.to_string())?,
+                        "year" => d
+                            .checked_add(jiff::Span::new().years(n))
+                            .map_err(|e| e.to_string())?,
+                        _ => d
+                            .checked_add(jiff::Span::new().days(n))
+                            .map_err(|e| e.to_string())?,
+                    };
+                    if stop_date.is_some_and(|x| if n >= 0 { d > x } else { d < x }) {
+                        break;
+                    }
+                    cells.push((r, c, d.to_string()));
+                }
+            }
+        }
+        self.set_cells_at(&cells)
+    }
+
+    /// Fill Justify: the texts of the selection's first column joined and
+    /// broken again into lines as wide as the column, from its first cell
+    /// down (the cells left over emptied).
+    pub fn fill_justify(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let width = self
+            .grid_layout()
+            .map_or(8.43, |l| {
+                l.widths
+                    .get(s[1] as usize)
+                    .copied()
+                    .unwrap_or(l.default_width)
+            })
+            .max(1.0) as usize;
+        let mut words: Vec<String> = Vec::new();
+        for r in s[0]..=s[2] {
+            let t = self.doc().cell_input(self.unit, r, s[1]);
+            words.extend(t.split_whitespace().map(str::to_owned));
+        }
+        let mut lines: Vec<String> = Vec::new();
+        for w in words {
+            match lines.last_mut() {
+                Some(l) if l.chars().count() + 1 + w.chars().count() <= width => {
+                    l.push(' ');
+                    l.push_str(&w);
+                }
+                _ => lines.push(w),
+            }
+        }
+        let n = (s[2] - s[0] + 1) as usize;
+        if lines.len() > n {
+            return Err(format!(
+                "The text needs {} rows; select as many",
+                lines.len()
+            ));
+        }
+        let cells: Vec<(u32, u32, String)> = (0..n)
+            .map(|i| {
+                (
+                    s[0] + i as u32,
+                    s[1],
+                    lines.get(i).cloned().unwrap_or_default(),
+                )
+            })
+            .collect();
+        self.set_cells_at(&cells)
+    }
+
+    /// The list a filter works on: the table at the cursor.
+    pub fn list_range(&mut self) -> [u32; 4] {
+        self.table_target().0
+    }
+
+    /// Rows shown again.
+    pub fn show_rows(&mut self, from: u32, to: u32) -> Result<(), String> {
+        if from <= to {
+            self.doc()
+                .set_hidden(self.unit, true, from, to, false)
+                .map_err(|e| e.to_string())?;
+        }
+        self.refresh();
+        Ok(())
+    }
+
+    /// Advanced Filter: the list's records (its first row the headers)
+    /// that a criteria range's rows allow (each row's conditions all
+    /// holding, any row will do), shown in place (the others hidden) or
+    /// copied with the headers to `copy_to`; duplicates left out with
+    /// `unique`. How many records.
+    pub fn advanced_filter(
+        &mut self,
+        list: [u32; 4],
+        criteria: [u32; 4],
+        copy_to: Option<(u32, u32)>,
+        unique: bool,
+    ) -> Result<usize, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        if list[0] >= list[2] || criteria[0] >= criteria[2] {
+            return Err("The list and the criteria need a header row and rows under it".into());
+        }
+        let unit = self.unit;
+        // What each cell shows, and its number if it is one.
+        let read = |r: u32, c: u32| -> (String, Option<f64>) {
+            let mut d = self.doc();
+            let shown = d
+                .grid_cells(unit, r..r + 1, c..c + 1)
+                .into_iter()
+                .next()
+                .map(|x| (x.2.text, x.2.numeric))
+                .unwrap_or_default();
+            let n = if shown.1 {
+                // A number as entered; a formula's, as it shows.
+                d.cell_input(unit, r, c)
+                    .trim()
+                    .parse::<f64>()
+                    .ok()
+                    .or_else(|| {
+                        shown
+                            .0
+                            .chars()
+                            .filter(|ch| ch.is_ascii_digit() || matches!(ch, '.' | '-' | 'e' | 'E'))
+                            .collect::<String>()
+                            .parse()
+                            .ok()
+                    })
+            } else {
+                None
+            };
+            (shown.0, n)
+        };
+        let heads: Vec<String> = (list[1]..=list[3])
+            .map(|c| read(list[0], c).0.trim().to_lowercase())
+            .collect();
+        // Each criteria row: (column of the list, condition).
+        let mut rules: Vec<Vec<(usize, String)>> = Vec::new();
+        for r in criteria[0] + 1..=criteria[2] {
+            let mut row = Vec::new();
+            for c in criteria[1]..=criteria[3] {
+                let head = read(criteria[0], c).0.trim().to_lowercase();
+                let cond = read(r, c).0;
+                if cond.trim().is_empty() {
+                    continue;
+                }
+                let Some(k) = heads.iter().position(|h| *h == head) else {
+                    return Err(format!("The criteria's {head} is not a column of the list"));
+                };
+                row.push((k, cond));
+            }
+            rules.push(row);
+        }
+        let mut found: Vec<u32> = Vec::new();
+        let mut seen: std::collections::HashSet<Vec<String>> = Default::default();
+        for r in list[0] + 1..=list[2] {
+            let cells: Vec<(String, Option<f64>)> =
+                (list[1]..=list[3]).map(|c| read(r, c)).collect();
+            let ok = rules
+                .iter()
+                .any(|row| row.iter().all(|(k, cond)| criterion(cond, &cells[*k])));
+            if !ok {
+                continue;
+            }
+            if unique && !seen.insert(cells.iter().map(|c| c.0.clone()).collect()) {
+                continue;
+            }
+            found.push(r);
+        }
+        match copy_to {
+            Some((tr, tc)) => {
+                let mut rows: Vec<Vec<String>> = Vec::new();
+                for r in std::iter::once(list[0]).chain(found.iter().copied()) {
+                    rows.push(
+                        (list[1]..=list[3])
+                            .map(|c| {
+                                let (text, n) = read(r, c);
+                                n.map_or(text, |n| n.to_string())
+                            })
+                            .collect(),
+                    );
+                }
+                self.doc()
+                    .set_cells(unit, tr, tc, &rows)
+                    .map_err(|e| e.to_string())?;
+            }
+            None => {
+                // The rows found shown, the others hidden, a run at a time.
+                let mut doc = self.doc();
+                let mut r = list[0] + 1;
+                while r <= list[2] {
+                    let shown = found.contains(&r);
+                    let start = r;
+                    while r < list[2] && found.contains(&(r + 1)) == shown {
+                        r += 1;
+                    }
+                    doc.set_hidden(unit, true, start, r, !shown)
+                        .map_err(|e| e.to_string())?;
+                    r += 1;
+                }
+            }
+        }
+        self.refresh();
+        Ok(found.len())
     }
 
     /// Insert Cells: the cells below the selection (in its columns), or
@@ -4655,6 +5325,175 @@ impl ViewerState {
         };
         self.pages_cache = Some((key, b.clone()));
         Some(b)
+    }
+
+    /// Ctrl+click: the selection kept as a range of several, and a new
+    /// one begun at a cell.
+    pub fn add_area(&mut self, row: u32, col: u32) {
+        if self.areas.is_empty() {
+            let s = self.selection();
+            self.areas.push(s);
+        }
+        let (row, col) = self.merge_at(row, col).map_or((row, col), |m| (m[0], m[1]));
+        self.areas.push([row, col, row, col]);
+        let mut p = self.grid_pos();
+        p.sel = None;
+        self.grid_pos.insert(self.unit, p);
+        self.place(row, col);
+    }
+
+    /// Ctrl+drag: the range begun last made to reach a cell.
+    pub fn extend_area(&mut self, row: u32, col: u32) {
+        let Some(last) = self.areas.last_mut() else {
+            return self.grid_extend_to(row, col);
+        };
+        let p = self.grid_pos.get(&self.unit).copied().unwrap_or_default();
+        let (r0, c0) = (p.row, p.col);
+        *last = [r0.min(row), c0.min(col), r0.max(row), c0.max(col)];
+    }
+
+    /// A selection dragged by its border and dropped with its top left
+    /// cell at (`row`, `col`): moved, or with `copy` copied (formulas,
+    /// values and formats), and selected there.
+    pub fn drop_selection(&mut self, row: u32, col: u32, copy: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        if (row, col) == (s[0], s[1]) {
+            return Ok(());
+        }
+        let unit = self.unit;
+        if copy {
+            self.doc().paste_cells(
+                (unit, s),
+                (unit, row, col),
+                kalem_viewer::PasteKind::All,
+                false,
+            )
+        } else {
+            self.doc().move_cells_between(unit, s, unit, row, col)
+        }
+        .map_err(|e| e.to_string())?;
+        self.refresh();
+        self.grid_move_to(row, col);
+        if (s[0], s[1]) != (s[2], s[3]) {
+            self.grid_extend_to(row + s[2] - s[0], col + s[3] - s[1]);
+        }
+        Ok(())
+    }
+
+    /// The sheet shown copied into the workbook at `path` (written there),
+    /// or with `keep` off moved there; the copy's name.
+    pub fn copy_sheet_to_file(&mut self, path: &Path, keep: bool) -> Result<String, String> {
+        if !keep && !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let viewer = for_file(path)
+            .filter(|v| v.extensions().contains(&"xlsx"))
+            .ok_or_else(|| format!("{} is not a workbook", path.display()))?;
+        let mut dst = viewer
+            .open(FileHandle::new(path))
+            .map_err(|e| e.to_string())?;
+        if !dst.grid(0).is_some_and(|l| l.editable) {
+            return Err("Kalem writes .xlsx and .xlsm workbooks".into());
+        }
+        let unit = self.unit;
+        let at = {
+            let mut d = self.doc();
+            crate::workbook_io::copy_sheet_into(d.as_mut(), unit, dst.as_mut())?
+        };
+        let name = dst.structure().units[at].label.clone();
+        let bytes = dst.save().map_err(|e| e.to_string())?.bytes;
+        crate::files::write(path, &bytes, crate::files::SaveOptions::default())
+            .map_err(|e| e.to_string())?;
+        if !keep {
+            self.edit_sheets(kalem_viewer::SheetEdit::Delete(unit))?;
+        }
+        Ok(name)
+    }
+
+    /// The workbook's circular references (sheet, row, column).
+    pub fn circular_references(&mut self) -> Vec<(usize, u32, u32)> {
+        if let Some((g, c)) = &self.circ_cache
+            && *g == self.generation
+        {
+            return c.clone();
+        }
+        let c = self.doc().circular_references();
+        self.circ_cache = Some((self.generation, c.clone()));
+        c
+    }
+
+    /// The workbook's calculation settings.
+    pub fn doc_calc_options(&mut self) -> kalem_viewer::CalcOptions {
+        self.doc().calc_options()
+    }
+
+    /// The calculation settings changed as `f` says.
+    pub fn update_calc(
+        &mut self,
+        f: impl FnOnce(&mut kalem_viewer::CalcOptions),
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let mut o = self.doc().calc_options();
+        f(&mut o);
+        self.doc().set_calc_options(o).map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The workbook's named cell styles.
+    pub fn cell_styles(&mut self) -> Vec<String> {
+        self.doc().cell_styles()
+    }
+
+    /// The selection given named style `name`.
+    pub fn apply_cell_style(&mut self, name: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        self.doc()
+            .apply_cell_style(self.unit, s, name)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// A new named style of the cursor's cell's format.
+    pub fn new_cell_style(&mut self, name: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        self.doc()
+            .new_cell_style(name, self.unit, p.row, p.col)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The workbook theme's name.
+    pub fn theme_name(&mut self) -> Option<String> {
+        self.doc().theme_name()
+    }
+
+    /// The themes the workbook can be given.
+    pub fn theme_names(&mut self) -> Vec<String> {
+        self.doc().theme_names()
+    }
+
+    /// The workbook given theme `name`.
+    pub fn set_theme(&mut self, name: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc().set_theme(name).map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
     }
 
     /// The sheet shown's comment threads.
@@ -7726,6 +8565,8 @@ fn find_option(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     let (flag, name) = match which {
         "case" => (&mut v.grid_search.case, "Match Case"),
         "whole" => (&mut v.grid_search.whole, "Match Entire Cell Contents"),
+        "notes" => (&mut v.grid_search.notes, "Look in Notes and Comments"),
+        "workbook" => (&mut v.grid_search.workbook, "Within the Workbook"),
         _ => (&mut v.grid_search.formulas, "Look in Formulas"),
     };
     *flag = !*flag;
@@ -7944,6 +8785,18 @@ fn paste_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
         Some("values") => PasteKind::Values,
         Some("formats") => PasteKind::Formats,
         Some("formulas") => PasteKind::Formulas,
+        Some("link") => return with(ctx, |v| v.paste_link()),
+        Some("skipBlanks") => return with(ctx, |v| v.paste_operation(None, true)),
+        Some(op @ ("add" | "subtract" | "multiply" | "divide")) => {
+            let c = match op {
+                "add" => '+',
+                "subtract" => '-',
+                "multiply" => '*',
+                _ => '/',
+            };
+            let skip = args.get("skipBlanks").and_then(serde_json::Value::as_bool) == Some(true);
+            return with(ctx, |v| v.paste_operation(Some(c), skip));
+        }
         _ => {
             let item = |what: &str, transpose: bool, title: &str| {
                 menu_item(
@@ -7960,6 +8813,12 @@ fn paste_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
                 item("all", false, "All"),
                 item("all", true, "Transpose"),
                 item("values", true, "Values, Transposed"),
+                item("link", false, "Paste Link"),
+                item("skipBlanks", false, "Skip Blanks"),
+                item("add", false, "Add"),
+                item("subtract", false, "Subtract"),
+                item("multiply", false, "Multiply"),
+                item("divide", false, "Divide"),
             ]));
             return Ok(());
         }
@@ -8344,6 +9203,15 @@ fn custom_sort(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
         .cloned()
         .unwrap_or_default();
     let key_of = |k: &serde_json::Value| SortKey {
+        // "fill:C00000" or "font:9C0006": that color's cells first.
+        color: k.get("color").and_then(|c| c.as_str()).and_then(|c| {
+            let (what, hex) = c.split_once(':')?;
+            let n = u32::from_str_radix(hex.trim().trim_start_matches('#'), 16).ok()?;
+            Some(kalem_viewer::SortColor {
+                font: what == "font",
+                rgb: [(n >> 16) as u8, (n >> 8) as u8, n as u8],
+            })
+        }),
         col: k
             .get("col")
             .and_then(serde_json::Value::as_u64)
@@ -8456,8 +9324,23 @@ fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
             ("between", "Between…"),
             ("top", "Top 10…"),
             ("bottom", "Bottom 10…"),
+            ("topPercent", "Top 10 Percent…"),
+            ("bottomPercent", "Bottom 10 Percent…"),
             ("above", "Above Average"),
             ("below", "Below Average"),
+            ("today", "Date: Today"),
+            ("yesterday", "Date: Yesterday"),
+            ("tomorrow", "Date: Tomorrow"),
+            ("thisWeek", "Date: This Week"),
+            ("lastWeek", "Date: Last Week"),
+            ("thisMonth", "Date: This Month"),
+            ("lastMonth", "Date: Last Month"),
+            ("nextMonth", "Date: Next Month"),
+            ("thisQuarter", "Date: This Quarter"),
+            ("lastQuarter", "Date: Last Quarter"),
+            ("thisYear", "Date: This Year"),
+            ("lastYear", "Date: Last Year"),
+            ("year", "Date: In the Year…"),
         ];
         let items = ops
             .iter()
@@ -8470,9 +9353,29 @@ fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
         .get("value")
         .and_then(|x| x.as_str())
         .map(str::to_owned);
+    // A period of dates: from its first day to before the day after it,
+    // as serial numbers.
+    if let Some((from, to)) = date_period(
+        op,
+        args.get("value").and_then(|x| x.as_str()),
+        ctx.clock.date(),
+    ) {
+        let serial =
+            |d: jiff::civil::Date| (d - jiff::civil::date(1899, 12, 30)).get_days().to_string();
+        let rule = FilterRule::Custom {
+            first: (FilterOp::GreaterOrEqual, serial(from)),
+            second: Some((true, FilterOp::Less, serial(to))),
+        };
+        return with(ctx, |v| v.filter_rule(Some(rule)));
+    }
+    if op == "year" && args.get("value").is_none() {
+        let mut a = args.clone();
+        a["value_default"] = serde_json::json!(ctx.clock.date().year().to_string());
+        return ask_more(ctx, ID, &a, "value");
+    }
     let needs_value = !matches!(op, "above" | "below");
     let Some(value) = value.or_else(|| (!needs_value).then(String::new)) else {
-        let default = if matches!(op, "top" | "bottom") {
+        let default = if matches!(op, "top" | "bottom" | "topPercent" | "bottomPercent") {
             "10"
         } else {
             ""
@@ -8511,11 +9414,11 @@ fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
                 second: Some((true, FilterOp::LessOrEqual, to.to_owned())),
             }
         }
-        "top" | "bottom" => match value.trim().parse::<u32>() {
+        "top" | "bottom" | "topPercent" | "bottomPercent" => match value.trim().parse::<u32>() {
             Ok(count) => FilterRule::Top {
                 count,
-                percent: false,
-                bottom: op == "bottom",
+                percent: op.ends_with("Percent"),
+                bottom: op.starts_with("bottom"),
             },
             Err(_) => {
                 ctx.messages.push(format!("Not a number: {value}"));
@@ -8531,6 +9434,220 @@ fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
         },
     };
     with(ctx, |v| v.filter_rule(Some(rule)))
+}
+
+/// A date filter's period (`today`, `thisMonth`, `lastQuarter`, `year`…)
+/// around `today`: its first day and the day after its last.
+fn date_period(
+    op: &str,
+    value: Option<&str>,
+    today: jiff::civil::Date,
+) -> Option<(jiff::civil::Date, jiff::civil::Date)> {
+    use jiff::civil::date;
+    let day = |d: jiff::civil::Date, n: i64| d.checked_add(jiff::Span::new().days(n)).ok();
+    let month = |y: i16, m: i8| date(y, m, 1);
+    let next_month = |y: i16, m: i8| {
+        if m == 12 {
+            date(y + 1, 1, 1)
+        } else {
+            date(y, m + 1, 1)
+        }
+    };
+    let (y, m) = (today.year(), today.month());
+    let monday = day(today, -(i64::from(today.weekday().to_monday_zero_offset())))?;
+    let q = (m - 1) / 3 * 3 + 1;
+    Some(match op {
+        "today" => (today, day(today, 1)?),
+        "yesterday" => (day(today, -1)?, today),
+        "tomorrow" => (day(today, 1)?, day(today, 2)?),
+        "thisWeek" => (monday, day(monday, 7)?),
+        "lastWeek" => (day(monday, -7)?, monday),
+        "thisMonth" => (month(y, m), next_month(y, m)),
+        "lastMonth" => {
+            let (py, pm) = if m == 1 { (y - 1, 12) } else { (y, m - 1) };
+            (month(py, pm), month(y, m))
+        }
+        "nextMonth" => {
+            let (ny, nm) = if m == 12 { (y + 1, 1) } else { (y, m + 1) };
+            (month(ny, nm), next_month(ny, nm))
+        }
+        "thisQuarter" => (
+            month(y, q),
+            if q == 10 {
+                date(y + 1, 1, 1)
+            } else {
+                month(y, q + 3)
+            },
+        ),
+        "lastQuarter" => {
+            let (py, pq) = if q == 1 { (y - 1, 10) } else { (y, q - 3) };
+            (month(py, pq), month(y, q))
+        }
+        "thisYear" => (date(y, 1, 1), date(y + 1, 1, 1)),
+        "lastYear" => (date(y - 1, 1, 1), date(y, 1, 1)),
+        "year" => {
+            let y: i16 = value?.trim().parse().ok()?;
+            (date(y, 1, 1), date(y + 1, 1, 1))
+        }
+        _ => return None,
+    })
+}
+
+/// Sort by Color: the table at the cursor sorted with the cells of a fill
+/// or font color its column has first (or last).
+fn sort_by_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{SortColor, SortKey};
+    const ID: &str = "viewer.grid.sortByColor";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let col = v.grid_pos().col;
+    if let Some(c) = args.get("color").and_then(|c| c.as_str()) {
+        let font = args.get("font").and_then(serde_json::Value::as_bool) == Some(true);
+        let last = args.get("last").and_then(serde_json::Value::as_bool) == Some(true);
+        let Ok(n) = u32::from_str_radix(c.trim_start_matches('#'), 16) else {
+            return Ok(());
+        };
+        let key = SortKey {
+            col,
+            descending: last,
+            color: Some(SortColor {
+                font,
+                rgb: [(n >> 16) as u8, (n >> 8) as u8, n as u8],
+            }),
+            ..SortKey::default()
+        };
+        return with(ctx, |v| v.sort_by(&[key]));
+    }
+    // The colors the column's cells have.
+    let rows = v.grid_layout().map_or(0, |l| l.rows);
+    let mut fills: Vec<[u8; 3]> = Vec::new();
+    let mut fonts: Vec<[u8; 3]> = Vec::new();
+    for (_, _, cell) in v.grid_cells(0..rows, col..col + 1) {
+        if let Some(f) = cell.fill
+            && !fills.contains(&f)
+        {
+            fills.push(f);
+        }
+        if let Some(f) = cell.color
+            && !fonts.contains(&f)
+        {
+            fonts.push(f);
+        }
+    }
+    if fills.is_empty() && fonts.is_empty() {
+        ctx.messages
+            .push("The column's cells have no colors to sort by".into());
+        return Ok(());
+    }
+    let hex = |c: [u8; 3]| format!("{:02X}{:02X}{:02X}", c[0], c[1], c[2]);
+    let mut items = Vec::new();
+    for (list, font, what) in [(fills, false, "Cell Color"), (fonts, true, "Font Color")] {
+        for c in list {
+            for last in [false, true] {
+                items.push(menu_item(
+                    ID,
+                    serde_json::json!({ "color": hex(c), "font": font, "last": last }),
+                    &format!(
+                        "{what} #{} {}",
+                        hex(c),
+                        if last { "on Bottom" } else { "on Top" }
+                    ),
+                    "Sort by Color",
+                ));
+            }
+        }
+    }
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Advanced Filter: the list (the table at the cursor) filtered by a
+/// criteria range, in place or copied elsewhere, unique records only when
+/// asked; Show All shows its rows again.
+fn advanced_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.advancedFilter";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(action) = args
+        .get("action")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        let item = |a: &str, t: &str| {
+            menu_item(ID, serde_json::json!({ "action": a }), t, "Advanced Filter")
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("inPlace", "Filter the List in Place"),
+            item(
+                "inPlaceUnique",
+                "Filter the List in Place, Unique Records Only",
+            ),
+            item("copy", "Copy to Another Location"),
+            item(
+                "copyUnique",
+                "Copy to Another Location, Unique Records Only",
+            ),
+            item("showAll", "Show All"),
+        ]));
+        return Ok(());
+    };
+    let Some(list) = text_arg(args, "list range") else {
+        let r = v.list_range();
+        let mut a = args.clone();
+        a["list range_default"] = serde_json::json!(format!(
+            "{}:{}",
+            cell_name(r[0], r[1]),
+            cell_name(r[2], r[3])
+        ));
+        return ask_more(ctx, ID, &a, "list range");
+    };
+    let Some(list) = area(&list) else {
+        ctx.messages
+            .push(format!("Advanced Filter: {list} is not a range"));
+        return Ok(());
+    };
+    if action == "showAll" {
+        return with(ctx, |v| v.show_rows(list[0] + 1, list[2]));
+    }
+    let Some(criteria) = text_arg(args, "criteria range") else {
+        return ask_more(ctx, ID, args, "criteria range");
+    };
+    let Some(criteria) = area(&criteria) else {
+        ctx.messages
+            .push(format!("Advanced Filter: {criteria} is not a range"));
+        return Ok(());
+    };
+    let copy_to = if action.starts_with("copy") {
+        let Some(to) = text_arg(args, "copy to") else {
+            return ask_more(ctx, ID, args, "copy to");
+        };
+        let Some(to) = one_cell(&to) else {
+            ctx.messages
+                .push(format!("Advanced Filter: {to} is not a cell"));
+            return Ok(());
+        };
+        Some(to)
+    } else {
+        None
+    };
+    let unique = action.ends_with("Unique");
+    match v.advanced_filter(list, criteria, copy_to, unique) {
+        Ok(n) => ctx
+            .messages
+            .push(format!("{n} record{} found", if n == 1 { "" } else { "s" })),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
 }
 
 /// Filter by Selected Cell's Color: the cursor's column filtered to cells
@@ -8578,84 +9695,295 @@ fn format_as_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
     Ok(())
 }
 
-/// Cell Styles: Excel's built-in styles, applied as their formats.
+/// Cell Styles: Excel's built-in named styles and the workbook's own,
+/// one given to the selection; New Cell Style makes one of the cursor's
+/// cell's format.
 fn cell_style(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
-    use kalem_viewer::{BorderSet, StyleChange};
     const ID: &str = "viewer.grid.cellStyle";
-    let styles = [
-        ("normal", "Normal"),
-        ("good", "Good"),
-        ("bad", "Bad"),
-        ("neutral", "Neutral"),
-        ("heading1", "Heading 1"),
-        ("heading2", "Heading 2"),
-        ("heading3", "Heading 3"),
-        ("heading4", "Heading 4"),
-        ("title", "Title"),
-        ("total", "Total"),
-        ("comma", "Comma"),
-        ("currency", "Currency"),
-        ("percent", "Percent"),
+    const BUILTIN: [&str; 21] = [
+        "Normal",
+        "Good",
+        "Bad",
+        "Neutral",
+        "Title",
+        "Heading 1",
+        "Heading 2",
+        "Heading 3",
+        "Heading 4",
+        "Total",
+        "Note",
+        "Warning Text",
+        "Input",
+        "Output",
+        "Calculation",
+        "Check Cell",
+        "Linked Cell",
+        "Explanatory Text",
+        "Comma",
+        "Currency",
+        "Percent",
     ];
-    let Some(name) = args.get("style").and_then(|x| x.as_str()) else {
-        let items = styles
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if args.get("new").and_then(serde_json::Value::as_bool) == Some(true) {
+        let Some(name) = text_arg(args, "value") else {
+            return ask_more(ctx, ID, args, "value");
+        };
+        return with(ctx, |v| v.new_cell_style(&name));
+    }
+    let Some(name) = args
+        .get("style")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        let mut names: Vec<String> = BUILTIN.iter().map(|s| (*s).to_owned()).collect();
+        for own in v.cell_styles() {
+            if !names.iter().any(|n| n.eq_ignore_ascii_case(&own)) {
+                names.push(own);
+            }
+        }
+        let mut items: Vec<_> = names
             .iter()
-            .map(|(k, t)| menu_item(ID, serde_json::json!({ "style": k }), t, "Cell Styles"))
+            .map(|n| menu_item(ID, serde_json::json!({ "style": n }), n, "Cell Styles"))
+            .collect();
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "new": true }),
+            "New Cell Style…",
+            "Cell Styles",
+        ));
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    with(ctx, |v| v.apply_cell_style(&name))
+}
+
+/// Border Line: a line style, then the borders it draws.
+fn border_line(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{BorderSet, LineStyle, StyleChange};
+    const ID: &str = "viewer.grid.borderLine";
+    let lines = [
+        ("thin", LineStyle::Thin, "Thin"),
+        ("medium", LineStyle::Medium, "Medium"),
+        ("thick", LineStyle::Thick, "Thick"),
+        ("double", LineStyle::Double, "Double"),
+        ("dashed", LineStyle::Dashed, "Dashed"),
+        ("dotted", LineStyle::Dotted, "Dotted"),
+        ("hair", LineStyle::Hair, "Hair"),
+    ];
+    let Some(line) = args.get("line").and_then(|x| x.as_str()) else {
+        let items = lines
+            .iter()
+            .map(|(k, _, t)| menu_item(ID, serde_json::json!({ "line": k }), t, "Border Line"))
             .collect();
         ctx.requests.push(Request::Choose(items));
         return Ok(());
     };
-    let dark = Some([0x44, 0x54, 0x6A]);
-    let fill_font = |fill: [u8; 3], font: [u8; 3]| StyleChange {
-        fill: Some(Some(fill)),
-        color: Some(Some(font)),
-        ..StyleChange::default()
+    let style = lines
+        .iter()
+        .find(|l| l.0 == line)
+        .map_or(LineStyle::Thin, |l| l.1);
+    let sets = [
+        ("bottom", BorderSet::Bottom, "Bottom"),
+        ("top", BorderSet::Top, "Top"),
+        ("left", BorderSet::Left, "Left"),
+        ("right", BorderSet::Right, "Right"),
+        ("outside", BorderSet::Outside, "Outside"),
+        ("all", BorderSet::All, "All"),
+    ];
+    let Some(set) = args.get("set").and_then(|x| x.as_str()) else {
+        let items = sets
+            .iter()
+            .map(|(k, _, t)| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "line": line, "set": k }),
+                    t,
+                    "Border Line: where",
+                )
+            })
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
     };
-    let heading = |size: f32, line: Option<[u8; 3]>| StyleChange {
-        bold: Some(true),
-        size: Some(size),
-        color: Some(dark),
-        borders: line.map(|c| (BorderSet::Bottom, Some(c))),
-        ..StyleChange::default()
+    let set = sets
+        .iter()
+        .find(|s| s.0 == set)
+        .map_or(BorderSet::Bottom, |s| s.1);
+    with(ctx, |v| {
+        v.change_style(StyleChange {
+            borders: Some((set, None)),
+            border_style: Some(style),
+            ..StyleChange::default()
+        })
+    })
+}
+
+/// Fill Effects: one of Excel's patterns or a two-color gradient, in the
+/// fill color the cell has (or blue) over white; or none.
+fn fill_effect(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{FillPattern, StyleChange};
+    const ID: &str = "viewer.grid.fillEffect";
+    let effects = [
+        ("darkGray", "Gray 75%"),
+        ("mediumGray", "Gray 50%"),
+        ("lightGray", "Gray 25%"),
+        ("gray125", "Gray 12.5%"),
+        ("darkHorizontal", "Horizontal Stripes"),
+        ("darkVertical", "Vertical Stripes"),
+        ("darkDown", "Diagonal Stripes Down"),
+        ("darkUp", "Diagonal Stripes Up"),
+        ("lightGrid", "Thin Grid"),
+        ("darkGrid", "Thick Grid"),
+        ("lightTrellis", "Thin Trellis"),
+        ("gradient0", "Gradient, Left to Right"),
+        ("gradient90", "Gradient, Top to Bottom"),
+        ("gradient45", "Gradient, Diagonal"),
+        ("none", "No Pattern"),
+    ];
+    let Some(kind) = args.get("effect").and_then(|x| x.as_str()) else {
+        let items = effects
+            .iter()
+            .map(|(k, t)| menu_item(ID, serde_json::json!({ "effect": k }), t, "Fill Effects"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
     };
-    let change = match name {
-        "normal" => return with(ctx, |v| v.clear_formats(false)),
-        "good" => fill_font([0xC6, 0xEF, 0xCE], [0x00, 0x61, 0x00]),
-        "bad" => fill_font([0xFF, 0xC7, 0xCE], [0x9C, 0x00, 0x06]),
-        "neutral" => fill_font([0xFF, 0xEB, 0x9C], [0x9C, 0x57, 0x00]),
-        "heading1" => heading(15.0, Some([0x44, 0x72, 0xC4])),
-        "heading2" => heading(13.0, Some([0xA2, 0xB8, 0xE1])),
-        "heading3" => heading(11.0, Some([0x8E, 0xA9, 0xDB])),
-        "heading4" => heading(11.0, None),
-        "title" => StyleChange {
-            size: Some(18.0),
-            color: Some(dark),
-            face: Some("Calibri Light".into()),
+    let kind = kind.to_owned();
+    with(ctx, |v| {
+        let color = v.cursor_cell().fill.unwrap_or([0x44, 0x72, 0xC4]);
+        let white = [0xFF, 0xFF, 0xFF];
+        let pattern = if kind == "none" {
+            None
+        } else if let Some(a) = kind.strip_prefix("gradient") {
+            Some(FillPattern::Gradient {
+                angle: a.parse().unwrap_or(0),
+                from: white,
+                to: color,
+            })
+        } else {
+            Some(FillPattern::Pattern {
+                kind: kind.clone(),
+                color,
+                background: white,
+            })
+        };
+        v.change_style(StyleChange {
+            fill_pattern: Some(pattern),
             ..StyleChange::default()
-        },
-        "total" => StyleChange {
-            bold: Some(true),
-            borders: Some((BorderSet::Top, Some([0x44, 0x72, 0xC4]))),
-            ..StyleChange::default()
-        },
-        "comma" => StyleChange {
-            number_format: Some("#,##0.00".into()),
-            ..StyleChange::default()
-        },
-        "currency" => StyleChange {
-            number_format: Some("#,##0.00 \"₺\"".into()),
-            ..StyleChange::default()
-        },
-        "percent" => StyleChange {
-            number_format: Some("0%".into()),
-            ..StyleChange::default()
-        },
-        other => {
-            ctx.messages.push(format!("No such style: {other}"));
-            return Ok(());
-        }
+        })
+    })
+}
+
+/// Themes: the workbook's colors and fonts from one of Office's themes.
+fn workbook_theme(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.theme";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
     };
-    with(ctx, |v| v.change_style(change))
+    let Some(name) = args
+        .get("theme")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        let now = v.theme_name();
+        let items = v
+            .theme_names()
+            .into_iter()
+            .map(|n| {
+                let title = if now.as_deref() == Some(n.as_str()) {
+                    format!("{n} ✓")
+                } else {
+                    n.clone()
+                };
+                menu_item(ID, serde_json::json!({ "theme": n }), &title, "Themes")
+            })
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    with(ctx, |v| v.set_theme(&name))
+}
+
+/// Format Cells (Ctrl+1): every part of a cell's format in one menu, each
+/// leading to its command.
+fn format_cells(ctx: &mut EditorContext<'_>, _args: &serde_json::Value) -> CommandResult {
+    let none = serde_json::json!({});
+    let parts: [(&str, &[(&str, &str)]); 6] = [
+        ("Number", &[("viewer.grid.numberFormat", "Number Format…")]),
+        (
+            "Alignment",
+            &[
+                ("viewer.grid.alignLeft", "Align Left"),
+                ("viewer.grid.alignCenter", "Center"),
+                ("viewer.grid.alignRight", "Align Right"),
+                ("viewer.grid.alignGeneral", "General Alignment"),
+                ("viewer.grid.alignTop", "Top"),
+                ("viewer.grid.alignMiddle", "Middle"),
+                ("viewer.grid.alignBottom", "Bottom"),
+                ("viewer.grid.wrapText", "Wrap Text"),
+                ("viewer.grid.shrinkToFit", "Shrink to Fit"),
+                ("viewer.grid.increaseIndent", "Indent"),
+                ("viewer.grid.textRotation", "Orientation…"),
+                (
+                    "viewer.grid.centerAcrossSelection",
+                    "Center Across Selection",
+                ),
+                ("viewer.grid.mergeCenter", "Merge and Center"),
+            ],
+        ),
+        (
+            "Font",
+            &[
+                ("viewer.grid.fontFace", "Font…"),
+                ("viewer.grid.fontSize", "Size…"),
+                ("viewer.grid.bold", "Bold"),
+                ("viewer.grid.italic", "Italic"),
+                ("viewer.grid.underline", "Underline"),
+                ("viewer.grid.strikethrough", "Strikethrough"),
+                ("viewer.grid.fontColor", "Color…"),
+            ],
+        ),
+        (
+            "Border",
+            &[
+                ("viewer.grid.borders", "Borders…"),
+                ("viewer.grid.borderLine", "Line Style…"),
+                ("viewer.grid.borderColor", "Line Color…"),
+            ],
+        ),
+        (
+            "Fill",
+            &[
+                ("viewer.grid.fillColor", "Background Color…"),
+                ("viewer.grid.fillEffect", "Pattern or Gradient…"),
+                ("viewer.grid.cellStyle", "Cell Styles…"),
+                ("viewer.grid.theme", "Themes…"),
+            ],
+        ),
+        ("Protection", &[("viewer.grid.lockCells", "Locked")]),
+    ];
+    let items = parts
+        .iter()
+        .flat_map(|(part, list)| {
+            list.iter()
+                .map(|(id, title)| {
+                    menu_item(id, none.clone(), title, &format!("Format Cells: {part}"))
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
 }
 
 /// Increase (`by` 1) or Decrease (-1) Indent of the selection, from the
@@ -8859,6 +10187,51 @@ fn insert_sparklines(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> C
         return Ok(());
     };
     with(ctx, |v| v.insert_sparklines(kind, location))
+}
+
+/// Whether a cell (what it shows, its number) meets an Advanced Filter
+/// condition: `>5`, `<=10`, `<>x`, `=text` (the whole cell, `*` and `?`
+/// as wildcards), or text the cell begins with.
+fn criterion(cond: &str, (text, num): &(String, Option<f64>)) -> bool {
+    let cond = cond.trim();
+    let (op, rest) = ["<>", ">=", "<=", "=", ">", "<"]
+        .iter()
+        .find_map(|o| cond.strip_prefix(o).map(|r| (*o, r.trim())))
+        .unwrap_or(("", cond));
+    if let (Some(n), Ok(want)) = (num, rest.replace(',', ".").parse::<f64>()) {
+        return match op {
+            "<>" => *n != want,
+            ">=" => *n >= want,
+            "<=" => *n <= want,
+            ">" => *n > want,
+            "<" => *n < want,
+            _ => *n == want,
+        };
+    }
+    let (t, w) = (text.to_lowercase(), rest.to_lowercase());
+    let like = |pattern: &str| {
+        // `*` any run, `?` any one character.
+        fn go(p: &[char], s: &[char]) -> bool {
+            match p.first() {
+                None => s.is_empty(),
+                Some('*') => (0..=s.len()).any(|i| go(&p[1..], &s[i..])),
+                Some('?') => !s.is_empty() && go(&p[1..], &s[1..]),
+                Some(c) => s.first() == Some(c) && go(&p[1..], &s[1..]),
+            }
+        }
+        let p: Vec<char> = pattern.chars().collect();
+        let s: Vec<char> = t.chars().collect();
+        go(&p, &s)
+    };
+    match op {
+        "=" => like(&w),
+        "<>" => !like(&w),
+        ">" => t > w,
+        "<" => t < w,
+        ">=" => t >= w,
+        "<=" => t <= w,
+        _ => t.starts_with(&w),
+    }
 }
 
 /// A cell or a range as typed (`B3`, `$B$3`, `B3:D5`): its corners.
@@ -9067,6 +10440,591 @@ fn zoom_to(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResu
             Ok(())
         }
     }
+}
+
+/// The menu a right click opens (or Shift+F10, for the cells): the
+/// commands for the cells, the rows, the columns or a sheet's tab.
+fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let on = args.get("on").and_then(|x| x.as_str()).unwrap_or("cells");
+    if on == "tab"
+        && let Some(u) = args.get("unit").and_then(serde_json::Value::as_u64)
+        && let Some(v) = ctx
+            .document
+            .as_deref_mut()
+            .and_then(|d| d.viewer.as_deref_mut())
+    {
+        v.go_to(u as usize);
+    }
+    let none = serde_json::json!({});
+    let list: &[(&str, &str)] = match on {
+        "rows" => &[
+            ("edit.cut", "Cut"),
+            ("edit.copy", "Copy"),
+            ("edit.paste", "Paste"),
+            ("viewer.grid.insertRow", "Insert Rows"),
+            ("viewer.grid.deleteRow", "Delete Rows"),
+            ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.fitRowHeight", "Row Height to Fit"),
+            ("viewer.grid.tallerRow", "Taller Row"),
+            ("viewer.grid.shorterRow", "Shorter Row"),
+            ("viewer.grid.hideRows", "Hide"),
+            ("viewer.grid.unhideRows", "Unhide"),
+            ("viewer.grid.group", "Group"),
+        ],
+        "cols" => &[
+            ("edit.cut", "Cut"),
+            ("edit.copy", "Copy"),
+            ("edit.paste", "Paste"),
+            ("viewer.grid.insertColumn", "Insert Columns"),
+            ("viewer.grid.deleteColumn", "Delete Columns"),
+            ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.autofitColumn", "Column Width to Fit"),
+            ("viewer.grid.widenColumn", "Wider Column"),
+            ("viewer.grid.narrowColumn", "Narrower Column"),
+            ("viewer.grid.hideColumns", "Hide"),
+            ("viewer.grid.unhideColumns", "Unhide"),
+            ("viewer.grid.group", "Group"),
+        ],
+        "tab" => &[
+            ("viewer.grid.insertSheet", "Insert Sheet"),
+            ("viewer.grid.deleteSheet", "Delete Sheet"),
+            ("viewer.grid.renameSheet", "Rename"),
+            ("viewer.grid.moveSheetLeft", "Move Left"),
+            ("viewer.grid.moveSheetRight", "Move Right"),
+            ("viewer.grid.moveOrCopySheet", "Move or Copy…"),
+            ("viewer.grid.tabColor", "Tab Color"),
+            ("viewer.grid.hideSheet", "Hide"),
+            ("viewer.grid.unhideSheet", "Unhide"),
+            ("viewer.grid.protectSheet", "Protect Sheet"),
+            ("viewer.grid.sheetList", "All Sheets"),
+        ],
+        _ => &[
+            ("edit.cut", "Cut"),
+            ("edit.copy", "Copy"),
+            ("edit.paste", "Paste"),
+            ("viewer.grid.pasteSpecial", "Paste Special"),
+            ("viewer.grid.insertCopiedCells", "Insert Copied Cells"),
+            ("viewer.grid.insertCells", "Insert…"),
+            ("viewer.grid.deleteCells", "Delete…"),
+            ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.clearFormats", "Clear Formats"),
+            ("viewer.grid.sortAscending", "Sort A to Z"),
+            ("viewer.grid.sortDescending", "Sort Z to A"),
+            ("viewer.grid.toggleFilter", "Filter"),
+            ("viewer.grid.numberFormat", "Number Format"),
+            ("viewer.grid.cellStyle", "Cell Style"),
+            ("viewer.grid.newComment", "New Comment"),
+            ("viewer.grid.editNote", "Note"),
+            ("viewer.grid.insertLink", "Link"),
+            ("viewer.grid.defineName", "Define Name"),
+        ],
+    };
+    let category = match on {
+        "rows" => "Rows",
+        "cols" => "Columns",
+        "tab" => "Sheet",
+        _ => "Cells",
+    };
+    let items = list
+        .iter()
+        .map(|(id, title)| menu_item(id, none.clone(), title, category))
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Move or Copy: the sheet shown copied after itself or to the end, moved
+/// to the start or the end, or copied or moved into another workbook
+/// (chosen as a file).
+fn move_or_copy(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::SheetEdit;
+    const ID: &str = "viewer.grid.moveOrCopySheet";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(what) = args.get("what").and_then(|x| x.as_str()).map(str::to_owned) else {
+        let item =
+            |w: &str, t: &str| menu_item(ID, serde_json::json!({ "what": w }), t, "Move or Copy");
+        ctx.requests.push(Request::Choose(vec![
+            item("copy", "Copy (after this sheet)"),
+            item("copyEnd", "Copy to the End"),
+            item("first", "Move to the Beginning"),
+            item("last", "Move to the End"),
+            item("copyOut", "Copy to Another Workbook…"),
+            item("moveOut", "Move to Another Workbook…"),
+        ]));
+        return Ok(());
+    };
+    let (unit, n) = (v.unit, v.structure().units.len());
+    match what.as_str() {
+        "copy" => with(ctx, |v| v.edit_sheets(SheetEdit::Copy(unit, unit + 1))),
+        "copyEnd" => with(ctx, |v| v.edit_sheets(SheetEdit::Copy(unit, n))),
+        "first" => with(ctx, |v| v.edit_sheets(SheetEdit::Move(unit, 0))),
+        "last" => with(ctx, |v| v.edit_sheets(SheetEdit::Move(unit, n - 1))),
+        "copyOut" | "moveOut" => {
+            let Some(path) = text_arg(args, "workbook") else {
+                ctx.requests.push(Request::PickFile {
+                    command: ID.into(),
+                    arg: "workbook".into(),
+                    args: serde_json::json!({ "what": what }),
+                });
+                return Ok(());
+            };
+            let path = std::path::PathBuf::from(crate::settings::expand_home(&path));
+            let keep = what == "copyOut";
+            match v.copy_sheet_to_file(&path, keep) {
+                Ok(name) => {
+                    let file = path
+                        .file_name()
+                        .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+                    ctx.messages.push(format!(
+                        "{} as {name} into {file}",
+                        if keep { "Copied" } else { "Moved" }
+                    ));
+                }
+                Err(e) => ctx.messages.push(e),
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Calculation Options: Automatic, Automatic except Data Tables or
+/// Manual; iterative calculation on (its limits asked) or off.
+fn calculation_options(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::CalcMode;
+    const ID: &str = "viewer.grid.calculationOptions";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let now = v.doc_calc_options();
+    let Some(what) = args.get("what").and_then(|x| x.as_str()).map(str::to_owned) else {
+        let mark = |on: bool, t: &str| {
+            if on {
+                format!("{t} ✓")
+            } else {
+                t.to_string()
+            }
+        };
+        let item = |w: &str, t: String| {
+            menu_item(
+                ID,
+                serde_json::json!({ "what": w }),
+                &t,
+                "Calculation Options",
+            )
+        };
+        let mut items = vec![
+            item(
+                "automatic",
+                mark(now.mode == CalcMode::Automatic, "Automatic"),
+            ),
+            item(
+                "exceptTables",
+                mark(
+                    now.mode == CalcMode::AutomaticExceptTables,
+                    "Automatic except Data Tables",
+                ),
+            ),
+            item("manual", mark(now.mode == CalcMode::Manual, "Manual")),
+        ];
+        items.push(if now.iterate {
+            item(
+                "iterateOff",
+                format!(
+                    "Iterative Calculation ✓ ({} times, {})",
+                    now.max_iterations, now.max_change
+                ),
+            )
+        } else {
+            item("iterate", "Iterative Calculation…".into())
+        });
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    match what.as_str() {
+        "automatic" => with(ctx, |v| v.update_calc(|o| o.mode = CalcMode::Automatic)),
+        "exceptTables" => with(ctx, |v| {
+            v.update_calc(|o| o.mode = CalcMode::AutomaticExceptTables)
+        }),
+        "manual" => with(ctx, |v| v.update_calc(|o| o.mode = CalcMode::Manual)),
+        "iterateOff" => with(ctx, |v| v.update_calc(|o| o.iterate = false)),
+        "iterate" => {
+            let Some(times) = text_arg(args, "maximum iterations") else {
+                let mut a = args.clone();
+                a["maximum iterations_default"] = serde_json::json!(now.max_iterations.to_string());
+                return ask_more(ctx, ID, &a, "maximum iterations");
+            };
+            let Some(change) = text_arg(args, "maximum change") else {
+                let mut a = args.clone();
+                a["maximum change_default"] = serde_json::json!(now.max_change.to_string());
+                return ask_more(ctx, ID, &a, "maximum change");
+            };
+            match (
+                times.trim().parse::<u32>(),
+                change.trim().replace(',', ".").parse::<f64>(),
+            ) {
+                (Ok(n), Ok(d)) => with(ctx, |v| {
+                    v.update_calc(|o| {
+                        o.iterate = true;
+                        o.max_iterations = n;
+                        o.max_change = d;
+                    })
+                }),
+                _ => {
+                    ctx.messages.push(format!(
+                        "Iterative Calculation: {times} times, {change}: not numbers"
+                    ));
+                    Ok(())
+                }
+            }
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Circular References: the cells round a circle, one chosen to go to.
+fn circular_references(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.circularReferences";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if let (Some(u), Some(r), Some(c)) = (
+        args.get("unit").and_then(serde_json::Value::as_u64),
+        args.get("row").and_then(serde_json::Value::as_u64),
+        args.get("col").and_then(serde_json::Value::as_u64),
+    ) {
+        v.go_to(u as usize);
+        v.grid_move_to(r as u32, c as u32);
+        return Ok(());
+    }
+    let all = v.circular_references();
+    if all.is_empty() {
+        ctx.messages.push("No circular references".into());
+        return Ok(());
+    }
+    let labels: Vec<String> = v
+        .structure()
+        .units
+        .iter()
+        .map(|u| u.label.clone())
+        .collect();
+    let items = all
+        .into_iter()
+        .map(|(u, r, c)| {
+            menu_item(
+                ID,
+                serde_json::json!({ "unit": u, "row": r, "col": c }),
+                &format!(
+                    "{}!{}",
+                    labels.get(u).cloned().unwrap_or_default(),
+                    cell_name(r, c)
+                ),
+                "Circular References",
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Find All: every match listed with its sheet, cell and what it holds,
+/// one chosen to go to.
+fn find_all(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.findAll";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if let (Some(u), Some(r), Some(c)) = (
+        args.get("unit").and_then(serde_json::Value::as_u64),
+        args.get("row").and_then(serde_json::Value::as_u64),
+        args.get("col").and_then(serde_json::Value::as_u64),
+    ) {
+        v.go_to(u as usize);
+        v.grid_move_to(r as u32, c as u32);
+        return Ok(());
+    }
+    if let Some(t) = text_arg(args, "value") {
+        v.grid_search.text = t;
+    }
+    if v.grid_search.text.is_empty() {
+        let mut a = args.clone();
+        a["value_default"] = serde_json::json!(v.grid_search.text);
+        return ask_more(ctx, ID, &a, "value");
+    }
+    let found = v.find_all();
+    if found.is_empty() {
+        ctx.messages
+            .push(format!("Cannot find {}", v.grid_search.text));
+        return Ok(());
+    }
+    let labels: Vec<String> = v
+        .structure()
+        .units
+        .iter()
+        .map(|u| u.label.clone())
+        .collect();
+    let n = found.len();
+    let items = found
+        .into_iter()
+        .take(2000)
+        .map(|(u, r, c, text)| {
+            let shown: String = text.replace('\n', " ").chars().take(80).collect();
+            menu_item(
+                ID,
+                serde_json::json!({ "unit": u, "row": r, "col": c }),
+                &format!(
+                    "{}!{}: {shown}",
+                    labels.get(u).cloned().unwrap_or_default(),
+                    cell_name(r, c)
+                ),
+                &format!("{n} found"),
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Spelling (F7): the next word the dictionary does not know in the
+/// sheet's text, from the cursor on: changed to a suggestion or another
+/// word, ignored once or every time, or added to the dictionary; then on
+/// to the next one.
+fn spelling(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.spelling";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if let Some(l) = text_arg(args, "language") {
+        v.spell_language = Some(l);
+    }
+    let action = args.get("action").and_then(|x| x.as_str()).unwrap_or("");
+    if action == "languages" {
+        let items: Vec<_> = crate::spelling::dictionaries()
+            .into_iter()
+            .map(|(lang, aff, _)| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "language": lang }),
+                    &format!(
+                        "{lang} ({})",
+                        aff.parent()
+                            .map_or(String::new(), |p| p.display().to_string())
+                    ),
+                    "Spelling: dictionary",
+                )
+            })
+            .collect();
+        if items.is_empty() {
+            ctx.messages.push(format!(
+                "No dictionary: put Hunspell's LANG.aff and LANG.dic into {}",
+                crate::spelling::dictionary_folder().display()
+            ));
+        } else {
+            ctx.requests.push(Request::Choose(items));
+        }
+        return Ok(());
+    }
+    let Some(lang) = v
+        .spell_language
+        .clone()
+        .or_else(crate::spelling::default_language)
+    else {
+        ctx.messages.push(format!(
+            "No dictionary: put Hunspell's LANG.aff and LANG.dic into {}",
+            crate::spelling::dictionary_folder().display()
+        ));
+        return Ok(());
+    };
+    let speller = match crate::spelling::speller(&lang) {
+        Ok(s) => s,
+        Err(e) => {
+            ctx.messages.push(e);
+            return Ok(());
+        }
+    };
+    let num = |k: &str| args.get(k).and_then(serde_json::Value::as_u64).unwrap_or(0);
+    let (row, col, at) = (num("row") as u32, num("col") as u32, num("at") as usize);
+    let word = args
+        .get("word")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_owned();
+    let from = match action {
+        "change" | "changeTo" => {
+            let with = if action == "change" {
+                args.get("with")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_owned()
+            } else {
+                match text_arg(args, "value") {
+                    Some(w) => w,
+                    None => {
+                        let mut a = args.clone();
+                        a["value_default"] = serde_json::json!(word);
+                        return ask_more(ctx, ID, &a, "value");
+                    }
+                }
+            };
+            if let Err(e) = v.change_word(row, col, at, &word, &with) {
+                ctx.messages.push(e);
+                return Ok(());
+            }
+            (row, col, at + with.len())
+        }
+        "ignore" => (row, col, at + word.len()),
+        "ignoreAll" => {
+            v.spell_ignored.insert(word.clone());
+            (row, col, at + word.len())
+        }
+        "add" => {
+            if let Err(e) = crate::spelling::add_word(&speller, &word) {
+                ctx.messages.push(e);
+                return Ok(());
+            }
+            (row, col, at + word.len())
+        }
+        _ => {
+            let p = v.grid_pos();
+            (p.row, p.col, 0)
+        }
+    };
+    let ignored = v.spell_ignored.clone();
+    let Some((r, c, i, w)) = v.next_misspelling(&speller, from, &ignored) else {
+        ctx.messages
+            .push(format!("Spelling ({lang}): no more to check"));
+        return Ok(());
+    };
+    v.grid_move_to(r, c);
+    let at_word = serde_json::json!({ "row": r, "col": c, "at": i, "word": w, "language": lang });
+    let with = |action: &str, extra: serde_json::Value| {
+        let mut a = at_word.clone();
+        a["action"] = serde_json::json!(action);
+        if let (Some(o), Some(e)) = (a.as_object_mut(), extra.as_object()) {
+            o.extend(e.clone());
+        }
+        a
+    };
+    let category = format!("Not in the {lang} dictionary: {w} ({})", cell_name(r, c));
+    let mut items: Vec<_> = crate::spelling::suggest(&speller, &w)
+        .into_iter()
+        .take(5)
+        .map(|s| {
+            menu_item(
+                ID,
+                with("change", serde_json::json!({ "with": s })),
+                &format!("Change to {s}"),
+                &category,
+            )
+        })
+        .collect();
+    items.push(menu_item(
+        ID,
+        with("changeTo", serde_json::json!({})),
+        "Change to…",
+        &category,
+    ));
+    items.push(menu_item(
+        ID,
+        with("ignore", serde_json::json!({})),
+        "Ignore Once",
+        &category,
+    ));
+    items.push(menu_item(
+        ID,
+        with("ignoreAll", serde_json::json!({})),
+        "Ignore All",
+        &category,
+    ));
+    items.push(menu_item(
+        ID,
+        with("add", serde_json::json!({})),
+        "Add to Dictionary",
+        &category,
+    ));
+    items.push(menu_item(
+        ID,
+        serde_json::json!({ "action": "languages" }),
+        &format!("Dictionary: {lang}…"),
+        &category,
+    ));
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// The Series dialog: the type (linear, growth, a date's day, weekday,
+/// month or year), the step and the stop value asked; the direction the
+/// selection's longer side.
+fn series_dialog(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.series";
+    let Some(kind) = args.get("type").and_then(|x| x.as_str()).map(str::to_owned) else {
+        let item = |k: &str, t: &str| menu_item(ID, serde_json::json!({ "type": k }), t, "Series");
+        ctx.requests.push(Request::Choose(vec![
+            item("linear", "Linear (add the step)"),
+            item("growth", "Growth (multiply by the step)"),
+            item("day", "Date: by days"),
+            item("weekday", "Date: by weekdays"),
+            item("month", "Date: by months"),
+            item("year", "Date: by years"),
+        ]));
+        return Ok(());
+    };
+    let Some(step) = text_arg(args, "step value") else {
+        let mut a = args.clone();
+        a["step value_default"] = serde_json::json!("1");
+        return ask_more(ctx, ID, &a, "step value");
+    };
+    let Some(stop) = args
+        .get("stop value")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        return ask_more(ctx, ID, args, "stop value");
+    };
+    let Ok(step) = step.trim().replace(',', ".").parse::<f64>() else {
+        ctx.messages.push(format!("Series: {step} is not a number"));
+        return Ok(());
+    };
+    let stop = stop.trim();
+    let stop = if stop.is_empty() {
+        None
+    } else if let Ok(n) = stop.replace(',', ".").parse::<f64>() {
+        Some(n)
+    } else if let Ok(d) = stop.parse::<jiff::civil::Date>() {
+        Some((d - jiff::civil::date(1899, 12, 30)).get_days() as f64)
+    } else {
+        ctx.messages
+            .push(format!("Series: {stop} is not a number or a date"));
+        return Ok(());
+    };
+    let rows = args.get("rows").and_then(serde_json::Value::as_bool);
+    with(ctx, |v| {
+        let s = v.selection();
+        let rows = rows.unwrap_or(s[3] - s[1] > s[2] - s[0]);
+        v.fill_series_by(rows, &kind, step, stop)
+    })
 }
 
 /// Who writes comments: the account's name.
@@ -11340,6 +13298,13 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| with(ctx, |v| v.scroll_split(1, false)),
         ),
         cmd(
+            "viewer.grid.contextMenu",
+            "Context Menu",
+            &["shift+f10", "menu"],
+            IN_GRID,
+            context_menu,
+        ),
+        cmd(
             "viewer.grid.goToSpecial",
             "Go To Special",
             &["g s"],
@@ -11849,6 +13814,109 @@ fn grid_commands() -> Vec<Command> {
             &["ctrl+shift+0", "z shift+c"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.set_hidden(false, false)),
+        ),
+        cmd(
+            "viewer.grid.formatCells",
+            "Format Cells",
+            &["ctrl+1"],
+            IN_GRID,
+            format_cells,
+        ),
+        cmd(
+            "viewer.grid.borderLine",
+            "Border Line",
+            &[],
+            IN_GRID,
+            border_line,
+        ),
+        cmd(
+            "viewer.grid.fillEffect",
+            "Fill Effects",
+            &[],
+            IN_GRID,
+            fill_effect,
+        ),
+        cmd("viewer.grid.theme", "Themes", &[], IN_GRID, workbook_theme),
+        cmd(
+            "viewer.grid.sortByColor",
+            "Sort by Color",
+            &[],
+            IN_GRID,
+            sort_by_color,
+        ),
+        cmd(
+            "viewer.grid.advancedFilter",
+            "Advanced Filter",
+            &[],
+            IN_GRID,
+            advanced_filter,
+        ),
+        cmd(
+            "viewer.grid.insertCopiedCells",
+            "Insert Copied Cells",
+            &[],
+            IN_GRID,
+            |ctx, args| {
+                let right = args.get("right").and_then(serde_json::Value::as_bool) == Some(true);
+                with(ctx, |v| v.insert_copied_cells(!right))
+            },
+        ),
+        cmd("viewer.grid.series", "Series", &[], IN_GRID, series_dialog),
+        cmd(
+            "viewer.grid.fillJustify",
+            "Fill Justify",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.fill_justify()),
+        ),
+        cmd(
+            "viewer.grid.findAll",
+            "Find All",
+            &["ctrl+shift+f", "g /"],
+            IN_GRID,
+            find_all,
+        ),
+        cmd(
+            "viewer.grid.findInNotes",
+            "Find: Look in Notes and Comments",
+            &[],
+            IN_GRID,
+            |ctx, _| find_option(ctx, "notes"),
+        ),
+        cmd(
+            "viewer.grid.findInWorkbook",
+            "Find: Within the Workbook",
+            &[],
+            IN_GRID,
+            |ctx, _| find_option(ctx, "workbook"),
+        ),
+        cmd(
+            "viewer.grid.spelling",
+            "Spelling",
+            &["f7"],
+            IN_GRID,
+            spelling,
+        ),
+        cmd(
+            "viewer.grid.calculationOptions",
+            "Calculation Options",
+            &["z o"],
+            IN_GRID,
+            calculation_options,
+        ),
+        cmd(
+            "viewer.grid.circularReferences",
+            "Circular References",
+            &[],
+            IN_GRID,
+            circular_references,
+        ),
+        cmd(
+            "viewer.grid.moveOrCopySheet",
+            "Move or Copy Sheet",
+            &["shift+s m"],
+            IN_GRID,
+            move_or_copy,
         ),
         cmd(
             "viewer.grid.insertSheet",
@@ -13115,6 +15183,27 @@ fn grid_commands() -> Vec<Command> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn date_filter_periods() {
+        use jiff::civil::date;
+        let d = date(2026, 10, 4); // a Sunday
+        let p = |op: &str| super::date_period(op, Some("2024"), d).unwrap();
+        assert_eq!(p("thisMonth"), (date(2026, 10, 1), date(2026, 11, 1)));
+        assert_eq!(p("lastQuarter"), (date(2026, 7, 1), date(2026, 10, 1)));
+        assert_eq!(p("thisWeek"), (date(2026, 9, 28), date(2026, 10, 5)));
+        assert_eq!(p("lastMonth"), (date(2026, 9, 1), date(2026, 10, 1)));
+        assert_eq!(p("year"), (date(2024, 1, 1), date(2025, 1, 1)));
+        assert_eq!(
+            super::date_period("thisQuarter", None, date(2026, 11, 4)).unwrap(),
+            (date(2026, 10, 1), date(2027, 1, 1))
+        );
+        assert!(super::criterion(">400", &("431.5".into(), Some(431.5))));
+        assert!(super::criterion("=r*t", &("Rent".into(), None)));
+        assert!(super::criterion("fo", &("Food".into(), None)));
+        assert!(!super::criterion("<>food", &("Food".into(), None)));
+    }
+
     use super::*;
 
     #[test]

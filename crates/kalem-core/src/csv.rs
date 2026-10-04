@@ -1696,6 +1696,48 @@ pub fn rectangle_ranges(doc: &crate::DocumentState) -> Option<Vec<Range<usize>>>
     Some(out)
 }
 
+/// Where the cursor goes `delta` rows down (up when negative) in the CSV
+/// grid: the same column, at the same place in the cell as far as the
+/// cell is long, skipping the rows `shown` says are not shown (a filter's),
+/// clamped at the first and last rows. `None` outside a CSV document.
+pub fn vertical_target(
+    doc: &crate::DocumentState,
+    delta: isize,
+    shown: impl Fn(usize) -> bool,
+) -> Option<usize> {
+    let (layout, row, rec, col) = cell_at(doc)?;
+    let head = doc.selection.head;
+    let within = rec
+        .fields
+        .get(col)
+        .map_or(0, |f| head.saturating_sub(f.range.start));
+    let text = doc.text().as_str();
+    let mut idx = layout.index.borrow_mut();
+    let step: isize = if delta < 0 { -1 } else { 1 };
+    let mut target = (row, rec);
+    let mut r = row as isize;
+    let mut left = delta.unsigned_abs();
+    while left > 0 {
+        r += step;
+        if r < 0 {
+            break;
+        }
+        let Some(next) = idx.record(text, r as usize, &layout.dialect) else {
+            break;
+        };
+        if !shown(next.range.start) {
+            continue;
+        }
+        target = (r as usize, next);
+        left -= 1;
+    }
+    let (_, rec) = target;
+    Some(match rec.fields.get(col).or(rec.fields.last()) {
+        Some(f) => (f.range.start + within).min(f.range.end),
+        None => rec.range.start,
+    })
+}
+
 /// The cell at byte `pos`, as [`cell_at`] gives the cursor's.
 pub fn cell_at_offset(
     doc: &crate::DocumentState,

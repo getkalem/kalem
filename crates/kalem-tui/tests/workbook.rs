@@ -3735,3 +3735,562 @@ fn other_formats() {
         }
     }
 }
+
+#[test]
+fn the_mouse_on_the_grid() {
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    let mut t = T::open("mouse");
+    t.term = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    t.screen();
+    let mouse = |t: &mut T, kind: MouseEventKind, (x, y): (u16, u16), m: KeyModifiers| {
+        t.app.event(Event::Mouse(MouseEvent {
+            kind,
+            column: x,
+            row: y,
+            modifiers: m,
+        }));
+        t.screen()
+    };
+    let hits = |t: &mut T| t.app.doc.viewer.as_deref().unwrap().hits.clone().unwrap();
+    let cell = |t: &mut T, r: u32, c: u32| {
+        let h = hits(t);
+        let x = h.cols.iter().find(|x| x.0 == c).unwrap().1 + 1;
+        let y = h.rows.iter().find(|x| x.0 == r).unwrap().1;
+        (x, y)
+    };
+    let none = KeyModifiers::NONE;
+    let down = MouseEventKind::Down(MouseButton::Left);
+    // A click puts the cursor on C3; a drag selects to D4.
+    let at = cell(&mut t, 2, 2);
+    mouse(&mut t, down, at, none);
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().row, 2);
+    let to = cell(&mut t, 3, 3);
+    mouse(&mut t, MouseEventKind::Drag(MouseButton::Left), to, none);
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().selection(),
+        [2, 2, 3, 3]
+    );
+    // Ctrl and a click: a range more.
+    let b2 = cell(&mut t, 1, 1);
+    mouse(&mut t, down, b2, KeyModifiers::CONTROL);
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().selection_areas(),
+        vec![[2, 2, 3, 3], [1, 1, 1, 1]]
+    );
+    // A right click in the selection: the cells' menu, the selection kept.
+    let s = mouse(&mut t, MouseEventKind::Down(MouseButton::Right), b2, none);
+    assert!(s.contains("Paste Special") && s.contains("Insert…"), "{s}");
+    t.key(KeyCode::Esc);
+    // On a column's letter, a row's number and a tab: their menus.
+    let h = hits(&mut t);
+    let letter = (
+        h.cols.iter().find(|x| x.0 == 2).unwrap().1 + 1,
+        h.letters.unwrap(),
+    );
+    let s = mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Right),
+        letter,
+        none,
+    );
+    assert!(s.contains("Insert Columns"), "{s}");
+    t.key(KeyCode::Esc);
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().selection()[1], 2);
+    let number = (h.gutter.0, h.rows.iter().find(|x| x.0 == 4).unwrap().1);
+    let s = mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Right),
+        number,
+        none,
+    );
+    assert!(s.contains("Insert Rows"), "{s}");
+    t.key(KeyCode::Esc);
+    let tab = h.tabs.iter().find(|x| x.0 == 1).copied().unwrap();
+    let s = mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Right),
+        (tab.2 + 1, tab.1),
+        none,
+    );
+    assert!(s.contains("Rename") && s.contains("Tab Color"), "{s}");
+    t.key(KeyCode::Esc);
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 1);
+    // A click on the first tab goes back; Shift+F10 opens the cells' menu.
+    let h = hits(&mut t);
+    let tab = h.tabs.iter().find(|x| x.0 == 0).copied().unwrap();
+    mouse(&mut t, down, (tab.2 + 1, tab.1), none);
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 0);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::F(10),
+        KeyModifiers::SHIFT,
+    )));
+    assert!(t.screen().contains("Clear Contents"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // The wheel scrolls.
+    mouse(&mut t, MouseEventKind::ScrollDown, b2, none);
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().top, 3);
+}
+
+#[test]
+fn new_workbooks_and_copied_sheets() {
+    let mut t = T::open("new-books");
+    let budget = t.dir.join("budget.xlsx");
+    let labels = |t: &mut T| -> Vec<String> {
+        t.app
+            .doc
+            .viewer
+            .as_deref()
+            .unwrap()
+            .structure()
+            .units
+            .iter()
+            .map(|u| u.label.clone())
+            .collect()
+    };
+    let first = labels(&mut t)[0].clone();
+    // A copy after the sheet, named as Excel names one.
+    t.app
+        .run_command("viewer.grid.moveOrCopySheet", json!({ "what": "copy" }));
+    assert_eq!(labels(&mut t)[1], format!("{first} (2)"));
+    // New Workbook: a blank one, opened.
+    t.app
+        .run_command("app.newWorkbook", json!({ "path": "Yeni.xlsx" }));
+    assert!(
+        t.app
+            .doc
+            .meta
+            .path
+            .as_deref()
+            .is_some_and(|p| p.ends_with("Yeni.xlsx"))
+    );
+    assert_eq!(labels(&mut t), vec!["Sheet1".to_string()]);
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    // The budget's first sheet copied into it, then the copy moved there.
+    t.app.open_path(&budget, None);
+    // The copy is shown after it is made: the first sheet first.
+    t.app.doc.viewer.as_deref_mut().unwrap().go_to(0);
+    let n = labels(&mut t).len();
+    let yeni = t.dir.join("Yeni.xlsx");
+    t.app.run_command(
+        "viewer.grid.moveOrCopySheet",
+        json!({ "what": "copyOut", "workbook": yeni.display().to_string() }),
+    );
+    assert!(t.screen().contains("Copied as"), "{}", t.screen());
+    t.app.doc.viewer.as_deref_mut().unwrap().go_to(1);
+    t.app.run_command(
+        "viewer.grid.moveOrCopySheet",
+        json!({ "what": "moveOut", "workbook": yeni.display().to_string() }),
+    );
+    assert_eq!(labels(&mut t).len(), n - 1);
+    let mut wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(&yeni).unwrap()).unwrap();
+    let names: Vec<String> = wb.sheets().iter().map(|s| s.name.clone()).collect();
+    assert_eq!(
+        names,
+        vec!["Sheet1".to_string(), first.clone(), format!("{first} (2)")]
+    );
+    assert_eq!(
+        wb.edit_text(1, kalem_plugin_xlsx::CellRef::new(1, 0))
+            .unwrap(),
+        "Rent"
+    );
+    // New from Template: a workbook made of a template.
+    let parts = kalem_core::workbook_io::unzip(&std::fs::read(&budget).unwrap()).unwrap();
+    let parts: Vec<(String, Vec<u8>)> = parts
+        .into_iter()
+        .map(|(n, b)| {
+            if n == "[Content_Types].xml" {
+                let t = String::from_utf8_lossy(&b).replace(
+                    "spreadsheetml.sheet.main+xml",
+                    "spreadsheetml.template.main+xml",
+                );
+                (n, t.into_bytes())
+            } else {
+                (n, b)
+            }
+        })
+        .collect();
+    let list: Vec<(&str, &[u8], bool)> = parts
+        .iter()
+        .map(|(n, b)| (n.as_str(), b.as_slice(), true))
+        .collect();
+    std::fs::write(
+        t.dir.join("Rapor.xltx"),
+        kalem_core::workbook_io::zip(&list),
+    )
+    .unwrap();
+    t.app.run_command(
+        "app.newFromTemplate",
+        json!({ "template": t.dir.join("Rapor.xltx").display().to_string(), "path": "Rapor Ekim" }),
+    );
+    assert!(
+        t.app
+            .doc
+            .meta
+            .path
+            .as_deref()
+            .is_some_and(|p| p.ends_with("Rapor Ekim.xlsx"))
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.grid_editable());
+    v.grid_move_to(1, 0);
+    assert_eq!(v.cell_input(), "Rent");
+}
+
+#[test]
+fn calculation() {
+    let mut t = T::open("calculation");
+    t.term = Terminal::new(TestBackend::new(120, 30)).unwrap();
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(0, 10, "=L1+1").unwrap();
+    v.set_cell(0, 11, "=K1*0.5").unwrap();
+    // A circle: told in the status line, listed to go to.
+    assert!(
+        t.screen().contains("Circular references: K1"),
+        "{}",
+        t.screen()
+    );
+    t.app
+        .run_command("viewer.grid.circularReferences", json!({}));
+    assert!(
+        t.screen().contains("!K1") && t.screen().contains("!L1"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    // The options, Automatic marked; iterated, the circle settles.
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('o'));
+    assert!(t.screen().contains("Automatic ✓"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.calculationOptions",
+        json!({ "what": "iterate", "maximum iterations": "200", "maximum change": "0,000001" }),
+    );
+    assert!(
+        !t.screen().contains("Circular references"),
+        "{}",
+        t.screen()
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(0, 10);
+    let k1: f64 = v.grid_cells(0..1, 10..11)[0].2.text.parse().unwrap();
+    assert!((k1 - 2.0).abs() < 1e-4, "{k1}");
+    // Manual: said in the status line.
+    t.app.run_command(
+        "viewer.grid.calculationOptions",
+        json!({ "what": "manual" }),
+    );
+    assert!(t.screen().contains("Manual calculation"), "{}", t.screen());
+    t.app.run_command("app.save", json!({}));
+    let wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(t.dir.join("budget.xlsx")).unwrap())
+        .unwrap();
+    let o = wb.calc_options();
+    assert!(o.iterate && o.max_iterations == 200);
+    assert_eq!(o.mode, kalem_viewer::CalcMode::Manual);
+}
+
+#[test]
+fn find_all_and_spelling() {
+    let mut t = T::open("spelling");
+    t.term = Terminal::new(TestBackend::new(120, 30)).unwrap();
+    // Find All: every match, chosen to go to.
+    t.app
+        .run_command("viewer.grid.findAll", json!({ "value": "o" }));
+    let s = t.screen();
+    assert!(s.contains("!A3: Food") && s.contains("found"), "{s}");
+    t.key(KeyCode::Esc);
+    // In notes, and in the whole workbook.
+    t.app.run_command("viewer.grid.findInNotes", json!({}));
+    t.app
+        .run_command("viewer.grid.findAll", json!({ "value": "first" }));
+    assert!(t.screen().contains("Paid on the first"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command("viewer.grid.findInWorkbook", json!({}));
+    t.app
+        .run_command("viewer.grid.findAll", json!({ "value": "2026" }));
+    assert!(t.screen().contains("Dates!"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // Spelling with a dictionary of the test's own, in a folder of its own.
+    let config = t.dir.join("config");
+    std::fs::create_dir_all(config.join("dictionaries")).unwrap();
+    std::fs::write(
+        config.join("dictionaries/xx_TEST.aff"),
+        "SET UTF-8\nTRY esianrtolcdugmphbyfvkwz\n",
+    )
+    .unwrap();
+    std::fs::write(
+        config.join("dictionaries/xx_TEST.dic"),
+        "8\nItem\nRent\nFood\nSum\nTotal\nMerged\nnote\nTrip\n",
+    )
+    .unwrap();
+    kalem_core::spelling::use_folder(&config.join("dictionaries"));
+    t.app.doc.viewer.as_deref_mut().unwrap().go_to(0);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app
+        .run_command("viewer.grid.spelling", json!({ "language": "xx_TEST" }));
+    let s = t.screen();
+    assert!(
+        s.contains("Not in the xx_TEST dictionary: Travel (A4)"),
+        "{s}"
+    );
+    assert!(
+        s.contains("Ignore All") && s.contains("Add to Dictionary"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.spelling",
+        json!({ "action": "change", "row": 3, "col": 0, "at": 0, "word": "Travel", "with": "Trip", "language": "xx_TEST" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(3, 0);
+    assert_eq!(v.cell_input(), "Trip");
+    t.key(KeyCode::Esc);
+    // A word added is the user's: in the dictionaries folder.
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .set_cell(6, 0, "Kalemli")
+        .unwrap();
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app
+        .run_command("viewer.grid.spelling", json!({ "language": "xx_TEST" }));
+    assert!(t.screen().contains("dictionary: Kalemli"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.spelling",
+        json!({ "action": "add", "row": 6, "col": 0, "at": 0, "word": "Kalemli", "language": "xx_TEST" }),
+    );
+    let words = std::fs::read_to_string(config.join("dictionaries/words.txt")).unwrap();
+    assert!(words.contains("Kalemli"));
+}
+
+#[test]
+fn pasting_and_filling_more() {
+    let mut t = T::open("paste-more");
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    let select = |t: &mut T, a: (u32, u32), b: (u32, u32)| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(a.0, a.1);
+        v.grid_extend_to(b.0, b.1);
+    };
+    // Paste Link: references to B2:C3.
+    select(&mut t, (1, 1), (2, 2));
+    t.app.run_command("viewer.grid.copy", json!({}));
+    select(&mut t, (0, 10), (0, 10));
+    t.app
+        .run_command("viewer.grid.pasteSpecial", json!({ "what": "link" }));
+    assert_eq!(input(&mut t, 0, 10), "=B2");
+    assert_eq!(input(&mut t, 1, 11), "=C3");
+    // Operations: 5 added to a number, multiplying a formula.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(9, 10, "10").unwrap();
+    v.set_cell(10, 10, "=1+1").unwrap();
+    v.set_cell(0, 12, "5").unwrap();
+    v.set_cell(2, 12, "7").unwrap();
+    select(&mut t, (0, 12), (0, 12));
+    t.app.run_command("viewer.grid.copy", json!({}));
+    select(&mut t, (9, 10), (9, 10));
+    t.app
+        .run_command("viewer.grid.pasteSpecial", json!({ "what": "add" }));
+    assert_eq!(input(&mut t, 9, 10), "15");
+    select(&mut t, (10, 10), (10, 10));
+    t.app
+        .run_command("viewer.grid.pasteSpecial", json!({ "what": "multiply" }));
+    assert_eq!(input(&mut t, 10, 10), "=(1+1)*5");
+    // Skip Blanks: M1:M3's empty M2 leaves K11 alone.
+    select(&mut t, (0, 12), (2, 12));
+    t.app.run_command("viewer.grid.copy", json!({}));
+    select(&mut t, (9, 10), (9, 10));
+    t.app
+        .run_command("viewer.grid.pasteSpecial", json!({ "what": "skipBlanks" }));
+    assert_eq!(
+        (
+            input(&mut t, 9, 10),
+            input(&mut t, 10, 10),
+            input(&mut t, 11, 10)
+        ),
+        ("5".into(), "=(1+1)*5".into(), "7".into())
+    );
+    // Insert Copied Cells: A2:A3 at A5, Sum moved down.
+    select(&mut t, (1, 0), (2, 0));
+    t.app.run_command("viewer.grid.copy", json!({}));
+    select(&mut t, (4, 0), (4, 0));
+    t.app
+        .run_command("viewer.grid.insertCopiedCells", json!({}));
+    assert_eq!(
+        (input(&mut t, 4, 0), input(&mut t, 6, 0)),
+        ("Rent".into(), "Sum".into())
+    );
+    // Series: 2, 5, 8… down N1:N5; months from a month's end.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(0, 13, "2").unwrap();
+    v.set_cell(0, 14, "2026-01-31").unwrap();
+    select(&mut t, (0, 13), (4, 13));
+    t.app.run_command(
+        "viewer.grid.series",
+        json!({ "type": "linear", "step value": "3", "stop value": "" }),
+    );
+    assert_eq!(input(&mut t, 4, 13), "14");
+    select(&mut t, (0, 14), (2, 14));
+    t.app.run_command(
+        "viewer.grid.series",
+        json!({ "type": "month", "step value": "1", "stop value": "" }),
+    );
+    assert_eq!(input(&mut t, 1, 14), "2026-02-28");
+    // Fill Justify: words joined, broken to the column's width.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(20, 1, "bir iki").unwrap();
+    v.set_cell(21, 1, "üç").unwrap();
+    select(&mut t, (20, 1), (22, 1));
+    t.app.run_command("viewer.grid.fillJustify", json!({}));
+    assert_eq!(
+        (input(&mut t, 20, 1), input(&mut t, 21, 1)),
+        ("bir iki".into(), "üç".into())
+    );
+}
+
+#[test]
+fn sorting_and_filtering_more() {
+    let mut t = T::open("filter-more");
+    let hidden = |t: &mut T| {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .hidden_rows
+    };
+    // Advanced Filter: Q1 over 400, in place: Travel hidden.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(9, 5, "Q1").unwrap();
+    v.set_cell(10, 5, ">400").unwrap();
+    t.app.run_command(
+        "viewer.grid.advancedFilter",
+        json!({ "action": "inPlace", "list range": "A1:D5", "criteria range": "F10:F11" }),
+    );
+    assert!(t.screen().contains("3 records found"), "{}", t.screen());
+    assert_eq!(hidden(&mut t), vec![3]);
+    t.app.run_command(
+        "viewer.grid.advancedFilter",
+        json!({ "action": "showAll", "list range": "A1:D5" }),
+    );
+    assert!(hidden(&mut t).is_empty());
+    // Copied elsewhere, with the headers.
+    t.app.run_command(
+        "viewer.grid.advancedFilter",
+        json!({ "action": "copy", "list range": "A1:D5", "criteria range": "F10:F11", "copy to": "H1" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let at = |v: &mut kalem_core::viewer::ViewerState, r, c| {
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    assert_eq!(
+        (at(v, 0, 7), at(v, 1, 7), at(v, 3, 7)),
+        ("Item".into(), "Rent".into(), "Sum".into())
+    );
+    // Sort by Color: the red cells of a column first.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    for (r, x) in ["k", "a", "b", "c"].iter().enumerate() {
+        v.set_cell(20 + r as u32, 10, x).unwrap();
+    }
+    v.grid_move_to(22, 10);
+    v.change_style(kalem_viewer::StyleChange {
+        fill: Some(Some([0xC0, 0, 0])),
+        ..Default::default()
+    })
+    .unwrap();
+    v.grid_move_to(21, 10);
+    t.app.run_command("viewer.grid.sortByColor", json!({}));
+    assert!(
+        t.screen().contains("Cell Color #C00000 on Top"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.sortByColor", json!({ "color": "C00000" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let col: Vec<String> = (20..24).map(|r| at(v, r, 10)).collect();
+    assert_eq!(col, ["b", "k", "a", "c"]);
+    // A date filter: this year's rows only.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let today = jiff::Zoned::now().date().to_string();
+    v.set_cell(30, 1, "When").unwrap();
+    v.set_cell(31, 1, &today).unwrap();
+    v.set_cell(32, 1, "2020-01-01").unwrap();
+    v.grid_move_to(30, 1);
+    v.grid_extend_to(32, 1);
+    t.app.run_command("viewer.grid.toggleFilter", json!({}));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(30, 1);
+    t.app
+        .run_command("viewer.grid.filterCondition", json!({ "op": "thisYear" }));
+    assert!(hidden(&mut t).contains(&32), "{:?}", hidden(&mut t));
+    assert!(!hidden(&mut t).contains(&31));
+}
+
+#[test]
+fn formatting_the_rest() {
+    let mut t = T::open("styles");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(1, 1);
+    // Format Cells (Ctrl+1): every part in one menu.
+    t.app.run_command("viewer.grid.formatCells", json!({}));
+    let s = t.screen();
+    assert!(s.contains("Format Cells: Number: Number Format"), "{s}");
+    t.key(KeyCode::Esc);
+    // A double bottom border.
+    t.app.run_command("viewer.grid.borderLine", json!({}));
+    assert!(t.screen().contains("Double"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.borderLine",
+        json!({ "line": "double", "set": "bottom" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(
+        v.cursor_cell().border_styles[2],
+        Some(kalem_viewer::LineStyle::Double)
+    );
+    // A pattern, then a gradient.
+    t.app
+        .run_command("viewer.grid.fillEffect", json!({ "effect": "darkUp" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(matches!(
+        v.cursor_cell().fill_pattern,
+        Some(kalem_viewer::FillPattern::Pattern { ref kind, .. }) if kind == "darkUp"
+    ));
+    t.app
+        .run_command("viewer.grid.fillEffect", json!({ "effect": "gradient90" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(matches!(
+        v.cursor_cell().fill_pattern,
+        Some(kalem_viewer::FillPattern::Gradient { angle: 90, .. })
+    ));
+    // A named style of the cell's format, given to another cell.
+    t.app.run_command(
+        "viewer.grid.cellStyle",
+        json!({ "new": true, "value": "Striped" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.cell_styles().iter().any(|s| s == "Striped"));
+    v.grid_move_to(4, 3);
+    t.app
+        .run_command("viewer.grid.cellStyle", json!({ "style": "Striped" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.cursor_cell().fill_pattern.is_some());
+    // Themes: the one chosen is marked.
+    t.app
+        .run_command("viewer.grid.theme", json!({ "theme": "Green" }));
+    t.app.run_command("viewer.grid.theme", json!({}));
+    assert!(t.screen().contains("Green ✓"), "{}", t.screen());
+}

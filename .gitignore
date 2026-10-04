@@ -47,3 +47,6 @@ __pycache__/
 .env
 .env.*
 .claude/settings.local.json
+
+# What pdflatex leaves beside a paper of the corpus when a test builds it.
+tests/corpus/**/missfont.log

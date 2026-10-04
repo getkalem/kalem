@@ -207,7 +207,7 @@ pub struct ModeDiagnostic {
 /// A document mode (§11.11). Only `id`, `detect` and `parse` are
 /// required; the rest have neutral defaults.
 pub trait ModeSpec: Send + Sync {
-    /// Its name: `klm`, `csv`.
+    /// Its name: `org`, `csv`.
     fn id(&self) -> &'static str;
 
     /// Which files it takes.
@@ -274,7 +274,6 @@ impl Modes {
     pub fn with_builtins() -> Modes {
         let mut m = Modes { specs: Vec::new() };
         m.register(Box::new(CsvMode));
-        m.register(Box::new(crate::klm::KlmMode::default()));
         m.register(Box::new(crate::markdown::MarkdownMode));
         m.register(Box::new(crate::latex_mode::LatexMode));
         m.register(Box::new(crate::org_mode::OrgMode));

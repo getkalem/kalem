@@ -17,7 +17,7 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E37. The mouse in the grid
 
-- [ ] E37 Right-click menus in the graphical grid: on cells (cut, copy,
+- [x] E37 Right-click menus in the graphical grid: on cells (cut, copy,
   paste, Paste Special, insert, delete, clear, sort, filter, format,
   note, comment, link), on row and column headings (insert, delete,
   hide, unhide, height, width) and on sheet tabs (insert, delete,
@@ -27,22 +27,24 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E38. Large edits at speed
 
-- [ ] E38 Pasting, filling, clearing, sorting and inserting rows over
+- [x] E38 Pasting, filling, clearing, sorting and inserting rows over
   100,000 cells in well under a second: a many-cell edit writes the
   sheet once, not a parse per cell (36,000 cells now take minutes); a
   workbook of a million cells opens, scrolls and recalculates without
   freezing the editor, the long work in the background with progress.
+  (Done but for the last part: at a million cells, opening and a full
+  recalculation take about a second each, still in the editor's thread.)
 
 ## E39. New workbooks and copied sheets
 
-- [ ] E39 New Workbook (a blank `Book1.xlsx`, saved where asked) and New
+- [x] E39 New Workbook (a blank `Book1.xlsx`, saved where asked) and New
   from a template (`.xltx`, `.xltm`); Move or Copy Sheet: a copy of the
   sheet in the same workbook (its formulas, names, tables, charts and
   pictures along), or moved or copied into another open workbook.
 
 ## E40. Calculation
 
-- [ ] E40 `NOW()` and `TODAY()` in the local time zone (the engine runs
+- [x] E40 `NOW()` and `TODAY()` in the local time zone (the engine runs
   in UTC); Automatic, Automatic except Data Tables and Manual
   calculation (`calcPr`), data tables then recalculated with every
   change; circular references found and shown (the cells), or
@@ -50,15 +52,16 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E41. Finding and spelling
 
-- [ ] E41 Find All: every match listed with its sheet, cell and value,
+- [x] E41 Find All: every match listed with its sheet, cell and value,
   chosen to go there; Find in values, formulas, notes or comments,
   matching case or the whole cell, in the sheet or the whole workbook;
   Spelling (F7) over the sheet's text with the editor's dictionaries,
-  each word replaced, ignored or added.
+  each word replaced, ignored or added. (Kalem had no dictionaries:
+  Hunspell's are used, the user's, the system's or LibreOffice's.)
 
 ## E42. Pasting and filling, the rest
 
-- [ ] E42 Paste Link (references to the copied cells); Paste Special's
+- [x] E42 Paste Link (references to the copied cells); Paste Special's
   operations (add, subtract, multiply, divide) and Skip Blanks; Insert
   Copied Cells shifting the others down or right; the Series dialog
   (linear and growth steps, a stop value, dates by day, weekday, month
@@ -66,7 +69,7 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E43. Sorting and filtering, the rest
 
-- [ ] E43 Sort by cell color or font color; filter by condition: Top 10
+- [x] E43 Sort by cell color or font color; filter by condition: Top 10
   (items or percent), above or below average, dates (today, this
   month, last quarter, a year), text and number rules joined by And or
   Or; Advanced Filter with a criteria range, the result in place or
@@ -75,12 +78,15 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E44. Formatting, the rest
 
-- [ ] E44 Rotated text drawn (it is kept, not shown); border styles
+- [x] E44 Rotated text drawn (it is kept, not shown); border styles
   (dashed, dotted, double, medium, colors per side); gradient and
   pattern fills; cell styles as named styles (Normal, Good, Bad,
   Neutral, Headings, Total) kept as styles, and new ones; the
   workbook's theme (its colors and fonts) chosen; Format Cells as one
   panel of the number, alignment, font, border, fill and protection.
+  (gpui draws rotated text as slanted letters, not turned glyphs; the
+  terminal shows it unrotated. Format Cells is one menu of every part,
+  each leading to its command, not a dialog.)
 
 ## E45. Printing, the rest
 

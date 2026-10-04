@@ -252,8 +252,7 @@ targets are met; no whole-file work on the keystroke path of any mode.
   edit rather than a copy of the text, with relative positions per
   top-level block (the open half of T2.7c.6); CSV updates widths and the
   index from the edited record on, not from the start. M
-- [ ] R4.7 `.klm` keystroke under 2 ms: relative ranges in `klm-syntax`
-  (T2.13.3a) together with an incremental contract tree in `KlmMode`. M
+- R4.7 Withdrawn (owner, 2026-10-04) with Kalem's own format.
 - [ ] R4.8 A worker pool for background parses, renders and searches
   instead of a thread per task, with `Arc<str>` snapshots instead of
   copies; the viewer's render and search no longer share one mutex. M
@@ -278,10 +277,7 @@ Writers (Org and Markdown)
   entries, capture templates, refile across files, `id:` links,
   clocking, `kalem agenda` on the command line. L (two or three
   cycles; the index first)
-- [ ] R5.3 The Kalem format as itself (T2.13.4–T2.13.7): `.klm` opens as
-  `.klm`, rendered through `KlmMode` in both editors, with `klm-edit`'s
-  guarantees (closing braces, atomic delimiters); the model shared with
-  Org so the agenda sees both. L
+- R5.3 Withdrawn (owner, 2026-10-04) with Kalem's own format.
 - [ ] R5.4 Presentations: Beamer and reveal.js export (T3.6.2, T3.6.3),
   a template picker (T3.6.4). M
 - [ ] R5.5 Obsidian vaults as themselves (T2.7c.12): wiki links across
@@ -403,7 +399,7 @@ Programmers (LSP and plugins)
   (T3.3.2). L
 - [ ] R5.14 Plugin developer experience: the template (T3.3.1), hot
   reload (T3.2.2), the inspection panel (T3.2.1), API docs generated from
-  the WIT into Part IV (T3.3.4). M
+  the WIT into Part III (T3.3.4). M
 - [ ] R5.15 A `git` plugin (T2.7i.11): status, blame, stage, commit, log
   through the `process` permission, on Doom's `SPC g` keys. M
 
@@ -430,8 +426,7 @@ These never close; they are checked on every pull request or release.
   the manual settles (T2.10.7); Book versioning with releases (T2.10.5).
 - [ ] R6.6 Users before features (TS.11): each release's plan starts from
   what the early-access users asked for, not from this list.
-- [ ] R6.7 The standard modes are never extended (TS.14); `.klm` is the
-  one place Kalem defines syntax.
+- [ ] R6.7 The standard modes are never extended (TS.14).
 
 ## What is deliberately not on this roadmap
 

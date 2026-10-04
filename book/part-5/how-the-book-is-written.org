@@ -11,7 +11,7 @@ A change to how Kalem reads, shows, edits or writes a format changes the
 format's chapter in the same commit. =book/chapters.toml= maps the code
 to its chapter (Org's crates to /Org/, the CSV mode to /CSV/, the LaTeX
 crates and modules to /LaTeX/, the Markdown mode to /Markdown/, BibTeX
-to /BibTeX/, =klm-syntax= to Part III). On a pull request the Book's
+to /BibTeX/). On a pull request the Book's
 workflow runs =kalem book check book --changed origin/main=, which names
 every chapter whose code changed without it; a pull request that has a
 reason not to touch the chapter carries the label =book-unchanged= and
@@ -19,7 +19,7 @@ says why in its description.
 
 * One skeleton for every format chapter
 
-Each chapter of Part II, of Part III and of the plugin formats of Part IV
+Each chapter of Part II and of the plugin formats of Part III
 answers the same questions in the same order, so a reader who knows one
 chapter finds their way in the others:
 
@@ -50,5 +50,5 @@ sentence.
 What can drift from the code is generated from it: the appendices of
 commands, settings and the command line at build time, the key tables
 from =tests/keys=, the LaTeX limitations page from a coverage report
-(=tools/latex-limitations.py=); and =kalem book check= holds every
-example of Part III to a case of the conformance suite.
+(=tools/latex-limitations.py=). =kalem book check= checks that every
+chapter exports and that every link resolves.

@@ -126,9 +126,7 @@ fn mode_line(first_line: &str) -> Option<String> {
 
 fn by_name(name: &str) -> Option<DocumentMode> {
     Some(match name {
-        // `.klm`: the Kalem format's extension, read as strict Org until
-        // its parser exists (T2.13.3).
-        "org" | "org_archive" | "klm" => DocumentMode::Org,
+        "org" | "org_archive" => DocumentMode::Org,
         "md" | "markdown" | "mdown" | "mkd" | "gfm" => DocumentMode::Markdown,
         "csv" | "tsv" | "tab" => DocumentMode::Csv,
         "tex" | "latex" | "ltx" => DocumentMode::Latex,

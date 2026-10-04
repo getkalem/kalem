@@ -58,6 +58,38 @@ interface grid {
         unlocked: bool,
         sparkline: option<sparkline>,
         thread: bool,
+        border-styles: tuple<option<line-style>, option<line-style>, option<line-style>, option<line-style>>,
+        fill-pattern: option<fill-pattern>,
+    }
+
+    /// A border line.
+    enum line-style {
+        thin,
+        medium,
+        thick,
+        dashed,
+        dotted,
+        double,
+        hair,
+    }
+
+    /// A pattern by Excel's name, in its color over the background's.
+    record pattern-fill {
+        kind: string,
+        color: rgb,
+        background: rgb,
+    }
+
+    /// A linear gradient: its angle in degrees, its two colors.
+    record gradient-fill {
+        angle: u16,
+        %from: rgb,
+        to: rgb,
+    }
+
+    variant fill-pattern {
+        pattern(pattern-fill),
+        gradient(gradient-fill),
     }
 
     enum sparkline-kind {
@@ -123,6 +155,7 @@ interface grid {
         rename(tuple<u32, string>),
         move(tuple<u32, u32>),
         hide(tuple<u32, bool>),
+        copy(tuple<u32, u32>),
     }
 
     enum paste-kind {
@@ -162,6 +195,8 @@ interface grid {
         shrink: option<bool>,
         center-across: option<bool>,
         locked: option<bool>,
+        border-style: option<line-style>,
+        fill-pattern: option<option<fill-pattern>>,
     }
 
     enum compare-op {
@@ -398,11 +433,18 @@ interface grid {
         style: string,
     }
 
+    /// A color a sort puts first: the font's or the fill's.
+    record sort-color {
+        font: bool,
+        rgb: rgb,
+    }
+
     record sort-key {
         col: u32,
         descending: bool,
         /// The values in the order they sort in; the others after them.
         %list: option<list<string>>,
+        color: option<sort-color>,
     }
 
     /// What a protected sheet still lets the user do.
@@ -425,12 +467,28 @@ interface grid {
         paper: u32,
         /// Left, right, top, bottom, in inches.
         margins: tuple<f32, f32, f32, f32>,
-        fit-width: bool,
+        /// Pages wide and tall, 0 for as many as it takes.
+        fit: option<tuple<u32, u32>>,
+        /// Percent, when not fitted.
+        scale: u32,
         print-area: option<range>,
         title-rows: option<tuple<u32, u32>>,
+        title-cols: option<tuple<u32, u32>>,
         header: string,
         footer: string,
         row-breaks: list<u32>,
+        col-breaks: list<u32>,
+        gridlines: bool,
+        headings: bool,
+        pictures: list<header-picture>,
+    }
+
+    /// A picture in a header or footer: `LH`, `CH`, `RH`, `LF`, `CF`, `RF`.
+    record header-picture {
+        place: string,
+        data: list<u8>,
+        /// Width and height in points.
+        size: tuple<f32, f32>,
     }
 
     record shape {
@@ -455,6 +513,20 @@ interface grid {
 
     /// Grouped rows and columns: each with its level.
     type levels = tuple<list<tuple<u32, u8>>, list<tuple<u32, u8>>>;
+
+    enum calc-mode {
+        automatic,
+        automatic-except-tables,
+        manual,
+    }
+
+    /// A workbook's calculation settings.
+    record calc-settings {
+        mode: calc-mode,
+        iterate: bool,
+        max-iterations: u32,
+        max-change: f64,
+    }
 
     /// How a sheet is shown.
     record view-settings {
@@ -635,8 +707,17 @@ interface grid {
     add-scenario: func(doc: borrow<document>, unit: u32, name: string, cells: list<tuple<u32, u32>>, comment: string) -> changed;
     show-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
     delete-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
+    calc-options: func(doc: borrow<document>) -> calc-settings;
+    set-calc-options: func(doc: borrow<document>, options: calc-settings) -> changed;
+    circular-references: func(doc: borrow<document>) -> list<tuple<u32, u32, u32>>;
     sheet-view: func(doc: borrow<document>, unit: u32) -> view-settings;
     set-sheet-view: func(doc: borrow<document>, unit: u32, view: view-settings) -> changed;
+    cell-styles: func(doc: borrow<document>) -> list<string>;
+    apply-cell-style: func(doc: borrow<document>, unit: u32, range: range, name: string) -> changed;
+    new-cell-style: func(doc: borrow<document>, name: string, unit: u32, row: u32, col: u32) -> changed;
+    theme-name: func(doc: borrow<document>) -> option<string>;
+    theme-names: func(doc: borrow<document>) -> list<string>;
+    set-theme: func(doc: borrow<document>, name: string) -> changed;
     tab-color: func(doc: borrow<document>, unit: u32) -> option<rgb>;
     set-tab-color: func(doc: borrow<document>, unit: u32, color: option<rgb>) -> changed;
     threads: func(doc: borrow<document>, unit: u32) -> list<comment-thread>;

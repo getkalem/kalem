@@ -1571,8 +1571,8 @@ impl DocumentState {
         self.org.as_ref().and_then(|o| o.last_level)
     }
 
-    /// The type of the document as a whole, wherever the cursor is: `klm`
-    /// or `org` as the file is, a plain text file's language (lower case)
+    /// The type of the document as a whole, wherever the cursor is: `org`,
+    /// a plain text file's language (lower case)
     /// or `text`, `markdown`, `latex`, `csv`, `directory`. Menus and
     /// toolbars show the commands that serve it.
     pub fn document_type(&self) -> String {
@@ -1604,7 +1604,7 @@ impl DocumentState {
     /// The type of the text at the cursor (§11.2), innermost first: in an
     /// Org document the language of the source block the cursor is in
     /// (lower case), an export block's back-end, `latex` in a formula, else
-    /// `klm` or `org` as the file is; a plain text file's language, or
+    /// `org`; a plain text file's language, or
     /// `text`; `markdown`, `csv`, `directory`.
     pub fn text_type(&self) -> String {
         use org_syntax::SyntaxKind as K;

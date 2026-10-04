@@ -149,8 +149,8 @@ to copy from.
 
 Every command serves some types of text. The type is the one at the
 cursor, innermost first: a source block's language (=python=), =latex=
-in a formula, the file's kind (=org=, =markdown=, =csv=, =text=, or
-=klm=, which Org's commands serve too), a file's language (=rust=). So
+in a formula, the file's kind (=org=, =markdown=, =csv= or =text=), a
+file's language (=rust=). So
 Ctrl+B makes bold text in Org and does nothing in a Python block, and
 Alt+Up moves lines in code but headings, items and rows in Org. A
 binding can use the type: ="when": "textType == python"=. =kalem

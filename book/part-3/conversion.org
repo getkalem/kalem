@@ -1,5 +1,0 @@
-*Org to Kalem: complete.* Headlines to =\hN= with =todo=, =priority=, =tags=, planning lines to timestamps, property drawers to attributes, =LOGBOOK= to =\log=, lists and checkboxes to =\ul=/=\ol= with =state=, tables and =#+TBLFM= to =\table= and =\formulas= (Calc formulas translated to the spreadsheet dialect where a mapping exists, kept as a ~calc="…"~ attribute otherwise), footnotes to =\fn=, links to =\link=/=\ref=, blocks to =\code=/=\block=, =#+OPTIONS= and keywords to =\meta=, macros to =\var=, =#+INCLUDE= to =\include=, entities to Unicode, LaTeX fragments to =$…$= and =\eq=. Checked on the Org corpus: convert, render, compare models.
-
-*Kalem to Org: explicit loss.* Styles, spans with direct formatting, layout, review marks, =\pagesetup= and the spreadsheet dialect have no Org form: the exporter drops them and lists what it dropped, or writes them through Org's extension points when asked (=--org-extensions=), which is the mechanism of the retired D24.
-
-*Markdown and LaTeX to Kalem:* through the standard modes' trees: headings, emphasis, lists, code, tables, math, citations, figures; LaTeX's unknown macros become ~\raw[format=latex]~.

@@ -66,7 +66,7 @@ A text type is the type of the text *at the cursor*, innermost first:
 | In an Org source block                    | Its language, in lower case: =python=, =rust= |
 | In an Org export block                    | Its back-end: =html=, =latex=                 |
 | In a LaTeX fragment or environment in Org | =latex=                                       |
-| Elsewhere in an Org document              | =klm= for =.klm= files, =org= otherwise       |
+| Elsewhere in an Org document              | =org=                                         |
 | In a Markdown, CSV or LaTeX file          | =markdown=, =csv=, =latex=                    |
 | In a plain text file with a language      | That language, in lower case                  |
 | In a plain text file without one          | =text=                                        |
@@ -78,14 +78,13 @@ file's language is what Kalem detected it by, a mode line, the
 extension or a =#!= line, under that language's one name: =script.py=,
 a file starting with =#!/usr/bin/env python3= and =#+BEGIN_SRC python=
 all have =python=; =.js= is =javascript=, =.sh= and =bash= are =shell=,
-=.h= is =c=. *=klm= is a kind of =org=*: a scope that names =org= serves
-=.klm= files too, one that names =klm= only Kalem documents. A scope
-never names a mode or an editor, because the type decides them.
+=.h= is =c=. A scope never names a mode or an editor, because the type
+decides them.
 
 In Rust, a scope is =Scope::all()=, =Scope::only(&["csv"])= or
 =Scope::except(&["org"])=; when a command is registered, its scope is
 turned into a when-clause over =textType= (=Scope::only(&["org"])=
-becomes ~textType == org || textType == klm~) and joined to the
+becomes ~textType == org~) and joined to the
 command's own with =&&=, so the palette, menus, key bindings and the
 documentation all evaluate one expression. =kalem commands= and the
 appendix write a scope as =all=, a list such as =org=, or =all except
@@ -103,7 +102,7 @@ Org and does nothing in a Python block); those requiring ~editorMode
 to every type but =org=, so in a source block they move lines of code
 while in Org text Alt+Up moves headings, items and rows.
 
-Kalem knows the types =org=, =klm=, =markdown=, =csv=, =text=,
+Kalem knows the types =org=, =markdown=, =csv=, =text=,
 =directory=, =latex=, =html=, =json=, =txt=, =log=, =tsv=, =diff=,
 =patch=, =bib=, =rtf=, =srt=, =ascii=, and every language it has
 comment markers for (=rust=, =python=, =shell=, =go=, =sql=, =yaml=,
@@ -152,7 +151,7 @@ and a string compare equal when the string reads as that number.
 | Key              | Value                                                                                                                                | Set by      |
 |------------------+--------------------------------------------------------------------------------------------------------------------------------------+-------------|
 | =editorMode=     | =org=, =markdown=, =csv=, =latex=, =text=, =binary=, =directory=                                                                     | document    |
-| =fileKind=       | =org= or =klm=; only in Org documents                                                                                                | document    |
+| =fileKind=       | =org=; only in Org documents                                                                                                         | document    |
 | =editorLanguage= | A plain text file's language, as detected (=rs=, =python=)                                                                           | document    |
 | =textType=       | The text type at the cursor (see [[*Text types][Text types]])                                                                                         | cursor      |
 | =hasSelection=   | Text is selected                                                                                                                     | cursor      |

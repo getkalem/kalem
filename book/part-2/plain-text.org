@@ -68,7 +68,7 @@ the first rule that applies wins.
 
    | Extensions                              | Mode                                |
    |-----------------------------------------+-------------------------------------|
-   | =org=, =org_archive=, =klm=             | Org                                 |
+   | =org=, =org_archive=                    | Org                                 |
    | =md=, =markdown=, =mdown=, =mkd=, =gfm= | Markdown                            |
    | =csv=, =tsv=, =tab=                     | CSV                                 |
    | =tex=, =latex=, =ltx=                   | LaTeX                               |

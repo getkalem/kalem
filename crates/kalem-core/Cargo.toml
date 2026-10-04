@@ -12,7 +12,6 @@ authors.workspace = true
 dunce.workspace = true
 unicode-normalization = "0.1"
 org-syntax.workspace = true
-klm-syntax.workspace = true
 comrak.workspace = true
 org-model.workspace = true
 org-cite.workspace = true
@@ -42,6 +41,9 @@ unic-langid = "0.9"
 sys-locale = "0.3"
 regex = { version = "1", default-features = false, features = ["std", "perf", "unicode"] }
 unicode-segmentation = "1"
+# Spelling with Hunspell dictionaries (the system's, LibreOffice's or the
+# user's own).
+spellbook = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt"] }
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }

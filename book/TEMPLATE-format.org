@@ -2,7 +2,7 @@
 
 One paragraph: what the format is, who writes it, and what Kalem does
 with it (opens it as itself, byte for byte). The skeleton is described
-in Part V, "How the Book is written"; keep its order.
+in Part IV, "How the Book is written"; keep its order.
 
 * The standard and the oracle
 

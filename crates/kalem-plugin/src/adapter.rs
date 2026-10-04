@@ -708,6 +708,20 @@ macro_rules! __kalem_grid_exports {
             fn delete_scenario(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_scenario(unit as usize, &name)))
             }
+            fn calc_options(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> $crate::adapter::grid::g::CalcSettings {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.calc_options()).conv()
+            }
+            fn set_calc_options(d: $crate::adapter::grid::g::DocumentBorrow<'_>, options: $crate::adapter::grid::g::CalcSettings) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_calc_options(options.conv())))
+            }
+            fn circular_references(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::vec::Vec<(u32, u32, u32)> {
+                $crate::adapter::grid::with(d, |x| x.circular_references())
+                    .into_iter()
+                    .map(|(u, r, c)| (u as u32, r, c))
+                    .collect()
+            }
             fn sheet_view(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> $crate::adapter::grid::g::ViewSettings {
                 use $crate::adapter::grid::Conv;
                 $crate::adapter::grid::with(d, |x| x.sheet_view(unit as usize)).conv()
@@ -715,6 +729,25 @@ macro_rules! __kalem_grid_exports {
             fn set_sheet_view(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, view: $crate::adapter::grid::g::ViewSettings) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
                 use $crate::adapter::grid::Conv;
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_sheet_view(unit as usize, view.conv())))
+            }
+            fn cell_styles(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::vec::Vec<::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.cell_styles())
+            }
+            fn apply_cell_style(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.apply_cell_style(unit as usize, range(r), &name)))
+            }
+            fn new_cell_style(d: $crate::adapter::grid::g::DocumentBorrow<'_>, name: ::std::string::String, unit: u32, row: u32, col: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.new_cell_style(&name, unit as usize, row, col)))
+            }
+            fn theme_name(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::option::Option<::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.theme_name())
+            }
+            fn theme_names(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::vec::Vec<::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.theme_names())
+            }
+            fn set_theme(d: $crate::adapter::grid::g::DocumentBorrow<'_>, name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_theme(&name)))
             }
             fn tab_color(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::option::Option<$crate::adapter::grid::g::Rgb> {
                 use $crate::adapter::grid::Conv;

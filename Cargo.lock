@@ -4366,7 +4366,6 @@ dependencies = [
  "kalem-plugin-xlsx",
  "kalem-script",
  "kalem-viewer",
- "klm-syntax",
  "latex-model",
  "latex-syntax",
  "org-cite",
@@ -4403,7 +4402,6 @@ dependencies = [
  "kalem-lsp",
  "kalem-project",
  "kalem-viewer",
- "klm-syntax",
  "latex-model",
  "latex-syntax",
  "notify",
@@ -4419,6 +4417,7 @@ dependencies = [
  "resvg 0.45.1",
  "serde_json",
  "sha2 0.10.9",
+ "spellbook",
  "sys-locale",
  "tar",
  "toml_edit 0.25.15+spec-1.1.0",
@@ -4485,7 +4484,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-image-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=4185eef717b70a6766fb10b11921dfe1c9daee11#4185eef717b70a6766fb10b11921dfe1c9daee11"
+source = "git+https://github.com/getkalem/plugins?rev=f42c333738437618dda4b479b88357ccaab8c84c#f42c333738437618dda4b479b88357ccaab8c84c"
 dependencies = [
  "image",
  "kalem-plugin",
@@ -4497,7 +4496,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-pdf-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=4185eef717b70a6766fb10b11921dfe1c9daee11#4185eef717b70a6766fb10b11921dfe1c9daee11"
+source = "git+https://github.com/getkalem/plugins?rev=f42c333738437618dda4b479b88357ccaab8c84c#f42c333738437618dda4b479b88357ccaab8c84c"
 dependencies = [
  "hayro",
  "kalem-plugin",
@@ -4508,11 +4507,12 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-xlsx"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=4185eef717b70a6766fb10b11921dfe1c9daee11#4185eef717b70a6766fb10b11921dfe1c9daee11"
+source = "git+https://github.com/getkalem/plugins?rev=f42c333738437618dda4b479b88357ccaab8c84c#f42c333738437618dda4b479b88357ccaab8c84c"
 dependencies = [
  "calamine",
  "cfb",
  "crc32fast",
+ "iana-time-zone",
  "ironcalc_base",
  "kalem-plugin",
  "kalem-viewer",
@@ -4644,13 +4644,6 @@ name = "khronos_api"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
-
-[[package]]
-name = "klm-syntax"
-version = "0.0.1"
-dependencies = [
- "serde_json",
-]
 
 [[package]]
 name = "kqueue"
@@ -7919,6 +7912,16 @@ checksum = "4aaa7368fcf4852a4c2dd92df0cace6a71f2091ca0a23391ce7f3a31833f1523"
 dependencies = [
  "borsh",
  "serde_core",
+]
+
+[[package]]
+name = "spellbook"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d204abcbdf8e88729306a8d0ca01a79d8a49969fe1f84696909d6dbc4321c1a"
+dependencies = [
+ "foldhash 0.1.5",
+ "hashbrown 0.15.5",
 ]
 
 [[package]]

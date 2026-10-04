@@ -6,10 +6,7 @@ it, so you can always see and change what is in the file
 An Org file stays Org as Emacs knows it: Kalem writes nothing into it
 that Org does not define, so a co-author in Emacs never meets a line
 only Kalem understands. Fonts, sizes and colors are not part of Org
-and are not offered in an Org file; they belong to the Kalem format,
-which is being designed (Part III). A =.klm= file is read by =kalem
-check= and =kalem fmt= with its own parser; the editors show it as
-Org text until they render the format.
+and are not offered in an Org file.
 
 * Headings
 

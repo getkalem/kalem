@@ -453,6 +453,10 @@ pub struct GridCell {
     /// Which of the borders are thick (medium or thicker), in the same
     /// order.
     pub border_thick: [bool; 4],
+    /// Each side's line (top, right, bottom, left), when it is drawn.
+    pub border_styles: [Option<LineStyle>; 4],
+    /// A fill other than a solid color: a pattern or a gradient.
+    pub fill_pattern: Option<FillPattern>,
     /// The indent, in levels (a spreadsheet's three spaces each).
     pub indent: u8,
     /// The text's rotation as a spreadsheet stores it: 0 level, 1 to 90
@@ -470,6 +474,42 @@ pub struct GridCell {
     pub sparkline: Option<Sparkline>,
     /// A threaded comment is on the cell.
     pub thread: bool,
+}
+
+/// When formulas are computed (Excel's Calculation Options).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CalcMode {
+    /// After every change, data tables too.
+    #[default]
+    Automatic,
+    /// After every change, data tables only when asked.
+    AutomaticExceptTables,
+    /// Only when asked (Calculate Now).
+    Manual,
+}
+
+/// A workbook's calculation settings.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CalcOptions {
+    /// When formulas are computed.
+    pub mode: CalcMode,
+    /// Circular references computed over and over, to a limit.
+    pub iterate: bool,
+    /// At most this many times.
+    pub max_iterations: u32,
+    /// Until no value changes by more than this.
+    pub max_change: f64,
+}
+
+impl Default for CalcOptions {
+    fn default() -> Self {
+        CalcOptions {
+            mode: CalcMode::Automatic,
+            iterate: false,
+            max_iterations: 100,
+            max_change: 0.001,
+        }
+    }
 }
 
 /// How a sheet is shown, as its file keeps it (Excel's View tab).
@@ -583,16 +623,28 @@ pub enum VAlign {
 }
 
 /// One level of a sort: a column, its order, and a custom list whose
-/// order its values follow.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// order its values follow, or a color its cells are sorted by.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SortKey {
     /// The column (of the sheet).
     pub col: u32,
-    /// Largest or last first.
+    /// Largest or last first; for a color, its cells last.
     pub descending: bool,
     /// The values in the order they sort in (months, a user's list); the
     /// others after them.
     pub list: Option<Vec<String>>,
+    /// The cells of this fill (or font) color first, the others after in
+    /// the order they were (Excel's Sort by Color).
+    pub color: Option<SortColor>,
+}
+
+/// A color a sort puts first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SortColor {
+    /// The font's color rather than the fill's.
+    pub font: bool,
+    /// The color.
+    pub rgb: [u8; 3],
 }
 
 /// How a filter's custom condition compares a cell.
@@ -712,13 +764,19 @@ pub struct PageSetup {
     pub paper: u32,
     /// Margins in inches: left, right, top, bottom.
     pub margins: [f32; 4],
-    /// Scaled to fit one page wide.
-    pub fit_width: bool,
+    /// Scaled to fit pages: so many wide and so many tall, 0 for as many
+    /// as it takes; `None` prints at `scale`.
+    pub fit: Option<(u32, u32)>,
+    /// The size printed, in percent of the real one (10 to 400), when it
+    /// is not fitted.
+    pub scale: u32,
     /// What prints (first row, first column, last row, last column);
     /// `None` the used range.
     pub print_area: Option<[u32; 4]>,
     /// Rows repeated at the top of every page (first and last).
     pub title_rows: Option<(u32, u32)>,
+    /// Columns repeated at the left of every page (first and last).
+    pub title_cols: Option<(u32, u32)>,
     /// The header, in a spreadsheet's codes (`&C&A` the sheet's name in
     /// the middle, `&P` the page, `&N` the pages, `&D` the date, `&F` the
     /// file, `&L` and `&R` the sides).
@@ -727,6 +785,26 @@ pub struct PageSetup {
     pub footer: String,
     /// The rows a new page begins at.
     pub row_breaks: Vec<u32>,
+    /// The columns a new page begins at.
+    pub col_breaks: Vec<u32>,
+    /// The cells' gridlines printed.
+    pub gridlines: bool,
+    /// The row and column headings printed.
+    pub headings: bool,
+    /// Pictures in the header and footer, each where its part says `&G`.
+    pub pictures: Vec<HeaderPicture>,
+}
+
+/// A picture in a sheet's header or footer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HeaderPicture {
+    /// Its place: `LH`, `CH`, `RH` in the header, `LF`, `CF`, `RF` in the
+    /// footer.
+    pub place: String,
+    /// The picture's bytes (PNG, JPEG, GIF).
+    pub data: Vec<u8>,
+    /// Its size in points, width and height.
+    pub size: (f32, f32),
 }
 
 impl Default for PageSetup {
@@ -735,12 +813,18 @@ impl Default for PageSetup {
             landscape: false,
             paper: 9,
             margins: [0.7, 0.7, 0.75, 0.75],
-            fit_width: false,
+            fit: None,
+            scale: 100,
             print_area: None,
             title_rows: None,
+            title_cols: None,
             header: String::new(),
             footer: String::new(),
             row_breaks: Vec::new(),
+            col_breaks: Vec::new(),
+            gridlines: false,
+            headings: false,
+            pictures: Vec::new(),
         }
     }
 }
@@ -772,6 +856,9 @@ pub enum SheetEdit {
     Move(usize, usize),
     /// The sheet hidden (`true`) or shown again.
     Hide(usize, bool),
+    /// A copy of the sheet (its cells, formats, names, tables, charts and
+    /// pictures) put at a place, named as a spreadsheet names a copy.
+    Copy(usize, usize),
 }
 
 /// Which borders a change draws.
@@ -833,6 +920,54 @@ pub struct StyleChange {
     pub center_across: Option<bool>,
     /// Locked (`true`) or unlocked for when the sheet is protected.
     pub locked: Option<bool>,
+    /// The line `borders` draw (thin unless told; ThickOutside medium).
+    pub border_style: Option<LineStyle>,
+    /// A pattern or gradient fill (`Some(None)`: none).
+    pub fill_pattern: Option<Option<FillPattern>>,
+}
+
+/// A border line, as Excel draws one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LineStyle {
+    /// Thin.
+    #[default]
+    Thin,
+    /// Medium.
+    Medium,
+    /// Thick.
+    Thick,
+    /// Dashed.
+    Dashed,
+    /// Dotted.
+    Dotted,
+    /// Two thin lines.
+    Double,
+    /// The thinnest.
+    Hair,
+}
+
+/// A cell's fill other than a solid color.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FillPattern {
+    /// A pattern by Excel's name (`darkGrid`, `lightDown`, `gray125`…), in
+    /// its color over the background's.
+    Pattern {
+        /// The pattern's name.
+        kind: String,
+        /// The pattern's color.
+        color: [u8; 3],
+        /// The color under it.
+        background: [u8; 3],
+    },
+    /// A linear gradient from one color to another.
+    Gradient {
+        /// Its direction in degrees (0 left to right, 90 top to bottom).
+        angle: u16,
+        /// The first color.
+        from: [u8; 3],
+        /// The last.
+        to: [u8; 3],
+    },
 }
 
 /// What a protected sheet still lets the user do (`true`: allowed).
@@ -1898,6 +2033,22 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// The workbook's calculation settings.
+    fn calc_options(&mut self) -> CalcOptions {
+        CalcOptions::default()
+    }
+
+    /// Sets the workbook's calculation settings (an undo step).
+    fn set_calc_options(&mut self, _options: CalcOptions) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The cells whose formulas refer to themselves round a circle (sheet,
+    /// row, column), when they are not computed over and over.
+    fn circular_references(&mut self) -> Vec<(usize, u32, u32)> {
+        Vec::new()
+    }
+
     /// How a sheet is shown.
     fn sheet_view(&mut self, _unit: usize) -> SheetView {
         SheetView::default()
@@ -1906,6 +2057,49 @@ pub trait ViewerDocument: Send {
     /// Keeps how a sheet is shown in the file: not an undo step, but an
     /// edit to save.
     fn set_sheet_view(&mut self, _unit: usize, _view: SheetView) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The workbook's named cell styles (Normal, Good, Heading 1, the
+    /// user's own).
+    fn cell_styles(&mut self) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// A range given the named cell style `name` (a built-in one made when
+    /// the workbook lacks it).
+    fn apply_cell_style(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _name: &str,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// A new named cell style made of a cell's format.
+    fn new_cell_style(
+        &mut self,
+        _name: &str,
+        _unit: usize,
+        _row: u32,
+        _col: u32,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The workbook theme's name.
+    fn theme_name(&mut self) -> Option<String> {
+        None
+    }
+
+    /// The themes a workbook can be given.
+    fn theme_names(&mut self) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// The workbook given theme `name`: its colors and fonts.
+    fn set_theme(&mut self, _name: &str) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
@@ -2389,7 +2583,9 @@ pub trait ViewerDocument: Send {
         header: bool,
     ) -> Result<Vec<usize>> {
         match keys {
-            [k] if k.list.is_none() => self.sort_range(unit, range, k.col, k.descending, header),
+            [k] if k.list.is_none() && k.color.is_none() => {
+                self.sort_range(unit, range, k.col, k.descending, header)
+            }
             _ => Err(ViewerError("This format sorts by one column".into())),
         }
     }

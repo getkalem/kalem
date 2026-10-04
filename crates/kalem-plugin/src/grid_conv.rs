@@ -145,7 +145,7 @@ cases!(kv::FilterOp, g::FilterOp {
 record!(kv::GridCell, g::Cell {
     text, numeric, bold, italic, underline, strike, color, fill, align, wrap, formula, note,
     bar, icon, font_size, face, valign, borders, border_thick, indent, rotation, shrink,
-    center_across, unlocked, sparkline, thread,
+    center_across, unlocked, sparkline, thread, border_styles, fill_pattern,
 });
 cases!(kv::SparklineKind, g::SparklineKind { Line, Column, WinLoss });
 record!(kv::Sparkline, g::Sparkline { kind, points, zero, color, marker, high, low });
@@ -154,12 +154,16 @@ record!(kv::SheetProtection, g::Protection {
     delete_rows, delete_columns, sort, filter,
 });
 record!(kv::PageSetup, g::PageLayout {
-    landscape, paper, margins, fit_width, print_area, title_rows, header, footer, row_breaks,
+    landscape, paper, margins, fit, scale, print_area, title_rows, title_cols, header, footer,
+    row_breaks, col_breaks, gridlines, headings, pictures,
 });
+record!(kv::HeaderPicture, g::HeaderPicture { place, data, size });
 record!(kv::Drawing, g::Drawing { name, anchor, kind });
 record!(kv::Scenario, g::Scenario { name, comment, cells });
 record!(kv::ThreadComment, g::ThreadComment { author, text, time });
 record!(kv::SheetView, g::ViewSettings { zoom, gridlines, headings, page_break_preview, split });
+cases!(kv::CalcMode, g::CalcMode { Automatic, AutomaticExceptTables, Manual });
+record!(kv::CalcOptions, g::CalcSettings { mode, iterate, max_iterations, max_change });
 record!(kv::CommentThread, g::CommentThread { row, col, done, comments });
 
 impl Conv<g::DrawingKind> for kv::DrawingKind {
@@ -203,8 +207,43 @@ record!(kv::GridLayout, g::GridLayout {
 });
 record!(kv::StyleChange, g::StyleChange {
     bold, italic, underline, strike, color, fill, size, face, align, valign, borders,
-    number_format, indent, rotation, shrink, center_across, locked,
+    number_format, indent, rotation, shrink, center_across, locked, border_style, fill_pattern,
 });
+cases!(kv::LineStyle, g::LineStyle { Thin, Medium, Thick, Dashed, Dotted, Double, Hair });
+
+impl Conv<g::FillPattern> for kv::FillPattern {
+    fn conv(self) -> g::FillPattern {
+        match self {
+            kv::FillPattern::Pattern { kind, color, background } => g::FillPattern::Pattern(g::PatternFill {
+                kind,
+                color: color.conv(),
+                background: background.conv(),
+            }),
+            kv::FillPattern::Gradient { angle, from, to } => g::FillPattern::Gradient(g::GradientFill {
+                angle,
+                from: from.conv(),
+                to: to.conv(),
+            }),
+        }
+    }
+}
+
+impl Conv<kv::FillPattern> for g::FillPattern {
+    fn conv(self) -> kv::FillPattern {
+        match self {
+            g::FillPattern::Pattern(p) => kv::FillPattern::Pattern {
+                kind: p.kind,
+                color: p.color.conv(),
+                background: p.background.conv(),
+            },
+            g::FillPattern::Gradient(g) => kv::FillPattern::Gradient {
+                angle: g.angle,
+                from: g.from.conv(),
+                to: g.to.conv(),
+            },
+        }
+    }
+}
 record!(kv::CondStyle, g::CondStyle { fill, color, bold });
 record!(kv::ChartSeries, g::Series {
     name, values, x, color, point_colors, explosion, point_explosions,
@@ -227,7 +266,8 @@ record!(kv::Validation, g::CellValidation {
 record!(kv::ValidationError, g::ValidationError { style, title, message });
 record!(kv::MacroEntry, g::MacroEntry { name, event });
 record!(kv::TableInfo, g::TableInfo { name, range, totals, style });
-record!(kv::SortKey, g::SortKey { col, descending, list });
+record!(kv::SortColor, g::SortColor { font, rgb });
+record!(kv::SortKey, g::SortKey { col, descending, list, color });
 
 impl Conv<g::FilterRule> for kv::FilterRule {
     fn conv(self) -> g::FilterRule {
@@ -335,6 +375,7 @@ impl Conv<g::SheetEdit> for kv::SheetEdit {
             kv::SheetEdit::Rename(i, n) => g::SheetEdit::Rename((i.conv(), n)),
             kv::SheetEdit::Move(a, b) => g::SheetEdit::Move((a.conv(), b.conv())),
             kv::SheetEdit::Hide(i, h) => g::SheetEdit::Hide((i.conv(), h)),
+            kv::SheetEdit::Copy(a, b) => g::SheetEdit::Copy((a.conv(), b.conv())),
         }
     }
 }
@@ -347,6 +388,7 @@ impl Conv<kv::SheetEdit> for g::SheetEdit {
             g::SheetEdit::Rename((i, n)) => kv::SheetEdit::Rename(i.conv(), n),
             g::SheetEdit::Move((a, b)) => kv::SheetEdit::Move(a.conv(), b.conv()),
             g::SheetEdit::Hide((i, h)) => kv::SheetEdit::Hide(i.conv(), h),
+            g::SheetEdit::Copy((a, b)) => kv::SheetEdit::Copy(a.conv(), b.conv()),
         }
     }
 }

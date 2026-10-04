@@ -104,19 +104,17 @@ fn bad_arguments_exit_with_2() {
 }
 
 #[test]
-fn kalem_markup_and_file_kinds() {
-    let dir = std::env::temp_dir().join(format!("kalem-cli-kinds-{}", std::process::id()));
+fn kalem_markup_in_org() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-markup-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let body = "#+KALEM: size=12\nSome @@kalem:color=red@@red@@kalem:end@@ text.\n\n#+ATTR_KALEM: :align right\n| a | bb |\n| ccc |\n";
     // Formatting an earlier Kalem wrote into Org is listed (T2.13.13);
-    // only `--deny-warnings` fails on it. (`.klm` is the Kalem format
-    // since T2.13.3, read by its own parser.)
-    let klm = dir.join("doc2.org");
-    std::fs::write(&klm, body).unwrap();
+    // only `--deny-warnings` fails on it.
     let org = dir.join("doc.org");
     std::fs::write(&org, body).unwrap();
-    for f in [&org, &klm] {
+    {
+        let f = &org;
         let (code, out, _) = kalem(&["check", "--deny-warnings", f.to_str().unwrap()]);
         assert_eq!(code, 1);
         assert_eq!(out.matches("kalem-markup-in-org").count(), 4, "{out}");
@@ -124,7 +122,7 @@ fn kalem_markup_and_file_kinds() {
         assert_eq!(code, 0);
     }
     // `kalem export --to org` writes strict Org and says what went.
-    let (code, out, err) = kalem(&["export", klm.to_str().unwrap(), "--to", "org", "-o", "-"]);
+    let (code, out, err) = kalem(&["export", org.to_str().unwrap(), "--to", "org", "-o", "-"]);
     assert_eq!(code, 0);
     assert_eq!(out, "Some red text.\n\n| a | bb |\n| ccc |\n");
     assert!(
@@ -132,9 +130,9 @@ fn kalem_markup_and_file_kinds() {
         "{err}"
     );
     // `kalem fmt` aligns the table and leaves the additions alone.
-    let (code, _, _) = kalem(&["fmt", klm.to_str().unwrap()]);
+    let (code, _, _) = kalem(&["fmt", org.to_str().unwrap()]);
     assert_eq!(code, 0);
-    let after = std::fs::read_to_string(&klm).unwrap();
+    let after = std::fs::read_to_string(&org).unwrap();
     assert_eq!(
         after,
         body.replace("| a | bb |\n| ccc |\n", "| a   | bb |\n| ccc |    |\n")
@@ -161,50 +159,6 @@ fn fmt_aligns_and_checks() {
     );
     let (code, out, _) = kalem(&["fmt", "--check", path]);
     assert_eq!((code, out.as_str()), (0, ""));
-    let _ = std::fs::remove_dir_all(dir);
-}
-
-/// The Kalem format (T2.13.6): `kalem fmt` writes the canonical form of a
-/// well-formed file, refuses an ill-formed one unless `--repair`, which
-/// shows the change; `kalem check` lists what the parser recovered from.
-#[test]
-fn kalem_format_fmt_and_check() {
-    let dir = std::env::temp_dir().join(format!("kalem-cli-klm-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    let good = dir.join("good.klm");
-    std::fs::write(&good, "\\klm[1.0]\n\n\\h1{Title}\n\n\n\nOne\nparagraph.\n").unwrap();
-    let g = good.to_str().unwrap();
-    let (code, out, _) = kalem(&["check", g]);
-    assert_eq!(code, 0, "{out}");
-    assert!(out.contains("not in canonical form"), "{out}");
-    let (code, out, _) = kalem(&["fmt", "--check", g]);
-    assert_eq!((code, out.trim()), (1, g));
-    let (code, _, _) = kalem(&["fmt", g]);
-    assert_eq!(code, 0);
-    assert_eq!(
-        std::fs::read_to_string(&good).unwrap(),
-        "\\klm[1.0]\n\n\\h1{Title}\n\nOne paragraph.\n"
-    );
-    // Ill-formed: listed by check, refused by fmt, fixed by --repair.
-    let bad = dir.join("bad.klm");
-    let text = "\\klm[1.0]\n\nSome \\b{bold\n\nNext.\n";
-    std::fs::write(&bad, text).unwrap();
-    let b = bad.to_str().unwrap();
-    let (code, out, _) = kalem(&["check", b]);
-    assert_eq!(code, 1);
-    assert!(out.contains(":3:13: error[unclosed-inline]"), "{out}");
-    let (code, out, _) = kalem(&["fmt", b]);
-    assert_eq!(code, 1);
-    assert!(out.contains("not formatted"), "{out}");
-    assert_eq!(std::fs::read_to_string(&bad).unwrap(), text);
-    let (code, out, _) = kalem(&["fmt", "--repair", b]);
-    assert_eq!(code, 0);
-    assert!(out.contains("-Some \\b{bold\n+Some \\b{bold}\n"), "{out}");
-    assert_eq!(
-        std::fs::read_to_string(&bad).unwrap(),
-        "\\klm[1.0]\n\nSome \\b{bold}\n\nNext.\n"
-    );
     let _ = std::fs::remove_dir_all(dir);
 }
 

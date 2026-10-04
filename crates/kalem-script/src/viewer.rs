@@ -1548,6 +1548,22 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_delete_scenario(s, d, unit as u32, name))
     }
 
+    fn calc_options(&mut self) -> kv::CalcOptions {
+        self.g(|g, s, d| g.call_calc_options(s, d))
+            .map(Conv::conv)
+            .unwrap_or_default()
+    }
+
+    fn set_calc_options(&mut self, options: kv::CalcOptions) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_calc_options(s, d, options.conv()))
+    }
+
+    fn circular_references(&mut self) -> Vec<(usize, u32, u32)> {
+        self.g(|g, s, d| g.call_circular_references(s, d))
+            .map(|v| v.into_iter().map(|(u, r, c)| (u as usize, r, c)).collect())
+            .unwrap_or_default()
+    }
+
     fn sheet_view(&mut self, unit: usize) -> kv::SheetView {
         self.g(|g, s, d| g.call_sheet_view(s, d, unit as u32))
             .map(Conv::conv)
@@ -1556,6 +1572,43 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
 
     fn set_sheet_view(&mut self, unit: usize, view: kv::SheetView) -> kv::Result<Vec<usize>> {
         self.ch(|g, s, d| g.call_set_sheet_view(s, d, unit as u32, view.conv()))
+    }
+
+    fn cell_styles(&mut self) -> Vec<String> {
+        self.g(|g, s, d| g.call_cell_styles(s, d))
+            .unwrap_or_default()
+    }
+
+    fn apply_cell_style(
+        &mut self,
+        unit: usize,
+        range: [u32; 4],
+        name: &str,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_apply_cell_style(s, d, unit as u32, range.conv(), name))
+    }
+
+    fn new_cell_style(
+        &mut self,
+        name: &str,
+        unit: usize,
+        row: u32,
+        col: u32,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_new_cell_style(s, d, name, unit as u32, row, col))
+    }
+
+    fn theme_name(&mut self) -> Option<String> {
+        self.g(|g, s, d| g.call_theme_name(s, d)).ok().flatten()
+    }
+
+    fn theme_names(&mut self) -> Vec<String> {
+        self.g(|g, s, d| g.call_theme_names(s, d))
+            .unwrap_or_default()
+    }
+
+    fn set_theme(&mut self, name: &str) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_theme(s, d, name))
     }
 
     fn tab_color(&mut self, unit: usize) -> Option<[u8; 3]> {

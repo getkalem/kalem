@@ -512,17 +512,6 @@ impl crate::DocumentState {
         {
             self.apply(&tx, org_edit::ChangeKind::Command, now);
         }
-        // The Kalem format is saved in its canonical form, when it is
-        // well-formed (RFC 0003 §15); an ill-formed one is saved as it is.
-        if crate::klm::is_klm_file(self) && self.dired.is_none() {
-            let doc = klm_syntax::parse(self.text().as_str());
-            if klm_syntax::well_formed(&doc) {
-                let new = klm_syntax::fmt(&doc);
-                if let Some(tx) = replace_differing(self.text().as_str(), &new, "Format Document") {
-                    self.apply(&tx, org_edit::ChangeKind::Command, now);
-                }
-            }
-        }
     }
 }
 
@@ -681,10 +670,10 @@ mod tests {
     #[test]
     fn unified_diffs() {
         assert_eq!(unified_diff("a\n", "a\n", "f"), "");
-        let d = unified_diff("a\nb\nc\n", "a\nB\nc\nd\n", "f.klm");
+        let d = unified_diff("a\nb\nc\n", "a\nB\nc\nd\n", "f.org");
         assert_eq!(
             d,
-            "--- f.klm\n+++ f.klm\n@@ -1,3 +1,4 @@\n a\n-b\n+B\n c\n+d\n"
+            "--- f.org\n+++ f.org\n@@ -1,3 +1,4 @@\n a\n-b\n+B\n c\n+d\n"
         );
     }
 }

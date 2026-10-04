@@ -7,15 +7,14 @@ it was, byte for byte where you did not edit. It runs in a window and
 in a terminal with the same commands, and its command-line tools serve
 scripts and CI.
 
-This book is the one reference for Kalem, in five parts:
+This book is the one reference for Kalem, in four parts:
 
 - *Part I, Kalem*: the manual.
 - *Part II, the standard formats*: what Kalem does with each format it
   opens and against which reference that is tested, precisely enough
   to serve as the reference for other implementations.
-- *Part III, the Kalem format*: the specification of =.klm=.
-- *Part IV, extending Kalem*: commands, keys, completers and plugins.
-- *Part V, design*: the design documents, the decisions, performance
+- *Part III, extending Kalem*: commands, keys, completers and plugins.
+- *Part IV, design*: the design documents, the decisions, performance
   and terminal parity.
 
 The appendices list every command, setting and command-line option,
@@ -57,28 +56,7 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-2/markdown.org][Markdown]]
 - [[file:part-2/plain-text.org][Plain text and code]]
 
-* Part III. The Kalem format
-- [[file:part-3/status.org][Status]]
-- [[file:part-3/principles.org][3. Principles the syntax follows]]
-- [[file:part-3/syntax.org][4. The one syntax]]
-- [[file:part-3/document-structure.org][5. Document structure]]
-- [[file:part-3/text.org][6. Text]]
-- [[file:part-3/outline-tasks-lists.org][7. Structure: headings, tasks, lists]]
-- [[file:part-3/mathematics.org][8. Mathematics]]
-- [[file:part-3/figures-tables-code-blocks.org][9. Figures, tables, code, blocks]]
-- [[file:part-3/references-citations-notes.org][10. References, citations, notes]]
-- [[file:part-3/layout-and-pages.org][11. Layout and pages]]
-- [[file:part-3/review.org][12. Review: comments and tracked changes]]
-- [[file:part-3/stylesheets.org][13. Stylesheets]]
-- [[file:part-3/canonical-serialization.org][14. Canonical serialization]]
-- [[file:part-3/well-formedness-and-recovery.org][15. Well-formedness, error recovery, the editor's guarantee]]
-- [[file:part-3/grammar.org][16. Grammar]]
-- [[file:part-3/rendering-and-export.org][17. Rendering and export]]
-- [[file:part-3/conversion.org][18. Conversion from and to other formats]]
-- [[file:part-3/conformance-versioning-security.org][19. Conformance, versioning, security]]
-- [[file:part-3/changelog.org][Changelog of the format]]
-
-* Part IV. Extending Kalem
+* Part III. Extending Kalem
 - [[file:part-4/overview.org][The extension model]]
 - [[file:part-4/commands-and-keys.org][Commands, scopes and keys]]
 - [[file:part-4/completers-and-modes.org][Completers, modes and highlighters]]
@@ -86,7 +64,7 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-4/language-plugins.org][Language plugins]]
 - [[file:part-4/elixir.org][Elixir]]
 
-* Part V. Design
+* Part IV. Design
 - [[file:part-5/design-documents.org][Design documents]]
 - [[file:part-5/how-the-book-is-written.org][How the Book is written]]
 - [[file:part-5/kalem-and-emacs.org][Kalem and Emacs]]

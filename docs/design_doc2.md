@@ -1,5 +1,7 @@
 # Kalem Design Document 2: Standard Modes, the Kalem Format, and the Book
 
+> The Kalem format (`.klm`, RFC 0003, Part III of the Book) was removed on 2026-10-04 by the owner's decision; the sections about it are kept as the design record.
+
 RFC 0002. Status: **accepted by the owner, 2026-09-30.** Sections 11, 12 and 14 are carried into RFC 0001 (`design_document.md`), RFC 0003 (`rfcs/0003-kalem-format.md`) and `todo.md`. Written as a report: it records the roadmap the owner stated on 2026-09-30, examines it, and proposes how to carry it out.
 
 ## Contents

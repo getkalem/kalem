@@ -9,7 +9,7 @@
 ;;
 ;;   emacs -Q --batch -l tests/emacs/export.el CASES-DIR OUTPUT-DIR
 ;;
-;; Every CASES-DIR/NAME.org (or NAME.klm, a Kalem document) is exported, body only, with the html, md,
+;; Every CASES-DIR/NAME.org is exported, body only, with the html, md,
 ;; ascii and latex back-ends, to OUTPUT-DIR/NAME.html, NAME.md, NAME.txt
 ;; and NAME.tex.  The clock is fixed at 2026-09-28 Mon 10:00, the author
 ;; is "Kalem Tester" <tester@example.org>, and source blocks are not
@@ -114,8 +114,8 @@
                       kalem-export-backends)))
   (make-directory out t)
   (dolist (f (if recursive
-                 (directory-files-recursively cases "\\.\\(org\\|klm\\)\\'")
-               (directory-files cases t "\\.\\(org\\|klm\\)\\'")))
+                 (directory-files-recursively cases "\\.org\\'")
+               (directory-files cases t "\\.org\\'")))
     (let ((name (and recursive
                      (replace-regexp-in-string
                       "/" "__" (file-name-sans-extension (file-relative-name f cases))))))

@@ -20,7 +20,6 @@ gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4
 # Canonical paths without Windows's `\\?\` prefix where it is not needed.
 dunce = "1"
 org-syntax = { path = "crates/org-syntax", version = "0.0.1" }
-klm-syntax = { path = "crates/klm-syntax" }
 # Markdown (D19): Kalem's fork of comrak, with the sourcepos fixes an editor
 # needs (T2.7c.1a), pinned to a commit of its `kalem-main` branch.
 comrak = { git = "https://github.com/getkalem/comrak", rev = "9f854603485a72b5fb17dd3a27d92679e92fe551", default-features = false }
@@ -49,11 +48,11 @@ kalem-plugin = { path = "crates/kalem-plugin", version = "0.0.1" }
 # (tools/check-plugin-pins.sh, in CI): bump the three lines at once.
 # The image viewer, a plugin of getkalem/plugins bundled into the binary
 # (D28) until components load (T3.1.12).
-kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "4185eef717b70a6766fb10b11921dfe1c9daee11" }
+kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "f42c333738437618dda4b479b88357ccaab8c84c" }
 # Excel workbooks (T3.7.4), bundled the same way.
-kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "4185eef717b70a6766fb10b11921dfe1c9daee11" }
+kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "f42c333738437618dda4b479b88357ccaab8c84c" }
 # PDF files (T3.7.3), bundled the same way.
-kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "4185eef717b70a6766fb10b11921dfe1c9daee11" }
+kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "f42c333738437618dda4b479b88357ccaab8c84c" }
 
 # The plugins build against this checkout's contract, not its copy on
 # GitHub.

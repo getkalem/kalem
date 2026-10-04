@@ -360,8 +360,18 @@ fn style_of(cell: &GridCell, fmt: &Option<String>) -> StyleChange {
 
 /// `src`'s sheets copied into `dst`, whose sheets match them in order.
 fn fill(src: &[(usize, SheetData)], dst: &mut dyn ViewerDocument) -> Result<(), String> {
+    let targets: Vec<usize> = (0..src.len()).collect();
+    fill_into(src, &targets, dst)
+}
+
+/// `src`'s sheets' looks copied onto `dst`'s sheets `targets` (in order).
+fn fill_into(
+    src: &[(usize, SheetData)],
+    targets: &[usize],
+    dst: &mut dyn ViewerDocument,
+) -> Result<(), String> {
     let e = |e: kalem_viewer::ViewerError| e.to_string();
-    for (k, (_, s)) in src.iter().enumerate() {
+    for ((_, s), &k) in src.iter().zip(targets) {
         let (Some(&(r1, _)), Some(c1)) = (
             s.cells.keys().next_back(),
             s.cells.keys().map(|k| k.1).max(),
@@ -404,7 +414,7 @@ fn fill(src: &[(usize, SheetData)], dst: &mut dyn ViewerDocument) -> Result<(), 
             dst.set_frozen(k, fr, fc).map_err(e)?;
         }
     }
-    for (k, (_, s)) in src.iter().enumerate() {
+    for ((_, s), &k) in src.iter().zip(targets) {
         if s.hidden {
             dst.edit_sheets(kalem_viewer::SheetEdit::Hide(k, true))
                 .map_err(e)?;
@@ -444,6 +454,150 @@ pub fn to_xlsx(viewer: &dyn Viewer, src: &mut dyn ViewerDocument) -> Result<Vec<
     )?;
     fill(&data, dst.as_mut())?;
     Ok(dst.save().map_err(|e| e.to_string())?.bytes)
+}
+
+/// Sheet `unit` of `src` copied into workbook `dst` as its last sheet,
+/// named as it was (or as a copy is named when the name is taken): its
+/// entries, looks, merged cells, widths and frozen panes. The new sheet's
+/// place.
+pub fn copy_sheet_into(
+    src: &mut dyn ViewerDocument,
+    unit: usize,
+    dst: &mut dyn ViewerDocument,
+) -> Result<usize, String> {
+    let e = |e: kalem_viewer::ViewerError| e.to_string();
+    let data: Vec<(usize, SheetData)> = sheets(src)?
+        .into_iter()
+        .filter(|(u, _)| *u == unit)
+        .collect();
+    let Some((_, sheet)) = data.first() else {
+        return Err("Only a sheet of cells is copied to another workbook".into());
+    };
+    let names: Vec<String> = dst
+        .structure()
+        .units
+        .iter()
+        .map(|u| u.label.trim_end_matches(" (hidden)").to_lowercase())
+        .collect();
+    let name = std::iter::once(sheet.name.clone())
+        .chain((2..).map(|n| {
+            let suffix = format!(" ({n})");
+            let keep: String = sheet
+                .name
+                .chars()
+                .take(31 - suffix.chars().count())
+                .collect();
+            format!("{keep}{suffix}")
+        }))
+        .find(|n| !names.contains(&n.to_lowercase()))
+        .unwrap_or_default();
+    let n = dst.structure().units.len();
+    let at = dst
+        .edit_sheets(kalem_viewer::SheetEdit::Insert(n))
+        .map_err(e)?;
+    dst.edit_sheets(kalem_viewer::SheetEdit::Rename(at, name))
+        .map_err(e)?;
+    let (Some(&(r1, _)), Some(c1)) = (
+        sheet.cells.keys().next_back(),
+        sheet.cells.keys().map(|k| k.1).max(),
+    ) else {
+        return Ok(at);
+    };
+    let mut rows = vec![vec![String::new(); c1 as usize + 1]; r1 as usize + 1];
+    for (&(r, c), (input, cell, _)) in &sheet.cells {
+        let text_cell = !cell.numeric && !cell.formula;
+        rows[r as usize][c as usize] = if text_cell && reads_as_value(input) {
+            format!("'{input}")
+        } else {
+            input.clone()
+        };
+    }
+    dst.set_cells(at, 0, 0, &rows).map_err(e)?;
+    fill_into(&data, &[at], dst)?;
+    Ok(at)
+}
+
+/// The entries of a zip file: name and bytes (stored or deflated).
+pub fn unzip(bytes: &[u8]) -> Result<Vec<(String, Vec<u8>)>, String> {
+    use std::io::Read as _;
+    let u16_at = |i: usize| -> Option<usize> {
+        Some(u16::from_le_bytes(bytes.get(i..i + 2)?.try_into().ok()?) as usize)
+    };
+    let u32_at = |i: usize| -> Option<usize> {
+        Some(u32::from_le_bytes(bytes.get(i..i + 4)?.try_into().ok()?) as usize)
+    };
+    let bad = || "Not a zip file".to_string();
+    // The end of the central directory, searched from the end.
+    let end = (0..bytes.len().saturating_sub(21))
+        .rev()
+        .find(|&i| bytes[i..i + 4] == [0x50, 0x4b, 0x05, 0x06])
+        .ok_or_else(bad)?;
+    let count = u16_at(end + 10).ok_or_else(bad)?;
+    let mut at = u32_at(end + 16).ok_or_else(bad)?;
+    let mut out = Vec::with_capacity(count);
+    for _ in 0..count {
+        if bytes.get(at..at + 4) != Some(&[0x50, 0x4b, 0x01, 0x02]) {
+            return Err(bad());
+        }
+        let method = u16_at(at + 10).ok_or_else(bad)?;
+        let size = u32_at(at + 20).ok_or_else(bad)?;
+        let (nlen, xlen, clen) = (
+            u16_at(at + 28).ok_or_else(bad)?,
+            u16_at(at + 30).ok_or_else(bad)?,
+            u16_at(at + 32).ok_or_else(bad)?,
+        );
+        let local = u32_at(at + 42).ok_or_else(bad)?;
+        let name = String::from_utf8_lossy(bytes.get(at + 46..at + 46 + nlen).ok_or_else(bad)?)
+            .into_owned();
+        at += 46 + nlen + xlen + clen;
+        let lname = u16_at(local + 26).ok_or_else(bad)?;
+        let lextra = u16_at(local + 28).ok_or_else(bad)?;
+        let start = local + 30 + lname + lextra;
+        let data = bytes.get(start..start + size).ok_or_else(bad)?;
+        let body = match method {
+            0 => data.to_vec(),
+            8 => {
+                let mut v = Vec::new();
+                flate2::read::DeflateDecoder::new(data)
+                    .read_to_end(&mut v)
+                    .map_err(|e| e.to_string())?;
+                v
+            }
+            _ => return Err(format!("{name}: a compression Kalem does not read")),
+        };
+        out.push((name, body));
+    }
+    Ok(out)
+}
+
+/// A template (`.xltx`, `.xltm`) made a workbook (`.xlsx`, `.xlsm`): the
+/// same parts, its main part's type a workbook's.
+pub fn template_to_workbook(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let mut entries = unzip(bytes)?;
+    let mut found = false;
+    for (name, body) in &mut entries {
+        if name == "[Content_Types].xml" {
+            let text = String::from_utf8_lossy(body)
+                .replace(
+                    "spreadsheetml.template.main+xml",
+                    "spreadsheetml.sheet.main+xml",
+                )
+                .replace(
+                    "application/vnd.ms-excel.template.macroEnabled.main+xml",
+                    "application/vnd.ms-excel.sheet.macroEnabled.main+xml",
+                );
+            *body = text.into_bytes();
+            found = true;
+        }
+    }
+    if !found {
+        return Err("Not an Excel template".into());
+    }
+    let list: Vec<(&str, &[u8], bool)> = entries
+        .iter()
+        .map(|(n, b)| (n.as_str(), b.as_slice(), true))
+        .collect();
+    Ok(zip(&list))
 }
 
 /// Rows of entries (as typed) as a new Excel workbook of one sheet.
@@ -1082,6 +1236,11 @@ mod tests {
         let z = zip(&[("a.txt", b"hello", false), ("b.txt", b"world world", true)]);
         assert_eq!(&z[..4], b"PK\x03\x04");
         assert!(z.windows(5).any(|w| w == b"hello"));
+        let back = unzip(&z).unwrap();
+        assert_eq!(back[1], ("b.txt".to_string(), b"world world".to_vec()));
+        let tpl = zip(&[("[Content_Types].xml", br#"<Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml"/>"#, true)]);
+        let wb = unzip(&template_to_workbook(&tpl).unwrap()).unwrap();
+        assert!(String::from_utf8_lossy(&wb[0].1).contains("spreadsheetml.sheet.main+xml"));
         assert_eq!(entry("2026-10-04"), Some(Entry::Date(46299.0, 14)));
         assert_eq!(entry("'007"), Some(Entry::Text("007".into())));
         assert_eq!(entry("=A1"), Some(Entry::Formula("A1".into())));

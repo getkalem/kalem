@@ -271,6 +271,18 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("csv.sortView", object(&[("reverse", "boolean", false)])),
         ("csv.setDelimiter", object(&[("delimiter", "string", true)])),
         (
+            "app.newWorkbook",
+            object(&[("path", "string", false), ("replace", "boolean", false)]),
+        ),
+        (
+            "app.newFromTemplate",
+            object(&[
+                ("template", "string", false),
+                ("path", "string", false),
+                ("replace", "boolean", false),
+            ]),
+        ),
+        (
             "csv.openAsWorkbook",
             object(&[
                 ("delimiter", "string", false),
@@ -3679,9 +3691,7 @@ fn describe_char(c: char) -> String {
 /// beside it with the same name and another of these extensions, after
 /// its own, so repeated use goes round them.
 fn other_file(path: &std::path::Path) -> Option<std::path::PathBuf> {
-    const ORDER: [&str; 9] = [
-        "org", "klm", "md", "tex", "html", "pdf", "docx", "odt", "txt",
-    ];
+    const ORDER: [&str; 8] = ["org", "md", "tex", "html", "pdf", "docx", "odt", "txt"];
     let ext = path.extension()?.to_str()?.to_lowercase();
     let at = ORDER
         .iter()
@@ -4275,6 +4285,123 @@ fn plugin_commands() -> Vec<Command> {
     ]
 }
 
+/// Where a new workbook goes: the path asked (the folder of the file
+/// open, `Book1.xlsx` or the next free name offered), its extension added,
+/// and a file there replaced only when chosen. `Ok(None)` when it asked.
+fn new_file_target(
+    ctx: &mut EditorContext<'_>,
+    id: &str,
+    args: &Value,
+    stem: &str,
+    ext: &str,
+) -> Result<Option<std::path::PathBuf>, CommandError> {
+    let dir = ctx
+        .document
+        .as_deref()
+        .and_then(|d| d.meta.path.as_ref())
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .or_else(|| std::env::var_os("HOME").map(std::path::PathBuf::from))
+        .unwrap_or_default();
+    let Some(path) = args.get("path").and_then(Value::as_str) else {
+        let free = (1..)
+            .map(|n| dir.join(format!("{stem}{n}.{ext}")))
+            .find(|p| !p.exists())
+            .unwrap_or_else(|| dir.join(format!("{stem}.{ext}")));
+        let mut a = args.clone();
+        a["path_default"] = Value::String(free.display().to_string());
+        request(
+            ctx,
+            Request::Ask {
+                command: id.into(),
+                args: a,
+                arg: "path".into(),
+            },
+        )?;
+        return Ok(None);
+    };
+    let mut target = std::path::PathBuf::from(crate::settings::expand_home(path.trim()));
+    if target.is_relative() {
+        target = dir.join(target);
+    }
+    if target.extension().is_none() {
+        target.set_extension(ext);
+    }
+    if target.exists() && !arg_bool(args, "replace") {
+        let name = target
+            .file_name()
+            .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+        let mut a = args.clone();
+        a["path"] = Value::String(target.display().to_string());
+        a["replace"] = Value::Bool(true);
+        let item = crate::palette::PaletteItem {
+            id: crate::palette::invocation(id, &a),
+            title: format!("Replace {name}"),
+            category: format!("{name} exists"),
+            keys: String::new(),
+            also: String::new(),
+        };
+        request(ctx, Request::Choose(vec![item]))?;
+        return Ok(None);
+    }
+    Ok(Some(target))
+}
+
+/// New Workbook: a blank workbook of one sheet, written where asked and
+/// opened.
+fn new_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    let Some(target) = new_file_target(ctx, "app.newWorkbook", args, "Book", "xlsx")? else {
+        return Ok(());
+    };
+    let bytes = crate::workbook_io::blank_xlsx(&["Sheet1".to_string()]);
+    std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
+    request(
+        ctx,
+        Request::Open {
+            path: Some(target.display().to_string()),
+        },
+    )
+}
+
+/// New from Template: a template (`.xltx`, `.xltm`) chosen, a workbook made
+/// of it written where asked and opened.
+fn new_from_template(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    const ID: &str = "app.newFromTemplate";
+    let Some(template) = args
+        .get("template")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        return request(
+            ctx,
+            Request::PickFile {
+                command: ID.into(),
+                arg: "template".into(),
+                args: args.clone(),
+            },
+        );
+    };
+    let template = std::path::PathBuf::from(crate::settings::expand_home(&template));
+    let macros = template
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("xltm"));
+    let stem = template
+        .file_stem()
+        .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
+    let ext = if macros { "xlsm" } else { "xlsx" };
+    let Some(target) = new_file_target(ctx, ID, args, &stem, ext)? else {
+        return Ok(());
+    };
+    let bytes = std::fs::read(&template).map_err(|e| CommandError::new(e.to_string()))?;
+    let bytes = crate::workbook_io::template_to_workbook(&bytes).map_err(CommandError::new)?;
+    std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
+    request(
+        ctx,
+        Request::Open {
+            path: Some(target.display().to_string()),
+        },
+    )
+}
+
 /// Open as Workbook (Excel's Text Import Wizard): the file's records
 /// read with a delimiter and an encoding chosen, each column as General,
 /// Text, a date in an order, or left out; written as a workbook beside it
@@ -4659,6 +4786,22 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::SaveAs),
         ),
+        cmd(
+            "app.newWorkbook",
+            "New Workbook",
+            "File",
+            &[],
+            None,
+            new_workbook,
+        ),
+        cmd(
+            "app.newFromTemplate",
+            "New from Template",
+            "File",
+            &[],
+            None,
+            new_from_template,
+        ),
         cmd("app.quit", "Quit", "File", &["ctrl+q"], None, |ctx, _| {
             request(ctx, Request::Quit)
         }),
@@ -4832,34 +4975,6 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| lines_command(ctx, |t, _| crate::lines::trim_trailing_blank_lines(t)),
         ),
         cmd(
-            "edit.repairDocument",
-            "Repair Document",
-            "Edit",
-            &[],
-            Some("fileKind == klm"),
-            |ctx, _| {
-                let now = ctx.now;
-                let d = ctx.doc()?;
-                let text = d.text().as_str().to_string();
-                let doc = klm_syntax::parse(&text);
-                let problems = doc.diagnostics.len();
-                let new = klm_syntax::fmt(&doc);
-                let changed = crate::lines::unified_diff(&text, &new, "")
-                    .lines()
-                    .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
-                    .count();
-                if let Some(tx) = crate::lines::replace_differing(&text, &new, "Repair Document") {
-                    d.apply(&tx, org_edit::ChangeKind::Command, now);
-                }
-                ctx.messages.push(crate::tr!(
-                    "msg-klm-repaired",
-                    problems = problems,
-                    lines = changed
-                ));
-                Ok(())
-            },
-        ),
-        cmd(
             "edit.formatDocument",
             "Format Document",
             "Edit",
@@ -4890,22 +5005,6 @@ fn plain_commands() -> Vec<Command> {
                             return Err(CommandError::new(d.message));
                         }
                     };
-                    return lines_command(ctx, |t, _| {
-                        crate::lines::replace_differing(t, &new, "Format Document")
-                    });
-                }
-                // The Kalem format: its canonical form, well-formed only
-                // (RFC 0003 §15).
-                if crate::klm::is_klm_file(ctx.doc()?) {
-                    let d = ctx.doc()?;
-                    let doc = klm_syntax::parse(d.text().as_str());
-                    if !klm_syntax::well_formed(&doc) {
-                        return Err(CommandError::new(crate::tr!(
-                            "msg-klm-ill-formed",
-                            count = doc.diagnostics.len()
-                        )));
-                    }
-                    let new = klm_syntax::fmt(&doc);
                     return lines_command(ctx, |t, _| {
                         crate::lines::replace_differing(t, &new, "Format Document")
                     });
@@ -5983,7 +6082,7 @@ fn plain_commands() -> Vec<Command> {
                     .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-other-file")))?;
                 let text = matches!(
                     other.extension().and_then(|e| e.to_str()),
-                    Some("org" | "klm" | "md" | "tex" | "txt")
+                    Some("org" | "md" | "tex" | "txt")
                 );
                 if text {
                     request(
@@ -9328,7 +9427,6 @@ mod tests {
         assert_eq!(get("org.emphasis.bold"), Scope::only(&["org"]));
         assert_eq!(get("lines.moveUp"), Scope::except(&["org", "csv"]));
         assert_eq!(get("edit.undo"), Scope::all());
-        assert!(get("org.emphasis.bold").serves("klm"));
         let mut d = doc("* A\n#+begin_src python\nx = 1\n#+end_src\n", 26);
         assert_eq!(d.text_type(), "python");
         let ctx = d.when_context();
@@ -9499,47 +9597,5 @@ mod tests {
             reg.execute(id, &mut ctx, &serde_json::Value::Null).unwrap();
         }
         assert_eq!(d.text().as_str(), "* A\n| a   | b |\n| ccc | d |\n");
-    }
-
-    #[test]
-    fn kalem_format_documents() {
-        let (reg, mut clip, config) = (
-            CommandRegistry::with_builtins(),
-            Clipboard::default(),
-            crate::settings::Config::default(),
-        );
-        let mut run = |d: &mut DocumentState, id: &str| {
-            let mut ctx = EditorContext {
-                document: Some(d),
-                clipboard: &mut clip,
-                config: &config,
-                now: Instant::now(),
-                clock: jiff::civil::date(2026, 10, 1).at(9, 0, 0, 0),
-                messages: Vec::new(),
-                requests: Vec::new(),
-            };
-            reg.execute(id, &mut ctx, &serde_json::Value::Null)
-                .map(|_| ctx.messages)
-        };
-        let mut d = doc("\\klm[1.0]\n\n\\h1{A}\n\n\n\nOne\ntwo.\n", 0);
-        d.meta.path = Some("note.klm".into());
-        run(&mut d, "edit.formatDocument").unwrap();
-        assert_eq!(d.text().as_str(), "\\klm[1.0]\n\n\\h1{A}\n\nOne two.\n");
-        // Ill-formed: refused; Repair Document fixes it, undoably.
-        let mut d = doc("\\klm[1.0]\n\nA \\b{bold\n\nNext.\n", 0);
-        d.meta.path = Some("note.klm".into());
-        assert!(run(&mut d, "edit.formatDocument").is_err());
-        let msg = run(&mut d, "edit.repairDocument").unwrap();
-        assert_eq!(d.text().as_str(), "\\klm[1.0]\n\nA \\b{bold}\n\nNext.\n");
-        assert!(msg[0].contains('1'), "{msg:?}");
-        d.undo();
-        assert!(d.text().as_str().contains("\\b{bold\n"));
-        // Saving formats a well-formed file only.
-        d.before_save(&config, Instant::now());
-        assert!(d.text().as_str().contains("\\b{bold\n"));
-        let mut d = doc("\\klm[1.0]\n\nOne\ntwo.\n", 0);
-        d.meta.path = Some("note.klm".into());
-        d.before_save(&config, Instant::now());
-        assert_eq!(d.text().as_str(), "\\klm[1.0]\n\nOne two.\n");
     }
 }
