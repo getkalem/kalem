@@ -1578,6 +1578,13 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Formulas (without `=`) computed as if in a cell of a unit, each
+    /// result written as a formula would write it (`1200`, `"text"`,
+    /// `TRUE`, `#DIV/0!`); `None` where the engine cannot.
+    fn evaluate_formulas(&mut self, _unit: usize, formulas: &[String]) -> Vec<Option<String>> {
+        vec![None; formulas.len()]
+    }
+
     /// How a unit is protected, when it is.
     fn sheet_protection(&mut self, _unit: usize) -> Option<SheetProtection> {
         None
