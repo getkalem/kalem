@@ -1,0 +1,511 @@
+package kalem:plugin@0.1.0;
+
+/// The grid of spreadsheets and databases (design §11.13, D54, T3.7.4):
+/// the other half of `kalem-viewer`'s contract, for a document whose units
+/// are sheets of cells. Each function takes the document the plugin's
+/// `viewer` opened. A changed result lists the units to draw again.
+///
+/// A range is (first row, first column, last row, last column), from 0; a
+/// span is (start, end) with the end left out.
+interface grid {
+    use viewer.{document, rgb};
+
+    type range = tuple<u32, u32, u32, u32>;
+    type span = tuple<u32, u32>;
+
+    enum align {
+        general,
+        left,
+        center,
+        right,
+    }
+
+    enum valign {
+        bottom,
+        middle,
+        top,
+    }
+
+    /// A cell as the grid draws it.
+    record cell {
+        text: string,
+        numeric: bool,
+        bold: bool,
+        italic: bool,
+        underline: bool,
+        strike: bool,
+        color: option<rgb>,
+        fill: option<rgb>,
+        align: align,
+        wrap: bool,
+        formula: bool,
+        note: bool,
+        /// A data bar: its length in thousandths of the width, its colour.
+        bar: option<tuple<u16, rgb>>,
+        /// An icon set's icon: its name, its colour.
+        icon: option<tuple<string, rgb>>,
+        font-size: option<u16>,
+        face: option<string>,
+        valign: valign,
+        /// Top, right, bottom, left.
+        borders: tuple<option<rgb>, option<rgb>, option<rgb>, option<rgb>>,
+        border-thick: tuple<bool, bool, bool, bool>,
+    }
+
+    /// A cell at its place.
+    record placed-cell {
+        row: u32,
+        col: u32,
+        cell: cell,
+    }
+
+    /// How a unit's grid is laid out.
+    record grid-layout {
+        rows: u32,
+        cols: u32,
+        max-rows: u32,
+        max-cols: u32,
+        widths: list<f32>,
+        default-width: f32,
+        heights: list<tuple<u32, f32>>,
+        default-height: f32,
+        hidden-rows: list<u32>,
+        hidden-cols: list<u32>,
+        merged: list<range>,
+        frozen: tuple<u32, u32>,
+        editable: bool,
+        filter: option<range>,
+        filtered: list<u32>,
+    }
+
+    /// Rows or columns inserted or deleted.
+    record at-count {
+        at: u32,
+        count: u32,
+    }
+
+    variant grid-edit {
+        insert-rows(at-count),
+        delete-rows(at-count),
+        insert-cols(at-count),
+        delete-cols(at-count),
+    }
+
+    variant sheet-edit {
+        insert(u32),
+        delete(u32),
+        rename(tuple<u32, string>),
+        move(tuple<u32, u32>),
+        hide(tuple<u32, bool>),
+    }
+
+    enum paste-kind {
+        all,
+        values,
+        formats,
+        formulas,
+    }
+
+    enum border-set {
+        all,
+        outside,
+        thick-outside,
+        bottom,
+        top,
+        left,
+        right,
+        none,
+    }
+
+    /// A change of style; each part given is set.
+    record style-change {
+        bold: option<bool>,
+        italic: option<bool>,
+        underline: option<bool>,
+        strike: option<bool>,
+        color: option<option<rgb>>,
+        fill: option<option<rgb>>,
+        size: option<f32>,
+        face: option<string>,
+        align: option<align>,
+        valign: option<valign>,
+        borders: option<tuple<border-set, option<rgb>>>,
+        number-format: option<string>,
+    }
+
+    enum compare-op {
+        greater,
+        less,
+        greater-or-equal,
+        less-or-equal,
+        equal,
+        not-equal,
+        between,
+        not-between,
+    }
+
+    record compare-rule {
+        op: compare-op,
+        value: string,
+        value2: option<string>,
+    }
+
+    record top-rule {
+        count: u32,
+        bottom: bool,
+        percent: bool,
+    }
+
+    /// A conditional format's rule.
+    variant cond-rule {
+        compare(compare-rule),
+        text-contains(string),
+        duplicates,
+        unique,
+        top(top-rule),
+        /// `true` for below the average.
+        average(bool),
+        formula(string),
+        color-scale(list<rgb>),
+        data-bar(rgb),
+        icon-set(string),
+    }
+
+    record cond-style {
+        fill: option<rgb>,
+        color: option<rgb>,
+        bold: bool,
+    }
+
+    enum chart-kind {
+        column,
+        bar,
+        line,
+        area,
+        pie,
+        doughnut,
+        scatter,
+        other,
+    }
+
+    record series {
+        name: string,
+        values: list<option<f64>>,
+        x: list<option<f64>>,
+        color: option<rgb>,
+        point-colors: list<tuple<u32, rgb>>,
+        explosion: u32,
+        point-explosions: list<tuple<u32, u32>>,
+    }
+
+    record axis-font {
+        size: option<f32>,
+        bold: bool,
+        italic: bool,
+        color: option<rgb>,
+        face: option<string>,
+    }
+
+    record gridlines {
+        horizontal-major: bool,
+        horizontal-minor: bool,
+        vertical-major: bool,
+        vertical-minor: bool,
+    }
+
+    variant paint {
+        automatic,
+        none,
+        color(rgb),
+    }
+
+    record axis-scale {
+        min: option<f64>,
+        max: option<f64>,
+        major: option<f64>,
+        log: bool,
+    }
+
+    record data-labels {
+        value: bool,
+        category: bool,
+        series: bool,
+        percent: bool,
+    }
+
+    enum legend-position {
+        bottom,
+        top,
+        left,
+        right,
+        top-right,
+    }
+
+    enum chart-axis {
+        horizontal,
+        vertical,
+    }
+
+    record chart {
+        kind: chart-kind,
+        title: option<string>,
+        categories: list<string>,
+        series: list<series>,
+        anchor: range,
+        stacked: bool,
+        horizontal-title: option<string>,
+        vertical-title: option<string>,
+        legend: option<legend-position>,
+        labels: data-labels,
+        scale: axis-scale,
+        background: paint,
+        border: paint,
+        plot-background: paint,
+        plot-border: paint,
+        gridlines: gridlines,
+        axis-format: option<string>,
+        horizontal-font: axis-font,
+        vertical-font: axis-font,
+        title-font: axis-font,
+        legend-font: axis-font,
+    }
+
+    enum aggregate {
+        sum,
+        count,
+        average,
+        max,
+        min,
+    }
+
+    record pivot-spec {
+        range: range,
+        rows: list<u32>,
+        cols: list<u32>,
+        values: list<tuple<u32, aggregate>>,
+    }
+
+    enum validation-kind {
+        any,
+        whole,
+        decimal,
+        %list,
+        date,
+        time,
+        text-length,
+        custom,
+    }
+
+    enum error-style {
+        stop,
+        warning,
+        information,
+    }
+
+    record cell-validation {
+        kind: validation-kind,
+        op: compare-op,
+        value: string,
+        value2: option<string>,
+        allow-blank: bool,
+        dropdown: bool,
+        /// Its title and message.
+        prompt: option<tuple<string, string>>,
+        /// Its style, title and message.
+        error: option<tuple<error-style, string, string>>,
+        %list: list<string>,
+    }
+
+    record validation-error {
+        style: error-style,
+        title: string,
+        message: string,
+    }
+
+    enum filter-op {
+        equal,
+        not-equal,
+        greater,
+        greater-or-equal,
+        less,
+        less-or-equal,
+        begins-with,
+        ends-with,
+        contains,
+        not-contains,
+    }
+
+    /// One condition, or two joined with and (`true`) or or.
+    record custom-filter {
+        first: tuple<filter-op, string>,
+        second: option<tuple<bool, filter-op, string>>,
+    }
+
+    record top-filter {
+        count: u32,
+        percent: bool,
+        bottom: bool,
+    }
+
+    /// What a column's filter keeps.
+    variant filter-rule {
+        /// The rows showing one of these values (empty for empty cells).
+        values(list<string>),
+        custom(custom-filter),
+        top(top-filter),
+        /// `true` above the column's average, else below.
+        average(bool),
+        /// The cells filled with this colour.
+        fill(rgb),
+    }
+
+    /// A table (a `ListObject`).
+    record table-info {
+        name: string,
+        range: range,
+        totals: bool,
+        style: string,
+    }
+
+    record sort-key {
+        col: u32,
+        descending: bool,
+        /// The values in the order they sort in; the others after them.
+        %list: option<list<string>>,
+    }
+
+    record macro-entry {
+        name: string,
+        event: bool,
+    }
+
+    record message-question {
+        prompt: string,
+        buttons: s64,
+        title: string,
+    }
+
+    record input-question {
+        prompt: string,
+        title: string,
+        default: string,
+    }
+
+    /// What a macro asks of the user.
+    variant macro-question {
+        message(message-question),
+        input(input-question),
+    }
+
+    /// An answer to a macro's question, in the order they were asked: the
+    /// button pressed, or the text typed (none when cancelled).
+    variant macro-answer {
+        message(s64),
+        input(option<string>),
+    }
+
+    record macro-outcome {
+        output: list<string>,
+        skipped: list<string>,
+        error: option<string>,
+        changed: bool,
+        /// The run stopped to ask this and was undone; it is run again
+        /// with the answer added.
+        question: option<macro-question>,
+    }
+
+    /// The units to draw again, or why the change was refused.
+    type changed = result<list<u32>, string>;
+
+    layout: func(doc: borrow<document>, unit: u32) -> option<grid-layout>;
+    cells: func(doc: borrow<document>, unit: u32, rows: span, cols: span) -> list<placed-cell>;
+    cell-input: func(doc: borrow<document>, unit: u32, row: u32, col: u32) -> string;
+    set-frozen: func(doc: borrow<document>, unit: u32, rows: u32, cols: u32) -> changed;
+    set-hidden: func(doc: borrow<document>, unit: u32, rows: bool, %from: u32, to: u32, hidden: bool) -> changed;
+    edit-sheets: func(doc: borrow<document>, edit: sheet-edit) -> result<u32, string>;
+    hidden-units: func(doc: borrow<document>) -> list<u32>;
+    range-numbers: func(doc: borrow<document>, unit: u32, range: range) -> tuple<list<f64>, u32>;
+    cell-format: func(doc: borrow<document>, unit: u32, row: u32, col: u32) -> option<string>;
+    cell-note: func(doc: borrow<document>, unit: u32, row: u32, col: u32) -> option<string>;
+    formula-functions: func(doc: borrow<document>) -> list<tuple<string, string>>;
+    paste-cells: func(doc: borrow<document>, from-unit: u32, %from: range, to-unit: u32, to-row: u32, to-col: u32, kind: paste-kind, transpose: bool) -> changed;
+    clear-range: func(doc: borrow<document>, unit: u32, range: range, contents: bool, formats: bool) -> changed;
+    fill-formats: func(doc: borrow<document>, from-unit: u32, %from: range, to-unit: u32, to: range) -> changed;
+    remove-duplicates: func(doc: borrow<document>, unit: u32, range: range, columns: list<u32>, header: bool) -> result<u32, string>;
+    cell-link: func(doc: borrow<document>, unit: u32, row: u32, col: u32) -> option<string>;
+    set-link: func(doc: borrow<document>, unit: u32, row: u32, col: u32, target: option<string>) -> changed;
+    defined-names: func(doc: borrow<document>) -> list<tuple<string, string>>;
+    set-defined-name: func(doc: borrow<document>, name: string, refers-to: option<string>) -> changed;
+    recalculate: func(doc: borrow<document>) -> changed;
+    set-note: func(doc: borrow<document>, unit: u32, row: u32, col: u32, text: option<string>) -> changed;
+    set-cell: func(doc: borrow<document>, unit: u32, row: u32, col: u32, input: string) -> changed;
+    edit-grid: func(doc: borrow<document>, unit: u32, edit: grid-edit) -> changed;
+    set-cell-list: func(doc: borrow<document>, unit: u32, cells: list<tuple<u32, u32, string>>) -> changed;
+    set-cells: func(doc: borrow<document>, unit: u32, row: u32, col: u32, values: list<list<string>>) -> changed;
+    add-conditional-format: func(doc: borrow<document>, unit: u32, range: range, rule: cond-rule, style: cond-style) -> changed;
+    clear-conditional-formats: func(doc: borrow<document>, unit: u32, range: option<range>) -> changed;
+    charts: func(doc: borrow<document>, unit: u32) -> list<chart>;
+    insert-chart: func(doc: borrow<document>, unit: u32, range: range, kind: chart-kind, title: option<string>) -> changed;
+    move-chart: func(doc: borrow<document>, unit: u32, index: u32, anchor: range) -> changed;
+    set-chart-title: func(doc: borrow<document>, unit: u32, index: u32, title: option<string>) -> changed;
+    set-axis-title: func(doc: borrow<document>, unit: u32, index: u32, axis: chart-axis, title: option<string>) -> changed;
+    set-legend: func(doc: borrow<document>, unit: u32, index: u32, position: option<legend-position>) -> changed;
+    set-data-labels: func(doc: borrow<document>, unit: u32, index: u32, labels: data-labels) -> changed;
+    set-axis-scale: func(doc: borrow<document>, unit: u32, index: u32, scale: axis-scale) -> changed;
+    set-chart-kind: func(doc: borrow<document>, unit: u32, index: u32, kind: chart-kind) -> changed;
+    set-series-color: func(doc: borrow<document>, unit: u32, index: u32, series: u32, color: option<rgb>) -> changed;
+    set-point-color: func(doc: borrow<document>, unit: u32, index: u32, series: u32, point: u32, color: option<rgb>) -> changed;
+    set-explosion: func(doc: borrow<document>, unit: u32, index: u32, series: u32, point: option<u32>, percent: u32) -> changed;
+    set-chart-area: func(doc: borrow<document>, unit: u32, index: u32, background: paint, border: paint) -> changed;
+    set-plot-area: func(doc: borrow<document>, unit: u32, index: u32, background: paint, border: paint) -> changed;
+    set-gridlines: func(doc: borrow<document>, unit: u32, index: u32, lines: gridlines) -> changed;
+    set-axis-format: func(doc: borrow<document>, unit: u32, index: u32, format: option<string>) -> changed;
+    set-axis-font: func(doc: borrow<document>, unit: u32, index: u32, axis: chart-axis, font: axis-font) -> changed;
+    set-title-font: func(doc: borrow<document>, unit: u32, index: u32, font: axis-font) -> changed;
+    set-legend-font: func(doc: borrow<document>, unit: u32, index: u32, font: axis-font) -> changed;
+    delete-chart: func(doc: borrow<document>, unit: u32, index: u32) -> changed;
+    insert-pivot: func(doc: borrow<document>, unit: u32, spec: pivot-spec) -> result<u32, string>;
+    refresh-pivots: func(doc: borrow<document>) -> changed;
+    validation: func(doc: borrow<document>, unit: u32, row: u32, col: u32) -> option<cell-validation>;
+    change-style: func(doc: borrow<document>, unit: u32, range: range, change: style-change) -> changed;
+    set-validation: func(doc: borrow<document>, unit: u32, range: range, validation: option<cell-validation>) -> changed;
+    check-input: func(doc: borrow<document>, unit: u32, row: u32, col: u32, input: string) -> option<validation-error>;
+    invalid-cells: func(doc: borrow<document>, unit: u32, rows: span, cols: span) -> list<tuple<u32, u32>>;
+    set-fill-lists: func(doc: borrow<document>, lists: list<list<string>>);
+    fill: func(doc: borrow<document>, unit: u32, source: range, target: range, series: bool) -> changed;
+    sort-range: func(doc: borrow<document>, unit: u32, range: range, key: u32, descending: bool, header: bool) -> changed;
+    set-filter: func(doc: borrow<document>, unit: u32, range: option<range>) -> changed;
+    filter-column: func(doc: borrow<document>, unit: u32, col: u32, values: option<list<string>>) -> changed;
+    move-cells: func(doc: borrow<document>, unit: u32, range: range, row: u32, col: u32) -> changed;
+    move-cells-between: func(doc: borrow<document>, %from: u32, range: range, to: u32, row: u32, col: u32) -> changed;
+    clear-cells: func(doc: borrow<document>, unit: u32, range: range) -> changed;
+    merge-cells: func(doc: borrow<document>, unit: u32, range: range, center: bool) -> changed;
+    unmerge-cells: func(doc: borrow<document>, unit: u32, row: u32, col: u32) -> changed;
+    set-wrap: func(doc: borrow<document>, unit: u32, row: u32, col: u32, wrap: bool) -> changed;
+    set-row-height: func(doc: borrow<document>, unit: u32, row: u32, height: f32) -> changed;
+    set-col-width: func(doc: borrow<document>, unit: u32, col: u32, width: f32) -> changed;
+    enter-in-range: func(doc: borrow<document>, unit: u32, range: range, at: tuple<u32, u32>, input: string) -> changed;
+    tables: func(doc: borrow<document>, unit: u32) -> list<table-info>;
+    create-table: func(doc: borrow<document>, unit: u32, range: range, header: bool, style: string) -> result<string, string>;
+    set-table-totals: func(doc: borrow<document>, unit: u32, name: string, on: bool) -> changed;
+    remove-table: func(doc: borrow<document>, unit: u32, name: string) -> changed;
+    sort-range-by: func(doc: borrow<document>, unit: u32, range: range, keys: list<sort-key>, header: bool) -> changed;
+    filter-column-by: func(doc: borrow<document>, unit: u32, col: u32, rule: option<filter-rule>) -> changed;
+    column-filter: func(doc: borrow<document>, unit: u32, col: u32) -> option<filter-rule>;
+    reapply-filter: func(doc: borrow<document>, unit: u32) -> changed;
+    has-history: func(doc: borrow<document>) -> bool;
+    undo: func(doc: borrow<document>) -> result<bool, string>;
+    redo: func(doc: borrow<document>) -> result<bool, string>;
+    macros: func(doc: borrow<document>) -> list<macro-entry>;
+    /// Runs macro `name`, its questions answered from `answers` in order;
+    /// past them it stops, undoes what it did, and reports the question.
+    run-macro: func(doc: borrow<document>, name: string, answers: list<macro-answer>) -> result<macro-outcome, string>;
+}
+
+/// A plugin opening files of sheets of cells: workbooks, databases.
+world spreadsheet-viewer {
+    import files;
+    import clock;
+    export viewer;
+    export grid;
+}

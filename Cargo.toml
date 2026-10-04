@@ -53,6 +53,9 @@ kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "
 # GitHub.
 [patch."https://github.com/getkalem/kalem"]
 kalem-viewer = { path = "crates/kalem-viewer" }
+# The plugins' component bindings (on wasm32 only), the same: the
+# `grid` feature with the contract it adapts.
+kalem-plugin = { path = "crates/kalem-plugin" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

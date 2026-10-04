@@ -240,6 +240,390 @@ macro_rules! export_viewer_of {
             }
         }
 
+        $crate::__kalem_grid!(__KalemViewer);
         $crate::viewer::export_viewer!(__KalemViewer);
+    };
+}
+
+/// The `grid` interface's exports, with the feature `grid`.
+#[cfg(feature = "grid")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __kalem_grid {
+    ($t:ty) => {
+        $crate::__kalem_grid_exports!($t);
+    };
+}
+
+/// Nothing without the feature `grid`.
+#[cfg(not(feature = "grid"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __kalem_grid {
+    ($t:ty) => {};
+}
+
+/// The grid's half of the adapter (the feature `grid`): the `grid`
+/// interface over the contract's grid functions, for
+/// [`export_viewer_of!`](crate::export_viewer_of).
+#[cfg(feature = "grid")]
+#[doc(hidden)]
+pub mod grid {
+    pub use kalem_viewer as kv;
+
+    pub use crate::viewer::exports::kalem::plugin::grid as g;
+
+    include!("grid_conv.rs");
+
+    /// Calls `f` with the document behind the handle.
+    pub fn with<R>(
+        d: g::DocumentBorrow<'_>,
+        f: impl FnOnce(&mut dyn kv::ViewerDocument) -> R,
+    ) -> R {
+        let doc = d.get::<super::Doc>();
+        let mut doc = doc.0.borrow_mut();
+        f(&mut **doc)
+    }
+
+    /// A span of rows or columns.
+    pub fn span((start, end): (u32, u32)) -> std::ops::Range<u32> {
+        start..end
+    }
+
+    /// A range as the contract's.
+    pub fn range(r: (u32, u32, u32, u32)) -> [u32; 4] {
+        r.conv()
+    }
+
+    /// A macro's answers as the contract's [`kv::MacroUi`]: answered in
+    /// order; past them, unanswered, so the macro stops and reports the
+    /// question.
+    #[derive(Debug)]
+    pub struct Answers(pub std::collections::VecDeque<g::MacroAnswer>);
+
+    impl kv::MacroUi for Answers {
+        fn message(&mut self, _prompt: &str, _buttons: i64, _title: &str) -> Option<i64> {
+            match self.0.pop_front()? {
+                g::MacroAnswer::Message(b) => Some(b),
+                g::MacroAnswer::Input(_) => None,
+            }
+        }
+
+        fn input(&mut self, _prompt: &str, _title: &str, _default: &str) -> Option<Option<String>> {
+            match self.0.pop_front()? {
+                g::MacroAnswer::Input(t) => Some(t),
+                g::MacroAnswer::Message(_) => None,
+            }
+        }
+    }
+}
+
+/// The `grid` interface's exports over [`grid::with`], for a viewer
+/// exported with the feature `grid`.
+#[cfg(feature = "grid")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __kalem_grid_exports {
+    ($t:ty) => {
+        impl $crate::adapter::grid::g::Guest for $t {
+            fn layout(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::option::Option<$crate::adapter::grid::g::GridLayout> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.grid(unit as usize)).conv()
+            }
+            fn cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, rows: (u32, u32), cols: (u32, u32)) -> ::std::vec::Vec<$crate::adapter::grid::g::PlacedCell> {
+                use $crate::adapter::grid::{span, Conv};
+                $crate::adapter::grid::with(d, |x| x.grid_cells(unit as usize, span(rows), span(cols)))
+                    .into_iter()
+                    .map(|(row, col, cell)| $crate::adapter::grid::g::PlacedCell { row, col, cell: cell.conv() })
+                    .collect()
+            }
+            fn cell_input(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32) -> ::std::string::String {
+                $crate::adapter::grid::with(d, |x| x.cell_input(unit as usize, row, col))
+            }
+            fn set_frozen(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, rows: u32, cols: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_frozen(unit as usize, rows, cols)))
+            }
+            fn set_hidden(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, rows: bool, from: u32, to: u32, hidden: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_hidden(unit as usize, rows, from, to, hidden)))
+            }
+            fn edit_sheets(d: $crate::adapter::grid::g::DocumentBorrow<'_>, edit: $crate::adapter::grid::g::SheetEdit) -> ::std::result::Result<u32, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.edit_sheets(edit.conv())).map(|u| u as u32).map_err(|e| e.0)
+            }
+            fn hidden_units(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::vec::Vec<u32> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.hidden_units()).conv()
+            }
+            fn range_numbers(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, range: (u32, u32, u32, u32)) -> (::std::vec::Vec<f64>, u32) {
+                let (v, n) = $crate::adapter::grid::with(d, |x| x.range_numbers(unit as usize, $crate::adapter::grid::range(range)));
+                (v, n as u32)
+            }
+            fn cell_format(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32) -> ::std::option::Option<::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.cell_format(unit as usize, row, col))
+            }
+            fn cell_note(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32) -> ::std::option::Option<::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.cell_note(unit as usize, row, col))
+            }
+            fn formula_functions(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
+                $crate::adapter::grid::with(d, |x| x.formula_functions())
+            }
+            fn paste_cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, from_unit: u32, from: (u32, u32, u32, u32), to_unit: u32, to_row: u32, to_col: u32, kind: $crate::adapter::grid::g::PasteKind, transpose: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::{range, Conv};
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.paste_cells((from_unit as usize, range(from)), (to_unit as usize, to_row, to_col), kind.conv(), transpose)))
+            }
+            fn clear_range(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), contents: bool, formats: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.clear_range(unit as usize, range(r), contents, formats)))
+            }
+            fn fill_formats(d: $crate::adapter::grid::g::DocumentBorrow<'_>, from_unit: u32, from: (u32, u32, u32, u32), to_unit: u32, to: (u32, u32, u32, u32)) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.fill_formats((from_unit as usize, range(from)), (to_unit as usize, range(to)))))
+            }
+            fn remove_duplicates(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), columns: ::std::vec::Vec<u32>, header: bool) -> ::std::result::Result<u32, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::with(d, |x| x.remove_duplicates(unit as usize, range(r), &columns, header)).map(|n| n as u32).map_err(|e| e.0)
+            }
+            fn cell_link(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32) -> ::std::option::Option<::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.cell_link(unit as usize, row, col))
+            }
+            fn set_link(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, target: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_link(unit as usize, row, col, target)))
+            }
+            fn defined_names(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
+                $crate::adapter::grid::with(d, |x| x.defined_names())
+            }
+            fn set_defined_name(d: $crate::adapter::grid::g::DocumentBorrow<'_>, name: ::std::string::String, refers_to: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_defined_name(&name, refers_to.as_deref())))
+            }
+            fn recalculate(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.recalculate()))
+            }
+            fn set_note(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, text: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_note(unit as usize, row, col, text)))
+            }
+            fn set_cell(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, input: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_cell(unit as usize, row, col, &input)))
+            }
+            fn edit_grid(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, edit: $crate::adapter::grid::g::GridEdit) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.grid_edit(unit as usize, edit.conv())))
+            }
+            fn set_cell_list(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, cells: ::std::vec::Vec<(u32, u32, ::std::string::String)>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_cell_list(unit as usize, &cells)))
+            }
+            fn set_cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, values: ::std::vec::Vec<::std::vec::Vec<::std::string::String>>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_cells(unit as usize, row, col, &values)))
+            }
+            fn add_conditional_format(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), rule: $crate::adapter::grid::g::CondRule, style: $crate::adapter::grid::g::CondStyle) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::{range, Conv};
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.add_conditional_format(unit as usize, range(r), rule.conv(), style.conv())))
+            }
+            fn clear_conditional_formats(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: ::std::option::Option<(u32, u32, u32, u32)>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.clear_conditional_formats(unit as usize, r.conv())))
+            }
+            fn charts(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::vec::Vec<$crate::adapter::grid::g::Chart> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.charts(unit as usize)).conv()
+            }
+            fn insert_chart(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), kind: $crate::adapter::grid::g::ChartKind, title: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::{range, Conv};
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.insert_chart(unit as usize, range(r), kind.conv(), title)))
+            }
+            fn move_chart(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, anchor: (u32, u32, u32, u32)) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.move_chart(unit as usize, index as usize, range(anchor))))
+            }
+            fn set_chart_title(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, title: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_chart_title(unit as usize, index as usize, title)))
+            }
+            fn set_axis_title(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, axis: $crate::adapter::grid::g::ChartAxis, title: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_axis_title(unit as usize, index as usize, axis.conv(), title)))
+            }
+            fn set_legend(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, position: ::std::option::Option<$crate::adapter::grid::g::LegendPosition>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_legend(unit as usize, index as usize, position.conv())))
+            }
+            fn set_data_labels(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, labels: $crate::adapter::grid::g::DataLabels) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_data_labels(unit as usize, index as usize, labels.conv())))
+            }
+            fn set_axis_scale(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, scale: $crate::adapter::grid::g::AxisScale) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_axis_scale(unit as usize, index as usize, scale.conv())))
+            }
+            fn set_chart_kind(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, kind: $crate::adapter::grid::g::ChartKind) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_chart_kind(unit as usize, index as usize, kind.conv())))
+            }
+            fn set_series_color(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, series: u32, color: ::std::option::Option<$crate::adapter::grid::g::Rgb>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_series_color(unit as usize, index as usize, series as usize, color.conv())))
+            }
+            fn set_point_color(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, series: u32, point: u32, color: ::std::option::Option<$crate::adapter::grid::g::Rgb>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_point_color(unit as usize, index as usize, series as usize, point as usize, color.conv())))
+            }
+            fn set_explosion(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, series: u32, point: ::std::option::Option<u32>, percent: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_explosion(unit as usize, index as usize, series as usize, point.conv(), percent)))
+            }
+            fn set_chart_area(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, background: $crate::adapter::grid::g::Paint, border: $crate::adapter::grid::g::Paint) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_chart_area(unit as usize, index as usize, background.conv(), border.conv())))
+            }
+            fn set_plot_area(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, background: $crate::adapter::grid::g::Paint, border: $crate::adapter::grid::g::Paint) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_plot_area(unit as usize, index as usize, background.conv(), border.conv())))
+            }
+            fn set_gridlines(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, lines: $crate::adapter::grid::g::Gridlines) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_gridlines(unit as usize, index as usize, lines.conv())))
+            }
+            fn set_axis_format(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, format: ::std::option::Option<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_axis_format(unit as usize, index as usize, format)))
+            }
+            fn set_axis_font(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, axis: $crate::adapter::grid::g::ChartAxis, font: $crate::adapter::grid::g::AxisFont) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_axis_font(unit as usize, index as usize, axis.conv(), font.conv())))
+            }
+            fn set_title_font(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, font: $crate::adapter::grid::g::AxisFont) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_title_font(unit as usize, index as usize, font.conv())))
+            }
+            fn set_legend_font(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, font: $crate::adapter::grid::g::AxisFont) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_legend_font(unit as usize, index as usize, font.conv())))
+            }
+            fn delete_chart(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_chart(unit as usize, index as usize)))
+            }
+            fn insert_pivot(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, spec: $crate::adapter::grid::g::PivotSpec) -> ::std::result::Result<u32, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.insert_pivot(unit as usize, spec.conv())).map(|u| u as u32).map_err(|e| e.0)
+            }
+            fn refresh_pivots(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.refresh_pivots()))
+            }
+            fn validation(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32) -> ::std::option::Option<$crate::adapter::grid::g::CellValidation> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.validation(unit as usize, row, col)).conv()
+            }
+            fn change_style(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), change: $crate::adapter::grid::g::StyleChange) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::{range, Conv};
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.change_style(unit as usize, range(r), change.conv())))
+            }
+            fn set_validation(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), validation: ::std::option::Option<$crate::adapter::grid::g::CellValidation>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::{range, Conv};
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_validation(unit as usize, range(r), validation.conv())))
+            }
+            fn check_input(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, input: ::std::string::String) -> ::std::option::Option<$crate::adapter::grid::g::ValidationError> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.check_input(unit as usize, row, col, &input)).conv()
+            }
+            fn invalid_cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, rows: (u32, u32), cols: (u32, u32)) -> ::std::vec::Vec<(u32, u32)> {
+                use $crate::adapter::grid::span;
+                $crate::adapter::grid::with(d, |x| x.invalid_cells(unit as usize, span(rows), span(cols)))
+            }
+            fn set_fill_lists(d: $crate::adapter::grid::g::DocumentBorrow<'_>, lists: ::std::vec::Vec<::std::vec::Vec<::std::string::String>>) {
+                $crate::adapter::grid::with(d, |x| x.set_fill_lists(lists))
+            }
+            fn fill(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, source: (u32, u32, u32, u32), target: (u32, u32, u32, u32), series: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.fill(unit as usize, range(source), range(target), series)))
+            }
+            fn sort_range(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), key: u32, descending: bool, header: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.sort_range(unit as usize, range(r), key, descending, header)))
+            }
+            fn set_filter(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: ::std::option::Option<(u32, u32, u32, u32)>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_filter(unit as usize, r.conv())))
+            }
+            fn filter_column(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, col: u32, values: ::std::option::Option<::std::vec::Vec<::std::string::String>>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.filter_column(unit as usize, col, values)))
+            }
+            fn move_cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), row: u32, col: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.move_cells(unit as usize, range(r), row, col)))
+            }
+            fn move_cells_between(d: $crate::adapter::grid::g::DocumentBorrow<'_>, from: u32, r: (u32, u32, u32, u32), to: u32, row: u32, col: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.move_cells_between(from as usize, range(r), to as usize, row, col)))
+            }
+            fn clear_cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32)) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.clear_cells(unit as usize, range(r))))
+            }
+            fn merge_cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), center: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.merge_cells(unit as usize, range(r), center)))
+            }
+            fn unmerge_cells(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.unmerge_cells(unit as usize, row, col)))
+            }
+            fn set_wrap(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, wrap: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_wrap(unit as usize, row, col, wrap)))
+            }
+            fn set_row_height(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, height: f32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_row_height(unit as usize, row, height)))
+            }
+            fn set_col_width(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, col: u32, width: f32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_col_width(unit as usize, col, width)))
+            }
+            fn enter_in_range(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), at: (u32, u32), input: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.enter_in_range(unit as usize, range(r), at, &input)))
+            }
+            fn tables(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::vec::Vec<$crate::adapter::grid::g::TableInfo> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.tables(unit as usize)).conv()
+            }
+            fn create_table(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), header: bool, style: ::std::string::String) -> ::std::result::Result<::std::string::String, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::with(d, |x| x.create_table(unit as usize, range(r), header, &style)).map_err(|e| e.0)
+            }
+            fn set_table_totals(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String, on: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_table_totals(unit as usize, &name, on)))
+            }
+            fn remove_table(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.remove_table(unit as usize, &name)))
+            }
+            fn sort_range_by(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), keys: ::std::vec::Vec<$crate::adapter::grid::g::SortKey>, header: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::{range, Conv};
+                let keys: ::std::vec::Vec<$crate::adapter::grid::kv::SortKey> = keys.conv();
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.sort_range_by(unit as usize, range(r), &keys, header)))
+            }
+            fn filter_column_by(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, col: u32, rule: ::std::option::Option<$crate::adapter::grid::g::FilterRule>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.filter_column_by(unit as usize, col, rule.conv())))
+            }
+            fn column_filter(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, col: u32) -> ::std::option::Option<$crate::adapter::grid::g::FilterRule> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.column_filter(unit as usize, col)).conv()
+            }
+            fn reapply_filter(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.reapply_filter(unit as usize)))
+            }
+            fn has_history(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> bool {
+                $crate::adapter::grid::with(d, |x| x.has_history())
+            }
+            fn undo(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::result::Result<bool, ::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.undo()).map_err(|e| e.0)
+            }
+            fn redo(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::result::Result<bool, ::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.redo()).map_err(|e| e.0)
+            }
+            fn macros(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::vec::Vec<$crate::adapter::grid::g::MacroEntry> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.macros()).conv()
+            }
+            fn run_macro(d: $crate::adapter::grid::g::DocumentBorrow<'_>, name: ::std::string::String, answers: ::std::vec::Vec<$crate::adapter::grid::g::MacroAnswer>) -> ::std::result::Result<$crate::adapter::grid::g::MacroOutcome, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                let mut ui = $crate::adapter::grid::Answers(answers.into());
+                $crate::adapter::grid::with(d, |x| x.run_macro(&name, &mut ui)).map(Conv::conv).map_err(|e| e.0)
+            }
+        }
     };
 }

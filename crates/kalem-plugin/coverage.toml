@@ -83,4 +83,4 @@ interface = "viewer"
 
 [[point]]
 name = "Grids of spreadsheets and databases"
-planned = "T3.7.4"
+interface = "grid"

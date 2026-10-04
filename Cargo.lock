@@ -4368,6 +4368,7 @@ dependencies = [
  "kalem-plugin-pdf-viewer",
  "kalem-plugin-xlsx",
  "kalem-script",
+ "kalem-viewer",
  "klm-syntax",
  "latex-model",
  "latex-syntax",
@@ -4536,6 +4537,7 @@ dependencies = [
 name = "kalem-script"
 version = "0.0.1"
 dependencies = [
+ "jiff",
  "kalem-viewer",
  "serde_json",
  "sha2 0.10.9",

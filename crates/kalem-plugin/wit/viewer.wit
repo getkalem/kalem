@@ -179,5 +179,6 @@ interface viewer {
 /// A plugin opening files that are not text.
 world document-viewer {
     import files;
+    import clock;
     export viewer;
 }

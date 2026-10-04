@@ -38,3 +38,7 @@ serde_stacker = "0.1"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+# The viewer contract, for comparing the xlsx component with the bundled plugin.
+kalem-viewer.workspace = true

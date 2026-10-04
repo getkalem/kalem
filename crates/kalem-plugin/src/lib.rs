@@ -37,7 +37,9 @@
 //! ```
 
 /// The `document-viewer` world (design §11.13, D54): a plugin opening
-/// files that are not text, reading the one file the host hands it.
+/// files that are not text, reading the one file the host hands it. With
+/// the feature `grid`, the `spreadsheet-viewer` world instead: the same,
+/// and the `grid` interface of sheets of cells (T3.7.4).
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -45,9 +47,18 @@
     rust_2018_idioms
 )]
 pub mod viewer {
+    #[cfg(not(feature = "grid"))]
     wit_bindgen::generate!({
         path: "wit",
         world: "document-viewer",
+        pub_export_macro: true,
+        export_macro_name: "export_viewer",
+        default_bindings_module: "kalem_plugin::viewer",
+    });
+    #[cfg(feature = "grid")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "spreadsheet-viewer",
         pub_export_macro: true,
         export_macro_name: "export_viewer",
         default_bindings_module: "kalem_plugin::viewer",

@@ -1,0 +1,18 @@
+package kalem:plugin@0.1.0;
+
+/// The time and chance an engine inside a viewer needs: a workbook's
+/// `NOW()`, `TODAY()` and `RAND()` (design §11.6). Granted to viewers
+/// without a permission: it tells the plugin nothing about the user's
+/// files, and a spreadsheet computes as the program it stands for only
+/// with them.
+interface clock {
+    /// Milliseconds since January 1, 1970, UTC.
+    now: func() -> s64;
+
+    /// The user's time zone, as the IANA database names it
+    /// (`Europe/Istanbul`), or `UTC` when it is unknown.
+    timezone: func() -> string;
+
+    /// 64 random bits.
+    random: func() -> u64;
+}

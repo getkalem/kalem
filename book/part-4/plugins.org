@@ -167,6 +167,27 @@ viewer's limits are 1 GB and 10 s a call, more than §11.6's defaults,
 since a viewer holds a whole file; a manifest may set others,
 =limits.memory_mb= and =limits.time_ms=.
 
+A viewer of sheets of cells, a workbook's or a database's, builds
+the same way with =kalem-plugin='s feature =grid=: its component
+exports the =grid= interface beside =viewer= (the =spreadsheet-viewer=
+world), the grid half of the contract typed in WIT (cells and their
+styles, edits, conditional formats, validations, sorting and filters,
+charts, pivot tables, undo, macros), and Kalem uses it as it uses the
+bundled one. A macro's questions cross as answers given so far: the
+plugin stops at a question it has no answer to, Kalem asks the user and
+runs it again with the answer. Every function of the contract is
+carried to components; a test fails when one is added and not carried.
+
+Viewers get one more interface, =clock=: the time, the user's time zone
+and random bits. A workbook's =NOW()=, =TODAY()= and =RAND()= need them
+to compute as Excel does, and they tell the plugin nothing of the user's
+files; no other plugin has a clock. The Excel plugin's formula engine,
+IronCalc, comes from =getkalem/ironcalc=, a fork whose only change lets
+it read that clock on WebAssembly instead of a browser's JavaScript;
+built so, the plugin opens, edits, recalculates and saves workbooks
+exactly as the bundled one does, which a test checks workbook by
+workbook (=KALEM_XLSX_COMPONENT=, =crates/kalem-cli/tests/xlsx_component.rs=).
+
 Built for speed (=opt-level = 3=) and with WebAssembly's SIMD, which
 =kalem plugin build= adds, the PDF viewer renders a page within a fifth
 of its bundled speed: 39 ms against 33 ms for a page at a Retina

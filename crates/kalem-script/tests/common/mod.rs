@@ -6,6 +6,20 @@ use std::process::Command;
 /// The test plugin `name` of `tests/plugins` built and wrapped as a
 /// component, or `None` without the tools.
 pub(crate) fn component(name: &str) -> Option<Vec<u8>> {
+    // Built once per test process: the tests running in parallel would
+    // otherwise write the same files at once.
+    static BUILT: std::sync::Mutex<std::collections::BTreeMap<String, Option<Vec<u8>>>> =
+        std::sync::Mutex::new(std::collections::BTreeMap::new());
+    let mut built = BUILT.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(b) = built.get(name) {
+        return b.clone();
+    }
+    let b = build(name);
+    built.insert(name.to_string(), b.clone());
+    b
+}
+
+fn build(name: &str) -> Option<Vec<u8>> {
     let target = Command::new("rustup")
         .args(["target", "list", "--installed"])
         .output()
