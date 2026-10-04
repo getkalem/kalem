@@ -123,6 +123,7 @@ interface grid {
         rename(tuple<u32, string>),
         move(tuple<u32, u32>),
         hide(tuple<u32, bool>),
+        copy(tuple<u32, u32>),
     }
 
     enum paste-kind {

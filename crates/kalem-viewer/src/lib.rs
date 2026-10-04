@@ -772,6 +772,9 @@ pub enum SheetEdit {
     Move(usize, usize),
     /// The sheet hidden (`true`) or shown again.
     Hide(usize, bool),
+    /// A copy of the sheet (its cells, formats, names, tables, charts and
+    /// pictures) put at a place, named as a spreadsheet names a copy.
+    Copy(usize, usize),
 }
 
 /// Which borders a change draws.

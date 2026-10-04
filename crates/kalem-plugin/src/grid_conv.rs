@@ -335,6 +335,7 @@ impl Conv<g::SheetEdit> for kv::SheetEdit {
             kv::SheetEdit::Rename(i, n) => g::SheetEdit::Rename((i.conv(), n)),
             kv::SheetEdit::Move(a, b) => g::SheetEdit::Move((a.conv(), b.conv())),
             kv::SheetEdit::Hide(i, h) => g::SheetEdit::Hide((i.conv(), h)),
+            kv::SheetEdit::Copy(a, b) => g::SheetEdit::Copy((a.conv(), b.conv())),
         }
     }
 }
@@ -347,6 +348,7 @@ impl Conv<kv::SheetEdit> for g::SheetEdit {
             g::SheetEdit::Rename((i, n)) => kv::SheetEdit::Rename(i.conv(), n),
             g::SheetEdit::Move((a, b)) => kv::SheetEdit::Move(a.conv(), b.conv()),
             g::SheetEdit::Hide((i, h)) => kv::SheetEdit::Hide(i.conv(), h),
+            g::SheetEdit::Copy((a, b)) => kv::SheetEdit::Copy(a.conv(), b.conv()),
         }
     }
 }
