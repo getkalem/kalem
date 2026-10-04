@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- Debug builds no longer abort on text with a line break drawn as one line: a chart's labels, a cell's text measured in the grid, a formula's source shown as an error.
 - In a workbook's grid `h` moves left again, as `j`, `k` and `l` move: the chart commands that began with `h` begin with `p` (`p t` Chart Title, `p n` Axis Number Format, `p` and an arrow to move a chart), and the warning "1 problem in the settings or keymap" at every start is gone.
 - Debug builds on macOS link without the warning that the unwind information is too large for the compact unwind table.
 - Code files take the whole window instead of the 80-character text column, which in a monospace font was only 66 characters wide; plain text's column is now 80 of its characters, and a long line of code wraps under its own indentation rather than at the left edge.

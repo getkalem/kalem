@@ -138,7 +138,7 @@ fn grid(editor: &Editor, start: usize, fs: Pixels, window: &mut Window) -> Optio
                 }
                 let w = window
                     .text_system()
-                    .shape_line(text.into(), fs, &runs, None)
+                    .shape_line(crate::one_line(&text), fs, &runs, None)
                     .width;
                 // A span is fitted once the columns it covers are measured.
                 match view.spans.iter().find(|s| s.0 == ri && s.1 == i) {
@@ -240,7 +240,7 @@ fn prepare_grid(
                 } else {
                     window
                         .text_system()
-                        .shape_line(text_.clone().into(), fs, &truns, None)
+                        .shape_line(crate::one_line(&text_), fs, &truns, None)
                         .width
                 };
                 let free = *w - cw;
@@ -417,7 +417,7 @@ fn prepare_decoration(
         brun.color = theme.link;
         let shaped = window
             .text_system()
-            .shape_line(copy.into(), fs, &[brun], None);
+            .shape_line(crate::one_line(&copy), fs, &[brun], None);
         let sz = size(shaped.width + px(12.), fs * 1.3);
         runs.push(stand_in(ls..range.end, PLACEHOLDER));
         pieces.push(Piece::Widget {
@@ -855,7 +855,7 @@ fn prepare_toc(
         Rc::new(
             window
                 .text_system()
-                .shape_line(t.into(), base, &[run], None),
+                .shape_line(crate::one_line(&t), base, &[run], None),
         )
     };
     let title = shape(listing.title, theme.muted, window);
@@ -960,7 +960,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                         let mut run = text_run(&r.style, source.len(), view.heading, true, &theme);
                         run.color = theme.todo;
                         let shaped = window.text_system().shape_line(
-                            source.clone().into(),
+                            crate::one_line(source),
                             fs * 0.9,
                             &[run],
                             None,
@@ -1011,9 +1011,10 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 if matches!(w, Widget::Math { .. }) {
                     run.font.style = FontStyle::Italic;
                 }
-                let shaped = window
-                    .text_system()
-                    .shape_line(shown.into(), fs, &[run], None);
+                let shaped =
+                    window
+                        .text_system()
+                        .shape_line(crate::one_line(&shown), fs, &[run], None);
                 let sz = size(shaped.width, fs * 1.2);
                 Some((Paint::Text(Rc::new(shaped)), sz, fs * 0.9))
             }

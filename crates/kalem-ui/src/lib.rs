@@ -218,8 +218,28 @@ fn file_url_path(url: &str) -> Option<PathBuf> {
     String::from_utf8(out).ok().map(PathBuf::from)
 }
 
+/// `text` for gpui's `shape_line`, which takes one line only (and panics
+/// on a line break in debug builds): its line breaks as spaces, the byte
+/// length kept, so that text runs measured over it still fit. A cell's or
+/// a chart label's text from a file may hold them.
+pub(crate) fn one_line(text: &str) -> gpui::SharedString {
+    if text.contains(['\n', '\r']) {
+        text.replace(['\n', '\r'], " ").into()
+    } else {
+        gpui::SharedString::from(text.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn one_line_keeps_the_length() {
+        let t = "a\r\nb\nc";
+        let l = super::one_line(t);
+        assert_eq!(l.as_ref(), "a  b c");
+        assert_eq!(l.len(), t.len());
+    }
+
     #[test]
     fn file_urls() {
         assert_eq!(

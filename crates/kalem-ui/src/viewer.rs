@@ -548,12 +548,7 @@ impl Editor {
             f32::from(
                 window
                     .text_system()
-                    .shape_line(
-                        SharedString::from(t.to_string()),
-                        px(text_size),
-                        &[run(t)],
-                        None,
-                    )
+                    .shape_line(crate::one_line(t), px(text_size), &[run(t)], None)
                     .width,
             )
         };
@@ -1694,7 +1689,7 @@ impl Editor {
             f32::from(
                 window
                     .text_system()
-                    .shape_line(SharedString::from(t.to_string()), size, &[run], None)
+                    .shape_line(crate::one_line(t), size, &[run], None)
                     .width,
             )
         };
@@ -1730,7 +1725,7 @@ impl Editor {
             f32::from(
                 window
                     .text_system()
-                    .shape_line(SharedString::from(t.to_string()), size, &[run], None)
+                    .shape_line(crate::one_line(t), size, &[run], None)
                     .width,
             )
         };
