@@ -966,7 +966,17 @@ impl Editor {
             .filter(|_| !p.declined)
             .map(|f| f.chars().skip(p.input.chars().count()).collect::<String>())
             .unwrap_or_default();
-        let typed = format!("{before}▏{after}").replace('\n', "↵");
+        // A password shows as dots.
+        let masked = p.arg.as_ref().is_some_and(|a| a.name == "password");
+        let typed = if masked {
+            format!(
+                "{}▏{}",
+                "•".repeat(before.chars().count()),
+                "•".repeat(after.chars().count())
+            )
+        } else {
+            format!("{before}▏{after}").replace('\n', "↵")
+        };
         let prompt = match (&p.arg, &p.pick, &p.search) {
             _ if p.lines.is_some() => {
                 let n = p.lines.as_ref().map_or(0, |l| l.hits.len());

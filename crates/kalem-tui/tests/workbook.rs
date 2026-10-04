@@ -3124,3 +3124,82 @@ fn cell_styles_and_alignment() {
     let c = v.cursor_cell();
     assert_eq!((c.rotation, c.shrink), (90, true));
 }
+
+#[test]
+fn protection() {
+    let mut t = T::open("protect");
+    // B2 unlocked (t L).
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.key(KeyCode::Char('t'));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('L'),
+        KeyModifiers::SHIFT,
+    )));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .cursor_cell()
+            .unlocked
+    );
+    // z k asks for a password, shown as dots.
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('k'));
+    for c in "gizli".chars() {
+        t.key(KeyCode::Char(c));
+    }
+    let s = t.screen();
+    assert!(s.contains("•••••") && !s.contains("gizli"), "{s}");
+    t.key(KeyCode::Enter);
+    assert!(
+        t.screen().contains("Protect: select cells only"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.protectSheet",
+        json!({ "password": "gizli", "allow": "none" }),
+    );
+    // A locked cell is not edited; the unlocked one is.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.run_command("viewer.grid.edit", json!({}));
+    assert!(t.screen().contains("protected sheet"), "{}", t.screen());
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 1, "col": 1, "value": "1000" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(1, 1);
+    assert_eq!(v.cell_input(), "1000");
+    // Unprotected with its password only.
+    t.app
+        .run_command("viewer.grid.protectSheet", json!({ "password": "yanlış" }));
+    assert!(
+        t.screen().contains("The password is not right"),
+        "{}",
+        t.screen()
+    );
+    t.app
+        .run_command("viewer.grid.protectSheet", json!({ "password": "gizli" }));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .sheet_protection()
+            .is_none()
+    );
+    // The workbook's structure protected: no new sheet.
+    t.app
+        .run_command("viewer.grid.protectWorkbook", json!({ "password": "" }));
+    t.app.run_command("viewer.grid.insertSheet", json!({}));
+    assert!(
+        t.screen().contains("structure is protected"),
+        "{}",
+        t.screen()
+    );
+}

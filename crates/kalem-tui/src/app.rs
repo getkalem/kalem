@@ -4758,9 +4758,17 @@ impl App {
                 }
                 before.insert(0, '…');
             }
-            // A line break in a cell's entry shows as ↵.
-            let before = before.replace('\n', "↵");
-            let shown = format!("{before}{}", after.replace('\n', "↵"));
+            // A line break in a cell's entry shows as ↵; a password as dots.
+            let masked = matches!(&p.kind, PromptKind::Arg { name, .. } if name == "password");
+            let mask = |s: &str| {
+                if masked {
+                    "•".repeat(s.chars().count())
+                } else {
+                    s.replace('\n', "↵")
+                }
+            };
+            let before = mask(&before);
+            let shown = format!("{before}{}", mask(after));
             buf.set_stringn(area.x + 1 + lw, y, &shown, room, bar);
             // AutoComplete's offer after what is typed, faint.
             if let Some(full) = &offer {

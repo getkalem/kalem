@@ -60,7 +60,7 @@ be bound again.
 
 ## E28. Protection
 
-- [ ] E28 Lock and unlock cells (Format Cells' Protection); Protect Sheet
+- [x] E28 Lock and unlock cells (Format Cells' Protection); Protect Sheet
   with what stays allowed, and a password; Protect Workbook structure;
   the grid refusing edits to locked cells of a protected sheet.
 

@@ -2005,6 +2005,39 @@ impl ViewerState {
         Ok(())
     }
 
+    /// How the sheet shown is protected, when it is.
+    pub fn sheet_protection(&mut self) -> Option<kalem_viewer::SheetProtection> {
+        self.doc().sheet_protection(self.unit)
+    }
+
+    /// Whether the cursor's cell cannot be edited: locked on a protected
+    /// sheet.
+    pub fn cursor_locked(&mut self) -> bool {
+        self.sheet_protection().is_some() && !self.cursor_cell().unlocked
+    }
+
+    /// Protect Sheet (`Some`) or Unprotect Sheet (`None`).
+    pub fn protect_sheet(
+        &mut self,
+        protection: Option<kalem_viewer::SheetProtection>,
+        password: Option<&str>,
+    ) -> Result<(), String> {
+        self.doc()
+            .protect_sheet(self.unit, protection, password)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Protect Workbook (its structure), or not.
+    pub fn protect_workbook(&mut self, on: bool, password: Option<&str>) -> Result<(), String> {
+        self.doc()
+            .protect_workbook(on, password)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// How the sheet shown prints.
     pub fn page_setup(&mut self) -> kalem_viewer::PageSetup {
         self.doc().page_setup(self.unit).unwrap_or_default()
@@ -4894,6 +4927,12 @@ fn ask_cell(ctx: &mut EditorContext<'_>, start: Option<&str>) -> CommandResult {
         ctx.messages.push("This file is shown, not edited".into());
         return Ok(());
     }
+    // A locked cell of a protected sheet is not edited.
+    if v.cursor_locked() {
+        ctx.messages
+            .push("The cell is on a protected sheet: unprotect the sheet to change it".into());
+        return Ok(());
+    }
     let p = v.grid_pos();
     let current = match start {
         Some(s) => s.to_string(),
@@ -7662,6 +7701,91 @@ fn toggle_alignment(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     })
 }
 
+/// Protect Sheet (`z k`): a password asked (none when left empty), then
+/// what the protected sheet still allows; on a protected sheet, Unprotect
+/// Sheet, its password asked when it has one.
+fn protect_sheet(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::SheetProtection;
+    const ID: &str = "viewer.grid.protectSheet";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let password = args
+        .get("password")
+        .and_then(|p| p.as_str())
+        .map(str::to_owned);
+    if let Some(now) = v.sheet_protection() {
+        if now.has_password && password.is_none() {
+            return ask_more(ctx, ID, &serde_json::json!({}), "password");
+        }
+        return with(ctx, |v| v.protect_sheet(None, password.as_deref()));
+    }
+    let Some(password) = password else {
+        return ask_more(ctx, ID, &serde_json::json!({}), "password");
+    };
+    let Some(allow) = args.get("allow").and_then(|a| a.as_str()) else {
+        let item = |a: &str, t: &str| {
+            menu_item(
+                ID,
+                serde_json::json!({ "password": password, "allow": a }),
+                t,
+                "Protect Sheet",
+            )
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("none", "Protect: select cells only"),
+            item(
+                "format",
+                "Protect, allowing formatting cells, columns and rows",
+            ),
+            item("sortFilter", "Protect, allowing sorting and filtering"),
+            item("rows", "Protect, allowing inserting and deleting rows"),
+        ]));
+        return Ok(());
+    };
+    let mut p = SheetProtection::default();
+    match allow {
+        "format" => {
+            p.format_cells = true;
+            p.format_columns = true;
+            p.format_rows = true;
+        }
+        "sortFilter" => {
+            p.sort = true;
+            p.filter = true;
+        }
+        "rows" => {
+            p.insert_rows = true;
+            p.delete_rows = true;
+        }
+        _ => {}
+    }
+    let pw = (!password.is_empty()).then_some(password);
+    with(ctx, |v| v.protect_sheet(Some(p), pw.as_deref()))
+}
+
+/// Protect Workbook (`z K`): its structure, with a password asked; again
+/// to unprotect it.
+fn protect_workbook(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.protectWorkbook";
+    let Some(password) = args
+        .get("password")
+        .and_then(|p| p.as_str())
+        .map(str::to_owned)
+    else {
+        return ask_more(ctx, ID, &serde_json::json!({}), "password");
+    };
+    with(ctx, |v| {
+        let on = !v.doc().workbook_protected();
+        let pw = (!password.is_empty()).then_some(password.as_str());
+        v.protect_workbook(on, pw)
+    })
+}
+
 /// Subtotal: at each change in a column, a function, added to a column,
 /// each chosen from a menu.
 fn subtotal(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
@@ -9249,6 +9373,35 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.lockCells",
+            "Lock Cell",
+            &["t shift+l"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    let locked = !v.cursor_cell().unlocked;
+                    v.change_style(kalem_viewer::StyleChange {
+                        locked: Some(!locked),
+                        ..kalem_viewer::StyleChange::default()
+                    })
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.protectSheet",
+            "Protect Sheet",
+            &["z k"],
+            IN_GRID,
+            protect_sheet,
+        ),
+        cmd(
+            "viewer.grid.protectWorkbook",
+            "Protect Workbook",
+            &["z shift+k"],
+            IN_GRID,
+            protect_workbook,
+        ),
         cmd(
             "viewer.grid.cellStyle",
             "Cell Styles",
