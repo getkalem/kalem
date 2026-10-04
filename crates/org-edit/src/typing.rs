@@ -117,8 +117,11 @@ pub fn self_insert(
         }
         if room_in_field(&buf.text, buf.point) {
             buf.insert_at_point(text);
-            let bar = buf.point + buf.text[buf.point..].find('|').expect("a field end");
-            buf.delete(bar - 2, bar - 1);
+            // `room_in_field` found the field's end and the blank before it.
+            if let Some(off) = buf.text[buf.point..].find('|') {
+                let bar = buf.point + off;
+                buf.delete(bar - 2, bar - 1);
+            }
             return Ok(buf.transaction("Typing"));
         }
     }

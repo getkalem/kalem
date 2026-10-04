@@ -845,7 +845,9 @@ impl Vim {
             let mut at = 0;
             let mut changed = false;
             for caps in p.regex().captures_iter(&text) {
-                let m = caps.name("m").or_else(|| caps.get(0)).expect("a match");
+                let Some(m) = caps.name("m").or_else(|| caps.get(0)) else {
+                    continue;
+                };
                 // An empty match right after the last is skipped.
                 if m.start() < at {
                     continue;

@@ -968,7 +968,7 @@ impl App {
         let Some(t) = self.task.as_ref() else { return };
         match t.question() {
             None => {
-                let t = self.task.take().expect("a task");
+                let Some(t) = self.task.take() else { return };
                 let job = t.start();
                 self.message(job.status(), false);
                 self.jobs.push(job);
@@ -2748,6 +2748,7 @@ impl App {
                     .editor
                     .hit(&self.doc, &self.caps, m.column, m.row)
                     .map(|(pos, _)| pos);
+                #[expect(clippy::expect_used, reason = "the arm's guard checked it")]
                 let d = self.doc.dired.as_deref().expect("a listing");
                 let path = hit.and_then(|pos| d.path_at(self.doc.text().line_of(pos)));
                 if let (Some(p), Some(pos)) = (&path, hit)
@@ -3161,7 +3162,7 @@ impl App {
                     && let Ok(r) = r
                 {
                     let mut tx = org_edit::Transaction::new("Replace");
-                    tx.replace(sel.clone(), r.clone()).expect("one edit");
+                    tx.edit(sel.clone(), r.clone());
                     let tx = tx.select(org_edit::Selection::caret(sel.start + r.len()));
                     self.doc
                         .apply(&tx, org_edit::ChangeKind::Command, Instant::now());

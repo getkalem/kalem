@@ -21,8 +21,6 @@ use kalem_viewer::{
 use crate::command::{
     Command, CommandHandler, CommandResult, CommandSource, EditorContext, Request,
 };
-use crate::keys::KeySequence;
-use crate::when::WhenClause;
 
 static VIEWERS: RwLock<Vec<Arc<dyn Viewer>>> = RwLock::new(Vec::new());
 
@@ -226,6 +224,9 @@ struct TextSelection {
     anchor: std::ops::Range<usize>,
     head: std::ops::Range<usize>,
     rects: Option<(std::ops::Range<usize>, Vec<[f32; 4]>)>,
+    /// Where the drag went while a render held the document, in the
+    /// unit's points: the head moves there once the document is free.
+    pending: Option<(f32, f32)>,
 }
 
 impl TextSelection {
@@ -997,6 +998,7 @@ impl ViewerState {
             anchor: range.clone(),
             head: range,
             rects: None,
+            pending: None,
         });
         true
     }
@@ -1017,6 +1019,7 @@ impl ViewerState {
             anchor: r.clone(),
             head: r,
             rects: None,
+            pending: None,
         });
         true
     }
@@ -1027,12 +1030,29 @@ impl ViewerState {
             return;
         }
         let (ux, uy) = self.unit_point(x, y);
+        if let Some(sel) = &mut self.text_sel {
+            sel.pending = Some((ux, uy));
+        }
+        self.settle_selection();
+    }
+
+    /// Moves the selection's head to where the drag went, once no render
+    /// holds the document (a drag over a page while its neighbor renders
+    /// is not lost).
+    fn settle_selection(&mut self) {
+        let Some(sel) = &mut self.text_sel else {
+            return;
+        };
+        let Some((ux, uy)) = sel.pending else {
+            return;
+        };
         let Ok(doc) = self.doc.try_lock() else {
             return;
         };
-        let hit = doc.text_at(self.unit, ux, uy);
+        let hit = doc.text_at(sel.unit, ux, uy);
         drop(doc);
-        if let (Some((r, _)), Some(sel)) = (hit, &mut self.text_sel) {
+        sel.pending = None;
+        if let Some((r, _)) = hit {
             sel.head = r;
         }
     }
@@ -1045,14 +1065,22 @@ impl ViewerState {
     /// The text selected, if any.
     pub fn selected_text(&self) -> Option<String> {
         let sel = self.text_sel.as_ref()?;
-        let text = self.doc().text(sel.unit);
-        text.get(sel.range()).map(str::to_string)
+        let doc = self.doc();
+        let mut range = sel.range();
+        // A drag not applied yet, a render holding the document then.
+        if let Some((ux, uy)) = sel.pending
+            && let Some((head, _)) = doc.text_at(sel.unit, ux, uy)
+        {
+            range = sel.anchor.start.min(head.start)..sel.anchor.end.max(head.end);
+        }
+        doc.text(sel.unit).get(range).map(str::to_string)
     }
 
     /// The selection's rectangles in the area's pixels as placed (x, y,
     /// width, height); read from the viewer once per range, none in a
     /// frame a render holds the document.
     pub fn selection_marks(&mut self) -> Vec<[f32; 4]> {
+        self.settle_selection();
         let Some(sel) = &mut self.text_sel else {
             return Vec::new();
         };
@@ -5030,11 +5058,8 @@ fn cmd(
         id: id.into(),
         title: title.into(),
         category: "Viewer".into(),
-        default_keys: keys
-            .iter()
-            .map(|k| KeySequence::parse(k).expect("valid default key"))
-            .collect(),
-        when: Some(WhenClause::parse(when).expect("valid when-clause")),
+        default_keys: crate::builtin::literal_keys(keys),
+        when: Some(crate::builtin::literal_when(when)),
         handler: CommandHandler::Native(handler),
         args_schema: None,
         source: CommandSource::Builtin,
@@ -5712,16 +5737,16 @@ pub fn parse_tsv(text: &str) -> Vec<Vec<String>> {
                 at_start = false;
             }
             '\t' => {
-                rows.last_mut()
-                    .expect("a row")
-                    .push(std::mem::take(&mut field));
+                if let Some(row) = rows.last_mut() {
+                    row.push(std::mem::take(&mut field));
+                }
                 at_start = true;
             }
             '\r' if chars.peek() == Some(&'\n') => {}
             '\n' => {
-                rows.last_mut()
-                    .expect("a row")
-                    .push(std::mem::take(&mut field));
+                if let Some(row) = rows.last_mut() {
+                    row.push(std::mem::take(&mut field));
+                }
                 rows.push(Vec::new());
                 at_start = true;
             }
@@ -5731,7 +5756,9 @@ pub fn parse_tsv(text: &str) -> Vec<Vec<String>> {
             }
         }
     }
-    rows.last_mut().expect("a row").push(field);
+    if let Some(row) = rows.last_mut() {
+        row.push(field);
+    }
     rows
 }
 

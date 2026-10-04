@@ -193,18 +193,22 @@ static SERVICE: Mutex<Option<Service>> = Mutex::new(None);
 static WAKE: RwLock<Option<Wake>> = RwLock::new(None);
 
 fn with<R>(f: impl FnOnce(&mut Service) -> R) -> R {
-    let mut g = SERVICE.lock().expect("lsp");
+    let mut g = SERVICE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     f(g.get_or_insert_with(Service::default))
 }
 
 /// Sets what wakes the frontend when a server says something.
 pub fn set_wake(wake: Wake) {
-    *WAKE.write().expect("wake") = Some(wake);
+    *WAKE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(wake);
 }
 
 fn wake() -> Wake {
     WAKE.read()
-        .expect("wake")
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone()
         .unwrap_or_else(|| Arc::new(|| {}))
 }
@@ -741,9 +745,10 @@ fn outcome(
                 .collect();
             match places.len() {
                 0 => nothing(),
-                1 if a.kind != Kind::References => {
-                    Outcome::Jump(places.into_iter().next().expect("one"))
-                }
+                1 if a.kind != Kind::References => places
+                    .into_iter()
+                    .next()
+                    .map_or_else(nothing, Outcome::Jump),
                 _ => Outcome::Places {
                     title: match a.kind {
                         Kind::References => "References",

@@ -228,7 +228,7 @@ impl Vim {
         self.ai_line = None;
         let head = doc.selection.head.min(doc.text().len());
         let mut tx = Transaction::new("Typing");
-        tx.replace(head..head, text).expect("one edit");
+        tx.edit(head..head, text);
         let tx = tx.select(Selection::caret(head + text.len()));
         doc.apply(&tx, ChangeKind::Typing, Instant::now());
     }

@@ -487,7 +487,9 @@ pub fn encode(text: &str, meta: &Metadata) -> Vec<u8> {
         out.extend_from_slice(&lines);
         return out;
     }
-    let text = String::from_utf8(lines).expect("UTF-8 with carriage returns");
+    // The text's bytes with carriage returns added: UTF-8 still.
+    let text = String::from_utf8(lines)
+        .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned());
     if enc == UTF_16LE || enc == UTF_16BE {
         let le = enc == UTF_16LE;
         let mut out = Vec::with_capacity(text.len() * 2 + 2);
@@ -645,9 +647,9 @@ impl FileWatcher {
             if matches!(event.kind, notify::EventKind::Access(_)) {
                 return;
             }
-            let watched = w.lock().expect("watch list");
-            let originals = o.lock().expect("watch list");
-            let whole = ds.lock().expect("watch list");
+            let watched = w.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let originals = o.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let whole = ds.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let mut sent = HashSet::new();
             for p in &event.paths {
                 let (Some(dir), Some(name)) = (p.parent(), p.file_name()) else {
@@ -686,12 +688,12 @@ impl FileWatcher {
         let new_dir = !self
             .watched
             .lock()
-            .expect("watch list")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .contains_key(&canonical)
             && !self
                 .dirs
                 .lock()
-                .expect("watch list")
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .contains_key(&canonical);
         if new_dir {
             self.watcher
@@ -699,7 +701,7 @@ impl FileWatcher {
         }
         self.dirs
             .lock()
-            .expect("watch list")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(canonical, dir.to_path_buf());
         Ok(())
     }
@@ -711,14 +713,14 @@ impl FileWatcher {
         let removed = self
             .dirs
             .lock()
-            .expect("watch list")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(&canonical)
             .is_some();
         if removed
             && !self
                 .watched
                 .lock()
-                .expect("watch list")
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .contains_key(&canonical)
         {
             self.watcher.unwatch(&canonical)?;
@@ -732,21 +734,29 @@ impl FileWatcher {
         let (dir, name) = split(path)?;
         // The watch list is not held while notify starts watching: its
         // thread may be waiting for it to report an event.
-        let new_dir = !self.watched.lock().expect("watch list").contains_key(&dir)
-            && !self.dirs.lock().expect("watch list").contains_key(&dir);
+        let new_dir = !self
+            .watched
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains_key(&dir)
+            && !self
+                .dirs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .contains_key(&dir);
         if new_dir {
             self.watcher
                 .watch(&dir, notify::RecursiveMode::NonRecursive)?;
         }
         self.watched
             .lock()
-            .expect("watch list")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .entry(dir.clone())
             .or_default()
             .insert(name.clone());
         self.originals
             .lock()
-            .expect("watch list")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(dir.join(name), path.to_path_buf());
         Ok(())
     }
@@ -756,7 +766,10 @@ impl FileWatcher {
         use notify::Watcher;
         let (dir, name) = split(path)?;
         let now_empty = {
-            let mut watched = self.watched.lock().expect("watch list");
+            let mut watched = self
+                .watched
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             let Some(names) = watched.get_mut(&dir) else {
                 return Ok(());
             };
@@ -769,9 +782,15 @@ impl FileWatcher {
         };
         self.originals
             .lock()
-            .expect("watch list")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(&dir.join(&name));
-        if now_empty && !self.dirs.lock().expect("watch list").contains_key(&dir) {
+        if now_empty
+            && !self
+                .dirs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .contains_key(&dir)
+        {
             self.watcher.unwatch(&dir)?;
         }
         Ok(())

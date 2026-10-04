@@ -187,7 +187,7 @@ pub fn recalculate(doc: &Document, point: usize, iterate: bool) -> Result<Recalc
     let new_rows = &aligned[rows.start..new_end];
     let mut tx = Transaction::new("Recalculate table");
     if new_rows != &text[rows.clone()] {
-        tx.replace(rows.clone(), new_rows).expect("one edit");
+        tx.edit(rows.clone(), new_rows);
     }
     let caret = if point < rows.end {
         point.min(new_end)
@@ -240,8 +240,7 @@ pub fn convert_region(
     let aligned = crate::table::align_table(&new_doc, start)?.apply(&replaced);
     let mut tx = Transaction::new("Convert to table");
     let new_stop = aligned.len() - (text.len() - stop);
-    tx.replace(start..stop, &aligned[start..new_stop])
-        .expect("one edit");
+    tx.edit(start..stop, &aligned[start..new_stop]);
     // Emacs ends before the first bar after converting CSV, in the first
     // field otherwise (its replacements carry the region's start along).
     let spaces = !comma && !matches!(sep, org_table::csv::Separator::Tab) && {
@@ -282,8 +281,7 @@ pub fn import(
     let final_text = tx.apply(&new_text);
     let mut out = Transaction::new("Import table");
     let tail = text.len() - point;
-    out.replace(point..point, &final_text[point..final_text.len() - tail])
-        .expect("one edit");
+    out.edit(point..point, &final_text[point..final_text.len() - tail]);
     Ok(out.select(Selection::caret(beg)))
 }
 
@@ -513,8 +511,7 @@ pub fn set_formula(
         suf -= 1;
     }
     if pre + suf < a.len() || pre + suf < b.len() {
-        tx.replace(pre..a.len() - suf, &final_text[pre..b.len() - suf])
-            .expect("one edit");
+        tx.edit(pre..a.len() - suf, &final_text[pre..b.len() - suf]);
     }
     Ok(Recalculated {
         transaction: tx.select(Selection::caret(point.min(final_text.len()))),

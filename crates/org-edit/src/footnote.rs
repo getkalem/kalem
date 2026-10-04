@@ -101,7 +101,8 @@ pub fn proposed_label(text: &str) -> String {
     (1..)
         .map(|n: usize| n.to_string())
         .find(|l| !labels.contains(l))
-        .expect("a free label")
+        // One of the first `labels.len() + 1` numbers is free.
+        .unwrap_or_else(|| (labels.len() + 1).to_string())
 }
 
 /// `org-footnote-auto-adjust-maybe` after `tx` on `text`: the footnotes
@@ -489,10 +490,9 @@ fn collect_references(text: &str, anonymous: bool) -> Vec<Reference> {
         if !(allow_nested || r.top) || depth > 64 {
             return;
         }
-        let i = refs
-            .iter()
-            .position(|x| x.begin == r.begin)
-            .expect("a reference");
+        let Some(i) = refs.iter().position(|x| x.begin == r.begin) else {
+            return;
+        };
         out.push(i);
         let Some(l) = &r.label else { return };
         if let Some((_, labels)) = nested.iter().find(|(k, _)| k == l) {
@@ -756,7 +756,7 @@ pub fn renumber(text: &str, point: usize) -> Result<Transaction, EditError> {
         .collect();
     let mut map: Vec<(String, String)> = Vec::new();
     for r in &refs {
-        let l = r.label.clone().expect("a label");
+        let Some(l) = r.label.clone() else { continue };
         if !map.iter().any(|(k, _)| *k == l) {
             let n = map.len() + 1;
             map.push((l, n.to_string()));
@@ -767,8 +767,10 @@ pub fn renumber(text: &str, point: usize) -> Result<Transaction, EditError> {
     let saved = buf.add_marker(point);
     let markers: Vec<usize> = refs.iter().map(|r| buf.add_marker(r.begin)).collect();
     for (r, m) in refs.iter().zip(markers) {
-        let l = r.label.as_ref().expect("a label");
-        let new = &map.iter().find(|(k, _)| k == l).expect("mapped").1;
+        let Some(l) = r.label.as_ref() else { continue };
+        let Some((_, new)) = map.iter().find(|(k, _)| k == l) else {
+            continue;
+        };
         let pos = buf.marker(m);
         set_label(&mut buf, pos, new);
     }
@@ -812,7 +814,9 @@ pub fn sort(
     clear_section(&mut buf, settings);
     let mut inserted: Vec<String> = Vec::new();
     for (r, m) in refs.iter().zip(&markers) {
-        let label = r.label.clone().expect("a label");
+        let Some(label) = r.label.clone() else {
+            continue;
+        };
         if inserted.contains(&label) || r.size.is_some() {
             continue;
         }
@@ -1104,7 +1108,15 @@ pub fn action(
     let kind: Option<SyntaxKind> = ctx.as_ref().map(SyntaxNode::kind);
     match kind {
         Some(FOOTNOTE_REFERENCE) => {
+            #[expect(
+                clippy::expect_used,
+                reason = "the match on its kind found a reference"
+            )]
             let c = ctx.expect("a context");
+            #[expect(
+                clippy::expect_used,
+                reason = "the match on its kind found a reference"
+            )]
             let r = ast::FootnoteReference::cast(c.clone()).expect("a reference");
             match r.label() {
                 None => {
@@ -1122,6 +1134,10 @@ pub fn action(
             Ok(buf.transaction("Footnote"))
         }
         Some(FOOTNOTE_DEFINITION) => {
+            #[expect(
+                clippy::expect_used,
+                reason = "the match on its kind found a definition"
+            )]
             let l = ast::FootnoteDefinition::cast(ctx.expect("a context"))
                 .expect("a definition")
                 .label();

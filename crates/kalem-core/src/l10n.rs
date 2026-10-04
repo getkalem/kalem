@@ -47,8 +47,10 @@ struct Strings {
     bundle: Option<FluentBundle<FluentResource>>,
 }
 
-static ENGLISH: LazyLock<FluentBundle<FluentResource>> =
-    LazyLock::new(|| bundle("en").expect("the English strings"));
+static ENGLISH: LazyLock<FluentBundle<FluentResource>> = LazyLock::new(|| {
+    // English is compiled in; were it missing, the message ids show.
+    bundle("en").unwrap_or_else(|| FluentBundle::new_concurrent(Vec::new()))
+});
 
 static CURRENT: LazyLock<RwLock<Strings>> = LazyLock::new(|| {
     RwLock::new(Strings {

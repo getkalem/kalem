@@ -340,8 +340,7 @@ impl DocumentState {
                 suf -= 1;
             }
             let mut tx = Transaction::new("Listing");
-            tx.replace(pre..a.len() - suf, &text[pre..b.len() - suf])
-                .expect("one edit");
+            tx.edit(pre..a.len() - suf, &text[pre..b.len() - suf]);
             self.apply_raw(&tx);
         }
         self.history = History::new();
@@ -534,7 +533,9 @@ impl DocumentState {
             let next = &files[i as usize];
             match crate::viewer::ViewerState::open(viewer.clone(), next) {
                 Ok(mut state) => {
-                    let old = self.viewer.as_deref().expect("checked above");
+                    let Some(old) = self.viewer.as_deref() else {
+                        return Ok(());
+                    };
                     state.info = old.info;
                     state.set_area(old.area().0, old.area().1);
                     self.viewer = Some(Box::new(state));
@@ -656,8 +657,7 @@ impl DocumentState {
             suf -= 1;
         }
         let mut tx = Transaction::new("Reload from disk");
-        tx.replace(pre..a.len() - suf, &text[pre..b.len() - suf])
-            .expect("one edit");
+        tx.edit(pre..a.len() - suf, &text[pre..b.len() - suf]);
         self.break_undo_group();
         self.apply(&tx, ChangeKind::Command, now);
         self.meta.line_ending = meta.line_ending;
@@ -885,7 +885,7 @@ impl DocumentState {
             (ins.text, ins.cursor)
         };
         let mut tx = Transaction::new("Paste");
-        tx.replace(ins.range.clone(), new).expect("one edit");
+        tx.edit(ins.range.clone(), new);
         let tx = tx.select(Selection::caret(ins.range.start + cursor));
         self.apply(&tx, ChangeKind::Command, now);
     }
@@ -982,10 +982,10 @@ impl DocumentState {
                     Indent::Spaces(n) => line.bytes().take(n).take_while(|c| *c == b' ').count(),
                 };
                 if n > 0 {
-                    tx.replace(start..start + n, "").expect("apart");
+                    tx.edit(start..start + n, "");
                 }
             } else if !line.trim().is_empty() {
-                tx.replace(start..start, step.clone()).expect("apart");
+                tx.edit(start..start, step.clone());
             }
         }
         if tx.is_empty() {
@@ -1013,7 +1013,7 @@ impl DocumentState {
         let s = self.selection;
         let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
         let mut tx = Transaction::new("Typing");
-        tx.replace(a..b, text).expect("one edit");
+        tx.edit(a..b, text);
         // In an environment's name: the other end too (T2.7h.15).
         let mut caret = a + text.len();
         if let Some(m) = self.latex_mirror(a..b) {
@@ -1165,7 +1165,7 @@ impl DocumentState {
             )
         {
             let mut tx = Transaction::new("Typing");
-            tx.replace(r.clone(), text).expect("one edit");
+            tx.edit(r.clone(), text);
             let tx = tx.select(Selection::caret(r.start + text.len()));
             self.apply(&tx, ChangeKind::Typing, now);
             return;
@@ -1317,7 +1317,7 @@ impl DocumentState {
             }
         }
         for r in parts {
-            tx.replace(r, "").expect("separate ranges");
+            tx.edit(r, "");
         }
         let tx = tx.select(Selection::caret(caret));
         self.apply(&tx, ChangeKind::Typing, now);

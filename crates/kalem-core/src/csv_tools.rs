@@ -275,7 +275,7 @@ pub fn column_letters(mut col: usize) -> String {
         col = col / 26 - 1;
     }
     s.reverse();
-    String::from_utf8(s).expect("ASCII")
+    s.into_iter().map(char::from).collect()
 }
 
 /// A cell as a spreadsheet and an Org table name it: row and column from

@@ -2,6 +2,11 @@
 //! crossterm, with the same commands, keymaps and settings as the
 //! graphical one.
 
+// A crash ends the user's work: no `unwrap`, `expect` or `panic!`
+// outside tests but where an `#[expect]` says why it cannot happen
+// (roadmap R2.2).
+#![warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 pub mod app;
 pub mod caps;
 pub mod chart;

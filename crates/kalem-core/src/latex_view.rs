@@ -6227,13 +6227,13 @@ pub fn renderer_reads(doc: &crate::DocumentState, source: &str) -> bool {
     let key = Arc::as_ptr(&model) as usize;
     let mut cache = state.formulas.borrow_mut();
     if cache.as_ref().is_none_or(|c| c.model != key) {
-        *cache = Some(FormulaCache {
-            model: key,
-            macros: org_math::source::macros(&math_definitions(doc)),
-            reads: std::collections::HashMap::new(),
-        });
+        *cache = None;
     }
-    let c = cache.as_mut().expect("set above");
+    let c = cache.get_or_insert_with(|| FormulaCache {
+        model: key,
+        macros: org_math::source::macros(&math_definitions(doc)),
+        reads: std::collections::HashMap::new(),
+    });
     if let Some(&r) = c.reads.get(source) {
         return r;
     }
@@ -8271,11 +8271,10 @@ mod tests {
             unreachable!()
         };
         let pdf = std::path::Path::new(path);
-        for _ in 0..600 {
-            if pdf.is_file() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
+        if !crate::tex_pictures::wait_for(pdf) {
+            // pdflatex is there but wrote nothing (a sandbox, a TeX
+            // without the packages): nothing to check here.
+            return;
         }
         let mut img = crate::images::decode(pdf, 800).unwrap();
         crate::images::tint(&mut img, [200, 200, 200]);

@@ -61,7 +61,11 @@ pub fn table(name: &str) -> Option<Vec<KeyRow>> {
 }
 
 fn parse(text: &str, theirs: &str) -> Vec<KeyRow> {
-    let doc: toml_edit::DocumentMut = text.parse().expect("a key table");
+    // The tables are compiled in, and their tests read each one.
+    let Ok(doc) = text.parse::<toml_edit::DocumentMut>() else {
+        debug_assert!(false, "a key table that does not parse");
+        return Vec::new();
+    };
     let Some(rows) = doc.get("key").and_then(|k| k.as_array_of_tables()) else {
         return Vec::new();
     };

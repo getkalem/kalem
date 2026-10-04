@@ -24,8 +24,7 @@ pub fn duplicate(text: &str, sel: Selection) -> Transaction {
     let r = covered(text, sel);
     let block = &text[r.clone()];
     let mut tx = Transaction::new("Duplicate Lines");
-    tx.replace(r.end..r.end, format!("\n{block}"))
-        .expect("one edit");
+    tx.edit(r.end..r.end, format!("\n{block}"));
     let shift = block.len() + 1;
     tx.select(Selection {
         anchor: sel.anchor + shift,
@@ -49,8 +48,7 @@ pub fn move_lines(text: &str, sel: Selection, up: bool) -> Option<Transaction> {
         }
         let prev = text[..r.start - 1].rfind('\n').map_or(0, |i| i + 1);
         let above = &text[prev..r.start - 1];
-        tx.replace(prev..r.end, format!("{block}\n{above}"))
-            .expect("one edit");
+        tx.edit(prev..r.end, format!("{block}\n{above}"));
         let shift = r.start - prev;
         Some(tx.select(Selection {
             anchor: sel.anchor - shift,
@@ -68,8 +66,7 @@ pub fn move_lines(text: &str, sel: Selection, up: bool) -> Option<Transaction> {
         if below.is_empty() && next_end == text.len() {
             return None;
         }
-        tx.replace(r.start..next_end, format!("{below}\n{block}"))
-            .expect("one edit");
+        tx.edit(r.start..next_end, format!("{below}\n{block}"));
         let shift = below.len() + 1;
         Some(tx.select(Selection {
             anchor: sel.anchor + shift,
@@ -108,7 +105,7 @@ pub fn join(text: &str, sel: Selection) -> Option<Transaction> {
         } else {
             " "
         };
-        tx.replace(before..after, sep).expect("separate joins");
+        tx.edit(before..after, sep);
         cursor = before;
         at = after.max(nl + 1);
     }
@@ -130,7 +127,7 @@ pub fn sort(text: &str, sel: Selection, reverse: bool) -> Option<Transaction> {
     }
     let sorted = lines.join("\n");
     let mut tx = Transaction::new("Sort Lines");
-    tx.replace(r.clone(), sorted).expect("one edit");
+    tx.edit(r.clone(), sorted);
     Some(tx.select(Selection {
         anchor: r.start,
         head: r.end,
@@ -148,8 +145,7 @@ pub fn trim_trailing_blank_lines(text: &str) -> Option<Transaction> {
     }
     let mut tx = Transaction::new("Delete Trailing Blank Lines");
     let at = kept.min(text.len());
-    tx.replace(at..text.len(), if kept == 0 { "" } else { "\n" })
-        .expect("one change");
+    tx.edit(at..text.len(), if kept == 0 { "" } else { "\n" });
     Some(tx)
 }
 
@@ -266,8 +262,7 @@ pub fn replace_differing(text: &str, new: &str, label: &str) -> Option<Transacti
         end -= 1;
     }
     let mut tx = Transaction::new(label);
-    tx.replace(start..text.len() - end, &new[start..new.len() - end])
-        .expect("one change");
+    tx.edit(start..text.len() - end, &new[start..new.len() - end]);
     Some(tx)
 }
 
@@ -278,8 +273,7 @@ pub fn trim_trailing(text: &str) -> Option<Transaction> {
         let body = line.trim_end_matches(['\n', '\r']);
         let kept = body.trim_end_matches([' ', '\t']).len();
         if kept < body.len() {
-            tx.replace(at + kept..at + body.len(), "")
-                .expect("separate lines");
+            tx.edit(at + kept..at + body.len(), "");
         }
         at += line.len();
     }

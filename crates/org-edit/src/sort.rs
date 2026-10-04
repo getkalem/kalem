@@ -420,7 +420,9 @@ fn flatten(el: &SyntaxElement, ctx: &ParseContext, out: &mut String) {
             }
         }
         LINK => {
-            let link = Link::cast(n.clone()).expect("link");
+            let Some(link) = Link::cast(n.clone()) else {
+                return;
+            };
             let described = link.format() == LinkFormat::Bracket && link.description().is_some();
             for c in n.children_with_tokens().filter(|c| c.kind() != MARKER) {
                 if c.kind() == CODE_TEXT {

@@ -5,6 +5,11 @@
 //! as one step. The text a command produces is the text the Emacs command
 //! of the same name produces, which the Emacs differential tests check.
 
+// A crash ends the user's work: no `unwrap`, `expect` or `panic!`
+// outside tests but where an `#[expect]` says why it cannot happen
+// (roadmap R2.2).
+#![warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 pub mod archive;
 mod buffer;
 pub mod emphasis;

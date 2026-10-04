@@ -21,7 +21,9 @@ static FONTS: Mutex<Vec<Arc<str>>> = Mutex::new(Vec::new());
 impl FontName {
     /// The name for `family`.
     pub fn new(family: &str) -> FontName {
-        let mut fonts = FONTS.lock().expect("the font names");
+        let mut fonts = FONTS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(i) = fonts.iter().position(|f| &**f == family) {
             return FontName(i as u32);
         }
@@ -31,7 +33,10 @@ impl FontName {
 
     /// The family.
     pub fn family(self) -> Arc<str> {
-        FONTS.lock().expect("the font names")[self.0 as usize].clone()
+        FONTS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)[self.0 as usize]
+            .clone()
     }
 }
 

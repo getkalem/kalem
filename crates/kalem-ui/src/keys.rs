@@ -24,7 +24,7 @@ pub fn chord(k: &Keystroke, swap_primary: bool) -> Option<KeyChord> {
         | "right" | "home" | "end" | "pageup" | "pagedown" | "insert" => key.to_string(),
         k if k.len() > 1 && k.starts_with('f') && k[1..].parse::<u8>().is_ok() => k.to_string(),
         k if k.chars().count() == 1 => {
-            let c = k.chars().next().expect("one character");
+            let c = k.chars().next()?;
             if c.is_alphabetic() {
                 mods.shift |= c.is_uppercase();
                 c.to_lowercase().collect()

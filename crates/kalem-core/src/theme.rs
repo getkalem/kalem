@@ -186,8 +186,9 @@ impl ThemeColors {
                             if list.len() != 6 || list.iter().any(Option::is_none) {
                                 issues.push("`colors.levels` must be six colors".into());
                             } else {
-                                for (d, c) in self.levels.iter_mut().zip(list) {
-                                    *d = c.expect("checked");
+                                for (d, c) in self.levels.iter_mut().zip(list.into_iter().flatten())
+                                {
+                                    *d = c;
                                 }
                             }
                             continue;
@@ -195,8 +196,10 @@ impl ThemeColors {
                         let key = format!("colors.{k}");
                         if self.role(k).is_none() {
                             issues.push(format!("Unknown color `{key}`"));
-                        } else if let Some(c) = color(v, &key, &mut issues) {
-                            *self.role(k).expect("known") = c;
+                        } else if let Some(c) = color(v, &key, &mut issues)
+                            && let Some(role) = self.role(k)
+                        {
+                            *role = c;
                         }
                     }
                 }

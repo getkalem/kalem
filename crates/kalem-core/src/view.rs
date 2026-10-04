@@ -1806,7 +1806,7 @@ impl Folds {
             .filter(|&j| {
                 // Direct children: no heading between them and `i` at a
                 // level between.
-                let l = heading_level(&blocks[j]).expect("heading");
+                let l = heading_level(&blocks[j]).unwrap_or(0);
                 !(i + 1..j).any(|k| heading_level(&blocks[k]).is_some_and(|m| m > level && m < l))
             })
             .collect();

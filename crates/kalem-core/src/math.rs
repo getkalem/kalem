@@ -215,7 +215,9 @@ fn arg(s: &str, i: &mut usize) -> String {
         }
         return unicode_inner(&s[start..*i]);
     }
-    let c = s[*i..].chars().next().unwrap();
+    let Some(c) = s[*i..].chars().next() else {
+        return String::new();
+    };
     *i += c.len_utf8();
     c.to_string()
 }
@@ -351,7 +353,9 @@ fn unicode_inner(s: &str) -> String {
             }
             b'{' | b'}' => i += 1,
             _ => {
-                let c = s[i..].chars().next().unwrap();
+                let Some(c) = s[i..].chars().next() else {
+                    break;
+                };
                 out.push(c);
                 i += c.len_utf8();
             }

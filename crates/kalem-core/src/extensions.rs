@@ -801,7 +801,7 @@ pub(crate) fn core_commands() -> Vec<Command> {
         title: title.into(),
         category: category.into(),
         default_keys: Vec::new(),
-        when: Some(WhenClause::parse(when).expect("valid when-clause")),
+        when: Some(crate::builtin::literal_when(when)),
         handler: CommandHandler::Native(handler),
         args_schema: None,
         source: CommandSource::Builtin,

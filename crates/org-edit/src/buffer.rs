@@ -143,7 +143,9 @@ pub(crate) fn move_to_column(text: &str, bol: usize, col: usize) -> usize {
         if c >= col {
             return bol + i;
         }
-        let ch = line[i..].chars().next().expect("char");
+        let Some(ch) = line[i..].chars().next() else {
+            break;
+        };
         c = if ch == '\t' {
             (c / 8 + 1) * 8
         } else {
@@ -326,8 +328,7 @@ impl Buf {
         }
         let mut t = Transaction::new(label);
         if pre + suf < a.len() || pre + suf < b.len() {
-            t.replace(pre..a.len() - suf, &self.text[pre..b.len() - suf])
-                .expect("one edit");
+            t.edit(pre..a.len() - suf, &self.text[pre..b.len() - suf]);
         }
         t.select(Selection::caret(self.point))
     }

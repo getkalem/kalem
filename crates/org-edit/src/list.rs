@@ -399,6 +399,10 @@ fn list_context(text: &str, pos: usize, ctx: &ParseContext) -> (usize, usize, Co
 }
 
 /// `org-list-struct` for the list around the item at line `start`.
+#[expect(
+    clippy::expect_used,
+    reason = "the item starts come from the scan of the list's own bullets"
+)]
 fn list_struct(text: &str, start: usize, ctx: &ParseContext) -> Struct {
     let (lim_up, lim_down, _) = list_context(text, start, ctx);
     let assoc = |b: usize, ind: usize| -> Item {
@@ -624,10 +628,18 @@ fn assoc_end(st: &mut Struct, ends: &[(isize, usize)]) {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "items are read from the list's own structure, which holds them"
+)]
 fn get(st: &Struct, pos: usize) -> &Item {
     st.iter().find(|i| i.pos == pos).expect("item in struct")
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "items are read from the list's own structure, which holds them"
+)]
 fn get_mut(st: &mut Struct, pos: usize) -> &mut Item {
     st.iter_mut()
         .find(|i| i.pos == pos)
@@ -713,6 +725,10 @@ fn has_child(st: &Struct, item: usize) -> Option<usize> {
     (st[k].ind < next.ind).then_some(next.pos)
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "items are read from the list's own structure, which holds them"
+)]
 fn subtree(st: &Struct, item: usize) -> Vec<usize> {
     let it = get(st, item);
     let k = st.iter().position(|i| i.pos == item).expect("item");
@@ -806,6 +822,10 @@ fn replace_first(b: &str, pred: impl Fn(char) -> bool, run: bool, r: &str) -> St
 }
 
 /// `org-list-struct-fix-bul`.
+#[expect(
+    clippy::expect_used,
+    reason = "a previous item exists in that arm, and the arm's guard found a letter or digit"
+)]
 fn fix_bul(st: &mut Struct, prevs: &[(usize, Option<usize>)], ctx: &ParseContext) {
     let items: Vec<usize> = st.iter().map(|i| i.pos).collect();
     let alpha = |c: char| c.is_ascii_alphabetic();
@@ -1201,12 +1221,12 @@ fn modify_item(buf: &mut Buf, item: usize, st: &Struct, old: &Struct) {
     match (&cur, &new.checkbox) {
         (a, b) if a == b => {}
         (Some(_), Some(nb)) => {
-            let (s, e) = f.checkbox.expect("checkbox");
+            let Some((s, e)) = f.checkbox else { return };
             buf.replace(s, e, nb);
         }
         (Some(_), None) => {
             // `.*?\([ \t]*\[[ X-]\]\)`: the box and the blanks before it.
-            let (s, e) = f.checkbox.expect("checkbox");
+            let Some((s, e)) = f.checkbox else { return };
             let before = buf.text[..s].trim_end_matches([' ', '\t']).len().max(item);
             buf.replace(before, e, "");
         }
@@ -2107,6 +2127,10 @@ fn separating_blank_lines(
 }
 
 /// `org-list-insert-item`.
+#[expect(
+    clippy::expect_used,
+    reason = "items are read from the list's own structure, which holds them"
+)]
 fn insert_item_struct(
     buf: &mut Buf,
     pos: usize,
