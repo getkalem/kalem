@@ -6,7 +6,7 @@ use gpui::{
     Bounds, Hsla, InteractiveElement, ParentElement, PathBuilder, Pixels, SharedString, Styled,
     div, point, px, size,
 };
-use kalem_viewer::{Chart, ChartKind, LegendPosition};
+use kalem_viewer::{Chart, ChartKind, LegendPosition, Paint};
 
 /// Excel's default series colors.
 const PALETTE: [u32; 6] = [0x4472C4, 0xED7D31, 0xA5A5A5, 0xFFC000, 0x5B9BD5, 0x70AD47];
@@ -44,16 +44,28 @@ pub fn chart_view(
         chart.kind,
         ChartKind::Pie | ChartKind::Doughnut | ChartKind::Other
     );
+    let rgb = |[r, g, b]: [u8; 3]| -> Hsla {
+        gpui::rgb((u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)).into()
+    };
     let mut d = div()
         .debug_selector(move || format!("viewer-grid-chart-{index}"))
         .absolute()
         .left(px(x))
         .top(px(y))
         .w(px(w))
-        .h(px(h))
-        .bg(background)
-        .border_1()
-        .border_color(border)
+        .h(px(h));
+    // The chart area painted as the file says.
+    d = match chart.background {
+        Paint::Automatic => d.bg(background),
+        Paint::None => d,
+        Paint::Color(c) => d.bg(rgb(c)),
+    };
+    d = match chart.border {
+        Paint::Automatic => d.border_1().border_color(border),
+        Paint::None => d,
+        Paint::Color(c) => d.border_1().border_color(rgb(c)),
+    };
+    let mut d = d
         .text_color(text)
         .p(px(6.))
         .flex()
@@ -71,7 +83,19 @@ pub fn chart_view(
         );
     }
     let plot = chart.clone();
-    let canvas = div().flex_1().min_h(px(10.)).relative().child(
+    let mut canvas = div()
+        .debug_selector(move || format!("viewer-grid-chart-plot-{index}"))
+        .flex_1()
+        .min_h(px(10.))
+        .relative();
+    // The plot area painted as the file says.
+    if let Paint::Color(c) = chart.plot_background {
+        canvas = canvas.bg(rgb(c));
+    }
+    if let Paint::Color(c) = chart.plot_border {
+        canvas = canvas.border_1().border_color(rgb(c));
+    }
+    let canvas = canvas.child(
         gpui::canvas(
             |_, _, _| {},
             move |bounds, (), window, cx| paint(&plot, bounds, border, (&font, text), window, cx),

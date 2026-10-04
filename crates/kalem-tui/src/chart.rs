@@ -1,7 +1,7 @@
 //! A spreadsheet's charts drawn in the terminal: bars as ratatui's bar
 //! charts, lines and points in braille, slices as bars of their shares.
 
-use kalem_viewer::{Chart, ChartKind, LegendPosition};
+use kalem_viewer::{Chart, ChartKind, LegendPosition, Paint};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
@@ -39,8 +39,13 @@ fn short(s: &str, n: usize) -> String {
 pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
     Clear.render(area, buf);
     let title = chart.title.clone().unwrap_or_default();
+    let tint = |c: [u8; 3]| Color::Rgb(c[0], c[1], c[2]);
     let mut block = Block::default()
-        .borders(Borders::ALL)
+        .borders(if chart.border == Paint::None {
+            Borders::NONE
+        } else {
+            Borders::ALL
+        })
         .title(Line::from(short(
             &title,
             area.width.saturating_sub(4) as usize,
@@ -55,6 +60,14 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
     }
     if let Some(t) = &chart.horizontal_title {
         block = block.title_bottom(Line::from(short(t, room / 2)).centered());
+    }
+    if !caps.no_color {
+        if let Paint::Color(c) = chart.border {
+            block = block.border_style(Style::default().fg(tint(c)));
+        }
+        if let Paint::Color(c) = chart.background {
+            block = block.style(Style::default().bg(tint(c)));
+        }
     }
     let inner = block.inner(area);
     block.render(area, buf);
@@ -162,6 +175,11 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
         }
         _ => inner,
     };
+    if !caps.no_color
+        && let Paint::Color(c) = chart.plot_background
+    {
+        buf.set_style(plot, Style::default().bg(tint(c)));
+    }
     let label = |i: usize| {
         chart
             .categories

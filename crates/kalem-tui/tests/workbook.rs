@@ -1034,6 +1034,92 @@ fn charts() {
             .point_colors
             .is_empty()
     );
+    // The chart area: the menu; a dark border drawn so, no border, then
+    // the style's again with a light background.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('b'));
+    let s = t.screen();
+    assert!(
+        s.contains("Background… (automatic)") && s.contains("Border…"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.chartArea", json!({ "part": "border" }));
+    assert!(t.screen().contains("No Border"));
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "border", "color": "#264478" }),
+    );
+    t.screen();
+    let navy = ratatui::style::Color::Rgb(0x26, 0x44, 0x78);
+    assert!(
+        t.term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .any(|c| c.fg == navy && c.symbol() == "│")
+    );
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "border", "color": "none" }),
+    );
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "background", "value": "#FFF2CC" }),
+    );
+    let c4 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert_eq!(
+        (c4.background, c4.border),
+        (
+            kalem_viewer::Paint::Color([0xFF, 0xF2, 0xCC]),
+            kalem_viewer::Paint::None
+        )
+    );
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "background", "color": "auto" }),
+    );
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "border", "color": "auto" }),
+    );
+    // The plot area: offered with the chart area, painted light gray.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('b'));
+    assert!(
+        t.screen().contains("Plot Area Background"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "plotBackground", "color": "#F2F2F2" }),
+    );
+    let c5 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert_eq!(c5.plot_background, kalem_viewer::Paint::Color([0xF2; 3]));
+    assert_eq!(
+        c5.background,
+        kalem_viewer::Paint::Automatic,
+        "the chart area's untouched"
+    );
+    t.screen();
+    let gray = ratatui::style::Color::Rgb(0xF2, 0xF2, 0xF2);
+    assert!(
+        t.term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .any(|c| c.bg == gray)
+    );
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "plotBackground", "color": "auto" }),
+    );
     // A column chart's slices do not stand out.
     t.app.run_command("viewer.grid.explodeSlice", json!({}));
     assert!(t.screen().contains("Only a pie's"), "{}", t.screen());

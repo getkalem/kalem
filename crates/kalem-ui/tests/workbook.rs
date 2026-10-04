@@ -720,10 +720,10 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
     });
     cx.run_until_parked();
-    let (kind, scale, count) = e.update(cx, |e, _| {
+    let (kind, scale) = e.update(cx, |e, _| {
         let v = e.doc.viewer.as_deref_mut().unwrap();
         let c = v.charts();
-        (c.last().unwrap().kind, c.last().unwrap().scale, c.len())
+        (c.last().unwrap().kind, c.last().unwrap().scale)
     });
     assert_eq!(kind, kalem_viewer::ChartKind::Area);
     assert_eq!(scale, sc);
@@ -753,6 +753,78 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .color
     });
     assert_eq!(color, Some([0x70, 0xAD, 0x47]));
+    // Its area: a light background and no border.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.chartArea",
+            serde_json::json!({ "part": "background", "color": "#DEEBF7" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.chartArea",
+            serde_json::json!({ "part": "border", "color": "none" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.run_until_parked();
+    let (bg, border) = e.update(cx, |e, _| {
+        let c = e.doc.viewer.as_deref_mut().unwrap().charts();
+        (c.last().unwrap().background, c.last().unwrap().border)
+    });
+    assert_eq!(
+        (bg, border),
+        (
+            kalem_viewer::Paint::Color([0xDE, 0xEB, 0xF7]),
+            kalem_viewer::Paint::None
+        )
+    );
+    // Its plot area a darker blue with a border.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.chartArea",
+            serde_json::json!({ "part": "plotBackground", "color": "#BDD7EE" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.chartArea",
+            serde_json::json!({ "part": "plotBorder", "color": "#264478" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.run_until_parked();
+    let (pb, pl, count) = e.update(cx, |e, _| {
+        let c = e.doc.viewer.as_deref_mut().unwrap().charts();
+        (
+            c.last().unwrap().plot_background,
+            c.last().unwrap().plot_border,
+            c.len(),
+        )
+    });
+    assert_eq!(
+        (pb, pl),
+        (
+            kalem_viewer::Paint::Color([0xBD, 0xD7, 0xEE]),
+            kalem_viewer::Paint::Color([0x26, 0x44, 0x78])
+        )
+    );
+    assert!(
+        cx.debug_bounds(Box::leak(
+            format!("viewer-grid-chart-plot-{}", count - 1).into_boxed_str()
+        ))
+        .is_some()
+    );
     assert!(
         cx.debug_bounds(Box::leak(
             format!("viewer-grid-chart-{}", count - 1).into_boxed_str()
