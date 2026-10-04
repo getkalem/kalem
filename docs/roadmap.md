@@ -37,15 +37,15 @@ Items marked `(owner)` below wait on one of these; nothing else should.
 Exit: `main` has a completed, green CI run on every push for a week;
 the Windows job passes; no plugin pin can break `main`.
 
-- [~] R1.1 CI completes on `main`: keep `cancel-in-progress` for pull
+- [x] R1.1 CI completes on `main`: keep `cancel-in-progress` for pull
   requests, drop it for `main` (`cancel-in-progress: ${{ github.event_name == 'pull_request' }}`),
   and add a 90-minute timeout to every job. Then watch the first ten
   runs. S
-  (done 2026-10-04: `cancel-in-progress` only for pull requests, `timeout-minutes: 90` on every job. Open: watch the first ten runs on `main`.)
-- [~] R1.2 Windows tests: `lsp_service` and `plugin_install` fail on
+  (done 2026-10-04: `cancel-in-progress` only for pull requests, `timeout-minutes: 90` on every job. Runs on `main` now complete; the first all-green one is c5b8209, run 37215001817. A newer push replaces only the pending run, so `main` gets a finished run every hour or so while two sessions push. What stays open is M1's exit: a week of green.)
+- [x] R1.2 Windows tests: `lsp_service` and `plugin_install` fail on
   every Windows run; read the logs, fix the path or process handling,
   make the fake server start on Windows, and mark nothing `#[ignore]`. M
-  (done 2026-10-04: four causes, each fixed: the plugin cache was mapped, so Windows refused to rewrite it while in use (and Linux got SIGBUS) — now read into memory; `canonicalize` gives verbatim paths where `..` is a name, so the plugin file check missed it — refused as a name too; the fake language server's verbatim URIs did not match the client's — URIs normalized to one spelling (`kalem_lsp::uri::normalize`), which also covers servers writing `file:///c%3A/`; the plugin test wrote a Windows path into a TOML basic string, where `\U` is an escape — a literal string now, and `file:///C:/` index URLs are read. Open: a green Windows run on `main`.)
+  (done 2026-10-04: four causes, each fixed: the plugin cache was mapped, so Windows refused to rewrite it while in use (and Linux got SIGBUS) — now read into memory; `canonicalize` gives verbatim paths where `..` is a name, so the plugin file check missed it — refused as a name too; the fake language server's verbatim URIs did not match the client's — URIs normalized to one spelling (`kalem_lsp::uri::normalize`), which also covers servers writing `file:///c%3A/`; the plugin test wrote a Windows path into a TOML basic string, where `\U` is an escape — a literal string now, and `file:///C:/` index URLs are read. A second round found three more: the drive letter was upper-cased as its code (`file:///67:/`); a verbatim path does not split on `/`, so `..` after one passed the check; and the test built its `..` path with `Path::join`, which on Windows resolves it before the plugin sees it. Also a PDF drag-selection race that showed on Linux CI only. Windows has passed on `main` since c5b8209.)
 - [x] R1.3 Plugin pins cannot break `main`: the three `getkalem/plugins`
   revisions move together, in one `[workspace.dependencies]` entry; a CI
   job builds the plugins against this checkout's `kalem-viewer` contract
