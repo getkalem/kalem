@@ -1474,6 +1474,57 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_delete_scenario(s, d, unit as u32, name))
     }
 
+    fn tab_color(&mut self, unit: usize) -> Option<[u8; 3]> {
+        self.g(|g, s, d| g.call_tab_color(s, d, unit as u32))
+            .ok()
+            .flatten()
+            .map(Conv::conv)
+    }
+
+    fn set_tab_color(&mut self, unit: usize, color: Option<[u8; 3]>) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_tab_color(s, d, unit as u32, color.map(Conv::conv)))
+    }
+
+    fn threads(&mut self, unit: usize) -> Vec<kv::CommentThread> {
+        self.g(|g, s, d| g.call_threads(s, d, unit as u32))
+            .map(Conv::conv)
+            .unwrap_or_default()
+    }
+
+    fn add_thread_comment(
+        &mut self,
+        unit: usize,
+        row: u32,
+        col: u32,
+        author: &str,
+        text: &str,
+        time: &str,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_add_thread_comment(s, d, unit as u32, row, col, author, text, time)
+        })
+    }
+
+    fn resolve_thread(
+        &mut self,
+        unit: usize,
+        row: u32,
+        col: u32,
+        done: bool,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_resolve_thread(s, d, unit as u32, row, col, done))
+    }
+
+    fn delete_thread_comment(
+        &mut self,
+        unit: usize,
+        row: u32,
+        col: u32,
+        index: usize,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_delete_thread_comment(s, d, unit as u32, row, col, index as u32))
+    }
+
     fn has_history(&self) -> bool {
         self.g(|g, s, d| g.call_has_history(s, d)).unwrap_or(false)
     }

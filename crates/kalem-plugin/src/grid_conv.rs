@@ -145,7 +145,7 @@ cases!(kv::FilterOp, g::FilterOp {
 record!(kv::GridCell, g::Cell {
     text, numeric, bold, italic, underline, strike, color, fill, align, wrap, formula, note,
     bar, icon, font_size, face, valign, borders, border_thick, indent, rotation, shrink,
-    center_across, unlocked, sparkline,
+    center_across, unlocked, sparkline, thread,
 });
 cases!(kv::SparklineKind, g::SparklineKind { Line, Column, WinLoss });
 record!(kv::Sparkline, g::Sparkline { kind, points, zero, color, marker, high, low });
@@ -158,6 +158,8 @@ record!(kv::PageSetup, g::PageLayout {
 });
 record!(kv::Drawing, g::Drawing { name, anchor, kind });
 record!(kv::Scenario, g::Scenario { name, comment, cells });
+record!(kv::ThreadComment, g::ThreadComment { author, text, time });
+record!(kv::CommentThread, g::CommentThread { row, col, done, comments });
 
 impl Conv<g::DrawingKind> for kv::DrawingKind {
     fn conv(self) -> g::DrawingKind {

@@ -57,6 +57,7 @@ interface grid {
         center-across: bool,
         unlocked: bool,
         sparkline: option<sparkline>,
+        thread: bool,
     }
 
     enum sparkline-kind {
@@ -455,6 +456,21 @@ interface grid {
     /// Grouped rows and columns: each with its level.
     type levels = tuple<list<tuple<u32, u8>>, list<tuple<u32, u8>>>;
 
+    /// A comment of a thread.
+    record thread-comment {
+        author: string,
+        text: string,
+        time: string,
+    }
+
+    /// A threaded comment on a cell.
+    record comment-thread {
+        row: u32,
+        col: u32,
+        done: bool,
+        comments: list<thread-comment>,
+    }
+
     /// A what-if scenario: its cells' values.
     record scenario {
         name: string,
@@ -610,6 +626,12 @@ interface grid {
     add-scenario: func(doc: borrow<document>, unit: u32, name: string, cells: list<tuple<u32, u32>>, comment: string) -> changed;
     show-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
     delete-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
+    tab-color: func(doc: borrow<document>, unit: u32) -> option<rgb>;
+    set-tab-color: func(doc: borrow<document>, unit: u32, color: option<rgb>) -> changed;
+    threads: func(doc: borrow<document>, unit: u32) -> list<comment-thread>;
+    add-thread-comment: func(doc: borrow<document>, unit: u32, row: u32, col: u32, author: string, text: string, time: string) -> changed;
+    resolve-thread: func(doc: borrow<document>, unit: u32, row: u32, col: u32, done: bool) -> changed;
+    delete-thread-comment: func(doc: borrow<document>, unit: u32, row: u32, col: u32, index: u32) -> changed;
     has-history: func(doc: borrow<document>) -> bool;
     undo: func(doc: borrow<document>) -> result<bool, string>;
     redo: func(doc: borrow<document>) -> result<bool, string>;

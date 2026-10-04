@@ -468,6 +468,32 @@ pub struct GridCell {
     pub unlocked: bool,
     /// A sparkline drawn in the cell.
     pub sparkline: Option<Sparkline>,
+    /// A threaded comment is on the cell.
+    pub thread: bool,
+}
+
+/// A comment of a thread: who wrote it, what, and when.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ThreadComment {
+    /// Its author's name.
+    pub author: String,
+    /// Its text.
+    pub text: String,
+    /// When it was written, ISO 8601 (`2026-10-04T17:30:00`).
+    pub time: String,
+}
+
+/// A threaded comment on a cell: its first comment and the replies.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CommentThread {
+    /// The cell's row.
+    pub row: u32,
+    /// The cell's column.
+    pub col: u32,
+    /// Resolved.
+    pub done: bool,
+    /// The comment, then the replies, in order.
+    pub comments: Vec<ThreadComment>,
 }
 
 /// A what-if scenario: values for some cells, kept by name.
@@ -1840,6 +1866,57 @@ pub trait ViewerDocument: Send {
 
     /// Deletes a scenario.
     fn delete_scenario(&mut self, _unit: usize, _name: &str) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// A sheet tab's color.
+    fn tab_color(&mut self, _unit: usize) -> Option<[u8; 3]> {
+        None
+    }
+
+    /// Sets (or, `None`, takes away) a sheet tab's color.
+    fn set_tab_color(&mut self, _unit: usize, _color: Option<[u8; 3]>) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The threaded comments of a unit.
+    fn threads(&mut self, _unit: usize) -> Vec<CommentThread> {
+        Vec::new()
+    }
+
+    /// A comment on a cell: the thread's first, or a reply to it.
+    fn add_thread_comment(
+        &mut self,
+        _unit: usize,
+        _row: u32,
+        _col: u32,
+        _author: &str,
+        _text: &str,
+        _time: &str,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Marks a cell's thread resolved, or open again.
+    fn resolve_thread(
+        &mut self,
+        _unit: usize,
+        _row: u32,
+        _col: u32,
+        _done: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Deletes comment `index` of a cell's thread: the first deletes the
+    /// whole thread.
+    fn delete_thread_comment(
+        &mut self,
+        _unit: usize,
+        _row: u32,
+        _col: u32,
+        _index: usize,
+    ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 

@@ -708,6 +708,27 @@ macro_rules! __kalem_grid_exports {
             fn delete_scenario(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_scenario(unit as usize, &name)))
             }
+            fn tab_color(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::option::Option<$crate::adapter::grid::g::Rgb> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.tab_color(unit as usize)).conv()
+            }
+            fn set_tab_color(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, color: ::std::option::Option<$crate::adapter::grid::g::Rgb>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_tab_color(unit as usize, color.conv())))
+            }
+            fn threads(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::vec::Vec<$crate::adapter::grid::g::CommentThread> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.threads(unit as usize)).conv()
+            }
+            fn add_thread_comment(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, author: ::std::string::String, text: ::std::string::String, time: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.add_thread_comment(unit as usize, row, col, &author, &text, &time)))
+            }
+            fn resolve_thread(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, done: bool) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.resolve_thread(unit as usize, row, col, done)))
+            }
+            fn delete_thread_comment(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, row: u32, col: u32, index: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_thread_comment(unit as usize, row, col, index as usize)))
+            }
             fn has_history(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> bool {
                 $crate::adapter::grid::with(d, |x| x.has_history())
             }
