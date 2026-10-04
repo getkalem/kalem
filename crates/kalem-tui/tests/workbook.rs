@@ -2968,3 +2968,96 @@ fn page_setup_and_pdf() {
         assert!(std::fs::metadata(&pdf).unwrap().len() > 1000);
     }
 }
+
+#[test]
+fn groups_and_subtotals() {
+    let mut t = T::open("outline");
+    let row = |t: &mut T, n: &str| {
+        let s = t.screen();
+        s.lines()
+            .find(|l| {
+                l.chars()
+                    .skip(1)
+                    .collect::<String>()
+                    .trim_start()
+                    .starts_with(n)
+            })
+            .unwrap_or_default()
+            .to_owned()
+    };
+    // Rows 2-4 grouped with Alt+Shift+Right: row 5 sums them up (−).
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(3, 0);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Right,
+        KeyModifiers::ALT | KeyModifiers::SHIFT,
+    )));
+    assert!(row(&mut t, "5 Sum").starts_with('−'), "{}", t.screen());
+    // z h on the summary row: the group collapses (+); z s shows it.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(4, 0);
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('h'));
+    let s = t.screen();
+    assert!(
+        !s.contains("Rent") && row(&mut t, "5 Sum").starts_with('+'),
+        "{s}"
+    );
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('s'));
+    assert!(t.screen().contains("Rent"), "{}", t.screen());
+    // Ungrouped.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(3, 0);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Left,
+        KeyModifiers::ALT | KeyModifiers::SHIFT,
+    )));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .outline_marks()
+            .is_empty()
+    );
+    // Subtotal of a table at I1: by month, the amounts summed.
+    for (r, row) in [
+        ["Ay", "Tutar"],
+        ["Ocak", "10"],
+        ["Ocak", "5"],
+        ["Şubat", "20"],
+    ]
+    .iter()
+    .enumerate()
+    {
+        for (c, v) in row.iter().enumerate() {
+            t.app.run_command(
+                "viewer.grid.setCell",
+                json!({ "row": r, "col": 8 + c, "value": v }),
+            );
+        }
+    }
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.run_command("viewer.grid.subtotal", json!({}));
+    assert!(t.screen().contains("Ay (I)"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.run_command(
+        "viewer.grid.subtotal",
+        json!({ "by": 8, "function": 9, "col": 9 }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(6, 8);
+    assert_eq!(v.cell_input(), "Grand Total");
+    v.grid_move_to(6, 9);
+    assert_eq!(v.cursor_cell().text, "35");
+    // The two totals and the grand total each sum a group up.
+    assert_eq!(v.outline_marks().len(), 3);
+}

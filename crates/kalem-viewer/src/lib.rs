@@ -536,6 +536,10 @@ pub enum FilterRule {
     Fill([u8; 3]),
 }
 
+/// A grid's outline: the rows and the columns grouped, each with its
+/// level.
+pub type Outline = (Vec<(u32, u8)>, Vec<(u32, u8)>);
+
 /// A table of a grid (a spreadsheet's Format as Table).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableInfo {
@@ -1482,7 +1486,7 @@ pub trait ViewerDocument: Send {
 
     /// A grid's outline: the rows and the columns grouped, each with its
     /// level (1 to 7).
-    fn outline(&mut self, _unit: usize) -> (Vec<(u32, u8)>, Vec<(u32, u8)>) {
+    fn outline(&mut self, _unit: usize) -> Outline {
         (Vec::new(), Vec::new())
     }
 

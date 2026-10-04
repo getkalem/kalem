@@ -48,7 +48,7 @@ be bound again.
 
 ## E26. Grouping and subtotals
 
-- [ ] E26 Group and Ungroup rows or columns (Alt+Shift+Right and Left)
+- [x] E26 Group and Ungroup rows or columns (Alt+Shift+Right and Left)
   as outline levels, collapsed and expanded from their buttons; Subtotal
   of a sorted table at each change in a column.
 

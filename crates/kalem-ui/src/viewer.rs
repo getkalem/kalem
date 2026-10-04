@@ -693,6 +693,7 @@ impl Editor {
         let selecting = v.grid_pos().sel.is_some();
         let cut = v.cut_range();
         let pointer = v.pointer;
+        let marks = v.outline_marks();
         let in_sel = move |r: u32, c: u32| {
             selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c)
         };
@@ -1143,6 +1144,34 @@ impl Editor {
                 })
                 .relative()
                 .child(SharedString::from((r + 1).to_string()))
+                // The outline's − or + of a summary row: pressed, its group
+                // collapses or expands.
+                .children(marks.iter().find(|m| m.0 == r).map(|(_, collapsed)| {
+                    div()
+                        .debug_selector(move || format!("viewer-grid-outline-{r}"))
+                        .id(SharedString::from(format!("outline-{r}")))
+                        .absolute()
+                        .left(px(2.))
+                        .top_0()
+                        .bottom_0()
+                        .flex()
+                        .items_center()
+                        .text_color(theme.foreground)
+                        .cursor_pointer()
+                        .child(if *collapsed { "+" } else { "−" })
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |this, _: &MouseDownEvent, _, cx| {
+                                cx.stop_propagation();
+                                if let Some(v) = this.doc.viewer.as_deref_mut()
+                                    && let Err(e) = v.toggle_detail_at(r)
+                                {
+                                    this.message(e, true);
+                                }
+                                cx.notify();
+                            }),
+                        )
+                }))
                 // The bottom edge: dragged to resize, double-clicked to reset.
                 .child(
                     div()

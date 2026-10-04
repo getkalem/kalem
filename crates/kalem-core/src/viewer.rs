@@ -345,6 +345,9 @@ pub struct ViewerState {
     pub pointer: Option<[u32; 4]>,
     /// The functions formulas can use, read once.
     functions: Option<Vec<(String, String)>>,
+    /// The outline's summary rows and whether each is collapsed, by unit
+    /// and generation.
+    outline_marks: Option<(UnitAt, Vec<(u32, bool)>)>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -407,6 +410,9 @@ impl GridSearch {
         out
     }
 }
+
+/// A unit at a generation.
+type UnitAt = (usize, u64);
 
 /// A selection of a unit at a generation: unit, range, generation.
 type SumsKey = (usize, [u32; 4], u64);
@@ -529,6 +535,7 @@ impl ViewerState {
             col_entries: None,
             pointer: None,
             functions: None,
+            outline_marks: None,
         })
     }
 
@@ -1903,6 +1910,96 @@ impl ViewerState {
         let (r, header) = self.table_target();
         self.doc()
             .sort_range_by(self.unit, r, keys, header)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The rows that sum up a group of rows (the row after it), each with
+    /// whether its group is collapsed: where the outline's −/+ go.
+    pub fn outline_marks(&mut self) -> Vec<(u32, bool)> {
+        let key = (self.unit, self.generation);
+        if let Some((k, m)) = &self.outline_marks
+            && *k == key
+        {
+            return m.clone();
+        }
+        let (rows, _) = self.doc().outline(self.unit);
+        let level = |r: u32| rows.iter().find(|x| x.0 == r).map_or(0, |x| x.1);
+        let hidden = self
+            .grid_layout()
+            .map(|l| l.hidden_rows)
+            .unwrap_or_default();
+        let marks: Vec<(u32, bool)> = rows
+            .iter()
+            .map(|x| x.0 + 1)
+            .filter(|r| level(*r) < level(r - 1))
+            .map(|r| (r, hidden.contains(&(r - 1))))
+            .collect();
+        self.outline_marks = Some((key, marks.clone()));
+        marks
+    }
+
+    /// Whether the selection is whole columns (it spans every row).
+    fn selects_columns(&mut self) -> bool {
+        let s = self.selection();
+        let max = self.grid_layout().map_or(u32::MAX, |l| l.max_rows);
+        s[0] == 0 && s[2] + 1 >= max
+    }
+
+    /// Group (`deeper`) or Ungroup the selection's rows, or its columns
+    /// when it is whole columns.
+    pub fn group(&mut self, deeper: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let cols = self.selects_columns();
+        let (from, to) = if cols { (s[1], s[3]) } else { (s[0], s[2]) };
+        self.doc()
+            .set_outline(self.unit, !cols, from, to, deeper)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Hide Detail (`shown` off) or Show Detail of the row group at the
+    /// cursor (the group it is in or sums up), else its column group.
+    pub fn show_detail(&mut self, shown: bool) -> Result<(), String> {
+        let p = self.grid_pos();
+        let rows = self.doc().set_detail_shown(self.unit, true, p.row, shown);
+        if rows.is_err() {
+            self.doc()
+                .set_detail_shown(self.unit, false, p.col, shown)
+                .map_err(|e| e.to_string())?;
+        }
+        self.refresh();
+        Ok(())
+    }
+
+    /// The outline's −/+ of summary row `row` pressed: its group collapsed
+    /// or expanded.
+    pub fn toggle_detail_at(&mut self, row: u32) -> Result<(), String> {
+        let collapsed = self
+            .outline_marks()
+            .iter()
+            .find(|m| m.0 == row)
+            .is_some_and(|m| m.1);
+        self.doc()
+            .set_detail_shown(self.unit, true, row, collapsed)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Subtotal of the table at the cursor at each change in column `by`.
+    pub fn subtotal(&mut self, by: u32, function: u32, columns: &[u32]) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (r, _) = self.table_target();
+        self.doc()
+            .subtotal(self.unit, r, by, function, columns)
             .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
@@ -7428,6 +7525,65 @@ fn format_as_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
     Ok(())
 }
 
+/// Subtotal: at each change in a column, a function, added to a column,
+/// each chosen from a menu.
+fn subtotal(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.subtotal";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let columns = v.sort_columns();
+    let num = |k: &str| args.get(k).and_then(serde_json::Value::as_u64);
+    let item = |a: serde_json::Value, t: &str, c: &str| menu_item(ID, a, t, c);
+    match (num("by"), num("function"), num("col")) {
+        (None, _, _) => {
+            let items = columns
+                .iter()
+                .map(|(c, n)| item(serde_json::json!({ "by": c }), n, "At Each Change In"))
+                .collect();
+            ctx.requests.push(Request::Choose(items));
+        }
+        (Some(by), None, _) => {
+            let f = |code: u32, t: &str| {
+                item(
+                    serde_json::json!({ "by": by, "function": code }),
+                    t,
+                    "Use Function",
+                )
+            };
+            ctx.requests.push(Request::Choose(vec![
+                f(9, "Sum"),
+                f(2, "Count"),
+                f(1, "Average"),
+                f(4, "Max"),
+                f(5, "Min"),
+            ]));
+        }
+        (Some(by), Some(f), None) => {
+            let items = columns
+                .iter()
+                .filter(|(c, _)| u64::from(*c) != by)
+                .map(|(c, n)| {
+                    item(
+                        serde_json::json!({ "by": by, "function": f, "col": c }),
+                        n,
+                        "Add Subtotal To",
+                    )
+                })
+                .collect();
+            ctx.requests.push(Request::Choose(items));
+        }
+        (Some(by), Some(f), Some(col)) => {
+            return with(ctx, |v| v.subtotal(by as u32, f as u32, &[col as u32]));
+        }
+    }
+    Ok(())
+}
+
 /// Page Setup (`z p`): orientation, paper, margins, fitting one page wide,
 /// the print area, the rows printed on every page, the header and the
 /// footer, page breaks.
@@ -8956,6 +9112,35 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.group",
+            "Group",
+            &["alt+shift+right"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.group(true)),
+        ),
+        cmd(
+            "viewer.grid.ungroup",
+            "Ungroup",
+            &["alt+shift+left"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.group(false)),
+        ),
+        cmd(
+            "viewer.grid.hideDetail",
+            "Hide Detail",
+            &["z h"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.show_detail(false)),
+        ),
+        cmd(
+            "viewer.grid.showDetail",
+            "Show Detail",
+            &["z s"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.show_detail(true)),
+        ),
+        cmd("viewer.grid.subtotal", "Subtotal", &[], IN_GRID, subtotal),
         cmd(
             "viewer.grid.pageSetup",
             "Page Setup",

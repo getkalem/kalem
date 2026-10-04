@@ -277,6 +277,8 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let cut = v.cut_range();
     // The cells a formula being typed points at.
     let pointer = v.pointer;
+    // The outline's summary rows: − to collapse, + to expand.
+    let marks = v.outline_marks();
     let merged = layout.merged.clone();
     let merge_of = |r: u32, c: u32| {
         merged
@@ -298,6 +300,14 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             gutter as usize,
             style,
         );
+        if let Some((_, collapsed)) = marks.iter().find(|m| m.0 == r) {
+            let mark = match (caps.ascii, collapsed) {
+                (_, true) => "+",
+                (true, false) => "-",
+                (false, false) => "−",
+            };
+            buf.set_stringn(area.x, y, mark, 1, head);
+        }
         let mut x = area.x + gutter;
         let mut overflow: Option<(String, Style)> = None;
         for &(c, w) in &cols {

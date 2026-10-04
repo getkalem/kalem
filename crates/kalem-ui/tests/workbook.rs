@@ -681,6 +681,38 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // Rows 2-4 grouped: row 5's − collapses them when clicked, + again.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(3, 0);
+        e.run_command("viewer.grid.group", serde_json::json!({}), window, cx);
+    });
+    cx.run_until_parked();
+    let mark = cx.debug_bounds("viewer-grid-outline-4").unwrap();
+    cx.simulate_click(mark.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    let hidden = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .hidden_rows
+    });
+    assert_eq!(hidden, vec![1, 2, 3]);
+    let mark = cx.debug_bounds("viewer-grid-outline-4").unwrap();
+    cx.simulate_click(mark.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    e.update_in(cx, |e, window, cx| {
+        for _ in 0..3 {
+            e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        }
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+
     // Find: the first match after the cursor, then the next with F3.
     e.update_in(cx, |e, window, cx| {
         e.run_command(
