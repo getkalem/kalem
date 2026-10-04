@@ -1574,6 +1574,43 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_set_sheet_view(s, d, unit as u32, view.conv()))
     }
 
+    fn cell_styles(&mut self) -> Vec<String> {
+        self.g(|g, s, d| g.call_cell_styles(s, d))
+            .unwrap_or_default()
+    }
+
+    fn apply_cell_style(
+        &mut self,
+        unit: usize,
+        range: [u32; 4],
+        name: &str,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_apply_cell_style(s, d, unit as u32, range.conv(), name))
+    }
+
+    fn new_cell_style(
+        &mut self,
+        name: &str,
+        unit: usize,
+        row: u32,
+        col: u32,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_new_cell_style(s, d, name, unit as u32, row, col))
+    }
+
+    fn theme_name(&mut self) -> Option<String> {
+        self.g(|g, s, d| g.call_theme_name(s, d)).ok().flatten()
+    }
+
+    fn theme_names(&mut self) -> Vec<String> {
+        self.g(|g, s, d| g.call_theme_names(s, d))
+            .unwrap_or_default()
+    }
+
+    fn set_theme(&mut self, name: &str) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_theme(s, d, name))
+    }
+
     fn tab_color(&mut self, unit: usize) -> Option<[u8; 3]> {
         self.g(|g, s, d| g.call_tab_color(s, d, unit as u32))
             .ok()

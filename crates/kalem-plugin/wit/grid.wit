@@ -58,6 +58,38 @@ interface grid {
         unlocked: bool,
         sparkline: option<sparkline>,
         thread: bool,
+        border-styles: tuple<option<line-style>, option<line-style>, option<line-style>, option<line-style>>,
+        fill-pattern: option<fill-pattern>,
+    }
+
+    /// A border line.
+    enum line-style {
+        thin,
+        medium,
+        thick,
+        dashed,
+        dotted,
+        double,
+        hair,
+    }
+
+    /// A pattern by Excel's name, in its color over the background's.
+    record pattern-fill {
+        kind: string,
+        color: rgb,
+        background: rgb,
+    }
+
+    /// A linear gradient: its angle in degrees, its two colors.
+    record gradient-fill {
+        angle: u16,
+        %from: rgb,
+        to: rgb,
+    }
+
+    variant fill-pattern {
+        pattern(pattern-fill),
+        gradient(gradient-fill),
     }
 
     enum sparkline-kind {
@@ -163,6 +195,8 @@ interface grid {
         shrink: option<bool>,
         center-across: option<bool>,
         locked: option<bool>,
+        border-style: option<line-style>,
+        fill-pattern: option<option<fill-pattern>>,
     }
 
     enum compare-op {
@@ -662,6 +696,12 @@ interface grid {
     circular-references: func(doc: borrow<document>) -> list<tuple<u32, u32, u32>>;
     sheet-view: func(doc: borrow<document>, unit: u32) -> view-settings;
     set-sheet-view: func(doc: borrow<document>, unit: u32, view: view-settings) -> changed;
+    cell-styles: func(doc: borrow<document>) -> list<string>;
+    apply-cell-style: func(doc: borrow<document>, unit: u32, range: range, name: string) -> changed;
+    new-cell-style: func(doc: borrow<document>, name: string, unit: u32, row: u32, col: u32) -> changed;
+    theme-name: func(doc: borrow<document>) -> option<string>;
+    theme-names: func(doc: borrow<document>) -> list<string>;
+    set-theme: func(doc: borrow<document>, name: string) -> changed;
     tab-color: func(doc: borrow<document>, unit: u32) -> option<rgb>;
     set-tab-color: func(doc: borrow<document>, unit: u32, color: option<rgb>) -> changed;
     threads: func(doc: borrow<document>, unit: u32) -> list<comment-thread>;

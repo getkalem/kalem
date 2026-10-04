@@ -453,6 +453,10 @@ pub struct GridCell {
     /// Which of the borders are thick (medium or thicker), in the same
     /// order.
     pub border_thick: [bool; 4],
+    /// Each side's line (top, right, bottom, left), when it is drawn.
+    pub border_styles: [Option<LineStyle>; 4],
+    /// A fill other than a solid color: a pattern or a gradient.
+    pub fill_pattern: Option<FillPattern>,
     /// The indent, in levels (a spreadsheet's three spaces each).
     pub indent: u8,
     /// The text's rotation as a spreadsheet stores it: 0 level, 1 to 90
@@ -884,6 +888,54 @@ pub struct StyleChange {
     pub center_across: Option<bool>,
     /// Locked (`true`) or unlocked for when the sheet is protected.
     pub locked: Option<bool>,
+    /// The line `borders` draw (thin unless told; ThickOutside medium).
+    pub border_style: Option<LineStyle>,
+    /// A pattern or gradient fill (`Some(None)`: none).
+    pub fill_pattern: Option<Option<FillPattern>>,
+}
+
+/// A border line, as Excel draws one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LineStyle {
+    /// Thin.
+    #[default]
+    Thin,
+    /// Medium.
+    Medium,
+    /// Thick.
+    Thick,
+    /// Dashed.
+    Dashed,
+    /// Dotted.
+    Dotted,
+    /// Two thin lines.
+    Double,
+    /// The thinnest.
+    Hair,
+}
+
+/// A cell's fill other than a solid color.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FillPattern {
+    /// A pattern by Excel's name (`darkGrid`, `lightDown`, `gray125`…), in
+    /// its color over the background's.
+    Pattern {
+        /// The pattern's name.
+        kind: String,
+        /// The pattern's color.
+        color: [u8; 3],
+        /// The color under it.
+        background: [u8; 3],
+    },
+    /// A linear gradient from one color to another.
+    Gradient {
+        /// Its direction in degrees (0 left to right, 90 top to bottom).
+        angle: u16,
+        /// The first color.
+        from: [u8; 3],
+        /// The last.
+        to: [u8; 3],
+    },
 }
 
 /// What a protected sheet still lets the user do (`true`: allowed).
@@ -1973,6 +2025,49 @@ pub trait ViewerDocument: Send {
     /// Keeps how a sheet is shown in the file: not an undo step, but an
     /// edit to save.
     fn set_sheet_view(&mut self, _unit: usize, _view: SheetView) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The workbook's named cell styles (Normal, Good, Heading 1, the
+    /// user's own).
+    fn cell_styles(&mut self) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// A range given the named cell style `name` (a built-in one made when
+    /// the workbook lacks it).
+    fn apply_cell_style(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _name: &str,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// A new named cell style made of a cell's format.
+    fn new_cell_style(
+        &mut self,
+        _name: &str,
+        _unit: usize,
+        _row: u32,
+        _col: u32,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The workbook theme's name.
+    fn theme_name(&mut self) -> Option<String> {
+        None
+    }
+
+    /// The themes a workbook can be given.
+    fn theme_names(&mut self) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// The workbook given theme `name`: its colors and fonts.
+    fn set_theme(&mut self, _name: &str) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
