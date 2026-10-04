@@ -5817,70 +5817,70 @@ fn grid_commands() -> Vec<Command> {
         cmd(
             "viewer.grid.moveChartUp",
             "Move Chart Up",
-            &["h up"],
+            &["p up"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(-1, 0, false)),
         ),
         cmd(
             "viewer.grid.moveChartDown",
             "Move Chart Down",
-            &["h down"],
+            &["p down"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(1, 0, false)),
         ),
         cmd(
             "viewer.grid.moveChartLeft",
             "Move Chart Left",
-            &["h left"],
+            &["p left"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(0, -1, false)),
         ),
         cmd(
             "viewer.grid.moveChartRight",
             "Move Chart Right",
-            &["h right"],
+            &["p right"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(0, 1, false)),
         ),
         cmd(
             "viewer.grid.chartTaller",
             "Make Chart Taller",
-            &["h shift+down"],
+            &["p shift+down"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(1, 0, true)),
         ),
         cmd(
             "viewer.grid.chartShorter",
             "Make Chart Shorter",
-            &["h shift+up"],
+            &["p shift+up"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(-1, 0, true)),
         ),
         cmd(
             "viewer.grid.chartWider",
             "Make Chart Wider",
-            &["h shift+right"],
+            &["p shift+right"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(0, 1, true)),
         ),
         cmd(
             "viewer.grid.chartNarrower",
             "Make Chart Narrower",
-            &["h shift+left"],
+            &["p shift+left"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_chart(0, -1, true)),
         ),
         cmd(
             "viewer.grid.chartTitle",
             "Chart Title",
-            &["h t"],
+            &["p t"],
             IN_GRID,
             |ctx, args| chart_text(ctx, args, "viewer.grid.chartTitle", None),
         ),
         cmd(
             "viewer.grid.horizontalAxisTitle",
             "Horizontal Axis Title",
-            &["h x"],
+            &["p x"],
             IN_GRID,
             |ctx, args| {
                 chart_text(
@@ -5894,7 +5894,7 @@ fn grid_commands() -> Vec<Command> {
         cmd(
             "viewer.grid.verticalAxisTitle",
             "Vertical Axis Title",
-            &["h y"],
+            &["p y"],
             IN_GRID,
             |ctx, args| {
                 chart_text(
@@ -5908,7 +5908,7 @@ fn grid_commands() -> Vec<Command> {
         cmd(
             "viewer.grid.chartLegend",
             "Chart Legend",
-            &["h l"],
+            &["p l"],
             IN_GRID,
             |ctx, args| {
                 use kalem_viewer::LegendPosition as L;
@@ -5947,21 +5947,21 @@ fn grid_commands() -> Vec<Command> {
         cmd(
             "viewer.grid.dataLabels",
             "Data Labels",
-            &["h d"],
+            &["p d"],
             IN_GRID,
             data_labels,
         ),
         cmd(
             "viewer.grid.axisScale",
             "Axis Scale",
-            &["h s"],
+            &["p s"],
             IN_GRID,
             axis_scale,
         ),
         cmd(
             "viewer.grid.chartKind",
             "Change Chart Type",
-            &["h k"],
+            &["p k"],
             IN_GRID,
             |ctx, args| {
                 use kalem_viewer::ChartKind as K;
@@ -6012,42 +6012,42 @@ fn grid_commands() -> Vec<Command> {
         cmd(
             "viewer.grid.seriesColor",
             "Series Color",
-            &["h c"],
+            &["p c"],
             IN_GRID,
             series_color,
         ),
         cmd(
             "viewer.grid.pointColor",
             "Slice Color",
-            &["h p"],
+            &["p p"],
             IN_GRID,
             point_color,
         ),
         cmd(
             "viewer.grid.explodeSlice",
             "Explode Slice",
-            &["h e"],
+            &["p e"],
             IN_GRID,
             explode_slice,
         ),
         cmd(
             "viewer.grid.chartArea",
             "Chart Area",
-            &["h b"],
+            &["p b"],
             IN_GRID,
             chart_area,
         ),
         cmd(
             "viewer.grid.gridlines",
             "Gridlines",
-            &["h g"],
+            &["p g"],
             IN_GRID,
             gridlines_menu,
         ),
         cmd(
             "viewer.grid.axisFormat",
             "Axis Number Format",
-            &["h n"],
+            &["p n"],
             IN_GRID,
             axis_format,
         ),

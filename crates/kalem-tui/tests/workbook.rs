@@ -782,7 +782,7 @@ fn charts() {
         .unwrap()
         .grid_move_to(c.anchor[0], c.anchor[1]);
     for _ in 0..2 {
-        t.key(KeyCode::Char('h'));
+        t.key(KeyCode::Char('p'));
         t.key(KeyCode::Down);
     }
     let a = anchor(&mut t);
@@ -799,7 +799,7 @@ fn charts() {
     t.app.run_command("viewer.grid.chartShorter", json!({}));
     assert_eq!(anchor(&mut t)[2], a[2] - 1);
     // Retitled through the prompt, starting from the title it has.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('t'));
     let s = t.screen();
     assert!(s.contains("Chart Title") && s.contains("Spending"), "{s}");
@@ -832,14 +832,14 @@ fn charts() {
     );
     let s = t.screen();
     assert!(s.contains("↑ TRY") && s.contains("Item"), "{s}");
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('y'));
     let s = t.screen();
     assert!(s.contains("Vertical Axis Title"), "{s}");
     t.key(KeyCode::Esc);
     // The legend: offered where it may go, then moved to the right and
     // taken away.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('l'));
     let s = t.screen();
     assert!(s.contains("Top Right") && s.contains("None"), "{s}");
@@ -863,7 +863,7 @@ fn charts() {
     assert!(!t.screen().contains("■ Q1"));
     // Data labels: the checklist, Value checked from the palette and
     // applied; the bars show their values.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('d'));
     let s = t.screen();
     assert!(s.contains("☐ Value") && s.contains("Apply"), "{s}");
@@ -894,7 +894,7 @@ fn charts() {
     );
     // The value axis scaled: the menu, then a maximum typed with a decimal
     // comma, a major unit, and back to automatic.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('s'));
     let s = t.screen();
     assert!(
@@ -934,7 +934,7 @@ fn charts() {
     );
     // Its kind: the menu marks the one it is; made a line chart, drawn in
     // braille, then back to columns.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('k'));
     let s = t.screen();
     assert!(s.contains("● Column") && s.contains("○ Line"), "{s}");
@@ -953,7 +953,7 @@ fn charts() {
         .run_command("viewer.grid.chartKind", json!({ "kind": "column" }));
     // Series colors: the series offered, then the colors; Q2 made red,
     // drawn so; a typed color for Total; Q2 automatic again.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('c'));
     let s = t.screen();
     assert!(s.contains("Q1 (automatic)") && s.contains("Total"), "{s}");
@@ -1036,7 +1036,7 @@ fn charts() {
     );
     // The chart area: the menu; a dark border drawn so, no border, then
     // the style's again with a light background.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('b'));
     let s = t.screen();
     assert!(
@@ -1087,7 +1087,7 @@ fn charts() {
         json!({ "part": "border", "color": "auto" }),
     );
     // The plot area: offered with the chart area, painted light gray.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('b'));
     assert!(
         t.screen().contains("Plot Area Background"),
@@ -1122,7 +1122,7 @@ fn charts() {
     );
     // Gridlines: the checklist, its horizontal ones on as made; vertical
     // ones shown from the palette, the list offered again.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('g'));
     let s = t.screen();
     assert!(
@@ -1149,7 +1149,7 @@ fn charts() {
     );
     // The value axis's number format: the presets with an example, then
     // a percent; the cells' own again.
-    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('p'));
     t.key(KeyCode::Char('n'));
     let s = t.screen();
     assert!(
