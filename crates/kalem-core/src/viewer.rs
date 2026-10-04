@@ -2163,6 +2163,27 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Colors a point (a pie's slice) of the chart under the cursor, or
+    /// gives it its series' color again.
+    pub fn set_point_color(
+        &mut self,
+        series: usize,
+        point: usize,
+        color: Option<[u8; 3]>,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to color its slices")?;
+        self.doc()
+            .set_point_color(self.unit, i, series, point, color)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -3560,6 +3581,157 @@ fn axis_scale(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
     }
 }
 
+/// Excel's standard colors, as palette entries running `id` with `base`
+/// and the color, then Custom… and Automatic.
+fn color_menu(
+    id: &str,
+    base: &serde_json::Value,
+    category: &str,
+) -> Vec<crate::palette::PaletteItem> {
+    let colors = [
+        ("Blue", "#4472C4"),
+        ("Orange", "#ED7D31"),
+        ("Gray", "#A5A5A5"),
+        ("Gold", "#FFC000"),
+        ("Light Blue", "#5B9BD5"),
+        ("Green", "#70AD47"),
+        ("Dark Blue", "#264478"),
+        ("Red", "#FF0000"),
+        ("Dark Red", "#C00000"),
+        ("Purple", "#7030A0"),
+        ("Black", "#000000"),
+    ];
+    let with = |color: &str| {
+        let mut a = base.clone();
+        a["color"] = serde_json::json!(color);
+        a
+    };
+    let mut items: Vec<_> = colors
+        .iter()
+        .map(|(title, c)| menu_item(id, with(c), &format!("{title} {c}"), category))
+        .collect();
+    items.push(menu_item(id, with("custom"), "Custom…", category));
+    items.push(menu_item(id, with("auto"), "Automatic", category));
+    items
+}
+
+/// Slice Color: a pie's slice (or a point of a series) chosen, then a
+/// color of its own from Excel's standard ones, typed, or its series'.
+fn point_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::ChartKind;
+    const ID: &str = "viewer.grid.pointColor";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor on a chart to color its slices".into());
+        return Ok(());
+    };
+    let chart = v.charts()[i].clone();
+    let hex = |c: [u8; 3]| format!("#{:02X}{:02X}{:02X}", c[0], c[1], c[2]);
+    let pie = matches!(chart.kind, ChartKind::Pie | ChartKind::Doughnut);
+    let series = match args.get("series").and_then(serde_json::Value::as_u64) {
+        Some(n) => n as usize,
+        None if pie || chart.series.len() == 1 => 0,
+        None => {
+            let items = chart
+                .series
+                .iter()
+                .enumerate()
+                .map(|(k, s)| {
+                    let name = if s.name.is_empty() {
+                        format!("Series {}", k + 1)
+                    } else {
+                        s.name.clone()
+                    };
+                    menu_item(
+                        ID,
+                        serde_json::json!({ "series": k }),
+                        &name,
+                        "Point Color: series",
+                    )
+                })
+                .collect();
+            ctx.requests.push(Request::Choose(items));
+            return Ok(());
+        }
+    };
+    let Some(s) = chart.series.get(series) else {
+        return Ok(());
+    };
+    let Some(point) = args
+        .get("point")
+        .and_then(serde_json::Value::as_u64)
+        .map(|p| p as usize)
+    else {
+        let items = (0..s.values.len())
+            .map(|p| {
+                let label = chart
+                    .categories
+                    .get(p)
+                    .cloned()
+                    .unwrap_or_else(|| (p + 1).to_string());
+                let now = s
+                    .point_colors
+                    .iter()
+                    .find(|c| c.0 == p)
+                    .map_or("series".to_string(), |c| hex(c.1));
+                menu_item(
+                    ID,
+                    serde_json::json!({ "series": series, "point": p }),
+                    &format!("{label} ({now})"),
+                    if pie { "Slice Color" } else { "Point Color" },
+                )
+            })
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let typed = args.get("value").and_then(|x| x.as_str());
+    match args.get("color").and_then(|c| c.as_str()).or(typed) {
+        Some("auto") => with(ctx, |v| v.set_point_color(series, point, None)),
+        Some("custom") => {
+            let now = s
+                .point_colors
+                .iter()
+                .find(|c| c.0 == point)
+                .map_or(String::new(), |c| hex(c.1));
+            ask_more(
+                ctx,
+                ID,
+                &serde_json::json!({ "series": series, "point": point, "value_default": now }),
+                "value",
+            )
+        }
+        Some(c) => match hex_color(c) {
+            Some(rgb) => with(ctx, |v| v.set_point_color(series, point, Some(rgb))),
+            None => {
+                ctx.messages.push(format!("Not a color: {c} (#RRGGBB)"));
+                Ok(())
+            }
+        },
+        None => {
+            let label = chart
+                .categories
+                .get(point)
+                .cloned()
+                .unwrap_or_else(|| (point + 1).to_string());
+            let items = color_menu(
+                ID,
+                &serde_json::json!({ "series": series, "point": point }),
+                &format!("Color of {label}"),
+            );
+            ctx.requests.push(Request::Choose(items));
+            Ok(())
+        }
+    }
+}
+
 /// Series Color: the series chosen (when there are several), then a
 /// color from Excel's standard ones, typed as `#RRGGBB`, or the theme's.
 fn series_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
@@ -3638,48 +3810,16 @@ fn series_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
                     }
                 };
             }
-            let colors = [
-                ("Blue", "#4472C4"),
-                ("Orange", "#ED7D31"),
-                ("Gray", "#A5A5A5"),
-                ("Gold", "#FFC000"),
-                ("Light Blue", "#5B9BD5"),
-                ("Green", "#70AD47"),
-                ("Dark Blue", "#264478"),
-                ("Red", "#FF0000"),
-                ("Dark Red", "#C00000"),
-                ("Purple", "#7030A0"),
-                ("Black", "#000000"),
-            ];
             let name = chart
                 .series
                 .get(series)
                 .map(|s| s.name.clone())
                 .unwrap_or_default();
-            let category = format!("Color of {name}");
-            let mut items: Vec<_> = colors
-                .iter()
-                .map(|(title, c)| {
-                    menu_item(
-                        ID,
-                        serde_json::json!({ "series": series, "color": c }),
-                        &format!("{title} {c}"),
-                        &category,
-                    )
-                })
-                .collect();
-            items.push(menu_item(
+            let items = color_menu(
                 ID,
-                serde_json::json!({ "series": series, "color": "custom" }),
-                "Custom…",
-                &category,
-            ));
-            items.push(menu_item(
-                ID,
-                serde_json::json!({ "series": series, "color": "auto" }),
-                "Automatic",
-                &category,
-            ));
+                &serde_json::json!({ "series": series }),
+                &format!("Color of {name}"),
+            );
             ctx.requests.push(Request::Choose(items));
             Ok(())
         }
@@ -5274,6 +5414,13 @@ fn grid_commands() -> Vec<Command> {
             &["h c"],
             IN_GRID,
             series_color,
+        ),
+        cmd(
+            "viewer.grid.pointColor",
+            "Slice Color",
+            &["h p"],
+            IN_GRID,
+            point_color,
         ),
         cmd(
             "viewer.grid.deleteChart",

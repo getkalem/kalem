@@ -610,6 +610,22 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].labels
     });
     assert!(labels.category && labels.percent && !labels.value);
+    // Its first slice dark red: the slices offered, then the color.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.pointColor",
+            serde_json::json!({ "point": 0, "color": "#C00000" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let slices = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].series[0]
+            .point_colors
+            .clone()
+    });
+    assert_eq!(slices, vec![(0, [0xC0, 0, 0])]);
     // A column chart on a logarithmic scale, then every 500 from 0.
     e.update_in(cx, |e, window, cx| {
         e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);

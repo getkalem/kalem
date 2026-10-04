@@ -997,6 +997,43 @@ fn charts() {
         t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].series[1].color,
         None
     );
+    // A point of its own color: Q1's Food bar green, drawn so, then Q1's
+    // color again.
+    t.app
+        .run_command("viewer.grid.pointColor", json!({ "series": 0 }));
+    let s = t.screen();
+    assert!(
+        s.contains("Food (series)") && s.contains("Point Color"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.pointColor",
+        json!({ "series": 0, "point": 1, "color": "#00FF00" }),
+    );
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].series[0].point_colors,
+        vec![(1, [0, 0xFF, 0])]
+    );
+    t.screen();
+    let green = ratatui::style::Color::Rgb(0, 0xFF, 0);
+    assert!(
+        t.term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .any(|c| c.fg == green)
+    );
+    t.app.run_command(
+        "viewer.grid.pointColor",
+        json!({ "series": 0, "point": 1, "color": "auto" }),
+    );
+    assert!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].series[0]
+            .point_colors
+            .is_empty()
+    );
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app

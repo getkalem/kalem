@@ -1264,6 +1264,7 @@ cmd-viewer-grid-dataLabels = Data Labels
 cmd-viewer-grid-axisScale = Axis Scale
 cmd-viewer-grid-chartKind = Change Chart Type
 cmd-viewer-grid-seriesColor = Series Color
+cmd-viewer-grid-pointColor = Slice Color
 cmd-viewer-grid-moveChartUp = Move Chart Up
 cmd-viewer-grid-moveChartDown = Move Chart Down
 cmd-viewer-grid-moveChartLeft = Move Chart Left
