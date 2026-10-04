@@ -65,6 +65,7 @@ pub mod marks;
 pub mod math;
 pub mod menus;
 pub mod mode;
+pub mod mode_view;
 pub mod modes;
 pub mod org_mode;
 pub mod packs;
