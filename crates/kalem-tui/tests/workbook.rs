@@ -1540,3 +1540,60 @@ fn font_formatting() {
     // Back to the workbook's own black.
     assert!(!c.italic && c.fill.is_none() && c.color == Some([0, 0, 0]));
 }
+
+#[test]
+fn alignment() {
+    let mut t = T::open("align");
+    let row2 = |t: &mut T| {
+        t.screen()
+            .lines()
+            .find(|l| l.contains("Ren") && l.trim_start().starts_with('2'))
+            .unwrap_or_else(|| panic!("{}", t.screen()))
+            .to_owned()
+    };
+    // A2 to the right with t r: "Rent" ends at the column's edge (its
+    // last letter under the note's mark).
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    let left = row2(&mut t).find("Ren").unwrap();
+    t.key(KeyCode::Char('t'));
+    t.key(KeyCode::Char('r'));
+    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    assert_eq!(c.align, kalem_viewer::Align::Right);
+    let right = row2(&mut t).find("Ren").unwrap();
+    assert!(right > left + 5, "{}", t.screen());
+    // Centered, then t e again back to General, as Excel's button.
+    t.key(KeyCode::Char('t'));
+    t.key(KeyCode::Char('e'));
+    let center = row2(&mut t).find("Ren").unwrap();
+    assert!(left < center && center < right, "{}", t.screen());
+    t.key(KeyCode::Char('t'));
+    t.key(KeyCode::Char('e'));
+    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    assert_eq!(c.align, kalem_viewer::Align::General);
+    // Top and middle, kept in the cell.
+    t.key(KeyCode::Char('t'));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('T'),
+        KeyModifiers::SHIFT,
+    )));
+    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    assert_eq!(c.valign, kalem_viewer::VAlign::Top);
+    t.app.run_command("viewer.grid.alignMiddle", json!({}));
+    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    assert_eq!(c.valign, kalem_viewer::VAlign::Middle);
+    // Saved as Excel reads it; undone a step at a time.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    let s = wb.sheet(0).unwrap().cells[&kalem_plugin_xlsx::CellRef::new(1, 0)].style;
+    assert_eq!(wb.style(s).valign.as_deref(), Some("center"));
+    for _ in 0..5 {
+        t.app.run_command("edit.undo", json!({}));
+    }
+    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    assert_eq!(
+        (c.align, c.valign),
+        (kalem_viewer::Align::General, kalem_viewer::VAlign::Bottom)
+    );
+    assert_eq!(row2(&mut t).find("Ren"), Some(left));
+}

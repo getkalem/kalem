@@ -590,6 +590,26 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // Centered at the top, drawn so; then undone.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("viewer.grid.alignCenter", serde_json::json!({}), window, cx);
+        e.run_command("viewer.grid.alignTop", serde_json::json!({}), window, cx);
+    });
+    cx.run_until_parked();
+    let c = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().cursor_cell()
+    });
+    assert_eq!(
+        (c.align, c.valign),
+        (kalem_viewer::Align::Center, kalem_viewer::VAlign::Top)
+    );
+    assert!(cx.debug_bounds("viewer-grid-cell-3-0").is_some());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+    });
+    cx.run_until_parked();
+
     // The next sheet.
     let primary = if cfg!(target_os = "macos") {
         "cmd"

@@ -21,7 +21,7 @@ in the palette and can be bound again.
 
 ## E2. Alignment
 
-- [ ] E2 Horizontal alignment (left, center, right, general) and
+- [x] E2 Horizontal alignment (left, center, right, general) and
   vertical alignment (top, middle, bottom) of the selection, written in
   the cells' `<alignment>`, drawn so in both editors.
 

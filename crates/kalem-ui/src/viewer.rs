@@ -1048,6 +1048,7 @@ impl Editor {
                     .border_b_1()
                     .border_color(theme.border);
                 if let Some(cell) = cell {
+                    d = valign(d, cell.valign);
                     let right = matches!(cell.align, kalem_viewer::Align::Right)
                         || (cell.numeric && matches!(cell.align, kalem_viewer::Align::General));
                     if right {
@@ -1200,6 +1201,7 @@ impl Editor {
                     d = d.whitespace_nowrap();
                 }
                 if let Some(cell) = cell {
+                    d = valign(d, cell.valign);
                     let right = matches!(cell.align, kalem_viewer::Align::Right)
                         || (cell.numeric && matches!(cell.align, kalem_viewer::Align::General));
                     if right {
@@ -1427,6 +1429,7 @@ impl Editor {
                     .items_center()
                     .overflow_hidden()
                     .whitespace_nowrap();
+                d = valign(d, cell.valign);
                 if let Some(c) = cell.color {
                     d = d.text_color(rgb(c));
                 }
@@ -1758,5 +1761,15 @@ impl Editor {
             self.message(e, true);
         }
         cx.notify();
+    }
+}
+
+/// A cell's text placed up and down as its vertical alignment says
+/// (Excel's default is the bottom).
+fn valign<E: gpui::Styled>(d: E, v: kalem_viewer::VAlign) -> E {
+    match v {
+        kalem_viewer::VAlign::Top => d.items_start(),
+        kalem_viewer::VAlign::Middle => d.items_center(),
+        _ => d.items_end(),
     }
 }

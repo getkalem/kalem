@@ -5069,6 +5069,31 @@ fn toggle_font(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     })
 }
 
+/// Horizontal or vertical alignment of the selection. A horizontal one
+/// the cursor's cell already has goes back to General, as Excel's
+/// buttons do.
+fn align_style(
+    ctx: &mut EditorContext<'_>,
+    align: Option<kalem_viewer::Align>,
+    valign: Option<kalem_viewer::VAlign>,
+) -> CommandResult {
+    use kalem_viewer::{Align, StyleChange};
+    with(ctx, |v| {
+        let align = align.map(|a| {
+            if a != Align::General && v.cursor_cell().align == a {
+                Align::General
+            } else {
+                a
+            }
+        });
+        v.change_style(StyleChange {
+            align,
+            valign,
+            ..StyleChange::default()
+        })
+    })
+}
+
 /// Font Color and Fill Color: Excel's standard colors, a typed #RRGGBB,
 /// automatic, and for a fill none.
 fn color_style(ctx: &mut EditorContext<'_>, args: &serde_json::Value, fill: bool) -> CommandResult {
@@ -6926,6 +6951,55 @@ fn grid_commands() -> Vec<Command> {
             &["t n"],
             IN_GRID,
             |ctx, args| font_choice(ctx, args, false),
+        ),
+        cmd(
+            "viewer.grid.alignLeft",
+            "Align Left",
+            &["t l"],
+            IN_GRID,
+            |ctx, _| align_style(ctx, Some(kalem_viewer::Align::Left), None),
+        ),
+        cmd(
+            "viewer.grid.alignCenter",
+            "Center",
+            &["t e"],
+            IN_GRID,
+            |ctx, _| align_style(ctx, Some(kalem_viewer::Align::Center), None),
+        ),
+        cmd(
+            "viewer.grid.alignRight",
+            "Align Right",
+            &["t r"],
+            IN_GRID,
+            |ctx, _| align_style(ctx, Some(kalem_viewer::Align::Right), None),
+        ),
+        cmd(
+            "viewer.grid.alignGeneral",
+            "General Alignment",
+            &["t g"],
+            IN_GRID,
+            |ctx, _| align_style(ctx, Some(kalem_viewer::Align::General), None),
+        ),
+        cmd(
+            "viewer.grid.alignTop",
+            "Top Align",
+            &["t shift+t"],
+            IN_GRID,
+            |ctx, _| align_style(ctx, None, Some(kalem_viewer::VAlign::Top)),
+        ),
+        cmd(
+            "viewer.grid.alignMiddle",
+            "Middle Align",
+            &["t m"],
+            IN_GRID,
+            |ctx, _| align_style(ctx, None, Some(kalem_viewer::VAlign::Middle)),
+        ),
+        cmd(
+            "viewer.grid.alignBottom",
+            "Bottom Align",
+            &["t shift+b"],
+            IN_GRID,
+            |ctx, _| align_style(ctx, None, Some(kalem_viewer::VAlign::Bottom)),
         ),
         cmd(
             "viewer.grid.fillDown",
