@@ -1165,6 +1165,7 @@ cmd-viewer-grid-dataValidation = Veri Doğrulama
 cmd-viewer-grid-fillDown = Aşağı Doldur
 cmd-viewer-grid-fillRight = Sağa Doldur
 cmd-viewer-grid-fillSeries = Seri Doldur
+cmd-viewer-grid-fillToEnd = Veri Boyunca Aşağı Doldur
 cmd-viewer-grid-pickFromList = Listeden Seç
 cmd-viewer-grid-editCellAgain = Hücreyi Yeniden Düzenle
 cmd-viewer-grid-validateList = Listeye İzin Ver

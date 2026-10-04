@@ -489,6 +489,42 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         (a, v.cell_input())
     });
     assert_eq!((a10.as_str(), a11.as_str()), ("3", "4"));
+    // The handle double-clicked: B8 "x" beside A8:A11 fills down to B11.
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.setCell",
+            serde_json::json!({ "row": 7, "col": 1, "value": "x 1" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(7, 1);
+    });
+    cx.run_until_parked();
+    let handle = cx.debug_bounds("viewer-grid-fill-handle").unwrap().center();
+    cx.simulate_event(gpui::MouseDownEvent {
+        position: handle,
+        button: gpui::MouseButton::Left,
+        modifiers: gpui::Modifiers::none(),
+        click_count: 2,
+        first_mouse: false,
+    });
+    cx.simulate_event(gpui::MouseUpEvent {
+        position: handle,
+        button: gpui::MouseButton::Left,
+        modifiers: gpui::Modifiers::none(),
+        click_count: 2,
+    });
+    cx.run_until_parked();
+    let b11 = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(10, 1);
+        v.cell_input()
+    });
+    assert_eq!(b11, "x 4");
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+    });
     for _ in 0..3 {
         e.update_in(cx, |e, window, cx| {
             e.run_command("edit.undo", serde_json::json!({}), window, cx)

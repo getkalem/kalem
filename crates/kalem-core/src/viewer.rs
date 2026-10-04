@@ -2449,6 +2449,45 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The last row of the filled run in column `col` from row `from` on;
+    /// `None` when `from` itself is empty.
+    fn run_end(&mut self, col: u32, from: u32) -> Option<u32> {
+        let max = self.grid_layout()?.max_rows;
+        let mut row = from;
+        let mut last = None;
+        // A thousand rows at a time, till a cell holds nothing.
+        while row < max {
+            let to = (row + 1000).min(max);
+            let filled: std::collections::HashSet<u32> = self
+                .grid_cells(row..to, col..col + 1)
+                .into_iter()
+                .filter(|c| !c.2.text.is_empty())
+                .map(|c| c.0)
+                .collect();
+            for r in row..to {
+                if !filled.contains(&r) {
+                    return last;
+                }
+                last = Some(r);
+            }
+            row = to;
+        }
+        last
+    }
+
+    /// The fill handle's double click: the selection filled down as far as
+    /// the column beside it (left, else right) has data, as Excel does.
+    pub fn fill_to_end(&mut self) -> Result<(), String> {
+        let s = self.selection();
+        let below = s[2] + 1;
+        let left = s[1].checked_sub(1).and_then(|c| self.run_end(c, below));
+        let end = left.or_else(|| self.run_end(s[3] + 1, below));
+        let Some(end) = end else {
+            return Err("No data beside the cells to fill down along".into());
+        };
+        self.fill_to(s, [s[0], s[1], end, s[3]], true)
+    }
+
     /// Fill Down (Ctrl+D): the selection's first row copied down it, or a
     /// single row's cells from the row above.
     pub fn fill_down(&mut self) -> Result<(), String> {
@@ -6465,6 +6504,13 @@ fn grid_commands() -> Vec<Command> {
             &["ctrl+r"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.fill_right()),
+        ),
+        cmd(
+            "viewer.grid.fillToEnd",
+            "Fill Down Along the Data",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.fill_to_end()),
         ),
         cmd(
             "viewer.grid.fillSeries",

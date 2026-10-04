@@ -947,9 +947,20 @@ impl Editor {
                         .cursor_crosshair()
                         .on_mouse_down(
                             MouseButton::Left,
-                            cx.listener(move |this, _: &MouseDownEvent, _, cx| {
+                            cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
                                 cx.stop_propagation();
-                                this.viewer_view.fill_drag = Some((src, src));
+                                // A double click fills down along the data
+                                // beside, as Excel's.
+                                if ev.click_count >= 2 {
+                                    this.viewer_view.fill_drag = None;
+                                    if let Some(v) = this.doc.viewer.as_deref_mut()
+                                        && let Err(e) = v.fill_to_end()
+                                    {
+                                        this.message(e, true);
+                                    }
+                                } else {
+                                    this.viewer_view.fill_drag = Some((src, src));
+                                }
                                 cx.notify();
                             }),
                         ),

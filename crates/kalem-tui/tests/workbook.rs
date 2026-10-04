@@ -1407,4 +1407,13 @@ fn fill_handle() {
     assert_eq!(input(&mut t, 7, 2), "Mart");
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(input(&mut t, 7, 2), "");
+    // Down along the data: E2 "=D2*2", A2:A5 filled beside it.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 1, "col": 4, "value": "=D2*2" }),
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+    t.app.run_command("viewer.grid.fillToEnd", json!({}));
+    assert_eq!(input(&mut t, 4, 4), "=D5*2");
+    assert_eq!(input(&mut t, 5, 4), "", "it stops where the data does");
 }
