@@ -3325,6 +3325,25 @@ impl ViewerState {
         Ok(split)
     }
 
+    /// The cursor's cell's hyperlink.
+    pub fn cursor_link(&mut self) -> Option<String> {
+        let p = self.grid_pos();
+        self.doc().cell_link(self.unit, p.row, p.col)
+    }
+
+    /// Gives the cursor's cell a hyperlink, or takes it away (`None`).
+    pub fn set_link(&mut self, target: Option<String>) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        self.doc()
+            .set_link(self.unit, p.row, p.col, target)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Clear Formats (`contents` off) or Clear All of the selection.
     pub fn clear_formats(&mut self, contents: bool) -> Result<(), String> {
         if !self.grid_editable() {
@@ -6508,6 +6527,64 @@ fn text_to_columns(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
     Ok(())
 }
 
+/// Insert Link (Ctrl+K): the address asked, with the one the cell has; a
+/// place in the workbook after `#`; left empty, the link goes.
+fn insert_link(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match args.get("value").and_then(|x| x.as_str()) {
+        None => {
+            let current = v.cursor_link().unwrap_or_default();
+            ask_more(
+                ctx,
+                "viewer.grid.insertLink",
+                &serde_json::json!({ "value_default": current }),
+                "value",
+            )
+        }
+        Some(t) if t.trim().is_empty() => with(ctx, |v| v.set_link(None)),
+        Some(t) => {
+            let t = t.trim().to_owned();
+            with(ctx, |v| v.set_link(Some(t)))
+        }
+    }
+}
+
+/// Open Link (`g x`): an address with the system, a file beside the
+/// workbook, a place in it by Go To.
+fn open_link(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(link) = v.cursor_link() else {
+        ctx.messages.push("The cell has no link".into());
+        return Ok(());
+    };
+    if let Some(place) = link.strip_prefix('#') {
+        return go_to(ctx, &serde_json::json!({ "value": place }));
+    }
+    let web = link.contains("://") || link.starts_with("mailto:");
+    let action = if web {
+        crate::input::LinkAction::Url(link)
+    } else {
+        crate::input::LinkAction::File {
+            path: link,
+            search: None,
+        }
+    };
+    ctx.requests.push(Request::OpenLink(action));
+    Ok(())
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -7755,6 +7832,27 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.insertLink",
+            "Insert Link",
+            &["ctrl+k"],
+            IN_GRID,
+            insert_link,
+        ),
+        cmd(
+            "viewer.grid.openLink",
+            "Open Link",
+            &["g x"],
+            IN_GRID,
+            |ctx, _| open_link(ctx),
+        ),
+        cmd(
+            "viewer.grid.removeLink",
+            "Remove Link",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_link(None)),
+        ),
         cmd(
             "viewer.grid.removeDuplicates",
             "Remove Duplicates",

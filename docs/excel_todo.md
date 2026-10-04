@@ -107,7 +107,7 @@ in the palette and can be bound again.
 
 ## E17. Hyperlinks
 
-- [ ] E17 Insert, open and remove a cell's hyperlink (Ctrl+K), written
+- [x] E17 Insert, open and remove a cell's hyperlink (Ctrl+K), written
   as the sheet's hyperlinks and their relationships.
 
 ## E18. Named ranges

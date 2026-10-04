@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Spreadsheets: hyperlinks: Insert Link (Ctrl+K, asked with the link the cell has; an address, or `#Sheet!A1` for a place in the workbook), Open Link (`g x`: an address with the system, a place by Go To) and Remove Link, written as the sheet's hyperlinks and their relationships, the cell blue and underlined as Excel draws a link.
 - Spreadsheets: Remove Duplicates from the table at the cursor by all its columns or one (headers found as Sort finds them), saying how many rows went and how many remain; Text to Columns splits the selected column at a tab, semicolon, comma, space or a typed delimiter, the parts entered as typed. Each one undo step.
 - Spreadsheets: Clear Formats (`t x`: the cells' style taken away, values kept) and Clear All (`t X`: values, formats and notes); Format Painter (`t p` to take the selection's format, `t p` again to paint it over the cells then selected, repeated as Excel repeats it).
 - Spreadsheets: Insert and Delete Row and Column take as many rows or columns as are selected; Insert Cells (Ctrl+Shift+=, `g i`) shifts the cells down or right and Delete Cells (Ctrl+-, `g d`) shifts them up or left, formulas following the cells moved, each one undo step.

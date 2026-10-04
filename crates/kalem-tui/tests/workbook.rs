@@ -2467,3 +2467,43 @@ fn duplicates_and_text_to_columns() {
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(input(&mut t, 14, 5), "Kaya, Zeynep, 42");
 }
+
+#[test]
+fn hyperlinks() {
+    let mut t = T::open("links");
+    // Ctrl+K asks; an address on an empty cell becomes its text.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 0);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('k'),
+        KeyModifiers::CONTROL,
+    )));
+    assert!(t.screen().contains("Insert Link"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.insertLink",
+        json!({ "value": "https://example.com" }),
+    );
+    assert!(t.screen().contains("https://example.com"), "{}", t.screen());
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.cursor_cell().underline);
+    // A place in the workbook, opened with g x.
+    v.grid_move_to(1, 0);
+    t.app
+        .run_command("viewer.grid.insertLink", json!({ "value": "#Dates!B2" }));
+    t.key(KeyCode::Char('g'));
+    t.key(KeyCode::Char('x'));
+    assert!(t.screen().contains("Dates · B2"), "{}", t.screen());
+    // Removed: no link, no link's look.
+    t.app.run_command("viewer.grid.previousSheet", json!({}));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.run_command("viewer.grid.removeLink", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.cursor_link().is_none() && !v.cursor_cell().underline);
+    t.key(KeyCode::Char('g'));
+    t.key(KeyCode::Char('x'));
+    assert!(
+        t.screen().contains("The cell has no link"),
+        "{}",
+        t.screen()
+    );
+}
