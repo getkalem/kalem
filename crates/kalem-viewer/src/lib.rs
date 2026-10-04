@@ -1175,6 +1175,18 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Gives series `series` of the chart at `index` of
+    /// [`ViewerDocument::charts`] a color, or the theme's again (`None`).
+    fn set_series_color(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _series: usize,
+        _color: Option<[u8; 3]>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Removes the chart at `index` of [`ViewerDocument::charts`].
     fn delete_chart(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
