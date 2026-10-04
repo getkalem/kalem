@@ -46,11 +46,12 @@ the Windows job passes; no plugin pin can break `main`.
   every Windows run; read the logs, fix the path or process handling,
   make the fake server start on Windows, and mark nothing `#[ignore]`. M
   (done 2026-10-04: four causes, each fixed: the plugin cache was mapped, so Windows refused to rewrite it while in use (and Linux got SIGBUS) — now read into memory; `canonicalize` gives verbatim paths where `..` is a name, so the plugin file check missed it — refused as a name too; the fake language server's verbatim URIs did not match the client's — URIs normalized to one spelling (`kalem_lsp::uri::normalize`), which also covers servers writing `file:///c%3A/`; the plugin test wrote a Windows path into a TOML basic string, where `\U` is an escape — a literal string now, and `file:///C:/` index URLs are read. Open: a green Windows run on `main`.)
-- [ ] R1.3 Plugin pins cannot break `main`: the three `getkalem/plugins`
+- [x] R1.3 Plugin pins cannot break `main`: the three `getkalem/plugins`
   revisions move together, in one `[workspace.dependencies]` entry; a CI
   job builds the plugins against this checkout's `kalem-viewer` contract
   on every push, so a contract change that is not matched by a plugin
   bump fails the pull request rather than `main`. S
+  (done 2026-10-04: the three plugins at one revision of getkalem/plugins, checked by `tools/check-plugin-pins.sh` in CI's rustfmt job; the plugins were already built against this checkout's `kalem-viewer` through the `[patch]`, so every test job catches a contract change without its plugin bump. What let that reach `main` was the cancelled runs, fixed by R1.1.)
 - [ ] R1.4 Two sessions, one `main`: a push cadence rule in CONTRIBUTING
   (rebase on `origin/main`, run the changed crate's tests, push at most
   once an hour unless CI is green), and a `tools/pre-push.sh` that runs

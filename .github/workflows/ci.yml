@@ -24,6 +24,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+      - name: The bundled plugins at one revision
+        run: sh tools/check-plugin-pins.sh
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
